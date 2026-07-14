@@ -1103,77 +1103,77 @@
   <!-- VISTA: INVENTARIO -->
   <section id="vista-inventario" class="vista">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
-      <h3 class="seccion" style="margin-top:0;flex:1;">Tus productos</h3>
+      <h3 class="seccion" style="margin-top:0;flex:1;" data-i18n="inv.heading">Your products</h3>
       <!-- Alta libre (+): SOLO dueno. Se revela en cargarInventario() segun rol. -->
-      <button id="btnAltaProducto" class="ir" style="display:none;padding:10px 16px;flex-shrink:0;" onclick="abrirAltaProducto()">+ Agregar</button>
+      <button id="btnAltaProducto" class="ir" style="display:none;padding:10px 16px;flex-shrink:0;" onclick="abrirAltaProducto()" data-i18n="inv.add">+ Add</button>
     </div>
     <div class="filtros-estado" id="filtrosEstado">
       <!-- Filtros alineados a la semantica Simon CONGELADA (2026-07-07):
            amarillo=Oportunidad, naranja=Revisar, azul=Dato, negro=Dormido -->
-      <button data-estado="" class="activo">Todos</button>
-      <button data-estado="rojo">Urgente</button>
-      <button data-estado="naranja">Revisar</button>
-      <button data-estado="amarillo">Oportunidad</button>
-      <button data-estado="verde">Sano</button>
-      <button data-estado="azul">Dato</button>
-      <button data-estado="negro">Dormido</button>
+      <button data-estado="" class="activo" data-i18n="filter.all">All</button>
+      <button data-estado="rojo" data-i18n="filter.urgent">Urgent</button>
+      <button data-estado="naranja" data-i18n="filter.review">Review</button>
+      <button data-estado="amarillo" data-i18n="filter.opportunity">Opportunity</button>
+      <button data-estado="verde" data-i18n="filter.healthy">Healthy</button>
+      <button data-estado="azul" data-i18n="filter.data">Data</button>
+      <button data-estado="negro" data-i18n="filter.dormant">Dormant</button>
     </div>
     <div class="grid-cajas" id="gridInventario"></div>
     <!-- Log de movimientos: SOLO dueño, anti-descuadre -->
     <div id="seccionLogAjustes" style="display:none;">
-      <h3 class="seccion" style="margin-top:24px;">Últimos movimientos</h3>
+      <h3 class="seccion" style="margin-top:24px;" data-i18n="inv.recentMoves">Latest movements</h3>
       <div id="logAjustes" style="max-height:300px;overflow-y:auto;"></div>
     </div>
     <!-- Perchas agrupadas por Sucursal (SOLO dueño). Percha = unidad operativa en UI;
          Sucursal = agrupador backend/reporting. JFC 2026-07-02. -->
     <div id="seccionPerchas" style="display:none;">
-      <h3 class="seccion" style="margin-top:24px;">Perchas</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin:0 0 12px;">Cada percha es una unidad operativa. Las perchas se agrupan en sucursales para reportes y liquidación de consignatarios.</p>
+      <h3 class="seccion" style="margin-top:24px;" data-i18n="shelves.heading">Shelves</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin:0 0 12px;" data-i18n="shelves.intro">Each shelf is an operating unit. Shelves are grouped into branches for reporting and consignment settlement.</p>
       <div id="gridPerchas"></div>
       <!-- Crear sucursal nueva -->
       <div class="tag-card" style="text-align:left;margin-top:14px;">
-        <h3 class="seccion" style="margin-top:0;font-size:15px;">Agregar sucursal</h3>
+        <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="shelves.addBranch">Add branch</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-          <label style="font-size:13px;">Nombre<br>
-            <input id="sucursalNombre" type="text" placeholder="Ej: Centro, Feria de Navidad" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
-          <button id="sucursalCrear" class="ir" style="padding:10px 16px;background:var(--ink-soft,#5d5340);border-color:var(--ink,#211c14);">+ Agregar sucursal</button>
+          <label style="font-size:13px;"><span data-i18n="common.name">Name</span><br>
+            <input id="sucursalNombre" type="text" placeholder="e.g. Downtown, Holiday Market" data-i18n-attr="placeholder:shelves.branchPlaceholder" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+          <button id="sucursalCrear" class="ir" style="padding:10px 16px;background:var(--ink-soft,#5d5340);border-color:var(--ink,#211c14);" data-i18n="shelves.addBranchBtn">+ Add branch</button>
         </div>
         <p id="sucursalMsg" style="font-size:14px;margin-top:8px;"></p>
       </div>
       <!-- Crear percha dentro de una sucursal -->
       <div class="tag-card" style="text-align:left;margin-top:14px;">
-        <h3 class="seccion" style="margin-top:0;font-size:15px;">Agregar percha</h3>
+        <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="shelves.addShelf">Add shelf</h3>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-          <label style="font-size:13px;">Nombre<br>
-            <input id="perchaNombre" type="text" placeholder="Ej: Percha Feria Artesanal" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
-          <label style="font-size:13px;">Sucursal<br>
+          <label style="font-size:13px;"><span data-i18n="common.name">Name</span><br>
+            <input id="perchaNombre" type="text" placeholder="e.g. Front Window Shelf" data-i18n-attr="placeholder:shelves.shelfPlaceholder" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+          <label style="font-size:13px;"><span data-i18n="common.branch">Branch</span><br>
             <select id="perchaSucursal" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></select></label>
-          <label style="font-size:13px;">Tipo<br>
+          <label style="font-size:13px;"><span data-i18n="common.type">Type</span><br>
             <select id="perchaTipo" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;">
-              <option value="propio">Propio</option>
-              <option value="socio">Socio</option>
-              <option value="franquicia">Franquicia</option>
-              <option value="consignacion">Consignación</option>
+              <option value="propio" data-i18n="type.own">Own</option>
+              <option value="socio" data-i18n="type.partner">Partner</option>
+              <option value="franquicia" data-i18n="type.franchise">Franchise</option>
+              <option value="consignacion" data-i18n="type.consignment">Consignment</option>
             </select></label>
-          <label style="font-size:13px;">Comisión %<br>
-            <input id="perchaComision" type="number" min="0" max="100" placeholder="Ej: 25" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:90px;"></label>
-          <label style="font-size:13px;">Meta mensual $<br>
-            <input id="perchaMeta" type="number" min="0" placeholder="Ej: 300" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
-          <button id="perchaCrear" class="ir" style="padding:10px 16px;">+ Agregar percha</button>
+          <label style="font-size:13px;"><span data-i18n="common.commissionPct">Commission %</span><br>
+            <input id="perchaComision" type="number" min="0" max="100" placeholder="e.g. 25" data-i18n-attr="placeholder:common.phCommission25" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:90px;"></label>
+          <label style="font-size:13px;"><span data-i18n="shelves.monthlyTarget">Monthly target $</span><br>
+            <input id="perchaMeta" type="number" min="0" placeholder="e.g. 300" data-i18n-attr="placeholder:common.phTarget300" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <button id="perchaCrear" class="ir" style="padding:10px 16px;" data-i18n="shelves.addShelfBtn">+ Add shelf</button>
         </div>
         <p id="perchaMsg" style="font-size:14px;margin-top:8px;"></p>
       </div>
       <!-- Modo Feria de fin de semana (rec 10): percha de consignación temporal.
            Al cerrarla se archiva (conserva historial) y salta a Comisiones. -->
       <div class="tag-card" style="text-align:left;margin-top:14px;border:2px dashed var(--rust,#E86040);">
-        <h3 class="seccion" style="margin-top:0;font-size:15px;">Feria de fin de semana</h3>
-        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Crea una percha temporal para un evento de 2-3 días. Al cerrarla queda archivada con su historial y ves su liquidación al instante.</p>
+        <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="fair.heading">Weekend pop-up</h3>
+        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;" data-i18n="fair.intro">Create a temporary shelf for a 2-3 day event. When you close it, it is archived with its history and you see its settlement instantly.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-          <label style="font-size:13px;">Nombre del evento<br>
-            <input id="feriaNombre" type="text" placeholder="Ej: Feria de Otavalo" style="padding:8px;border:2px solid var(--rust);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
-          <label style="font-size:13px;">Comisión %<br>
-            <input id="feriaComision" type="number" min="0" max="100" placeholder="Ej: 30" style="padding:8px;border:2px solid var(--rust);border-radius:5px;width:90px;"></label>
-          <button id="feriaAbrir" class="ir" style="padding:10px 16px;background:var(--rust,#E86040);color:#fff;border-color:var(--rust-deep,#C05000);">Abrir feria</button>
+          <label style="font-size:13px;"><span data-i18n="fair.eventName">Event name</span><br>
+            <input id="feriaNombre" type="text" placeholder="e.g. Farmers Market" data-i18n-attr="placeholder:fair.namePlaceholder" style="padding:8px;border:2px solid var(--rust);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+          <label style="font-size:13px;"><span data-i18n="common.commissionPct">Commission %</span><br>
+            <input id="feriaComision" type="number" min="0" max="100" placeholder="e.g. 30" data-i18n-attr="placeholder:common.phCommission30" style="padding:8px;border:2px solid var(--rust);border-radius:5px;width:90px;"></label>
+          <button id="feriaAbrir" class="ir" style="padding:10px 16px;background:var(--rust,#E86040);color:#fff;border-color:var(--rust-deep,#C05000);" data-i18n="fair.open">Open pop-up</button>
         </div>
         <p id="feriaMsg" style="font-size:14px;margin-top:8px;"></p>
       </div>
@@ -2638,7 +2638,7 @@ function mostrarFormNuevoProducto(codigoEscaneado){
         ? `<div class="linea"><strong>Código:</strong> ${codigoEscaneado}</div>`
         : `<label style="display:block;margin-top:10px;font-size:14px;">Código de barras / interno<br>
             <input id="np-barcode" type="text" placeholder="Escanea o escribe el código" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>`}
-      <label style="display:block;margin-top:10px;font-size:14px;">Nombre<br>
+      <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
         <input id="np-nombre" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Categoría<br>
         <input id="np-categoria" type="text" placeholder="Ej: Licores" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
@@ -2706,7 +2706,7 @@ async function mostrarFormEditarProducto(id){
   contenedor.innerHTML = `
     <div class="ficha-producto tag-card" style="text-align:left;">
       <div class="titulo">Editar ficha</div>
-      <label style="display:block;margin-top:10px;font-size:14px;">Nombre<br>
+      <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
         <input id="ed-nombre" type="text" value="${q(p.nombre)}" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Foto (opcional, se guarda dentro de la ficha)<br>
         <input id="ed-foto" type="file" accept="image/*" ${inp}></label>
