@@ -1191,39 +1191,37 @@
          siempre, y al final el CIERRE DEL DIA para quien no registra en vivo.
          El id vista-escanear se conserva: lo referencian el autofoco del
          lector y el nav; solo cambia lo que el usuario ve. -->
-    <h3 class="seccion" style="margin-top:0;">Vender</h3>
-    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;">Toca un producto y listo: una unidad vendida (puedes deshacer en 5s). Baja para elegir cliente o registrar el cierre del día.</p>
+    <h3 class="seccion" style="margin-top:0;" data-i18n="sold.heading">Sold</h3>
+    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="sold.intro">Tap a product and you're done: one unit sold (you can undo within 5s). Scroll down to pick a customer or record the day's close.</p>
     <!-- ¿Cómo usar Vender? Guía colapsable para el operador. -->
     <details style="margin:-4px 0 12px;font-size:14px;">
-      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;">¿Cómo funciona? ▸</summary>
+      <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="sold.howToggle">How does it work? ▸</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);">1. Elige el cliente (si aplica) en el selector de abajo.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);">2. Toca el producto: se descuenta una unidad del stock.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);">3. Aparece un aviso azul abajo: tócalo en 5s si fue error.</p>
-        <p style="margin:0;font-size:14px;color:var(--ink);">4. Si no vendes en vivo, usa <strong>Cierre del día</strong> al final.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step1">1. Pick the customer (if any) in the selector below.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step2">2. Tap the product: one unit is deducted from stock.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step3">3. A blue notice appears below: tap it within 5s if it was a mistake.</p>
+        <p style="margin:0;font-size:14px;color:var(--ink);" data-i18n-html="sold.step4html">4. If you don't ring up live, use <strong>Day close</strong> at the end.</p>
       </div>
     </details>
     <div id="gridVender" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px;"></div>
     <div class="panel-escaner tag-card">
-      <h4 style="margin:0 0 6px;font-size:17px;">Escanear o buscar por código</h4>
-      <p>
-        Escribe o pega el código de barras / SKU. (En tablet con cámara, el lector conecta aquí mismo.)
-      </p>
-      <input id="inputEscaner" type="text" placeholder="Ej: 7501234567001 o MAR-RED-20" autocomplete="off">
+      <h4 style="margin:0 0 6px;font-size:17px;" data-i18n="sold.scanHeading">Scan or search by code</h4>
+      <p data-i18n="sold.scanIntro">Type or paste the barcode / SKU. (On a tablet with a camera, the reader connects right here.)</p>
+      <input id="inputEscaner" type="text" placeholder="e.g. 7501234567001 or MAR-RED-20" data-i18n-attr="placeholder:sold.scanPlaceholder" autocomplete="off">
       <br>
-      <button class="ir" id="btnEscanear">Buscar</button>
+      <button class="ir" id="btnEscanear" data-i18n="sold.searchBtn">Search</button>
       <div style="margin-top:12px;">
-        <label style="font-size:16px;font-weight:700;color:var(--ink);">Cliente:
+        <label style="font-size:16px;font-weight:700;color:var(--ink);"><span data-i18n="sold.customerLabel">Customer:</span>
           <select id="ventaCliente" style="padding:9px;border:2px solid var(--azul-medio);border-radius:6px;max-width:100%;margin-left:6px;">
-            <option value="">Venta de mostrador (sin cliente)</option>
+            <option value="" data-i18n="sold.counterSale">Counter sale (no customer)</option>
           </select>
         </label>
         <!-- Nota operativa: el cliente elegido aquí aplica a todos los toques del grid. -->
-        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">Elige antes de tocar los productos.
+        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;"><span data-i18n="sold.pickBefore">Pick before tapping the products.</span> 
           <button id="btnNuevoCliente" type="button"
             style="font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;
                    background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;
-                   cursor:pointer;vertical-align:middle;margin-left:6px;">+ Nuevo cliente</button>
+                   cursor:pointer;vertical-align:middle;margin-left:6px;" data-i18n="sold.newCustomer">+ New customer</button>
         </p>
       </div>
       <div class="ficha-resultado" id="fichaResultado"></div>
@@ -1232,10 +1230,10 @@
     <!-- CIERRE DEL DIA: conciliacion en un solo paso, cero trabajo en horario
          de venta. Genera ventas reales de hoy (split de comisiones incluido). -->
     <details id="cierreDia" class="tag-card" style="margin-top:18px;padding:14px 16px;">
-      <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);">🌙 Cierre del día — cuadra todo de una sola vez</summary>
-      <p style="font-size:15px;color:var(--ink-soft);">Los toques del grid de arriba ya están incluidos en el día. Apunta SOLO lo adicional que no registraste en vivo: cuántas unidades salieron de cada producto. Aplica todo junto al cerrar.</p>
+      <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);" data-i18n="sold.closeSummary">🌙 Day close — reconcile everything at once</summary>
+      <p style="font-size:15px;color:var(--ink-soft);" data-i18n="sold.closeIntro">The taps in the grid above are already counted for today. Note ONLY the extra you didn't record live: how many units of each product went out. It all applies together when you close.</p>
       <div id="cierreLista"></div>
-      <button class="ir" id="btnAplicarCierre" style="margin-top:12px;">Aplicar cierre del día</button>
+      <button class="ir" id="btnAplicarCierre" style="margin-top:12px;" data-i18n="sold.applyClose">Apply day close</button>
       <p id="cierreMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
     </details>
   </section>
