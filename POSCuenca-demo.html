@@ -1,0 +1,2801 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>POSCuenca</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* --- superficies y tinta (reasignadas, mismos nombres usados por el script) --- */
+    --crema:#f3e8cd;          /* papel principal */
+    --blanco-calido:#fbf5e8;  /* papel de tarjeta */
+    --azul-oscuro:#1c3049;    /* tinta-azul de cabecera */
+    --azul-medio:#2c4a68;
+    --dorado:#9c7a35;         /* laton / acento secundario */
+    --ambar:#b2461f;          /* terracota / precios */
+    --negro:#211c14;          /* tinta */
+    --verde:#2f7a4f;
+    --verde-claro:#e3efe1;
+    --amarillo:#9c6c0a;
+    --amarillo-claro:#f6ead0;
+    --rojo:#a3392a;
+    --rojo-claro:#f5e0db;
+    --azul-op:#2f5f8f;
+    --azul-op-claro:#dde9f5;
+
+    /* --- nuevas variables del sistema --- */
+    --paper-deep:#e8dbb6;
+    --ink:#211c14;
+    --ink-soft:#5d5340;
+    --rust:#b2461f;
+    --rust-deep:#7e2f12;
+    --brass:#9c7a35;
+    --font-display:"Space Grotesk", "Avenir Next Condensed", sans-serif;
+    --font-body:"Source Sans 3", "Segoe UI", sans-serif;
+    --font-mono:"JetBrains Mono", monospace;
+    --nav-h:78px;
+    --sidebar-w:248px;
+    --header-h:104px;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0;
+    font-family:var(--font-body);
+    background-color:var(--crema);
+    background-image:
+      repeating-linear-gradient(to bottom, transparent 0 31px, rgba(33,28,20,0.05) 31px 32px);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- utilidad: tarjeta-etiqueta (esquina cortada + ojal) ---------- */
+  .tag-card{
+    position:relative;
+    background:var(--blanco-calido);
+    border:1.5px solid rgba(33,28,20,0.22);
+    clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+  }
+  .tag-card::after{
+    content:"";
+    position:absolute;
+    top:6px; right:6px;
+    width:8px; height:8px;
+    border-radius:50%;
+    background:var(--brass);
+    box-shadow:0 0 0 2px var(--blanco-calido);
+  }
+
+  /* ---------- botones tipo sello ---------- */
+  button{
+    font-family:var(--font-display);
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    border:2px solid var(--ink);
+    border-radius:5px;
+    background:var(--blanco-calido);
+    color:var(--ink);
+    box-shadow:3px 3px 0 rgba(33,28,20,0.18);
+    cursor:pointer;
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  button:active{
+    transform:translate(2px,2px);
+    box-shadow:0 0 0 rgba(33,28,20,0);
+  }
+
+  /* ================= HEADER ================= */
+  header{
+    background:var(--azul-oscuro);
+    color:var(--blanco-calido);
+    padding:18px 20px;
+    min-height:var(--header-h);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    position:sticky;
+    top:0;
+    z-index:40;
+    border-bottom:3px solid var(--brass);
+  }
+  header .marca{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  header .sello{
+    width:42px; height:42px;
+    border-radius:50%;
+    border:2px solid var(--brass);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:17px;
+    color:var(--brass);
+    flex-shrink:0;
+    overflow:hidden;
+    cursor:pointer;
+    background:var(--azul-oscuro);
+  }
+  header h1{
+    margin:0;
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:21px;
+    letter-spacing:0.01em;
+  }
+  header .sub{
+    font-family:var(--font-mono);
+    font-size:13px;
+    letter-spacing:0.04em;
+    color:var(--brass);
+    margin-top:3px;
+    text-transform:uppercase;
+  }
+  .selector-ubicacion select{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:14px;
+    padding:10px 14px;
+    border-radius:5px;
+    border:2px solid var(--brass);
+    background:var(--blanco-calido);
+    color:var(--azul-oscuro);
+  }
+
+  /* ================= NAV — barra inferior en móvil, riel lateral en tablet/desktop ================= */
+  nav{
+    display:flex;
+    gap:4px;
+    background:var(--paper-deep);
+    border-top:2px solid var(--ink);
+    position:fixed;
+    left:0; right:0; bottom:0;
+    height:var(--nav-h);
+    padding:4px 6px env(safe-area-inset-bottom, 4px);
+    z-index:35;
+    /* Con 7 botones (Liquidaciones y Avanzado se agregaron después), flex:1
+       ya no cabía en pantallas angostas y los últimos quedaban totalmente
+       fuera del viewport, sin ninguna forma de llegar a ellos (ni siquiera
+       con swipe, porque nav no tenía overflow-x). Ahora se puede deslizar
+       horizontalmente, y un botón parcialmente visible en el borde es la
+       pista de que hay más — sin flechas ni indicadores extra que mantener. */
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  nav::-webkit-scrollbar{ display:none; }
+  nav button{
+    flex:0 0 auto;
+    width:74px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    font-size:13px;
+    font-weight:600;
+    padding:4px 2px;
+    min-height:44px;
+    background:transparent;
+    border:none;
+    box-shadow:none;
+    color:var(--ink-soft);
+    border-radius:6px;
+  }
+  nav button svg{ width:20px; height:20px; }
+  nav button.activo{
+    background:var(--rust);
+    color:var(--blanco-calido);
+  }
+  nav button:active{ transform:scale(0.95); }
+
+  main{
+    padding:18px 16px calc(var(--nav-h) + 28px);
+    max-width:1200px;
+    margin:0 auto;
+  }
+  .vista{display:none;}
+  .vista.activa{display:block;}
+
+  /* ================= HERO SEMÁFORO ================= */
+  .hero-semaforo{
+    padding:26px 22px;
+    margin-bottom:18px;
+    color:var(--blanco-calido);
+    border-color:rgba(255,255,255,0.35);
+  }
+  .hero-semaforo.verde{background:var(--verde); --tc-bg:var(--verde);}
+  .hero-semaforo.amarillo{background:#8f600c;}
+  .hero-semaforo.rojo{background:var(--rojo);}
+  .hero-semaforo h2{
+    margin:0 0 6px 0;
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:26px;
+    line-height:1.15;
+  }
+  .hero-semaforo p{
+    font-size:16px;
+    margin:0;
+    color:var(--blanco-calido);
+  }
+
+  /* ================= TARJETAS RESUMEN ================= */
+  .grid-resumen{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:12px;
+    margin-bottom:22px;
+  }
+  .tarjeta{
+    padding:14px 16px;
+  }
+  .tarjeta .etiqueta{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+  .tarjeta .valor{
+    font-family:var(--font-display);
+    font-size:24px;
+    font-weight:700;
+    color:var(--ink);
+    margin-top:5px;
+  }
+
+  h3.seccion{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:18px;
+    color:var(--ink);
+    border-bottom:3px solid var(--brass);
+    padding-bottom:8px;
+    margin-top:28px;
+  }
+
+  /* ================= ALERTAS ================= */
+  .lista-alertas{
+    list-style:none;
+    padding:0;
+    margin:0;
+  }
+  .lista-alertas li{
+    font-size:15px;
+    padding:13px 14px;
+    border-radius:5px;
+    margin-bottom:9px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+  }
+  .lista-alertas li.rojo{background:var(--rojo-claro); color:var(--rojo); border:2px solid var(--rojo);}
+  .lista-alertas li.amarillo{background:var(--amarillo-claro); color:var(--amarillo); border:2px solid var(--amarillo);}
+
+  /* ================= INVENTARIO ================= */
+  .grid-cajas{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+    gap:14px;
+  }
+  .caja{
+    padding:15px;
+    border:2px solid transparent;
+    cursor:pointer;
+    min-height:44px;
+  }
+  .caja.verde{background:var(--verde-claro); border-color:var(--verde);}
+  .caja.amarillo{background:var(--amarillo-claro); border-color:var(--amarillo);}
+  .caja.rojo{background:var(--rojo-claro); border-color:var(--rojo);}
+  .caja.azul{background:var(--azul-op-claro); border-color:var(--azul-op);}
+  .caja .nombre{
+    font-family:var(--font-display);
+    font-size:16px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .caja .detalle{
+    font-size:13px;
+    margin-top:5px;
+    color:var(--ink-soft);
+  }
+  .caja .stock{
+    font-family:var(--font-display);
+    font-size:28px;
+    font-weight:700;
+    margin-top:6px;
+  }
+  .caja.verde .stock{color:var(--verde);}
+  .caja.amarillo .stock{color:var(--amarillo);}
+  .caja.rojo .stock{color:var(--rojo);}
+  .caja.azul .stock{color:var(--azul-op);}
+
+  .filtros-estado{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+  }
+  .filtros-estado button{
+    padding:9px 14px 9px 28px;
+    border-radius:20px;
+    border:2px solid var(--azul-medio);
+    background:var(--blanco-calido);
+    color:var(--azul-medio);
+    font-weight:600;
+    font-size:13px;
+    box-shadow:none;
+    min-height:40px;
+    position:relative;
+  }
+  .filtros-estado button::before{
+    content:"";
+    position:absolute;
+    left:12px; top:50%;
+    width:8px; height:8px;
+    border-radius:50%;
+    transform:translateY(-50%);
+    background:var(--ink-soft);
+  }
+  .filtros-estado button[data-estado="rojo"]::before{background:var(--rojo);}
+  .filtros-estado button[data-estado="amarillo"]::before{background:var(--amarillo);}
+  .filtros-estado button[data-estado="verde"]::before{background:var(--verde);}
+  .filtros-estado button[data-estado="azul"]::before{background:var(--azul-op);}
+  .filtros-estado button[data-estado=""]{padding-left:14px;}
+  .filtros-estado button.activo{
+    background:var(--azul-medio);
+    color:var(--blanco-calido);
+  }
+
+  /* ================= ESCANEAR ================= */
+  .panel-escaner{
+    padding:26px 20px;
+    text-align:center;
+  }
+  .panel-escaner p{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin-top:0;
+  }
+  .panel-escaner input{
+    font-size:18px;
+    padding:14px 16px;
+    width:100%;
+    max-width:420px;
+    border-radius:5px;
+    border:2px solid var(--azul-medio);
+    font-family:var(--font-mono);
+    text-align:center;
+    background:var(--crema);
+    color:var(--ink);
+  }
+  .panel-escaner button.ir{
+    font-size:15px;
+    padding:14px 24px;
+    margin-top:14px;
+    background:var(--rust);
+    color:var(--blanco-calido);
+    border-color:var(--rust-deep);
+    min-height:48px;
+  }
+  .ficha-resultado{
+    margin-top:22px;
+    text-align:left;
+  }
+
+  .ficha-producto{
+    padding:20px;
+  }
+  .ficha-producto .titulo{
+    font-family:var(--font-display);
+    font-size:20px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .ficha-producto .precio{
+    font-family:var(--font-display);
+    font-size:28px;
+    color:var(--ambar);
+    font-weight:700;
+    margin:6px 0;
+  }
+  .ficha-producto .linea{
+    font-size:15px;
+    margin:4px 0;
+    color:var(--ink-soft);
+  }
+  .ficha-producto .linea strong{ color:var(--ink); }
+  .badge-estado{
+    display:inline-block;
+    font-family:var(--font-display);
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    padding:6px 13px;
+    border-radius:20px;
+    margin-top:8px;
+  }
+  .badge-estado.verde{background:var(--verde-claro); color:var(--verde);}
+  .badge-estado.amarillo{background:var(--amarillo-claro); color:var(--amarillo);}
+  .badge-estado.rojo{background:var(--rojo-claro); color:var(--rojo);}
+  .badge-estado.azul{background:var(--azul-op-claro); color:var(--azul-op);}
+
+  .acciones-rapidas{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:16px;
+  }
+  .acciones-rapidas button{
+    font-size:13px;
+    padding:11px 15px;
+    border-color:var(--azul-medio);
+    color:var(--azul-medio);
+    min-height:44px;
+  }
+  .acciones-rapidas button.vender{background:var(--verde); color:var(--blanco-calido); border-color:var(--verde);}
+  .acciones-rapidas button.etiqueta{background:var(--brass); color:var(--blanco-calido); border-color:var(--brass);}
+
+  /* ================= ETIQUETAS ================= */
+  .grid-etiquetas{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+    gap:16px;
+  }
+  .etiqueta-card{
+    padding:16px;
+    text-align:center;
+    cursor:pointer;
+    border-style:dashed;
+    min-height:44px;
+  }
+  .etiqueta-card .nombre-prod{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:14px;
+    color:var(--ink);
+  }
+  .etiqueta-card .precio-prod{
+    color:var(--ambar);
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:19px;
+    margin:5px 0;
+  }
+  .etiqueta-card .sku-prod{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+
+  /* ================= MODAL ETIQUETA ================= */
+  .modal-fondo{
+    display:none;
+    position:fixed;
+    top:0;left:0;right:0;bottom:0;
+    background:rgba(28,48,73,0.82);
+    z-index:50;
+    overflow:auto;
+    padding:20px;
+  }
+  .modal-fondo.activo{display:flex; align-items:center; justify-content:center;}
+  .etiqueta-imprimible{
+    background:var(--blanco-calido);
+    padding:30px;
+    width:340px;
+    max-width:100%;
+    text-align:center;
+    position:relative;
+  }
+  .etiqueta-imprimible .cerrar{
+    position:absolute;
+    top:8px; left:10px;
+    font-size:20px;
+    cursor:pointer;
+    color:var(--ink-soft);
+    background:none;
+    border:none;
+    box-shadow:none;
+    font-family:var(--font-body);
+    width:34px; height:34px;
+  }
+  .etiqueta-imprimible h4{
+    font-family:var(--font-display);
+    font-size:20px;
+    color:var(--ink);
+    margin:14px 0 4px 0;
+  }
+  .etiqueta-imprimible .precio-grande{
+    font-family:var(--font-display);
+    font-size:34px;
+    color:var(--ambar);
+    font-weight:700;
+    margin:8px 0;
+  }
+  .etiqueta-imprimible img{
+    margin:14px 0;
+  }
+  .etiqueta-imprimible .codigo{
+    font-family:var(--font-mono);
+    font-size:15px;
+    letter-spacing:2px;
+    color:var(--ink);
+  }
+  .etiqueta-imprimible .barras{
+    /* Antes esto era un fondo CSS decorativo (rayas falsas, no escaneables).
+       Ahora aquí se inyecta un <svg> Code128 real (ver abrirEtiqueta() y
+       barcode.js) — solo centramos el contenido, el barcode dibuja sus
+       propias barras y fondo blanco. */
+    display:flex;
+    justify-content:center;
+    margin:10px 0;
+  }
+  .etiqueta-imprimible .barras svg{ max-width:100%; height:auto; }
+  .etiqueta-imprimible button.imprimir{
+    margin-top:14px;
+    font-size:14px;
+    padding:11px 20px;
+    background:var(--azul-medio);
+    color:var(--blanco-calido);
+    border-color:var(--azul-oscuro);
+    min-height:44px;
+  }
+
+  /* ================= AVANZADO ================= */
+  .avanzado-aviso{
+    background:var(--azul-op-claro);
+    color:var(--azul-op);
+    padding:14px 16px;
+    border-radius:5px;
+    margin-bottom:18px;
+    font-size:14px;
+    border-left:none;
+  }
+  .tabla-wrap{ overflow-x:auto; }
+  table.reporte{
+    width:100%;
+    min-width:420px;
+    border-collapse:collapse;
+    background:var(--blanco-calido);
+    border:1.5px solid rgba(33,28,20,0.22);
+  }
+  table.reporte th, table.reporte td{
+    text-align:left;
+    padding:11px 13px;
+    border-bottom:1px solid rgba(33,28,20,0.15);
+    font-size:14px;
+  }
+  table.reporte th{
+    background:var(--azul-medio);
+    color:var(--blanco-calido);
+    font-family:var(--font-display);
+    font-weight:600;
+    text-transform:uppercase;
+    font-size:13px;
+    letter-spacing:0.04em;
+  }
+
+  /* ================= ACTIVIDAD ================= */
+  .actividad-item{
+    background:var(--blanco-calido);
+    border:1.5px solid rgba(33,28,20,0.22);
+    padding:12px 15px;
+    border-radius:5px;
+    margin-bottom:9px;
+    font-size:14px;
+  }
+  .actividad-item .tipo{
+    font-family:var(--font-display);
+    font-weight:700;
+    color:var(--ink);
+    text-transform:uppercase;
+    font-size:13px;
+    letter-spacing:0.05em;
+  }
+
+  footer{
+    display:none;
+    text-align:center;
+    font-size:13px;
+    color:var(--ink-soft);
+    padding:26px 16px;
+  }
+
+  /* ================= TABLET (≥768px): riel lateral ================= */
+  @media (min-width:768px){
+    nav{
+      flex-direction:column;
+      left:0; top:0; bottom:0; right:auto;
+      width:var(--sidebar-w);
+      height:auto;
+      padding:calc(var(--header-h) + 16px) 12px 16px;
+      border-top:none;
+      border-right:2px solid var(--ink);
+      gap:6px;
+      z-index:30;
+    }
+    nav button{
+      flex:none;
+      flex-direction:row;
+      justify-content:flex-start;
+      gap:12px;
+      font-size:14px;
+      padding:13px 16px;
+      text-align:left;
+    }
+    main{
+      margin-left:var(--sidebar-w);
+      padding:28px 32px calc(28px + var(--nav-h));
+    }
+    footer{ display:block; margin-left:var(--sidebar-w); }
+    .grid-resumen{ grid-template-columns:repeat(4,1fr); gap:16px; }
+    header h1{ font-size:25px; }
+    .hero-semaforo h2{ font-size:32px; }
+  }
+
+  @media (min-width:768px) and (max-width:1023px){
+    main{ padding-bottom:28px; }
+  }
+
+  /* ================= DESKTOP (≥1024px) ================= */
+  @media (min-width:1024px){
+    :root{ --sidebar-w:268px; }
+    main{ max-width:1280px; }
+    .grid-resumen{ gap:18px; }
+    .tarjeta .valor{ font-size:28px; }
+  }
+
+  @media (max-width:380px){
+    header h1{font-size:18px;}
+    .hero-semaforo h2{font-size:22px;}
+    nav button{font-size:13px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marca">
+    <div class="sello" id="logoHeader">PC</div>
+    <div>
+      <h1>POSCuenca</h1>
+      <div class="sub">Mi tienda de artesanías y licores - DEMO</div>
+    </div>
+  </div>
+  <div class="selector-ubicacion">
+    <select id="selectUbicacion"></select>
+  </div>
+</header>
+
+<nav>
+  <button data-vista="hoy" class="activo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="4.6" y1="4.6" x2="6.6" y2="6.6"></line><line x1="17.4" y1="17.4" x2="19.4" y2="19.4"></line><line x1="4.6" y1="19.4" x2="6.6" y2="17.4"></line><line x1="17.4" y1="6.6" x2="19.4" y2="4.6"></line></svg>
+    <span>Hoy</span>
+  </button>
+  <button data-vista="inventario">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="8" height="8"></rect><rect x="13" y="10" width="8" height="8"></rect><rect x="8" y="3" width="8" height="6"></rect></svg>
+    <span>Inventario</span>
+  </button>
+  <button data-vista="escanear">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3"></path><path d="M16 4h3a1 1 0 0 1 1 1v3"></path><path d="M20 16v3a1 1 0 0 1-1 1h-3"></path><path d="M8 20H5a1 1 0 0 1-1-1v-3"></path><line x1="4" y1="12" x2="20" y2="12" stroke-dasharray="2.4 2.4"></line></svg>
+    <span>Escanear</span>
+  </button>
+  <button data-vista="etiquetas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.2V5a1 1 0 0 1 1-1h6.2L21 14.8 13.8 22 3 11.2z"></path><circle cx="7.6" cy="7.6" r="1.3" fill="currentColor" stroke="none"></circle></svg>
+    <span>Etiquetas</span>
+  </button>
+  <button data-vista="liquidaciones">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v10M9 9.5c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5c0 3-6 1.5-6 4.5 0 1.4 1.3 2.5 3 2.5s3-1.1 3-2.5"></path></svg>
+    <span>Liquidaciones</span>
+  </button>
+  <button data-vista="avanzado">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 2.5v3.4M12 18.1v3.4M3.6 6l2.4 2.4M18 15.6l2.4 2.4M3.6 18l2.4-2.4M18 8.4l2.4-2.4M2.5 12h3.4M18.1 12h3.4"></path></svg>
+    <span>Avanzado</span>
+  </button>
+</nav>
+
+<main>
+
+  <!-- VISTA: HOY -->
+  <section id="vista-hoy" class="vista activa">
+    <div id="heroSemaforo" class="hero-semaforo verde tag-card">
+      <h2 id="heroTitulo">Cargando tu negocio...</h2>
+      <p id="heroSubtitulo"></p>
+    </div>
+
+    <div class="grid-resumen">
+      <div class="tarjeta tag-card">
+        <div class="etiqueta">Entró hoy</div>
+        <div class="valor" id="resEntra">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card">
+        <div class="etiqueta">Salió hoy</div>
+        <div class="valor" id="resSale">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card">
+        <div class="etiqueta">Ganancia de hoy</div>
+        <div class="valor" id="resGanancia">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card">
+        <div class="etiqueta">Tu inventario vale</div>
+        <div class="valor" id="resInventario">$0.00</div>
+      </div>
+      <div class="tarjeta tag-card">
+        <div class="etiqueta">Ventas hoy</div>
+        <div class="valor" id="resVentasCount">0</div>
+      </div>
+      <div class="tarjeta tag-card">
+        <div class="etiqueta">Venta promedio</div>
+        <div class="valor" id="resTicketProm">$0.00</div>
+      </div>
+    </div>
+
+    <h3 class="seccion">Alertas de hoy</h3>
+    <ul class="lista-alertas" id="listaAlertas"></ul>
+  </section>
+
+  <!-- VISTA: INVENTARIO -->
+  <section id="vista-inventario" class="vista">
+    <h3 class="seccion" style="margin-top:0;">Tus productos</h3>
+    <div class="filtros-estado" id="filtrosEstado">
+      <button data-estado="" class="activo">Todos</button>
+      <button data-estado="rojo">Urgente</button>
+      <button data-estado="amarillo">Revisar</button>
+      <button data-estado="verde">Sano</button>
+      <button data-estado="azul">Oportunidad</button>
+    </div>
+    <div class="grid-cajas" id="gridInventario"></div>
+  </section>
+
+  <!-- VISTA: ESCANEAR -->
+  <section id="vista-escanear" class="vista">
+    <h3 class="seccion" style="margin-top:0;">Escanear o buscar</h3>
+    <div class="panel-escaner tag-card">
+      <p>
+        Escribe o pega el código de barras / SKU. (En tablet con cámara, el lector conecta aquí mismo.)
+      </p>
+      <input id="inputEscaner" type="text" placeholder="Ej: 7501234567001 o MAR-RED-20" autocomplete="off">
+      <br>
+      <button class="ir" id="btnEscanear">Buscar</button>
+      <div class="ficha-resultado" id="fichaResultado"></div>
+    </div>
+  </section>
+
+  <!-- VISTA: ETIQUETAS -->
+  <section id="vista-etiquetas" class="vista">
+    <h3 class="seccion" style="margin-top:0;">Etiquetas listas para imprimir</h3>
+    <div class="grid-etiquetas" id="gridEtiquetas"></div>
+  </section>
+
+  <!-- VISTA: LIQUIDACIONES (solo dueño) -->
+  <section id="vista-liquidaciones" class="vista">
+    <h3 class="seccion" style="margin-top:0;">Liquidaciones</h3>
+    <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Lo que le debes a cada socio este mes, calculado venta por venta — sin Excel, sin sorpresas.</p>
+    <div id="listaLiquidaciones"></div>
+  </section>
+
+  <!-- VISTA: AVANZADO -->
+  <section id="vista-avanzado" class="vista">
+    <h3 class="seccion" style="margin-top:0;">Modo avanzado</h3>
+    <div class="avanzado-aviso">
+      Esta sección es para el contador, el administrador o quien quiera ver el detalle técnico. El propietario no la necesita para operar el día a día.
+    </div>
+
+    <!-- Actividad ya no tiene botón propio en el nav (JFC, 2026-07-01: "eso
+         NO necesita un botón en el main") — vive aquí, es historial operativo,
+         no algo que se consulte varias veces al día como Hoy o Escanear. -->
+    <h3 class="seccion" style="margin-top:0;">Actividad reciente</h3>
+    <div id="listaActividad" class="tag-card" style="text-align:left;max-height:280px;overflow-y:auto;"></div>
+
+    <h3 class="seccion">Gastos mensuales</h3>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p>
+        Arriendo, luz, sueldos, internet, etc. Ingresa el total mensual de la ubicación seleccionada. Se reparte entre los días reales del mes para estimar el gasto operativo del día en el P&amp;G.
+      </p>
+      <div id="gastosSelectorWrap" style="display:none;margin-bottom:12px;">
+        <label style="font-size:14px;font-weight:700;">Elige una ubicación para editar sus gastos:<br>
+          <select id="gastosUbicSelector" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;"></select></label>
+      </div>
+      <input id="inputGastosMensuales" type="number" min="0" step="0.01" placeholder="Ej: 350.00" style="text-align:left; max-width:220px;">
+      <br>
+      <button class="ir" id="btnGuardarGastos">Guardar</button>
+      <p id="msgGastos" style="font-size:14px; margin-top:10px;"></p>
+    </div>
+
+    <h3 class="seccion">Pérdidas y ganancias (hoy)</h3>
+    <div class="tabla-wrap"><table class="reporte" id="tablaPL"></table></div>
+
+    <h3 class="seccion">Balance simplificado</h3>
+    <div class="tabla-wrap"><table class="reporte" id="tablaBalance"></table></div>
+
+    <h3 class="seccion">Inventario valorizado</h3>
+    <div class="tabla-wrap"><table class="reporte" id="tablaValorizado"></table></div>
+  </section>
+
+</main>
+
+<footer>
+  POSCuenca 1.0 — Node.js · Express · WebCrypto AES-256-GCM · PBKDF2 (150k it.) · Code128 · QR · revenue-sharing dinámico · arquitectura de cifrado end-to-end inspirada en nostr, sin servidor central de identidad
+  <br><em>desarrollado por The Real Urban Shaman - 2026</em>
+</footer>
+
+<!-- MODAL ETIQUETA -->
+<div class="modal-fondo" id="modalEtiqueta">
+  <div class="etiqueta-imprimible tag-card" id="contenidoEtiqueta">
+    <button class="cerrar" id="cerrarModal">✕</button>
+  </div>
+</div>
+
+<script>
+const API = "/api";
+let ubicaciones = [];
+let ubicacionActual = "todas";
+let filtroEstadoActual = "";
+
+function fmtMoney(n){
+  return "$" + Number(n).toFixed(2);
+}
+
+async function cargarUbicaciones(){
+  const res = await fetch(`${API}/ubicaciones`);
+  ubicaciones = await res.json();
+  const sel = document.getElementById("selectUbicacion");
+  const valorPrevio = sel.value;
+  sel.innerHTML = `<option value="todas">Todas las ubicaciones</option>` +
+    ubicaciones.map(u => `<option value="${u.id}">${u.nombre}</option>`).join("");
+  // Si la ubicación que estaba seleccionada ya no existe en la lista (ej. se
+  // desactivó), vuelve a "todas" en vez de quedar en un valor fantasma.
+  if ([...sel.options].some(o => o.value === valorPrevio)) sel.value = valorPrevio;
+  ubicacionActual = sel.value;
+  // cargarUbicaciones() ahora se llama repetidamente (tras crear/renombrar/
+  // desactivar una ubicación desde Avanzado, no solo al cargar la página).
+  // Antes esto agregaba un listener "change" nuevo cada vez que se llamaba
+  // — el mismo bug de listeners acumulados que ya se corrigió en el
+  // teclado de acceso. dataset.ocListo evita registrar el listener 2 veces.
+  if (!sel.dataset.ocListo) {
+    sel.dataset.ocListo = "1";
+    sel.addEventListener("change", () => {
+      ubicacionActual = sel.value;
+      refrescarVistaActiva();
+    });
+  }
+}
+
+function vistaActivaId(){
+  const activa = document.querySelector("nav button.activo");
+  return activa ? activa.dataset.vista : "hoy";
+}
+
+function refrescarVistaActiva(){
+  const v = vistaActivaId();
+  const cargadores = { hoy: cargarHoy, inventario: cargarInventario, etiquetas: cargarEtiquetas, avanzado: cargarAvanzado, liquidaciones: cargarLiquidaciones };
+  const fn = cargadores[v];
+  if (fn) Promise.resolve(fn()).catch(err => console.error(`Error cargando vista "${v}":`, err));
+}
+
+// --- Logo header: volver a Hoy ---
+document.getElementById("logoHeader").addEventListener("click", () => {
+  document.querySelector('nav button[data-vista="hoy"]').click();
+});
+
+// --- Navegación ---
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("activo"));
+    btn.classList.add("activo");
+    document.querySelectorAll(".vista").forEach(v => v.classList.remove("activa"));
+    document.getElementById(`vista-${btn.dataset.vista}`).classList.add("activa");
+    refrescarVistaActiva();
+  });
+});
+
+// --- VISTA HOY ---
+async function cargarHoy(){
+  const res = await fetch(`${API}/dashboard?ubicacionId=${ubicacionActual}`);
+  const data = await res.json();
+
+  const hero = document.getElementById("heroSemaforo");
+  hero.className = "hero-semaforo tag-card " + data.semaforoGeneral;
+  const titulos = {
+    verde: "Tu negocio está en verde hoy.",
+    amarillo: "Tu negocio está en amarillo: hay cosas que revisar.",
+    rojo: "Atención: hay alertas urgentes hoy."
+  };
+  document.getElementById("heroTitulo").textContent = titulos[data.semaforoGeneral] || "Tu negocio hoy";
+  document.getElementById("heroSubtitulo").textContent =
+    `Ganaste ${fmtMoney(data.resumenDia.gananciaHoy)} hoy, con ${data.resumenDia.ventasCount} ventas registradas.`;
+
+  document.getElementById("resEntra").textContent = fmtMoney(data.resumenDia.entra);
+  document.getElementById("resSale").textContent = fmtMoney(data.resumenDia.sale);
+  document.getElementById("resGanancia").textContent = fmtMoney(data.resumenDia.gananciaHoy);
+  document.getElementById("resInventario").textContent = fmtMoney(data.resumenDia.inventarioValorizado);
+  document.getElementById("resVentasCount").textContent = data.resumenDia.ventasCount;
+  const ticketProm = data.resumenDia.ventasCount > 0 ? data.resumenDia.entra / data.resumenDia.ventasCount : 0;
+  document.getElementById("resTicketProm").textContent = fmtMoney(ticketProm);
+
+  const puntito = (color) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:currentColor;margin-right:9px;flex-shrink:0;"></span>`;
+  const lista = document.getElementById("listaAlertas");
+  if (data.alertas.length === 0){
+    lista.innerHTML = `<li class="verde" style="background:var(--verde-claro); color:var(--verde); border:2px solid var(--verde);">${puntito()}No hay alertas. Todo tranquilo.</li>`;
+  } else {
+    lista.innerHTML = data.alertas.map(a =>
+      `<li class="${a.estado}">${puntito()}${a.mensaje}</li>`
+    ).join("");
+  }
+}
+
+// --- VISTA INVENTARIO ---
+document.getElementById("filtrosEstado").addEventListener("click", (e) => {
+  if (e.target.tagName !== "BUTTON") return;
+  document.querySelectorAll("#filtrosEstado button").forEach(b => b.classList.remove("activo"));
+  e.target.classList.add("activo");
+  filtroEstadoActual = e.target.dataset.estado;
+  cargarInventario();
+});
+
+async function cargarInventario(){
+  let url = `${API}/productos?ubicacionId=${ubicacionActual}`;
+  if (filtroEstadoActual) url += `&estado=${filtroEstadoActual}`;
+  const res = await fetch(url);
+  const productos = await res.json();
+  const grid = document.getElementById("gridInventario");
+  if (productos.length === 0){
+    grid.innerHTML = `<p>No hay productos en este filtro.</p>`;
+    return;
+  }
+  grid.innerHTML = productos.map(p => `
+    <div class="caja tag-card ${p.estado}" onclick="abrirFichaDesdeInventario('${p.id}')">
+      <div class="nombre">${p.nombre}${p.perecible ? ' 🕓' : ''}</div>
+      <div class="detalle">${p.categoria} · ${p.sku}</div>
+      <div class="stock">${p.stockActual}</div>
+      <div class="detalle">${p.mensaje}</div>
+    </div>
+  `).join("");
+}
+
+async function abrirFichaDesdeInventario(id){
+  document.querySelector('nav button[data-vista="escanear"]').click();
+  const res = await fetch(`${API}/productos/${id}`);
+  const p = await res.json();
+  pintarFicha(p);
+}
+
+// --- VISTA ESCANEAR ---
+async function ejecutarEscaneo(){
+  const codigo = document.getElementById("inputEscaner").value.trim();
+  const contenedor = document.getElementById("fichaResultado");
+  if (!codigo){
+    contenedor.innerHTML = "";
+    return;
+  }
+  const res = await fetch(`${API}/escanear`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({codigo})
+  });
+  if (!res.ok){
+    const err = await res.json();
+    const puedeCrear = window.OCAuth && window.OCAuth.rolActual() === "dueno";
+    contenedor.innerHTML = `<p style="color:var(--rojo); font-weight:bold;">${err.error}</p>` +
+      (puedeCrear ? `<button class="ir" style="margin-top:10px;" onclick="mostrarFormNuevoProducto('${codigo.replace(/'/g, "\\'")}')">+ Dar de alta este producto</button>` : "");
+    return;
+  }
+  const p = await res.json();
+  pintarFicha(p);
+  sonarBeepExito();
+}
+
+// --- Beep de confirmación (tronco de UX de escaneo) ---
+// Un tono corto vía Web Audio API cuando el escaneo encuentra el producto —
+// el cajero no necesita mirar la pantalla para saber que la lectura fue
+// exitosa. Sin dependencias, sin archivo de audio (todo generado en código).
+let audioCtxBeep = null;
+function sonarBeepExito(){
+  try {
+    audioCtxBeep = audioCtxBeep || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtxBeep.createOscillator();
+    const gain = audioCtxBeep.createGain();
+    osc.type = "sine"; osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, audioCtxBeep.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtxBeep.currentTime + 0.12);
+    osc.connect(gain); gain.connect(audioCtxBeep.destination);
+    osc.start(); osc.stop(audioCtxBeep.currentTime + 0.12);
+  } catch (e) { /* Audio API no disponible: silencioso, no rompe el escaneo */ }
+}
+
+// --- Autofocus persistente en el input de escaneo ---
+// Si el operario toca fuera del campo (o el lector de código de barras le
+// quita el foco un instante), el foco vuelve solo en 2s — así el flujo es
+// "apuntar y escanear" sin tener que tocar la pantalla entre cada lectura.
+// Se cancela si el usuario está escribiendo en otro input (ej. el formulario
+// de "nuevo producto" que vive en esta misma vista) para no robarle el foco.
+let refocoTimer = null;
+document.getElementById("inputEscaner").addEventListener("blur", () => {
+  clearTimeout(refocoTimer);
+  refocoTimer = setTimeout(() => {
+    const vistaActiva = document.getElementById("vista-escanear");
+    const activo = document.activeElement;
+    const otroInputEnfocado = activo && activo !== document.body && activo.id !== "inputEscaner" && (activo.tagName === "INPUT" || activo.tagName === "SELECT" || activo.tagName === "TEXTAREA");
+    if (vistaActiva && vistaActiva.classList.contains("activa") && !otroInputEnfocado) {
+      document.getElementById("inputEscaner").focus();
+    }
+  }, 2000);
+});
+
+function mostrarFormNuevoProducto(codigoEscaneado){
+  const contenedor = document.getElementById("fichaResultado");
+  contenedor.innerHTML = `
+    <div class="ficha-producto tag-card" style="text-align:left;">
+      <div class="titulo">Nuevo producto</div>
+      <div class="linea"><strong>Código:</strong> ${codigoEscaneado}</div>
+      <label style="display:block;margin-top:10px;font-size:14px;">Nombre<br>
+        <input id="np-nombre" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">Categoría<br>
+        <input id="np-categoria" type="text" placeholder="Ej: Licores" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <label style="flex:1;font-size:14px;">Precio venta<br>
+          <input id="np-precio" type="number" min="0" step="0.01" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+        <label style="flex:1;font-size:14px;">Costo<br>
+          <input id="np-costo" type="number" min="0" step="0.01" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      </div>
+      <label style="display:block;margin-top:10px;font-size:14px;">Stock inicial<br>
+        <input id="np-stock" type="number" min="0" step="1" value="0" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">Proveedor<br>
+        <input id="np-proveedor" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
+        <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> ¿Este producto expira?</label>
+      <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
+        <label style="display:block;font-size:14px;">Fecha de caducidad<br>
+          <input id="np-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+        <label style="display:block;margin-top:8px;font-size:14px;">Orden de venta recomendado<br>
+          <select id="np-metodo" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;">
+            <option value="FIFO">FIFO — vender primero lo que vence antes (recomendado)</option>
+            <option value="LIFO">LIFO — vender primero lo más nuevo</option>
+          </select></label>
+      </div>
+      <div id="np-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
+      <button class="ir" style="margin-top:12px;" onclick="crearProductoNuevo('${codigoEscaneado.replace(/'/g, "\\'")}')">Guardar producto</button>
+    </div>
+  `;
+  document.getElementById("np-perecible").addEventListener("change", (e) => {
+    document.getElementById("np-fecha-wrap").style.display = e.target.checked ? "block" : "none";
+  });
+}
+
+async function crearProductoNuevo(codigoEscaneado){
+  const val = (id) => document.getElementById(id).value.trim();
+  const perecible = document.getElementById("np-perecible").checked;
+  const body = {
+    nombre: val("np-nombre"), categoria: val("np-categoria"), barcode: codigoEscaneado,
+    precio: val("np-precio"), costo: val("np-costo"), stockInicial: val("np-stock"), proveedor: val("np-proveedor"),
+    ubicacionId: ubicacionActual === "todas" ? "todas" : ubicacionActual,
+    perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
+    metodoCosteo: perecible ? document.getElementById("np-metodo").value : "FIFO",
+  };
+  const msg = document.getElementById("np-msg");
+  if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = "El nombre es obligatorio."; return; }
+  const res = await fetch(`${API}/productos`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok){ msg.style.color = "var(--rojo)"; msg.textContent = data.error; return; }
+  pintarFicha(data);
+}
+
+document.getElementById("btnEscanear").addEventListener("click", ejecutarEscaneo);
+document.getElementById("inputEscaner").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") ejecutarEscaneo();
+});
+
+function pintarFicha(p){
+  const contenedor = document.getElementById("fichaResultado");
+  contenedor.innerHTML = `
+    <div class="ficha-producto tag-card">
+      <div class="titulo">${p.nombre}</div>
+      <div class="precio">${fmtMoney(p.precio)}</div>
+      <div class="linea"><strong>SKU:</strong> ${p.sku}</div>
+      <div class="linea"><strong>Código:</strong> ${p.barcode}</div>
+      <div class="linea"><strong>Proveedor:</strong> ${p.proveedor}</div>
+      <div class="linea"><strong>Stock actual:</strong> ${p.stockActual} unidades</div>
+      ${p.perecible ? `<div class="linea"><strong>Vence:</strong> ${p.fechaCaducidad || "sin fecha"}${p.metodoCosteo ? ` · ${p.metodoCosteo}` : ""}</div>` : ""}
+      <span class="badge-estado ${p.estado}">${p.mensaje}</span>
+      <div class="acciones-rapidas">
+        <button class="vender" onclick="venderUno('${p.id}')" ${p.stockActual === 0 ? "disabled" : ""}>Vender 1</button>
+        <button onclick="ajustar('${p.id}', 1)">+1 stock</button>
+        <button onclick="ajustar('${p.id}', -1)">-1 stock</button>
+        <button class="etiqueta" onclick="abrirEtiqueta('${p.id}')">Ver etiqueta</button>
+      </div>
+    </div>
+    <div id="oc-transfer-banner"></div>
+    <div id="oc-toast-venta"></div>
+  `;
+  if (p.estado === "rojo" || p.estado === "amarillo") cargarSugerenciaTransferencia(p.id);
+}
+
+// --- Inventario compartido (brote 2): "hay X unidades en [Local]" ---
+// Pain point investigado: la queja más repetida en gestión multi-local es
+// justo esta — un local se queda sin stock mientras el de al lado tiene de
+// sobra, y nadie se entera hasta que el cliente ya se fue. Este banner
+// cierra esa brecha en el momento exacto en que más importa: cuando el
+// cajero ya está mirando el producto en rojo/amarillo.
+async function cargarSugerenciaTransferencia(productoId){
+  const cont = document.getElementById("oc-transfer-banner");
+  if (!cont) return;
+  const sugerencias = await (await fetch(`${API}/productos/${productoId}/sugerencias-transferencia`)).json();
+  if (!sugerencias.length) { cont.innerHTML = ""; return; }
+  cont.innerHTML = sugerencias.map(s => `
+    <div class="tag-card" style="margin-top:10px;background:var(--azul-oscuro,#1c3049);color:#fff;padding:12px 14px;text-align:left;">
+      <div style="font-size:14px;">📦 Hay <strong>${s.stockOrigen} unidades</strong> en <strong>${s.desdeNombre}</strong></div>
+      <button class="ir" style="margin-top:8px;background:#fff;color:var(--azul-oscuro,#1c3049);border-color:#fff;" onclick="solicitarTransferencia('${s.productoOrigenId}','${s.productoDestinoId}',${s.cantidadSugerida},this)">Solicitar transferencia de ${s.cantidadSugerida} unidades</button>
+    </div>
+  `).join("");
+}
+
+async function solicitarTransferencia(origenId, destinoId, cantidad, btn){
+  btn.disabled = true;
+  const res = await fetch(`${API}/transferencias`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productoOrigenId: origenId, productoDestinoId: destinoId, cantidad }) });
+  const r = await res.json();
+  if (!res.ok){ alert(r.error); btn.disabled = false; return; }
+  btn.parentElement.innerHTML = `<div style="font-size:14px;">✓ Transferencia solicitada. El dueño la aprueba desde Avanzado.</div>`;
+}
+
+async function venderUno(id){
+  const res = await fetch(`${API}/productos/${id}/venta`, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({cantidad:1})
+  });
+  const data = await res.json();
+  if (!res.ok){ alert(data.error); return; }
+  pintarFicha(data.producto);
+  if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+}
+
+let toastVentaTimer = null;
+function mostrarToastAnular(ventaId, productoId){
+  const cont = document.getElementById("oc-toast-venta");
+  if (!cont) return;
+  clearTimeout(toastVentaTimer);
+  cont.innerHTML = `<div class="tag-card" style="position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h,78px) + 16px);z-index:400;
+    background:var(--azul-oscuro,#1c3049);color:var(--blanco-calido,#fbf5e8);padding:14px 16px;border-radius:8px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;" id="oc-toast-anular">
+    <span>Venta registrada — toca aquí para anular</span>
+    <strong id="oc-toast-cuenta">5s</strong>
+  </div>`;
+  let restante = 5;
+  const el = document.getElementById("oc-toast-anular");
+  const cuenta = document.getElementById("oc-toast-cuenta");
+  const intervalo = setInterval(() => {
+    restante -= 1;
+    if (cuenta) cuenta.textContent = restante + "s";
+    if (restante <= 0) { clearInterval(intervalo); cont.innerHTML = ""; }
+  }, 1000);
+  el.addEventListener("click", async () => {
+    clearInterval(intervalo);
+    cont.innerHTML = "";
+    const res = await fetch(`${API}/ventas/${ventaId}/anular`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok){ alert(data.error); return; }
+    pintarFicha(data.producto);
+  });
+  toastVentaTimer = setTimeout(() => { clearInterval(intervalo); cont.innerHTML = ""; }, 5000);
+}
+
+async function ajustar(id, delta){
+  const res = await fetch(`${API}/productos/${id}/ajustar`, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({delta, motivo:"Ajuste manual desde panel"})
+  });
+  const data = await res.json();
+  if (!res.ok){ alert(data.error); return; }
+  pintarFicha(data);
+}
+
+// --- VISTA ETIQUETAS ---
+async function cargarEtiquetas(){
+  const res = await fetch(`${API}/productos?ubicacionId=${ubicacionActual}`);
+  const productos = await res.json();
+  const grid = document.getElementById("gridEtiquetas");
+  grid.innerHTML = productos.map(p => `
+    <div class="etiqueta-card tag-card" onclick="abrirEtiqueta('${p.id}')">
+      <div class="nombre-prod">${p.nombre}</div>
+      <div class="precio-prod">${fmtMoney(p.precio)}</div>
+      <div class="sku-prod">${p.sku}</div>
+      ${p.perecible ? `<div style="font-size:12px;font-weight:700;color:var(--rust);margin-top:4px;">🕓 Perecible</div>` : ""}
+    </div>
+  `).join("");
+}
+
+async function abrirEtiqueta(id){
+  const res = await fetch(`${API}/productos/${id}/etiqueta`);
+  const data = await res.json();
+  const p = data.producto;
+  document.getElementById("contenidoEtiqueta").innerHTML = `
+    <button class="cerrar" id="cerrarModal2">✕</button>
+    <h4>${p.nombre}</h4>
+    <div class="precio-grande">${fmtMoney(p.precio)}</div>
+    ${p.perecible && p.fechaCaducidad ? `<div style="font-size:13px;font-weight:700;color:var(--rust);">Vence: ${p.fechaCaducidad}</div>` : ""}
+    <div class="codigo">${p.barcode}</div>
+    <div class="barras" id="barrasClicable" style="cursor:pointer;position:relative;" title="Toca para imprimir o guardar solo el código de barras">${data.barcodeSvg || ""}</div>
+    <div style="font-size:11px;color:var(--azul-medio,#2c4a68);margin-top:-6px;">👆 Toca el código de barras para imprimirlo o guardarlo solo</div>
+    <img src="${data.qrDataUrl}" width="160" height="160" alt="QR del producto">
+    <div style="font-size:13px; color:var(--azul-medio);">Escanea para ver la ficha completa</div>
+    <br>
+    <button class="imprimir" onclick="window.print()">Imprimir etiqueta completa</button>
+  `;
+  document.getElementById("modalEtiqueta").classList.add("activo");
+  document.getElementById("cerrarModal2").addEventListener("click", cerrarModalEtiqueta);
+  document.getElementById("barrasClicable").addEventListener("click", (e) => mostrarMenuBarcode(e, data.barcodeSvg, p));
+}
+
+function mostrarMenuBarcode(e, svgBarcode, producto){
+  document.getElementById("oc-menu-barcode")?.remove();
+  const menu = document.createElement("div");
+  menu.id = "oc-menu-barcode";
+  menu.style.cssText = "position:fixed;z-index:10000;background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.35);padding:8px;display:flex;flex-direction:column;gap:4px;min-width:220px;";
+  const rect = e.target.closest("#barrasClicable").getBoundingClientRect();
+  menu.style.left = Math.max(8, rect.left) + "px";
+  menu.style.top = (rect.bottom + 8) + "px";
+  menu.innerHTML = `
+    <button id="oc-mb-imprimir" style="text-align:left;padding:10px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:14px;color:var(--ink,#211c14);">🖨️ Imprimir solo el código</button>
+    <button id="oc-mb-guardar" style="text-align:left;padding:10px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:14px;color:var(--ink,#211c14);">💾 Guardar como imagen</button>
+  `;
+  document.body.appendChild(menu);
+  const cerrar = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener("click", cerrar, true); } };
+  setTimeout(() => document.addEventListener("click", cerrar, true), 0);
+
+  document.getElementById("oc-mb-imprimir").addEventListener("click", () => {
+    menu.remove();
+    imprimirSoloBarcode(svgBarcode, producto);
+  });
+  document.getElementById("oc-mb-guardar").addEventListener("click", () => {
+    menu.remove();
+    guardarBarcodeComoImagen(svgBarcode, producto);
+  });
+}
+
+function imprimirSoloBarcode(svgBarcode, producto){
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+  document.body.appendChild(iframe);
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(`<!DOCTYPE html><html><head><title>${producto.nombre}</title><style>
+    body{margin:0;padding:24px;text-align:center;font-family:sans-serif;}
+    svg{max-width:100%;height:auto;}
+    p{font-size:14px;margin-top:8px;letter-spacing:2px;}
+  </style></head><body>${svgBarcode}<p>${producto.barcode}</p></body></html>`);
+  doc.close();
+  iframe.onload = () => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+    setTimeout(() => iframe.remove(), 1000);
+  };
+}
+
+function guardarBarcodeComoImagen(svgBarcode, producto){
+  const svgBlob = new Blob([svgBarcode], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = () => {
+    const escala = 3;
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width * escala;
+    canvas.height = img.height * escala;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+    canvas.toBlob((blob) => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `barcode-${producto.sku || producto.barcode}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }, "image/png");
+  };
+  img.src = url;
+}
+
+function cerrarModalEtiqueta(){
+  document.getElementById("modalEtiqueta").classList.remove("activo");
+}
+document.getElementById("cerrarModal").addEventListener("click", cerrarModalEtiqueta);
+document.getElementById("modalEtiqueta").addEventListener("click", (e) => {
+  if (e.target.id === "modalEtiqueta") cerrarModalEtiqueta();
+});
+
+// --- VISTA ACTIVIDAD ---
+async function cargarActividad(){
+  const res = await fetch(`${API}/actividad`);
+  const items = await res.json();
+  const cont = document.getElementById("listaActividad");
+  if (items.length === 0){
+    cont.innerHTML = `<p>Todavía no hay actividad registrada en esta sesión.</p>`;
+    return;
+  }
+  cont.innerHTML = items.map(it => `
+    <div class="actividad-item">
+      <div class="tipo">${it.tipo}</div>
+      <div>${JSON.stringify(it.detalle)}</div>
+      <div style="color:var(--azul-medio);">${new Date(it.fecha).toLocaleString()}</div>
+    </div>
+  `).join("");
+}
+
+// --- VISTA LIQUIDACIONES (brote 1: revenue sharing) ---
+async function cargarLiquidaciones(){
+  const cont = document.getElementById("listaLiquidaciones");
+  const filas = await (await fetch(`${API}/liquidaciones`)).json();
+  if (filas.length === 0){
+    cont.innerHTML = `<p>Todavía no tienes ubicaciones de tipo socio, franquicia o consignación. Créalas en Avanzado → Ubicaciones.</p>`;
+    return;
+  }
+  cont.innerHTML = filas.map(f => `
+    <div class="tag-card" style="text-align:left;margin-bottom:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <strong style="font-size:16px;">${f.ubicacion}</strong>
+        <span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${f.estado}</span>
+      </div>
+      ${f.metaMensual ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Meta del mes: ${fmtMoney(f.metaMensual)} · Cumplido: ${f.cumplimientoMeta}%</div>` : ""}
+      <table style="width:100%;margin-top:10px;font-size:14px;">
+        <tr><td>Ventas del mes</td><td style="text-align:right;">${fmtMoney(f.ventasBrutas)}</td></tr>
+        <tr><td><strong>Comisión del socio</strong></td><td style="text-align:right;"><strong>${fmtMoney(f.comisionSocio)}</strong></td></tr>
+        <tr><td>Neto para el dueño</td><td style="text-align:right;">${fmtMoney(f.netoDueno)}</td></tr>
+      </table>
+      ${f.estado === "pendiente" ? `<button class="ir" style="margin-top:10px;background:var(--verde,#2f7a4f);color:#fff;border-color:var(--verde,#2f7a4f);" onclick="marcarLiquidacionPagada('${f.ubicacionId}')">✓ Marcar como pagado (${f.ventasPendientes} ventas)</button>` : ""}
+    </div>
+  `).join("");
+}
+
+async function marcarLiquidacionPagada(ubicacionId){
+  if (!confirm("¿Confirmas que ya le pagaste al socio lo que corresponde este mes?")) return;
+  const res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST" });
+  if (res.ok) cargarLiquidaciones();
+}
+
+// --- VISTA AVANZADO ---
+async function cargarGastosMensuales(){
+  const input = document.getElementById("inputGastosMensuales");
+  const msg = document.getElementById("msgGastos");
+  const btn = document.getElementById("btnGuardarGastos");
+  const selectorWrap = document.getElementById("gastosSelectorWrap");
+  msg.textContent = "";
+
+  const res = await fetch(`${API}/configuracion/gastos?ubicacionId=${ubicacionActual}`);
+  const data = await res.json();
+  input.value = data.gastosMensuales;
+
+  if (ubicacionActual === "todas"){
+    input.disabled = true;
+    btn.disabled = true;
+    msg.textContent = `Este número es la suma de ${fmtMoney(data.gastosMensuales)} entre todas tus ubicaciones. Elige una abajo para editarla.`;
+    // Antes esto solo mostraba un mensaje y el dueño tenía que acordarse de
+    // subir hasta el selector del header — muchos pensaban que la caja
+    // estaba rota. Ahora el selector vive aquí mismo, al lado del problema.
+    selectorWrap.style.display = "block";
+    const sel = document.getElementById("gastosUbicSelector");
+    sel.innerHTML = ubicaciones.map(u => `<option value="${u.id}">${u.nombre}</option>`).join("");
+    if (!sel.dataset.ocListo) {
+      sel.dataset.ocListo = "1";
+      sel.addEventListener("change", () => {
+        document.getElementById("selectUbicacion").value = sel.value;
+        ubicacionActual = sel.value;
+        cargarGastosMensuales();
+      });
+    }
+  } else {
+    input.disabled = false;
+    btn.disabled = false;
+    selectorWrap.style.display = "none";
+  }
+}
+
+document.getElementById("btnGuardarGastos").addEventListener("click", async () => {
+  const input = document.getElementById("inputGastosMensuales");
+  const msg = document.getElementById("msgGastos");
+  const res = await fetch(`${API}/configuracion/gastos`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ ubicacionId: ubicacionActual, gastosMensuales: Number(input.value) })
+  });
+  const data = await res.json();
+  if (!res.ok){
+    msg.style.color = "var(--rojo)";
+    msg.textContent = data.error;
+    return;
+  }
+  msg.style.color = "var(--verde)";
+  msg.textContent = "Guardado. Actualizando el P&G...";
+  cargarAvanzado();
+});
+
+async function cargarAvanzado(){
+  await cargarGastosMensuales();
+  await cargarActividad();
+  const [pl, balance, valorizado] = await Promise.all([
+    fetch(`${API}/reportes/pl?ubicacionId=${ubicacionActual}`).then(r => r.json()),
+    fetch(`${API}/reportes/balance?ubicacionId=${ubicacionActual}`).then(r => r.json()),
+    fetch(`${API}/reportes/valorizado?ubicacionId=${ubicacionActual}`).then(r => r.json()),
+  ]);
+
+  document.getElementById("tablaPL").innerHTML = `
+    <tr><th>Concepto</th><th>Monto</th></tr>
+    <tr><td>Ventas cobradas (con IVA)</td><td>${fmtMoney(pl.ingresosConIva)}</td></tr>
+    <tr><td>IVA cobrado (15%, se liquida al SRI)</td><td>${fmtMoney(pl.ivaCobrado)}</td></tr>
+    <tr><td>Ingresos netos (sin IVA)</td><td>${fmtMoney(pl.ingresos)}</td></tr>
+    <tr><td>Costo de ventas</td><td>${fmtMoney(pl.costoVentas)}</td></tr>
+    <tr><td>Utilidad bruta</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>
+    <tr><td>Gastos operativos</td><td>${fmtMoney(pl.gastosOperativos)}</td></tr>
+    <tr><td><strong>Utilidad neta</strong></td><td><strong>${fmtMoney(pl.utilidadNeta)}</strong></td></tr>
+  `;
+
+  document.getElementById("tablaBalance").innerHTML = `
+    <tr><th>Concepto</th><th>Monto</th></tr>
+    <tr><td>Ingresos del día estimados</td><td>${fmtMoney(balance.activos.efectivoEstimado)}</td></tr>
+    <tr><td>Inventario valorizado</td><td>${fmtMoney(balance.activos.inventarioValorizado)}</td></tr>
+    <tr><td><strong>Total activos</strong></td><td><strong>${fmtMoney(balance.activos.total)}</strong></td></tr>
+  `;
+
+  document.getElementById("tablaValorizado").innerHTML = `
+    <tr><th>Producto</th><th>Stock</th><th>Valor costo</th><th>Valor venta</th><th>Utilidad potencial</th></tr>
+    ${valorizado.productos.map(p => `
+      <tr>
+        <td>${p.nombre}</td>
+        <td>${p.stockActual}</td>
+        <td>${fmtMoney(p.valorCosto)}</td>
+        <td>${fmtMoney(p.valorVenta)}</td>
+        <td>${fmtMoney(p.utilidadPotencial)}</td>
+      </tr>
+    `).join("")}
+    <tr>
+      <td><strong>Total</strong></td>
+      <td></td>
+      <td><strong>${fmtMoney(valorizado.totales.valorCosto)}</strong></td>
+      <td><strong>${fmtMoney(valorizado.totales.valorVenta)}</strong></td>
+      <td><strong>${fmtMoney(valorizado.totales.utilidadPotencial)}</strong></td>
+    </tr>
+  `;
+}
+
+// --- Init ---
+// Reintenta una vez antes de rendirse (ver nota igual en Olimpo Control):
+// en la demo estática, mock-backend.js se carga externo y en red lenta puede
+// no haber interceptado fetch() a tiempo. El mensaje final nunca debe hablar
+// de "server.js" cuando window.OC_DEMO está activo (seteado por mock-backend.js).
+async function cargarDashboardInicial(intento){
+  try{
+    await cargarUbicaciones();
+    await cargarHoy();
+  }catch(err){
+    if (!intento) {
+      await new Promise((r) => setTimeout(r, 400));
+      return cargarDashboardInicial(1);
+    }
+    console.error("No se pudo cargar el panel inicial:", err);
+    const hero = document.getElementById("heroSemaforo");
+    hero.className = "hero-semaforo tag-card amarillo";
+    if (window.OC_DEMO) {
+      document.getElementById("heroTitulo").textContent = "Cargando la demo…";
+      document.getElementById("heroSubtitulo").textContent = "Si esto no cambia en unos segundos, recarga la página.";
+    } else {
+      document.getElementById("heroTitulo").textContent = "No se pudo conectar con el servidor.";
+      document.getElementById("heroSubtitulo").textContent = "Verifica que el backend (server.js) esté corriendo y vuelve a cargar la página.";
+    }
+  }
+}
+cargarDashboardInicial(0);
+</script>
+
+<script>
+// crypto-store.js — Almacenamiento local cifrado, sin servidor, sin librerías.
+// Usa WebCrypto (nativo del navegador, gratis y estándar) para que las claves
+// de acceso y el correo de recuperación NUNCA se guarden en texto plano en
+// localStorage. Antes, cualquiera con DevTools abierto (o un vecino con
+// acceso físico al equipo) podía leer "oc_auth" y ver los 3 PINs y el correo
+// tal cual. Ahora solo se guardan HASHES (no reversibles) de cada PIN para
+// poder validarlos, y el correo va cifrado con AES-256-GCM bajo una llave
+// derivada del PIN del dueño (PBKDF2, 150k iteraciones, SHA-256).
+//
+// Esto es "nivel nostr" en el sentido que importa para un negocio: cifrado
+// de extremo a extremo en el cliente, sin que ningún servidor (porque no hay
+// servidor) ni un atacante con el archivo de datos pueda leer nada sin el PIN
+// correcto. No es un keypair nostr real (eso es overkill para una sola
+// terminal) — si más adelante se necesita sincronizar entre dispositivos o
+// identidad firmada, este módulo es el lugar para añadir secp256k1.
+//
+// NOTA sobre el correo de recuperación: a propósito NO se cifra bajo el PIN.
+// Si lo cifráramos bajo el PIN del dueño, el flujo "olvidé mi clave" quedaría
+// roto (haría falta el PIN para leer el correo que sirve para recuperar el
+// PIN). Por diseño (spec confirmado del proyecto) el correo se guarda en
+// claro pero se OFUSCA en toda la interfaz (ej. j••••@gmail.com); lo
+// sensible que de verdad protegemos con criptografía fuerte son los 3 PINs,
+// que solo se guardan como hash irreversible — nunca se necesita leerlos de
+// vuelta, solo compararlos.
+//
+// Formato guardado en localStorage["oc_secure"]:
+//   {
+//     v: 1,
+//     salt: <base64>,            // salt PBKDF2, no es secreto, solo evita rainbow tables
+//     ownerHash: <base64>,       // verificador del PIN del dueño (no se puede revertir)
+//     employeeHashes: [<base64>, ...],
+//     acctHash: <base64>,        // verificador de la subclave contable
+//     email: <string>            // correo de recuperación, en claro, SOLO ofuscado en UI
+//   }
+//
+// ===========================================================================
+// CÓDIGO MAESTRO (JFC, 2026-06-30) — candado de "reasignar correo"
+// ---------------------------------------------------------------------------
+// JFC es "master admin" de todos los negocios que corren esta app. Retiene
+// SOLO una habilidad especial: dejar que un dueño vuelva a registrar su
+// correo de recuperación DESPUÉS de identificarlo en persona/videollamada
+// (evita que cualquiera con acceso al dispositivo del dueño secuestre la
+// cuenta cambiando el correo a uno propio). Mientras haya un correo ya
+// registrado, cambiarlo exige este código maestro; si NO hay correo (primera
+// vez), el dueño lo registra libremente, sin necesitar a JFC.
+//
+// LIMITACIÓN HONESTA: como esta es una app 100% cliente sin servidor, este
+// código vive embebido en el JS — cualquiera que lea el código fuente puede
+// verlo (aunque solo se guarda su HASH, no en texto plano). Es la única forma
+// de tener un "candado maestro" sin backend. Por eso el default de abajo debe
+// cambiarse por negocio si JFC quiere aislar el riesgo entre clientes.
+//
+// CAMBIAR ESTE CÓDIGO: edita MASTER_CODE_DEFAULT antes de entregar la app a
+// cada nuevo negocio (o dile a JFC su código actual si no lo recuerda — sin
+// él, ni siquiera JFC puede reasignar un correo ya registrado en ese negocio).
+// ===========================================================================
+const MASTER_CODE_DEFAULT = "POSCUENCA-MAESTRO-2026";
+
+(function () {
+  const enc = new TextEncoder();
+  const dec = new TextDecoder();
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+  async function importPinKey(pin) {
+    return crypto.subtle.importKey("raw", enc.encode(String(pin)), "PBKDF2", false, ["deriveBits", "deriveKey"]);
+  }
+
+  // info: etiqueta de contexto ("owner"|"emp"|"acct"|"vault") para que el mismo
+  // PIN nunca derive la misma llave/hash en dos roles distintos.
+  async function deriveBits(pin, saltB64, info, bits) {
+    const base = await importPinKey(pin);
+    const salt = enc.encode(info + ":" + saltB64); // mezcla salt + contexto
+    return crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 150000, hash: "SHA-256" }, base, bits);
+  }
+
+  async function hashPin(pin, saltB64, info) {
+    const bits = await deriveBits(pin, saltB64, info, 256);
+    return b64(bits);
+  }
+
+  function randSalt() { return b64(crypto.getRandomValues(new Uint8Array(16))); }
+
+  // ---- migración silenciosa desde el formato viejo en texto plano (oc_auth) ----
+  // Si el propietario ya había configurado sus claves/correo antes de este cambio, NO se
+  // pierden ni se resetean: se migran tal cual a oc_secure en el primer load.
+  async function migrarSiHaceFalta() {
+    if (localStorage.getItem("oc_secure")) return;
+    let viejo = null;
+    try { viejo = JSON.parse(localStorage.getItem("oc_auth") || "null"); } catch {}
+    const DEF = { owner: "159", empleados: ["260"], acct: "357", email: "" };
+    const base = viejo || DEF;
+    await guardarSecreto(base.owner, base.empleados || [], base.acct, base.email || "");
+    localStorage.removeItem("oc_auth"); // ya no queda nada en texto plano
+  }
+
+  async function guardarSecreto(ownerPin, empleadosPins, acctPin, email) {
+    const salt = randSalt();
+    const ownerHash = await hashPin(ownerPin, salt, "owner");
+    const employeeHashes = [];
+    for (const p of empleadosPins) employeeHashes.push(await hashPin(p, salt, "emp"));
+    const acctHash = await hashPin(acctPin, salt, "acct");
+    localStorage.setItem("oc_secure", JSON.stringify({ v: 1, salt, ownerHash, employeeHashes, acctHash, email: email || "" }));
+  }
+
+  function leerSecreto() {
+    try { return JSON.parse(localStorage.getItem("oc_secure")); } catch { return null; }
+  }
+
+  // Verifica un PIN de 3 dígitos contra un rol ("owner"|"acct") o la lista de empleados.
+  async function verificarOwner(pin) {
+    const s = leerSecreto(); if (!s) return false;
+    return (await hashPin(pin, s.salt, "owner")) === s.ownerHash;
+  }
+  async function verificarEmpleado(pin) {
+    const s = leerSecreto(); if (!s) return false;
+    const h = await hashPin(pin, s.salt, "emp");
+    return (s.employeeHashes || []).includes(h);
+  }
+  async function verificarAcct(pin) {
+    const s = leerSecreto(); if (!s) return false;
+    return (await hashPin(pin, s.salt, "acct")) === s.acctHash;
+  }
+  function leerCorreo() {
+    const s = leerSecreto();
+    return s ? (s.email || "") : "";
+  }
+  // Actualiza solo el correo, sin tocar salt/hashes de los PINs. Solo debe
+  // llamarse: (a) cuando NO hay correo previo (primer registro, libre), o
+  // (b) tras verificarMaestro() exitoso (re-registro, requiere a JFC). La UI
+  // (avanzado-extra.js) es responsable de aplicar esa regla — esta función
+  // en sí no lo impone, para no acoplar la capa de datos con la capa de UI.
+  function actualizarCorreo(email) {
+    const s = leerSecreto(); if (!s) return;
+    s.email = email || "";
+    localStorage.setItem("oc_secure", JSON.stringify(s));
+  }
+
+  // ---- Código maestro (ver nota arriba) ----
+  // Hash simple SHA-256 con sal fija embebida — no es PBKDF2 porque el código
+  // maestro es una frase larga (alta entropía), no un PIN de 3 dígitos
+  // vulnerable a fuerza bruta; SHA-256 simple es suficiente y no reproduce el
+  // mismo hash que cualquier otro campo del sistema.
+  async function hashMaestro(codigo) {
+    const bits = await crypto.subtle.digest("SHA-256", enc.encode("oc-master:" + codigo));
+    return b64(bits);
+  }
+  function leerHashMaestroGuardado() {
+    const s = leerSecreto();
+    return s && s.masterHash ? s.masterHash : null;
+  }
+  async function verificarMaestro(codigo) {
+    const guardado = leerHashMaestroGuardado();
+    const hashIngresado = await hashMaestro(codigo);
+    if (guardado) return hashIngresado === guardado;
+    // Si todavía no se guardó un hash propio (negocio recién migrado), se
+    // compara contra el default de fábrica — así JFC siempre puede entrar
+    // con MASTER_CODE_DEFAULT aunque el negocio nunca lo haya personalizado.
+    return hashIngresado === (await hashMaestro(MASTER_CODE_DEFAULT));
+  }
+  // Permite fijar un código maestro propio por negocio (JFC, no el dueño).
+  async function fijarCodigoMaestro(codigoNuevo) {
+    const s = leerSecreto(); if (!s) return;
+    s.masterHash = await hashMaestro(codigoNuevo);
+    localStorage.setItem("oc_secure", JSON.stringify(s));
+  }
+
+  // ---- Reseteo de acceso por correo ("olvidé mi clave") ----
+  // Flujo: 1) generarCodigoReset() crea un código de 6 dígitos con vencimiento
+  // de 15 min y lo guarda (solo su hash) en localStorage["oc_reset"]; el
+  // código EN CLARO se devuelve una sola vez para que quien llama lo mande
+  // por correo (ver email-recovery.js). 2) El dueño ingresa ese código + un
+  // PIN nuevo. 3) resetearConCodigo() verifica el código, ROTA TODO (nuevo
+  // salt) porque el diseño de este archivo usa un salt compartido entre los
+  // 3 roles — no se puede cambiar solo el PIN del dueño manteniendo los
+  // hashes de empleado/contable bajo el salt viejo. Por eso también se
+  // generan códigos nuevos de empleado y contable, que se devuelven UNA VEZ
+  // para que la UI se los muestre al dueño ("apunta estos códigos nuevos").
+  function randDigits(n) {
+    let s = "";
+    for (let i = 0; i < n; i++) s += Math.floor(Math.random() * 10);
+    return s;
+  }
+  async function generarCodigoReset() {
+    const codigo = randDigits(6);
+    const salt = randSalt();
+    const codeHash = await hashPin(codigo, salt, "reset");
+    localStorage.setItem("oc_reset", JSON.stringify({ codeHash, salt, expiresAt: Date.now() + 15 * 60 * 1000 }));
+    return codigo; // en claro, solo para que quien llama lo envíe por correo
+  }
+  function leerReset() {
+    try { return JSON.parse(localStorage.getItem("oc_reset")); } catch { return null; }
+  }
+  async function resetearConCodigo(codigoIngresado, nuevoOwnerPin) {
+    const r = leerReset();
+    if (!r) return { error: "No hay ningún reseteo pendiente. Pide un código nuevo." };
+    if (Date.now() > r.expiresAt) { localStorage.removeItem("oc_reset"); return { error: "El código venció (15 min). Pide uno nuevo." }; }
+    const hashIngresado = await hashPin(codigoIngresado, r.salt, "reset");
+    if (hashIngresado !== r.codeHash) return { error: "Código incorrecto." };
+    const correoActual = leerCorreo();
+    const nuevoEmpleado = randDigits(3);
+    const nuevoAcct = randDigits(3);
+    await guardarSecreto(nuevoOwnerPin, [nuevoEmpleado], nuevoAcct, correoActual);
+    localStorage.removeItem("oc_reset");
+    return { ok: true, empleado: nuevoEmpleado, acct: nuevoAcct };
+  }
+
+  window.OCSecure = {
+    migrarSiHaceFalta, guardarSecreto, verificarOwner, verificarEmpleado, verificarAcct, leerCorreo, actualizarCorreo,
+    verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo,
+  };
+})();
+
+</script>
+<script>
+// email-recovery.js — Envío real del código de reseteo por correo, usando
+// EmailJS (servicio gratuito hasta 200 correos/mes, diseñado para apps sin
+// backend: todo corre en el navegador con una "public key", no hace falta
+// servidor ni SMTP propio). Sin esto, "olvidé mi clave" solo podría MOSTRAR
+// el código en pantalla — con esto llega de verdad al correo del dueño.
+//
+// ===========================================================================
+// CONFIGURACIÓN PENDIENTE (JFC) — sin esto el correo NO se envía
+// ---------------------------------------------------------------------------
+// 1. Crea una cuenta gratis en https://www.emailjs.com
+// 2. Conecta un servicio de correo (Gmail, Outlook, etc.) → te da un
+//    "Service ID" (ej. "service_abc123")
+// 3. Crea un template de email con estas variables: {{to_email}} y
+//    {{codigo}} — ej: "Tu código de recuperación de Olimpo Control es:
+//    {{codigo}}. Vence en 15 minutos." → te da un "Template ID"
+// 4. En "Account" → "General" copia tu "Public Key"
+// 5. Pega los 3 valores abajo, en EMAILJS_CONFIG. Repite esto (con su propio
+//    template si quieres) en cada negocio/repo — este archivo es idéntico en
+//    todos, solo cambia esta configuración.
+// Mientras EMAILJS_CONFIG tenga los placeholders de abajo, el sistema cae en
+// modo "mostrar el código en pantalla" automáticamente (ver enviarCodigo) —
+// nunca falla en seco ni miente diciendo que se envió un correo que no salió.
+// ===========================================================================
+const EMAILJS_CONFIG = {
+  serviceId: "TU_SERVICE_ID",
+  templateId: "TU_TEMPLATE_ID",
+  publicKey: "TU_PUBLIC_KEY",
+};
+
+(function () {
+  function configurado() {
+    return !Object.values(EMAILJS_CONFIG).some((v) => v.startsWith("TU_"));
+  }
+
+  let emailjsListo = null;
+  function cargarEmailJS() {
+    if (emailjsListo) return emailjsListo;
+    emailjsListo = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js";
+      s.onload = () => { window.emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey }); resolve(); };
+      s.onerror = () => reject(new Error("No se pudo cargar EmailJS (¿sin internet?)."));
+      document.head.appendChild(s);
+    });
+    return emailjsListo;
+  }
+
+  // Devuelve { enviado: true } si el correo salió de verdad, o
+  // { enviado: false, codigo } si no hay configuración de EmailJS todavía
+  // (modo de respaldo: se muestra el código en pantalla, nunca se pierde el
+  // flujo de recuperación por falta de configuración).
+  async function enviarCodigo(email, codigo) {
+    if (!configurado()) return { enviado: false, codigo };
+    try {
+      await cargarEmailJS();
+      await window.emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, { to_email: email, codigo });
+      return { enviado: true };
+    } catch (err) {
+      console.error("EmailJS falló, se muestra el código en pantalla como respaldo:", err);
+      return { enviado: false, codigo };
+    }
+  }
+
+  window.OCEmailRecovery = { enviarCodigo, configurado };
+})();
+
+</script>
+<script>
+// auth-ui.js — Control de acceso de Olimpo Control (100% en el navegador,
+// sin servidor: las claves viven en localStorage). Dos capas claramente
+// separadas: DUEÑO y EMPLEADO. Dentro de la del dueño, la info contable
+// (cuentas T, P&L, balance) queda detrás de una SUBCLAVE aparte.
+//
+// ===========================================================================
+// NOTAS DE DISEÑO (no visibles al usuario — comentarios de mantenimiento)
+// ---------------------------------------------------------------------------
+// La clave es un PIN de 3 DÍGITOS. El backbone real y lo que se compara es el
+// número (ej. "159"). Cada tecla del pad MUESTRA su dígito (el usuario ve y
+// toca dígitos) y, como adorno, unos emojis.
+//
+// SEGURIDAD / por qué los emojis se BARAJAN en cada carga:
+//   En la versión anterior cada dígito tenía un TRÍO FIJO de emojis. Eso era
+//   un fallo: el trío fijo ERA el dígito a la vista de cualquiera (delataba el
+//   código). Ahora los emojis se reparten aleatoriamente entre las teclas en
+//   cada apertura del candado (son intercambiables, no forman un grupo fijo
+//   por dígito) y las casillas de la clave se ENMASCARAN con ● al ingresar.
+//   Así ni el adorno ni las casillas revelan el código interno.
+//
+// Si en el futuro JFC quiere que la clave se ingrese por emojis en vez de por
+// dígitos, el cambio es: mapear cada emoji tocado a su dígito subyacente. Hoy
+// se ingresa por dígito (lo pidió explícitamente: "agrega dígitos").
+//
+// SEGURIDAD DE LOS PINS (crypto-store.js, cargar ANTES que este archivo):
+//   Los 3 PINs (dueño, empleado(s), subclave contable) ya NO viven en texto
+//   plano en localStorage. Se validan contra hashes PBKDF2 vía window.OCSecure
+//   — ver crypto-store.js para el detalle. Este archivo solo orquesta la UI y
+//   llama a OCSecure para verificar/guardar; nunca compara strings de PIN
+//   directamente.
+// ===========================================================================
+(function () {
+  // Pool de emojis de adorno — emojis de oficina/negocios, apropiados para
+  // un sistema contable y de inventarios. Retrocompatibles: PINs numéricos.
+  const EMOJI_POOL = [
+    "💼", "📊", "📋", "📁", "🗂️", "📌", "📎", "📝", "🖊️", "✏️",
+    "🔑", "🔒", "💰", "📦", "🏷️", "⚖️", "🔍", "🖨️", "📞", "📱",
+    "🏢", "💡", "⏰", "📅", "🗓️", "💳",
+  ];
+
+  // Fisher-Yates: baraja una copia del arreglo (no muta el original).
+  function barajar(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  let rol = null; // "dueno" | "empleado"
+  let listo = window.OCSecure.migrarSiHaceFalta(); // promesa: migra oc_auth viejo (si existe) sin perder lo que el propietario ya configuró
+
+  // ---------------------------------------------------------------------------
+  // BLOQUEO POR FUERZA BRUTA (tronco 1 del árbol de problemas, JFC 2026-06-30)
+  // ---------------------------------------------------------------------------
+  // Al 5º intento fallido seguido, el teclado se bloquea 60s con cuenta
+  // regresiva visible. Se guarda en sessionStorage (no localStorage) a
+  // propósito: sobrevive a una recarga de página DURANTE el bloqueo (no es
+  // una forma de saltárselo — recargar no libera el candado antes de tiempo),
+  // pero se limpia solo si se cierra la pestaña, lo cual es aceptable porque
+  // reabrir la pestaña no es un vector de fuerza bruta realista en un POS
+  // físico. La ÚNICA forma de destrabarlo es que pasen los 60s de verdad; NO
+  // hay botón de "reintentar" que lo salte.
+  const BLOQUEO_TRAS_INTENTOS = 5;
+  const BLOQUEO_DURACION_MS = 60 * 1000;
+  function leerIntentos() {
+    try { return JSON.parse(sessionStorage.getItem("oc_intentos")) || { fallos: 0, bloqueadoHasta: 0 }; }
+    catch { return { fallos: 0, bloqueadoHasta: 0 }; }
+  }
+  function guardarIntentos(x) { sessionStorage.setItem("oc_intentos", JSON.stringify(x)); }
+  function registrarFallo() {
+    const st = leerIntentos();
+    st.fallos += 1;
+    if (st.fallos >= BLOQUEO_TRAS_INTENTOS) { st.bloqueadoHasta = Date.now() + BLOQUEO_DURACION_MS; st.fallos = 0; }
+    guardarIntentos(st);
+  }
+  function registrarExito() { sessionStorage.removeItem("oc_intentos"); }
+  function msRestantesBloqueo() {
+    const st = leerIntentos();
+    return Math.max(0, st.bloqueadoHasta - Date.now());
+  }
+
+  // ---------- CSS ----------
+  const css = document.createElement("style");
+  css.textContent = `
+  #oc-gate{position:fixed;inset:0;z-index:9999;background:var(--azul-oscuro,#1c3049);
+    display:flex;align-items:center;justify-content:center;padding:20px;}
+  #oc-gate .caja{background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);
+    border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;}
+  #oc-gate h2{font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;}
+  #oc-gate .sub{font-size:14px;color:var(--ink-soft,#5d5340);margin-bottom:18px;}
+  .oc-slots{display:flex;gap:10px;justify-content:center;margin-bottom:16px;}
+  .oc-slots .slot{width:58px;height:58px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;
+    display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--crema,#f3e8cd);color:var(--ink,#211c14);}
+  .oc-slots .slot.lleno{border-color:var(--rust,#b2461f);}
+  .oc-pad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+  .oc-pad button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    padding:8px 4px;border:2px solid var(--ink,#211c14);border-radius:6px;background:var(--crema,#f3e8cd);
+    cursor:pointer;min-height:54px;}
+  .oc-pad button .dig{font-family:var(--font-display,sans-serif);font-weight:700;font-size:20px;color:var(--ink,#211c14);line-height:1;}
+  .oc-pad button .emo{font-size:13px;line-height:1;}
+  .oc-pad button:active{transform:translateY(1px);}
+  .oc-acciones{display:flex;gap:8px;margin-top:14px;}
+  .oc-acciones button{flex:1;font-family:var(--font-display,sans-serif);font-size:14px;padding:12px;
+    border-radius:6px;border:2px solid var(--azul-medio,#2c4a68);background:var(--blanco-calido,#fbf5e8);
+    color:var(--azul-medio,#2c4a68);cursor:pointer;min-height:44px;text-transform:uppercase;}
+  .oc-msg{min-height:20px;font-size:14px;font-weight:700;color:var(--rojo,#a3392a);margin-top:12px;}
+  #oc-gate.err .caja,.oc-subgate.err .caja{animation:ocshake .35s;}
+  @keyframes ocshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+  #oc-logout{font-family:var(--font-display,sans-serif);font-size:13px;padding:8px 12px;border-radius:5px;
+    border:2px solid var(--brass,#9c7a35);background:transparent;color:var(--blanco-calido,#fbf5e8);
+    cursor:pointer;text-transform:uppercase;}
+  body.rol-empleado nav button[data-vista="avanzado"],
+  body.rol-empleado nav button[data-vista="liquidaciones"]{display:none!important;}
+  #oc-acct-lock{text-align:center;padding:22px;}
+  #oc-acct-lock button{font-family:var(--font-display,sans-serif);font-size:14px;padding:12px 20px;
+    border-radius:6px;border:2px solid var(--rust,#b2461f);background:var(--rust,#b2461f);
+    color:var(--blanco-calido,#fbf5e8);cursor:pointer;min-height:44px;}
+  .oc-subgate{position:fixed;inset:0;z-index:9999;background:rgba(28,48,73,0.92);
+    display:flex;align-items:center;justify-content:center;padding:20px;}
+  `;
+  document.head.appendChild(css);
+
+  // ---------------------------------------------------------------------------
+  // Construye un teclado de PIN reutilizable (lo usan el candado principal y el
+  // de la subclave contable). Cada vez que se llama, BARAJA los emojis de
+  // adorno entre las teclas. Las teclas muestran el dígito (lo que el usuario
+  // toca) más emojis decorativos.
+  //   padEl   : contenedor del grid de teclas
+  //   slotsEl : contenedor de las 3 casillas (se enmascaran con ●)
+  //   onComplete(code) : callback cuando se ingresan 3 dígitos
+  // Devuelve un objeto { reset } para limpiar la entrada.
+  // ---------------------------------------------------------------------------
+  function montarTeclado(padEl, slotsEl, onComplete) {
+    let entrada = [];
+    const pool = barajar(EMOJI_POOL); // adorno barajado por sesión de teclado
+    // Render de teclas 0-9 (dígitos en orden, visibles). A cada tecla le toca
+    // un emoji distinto del pool barajado (intercambiable, no fijo por dígito).
+    padEl.innerHTML = "";
+    for (let d = 0; d <= 9; d++) {
+      const b = document.createElement("button");
+      b.dataset.d = String(d);
+      b.innerHTML = `<span class="dig">${d}</span><span class="emo">${pool[d % pool.length]}</span>`;
+      padEl.appendChild(b);
+    }
+    const slots = () => slotsEl.querySelectorAll(".slot");
+    function pintar() {
+      slots().forEach((s, i) => {
+        if (entrada[i] != null) { s.textContent = "●"; s.classList.add("lleno"); } // enmascarado: no delata
+        else { s.textContent = ""; s.classList.remove("lleno"); }
+      });
+    }
+    // BUG FIJADO: montarTeclado() se vuelve a llamar en cada reintento (un PIN
+    // equivocado re-baraja el teclado). Antes esto hacía padEl.addEventListener
+    // de nuevo cada vez, ACUMULANDO listeners sobre el mismo nodo persistente
+    // (#oc-pad / #oc-pad2 nunca se recrean, solo su innerHTML). Resultado: tras
+    // N intentos fallidos, el siguiente PIN correcto disparaba validar()/
+    // alCompletar() N+1 veces en paralelo. Fix: el listener se monta UNA sola
+    // vez por nodo (guardado en un dataset flag) y lee el callback/estado
+    // vigente desde padEl._ocTeclado, que cada llamada a montarTeclado() sí
+    // reemplaza por completo.
+    padEl._ocTeclado = { entrada: () => entrada, push: (d) => entrada.push(d), pintar, onComplete };
+    if (!padEl.dataset.ocListenerMontado) {
+      padEl.dataset.ocListenerMontado = "1";
+      padEl.addEventListener("click", (e) => {
+        const st = padEl._ocTeclado; // siempre el estado de la montada MÁS RECIENTE
+        const b = e.target.closest("button[data-d]"); if (!b || st.entrada().length >= 3) return;
+        st.push(Number(b.dataset.d));
+        st.pintar();
+        if (st.entrada().length === 3) { const code = st.entrada().join(""); setTimeout(() => st.onComplete(code), 150); }
+      });
+    }
+    pintar();
+    return { reset: () => { entrada = []; pintar(); } };
+  }
+
+  // ---------- Candado principal (DUEÑO / EMPLEADO) ----------
+  const gate = document.createElement("div");
+  gate.id = "oc-gate";
+  gate.innerHTML = `
+    <div class="caja">
+      <h2>POSCuenca</h2>
+      <div class="sub">Toca tu clave de 3 dígitos para entrar</div>
+      <div class="oc-slots" id="oc-slots"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
+      <div class="oc-pad" id="oc-pad"></div>
+      <div class="oc-acciones">
+        <button id="oc-borrar">Borrar</button>
+        <button id="oc-recuperar">¿Olvidaste?</button>
+      </div>
+      <div class="oc-msg" id="oc-msg"></div>
+    </div>`;
+  document.body.appendChild(gate);
+
+  let teclado = null;
+  let intervaloCountdown = null;
+  function nuevoTeclado() {
+    clearInterval(intervaloCountdown);
+    const restante = msRestantesBloqueo();
+    if (restante > 0) return mostrarBloqueo(restante);
+    // Re-monta el teclado (re-baraja emojis) cada vez que aparece el candado.
+    $("oc-pad").style.display = "";
+    teclado = montarTeclado($("oc-pad"), $("oc-slots"), validar);
+    $("oc-borrar").disabled = false;
+  }
+  // Reemplaza el teclado por una cuenta regresiva. No hay botón para saltarla:
+  // la única salida es que el tiempo real transcurra (ver nota arriba).
+  function mostrarBloqueo(msRestantes) {
+    $("oc-pad").style.display = "none";
+    $("oc-borrar").disabled = true;
+    const pintar = () => {
+      const restante = msRestantesBloqueo();
+      if (restante <= 0) { clearInterval(intervaloCountdown); nuevoTeclado(); return; }
+      $("oc-msg").style.color = "var(--rojo,#a3392a)";
+      $("oc-msg").textContent = `Demasiados intentos. Espera ${Math.ceil(restante / 1000)}s.`;
+    };
+    pintar();
+    intervaloCountdown = setInterval(pintar, 1000);
+  }
+  function $(id) { return document.getElementById(id); }
+
+  function error(txt) {
+    $("oc-msg").style.color = "var(--rojo,#a3392a)";
+    $("oc-msg").textContent = txt;
+    gate.classList.add("err");
+    setTimeout(() => gate.classList.remove("err"), 400);
+    nuevoTeclado(); // limpia y re-baraja (o muestra el bloqueo, si ya se cumplió)
+  }
+  async function validar(code) {
+    await listo;
+    if (await window.OCSecure.verificarOwner(code)) { registrarExito(); return entrar("dueno"); }
+    if (await window.OCSecure.verificarEmpleado(code)) { registrarExito(); return entrar("empleado"); }
+    registrarFallo();
+    const restante = msRestantesBloqueo();
+    if (restante > 0) { error(`Demasiados intentos. Espera ${Math.ceil(restante / 1000)}s.`); return; }
+    error("Clave incorrecta. Intenta de nuevo.");
+  }
+  function entrar(nuevoRol) {
+    rol = nuevoRol;
+    document.body.classList.toggle("rol-empleado", rol === "empleado");
+    document.body.classList.toggle("rol-dueno", rol === "dueno");
+    gate.style.display = "none";
+    montarLogout();
+    reiniciarInactividad();
+    if (rol === "empleado") { const n = document.querySelector('nav button[data-vista="hoy"]'); if (n) n.click(); }
+    window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol } }));
+  }
+
+  // ---------------------------------------------------------------------------
+  // TIMEOUT DE INACTIVIDAD (tronco 1, JFC 2026-06-30): 30 min sin ningún click
+  // ni tecla en toda la página cierran la sesión solos. Crítico porque el POS
+  // corre en una tablet compartida de percha — el empleado del turno
+  // siguiente no debe encontrarse la sesión del dueño abierta con acceso a
+  // liquidaciones y claves. Se reinicia con CUALQUIER click o keydown en el
+  // documento (no solo dentro de la app), mientras haya alguien logueado.
+  // ---------------------------------------------------------------------------
+  const INACTIVIDAD_MS = 30 * 60 * 1000;
+  let temporizadorInactividad = null;
+  function reiniciarInactividad() {
+    clearTimeout(temporizadorInactividad);
+    if (!rol) return;
+    temporizadorInactividad = setTimeout(() => cerrarSesion("Sesión cerrada por inactividad."), INACTIVIDAD_MS);
+  }
+  document.addEventListener("click", reiniciarInactividad);
+  document.addEventListener("keydown", reiniciarInactividad);
+
+  // Punto único de logout (manual o por inactividad) para que ambos caminos
+  // limpien exactamente el mismo estado — antes solo existía inline dentro
+  // del botón Salir, y un logout automático por inactividad habría tenido
+  // que duplicar esa lógica (con el riesgo de que se desincronizaran).
+  function cerrarSesion(mensaje) {
+    clearTimeout(temporizadorInactividad);
+    rol = null;
+    document.body.classList.remove("rol-empleado", "rol-dueno");
+    nuevoTeclado();
+    gate.style.display = "flex";
+    $("oc-msg").style.color = mensaje ? "var(--rojo,#a3392a)" : "";
+    $("oc-msg").textContent = mensaje || "";
+    const b = document.getElementById("oc-logout");
+    if (b) b.remove();
+    window.dispatchEvent(new CustomEvent("oc-logout"));
+  }
+
+  $("oc-borrar").addEventListener("click", () => { $("oc-msg").textContent = ""; if (teclado) teclado.reset(); });
+  $("oc-recuperar").addEventListener("click", async () => {
+    await listo;
+    const email = window.OCSecure.leerCorreo();
+    if (!email) { $("oc-msg").style.color = "var(--ink-soft,#5d5340)"; $("oc-msg").textContent = "No hay correo de recuperación configurado. Pídele al dueño que lo registre en Avanzado la primera vez que entre."; return; }
+    abrirFlujoReset(email);
+  });
+  nuevoTeclado();
+
+  // ---------------------------------------------------------------------------
+  // Flujo real de "olvidé mi clave": genera un código de 6 dígitos (15 min de
+  // validez), lo manda al correo registrado vía EmailJS (email-recovery.js) o,
+  // si aún no está configurado, lo muestra en pantalla como respaldo. El
+  // dueño lo ingresa junto a un PIN nuevo; el sistema NUNCA "recupera" el PIN
+  // viejo (es un hash irreversible) — esto es un RESETEO, no una recuperación,
+  // que es lo correcto y lo estándar (así funciona Gmail, un banco, etc.).
+  // Reinicia también los códigos de empleado y contable (comparten salt con
+  // el del dueño) y los muestra UNA vez para que el dueño los apunte.
+  // ---------------------------------------------------------------------------
+  async function abrirFlujoReset(email) {
+    const cont = document.createElement("div");
+    cont.className = "oc-subgate";
+    cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:left;">
+      <h2 style="font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:20px;margin:0 0 10px;text-align:center;">Restablecer acceso</h2>
+      <div id="reset-paso1">
+        <p style="font-size:14px;color:var(--ink-soft,#5d5340);">Enviaremos un código de 6 dígitos a ${enmascarar(email)}. Vence en 15 minutos.</p>
+        <button id="reset-enviar" class="ir" style="width:100%;margin-top:8px;">Enviar código</button>
+      </div>
+      <div id="reset-paso2" style="display:none;">
+        <p id="reset-info" style="font-size:14px;color:var(--verde,#2f7a4f);font-weight:700;"></p>
+        <label style="display:block;font-size:14px;margin-top:10px;">Código recibido<br>
+          <input id="reset-codigo" type="text" inputmode="numeric" maxlength="6" style="width:100%;padding:10px;margin-top:4px;border:2px solid var(--azul-medio,#2c4a68);border-radius:5px;font-family:var(--font-mono,monospace);letter-spacing:3px;text-align:center;font-size:18px;"></label>
+        <label style="display:block;font-size:14px;margin-top:10px;">Nuevo PIN de dueño (3 dígitos)<br>
+          <input id="reset-pin" type="text" inputmode="numeric" maxlength="3" style="width:100%;padding:10px;margin-top:4px;border:2px solid var(--azul-medio,#2c4a68);border-radius:5px;font-family:var(--font-mono,monospace);letter-spacing:3px;text-align:center;font-size:18px;"></label>
+        <button id="reset-confirmar" class="ir" style="width:100%;margin-top:10px;">Restablecer</button>
+      </div>
+      <div id="reset-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
+      <button id="reset-cancelar" style="width:100%;margin-top:10px;padding:10px;border-radius:6px;border:2px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">Cancelar</button>
+    </div>`;
+    document.body.appendChild(cont);
+    const msg = (t, c) => { const el = cont.querySelector("#reset-msg"); el.style.color = c || "var(--rojo,#a3392a)"; el.textContent = t; };
+
+    cont.querySelector("#reset-enviar").addEventListener("click", async () => {
+      cont.querySelector("#reset-enviar").disabled = true;
+      const codigo = await window.OCSecure.generarCodigoReset();
+      const resultado = window.OCEmailRecovery ? await window.OCEmailRecovery.enviarCodigo(email, codigo) : { enviado: false, codigo };
+      cont.querySelector("#reset-paso1").style.display = "none";
+      cont.querySelector("#reset-paso2").style.display = "block";
+      cont.querySelector("#reset-info").textContent = resultado.enviado
+        ? `Código enviado a ${enmascarar(email)}.`
+        : `No se pudo enviar el correo automáticamente. Tu código es: ${resultado.codigo}`;
+    });
+
+    cont.querySelector("#reset-confirmar").addEventListener("click", async (e) => {
+      const boton = e.currentTarget;
+      if (boton.disabled) return; // evita doble clic disparando dos reseteos en carrera
+      const codigo = cont.querySelector("#reset-codigo").value.trim();
+      const pin = cont.querySelector("#reset-pin").value.trim();
+      if (!/^[0-9]{3}$/.test(pin)) { msg("El PIN nuevo debe ser de 3 dígitos."); return; }
+      boton.disabled = true;
+      const r = await window.OCSecure.resetearConCodigo(codigo, pin);
+      if (r.error) { msg(r.error); boton.disabled = false; return; }
+      msg(`Listo. Tu PIN de dueño ya cambió. Códigos NUEVOS — apúntalos ya, no se repiten: Empleado ${r.empleado} · Contable ${r.acct}.`, "var(--verde,#2f7a4f)");
+      cont.querySelector("#reset-paso2").innerHTML = "";
+    });
+
+    cont.querySelector("#reset-cancelar").addEventListener("click", () => cont.remove());
+  }
+
+  // ---------- Logout en el header ----------
+  function montarLogout() {
+    if (document.getElementById("oc-logout")) return;
+    const header = document.querySelector("header");
+    if (!header) return;
+    const b = document.createElement("button");
+    b.id = "oc-logout"; b.textContent = "Salir";
+    b.addEventListener("click", () => cerrarSesion());
+    header.appendChild(b);
+  }
+
+  // ---------- Utilidades ----------
+  // Ofusca un correo: primera letra + puntos + dominio (j•••@gmail.com).
+  function enmascarar(email) {
+    const [u, dom] = String(email).split("@");
+    if (!dom) return "•••";
+    return `${u.slice(0, 1)}${"•".repeat(Math.max(2, u.length - 1))}@${dom}`;
+  }
+
+  // Expuesto para la vista Avanzado (capa contable).
+  window.OCAuth = {
+    rolActual: () => rol,
+    enmascarar,
+    listo: () => listo,
+    abrirFlujoReset,
+    // Pide la subclave contable con su propio teclado (emojis barajados, casillas enmascaradas).
+    pedirSubclaveContable() {
+      return new Promise((resolve) => {
+        const cont = document.createElement("div");
+        cont.className = "oc-subgate";
+        cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
+          <h2 style="font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;">Capa contable</h2>
+          <div class="sub" style="font-size:14px;color:var(--ink-soft,#5d5340);margin-bottom:18px;">Subclave de 3 dígitos para ver cuentas T, P&amp;G y balance</div>
+          <div class="oc-slots" id="oc-slots2"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
+          <div class="oc-pad" id="oc-pad2"></div>
+          <div class="oc-acciones"><button id="sc-cancelar">Cancelar</button><button id="sc-borrar">Borrar</button></div>
+          <div class="oc-msg" id="oc-msg2"></div></div>`;
+        document.body.appendChild(cont);
+        let tec;
+        async function alCompletar(code) {
+          if (await window.OCSecure.verificarAcct(code)) { cont.remove(); resolve(true); }
+          else {
+            cont.querySelector("#oc-msg2").textContent = "Subclave incorrecta.";
+            cont.classList.add("err"); setTimeout(() => cont.classList.remove("err"), 400);
+            tec = montarTeclado(cont.querySelector("#oc-pad2"), cont.querySelector("#oc-slots2"), alCompletar); // re-baraja
+          }
+        }
+        tec = montarTeclado(cont.querySelector("#oc-pad2"), cont.querySelector("#oc-slots2"), alCompletar);
+        cont.querySelector("#sc-borrar").addEventListener("click", () => tec.reset());
+        cont.querySelector("#sc-cancelar").addEventListener("click", () => { cont.remove(); resolve(false); });
+      });
+    },
+  };
+})();
+
+</script>
+<script>
+// avanzado-extra.js — Reestructura la vista "Avanzado" del dueño en dos capas:
+//   1) Gestión (gastos, correo de recuperación, claves) — visible al dueño.
+//   2) Contable (cuentas T, P&G, balance, valorizado) — detrás de la SUBCLAVE.
+// Depende de window.OCAuth (auth-ui.js).
+(function () {
+  function $(id) { return document.getElementById(id); }
+  const API = "/api";
+  let desbloqueadaSesion = false;
+
+  function ubic() { const s = $("selectUbicacion"); return s ? s.value : "todas"; }
+  const money = (n) => "$" + Number(n || 0).toFixed(2);
+  // Distingue "primer registro libre de correo" de "re-registro tras código
+  // maestro" (SÍ debe encadenar directo a poner un PIN nuevo). Ver mismo
+  // patrón en Olimpo Control.
+  let reasignacionViaMaestro = false;
+
+  function init() {
+    const vista = $("vista-avanzado");
+    if (!vista || vista.dataset.ocReady) return;
+    vista.dataset.ocReady = "1";
+
+    // --- Mover los bloques contables a un contenedor cerrable ---
+    const cont = document.createElement("div");
+    cont.id = "oc-contable";
+    cont.style.display = "none";
+    // T-accounts arriba
+    const tboxes = document.createElement("div");
+    tboxes.id = "oc-taccounts";
+    tboxes.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:6px 0 22px;";
+    cont.appendChild(tboxes);
+
+    // Gráfico comparativo por ubicación (brote 3): ventas, margen,
+    // cumplimiento de meta y comisión efectiva pagada — una barra por
+    // ubicación, en divs puros con CSS (sin librerías de gráficos).
+    const chartBox = document.createElement("div");
+    chartBox.className = "tag-card";
+    chartBox.style.cssText = "margin-bottom:22px;text-align:left;";
+    chartBox.innerHTML = `<h3 class="seccion" style="margin-top:0;">Comparativo por ubicación (este mes)</h3><div id="oc-chart"></div>`;
+    cont.appendChild(chartBox);
+
+    // Mover PL / balance / valorizado (h3 + tabla-wrap) al contenedor
+    const marcadores = ["tablaPL", "tablaBalance", "tablaValorizado"];
+    marcadores.forEach((idTabla) => {
+      const tabla = $(idTabla);
+      if (!tabla) return;
+      const wrap = tabla.closest(".tabla-wrap");
+      const h3 = wrap && wrap.previousElementSibling;
+      if (h3 && h3.tagName === "H3") cont.appendChild(h3);
+      if (wrap) cont.appendChild(wrap);
+    });
+
+    // --- Descarga formal para el contador (JFC, 2026-07-01) ---
+    // CSV (no JSON) porque un contador real lo abre en Excel/Sheets, no en un
+    // editor de código. Incluye el desglose de IVA que pidió JFC. A propósito
+    // NO se presenta como una declaración válida ante el SRI — es un insumo
+    // limpio para que el contador humano haga su trabajo, la responsabilidad
+    // de declarar sigue siendo de él.
+    const descargaBox = document.createElement("div");
+    descargaBox.className = "tag-card";
+    descargaBox.style.cssText = "text-align:left;margin-top:22px;";
+    descargaBox.innerHTML = `
+      <h3 class="seccion" style="margin-top:0;">Reporte para el contador</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">P&amp;G, balance e inventario valorizado en un solo archivo, listo para Excel. No es una declaración ante el SRI — es el insumo para que tu contador la prepare.</p>
+      <button id="oc-descargar-csv" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">📄 Descargar reporte contable (.csv)</button>
+    `;
+    cont.appendChild(descargaBox);
+
+    // --- Respaldo exportable/importable (tronco 3, JFC 2026-07-01) ---
+    // Vive DENTRO de "cont" (detrás de la subclave contable): exportar/
+    // importar el negocio completo es una acción sensible, no debe estar al
+    // alcance de un empleado ni de cualquiera que abra Avanzado.
+    const respaldo = document.createElement("div");
+    respaldo.className = "tag-card";
+    respaldo.style.cssText = "text-align:left;margin-top:22px;";
+    respaldo.innerHTML = `
+      <h3 class="seccion" style="margin-top:0;">Respaldo</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
+        Descarga TODO tu negocio (productos, ventas, movimientos, gastos, claves) en un archivo. Guárdalo en tu correo, tu Drive, donde sea — es tu copia de seguridad si se borra el caché o se daña el dispositivo.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button id="oc-exportar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">⬇️ Exportar respaldo</button>
+        <label class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);display:inline-flex;align-items:center;cursor:pointer;">⬆️ Importar respaldo
+          <input id="oc-importar-file" type="file" accept=".json" style="display:none;">
+        </label>
+      </div>
+      <p id="oc-respaldo-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></p>
+    `;
+    cont.appendChild(respaldo);
+
+    // --- Candado ---
+    const lock = document.createElement("div");
+    lock.id = "oc-acct-lock";
+    lock.className = "tag-card";
+    lock.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);margin:0 0 14px;">
+      La capa contable (cuentas T, P&amp;G, balance e inventario valorizado) está protegida con una subclave aparte.</p>
+      <button id="oc-acct-open">🔒 Ver capa contable</button>`;
+    vista.appendChild(lock);
+    vista.appendChild(cont);
+
+    $("oc-acct-open").addEventListener("click", async () => {
+      if (!desbloqueadaSesion) {
+        const ok = await window.OCAuth.pedirSubclaveContable();
+        if (!ok) return;
+        desbloqueadaSesion = true;
+      }
+      lock.style.display = "none";
+      cont.style.display = "block";
+      await render();
+    });
+
+    // --- Panel de gestión (correo recuperación + claves) ---
+    const gestion = document.createElement("div");
+    gestion.className = "panel-escaner tag-card";
+    gestion.style.cssText = "text-align:left;margin-top:22px;";
+    gestion.innerHTML = `
+      <h3 class="seccion" style="margin-top:0;">Acceso y recuperación</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Correo del dueño para recuperar las claves. Una vez guardado se oculta y queda ofuscado.</p>
+      <div id="oc-email-row"></div>
+      <div style="margin-top:18px;">
+        <p style="font-size:14px;color:var(--ink-soft);">Claves (PIN de 3 dígitos). Por seguridad, los códigos actuales NO se muestran aquí (se guardan cifrados) — escribe los NUEVOS solo si quieres cambiarlos.</p>
+        <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;">
+          <label style="font-size:13px;">Dueño <input id="oc-c-owner" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">Empleado <input id="oc-c-emp" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">Contable <input id="oc-c-acct" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+        </div>
+        <button id="oc-save-codes" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Guardar nuevas claves</button>
+        <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
+      </div>`;
+    vista.appendChild(gestion);
+
+    // --- Ubicaciones (crear/renombrar/desactivar) — solo POSCuenca, JFC 2026-07-01.
+    // Vive fuera de la capa contable (es configuración operativa, no dinero),
+    // igual que gastos mensuales. Desactivar NO borra historial — ver nota
+    // larga en data.js: solo deja de aparecer en el selector operativo y
+    // deja de admitir ventas/altas de producto nuevas.
+    const ubicPanel = document.createElement("div");
+    ubicPanel.className = "panel-escaner tag-card";
+    ubicPanel.style.cssText = "text-align:left;margin-top:22px;";
+    ubicPanel.innerHTML = `
+      <h3 class="seccion" style="margin-top:0;">Ubicaciones</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Crea, renombra o desactiva locales, puestos o perchas. Desactivar conserva todo el historial, solo deja de recibir ventas nuevas.</p>
+      <div id="oc-ubic-lista" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <label style="font-size:13px;">Nombre<br>
+          <input id="oc-ubic-nombre" type="text" placeholder="Ej: Feria de Diciembre" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
+        <label style="font-size:13px;">Tipo<br>
+          <select id="oc-ubic-tipo" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;">
+            <option value="propio">Propio</option>
+            <option value="socio">Socio</option>
+            <option value="franquicia">Franquicia</option>
+            <option value="consignacion">Consignación</option>
+          </select></label>
+        <label style="font-size:13px;">Comisión base %<br>
+          <input id="oc-ubic-comision" type="number" min="0" max="100" placeholder="Ej: 25" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:90px;"></label>
+        <label style="font-size:13px;">Meta mensual $<br>
+          <input id="oc-ubic-meta" type="number" min="0" placeholder="Ej: 300" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:100px;"></label>
+        <button id="oc-ubic-crear" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">+ Agregar</button>
+      </div>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:6px;">Comisión y meta solo aplican a tipos socio/franquicia/consignación. Con meta definida, la comisión puede subir automáticamente por escalas (ver seed de ejemplo) — configurar escalas propias llega en una próxima vuelta.</p>
+      <p id="oc-ubic-msg" style="font-size:14px;margin-top:8px;"></p>`;
+    vista.appendChild(ubicPanel);
+    renderUbicaciones();
+
+    $("oc-ubic-crear").addEventListener("click", async () => {
+      const nombre = $("oc-ubic-nombre").value.trim();
+      const tipo = $("oc-ubic-tipo").value;
+      const comisionSocio = $("oc-ubic-comision").value;
+      const metaMensual = $("oc-ubic-meta").value;
+      if (!nombre) { msg("oc-ubic-msg", "El nombre es obligatorio.", "var(--rojo)"); return; }
+      const res = await fetch(`${API}/ubicaciones`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, tipo, comisionSocio, metaMensual }) });
+      const r = await res.json();
+      if (!res.ok) { msg("oc-ubic-msg", r.error, "var(--rojo)"); return; }
+      $("oc-ubic-nombre").value = ""; $("oc-ubic-comision").value = ""; $("oc-ubic-meta").value = "";
+      msg("oc-ubic-msg", `"${r.nombre}" creada.`, "var(--verde)");
+      renderUbicaciones();
+      if (window.cargarUbicaciones) window.cargarUbicaciones();
+    });
+
+    // --- Transferencias (brote 2) — panel operativo, fuera del candado
+    // contable: el dueño necesita aprobar/rechazar rápido, no es info financiera.
+    const transfPanel = document.createElement("div");
+    transfPanel.className = "tag-card";
+    transfPanel.style.cssText = "text-align:left;margin-top:22px;";
+    transfPanel.innerHTML = `
+      <h3 class="seccion" style="margin-top:0;">Transferencias entre ubicaciones</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Solicitudes de traspaso de stock entre tus locales.</p>
+      <div id="oc-transf-lista"></div>`;
+    vista.appendChild(transfPanel);
+    renderTransferencias();
+
+    window.OCAuth.listo().then(() => { pintarEmail(); });
+
+    // Cambiar los 3 PINs rota TODO (nuevo salt + nuevos hashes). Por eso se
+    // piden los tres juntos: no se puede "mantener" un hash viejo bajo un
+    // salt nuevo. JFC pidió explícitamente: si el dueño cambia su código,
+    // EXIGIR que ya tenga un correo de recuperación guardado (si no, no se
+    // puede recuperar el código nuevo si se le olvida). El correo en sí no
+    // se toca aquí — se preserva tal cual esté guardado.
+    $("oc-save-codes").addEventListener("click", async () => {
+      const o = $("oc-c-owner").value.trim(), e = $("oc-c-emp").value.trim(), a = $("oc-c-acct").value.trim();
+      const valido = (s) => /^[0-9]{3}$/.test(s);
+      if (![o, e, a].every(valido)) { msg("oc-codes-msg", "Cada clave debe ser 3 dígitos (0-9).", "var(--rojo)"); return; }
+      const correoActual = window.OCSecure.leerCorreo();
+      if (!correoActual) { msg("oc-codes-msg", "Antes de cambiar las claves, registra tu correo de recuperación arriba (si olvidas el código nuevo, sin correo no hay forma de recuperarlo).", "var(--rojo)"); return; }
+      await window.OCSecure.guardarSecreto(o, [e], a, correoActual);
+      $("oc-c-owner").value = ""; $("oc-c-emp").value = ""; $("oc-c-acct").value = "";
+      msg("oc-codes-msg", "Claves guardadas y cifradas.", "var(--verde)");
+    });
+
+    $("oc-descargar-csv").addEventListener("click", async () => {
+      const u = ubic();
+      const [pl, bal, val] = await Promise.all([
+        fetch(`${API}/reportes/pl?ubicacionId=${u}`).then((r) => r.json()),
+        fetch(`${API}/reportes/balance?ubicacionId=${u}`).then((r) => r.json()),
+        fetch(`${API}/reportes/valorizado?ubicacionId=${u}`).then((r) => r.json()),
+      ]);
+      const fila = (a, b) => `"${a}","${b}"`;
+      const filas = [
+        fila("Reporte contable — POSCuenca", new Date().toLocaleString("es-EC")),
+        fila("AVISO", "Insumo para el contador. No es una declaración válida ante el SRI."),
+        fila("", ""),
+        fila("PÉRDIDAS Y GANANCIAS (hoy)", ""),
+        fila("Ventas cobradas (con IVA)", money(pl.ingresosConIva)),
+        fila("IVA cobrado (15%, se liquida al SRI)", money(pl.ivaCobrado)),
+        fila("Ingresos netos (sin IVA)", money(pl.ingresos)),
+        fila("Costo de ventas", money(pl.costoVentas)),
+        fila("Utilidad bruta", money(pl.utilidadBruta)),
+        fila("Gastos operativos", money(pl.gastosOperativos)),
+        fila("Utilidad neta", money(pl.utilidadNeta)),
+        fila("", ""),
+        fila("BALANCE SIMPLIFICADO", ""),
+        fila("Ingresos del día estimados", money(bal.activos.efectivoEstimado)),
+        fila("Inventario valorizado", money(bal.activos.inventarioValorizado)),
+        fila("Total activos", money(bal.activos.total)),
+        fila("", ""),
+        fila("INVENTARIO VALORIZADO POR PRODUCTO", ""),
+        fila("Producto", "Stock,Costo,Venta,Utilidad potencial"),
+        ...val.productos.map((p) => fila(p.nombre, `${p.stockActual},${money(p.valorCosto)},${money(p.valorVenta)},${money(p.utilidadPotencial)}`)),
+      ];
+      const csv = "﻿" + filas.join("\n"); // BOM para que Excel abra tildes bien
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `reporte-contable-poscuenca-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // El respaldo incluye TANTO los datos del negocio (server/mock, vía
+    // /api/respaldo/exportar) COMO el estado de acceso cifrado
+    // (localStorage["oc_secure"]: hashes de PIN + correo) — sin esto último,
+    // restaurar en otra tablet dejaría al dueño sin sus propias claves.
+    $("oc-exportar").addEventListener("click", async () => {
+      try {
+        const datos = await (await fetch(`${API}/respaldo/exportar`)).json();
+        const paquete = { fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("oc_secure") };
+        const blob = new Blob([JSON.stringify(paquete, null, 2)], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `respaldo-poscuenca-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        msg("oc-respaldo-msg", "Respaldo descargado. Guárdalo en un lugar seguro.", "var(--verde)");
+      } catch (e) { msg("oc-respaldo-msg", "No se pudo exportar: " + e.message, "var(--rojo)"); }
+    });
+
+    $("oc-importar-file").addEventListener("change", async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      try {
+        const paquete = JSON.parse(await file.text());
+        if (!paquete.datos) { msg("oc-respaldo-msg", "Ese archivo no parece un respaldo de POSCuenca.", "var(--rojo)"); return; }
+        if (!confirm("Esto REEMPLAZA todos los datos actuales (productos, ventas, claves) con los del respaldo. ¿Continuar?")) return;
+        const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
+        const r = await res.json();
+        if (!res.ok) { msg("oc-respaldo-msg", r.error, "var(--rojo)"); return; }
+        if (paquete.oc_secure) localStorage.setItem("oc_secure", paquete.oc_secure);
+        msg("oc-respaldo-msg", "Respaldo importado. Recarga la página para ver los datos restaurados.", "var(--verde)");
+      } catch (err) { msg("oc-respaldo-msg", "No se pudo importar: " + err.message, "var(--rojo)"); }
+      e.target.value = "";
+    });
+  }
+
+  // Cambiar un correo YA registrado exige el código maestro (solo JFC lo
+  // conoce) — pedido explícito de JFC como "master admin": evita que
+  // cualquiera con el dispositivo del dueño secuestre la cuenta apuntando la
+  // recuperación a un correo propio. Si NO hay correo (primera vez), el
+  // dueño lo registra libre, sin master. Ver nota larga en crypto-store.js.
+  async function renderUbicaciones() {
+    const cont = $("oc-ubic-lista");
+    if (!cont) return;
+    const lista = await (await fetch(`${API}/ubicaciones?todas=1`)).json();
+    cont.innerHTML = lista.map((u) => `
+      <div class="tag-card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;${u.activa === false ? "opacity:.55;" : ""}">
+        <div style="flex:1;">
+          <strong>${u.nombre}</strong>
+          <span style="font-size:12px;color:var(--ink-soft);"> · ${u.tipo || "propio"}${u.activa === false ? " · DESACTIVADA" : ""}</span>
+        </div>
+        <button data-ubic-renombrar="${u.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Renombrar</button>
+        <button data-ubic-toggle="${u.id}" data-activa="${u.activa !== false}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust);border-radius:5px;background:transparent;color:var(--rust);cursor:pointer;">${u.activa === false ? "Reactivar" : "Desactivar"}</button>
+      </div>`).join("");
+
+    cont.querySelectorAll("[data-ubic-renombrar]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const nuevo = prompt("Nuevo nombre:");
+        if (!nuevo || !nuevo.trim()) return;
+        const res = await fetch(`${API}/ubicaciones/${btn.dataset.ubicRenombrar}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nuevo.trim() }) });
+        if (res.ok) { renderUbicaciones(); if (window.cargarUbicaciones) window.cargarUbicaciones(); }
+      });
+    });
+    cont.querySelectorAll("[data-ubic-toggle]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const activaAhora = btn.dataset.activa === "true";
+        const accion = activaAhora ? "desactivar" : "activar";
+        if (activaAhora && !confirm("Esta ubicación dejará de recibir ventas nuevas. Su historial se conserva. ¿Continuar?")) return;
+        const res = await fetch(`${API}/ubicaciones/${btn.dataset.ubicToggle}/${accion}`, { method: "POST" });
+        if (res.ok) { renderUbicaciones(); if (window.cargarUbicaciones) window.cargarUbicaciones(); }
+      });
+    });
+  }
+
+  async function renderTransferencias() {
+    const cont = $("oc-transf-lista");
+    if (!cont) return;
+    const lista = await (await fetch(`${API}/transferencias`)).json();
+    if (!lista.length) { cont.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No hay transferencias todavía.</p>`; return; }
+    cont.innerHTML = lista.map((t) => {
+      const colorEstado = t.estado === "recibida" ? "verde" : t.estado === "rechazada" ? "rojo" : t.estado === "en_transito" ? "azul" : "amarillo";
+      let acciones = "";
+      if (t.estado === "solicitada") {
+        acciones = `<button data-transf-aprobar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--verde);border-radius:5px;background:transparent;color:var(--verde);cursor:pointer;">Aprobar</button>
+          <button data-transf-rechazar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Rechazar</button>`;
+      } else if (t.estado === "en_transito") {
+        acciones = `<button data-transf-confirmar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Confirmar recepción</button>`;
+      }
+      return `<div class="tag-card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <strong>${t.nombre}</strong> · ${t.cantidad} un.
+          <div style="font-size:12px;color:var(--ink-soft);">${t.desdeNombre} → ${t.haciaNombre}</div>
+        </div>
+        <span class="badge-estado ${colorEstado}">${t.estado.replace("_", " ")}</span>
+        ${acciones}
+      </div>`;
+    }).join("");
+
+    cont.querySelectorAll("[data-transf-aprobar]").forEach((btn) => btn.addEventListener("click", async () => {
+      const res = await fetch(`${API}/transferencias/${btn.dataset.transfAprobar}/aprobar`, { method: "POST" });
+      const r = await res.json(); if (!res.ok) { alert(r.error); return; }
+      renderTransferencias();
+    }));
+    cont.querySelectorAll("[data-transf-rechazar]").forEach((btn) => btn.addEventListener("click", async () => {
+      await fetch(`${API}/transferencias/${btn.dataset.transfRechazar}/rechazar`, { method: "POST" });
+      renderTransferencias();
+    }));
+    cont.querySelectorAll("[data-transf-confirmar]").forEach((btn) => btn.addEventListener("click", async () => {
+      const res = await fetch(`${API}/transferencias/${btn.dataset.transfConfirmar}/confirmar-recepcion`, { method: "POST" });
+      const r = await res.json(); if (!res.ok) { alert(r.error); return; }
+      renderTransferencias();
+      cargarInventario();
+    }));
+  }
+
+  function pintarEmail() {
+    const email = window.OCSecure.leerCorreo();
+    const row = $("oc-email-row");
+    if (email) {
+      row.innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-family:var(--font-mono);font-size:15px;color:var(--ink);">${window.OCAuth.enmascarar(email)}</span>
+        <button id="oc-email-edit" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Cambiar (requiere código maestro)</button></div>`;
+      $("oc-email-edit").addEventListener("click", pedirMaestroYCambiarCorreo);
+    } else {
+      row.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="oc-email-in" type="email" placeholder="correo@dominio.com" style="flex:1;min-width:200px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);">
+        <button id="oc-email-save" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">Guardar</button></div>
+        <p id="oc-email-msg" style="font-size:14px;margin-top:8px;"></p>`;
+      $("oc-email-save").addEventListener("click", () => {
+        const v = $("oc-email-in").value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { msg("oc-email-msg", "Correo no válido.", "var(--rojo)"); return; }
+        window.OCSecure.actualizarCorreo(v);
+        pintarEmail();
+        if (reasignacionViaMaestro) {
+          reasignacionViaMaestro = false;
+          window.OCAuth.abrirFlujoReset(v);
+        }
+      });
+    }
+  }
+
+  // Pide el código maestro (candado de JFC) antes de dejar editar un correo
+  // ya registrado. Reutiliza el mismo patrón visual del candado contable.
+  function pedirMaestroYCambiarCorreo() {
+    const cont = document.createElement("div");
+    cont.className = "oc-subgate";
+    cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido);border:2px solid var(--brass);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
+      <h2 style="font-family:var(--font-display);color:var(--ink);font-size:20px;margin:0 0 4px;">Código maestro</h2>
+      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:14px;">Solo JFC lo tiene. Identifica al dueño en persona o videollamada antes de dárselo.</p>
+      <input id="mst-codigo" type="text" style="width:100%;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);text-align:center;">
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button id="mst-cancelar" style="flex:1;padding:10px;border-radius:6px;border:2px solid var(--azul-medio);background:transparent;color:var(--azul-medio);cursor:pointer;">Cancelar</button>
+        <button id="mst-ok" class="ir" style="flex:1;">Verificar</button>
+      </div>
+      <p id="mst-msg" style="font-size:14px;margin-top:10px;font-weight:700;color:var(--rojo);"></p>
+    </div>`;
+    document.body.appendChild(cont);
+    cont.querySelector("#mst-cancelar").addEventListener("click", () => cont.remove());
+    cont.querySelector("#mst-ok").addEventListener("click", async () => {
+      const codigo = cont.querySelector("#mst-codigo").value.trim();
+      const ok = await window.OCSecure.verificarMaestro(codigo);
+      if (!ok) { cont.querySelector("#mst-msg").textContent = "Código maestro incorrecto."; return; }
+      window.OCSecure.actualizarCorreo("");
+      reasignacionViaMaestro = true;
+      cont.remove();
+      pintarEmail();
+    });
+  }
+
+  function msg(id, txt, color) { const el = $(id); if (el) { el.style.color = color; el.textContent = txt; } }
+
+  async function render() {
+    const u = ubic();
+    const [pl, bal] = await Promise.all([
+      fetch(`${API}/reportes/pl?ubicacionId=${u}`).then((r) => r.json()),
+      fetch(`${API}/reportes/balance?ubicacionId=${u}`).then((r) => r.json()),
+    ]);
+    // Cuentas T derivadas del día (partida doble simplificada). El IVA
+    // cobrado NO es ingreso del negocio — es un pasivo (se le debe al SRI),
+    // por eso tiene su propia cuenta en vez de mezclarse con Ventas.
+    const cuentas = [
+      { nombre: "Caja (Activo)", debe: [["Cobrado hoy (con IVA)", pl.ingresosConIva]], haber: [["Gastos operativos", pl.gastosOperativos]] },
+      { nombre: "Ventas (Ingreso)", debe: [], haber: [["Ingresos netos del día", pl.ingresos]] },
+      { nombre: "IVA por Pagar (Pasivo)", debe: [], haber: [["IVA cobrado hoy (15%)", pl.ivaCobrado]] },
+      { nombre: "Costo de Ventas (Gasto)", debe: [["Costo de lo vendido", pl.costoVentas]], haber: [] },
+      { nombre: "Inventario (Activo)", debe: [["Saldo valorizado", bal.activos.inventarioValorizado]], haber: [["Salida por ventas", pl.costoVentas]] },
+      { nombre: "Gastos Operativos (Gasto)", debe: [["Prorrateo del día", pl.gastosOperativos]], haber: [] },
+    ];
+    $("oc-taccounts").innerHTML = cuentas.map(tAccount).join("");
+    await renderChart();
+  }
+
+  // Una barra por ubicación no-propia: % de meta cumplida (la métrica que
+  // más le importa al socio) + la comisión efectiva que terminó pagándose
+  // (revela el efecto de las escalas dinámicas: no es un % fijo, sube con
+  // el desempeño). Divs + CSS, cero librerías de gráficos.
+  async function renderChart() {
+    const box = $("oc-chart");
+    if (!box) return;
+    const filas = await (await fetch(`${API}/liquidaciones`)).json();
+    if (!filas.length) { box.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">Sin ubicaciones tipo socio/franquicia/consignación todavía.</p>`; return; }
+    const maxCumplimiento = Math.max(100, ...filas.map((f) => f.cumplimientoMeta || 0));
+    box.innerHTML = filas.map((f) => {
+      const comisionEfectivaPct = f.ventasBrutas > 0 ? (f.comisionSocio / f.ventasBrutas) * 100 : 0;
+      const anchoMeta = Math.min(100, ((f.cumplimientoMeta || 0) / maxCumplimiento) * 100);
+      return `
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+          <strong>${f.ubicacion}</strong>
+          <span style="color:var(--ink-soft);">${fmtVentas(f.ventasBrutas)} vendido · ${f.cumplimientoMeta ?? 0}% de meta</span>
+        </div>
+        <div style="background:var(--crema,#f3e8cd);border-radius:6px;overflow:hidden;height:22px;position:relative;">
+          <div style="background:${(f.cumplimientoMeta || 0) >= 100 ? "var(--verde,#2f7a4f)" : "var(--azul-medio,#2c4a68)"};height:100%;width:${anchoMeta}%;transition:width .3s;"></div>
+        </div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-top:3px;">Comisión efectiva pagada: ${comisionEfectivaPct.toFixed(1)}% (${money(f.comisionSocio)})</div>
+      </div>`;
+    }).join("");
+  }
+  function fmtVentas(n) { return "$" + Number(n || 0).toFixed(2); }
+
+  function tAccount(c) {
+    const filas = Math.max(c.debe.length, c.haber.length, 1);
+    let rows = "";
+    for (let i = 0; i < filas; i++) {
+      const d = c.debe[i], h = c.haber[i];
+      rows += `<tr>
+        <td style="width:50%;padding:4px 6px;font-size:13px;border-right:1.5px solid var(--ink);">${d ? d[0] + " " + money(d[1]) : ""}</td>
+        <td style="width:50%;padding:4px 6px;font-size:13px;">${h ? h[0] + " " + money(h[1]) : ""}</td></tr>`;
+    }
+    return `<div class="tag-card" style="padding:12px;">
+      <div style="font-family:var(--font-display);font-weight:700;font-size:14px;text-align:center;color:var(--ink);border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:4px;">${c.nombre}</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><th style="font-size:11px;color:var(--ink-soft);border-right:1.5px solid var(--ink);border-bottom:1px solid var(--ink);">DEBE</th><th style="font-size:11px;color:var(--ink-soft);border-bottom:1px solid var(--ink);">HABER</th></tr>
+        ${rows}
+      </table></div>`;
+  }
+
+  // Si la ubicación cambia mientras está desbloqueada, re-render
+  document.addEventListener("change", (e) => {
+    if (e.target && e.target.id === "selectUbicacion" && desbloqueadaSesion && $("oc-contable") && $("oc-contable").style.display !== "none") render();
+  });
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+
+</script>
+<script>
+// help-ui.js — Enlace de ayuda "Ayuda(?)" bajo el botón Salir del header (NO
+// es un botón flotante estilo chat/WhatsApp — JFC lo pidió explícitamente
+// discreto, parte del header, no una burbuja llamativa). Contenido DISTINTO
+// según el rol activo (dueño vs empleado): el dueño necesita entender todo
+// el sistema (capa contable, claves, gastos); el empleado solo necesita lo
+// operativo del día a día (escanear, vender, leer el semáforo). Depende de
+// auth-ui.js (escucha el evento "oc-login" para saber qué rol mostrar y para
+// encontrar el botón #oc-logout, debajo del cual se inserta este enlace).
+//
+// REACTIVADO 2026-07-01 (JFC): indispensable, sobre todo con el timeout de
+// inactividad activo. NUNCA quitar/ocultar sin que JFC lo pida en el mismo turno.
+(function () {
+  const AYUDA_HABILITADA = true;
+  if (!AYUDA_HABILITADA) return;
+
+  const css = document.createElement("style");
+  css.textContent = `
+  #oc-help-btn{display:none;margin-top:6px;background:none;border:none;
+    font-family:var(--font-display,sans-serif);font-size:13px;color:var(--blanco-calido,#fbf5e8);
+    text-decoration:underline;cursor:pointer;padding:4px;}
+  #oc-help-modal{position:fixed;inset:0;z-index:9998;background:rgba(28,48,73,.85);
+    display:none;align-items:flex-end;justify-content:center;padding:0;}
+  #oc-help-modal.abierto{display:flex;}
+  #oc-help-sheet{background:var(--blanco-calido,#fbf5e8);width:100%;max-width:520px;max-height:82vh;
+    overflow-y:auto;border-radius:16px 16px 0 0;padding:22px 20px 28px;}
+  #oc-help-sheet h2{font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);margin:0 0 4px;font-size:22px;}
+  #oc-help-sheet .rolTag{display:inline-block;font-size:13px;font-weight:700;padding:3px 10px;border-radius:12px;
+    margin-bottom:14px;background:var(--azul-medio,#2c4a68);color:var(--blanco-calido,#fbf5e8);}
+  #oc-help-sheet h3{font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:16px;margin:18px 0 6px;}
+  #oc-help-sheet p, #oc-help-sheet li{font-size:15px;color:var(--ink-soft,#5d5340);line-height:1.5;}
+  #oc-help-sheet ul{margin:0 0 4px;padding-left:20px;}
+  #oc-help-cerrar{margin-top:18px;width:100%;padding:12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);
+    background:var(--azul-medio,#2c4a68);color:var(--blanco-calido,#fbf5e8);font-family:var(--font-display,sans-serif);
+    font-size:15px;cursor:pointer;min-height:44px;}
+  `;
+  document.head.appendChild(css);
+
+  // Contenido del DUEÑO: cubre todo el sistema, incluida la capa contable y
+  // la seguridad de las claves — es quien decide y necesita el panorama completo.
+  const AYUDA_DUENO = `
+    <span class="rolTag">Guía del dueño</span>
+    <h3>Tu semáforo (pestaña Hoy)</h3>
+    <ul>
+      <li><b>Verde</b>: todo sano. <b>Amarillo</b>: revisar pronto. <b>Rojo</b>: reponer ya. <b>Azul</b>: buen margen, impúlsalo.</li>
+      <li>Ahí ves de un vistazo cuánto entró, cuánto salió y qué productos piden atención hoy.</li>
+    </ul>
+    <h3>Inventario y Escanear</h3>
+    <ul>
+      <li>Escanea o busca un producto para vender una unidad o ajustar el stock (entradas, mermas, conteos).</li>
+      <li>Cada ajuste queda registrado en Actividad, con motivo y quién lo hizo.</li>
+    </ul>
+    <h3>Etiquetas</h3>
+    <li>Genera e imprime etiquetas con código de barras + QR para cada producto nuevo.</li>
+    <h3>Avanzado (candado aparte, solo tú puedes abrirlo)</h3>
+    <ul>
+      <li><b>Gastos mensuales</b>: arriendo, luz, sueldos. Se reparte entre 30 para estimar el gasto del día.</li>
+      <li><b>Capa contable</b> (candado aparte): cuentas T, pérdidas y ganancias, balance e inventario valorizado. Pide tu subclave contable, distinta de tu clave de entrada.</li>
+      <li><b>Acceso y recuperación</b>: registra tu correo ANTES de cambiar tus claves — sin correo guardado no hay forma de recuperar un código que olvides. Los códigos viejos nunca se muestran (se guardan cifrados); solo escribes los nuevos.</li>
+    </ul>
+    <h3>Seguridad</h3>
+    <p>Tus 3 claves (dueño, empleado, contable) se guardan cifradas en este dispositivo, nunca en texto plano. El teclado muestra dígitos con un emoji decorativo que cambia cada vez — no delata tu código a quien mire por encima del hombro.</p>
+  `;
+
+  // Contenido del EMPLEADO: solo lo operativo del turno. Sin mención a claves,
+  // gastos ni contabilidad — esa capa ni siquiera le aparece en el menú.
+  const AYUDA_EMPLEADO = `
+    <span class="rolTag">Guía del empleado</span>
+    <h3>Tu día a día</h3>
+    <ul>
+      <li><b>Hoy</b>: mira el semáforo del negocio. Rojo = ese producto necesita reponerse pronto, avísale al dueño.</li>
+      <li><b>Escanear</b>: apunta la cámara al código de barras o QR, o escribe el código a mano si la etiqueta está dañada.</li>
+      <li><b>Vender</b>: al escanear un producto, toca "Vender 1" para descontar del stock al momento.</li>
+      <li><b>Ajustar</b>: si algo se rompió, se venció o contaste mal el stock, usa "Ajustar" y escribe el motivo — queda registrado con tu turno.</li>
+      <li><b>Etiquetas</b>: si necesitas reimprimir una etiqueta perdida o dañada, la encuentras aquí por nombre o código.</li>
+    </ul>
+  `;
+
+  const modal = document.createElement("div");
+  modal.id = "oc-help-modal";
+  modal.innerHTML = `<div id="oc-help-sheet">
+    <h2>¿Cómo funciona POSCuenca?</h2>
+    <div id="oc-help-body"></div>
+    <button id="oc-help-cerrar">Entendido</button>
+  </div>`;
+  document.body.appendChild(modal);
+
+  const btn = document.createElement("button");
+  btn.id = "oc-help-btn";
+  btn.textContent = "Ayuda (?)";
+
+  function abrir() {
+    const rol = window.OCAuth ? window.OCAuth.rolActual() : null;
+    document.getElementById("oc-help-body").innerHTML = rol === "empleado" ? AYUDA_EMPLEADO : AYUDA_DUENO;
+    modal.classList.add("abierto");
+  }
+  btn.addEventListener("click", abrir);
+  document.getElementById("oc-help-cerrar").addEventListener("click", () => modal.classList.remove("abierto"));
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("abierto"); });
+
+  // Se inserta justo después de #oc-logout (creado por auth-ui.js al iniciar
+  // sesión) para que quede debajo del botón Salir en el header, no como
+  // elemento flotante encima del contenido.
+  window.addEventListener("oc-login", () => {
+    const logout = document.getElementById("oc-logout");
+    if (logout && logout.parentNode && !document.body.contains(btn)) {
+      logout.insertAdjacentElement("afterend", btn);
+    }
+    btn.style.display = "block";
+  });
+  window.addEventListener("oc-logout", () => {
+    btn.remove(); // vuelve a insertarse junto al próximo #oc-logout en el siguiente login
+    modal.classList.remove("abierto");
+  });
+})();
+
+</script>
+
+</body></html>

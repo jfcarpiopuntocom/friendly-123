@@ -1,0 +1,42 @@
+# fly.toml — Configuración de Fly.io para el PocketBase de un cliente AMIGABLE.
+# ANTES DE DEPLOYAR: cambiar "app" por el nombre del cliente (ej: amigable-jose-perez).
+# La región "gru" es São Paulo — la más cercana a Ecuador/Colombia/Perú.
+
+app = "amigable-NOMBRE-DEL-CLIENTE"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Volumen persistente: aquí vive la DB de SQLite y los archivos subidos.
+# Un solo volumen es suficiente para un POS de local pequeño.
+# Fly.io incluye 3 GB gratis de almacenamiento.
+[mounts]
+  source = "pb_data"
+  destination = "/pb/pb_data"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8090
+  auto_stop_machines = true   # apaga la máquina si no hay tráfico (gratis)
+  auto_start_machines = true  # la enciende cuando llega una petición
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+[checks]
+  [checks.alive]
+    type = "http"
+    path = "/api/health"
+    interval = "30s"
+    timeout = "5s"

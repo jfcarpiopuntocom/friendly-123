@@ -1,0 +1,23 @@
+{
+  "name": "poscuenca",
+  "version": "1.0.0",
+  "description": "POS wrapper + contabilidad para retail de Cuenca, Ecuador, sobre Loyverse.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "lowdb": "^1.0.0",
+    "qrcode": "^1.5.4"
+  }
+}

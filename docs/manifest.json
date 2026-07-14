@@ -1,0 +1,19 @@
+{
+  "name": "friendly-123",
+  "short_name": "friendly",
+  "description": "Your business, in color. Serverless point of sale and inventory control for small business.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F8F9FB",
+  "theme_color": "#0F1923",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "./favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

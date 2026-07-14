@@ -1,0 +1,140 @@
+[
+  {
+    "name": "productos",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {"name":"nombre",          "type":"text",   "required":true,  "options":{"min":1,"max":200}},
+      {"name":"categoria",       "type":"text",   "required":false, "options":{}},
+      {"name":"sku",             "type":"text",   "required":false, "options":{}},
+      {"name":"barcode",         "type":"text",   "required":false, "options":{}},
+      {"name":"ubicacionId",     "type":"text",   "required":false, "options":{}},
+      {"name":"precio",          "type":"number", "required":false, "options":{"min":0}},
+      {"name":"costo",           "type":"number", "required":false, "options":{"min":0}},
+      {"name":"stockActual",     "type":"number", "required":false, "options":{"min":0}},
+      {"name":"umbralRojo",      "type":"number", "required":false, "options":{"min":0}},
+      {"name":"umbralAmarillo",  "type":"number", "required":false, "options":{"min":0}},
+      {"name":"proveedor",       "type":"text",   "required":false, "options":{}},
+      {"name":"estrella",        "type":"bool",   "required":false, "options":{}},
+      {"name":"perecible",       "type":"bool",   "required":false, "options":{}},
+      {"name":"fechaCaducidad",  "type":"text",   "required":false, "options":{}},
+      {"name":"metodoCosteo",    "type":"select", "required":false, "options":{"maxSelect":1,"values":["FIFO","LIFO"]}},
+      {"name":"foto",            "type":"file",   "required":false, "options":{"maxSelect":1,"maxSize":2097152,"mimeTypes":["image/jpeg","image/png","image/webp"]}}
+    ]
+  },
+  {
+    "name": "ubicaciones",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {"name":"nombre",          "type":"text",   "required":true,  "options":{}},
+      {"name":"tipo",            "type":"select", "required":false, "options":{"maxSelect":1,"values":["propio","socio","franquicia","consignacion"]}},
+      {"name":"activa",          "type":"bool",   "required":false, "options":{}},
+      {"name":"sucursalId",      "type":"text",   "required":false, "options":{}},
+      {"name":"promotoraId",     "type":"text",   "required":false, "options":{}},
+      {"name":"comisionSocio",   "type":"number", "required":false, "options":{"min":0}},
+      {"name":"metaMensual",     "type":"number", "required":false, "options":{"min":0}},
+      {"name":"escalasComision", "type":"json",   "required":false, "options":{}},
+      {"name":"esFeria",         "type":"bool",   "required":false, "options":{}}
+    ]
+  },
+  {
+    "name": "sucursales",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {"name":"nombre", "type":"text", "required":true,  "options":{}},
+      {"name":"activa", "type":"bool", "required":false, "options":{}}
+    ]
+  },
+  {
+    "name": "promotoras",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {"name":"nombre",   "type":"text",   "required":true,  "options":{}},
+      {"name":"comision", "type":"number", "required":false, "options":{"min":0}}
+    ]
+  },
+  {
+    "name": "ventas",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {"name":"productoId",  "type":"text",   "required":true,  "options":{}},
+      {"name":"ubicacionId", "type":"text",   "required":false, "options":{}},
+      {"name":"cantidad",    "type":"number", "required":false, "options":{"min":1}},
+      {"name":"precioUnit",  "type":"number", "required":false, "options":{}},
+      {"name":"costo",       "type":"number", "required":false, "options":{}},
+      {"name":"fecha",       "type":"text",   "required":false, "options":{}},
+      {"name":"anulada",     "type":"bool",   "required":false, "options":{}},
+      {"name":"liquidada",   "type":"bool",   "required":false, "options":{}},
+      {"name":"split",       "type":"json",   "required":false, "options":{}}
+    ]
+  },
+  {
+    "name": "movimientos",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {"name":"tipo",      "type":"text", "required":false, "options":{}},
+      {"name":"productoId","type":"text", "required":false, "options":{}},
+      {"name":"detalle",   "type":"json", "required":false, "options":{}},
+      {"name":"fecha",     "type":"text", "required":false, "options":{}}
+    ]
+  },
+  {
+    "name": "transferencias",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {"name":"productoOrigenId",  "type":"text",   "required":false, "options":{}},
+      {"name":"productoDestinoId", "type":"text",   "required":false, "options":{}},
+      {"name":"cantidad",          "type":"number", "required":false, "options":{}},
+      {"name":"estado",            "type":"select", "required":false, "options":{"maxSelect":1,"values":["pendiente","aprobada","rechazada"]}}
+    ]
+  },
+  {
+    "name": "gastos",
+    "type": "base",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "schema": [
+      {"name":"ubicacionId", "type":"text",   "required":false, "options":{}},
+      {"name":"concepto",    "type":"text",   "required":false, "options":{}},
+      {"name":"monto",       "type":"number", "required":false, "options":{"min":0}},
+      {"name":"mes",         "type":"text",   "required":false, "options":{}}
+    ]
+  }
+]

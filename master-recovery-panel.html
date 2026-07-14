@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#1c3049">
+<title>Panel maestro de recuperación</title>
+<style>
+  :root{color-scheme:light only;forced-color-adjust:none;}
+  body{margin:0;background:#1c3049;font-family:-apple-system,Segoe UI,sans-serif;padding:24px;min-height:100vh;}
+  h1{color:#fbf5e8!important;-webkit-text-fill-color:#fbf5e8!important;font-size:22px;margin:0 0 6px;}
+  .aviso{color:#e8a020!important;-webkit-text-fill-color:#e8a020!important;font-size:14px;margin:0 0 24px;max-width:640px;line-height:1.5;}
+  .grid{display:grid;gap:16px;max-width:640px;}
+  .card{background:#fbf5e8;border:2px solid #9c7a35;border-radius:8px;padding:18px 20px;}
+  .card h2{color:#211c14!important;-webkit-text-fill-color:#211c14!important;font-size:18px;margin:0 0 6px;}
+  .card p{color:#5d5340!important;-webkit-text-fill-color:#5d5340!important;font-size:14px;margin:0 0 14px;line-height:1.5;}
+  .card a.boton{display:inline-block;background:#2c4a68;color:#fbf5e8!important;-webkit-text-fill-color:#fbf5e8!important;text-decoration:none;padding:12px 18px;border-radius:6px;font-size:14px;font-weight:700;min-height:44px;box-sizing:border-box;}
+  .card a.boton:active{transform:translateY(1px);}
+  footer{color:#5d5340!important;-webkit-text-fill-color:#5d5340!important;font-size:12px;margin-top:28px;max-width:640px;line-height:1.5;}
+  @media (prefers-color-scheme:dark){
+    h1{color:#fbf5e8!important;-webkit-text-fill-color:#fbf5e8!important;}
+    .aviso{color:#e8a020!important;-webkit-text-fill-color:#e8a020!important;}
+    .card h2{color:#211c14!important;-webkit-text-fill-color:#211c14!important;}
+    .card p{color:#5d5340!important;-webkit-text-fill-color:#5d5340!important;}
+    footer{color:#5d5340!important;-webkit-text-fill-color:#5d5340!important;}
+  }
+</style>
+</head>
+<body>
+  <h1>Panel maestro de recuperación</h1>
+  <p class="aviso">
+    ⚠️ USO PERSONAL — NO subir a <code>docs/</code> ni a ningún repo público. Este archivo
+    vive en la raíz del repo POSCuenca a propósito (fuera de lo que GitHub Pages publica),
+    solo para que lo abras localmente desde tu clon del repo.
+  </p>
+
+  <!--
+    CÓMO FUNCIONA (nota técnica, no visible al usuario final — no aplica aquí
+    porque este archivo es SOLO para JFC, pero se documenta igual por hábito):
+    cada proyecto tiene su PROPIO código maestro embebido en su crypto-store.js
+    (ver MASTER_CODE_DEFAULT en cada repo). Este panel NO puede ejecutar el
+    reseteo de forma remota/centralizada — eso requeriría un backend compartido
+    entre orígenes distintos, que no existe (cada app es independiente a
+    propósito, sin servidor central). Lo que SÍ hace: es un directorio rápido
+    para no tener que recordar la URL de cada negocio. Al llegar a cada uno,
+    entras a Avanzado → Acceso y recuperación → "Cambiar (requiere código
+    maestro)" y usas el código de ESE proyecto específico.
+
+    Para agregar un negocio nuevo: copia un <div class="card">, cambia nombre,
+    URL y (en tu cabeza, no aquí) recuerda cuál es su código maestro.
+  -->
+  <div class="grid">
+    <div class="card">
+      <h2>Olimpo Control</h2>
+      <p>Smoke shop, Cuenca. Beta/piloto original.</p>
+      <a class="boton" href="https://jfcarpiopuntocom.github.io/Olimpo-Control/" target="_blank" rel="noopener">Ir al proyecto →</a>
+    </div>
+    <div class="card">
+      <h2>POSCuenca</h2>
+      <p>Demo pública multi-cliente (artesanías y licores).</p>
+      <a class="boton" href="https://jfcarpiopuntocom.github.io/AMIGABLE/" target="_blank" rel="noopener">Ir al proyecto →</a>
+    </div>
+  </div>
+
+  <footer>
+    Para agregar el próximo negocio real: duplica una card arriba con su nombre y URL.
+    El código maestro de cada uno vive solo en su propio repo (crypto-store.js).
+  </footer>
+</body>
+</html>

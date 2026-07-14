@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Manual Maestro — AMIGABLE-123 · Tu negocio, a color</title>
+<meta name="description" content="Manual completo de AMIGABLE-123: sistema de colores, inventario, perchas, clientes, comisiones, contabilidad y casos reales de negocios ecuatorianos.">
+
+<!-- WhatsApp / iMessage / Telegram preview (OG) -->
+<meta property="og:type"        content="website">
+<meta property="og:site_name"   content="AMIGABLE-123">
+<meta property="og:title"       content="Manual Maestro — AMIGABLE-123 · Tu negocio, a color">
+<meta property="og:description" content="Todo lo que necesitas saber para dominar AMIGABLE-123: colores Simon, inventario, perchas, clientes, contabilidad y casos reales ecuatorianos.">
+<meta property="og:url"         content="https://jfcarpiopuntocom.github.io/AMIGABLE/manual-maestro.html">
+<meta property="og:image"       content="https://jfcarpiopuntocom.github.io/AMIGABLE/favicon.png">
+<meta property="og:image:width" content="256">
+<meta property="og:image:height" content="256">
+<meta property="og:locale"      content="es_EC">
+
+<!-- Twitter Card (también lo lee WhatsApp como fallback) -->
+<meta name="twitter:card"        content="summary">
+<meta name="twitter:title"       content="Manual Maestro — AMIGABLE-123">
+<meta name="twitter:description" content="Todo lo que necesitas para dominar AMIGABLE-123: colores, inventario, perchas, clientes y contabilidad.">
+<meta name="twitter:image"       content="https://jfcarpiopuntocom.github.io/AMIGABLE/favicon.png">
+
+<!-- iOS dark-mode guard -->
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="canonical" href="https://jfcarpiopuntocom.github.io/AMIGABLE/manual-maestro.html">
+<style>
+  :root{
+    /* Paleta oficial AMIGABLE-123 (Sinclair Bloom x Kyoto Muted) — mismos valores del app, cero gris */
+    --papel:#FFFFFF;
+    --crema:#F8F9FB;
+    --ink:#0F1923;
+    --ink-soft:#2C3E50;
+    --brass:#5294AC;
+    --brass-dk:#2E6278;
+    --rust:#E86040;
+    --rust-deep:#C05000;
+
+    --sim-verde:#00C87A;   --sim-verde-bg:#C0F5E0;  --sim-verde-dk:#009A5A;
+    --sim-amarillo:#FFC700; --sim-amarillo-bg:#FFF3C2; --sim-amarillo-dk:#B8860B;
+    --sim-plata:#C4CDD8;  --sim-plata-bg:#E8ECF2;  --sim-plata-dk:#8A9AAA;
+    --sim-naranja:#F97316; --sim-naranja-bg:#FDD9BE;--sim-naranja-dk:#C05000;
+    --sim-rojo:#E8365D;    --sim-rojo-bg:#FAD5DE;   --sim-rojo-dk:#B0183E;
+    --sim-azul:#5294AC;    --sim-azul-bg:#D4ECF5;   --sim-azul-dk:#2E6278;
+    --sim-negro:#0A0A0F;   --sim-negro-bg:#17171D;  --sim-negro-dk:#000000;
+
+    --font-display:Georgia,"Times New Roman",serif;
+    --font-body:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --font-mono:"Courier New",Courier,monospace;
+
+    --nav-h:74px;
+    --sidebar-w:266px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--papel);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:17px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:var(--font-display); color:var(--ink); font-weight:700; line-height:1.18; margin:0 0 12px;}
+  p{margin:0 0 14px; font-size:17px;}
+  a{color:var(--brass-dk); text-decoration-thickness:2px;}
+  img,svg{max-width:100%;}
+  ::selection{background:var(--sim-amarillo); color:var(--ink);}
+  :focus-visible{outline:3px solid var(--rust); outline-offset:2px;}
+
+  /* ---------- Barra de progreso de lectura (Efecto dinámico 1) ---------- */
+  #barraProgreso{
+    position:fixed; top:0; left:0; height:5px; width:0%;
+    background:var(--sim-amarillo);
+    z-index:999; transition:width .12s linear;
+    box-shadow:0 0 10px 1px var(--sim-amarillo-dk);
+  }
+
+  /* ---------- Header fijo ---------- */
+  header.top{
+    position:sticky; top:0; z-index:80;
+    background:var(--ink); color:var(--papel);
+    padding:14px 20px 14px 20px;
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    border-bottom:5px solid var(--sim-amarillo);
+    margin-top:5px;
+  }
+  header.top .marca{display:flex; align-items:center; gap:12px;}
+  header.top .sello{
+    width:42px; height:42px; border-radius:50%; border:2px solid var(--sim-amarillo);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-style:italic; font-size:20px; color:var(--sim-amarillo);
+    flex-shrink:0;
+  }
+  header.top h1{font-size:20px; color:#FFFFFF; margin:0;}
+  header.top .tagline{font-size:13px; color:var(--sim-amarillo); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.06em; margin-top:2px;}
+  #relojManual{
+    font-family:var(--font-mono); font-size:14px; font-weight:700; color:#FFFFFF;
+    background:var(--brass-dk); padding:8px 12px; border-radius:20px; white-space:nowrap;
+  }
+
+  /* ---------- Nav de secciones: riel lateral en desktop, barra horizontal scrollable en móvil ---------- */
+  nav.toc{
+    position:fixed; left:0; top:calc(var(--nav-h) + 5px); bottom:0; width:var(--sidebar-w);
+    overflow-y:auto; padding:20px 14px 40px;
+    background:var(--crema); border-right:2px solid var(--ink);
+    display:none;
+  }
+  nav.toc a{
+    display:block; padding:9px 12px; margin-bottom:3px; border-radius:6px;
+    font-size:14px; font-weight:600; color:var(--ink-soft); text-decoration:none;
+    border-left:4px solid transparent;
+  }
+  nav.toc a:hover{background:var(--sim-azul-bg); color:var(--brass-dk);}
+  nav.toc a.activo{background:var(--sim-amarillo-bg); color:var(--ink); border-left-color:var(--sim-amarillo-dk); font-weight:700;}
+  nav.toc .grupo-titulo{font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin:16px 0 6px 12px;}
+
+  nav.tocMovil{
+    display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch;
+    background:var(--crema); border-bottom:2px solid var(--ink);
+    padding:10px 12px; position:sticky; top:calc(var(--nav-h) + 5px); z-index:70;
+    scrollbar-width:none;
+  }
+  nav.tocMovil::-webkit-scrollbar{display:none;}
+  nav.tocMovil a{
+    flex:0 0 auto; font-size:13px; font-weight:700; padding:9px 14px; border-radius:20px;
+    background:#FFFFFF; border:2px solid var(--ink); color:var(--ink); text-decoration:none; white-space:nowrap;
+  }
+  nav.tocMovil a.activo{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk);}
+
+  main{padding:0 20px 60px;}
+  @media (min-width:980px){
+    nav.toc{display:block;}
+    nav.tocMovil{display:none;}
+    main{margin-left:var(--sidebar-w); max-width:1040px; padding:0 40px 80px;}
+  }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    padding:56px 22px 46px; text-align:center; position:relative; overflow:hidden;
+    background:var(--ink); color:#FFFFFF; border-bottom:6px solid var(--sim-amarillo);
+  }
+  .hero::before{
+    /* Efecto dinámico 2: gradiente semáforo en movimiento continuo (sin opacity) */
+    content:""; position:absolute; inset:-40%;
+    background:conic-gradient(from 0deg, var(--sim-verde), var(--sim-amarillo), var(--sim-naranja), var(--sim-rojo), var(--sim-azul), var(--sim-verde));
+    animation:girarSemaforo 18s linear infinite;
+    -webkit-mask:radial-gradient(circle, #000 0%, transparent 62%);
+    mask:radial-gradient(circle, #000 0%, transparent 62%);
+  }
+  @keyframes girarSemaforo{ to{ transform:rotate(360deg); } }
+  .hero .contenido{position:relative; z-index:2;}
+  .hero .kicker{
+    font-family:var(--font-mono); font-size:14px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--sim-amarillo); margin-bottom:14px; font-weight:700;
+  }
+  .hero h2{
+    font-size:clamp(34px,6vw,58px); color:#FFFFFF; font-style:italic; font-weight:400; margin:0 0 14px;
+  }
+  .hero p.sub{font-size:19px; color:#F0F2F5; max-width:640px; margin:0 auto 26px;}
+  .hero .cta{
+    display:inline-flex; gap:12px; flex-wrap:wrap; justify-content:center;
+  }
+  .hero .cta a{
+    font-family:var(--font-display); font-weight:700; font-style:italic; font-size:17px;
+    padding:14px 24px; border-radius:6px; text-decoration:none; border:2px solid #FFFFFF; color:#FFFFFF;
+    transition:transform .15s ease;
+  }
+  .hero .cta a.principal{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk); color:var(--ink);}
+  .hero .cta a:hover{transform:translateY(-3px);}
+
+  /* ---------- Secciones ---------- */
+  section.bloque{padding:54px 0 10px; border-bottom:1.5px solid var(--sim-plata-bg); scroll-margin-top:calc(var(--nav-h) + 80px);}
+  section.bloque:last-of-type{border-bottom:none;}
+  .eyebrow{
+    font-family:var(--font-mono); font-size:13px; text-transform:uppercase; letter-spacing:.1em;
+    color:var(--brass-dk); font-weight:700; margin-bottom:8px;
+  }
+  section.bloque h2{font-size:clamp(26px,4vw,36px); border-bottom:4px solid var(--sim-amarillo); padding-bottom:12px; margin-bottom:20px;}
+  section.bloque h3{font-size:21px; margin-top:28px; color:var(--brass-dk);}
+  .lead{font-size:19px; color:var(--ink-soft); max-width:760px;}
+
+  /* Revelado al hacer scroll (Efecto dinámico 3): translateY, nunca opacity */
+  .revela{ transform:translateY(26px); transition:transform .6s cubic-bezier(.22,.9,.3,1); }
+  .revela.visto{ transform:translateY(0); }
+
+  /* ---------- Tarjetas base ---------- */
+  .tarjeta{
+    background:#FFFFFF; border:1.5px solid var(--sim-plata); border-radius:10px;
+    padding:20px; box-shadow:0 1px 2px rgba(15,25,35,.06), 0 10px 22px -14px rgba(15,25,35,.35);
+  }
+  .grid2{display:grid; grid-template-columns:1fr; gap:16px;}
+  .grid3{display:grid; grid-template-columns:1fr; gap:16px;}
+  @media (min-width:680px){ .grid2{grid-template-columns:1fr 1fr;} .grid3{grid-template-columns:repeat(3,1fr);} }
+
+  /* Tilt 3D al pasar el mouse (Efecto dinámico 4) */
+  .tilt{ transition:transform .12s ease, box-shadow .12s ease; will-change:transform; }
+  .tilt:hover{ box-shadow:0 18px 30px -16px rgba(15,25,35,.45); }
+
+  .tip{
+    border-left:6px solid var(--sim-azul); background:var(--sim-azul-bg); color:var(--ink);
+    padding:16px 18px; border-radius:0 8px 8px 0; margin:18px 0; font-size:16px;
+  }
+  .tip strong{color:var(--sim-azul-dk);}
+  .alerta{
+    border-left:6px solid var(--sim-rojo); background:var(--sim-rojo-bg); color:var(--ink);
+    padding:16px 18px; border-radius:0 8px 8px 0; margin:18px 0; font-size:16px;
+  }
+  .alerta strong{color:var(--sim-rojo-dk);}
+  .exito{
+    border-left:6px solid var(--sim-verde); background:var(--sim-verde-bg); color:var(--ink);
+    padding:16px 18px; border-radius:0 8px 8px 0; margin:18px 0; font-size:16px;
+  }
+  .exito strong{color:var(--sim-verde-dk);}
+  .oportunidad{
+    border-left:6px solid var(--sim-amarillo); background:var(--sim-amarillo-bg); color:var(--ink);
+    padding:16px 18px; border-radius:0 8px 8px 0; margin:18px 0; font-size:16px;
+  }
+  .oportunidad strong{color:var(--sim-amarillo-dk);}
+
+  table.datos{width:100%; border-collapse:collapse; margin:18px 0; font-size:15px;}
+  table.datos th, table.datos td{padding:11px 12px; border-bottom:1px solid var(--sim-plata); text-align:left;}
+  table.datos th{background:var(--ink); color:#FFFFFF; font-family:var(--font-mono); font-size:13px; text-transform:uppercase; letter-spacing:.04em;}
+  table.datos tr:nth-child(even) td{background:var(--crema);}
+  .tabla-wrap{overflow-x:auto; border-radius:8px; border:1.5px solid var(--sim-plata);}
+
+  code, .codigo{font-family:var(--font-mono); background:var(--crema); border:1px solid var(--sim-plata); border-radius:4px; padding:2px 7px; font-size:15px;}
+  pre.codebox{
+    font-family:var(--font-mono); font-size:14px; background:var(--ink); color:#F8F9FB;
+    padding:18px; border-radius:8px; overflow-x:auto; line-height:1.55;
+  }
+  pre.codebox .csv-tit{color:var(--sim-amarillo);}
+  pre.codebox .csv-num{color:var(--sim-verde);}
+
+  ul.lista, ol.lista{padding-left:22px;}
+  ul.lista li, ol.lista li{margin-bottom:8px; font-size:17px;}
+
+  .paso{display:flex; gap:16px; margin-bottom:20px; align-items:flex-start;}
+  .paso .num{
+    flex-shrink:0; width:40px; height:40px; border-radius:50%; background:var(--ink); color:#FFFFFF;
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:18px;
+  }
+  .paso .txt h4{margin:0 0 4px; font-size:17px;}
+  .paso .txt p{margin:0; font-size:16px; color:var(--ink-soft);}
+
+  /* ---------- Simulador de semáforo interactivo (Efecto dinámico 5) ---------- */
+  .simulador{background:var(--crema); border:2px solid var(--ink); border-radius:12px; padding:22px; margin:22px 0;}
+  .simulador .botones{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;}
+  .simulador button.estado-btn{
+    font-family:var(--font-display); font-weight:700; font-style:italic; font-size:14px;
+    padding:10px 16px; border-radius:20px; border:2px solid var(--ink); background:#FFFFFF; color:var(--ink);
+    cursor:pointer; transition:transform .12s ease;
+  }
+  .simulador button.estado-btn:hover{transform:translateY(-2px);}
+  .simulador button.estado-btn.activo{color:#FFFFFF; border-color:transparent;}
+  .demo-caja{
+    max-width:280px; border-radius:12px; padding:20px; border:3px solid var(--sim-verde-dk);
+    background:linear-gradient(135deg, var(--sim-verde) 0%, var(--sim-verde-dk) 100%);
+    transition:background .25s ease, border-color .25s ease, box-shadow .25s ease;
+    color:#FFFFFF;
+  }
+  .demo-caja .dnombre{font-family:var(--font-display); font-weight:700; font-size:18px;}
+  .demo-caja .dstock{font-family:var(--font-display); font-size:36px; font-weight:700; margin-top:6px;}
+  .demo-caja .dmsg{font-size:14px; margin-top:6px;}
+  .demo-nivel{display:flex; gap:10px; margin-top:16px;}
+  .demo-nivel button{
+    font-family:var(--font-mono); font-size:13px; font-weight:700; padding:6px 12px; border-radius:6px;
+    border:2px solid var(--ink); background:#FFFFFF; color:var(--ink); cursor:pointer;
+  }
+  .demo-nivel button.activo{background:var(--ink); color:#FFFFFF;}
+
+  /* ---------- Código de barras animado (Efecto dinámico 6) ---------- */
+  .barcode-demo{display:flex; align-items:flex-end; gap:2px; height:70px; margin:18px 0; justify-content:center;}
+  .barcode-demo span{
+    display:block; width:4px; background:var(--ink); transform:scaleY(0); transform-origin:bottom;
+    animation:crecerBarra .9s cubic-bezier(.2,.9,.3,1) forwards;
+  }
+  @keyframes crecerBarra{ to{ transform:scaleY(1); } }
+
+  /* ---------- Contadores animados (Efecto dinámico 7) ---------- */
+  .stat-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin:22px 0;}
+  @media (min-width:680px){ .stat-grid{grid-template-columns:repeat(4,1fr);} }
+  .stat{background:var(--ink); color:#FFFFFF; border-radius:10px; padding:18px 14px; text-align:center;}
+  .stat .n{font-family:var(--font-display); font-size:34px; font-weight:700; color:var(--sim-amarillo);}
+  .stat .l{font-family:var(--font-mono); font-size:12px; text-transform:uppercase; letter-spacing:.05em; margin-top:4px;}
+
+  /* ---------- Pestañas de casos de uso (Efecto dinámico 8) ---------- */
+  .tabs{margin:24px 0;}
+  .tabs .tab-botones{display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px;}
+  .tabs .tab-botones button{
+    flex:0 0 auto; font-family:var(--font-display); font-weight:700; font-style:italic; font-size:15px;
+    padding:11px 18px; border-radius:8px 8px 0 0; border:2px solid var(--ink); border-bottom:none;
+    background:var(--crema); color:var(--ink-soft); cursor:pointer;
+  }
+  .tabs .tab-botones button.activo{background:var(--ink); color:#FFFFFF;}
+  .tab-panel-wrap{border:2px solid var(--ink); border-radius:0 8px 8px 8px; overflow:hidden; background:#FFFFFF;}
+  .tab-panels{display:flex; transition:transform .38s cubic-bezier(.22,.9,.3,1);}
+  .tab-panel{flex:0 0 100%; padding:24px; box-sizing:border-box;}
+
+  /* ---------- Acordeón FAQ (sin opacity, con max-height) ---------- */
+  .acordeon-item{border:1.5px solid var(--sim-plata); border-radius:8px; margin-bottom:10px; overflow:hidden;}
+  .acordeon-item button.preg{
+    width:100%; text-align:left; background:var(--crema); border:none; padding:16px 18px;
+    font-family:var(--font-display); font-weight:700; font-size:17px; color:var(--ink); cursor:pointer;
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+  }
+  .acordeon-item .flecha{font-size:20px; transition:transform .25s ease; flex-shrink:0;}
+  .acordeon-item.abierto .flecha{transform:rotate(180deg);}
+  .acordeon-item .resp{max-height:0; overflow:hidden; transition:max-height .3s ease;}
+  .acordeon-item .resp .inner{padding:4px 18px 18px;}
+  .acordeon-item.abierto .resp{max-height:600px;}
+
+  /* ---------- Matriz interactiva (RFM / BCG) ---------- */
+  .matriz2x2{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:20px 0;}
+  .celda-matriz{
+    border-radius:10px; padding:16px; border:2px solid var(--ink); cursor:default;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .celda-matriz:hover{transform:scale(1.03); box-shadow:0 14px 26px -14px rgba(15,25,35,.4); z-index:2;}
+  .celda-matriz h4{margin:0 0 4px; font-size:16px;}
+  .celda-matriz p{margin:0; font-size:14px;}
+
+  .escala-bloom{display:flex; align-items:flex-end; gap:6px; margin:10px 0;}
+  .escala-bloom .barra{width:22px; border-radius:3px 3px 0 0; border:1.5px solid var(--ink);}
+
+  footer.pie{
+    background:var(--ink); color:#FFFFFF; text-align:center; padding:40px 20px 50px; margin-top:20px;
+  }
+  footer.pie p{color:#E8ECF2; font-size:15px;}
+  footer.pie a{color:var(--sim-amarillo);}
+
+  .glosario dt{font-family:var(--font-display); font-weight:700; font-size:17px; color:var(--brass-dk); margin-top:14px;}
+  .glosario dd{margin:4px 0 0; font-size:16px; color:var(--ink-soft);}
+
+  .checklist{list-style:none; padding:0; margin:18px 0;}
+  .checklist li{
+    display:flex; gap:10px; align-items:flex-start; margin-bottom:10px; font-size:16px;
+    padding:12px 14px; background:var(--crema); border-radius:8px; border:1.5px solid var(--sim-plata);
+  }
+  .checklist li::before{content:"☐"; font-size:20px; color:var(--brass-dk); flex-shrink:0;}
+
+  @media (prefers-reduced-motion:reduce){
+    .hero::before{animation:none;}
+    .revela{transition:none;}
+    .barcode-demo span{animation:none; transform:scaleY(1);}
+    html{scroll-behavior:auto;}
+  }
+
+  @media print{
+    nav.toc, nav.tocMovil, #barraProgreso, header.top{display:none;}
+    main{margin-left:0;}
+  }
+</style>
+</head>
+<body>
+
+<div id="barraProgreso"></div>
+
+<header class="top">
+  <div class="marca">
+    <div class="sello">123</div>
+    <div>
+      <h1>AMIGABLE-123 — Manual Maestro</h1>
+      <div class="tagline">Tu negocio, a color</div>
+    </div>
+  </div>
+  <div id="relojManual">--:--</div>
+</header>
+
+<nav class="toc" id="tocDesktop">
+  <div class="grupo-titulo">Empezar</div>
+  <a href="#que-es">1. Qué es AMIGABLE-123</a>
+  <a href="#primeros-pasos">2. Primeros pasos</a>
+  <a href="#colores">3. El lenguaje de colores</a>
+  <div class="grupo-titulo">Las vistas</div>
+  <a href="#vista-hoy">4. Vista Hoy</a>
+  <a href="#inventario">5. Inventario</a>
+  <a href="#perchas">6. Perchas y sucursales</a>
+  <a href="#vender">7. Vender</a>
+  <a href="#etiquetas">8. Etiquetas</a>
+  <a href="#clientes">9. Clientes y estaciones</a>
+  <a href="#comisiones">10. Comisiones</a>
+  <a href="#bcg">11. Matriz BCG</a>
+  <a href="#avanzado">12. Modo Avanzado</a>
+  <div class="grupo-titulo">Datos y respaldo</div>
+  <a href="#csv-respaldo">13. CSV y respaldo</a>
+  <a href="#transferencias">14. Transferencias</a>
+  <a href="#seguridad">15. Seguridad</a>
+  <a href="#instancia-equipo">16. Tu equipo y anti fraude</a>
+  <div class="grupo-titulo">Práctica</div>
+  <a href="#casos">17. Casos reales</a>
+  <a href="#faq">18. Preguntas frecuentes</a>
+  <a href="#glosario">19. Glosario</a>
+</nav>
+
+<nav class="tocMovil" id="tocMovil">
+  <a href="#que-es">Qué es</a>
+  <a href="#primeros-pasos">Inicio</a>
+  <a href="#colores">Colores</a>
+  <a href="#vista-hoy">Hoy</a>
+  <a href="#inventario">Inventario</a>
+  <a href="#perchas">Perchas</a>
+  <a href="#vender">Vender</a>
+  <a href="#etiquetas">Etiquetas</a>
+  <a href="#clientes">Clientes</a>
+  <a href="#comisiones">Comisiones</a>
+  <a href="#bcg">Matriz BCG</a>
+  <a href="#avanzado">Avanzado</a>
+  <a href="#csv-respaldo">CSV/Respaldo</a>
+  <a href="#transferencias">Transferencias</a>
+  <a href="#seguridad">Seguridad</a>
+  <a href="#instancia-equipo">Equipo/Anti fraude</a>
+  <a href="#casos">Casos reales</a>
+  <a href="#faq">FAQ</a>
+  <a href="#glosario">Glosario</a>
+</nav>
+
+<div class="hero" id="inicio">
+  <div class="contenido">
+    <div class="kicker">Manual maestro · versión julio 2026</div>
+    <h2>AMIGABLE-123</h2>
+    <p class="sub">La app de inventario, ventas, clientes y contabilidad ligera para negocios de Ecuador y Latinoamérica — explicada de principio a fin, con casos reales en dólares y el manual completo de su lenguaje de colores.</p>
+    <div class="cta">
+      <a href="#que-es" class="principal">Empezar a leer</a>
+      <a href="#colores">Ir directo a los colores</a>
+      <a href="#casos">Ver casos reales</a>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<section class="bloque revela" id="que-es">
+  <div class="eyebrow">Sección 1</div>
+  <h2>Qué es AMIGABLE-123</h2>
+  <p class="lead">AMIGABLE-123 es una aplicación de control de inventario, ventas y clientes pensada para el micro y pequeño negocio ecuatoriano: la tienda de barrio, el local de ropa, la libería boutique, el puesto en el mercado, el stand de feria de fin de semana. Un solo archivo, funciona sin internet, y le dice a golpe de vista qué necesita tu negocio hoy — sin manuales de contabilidad, sin Excel, sin depender de que el dueño esté siempre presente.</p>
+
+  <div class="grid3">
+    <div class="tarjeta tilt revela">
+      <h4 style="margin-top:0;color:var(--sim-verde-dk);">Para quién es</h4>
+      <p style="margin:0;font-size:16px;">Dueños de 1 a 6 puntos de venta (locales, stands, perchas de consignación) que necesitan control real de inventario y plata sin contratar un sistema corporativo.</p>
+    </div>
+    <div class="tarjeta tilt revela">
+      <h4 style="margin-top:0;color:var(--sim-amarillo-dk);">Su filosofía</h4>
+      <p style="margin:0;font-size:16px;">Cada producto tiene un color y una intensidad. Tú no memorizas reportes: el color ya te dice si vender, reponer, promover o dejar dormir.</p>
+    </div>
+    <div class="tarjeta tilt revela">
+      <h4 style="margin-top:0;color:var(--sim-azul-dk);">Funciona sin internet</h4>
+      <p style="margin:0;font-size:16px;">Es una PWA local-first: se instala en el celular o tablet, guarda todo en el dispositivo y sincroniza cuando hay señal.</p>
+    </div>
+  </div>
+
+  <h3>Los ocho subsistemas de la app</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Vista</th><th>Qué resuelve</th><th>Quién la ve</th></tr>
+      <tr><td><strong>Hoy</strong></td><td>Semáforo general del negocio, alertas, ganancia del día, producto estrella</td><td>Dueño (plata) / Empleado (conteos)</td></tr>
+      <tr><td><strong>Inventario</strong></td><td>Todas las tarjetas de producto, filtros por color, ajustes rápidos, alta de producto</td><td>Ambos (alta y perchas solo dueño)</td></tr>
+      <tr><td><strong>Vender</strong></td><td>Cuadrícula táctil de venta, escáner de código de barras, cierre del día</td><td>Ambos</td></tr>
+      <tr><td><strong>Etiquetas</strong></td><td>Código de barras Code128 y QR listos para imprimir</td><td>Ambos</td></tr>
+      <tr><td><strong>Perchas</strong></td><td>Fotos de cada percha con semáforo de cumplimiento de meta</td><td>Ambos (fotos) / Dueño (gestión)</td></tr>
+      <tr><td><strong>Clientes</strong></td><td>Fichas con código único y matriz de estaciones (RFM)</td><td>Ambos</td></tr>
+      <tr><td><strong>Comisiones</strong></td><td>Liquidación de perchas de socio, franquicia y consignación</td><td>Dueño</td></tr>
+      <tr><td><strong>Avanzado</strong></td><td>Actividad, gastos, P&amp;G, balance, inventario valorizado, respaldo</td><td>Dueño (contador con subclave)</td></tr>
+    </table>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="n" data-contar="6">0</div><div class="l">Colores de estado</div></div>
+    <div class="stat"><div class="n" data-contar="3">0</div><div class="l">Niveles Sinclair Bloom</div></div>
+    <div class="stat"><div class="n" data-contar="8">0</div><div class="l">Vistas principales</div></div>
+    <div class="stat"><div class="n" data-contar="15">0</div><div class="l">% IVA Ecuador aplicado</div></div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-soft);">Los contadores arrancan al llegar a esta sección — así se ve en acción uno de los efectos dinámicos del manual.</p>
+</section>
+
+<section class="bloque revela" id="primeros-pasos">
+  <div class="eyebrow">Sección 2</div>
+  <h2>Primeros pasos</h2>
+  <p class="lead">Instalar AMIGABLE-123 toma menos de dos minutos. Estos son los pasos, en orden, para tener el local funcionando hoy mismo.</p>
+
+  <div class="paso">
+    <div class="num">1</div>
+    <div class="txt"><h4>Abre el enlace de tu negocio en Chrome o Safari</h4><p>Nunca en el navegador interno de WhatsApp o Instagram — ahí los diálogos de confirmación pueden bloquearse. Si te llega por WhatsApp, toca "Abrir en el navegador".</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">2</div>
+    <div class="txt"><h4>Instálala como app (opcional pero recomendado)</h4><p>En Android: menú ⋮ → "Instalar app" o "Agregar a pantalla de inicio". En iPhone: botón compartir → "Agregar a inicio". Queda con su ícono "123" propio y abre sin barra de navegador.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">3</div>
+    <div class="txt"><h4>Define tus tres códigos de acceso</h4><p>Cada rol tiene un código de 3 dígitos (000–999) que se guarda cifrado en el dispositivo: <strong>código de dueño</strong> (ve la plata y la configuración), <strong>código de empleado</strong> (vende y cuenta stock, no ve ganancias) y <strong>código de contador</strong> (una subclave aparte que protege la capa contable dentro de Avanzado). Regístralos en Avanzado → Acceso, junto con un correo de recuperación.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">4</div>
+    <div class="txt"><h4>Crea tus sucursales y perchas</h4><p>Una <strong>sucursal</strong> agrupa perchas para reportes (ej. "Centro Histórico"). Una <strong>percha</strong> es la unidad operativa real donde vendes (el mostrador, el stand, la mesa de feria). Puedes tener varias perchas por sucursal.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">5</div>
+    <div class="txt"><h4>Da de alta tus primeros productos</h4><p>A mano desde Inventario → "+ Agregar", o escaneando el código de barras en Vender y llenando la ficha nueva. Define nombre, categoría, precio, costo, proveedor, stock inicial y los umbrales rojo/amarillo (de cuántas unidades para abajo se enciende cada alerta).</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">6</div>
+    <div class="txt"><h4>Haz tu primer respaldo</h4><p>Avanzado → Exportar respaldo, protegido con una clave. Guárdalo en tu WhatsApp o Drive. Repite esto cada semana como mínimo — la app te lo recuerda si pasa mucho tiempo.</p></div>
+  </div>
+
+  <div class="tip"><strong>Recomendación JFC:</strong> el primer día, deja la app en modo demo (o con datos de prueba) y practica vender, ajustar stock y cerrar el día antes de cargar tu inventario real. Así aprendes sin miedo a "romper" nada.</div>
+
+  <h3>Checklist de arranque</h3>
+  <ul class="checklist">
+    <li>App instalada en el celular o tablet del local</li>
+    <li>3 códigos de acceso definidos (dueño, empleado, contador) + correo de recuperación registrado en Avanzado → Acceso (si EmailJS está configurado, llega por correo; si no, el código aparece en pantalla)</li>
+    <li>Sucursales y perchas creadas con su tipo (propio, socio, franquicia, consignación)</li>
+    <li>Al menos 10 productos reales cargados con precio, costo y umbrales</li>
+    <li>Gastos mensuales de cada ubicación registrados en Avanzado</li>
+    <li>Primer respaldo cifrado descargado y guardado fuera del celular</li>
+    <li>Empleado capacitado en Vender + ajuste rápido de stock</li>
+  </ul>
+</section>
+
+<section class="bloque revela" id="colores">
+  <div class="eyebrow">Sección 3 — el corazón de la app</div>
+  <h2>El lenguaje de colores: Sistema Simon</h2>
+  <p class="lead">Cada producto en AMIGABLE-123 vive en uno de seis colores. El color nunca es decorativo: es un diagnóstico automático que combina tu stock, tus umbrales, tu margen y tus días sin vender. Aprende esta tabla una sola vez y ya sabrás leer cualquier percha de un vistazo, para siempre.</p>
+
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Color</th><th>Significa</th><th>Se enciende cuando…</th><th>Acción del dueño</th></tr>
+      <tr><td style="color:var(--sim-verde-dk);font-weight:700;">🟢 Verde</td><td>Saludable</td><td>Stock por encima del umbral amarillo, margen normal, se ha vendido recientemente</td><td>Sigue así, no requiere atención</td></tr>
+      <tr><td style="color:var(--sim-amarillo-dk);font-weight:700;">🟡 Amarillo</td><td>Oportunidad</td><td>Stock sano y no dormido (menos de 45 días sin ventas), y margen ≥ 50%</td><td>Empújalo: está dejando plata sobre la mesa</td></tr>
+      <tr><td style="color:var(--sim-naranja-dk);font-weight:700;">🟠 Naranja</td><td>Urgente-pronto</td><td>Stock entre el umbral rojo y el amarillo, o vence en 4–7 días</td><td>Véndelo primero / prográmalo para reposición esta semana</td></tr>
+      <tr><td style="color:var(--sim-rojo-dk);font-weight:700;">🔴 Rojo</td><td>Emergencia</td><td>Stock en cero o por debajo del umbral rojo, vencido o vence en ≤3 días</td><td>Actúa hoy: repón, transfiere o retira</td></tr>
+      <tr><td style="color:var(--sim-azul-dk);font-weight:700;">🔵 Azul</td><td>Dato contable</td><td>Margen mayor a 0% pero menor a 25% (precio pegado al costo)</td><td>Revisa el precio o negocia el costo con el proveedor</td></tr>
+      <tr><td style="color:#FFFFFF;font-weight:700;background:var(--sim-negro);border-radius:4px;">⚫ Negro</td><td>Capital dormido</td><td>45 días o más sin ninguna venta, con stock sano</td><td>Libera ese dinero: descuento, combo o retíralo del catálogo</td></tr>
+    </table>
+  </div>
+
+  <div class="tip"><strong>Nota importante:</strong> cuando un producto perecible está por vencer y además tiene poco stock, la app se queda siempre con la señal <em>más grave</em> de las dos. Un producto con stock sano pero que vence mañana se pinta rojo igual que uno sin stock.</div>
+
+  <h3>Pruébalo tú mismo: simulador de estado</h3>
+  <p>Elige un color y luego un nivel de intensidad — así se comporta una tarjeta real de Inventario.</p>
+  <div class="simulador">
+    <div class="botones" id="simBotones">
+      <button class="estado-btn activo" data-estado="verde" style="background:var(--sim-verde);border-color:var(--sim-verde-dk);color:#fff;">Verde</button>
+      <button class="estado-btn" data-estado="amarillo" style="background:var(--sim-amarillo);border-color:var(--sim-amarillo-dk);">Amarillo</button>
+      <button class="estado-btn" data-estado="naranja" style="background:var(--sim-naranja);border-color:var(--sim-naranja-dk);color:#fff;">Naranja</button>
+      <button class="estado-btn" data-estado="rojo" style="background:var(--sim-rojo);border-color:var(--sim-rojo-dk);color:#fff;">Rojo</button>
+      <button class="estado-btn" data-estado="azul" style="background:var(--sim-azul);border-color:var(--sim-azul-dk);color:#fff;">Azul</button>
+      <button class="estado-btn" data-estado="negro" style="background:var(--sim-negro);border-color:#000;color:#fff;">Negro</button>
+    </div>
+    <div class="demo-caja" id="demoCaja">
+      <div class="dnombre" id="demoNombre">Camiseta Metallica — Master of Puppets</div>
+      <div class="dstock" id="demoStock">8</div>
+      <div class="dmsg" id="demoMsg">Stock saludable</div>
+    </div>
+    <div class="demo-nivel">
+      <span style="font-size:13px;font-weight:700;align-self:center;margin-right:4px;">Intensidad:</span>
+      <button class="nivel-btn activo" data-nivel="1">n1 tenue</button>
+      <button class="nivel-btn" data-nivel="2">n2 medio</button>
+      <button class="nivel-btn" data-nivel="3">n3 encendido</button>
+    </div>
+  </div>
+
+  <h3>La Escala Sinclair Bloom: 3 grados dentro de cada color</h3>
+  <p>Cada color tiene tres grados de intensidad — nunca cambia de color, solo se enciende más o menos fuerte. Es la diferencia entre "recién entrando en amarillo" y "amarillo a punto de pasar a rojo".</p>
+  <div class="grid3">
+    <div class="tarjeta">
+      <div class="escala-bloom">
+        <span class="barra" style="height:10px;background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);"></span>
+        <span class="barra" style="height:16px;background:var(--sim-plata-bg);"></span>
+        <span class="barra" style="height:22px;background:var(--sim-plata-bg);"></span>
+      </div>
+      <strong>Nivel 1 — Tenue</strong>
+      <p style="font-size:15px;margin:4px 0 0;">Recién cruzó la línea. Fondo claro, tinta oscura. "Empieza a pensar en reponer."</p>
+    </div>
+    <div class="tarjeta">
+      <div class="escala-bloom">
+        <span class="barra" style="height:10px;background:var(--sim-amarillo);border-color:var(--sim-amarillo-dk);"></span>
+        <span class="barra" style="height:16px;background:var(--sim-amarillo);border-color:var(--sim-amarillo-dk);"></span>
+        <span class="barra" style="height:22px;background:var(--sim-plata-bg);"></span>
+      </div>
+      <strong>Nivel 2 — Medio</strong>
+      <p style="font-size:15px;margin:4px 0 0;">El look clásico del color, a media fuerza. "Se acerca la hora de reponer."</p>
+    </div>
+    <div class="tarjeta">
+      <div class="escala-bloom">
+        <span class="barra" style="height:10px;background:var(--sim-amarillo-dk);"></span>
+        <span class="barra" style="height:16px;background:var(--sim-amarillo-dk);"></span>
+        <span class="barra" style="height:22px;background:var(--sim-amarillo-dk);"></span>
+      </div>
+      <strong>Nivel 3 — Encendido</strong>
+      <p style="font-size:15px;margin:4px 0 0;">Máxima urgencia dentro del color, con resplandor visual. "Última unidad — no esperes más."</p>
+    </div>
+  </div>
+
+  <div class="alerta"><strong>El rojo es distinto:</strong> además del degradé, el rojo pulsa suavemente (una animación de urgencia) para que ningún producto en emergencia pase desapercibido, incluso si el dueño solo mira la pantalla de reojo.</div>
+
+  <h3>La regla de oro: nunca memorices, solo mira el color</h3>
+  <p>Todo el diseño de AMIGABLE-123 parte de una convicción de Juan Fernando Carpio: un dueño de negocio en Ecuador no tiene tiempo de leer reportes de 12 columnas cada mañana. Sí tiene tiempo de mirar una pantalla 8 segundos y saber, sin pensar, qué hacer primero. Por eso cada color tiene siempre la misma pregunta implícita:</p>
+  <ul class="lista">
+    <li><strong>🔴 Rojo</strong> pregunta: "¿qué se me acaba o se me vence HOY?"</li>
+    <li><strong>🟠 Naranja</strong> pregunta: "¿qué debo vender primero esta semana?"</li>
+    <li><strong>🟡 Amarillo</strong> pregunta: "¿qué producto me está dejando más plata y debería empujar?"</li>
+    <li><strong>🔵 Azul</strong> pregunta: "¿qué precio o costo debo revisar porque casi no gano nada ahí?"</li>
+    <li><strong>⚫ Negro</strong> pregunta: "¿qué plata tengo enterrada en una percha sin moverse?"</li>
+    <li><strong>🟢 Verde</strong> no pregunta nada — es la ausencia de problema, y eso también es información.</li>
+  </ul>
+</section>
+
+<section class="bloque revela" id="vista-hoy">
+  <div class="eyebrow">Sección 4</div>
+  <h2>Vista Hoy: el semáforo general del negocio</h2>
+  <p class="lead">Es la primera pantalla que ve cualquiera al abrir la app. Resume, en 3 segundos, si el negocio necesita atención hoy.</p>
+  <div class="grid2">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">Qué ve el dueño</h4>
+      <ul class="lista" style="margin:0;">
+        <li>Hero tri-estado del negocio: <strong>Verde</strong> = sin urgencias. <strong>Amarillo</strong> = hay productos naranja (revisar esta semana). <strong>Rojo</strong> = hay productos en emergencia. Productos negro, azul y amarillo-oportunidad no afectan el hero</li>
+        <li>Entró hoy / Salió hoy / Ganancia de hoy / Valor de tu inventario</li>
+        <li>Ventas del día y venta promedio (ticket promedio)</li>
+        <li>Lista de alertas rojas y naranjas ordenadas por urgencia</li>
+        <li>El "apunte del día": una frase de gestión distinta cada día del año</li>
+      </ul>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">Qué ve el empleado</h4>
+      <ul class="lista" style="margin:0;">
+        <li>El mismo semáforo y las mismas alertas de stock</li>
+        <li>Cantidad de ventas del día (sin montos de plata ni ganancia)</li>
+        <li>Los productos <strong>estrella ⭐</strong> que el dueño marcó para impulsar hoy</li>
+      </ul>
+      <p style="font-size:14px;margin:10px 0 0;color:var(--ink-soft);">Esta separación es intencional: el empleado sabe qué vender y cuánto se ha vendido, pero la rentabilidad queda solo para el dueño.</p>
+    </div>
+  </div>
+  <div class="tip"><strong>Caso:</strong> una tienda de camisetas de rock en el Centro Histórico de Cuenca vendió hoy $312 en 14 tickets (promedio $22.30). El hero está en amarillo porque hay 3 productos naranja (quedan pocas unidades) pero ninguno en rojo — "manejable, no urgente".</div>
+</section>
+
+<section class="bloque revela" id="inventario">
+  <div class="eyebrow">Sección 5</div>
+  <h2>Inventario: la cuadrícula de tarjetas</h2>
+  <p class="lead">Cada producto es una tarjeta con su color y su nivel Bloom. Puedes filtrar por estado, ajustar stock sin escanear, marcar estrellas y dar de alta productos nuevos.</p>
+
+  <h3>Los campos de un producto</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Campo</th><th>Ejemplo real (USD)</th><th>Para qué sirve</th></tr>
+      <tr><td>Nombre</td><td>Camiseta AC/DC — Back in Black</td><td>Se ve en tarjetas, etiquetas y reportes</td></tr>
+      <tr><td>Categoría</td><td>Camisetas</td><td>Agrupa en Etiquetas y en reportes</td></tr>
+      <tr><td>SKU</td><td>CAM-ACDC-BIB</td><td>Código interno legible, no cambia al renombrar el producto</td></tr>
+      <tr><td>Código de barras</td><td>7861000030033</td><td>Lo que lee el escáner en Vender</td></tr>
+      <tr><td>Precio de venta</td><td>$20.00</td><td>Lo que paga el cliente</td></tr>
+      <tr><td>Costo</td><td>$8.50</td><td>Define el margen y por tanto si el producto puede ser azul o amarillo</td></tr>
+      <tr><td>Umbral rojo / amarillo</td><td>8 / 16 unidades</td><td>Debajo de 8 se enciende rojo; entre 8 y 16, naranja</td></tr>
+      <tr><td>Proveedor</td><td>Rock Import EC</td><td>Referencia para reposición</td></tr>
+      <tr><td>Perecible + fecha de caducidad</td><td>Sí — vence 2026-07-08</td><td>Activa las alertas de vencimiento (rojo/naranja) sobre las de stock</td></tr>
+      <tr><td>Método de costeo</td><td>FIFO (recomendado)</td><td>Orden de venta sugerido para perecibles: primero lo que vence antes</td></tr>
+    </table>
+  </div>
+
+  <div class="oportunidad"><strong>Recomendación de umbrales:</strong> como regla práctica en micropymes ecuatorianas, pon el umbral rojo en el equivalente a 3–5 días de venta normal, y el amarillo al doble de ese número. Un producto que se mueve rápido (una camiseta estrella) necesita umbrales más altos que uno de rotación lenta (un vinilo de colección).</div>
+
+  <h3>Ajuste rápido de stock (sin escanear)</h3>
+  <p>Cada tarjeta tiene botones <strong>−</strong> y <strong>+</strong> para mover 1 unidad sin pasar por el escáner — perfecto para conteos físicos, mermas o ingresos de mercadería. La app siempre pide un motivo corto ("Merma", "Conteo físico", "Regalo a cliente") y lo guarda en el log de movimientos, visible solo para el dueño — el candado natural contra descuadres.</p>
+
+  <h3>La estrella ⭐: el producto que quieres empujar hoy</h3>
+  <p>El dueño puede marcar cualquier producto con una estrella. Ese producto aparece automáticamente en la sección "Para impulsar hoy" de la Vista Hoy y arriba del todo en la cuadrícula de Vender — así el empleado sabe exactamente qué recomendar sin que el dueño tenga que estar presente.</p>
+
+  <div class="tip"><strong>Filtros de Inventario:</strong> Todos · Urgente (rojo) · Revisar (naranja) · Oportunidad (amarillo) · Sano (verde) · Dato (azul) · Dormido (negro). Úsalos cada mañana en este orden: primero Urgente, luego Revisar, y una vez a la semana revisa Dormido para liberar capital.</div>
+</section>
+
+<section class="bloque revela" id="perchas">
+  <div class="eyebrow">Sección 6</div>
+  <h2>Perchas y sucursales</h2>
+  <p class="lead">Una <strong>percha</strong> es tu unidad operativa: el mostrador, un stand, una mesa de feria. Una <strong>sucursal</strong> agrupa perchas para reportes y liquidación. Cada percha tiene un tipo de negocio que determina cómo se reparte la plata.</p>
+
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Tipo de percha</th><th>Cómo se reparte la venta</th><th>Ejemplo</th></tr>
+      <tr><td><strong>Propio</strong></td><td>100% para el dueño, sin comisión</td><td>Mostrador principal del local</td></tr>
+      <tr><td><strong>Socio</strong></td><td>% de comisión fijo o por escalas de cumplimiento de meta</td><td>Stand en el Mercado 10 de Agosto: 25% base, sube a 40% si supera $120/mes</td></tr>
+      <tr><td><strong>Franquicia</strong></td><td>% de comisión pactado, reporta a su propia sucursal</td><td>Punto de venta operado por un tercero bajo tu marca</td></tr>
+      <tr><td><strong>Consignación</strong></td><td>% de comisión al consignatario, el resto es neto para el dueño</td><td>Feria Artesanal El Otorongo: 30% para la promotora</td></tr>
+    </table>
+  </div>
+
+  <h3>Escalas de comisión: premia el esfuerzo</h3>
+  <p>En vez de un porcentaje fijo, puedes definir <strong>escalas</strong> que suben la comisión mientras más vende la percha. Ejemplo real de una promotora en el mercado, con meta mensual de $300:</p>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Ventas del mes hasta…</th><th>Comisión</th></tr>
+      <tr><td>$80</td><td>25%</td></tr>
+      <tr><td>$100</td><td>30%</td></tr>
+      <tr><td>$120</td><td>35%</td></tr>
+      <tr><td>$999+</td><td>40%</td></tr>
+    </table>
+  </div>
+  <p style="font-size:15px;color:var(--ink-soft);">Así la promotora tiene un incentivo directo: mientras más venda, mayor porcentaje se lleva sobre el total — no solo sobre el excedente.</p>
+
+  <h3>Feria de fin de semana: percha temporal</h3>
+  <p>Para eventos de 2–3 días (una feria artesanal, un bazar navideño) crea una percha marcada como <strong>Feria</strong> con su propia comisión. Al cerrarla queda archivada con todo su historial y saltas directo a Comisiones para ver su liquidación — sin mezclar sus números con el resto del año.</p>
+
+  <h3>Fotos de percha con semáforo de meta</h3>
+  <p>La vista Perchas muestra una foto real de cada punto de venta (tomada con la cámara del celular) junto a un semáforo de cuánto lleva cumplido de su meta mensual. Es la forma más rápida de saber, sin abrir números, si una percha va bien.</p>
+</section>
+
+<section class="bloque revela" id="vender">
+  <div class="eyebrow">Sección 7</div>
+  <h2>Vender: cuadrícula táctil + escáner + cierre del día</h2>
+  <p class="lead">Vender no es un carrito de compras: es control de inventario en tiempo real. Cada toque es una unidad menos en stock, con 5 segundos para deshacer.</p>
+
+  <h3>Tres formas de registrar una venta</h3>
+  <div class="grid3">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">1. Toque directo</h4>
+      <p style="font-size:15px;margin:0;">Cuadrícula con todos los productos de la percha activa, estrellas primero. Un toque = una unidad vendida. El cliente elegido en el selector aplica a todos los toques.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">2. Escaneo o búsqueda</h4>
+      <p style="font-size:15px;margin:0;">Escribe o escanea el código de barras / SKU. La app suena un beep de confirmación y muestra la ficha completa con precio, stock y estado.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;">3. Cierre del día</h4>
+      <p style="font-size:15px;margin:0;">Para quien no registra en vivo: apunta cuántas unidades salieron de cada producto y aplica todo junto al final del día. Descuenta stock y calcula comisiones igual que una venta normal.</p>
+    </div>
+  </div>
+
+  <div class="exito"><strong>Deshacer venta:</strong> tras cada toque aparece un aviso de 5 segundos — "Venta registrada, toca aquí para anular". Perfecto para cuando el cliente cambia de opinión o hubo un toque accidental.</div>
+
+  <h3>Ejemplo de cierre del día — tienda de libros latinoamericanos</h3>
+  <p>La librería en el Centro Histórico no registra venta por venta durante el día. Al cerrar, el dueño cuenta lo que falta en la mesa y apunta:</p>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Producto</th><th>Unidades vendidas hoy</th><th>Precio</th><th>Subtotal</th></tr>
+      <tr><td>Kentukis — Samanta Schweblin</td><td>2</td><td>$19.00</td><td>$38.00</td></tr>
+      <tr><td>Pelea de gallos — M. F. Ampuero ⭐</td><td>1</td><td>$18.00</td><td>$18.00</td></tr>
+      <tr><td>Cometierra — Dolores Reyes</td><td>1</td><td>$21.00</td><td>$21.00</td></tr>
+      <tr><td colspan="3" style="text-align:right;font-weight:700;">Total del cierre</td><td style="font-weight:700;">$77.00</td></tr>
+    </table>
+  </div>
+  <p style="font-size:15px;">Al aplicar, la app descuenta el stock de las 3 obras y suma esas ventas al resumen del día — como si se hubiera registrado en vivo.</p>
+</section>
+
+<section class="bloque revela" id="etiquetas">
+  <div class="eyebrow">Sección 8</div>
+  <h2>Etiquetas: código de barras y QR listos para imprimir</h2>
+  <p class="lead">Cada producto genera su propia etiqueta con código de barras Code128 real (escaneable) y un QR opcional que abre la ficha completa. Todo se dibuja localmente — sin depender de ningún servicio externo.</p>
+
+  <div class="barcode-demo" id="barcodeDemo" aria-hidden="true"></div>
+  <p style="text-align:center;font-family:var(--font-mono);font-size:13px;color:var(--ink-soft);">7861000030033 — así se "dibuja" el código de barras al abrir una etiqueta (efecto de trazo animado)</p>
+
+  <h3>Qué trae la etiqueta imprimible</h3>
+  <ul class="lista">
+    <li>Nombre del producto y precio grande (fácil de leer desde lejos en un mostrador)</li>
+    <li>Fecha de vencimiento si el producto es perecible</li>
+    <li>Código de barras Code128 escaneable por cualquier lector</li>
+    <li>Código QR que abre la app directamente en la ficha del producto — el cliente lo escanea con la cámara de su celular y llega a la demo con ese producto como contexto</li>
+    <li>Puedes tocar el código de barras para imprimir <em>solo</em> el código, o guardarlo como imagen PNG — ideal para pegatinas hechas por fuera</li>
+  </ul>
+  <div class="tip"><strong>Recomendación:</strong> imprime etiquetas en lote una vez por semana para todo lo que llegó nuevo. En micropymes de Cuenca, una hoja de 20 etiquetas autoadhesivas cuesta entre $0.50 y $1.20 en papelerías locales — rentabilízalo etiquetando solo lo que realmente rota.</div>
+</section>
+
+<section class="bloque revela" id="clientes">
+  <div class="eyebrow">Sección 9</div>
+  <h2>Clientes y la matriz de estaciones (RFM)</h2>
+  <p class="lead">Cada cliente recibe un código único al registrarse. La app clasifica automáticamente a cada uno en una "estación" según qué tan seguido compra y cuánto gasta — la misma lógica que usan las grandes cadenas (RFM: Recencia, Frecuencia, Monto) pero contada con metáforas de siembra, fáciles de recordar sin cursos de marketing.</p>
+
+  <div class="matriz2x2">
+    <div class="celda-matriz" style="background:var(--sim-naranja-bg);border-color:var(--sim-naranja);">
+      <h4 style="color:var(--sim-naranja-dk);">🍂 Otoño — enfriándose</h4>
+      <p>Eran de tus mejores clientes y hace rato no vienen. Búscalos hoy: son la esquina donde se recupera plata perdida.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);">
+      <h4 style="color:var(--sim-amarillo-dk);">☀️ Verano — en plena cosecha</h4>
+      <p>Compran seguido y fuerte. Cuídalos como oro: son tu ingreso más estable.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-azul-bg);border-color:var(--sim-azul);">
+      <h4 style="color:var(--sim-azul-dk);">❄️ Invierno — dormidos</h4>
+      <p>Sin señales de vida. Un mensaje personalizado puede despertarlos.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-verde-bg);border-color:var(--sim-verde);">
+      <h4 style="color:var(--sim-verde-dk);">🌱 Primavera — creciendo</h4>
+      <p>Recién germinan. Riégalos: una atención pequeña y vuelven.</p>
+    </div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-soft);text-align:center;margin-top:-6px;">Derecha: compran hace poco. Arriba: dejan más dinero. (Pasa el mouse sobre cada cuadrante.)</p>
+
+  <h3>Cómo se usa en la práctica</h3>
+  <div class="paso">
+    <div class="num">1</div>
+    <div class="txt"><h4>Registra al cliente en el mostrador</h4><p>Nombre y teléfono (opcional). La app genera un código único al instante — se lo puedes mostrar o anotar en su recibo.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">2</div>
+    <div class="txt"><h4>Selecciónalo al vender</h4><p>En Vender, el selector "Cliente" aplica ese código a la venta. Así la app arma su historial sin trabajo extra.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">3</div>
+    <div class="txt"><h4>Revisa la matriz una vez por semana</h4><p>El cuadrante 🍂 Otoño es tu lista de reactivación prioritaria: son clientes que ya demostraron que compran fuerte, solo hace falta un empujón.</p></div>
+  </div>
+
+  <div class="oportunidad"><strong>Caso real:</strong> en la boutique de ropa andina, "Doña Carmen" compró 4 veces en 60 días por un total de $145 (verano ☀️), pero "Sr. Andrade" compró 3 veces por $210 hace más de 70 días — cayó a otoño 🍂. Un mensaje de WhatsApp con la nueva colección de bufandas de alpaca ($25–35) puede recuperarlo antes de que llegue a invierno.</div>
+
+  <h3>Importar tu cartera de golpe (CSV)</h3>
+  <p>Si ya tienes una lista de clientes, el dueño puede subirla toda de una vez desde el bloque <strong>"Importar tu cartera desde un archivo"</strong>, al fondo de esta misma sección. Necesita un CSV con dos columnas —nombre y teléfono— y cada cliente recibe su código único automáticamente. El formato exacto, con ejemplo y reglas, está en la <a href="#csv-respaldo">Sección 13</a>. <strong>El empleado no ve este botón:</strong> para él existe solo el registro manual de arriba.</p>
+</section>
+
+<section class="bloque revela" id="comisiones">
+  <div class="eyebrow">Sección 10</div>
+  <h2>Comisiones: lo que le debes a cada promotor/a</h2>
+  <p class="lead">Calculado venta por venta, sin Excel y sin sorpresas. Cada percha de tipo socio, franquicia o consignación aparece aquí con su liquidación del mes.</p>
+
+  <h3>Qué muestra cada tarjeta de liquidación</h3>
+  <ul class="lista">
+    <li>Ventas brutas del mes de esa percha</li>
+    <li>Comisión de la promotora (según su % fijo o su escala)</li>
+    <li>Neto que queda para el dueño</li>
+    <li>Cumplimiento de meta mensual, si la percha tiene una definida</li>
+    <li>Alerta si la percha lleva 7+ días sin ninguna venta ("percha dormida")</li>
+    <li>Botón "Marcar como pagado" una vez que le transfieres o entregas su comisión</li>
+  </ul>
+
+  <h3>Ejemplo real: liquidación de dos promotoras</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Percha</th><th>Promotor/a</th><th>Ventas del mes</th><th>Comisión</th><th>Neto dueño</th></tr>
+      <tr><td>Stand Mercado 10 de Agosto</td><td>María Auquilla</td><td>$118.00</td><td>35% → $41.30</td><td>$76.70</td></tr>
+      <tr><td>Feria Artesanal El Otorongo</td><td>Carlos Once</td><td>$96.00</td><td>30% → $28.80</td><td>$67.20</td></tr>
+    </table>
+  </div>
+
+  <h3>Ranking de promotores/as</h3>
+  <p>Un medallero automático (🥇🥈🥉) que muestra unidades vendidas, ventas brutas, su SKU más fuerte y una alerta si algún promotor lleva más de 7 días sin vender nada — útil para detectar a tiempo si alguien necesita apoyo o capacitación.</p>
+
+  <div class="tip"><strong>Enviar resumen por WhatsApp:</strong> un botón arma automáticamente el resumen del día (ventas, comisiones pendientes, stock crítico) y abre WhatsApp listo para enviarlo a quien tú elijas — sin copiar y pegar números a mano.</div>
+</section>
+
+<section class="bloque revela" id="bcg">
+  <div class="eyebrow">Sección 11</div>
+  <h2>Matriz BCG de tu inventario</h2>
+  <p class="lead">Basada en ventas de los últimos 60 días, clasifica automáticamente cada producto en uno de cuatro cuadrantes clásicos de gestión de portafolio — sin que tengas que calcular nada.</p>
+
+  <div class="matriz2x2">
+    <div class="celda-matriz" style="background:var(--sim-azul-bg);border-color:var(--sim-azul);">
+      <h4 style="color:var(--sim-azul-dk);">❓ Promesas</h4>
+      <p>Venden poco pero van subiendo. Dales vitrina y espacio para crecer.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-verde-bg);border-color:var(--sim-verde);">
+      <h4 style="color:var(--sim-verde-dk);">⭐ Estrellas</h4>
+      <p>Venden mucho y van subiendo. Protege su stock — son tu futuro inmediato.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-plata-bg);border-color:var(--sim-plata-dk);">
+      <h4 style="color:var(--ink-soft);">💤 Pesos muertos</h4>
+      <p>Sin movimiento en 60 días. Libera ese capital con descuentos o combos.</p>
+    </div>
+    <div class="celda-matriz" style="background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);">
+      <h4 style="color:var(--sim-amarillo-dk);">🐄 Vacas lecheras</h4>
+      <p>Venden mucho, estables. Financian todo lo demás del negocio.</p>
+    </div>
+  </div>
+  <p style="font-size:14px;color:var(--ink-soft);text-align:center;margin-top:-6px;">Derecha: venden más que el promedio. Arriba: van creciendo. (Pasa el mouse sobre cada cuadrante.)</p>
+
+  <div class="oportunidad"><strong>Cómo usarla cada mes:</strong> revisa <em>vacas lecheras</em> para asegurar que nunca les falte stock (son tu flujo de caja), revisa <em>promesas</em> para decidir a cuáles darles más espacio de percha o etiqueta de "novedad", y revisa <em>pesos muertos</em> junto con el filtro negro de Inventario para planear una liquidación conjunta.</div>
+</section>
+
+<section class="bloque revela" id="avanzado">
+  <div class="eyebrow">Sección 12</div>
+  <h2>Modo Avanzado: la capa contable</h2>
+  <p class="lead">Aquí vive el detalle técnico del negocio — actividad, gastos, y la contabilidad ligera (P&amp;G, balance e inventario valorizado). No es para el día a día; es para el contador, el administrador, o el dueño que quiere ver los números a fondo. Por eso pide su propia subclave.</p>
+
+  <h3>Gastos mensuales</h3>
+  <p>Arriendo, luz, sueldos, internet, etc. Ingresas el total mensual de cada ubicación y la app lo reparte entre los días reales del mes (28 a 31) para estimar el gasto operativo del día dentro del P&amp;G.</p>
+  <div class="tip"><strong>Ejemplo:</strong> un local en el Centro Histórico con arriendo $280, luz $35, internet $25 y un ayudante a medio tiempo $180 suma $520/mes. Entre 31 días de julio, eso son $16.77/día de gasto operativo que la app resta automáticamente de la utilidad bruta de hoy.</div>
+
+  <h3>Pérdidas y ganancias (del día)</h3>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Concepto</th><th>Ejemplo</th></tr>
+      <tr><td>Ventas cobradas (con IVA 15%)</td><td>$312.00</td></tr>
+      <tr><td>IVA cobrado (se liquida al SRI)</td><td>$40.70</td></tr>
+      <tr><td>Ingresos netos (sin IVA)</td><td>$271.30</td></tr>
+      <tr><td>Costo de ventas</td><td>$118.40</td></tr>
+      <tr><td>Utilidad bruta</td><td>$152.90</td></tr>
+      <tr><td>Gastos operativos (del día)</td><td>$16.77</td></tr>
+      <tr><td><strong>Utilidad neta del día</strong></td><td><strong>$136.13</strong></td></tr>
+    </table>
+  </div>
+  <div class="tip"><strong>Sobre el IVA:</strong> Ecuador aplica 15% de IVA. AMIGABLE-123 lo calcula automáticamente sobre el precio de venta cobrado, pero <strong>esto es un insumo para tu contador, no una declaración válida ante el SRI</strong> — siempre revisa con un profesional antes de declarar.</div>
+
+  <h3>Balance simplificado e inventario valorizado</h3>
+  <p>El balance suma el efectivo estimado del día más el valor de todo tu inventario a precio de venta. El inventario valorizado desglosa, producto por producto, cuánto vale a costo, cuánto vale a precio de venta, y cuál es tu utilidad potencial si vendieras todo hoy — útil para saber cuánto capital tienes realmente "parado" en la percha.</p>
+
+  <h3>Actividad reciente</h3>
+  <p>Un historial cronológico de todo lo que pasó: ventas, ajustes de stock con su motivo, altas de producto, anulaciones, cambios de estrella, transferencias entre perchas y liquidaciones de comisión. Es tu bitácora anti-descuadre — si algo no cuadra al final del mes, aquí está el rastro completo.</p>
+</section>
+
+<section class="bloque revela" id="csv-respaldo">
+  <div class="eyebrow">Sección 13</div>
+  <h2>Exportar CSV contable y hacer respaldo</h2>
+  <p class="lead">AMIGABLE-123 nunca depende de un servidor externo para tus datos. Todo vive en tu dispositivo, y tú decides cuándo sacarlo en dos formatos distintos según lo que necesites.</p>
+
+  <h3>Formato A — Reporte contable en CSV (para tu contador)</h3>
+  <p>Desde Avanzado → "Descargar reporte contable (.csv)". Es un archivo de texto separado por comillas que Excel o Google Sheets abren directamente, con acentos correctos (incluye BOM UTF-8). Esta es la estructura exacta que genera:</p>
+  <pre class="codebox">"<span class="csv-tit">Reporte contable — AMIGABLE</span>","07/07/2026, 09:14"
+"AVISO","Insumo para el contador. No es una declaración válida ante el SRI."
+
+"<span class="csv-tit">PÉRDIDAS Y GANANCIAS (hoy)</span>",""
+"Ventas cobradas (con IVA)","<span class="csv-num">$312.00</span>"
+"IVA cobrado (15%, se liquida al SRI)","<span class="csv-num">$40.70</span>"
+"Ingresos netos (sin IVA)","<span class="csv-num">$271.30</span>"
+"Costo de ventas","<span class="csv-num">$118.40</span>"
+"Utilidad bruta","<span class="csv-num">$152.90</span>"
+"Gastos operativos","<span class="csv-num">$16.77</span>"
+"Utilidad neta","<span class="csv-num">$136.13</span>"
+
+"<span class="csv-tit">BALANCE SIMPLIFICADO</span>",""
+"Ingresos del día estimados","<span class="csv-num">$312.00</span>"
+"Inventario valorizado","<span class="csv-num">$3,540.00</span>"
+"Total activos","<span class="csv-num">$3,852.00</span>"
+
+"<span class="csv-tit">INVENTARIO VALORIZADO POR PRODUCTO</span>",""
+"Producto","Stock,Costo,Venta,Utilidad potencial"
+"Camiseta AC/DC - Back in Black","25,<span class="csv-num">$212.50</span>,<span class="csv-num">$500.00</span>,<span class="csv-num">$287.50</span>"
+"Taza Ceramica Rock Cuenca","40,<span class="csv-num">$120.00</span>,<span class="csv-num">$320.00</span>,<span class="csv-num">$200.00</span>"</pre>
+  <p style="font-size:15px;">El archivo se descarga con el nombre <span class="codigo">reporte-contable-amigable-2026-07-07.csv</span> — la fecha de descarga queda siempre en el nombre para no confundir versiones.</p>
+
+  <div class="tip"><strong>Recomendaciones para el CSV:</strong>
+    <ul class="lista" style="margin:10px 0 0;">
+      <li>Descárgalo el mismo día que se lo envías al contador — es un corte del día en curso, no acumulado histórico.</li>
+      <li>Ábrelo en Google Sheets si vas a compartirlo por enlace en vez de adjunto; conserva las tildes gracias al BOM.</li>
+      <li>Si manejas varias ubicaciones, descárgalo una vez por cada percha/sucursal (selecciona la ubicación arriba antes de exportar) — el reporte siempre corresponde a la ubicación activa en pantalla.</li>
+      <li>Guarda una copia mensual en una carpeta con el nombre del mes; con 12 archivos al año tienes tu historial contable completo sin depender de la nube de nadie.</li>
+    </ul>
+  </div>
+
+  <h3>Formato B — Respaldo completo cifrado (.json)</h3>
+  <p>Este es el respaldo real de <strong>todo</strong> el negocio: productos, ventas, clientes, perchas, comisiones y tus códigos de acceso. Vive en Avanzado, debajo de la subclave contable, porque es una acción sensible.</p>
+  <div class="paso">
+    <div class="num">1</div>
+    <div class="txt"><h4>Exportar respaldo</h4><p>La app te pide una clave de al menos 8 caracteres para proteger el archivo (puedes dejarla en blanco, pero no se recomienda). Se descarga como <span class="codigo">respaldo-amigable-2026-07-07.json</span>.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">2</div>
+    <div class="txt"><h4>Guárdalo fuera del celular</h4><p>Envíatelo por WhatsApp a ti mismo, súbelo a Google Drive, o mándalo por correo. Si el celular se pierde o se daña, este archivo es la única forma de recuperar el negocio completo.</p></div>
+  </div>
+  <div class="paso">
+    <div class="num">3</div>
+    <div class="txt"><h4>Importar respaldo (si hace falta restaurar)</h4><p>Avanzado → Importar respaldo → selecciona el archivo → ingresa la clave. <strong>Esto reemplaza todos los datos actuales</strong> — la app siempre pide confirmación explícita antes de proceder.</p></div>
+  </div>
+  <div class="alerta"><strong>Importante:</strong> si pierdes la clave de un respaldo cifrado, ese archivo no se puede recuperar — no existe una puerta trasera. Anota la clave en un lugar distinto al archivo mismo.</div>
+
+  <h3>Formato C — Importar tu cartera de clientes (CSV)</h3>
+  <p>Si ya tienes tus clientes en Excel, en el celular o en otra app, no hace falta teclearlos uno por uno. Guarda tu lista como CSV y súbela desde <strong>Clientes → (al fondo) "Importar tu cartera desde un archivo"</strong>. Solo el dueño ve este botón; el empleado únicamente registra clientes a mano.</p>
+  <p>El archivo necesita <strong>dos columnas, nombre y teléfono</strong>, en ese orden. La primera fila puede ser un encabezado (la app lo detecta y lo salta). Así se ve un archivo válido:</p>
+  <pre class="codebox"><span class="csv-tit">nombre,telefono</span>
+Rosa Quinde,0991111001
+Marco Sarmiento,0991111002
+"Pérez, Juan Andrés",0987654321
+Carmen Ulloa,</pre>
+  <div class="tabla-wrap">
+    <table class="datos">
+      <tr><th>Regla del archivo</th><th>Detalle</th></tr>
+      <tr><td>Columnas</td><td>Nombre en la primera, teléfono en la segunda (el teléfono puede ir vacío)</td></tr>
+      <tr><td>Encabezado</td><td>Opcional — si la primera fila dice "nombre" o "teléfono", se salta sola</td></tr>
+      <tr><td>Nombres con coma</td><td>Enciérralos entre comillas dobles: <span class="codigo">"Pérez, Juan"</span></td></tr>
+      <tr><td>Repetidos</td><td>Si un nombre ya existe (o se repite dentro del archivo) se salta, sin crear duplicados</td></tr>
+      <tr><td>Código único</td><td>Cada cliente nuevo recibe su código <span class="codigo">C-####</span> automáticamente al importar</td></tr>
+      <tr><td>Límites</td><td>Hasta 5 000 clientes por archivo y máximo 1 MB de tamaño</td></tr>
+    </table>
+  </div>
+  <p style="font-size:15px;">Al terminar, la app te dice exactamente cuántos agregó, cuántos saltó por repetidos y cuántos ignoró por no tener nombre — así sabes que tu cartera entró completa.</p>
+  <div class="tip"><strong>Cómo sacar el CSV desde Excel o Google Sheets:</strong> deja tus datos en dos columnas (nombre, teléfono), luego <em>Archivo → Descargar / Guardar como → CSV</em>. Si al abrir el archivo ves los nombres separados por comas, ya está listo para AMIGABLE-123.</div>
+
+  <h3>Puntos de restauración automáticos</h3>
+  <p>Además del respaldo manual, AMIGABLE-123 guarda —solo dentro de ese navegador— una foto de tus datos cada cierto tiempo, por si borras algo sin querer. <strong>Esto no reemplaza el respaldo manual:</strong> si se borra el caché del navegador o cambias de celular, esos puntos se pierden con él.</p>
+</section>
+
+<section class="bloque revela" id="transferencias">
+  <div class="eyebrow">Sección 14</div>
+  <h2>Transferencias entre perchas</h2>
+  <p class="lead">El dolor más común en negocios con más de un punto de venta: una percha se queda sin stock mientras la de al lado tiene de sobra, y nadie se entera hasta que el cliente ya se fue. AMIGABLE-123 lo detecta en el momento exacto en que más importa.</p>
+
+  <h3>Cómo funciona</h3>
+  <ul class="lista">
+    <li>Cuando un producto está en rojo o naranja, la app revisa si ese mismo SKU tiene stock sano en otra percha activa.</li>
+    <li>Si lo encuentra, muestra un aviso directo en la ficha del producto: <em>"Hay 18 unidades en Local Centro Histórico"</em> con un botón para solicitar la transferencia sugerida.</li>
+    <li>La cantidad sugerida siempre deja stock suficiente en el origen (nunca vacía la percha que presta).</li>
+    <li>El dueño de origen <strong>aprueba</strong> la transferencia desde Avanzado — en ese momento el stock se descuenta del origen y queda “en tránsito”.</li>
+    <li>El dueño de destino <strong>confirma la recepción</strong> (también desde Avanzado) — solo entonces el stock se suma al destino. Si el mismo dueño maneja ambos puntos, son dos clics distintos: uno para aprobar y otro para confirmar.</li>
+  </ul>
+
+  <div class="oportunidad"><strong>Caso:</strong> el Stand del Mercado 10 de Agosto se quedó con solo 3 camisetas Queen (umbral rojo: 6). El Local Centro Histórico tiene 20 unidades del mismo SKU. La app sugiere transferir 7 — la mitad del excedente disponible — sin que nadie tenga que ir a contar percha por percha.</div>
+</section>
+
+<section class="bloque revela" id="seguridad">
+  <div class="eyebrow">Sección 15</div>
+  <h2>Seguridad, respaldo automático y modo sin internet</h2>
+
+  <div class="grid2">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Códigos de acceso por rol</h4>
+      <p style="font-size:16px;margin:0;">Tres códigos de 3 dígitos, cifrados en el dispositivo (dueño, empleado, contador). Un correo de recuperación permite generar uno nuevo si se olvida.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Guardia de doble pestaña</h4>
+      <p style="font-size:16px;margin:0;">Si abres el negocio en dos pestañas o dispositivos a la vez, la app lo detecta y avisa — evita que una venta se pierda porque la última pestaña en guardar "pisó" a la otra.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Caja negra de errores</h4>
+      <p style="font-size:16px;margin:0;">Guarda los últimos 20 errores técnicos en el dispositivo. Si algo falla, puedes mandarle esa información a soporte por WhatsApp sin necesitar herramientas de programador.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Sincronización multi-dispositivo</h4>
+      <p style="font-size:16px;margin:0;">Sin internet: intercambia <strong>paquetes de sincronización</strong> copiando y pegando por WhatsApp, o escaneando un QR entre dispositivos (Android/Chrome) — funciona siempre, de fábrica. Con internet: sincroniza automáticamente mediante un relevo remoto propio (requiere configurar PocketBase, paso avanzado opcional).</p>
+    </div>
+  </div>
+
+  <h3>Modo sin conexión (PWA)</h3>
+  <p>El "cascarón" de la app —pantallas, botones, lógica— se guarda en el dispositivo la primera vez que abres AMIGABLE-123, así que vuelve a abrir incluso sin señal. Lo único que siempre se pide fresco, nunca desde caché, son tus datos reales y las actualizaciones de versión.</p>
+
+  <div class="tip"><strong>Buen hábito semanal:</strong> los domingos en la noche, exporta el respaldo cifrado y descarga el CSV contable del mes en curso. Toma menos de 2 minutos y es la diferencia entre perder un mal día y perder un negocio entero.</div>
+</section>
+
+<section class="bloque revela" id="instancia-equipo">
+  <div class="eyebrow">Sección 16 — lo más nuevo</div>
+  <h2>Tu instancia, tu equipo y el control anti fraude</h2>
+  <p>Estas son las novedades que convierten AMIGABLE-123 de "una demo bonita" en <strong>tu</strong> negocio, con tu gente y tus reglas.</p>
+
+  <h3>Apropiarte de la app: el código 789</h3>
+  <p>La primera vez, en un dispositivo nuevo, escribe <strong>789</strong> en la pantalla de acceso. Eso arranca la <strong>secuencia de apropiación</strong>: eliges empezar con todo vacío (o conservar lo que ya cargaste), registras tu correo, y el dispositivo pasa a ser <strong>tu instancia</strong>, con un identificador único para que tus datos nunca se mezclen con los de otro local. Tu clave de dueño queda en 789 (cámbiala cuando quieras en Avanzado). Una sola vez por dispositivo: después, 789 ya no reactiva nada.</p>
+  <div class="tip"><strong>Todo vive en tu dispositivo.</strong> Sin nube, sin servidor, sin depender de nadie. La app la actualiza y parcha el autor; tus datos son solo tuyos.</div>
+
+  <h3>Tu nombre de negocio, arriba</h3>
+  <p>Como dueño verás un lápiz ✎ junto al título de arriba. Tócalo y escribe el nombre real de tu negocio: queda guardado en tu instancia y viaja en tus respaldos y sincronizaciones. Si por lo que sea fallara, el título por defecto se queda y nada más se rompe.</p>
+
+  <h3>Tu equipo: empleados con su propio PIN</h3>
+  <p>En <strong>Avanzado → Empleados</strong> das de alta hasta 49 empleados, cada uno con su nombre y su PIN de 3 dígitos. Cuando entran con su PIN, <strong>cada movimiento que hacen queda firmado con su nombre</strong> en el historial: quién vendió, quién ajustó stock, quién anuló. Usa PINs distintos al tuyo y al del contador.</p>
+
+  <h3>Control anti fraude</h3>
+  <p>En <strong>Avanzado → Control anti fraude</strong> tienes, de un vistazo, tres cosas:</p>
+  <div class="grid2">
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Integridad del historial</h4>
+      <p style="font-size:16px;margin:0;">Cada movimiento va <strong>sellado</strong> y encadenado al anterior. Si alguien edita o borra el historial en el equipo para tapar un faltante, el sello no cuadra y aquí sale en rojo, señalando dónde se rompió y qué persona rodea la ruptura.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Anulaciones por persona</h4>
+      <p style="font-size:16px;margin:0;">Cuántas ventas anuló hoy cada empleado. El truco clásico —vender, cobrar en efectivo y luego anular la venta para quedarse la plata— deja rastro aquí.</p>
+    </div>
+    <div class="tarjeta tilt">
+      <h4 style="margin-top:0;color:var(--brass-dk);">Mermas por persona</h4>
+      <p style="font-size:16px;margin:0;">Cuántas unidades bajó a mano cada empleado (los ajustes negativos). Un robo disfrazado de "rotura" o "merma" se ve sumado, con nombre.</p>
+    </div>
+  </div>
+  <div class="tip"><strong>Honestidad técnica:</strong> como todo corre en tu equipo, el sello detecta la manipulación <em>común</em> y deja evidencia, pero no es a prueba de un experto con tiempo. Para el día a día de un quiosco, es justo la red que necesitas.</div>
+
+  <h3>Sincronizar por WhatsApp</h3>
+  <p>Si usas el negocio en más de un equipo (caja y bodega, por ejemplo), en <strong>Avanzado → Sincronización</strong> tienes dos botones: <strong>"Cambios recientes → WhatsApp"</strong> (manda solo lo nuevo, liviano) y <strong>"Respaldo completo → WhatsApp"</strong> (manda una copia entera, cifrada, como archivo). El otro equipo los recibe y los aplica. Más formas de mover tus datos, sin depender de nadie.</p>
+
+  <h3>Instalar es opcional</h3>
+  <p>AMIGABLE-123 funciona entrando a tu URL, siempre. Si quieres, tu teléfono te ofrecerá "Agregar a pantalla de inicio" para tenerla como un ícono más, pero es un extra, no un requisito. La primera opción siempre es entrar.</p>
+</section>
+
+<section class="bloque revela" id="casos">
+  <div class="eyebrow">Sección 17 — de principio a fin</div>
+  <h2>Casos reales de aprovechamiento full</h2>
+  <p class="lead">Cinco negocios ecuatorianos distintos, cinco formas distintas de exprimir AMIGABLE-123. Todas las cifras están en dólares, a escala micropyme real.</p>
+
+  <div class="tabs">
+    <div class="tab-botones" id="tabBotones">
+      <button class="activo" data-tab="0">Tienda de rock</button>
+      <button data-tab="1">Boutique andina</button>
+      <button data-tab="2">Librería boutique</button>
+      <button data-tab="3">Tienda de barrio</button>
+      <button data-tab="4">Feria de fin de semana</button>
+    </div>
+    <div class="tab-panel-wrap">
+      <div class="tab-panels" id="tabPanels">
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Tienda de rock — 3 perchas en Cuenca</h3>
+          <p>Local Centro Histórico (propio), Stand Mercado 10 de Agosto (socio, comisión escalonada) y Feria El Otorongo (consignación). Vende camisetas, vinilos, souvenirs y coleccionables.</p>
+          <ul class="lista">
+            <li><strong>Inventario:</strong> 61 SKU activos, valor de venta total ≈ $3,540, margen promedio 55%.</li>
+            <li><strong>Uso del semáforo:</strong> cada mañana el dueño filtra Inventario en rojo (3–5 productos típicamente) y repone antes de abrir; revisa negro una vez por semana para liquidar coleccionables sin movimiento en 45+ días (ej. el VHS "The Wall" dormido desde abril).</li>
+            <li><strong>Comisiones:</strong> la promotora del Mercado gana entre $20–41/mes según su escala; el dueño ve en un vistazo si alguna percha lleva 7+ días dormida.</li>
+            <li><strong>Transferencias:</strong> usa el aviso automático para mover camisetas estrella entre Centro Histórico y el Mercado cuando una se queda corta.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Boutique de artesanía y ropa andina — Chordeleg / Gualaceo</h3>
+          <p>Sombreros de paja toquilla, aretes de filigrana, bufandas y chales de alpaca, pulseras de mullos. Ticket promedio más alto que el resto de casos.</p>
+          <ul class="lista">
+            <li><strong>Precios reales:</strong> Sombrero de paja toquilla $30, Aretes de filigrana $22 (estrella ⭐, margen 73% → amarillo intensidad 3), Bufanda de alpaca $25, Chal bordado Gualaceo $35.</li>
+            <li><strong>Uso del color amarillo:</strong> los aretes de filigrana tienen margen altísimo (costo $6 sobre precio $22) — la app los marca amarillo n3 automáticamente. El dueño los usa como "producto de entrada" en redes sociales porque cada venta deja mucha plata.</li>
+            <li><strong>Matriz de clientes:</strong> turistas ocasionales caen naturalmente en primavera 🌱 o invierno ❄️; clientas locales frecuentes (bodas, eventos) llegan a verano ☀️ — la boutique les avisa primero de colecciones nuevas.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Librería boutique de narrativa latinoamericana</h3>
+          <p>Catálogo curado de 8 autoras y autores contemporáneos: Mariana Enríquez, Fernanda Melchor, Samanta Schweblin, Dolores Reyes, entre otras. Precios entre $17 y $22.</p>
+          <ul class="lista">
+            <li><strong>Umbrales bajos por naturaleza:</strong> son libros de tiraje limitado — umbral rojo típico de 3 unidades, amarillo de 6. Con solo 2 unidades en bodega, "Mugre rosa" ya se enciende rojo.</li>
+            <li><strong>Cierre del día:</strong> como las ventas son pocas pero de ticket alto, el dueño no registra en vivo — usa el cierre del día al cerrar la librería, apuntando cuántos ejemplares salieron de cada título.</li>
+            <li><strong>Etiquetas:</strong> imprime código de barras + QR en cada libro para que el cliente pueda escanear el QR y leer la sinopsis completa en su celular antes de comprar.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Tienda de barrio / minimarket — productos básicos</h3>
+          <p>Agua, pilas, cinta adhesiva, fundas de regalo, chicles. Márgenes ajustados por naturaleza del rubro — el terreno natural del color azul.</p>
+          <ul class="lista">
+            <li><strong>Ejemplo azul:</strong> Agua sin gas 600ml cuesta $0.70 y se vende a $0.80 — margen de apenas 12.5%. La app la marca azul n3: "Margen 13% — revisa el precio o el costo". Es información honesta, no un error: en básicos de alta rotación el margen bajo es normal, pero vale la pena negociarlo con el distribuidor cada semestre.</li>
+            <li><strong>Alta rotación, ticket bajo:</strong> ideal para el modo Vender por cuadrícula táctil — decenas de toques rápidos al día sin escribir nada.</li>
+            <li><strong>Reporte contable:</strong> con márgenes tan ajustados, el dueño revisa el CSV contable cada semana (no solo mensual) para vigilar que el volumen sí compense el margen bajo.</li>
+          </ul>
+        </div>
+
+        <div class="tab-panel">
+          <h3 style="margin-top:0;">Feria de fin de semana — evento de 2–3 días</h3>
+          <p>Una feria artesanal o bazar navideño usando la percha temporal "Feria de fin de semana" con comisión de consignación.</p>
+          <ul class="lista">
+            <li><strong>Antes del evento:</strong> el dueño abre la feria desde Inventario → Perchas, define el nombre del evento (ej. "Feria de Otavalo") y su % de comisión (30% en el ejemplo por defecto).</li>
+            <li><strong>Durante el evento:</strong> se asignan productos a esa percha y se vende por cuadrícula táctil — rápido, sin fricción, ideal con mucha gente en fila.</li>
+            <li><strong>Al cerrar:</strong> un toque archiva la percha (conserva todo su historial) y salta directo a Comisiones, mostrando la liquidación lista para pagarle al consignatario esa misma noche — sin esperar al cierre de mes.</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bloque revela" id="faq">
+  <div class="eyebrow">Sección 18</div>
+  <h2>Preguntas frecuentes</h2>
+  <div id="acordeon">
+
+    <div class="acordeon-item">
+      <button class="preg">¿Qué pasa si un producto tiene poco stock Y está por vencer al mismo tiempo?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">La app se queda siempre con la señal más grave entre las dos: si el vencimiento es más urgente que el nivel de stock, gana el vencimiento (y viceversa). Nunca se combinan colores ni se promedian — un producto muestra un solo color a la vez, el más urgente.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿El empleado puede ver cuánta plata gana el negocio?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">No. La Vista Hoy, los reportes de Avanzado y el detalle de comisiones están reservados al código de dueño (y al de contador para la capa contable). El empleado ve stock, ventas registradas y productos estrella, nunca montos de ganancia.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Qué diferencia hay entre "percha" y "sucursal"?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">La percha es donde realmente vendes (el mostrador, el stand, la mesa de feria) — es la unidad operativa. La sucursal es un agrupador que usa la app para reportes y para organizar varias perchas bajo un mismo nombre en el gestor de Inventario → Perchas.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Puedo cambiar los umbrales rojo/amarillo de un producto después de creado?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">Sí, en cualquier momento desde la ficha del producto. La app exige que el umbral rojo sea siempre menor que el amarillo — si los pones al revés, no deja guardar y explica por qué.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Qué pasa si pierdo el celular sin haber hecho respaldo?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">Se pierde todo lo que no esté respaldado: los puntos de restauración automáticos viven solo en ese navegador y se pierden con el dispositivo. Por eso el respaldo manual cifrado (Avanzado → Exportar respaldo), guardado fuera del celular, es indispensable — no opcional.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿El reporte CSV sirve para declarar impuestos directamente?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">No. Es un insumo ordenado para que tu contador trabaje más rápido — el propio archivo lo advierte en su primera línea. La declaración formal ante el SRI siempre debe hacerla un profesional acreditado.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Cómo decide la app si un producto está "dormido" (negro)?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">Cuando el stock está sano (por encima del umbral amarillo) pero no ha tenido ninguna venta en 45 días o más. A partir de ahí sube de intensidad: nivel 2 a los 60 días, nivel 3 a los 120 días sin vender.</p></div></div>
+    </div>
+
+    <div class="acordeon-item">
+      <button class="preg">¿Necesito internet para usar la app todos los días?<span class="flecha">⌄</span></button>
+      <div class="resp"><div class="inner"><p style="margin:0;">No. Es local-first: funciona completamente offline en el día a día. El internet solo se necesita para sincronizar entre varios dispositivos o hacer respaldos en la nube — y hasta eso tiene un método alterno por WhatsApp sin conexión directa.</p></div></div>
+    </div>
+
+  </div>
+</section>
+
+<section class="bloque revela" id="glosario">
+  <div class="eyebrow">Sección 19</div>
+  <h2>Glosario rápido</h2>
+  <dl class="glosario">
+    <dt>Percha</dt><dd>Unidad operativa real de venta: mostrador, stand, mesa de feria.</dd>
+    <dt>Sucursal</dt><dd>Agrupador de perchas para reportes y organización.</dd>
+    <dt>Sistema Simon</dt><dd>Los seis colores de estado (verde, amarillo, naranja, rojo, azul, negro) que clasifican cada producto.</dd>
+    <dt>Escala Sinclair Bloom</dt><dd>Los tres niveles de intensidad (tenue, medio, encendido) dentro de cada color.</dd>
+    <dt>Umbral rojo / amarillo</dt><dd>Cantidades de stock que activan cada alerta de reposición.</dd>
+    <dt>Producto estrella ⭐</dt><dd>Producto marcado por el dueño para impulsar activamente hoy.</dd>
+    <dt>Matriz de estaciones (RFM)</dt><dd>Clasificación de clientes en primavera, verano, otoño e invierno según frecuencia y monto de compra.</dd>
+    <dt>Matriz BCG</dt><dd>Clasificación de productos en estrellas, vacas lecheras, promesas y pesos muertos según ventas de 60 días.</dd>
+    <dt>Cierre del día</dt><dd>Registro por lote de todas las ventas del día cuando no se registraron en vivo.</dd>
+    <dt>Feria de fin de semana</dt><dd>Percha temporal de consignación para eventos de 2–3 días, archivable con su historial.</dd>
+    <dt>Respaldo cifrado</dt><dd>Archivo .json con todo el negocio, protegido por una clave elegida por el dueño.</dd>
+  </dl>
+</section>
+
+</main>
+
+<footer class="pie">
+  <p><strong>AMIGABLE-123</strong> — control de inventario, clientes y perchas para negocios ecuatorianos</p>
+  <p><a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a> · julio 2026</p>
+</footer>
+
+<script>
+(function(){
+  // -------- Reloj en vivo (mismo espíritu que la app) --------
+  function tick(){
+    var el = document.getElementById('relojManual');
+    if(!el) return;
+    el.textContent = new Date().toLocaleString('es-EC', {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+  }
+  tick(); setInterval(tick, 20000);
+
+  // -------- Barra de progreso de lectura --------
+  var barra = document.getElementById('barraProgreso');
+  function actualizarBarra(){
+    var h = document.documentElement;
+    var pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+    if(barra) barra.style.width = (isFinite(pct) ? pct : 0) + '%';
+  }
+  document.addEventListener('scroll', actualizarBarra, {passive:true});
+  actualizarBarra();
+
+  // -------- Revelado al hacer scroll (translateY, sin opacity) --------
+  var reveladores = document.querySelectorAll('.revela');
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entradas){
+      entradas.forEach(function(en){
+        if(en.isIntersecting){ en.target.classList.add('visto'); }
+      });
+    }, {threshold:0.12});
+    reveladores.forEach(function(el){ io.observe(el); });
+  } else {
+    reveladores.forEach(function(el){ el.classList.add('visto'); });
+  }
+
+  // -------- Contadores animados --------
+  var stats = document.querySelectorAll('[data-contar]');
+  var yaContado = false;
+  function contarStats(){
+    if(yaContado) return;
+    yaContado = true;
+    stats.forEach(function(el){
+      var meta = parseInt(el.getAttribute('data-contar'), 10) || 0;
+      var actual = 0;
+      var paso = Math.max(1, Math.ceil(meta / 30));
+      var iv = setInterval(function(){
+        actual += paso;
+        if(actual >= meta){ actual = meta; clearInterval(iv); }
+        el.textContent = actual;
+      }, 30);
+    });
+  }
+  var statZone = document.querySelector('.stat-grid');
+  if(statZone && 'IntersectionObserver' in window){
+    var io2 = new IntersectionObserver(function(entradas){
+      entradas.forEach(function(en){ if(en.isIntersecting) contarStats(); });
+    }, {threshold:0.4});
+    io2.observe(statZone);
+  } else if(statZone){ contarStats(); }
+
+  // -------- Scrollspy: resalta la sección activa en el TOC --------
+  var secciones = document.querySelectorAll('section.bloque, .hero');
+  var enlacesDesktop = document.querySelectorAll('#tocDesktop a');
+  var enlacesMovil = document.querySelectorAll('#tocMovil a');
+  function marcarActivo(id){
+    [enlacesDesktop, enlacesMovil].forEach(function(lista){
+      lista.forEach(function(a){
+        a.classList.toggle('activo', a.getAttribute('href') === '#' + id);
+      });
+    });
+  }
+  if('IntersectionObserver' in window){
+    var io3 = new IntersectionObserver(function(entradas){
+      entradas.forEach(function(en){
+        if(en.isIntersecting){ marcarActivo(en.target.id); }
+      });
+    }, {rootMargin:'-40% 0px -50% 0px', threshold:0});
+    secciones.forEach(function(s){ if(s.id) io3.observe(s); });
+  }
+
+  // -------- Simulador de semáforo interactivo --------
+  var ESTADOS = {
+    verde:   {bg:'linear-gradient(135deg, #00C87A 0%, #009A5A 100%)', borde:'#009A5A', msg:'Stock saludable', stock:22},
+    amarillo:{bg:'linear-gradient(135deg, #FFC700 0%, #B8860B 100%)', borde:'#B8860B', msg:'Buen margen — hay dinero esperándote', stock:9, tinta:'#0F1923'},
+    naranja: {bg:'linear-gradient(135deg, #F97316 0%, #C05000 100%)', borde:'#C05000', msg:'Quedan pocas — revisar pronto', stock:5},
+    rojo:    {bg:'linear-gradient(135deg, #E8365D 0%, #B0183E 100%)', borde:'#B0183E', msg:'Sin stock — repón cuanto antes', stock:0},
+    azul:    {bg:'linear-gradient(135deg, #5294AC 0%, #2E6278 100%)', borde:'#2E6278', msg:'Margen 13% — revisa el precio o el costo', stock:48},
+    negro:   {bg:'#0A0A0F', borde:'#000000', msg:'Sin ventas hace 82 días — tu dinero está descansando ahí', stock:15}
+  };
+  var estadoActual = 'verde', nivelActual = 1;
+  var demoCaja = document.getElementById('demoCaja');
+  var demoStock = document.getElementById('demoStock');
+  var demoMsg = document.getElementById('demoMsg');
+  function pintarDemo(){
+    var e = ESTADOS[estadoActual];
+    if(!demoCaja) return;
+    var factor = nivelActual === 1 ? 0.55 : nivelActual === 2 ? 0.8 : 1;
+    demoCaja.style.background = e.bg;
+    demoCaja.style.borderColor = e.borde;
+    demoCaja.style.color = e.tinta || '#FFFFFF';
+    demoCaja.style.boxShadow = nivelActual === 3 ? ('0 0 22px -2px ' + e.borde) : 'none';
+    demoStock.textContent = e.stock;
+    demoStock.style.color = e.tinta || '#FFFFFF';
+    demoMsg.textContent = e.msg + '  ·  intensidad ' + nivelActual + '/3';
+    demoMsg.style.color = e.tinta || '#FFFFFF';
+  }
+  document.querySelectorAll('.simulador .estado-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.simulador .estado-btn').forEach(function(b){ b.classList.remove('activo'); });
+      btn.classList.add('activo');
+      estadoActual = btn.getAttribute('data-estado');
+      pintarDemo();
+    });
+  });
+  document.querySelectorAll('.demo-nivel .nivel-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.demo-nivel .nivel-btn').forEach(function(b){ b.classList.remove('activo'); });
+      btn.classList.add('activo');
+      nivelActual = parseInt(btn.getAttribute('data-nivel'), 10);
+      pintarDemo();
+    });
+  });
+  pintarDemo();
+
+  // -------- Código de barras animado (barras de alturas variables) --------
+  var bd = document.getElementById('barcodeDemo');
+  if(bd){
+    var patron = [3,1,2,4,1,3,2,1,4,2,3,1,2,4,1,3,2,4,1,2,3,1,4,2,3,1,2,4,1,3];
+    patron.forEach(function(w, i){
+      var s = document.createElement('span');
+      s.style.height = (14 + w * 12) + 'px';
+      s.style.width = (w % 2 === 0 ? 5 : 3) + 'px';
+      s.style.animationDelay = (i * 0.025) + 's';
+      bd.appendChild(s);
+    });
+  }
+
+  // -------- Tabs de casos de uso --------
+  var tabBotones = document.querySelectorAll('#tabBotones button');
+  var tabPanels = document.getElementById('tabPanels');
+  tabBotones.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      tabBotones.forEach(function(b){ b.classList.remove('activo'); });
+      btn.classList.add('activo');
+      var idx = parseInt(btn.getAttribute('data-tab'), 10);
+      tabPanels.style.transform = 'translateX(-' + (idx * 100) + '%)';
+    });
+  });
+
+  // -------- Acordeón FAQ --------
+  document.querySelectorAll('.acordeon-item .preg').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var item = btn.closest('.acordeon-item');
+      var estabaAbierto = item.classList.contains('abierto');
+      document.querySelectorAll('.acordeon-item').forEach(function(i){ i.classList.remove('abierto'); });
+      if(!estabaAbierto){ item.classList.add('abierto'); }
+    });
+  });
+
+  // -------- Tilt 3D en tarjetas (sin afectar accesibilidad ni opacity) --------
+  var tiltCards = document.querySelectorAll('.tilt');
+  tiltCards.forEach(function(card){
+    card.addEventListener('mousemove', function(e){
+      var r = card.getBoundingClientRect();
+      var x = (e.clientX - r.left) / r.width - 0.5;
+      var y = (e.clientY - r.top) / r.height - 0.5;
+      card.style.transform = 'perspective(700px) rotateY(' + (x * 7) + 'deg) rotateX(' + (y * -7) + 'deg) translateY(-2px)';
+    });
+    card.addEventListener('mouseleave', function(){
+      card.style.transform = 'perspective(700px) rotateY(0deg) rotateX(0deg) translateY(0)';
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

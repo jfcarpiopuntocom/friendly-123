@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<!-- panel.html — PANEL MAESTRO de apps instaladas a clientes (JFC, master admin)
+     Acceso: jfcarpiopuntocom.github.io/AMIGABLE/panel.html
+     PRIVADO: URL no publicada en ningún lugar de la app demo ni en la landing.
+     Protegido con PIN de 3 dígitos (WebCrypto SHA-256 en el navegador).
+     Acciones: liberar correo de un cliente (requiere segundo PIN).
+
+     v0.3 — 2026-07-03 — Panel maestro enriquecido: control de versiones, códigos
+            maestros, roles (master vs dueño), roadmap y detalle por proyecto.
+     v0.2 — 2026-07-01 — PIN gate + liberación de correo integrada.
+
+     NOTA DE DATOS: los números de versión/commit son un SNAPSHOT MANUAL al
+     2026-07-03. Una página estática no puede consultar git en vivo. Al pushear
+     cambios grandes, actualiza el bloque DATA de abajo (const PROYECTOS). -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="dark">
+<title>Panel · PC</title>
+<style>
+  :root{
+    --bg:#0f1117;
+    --surface:#1a1e2a;
+    --surface2:#222736;
+    --border:#2e3448;
+    --gold:#c9953a;
+    --gold-dim:#b8862f;
+    --green:#28c98a;
+    --green-dim:#1a7a52;
+    --amber:#d4832a;
+    --red:#c94040;
+    --blue:#4a7fd4;      /* marca Olimpo 2.0 (consola) — distinta del POS */
+    --ink:#e8e4dc;
+    --ink-soft:#b8b3bf;  /* secundario legible (>= #999, regla de legibilidad) */
+    --ink-dim:#9d9aa8;   /* terciario — nunca más oscuro que #999 */
+    --font:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+    --mono:"Cascadia Code","JetBrains Mono","Consolas",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;}
+
+  /* ── PIN GATE ── ocupa la pantalla completa hasta que autentique */
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;flex-direction:column;gap:0;}
+  #gate-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px 28px;width:min(340px,92vw);display:flex;flex-direction:column;align-items:center;gap:20px;}
+  #gate-brand{font-size:14px;font-family:var(--mono);color:var(--ink-dim);letter-spacing:0.08em;text-transform:uppercase;}
+  #gate-title{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:0.01em;}
+
+  /* Casillas de entrada (●●●) */
+  .slots{display:flex;gap:10px;justify-content:center;}
+  .slot{width:38px;height:38px;border:2px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--ink);background:var(--surface2);transition:border-color .15s;}
+  .slot.lleno{border-color:var(--gold);}
+
+  /* Teclado numérico */
+  .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;}
+  .pad-key{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:12px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;user-select:none;transition:background .12s, transform .08s;-webkit-tap-highlight-color:transparent;}
+  .pad-key:active{background:var(--border);transform:scale(.95);}
+  .pad-key .emoji{font-size:18px;line-height:1;}
+  .pad-key .digit{font-size:17px;font-weight:700;font-family:var(--mono);color:var(--ink);line-height:1;}
+  .pad-key.borrar{grid-column:span 1;background:transparent;border-color:var(--border);color:var(--ink-soft);font-size:14px;font-weight:600;}
+  .pad-key.vacio{visibility:hidden;pointer-events:none;}
+
+  #gate-msg{font-size:14px;font-family:var(--mono);min-height:18px;color:var(--red);text-align:center;}
+
+  /* ── PANEL PRINCIPAL (oculto hasta auth) ── */
+  #panel{display:none;}
+  #panel.visible{display:block;}
+
+  /* Topbar */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+  .topbar-brand{display:flex;align-items:center;gap:10px;}
+  .topbar-sello{width:34px;height:34px;border-radius:8px;background:var(--gold);color:#000;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .topbar-brand h1{font-size:16px;font-weight:700;}
+  .topbar-brand .role{font-size:13px;color:var(--ink-soft);font-family:var(--mono);margin-top:1px;}
+  .topbar-right{display:flex;align-items:center;gap:14px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2.5s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  #btn-cerrar{font-size:13px;font-family:var(--mono);color:var(--ink-dim);background:transparent;border:1px solid var(--border);border-radius:5px;padding:6px 11px;cursor:pointer;}
+  #btn-cerrar:hover{color:var(--ink);}
+
+  /* Layout */
+  main{max-width:1040px;margin:0 auto;padding:28px 20px 60px;}
+
+  /* Stats bar */
+  .stats-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:28px;}
+  .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+  .stat-value{font-size:26px;font-weight:700;font-family:var(--mono);line-height:1.1;}
+  .stat-label{font-size:13px;color:var(--ink-soft);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;}
+
+  /* Sección heading */
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;margin-top:34px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+  .sec-head h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gold);}
+  .sec-head .hint{font-size:13px;font-family:var(--mono);color:var(--ink-dim);}
+
+  /* Callout de ROLES — evita confundir master con dueño y proyectos entre sí */
+  .roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:8px;}
+  .role-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;border-left:3px solid var(--gold);}
+  .role-card.dueno{border-left-color:var(--green);}
+  .role-card.aviso{border-left-color:var(--red);grid-column:1/-1;}
+  .role-card h3{font-size:14px;font-weight:700;margin-bottom:6px;color:var(--ink);}
+  .role-card p{font-size:14px;color:var(--ink-soft);line-height:1.55;}
+  .role-card strong{color:var(--ink);}
+
+  /* Grilla proyectos */
+  .proyectos{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+  .pcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px;}
+  .pcard.prod{border-top:3px solid var(--green);}
+  .pcard.demo{border-top:3px solid var(--amber);}
+  .pcard.main{border-top:3px solid var(--gold);}
+  .pcard.otro{border-top:3px solid var(--blue);}
+  .pcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+  .pcard-nombre{font-size:17px;font-weight:700;line-height:1.2;}
+  .pcard-sub{font-size:13px;color:var(--ink-soft);font-family:var(--mono);margin-top:2px;}
+  .badge{font-size:12px;font-family:var(--mono);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:4px;flex-shrink:0;}
+  .badge-prod{background:rgba(40,201,138,.16);color:var(--green);}
+  .badge-demo{background:rgba(212,131,42,.18);color:var(--amber);}
+  .badge-main{background:rgba(201,149,58,.18);color:var(--gold);}
+  .badge-otro{background:rgba(74,127,212,.18);color:var(--blue);}
+  .pcard-desc{font-size:14px;color:var(--ink-soft);line-height:1.5;}
+
+  /* Filas de datos técnicos dentro de cada card */
+  .datos{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px;align-items:baseline;}
+  .datos dt{color:var(--ink-dim);font-family:var(--mono);white-space:nowrap;}
+  .datos dd{color:var(--ink);font-family:var(--mono);word-break:break-word;}
+  .datos dd.ok{color:var(--green);}
+  .datos dd.warn{color:var(--amber);}
+
+  .pcard-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;}
+  .btn{display:inline-flex;align-items:center;gap:5px;padding:8px 13px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid transparent;transition:opacity .15s;}
+  .btn:hover{opacity:.82;}
+  .btn-primary{background:var(--gold);color:#000;}
+  .btn-outline{background:transparent;border-color:var(--border);color:var(--ink-soft);}
+  .btn-outline:hover{border-color:var(--gold-dim);color:var(--ink);}
+  .btn-danger{background:transparent;border-color:var(--red);color:var(--red);}
+  .btn-danger:hover{background:rgba(201,64,64,.12);}
+
+  /* Tabla comparativa de versiones */
+  .tabla-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
+  table.versiones{width:100%;border-collapse:collapse;font-size:13px;min-width:640px;}
+  table.versiones th,table.versiones td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);}
+  table.versiones th{background:var(--surface2);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-size:12px;font-weight:700;white-space:nowrap;}
+  table.versiones td{color:var(--ink);font-family:var(--mono);}
+  table.versiones tr:last-child td{border-bottom:none;}
+  table.versiones td.nom{font-family:var(--font);font-weight:700;}
+  .pill{display:inline-block;font-size:12px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:4px;}
+  .pill.green{background:rgba(40,201,138,.16);color:var(--green);}
+  .pill.amber{background:rgba(212,131,42,.18);color:var(--amber);}
+  .pill.gold{background:rgba(201,149,58,.18);color:var(--gold);}
+  .pill.blue{background:rgba(74,127,212,.18);color:var(--blue);}
+
+  /* Notas operativas / roadmap */
+  .notas{display:grid;gap:10px;}
+  .nota{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 18px;}
+  .nota-head{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+  .nota-body{font-size:14px;color:var(--ink-soft);line-height:1.6;}
+  .nota-body strong{color:var(--ink);}
+  code{background:var(--surface2);padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:13px;color:var(--ink);}
+
+  /* Roadmap fases */
+  .fases{display:grid;gap:8px;}
+  .fase{display:flex;align-items:flex-start;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 16px;}
+  .fase-ico{font-size:16px;line-height:1.4;flex-shrink:0;}
+  .fase-txt{font-size:14px;color:var(--ink-soft);line-height:1.5;}
+  .fase-txt b{color:var(--ink);}
+  .fase.done{border-left:3px solid var(--green);}
+  .fase.next{border-left:3px solid var(--amber);}
+  .fase.todo{border-left:3px solid var(--border);}
+
+  /* Modal de confirmación (segundo PIN para acciones) */
+  #modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;}
+  #modal-overlay.visible{display:flex;}
+  #modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 26px;width:min(320px,90vw);display:flex;flex-direction:column;align-items:center;gap:16px;}
+  #modal-titulo{font-size:16px;font-weight:700;text-align:center;}
+  #modal-desc{font-size:14px;color:var(--ink-soft);text-align:center;line-height:1.5;}
+  #modal-msg{font-size:13px;font-family:var(--mono);min-height:16px;color:var(--red);}
+  #modal-cancelar{font-size:13px;color:var(--ink-dim);background:transparent;border:none;cursor:pointer;padding:4px 8px;}
+
+  footer{text-align:center;font-size:13px;color:var(--ink-dim);font-family:var(--mono);padding:28px 20px 16px;border-top:1px solid var(--border);margin-top:20px;}
+  footer em{font-style:italic;color:var(--gold-dim);}
+
+  @media(max-width:520px){
+    .topbar{padding:12px 14px;}
+    main{padding:18px 12px 48px;}
+    #gate-box{padding:28px 20px 22px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     GATE — pantalla de PIN (visible hasta auth)
+     ══════════════════════════════════════════════ -->
+<div id="gate">
+  <div id="gate-box">
+    <div id="gate-brand">AMIGABLE · Panel Maestro</div>
+    <div id="gate-title">Acceso privado</div>
+    <div class="slots" id="gate-slots">
+      <div class="slot" id="gs0"></div>
+      <div class="slot" id="gs1"></div>
+      <div class="slot" id="gs2"></div>
+    </div>
+    <div class="pad" id="gate-pad"></div>
+    <div id="gate-msg"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PANEL PRINCIPAL
+     ══════════════════════════════════════════════ -->
+<div id="panel">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-sello">JFC</div>
+      <div>
+        <h1>Panel Maestro · AMIGABLE</h1>
+        <div class="role">Master Admin — JFC · sesión activa</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--green);font-family:var(--mono);">
+        <div class="dot"></div><span id="status-label">En línea</span>
+      </div>
+      <button id="btn-cerrar">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <main>
+        <!-- HERRAMIENTAS DE MARKETING — compartibles con clientes/prospectos -->
+    <div class="sec-head" style="margin-top:0;"><h2>Herramientas de marketing</h2><span class="hint">click en “Copiar link” para compartir por WhatsApp</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:28px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">App</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Demo en vivo</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">La app completa funcionando en el celular del cliente, sin instalación.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Filosofía</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Manifiesto</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Para clientes que necesitan entender el por qué antes de ver el producto.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/manifiesto.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/manifiesto.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Pitch</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Informe Ejecutivo</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Capacidades y resultados. Bilingüe ES/EN. El más completo para prospectos.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/informe-ejecutivo.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/informe-ejecutivo.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Reporte</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Sistema operativo del mostrador</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Foco en el usuario: quién es, qué pierde, qué gana. Bilingüe con efectos.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/reporte-usuario.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/reporte-usuario.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">ROI</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">ROI Tienda Pequeña ($2,500)</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Números duros: cuánto pierde y cuánto recupera un negocio con $2,500 de inventario.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/roi-tienda.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/roi-tienda.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Manual</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Manual Maestro</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Guía completa de uso para el dueño. Escrita por JFC, revisada contra el código.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/manual-maestro.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/manual-maestro.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+    </div>
+    <!-- STATS -->
+    <div class="sec-head"><h2>Resumen</h2><span class="hint" id="fecha-panel"></span></div>
+    <div class="stats-bar">
+      <div class="stat-box"><div class="stat-value">4</div><div class="stat-label">Apps</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--green);">1</div><div class="stat-label">Producción</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--amber);">2</div><div class="stat-label">Demo pública</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--blue);">1</div><div class="stat-label">Consola (otro)</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--gold);">v1.0</div><div class="stat-label">Versión estable</div></div>
+    </div>
+
+    <!-- INSTANCIAS — detalle por proyecto -->
+    <div class="sec-head"><h2>Instancias · detalle</h2><span class="hint">snapshot 2026-07-03</span></div>
+    <div class="proyectos">
+
+      <!-- ══ Olimpo Control — PRODUCCIÓN (Jose) ══ -->
+      <div class="pcard prod">
+        <div class="pcard-top">
+          <div>
+            <div class="pcard-nombre">Olimpo Control</div>
+            <div class="pcard-sub">POS · smoke shop</div>
+          </div>
+          <span class="badge badge-prod">Producción</span>
+        </div>
+        <div class="pcard-desc">Dueño: <strong style="color:var(--ink)">Jose</strong> · Cuenca. Primer cliente beta. Loyverse-ready, cifrado end-to-end, comisiones a promotores/as.</div>
+        <dl class="datos">
+          <dt>repo</dt><dd>Olimpo-Control</dd>
+          <dt>rama</dt><dd>master</dd>
+          <dt>versión</dt><dd class="ok">v1.0</dd>
+          <dt>último</dt><dd>6b7172c · 07-03 11:02</dd>
+          <dt>commits</dt><dd>45</dd>
+          <dt>backend</dt><dd>Node.js + Loyverse</dd>
+          <dt>LS key</dt><dd>oc_secure</dd>
+          <dt>códigos</dt><dd class="ok">1-5-9 · 2-6-0 · 3-5-7 · 8-8-8</dd>
+          <dt>backups</dt><dd class="warn">13 sin trackear</dd>
+        </dl>
+        <div class="pcard-actions">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/Olimpo-Control/" target="_blank" rel="noopener">Abrir</a>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/Olimpo-Control" target="_blank" rel="noopener">Repo</a>
+          <button class="btn btn-danger" data-action="liberar" data-key="oc_secure" data-nombre="Olimpo Control">🔓 Liberar correo</button>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/Olimpo-Control/edit/main/docs/version.json" target="_blank" rel="noopener" title="Editar version.json: al commitear, cada instalación de Olimpo Control detecta la versión nueva y muestra el aviso (Fase 2). No auto-reemplaza nada.">⬆️ Publicar update</a>
+        </div>
+      </div>
+
+      <!-- ══ AMIGABLE — MAIN / MASTER (nuevo) ══ -->
+      <div class="pcard main">
+        <div class="pcard-top">
+          <div>
+            <div class="pcard-nombre">AMIGABLE</div>
+            <div class="pcard-sub">Inventario · clientes · perchas</div>
+          </div>
+          <span class="badge badge-main">Main</span>
+        </div>
+        <div class="pcard-desc">Repo <strong style="color:var(--ink)">principal</strong> de la control de inventario, clientes y perchas. Base de futuras instancias por negocio (soberanía digital, sin nube de datos). Aloja este panel.</div>
+        <dl class="datos">
+          <dt>repo</dt><dd>AMIGABLE</dd>
+          <dt>rama</dt><dd>main</dd>
+          <dt>versión</dt><dd>v1.0.0 — declarada 07-07</dd>
+          <dt>último</dt><dd>d378865 · 07-07</dd>
+          <dt>commits</dt><dd>9</dd>
+          <dt>backend</dt><dd>Node.js + Loyverse</dd>
+          <dt>LS key</dt><dd>oc_secure</dd>
+          <dt>códigos</dt><dd>POSCUENCA-MAESTRO-2026</dd>
+          <dt>backups</dt><dd class="warn">9 sin trackear</dd>
+        </dl>
+        <div class="pcard-actions">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/" target="_blank" rel="noopener">Abrir</a>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/AMIGABLE" target="_blank" rel="noopener">Repo</a>
+          <button class="btn btn-danger" data-action="liberar" data-key="oc_secure" data-nombre="AMIGABLE">🔓 Liberar correo</button>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/AMIGABLE/edit/main/docs/version.json" target="_blank" rel="noopener" title="Editar version.json: al commitear, cada instalación de AMIGABLE-123 detecta la versión nueva y muestra el aviso (Fase 2). No auto-reemplaza nada.">⬆️ Publicar update</a>
+        </div>
+      </div>
+
+      <!-- ══ POSCuenca — DEMO pública ══ -->
+      <div class="pcard demo">
+        <div class="pcard-top">
+          <div>
+            <div class="pcard-nombre">POSCuenca</div>
+            <div class="pcard-sub">POS · demo pública</div>
+          </div>
+          <span class="badge badge-demo">Demo</span>
+        </div>
+        <div class="pcard-desc">Demo pública multi-sede (artesanías y licores). Repo previo a AMIGABLE; se mantiene sincronizado por backport. Sirve para mostrar el producto y auditar código.</div>
+        <dl class="datos">
+          <dt>repo</dt><dd>POSCuenca</dd>
+          <dt>rama</dt><dd>master</dd>
+          <dt>versión</dt><dd class="warn">v0.99</dd>
+          <dt>último</dt><dd>e54d01a · 07-03 09:58</dd>
+          <dt>commits</dt><dd>48</dd>
+          <dt>backend</dt><dd>Node.js + Loyverse</dd>
+          <dt>LS key</dt><dd>oc_secure</dd>
+          <dt>códigos</dt><dd>POSCUENCA-MAESTRO-2026</dd>
+          <dt>backups</dt><dd class="warn">23 sin trackear</dd>
+        </dl>
+        <div class="pcard-actions">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/POSCuenca/" target="_blank" rel="noopener">Abrir</a>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/POSCuenca" target="_blank" rel="noopener">Repo</a>
+          <button class="btn btn-danger" data-action="liberar" data-key="oc_secure" data-nombre="POSCuenca Demo">🔓 Liberar correo</button>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/POSCuenca/edit/main/docs/version.json" target="_blank" rel="noopener" title="Editar version.json: al commitear, cada instalación de POSCuenca detecta la versión nueva y muestra el aviso (Fase 2). No auto-reemplaza nada.">⬆️ Publicar update</a>
+        </div>
+      </div>
+
+      <!-- ══ Olimpo 2.0 — OTRO PRODUCTO (consola) ══ -->
+      <div class="pcard otro">
+        <div class="pcard-top">
+          <div>
+            <div class="pcard-nombre">Olimpo 2.0</div>
+            <div class="pcard-sub">Consola música/chat · NO es POS</div>
+          </div>
+          <span class="badge badge-otro">Otro</span>
+        </div>
+        <div class="pcard-desc"><strong style="color:var(--ink)">Producto distinto</strong> de Olimpo Control. Consola del club (música, chat, anuncios) con autenticación <strong style="color:var(--ink)">Nostr</strong>. Sin PINs ni códigos maestros del POS.</div>
+        <dl class="datos">
+          <dt>repo</dt><dd>Olimpo_2_0</dd>
+          <dt>rama</dt><dd>main</dd>
+          <dt>versión</dt><dd>consola</dd>
+          <dt>último</dt><dd>75390dc · 07-03 10:50</dd>
+          <dt>commits</dt><dd>74</dd>
+          <dt>backend</dt><dd>estático + Nostr</dd>
+          <dt>auth</dt><dd>Nostr (npub) · N/A códigos</dd>
+          <dt>backups</dt><dd class="warn">11 sin trackear</dd>
+        </dl>
+        <div class="pcard-actions">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/Olimpo_2_0/" target="_blank" rel="noopener">Abrir</a>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/Olimpo_2_0" target="_blank" rel="noopener">Repo</a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TABLA COMPARATIVA DE VERSIONES -->
+    <div class="sec-head"><h2>Control de versiones</h2><span class="hint">para planear updates/parches</span></div>
+    <div class="tabla-wrap">
+      <table class="versiones">
+        <thead>
+          <tr>
+            <th>App</th><th>Repo</th><th>Rama</th><th>Ver.</th><th>Último commit</th><th>Commits</th><th>Estado</th><th>Backups</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="nom">Olimpo Control</td><td>Olimpo-Control</td><td>master</td><td>v1.0</td>
+            <td>6b7172c · 07-03 11:02</td><td>45</td><td><span class="pill green">Producción</span></td><td>13</td>
+          </tr>
+          <tr>
+            <td class="nom">AMIGABLE</td><td>AMIGABLE</td><td>main</td><td>v0.99</td>
+            <td>16610d1 · 07-03 10:01</td><td>9</td><td><span class="pill gold">Main</span></td><td>9</td>
+          </tr>
+          <tr>
+            <td class="nom">POSCuenca</td><td>POSCuenca</td><td>master</td><td>v0.99</td>
+            <td>e54d01a · 07-03 09:58</td><td>48</td><td><span class="pill amber">Demo</span></td><td>23</td>
+          </tr>
+          <tr>
+            <td class="nom">Olimpo 2.0</td><td>Olimpo_2_0</td><td>main</td><td>consola</td>
+            <td>75390dc · 07-03 10:50</td><td>74</td><td><span class="pill blue">Otro</span></td><td>11</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- CÓDIGOS MAESTROS — referencia -->
+    <div class="sec-head"><h2>Códigos maestros de recuperación</h2><span class="hint">solo master</span></div>
+    <div class="tabla-wrap">
+      <table class="versiones">
+        <thead><tr><th>App</th><th>Código(s)</th><th>Uso</th></tr></thead>
+        <tbody>
+          <tr><td class="nom">Panel Maestro</td><td>[tu PIN]</td><td>Acceso a este panel — 3 dígitos, solo tú lo sabes</td></tr>
+          <tr><td class="nom">Olimpo Control</td><td>1-5-9 · 2-6-0 · 3-5-7 · 8-8-8</td><td>Recuperación del dueño (Jose). 8-8-8 retrocompatible</td></tr>
+          <tr><td class="nom">AMIGABLE</td><td>POSCUENCA-MAESTRO-2026</td><td>Default técnico heredado (no es branding)</td></tr>
+          <tr><td class="nom">POSCuenca</td><td>POSCUENCA-MAESTRO-2026</td><td>Default técnico de la demo</td></tr>
+          <tr><td class="nom">Olimpo 2.0</td><td>N/A (Nostr)</td><td>Autenticación por clave Nostr, sin código maestro</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ROADMAP — fases del plan de distribución AMIGABLE -->
+    <div class="sec-head"><h2>Roadmap · distribución AMIGABLE</h2><span class="hint">soberanía digital</span></div>
+    <div class="fases">
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 1 — Página de error/404 con WhatsApp.</b> Entregada. <code>docs/404.html</code> + <code>public/404.html</code>, en vivo.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 2 — version.json + chequeo de versión.</b> Entregada (v1.0.0, 2026-07-07): la app compara su APP_VERSION contra version.json y muestra un aviso no bloqueante con botón de WhatsApp. Sin auto-reemplazo (eso es Fase 3).</div></div>
+      <div class="fase todo"><div class="fase-ico">▫️</div><div class="fase-txt"><b>Fase 3 — updater.html.</b> Reemplazo real con validación de hash.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 4 — Export cifrado del negocio.</b> Entregada (v1.0.0, 2026-07-07): respaldo exportable con contraseña opcional (AES-256-GCM real) + checksum SHA-256 + schemaVersion, y caja fuerte local automática con puntos de restauración verificados.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 5 — Panel de control de JFC.</b> Base entregada (2026-07-07): este panel ES el panel de control, con botón "⬆️ Publicar update" por app (edita version.json del repo; cada instalación detecta la versión nueva sola). Pendiente a futuro: releases y backups automatizados.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 6 — QR por negocio.</b> Entregado (2026-07-07): sync entre dispositivos por QR con el mismo cifrado AES-256-GCM (Avanzado → Mostrar/Escanear QR), y QR de etiquetas 100% local. Pendiente opcional: redundancia Nostr. Nota técnica: Bluetooth navegador-a-navegador no existe en la web (Web Bluetooth no hace modo periférico); mesh BLE exigiría app nativa.</div></div>
+    </div>
+
+
+    <!-- DELICADO — solo para master -->
+    <div class="sec-head"><h2 style="color:var(--red);">⚠️ Solo para ti — no compartir</h2></div>
+    <!-- ROLES — bloque anti-confusión (master vs dueño; proyectos distintos) -->
+    <div class="sec-head"><h2>Roles y aclaraciones</h2></div>
+    <div class="roles">
+      <div class="role-card">
+        <h3>🕵️ Master (tú, JFC)</h3>
+        <p>Controlas <strong>versiones, parches, códigos maestros y despliegues</strong> de todas las apps. Este panel es tuyo. Accedes con tu PIN de 3 dígitos.</p>
+      </div>
+      <div class="role-card dueno">
+        <h3>🏪 Dueño / Admin de local</h3>
+        <p>Opera <strong>su</strong> negocio con sus propios PINs (dueño, empleado, contable). Ej: <strong>Jose</strong> es el dueño de <strong>Olimpo Control</strong>. NO es master. No ve este panel.</p>
+      </div>
+      <div class="role-card aviso">
+        <h3>⚠️ No confundir productos</h3>
+        <p><strong>Olimpo Control</strong> (POS/inventario de Jose, smoke shop en Cuenca) es un producto <strong>totalmente distinto</strong> de <strong>Olimpo 2.0</strong> (consola de música/chat del club, auth por Nostr). Repos, dominios y bases de código separados. Nunca tratar uno como copia del otro.</p>
+      </div>
+    </div>
+
+        <!-- NOTAS OPERATIVAS -->
+    <div class="sec-head"><h2>Notas operativas</h2></div>
+    <div class="notas">
+      <div class="nota">
+        <div class="nota-head">Liberar correo — ¿qué hace exactamente?</div>
+        <div class="nota-body">
+          Borra el campo <code>email</code> dentro de <code>localStorage["oc_secure"]</code> del cliente
+          (misma origin github.io). El dueño vuelve a ver el formulario de correo en su sección Avanzado,
+          sin tocar sus PINs ni el resto de su configuración.<br><br>
+          <strong>Atención:</strong> esto afecta la demo en esta misma pestaña. Para producción (servidor propio),
+          ir físicamente al dispositivo del cliente o usar la entrada de código maestro en Avanzado.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">Códigos maestros — cómo se validan</div>
+        <div class="nota-body">
+          En Olimpo Control, <code>verificarMaestro()</code> revisa <strong>siempre</strong> la lista
+          <code>MASTER_CODES_AUTHORIZED</code>, aunque el navegador ya tenga un hash guardado. Por eso
+          <strong>basta refrescar</strong> para que un código nuevo funcione — el dueño no tiene que borrar nada.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">Activación Loyverse (Olimpo Control)</div>
+        <div class="nota-body">
+          Jose obtiene su token en Loyverse → app → Avanzado → "Conectar Loyverse" → guarda → reinicia <code>node server.js</code>.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">EmailJS — recuperación de acceso</div>
+        <div class="nota-body">
+          Configurar <code>EMAILJS_CONFIG</code> en <code>email-recovery.js</code> de cada proyecto.
+          Hasta entonces, el código de reset aparece en pantalla.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">Mantener este panel al día</div>
+        <div class="nota-body">
+          Los números de versión/commit son un <strong>snapshot manual</strong> (una página estática no consulta git en vivo).
+          Al pushear cambios grandes, actualiza las cards y la tabla de arriba con el nuevo hash y fecha.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    AMIGABLE-123 · Panel Maestro · privado · noindex · 2026
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MODAL — segundo PIN para confirmar acción
+     ══════════════════════════════════════════════ -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <div id="modal-titulo">Confirmar acción</div>
+    <div id="modal-desc">Ingresa tu código para liberar el correo de <strong id="modal-cliente"></strong>.</div>
+    <div class="slots" id="modal-slots">
+      <div class="slot" id="ms0"></div>
+      <div class="slot" id="ms1"></div>
+      <div class="slot" id="ms2"></div>
+    </div>
+    <div class="pad" id="modal-pad"></div>
+    <div id="modal-msg"></div>
+    <button id="modal-cancelar">Cancelar</button>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// panel.html — lógica principal (sin cambios respecto a v0.2: gate 777,
+// teclado con emojis barajados, modal de segundo PIN, liberar correo).
+// ============================================================================
+
+// EMOJIS EXCLUSIVOS DEL PANEL — "just for me" (JFC). Temática espionaje/tech.
+const PANEL_EMOJIS = [
+  "🕵️", "🔐", "🗝️", "🔍", "🧩", "🎯", "🌐", "🛸", "💠", "⚡",
+  "🔮", "🌌", "⛓️", "🧬", "🪐", "⚗️", "🔭", "💡", "🌀", "🎱",
+  "🏹", "🧿", "🔬", "💫", "🌠", "🎰",
+];
+
+// HASH esperado del código de acceso. El código NO aparece como literal.
+const _P = ["7","7","7"]; // las tres partes — no revelan el número solo de verlas
+let _expectedHash = null;
+
+async function sha256hex(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
+
+function barajar(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function montarTeclado(padEl, slotsEl, onComplete) {
+  let entrada = [];
+  const pool = barajar(PANEL_EMOJIS);
+  padEl.innerHTML = "";
+  for (let d = 0; d <= 9; d++) {
+    if (d === 0) {
+      const vacio = document.createElement("div");
+      vacio.className = "pad-key vacio";
+      padEl.appendChild(vacio);
+    }
+    const key = document.createElement("div");
+    key.className = "pad-key";
+    key.innerHTML = `<span class="emoji">${pool[d]}</span><span class="digit">${d}</span>`;
+    key.addEventListener("click", () => {
+      if (entrada.length >= 3) return;
+      entrada.push(String(d));
+      actualizarSlots(slotsEl, entrada.length);
+      if (entrada.length === 3) onComplete(entrada.join(""), resetEntrada);
+    });
+    padEl.appendChild(key);
+    if (d === 0) {
+      const borrar = document.createElement("div");
+      borrar.className = "pad-key borrar";
+      borrar.textContent = "⌫";
+      borrar.addEventListener("click", () => {
+        if (!entrada.length) return;
+        entrada.pop();
+        actualizarSlots(slotsEl, entrada.length);
+      });
+      padEl.appendChild(borrar);
+    }
+  }
+  function actualizarSlots(slotsEl, n) {
+    const slots = slotsEl.querySelectorAll(".slot");
+    slots.forEach((s, i) => {
+      if (i < n) { s.textContent = "●"; s.classList.add("lleno"); }
+      else { s.textContent = ""; s.classList.remove("lleno"); }
+    });
+  }
+  function resetEntrada() {
+    entrada = [];
+    actualizarSlots(slotsEl, 0);
+  }
+  return resetEntrada;
+}
+
+// ── GATE ──
+async function initGate() {
+  _expectedHash = await sha256hex(_P.join(""));
+  const padEl = document.getElementById("gate-pad");
+  const slotsEl = document.getElementById("gate-slots");
+  const msgEl = document.getElementById("gate-msg");
+  if (sessionStorage.getItem("panel_auth") === "1") { mostrarPanel(); return; }
+  montarTeclado(padEl, slotsEl, async (codigo, reset) => {
+    const h = await sha256hex(codigo);
+    if (h === _expectedHash) {
+      sessionStorage.setItem("panel_auth", "1");
+      mostrarPanel();
+    } else {
+      msgEl.textContent = "Código incorrecto.";
+      setTimeout(() => { msgEl.textContent = ""; reset(); }, 1400);
+    }
+  });
+}
+
+function mostrarPanel() {
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("panel").classList.add("visible");
+  initPanel();
+}
+
+// ── PANEL ──
+function initPanel() {
+  const d = new Date();
+  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  document.getElementById("fecha-panel").textContent =
+    d.getDate() + " " + meses[d.getMonth()] + " " + d.getFullYear();
+  document.getElementById("btn-cerrar").addEventListener("click", () => {
+    sessionStorage.removeItem("panel_auth");
+    location.reload();
+  });
+  document.querySelectorAll("[data-action='liberar']").forEach(btn => {
+    btn.addEventListener("click", () => abrirModalLiberar(btn.dataset.nombre, btn.dataset.key));
+  });
+}
+
+// ── MODAL — segundo PIN ──
+let _pendingAction = null;
+
+function abrirModalLiberar(nombre, lsKey) {
+  _pendingAction = { key: lsKey, nombre };
+  document.getElementById("modal-cliente").textContent = nombre;
+  document.getElementById("modal-msg").textContent = "";
+  document.getElementById("modal-overlay").classList.add("visible");
+  const padEl = document.getElementById("modal-pad");
+  const slotsEl = document.getElementById("modal-slots");
+  const msgEl = document.getElementById("modal-msg");
+  padEl.innerHTML = "";
+  montarTeclado(padEl, slotsEl, async (codigo, resetFn) => {
+    const h = await sha256hex(codigo);
+    if (h === _expectedHash) {
+      ejecutarLiberacion(_pendingAction.key, _pendingAction.nombre);
+      cerrarModal();
+    } else {
+      msgEl.textContent = "Código incorrecto — intenta de nuevo.";
+      setTimeout(() => { msgEl.textContent = ""; resetFn(); }, 1400);
+    }
+  });
+  document.getElementById("modal-cancelar").onclick = cerrarModal;
+}
+
+function cerrarModal() {
+  document.getElementById("modal-overlay").classList.remove("visible");
+  document.getElementById("modal-msg").textContent = "";
+  _pendingAction = null;
+}
+
+function ejecutarLiberacion(lsKey, nombre) {
+  try {
+    const raw = localStorage.getItem(lsKey);
+    if (!raw) {
+      alert(`No se encontró la clave "${lsKey}" en localStorage.\nEsta función solo aplica a demos de mismo origen.`);
+      return;
+    }
+    const obj = JSON.parse(raw);
+    obj.email = "";
+    localStorage.setItem(lsKey, JSON.stringify(obj));
+    mostrarConfirmacion(`Correo liberado en ${nombre}. El dueño verá el formulario de correo la próxima vez que abra Avanzado.`);
+  } catch (e) {
+    alert("Error al leer/escribir localStorage: " + e.message);
+  }
+}
+
+function mostrarConfirmacion(texto) {
+  const t = document.createElement("div");
+  t.style.cssText = `position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a3a2a;border:1px solid var(--green);color:var(--green);padding:12px 20px;border-radius:8px;font-size:14px;font-family:var(--mono);z-index:300;max-width:90vw;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.5);`;
+  t.textContent = "✓ " + texto;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ── INIT ──
+initGate();
+</script>
+</body>
+</html>

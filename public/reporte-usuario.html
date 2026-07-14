@@ -1,0 +1,763 @@
+
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="description" content="AMIGABLE-123 convierte un stand, una percha o un pequeno almacen en un negocio que se gobierna solo. Sin Excel, sin consultores, sin internet obligatorio." />
+<meta property="og:title"        content="AMIGABLE-123 — El sistema operativo de tu mostrador" />
+<meta property="og:description"  content="Control de inventario, clientes y perchas. Local-first, cifrado real, funciona sin internet." />
+<meta property="og:type"         content="website" />
+<meta property="og:url"          content="https://jfcarpiopuntocom.github.io/AMIGABLE/reporte-usuario.html" />
+<meta property="og:image"        content="https://jfcarpiopuntocom.github.io/AMIGABLE/favicon.png" />
+<meta property="og:image:width"  content="256" />
+<meta property="og:image:height" content="256" />
+<meta property="og:locale"       content="es_EC" />
+<meta name="twitter:card"        content="summary_large_image" />
+<meta name="twitter:image"       content="https://jfcarpiopuntocom.github.io/AMIGABLE/favicon.png" />
+<meta name="color-scheme"        content="light only" />
+<meta name="supported-color-schemes" content="light" />
+<meta name="theme-color"         content="#FFFFFF" />
+<link rel="canonical"            href="https://jfcarpiopuntocom.github.io/AMIGABLE/reporte-usuario.html" />
+<title>AMIGABLE-123 — El sistema operativo de tu mostrador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B1220;
+    --ink-soft:#3B4759;
+    --muted:#6B7684;
+    --line:#E6E9EF;
+    --bg:#FFFFFF;
+    --bg-soft:#F7F8FA;
+    --accent:#0B5FFF;
+    --accent-2:#00C87A;
+    --accent-3:#FF6A3D;
+    --serif:'Instrument Serif', Georgia, serif;
+    --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--ink);color:#fff}
+
+  /* ---------- NAV ---------- */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 40px;
+    backdrop-filter:blur(18px) saturate(180%);
+    -webkit-backdrop-filter:blur(18px) saturate(180%);
+    background:rgba(255,255,255,.72);
+    border-bottom:1px solid rgba(11,18,32,.06);
+    transition:padding .3s ease;
+  }
+  nav .brand{
+    font-family:var(--serif);
+    font-size:22px;
+    letter-spacing:-.01em;
+    display:flex;align-items:center;gap:10px;
+  }
+  nav .brand .dot{
+    width:10px;height:10px;border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    box-shadow:0 0 0 4px rgba(11,95,255,.12);
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{box-shadow:0 0 0 4px rgba(11,95,255,.12)}
+    50%{box-shadow:0 0 0 10px rgba(11,95,255,0)}
+  }
+  nav .links{display:flex;gap:28px;align-items:center;font-size:14px;font-weight:500}
+  nav .links a{color:var(--ink-soft);text-decoration:none;transition:color .2s}
+  nav .links a:hover{color:var(--ink)}
+  .lang-toggle{
+    display:inline-flex;align-items:center;gap:0;
+    border:1px solid var(--line);border-radius:999px;
+    padding:3px;background:#fff;
+    font-size:12px;font-weight:600;
+  }
+  .lang-toggle button{
+    border:0;background:transparent;padding:6px 14px;border-radius:999px;
+    cursor:pointer;color:var(--muted);font-weight:600;letter-spacing:.02em;
+    transition:all .25s ease;
+  }
+  .lang-toggle button.active{background:var(--ink);color:#fff}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    position:relative;
+    padding:180px 40px 120px;
+    text-align:center;
+    overflow:hidden;
+  }
+  .mesh{
+    position:absolute;inset:-20%;z-index:0;
+    filter:blur(80px);opacity:.55;
+    pointer-events:none;
+  }
+  .mesh span{
+    position:absolute;border-radius:50%;
+    mix-blend-mode:multiply;
+    animation:float 18s ease-in-out infinite;
+  }
+  .mesh .a{width:520px;height:520px;background:#C9D9FF;top:-10%;left:10%;animation-delay:0s}
+  .mesh .b{width:440px;height:440px;background:#B8F1D8;top:20%;right:-5%;animation-delay:-6s}
+  .mesh .c{width:380px;height:380px;background:#FFD9C4;bottom:-10%;left:30%;animation-delay:-12s}
+  @keyframes float{
+    0%,100%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(60px,-40px) scale(1.08)}
+    66%{transform:translate(-40px,30px) scale(.95)}
+  }
+  .hero-inner{position:relative;z-index:1;max-width:960px;margin:0 auto}
+  .eyebrow{
+    display:inline-block;
+    font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);
+    padding:8px 16px;border:1px solid rgba(11,95,255,.2);border-radius:999px;
+    background:rgba(11,95,255,.04);
+    margin-bottom:28px;
+  }
+  h1{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(44px,7vw,92px);
+    line-height:1.02;
+    letter-spacing:-.02em;
+    color:var(--ink);
+    margin-bottom:28px;
+  }
+  h1 em{font-style:italic;color:var(--accent)}
+  .hero p.lead{
+    font-size:clamp(17px,1.6vw,21px);
+    color:var(--ink-soft);
+    max-width:680px;margin:0 auto 40px;
+    line-height:1.55;
+  }
+  .hero-cta{
+    display:inline-flex;gap:14px;flex-wrap:wrap;justify-content:center;
+  }
+  .btn{
+    position:relative;
+    display:inline-flex;align-items:center;gap:10px;
+    padding:16px 28px;border-radius:999px;
+    font-size:15px;font-weight:600;
+    text-decoration:none;cursor:pointer;border:0;
+    transition:transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s;
+    will-change:transform;
+  }
+  .btn-primary{background:var(--ink);color:#fff;box-shadow:0 10px 30px -10px rgba(11,18,32,.4)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 40px -12px rgba(11,18,32,.5)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--bg-soft)}
+  .btn .arrow{transition:transform .25s}
+  .btn:hover .arrow{transform:translateX(4px)}
+
+  /* ---------- SECTIONS ---------- */
+  section{padding:120px 40px;position:relative}
+  .container{max-width:1180px;margin:0 auto}
+  .section-head{max-width:760px;margin:0 auto 72px;text-align:center}
+  .section-head .eyebrow{margin-bottom:20px}
+  h2{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(34px,4.5vw,58px);
+    line-height:1.08;
+    letter-spacing:-.02em;
+    margin-bottom:20px;
+  }
+  h2 em{font-style:italic;color:var(--accent)}
+  .section-head p{font-size:18px;color:var(--ink-soft);line-height:1.6}
+
+  /* ---------- PROBLEM ---------- */
+  .problem{background:var(--bg-soft);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .problem-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:2px;
+    background:var(--line);border:1px solid var(--line);border-radius:20px;overflow:hidden;
+  }
+  .problem-cell{
+    background:#fff;padding:36px 28px;
+    transition:background .3s;
+  }
+  .problem-cell:hover{background:#FAFBFC}
+  .problem-cell .num{
+    font-family:var(--serif);font-size:40px;color:var(--accent);
+    font-style:italic;margin-bottom:14px;
+  }
+  .problem-cell h4{font-size:16px;font-weight:600;margin-bottom:8px;letter-spacing:-.01em}
+  .problem-cell p{font-size:14px;color:var(--muted);line-height:1.55}
+
+  /* ---------- AUDIENCES (3D tilt cards) ---------- */
+  .audiences{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+  .aud-card{
+    position:relative;
+    padding:44px 38px;
+    border:1px solid var(--line);
+    border-radius:24px;
+    background:#fff;
+    transition:transform .4s cubic-bezier(.2,.8,.2,1), box-shadow .4s;
+    transform-style:preserve-3d;
+    overflow:hidden;
+  }
+  .aud-card::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(600px circle at var(--mx,50%) var(--my,50%), rgba(11,95,255,.08), transparent 40%);
+    opacity:0;transition:opacity .4s;
+    pointer-events:none;
+  }
+  .aud-card:hover::before{opacity:1}
+  .aud-card:hover{box-shadow:0 30px 60px -30px rgba(11,18,32,.18)}
+  .aud-icon{
+    width:56px;height:56px;border-radius:16px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:26px;margin-bottom:22px;
+    background:linear-gradient(135deg,#F0F5FF,#E6F7EF);
+    border:1px solid var(--line);
+  }
+  .aud-card h3{
+    font-family:var(--serif);font-weight:400;
+    font-size:30px;letter-spacing:-.01em;margin-bottom:10px;
+  }
+  .aud-card .sub{font-size:14px;color:var(--accent);font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:18px}
+  .aud-card p{font-size:15px;color:var(--ink-soft);line-height:1.65;margin-bottom:18px}
+  .aud-card ul{list-style:none;padding:0}
+  .aud-card li{
+    font-size:14px;color:var(--ink-soft);
+    padding:10px 0 10px 26px;position:relative;
+    border-top:1px dashed var(--line);
+  }
+  .aud-card li:first-child{border-top:0}
+  .aud-card li::before{
+    content:"";position:absolute;left:0;top:16px;
+    width:12px;height:2px;background:var(--accent);border-radius:2px;
+  }
+
+  /* ---------- FEATURES ---------- */
+  .features{background:var(--ink);color:#fff;border-radius:32px;margin:0 24px;padding:120px 60px}
+  .features h2{color:#fff}
+  .features h2 em{color:#8FB4FF}
+  .features .section-head p{color:rgba(255,255,255,.65)}
+  .features .eyebrow{color:#8FB4FF;border-color:rgba(143,180,255,.3);background:rgba(143,180,255,.08)}
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:40px 48px;margin-top:60px}
+  .feat{position:relative;padding-top:28px;border-top:1px solid rgba(255,255,255,.12)}
+  .feat .tag{
+    position:absolute;top:-11px;left:0;
+    font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    color:#0B1220;background:#8FB4FF;padding:4px 10px;border-radius:999px;
+  }
+  .feat h4{font-size:18px;font-weight:600;margin-bottom:10px;letter-spacing:-.01em}
+  .feat p{font-size:14px;color:rgba(255,255,255,.65);line-height:1.6}
+
+  /* ---------- STATS (counter) ---------- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:40px}
+  .stat{
+    text-align:center;padding:36px 20px;
+    border:1px solid var(--line);border-radius:20px;background:#fff;
+  }
+  .stat .big{
+    font-family:var(--serif);font-style:italic;
+    font-size:64px;line-height:1;color:var(--ink);letter-spacing:-.02em;
+  }
+  .stat .big .unit{font-size:32px;color:var(--accent);margin-left:4px}
+  .stat .lbl{font-size:13px;color:var(--muted);margin-top:10px;letter-spacing:.02em}
+
+  /* ---------- CTA ---------- */
+  .cta{
+    text-align:center;
+    padding:140px 40px;
+    background:
+      radial-gradient(600px circle at 20% 30%, rgba(11,95,255,.08), transparent 50%),
+      radial-gradient(500px circle at 80% 70%, rgba(0,200,122,.08), transparent 50%),
+      #fff;
+  }
+  .cta h2{margin-bottom:24px}
+  .cta p{font-size:18px;color:var(--ink-soft);max-width:600px;margin:0 auto 36px}
+
+  /* ---------- FOOTER ---------- */
+  footer{
+    padding:50px 40px;border-top:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:13px;color:var(--muted);flex-wrap:wrap;gap:16px;
+  }
+
+  /* ---------- REVEAL ---------- */
+  .reveal{opacity:0;transform:translateY(28px);transition:opacity .9s cubic-bezier(.2,.8,.2,1), transform .9s cubic-bezier(.2,.8,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  .reveal[data-delay="1"]{transition-delay:.08s}
+  .reveal[data-delay="2"]{transition-delay:.16s}
+  .reveal[data-delay="3"]{transition-delay:.24s}
+  .reveal[data-delay="4"]{transition-delay:.32s}
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width:900px){
+    nav{padding:14px 20px}
+    nav .links{display:none}
+    .hero{padding:140px 20px 80px}
+    section{padding:80px 20px}
+    .problem-grid{grid-template-columns:repeat(2,1fr)}
+    .audiences{grid-template-columns:1fr}
+    .feat-grid{grid-template-columns:1fr;gap:32px}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .features{margin:0 12px;padding:80px 28px;border-radius:24px}
+    footer{flex-direction:column;text-align:center}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand"><span class="dot"></span><span>AMIGABLE-123</span></div>
+  <div class="links">
+    <a href="#problema" data-i18n="nav_problem">El problema</a>
+    <a href="#audiencias" data-i18n="nav_for">Para quién</a>
+    <a href="#features" data-i18n="nav_feat">Capacidades</a>
+    <a href="#impacto" data-i18n="nav_impact">Impacto</a>
+  </div>
+  <div class="lang-toggle" role="group" aria-label="Language">
+    <button data-lang="es" class="active">ES</button>
+    <button data-lang="en">EN</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="mesh"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+  <div class="hero-inner">
+    <span class="eyebrow reveal" data-i18n="hero_eyebrow">El sistema operativo de tu mostrador</span>
+    <h1 class="reveal" data-delay="1" data-i18n-html="hero_title">Tu negocio,<br/><em>por fin en orden.</em></h1>
+    <p class="lead reveal" data-delay="2" data-i18n="hero_lead">
+      AMIGABLE-123 es la capa de inteligencia que convierte un stand, una percha o un pequeño almacén en un negocio que se gobierna solo. Vende, controla inventario, cobra comisiones y entiende tus números — sin Excel, sin consultores, sin fricción.
+    </p>
+    <div class="hero-cta reveal" data-delay="3">
+      <a class="btn btn-primary" href="#features">
+        <span data-i18n="hero_cta1">Ver capacidades</span>
+        <span class="arrow">→</span>
+      </a>
+      <a class="btn btn-ghost" href="#problema" data-i18n="hero_cta2">Leer el reporte</a>
+    </div>
+  </div>
+</header>
+
+<!-- PROBLEMA -->
+<section id="problema" class="problem">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal" data-i18n="prob_eyebrow">El problema real</span>
+      <h2 class="reveal" data-delay="1" data-i18n-html="prob_title">Cuatro fugas silenciosas que <em>ninguna hoja de cálculo</em> detecta a tiempo.</h2>
+      <p class="reveal" data-delay="2" data-i18n="prob_lead">
+        Detrás de cada pequeño negocio que cierra los números apretados hay cuatro patrones que se repiten. AMIGABLE-123 fue diseñado para cerrarlos, uno por uno, desde el primer día.
+      </p>
+    </div>
+    <div class="problem-grid">
+      <div class="problem-cell reveal">
+        <div class="num">01</div>
+        <h4 data-i18n="prob1_t">Fuga de dinero</h4>
+        <p data-i18n="prob1_d">Inventario vencido, productos dormidos sin venta durante meses y margen negativo disfrazado de precio redondo. Capital trabajando en contra del dueño.</p>
+      </div>
+      <div class="problem-cell reveal" data-delay="1">
+        <div class="num">02</div>
+        <h4 data-i18n="prob2_t">Fuga de tiempo</h4>
+        <p data-i18n="prob2_d">Horas conciliando ventas a mano, recalculando comisiones de promotoras y persiguiendo descuadres que nadie sabe de dónde salieron.</p>
+      </div>
+      <div class="problem-cell reveal" data-delay="2">
+        <div class="num">03</div>
+        <h4 data-i18n="prob3_t">Fuga de ROI</h4>
+        <p data-i18n="prob3_d">Productos de alto margen sin empuje, productos de bajo margen ocupando vitrina. El mostrador decide por ti, y casi nunca elige bien.</p>
+      </div>
+      <div class="problem-cell reveal" data-delay="3">
+        <div class="num">04</div>
+        <h4 data-i18n="prob4_t">Fuga de control</h4>
+        <p data-i18n="prob4_d">Varias perchas, varios locales, varias cabezas. Sin un sistema único, cada punto de venta es una isla y el dueño es el último en enterarse.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUDIENCIAS -->
+<section id="audiencias">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal" data-i18n="aud_eyebrow">Hecho para quienes venden</span>
+      <h2 class="reveal" data-delay="1" data-i18n-html="aud_title">Cuatro formas de vender. <em>Un solo sistema</em> que las entiende a todas.</h2>
+      <p class="reveal" data-delay="2" data-i18n="aud_lead">
+        No todos los negocios son iguales, pero todos comparten las mismas preguntas al cierre del día. AMIGABLE responde cada una con el lenguaje exacto de quien la hace.
+      </p>
+    </div>
+
+    <div class="audiences">
+
+      <article class="aud-card reveal" data-tilt>
+        <div class="aud-icon">🎪</div>
+        <div class="sub" data-i18n="aud1_sub">Ferias · Mercados · Pop-ups</div>
+        <h3 data-i18n="aud1_t">El stand que se arma y se desarma</h3>
+        <p data-i18n="aud1_p">
+          Tu negocio vive en eventos de dos o tres días. Cada mañana montas, cada noche desmontas. Lo último que necesitas es cargar laptop, impresora y un cuaderno de ventas. AMIGABLE-123 convierte tu celular en caja registradora, lector de códigos y libro contable. Al cerrar la feria, la percha se archiva con su historial completo y su liquidación lista — sin que tengas que abrir una hoja de cálculo el lunes siguiente.
+        </p>
+        <ul>
+          <li data-i18n="aud1_b1">Perchas temporales con cierre y liquidación automática al terminar el evento.</li>
+          <li data-i18n="aud1_b2">Venta por código de barras o búsqueda rápida, aun sin internet.</li>
+          <li data-i18n="aud1_b3">Comisiones de promotora calculadas venta por venta, con escalas dinámicas por cumplimiento de meta.</li>
+          <li data-i18n="aud1_b4">Sincronización entre la caja y la bodega por QR cifrado, sin depender de señal.</li>
+        </ul>
+      </article>
+
+      <article class="aud-card reveal" data-delay="1" data-tilt>
+        <div class="aud-icon">🏬</div>
+        <div class="sub" data-i18n="aud2_sub">Almacenes · Tiendas de barrio</div>
+        <h3 data-i18n="aud2_t">El local que no puede permitirse un error</h3>
+        <p data-i18n="aud2_p">
+          Un almacén vive y muere por el detalle: un vencido que no se rotó, un descuadre de caja que nadie recuerda, un producto que lleva tres meses en el estante sin moverse. AMIGABLE-123 te muestra el estado de tu negocio como un semáforo. Rojo es lo que exige acción hoy. Amarillo es dinero esperándote si lo empujas. Negro es capital dormido que debes liberar. Verde es lo que puedes olvidar y seguir vendiendo.
+        </p>
+        <ul>
+          <li data-i18n="aud2_b1">Semáforo de seis colores con tres niveles de intensidad por urgencia real.</li>
+          <li data-i18n="aud2_b2">Alertas de vencimiento con días exactos y sugerencia de rotación prioritaria.</li>
+          <li data-i18n="aud2_b3">Detección de capital dormido: productos sin venta por más de 45 días.</li>
+          <li data-i18n="aud2_b4">Cuentas T, pérdidas y ganancias e inventario valorizado detrás de una subclave contable.</li>
+        </ul>
+      </article>
+
+      <article class="aud-card reveal" data-delay="2" data-tilt>
+        <div class="aud-icon">📍</div>
+        <div class="sub" data-i18n="aud3_sub">Perchas en varios locales</div>
+        <h3 data-i18n="aud3_t">El dueño que no puede estar en todas partes</h3>
+        <p data-i18n="aud3_p">
+          Tienes una percha en el centro, otra en el mercado, una tercera en una feria. Cada una con su promotora, su caja, su ritmo. El problema no es operarlas: el problema es saber cuál rinde, cuál te debe y cuál está por debajo de la meta sin que nadie te avise. AMIGABLE-123 agrupa perchas en sucursales, compara desempeño en tiempo real y te dice exactamente cuánto le debes a cada socia al cierre del mes — sin peleas, sin planillas, sin dudas.
+        </p>
+        <ul>
+          <li data-i18n="aud3_b1">Transferencias de stock entre perchas con aprobación, tránsito y confirmación de recepción.</li>
+          <li data-i18n="aud3_b2">Comparativo por ubicación: ventas, margen, cumplimiento de meta y comisión efectiva pagada.</li>
+          <li data-i18n="aud3_b3">Liquidaciones mensuales automáticas con escalas de comisión progresivas.</li>
+          <li data-i18n="aud3_b4">Sincronización cifrada entre dispositivos del mismo negocio, con o sin servidor.</li>
+        </ul>
+      </article>
+
+      <article class="aud-card reveal" data-delay="3" data-tilt>
+        <div class="aud-icon">🌱</div>
+        <div class="sub" data-i18n="aud4_sub">Emprendedores · Primer negocio</div>
+        <h3 data-i18n="aud4_t">El que empieza y no quiere equivocarse</h3>
+        <p data-i18n="aud4_p">
+          Lanzar un negocio es difícil; mantenerlo a flue sin saber si estás ganando o perdiendo es imposible. AMIGABLE-123 te acompaña desde la primera venta hasta el primer balance. No necesitas saber contabilidad: el sistema piensa por ti en colores. No necesitas saber de tecnología: funciona en el navegador, sin instalaciones, sin actualizaciones. No necesitas tener suerte: cada decisión queda registrada, cada peso queda trazado, cada error queda corregible.
+        </p>
+        <ul>
+          <li data-i18n="aud4_b1">Alta de productos en segundos, con código de barras y etiqueta lista para imprimir.</li>
+          <li data-i18n="aud4_b2">Respaldo completo exportable y caja fuerte local con puntos de restauración automáticos.</li>
+          <li data-i18n="aud4_b3">Reporte contable en CSV para tu contador, con desglose de IVA incluido.</li>
+          <li data-i18n="aud4_b4">Recuperación de claves por correo y código maestro para el dueño real.</li>
+        </ul>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="features">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal" data-i18n="feat_eyebrow">Capacidades</span>
+      <h2 class="reveal" data-delay="1" data-i18n-html="feat_title">Todo lo que tu negocio necesita. <em>Nada que no necesite.</em></h2>
+      <p class="reveal" data-delay="2" data-i18n="feat_lead">
+        Cada función fue pensada para resolver una fuga concreta de dinero, tiempo o control. Sin menús infinitos, sin pantallas que nadie usa, sin features de relleno.
+      </p>
+    </div>
+
+    <div class="feat-grid">
+      <div class="feat reveal"><span class="tag" data-i18n="tag_ventas">Ventas</span>
+        <h4 data-i18n="f1_t">Caja rápida, anulable, trazable</h4>
+        <p data-i18n="f1_d">Escanear, cobrar, anular en segundos. Cada venta queda ligada a quien la hizo, a la percha donde se hizo y al momento exacto.</p>
+      </div>
+      <div class="feat reveal" data-delay="1"><span class="tag" data-i18n="tag_inv">Inventario</span>
+        <h4 data-i18n="f2_t">Semáforo de seis colores</h4>
+        <p data-i18n="f2_d">Verde, amarillo, naranja, rojo, azul y negro. Tres niveles de intensidad por color. Sabes qué hacer antes de leer una sola línea.</p>
+      </div>
+      <div class="feat reveal" data-delay="2"><span class="tag" data-i18n="tag_com">Comisiones</span>
+        <h4 data-i18n="f3_t">Liquidaciones sin discusión</h4>
+        <p data-i18n="f3_d">Escalas dinámicas por cumplimiento de meta. Cada socia ve lo que vendió, lo que le corresponde y lo que ya se pagó.</p>
+      </div>
+      <div class="feat reveal" data-delay="3"><span class="tag" data-i18n="tag_trans">Transferencias</span>
+        <h4 data-i18n="f4_t">Stock que viaja entre perchas</h4>
+        <p data-i18n="f4_d">Solicita, aprueba, confirma recepción. Cada movimiento deja rastro y ninguna unidad se pierde en el camino.</p>
+      </div>
+      <div class="feat reveal"><span class="tag" data-i18n="tag_sync">Sincronización</span>
+        <h4 data-i18n="f5_t">Varios dispositivos, un solo negocio</h4>
+        <p data-i18n="f5_d">Cifrado de punta a punta con tu PIN. Funciona por servidor, por texto copiado o por QR entre cámaras. Sin internet, sin problema.</p>
+      </div>
+      <div class="feat reveal" data-delay="1"><span class="tag" data-i18n="tag_conta">Contabilidad</span>
+        <h4 data-i18n="f6_t">Cuentas T, P&amp;G y balance</h4>
+        <p data-i18n="f6_d">Detrás de una subclave. Para ti, para tu contador, para quien necesite ver los números a fondo. Exportable a CSV con IVA desglosado.</p>
+      </div>
+      <div class="feat reveal" data-delay="2"><span class="tag" data-i18n="tag_resp">Respaldo</span>
+        <h4 data-i18n="f7_t">Tu negocio, a salvo</h4>
+        <p data-i18n="f7_d">Exportación completa cifrada con contraseña, caja fuerte local con siete puntos de restauración rotativos y verificación por checksum.</p>
+      </div>
+      <div class="feat reveal" data-delay="3"><span class="tag" data-i18n="tag_seg">Seguridad</span>
+        <h4 data-i18n="f8_t">Tres claves, tres mundos</h4>
+        <p data-i18n="f8_d">Dueño, empleado y contador. Cada uno ve exactamente lo que necesita. Recuperación por correo y código maestro para el dueño real.</p>
+      </div>
+      <div class="feat reveal"><span class="tag" data-i18n="tag_off">Offline</span>
+        <h4 data-i18n="f9_t">Local-first, por diseño</h4>
+        <p data-i18n="f9_d">Funciona sin internet, sin servidor, sin suscripciones. Tus datos viven en tu dispositivo hasta que tú decidas compartirlos.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section id="impacto">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow reveal" data-i18n="stat_eyebrow">El impacto esperado</span>
+      <h2 class="reveal" data-delay="1" data-i18n-html="stat_title">Los números que <em>sí importan</em> al cierre del mes.</h2>
+      <p class="reveal" data-delay="2" data-i18n="stat_lead">
+        No son promesas. Son las cuatro variables que AMIGABLE pone bajo tu control desde la primera semana de uso.
+      </p>
+    </div>
+    <div class="stats">
+      <div class="stat reveal"><div class="big"><span class="counter" data-target="40">0</span><span class="unit">%</span></div><div class="lbl" data-i18n="stat1">Menos tiempo en conciliaciones manuales</div></div>
+      <div class="stat reveal" data-delay="1"><div class="big"><span class="counter" data-target="3">0</span><span class="unit">×</span></div><div class="lbl" data-i18n="stat2">Detección más rápida de stock dormido</div></div>
+      <div class="stat reveal" data-delay="2"><div class="big"><span class="counter" data-target="100">0</span><span class="unit">%</span></div><div class="lbl" data-i18n="stat3">Trazabilidad de cada unidad y cada peso</div></div>
+      <div class="stat reveal" data-delay="3"><div class="big"><span class="counter" data-target="0">0</span></div><div class="lbl" data-i18n="stat4">Dependencia de Excel o consultoría externa</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="container">
+    <span class="eyebrow reveal" data-i18n="cta_eyebrow">Empieza hoy</span>
+    <h2 class="reveal" data-delay="1" data-i18n-html="cta_title">Tu mostrador merece <em>un sistema a su altura.</em></h2>
+    <p class="reveal" data-delay="2" data-i18n="cta_lead">
+      AMIGABLE-123 no pide que cambies tu forma de vender. Te da la capa de inteligencia que siempre debió estar ahí, para que tú te encargues de lo que mejor sabes hacer: atender, recomendar, cerrar la venta.
+    </p>
+    <div class="hero-cta reveal" data-delay="3">
+      <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/">
+        <span data-i18n="cta_btn1">Probar la demo</span>
+        <span class="arrow">→</span>
+      </a>
+      <a class="btn btn-ghost" href="https://jfcarpio.com" data-i18n="cta_btn2">Hablar con el equipo</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>© AMIGABLE-123 · jfcarpio.com · 2026</div>
+  <div data-i18n="foot">Hecho con cuidado para quienes viven del mostrador.</div>
+</footer>
+
+<script>
+/* ================= i18n ================= */
+const I18N = {
+  es:{
+    nav_problem:"El problema", nav_for:"Para quién", nav_feat:"Capacidades", nav_impact:"Impacto",
+    hero_eyebrow:"El sistema operativo de tu mostrador",
+    hero_title:"Tu negocio,<br/><em>por fin en orden.</em>",
+    hero_lead:"AMIGABLE-123 es la capa de inteligencia que convierte un stand, una percha o un pequeño almacén en un negocio que se gobierna solo. Vende, controla inventario, cobra comisiones y entiende tus números — sin Excel, sin consultores, sin fricción.",
+    hero_cta1:"Ver capacidades", hero_cta2:"Leer el reporte",
+    prob_eyebrow:"El problema real",
+    prob_title:"Cuatro fugas silenciosas que <em>ninguna hoja de cálculo</em> detecta a tiempo.",
+    prob_lead:"Detrás de cada pequeño negocio que cierra los números apretados hay cuatro patrones que se repiten. AMIGABLE-123 fue diseñado para cerrarlos, uno por uno, desde el primer día.",
+    prob1_t:"Fuga de dinero", prob1_d:"Inventario vencido, productos dormidos sin venta durante meses y margen negativo disfrazado de precio redondo. Capital trabajando en contra del dueño.",
+    prob2_t:"Fuga de tiempo", prob2_d:"Horas conciliando ventas a mano, recalculando comisiones de promotoras y persiguiendo descuadres que nadie sabe de dónde salieron.",
+    prob3_t:"Fuga de ROI", prob3_d:"Productos de alto margen sin empuje, productos de bajo margen ocupando vitrina. El mostrador decide por ti, y casi nunca elige bien.",
+    prob4_t:"Fuga de control", prob4_d:"Varias perchas, varios locales, varias cabezas. Sin un sistema único, cada punto de venta es una isla y el dueño es el último en enterarse.",
+    aud_eyebrow:"Hecho para quienes venden",
+    aud_title:"Cuatro formas de vender. <em>Un solo sistema</em> que las entiende a todas.",
+    aud_lead:"No todos los negocios son iguales, pero todos comparten las mismas preguntas al cierre del día. AMIGABLE responde cada una con el lenguaje exacto de quien la hace.",
+    aud1_sub:"Ferias · Mercados · Pop-ups", aud1_t:"El stand que se arma y se desarma",
+    aud1_p:"Tu negocio vive en eventos de dos o tres días. Cada mañana montas, cada noche desmontas. Lo último que necesitas es cargar laptop, impresora y un cuaderno de ventas. AMIGABLE-123 convierte tu celular en caja registradora, lector de códigos y libro contable. Al cerrar la feria, la percha se archiva con su historial completo y su liquidación lista — sin que tengas que abrir una hoja de cálculo el lunes siguiente.",
+    aud1_b1:"Perchas temporales con cierre y liquidación automática al terminar el evento.",
+    aud1_b2:"Venta por código de barras o búsqueda rápida, aun sin internet.",
+    aud1_b3:"Comisiones de promotora calculadas venta por venta, con escalas dinámicas por cumplimiento de meta.",
+    aud1_b4:"Sincronización entre la caja y la bodega por QR cifrado, sin depender de señal.",
+    aud2_sub:"Almacenes · Tiendas de barrio", aud2_t:"El local que no puede permitirse un error",
+    aud2_p:"Un almacén vive y muere por el detalle: un vencido que no se rotó, un descuadre de caja que nadie recuerda, un producto que lleva tres meses en el estante sin moverse. AMIGABLE-123 te muestra el estado de tu negocio como un semáforo. Rojo es lo que exige acción hoy. Amarillo es dinero esperándote si lo empujas. Negro es capital dormido que debes liberar. Verde es lo que puedes olvidar y seguir vendiendo.",
+    aud2_b1:"Semáforo de seis colores con tres niveles de intensidad por urgencia real.",
+    aud2_b2:"Alertas de vencimiento con días exactos y sugerencia de rotación prioritaria.",
+    aud2_b3:"Detección de capital dormido: productos sin venta por más de 45 días.",
+    aud2_b4:"Cuentas T, pérdidas y ganancias e inventario valorizado detrás de una subclave contable.",
+    aud3_sub:"Perchas en varios locales", aud3_t:"El dueño que no puede estar en todas partes",
+    aud3_p:"Tienes una percha en el centro, otra en el mercado, una tercera en una feria. Cada una con su promotora, su caja, su ritmo. El problema no es operarlas: el problema es saber cuál rinde, cuál te debe y cuál está por debajo de la meta sin que nadie te avise. AMIGABLE-123 agrupa perchas en sucursales, compara desempeño en tiempo real y te dice exactamente cuánto le debes a cada socia al cierre del mes — sin peleas, sin planillas, sin dudas.",
+    aud3_b1:"Transferencias de stock entre perchas con aprobación, tránsito y confirmación de recepción.",
+    aud3_b2:"Comparativo por ubicación: ventas, margen, cumplimiento de meta y comisión efectiva pagada.",
+    aud3_b3:"Liquidaciones mensuales automáticas con escalas de comisión progresivas.",
+    aud3_b4:"Sincronización cifrada entre dispositivos del mismo negocio, con o sin servidor.",
+    aud4_sub:"Emprendedores · Primer negocio", aud4_t:"El que empieza y no quiere equivocarse",
+    aud4_p:"Lanzar un negocio es difícil; mantenerlo a flote sin saber si estás ganando o perdiendo es imposible. AMIGABLE-123 te acompaña desde la primera venta hasta el primer balance. No necesitas saber contabilidad: el sistema piensa por ti en colores. No necesitas saber de tecnología: funciona en el navegador, sin instalaciones, sin actualizaciones. No necesitas tener suerte: cada decisión queda registrada, cada peso queda trazado, cada error queda corregible.",
+    aud4_b1:"Alta de productos en segundos, con código de barras y etiqueta lista para imprimir.",
+    aud4_b2:"Respaldo completo exportable y caja fuerte local con puntos de restauración automáticos.",
+    aud4_b3:"Reporte contable en CSV para tu contador, con desglose de IVA incluido.",
+    aud4_b4:"Recuperación de claves por correo y código maestro para el dueño real.",
+    feat_eyebrow:"Capacidades",
+    feat_title:"Todo lo que tu negocio necesita. <em>Nada que no necesite.</em>",
+    feat_lead:"Cada función fue pensada para resolver una fuga concreta de dinero, tiempo o control. Sin menús infinitos, sin pantallas que nadie usa, sin features de relleno.",
+    tag_ventas:"Ventas", tag_inv:"Inventario", tag_com:"Comisiones", tag_trans:"Transferencias",
+    tag_sync:"Sincronización", tag_conta:"Contabilidad", tag_resp:"Respaldo", tag_seg:"Seguridad", tag_off:"Offline",
+    f1_t:"Caja rápida, anulable, trazable", f1_d:"Escanear, cobrar, anular en segundos. Cada venta queda ligada a quien la hizo, a la percha donde se hizo y al momento exacto.",
+    f2_t:"Semáforo de seis colores", f2_d:"Verde, amarillo, naranja, rojo, azul y negro. Tres niveles de intensidad por color. Sabes qué hacer antes de leer una sola línea.",
+    f3_t:"Liquidaciones sin discusión", f3_d:"Escalas dinámicas por cumplimiento de meta. Cada socia ve lo que vendió, lo que le corresponde y lo que ya se pagó.",
+    f4_t:"Stock que viaja entre perchas", f4_d:"Solicita, aprueba, confirma recepción. Cada movimiento deja rastro y ninguna unidad se pierde en el camino.",
+    f5_t:"Varios dispositivos, un solo negocio", f5_d:"Cifrado de punta a punta con tu PIN. Funciona por servidor, por texto copiado o por QR entre cámaras. Sin internet, sin problema.",
+    f6_t:"Cuentas T, P&G y balance", f6_d:"Detrás de una subclave. Para ti, para tu contador, para quien necesite ver los números a fondo. Exportable a CSV con IVA desglosado.",
+    f7_t:"Tu negocio, a salvo", f7_d:"Exportación completa cifrada con contraseña, caja fuerte local con siete puntos de restauración rotativos y verificación por checksum.",
+    f8_t:"Tres claves, tres mundos", f8_d:"Dueño, empleado y contador. Cada uno ve exactamente lo que necesita. Recuperación por correo y código maestro para el dueño real.",
+    f9_t:"Local-first, por diseño", f9_d:"Funciona sin internet, sin servidor, sin suscripciones. Tus datos viven en tu dispositivo hasta que tú decidas compartirlos.",
+    stat_eyebrow:"El impacto esperado",
+    stat_title:"Los números que <em>sí importan</em> al cierre del mes.",
+    stat_lead:"No son promesas. Son las cuatro variables que AMIGABLE pone bajo tu control desde la primera semana de uso.",
+    stat1:"Menos tiempo en conciliaciones manuales",
+    stat2:"Detección más rápida de stock dormido",
+    stat3:"Trazabilidad de cada unidad y cada peso",
+    stat4:"Dependencia de Excel o consultoría externa",
+    cta_eyebrow:"Empieza hoy",
+    cta_title:"Tu mostrador merece <em>un sistema a su altura.</em>",
+    cta_lead:"AMIGABLE-123 no pide que cambies tu forma de vender. Te da la capa de inteligencia que siempre debió estar ahí, para que tú te encargues de lo que mejor sabes hacer: atender, recomendar, cerrar la venta.",
+    cta_btn1:"Probar la demo", cta_btn2:"Hablar con el equipo",
+    foot:"Hecho con cuidado para quienes viven del mostrador."
+  },
+  en:{
+    nav_problem:"The problem", nav_for:"Who it's for", nav_feat:"Capabilities", nav_impact:"Impact",
+    hero_eyebrow:"The operating system for your counter",
+    hero_title:"Your business,<br/><em>finally in order.</em>",
+    hero_lead:"AMIGABLE-123 is the intelligence layer that turns a stand, a rack or a small store into a business that runs itself. It sells, tracks inventory, pays commissions and understands your numbers — no spreadsheets, no consultants, no friction.",
+    hero_cta1:"See capabilities", hero_cta2:"Read the report",
+    prob_eyebrow:"The real problem",
+    prob_title:"Four silent leaks that <em>no spreadsheet</em> catches in time.",
+    prob_lead:"Behind every small business closing the month on thin margins, the same four patterns repeat. AMIGABLE-123 was built to close them, one by one, from day one.",
+    prob1_t:"Money leak", prob1_d:"Expired inventory, products sitting unsold for months, negative margins disguised as round prices. Capital working against the owner.",
+    prob2_t:"Time leak", prob2_d:"Hours reconciling sales by hand, recalculating promoter commissions, chasing discrepancies no one can explain.",
+    prob3_t:"ROI leak", prob3_d:"High-margin products with no push, low-margin products hogging shelf space. The counter decides for you — and it almost never chooses well.",
+    prob4_t:"Control leak", prob4_d:"Several racks, several stores, several people. Without a single system, every point of sale is an island — and the owner is the last to know.",
+    aud_eyebrow:"Built for people who sell",
+    aud_title:"Four ways to sell. <em>One system</em> that understands them all.",
+    aud_lead:"Not every business is the same, but every business asks the same questions at closing time. AMIGABLE answers each one in the exact language of who's asking.",
+    aud1_sub:"Fairs · Markets · Pop-ups", aud1_t:"The stand that sets up and tears down",
+    aud1_p:"Your business lives in two- or three-day events. Every morning you set up, every night you pack up. The last thing you need is to carry a laptop, a printer and a sales notebook. AMIGABLE-123 turns your phone into a register, a barcode reader and a ledger. When the fair closes, the rack gets archived with its full history and its settlement ready — no spreadsheet waiting for you on Monday.",
+    aud1_b1:"Temporary racks with automatic close and settlement when the event ends.",
+    aud1_b2:"Barcode or quick-search sales, even without internet.",
+    aud1_b3:"Promoter commissions calculated sale by sale, with dynamic tiers by goal achievement.",
+    aud1_b4:"Encrypted QR sync between register and stockroom — no signal required.",
+    aud2_sub:"Stores · Corner shops", aud2_t:"The store that can't afford a single mistake",
+    aud2_p:"A store lives and dies by the details: an expiring item not rotated, a cash discrepancy no one remembers, a product sitting on the shelf for three months untouched. AMIGABLE-123 shows you the state of your business as a traffic light. Red is what demands action today. Yellow is money waiting for you if you push it. Black is sleeping capital you need to free. Green is what you can forget about and keep selling.",
+    aud2_b1:"Six-color traffic light with three intensity levels per real urgency.",
+    aud2_b2:"Expiration alerts with exact days and priority rotation suggestions.",
+    aud2_b3:"Sleeping capital detection: products with no sale in over 45 days.",
+    aud2_b4:"T-accounts, P&L and valued inventory behind a separate accounting PIN.",
+    aud3_sub:"Racks across several stores", aud3_t:"The owner who can't be everywhere",
+    aud3_p:"You have a rack downtown, another at the market, a third at a fair. Each with its own promoter, its own register, its own rhythm. The problem isn't running them — it's knowing which one performs, which one owes you, which one is below target without anyone telling you. AMIGABLE-123 groups racks into branches, compares performance in real time and tells you exactly what you owe each partner at month's end — no arguments, no spreadsheets, no doubt.",
+    aud3_b1:"Stock transfers between racks with approval, transit and receipt confirmation.",
+    aud3_b2:"Location comparison: sales, margin, goal achievement and effective commission paid.",
+    aud3_b3:"Automatic monthly settlements with progressive commission tiers.",
+    aud3_b4:"Encrypted sync between devices of the same business, with or without a server.",
+    aud4_sub:"Entrepreneurs · First business", aud4_t:"The one starting out — and not wanting to get it wrong",
+    aud4_p:"Launching a business is hard; keeping it afloat without knowing if you're winning or losing is impossible. AMIGABLE-123 walks with you from the first sale to the first balance sheet. You don't need to know accounting: the system thinks in color for you. You don't need to know tech: it runs in the browser, no installs, no updates. You don't need luck: every decision is recorded, every peso is traced, every mistake is correctable.",
+    aud4_b1:"Add products in seconds, with barcode and print-ready labels.",
+    aud4_b2:"Full exportable backup and local vault with automatic restore points.",
+    aud4_b3:"Accounting CSV report for your accountant, VAT breakdown included.",
+    aud4_b4:"Password recovery by email and master code for the real owner.",
+    feat_eyebrow:"Capabilities",
+    feat_title:"Everything your business needs. <em>Nothing it doesn't.</em>",
+    feat_lead:"Every feature was designed to close a concrete leak of money, time or control. No endless menus, no screens no one uses, no filler features.",
+    tag_ventas:"Sales", tag_inv:"Inventory", tag_com:"Commissions", tag_trans:"Transfers",
+    tag_sync:"Sync", tag_conta:"Accounting", tag_resp:"Backup", tag_seg:"Security", tag_off:"Offline",
+    f1_t:"Fast register, voidable, traceable", f1_d:"Scan, charge, void in seconds. Every sale tied to who made it, where, and at what exact moment.",
+    f2_t:"Six-color traffic light", f2_d:"Green, yellow, orange, red, blue, black. Three intensity levels per color. You know what to do before reading a single line.",
+    f3_t:"Settlements without arguments", f3_d:"Dynamic tiers by goal achievement. Each partner sees what she sold, what she's owed, and what's already been paid.",
+    f4_t:"Stock that travels between racks", f4_d:"Request, approve, confirm receipt. Every move leaves a trail — no unit gets lost on the way.",
+    f5_t:"Many devices, one business", f5_d:"End-to-end encrypted with your PIN. Works via server, pasted text or QR between cameras. No internet, no problem.",
+    f6_t:"T-accounts, P&L and balance", f6_d:"Behind a separate PIN. For you, your accountant, whoever needs to see the numbers in depth. Exportable to CSV with VAT breakdown.",
+    f7_t:"Your business, safe", f7_d:"Full password-encrypted export, local vault with seven rotating restore points and checksum verification.",
+    f8_t:"Three keys, three worlds", f8_d:"Owner, employee, accountant. Each sees exactly what they need. Recovery by email and master code for the real owner.",
+    f9_t:"Local-first, by design", f9_d:"Works without internet, without a server, without subscriptions. Your data lives on your device until you decide to share it.",
+    stat_eyebrow:"Expected impact",
+    stat_title:"The numbers that <em>actually matter</em> at month's end.",
+    stat_lead:"Not promises. The four variables AMIGABLE puts under your control from the first week of use.",
+    stat1:"Less time on manual reconciliations",
+    stat2:"Faster detection of sleeping stock",
+    stat3:"Traceability of every unit and every peso",
+    stat4:"Dependence on Excel or external consulting",
+    cta_eyebrow:"Start today",
+    cta_title:"Your counter deserves <em>a system worthy of it.</em>",
+    cta_lead:"AMIGABLE-123 doesn't ask you to change how you sell. It gives you the intelligence layer that should have always been there — so you can focus on what you do best: serving, recommending, closing the sale.",
+    cta_btn1:"Try the demo", cta_btn2:"Talk to the team",
+    foot:"Crafted with care for those who live by the counter."
+  }
+};
+
+function applyLang(lang){
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k = el.getAttribute("data-i18n");
+    if(I18N[lang] && I18N[lang][k]) el.textContent = I18N[lang][k];
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach(el=>{
+    const k = el.getAttribute("data-i18n-html");
+    if(I18N[lang] && I18N[lang][k]) el.innerHTML = I18N[lang][k];
+  });
+  document.querySelectorAll(".lang-toggle button").forEach(b=>{
+    b.classList.toggle("active", b.dataset.lang===lang);
+  });
+  localStorage.setItem("amigable_lang", lang);
+}
+document.querySelectorAll(".lang-toggle button").forEach(b=>{
+  b.addEventListener("click", ()=>applyLang(b.dataset.lang));
+});
+const savedLang = localStorage.getItem("amigable_lang") || (navigator.language.startsWith("es")?"es":"en");
+applyLang(savedLang);
+
+/* ================= REVEAL ON SCROLL ================= */
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+},{threshold:.12, rootMargin:"0px 0px -40px 0px"});
+document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
+
+/* ================= 3D TILT on audience cards ================= */
+document.querySelectorAll("[data-tilt]").forEach(card=>{
+  card.addEventListener("mousemove",(e)=>{
+    const r = card.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const rx = ((y/r.height)-.5)*-6;
+    const ry = ((x/r.width)-.5)*6;
+    card.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg) translateY(-4px)`;
+    card.style.setProperty("--mx", x+"px");
+    card.style.setProperty("--my", y+"px");
+  });
+  card.addEventListener("mouseleave",()=>{ card.style.transform=""; });
+});
+
+/* ================= COUNTERS ================= */
+const counters = document.querySelectorAll(".counter");
+const cio = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(!e.isIntersecting) return;
+    const el = e.target;
+    const target = parseInt(el.dataset.target,10);
+    const dur = 1400, start = performance.now();
+    function tick(t){
+      const p = Math.min(1,(t-start)/dur);
+      const eased = 1 - Math.pow(1-p,3);
+      el.textContent = Math.round(target*eased);
+      if(p<1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    cio.unobserve(el);
+  });
+},{threshold:.5});
+counters.forEach(c=>cio.observe(c));
+
+/* ================= NAV shrink on scroll ================= */
+const navEl = document.querySelector("nav");
+window.addEventListener("scroll",()=>{
+  if(window.scrollY>40) navEl.style.padding="10px 40px";
+  else navEl.style.padding="18px 40px";
+},{passive:true});
+</script>
+</body>
+</html>
