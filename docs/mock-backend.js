@@ -24,7 +24,7 @@
   const ubicaciones = [
       {
           "id": "smokeshop",
-          "nombre": "Cornerstone Smoke Shop",
+          "nombre": "Cornerstone Local Souvenirs",
           "activa": true,
           "tipo": "propio",
           "sucursalId": "suc01"
@@ -101,17 +101,17 @@
     {"id":"p15","nombre":"Snapback Cap — Logo","categoria":"Apparel","sku":"SOU-GOR-001","barcode":"7861000030156","ubicacionId":"smokeshop","precio":15,"costo":6.5,"stockActual":6,"umbralRojo":5,"umbralAmarillo":9,"proveedor":"Coastal Wholesale Co."},
     {"id":"p16","nombre":"Reading Journal — Lined","categoria":"Stationery & Gifts","sku":"ACC-PUA-006","barcode":"7861000030163","ubicacionId":"bookshelf","precio":6,"costo":2.2,"stockActual":22,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Paper & Bind Co."},
     /* Novela latinoamericana contemporánea — 8 títulos cultos, selección JFC 2026-07-03 */
-    {"id":"p17","nombre":"Memoir — Where the River Turns","categoria":"Books","sku":"LIB-ENR-NPN","barcode":"9789584293152","ubicacionId":"smokeshop","precio":22,"costo":9.5,"stockActual":3,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Indie Press Collective"},
+    {"id":"p17","nombre":"Hand-Painted Ceramic Ornament","categoria":"Gifts & Souvenirs","sku":"LIB-ENR-NPN","barcode":"9789584293152","ubicacionId":"smokeshop","precio":22,"costo":9.5,"stockActual":3,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Riverside Gift & Souvenir Co."},
     {"id":"p18","nombre":"Novel — The Long Season","categoria":"Books","sku":"LIB-MEL-TDH","barcode":"9786071653697","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":6,"umbralRojo":3,"umbralAmarillo":7,"proveedor":"Indie Press Collective"},
-    {"id":"p19","nombre":"Essay Collection — Small Hours","categoria":"Books","sku":"LIB-SCH-KEN","barcode":"9788439735564","ubicacionId":"smokeshop","precio":19,"costo":7.5,"stockActual":11,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
+    {"id":"p19","nombre":"Local Scene Art Print","categoria":"Home & Decor","sku":"LIB-SCH-KEN","barcode":"9788439735564","ubicacionId":"smokeshop","precio":19,"costo":7.5,"stockActual":11,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
     {"id":"p20","nombre":"Novel — Ash and Amber","categoria":"Books","sku":"LIB-REY-COM","barcode":"9789878358154","ubicacionId":"fairbooth","precio":21,"costo":6,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
     {"id":"p21","nombre":"Poetry — Salt Water Letters","categoria":"Books","sku":"LIB-TRI-MGR","barcode":"9789974723146","ubicacionId":"fairbooth","precio":18,"costo":8,"stockActual":2,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
-    {"id":"p22","nombre":"Short Fiction — Counter Stories","categoria":"Books","sku":"LIB-AMP-PDG","estrella":true,"barcode":"9788417125400","ubicacionId":"smokeshop","precio":18,"costo":7.5,"stockActual":9,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
+    {"id":"p22","nombre":"Engraved Wood Coaster Set","categoria":"Gifts & Souvenirs","sku":"LIB-AMP-PDG","estrella":true,"barcode":"9788417125400","ubicacionId":"smokeshop","precio":18,"costo":7.5,"stockActual":9,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
     {"id":"p23","nombre":"Novel — Low Tide","categoria":"Books","sku":"LIB-MEL-PAR","barcode":"9786071677129","ubicacionId":"bookshelf","precio":17,"costo":7,"stockActual":5,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
-    {"id":"p24","nombre":"Novel — Iron and Rust","categoria":"Books","sku":"LIB-CAB-CIA","estrella":true,"barcode":"9789877383652","ubicacionId":"smokeshop","precio":20,"costo":7.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
+    {"id":"p24","nombre":"Souvenir Snow Globe","categoria":"Gifts & Souvenirs","sku":"LIB-CAB-CIA","estrella":true,"barcode":"9789877383652","ubicacionId":"smokeshop","precio":20,"costo":7.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
     /* ---- VITRINAS SIMON: productos diseñados para exhibir los 6 estados del semáforo ---- */
     /* ROJO intensidad 1 — sin stock (inventario muerto, cero unidades) */
-    {"id":"p25","nombre":"Vinyl Record — Analog Dreams","categoria":"Vinyl Records","sku":"VIN-LZ-PGR","barcode":"7861000030170","ubicacionId":"smokeshop","precio":45,"costo":28,"stockActual":0,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
+    {"id":"p25","nombre":"Woven Friendship Bracelet Pack","categoria":"Gifts & Souvenirs","sku":"VIN-LZ-PGR","barcode":"7861000030170","ubicacionId":"smokeshop","precio":45,"costo":28,"stockActual":0,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
     /* ROJO intensidad 2 — quedan 1 (critico, reponer urgente) */
     {"id":"p26","nombre":"Vinyl Record — Midnight Radio","categoria":"Vinyl Records","sku":"VIN-PF-ANM","barcode":"7861000030187","ubicacionId":"bookshelf","precio":42,"costo":25,"stockActual":1,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
     /* ROJO intensidad 3 — exactamente en el umbral rojo (limite de emergencia) */
@@ -129,7 +129,7 @@
     /* VERDE — producto de volumen, margen ajustado */
     {"id":"p33","nombre":"Notebook — Kraft Cover","categoria":"Handmade Crafts","sku":"PAP-LIB-001","barcode":"7861000030255","ubicacionId":"fairbooth","precio":11,"costo":7,"stockActual":18,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"River Valley Artisans"},
     /* AMARILLO (oportunidad) encendido 2 — margen 62%: hay dinero esperándote */
-    {"id":"p34","nombre":"Vinyl Record — Coastline","categoria":"Vinyl Records","sku":"VIN-CLA-LON","barcode":"7861000030262","ubicacionId":"smokeshop","precio":48,"costo":18,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
+    {"id":"p34","nombre":"Hand-Blown Glass Ornament","categoria":"Gifts & Souvenirs","sku":"VIN-CLA-LON","barcode":"7861000030262","ubicacionId":"smokeshop","precio":48,"costo":18,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
     /* AMARILLO (oportunidad) encendido 2 — margen 64% */
     {"id":"p35","nombre":"Vinyl Record — Signal Lost","categoria":"Vinyl Records","sku":"VIN-RAD-OKC","barcode":"7861000030279","ubicacionId":"bookshelf","precio":50,"costo":18,"stockActual":8,"umbralRojo":2,"umbralAmarillo":5,"proveedor":"Second Spin Records"},
     /* AMARILLO (oportunidad) encendido 3 — margen 72%, pieza estrella */
@@ -150,7 +150,7 @@
     /* VERDE encendido 2 — sano, fondo medio (7-14) */
     {"id":"p41","nombre":"Embroidered Patch — Wave","categoria":"Stationery & Gifts","sku":"ACC-PAR-001","barcode":"7861000030330","ubicacionId":"bookshelf","precio":14,"costo":9,"stockActual":10,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Paper & Bind Co."},
     /* AMARILLO (oportunidad) encendido 1 — margen 52%, recién cruza el umbral */
-    {"id":"p42","nombre":"Vinyl Record — Roadside Attraction","categoria":"Vinyl Records","sku":"VIN-SOD-CAN","barcode":"7861000030347","ubicacionId":"smokeshop","precio":40,"costo":19,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
+    {"id":"p42","nombre":"Local Landmark Puzzle","categoria":"Gifts & Souvenirs","sku":"VIN-SOD-CAN","barcode":"7861000030347","ubicacionId":"smokeshop","precio":40,"costo":19,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
     /* NARANJA encendido 2 — a 3 unidades del umbral rojo */
     {"id":"p43","nombre":"Knit Beanie — Charcoal","categoria":"Apparel","sku":"ACC-GOR-002","barcode":"7861000030354","ubicacionId":"fairbooth","precio":10,"costo":6,"stockActual":7,"umbralRojo":4,"umbralAmarillo":9,"proveedor":"Riverside Textiles"},
     /* AZUL (dato) encendido 1 — margen 22%: revisa precio o costo */
@@ -160,7 +160,7 @@
     /* AZUL (dato) encendido 3 — margen 8%: casi trabajas gratis en este */
     {"id":"p46","nombre":"Clear Packing Tape","categoria":"Counter Basics","sku":"BAS-CIN-001","barcode":"7861000030385","ubicacionId":"fairbooth","precio":1.3,"costo":1.2,"stockActual":24,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Metro Distribution"},
     /* NEGRO encendido 1 — ~50 dias dormido (dormidoDesde: solo vitrina/carga manual) */
-    {"id":"p47","nombre":"Used CD — Live at the Roxy","categoria":"Collectibles","sku":"CD-QUE-WEM","barcode":"7861000030392","ubicacionId":"smokeshop","precio":15,"costo":9,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"dormidoDesde":"2026-05-16","proveedor":"Second Spin Records"},
+    {"id":"p47","nombre":"Vintage-Style Tin Sign","categoria":"Home & Decor","sku":"CD-QUE-WEM","barcode":"7861000030392","ubicacionId":"smokeshop","precio":15,"costo":9,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"dormidoDesde":"2026-05-16","proveedor":"Riverside Gift & Souvenir Co."},
     /* NEGRO encendido 2 — ~80 dias dormido */
     {"id":"p48","nombre":"Used VHS — Director's Cut","categoria":"Collectibles","sku":"COL-VHS-WAL","barcode":"7861000030408","ubicacionId":"bookshelf","precio":25,"costo":15,"stockActual":8,"umbralRojo":2,"umbralAmarillo":4,"dormidoDesde":"2026-04-18","proveedor":"Second Spin Records"},
     /* NEGRO encendido 3 — ~180 dias dormido: capital bien dormido */
