@@ -225,18 +225,22 @@
   gate.id = "oc-gate";
   gate.innerHTML = `
     <div class="caja">
-      <h2>friendly-123</h2>
-      <div class="sub">Toca tu clave de 3 dígitos para entrar</div>
+      <div class="oc-gate-logo" style="text-align:center;margin-bottom:4px;">
+        <img src="./logo.png" alt="friendly-123" style="width:180px;max-width:70%;height:auto;display:inline-block;"
+             onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';">
+        <h2 style="display:none;">friendly-123</h2>
+      </div>
+      <div class="sub">${window.t("auth.gate.subtitle")}</div>
       <div class="oc-slots" id="oc-slots"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
       <div class="oc-pad" id="oc-pad"></div>
       <div class="oc-acciones">
-        <button id="oc-borrar">Borrar</button>
-        <button id="oc-recuperar">¿Olvidaste?</button>
+        <button id="oc-borrar">${window.t("auth.gate.clear")}</button>
+        <button id="oc-recuperar">${window.t("auth.gate.forgot")}</button>
       </div>
       <div class="oc-msg" id="oc-msg"></div>
       <div id="oc-update-banner">
         <div class="upd-txt" id="oc-upd-txt"></div>
-        <button id="oc-btn-actualizar">Actualizar app</button>
+        <button id="oc-btn-actualizar">${window.t("auth.gate.updateApp")}</button>
       </div>
     </div>`;
   document.body.appendChild(gate);
@@ -261,7 +265,7 @@
       const restante = msRestantesBloqueo();
       if (restante <= 0) { clearInterval(intervaloCountdown); nuevoTeclado(); return; }
       $("oc-msg").style.color = "var(--rojo,#a3392a)";
-      $("oc-msg").textContent = `Demasiados intentos. Espera ${Math.ceil(restante / 1000)}s.`;
+      $("oc-msg").textContent = window.tf("auth.gate.tooManyAttempts", {s: Math.ceil(restante / 1000)});
     };
     pintar();
     intervaloCountdown = setInterval(pintar, 1000);
@@ -290,7 +294,7 @@
     const sb = window.OCSecure.segundosBloqueo
       ? Math.max(window.OCSecure.segundosBloqueo("owner"), window.OCSecure.segundosBloqueo("emp"))
       : 0;
-    if (sb > 0) { error(`Demasiados intentos. Espera ${sb}s e intenta de nuevo.`); return; }
+    if (sb > 0) { error(window.tf("auth.gate.tooManyAttemptsRetry", {s: sb})); return; }
     if (await window.OCSecure.verificarOwner(code)) { registrarExito(); return entrar("dueno"); }
     if (await window.OCSecure.verificarEmpleado(code)) { registrarExito(); return entrar("empleado"); }
     // El acceso demo (456) SOLO existe en la copia pública de demostración.
@@ -304,8 +308,8 @@
     if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); return entrar("empleado"); }
     registrarFallo();
     const restante = msRestantesBloqueo();
-    if (restante > 0) { error(`Demasiados intentos. Espera ${Math.ceil(restante / 1000)}s.`); return; }
-    error("Clave incorrecta. Intenta de nuevo.");
+    if (restante > 0) { error(window.tf("auth.gate.tooManyAttempts", {s: Math.ceil(restante / 1000)})); return; }
+    error(window.t("auth.gate.wrongPin"));
   }
   // Consulta al backend si el PIN corresponde a un empleado nombrado.
   // Retorna { id, nombre, rol } o null. Si la red o el endpoint fallan,
@@ -514,8 +518,8 @@
       banner.classList.add("visible");
       if (data.requerida) {
         txt.className = "upd-txt requerida";
-        txt.innerHTML = `<strong>Actualización requerida (v${data.version})</strong><br>${data.changelog || ""}`;
-        btn.textContent  = "Actualizar app ahora";
+        txt.innerHTML = `<strong>${window.t("auth.gate.updateRequired")} (v${data.version})</strong><br>${data.changelog || ""}`;
+        btn.textContent  = window.t("auth.gate.updateNow");
         btn.className    = "requerida";
         $("oc-pad").style.display       = "none";
         $("oc-borrar").style.display    = "none";
@@ -526,7 +530,7 @@
         // FIX 2026-07-07: version.json es archivo propio, pero si Pages o un mirror
         // se compromete, esto era XSS directo. Se escapa antes de inyectar.
         const escV = (v) => String(v).replace(/[&<>"\']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "\'": "&#39;" }[c]));
-        txt.innerHTML = `Nueva versión disponible: <strong>v${escV(data.version)}</strong>${data.changelog ? " — " + escV(data.changelog) : ""}`;
+        txt.innerHTML = `${window.t("auth.gate.newVersionAvailable")} <strong>v${escV(data.version)}</strong>${data.changelog ? " — " + escV(data.changelog) : ""}`;
       }
       btn.addEventListener("click", () => { location.reload(true); });
     } catch { /* sin conexión o version.json ausente → silencio */ }
@@ -548,27 +552,27 @@
 
     if (!email) {
       msgEl.style.color = "var(--ink-soft,#5d5340)";
-      msgEl.textContent = "No hay correo configurado. Entra como dueno y registralo en Avanzado.";
+      msgEl.textContent = window.t("auth.gate.noEmailConfigured");
       return;
     }
     if (!pin) {
       msgEl.style.color = "var(--ink-soft,#5d5340)";
-      msgEl.textContent = "Cambia tu clave una vez en Avanzado para activar la recuperacion.";
+      msgEl.textContent = window.t("auth.gate.changePinToEnableRecovery");
       return;
     }
 
     msgEl.style.color = "var(--ink-soft,#5d5340)";
-    msgEl.textContent = "Enviando…";
+    msgEl.textContent = window.t("auth.gate.sending");
     const resultado = window.OCEmailRecovery
       ? await window.OCEmailRecovery.enviarCodigo(email, pin)
       : { enviado: false, codigo: pin };
     if (resultado.enviado) {
       msgEl.style.color = "var(--verde-suave,#2f7a4f)";
-      msgEl.textContent = `Clave enviada a ${enmascarar(email)}.`;
+      msgEl.textContent = window.tf("auth.gate.pinSentTo", {email: enmascarar(email)});
     } else {
       // Respaldo: EmailJS no configurado o sin internet -- muestra el PIN en pantalla
       msgEl.style.color = "var(--ink,#211c14)";
-      msgEl.textContent = `Tu clave de dueno: ${resultado.codigo}`;
+      msgEl.textContent = window.tf("auth.gate.yourOwnerPin", {code: resultado.codigo});
     }
   }
 
@@ -582,7 +586,7 @@
     const chipPrevio = document.getElementById("oc-user-chip");
     if (chipPrevio) chipPrevio.remove();
     const b = document.createElement("button");
-    b.id = "oc-logout"; b.textContent = "Salir";
+    b.id = "oc-logout"; b.textContent = window.t("auth.gate.logout");
     b.addEventListener("click", () => cerrarSesion());
     // Si hay un empleado nombrado activo, mostrar su nombre junto al boton Salir
     // para que siempre sea claro quien esta operando el sistema.
@@ -619,18 +623,18 @@
         const cont = document.createElement("div");
         cont.className = "oc-subgate";
         cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
-          <h2 style="font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;">Capa contable</h2>
-          <div class="sub" style="font-size:14px;color:var(--ink-soft,#5d5340);margin-bottom:18px;">Subclave de 3 dígitos para ver cuentas T, P&amp;G y balance</div>
+          <h2 style="font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;">${window.t("auth.gate.accountingLayer")}</h2>
+          <div class="sub" style="font-size:14px;color:var(--ink-soft,#5d5340);margin-bottom:18px;">${window.t("auth.gate.accountingSubtitle")}</div>
           <div class="oc-slots" id="oc-slots2"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
           <div class="oc-pad" id="oc-pad2"></div>
-          <div class="oc-acciones"><button id="sc-cancelar">Cancelar</button><button id="sc-borrar">Borrar</button></div>
+          <div class="oc-acciones"><button id="sc-cancelar">${window.t("auth.gate.cancel")}</button><button id="sc-borrar">${window.t("auth.gate.clear")}</button></div>
           <div class="oc-msg" id="oc-msg2"></div></div>`;
         document.body.appendChild(cont);
         let tec;
         async function alCompletar(code) {
           if (await window.OCSecure.verificarAcct(code)) { cont.remove(); resolve(true); }
           else {
-            cont.querySelector("#oc-msg2").textContent = "Subclave incorrecta.";
+            cont.querySelector("#oc-msg2").textContent = window.t("auth.gate.wrongSubPin");
             cont.classList.add("err"); setTimeout(() => cont.classList.remove("err"), 400);
             tec = montarTeclado(cont.querySelector("#oc-pad2"), cont.querySelector("#oc-slots2"), alCompletar); // re-baraja
           }
