@@ -225,7 +225,7 @@
   gate.id = "oc-gate";
   gate.innerHTML = `
     <div class="caja">
-      <h2>AMIGABLE-123</h2>
+      <h2>friendly-123</h2>
       <div class="sub">Toca tu clave de 3 dígitos para entrar</div>
       <div class="oc-slots" id="oc-slots"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
       <div class="oc-pad" id="oc-pad"></div>
@@ -359,7 +359,7 @@
     wrap.innerHTML = ""
       + '<div id="oc-act-card">'
       +   '<div id="oc-act-form">'
-      +     '<p class="marca">AMIGABLE-123 &middot; activar mi negocio</p>'
+      +     '<p class="marca">friendly-123 &middot; activar mi negocio</p>'
       +     '<h2>Este dispositivo pasa a ser tuyo</h2>'
       +     '<p>De aqui en adelante, esta copia es tu negocio: tus productos, tus clientes, tus claves. Todo vive en tu dispositivo, sin nube ni intermediarios.</p>'
       +     '<label class="op"><input type="radio" name="oc-act-datos" value="vaciar" checked><strong>Empezar vacio</strong><span>Quita los datos de ejemplo. Arrancas de cero con lo tuyo.</span></label>'
@@ -371,7 +371,7 @@
       +     '<p id="oc-act-msg" class="msg"></p>'
       +   '</div>'
       +   '<div id="oc-act-exito" style="display:none;">'
-      +     '<p class="marca">AMIGABLE-123 &middot; listo</p>'
+      +     '<p class="marca">friendly-123 &middot; listo</p>'
       +     '<h2>Tu negocio esta activo</h2>'
       +     '<p id="oc-act-exito-txt"></p>'
       +     '<button id="oc-act-entrar" class="primario">Entrar a mi negocio</button>'

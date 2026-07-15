@@ -727,7 +727,7 @@
         // exportaba un archivo CON oc_secure adentro sin que el dueno lo pidiera.
         // Cancelar ahora cancela de verdad.
         if (clave === null) {
-          if (window.dialogosBloqueados && window.dialogosBloqueados()) { msg("oc-respaldo-msg", "Tu navegador bloquea los diálogos (pasa en el navegador de WhatsApp). Abre AMIGABLE-123 en Chrome o Safari para exportar con clave.", "var(--rojo)"); return; }
+          if (window.dialogosBloqueados && window.dialogosBloqueados()) { msg("oc-respaldo-msg", "Tu navegador bloquea los diálogos (pasa en el navegador de WhatsApp). Abre friendly-123 en Chrome o Safari para exportar con clave.", "var(--rojo)"); return; }
           msg("oc-respaldo-msg", "Exportación cancelada.", "var(--ink)");
           return;
         }
@@ -1052,7 +1052,7 @@
     if (btnWaCambios) btnWaCambios.addEventListener("click", async () => {
       const texto = await OCSync.generarPaqueteManual();
       if (!texto) { msg("oc-syncdev-msg", "No hay cambios pendientes en este dispositivo.", "var(--ink)"); return; }
-      const mensaje = "AMIGABLE-123 — cambios para sincronizar. Pega esto en el otro equipo (Avanzado → Pegar cambios):\n\n" + texto;
+      const mensaje = "friendly-123 — cambios para sincronizar. Pega esto en el otro equipo (Avanzado → Pegar cambios):\n\n" + texto;
       if (navigator.share) {
         try { await navigator.share({ text: mensaje }); msg("oc-syncdev-msg", "Compartido. En el otro equipo: Avanzado → Pegar cambios.", "var(--verde)"); return; } catch (_) {}
       }
@@ -1082,7 +1082,7 @@
         const nombre = `respaldo-amigable-${new Date().toISOString().slice(0, 10)}.json`;
         const file = new File([archivoFinal], nombre, { type: "application/json" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: "Respaldo AMIGABLE-123", text: "Respaldo de mi negocio (AMIGABLE-123)." });
+          await navigator.share({ files: [file], title: "Respaldo friendly-123", text: "Respaldo de mi negocio (friendly-123)." });
           msg("oc-syncdev-msg", "Respaldo compartido. En el otro equipo: Avanzado → Importar respaldo.", "var(--verde)");
         } else {
           const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = nombre; a.click(); URL.revokeObjectURL(a.href);

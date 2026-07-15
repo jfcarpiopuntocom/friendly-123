@@ -63,7 +63,7 @@
   modal.setAttribute('aria-hidden', 'true');
   modal.innerHTML = `
     <div id="am-welcome-card" role="dialog" aria-label="Bienvenida">
-      <p class="marca">Amigable-123</p>
+      <p class="marca">friendly-123</p>
       <h2>Bienvenido</h2>
       <p class="tagline">Tu negocio, a color</p>
       <p class="formal">Control de inventario, clientes y perchas</p>
