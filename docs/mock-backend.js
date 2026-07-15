@@ -595,33 +595,38 @@
   // Cada estado sale con su NIVEL de encendido 1-3 (Escala Sinclair Bloom:
   // tenue · medio · encendido); index.html lo prefiere sobre su heurística.
   // =========================================================================
+  // Mensajes bilingues via window.t/tf (i18n.js carga antes que este script).
+  // Fallback a la clave misma si i18n.js no cargo por algun motivo — nunca
+  // debe tronar la app por falta de traduccion.
+  const _t = (k, v) => (window.tf ? window.tf(k, v) : k);
   function estadoDe(p) {
     const margen = p.precio > 0 ? (p.precio - p.costo) / p.precio : 0;
     const dias = p.perecible ? diasParaVencer(p.fechaCaducidad) : null;
     let porStock;
-    if (p.stockActual <= 0) porStock = { estado: "rojo", nivel: 3, mensaje: "Sin stock — repón cuanto antes" };
+    if (p.stockActual <= 0) porStock = { estado: "rojo", nivel: 3, mensaje: _t("alert.noStock") };
     else if (p.stockActual <= p.umbralRojo) {
-      porStock = { estado: "rojo", nivel: p.stockActual <= Math.ceil(p.umbralRojo / 2) ? 2 : 1, mensaje: `Quedan ${p.stockActual} — reponer urgente` };
+      porStock = { estado: "rojo", nivel: p.stockActual <= Math.ceil(p.umbralRojo / 2) ? 2 : 1, mensaje: _t("alert.lowRed", { n: p.stockActual }) };
     } else if (p.stockActual <= p.umbralAmarillo) {
       const diff = p.stockActual - p.umbralRojo;
-      porStock = { estado: "naranja", nivel: diff <= 1 ? 3 : diff <= 3 ? 2 : 1, mensaje: `Quedan ${p.stockActual} — revisar pronto` };
+      porStock = { estado: "naranja", nivel: diff <= 1 ? 3 : diff <= 3 ? 2 : 1, mensaje: _t("alert.lowOrange", { n: p.stockActual }) };
     } else {
       const sinVenta = diasSinVentaDe(p);
       if (sinVenta != null && sinVenta >= 45) {
-        porStock = { estado: "negro", nivel: sinVenta >= 120 ? 3 : sinVenta >= 60 ? 2 : 1, mensaje: `Sin ventas hace ${sinVenta} días — tu dinero está descansando ahí` };
+        porStock = { estado: "negro", nivel: sinVenta >= 120 ? 3 : sinVenta >= 60 ? 2 : 1, mensaje: _t("alert.dormant", { n: sinVenta }) };
       } else if (margen >= 0.5) {
-        porStock = { estado: "amarillo", nivel: margen >= 0.70 ? 3 : margen >= 0.55 ? 2 : 1, mensaje: "Buen margen — hay dinero esperándote" };
+        porStock = { estado: "amarillo", nivel: margen >= 0.70 ? 3 : margen >= 0.55 ? 2 : 1, mensaje: _t("alert.goodMargin") };
       } else if (margen > 0 && margen < 0.25) {
-        porStock = { estado: "azul", nivel: margen <= 0.10 ? 3 : margen <= 0.18 ? 2 : 1, mensaje: `Margen ${(margen * 100).toFixed(0)}% — revisa el precio o el costo` };
+        porStock = { estado: "azul", nivel: margen <= 0.10 ? 3 : margen <= 0.18 ? 2 : 1, mensaje: _t("alert.lowMargin", { pct: (margen * 100).toFixed(0) }) };
       } else {
-        porStock = { estado: "verde", nivel: p.stockActual >= 15 ? 3 : p.stockActual >= 7 ? 2 : 1, mensaje: "Stock saludable" };
+        porStock = { estado: "verde", nivel: p.stockActual >= 15 ? 3 : p.stockActual >= 7 ? 2 : 1, mensaje: _t("alert.healthy") };
       }
     }
     if (dias == null) return { ...porStock, dias };
     let porVenc = null;
-    if (dias < 0) porVenc = { estado: "rojo", nivel: 3, mensaje: `Venció hace ${Math.abs(dias)} día${Math.abs(dias) === 1 ? "" : "s"} — retíralo` };
-    else if (dias <= 3) porVenc = { estado: "rojo", nivel: dias <= 1 ? 3 : 2, mensaje: `Vence en ${dias} día${dias === 1 ? "" : "s"} — véndelo ya` };
-    else if (dias <= 7) porVenc = { estado: "naranja", nivel: dias <= 5 ? 2 : 1, mensaje: `Vence en ${dias} días — véndelo primero` };
+    const unidad = (n) => (n === 1 ? _t("unit.day") : _t("unit.days"));
+    if (dias < 0) porVenc = { estado: "rojo", nivel: 3, mensaje: _t("alert.expiredAgo", { n: Math.abs(dias), unit: unidad(Math.abs(dias)) }) };
+    else if (dias <= 3) porVenc = { estado: "rojo", nivel: dias <= 1 ? 3 : 2, mensaje: _t("alert.expiresSoon", { n: dias, unit: unidad(dias) }) };
+    else if (dias <= 7) porVenc = { estado: "naranja", nivel: dias <= 5 ? 2 : 1, mensaje: _t("alert.expiresWarn", { n: dias }) };
     if (!porVenc) return { ...porStock, dias };
     const masGrave = ORDEN[porVenc.estado] <= ORDEN[porStock.estado] ? porVenc : porStock;
     return { ...masGrave, dias };
