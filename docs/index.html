@@ -2172,15 +2172,15 @@ async function cargarInventario(){
     const res = await fetch(url);
     productos = await res.json();
   } catch (_) {
-    grid.innerHTML = `<p>No se pudo cargar el inventario. Revisa tu conexion e intenta de nuevo.</p>`;
+    grid.innerHTML = `<p>${t("inv.loadError")}</p>`;
     return;
   }
   if (!Array.isArray(productos)){
-    grid.innerHTML = `<p>No se pudo leer el inventario (respuesta inesperada del servidor).</p>`;
+    grid.innerHTML = `<p>${t("inv.readError")}</p>`;
     return;
   }
   if (productos.length === 0){
-    grid.innerHTML = `<p>No hay productos en este filtro.</p>`;
+    grid.innerHTML = `<p>${t("inv.emptyFilter")}</p>`;
     return;
   }
   const esDuenoInv = window.OCAuth && window.OCAuth.rolActual() === "dueno";
@@ -2195,9 +2195,9 @@ async function cargarInventario(){
       </div>
       <!-- Ajuste rápido de stock sin escanear -->
       <div class="ajuste-rapido" onclick="event.stopPropagation()" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <button data-ajuste-menos="${p.id}" title="Quitar 1" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
-        <button data-ajuste-mas="${p.id}" title="Agregar 1" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
-        ${esDuenoInv ? `<button data-estrella-toggle="${p.id}" title="${p.estrella ? 'Quitar estrella' : 'Marcar para promover'}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
+        <button data-ajuste-menos="${p.id}" title="${t('inv.removeOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+        <button data-ajuste-mas="${p.id}" title="${t('inv.addOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+        ${esDuenoInv ? `<button data-estrella-toggle="${p.id}" title="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
       </div>
     </div>
   `).join("");
@@ -2266,8 +2266,8 @@ function escHtml(s){
 // Para cambiar/agregar opciones: editar MOTIVOS_AJUSTE. No borrar "Otro".
 // ============================================================================
 const MOTIVOS_AJUSTE = {
-  mas:   ["Nuevo inventario", "Devolución de cliente", "Corrección de conteo"],
-  menos: ["Merma o daño", "Consumo o muestra", "Corrección de conteo"],
+  get mas()   { return [t("motivo.newInv"), t("motivo.custReturn"), t("motivo.correction")]; },
+  get menos() { return [t("motivo.damage"), t("motivo.consumed"), t("motivo.correction")]; },
 };
 // Devuelve Promise<string|null> con el motivo elegido (o null si se cancela).
 function pedirMotivoAjuste(delta){
@@ -2284,17 +2284,17 @@ function pedirMotivoAjuste(delta){
     modal.innerHTML = `
       <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:20px 18px 28px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-          <strong style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;">${esMas ? "Motivo del ingreso (+1)" : "Motivo del retiro (−1)"}</strong>
-          <button data-mot-cancel style="font-size:14px;padding:6px 12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Cancelar</button>
+          <strong style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;">${esMas ? t("motivo.addTitle") : t("motivo.removeTitle")}</strong>
+          <button data-mot-cancel style="font-size:14px;padding:6px 12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${t("motivo.cancel")}</button>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           ${opciones.map(o => `<button data-mot="${escHtml(o)}" style="padding:12px 14px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:#fff;color:var(--ink);font-size:15px;font-weight:700;cursor:pointer;text-align:left;">${escHtml(o)}</button>`).join("")}
-          <button data-mot-otro style="padding:12px 14px;border:2px dashed var(--azul-medio,#2c4a68);border-radius:8px;background:transparent;color:var(--ink);font-size:15px;font-weight:700;cursor:pointer;text-align:left;">Otro…</button>
+          <button data-mot-otro style="padding:12px 14px;border:2px dashed var(--azul-medio,#2c4a68);border-radius:8px;background:transparent;color:var(--ink);font-size:15px;font-weight:700;cursor:pointer;text-align:left;">${t("motivo.other")}</button>
         </div>
         <div data-mot-otrowrap style="display:none;margin-top:10px;">
-          <input data-mot-otrotxt type="text" maxlength="60" placeholder="Escribe el motivo"
+          <input data-mot-otrotxt type="text" maxlength="60" placeholder="${t('motivo.otherPlaceholder')}"
             style="display:block;width:100%;padding:10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;color:var(--ink);">
-          <button data-mot-otrook style="margin-top:8px;padding:10px 16px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;font-size:14px;font-weight:700;cursor:pointer;width:100%;">Guardar motivo</button>
+          <button data-mot-otrook style="margin-top:8px;padding:10px 16px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;font-size:14px;font-weight:700;cursor:pointer;width:100%;">${t("motivo.save")}</button>
         </div>
       </div>`;
     modal.style.display = "flex";
@@ -2327,10 +2327,10 @@ async function cargarLogAjustes(){
     if (!res.ok) throw new Error(res.status);
     movs = await res.json();
   } catch (_) {
-    if (cont) cont.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">No se pudo cargar el historial.</p>';
+    if (cont) cont.innerHTML = `<p style="color:var(--ink-soft);font-size:13px;">${t("log.loadError")}</p>`;
     return;
   }
-  if (!movs.length){ cont.innerHTML = '<p style="color:var(--ink-soft);">Sin movimientos registrados.</p>'; return; }
+  if (!movs.length){ cont.innerHTML = `<p style="color:var(--ink-soft);">${t("log.empty")}</p>`; return; }
   cont.innerHTML = movs.slice(0, 20).map(m => {
     const fecha = new Date(m.fecha).toLocaleString('es-EC', { timeZone:'America/Guayaquil', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
     const icono = m.tipo === 'ajuste' ? '📦' : m.tipo === 'venta' ? '💰' : m.tipo === 'estrella' ? '⭐' : m.tipo === 'anulacion' ? '🔄' : m.tipo === 'alta' ? '🆕' : '📋';
@@ -2626,38 +2626,38 @@ function mostrarFormNuevoProducto(codigoEscaneado){
   const contenedor = document.getElementById("fichaResultado");
   contenedor.innerHTML = `
     <div class="ficha-producto tag-card" style="text-align:left;">
-      <div class="titulo">Nuevo producto</div>
+      <div class="titulo">${t("form.newProduct")}</div>
       ${codigoEscaneado
         ? `<div class="linea"><strong>Código:</strong> ${codigoEscaneado}</div>`
-        : `<label style="display:block;margin-top:10px;font-size:14px;">Código de barras / interno<br>
-            <input id="np-barcode" type="text" placeholder="Escanea o escribe el código" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>`}
+        : `<label style="display:block;margin-top:10px;font-size:14px;">${t("form.barcodeLabel")}<br>
+            <input id="np-barcode" type="text" placeholder="${t('form.barcodePlaceholder')}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>`}
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
         <input id="np-nombre" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">Categoría<br>
-        <input id="np-categoria" type="text" placeholder="Ej: Licores" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
+        <input id="np-categoria" type="text" placeholder="${t('form.categoryPlaceholder')}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <div style="display:flex;gap:10px;margin-top:10px;">
-        <label style="flex:1;font-size:14px;">Precio venta<br>
+        <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br>
           <input id="np-precio" type="number" min="0" step="0.01" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-        <label style="flex:1;font-size:14px;">Costo<br>
+        <label style="flex:1;font-size:14px;">${t("form.cost")}<br>
           <input id="np-costo" type="number" min="0" step="0.01" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       </div>
-      <label style="display:block;margin-top:10px;font-size:14px;">Stock inicial<br>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.initialStock")}<br>
         <input id="np-stock" type="number" min="0" step="1" value="0" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">Proveedor<br>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.supplier")}<br>
         <input id="np-proveedor" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
-        <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> ¿Este producto expira?</label>
+        <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
-        <label style="display:block;font-size:14px;">Fecha de caducidad<br>
+        <label style="display:block;font-size:14px;">${t("form.expiryDate")}<br>
           <input id="np-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-        <label style="display:block;margin-top:8px;font-size:14px;">Orden de venta recomendado<br>
+        <label style="display:block;margin-top:8px;font-size:14px;">${t("form.sellOrder")}<br>
           <select id="np-metodo" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;">
-            <option value="FIFO">FIFO — vender primero lo que vence antes (recomendado)</option>
-            <option value="LIFO">LIFO — vender primero lo más nuevo</option>
+            <option value="FIFO">${t("form.fifo")}</option>
+            <option value="LIFO">${t("form.lifo")}</option>
           </select></label>
       </div>
       <div id="np-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
-      <button class="ir" style="margin-top:12px;" onclick="crearProductoNuevo('${escHtml(codigoEscaneado).replace(/'/g, "\\'")}')">Guardar producto</button>
+      <button class="ir" style="margin-top:12px;" onclick="crearProductoNuevo('${escHtml(codigoEscaneado).replace(/'/g, "\\'")}')">${t("form.saveProduct")}</button>
     </div>
   `;
   document.getElementById("np-perecible").addEventListener("change", (e) => {
@@ -2676,8 +2676,8 @@ async function crearProductoNuevo(codigoEscaneado){
     metodoCosteo: perecible ? document.getElementById("np-metodo").value : "FIFO",
   };
   const msg = document.getElementById("np-msg");
-  if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = "El nombre es obligatorio."; return; }
-  if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = "El código es obligatorio."; return; }
+  if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
+  if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.codeRequired"); return; }
   const res = await fetch(`${API}/productos`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok){ msg.style.color = "var(--rojo)"; msg.textContent = data.error; return; }
@@ -2698,24 +2698,24 @@ async function mostrarFormEditarProducto(id){
   const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"';
   contenedor.innerHTML = `
     <div class="ficha-producto tag-card" style="text-align:left;">
-      <div class="titulo">Editar ficha</div>
+      <div class="titulo">${t("form.editTitle")}</div>
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
         <input id="ed-nombre" type="text" value="${q(p.nombre)}" ${inp}></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">Foto (opcional, se guarda dentro de la ficha)<br>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.photoLabel")}<br>
         <input id="ed-foto" type="file" accept="image/*" ${inp}></label>
       ${p.foto ? `<img src="${p.foto}" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin-top:6px;">` : ""}
       <div style="display:flex;gap:10px;margin-top:10px;">
-        <label style="flex:1;font-size:14px;">Precio venta<br><input id="ed-precio" type="number" min="0" step="0.01" value="${p.precio}" ${inp}></label>
-        <label style="flex:1;font-size:14px;">Proveedor<br><input id="ed-proveedor" type="text" value="${q(p.proveedor)}" ${inp}></label>
+        <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br><input id="ed-precio" type="number" min="0" step="0.01" value="${p.precio}" ${inp}></label>
+        <label style="flex:1;font-size:14px;">${t("form.supplier")}<br><input id="ed-proveedor" type="text" value="${q(p.proveedor)}" ${inp}></label>
       </div>
-      <label style="display:block;margin-top:10px;font-size:14px;">Categoría<br>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
         <input id="ed-categoria" type="text" value="${q(p.categoria)}" ${inp}></label>
-      <label style="display:block;margin-top:14px;font-size:14px;color:var(--rust,#E86040);font-weight:700;">Código interno — NO cambia al renombrar; solo si lo escribes de nuevo aquí<br>
+      <label style="display:block;margin-top:14px;font-size:14px;color:var(--rust,#E86040);font-weight:700;">${t("form.internalCode")}<br>
         <input id="ed-barcode" type="text" value="${q(p.barcode)}" ${inp}></label>
       <div id="ed-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
-        <button class="ir" onclick="guardarEdicionProducto('${p.id}')">Guardar cambios</button>
-        <button onclick="abrirFichaDesdeInventario('${p.id}')">Cancelar</button>
+        <button class="ir" onclick="guardarEdicionProducto('${p.id}')">${t("form.saveChanges")}</button>
+        <button onclick="abrirFichaDesdeInventario('${p.id}')">${t("motivo.cancel")}</button>
       </div>
     </div>`;
 }
@@ -2749,8 +2749,8 @@ async function guardarEdicionProducto(id){
   const foto = await leerFotoRedimensionada(document.getElementById("ed-foto"));
   if (foto) body.foto = foto;
   const msg = document.getElementById("ed-msg");
-  if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = "El nombre es obligatorio."; return; }
-  if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = "El código interno no puede quedar vacío."; return; }
+  if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
+  if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.codeCannotBeEmpty"); return; }
   const res = await fetch(`${API}/productos/${id}`, { method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok){ msg.style.color = "var(--rojo)"; msg.textContent = data.error; return; }
@@ -2762,14 +2762,14 @@ async function guardarEdicionProducto(id){
 async function eliminarProductoUI(id, btn){
   if (btn.dataset.armado !== "1"){
     btn.dataset.armado = "1";
-    btn.textContent = "¿Seguro? Toca otra vez";
-    setTimeout(() => { if (btn && btn.isConnected){ btn.dataset.armado = ""; btn.textContent = "Eliminar"; } }, 4000);
+    btn.textContent = t("delete.confirmAgain");
+    setTimeout(() => { if (btn && btn.isConnected){ btn.dataset.armado = ""; btn.textContent = t("ficha.deleteBtn"); } }, 4000);
     return;
   }
   const res = await fetch(`${API}/productos/${id}`, { method: "DELETE" });
   const data = await res.json();
   if (!res.ok){ alert(data.error); return; }
-  document.getElementById("fichaResultado").innerHTML = `<p style="font-weight:700;">Producto eliminado.</p>`;
+  document.getElementById("fichaResultado").innerHTML = `<p style="font-weight:700;">${t("delete.done")}</p>`;
   cargarInventario();
 }
 
@@ -2796,20 +2796,20 @@ function pintarFicha(p){
       <div class="titulo">${escHtml(p.nombre)}</div>
       <div class="precio">${fmtMoney(p.precio)}</div>
       <div class="linea"><strong>SKU:</strong> ${escHtml(p.sku)}</div>
-      <div class="linea"><strong>Código:</strong> ${escHtml(p.barcode)}</div>
-      <div class="linea"><strong>Proveedor:</strong> ${escHtml(p.proveedor)}</div>
-      <div class="linea"><strong>Stock actual:</strong> ${p.stockActual} unidades</div>
-      ${p.perecible ? `<div class="linea"><strong>Vence:</strong> ${escHtml(p.fechaCaducidad || "sin fecha")}${p.metodoCosteo ? ` · ${escHtml(p.metodoCosteo)}` : ""}</div>` : ""}
+      <div class="linea"><strong>${t("ficha.code")}</strong> ${escHtml(p.barcode)}</div>
+      <div class="linea"><strong>${t("ficha.supplier")}</strong> ${escHtml(p.proveedor)}</div>
+      <div class="linea"><strong>${t("ficha.currentStock")}</strong> ${p.stockActual} ${t("ficha.units")}</div>
+      ${p.perecible ? `<div class="linea"><strong>${t("ficha.expires")}</strong> ${escHtml(p.fechaCaducidad || t("ficha.noDate"))}${p.metodoCosteo ? ` · ${escHtml(p.metodoCosteo)}` : ""}</div>` : ""}
       <span class="badge-estado ${escHtml(p.estado)}">${escHtml(p.mensaje)}</span>
       <div class="acciones-rapidas">
-        <button class="vender" onclick="venderUno('${p.id}')" ${p.stockActual === 0 ? "disabled" : ""}>Vender 1</button>
+        <button class="vender" onclick="venderUno('${p.id}')" ${p.stockActual === 0 ? "disabled" : ""}>${t("ficha.sellOne")}</button>
         <button onclick="ajustar('${p.id}', 1)">+1 stock</button>
         <button onclick="ajustar('${p.id}', -1)">-1 stock</button>
-        <button class="etiqueta" onclick="abrirEtiqueta('${p.id}')">Ver etiqueta</button>
+        <button class="etiqueta" onclick="abrirEtiqueta('${p.id}')">${t("ficha.viewLabel")}</button>
       </div>
       ${(window.OCAuth && window.OCAuth.rolActual() === "dueno") ? `<div class="acciones-rapidas" style="margin-top:8px;">
-        <button onclick="mostrarFormEditarProducto('${p.id}')">✏️ Editar ficha</button>
-        <button style="border-color:var(--rojo);color:var(--rojo);" onclick="eliminarProductoUI('${p.id}', this)">Eliminar</button>
+        <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
+        <button style="border-color:var(--rojo);color:var(--rojo);" onclick="eliminarProductoUI('${p.id}', this)">${t("ficha.deleteBtn")}</button>
       </div>` : ""}
     </div>
     <div id="oc-transfer-banner"></div>
@@ -2830,8 +2830,8 @@ async function cargarSugerenciaTransferencia(productoId){
   if (!sugerencias.length) { cont.innerHTML = ""; return; }
   cont.innerHTML = sugerencias.map(s => `
     <div class="tag-card" style="margin-top:10px;background:var(--azul-oscuro,#1c3049);color:#fff;padding:12px 14px;text-align:left;">
-      <div style="font-size:14px;">📦 Hay <strong>${s.stockOrigen} unidades</strong> en <strong>${s.desdeNombre}</strong></div>
-      <button class="ir" style="margin-top:8px;background:#fff;color:var(--azul-oscuro,#1c3049);border-color:#fff;" onclick="solicitarTransferencia('${s.productoOrigenId}','${s.productoDestinoId}',${s.cantidadSugerida},this)">Solicitar transferencia de ${s.cantidadSugerida} unidades</button>
+      <div style="font-size:14px;">📦 ${tf("transfer.available", {n: `<strong>${s.stockOrigen}</strong>`, loc: `<strong>${escHtml(s.desdeNombre)}</strong>`})}</div>
+      <button class="ir" style="margin-top:8px;background:#fff;color:var(--azul-oscuro,#1c3049);border-color:#fff;" onclick="solicitarTransferencia('${s.productoOrigenId}','${s.productoDestinoId}',${s.cantidadSugerida},this)">${tf("transfer.request", {n: s.cantidadSugerida})}</button>
     </div>
   `).join("");
 }
@@ -2841,7 +2841,7 @@ async function solicitarTransferencia(origenId, destinoId, cantidad, btn){
   const res = await fetch(`${API}/transferencias`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productoOrigenId: origenId, productoDestinoId: destinoId, cantidad }) });
   const r = await res.json();
   if (!res.ok){ alert(r.error); btn.disabled = false; return; }
-  btn.parentElement.innerHTML = `<div style="font-size:14px;">✓ Transferencia solicitada. El dueño la aprueba desde Avanzado.</div>`;
+  btn.parentElement.innerHTML = `<div style="font-size:14px;">${t("transfer.requested")}</div>`;
 }
 
 async function venderUno(id){
