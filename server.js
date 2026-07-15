@@ -123,6 +123,16 @@ app.get("/api/modo", (req, res) => {
   res.json({ modo: data.modo });
 });
 
+// --- Activacion de instancia (free-tier gating, 2026-07-15) ---
+app.get("/api/instancia", asyncRoute(async (req, res) => {
+  const a = await data.getActivacion();
+  res.json({ instanceId: a.instanceId, apropiada: !!a.instanceId });
+}));
+app.post("/api/instancia/activar", asyncRoute(async (req, res) => {
+  const r = await data.activarInstancia(req.body);
+  res.json({ ok: true, instanceId: r.instanceId });
+}));
+
 // --- Ubicaciones ---
 // ?todas=1 incluye las desactivadas (para el panel de administración); sin
 // ese parámetro, solo las activas (lo que usa el selector operativo normal).
@@ -220,6 +230,14 @@ app.post("/api/productos", asyncRoute(async (req, res) => {
   if (req.body.perecible && !req.body.fechaCaducidad) {
     return res.status(400).json({ error: "Si el producto expira, indica su fecha de caducidad." });
   }
+  // Free-tier: sin dispositivo activado (PIN 789), tope de 30 productos.
+  const activacion = await data.getActivacion();
+  if (!activacion.instanceId) {
+    const total = (await data.getProductos()).length;
+    if (total >= 30) {
+      return res.status(403).json({ error: "You've reached the 30-product limit on the free plan. Activate this device (PIN 789) to unlock unlimited products.", codigo: "LIMITE_PRODUCTOS" });
+    }
+  }
   const r = await data.crearProducto(req.body);
   if (r.error) return res.status(400).json({ error: r.error });
   res.json(await toFicha(r));
@@ -268,6 +286,14 @@ app.post("/api/productos/:id/venta", asyncRoute(async (req, res) => {
   // (no la demo estática) las comisiones a promotores quedaban en $0 siempre,
   // sin error visible. Ver también el fallback a ubic.promotoraId en data.js.
   const promotorId = req.body.promotorId || null;
+  // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global, todas las ubicaciones).
+  const activacion = await data.getActivacion();
+  if (!activacion.instanceId) {
+    const n = await data.ventasCountMesGlobal();
+    if (n >= 100) {
+      return res.status(403).json({ error: "You've reached the 100-sales/month limit on the free plan. Activate this device (PIN 789) to unlock unlimited sales.", codigo: "LIMITE_VENTAS" });
+    }
+  }
   const r = await data.venderUno(req.params.id, cantidad, promotorId);
   if (r.error) return res.status(400).json({ error: r.error });
   res.json({ producto: await toFicha(r.producto), ventaId: r.ventaId });
@@ -310,9 +336,13 @@ app.get("/api/actividad", (req, res) => {
 });
 
 // --- Respaldo exportable/importable (ver nota de seguridad en Olimpo Control) ---
-app.get("/api/respaldo/exportar", (req, res) => {
+app.get("/api/respaldo/exportar", asyncRoute(async (req, res) => {
+  const activacion = await data.getActivacion();
+  if (!activacion.instanceId) {
+    return res.status(403).json({ error: "Backup export requires activating this device (PIN 789)." });
+  }
   res.json(data.exportarTodo());
-});
+}));
 app.post("/api/respaldo/importar", (req, res) => {
   const r = data.importarTodo(req.body);
   if (r.error) return res.status(400).json({ error: r.error });

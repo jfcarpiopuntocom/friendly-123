@@ -31,6 +31,18 @@ function setGastosMensuales(ubicacionId, monto) {
   db.set(`configuracion.gastosMensuales.${ubicacionId}`, Number(monto.toFixed(2))).write();
 }
 
+// --- Activacion de instancia (free-tier gating, 2026-07-15): siempre local,
+// sin importar el modo (Loyverse o demo) — igual que gastosMensuales arriba.
+// "apropiada" (instanceId presente) desbloquea limites de plan gratis.
+function getActivacion() {
+  return db.get("configuracion.activacion").value() || { instanceId: null, email: null, activatedAt: null };
+}
+function activarInstancia({ instanceId, email } = {}) {
+  const a = { instanceId: instanceId || randomUUID(), email: email || "", activatedAt: Date.now() };
+  db.set("configuracion.activacion", a).write();
+  return a;
+}
+
 if (MODO_LOYVERSE) {
   // ====================== MODO LOYVERSE (real) ======================
   module.exports = {
@@ -156,6 +168,9 @@ if (MODO_LOYVERSE) {
     getActividad,
     getGastosMensuales,
     setGastosMensuales,
+    getActivacion,
+    activarInstancia,
+    ventasCountMesGlobal,
     exportarTodo,
     importarTodo,
   };
@@ -192,6 +207,13 @@ function ventasMesAcumuladas(ubicacionId) {
   return db.get("ventas").value()
     .filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha))
     .reduce((acc, v) => acc + v.precioUnit * v.cantidad, 0);
+}
+// Conteo global de ventas del mes actual, TODAS las ubicaciones (free-tier
+// gating, 2026-07-15). Distinto de ventasMesAcumuladas: esa suma montos por
+// una sola ubicación (para comisiones); esta cuenta transacciones en total
+// (para el tope de 100 ventas/mes del plan gratis).
+function ventasCountMesGlobal() {
+  return db.get("ventas").value().filter((v) => esDelMesActual(v.fecha)).length;
 }
 // Elige la escala vigente según % de meta acumulado (incluyendo esta venta).
 // Sin escalas configuradas, usa el % fijo comisionSocio. Sin meta ($0 o sin
@@ -733,6 +755,9 @@ function importarTodo(datos) {
     getActividad,
     getGastosMensuales,
     setGastosMensuales,
+    getActivacion,
+    activarInstancia,
+    ventasCountMesGlobal,
     exportarTodo,
     importarTodo,
     getLiquidaciones,

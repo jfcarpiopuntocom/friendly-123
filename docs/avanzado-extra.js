@@ -305,6 +305,7 @@
         </label>
       </div>
       <p id="oc-respaldo-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></p>
+      <p id="oc-respaldo-free" style="font-size:13px;margin-top:6px;display:none;"></p>
       <hr style="border:none;border-top:1px solid var(--azul-suave,#dde5ec);margin:16px 0;">
       <h4 style="margin:0 0 6px;font-size:14px;">🔐 Caja fuerte local (automática)</h4>
       <p style="font-size:13px;color:var(--ink-soft);margin-top:0;">
@@ -707,9 +708,25 @@
     // /api/respaldo/exportar) COMO el estado de acceso cifrado
     // (localStorage["oc_secure"]: hashes de PIN + correo) — sin esto último,
     // restaurar en otra tablet dejaría al dueño sin sus propias claves.
+    // Free-tier (JFC 2026-07-15): sin dispositivo activado (PIN 789) el
+    // export queda bloqueado — la proteccion REAL vive en el servidor
+    // (server.js / mock-backend.js), esto es solo cortesia visual.
+    fetch(`${API}/instancia`).then((r) => r.json()).then(({ apropiada }) => {
+      if (!apropiada) {
+        const b = $("oc-exportar");
+        if (b) { b.disabled = true; b.title = "Activate this device (PIN 789) to export backups."; b.style.opacity = "0.5"; b.style.cursor = "not-allowed"; }
+        const p = $("oc-respaldo-free");
+        if (p) { p.style.display = "block"; p.style.color = "var(--rojo,#a3392a)"; p.textContent = "Activate this device (PIN 789) to enable backup export."; }
+      }
+    }).catch(() => {});
+
     $("oc-exportar").addEventListener("click", async () => {
       try {
-        const datos = await (await fetch(`${API}/respaldo/exportar`)).json();
+        const { apropiada } = await (await fetch(`${API}/instancia`)).json();
+        if (!apropiada) { msg("oc-respaldo-msg", "Activate this device (PIN 789) to export.", "var(--rojo)"); return; }
+        const respExp = await fetch(`${API}/respaldo/exportar`);
+        const datos = await respExp.json();
+        if (!respExp.ok) { msg("oc-respaldo-msg", datos.error || "Activate this device (PIN 789) to export.", "var(--rojo)"); return; }
         const fotosPerchas = {};
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
@@ -1306,4 +1323,44 @@
   function initSeguro() { try { init(); } catch (e) { console.error("Avanzado init falló (aislado):", e); } }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initSeguro);
   else initSeguro();
+
+  // ===========================================================================
+  // ROL CONTADOR (JFC 2026-07-15): PIN 357 directo en el candado principal.
+  // init() SIEMPRE construye #oc-contable dentro de #vista-avanzado (arriba),
+  // sin importar el rol — aqui solo lo TRASLADAMOS a una vista propia
+  // "contable" (nav + section creados al vuelo, mismo mecanismo de clase
+  // .activo/.activa que usa index.html para el resto del nav) y lo mostramos
+  // sin candado (la subclave YA se verifico en auth-ui.js via verificarAcct).
+  // No se duplica logica de render: se reusa render() tal cual.
+  // ===========================================================================
+  function activarVistaContable() {
+    let btn = document.querySelector('nav button[data-vista="contable"]');
+    const nav = document.querySelector("nav");
+    const main = document.querySelector("main");
+    if (!btn && nav && main) {
+      btn = document.createElement("button");
+      btn.dataset.vista = "contable";
+      btn.innerHTML = `<span>${window.t ? window.t("nav.contable") : "Accounting"}</span>`;
+      nav.appendChild(btn);
+      const sec = document.createElement("section");
+      sec.id = "vista-contable";
+      sec.className = "vista";
+      main.appendChild(sec);
+      const cont = $("oc-contable");
+      const lock = $("oc-acct-lock");
+      if (lock) lock.style.display = "none";
+      if (cont) { sec.appendChild(cont); cont.style.display = "block"; }
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("nav button").forEach((b) => b.classList.remove("activo"));
+        btn.classList.add("activo");
+        document.querySelectorAll(".vista").forEach((v) => v.classList.remove("activa"));
+        sec.classList.add("activa");
+      });
+      render();
+    }
+    btn.click();
+  }
+  window.addEventListener("oc-login", (e) => {
+    if (e.detail && e.detail.rol === "contador") activarVistaContable();
+  });
 })();

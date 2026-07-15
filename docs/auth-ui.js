@@ -155,6 +155,16 @@
   body.rol-empleado nav button[data-vista="avanzado"],
   body.rol-empleado nav button[data-vista="perchas"],
   body.rol-empleado nav button[data-vista="comisiones"]{display:none!important;}
+  /* Rol CONTADOR (JFC 2026-07-15): PIN 357 directo en el candado principal
+     entra en modo solo-lectura contable — sin POS, inventario, clientes ni
+     botones de exportar/importar/caja fuerte. Solo se ve el nav "contable"
+     y el reporte CSV (informativo, no exporta el negocio completo). */
+  body.rol-contador nav button:not([data-vista="contable"]){display:none!important;}
+  body.rol-contador #oc-exportar,
+  body.rol-contador #oc-importar-file,
+  body.rol-contador label[for="oc-importar-file"],
+  body.rol-contador #oc-caja-guardar,
+  body.rol-contador #oc-caja-ver{display:none!important;}
   #oc-acct-lock{text-align:center;padding:22px;}
   #oc-acct-lock button{font-family:var(--font-display,sans-serif);font-size:14px;padding:12px 20px;
     border-radius:6px;border:2px solid var(--rust,#b2461f);background:var(--rust,#b2461f);
@@ -297,6 +307,13 @@
     if (sb > 0) { error(window.tf("auth.gate.tooManyAttemptsRetry", {s: sb})); return; }
     if (await window.OCSecure.verificarOwner(code)) { registrarExito(); return entrar("dueno"); }
     if (await window.OCSecure.verificarEmpleado(code)) { registrarExito(); return entrar("empleado"); }
+    // Rol CONTADOR/socio (JFC 2026-07-15): la subclave contable (357 por
+    // defecto, crypto-store.js) ahora TAMBIEN funciona directo en el candado
+    // principal, sin pasar por dueno -> Avanzado -> "Ver capa contable".
+    // Reusa verificarAcct tal cual (no se duplica la verificacion). Va DESPUES
+    // de owner/empleado a proposito: si el dueno usara 357 como su propio PIN,
+    // verificarOwner ya lo habria resuelto arriba — sin ambiguedad.
+    if (await window.OCSecure.verificarAcct(code)) { registrarExito(); return entrar("contador"); }
     // El acceso demo (456) SOLO existe en la copia pública de demostración.
     // En una instancia YA apropiada (789) daría acceso nivel-dueño a los datos
     // reales del negocio a cualquiera que teclee 456 — un backdoor. Se bloquea.
@@ -438,11 +455,14 @@
 
   function entrar(nuevoRol) {
     const esDemo = nuevoRol === "demo";
+    // A diferencia del demo (que navega con acceso de dueño), "contador" es
+    // un rol propio: NO se remapea a "dueno", queda aislado y solo-lectura.
     demoSesion = esDemo;
-    rol = esDemo ? "dueno" : nuevoRol; // el demo navega con acceso de dueño
+    rol = esDemo ? "dueno" : nuevoRol;
     document.body.classList.toggle("rol-empleado", rol === "empleado");
     document.body.classList.toggle("rol-dueno", rol === "dueno");
     document.body.classList.toggle("rol-demo", esDemo);
+    document.body.classList.toggle("rol-contador", rol === "contador");
     gate.style.display = "none";
     document.body.style.overflow = ""; // reabre el scroll del fondo
     // Primera impresion controlada: foco fuera de cualquier boton fantasma
@@ -453,6 +473,11 @@
     reiniciarInactividad();
     if (rol === "empleado") { const n = document.querySelector('nav button[data-vista="hoy"]'); if (n) n.click(); }
     window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol, demo: esDemo } }));
+    // El rol contador aterriza directo en su vista propia (creada al vuelo
+    // por avanzado-extra.js al escuchar este mismo evento oc-login).
+    if (rol === "contador") {
+      setTimeout(() => { const n = document.querySelector('nav button[data-vista="contable"]'); if (n) n.click(); }, 0);
+    }
   }
 
   // ---------------------------------------------------------------------------

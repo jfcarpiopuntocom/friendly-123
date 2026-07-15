@@ -436,6 +436,10 @@
   // ---- Reparto de comisiones (espejo de data.js) ----
   function mesActualISO() { return hoyISO().slice(0, 7); }
   function esDelMesActual(fechaISO) { return fechaISO && fechaISO.slice(0, 7) === mesActualISO(); }
+  // Conteo global de ventas del mes actual, TODAS las ubicaciones (free-tier
+  // gating, 2026-07-15) — distinto de ventasMesAcumuladas (suma montos por
+  // una sola ubicacion, para comisiones). Usado para el tope de 100/mes.
+  function ventasCountMesGlobal() { return ventas.filter((v) => esDelMesActual(v.fecha)).length; }
   function ventasMesAcumuladas(ubicacionId) {
     return ventas.filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
   }
@@ -919,6 +923,10 @@
         if (body.perecible && !fechaValida(body.fechaCaducidad)) return J({ error: "La fecha de caducidad no es válida (usa AAAA-MM-DD)." }, 400);
         const ubicNueva = body.ubicacionId && body.ubicacionId !== "todas" ? ubicaciones.find((x) => x.id === body.ubicacionId) : null;
         if (ubicNueva && ubicNueva.activa === false) return J({ error: `"${ubicNueva.nombre}" está desactivada — reactívala en Avanzado antes de agregar productos ahí.` }, 400);
+        // Free-tier: sin dispositivo activado (PIN 789), tope de 30 productos.
+        if (!instanceId && productos.length >= 30) {
+          return J({ error: "You've reached the 30-product limit on the free plan. Activate this device (PIN 789) to unlock unlimited products.", codigo: "LIMITE_PRODUCTOS" }, 403);
+        }
         const nuevo = {
           id: uuid("p"), nombre: String(body.nombre).trim(), categoria: body.categoria || "General",
           sku: body.sku || body.barcode, barcode: body.barcode, ubicacionId: body.ubicacionId || "todas",
@@ -941,6 +949,10 @@
         if (ubicP && ubicP.activa === false) return J({ error: `"${ubicP.nombre}" está desactivada — no admite ventas nuevas.` }, 400);
         const cant = Number.isInteger(body.cantidad) && body.cantidad > 0 ? body.cantidad : 1;
         if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
+        // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
+        if (!instanceId && ventasCountMesGlobal() >= 100) {
+          return J({ error: "You've reached the 100-sales/month limit on the free plan. Activate this device (PIN 789) to unlock unlimited sales.", codigo: "LIMITE_VENTAS" }, 403);
+        }
         const montoBruto = p.precio * cant;
         const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
         const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null;
@@ -1025,7 +1037,11 @@
         return J({ estrella: p.estrella });
       }
 
-      if (path === "/api/respaldo/exportar") return J(estadoActualExportable());
+      if (path === "/api/respaldo/exportar") {
+        // Free-tier: sin dispositivo activado (PIN 789), respaldo bloqueado.
+        if (!instanceId) return J({ error: "Backup export requires activating this device (PIN 789)." }, 403);
+        return J(estadoActualExportable());
+      }
       if (path === "/api/respaldo/importar") {
         try {
           // BUG FIJADO 2026-07-03 y ampliado 2026-07-05 (item 19): antes solo
