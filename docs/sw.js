@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "amigable-shell-v4"; // bumped 2026-07-08 tras sprint multi-usuario/perchas/Vender/PWA // subir el numero purga la cache vieja en todos los dispositivos
+const CACHE = "amigable-shell-v5"; // bumped 2026-07-15 fix(audit): añadir i18n.js al precache // subir el numero purga la cache vieja en todos los dispositivos
 const SHELL = [
   "./",
   "./index.html",
@@ -20,6 +20,7 @@ const SHELL = [
   "./favicon.png",
   "./pocketbase-client.js",
   "./mock-backend.js",
+  "./i18n.js",
   "./crypto-store.js",
   "./email-recovery.js",
   "./auth-ui.js",

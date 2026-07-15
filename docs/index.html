@@ -843,7 +843,8 @@
     #modalEtiqueta.activo .cerrar,
     #modalEtiqueta.activo .imprimir,
     #modalEtiqueta.activo #oc-print-completa,
-    #modalEtiqueta.activo #barrasClicable + div { display:none !important; }
+    #modalEtiqueta.activo #barrasClicable + div,
+    #modalEtiqueta.activo .no-print { display:none !important; }
   }
 
   /* ================= AVANZADO ================= */
@@ -1408,6 +1409,8 @@
   <div class="etiqueta-imprimible tag-card" id="contenidoEtiqueta">
     <button class="cerrar" id="cerrarModal">✕</button>
   </div>
+  <!-- Botones de acción fuera de la etiqueta imprimible: no aparecen en el preview ni en papel -->
+  <div id="oc-etiqueta-acciones" class="no-print" style="margin-top:12px;text-align:center;"></div>
 </div>
 
 <!-- Modal de ficha/edición de producto (JFC 2026-07-07): la tarjeta de
@@ -1731,7 +1734,8 @@ function tarjetaCliente(c, esDueno){
     </div>${campoHora}` : "";
   const btnDespedir = (esDueno && ev.trato === -1 && ev.confiabilidad === -1)
     ? `<button style="margin-top:8px;font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;"
-        onclick="despedirCliente('${c.id}','${escHtml(c.nombre)}')">Despedir cliente 🚪</button>` : "";
+        data-despedir-id="${c.id}" data-despedir-nombre="${escHtml(c.nombre)}"
+        onclick="despedirCliente(this.dataset.despedirId, this.dataset.despedirNombre)">Despedir cliente 🚪</button>` : "";
   return `<div style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
@@ -1806,7 +1810,8 @@ async function cargarClientes(){
             <div style="background:#FDECEA;border:1.5px solid #C0392B;border-radius:8px;padding:8px 12px;margin:4px 0;display:flex;justify-content:space-between;align-items:center;">
               <span style="font-size:15px;color:#0F1923;">${escHtml(c.nombre)}</span>
               <button style="font-size:13px;padding:3px 10px;background:#E8F8F0;border:1.5px solid #009A5A;border-radius:6px;color:#009A5A !important;-webkit-text-fill-color:#009A5A !important;cursor:pointer;"
-                onclick="reactivarCliente('${c.id}','${escHtml(c.nombre)}')">Reactivar</button>
+                data-reactivar-id="${c.id}" data-reactivar-nombre="${escHtml(c.nombre)}"
+                onclick="reactivarCliente(this.dataset.reactivarId, this.dataset.reactivarNombre)">Reactivar</button>
             </div>`).join("")}
           </div>
         </details>` : ""}`;
@@ -2529,7 +2534,7 @@ async function cargarPerchas(){
 
   // ---- Eventos sucursales ----
   grid.querySelectorAll('[data-suc-renombrar]').forEach(btn => btn.addEventListener('click', async () => {
-    const nuevo = (prompt('Nuevo nombre de la sucursal:') || '').trim();
+    const nuevo = (await ocPrompt('Nuevo nombre de la sucursal:', '') || '').trim();
     if (!nuevo) return;
     const res = await fetch(`${API}/sucursales/${btn.dataset.sucRenombrar}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre: nuevo }) });
     if (res.ok) cargarPerchas();
@@ -2543,7 +2548,7 @@ async function cargarPerchas(){
 
   // ---- Eventos perchas ----
   grid.querySelectorAll('[data-percha-renombrar]').forEach(btn => btn.addEventListener('click', async () => {
-    const nuevo = (prompt('Nuevo nombre de la percha:') || '').trim();
+    const nuevo = (await ocPrompt('Nuevo nombre de la percha:', '') || '').trim();
     if (!nuevo) return;
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaRenombrar}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre: nuevo }) });
     const r = await res.json(); if (!res.ok){ await ocAlert(r.error); return; }
@@ -2866,8 +2871,51 @@ async function eliminarProductoUI(id, btn){
 
 // "+" general del inventario: alta SIN escanear (el codigo se digita a mano).
 function abrirAltaProducto(){
-  document.querySelector('nav button[data-vista="escanear"]').click();
-  mostrarFormNuevoProducto("");
+  // FIX 2026-07-15: en vez de navegar a Escanear/Vender (donde cargarGridVender()
+  // sobreescribía el form recién pintado), abrimos el modal de Inventario directamente.
+  fichaTargetActual = "fichaModalBody";
+  const body = document.getElementById("fichaModalBody");
+  const modal = document.getElementById("modalFicha");
+  if (!body || !modal) return;
+  // Reutilizar mostrarFormNuevoProducto pero apuntando al modal body
+  const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"';
+  body.innerHTML = `
+    <div class="ficha-producto tag-card" style="text-align:left;">
+      <div class="titulo">${t("form.newProduct")}</div>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.barcodeLabel")}<br>
+        <input id="np-barcode" type="text" placeholder="${t('form.barcodePlaceholder')}" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
+        <input id="np-nombre" type="text" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
+        <input id="np-categoria" type="text" placeholder="${t('form.categoryPlaceholder')}" ${inp}></label>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br>
+          <input id="np-precio" type="number" min="0" step="0.01" ${inp}></label>
+        <label style="flex:1;font-size:14px;">${t("form.cost")}<br>
+          <input id="np-costo" type="number" min="0" step="0.01" ${inp}></label>
+      </div>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.initialStock")}<br>
+        <input id="np-stock" type="number" min="0" step="1" value="0" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.supplier")}<br>
+        <input id="np-proveedor" type="text" ${inp}></label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
+        <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
+      <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
+        <label style="display:block;font-size:14px;">${t("form.expiryDate")}<br>
+          <input id="np-fecha" type="date" ${inp}></label>
+        <label style="display:block;margin-top:8px;font-size:14px;">${t("form.sellOrder")}<br>
+          <select id="np-metodo" ${inp}>
+            <option value="FIFO">${t("form.fifo")}</option>
+            <option value="LIFO">${t("form.lifo")}</option>
+          </select></label>
+      </div>
+      <div id="np-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
+      <button class="ir" style="margin-top:12px;" onclick="crearProductoNuevo('')">${t("form.saveProduct")}</button>
+    </div>`;
+  document.getElementById("np-perecible").addEventListener("change", (e) => {
+    document.getElementById("np-fecha-wrap").style.display = e.target.checked ? "block" : "none";
+  });
+  modal.classList.add("activo");
 }
 
 document.getElementById("btnEscanear").addEventListener("click", ejecutarEscaneo);
@@ -2880,6 +2928,7 @@ document.getElementById("inputEscaner").addEventListener("keydown", (e) => {
 // por abrirFichaDesdeInventario()/cerrar del modal y ejecutarEscaneo().
 let fichaTargetActual = "fichaResultado";
 function pintarFicha(p){
+  if (p && p.id) _occoProductCache.set(p.id, p); // mantener caché fresca para abrirVistaCliente(id)
   const contenedor = document.getElementById(fichaTargetActual) || document.getElementById("fichaResultado");
   contenedor.innerHTML = `
     <div class="ficha-producto tag-card">
@@ -2901,7 +2950,7 @@ function pintarFicha(p){
       <!-- "Mostrar al cliente": visible para cualquier rol autenticado (empleado o dueño) —
            ambos están detrás del mostrador y pueden girar el teléfono hacia el cliente. -->
       <div class="acciones-rapidas" style="margin-top:8px;">
-        <button onclick="abrirVistaCliente(${JSON.stringify(p).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026')})" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
+        <button onclick="abrirVistaCliente('${p.id}')" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
       </div>
       ${(window.OCAuth && window.OCAuth.rolActual() === "dueno") ? `<div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
@@ -2940,16 +2989,23 @@ async function solicitarTransferencia(origenId, destinoId, cantidad, btn){
   btn.parentElement.innerHTML = `<div style="font-size:14px;">${t("transfer.requested")}</div>`;
 }
 
+const _ventasEnCurso = new Set(); // guard: evita ventas duplicadas por doble-tap
 async function venderUno(id){
-  const sel = document.getElementById("ventaCliente");
-  const res = await fetch(`${API}/productos/${id}/venta`, {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({cantidad:1, clienteId: (sel && sel.value) || undefined})
-  });
-  const data = await res.json();
-  if (!res.ok){ await ocAlert(data.error); return; }
-  pintarFicha(data.producto);
-  if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+  if (_ventasEnCurso.has(id)) return;
+  _ventasEnCurso.add(id);
+  try {
+    const sel = document.getElementById("ventaCliente");
+    const res = await fetch(`${API}/productos/${id}/venta`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({cantidad:1, clienteId: (sel && sel.value) || undefined})
+    });
+    const data = await res.json();
+    if (!res.ok){ await ocAlert(data.error); return; }
+    pintarFicha(data.producto);
+    if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+  } finally {
+    _ventasEnCurso.delete(id);
+  }
 }
 
 // Guarda el interval activo del toast para poder cancelarlo si llega un segundo
@@ -2983,7 +3039,6 @@ function mostrarToastAnular(ventaId, productoId){
     if (!res.ok){ await ocAlert(data.error); return; }
     pintarFicha(data.producto);
   });
-  toastVentaTimer = setTimeout(() => { clearInterval(intervalo); cont.innerHTML = ""; }, 5000);
 }
 
 async function ajustar(id, delta){
@@ -3032,6 +3087,7 @@ async function abrirEtiqueta(id){
   // imprimir el documento completo con window.print() sacaba botones, la X y el
   // nav en el papel. Ahora el print se arma limpio, solo la etiqueta.
   window._etiquetaActual = { data, p };
+  // Contenido imprimible — solo lo que aparece en papel (sin botón "Imprimir")
   document.getElementById("contenidoEtiqueta").innerHTML = `
     <button class="cerrar" id="cerrarModal2">✕</button>
     <h4>${p.nombre}</h4>
@@ -3042,9 +3098,10 @@ async function abrirEtiqueta(id){
     <div style="font-size:13px;color:var(--azul-medio,#2c4a68);margin-top:-6px;">👆 Toca el código de barras para imprimirlo o guardarlo solo</div>
     ${data.qrDataUrl ? `<img src="${data.qrDataUrl}" width="160" height="160" alt="QR del producto">
     <div style="font-size:13px; color:var(--azul-medio);">Escanea para ver la ficha completa</div>` : ""}
-    <br>
-    <button class="imprimir" id="oc-print-completa">Imprimir etiqueta completa</button>
   `;
+  // Botón de impresión fuera de la etiqueta — no viaja al papel ni aparece en el preview
+  const accionesEl = document.getElementById("oc-etiqueta-acciones");
+  if (accionesEl) accionesEl.innerHTML = `<button class="imprimir" id="oc-print-completa">Imprimir etiqueta completa</button>`;
   document.getElementById("modalEtiqueta").classList.add("activo");
   document.getElementById("cerrarModal2").addEventListener("click", cerrarModalEtiqueta);
   document.getElementById("barrasClicable").addEventListener("click", (e) => mostrarMenuBarcode(e, data.barcodeSvg, p));
@@ -3770,8 +3827,12 @@ window.dialogosBloqueados = function () {
   </div>
 </div>
 <script>
+let _ocModalResolve = null; // rastrea la promise pendiente; permite que un segundo modal cancele el primero
 function _ocModalMostrar(mensaje, botonesConfig) {
   return new Promise((resolve) => {
+    // Si ya hay un modal abierto, resolver la promise vieja de forma defensiva (false = cancelar)
+    if (_ocModalResolve) { _ocModalResolve(false); _ocModalResolve = null; }
+    _ocModalResolve = resolve;
     const overlay = document.getElementById("oc-modal-overlay");
     const msgEl = document.getElementById("oc-modal-msg");
     const botonesEl = document.getElementById("oc-modal-botones");
@@ -3781,7 +3842,11 @@ function _ocModalMostrar(mensaje, botonesConfig) {
       const b = document.createElement("button");
       b.textContent = cfg.label;
       if (cfg.danger) b.style.cssText = "border-color:var(--rojo,#a3392a);color:var(--rojo,#a3392a);";
-      b.addEventListener("click", () => { overlay.style.display = "none"; resolve(cfg.value); });
+      b.addEventListener("click", () => {
+        overlay.style.display = "none";
+        _ocModalResolve = null;
+        resolve(cfg.value);
+      });
       botonesEl.appendChild(b);
     });
     overlay.style.display = "flex";
@@ -3798,6 +3863,37 @@ function ocConfirm(mensaje, opts) {
 // Reemplazo de alert(): resuelve al cerrar (equivalente a "OK").
 function ocAlert(mensaje) {
   return _ocModalMostrar(mensaje, [{ label: t("common.ok"), value: true }]);
+}
+// Reemplazo de prompt(): muestra un modal con campo de texto. Resuelve con el string
+// ingresado (puede ser "") o null si el usuario cancela.
+function ocPrompt(mensaje, valorInicial) {
+  return new Promise((resolve) => {
+    if (_ocModalResolve) { _ocModalResolve(null); _ocModalResolve = null; }
+    _ocModalResolve = (v) => resolve(v);
+    const overlay = document.getElementById("oc-modal-overlay");
+    const msgEl = document.getElementById("oc-modal-msg");
+    const botonesEl = document.getElementById("oc-modal-botones");
+    msgEl.innerHTML = `<span style="font-weight:700;">${escHtml(mensaje)}</span><br><input id="oc-prompt-input" type="text" maxlength="120" value="${escHtml(valorInicial||'')}" style="margin-top:10px;width:100%;padding:8px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;">`;
+    botonesEl.innerHTML = "";
+    const cancel = document.createElement("button");
+    cancel.textContent = t("common.cancel");
+    cancel.addEventListener("click", () => { overlay.style.display="none"; _ocModalResolve=null; resolve(null); });
+    const ok = document.createElement("button");
+    ok.textContent = t("common.accept");
+    ok.addEventListener("click", () => {
+      const v = (document.getElementById("oc-prompt-input").value||"").trim();
+      overlay.style.display="none"; _ocModalResolve=null; resolve(v);
+    });
+    botonesEl.appendChild(cancel);
+    botonesEl.appendChild(ok);
+    overlay.style.display = "flex";
+    setTimeout(() => { const inp = document.getElementById("oc-prompt-input"); if(inp) { inp.focus(); inp.select(); } }, 50);
+    const inp = document.getElementById("oc-prompt-input");
+    if (inp) inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") ok.click();
+      if (e.key === "Escape") cancel.click();
+    });
+  });
 }
 </script>
 
@@ -3834,10 +3930,13 @@ function ocAlert(mensaje) {
 let _occoTimer = null;      // intervalo del countdown
 let _occoSecs  = 60;        // segundos restantes antes del auto-retorno
 let _occoProduct = null;    // producto actualmente en pantalla
+const _occoProductCache = new Map(); // id → product object, actualizado por pintarFicha()
 
 // Abre el overlay con los datos del producto p.
 // Llamado desde pintarFicha() cuando el empleado toca "👁 Mostrar al cliente".
-function abrirVistaCliente(p) {
+function abrirVistaCliente(idOrObj) {
+  const p = typeof idOrObj === "string" ? _occoProductCache.get(idOrObj) : idOrObj;
+  if (!p) return; // producto no en caché aún — no debería ocurrir
   _occoProduct = p;
   const ol = document.getElementById("oc-customer-overlay");
 

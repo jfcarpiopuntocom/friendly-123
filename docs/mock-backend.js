@@ -11,7 +11,12 @@
   // muestre un mensaje de "el servidor no responde" en la demo pública.
   window.OC_DEMO = true;
   // Timezone: reads from localStorage (set by store owner in Avanzado) or falls back to browser local.
-  const ZONA = localStorage.getItem("oc_timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const ZONA = (() => {
+    const tz = localStorage.getItem("oc_timezone");
+    if (!tz) return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; }
+    catch (_) { return Intl.DateTimeFormat().resolvedOptions().timeZone; }
+  })();
   function hoyISO() {
     return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   }
@@ -297,6 +302,7 @@
   function estadoActualExportable() {
     return {
       schemaVersion: 3,
+      _rev: _localRev,
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
       movimientos: clonar(movimientos), transferencias: clonar(transferencias),
@@ -387,16 +393,43 @@
       (document.body || document.documentElement).appendChild(d);
     } catch (_) {}
   }
-  function guardarEstadoLocal() { try { localStorage.setItem(OC_STATE_KEY, JSON.stringify(estadoActualExportable())); } catch (_) { avisoMemoriaLlena(); } }
+  let _localRev = 0; // contador monotónico — impide que una pestaña vieja sobreescriba estado más fresco
+  function guardarEstadoLocal() {
+    _localRev++;
+    try { localStorage.setItem(OC_STATE_KEY, JSON.stringify(estadoActualExportable())); } catch (_) { avisoMemoriaLlena(); }
+  }
   function cargarEstadoLocal() {
     try {
       const raw = localStorage.getItem(OC_STATE_KEY);
       if (!raw) return;
       const body = JSON.parse(raw);
+      // Rechazar estados escritos por una pestaña más antigua (_rev más bajo) — solo en eventos onstorage
+      if (typeof body._rev === "number" && body._rev < _localRev) return;
       const error = validarRespaldo(body);
-      if (!error) aplicarRespaldo(body); // estado corrupto: se ignora y arranca con los datos semilla
+      if (!error) {
+        aplicarRespaldo(body);
+      } else {
+        // Estado guardado no pasa validación — rescatar raw ANTES de sobrescribir con datos semilla.
+        // El dueño puede recuperar el archivo desde Avanzado > Exportar (busca oc_rescate_v4).
+        try { localStorage.setItem("oc_rescate_v4", raw); } catch (_) {}
+        // Banda roja: advertir inmediatamente, no fallar silencioso
+        setTimeout(() => {
+          try {
+            if (document.getElementById("oc-estado-corrupto-aviso")) return;
+            const d = document.createElement("div");
+            d.id = "oc-estado-corrupto-aviso";
+            d.setAttribute("role", "alert");
+            d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10003;background:#B0183E;padding:12px 16px;text-align:center;cursor:pointer;";
+            d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">⚠️ El inventario guardado no pudo cargarse (datos de ejemplo activos). Ve a AVANZADO para recuperar o importar tu respaldo.</span>';
+            d.addEventListener("click", () => d.remove());
+            (document.body || document.documentElement).appendChild(d);
+          } catch (_) {}
+        }, 800);
+      }
     } catch (_) {}
   }
+  // Cuando otra pestaña guarda, recargar su estado si es más nuevo (evita last-writer-wins con estado viejo)
+  window.addEventListener("storage", (e) => { if (e.key === OC_STATE_KEY) cargarEstadoLocal(); });
 
   function nombreUbic(id) { const u = ubicaciones.find((x) => x.id === id); return u ? u.nombre : "Ubicación desconocida"; }
 
