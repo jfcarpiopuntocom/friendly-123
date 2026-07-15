@@ -114,6 +114,17 @@
       "adv.balanceHeading": "Simplified balance sheet",
       "adv.valuedInvHeading": "Valued inventory",
       "footer.tagline": "friendly-123: shelf, customer, and commission control",
+      "hoy.err": "Could not load the summary. Reload to try again.",
+      "hoy.titulo.verde": "Everything's flowing today. Your business is healthy.",
+      "hoy.titulo.amarillo": "A few things need attention — manageable, not urgent.",
+      "hoy.titulo.rojo": "You need to act today — there are emergencies in your business.",
+      "hoy.titulo.default": "Your business today",
+      "hoy.subOwner": "You earned {monto} today, with {n} sales recorded.",
+      "hoy.subStaff": "{n} sales recorded today.",
+      "hoy.noAlerts": "No alerts. All quiet.",
+      "hoy.boostHeading": "Push these today ★",
+      "hoy.inStock": "in stock",
+      "hoy.moodLabel": "Today's note",
     },
     es: {
       "brand.slogan": "Tu negocio, a color",
@@ -212,6 +223,17 @@
       "adv.balanceHeading": "Balance simplificado",
       "adv.valuedInvHeading": "Inventario valorizado",
       "footer.tagline": "Amigable-123: control de inventario, clientes y perchas",
+      "hoy.err": "No se pudo cargar el resumen. Recarga para intentar de nuevo.",
+      "hoy.titulo.verde": "Todo fluye hoy. Tu negocio está saludable.",
+      "hoy.titulo.amarillo": "Hay cosas que piden atención — manejable, no urgente.",
+      "hoy.titulo.rojo": "Necesitas actuar hoy — hay emergencias en tu negocio.",
+      "hoy.titulo.default": "Tu negocio hoy",
+      "hoy.subOwner": "Ganaste {monto} hoy, con {n} ventas registradas.",
+      "hoy.subStaff": "{n} ventas registradas hoy.",
+      "hoy.noAlerts": "No hay alertas. Todo tranquilo.",
+      "hoy.boostHeading": "Para impulsar hoy ★",
+      "hoy.inStock": "en stock",
+      "hoy.moodLabel": "El apunte de hoy",
     },
   };
 
@@ -227,6 +249,13 @@
   }
 
   function getLang() { return lang; }
+
+  // tf("hoy.subOwner", {monto:"$5.00", n:3}) -> interpola {monto}/{n} en el texto.
+  function tf(key, vars) {
+    let s = t(key);
+    if (vars) Object.keys(vars).forEach((k) => { s = s.replace(new RegExp("\\{" + k + "\\}", "g"), vars[k]); });
+    return s;
+  }
 
   function setLang(l) {
     lang = l === "es" ? "es" : "en";
@@ -261,8 +290,9 @@
     });
   }
 
-  window.OCI18n = { t, setLang, getLang, applyStatic, DICT };
+  window.OCI18n = { t, tf, setLang, getLang, applyStatic, DICT };
   window.t = t; // atajo para las plantillas de las vistas dinámicas
+  window.tf = tf;
 
   document.addEventListener("DOMContentLoaded", () => {
     document.documentElement.lang = lang;
