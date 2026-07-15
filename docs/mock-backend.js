@@ -10,7 +10,8 @@
   // Marca global para que index.html sepa que corre sin backend real y NUNCA
   // muestre un mensaje de "el servidor no responde" en la demo pública.
   window.OC_DEMO = true;
-  const ZONA = "America/Guayaquil";
+  // Timezone: reads from localStorage (set by store owner in Avanzado) or falls back to browser local.
+  const ZONA = localStorage.getItem("oc_timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone;
   function hoyISO() {
     return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   }

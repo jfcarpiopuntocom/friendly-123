@@ -1267,9 +1267,8 @@
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.1">1. Tap any product card to open its printable label.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.lab.2html">2. <strong>Print full label</strong> prints ONLY the label — nothing else on the page.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.3">3. Tap the barcode itself to print or save just the barcode, for smaller labels.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.4">4. The QR code links straight to the product's full record for anyone who scans it.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.3">2. Tap the barcode itself to print or save just the barcode, for smaller labels.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.4">3. The QR code links straight to the product's full record for anyone who scans it.</p>
       </div>
     </details>
     <div class="grid-etiquetas" id="gridEtiquetas"></div>
@@ -2038,7 +2037,7 @@ const MOODS = [
 function actualizarReloj(){
   const el = document.getElementById("heroReloj");
   if (!el) return;
-  el.textContent = new Date().toLocaleString("es-EC", { weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
+  el.textContent = new Date().toLocaleString(OCI18n.getLang() === "en" ? "en-US" : "es", { weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
 }
 
 // --- VISTA HOY ---
@@ -2394,7 +2393,7 @@ async function cargarLogAjustes(){
   }
   if (!movs.length){ cont.innerHTML = `<p style="color:var(--ink-soft);">${t("log.empty")}</p>`; return; }
   cont.innerHTML = movs.slice(0, 20).map(m => {
-    const fecha = new Date(m.fecha).toLocaleString('es-EC', { timeZone:'America/Guayaquil', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+    const fecha = new Date(m.fecha).toLocaleString(OCI18n.getLang() === "en" ? "en-US" : "es", { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
     const icono = m.tipo === 'ajuste' ? '📦' : m.tipo === 'venta' ? '💰' : m.tipo === 'estrella' ? '⭐' : m.tipo === 'anulacion' ? '🔄' : m.tipo === 'alta' ? '🆕' : '📋';
     const detalle = escHtml((m.detalle && m.detalle.producto) || '');
     const extra = m.tipo === 'ajuste' ? ` (${m.detalle.delta > 0 ? '+' : ''}${m.detalle.delta}) — ${escHtml(m.detalle.motivo)}` : m.tipo === 'venta' ? ` × ${m.detalle.cantidad} = $${m.detalle.total}` : m.tipo === 'estrella' ? ` ${escHtml(m.detalle.accion)}` : '';
