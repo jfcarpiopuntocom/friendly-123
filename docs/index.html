@@ -1258,12 +1258,12 @@
        El empleado ve la lista y puede registrar clientes; los montos y la
        matriz de estaciones son SOLO del dueno (cargarClientes aplica el rol). -->
   <section id="vista-clientes" class="vista">
-    <h3 class="seccion" style="margin-top:0;">Tus clientes</h3>
-    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;">Cada cliente vive una estación, como tus siembras: 🌱 primavera crece, ☀️ verano cosecha, 🍂 otoño se enfría, ❄️ invierno duerme. El color te dice a quién cuidar y a quién despertar.</p>
+    <h3 class="seccion" style="margin-top:0;" data-i18n="cust.heading">Your customers</h3>
+    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="cust.intro">Every customer lives in a season, like your crops: 🌱 spring growing, ☀️ summer harvest, 🍂 fall cooling off, ❄️ winter asleep. The color tells you who to take care of and who to wake up.</p>
     <div class="tag-card" style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-      <input id="cliNombre" type="text" placeholder="Nombre del cliente" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
-      <input id="cliTelefono" type="text" placeholder="Teléfono (opcional)" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
-      <button class="ir" id="btnAltaCliente" style="padding:10px 18px;">+ Agregar cliente</button>
+      <input id="cliNombre" type="text" placeholder="Customer name" data-i18n-attr="placeholder:cust.namePlaceholder" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <input id="cliTelefono" type="text" placeholder="Phone (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <button class="ir" id="btnAltaCliente" style="padding:10px 18px;" data-i18n="cust.addBtn">+ Add customer</button>
     </div>
     <p id="cliMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
     <div id="listaClientes" style="margin-top:14px;"></div>
@@ -1273,61 +1273,57 @@
          cargarClientes() lo muestra/oculta segun rol. El empleado JAMAS lo ve:
          para el empleado solo existe el alta manual de arriba. -->
     <div id="cliImportarBloque" style="display:none;margin-top:34px;padding-top:20px;border-top:2px solid var(--linea,#D7E0E8);">
-      <h3 class="seccion" style="margin-top:0;">Importar tu cartera desde un archivo</h3>
-      <p style="font-size:16px;color:var(--ink-soft);margin-top:0;">Si ya tienes tus clientes en Excel o en el telefono, guarda el archivo como <strong>CSV</strong> con dos columnas, <strong>nombre</strong> y <strong>telefono</strong>, y subelo aqui. Cada uno recibe su codigo unico automaticamente; los repetidos (mismo nombre) se saltan.</p>
+      <h3 class="seccion" style="margin-top:0;" data-i18n="cust.importHeading">Import your customer list from a file</h3>
+      <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n-html="cust.importIntro">If you already have your customers in Excel or on your phone, save the file as <strong>CSV</strong> with two columns, <strong>name</strong> and <strong>phone</strong>, and upload it here. Each one gets their unique code automatically; duplicates (same name) are skipped.</p>
       <input type="file" id="cliCsvFile" accept=".csv,text/csv" style="font-size:16px;">
       <p id="cliCsvMsg" style="font-size:15px;font-weight:700;margin:10px 0 0;"></p>
     </div>
   </section>
 
   <section id="vista-comisiones" class="vista">
-    <h3 class="seccion" style="margin-top:0;">Comisiones</h3>
-    <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Lo que le debes a cada promotor/a este mes, calculado venta por venta — sin Excel, sin sorpresas.</p>
+    <h3 class="seccion" style="margin-top:0;" data-i18n="comm.heading">Commissions</h3>
+    <p style="font-size:14px;color:var(--ink-soft);margin-top:0;" data-i18n="comm.intro">What you owe each promoter this month, calculated sale by sale — no spreadsheets, no surprises.</p>
     <div id="listaComisiones"></div>
   </section>
 
   <!-- VISTA: AVANZADO -->
   <section id="vista-avanzado" class="vista">
-    <h3 class="seccion" style="margin-top:0;">Modo avanzado</h3>
-    <div class="avanzado-aviso">
-      Aquí vive el detalle técnico del negocio: actividad, gastos, y la capa contable (cuentas T, P&amp;G, balance e inventario valorizado). No es para el día a día — es para el contador, el administrador o quien quiera ver los números a fondo. Por eso la parte contable pide una subclave aparte.
-    </div>
+    <h3 class="seccion" style="margin-top:0;" data-i18n="adv.heading">Advanced mode</h3>
+    <div class="avanzado-aviso" data-i18n-html="adv.notice">This is where the technical detail of the business lives: activity, expenses, and the accounting layer (T-accounts, P&amp;L, balance sheet, and valued inventory). It's not for day-to-day — it's for the accountant, the manager, or anyone who wants to see the numbers in depth. That's why the accounting part asks for a separate passcode.</div>
 
     <!-- Actividad ya no tiene botón propio en el nav (JFC, 2026-07-01: "eso
          NO necesita un botón en el main") — vive aquí, es historial operativo,
          no algo que se consulte varias veces al día como Hoy o Escanear. -->
-    <h3 class="seccion" style="margin-top:0;">Actividad reciente</h3>
+    <h3 class="seccion" style="margin-top:0;" data-i18n="adv.recentActivity">Recent activity</h3>
     <div id="listaActividad" class="tag-card" style="text-align:left;max-height:280px;overflow-y:auto;"></div>
 
-    <h3 class="seccion">Gastos mensuales</h3>
+    <h3 class="seccion" data-i18n="adv.monthlyExpenses">Monthly expenses</h3>
     <div class="panel-escaner tag-card" style="text-align:left;">
-      <p>
-        Arriendo, luz, sueldos, internet, etc. Ingresa el total mensual de la ubicación seleccionada. Se reparte entre los días reales del mes para estimar el gasto operativo del día en el P&amp;G.
-      </p>
+      <p data-i18n-html="adv.expensesIntro">Rent, electricity, payroll, internet, etc. Enter the monthly total for the selected location. It's split across the real days in the month to estimate the daily operating cost in the P&amp;L.</p>
       <div id="gastosSelectorWrap" style="display:none;margin-bottom:12px;">
-        <label style="font-size:14px;font-weight:700;">Elige una ubicación para editar sus gastos:<br>
+        <label style="font-size:14px;font-weight:700;" data-i18n="adv.pickLocation">Pick a location to edit its expenses:<br>
           <select id="gastosUbicSelector" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;"></select></label>
       </div>
-      <input id="inputGastosMensuales" type="number" min="0" step="0.01" placeholder="Ej: 350.00" style="text-align:left; max-width:220px;">
+      <input id="inputGastosMensuales" type="number" min="0" step="0.01" placeholder="e.g. 350.00" data-i18n-attr="placeholder:adv.expensesPlaceholder" style="text-align:left; max-width:220px;">
       <br>
-      <button class="ir" id="btnGuardarGastos">Guardar</button>
+      <button class="ir" id="btnGuardarGastos" data-i18n="adv.save">Save</button>
       <p id="msgGastos" style="font-size:14px; margin-top:10px;"></p>
     </div>
 
-    <h3 class="seccion">Pérdidas y ganancias (hoy)</h3>
+    <h3 class="seccion" data-i18n="adv.pnlHeading">Profit &amp; loss (today)</h3>
     <div class="tabla-wrap"><table class="reporte" id="tablaPL"></table></div>
 
-    <h3 class="seccion">Balance simplificado</h3>
+    <h3 class="seccion" data-i18n="adv.balanceHeading">Simplified balance sheet</h3>
     <div class="tabla-wrap"><table class="reporte" id="tablaBalance"></table></div>
 
-    <h3 class="seccion">Inventario valorizado</h3>
+    <h3 class="seccion" data-i18n="adv.valuedInvHeading">Valued inventory</h3>
     <div class="tabla-wrap"><table class="reporte" id="tablaValorizado"></table></div>
   </section>
 
 </main>
 
 <footer>
-  <em>Amigable-123: control de inventario, clientes y perchas</em>
+  <em data-i18n="footer.tagline">friendly-123: shelf, customer, and commission control</em>
   <br><a href="https://jfcarpio.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">jfcarpio.com</a> — 2026
 </footer>
 
@@ -1362,7 +1358,7 @@ async function cargarUbicaciones(){
   ubicaciones = await res.json();
   const sel = document.getElementById("selectUbicacion");
   const valorPrevio = sel.value;
-  sel.innerHTML = `<option value="todas">Todas las ubicaciones</option>` +
+  sel.innerHTML = `<option value="todas" data-i18n="header.allLocations">All locations</option>` +
     ubicaciones.map(u => `<option value="${u.id}">${u.nombre}</option>`).join("");
   // Si la ubicación que estaba seleccionada ya no existe en la lista (ej. se
   // desactivó), vuelve a "todas" en vez de quedar en un valor fantasma.
