@@ -1453,7 +1453,7 @@ async function cargarUbicaciones(){
       if (cd && cd.open) {
         cargarCierreLista();
         const m = document.getElementById("cierreMsg");
-        if (m) { m.textContent = "Cambiaste de percha: la lista del cierre se recargó con la nueva."; m.style.color = "var(--sim-naranja-dk)"; }
+        if (m) { m.textContent = t("sold.branchChanged"); m.style.color = "var(--sim-naranja-dk)"; }
       }
     });
   }
@@ -1524,7 +1524,7 @@ async function cargarCierreLista(){
   const totalHoy = Object.values(hoyMap).reduce((a, b) => a + b, 0);
   // "hoy: N" = lo YA registrado (toques de arriba o cierres previos). Lo que
   // se teclea aquí es ADICIONAL — por eso nunca se pre-carga en el input.
-  cont.innerHTML = `<p style="font-size:15px;font-weight:700;color:var(--sim-verde-dk);margin:8px 0 4px;">Ya registradas hoy: ${totalHoy} unidad(es). Apunta solo lo que falte.</p>` + conStock.map(p => `
+  cont.innerHTML = `<p style="font-size:15px;font-weight:700;color:var(--sim-verde-dk);margin:8px 0 4px;">${tf("sold.alreadyToday", {n: totalHoy})}</p>` + conStock.map(p => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--linea,#D7E0E8);">
       <span style="font-size:15px;color:#0F1923;flex:1;">${escHtml(p.nombre)} <span style="color:#2C3E50;">(hay ${p.stockActual})</span>${hoyMap[p.id] ? ` <span style="font-size:14px;font-weight:700;color:var(--sim-verde-dk);">· hoy: ${hoyMap[p.id]}</span>` : ""}</span>
       <input type="number" min="0" max="${p.stockActual}" value="${previos[p.id] || 0}" data-cierre-prod="${p.id}" inputmode="numeric" style="width:76px;padding:8px;border:2px solid var(--azul-medio);border-radius:6px;text-align:center;">
@@ -1623,13 +1623,13 @@ if (elBtnCierre) elBtnCierre.addEventListener("click", async () => {
     .map(i => ({ productoId: i.dataset.cierreProd, cantidad: Number(i.value) || 0 }))
     .filter(i => i.cantidad > 0);
   const msgEl = document.getElementById("cierreMsg");
-  if (!items.length) { msgEl.textContent = "No apuntaste ninguna cantidad."; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
+  if (!items.length) { msgEl.textContent = t("sold.noQty"); msgEl.style.color = "var(--sim-rojo-dk)"; return; }
   const totalCierre = items.reduce((a, i) => a + i.cantidad, 0);
-  if (!(await ocConfirm(`Esto registra ${totalCierre} unidad(es) vendida(s) HOY y descuenta el stock. ¿Aplicar el cierre?`))) return;
+  if (!(await ocConfirm(tf("sold.closeConfirm", {n: totalCierre})))) return;
   const res = await fetch(`${API}/ventas/cierre`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }) });
   const r = await res.json();
   if (!res.ok) { msgEl.textContent = r.error; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
-  msgEl.textContent = `Cierre aplicado: ${r.aplicadas} unidad(es) registradas.` + (r.errores.length ? " Ojo: " + r.errores.join(" · ") : "");
+  msgEl.textContent = tf("sold.closeApplied", {n: r.aplicadas}) + (r.errores.length ? tf("sold.closeIssues", {errors: r.errores.join(" · ")}) : "");
   msgEl.style.color = r.errores.length ? "var(--sim-naranja-dk)" : "var(--sim-verde-dk)";
   cargarCierreLista();
   cargarGridVender();
