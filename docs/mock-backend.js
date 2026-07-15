@@ -23,15 +23,15 @@
   // Perchas (unidades operativas). sucursalId -> agrupador backend.
   const ubicaciones = [
       {
-          "id": "centro",
-          "nombre": "Local Centro Histórico",
+          "id": "smokeshop",
+          "nombre": "Cornerstone Smoke Shop",
           "activa": true,
           "tipo": "propio",
           "sucursalId": "suc01"
       },
       {
-          "id": "mercado",
-          "nombre": "Stand Mercado 10 de Agosto",
+          "id": "bookshelf",
+          "nombre": "Ink & Pages — Local Author Shelf",
           "activa": true,
           "tipo": "socio",
           "sucursalId": "suc02",
@@ -58,8 +58,8 @@
           ]
       },
       {
-          "id": "feria",
-          "nombre": "Feria Artesanal El Otorongo",
+          "id": "fairbooth",
+          "nombre": "Weekend Vendor Fair Booth",
           "activa": true,
           "tipo": "consignacion",
           "sucursalId": "suc03",
@@ -74,126 +74,126 @@
   // Promotores/as: personas que traen gente (turistas, recomendados,
   // familiares) y llevan comision. Se asignan por percha (promotoraId).
   const promotoras = [
-    { id: "pr01", nombre: "Maria Auquilla", comision: 10 },
-    { id: "pr02", nombre: "Carlos Once", comision: 8 },
+    { id: "pr01", nombre: "Jamie Ortiz", comision: 10 },
+    { id: "pr02", nombre: "Casey Nguyen", comision: 8 },
   ];
   const sucursales = [
-    { id: "suc01", nombre: "Centro Histórico",          activa: true },
-    { id: "suc02", nombre: "Mercado 10 de Agosto",      activa: true },
-    { id: "suc03", nombre: "El Otorongo",               activa: true },
+    { id: "suc01", nombre: "Downtown",                  activa: true },
+    { id: "suc02", nombre: "Vendor Row",                activa: true },
+    { id: "suc03", nombre: "Riverside Market",          activa: true },
   ];
 
   const productos = [
-    {"id":"p01","nombre":"Camiseta Pink Floyd - The Dark Side","categoria":"Camisetas","sku":"CAM-PF-DSM","barcode":"7861000030019","ubicacionId":"centro","precio":22,"costo":9,"stockActual":30,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Rock Import EC"},
-    {"id":"p02","nombre":"Camiseta Metallica - Master of Puppets","categoria":"Camisetas","sku":"CAM-MET-MOP","estrella":true,"barcode":"7861000030026","ubicacionId":"centro","precio":22,"costo":9,"stockActual":8,"umbralRojo":10,"umbralAmarillo":18,"proveedor":"Rock Import EC"},
-    {"id":"p03","nombre":"Camiseta AC/DC - Back in Black","categoria":"Camisetas","sku":"CAM-ACDC-BIB","estrella":true,"barcode":"7861000030033","ubicacionId":"mercado","precio":20,"costo":8.5,"stockActual":25,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Rock Import EC"},
-    {"id":"p04","nombre":"Camiseta Nirvana - Nevermind","categoria":"Camisetas","sku":"CAM-NIR-NVM","barcode":"7861000030040","ubicacionId":"centro","precio":21,"costo":9,"stockActual":15,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Rock Import EC"},
-    {"id":"p05","nombre":"Camiseta Iron Maiden - The Trooper","categoria":"Camisetas","sku":"CAM-IM-TRP","barcode":"7861000030057","ubicacionId":"feria","precio":23,"costo":10,"stockActual":4,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Rock Import EC"},
-    {"id":"p06","nombre":"Camiseta The Rolling Stones - Lengua","categoria":"Camisetas","sku":"CAM-RS-TON","barcode":"7861000030064","ubicacionId":"mercado","precio":20,"costo":8.5,"stockActual":18,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Rock Import EC"},
-    {"id":"p07","nombre":"Camiseta Led Zeppelin - Icarus","categoria":"Camisetas","sku":"CAM-LZ-ICA","barcode":"7861000030071","ubicacionId":"centro","precio":22,"costo":9,"stockActual":12,"umbralRojo":5,"umbralAmarillo":13,"proveedor":"Rock Import EC"},
-    {"id":"p08","nombre":"Camiseta Ramones - Presidential Seal","categoria":"Camisetas","sku":"CAM-RAM-PRS","barcode":"7861000030088","ubicacionId":"feria","precio":19,"costo":8,"stockActual":9,"umbralRojo":5,"umbralAmarillo":11,"proveedor":"Rock Import EC"},
-    {"id":"p09","nombre":"Camiseta Guns N' Roses - Appetite","categoria":"Camisetas","sku":"CAM-GNR-APP","barcode":"7861000030095","ubicacionId":"centro","precio":22,"costo":9,"stockActual":20,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Rock Import EC"},
-    {"id":"p10","nombre":"Camiseta Queen - Crest","categoria":"Camisetas","sku":"CAM-QUE-CRS","barcode":"7861000030101","ubicacionId":"mercado","precio":21,"costo":9,"stockActual":3,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Rock Import EC"},
-    {"id":"p11","nombre":"Taza Ceramica Rock Cuenca","categoria":"Souvenirs","sku":"SOU-TAZ-001","estrella":true,"barcode":"7861000030118","ubicacionId":"feria","precio":8,"costo":3,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Souvenirs del Tomebamba"},
-    {"id":"p12","nombre":"Llavero Guitarra Metalico","categoria":"Souvenirs","sku":"SOU-LLA-001","barcode":"7861000030125","ubicacionId":"mercado","precio":3.5,"costo":1.2,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Souvenirs del Tomebamba"},
-    {"id":"p13","nombre":"Pin Esmaltado de Banda","categoria":"Accesorios","sku":"ACC-PIN-001","barcode":"7861000030132","ubicacionId":"centro","precio":4,"costo":1.5,"stockActual":50,"umbralRojo":12,"umbralAmarillo":25,"proveedor":"Rock Import EC"},
-    {"id":"p14","nombre":"Parche Bordado Rock","categoria":"Accesorios","sku":"ACC-PAR-001","barcode":"7861000030149","ubicacionId":"feria","precio":5,"costo":2,"stockActual":35,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Rock Import EC"},
-    {"id":"p15","nombre":"Gorra Snapback Rock","categoria":"Souvenirs","sku":"SOU-GOR-001","barcode":"7861000030156","ubicacionId":"centro","precio":15,"costo":6.5,"stockActual":6,"umbralRojo":5,"umbralAmarillo":9,"proveedor":"Rock Import EC"},
-    {"id":"p16","nombre":"Puas de Guitarra Pack x6","categoria":"Accesorios","sku":"ACC-PUA-006","barcode":"7861000030163","ubicacionId":"mercado","precio":6,"costo":2.2,"stockActual":22,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Rock Import EC"},
+    {"id":"p01","nombre":"Butane Torch Lighter","categoria":"Smoke Accessories","sku":"CAM-PF-DSM","barcode":"7861000030019","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":30,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p02","nombre":"4-Piece Herb Grinder","categoria":"Smoke Accessories","sku":"CAM-MET-MOP","estrella":true,"barcode":"7861000030026","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":8,"umbralRojo":10,"umbralAmarillo":18,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p03","nombre":"Local History Zine Vol. 3","categoria":"Books","sku":"CAM-ACDC-BIB","estrella":true,"barcode":"7861000030033","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":25,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Indie Press Collective"},
+    {"id":"p04","nombre":"Rolling Papers Multi-Pack","categoria":"Smoke Accessories","sku":"CAM-NIR-NVM","barcode":"7861000030040","ubicacionId":"smokeshop","precio":21,"costo":9,"stockActual":15,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p05","nombre":"Graphic Tee — Skyline Print","categoria":"Apparel","sku":"CAM-IM-TRP","barcode":"7861000030057","ubicacionId":"fairbooth","precio":23,"costo":10,"stockActual":4,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Textiles"},
+    {"id":"p06","nombre":"Poetry Chapbook — Late Bloom","categoria":"Books","sku":"CAM-RS-TON","barcode":"7861000030064","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":18,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Indie Press Collective"},
+    {"id":"p07","nombre":"Novelty Glass Pipe","categoria":"Smoke Accessories","sku":"CAM-LZ-ICA","barcode":"7861000030071","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":12,"umbralRojo":5,"umbralAmarillo":13,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p08","nombre":"Graphic Tee — Retro Sunset","categoria":"Apparel","sku":"CAM-RAM-PRS","barcode":"7861000030088","ubicacionId":"fairbooth","precio":19,"costo":8,"stockActual":9,"umbralRojo":5,"umbralAmarillo":11,"proveedor":"Riverside Textiles"},
+    {"id":"p09","nombre":"Metal Ashtray","categoria":"Smoke Accessories","sku":"CAM-GNR-APP","barcode":"7861000030095","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":20,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p10","nombre":"Short Story Collection — Night Shift","categoria":"Books","sku":"CAM-QUE-CRS","barcode":"7861000030101","ubicacionId":"bookshelf","precio":21,"costo":9,"stockActual":3,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Indie Press Collective"},
+    {"id":"p11","nombre":"Handmade Beaded Bracelet","categoria":"Handmade Crafts","sku":"SOU-TAZ-001","estrella":true,"barcode":"7861000030118","ubicacionId":"fairbooth","precio":8,"costo":3,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"River Valley Artisans"},
+    {"id":"p12","nombre":"Bookmark Set — Pressed Flowers","categoria":"Stationery & Gifts","sku":"SOU-LLA-001","barcode":"7861000030125","ubicacionId":"bookshelf","precio":3.5,"costo":1.2,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Paper & Bind Co."},
+    {"id":"p13","nombre":"Incense Sticks — Sandalwood","categoria":"Smoke Accessories","sku":"ACC-PIN-001","barcode":"7861000030132","ubicacionId":"smokeshop","precio":4,"costo":1.5,"stockActual":50,"umbralRojo":12,"umbralAmarillo":25,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p14","nombre":"Embroidered Patch — Mountain Range","categoria":"Handmade Crafts","sku":"ACC-PAR-001","barcode":"7861000030149","ubicacionId":"fairbooth","precio":5,"costo":2,"stockActual":35,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"River Valley Artisans"},
+    {"id":"p15","nombre":"Snapback Cap — Logo","categoria":"Smoke Accessories","sku":"SOU-GOR-001","barcode":"7861000030156","ubicacionId":"smokeshop","precio":15,"costo":6.5,"stockActual":6,"umbralRojo":5,"umbralAmarillo":9,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p16","nombre":"Reading Journal — Lined","categoria":"Stationery & Gifts","sku":"ACC-PUA-006","barcode":"7861000030163","ubicacionId":"bookshelf","precio":6,"costo":2.2,"stockActual":22,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Paper & Bind Co."},
     /* Novela latinoamericana contemporánea — 8 títulos cultos, selección JFC 2026-07-03 */
-    {"id":"p17","nombre":"Nuestra parte de noche — Mariana Enriquez","categoria":"Libros","sku":"LIB-ENR-NPN","barcode":"9789584293152","ubicacionId":"centro","precio":22,"costo":9.5,"stockActual":3,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Planeta Ecuador"},
-    {"id":"p18","nombre":"Temporada de huracanes — Fernanda Melchor","categoria":"Libros","sku":"LIB-MEL-TDH","barcode":"9786071653697","ubicacionId":"mercado","precio":20,"costo":8.5,"stockActual":6,"umbralRojo":3,"umbralAmarillo":7,"proveedor":"Literatura Random House"},
-    {"id":"p19","nombre":"Kentukis — Samanta Schweblin","categoria":"Libros","sku":"LIB-SCH-KEN","barcode":"9788439735564","ubicacionId":"centro","precio":19,"costo":7.5,"stockActual":11,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Literatura Random House"},
-    {"id":"p20","nombre":"Cometierra — Dolores Reyes","categoria":"Libros","sku":"LIB-REY-COM","barcode":"9789878358154","ubicacionId":"feria","precio":21,"costo":6,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Sigilo"},
-    {"id":"p21","nombre":"Mugre rosa — Fernanda Trías","categoria":"Libros","sku":"LIB-TRI-MGR","barcode":"9789974723146","ubicacionId":"feria","precio":18,"costo":8,"stockActual":2,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Literatura Random House"},
-    {"id":"p22","nombre":"Pelea de gallos — María Fernanda Ampuero","categoria":"Libros","sku":"LIB-AMP-PDG","estrella":true,"barcode":"9788417125400","ubicacionId":"centro","precio":18,"costo":7.5,"stockActual":9,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Páginas de Espuma"},
-    {"id":"p23","nombre":"Paradais — Fernanda Melchor","categoria":"Libros","sku":"LIB-MEL-PAR","barcode":"9786071677129","ubicacionId":"mercado","precio":17,"costo":7,"stockActual":5,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Literatura Random House"},
-    {"id":"p24","nombre":"Las aventuras de la China Iron — Cabezón Cámara","categoria":"Libros","sku":"LIB-CAB-CIA","estrella":true,"barcode":"9789877383652","ubicacionId":"centro","precio":20,"costo":7.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Literatura Random House"},
+    {"id":"p17","nombre":"Memoir — Where the River Turns","categoria":"Books","sku":"LIB-ENR-NPN","barcode":"9789584293152","ubicacionId":"smokeshop","precio":22,"costo":9.5,"stockActual":3,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Indie Press Collective"},
+    {"id":"p18","nombre":"Novel — The Long Season","categoria":"Books","sku":"LIB-MEL-TDH","barcode":"9786071653697","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":6,"umbralRojo":3,"umbralAmarillo":7,"proveedor":"Indie Press Collective"},
+    {"id":"p19","nombre":"Essay Collection — Small Hours","categoria":"Books","sku":"LIB-SCH-KEN","barcode":"9788439735564","ubicacionId":"smokeshop","precio":19,"costo":7.5,"stockActual":11,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
+    {"id":"p20","nombre":"Novel — Ash and Amber","categoria":"Books","sku":"LIB-REY-COM","barcode":"9789878358154","ubicacionId":"fairbooth","precio":21,"costo":6,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
+    {"id":"p21","nombre":"Poetry — Salt Water Letters","categoria":"Books","sku":"LIB-TRI-MGR","barcode":"9789974723146","ubicacionId":"fairbooth","precio":18,"costo":8,"stockActual":2,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
+    {"id":"p22","nombre":"Short Fiction — Counter Stories","categoria":"Books","sku":"LIB-AMP-PDG","estrella":true,"barcode":"9788417125400","ubicacionId":"smokeshop","precio":18,"costo":7.5,"stockActual":9,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
+    {"id":"p23","nombre":"Novel — Low Tide","categoria":"Books","sku":"LIB-MEL-PAR","barcode":"9786071677129","ubicacionId":"bookshelf","precio":17,"costo":7,"stockActual":5,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
+    {"id":"p24","nombre":"Novel — Iron and Rust","categoria":"Books","sku":"LIB-CAB-CIA","estrella":true,"barcode":"9789877383652","ubicacionId":"smokeshop","precio":20,"costo":7.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
     /* ---- VITRINAS SIMON: productos diseñados para exhibir los 6 estados del semáforo ---- */
     /* ROJO intensidad 1 — sin stock (inventario muerto, cero unidades) */
-    {"id":"p25","nombre":"Vinilo Led Zeppelin - Physical Graffiti","categoria":"Vinilos","sku":"VIN-LZ-PGR","barcode":"7861000030170","ubicacionId":"centro","precio":45,"costo":28,"stockActual":0,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Rock Import EC"},
+    {"id":"p25","nombre":"Vinyl Record — Analog Dreams","categoria":"Vinyl Records","sku":"VIN-LZ-PGR","barcode":"7861000030170","ubicacionId":"smokeshop","precio":45,"costo":28,"stockActual":0,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
     /* ROJO intensidad 2 — quedan 1 (critico, reponer urgente) */
-    {"id":"p26","nombre":"Vinilo Pink Floyd - Animals","categoria":"Vinilos","sku":"VIN-PF-ANM","barcode":"7861000030187","ubicacionId":"mercado","precio":42,"costo":25,"stockActual":1,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Rock Import EC"},
+    {"id":"p26","nombre":"Vinyl Record — Midnight Radio","categoria":"Vinyl Records","sku":"VIN-PF-ANM","barcode":"7861000030187","ubicacionId":"bookshelf","precio":42,"costo":25,"stockActual":1,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
     /* ROJO intensidad 3 — exactamente en el umbral rojo (limite de emergencia) */
-    {"id":"p27","nombre":"Camiseta David Bowie - Ziggy Stardust","categoria":"Camisetas","sku":"CAM-BOW-ZIG","barcode":"7861000030194","ubicacionId":"feria","precio":24,"costo":10,"stockActual":5,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Rock Import EC"},
+    {"id":"p27","nombre":"Graphic Tee — Vintage Fade","categoria":"Apparel","sku":"CAM-BOW-ZIG","barcode":"7861000030194","ubicacionId":"fairbooth","precio":24,"costo":10,"stockActual":5,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Riverside Textiles"},
     /* NARANJA encendido 3 — a 1 unidad del umbral rojo (revisar hoy) */
-    {"id":"p28","nombre":"Poster Metalico AC/DC High Voltage","categoria":"Accesorios","sku":"ACC-POS-001","barcode":"7861000030200","ubicacionId":"centro","precio":12,"costo":7,"stockActual":6,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Rock Import EC"},
+    {"id":"p28","nombre":"Metal Poster — Neon City","categoria":"Smoke Accessories","sku":"ACC-POS-001","barcode":"7861000030200","ubicacionId":"smokeshop","precio":12,"costo":7,"stockActual":6,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Coastal Wholesale Co."},
     /* NARANJA encendido 1 — recién entrando a la zona de revisar */
-    {"id":"p29","nombre":"Camiseta The Cure - Disintegration","categoria":"Camisetas","sku":"CAM-CUR-DIS","barcode":"7861000030217","ubicacionId":"mercado","precio":22,"costo":13,"stockActual":9,"umbralRojo":4,"umbralAmarillo":14,"proveedor":"Rock Import EC"},
+    {"id":"p29","nombre":"Novel — Static Line","categoria":"Books","sku":"CAM-CUR-DIS","barcode":"7861000030217","ubicacionId":"bookshelf","precio":22,"costo":13,"stockActual":9,"umbralRojo":4,"umbralAmarillo":14,"proveedor":"Indie Press Collective"},
     /* NARANJA encendido 1 — tope del rango, sin apuro todavía */
-    {"id":"p30","nombre":"Taza Batman Rock Ceramica","categoria":"Souvenirs","sku":"SOU-TAZ-002","barcode":"7861000030224","ubicacionId":"feria","precio":9,"costo":5.5,"stockActual":13,"umbralRojo":4,"umbralAmarillo":14,"proveedor":"Souvenirs del Tomebamba"},
+    {"id":"p30","nombre":"Ceramic Mug — Hand Painted","categoria":"Handmade Crafts","sku":"SOU-TAZ-002","barcode":"7861000030224","ubicacionId":"fairbooth","precio":9,"costo":5.5,"stockActual":13,"umbralRojo":4,"umbralAmarillo":14,"proveedor":"River Valley Artisans"},
     /* VERDE — stock saludable, margen moderado (< 0.50, no es azul) */
-    {"id":"p31","nombre":"Agenda Rock 2026 Tapa Dura","categoria":"Papeleria","sku":"PAP-AGE-001","barcode":"7861000030231","ubicacionId":"centro","precio":15,"costo":9,"stockActual":25,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Distribuidora Cuenca"},
+    {"id":"p31","nombre":"Planner 2026 — Hardcover","categoria":"Stationery & Gifts","sku":"PAP-AGE-001","barcode":"7861000030231","ubicacionId":"smokeshop","precio":15,"costo":9,"stockActual":25,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Paper & Bind Co."},
     /* VERDE — margen bajo, volumen alto (artículo de bajo costo) */
-    {"id":"p32","nombre":"Bolsa de Tela Rock Estampada","categoria":"Accesorios","sku":"ACC-BOL-001","barcode":"7861000030248","ubicacionId":"mercado","precio":8,"costo":5,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Rock Import EC"},
+    {"id":"p32","nombre":"Canvas Tote Bag — Screen Print","categoria":"Stationery & Gifts","sku":"ACC-BOL-001","barcode":"7861000030248","ubicacionId":"bookshelf","precio":8,"costo":5,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Paper & Bind Co."},
     /* VERDE — producto de volumen, margen ajustado */
-    {"id":"p33","nombre":"Libreta Tapa Dura Rock 80 hojas","categoria":"Papeleria","sku":"PAP-LIB-001","barcode":"7861000030255","ubicacionId":"feria","precio":11,"costo":7,"stockActual":18,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Distribuidora Cuenca"},
+    {"id":"p33","nombre":"Notebook — Kraft Cover","categoria":"Handmade Crafts","sku":"PAP-LIB-001","barcode":"7861000030255","ubicacionId":"fairbooth","precio":11,"costo":7,"stockActual":18,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"River Valley Artisans"},
     /* AMARILLO (oportunidad) encendido 2 — margen 62%: hay dinero esperándote */
-    {"id":"p34","nombre":"Vinilo The Clash - London Calling","categoria":"Vinilos","sku":"VIN-CLA-LON","barcode":"7861000030262","ubicacionId":"centro","precio":48,"costo":18,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Rock Import EC"},
+    {"id":"p34","nombre":"Vinyl Record — Coastline","categoria":"Vinyl Records","sku":"VIN-CLA-LON","barcode":"7861000030262","ubicacionId":"smokeshop","precio":48,"costo":18,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
     /* AMARILLO (oportunidad) encendido 2 — margen 64% */
-    {"id":"p35","nombre":"Vinilo Radiohead - OK Computer","categoria":"Vinilos","sku":"VIN-RAD-OKC","barcode":"7861000030279","ubicacionId":"mercado","precio":50,"costo":18,"stockActual":8,"umbralRojo":2,"umbralAmarillo":5,"proveedor":"Rock Import EC"},
+    {"id":"p35","nombre":"Vinyl Record — Signal Lost","categoria":"Vinyl Records","sku":"VIN-RAD-OKC","barcode":"7861000030279","ubicacionId":"bookshelf","precio":50,"costo":18,"stockActual":8,"umbralRojo":2,"umbralAmarillo":5,"proveedor":"Second Spin Records"},
     /* AMARILLO (oportunidad) encendido 3 — margen 72%, pieza estrella */
-    {"id":"p36","nombre":"Figura Coleccionable Iron Maiden Eddie","categoria":"Coleccionables","sku":"COL-IM-EDI","estrella":true,"barcode":"7861000030286","ubicacionId":"feria","precio":65,"costo":18,"stockActual":5,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Rock Import EC"},
+    {"id":"p36","nombre":"Collectible Figure — Limited Run","categoria":"Collectibles","sku":"COL-IM-EDI","estrella":true,"barcode":"7861000030286","ubicacionId":"fairbooth","precio":65,"costo":18,"stockActual":5,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Second Spin Records"},
     /* PERECIBLES — 3 grados de urgencia por vencimiento */
     /* Rojo por vencimiento: vence en 2 dias (retiralo ya aunque el stock sea bueno) */
-    {"id":"p37","nombre":"Cafe Molido Artesanal Cuenca 250g","categoria":"Alimentos","sku":"ALI-CAF-001","barcode":"7861000030293","ubicacionId":"centro","precio":7,"costo":3,"stockActual":15,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-05","proveedor":"Cafe del Austro"},
+    {"id":"p37","nombre":"Energy Drink 12oz","categoria":"Smoke Accessories","sku":"ALI-CAF-001","barcode":"7861000030293","ubicacionId":"smokeshop","precio":7,"costo":3,"stockActual":15,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-05","proveedor":"Coastal Wholesale Co."},
     /* Amarillo por vencimiento: vence en 5 dias (vendelo primero) */
-    {"id":"p38","nombre":"Chocolate 70pct Cacao x10 unidades","categoria":"Alimentos","sku":"ALI-CHO-001","barcode":"7861000030309","ubicacionId":"mercado","precio":4,"costo":1.8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-08","proveedor":"Pacari Ecuador"},
+    {"id":"p38","nombre":"Chocolate Bar — Dark 70%","categoria":"Smoke Accessories","sku":"ALI-CHO-001","barcode":"7861000030309","ubicacionId":"bookshelf","precio":4,"costo":1.8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-08","proveedor":"Coastal Wholesale Co."},
     /* Rojo extremo: ya vencio hace 3 dias (retirar inmediatamente) */
-    {"id":"p39","nombre":"Granola Organica Sierra 500g","categoria":"Alimentos","sku":"ALI-GRA-001","barcode":"7861000030316","ubicacionId":"feria","precio":9,"costo":4.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-06-30","proveedor":"Bio Market Cuenca"},
+    {"id":"p39","nombre":"Trail Mix Bag","categoria":"Smoke Accessories","sku":"ALI-GRA-001","barcode":"7861000030316","ubicacionId":"fairbooth","precio":9,"costo":4.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-06-30","proveedor":"Coastal Wholesale Co."},
 
     /* ---- VITRINA GRADOS DE ENCENDIDO (JFC 2026-07-07): completa los niveles
        1-3 de cada color que faltaban, para que el visitante VEA la Escala
        Sinclair Bloom en acción sin tener que operar nada. ---- */
     /* VERDE encendido 1 — sano pero con poco fondo (stock < 7) */
-    {"id":"p40","nombre":"Llavero Puas de Guitarra","categoria":"Accesorios","sku":"ACC-LLA-001","barcode":"7861000030323","ubicacionId":"centro","precio":12,"costo":8,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Rock Import EC"},
+    {"id":"p40","nombre":"Keychain — Bottle Opener","categoria":"Smoke Accessories","sku":"ACC-LLA-001","barcode":"7861000030323","ubicacionId":"smokeshop","precio":12,"costo":8,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Coastal Wholesale Co."},
     /* VERDE encendido 2 — sano, fondo medio (7-14) */
-    {"id":"p41","nombre":"Parche Bordado Nirvana","categoria":"Accesorios","sku":"ACC-PAR-001","barcode":"7861000030330","ubicacionId":"mercado","precio":14,"costo":9,"stockActual":10,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Rock Import EC"},
+    {"id":"p41","nombre":"Embroidered Patch — Wave","categoria":"Stationery & Gifts","sku":"ACC-PAR-001","barcode":"7861000030330","ubicacionId":"bookshelf","precio":14,"costo":9,"stockActual":10,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Paper & Bind Co."},
     /* AMARILLO (oportunidad) encendido 1 — margen 52%, recién cruza el umbral */
-    {"id":"p42","nombre":"Vinilo Soda Stereo - Cancion Animal","categoria":"Vinilos","sku":"VIN-SOD-CAN","barcode":"7861000030347","ubicacionId":"centro","precio":40,"costo":19,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Rock Import EC"},
+    {"id":"p42","nombre":"Vinyl Record — Roadside Attraction","categoria":"Vinyl Records","sku":"VIN-SOD-CAN","barcode":"7861000030347","ubicacionId":"smokeshop","precio":40,"costo":19,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
     /* NARANJA encendido 2 — a 3 unidades del umbral rojo */
-    {"id":"p43","nombre":"Gorro Beanie Negro Rock","categoria":"Accesorios","sku":"ACC-GOR-002","barcode":"7861000030354","ubicacionId":"feria","precio":10,"costo":6,"stockActual":7,"umbralRojo":4,"umbralAmarillo":9,"proveedor":"Rock Import EC"},
+    {"id":"p43","nombre":"Knit Beanie — Charcoal","categoria":"Apparel","sku":"ACC-GOR-002","barcode":"7861000030354","ubicacionId":"fairbooth","precio":10,"costo":6,"stockActual":7,"umbralRojo":4,"umbralAmarillo":9,"proveedor":"Riverside Textiles"},
     /* AZUL (dato) encendido 1 — margen 22%: revisa precio o costo */
-    {"id":"p44","nombre":"Pilas AA x4 (mostrador)","categoria":"Basicos","sku":"BAS-PIL-001","barcode":"7861000030361","ubicacionId":"centro","precio":4.5,"costo":3.5,"stockActual":30,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Distribuidora Cuenca"},
+    {"id":"p44","nombre":"AA Batteries 4-Pack","categoria":"Counter Basics","sku":"BAS-PIL-001","barcode":"7861000030361","ubicacionId":"smokeshop","precio":4.5,"costo":3.5,"stockActual":30,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Metro Distribution"},
     /* AZUL (dato) encendido 2 — margen 15% */
-    {"id":"p45","nombre":"Funda de Regalo Kraft","categoria":"Basicos","sku":"BAS-FUN-001","barcode":"7861000030378","ubicacionId":"mercado","precio":2,"costo":1.7,"stockActual":50,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Distribuidora Cuenca"},
+    {"id":"p45","nombre":"Kraft Gift Bag","categoria":"Stationery & Gifts","sku":"BAS-FUN-001","barcode":"7861000030378","ubicacionId":"bookshelf","precio":2,"costo":1.7,"stockActual":50,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Paper & Bind Co."},
     /* AZUL (dato) encendido 3 — margen 8%: casi trabajas gratis en este */
-    {"id":"p46","nombre":"Cinta Adhesiva Transparente","categoria":"Basicos","sku":"BAS-CIN-001","barcode":"7861000030385","ubicacionId":"feria","precio":1.3,"costo":1.2,"stockActual":24,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Distribuidora Cuenca"},
+    {"id":"p46","nombre":"Clear Packing Tape","categoria":"Counter Basics","sku":"BAS-CIN-001","barcode":"7861000030385","ubicacionId":"fairbooth","precio":1.3,"costo":1.2,"stockActual":24,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Metro Distribution"},
     /* NEGRO encendido 1 — ~50 dias dormido (dormidoDesde: solo vitrina/carga manual) */
-    {"id":"p47","nombre":"CD Bootleg Queen en Wembley","categoria":"CDs","sku":"CD-QUE-WEM","barcode":"7861000030392","ubicacionId":"centro","precio":15,"costo":9,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"dormidoDesde":"2026-05-16","proveedor":"Rock Import EC"},
+    {"id":"p47","nombre":"Used CD — Live at the Roxy","categoria":"Collectibles","sku":"CD-QUE-WEM","barcode":"7861000030392","ubicacionId":"smokeshop","precio":15,"costo":9,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"dormidoDesde":"2026-05-16","proveedor":"Second Spin Records"},
     /* NEGRO encendido 2 — ~80 dias dormido */
-    {"id":"p48","nombre":"VHS Coleccion The Wall (pelicula)","categoria":"Coleccionables","sku":"COL-VHS-WAL","barcode":"7861000030408","ubicacionId":"mercado","precio":25,"costo":15,"stockActual":8,"umbralRojo":2,"umbralAmarillo":4,"dormidoDesde":"2026-04-18","proveedor":"Rock Import EC"},
+    {"id":"p48","nombre":"Used VHS — Director's Cut","categoria":"Collectibles","sku":"COL-VHS-WAL","barcode":"7861000030408","ubicacionId":"bookshelf","precio":25,"costo":15,"stockActual":8,"umbralRojo":2,"umbralAmarillo":4,"dormidoDesde":"2026-04-18","proveedor":"Second Spin Records"},
     /* NEGRO encendido 3 — ~180 dias dormido: capital bien dormido */
-    {"id":"p49","nombre":"Poster Gigante Woodstock 94","categoria":"Accesorios","sku":"ACC-POS-WOO","barcode":"7861000030415","ubicacionId":"feria","precio":18,"costo":11,"stockActual":9,"umbralRojo":2,"umbralAmarillo":4,"dormidoDesde":"2026-01-08","proveedor":"Rock Import EC"},
+    {"id":"p49","nombre":"Oversized Tour Poster","categoria":"Collectibles","sku":"ACC-POS-WOO","barcode":"7861000030415","ubicacionId":"fairbooth","precio":18,"costo":11,"stockActual":9,"umbralRojo":2,"umbralAmarillo":4,"dormidoDesde":"2026-01-08","proveedor":"Second Spin Records"},
 
     /* ---- VARIEDAD DE MOSTRADOR (JFC 2026-07-07): categorías de tienda real
        (artesanía, dulces, hogar, ropa, papelería) repartidas por las 3
        perchas, para que el tablero luzca los 6 colores con encendidos
        mezclados — no solo merch rockero. ---- */
     /* VERDE n3 — el caballito de batalla: mucho stock, margen sano */
-    {"id":"p50","nombre":"Sombrero de Paja Toquilla","categoria":"Artesania","sku":"ART-SOM-001","barcode":"7861000030422","ubicacionId":"centro","precio":30,"costo":19,"stockActual":22,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Artesanos del Azuay"},
+    {"id":"p50","nombre":"Woven Sun Hat","categoria":"Handmade Crafts","sku":"ART-SOM-001","barcode":"7861000030422","ubicacionId":"smokeshop","precio":30,"costo":19,"stockActual":22,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"River Valley Artisans"},
     /* VERDE n2 — estable, sin drama */
-    {"id":"p51","nombre":"Pulsera de Mullos Andina","categoria":"Artesania","sku":"ART-PUL-001","barcode":"7861000030439","ubicacionId":"feria","precio":6,"costo":3.8,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Artesanos del Azuay"},
+    {"id":"p51","nombre":"Beaded Charm Bracelet","categoria":"Handmade Crafts","sku":"ART-PUL-001","barcode":"7861000030439","ubicacionId":"fairbooth","precio":6,"costo":3.8,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"River Valley Artisans"},
     /* VERDE n1 — sano pero justito de fondo */
-    {"id":"p52","nombre":"Bufanda de Alpaca Gris","categoria":"Ropa","sku":"ROP-BUF-001","barcode":"7861000030446","ubicacionId":"mercado","precio":25,"costo":16,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Tejidos Chordeleg"},
+    {"id":"p52","nombre":"Wool Blend Scarf — Grey","categoria":"Apparel","sku":"ROP-BUF-001","barcode":"7861000030446","ubicacionId":"bookshelf","precio":25,"costo":16,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Riverside Textiles"},
     /* AMARILLO n3 — margen 73%: la mina de oro del mostrador */
-    {"id":"p53","nombre":"Aretes de Filigrana Chordeleg","categoria":"Artesania","sku":"ART-ARE-001","estrella":true,"barcode":"7861000030453","ubicacionId":"centro","precio":22,"costo":6,"stockActual":15,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Joyeria Chordeleg"},
+    {"id":"p53","nombre":"Filigree Drop Earrings","categoria":"Handmade Crafts","sku":"ART-ARE-001","estrella":true,"barcode":"7861000030453","ubicacionId":"smokeshop","precio":22,"costo":6,"stockActual":15,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Jewelry Co."},
     /* AMARILLO n1 — margen 52%: buena oportunidad, sin ser la joya */
-    {"id":"p54","nombre":"Miel de Abeja del Cajas 300g","categoria":"Alimentos","sku":"ALI-MIE-001","barcode":"7861000030460","ubicacionId":"feria","precio":8.5,"costo":4,"stockActual":18,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Apiarios del Cajas"},
+    {"id":"p54","nombre":"Local Honey 10oz","categoria":"Local Foods","sku":"ALI-MIE-001","barcode":"7861000030460","ubicacionId":"fairbooth","precio":8.5,"costo":4,"stockActual":18,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Blue Ridge Apiary"},
     /* NARANJA n2 — quedan 6 con umbral rojo 4: reponer esta semana */
-    {"id":"p55","nombre":"Chal Bordado Gualaceo","categoria":"Ropa","sku":"ROP-CHA-001","barcode":"7861000030477","ubicacionId":"mercado","precio":35,"costo":21,"stockActual":6,"umbralRojo":4,"umbralAmarillo":9,"proveedor":"Tejidos Chordeleg"},
+    {"id":"p55","nombre":"Embroidered Shawl","categoria":"Apparel","sku":"ROP-CHA-001","barcode":"7861000030477","ubicacionId":"bookshelf","precio":35,"costo":21,"stockActual":6,"umbralRojo":4,"umbralAmarillo":9,"proveedor":"Riverside Textiles"},
     /* NARANJA n1 por vencimiento — vence en 7 dias, sin apuro pero primero en salir */
-    {"id":"p56","nombre":"Queso Fresco de Hacienda 500g","categoria":"Alimentos","sku":"ALI-QUE-001","barcode":"7861000030484","ubicacionId":"centro","precio":5.5,"costo":3.6,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-07-14","proveedor":"Lacteos del Austro"},
+    {"id":"p56","nombre":"Fresh Farmstead Cheese 1lb","categoria":"Local Foods","sku":"ALI-QUE-001","barcode":"7861000030484","ubicacionId":"smokeshop","precio":5.5,"costo":3.6,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-07-14","proveedor":"Blue Ridge Creamery"},
     /* ROJO n1 — recien tocando el umbral: urgente pero encendido suave */
-    {"id":"p57","nombre":"Velas Aromaticas de Eucalipto x3","categoria":"Hogar","sku":"HOG-VEL-001","barcode":"7861000030491","ubicacionId":"feria","precio":9,"costo":5.4,"stockActual":4,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Esencias Cuenca"},
+    {"id":"p57","nombre":"Eucalyptus Candle 3-Pack","categoria":"Handmade Crafts","sku":"HOG-VEL-001","barcode":"7861000030491","ubicacionId":"fairbooth","precio":9,"costo":5.4,"stockActual":4,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"River Valley Artisans"},
     /* AZUL n2 — margen 12%: dato contable, este casi no deja nada */
-    {"id":"p58","nombre":"Agua sin Gas 600ml","categoria":"Basicos","sku":"BAS-AGU-001","barcode":"7861000030507","ubicacionId":"centro","precio":0.8,"costo":0.7,"stockActual":48,"umbralRojo":12,"umbralAmarillo":24,"proveedor":"Distribuidora Cuenca"},
+    {"id":"p58","nombre":"Bottled Water 20oz","categoria":"Counter Basics","sku":"BAS-AGU-001","barcode":"7861000030507","ubicacionId":"smokeshop","precio":0.8,"costo":0.7,"stockActual":48,"umbralRojo":12,"umbralAmarillo":24,"proveedor":"Metro Distribution"},
     /* AZUL n1 — margen 20%: revisable, no critico */
-    {"id":"p59","nombre":"Chicles Menta (caja mostrador)","categoria":"Basicos","sku":"BAS-CHI-001","barcode":"7861000030514","ubicacionId":"mercado","precio":15,"costo":12,"stockActual":20,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Distribuidora Cuenca"},
+    {"id":"p59","nombre":"Mint Gum — Counter Box","categoria":"Counter Basics","sku":"BAS-CHI-001","barcode":"7861000030514","ubicacionId":"bookshelf","precio":15,"costo":12,"stockActual":20,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Metro Distribution"},
     /* NEGRO n2 — 3 meses dormido: plata parada en la vitrina */
-    {"id":"p60","nombre":"Ajedrez Tallado en Madera","categoria":"Hogar","sku":"HOG-AJE-001","barcode":"7861000030521","ubicacionId":"centro","precio":45,"costo":27,"stockActual":5,"umbralRojo":1,"umbralAmarillo":3,"dormidoDesde":"2026-04-05","proveedor":"Artesanos del Azuay"},
+    {"id":"p60","nombre":"Carved Wooden Chess Set","categoria":"Collectibles","sku":"HOG-AJE-001","barcode":"7861000030521","ubicacionId":"smokeshop","precio":45,"costo":27,"stockActual":5,"umbralRojo":1,"umbralAmarillo":3,"dormidoDesde":"2026-04-05","proveedor":"River Valley Artisans"},
     /* NEGRO n3 — dormido desde el año pasado: el ejemplo perfecto de capital congelado */
-    {"id":"p61","nombre":"Reloj de Pared Cucu Aleman","categoria":"Hogar","sku":"HOG-REL-001","barcode":"7861000030538","ubicacionId":"mercado","precio":120,"costo":75,"stockActual":2,"umbralRojo":0,"umbralAmarillo":1,"dormidoDesde":"2025-11-20","proveedor":"Importadora Continental"}
+    {"id":"p61","nombre":"Antique Cuckoo Clock","categoria":"Collectibles","sku":"HOG-REL-001","barcode":"7861000030538","ubicacionId":"bookshelf","precio":120,"costo":75,"stockActual":2,"umbralRojo":0,"umbralAmarillo":1,"dormidoDesde":"2025-11-20","proveedor":"Heritage Imports"}
   ];
 
   const ventas = [];
@@ -217,14 +217,14 @@
   // trato:      -1=Difícil  0=Neutro  +1=Agradable
   // confiabilidad: -1=Precaución  0=Neutro  +1=Confiable
   const clientes = [
-    {"id":"c01","codigo":"C-1001","nombre":"Rosa Quinde",      "telefono":"0991111001","evaluacion":{"trato":1,"confiabilidad":1,"historial":[]}},
-    {"id":"c02","codigo":"C-1002","nombre":"Marco Sarmiento",  "telefono":"0991111002","evaluacion":{"trato":-1,"confiabilidad":-1,"historial":[]}},
-    {"id":"c03","codigo":"C-1003","nombre":"Lucia Chuqui",     "telefono":"0991111003","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}},
-    {"id":"c04","codigo":"C-1004","nombre":"Ivan Coronel",     "telefono":"0991111004","evaluacion":{"trato":-1,"confiabilidad":1,"historial":[]}},
-    {"id":"c05","codigo":"C-1005","nombre":"Maria Belen Torres","telefono":"0991111005","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}},
-    {"id":"c06","codigo":"C-1006","nombre":"Pedro Guaman",     "telefono":"0991111006","evaluacion":{"trato":1,"confiabilidad":-1,"historial":[]}},
-    {"id":"c07","codigo":"C-1007","nombre":"Carmen Ulloa",     "telefono":"0991111007","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}},
-    {"id":"c08","codigo":"C-1008","nombre":"Andres Vintimilla","telefono":"0991111008","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}}
+    {"id":"c01","codigo":"C-1001","nombre":"Ashley Rivera",      "telefono":"3055550101","evaluacion":{"trato":1,"confiabilidad":1,"historial":[]}},
+    {"id":"c02","codigo":"C-1002","nombre":"Marcus Bennett",  "telefono":"3055550102","evaluacion":{"trato":-1,"confiabilidad":-1,"historial":[]}},
+    {"id":"c03","codigo":"C-1003","nombre":"Lucy Tran",     "telefono":"3055550103","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}},
+    {"id":"c04","codigo":"C-1004","nombre":"Evan Cross",     "telefono":"3055550104","evaluacion":{"trato":-1,"confiabilidad":1,"historial":[]}},
+    {"id":"c05","codigo":"C-1005","nombre":"Maribel Santos","telefono":"3055550105","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}},
+    {"id":"c06","codigo":"C-1006","nombre":"Pete Gorman",     "telefono":"3055550106","evaluacion":{"trato":1,"confiabilidad":-1,"historial":[]}},
+    {"id":"c07","codigo":"C-1007","nombre":"Carmen Ulloa",     "telefono":"3055550107","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}},
+    {"id":"c08","codigo":"C-1008","nombre":"Andre Vinson","telefono":"3055550108","evaluacion":{"trato":0,"confiabilidad":0,"historial":[]}}
   ];
 
   // ---- VENTAS SEMILLA (historial de ~120 dias) ----
@@ -258,7 +258,7 @@
   // interceptor — sin el, la app abre sin backend (pantallas vacias). Si la
   // siembra falla, se arranca sin historial; el error queda en consola.
   try { sembrarVentasDemo(); } catch (e) { console.error("Seed de ventas fallo (la app arranca sin historial):", e); }
-  const gastosMensuales = {"centro":0,"mercado":0,"feria":0};
+  const gastosMensuales = {"smokeshop":0,"bookshelf":0,"fairbooth":0};
   // Usuarios nombrados (empleados): hasta 49.
   // El dueno NO aparece aqui — su acceso es por PIN en crypto-store.
   // Cada entrada: { id, nombre, pin, rol:"empleado", activo, creadoEn }
