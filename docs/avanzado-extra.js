@@ -673,7 +673,7 @@
       ]);
       const fila = (a, b) => `"${a}","${b}"`;
       const filas = [
-        fila("Reporte contable — AMIGABLE", new Date().toLocaleString("es-EC")),
+        fila("Reporte contable — friendly-123", new Date().toLocaleString(window.OCI18n ? window.OCI18n.locale() : "en-US")),
         fila("AVISO", "Insumo para el contador. No es una declaración válida ante el SRI."),
         fila("", ""),
         fila("PÉRDIDAS Y GANANCIAS (hoy)", ""),

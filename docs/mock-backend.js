@@ -10,7 +10,12 @@
   // Marca global para que index.html sepa que corre sin backend real y NUNCA
   // muestre un mensaje de "el servidor no responde" en la demo pública.
   window.OC_DEMO = true;
-  const ZONA = "America/Guayaquil";
+  // friendly-123 (USA): a diferencia de AMIGABLE (Ecuador, zona fija), aqui
+  // el negocio puede estar en cualquier zona horaria de EEUU. Se toma la
+  // zona del propio navegador/dispositivo en vez de hardcodear una — asi el
+  // corte de "hoy" (ventas, gastos, cierre de dia) coincide con la hora real
+  // del local, no con la de Ecuador.
+  const ZONA = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
   function hoyISO() {
     return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   }
@@ -1081,10 +1086,12 @@
       }
 
       if (path === "/api/reportes/pl") {
-        const IVA = 0.15; // espejo de IVA_ECUADOR en server.js
+        // friendly-123 (USA): sin IVA embebido en el precio — ver
+        // SALES_TAX_RATE en server.js. ingConIva === ing siempre.
+        const SALES_TAX_RATE = 0;
         const vh = ventasHoyDe(uid);
         const ingConIva = vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
-        const ing = ingConIva / (1 + IVA);
+        const ing = ingConIva / (1 + SALES_TAX_RATE);
         const ivaCobrado = ingConIva - ing;
         const cv = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
         const ub = ing - cv;

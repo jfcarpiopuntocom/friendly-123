@@ -18,7 +18,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const ZONA = "America/Guayaquil"; // Ecuador, UTC-5, sin horario de verano
+// friendly-123 (USA): este server corre local, en el dispositivo del propio
+// negocio (mismo modelo self-hosted que AMIGABLE) — se usa la zona horaria
+// del SISTEMA OPERATIVO donde corre, en vez de fijar Ecuador. Como el
+// dueño ejecuta esto en o cerca de su local, la zona del SO es la zona del
+// negocio en la inmensa mayoría de los casos.
+const ZONA = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
 
 // ---------- Helpers de fecha ----------
 function hoyISO() {
@@ -382,21 +387,21 @@ app.post("/api/configuracion/gastos", asyncRoute(async (req, res) => {
 }));
 
 // --- Reportes (modo avanzado) ---
-// IVA Ecuador: 15% (tarifa vigente 2026). Los precios de venta al público se
-// asumen CON IVA incluido (así se muestran los precios al consumidor en
-// Ecuador) — el IVA cobrado no es ingreso del negocio, es un valor que se
-// cobra por cuenta del SRI y se le liquida a fin de mes. Separarlo aquí es
-// lo que pidió JFC ("adaptado a estándares contables y legislación SRI").
-// OJO: esto NO es una declaración de impuestos válida ante el SRI — es un
-// resumen para que el contador humano trabaje con datos limpios. La
-// responsabilidad de la declaración sigue siendo del contador.
-const IVA_ECUADOR = 0.15;
+// friendly-123 (USA): a diferencia de AMIGABLE (Ecuador, IVA 15% incluido en
+// el precio), el sales tax de EEUU varía por estado/condado y NO viene
+// incluido en el precio mostrado — se cobra aparte en el punto de venta y no
+// es un valor que este P&L deba back-out del precio de lista. Por eso la
+// tasa es 0: el precio de venta = ingreso neto, sin resta de impuesto
+// embebido. Si en el futuro se necesita modelar sales tax por estado, este
+// es el gancho — pero requiere un dato de configuración por ubicación, no
+// una constante fija como el IVA ecuatoriano.
+const SALES_TAX_RATE = 0;
 app.get("/api/reportes/pl", asyncRoute(async (req, res) => {
   const { ubicacionId } = req.query;
   const ventasHoy = await data.getVentasHoy(ubicacionId, hoyISO());
 
   const ingresosConIva = ventasHoy.reduce((acc, v) => acc + v.precioUnit * v.cantidad, 0);
-  const ingresosNetos = ingresosConIva / (1 + IVA_ECUADOR);
+  const ingresosNetos = ingresosConIva / (1 + SALES_TAX_RATE);
   const ivaCobrado = ingresosConIva - ingresosNetos;
   const costoVentas = ventasHoy.reduce((acc, v) => acc + v.costoUnit * v.cantidad, 0);
   const utilidadBruta = ingresosNetos - costoVentas;

@@ -227,6 +227,13 @@
       "how.adv.1": "1. Set your monthly expenses once — the app splits them across the real days in the month automatically.",
       "how.adv.2": "2. P&L, balance sheet and valued inventory update live from your actual sales and stock — no manual entry.",
       "how.adv.3": "3. This section is for the accountant or a deep review — day-to-day work happens in Today / Inventory / Sold.",
+      "pl.concept": "Concept",
+      "pl.amount": "Amount",
+      "pl.revenue": "Revenue",
+      "pl.cogs": "Cost of goods sold",
+      "pl.grossProfit": "Gross profit",
+      "pl.opex": "Operating expenses",
+      "pl.netProfit": "Net profit",
     },
     es: {
       "brand.slogan": "Tu negocio, a color",
@@ -438,6 +445,13 @@
       "how.adv.1": "1. Ingresa tus gastos mensuales una sola vez — la app los reparte entre los días reales del mes automáticamente.",
       "how.adv.2": "2. P&G, balance e inventario valorizado se actualizan en vivo con tus ventas y stock reales — sin digitar nada a mano.",
       "how.adv.3": "3. Esta sección es para el contador o una revisión a fondo — el día a día vive en Hoy / Inventario / Vendido.",
+      "pl.concept": "Concepto",
+      "pl.amount": "Monto",
+      "pl.revenue": "Ventas",
+      "pl.cogs": "Costo de ventas",
+      "pl.grossProfit": "Utilidad bruta",
+      "pl.opex": "Gastos operativos",
+      "pl.netProfit": "Utilidad neta",
     },
   };
 
@@ -453,6 +467,12 @@
   }
 
   function getLang() { return lang; }
+
+  // Locale para Intl/toLocaleString derivado del idioma ACTIVO de la app, no
+  // fijo a Ecuador — así "mié, 15 jul" se vuelve "Wed, Jul 15" al cambiar a
+  // inglés, y viceversa. "es-US" (no "es-EC"): el español aquí es para
+  // personal/dueños hispanohablantes en EEUU, no formato de Ecuador.
+  function locale() { return lang === "en" ? "en-US" : "es-US"; }
 
   // tf("hoy.subOwner", {monto:"$5.00", n:3}) -> interpola {monto}/{n} en el texto.
   function tf(key, vars) {
@@ -494,7 +514,7 @@
     });
   }
 
-  window.OCI18n = { t, tf, setLang, getLang, applyStatic, DICT };
+  window.OCI18n = { t, tf, setLang, getLang, locale, applyStatic, DICT };
   window.t = t; // atajo para las plantillas de las vistas dinámicas
   window.tf = tf;
 

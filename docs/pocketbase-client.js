@@ -65,7 +65,9 @@
   // -------------------------------------------------------------------------
   // Logica de negocio (espejo de mock-backend.js / server.js)
   // -------------------------------------------------------------------------
-  const ZONA = "America/Guayaquil";
+  // friendly-123 (USA): zona del navegador/dispositivo, no fija a Ecuador
+  // (ver mismo fix en mock-backend.js).
+  const ZONA = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
 
   function hoyISO() {
     return new Intl.DateTimeFormat("en-CA", {
