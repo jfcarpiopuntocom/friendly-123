@@ -1361,11 +1361,18 @@
     <h3 class="seccion" style="margin-top:0;" data-i18n="adv.recentActivity">Recent activity</h3>
     <div id="listaActividad" class="tag-card" style="text-align:left;max-height:280px;overflow-y:auto;"></div>
 
+    <h3 class="seccion" data-i18n="adv.timezoneHeading">Timezone</h3>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p data-i18n="adv.timezoneIntro">Used to decide what counts as "today" for sales, expenses, and daily close. Pick your store's timezone, or leave it on auto to use this device's timezone.</p>
+      <select id="selectTimezone" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;max-width:320px;"></select>
+      <p id="msgTimezone" style="font-size:14px; margin-top:10px;"></p>
+    </div>
+
     <h3 class="seccion" data-i18n="adv.monthlyExpenses">Monthly expenses</h3>
     <div class="panel-escaner tag-card" style="text-align:left;">
       <p data-i18n-html="adv.expensesIntro">Rent, electricity, payroll, internet, etc. Enter the monthly total for the selected location. It's split across the real days in the month to estimate the daily operating cost in the P&amp;L.</p>
       <div id="gastosSelectorWrap" style="display:none;margin-bottom:12px;">
-        <label style="font-size:14px;font-weight:700;" data-i18n="adv.pickLocation">Pick a location to edit its expenses:<br>
+        <label style="font-size:14px;font-weight:700;"><span data-i18n="adv.pickLocation">Pick a location to edit its expenses:</span><br>
           <select id="gastosUbicSelector" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;"></select></label>
       </div>
       <input id="inputGastosMensuales" type="number" min="0" step="0.01" placeholder="e.g. 350.00" data-i18n-attr="placeholder:adv.expensesPlaceholder" style="text-align:left; max-width:220px;">
@@ -3434,6 +3441,34 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
 }
 
 // --- VISTA AVANZADO ---
+// --- Selector de zona horaria (Microcirugia USA-ready 2026-07-15) ---
+// Zonas más comunes de USA + la detectada por el navegador (para que un
+// dueño en, digamos, Denver, no tenga que buscarla en una lista larga).
+// El valor se guarda en localStorage("oc_timezone"); mock-backend.js y
+// server.js lo leen ahí para decidir qué cuenta como "hoy". Vacío = auto.
+const TIMEZONES_COMUNES = [
+  "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix",
+  "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu",
+];
+function inicializarSelectorTimezone(){
+  const sel = document.getElementById("selectTimezone");
+  if (!sel || sel.dataset.ocListo) return;
+  sel.dataset.ocListo = "1";
+  const detectada = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const zonas = TIMEZONES_COMUNES.includes(detectada) ? TIMEZONES_COMUNES : [detectada, ...TIMEZONES_COMUNES];
+  sel.innerHTML = `<option value="">${t("adv.timezoneAuto")} — ${detectada}</option>` +
+    zonas.map(z => `<option value="${z}">${z}</option>`).join("");
+  sel.value = localStorage.getItem("oc_timezone") || "";
+  sel.addEventListener("change", () => {
+    const msg = document.getElementById("msgTimezone");
+    if (sel.value) localStorage.setItem("oc_timezone", sel.value);
+    else localStorage.removeItem("oc_timezone");
+    msg.style.color = "var(--verde)";
+    msg.textContent = t("adv.timezoneSaved");
+    cargarAvanzado();
+  });
+}
+
 async function cargarGastosMensuales(){
   const input = document.getElementById("inputGastosMensuales");
   const msg = document.getElementById("msgGastos");
@@ -3490,6 +3525,7 @@ document.getElementById("btnGuardarGastos").addEventListener("click", async () =
 });
 
 async function cargarAvanzado(){
+  inicializarSelectorTimezone();
   await cargarGastosMensuales();
   await cargarActividad();
   const [pl, balance, valorizado] = await Promise.all([
@@ -3501,34 +3537,32 @@ async function cargarAvanzado(){
   // Color intencional: azul = capa contable (Simon semantica). Verde solo
   // en resultados positivos. Sin rojo — los gastos son normales, no alarma.
   document.getElementById("tablaPL").innerHTML = `
-    <tr><th style="background:var(--sim-azul-dk);color:#fff;">Concepto</th><th style="background:var(--sim-azul-dk);color:#fff;">Monto</th></tr>
-    <tr><td>Ventas cobradas (con IVA)</td><td>${fmtMoney(pl.ingresosConIva)}</td></tr>
-    <tr style="color:var(--sim-azul-dk);"><td>IVA cobrado (15%, se liquida al SRI)</td><td>${fmtMoney(pl.ivaCobrado)}</td></tr>
-    <tr><td>Ingresos netos (sin IVA)</td><td>${fmtMoney(pl.ingresos)}</td></tr>
-    <tr><td>Costo de ventas</td><td>${fmtMoney(pl.costoVentas)}</td></tr>
-    <tr style="color:var(--sim-verde-dk);"><td>Utilidad bruta</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>
-    <tr><td>Gastos operativos</td><td>${fmtMoney(pl.gastosOperativos)}</td></tr>
-    <tr style="background:var(--sim-verde-bg);"><td><strong style="color:var(--sim-verde-dk);">Utilidad neta</strong></td><td><strong style="color:var(--sim-verde-dk);">${fmtMoney(pl.utilidadNeta)}</strong></td></tr>
+    <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
+    <tr><td>${t("adv.pl.revenue")}</td><td>${fmtMoney(pl.ingresos)}</td></tr>
+    <tr><td>${t("adv.pl.cogs")}</td><td>${fmtMoney(pl.costoVentas)}</td></tr>
+    <tr style="color:var(--sim-verde-dk);"><td>${t("adv.pl.grossProfit")}</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>
+    <tr><td>${t("adv.pl.opex")}</td><td>${fmtMoney(pl.gastosOperativos)}</td></tr>
+    <tr style="background:var(--sim-verde-bg);"><td><strong style="color:var(--sim-verde-dk);">${t("adv.pl.netProfit")}</strong></td><td><strong style="color:var(--sim-verde-dk);">${fmtMoney(pl.utilidadNeta)}</strong></td></tr>
   `;
 
   document.getElementById("tablaBalance").innerHTML = `
-    <tr><th style="background:var(--sim-azul-dk);color:#fff;">Concepto</th><th style="background:var(--sim-azul-dk);color:#fff;">Monto</th></tr>
-    <tr><td>Ingresos del día estimados</td><td>${fmtMoney(balance.activos.efectivoEstimado)}</td></tr>
-    <tr><td>Inventario valorizado</td><td>${fmtMoney(balance.activos.inventarioValorizado)}</td></tr>
-    <tr style="background:var(--sim-azul-bg);"><td><strong style="color:var(--sim-azul-dk);">Total activos</strong></td><td><strong style="color:var(--sim-azul-dk);">${fmtMoney(balance.activos.total)}</strong></td></tr>
+    <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
+    <tr><td>${t("adv.bal.estCash")}</td><td>${fmtMoney(balance.activos.efectivoEstimado)}</td></tr>
+    <tr><td>${t("adv.bal.valuedInv")}</td><td>${fmtMoney(balance.activos.inventarioValorizado)}</td></tr>
+    <tr style="background:var(--sim-azul-bg);"><td><strong style="color:var(--sim-azul-dk);">${t("adv.bal.totalAssets")}</strong></td><td><strong style="color:var(--sim-azul-dk);">${fmtMoney(balance.activos.total)}</strong></td></tr>
   `;
 
   document.getElementById("tablaValorizado").innerHTML = `
     <tr>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Producto</th>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Stock</th>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Valor costo</th>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Valor venta</th>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Utilidad potencial</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.product")}</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.stock")}</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.costValue")}</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.saleValue")}</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.potentialProfit")}</th>
     </tr>
     ${valorizado.productos.map(p => `
       <tr>
-        <td>${p.nombre}</td>
+        <td>${escHtml(p.nombre)}</td>
         <td>${p.stockActual}</td>
         <td>${fmtMoney(p.valorCosto)}</td>
         <td>${fmtMoney(p.valorVenta)}</td>
@@ -3536,7 +3570,7 @@ async function cargarAvanzado(){
       </tr>
     `).join("")}
     <tr style="background:var(--sim-azul-bg);">
-      <td><strong style="color:var(--sim-azul-dk);">Total</strong></td>
+      <td><strong style="color:var(--sim-azul-dk);">${t("adv.val.total")}</strong></td>
       <td></td>
       <td><strong style="color:var(--sim-azul-dk);">${fmtMoney(valorizado.totales.valorCosto)}</strong></td>
       <td><strong style="color:var(--sim-azul-dk);">${fmtMoney(valorizado.totales.valorVenta)}</strong></td>

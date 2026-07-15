@@ -1082,16 +1082,18 @@
       }
 
       if (path === "/api/reportes/pl") {
-        const IVA = 0.15; // espejo de IVA_ECUADOR en server.js
+        // Precio de venta = precio neto, sin impuesto embebido (estandar USA:
+        // el sales tax se calcula aparte en el checkout, no vive incluido en
+        // el precio listado como el IVA ecuatoriano). Fix 2026-07-15: antes
+        // esto restaba un 15% fijo de IVA-Ecuador sobre CUALQUIER venta,
+        // corrompiendo el P&L en cualquier tienda fuera de Ecuador.
         const vh = ventasHoyDe(uid);
-        const ingConIva = vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
-        const ing = ingConIva / (1 + IVA);
-        const ivaCobrado = ingConIva - ing;
+        const ing = vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
         const cv = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
         const ub = ing - cv;
         const gm = (!uid || uid === "todas") ? Object.values(gastosMensuales).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0);
         const go = +(gm / diasEnMesActual()).toFixed(2);
-        return J({ ingresosConIva: +ingConIva.toFixed(2), ingresos: +ing.toFixed(2), ivaCobrado: +ivaCobrado.toFixed(2), costoVentas: +cv.toFixed(2), utilidadBruta: +ub.toFixed(2), gastosOperativos: go, utilidadNeta: +(ub - go).toFixed(2) });
+        return J({ ingresos: +ing.toFixed(2), costoVentas: +cv.toFixed(2), utilidadBruta: +ub.toFixed(2), gastosOperativos: go, utilidadNeta: +(ub - go).toFixed(2) });
       }
       if (path === "/api/reportes/balance") {
         const ps = filtrar(uid), vh = ventasHoyDe(uid);
