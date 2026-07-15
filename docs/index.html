@@ -253,7 +253,23 @@
      FONDO TRANSPARENTE — el logo es dorado con contorno navy, se lee perfecto
      sobre el header oscuro. NUNCA poner background blanco aquí (ver memoria
      feedback_logo_header: JFC se frustró 2 veces con la pastilla blanca).
-     176x40 = proporción real del wordmark recortado (765x174). */
+     176x40 = proporción real del wordmark recortado (765x174).
+     ═══════════════════════════════════════════════════════════════════════
+     ESTADO APROBADO POR JFC (2026-07-15). NO TOCAR.
+     ═══════════════════════════════════════════════════════════════════════
+     DESCRIPCIÓN: wordmark friendly-123 (176×40px), transparente sobre
+     el header azul oscuro. El logo es dorado/naranja con contorno oscuro,
+     legible directamente — no necesita fondo blanco ni filtros.
+
+     LO QUE NO DEBES CAMBIAR NUNCA:
+       ❌ NO agregar background:#ffffff o cualquier color sólido.
+       ❌ NO agregar border-radius mayor a 0 (crea pastilla).
+       ❌ NO agregar filter:invert() o brightness() sobre este elemento.
+       ❌ NO cambiar width>176px ni height>40px.
+       ❌ NO copiar CSS de AMIGABLE aquí — friendly-123 y AMIGABLE tienen
+          logos distintos con tratamiento CSS distinto (AMIGABLE: 104×26px
+          esquinado; friendly-123: 176×40px centrado en .marca).
+     ═══════════════════════════════════════════════════════════════════════ */
   header .sello.con-logo{
     width:176px;
     height:40px;
