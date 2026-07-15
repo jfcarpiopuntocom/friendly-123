@@ -1001,6 +1001,7 @@
     <div>
       <h1><span id="oc-negocio-nombre">Mi Local Comercial o Percha(s)</span><button id="oc-negocio-editar" type="button" title="Editar el nombre de tu negocio" aria-label="Editar nombre del negocio" style="display:none;margin-left:8px;font-size:14px;line-height:1;background:transparent;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;vertical-align:middle;padding:2px 4px;">✎</button></h1>
       <div class="sub" data-i18n="brand.slogan">Your business, in color</div>
+      <div id="oc-offline-badge" style="display:none;font-size:13px;font-weight:700;color:#fff;background:var(--sim-naranja-dk,#C05000);padding:2px 8px;border-radius:999px;margin-top:4px;width:fit-content;">📴 <span data-i18n="offline.badge">Offline — saved locally</span></div>
     </div>
   </div>
   <!-- Switch bilingüe EN/ES + sello "Truly bilingual". Va en el header, discreto
@@ -2743,6 +2744,7 @@ async function crearProductoNuevo(codigoEscaneado){
   const msg = document.getElementById("np-msg");
   if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
   if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.codeRequired"); return; }
+  if (Number(body.precio) === 0){ if (!(await ocConfirm(t("form.zeroPriceConfirm")))) return; }
   const res = await fetch(`${API}/productos`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok){ msg.style.color = "var(--rojo)"; msg.textContent = data.error; return; }
@@ -3450,6 +3452,17 @@ const TIMEZONES_COMUNES = [
   "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix",
   "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu",
 ];
+// --- Indicador offline (Microcirugia USA-ready 2026-07-15) ---
+// El service worker ya soporta trabajar sin conexion, pero no habia forma
+// visible de saber si una venta se guardo local o si de plano no hay señal.
+(function () {
+  const badge = document.getElementById("oc-offline-badge");
+  function actualizar() { if (badge) badge.style.display = navigator.onLine ? "none" : "flex"; }
+  window.addEventListener("online", actualizar);
+  window.addEventListener("offline", actualizar);
+  actualizar();
+})();
+
 function inicializarSelectorTimezone(){
   const sel = document.getElementById("selectTimezone");
   if (!sel || sel.dataset.ocListo) return;
