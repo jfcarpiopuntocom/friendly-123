@@ -2868,6 +2868,11 @@ function pintarFicha(p){
         <button onclick="ajustar('${p.id}', -1)">-1 stock</button>
         <button class="etiqueta" onclick="abrirEtiqueta('${p.id}')">${t("ficha.viewLabel")}</button>
       </div>
+      <!-- "Mostrar al cliente": visible para cualquier rol autenticado (empleado o dueño) —
+           ambos están detrás del mostrador y pueden girar el teléfono hacia el cliente. -->
+      <div class="acciones-rapidas" style="margin-top:8px;">
+        <button onclick="abrirVistaCliente(${JSON.stringify(p).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026')})" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
+      </div>
       ${(window.OCAuth && window.OCAuth.rolActual() === "dueno") ? `<div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
         <button style="border-color:var(--rojo);color:var(--rojo);" onclick="eliminarProductoUI('${p.id}', this)">${t("ficha.deleteBtn")}</button>
@@ -3674,5 +3679,134 @@ window.dialogosBloqueados = function () {
      El toast usa position:fixed pero un padre con display:none lo oculta igual.
      Fix 2026-07-07: mover fuera de pintarFicha() y de cualquier vista. -->
 <div id="oc-toast-venta"></div>
+
+<!-- =====================================================================
+     FEATURE: "Mostrar al cliente" — vista de mostrador fullscreen.
+     Muestra solo nombre, foto y precio al cliente. Sin stock exacto,
+     sin costo, sin proveedor, sin botones internos.
+     El empleado entra con el botón 👁 en la ficha y sale con el botón
+     "← Volver a mi vista" o con el auto-retorno de 60s por inactividad.
+     ===================================================================== -->
+<div id="oc-customer-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--azul-oscuro,#1c3049);color:#fff;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;touch-action:none;">
+
+  <!-- Foto del producto (grande) -->
+  <div id="occo-foto" style="margin-bottom:24px;"></div>
+
+  <!-- Nombre del producto -->
+  <div id="occo-nombre" style="font-family:var(--font-display,sans-serif);font-size:clamp(26px,6vw,48px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;max-width:520px;"></div>
+
+  <!-- Precio -->
+  <div id="occo-precio" style="font-size:clamp(36px,9vw,72px);font-weight:900;color:var(--verde,#28ECAA);letter-spacing:-1px;margin-bottom:20px;"></div>
+
+  <!-- Disponibilidad (sin número exacto) -->
+  <div id="occo-disponibilidad" style="font-size:18px;font-weight:700;padding:8px 22px;border-radius:999px;display:inline-block;margin-bottom:40px;"></div>
+
+  <!-- Botón volver + countdown -->
+  <button id="occo-volver" onclick="cerrarVistaCliente()" style="background:rgba(255,255,255,0.12);color:#fff;border:2px solid rgba(255,255,255,0.35);border-radius:8px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;min-width:200px;min-height:48px;"></button>
+  <div id="occo-countdown" style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.55);min-height:18px;"></div>
+
+</div>
+
+<script>
+// --- "Mostrar al cliente" — lógica de overlay ---
+
+let _occoTimer = null;      // intervalo del countdown
+let _occoSecs  = 60;        // segundos restantes antes del auto-retorno
+let _occoProduct = null;    // producto actualmente en pantalla
+
+// Abre el overlay con los datos del producto p.
+// Llamado desde pintarFicha() cuando el empleado toca "👁 Mostrar al cliente".
+function abrirVistaCliente(p) {
+  _occoProduct = p;
+  const ol = document.getElementById("oc-customer-overlay");
+
+  // Foto
+  const fotoEl = document.getElementById("occo-foto");
+  fotoEl.innerHTML = p.foto
+    ? `<img src="${p.foto}" alt="" style="width:140px;height:140px;object-fit:cover;border-radius:16px;border:3px solid rgba(255,255,255,0.2);">`
+    : `<div style="width:100px;height:100px;border-radius:16px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:48px;">🛍️</div>`;
+
+  // Nombre y precio
+  document.getElementById("occo-nombre").textContent = p.nombre || "";
+  document.getElementById("occo-precio").textContent = typeof fmtMoney === "function" ? fmtMoney(p.precio) : "$" + Number(p.precio).toFixed(2);
+
+  // Disponibilidad — mostramos estado sin revelar el número exacto
+  const dispEl = document.getElementById("occo-disponibilidad");
+  const stockN = Number(p.stockActual ?? 0);
+  let label, bg;
+  if (stockN <= 0) {
+    label = t("customer.soldOut");
+    bg = "rgba(220,60,60,0.85)";
+  } else if (p.estado === "rojo" || p.estado === "amarillo" || stockN <= 3) {
+    label = t("customer.lastUnits");
+    bg = "rgba(200,130,0,0.85)";
+  } else {
+    label = t("customer.available");
+    bg = "rgba(30,160,90,0.85)";
+  }
+  dispEl.textContent = label;
+  dispEl.style.background = bg;
+
+  // Botón de regreso
+  document.getElementById("occo-volver").textContent = t("customer.backTitle");
+
+  // Mostrar el overlay
+  ol.style.display = "flex";
+  document.body.style.overflow = "hidden"; // evita scroll accidental del fondo
+
+  // Arrancar countdown de 60s
+  _iniciarCountdown();
+
+  // Cualquier toque reinicia el countdown (el empleado sigue mirando junto al cliente)
+  ol.addEventListener("touchstart", _resetCountdown, { passive: true });
+  ol.addEventListener("click", _resetCountdown);
+}
+
+function cerrarVistaCliente() {
+  _detenerCountdown();
+  const ol = document.getElementById("oc-customer-overlay");
+  ol.style.display = "none";
+  document.body.style.overflow = "";
+  ol.removeEventListener("touchstart", _resetCountdown);
+  ol.removeEventListener("click", _resetCountdown);
+  _occoProduct = null;
+}
+
+function _iniciarCountdown() {
+  _detenerCountdown();
+  _occoSecs = 60;
+  _actualizarCountdown();
+  _occoTimer = setInterval(() => {
+    _occoSecs--;
+    _actualizarCountdown();
+    if (_occoSecs <= 0) cerrarVistaCliente();
+  }, 1000);
+}
+
+function _resetCountdown() {
+  // No reiniciar si el clic fue en el botón "Volver" (ese ya llama a cerrar)
+  _occoSecs = 60;
+  _actualizarCountdown();
+}
+
+function _detenerCountdown() {
+  if (_occoTimer) { clearInterval(_occoTimer); _occoTimer = null; }
+  document.getElementById("occo-countdown").textContent = "";
+}
+
+function _actualizarCountdown() {
+  const cd = document.getElementById("occo-countdown");
+  if (!cd) return;
+  // Solo muestra el aviso en los últimos 10s para no distraer
+  cd.textContent = _occoSecs <= 10
+    ? t("customer.autoReturn").replace("{n}", _occoSecs)
+    : "";
+}
+
+// Actualizar textos del overlay si el idioma cambia mientras está abierto
+document.addEventListener("oc-lang-change", () => {
+  if (_occoProduct) abrirVistaCliente(_occoProduct);
+});
+</script>
 
 </body></html>
