@@ -246,14 +246,17 @@
     background:var(--azul-oscuro);
     transition:width 0.15s, border-radius 0.15s;
   }
-  /* Cuando el logo horizontal carga, el sello se abre a pastilla ancha.
-     Fondo blanco porque el logo tiene letras azul marino (transparente sobre oscuro = invisible) */
+  /* Cuando el logo horizontal carga, el sello se abre al wordmark recortado.
+     FONDO TRANSPARENTE — el logo es dorado con contorno navy, se lee perfecto
+     sobre el header oscuro. NUNCA poner background blanco aquí (ver memoria
+     feedback_logo_header: JFC se frustró 2 veces con la pastilla blanca).
+     176x40 = proporción real del wordmark recortado (765x174). */
   header .sello.con-logo{
-    width:130px;
+    width:176px;
     height:40px;
-    border-radius:8px;
-    background:#ffffff;
-    border-color:#ffffff;
+    border-radius:0;
+    background:transparent;
+    border-color:transparent;
   }
   header h1{
     margin:0;
