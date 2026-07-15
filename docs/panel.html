@@ -1,24 +1,26 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- panel.html — PANEL MAESTRO de apps instaladas a clientes (JFC, master admin)
-     Acceso: jfcarpiopuntocom.github.io/AMIGABLE/panel.html
+<!-- panel.html — PANEL MAESTRO de friendly-123 (JFC, master admin)
+     Acceso: jfcarpiopuntocom.github.io/friendly-123/panel.html
      PRIVADO: URL no publicada en ningún lugar de la app demo ni en la landing.
-     Protegido con PIN de 3 dígitos (WebCrypto SHA-256 en el navegador).
+     Protegido con PIN de 6 dígitos (WebCrypto SHA-256 en el navegador).
      Acciones: liberar correo de un cliente (requiere segundo PIN).
 
-     v0.3 — 2026-07-03 — Panel maestro enriquecido: control de versiones, códigos
-            maestros, roles (master vs dueño), roadmap y detalle por proyecto.
-     v0.2 — 2026-07-01 — PIN gate + liberación de correo integrada.
+     v1.0 — 2026-07-15 — Clonado de docs/panel.html de AMIGABLE, adaptado a
+            friendly-123. PIN subido de 3 a 6 dígitos (mejora de seguridad,
+            decidida por JFC). AMIGABLE se migra a 6 dígitos en tarea aparte
+            (JFC hará /make-plan) — NO tocar ese archivo desde aquí.
 
      NOTA DE DATOS: los números de versión/commit son un SNAPSHOT MANUAL al
-     2026-07-03. Una página estática no puede consultar git en vivo. Al pushear
-     cambios grandes, actualiza el bloque DATA de abajo (const PROYECTOS). -->
+     2026-07-15. Una página estática no puede consultar git en vivo. Al pushear
+     cambios grandes, actualiza el bloque de "Instancias · detalle" y la tabla
+     de "Control de versiones" de abajo. -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="dark">
-<title>Panel · PC</title>
+<title>Panel · f123</title>
 <style>
   :root{
     --bg:#0f1117;
@@ -31,7 +33,7 @@
     --green-dim:#1a7a52;
     --amber:#d4832a;
     --red:#c94040;
-    --blue:#4a7fd4;      /* marca Olimpo 2.0 (consola) — distinta del POS */
+    --blue:#4a7fd4;      /* marca de proyectos relacionados/otros */
     --ink:#e8e4dc;
     --ink-soft:#b8b3bf;  /* secundario legible (>= #999, regla de legibilidad) */
     --ink-dim:#9d9aa8;   /* terciario — nunca más oscuro que #999 */
@@ -43,13 +45,13 @@
 
   /* ── PIN GATE ── ocupa la pantalla completa hasta que autentique */
   #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;flex-direction:column;gap:0;}
-  #gate-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px 28px;width:min(340px,92vw);display:flex;flex-direction:column;align-items:center;gap:20px;}
+  #gate-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px 28px;width:min(380px,92vw);display:flex;flex-direction:column;align-items:center;gap:20px;}
   #gate-brand{font-size:14px;font-family:var(--mono);color:var(--ink-dim);letter-spacing:0.08em;text-transform:uppercase;}
   #gate-title{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:0.01em;}
 
-  /* Casillas de entrada (●●●) */
-  .slots{display:flex;gap:10px;justify-content:center;}
-  .slot{width:38px;height:38px;border:2px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--ink);background:var(--surface2);transition:border-color .15s;}
+  /* Casillas de entrada (●●●●●●) — 6 dígitos */
+  .slots{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .slot{width:34px;height:34px;border:2px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ink);background:var(--surface2);transition:border-color .15s;}
   .slot.lleno{border-color:var(--gold);}
 
   /* Teclado numérico */
@@ -149,6 +151,20 @@
   .pill.gold{background:rgba(201,149,58,.18);color:var(--gold);}
   .pill.blue{background:rgba(74,127,212,.18);color:var(--blue);}
 
+  /* ── LICENCIAS (patrón heredado del panel de AMIGABLE, JFC 2026-07-10) ──
+     Todo el monitoreo de instancias vive AQUÍ, en el panel maestro. Config del
+     Worker vacía por defecto — friendly-123 aún no tiene Worker propio desplegado. */
+  .lic-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.04em;font-family:var(--mono);}
+  .lic-badge.activa{background:rgba(40,201,138,.18);color:var(--green);}
+  .lic-badge.observada{background:rgba(74,127,212,.18);color:var(--blue);}
+  .lic-badge.limitada{background:rgba(212,131,42,.20);color:var(--amber);}
+  .lic-badge.bloqueada{background:rgba(201,64,64,.20);color:var(--red);}
+  .lic-input{padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:14px;font-family:var(--mono);}
+  .lic-input:focus{outline:none;border-color:var(--gold-dim);}
+  #lic-tabla td.date{font-size:12px;color:var(--ink-soft);font-family:var(--mono);}
+  #lic-tabla select{padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink);font-size:13px;cursor:pointer;}
+  #lic-tabla td .btn-ok{padding:5px 10px;border-radius:5px;border:none;background:var(--green-dim);color:#fff;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px;}
+
   /* Notas operativas / roadmap */
   .notas{display:grid;gap:10px;}
   .nota{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 18px;}
@@ -170,7 +186,7 @@
   /* Modal de confirmación (segundo PIN para acciones) */
   #modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;}
   #modal-overlay.visible{display:flex;}
-  #modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 26px;width:min(320px,90vw);display:flex;flex-direction:column;align-items:center;gap:16px;}
+  #modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 26px;width:min(360px,90vw);display:flex;flex-direction:column;align-items:center;gap:16px;}
   #modal-titulo{font-size:16px;font-weight:700;text-align:center;}
   #modal-desc{font-size:14px;color:var(--ink-soft);text-align:center;line-height:1.5;}
   #modal-msg{font-size:13px;font-family:var(--mono);min-height:16px;color:var(--red);}
@@ -193,12 +209,15 @@
      ══════════════════════════════════════════════ -->
 <div id="gate">
   <div id="gate-box">
-    <div id="gate-brand">AMIGABLE · Panel Maestro</div>
+    <div id="gate-brand">friendly-123 · Master Panel</div>
     <div id="gate-title">Acceso privado</div>
     <div class="slots" id="gate-slots">
       <div class="slot" id="gs0"></div>
       <div class="slot" id="gs1"></div>
       <div class="slot" id="gs2"></div>
+      <div class="slot" id="gs3"></div>
+      <div class="slot" id="gs4"></div>
+      <div class="slot" id="gs5"></div>
     </div>
     <div class="pad" id="gate-pad"></div>
     <div id="gate-msg"></div>
@@ -213,7 +232,7 @@
     <div class="topbar-brand">
       <div class="topbar-sello">JFC</div>
       <div>
-        <h1>Panel Maestro · AMIGABLE</h1>
+        <h1>friendly-123 · Master Panel</h1>
         <div class="role">Master Admin — JFC · sesión activa</div>
       </div>
     </div>
@@ -226,7 +245,7 @@
   </div>
 
   <main>
-        <!-- HERRAMIENTAS DE MARKETING — compartibles con clientes/prospectos -->
+    <!-- HERRAMIENTAS DE MARKETING — compartibles con clientes/prospectos -->
     <div class="sec-head" style="margin-top:0;"><h2>Herramientas de marketing</h2><span class="hint">click en “Copiar link” para compartir por WhatsApp</span></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:28px;">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
@@ -234,8 +253,8 @@
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Demo en vivo</div>
         <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">La app completa funcionando en el celular del cliente, sin instalación.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/" target="_blank" rel="noopener">Abrir →</a>
-          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
@@ -243,26 +262,26 @@
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Manifiesto</div>
         <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Para clientes que necesitan entender el por qué antes de ver el producto.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/manifiesto.html" target="_blank" rel="noopener">Abrir →</a>
-          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/manifiesto.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/manifiesto.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/manifiesto.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
         <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Pitch</div>
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Informe Ejecutivo</div>
-        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Capacidades y resultados. Bilingüe ES/EN. El más completo para prospectos.</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Capacidades y resultados. El más completo para prospectos.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/informe-ejecutivo.html" target="_blank" rel="noopener">Abrir →</a>
-          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/informe-ejecutivo.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/informe-ejecutivo.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/informe-ejecutivo.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
         <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Reporte</div>
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Sistema operativo del mostrador</div>
-        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Foco en el usuario: quién es, qué pierde, qué gana. Bilingüe con efectos.</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Foco en el usuario: quién es, qué pierde, qué gana.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/reporte-usuario.html" target="_blank" rel="noopener">Abrir →</a>
-          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/reporte-usuario.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/reporte-usuario.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/reporte-usuario.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
@@ -270,144 +289,112 @@
         <div style="font-size:15px;font-weight:700;color:var(--ink);">ROI Tienda Pequeña ($2,500)</div>
         <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Números duros: cuánto pierde y cuánto recupera un negocio con $2,500 de inventario.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/roi-tienda.html" target="_blank" rel="noopener">Abrir →</a>
-          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/roi-tienda.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/roi-tienda.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/roi-tienda.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
         <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Manual</div>
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Manual Maestro</div>
-        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Guía completa de uso para el dueño. Escrita por JFC, revisada contra el código.</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Guía completa de uso para el dueño.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/manual-maestro.html" target="_blank" rel="noopener">Abrir →</a>
-          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/AMIGABLE/manual-maestro.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/manual-maestro.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/manual-maestro.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
         </div>
       </div>
     </div>
     <!-- STATS -->
     <div class="sec-head"><h2>Resumen</h2><span class="hint" id="fecha-panel"></span></div>
     <div class="stats-bar">
-      <div class="stat-box"><div class="stat-value">4</div><div class="stat-label">Apps</div></div>
-      <div class="stat-box"><div class="stat-value" style="color:var(--green);">1</div><div class="stat-label">Producción</div></div>
-      <div class="stat-box"><div class="stat-value" style="color:var(--amber);">2</div><div class="stat-label">Demo pública</div></div>
-      <div class="stat-box"><div class="stat-value" style="color:var(--blue);">1</div><div class="stat-label">Consola (otro)</div></div>
-      <div class="stat-box"><div class="stat-value" style="color:var(--gold);">v1.0</div><div class="stat-label">Versión estable</div></div>
+      <div class="stat-box"><div class="stat-value">2</div><div class="stat-label">Apps</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--gold);">1</div><div class="stat-label">Main / demo pública</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--blue);">1</div><div class="stat-label">Relacionado</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--gold);">v1.2.0</div><div class="stat-label">Versión estable</div></div>
+    </div>
+
+    <!-- LICENCIAS — conectado a un Cloudflare Worker externo (config vacía por defecto) -->
+    <div class="sec-head"><h2>Licencias · instancias activas</h2><span class="hint" id="lic-meta">configura el Worker →</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn btn-outline" onclick="licToggleConfig()">⚙️ Config Worker</button>
+      <button class="btn btn-outline" onclick="licRecargar()">↻ Recargar</button>
+      <button class="btn btn-outline" onclick="licExportCSV()">Exportar CSV</button>
+    </div>
+    <div id="lic-config" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px;">
+      <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">URL del Cloudflare Worker</label>
+      <input class="lic-input" id="lic-worker-url" type="url" placeholder="https://friendly123-lic.tucuenta.workers.dev" style="width:100%;margin-bottom:10px;">
+      <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">Master Key del Worker (viaja como X-Master-Key)</label>
+      <input class="lic-input" id="lic-master-key" type="password" placeholder="tu-clave-secreta-larga" style="width:100%;margin-bottom:12px;">
+      <button class="btn btn-primary" onclick="licGuardarConfig()">Guardar</button>
+    </div>
+    <div class="stats-bar" id="lic-stats" style="margin-bottom:14px;"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input class="lic-input" id="lic-filtro" placeholder="Buscar nombre, email, cédula o código…" oninput="licFiltrar()" style="flex:1;min-width:200px;">
+      <select class="lic-input" id="lic-filtro-estado" onchange="licFiltrar()" style="cursor:pointer;">
+        <option value="">Todos los estados</option>
+        <option value="activa">Activa</option>
+        <option value="observada">Observada</option>
+        <option value="limitada">Limitada</option>
+        <option value="bloqueada">Bloqueada</option>
+      </select>
+    </div>
+    <div class="tabla-wrap">
+      <div id="lic-empty" style="padding:34px 20px;text-align:center;color:var(--ink-soft);font-size:14px;display:none;">Aún no hay instancias. Cuando tengas el Worker configurado, aparecerán aquí.</div>
+      <table class="versiones" id="lic-tabla" style="display:none;">
+        <thead><tr><th>Estado</th><th>Código f123</th><th>Nombre</th><th>Email</th><th>Cédula</th><th>Activado</th><th>Última vez</th><th>Acción</th></tr></thead>
+        <tbody id="lic-tbody"></tbody>
+      </table>
     </div>
 
     <!-- INSTANCIAS — detalle por proyecto -->
-    <div class="sec-head"><h2>Instancias · detalle</h2><span class="hint">snapshot 2026-07-03</span></div>
+    <div class="sec-head"><h2>Instancias · detalle</h2><span class="hint">snapshot 2026-07-15</span></div>
     <div class="proyectos">
 
-      <!-- ══ Olimpo Control — PRODUCCIÓN (Jose) ══ -->
-      <div class="pcard prod">
-        <div class="pcard-top">
-          <div>
-            <div class="pcard-nombre">Olimpo Control</div>
-            <div class="pcard-sub">POS · smoke shop</div>
-          </div>
-          <span class="badge badge-prod">Producción</span>
-        </div>
-        <div class="pcard-desc">Dueño: <strong style="color:var(--ink)">Jose</strong> · Cuenca. Primer cliente beta. Loyverse-ready, cifrado end-to-end, comisiones a promotores/as.</div>
-        <dl class="datos">
-          <dt>repo</dt><dd>Olimpo-Control</dd>
-          <dt>rama</dt><dd>master</dd>
-          <dt>versión</dt><dd class="ok">v1.0</dd>
-          <dt>último</dt><dd>6b7172c · 07-03 11:02</dd>
-          <dt>commits</dt><dd>45</dd>
-          <dt>backend</dt><dd>Node.js + Loyverse</dd>
-          <dt>LS key</dt><dd>oc_secure</dd>
-          <dt>códigos</dt><dd class="ok">1-5-9 · 2-6-0 · 3-5-7 · 8-8-8</dd>
-          <dt>backups</dt><dd class="warn">13 sin trackear</dd>
-        </dl>
-        <div class="pcard-actions">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/Olimpo-Control/" target="_blank" rel="noopener">Abrir</a>
-          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/Olimpo-Control" target="_blank" rel="noopener">Repo</a>
-          <button class="btn btn-danger" data-action="liberar" data-key="oc_secure" data-nombre="Olimpo Control">🔓 Liberar correo</button>
-          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/Olimpo-Control/edit/main/docs/version.json" target="_blank" rel="noopener" title="Editar version.json: al commitear, cada instalación de Olimpo Control detecta la versión nueva y muestra el aviso (Fase 2). No auto-reemplaza nada.">⬆️ Publicar update</a>
-        </div>
-      </div>
-
-      <!-- ══ AMIGABLE — MAIN / MASTER (nuevo) ══ -->
+      <!-- ══ friendly-123 — MAIN / MASTER ══ -->
       <div class="pcard main">
         <div class="pcard-top">
           <div>
-            <div class="pcard-nombre">AMIGABLE</div>
+            <div class="pcard-nombre">friendly-123</div>
             <div class="pcard-sub">Inventario · clientes · perchas</div>
           </div>
           <span class="badge badge-main">Main</span>
         </div>
-        <div class="pcard-desc">Repo <strong style="color:var(--ink)">principal</strong> de la control de inventario, clientes y perchas. Base de futuras instancias por negocio (soberanía digital, sin nube de datos). Aloja este panel.</div>
+        <div class="pcard-desc">Repo <strong style="color:var(--ink)">principal</strong> del control de inventario, clientes y perchas. GitHub Pages activo (branch master, path /docs), repo ahora público. Aloja este panel.</div>
         <dl class="datos">
-          <dt>repo</dt><dd>AMIGABLE</dd>
-          <dt>rama</dt><dd>main</dd>
-          <dt>versión</dt><dd>v1.0.0 — declarada 07-07</dd>
-          <dt>último</dt><dd>d378865 · 07-07</dd>
-          <dt>commits</dt><dd>9</dd>
-          <dt>backend</dt><dd>Node.js + Loyverse</dd>
-          <dt>LS key</dt><dd>oc_secure</dd>
-          <dt>códigos</dt><dd>POSCUENCA-MAESTRO-2026</dd>
-          <dt>backups</dt><dd class="warn">9 sin trackear</dd>
-        </dl>
-        <div class="pcard-actions">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/" target="_blank" rel="noopener">Abrir</a>
-          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/AMIGABLE" target="_blank" rel="noopener">Repo</a>
-          <button class="btn btn-danger" data-action="liberar" data-key="oc_secure" data-nombre="AMIGABLE">🔓 Liberar correo</button>
-          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/AMIGABLE/edit/main/docs/version.json" target="_blank" rel="noopener" title="Editar version.json: al commitear, cada instalación de AMIGABLE-123 detecta la versión nueva y muestra el aviso (Fase 2). No auto-reemplaza nada.">⬆️ Publicar update</a>
-        </div>
-      </div>
-
-      <!-- ══ POSCuenca — DEMO pública ══ -->
-      <div class="pcard demo">
-        <div class="pcard-top">
-          <div>
-            <div class="pcard-nombre">POSCuenca</div>
-            <div class="pcard-sub">POS · demo pública</div>
-          </div>
-          <span class="badge badge-demo">Demo</span>
-        </div>
-        <div class="pcard-desc">Demo pública multi-sede (artesanías y licores). Repo previo a AMIGABLE; se mantiene sincronizado por backport. Sirve para mostrar el producto y auditar código.</div>
-        <dl class="datos">
-          <dt>repo</dt><dd>POSCuenca</dd>
+          <dt>repo</dt><dd>friendly-123</dd>
           <dt>rama</dt><dd>master</dd>
-          <dt>versión</dt><dd class="warn">v0.99</dd>
-          <dt>último</dt><dd>e54d01a · 07-03 09:58</dd>
-          <dt>commits</dt><dd>48</dd>
-          <dt>backend</dt><dd>Node.js + Loyverse</dd>
+          <dt>versión</dt><dd class="ok">v1.2.0</dd>
+          <dt>último</dt><dd>0bc3621 · 07-15 13:20</dd>
+          <dt>backend</dt><dd>estático · GitHub Pages</dd>
           <dt>LS key</dt><dd>oc_secure</dd>
-          <dt>códigos</dt><dd>POSCUENCA-MAESTRO-2026</dd>
-          <dt>backups</dt><dd class="warn">23 sin trackear</dd>
+          <dt>códigos</dt><dd class="warn">sin código maestro estático (reset por EmailJS)</dd>
+          <dt>backups</dt><dd class="warn">no trackeados aún</dd>
         </dl>
         <div class="pcard-actions">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/POSCuenca/" target="_blank" rel="noopener">Abrir</a>
-          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/POSCuenca" target="_blank" rel="noopener">Repo</a>
-          <button class="btn btn-danger" data-action="liberar" data-key="oc_secure" data-nombre="POSCuenca Demo">🔓 Liberar correo</button>
-          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/POSCuenca/edit/main/docs/version.json" target="_blank" rel="noopener" title="Editar version.json: al commitear, cada instalación de POSCuenca detecta la versión nueva y muestra el aviso (Fase 2). No auto-reemplaza nada.">⬆️ Publicar update</a>
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/" target="_blank" rel="noopener">Abrir</a>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/friendly-123" target="_blank" rel="noopener">Repo</a>
+          <button class="btn btn-danger" data-action="liberar" data-key="oc_secure" data-nombre="friendly-123">🔓 Liberar correo</button>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/friendly-123/edit/master/docs/version.json" target="_blank" rel="noopener" title="Editar version.json: al commitear, cada instalación de friendly-123 detecta la versión nueva y muestra el aviso. No auto-reemplaza nada.">⬆️ Publicar update</a>
         </div>
       </div>
 
-      <!-- ══ Olimpo 2.0 — OTRO PRODUCTO (consola) ══ -->
+      <!-- ══ AMIGABLE — proyecto relacionado (panel propio aparte) ══ -->
       <div class="pcard otro">
         <div class="pcard-top">
           <div>
-            <div class="pcard-nombre">Olimpo 2.0</div>
-            <div class="pcard-sub">Consola música/chat · NO es POS</div>
+            <div class="pcard-nombre">AMIGABLE</div>
+            <div class="pcard-sub">Proyecto relacionado · panel propio</div>
           </div>
-          <span class="badge badge-otro">Otro</span>
+          <span class="badge badge-otro">Related</span>
         </div>
-        <div class="pcard-desc"><strong style="color:var(--ink)">Producto distinto</strong> de Olimpo Control. Consola del club (música, chat, anuncios) con autenticación <strong style="color:var(--ink)">Nostr</strong>. Sin PINs ni códigos maestros del POS.</div>
+        <div class="pcard-desc">Repo hermano de <strong style="color:var(--ink)">friendly-123</strong>. Tiene su propio panel maestro (aún con PIN de 3 dígitos — migración a 6 pendiente, JFC la hará en tarea aparte).</div>
         <dl class="datos">
-          <dt>repo</dt><dd>Olimpo_2_0</dd>
+          <dt>repo</dt><dd>AMIGABLE</dd>
           <dt>rama</dt><dd>main</dd>
-          <dt>versión</dt><dd>consola</dd>
-          <dt>último</dt><dd>75390dc · 07-03 10:50</dd>
-          <dt>commits</dt><dd>74</dd>
-          <dt>backend</dt><dd>estático + Nostr</dd>
-          <dt>auth</dt><dd>Nostr (npub) · N/A códigos</dd>
-          <dt>backups</dt><dd class="warn">11 sin trackear</dd>
+          <dt>último</dt><dd>3b3d65c · 07-15 13:12</dd>
         </dl>
         <div class="pcard-actions">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/Olimpo_2_0/" target="_blank" rel="noopener">Abrir</a>
-          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/Olimpo_2_0" target="_blank" rel="noopener">Repo</a>
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/panel.html" target="_blank" rel="noopener">Abrir su panel</a>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/AMIGABLE" target="_blank" rel="noopener">Repo</a>
         </div>
       </div>
 
@@ -419,25 +406,17 @@
       <table class="versiones">
         <thead>
           <tr>
-            <th>App</th><th>Repo</th><th>Rama</th><th>Ver.</th><th>Último commit</th><th>Commits</th><th>Estado</th><th>Backups</th>
+            <th>App</th><th>Repo</th><th>Rama</th><th>Ver.</th><th>Último commit</th><th>Estado</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="nom">Olimpo Control</td><td>Olimpo-Control</td><td>master</td><td>v1.0</td>
-            <td>6b7172c · 07-03 11:02</td><td>45</td><td><span class="pill green">Producción</span></td><td>13</td>
+            <td class="nom">friendly-123</td><td>friendly-123</td><td>master</td><td>v1.2.0</td>
+            <td>0bc3621 · 07-15 13:20</td><td><span class="pill gold">Main</span></td>
           </tr>
           <tr>
-            <td class="nom">AMIGABLE</td><td>AMIGABLE</td><td>main</td><td>v0.99</td>
-            <td>16610d1 · 07-03 10:01</td><td>9</td><td><span class="pill gold">Main</span></td><td>9</td>
-          </tr>
-          <tr>
-            <td class="nom">POSCuenca</td><td>POSCuenca</td><td>master</td><td>v0.99</td>
-            <td>e54d01a · 07-03 09:58</td><td>48</td><td><span class="pill amber">Demo</span></td><td>23</td>
-          </tr>
-          <tr>
-            <td class="nom">Olimpo 2.0</td><td>Olimpo_2_0</td><td>main</td><td>consola</td>
-            <td>75390dc · 07-03 10:50</td><td>74</td><td><span class="pill blue">Otro</span></td><td>11</td>
+            <td class="nom">AMIGABLE</td><td>AMIGABLE</td><td>main</td><td>—</td>
+            <td>3b3d65c · 07-15 13:12</td><td><span class="pill blue">Related</span></td>
           </tr>
         </tbody>
       </table>
@@ -449,24 +428,20 @@
       <table class="versiones">
         <thead><tr><th>App</th><th>Código(s)</th><th>Uso</th></tr></thead>
         <tbody>
-          <tr><td class="nom">Panel Maestro</td><td>[tu PIN]</td><td>Acceso a este panel — 3 dígitos, solo tú lo sabes</td></tr>
-          <tr><td class="nom">Olimpo Control</td><td>1-5-9 · 2-6-0 · 3-5-7 · 8-8-8</td><td>Recuperación del dueño (Jose). 8-8-8 retrocompatible</td></tr>
-          <tr><td class="nom">AMIGABLE</td><td>POSCUENCA-MAESTRO-2026</td><td>Default técnico heredado (no es branding)</td></tr>
-          <tr><td class="nom">POSCuenca</td><td>POSCUENCA-MAESTRO-2026</td><td>Default técnico de la demo</td></tr>
-          <tr><td class="nom">Olimpo 2.0</td><td>N/A (Nostr)</td><td>Autenticación por clave Nostr, sin código maestro</td></tr>
+          <tr><td class="nom">Panel Maestro</td><td>4-1-9-2-5-7</td><td>Acceso a este panel — 6 dígitos, solo tú lo sabes</td></tr>
+          <tr><td class="nom">friendly-123 (app)</td><td>N/A — sin código maestro estático</td><td>La recuperación de PIN del dueño usa reset por EmailJS (código temporal, expira en 15 min), no una lista de códigos fija en el código fuente.</td></tr>
         </tbody>
       </table>
     </div>
 
-    <!-- ROADMAP — fases del plan de distribución AMIGABLE -->
-    <div class="sec-head"><h2>Roadmap · distribución AMIGABLE</h2><span class="hint">soberanía digital</span></div>
+    <!-- ROADMAP — solo fases confirmadas en el código de friendly-123 -->
+    <div class="sec-head"><h2>Roadmap · distribución friendly-123</h2><span class="hint">soberanía digital</span></div>
     <div class="fases">
-      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 1 — Página de error/404 con WhatsApp.</b> Entregada. <code>docs/404.html</code> + <code>public/404.html</code>, en vivo.</div></div>
-      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 2 — version.json + chequeo de versión.</b> Entregada (v1.0.0, 2026-07-07): la app compara su APP_VERSION contra version.json y muestra un aviso no bloqueante con botón de WhatsApp. Sin auto-reemplazo (eso es Fase 3).</div></div>
-      <div class="fase todo"><div class="fase-ico">▫️</div><div class="fase-txt"><b>Fase 3 — updater.html.</b> Reemplazo real con validación de hash.</div></div>
-      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 4 — Export cifrado del negocio.</b> Entregada (v1.0.0, 2026-07-07): respaldo exportable con contraseña opcional (AES-256-GCM real) + checksum SHA-256 + schemaVersion, y caja fuerte local automática con puntos de restauración verificados.</div></div>
-      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 5 — Panel de control de JFC.</b> Base entregada (2026-07-07): este panel ES el panel de control, con botón "⬆️ Publicar update" por app (edita version.json del repo; cada instalación detecta la versión nueva sola). Pendiente a futuro: releases y backups automatizados.</div></div>
-      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Fase 6 — QR por negocio.</b> Entregado (2026-07-07): sync entre dispositivos por QR con el mismo cifrado AES-256-GCM (Avanzado → Mostrar/Escanear QR), y QR de etiquetas 100% local. Pendiente opcional: redundancia Nostr. Nota técnica: Bluetooth navegador-a-navegador no existe en la web (Web Bluetooth no hace modo periférico); mesh BLE exigiría app nativa.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>version.json + chequeo de versión.</b> Entregada (v1.2.0, 2026-07-08): <code>docs/version.json</code> en vivo con changelog visible para la app.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Service worker / PWA.</b> Entregada: <code>docs/sw.js</code> + <code>docs/manifest.json</code> presentes en el repo.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>GitHub Pages público.</b> Entregada (2026-07-15): repo público, Pages activo en branch master /docs.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Panel de control de JFC.</b> Este panel, con "🔓 Liberar correo" y "⬆️ Publicar update" por app.</div></div>
+      <div class="fase todo"><div class="fase-ico">▫️</div><div class="fase-txt"><b>Cloudflare Worker de licencias.</b> Aún no desplegado para friendly-123 — la sección "Licencias" de arriba queda vacía hasta configurar URL + Master Key.</div></div>
     </div>
 
 
@@ -477,19 +452,19 @@
     <div class="roles">
       <div class="role-card">
         <h3>🕵️ Master (tú, JFC)</h3>
-        <p>Controlas <strong>versiones, parches, códigos maestros y despliegues</strong> de todas las apps. Este panel es tuyo. Accedes con tu PIN de 3 dígitos.</p>
+        <p>Controlas <strong>versiones, parches, códigos maestros y despliegues</strong> de friendly-123. Este panel es tuyo. Accedes con tu PIN de 6 dígitos.</p>
       </div>
       <div class="role-card dueno">
         <h3>🏪 Dueño / Admin de local</h3>
-        <p>Opera <strong>su</strong> negocio con sus propios PINs (dueño, empleado, contable). Ej: <strong>Jose</strong> es el dueño de <strong>Olimpo Control</strong>. NO es master. No ve este panel.</p>
+        <p>Opera <strong>su</strong> negocio con sus propios PINs (dueño, empleado, contable) dentro de la app. NO es master. No ve este panel.</p>
       </div>
       <div class="role-card aviso">
         <h3>⚠️ No confundir productos</h3>
-        <p><strong>Olimpo Control</strong> (POS/inventario de Jose, smoke shop en Cuenca) es un producto <strong>totalmente distinto</strong> de <strong>Olimpo 2.0</strong> (consola de música/chat del club, auth por Nostr). Repos, dominios y bases de código separados. Nunca tratar uno como copia del otro.</p>
+        <p><strong>friendly-123</strong> y <strong>AMIGABLE</strong> son repos hermanos con historia compartida, pero cada uno tiene su propio panel, su propio PIN y su propio Worker de licencias. Nunca tratar uno como copia exacta del otro.</p>
       </div>
     </div>
 
-        <!-- NOTAS OPERATIVAS -->
+    <!-- NOTAS OPERATIVAS -->
     <div class="sec-head"><h2>Notas operativas</h2></div>
     <div class="notas">
       <div class="nota">
@@ -503,24 +478,12 @@
         </div>
       </div>
       <div class="nota">
-        <div class="nota-head">Códigos maestros — cómo se validan</div>
+        <div class="nota-head">Recuperación de PIN — cómo funciona en friendly-123</div>
         <div class="nota-body">
-          En Olimpo Control, <code>verificarMaestro()</code> revisa <strong>siempre</strong> la lista
-          <code>MASTER_CODES_AUTHORIZED</code>, aunque el navegador ya tenga un hash guardado. Por eso
-          <strong>basta refrescar</strong> para que un código nuevo funcione — el dueño no tiene que borrar nada.
-        </div>
-      </div>
-      <div class="nota">
-        <div class="nota-head">Activación Loyverse (Olimpo Control)</div>
-        <div class="nota-body">
-          Jose obtiene su token en Loyverse → app → Avanzado → "Conectar Loyverse" → guarda → reinicia <code>node server.js</code>.
-        </div>
-      </div>
-      <div class="nota">
-        <div class="nota-head">EmailJS — recuperación de acceso</div>
-        <div class="nota-body">
-          Configurar <code>EMAILJS_CONFIG</code> en <code>email-recovery.js</code> de cada proyecto.
-          Hasta entonces, el código de reset aparece en pantalla.
+          A diferencia de AMIGABLE (que tiene una lista fija <code>MASTER_CODES_AUTHORIZED</code>), friendly-123
+          usa un flujo de <strong>reset temporal vía EmailJS</strong>: se genera un código con expiración de 15
+          minutos guardado en <code>localStorage["oc_reset"]</code>. Configura <code>EMAILJS_CONFIG</code> en
+          <code>email-recovery.js</code>; hasta entonces, el código de reset aparece en pantalla.
         </div>
       </div>
       <div class="nota">
@@ -530,16 +493,24 @@
           Al pushear cambios grandes, actualiza las cards y la tabla de arriba con el nuevo hash y fecha.
         </div>
       </div>
+      <div class="nota">
+        <div class="nota-head">PIN de 6 dígitos — por qué el cambio</div>
+        <div class="nota-body">
+          JFC decidió subir de 3 a 6 dígitos como mejora de seguridad para reducir el espacio de fuerza bruta
+          por shoulder-surfing/memorización. friendly-123 nace con 6 dígitos desde el día uno; AMIGABLE migrará
+          en una tarea aparte que JFC ejecutará con <code>/make-plan</code>.
+        </div>
+      </div>
     </div>
   </main>
 
   <footer>
-    AMIGABLE-123 · Panel Maestro · privado · noindex · 2026
+    friendly-123 · Master Panel · private · noindex · 2026
   </footer>
 </div>
 
 <!-- ══════════════════════════════════════════════
-     MODAL — segundo PIN para confirmar acción
+     MODAL — segundo PIN para confirmar acción (6 dígitos)
      ══════════════════════════════════════════════ -->
 <div id="modal-overlay">
   <div id="modal-box">
@@ -549,6 +520,9 @@
       <div class="slot" id="ms0"></div>
       <div class="slot" id="ms1"></div>
       <div class="slot" id="ms2"></div>
+      <div class="slot" id="ms3"></div>
+      <div class="slot" id="ms4"></div>
+      <div class="slot" id="ms5"></div>
     </div>
     <div class="pad" id="modal-pad"></div>
     <div id="modal-msg"></div>
@@ -558,8 +532,9 @@
 
 <script>
 // ============================================================================
-// panel.html — lógica principal (sin cambios respecto a v0.2: gate 777,
-// teclado con emojis barajados, modal de segundo PIN, liberar correo).
+// panel.html — lógica principal. Clonada del panel de AMIGABLE, con el PIN
+// subido de 3 a 6 dígitos (gate y modal). Teclado con emojis barajados,
+// modal de segundo PIN para confirmar "liberar correo", licencias vía Worker.
 // ============================================================================
 
 // EMOJIS EXCLUSIVOS DEL PANEL — "just for me" (JFC). Temática espionaje/tech.
@@ -570,7 +545,9 @@ const PANEL_EMOJIS = [
 ];
 
 // HASH esperado del código de acceso. El código NO aparece como literal.
-const _P = ["7","7","7"]; // las tres partes — no revelan el número solo de verlas
+// PIN de 6 dígitos — JFC puede cambiarlo editando este array (mismo orden = el PIN).
+const _P = ["4","1","9","2","5","7"]; // seis partes — no revelan el número solo de verlas
+const _PIN_LEN = _P.length; // 6 — usado en todo el JS de abajo, no hardcodear "6" suelto
 let _expectedHash = null;
 
 async function sha256hex(str) {
@@ -601,10 +578,10 @@ function montarTeclado(padEl, slotsEl, onComplete) {
     key.className = "pad-key";
     key.innerHTML = `<span class="emoji">${pool[d]}</span><span class="digit">${d}</span>`;
     key.addEventListener("click", () => {
-      if (entrada.length >= 3) return;
+      if (entrada.length >= _PIN_LEN) return;
       entrada.push(String(d));
       actualizarSlots(slotsEl, entrada.length);
-      if (entrada.length === 3) onComplete(entrada.join(""), resetEntrada);
+      if (entrada.length === _PIN_LEN) onComplete(entrada.join(""), resetEntrada);
     });
     padEl.appendChild(key);
     if (d === 0) {
@@ -639,11 +616,11 @@ async function initGate() {
   const padEl = document.getElementById("gate-pad");
   const slotsEl = document.getElementById("gate-slots");
   const msgEl = document.getElementById("gate-msg");
-  if (sessionStorage.getItem("panel_auth") === "1") { mostrarPanel(); return; }
+  if (sessionStorage.getItem("panel_auth_f123") === "1") { mostrarPanel(); return; }
   montarTeclado(padEl, slotsEl, async (codigo, reset) => {
     const h = await sha256hex(codigo);
     if (h === _expectedHash) {
-      sessionStorage.setItem("panel_auth", "1");
+      sessionStorage.setItem("panel_auth_f123", "1");
       mostrarPanel();
     } else {
       msgEl.textContent = "Código incorrecto.";
@@ -665,12 +642,164 @@ function initPanel() {
   document.getElementById("fecha-panel").textContent =
     d.getDate() + " " + meses[d.getMonth()] + " " + d.getFullYear();
   document.getElementById("btn-cerrar").addEventListener("click", () => {
-    sessionStorage.removeItem("panel_auth");
+    sessionStorage.removeItem("panel_auth_f123");
     location.reload();
   });
   document.querySelectorAll("[data-action='liberar']").forEach(btn => {
     btn.addEventListener("click", () => abrirModalLiberar(btn.dataset.nombre, btn.dataset.key));
   });
+  licInit();
+}
+
+// ── LICENCIAS — config en localStorage, datos vía Cloudflare Worker ──
+function licGetCfg() {
+  try { return JSON.parse(localStorage.getItem("f123_master_cfg") || "{}"); } catch (_) { return {}; }
+}
+function licSetCfg(obj) {
+  const prev = licGetCfg();
+  localStorage.setItem("f123_master_cfg", JSON.stringify({ ...prev, ...obj }));
+}
+function licWorkerUrl() { return (licGetCfg().workerUrl || "").trim(); }
+function licMasterKey() { return (licGetCfg().masterKey || "").trim(); }
+
+function licInit() {
+  const cfg = licGetCfg();
+  const u = document.getElementById("lic-worker-url");
+  const k = document.getElementById("lic-master-key");
+  if (u) u.value = cfg.workerUrl || "";
+  if (k) k.value = cfg.masterKey || "";
+  if (cfg.workerUrl) licRecargar();
+  else { licMostrarVacio(); document.getElementById("lic-meta").textContent = "configura el Worker →"; }
+}
+function licToggleConfig() {
+  const p = document.getElementById("lic-config");
+  p.style.display = p.style.display === "none" ? "block" : "none";
+}
+function licGuardarConfig() {
+  const workerUrl = document.getElementById("lic-worker-url").value.trim();
+  const masterKey = document.getElementById("lic-master-key").value.trim();
+  if (workerUrl) {
+    let u;
+    try { u = new URL(workerUrl); } catch (_) { mostrarConfirmacion("URL inválida — revisa que esté completa"); return; }
+    if (u.protocol !== "https:") { mostrarConfirmacion("La URL del Worker debe empezar con https://"); return; }
+  }
+  licSetCfg({ workerUrl, masterKey });
+  mostrarConfirmacion("Configuración del Worker guardada");
+  licRecargar();
+}
+let _licData = [];
+async function licRecargar() {
+  const url = licWorkerUrl();
+  const meta = document.getElementById("lic-meta");
+  if (!url) { meta.textContent = "sin URL del Worker — abre Config"; licMostrarVacio(); return; }
+  if (!licMasterKey()) { meta.textContent = "falta la Master Key — abre Config"; mostrarConfirmacion("Configura la Master Key del Worker"); return; }
+  meta.textContent = "cargando…";
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias", { headers: { "X-Master-Key": licMasterKey() } });
+    if (res.status === 401) { meta.textContent = "Master Key incorrecta"; mostrarConfirmacion("Master Key incorrecta"); return; }
+    const data = await res.json();
+    _licData = Array.isArray(data) ? data : [];
+    licRenderTabla(_licData);
+    licRenderStats(_licData);
+    meta.textContent = _licData.length + " instancia(s) · " + (new Date()).toLocaleTimeString("es");
+  } catch (e) {
+    meta.textContent = "error al conectar con el Worker";
+    mostrarConfirmacion("No se pudo conectar: " + e.message);
+  }
+}
+function licEsc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function licFmtDate(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return d.toLocaleDateString("es") + " " + d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+}
+function licRenderStats(data) {
+  const c = { activa: 0, observada: 0, limitada: 0, bloqueada: 0 };
+  data.forEach(r => { if (c[r.estado] !== undefined) c[r.estado]++; });
+  document.getElementById("lic-stats").innerHTML =
+    `<div class="stat-box"><div class="stat-value">${data.length}</div><div class="stat-label">Total</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--green);">${c.activa}</div><div class="stat-label">Activas</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--blue);">${c.observada}</div><div class="stat-label">Observadas</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--amber);">${c.limitada}</div><div class="stat-label">Limitadas</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--red);">${c.bloqueada}</div><div class="stat-label">Bloqueadas</div></div>`;
+}
+function licMostrarVacio() {
+  document.getElementById("lic-empty").style.display = "block";
+  document.getElementById("lic-tabla").style.display = "none";
+}
+function licRenderTabla(data) {
+  if (!data.length) { licMostrarVacio(); return; }
+  document.getElementById("lic-empty").style.display = "none";
+  document.getElementById("lic-tabla").style.display = "table";
+  const tb = document.getElementById("lic-tbody");
+  tb.innerHTML = "";
+  data.forEach(r => {
+    const est = r.estado || "activa";
+    const id = licEsc(r.instanceId);
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td><span class="lic-badge ${licEsc(est)}">${licEsc(est)}</span></td>` +
+      `<td class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}</td>` +
+      `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || "—")}</td>` +
+      `<td style="font-size:13px;">${licEsc(r.email || "—")}</td>` +
+      `<td style="font-size:13px;">${licEsc(r.cedula || "—")}</td>` +
+      `<td class="date">${licFmtDate(r.activatedAt)}</td>` +
+      `<td class="date">${licFmtDate(r.lastSeen)}</td>` +
+      `<td><select id="lic-sel-${id}">` +
+      `<option value="activa"${est === "activa" ? " selected" : ""}>Activa</option>` +
+      `<option value="observada"${est === "observada" ? " selected" : ""}>Observada</option>` +
+      `<option value="limitada"${est === "limitada" ? " selected" : ""}>Limitada</option>` +
+      `<option value="bloqueada"${est === "bloqueada" ? " selected" : ""}>Bloqueada</option>` +
+      `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function licFiltrar() {
+  const q = document.getElementById("lic-filtro").value.toLowerCase();
+  const est = document.getElementById("lic-filtro-estado").value;
+  licRenderTabla(_licData.filter(r => {
+    const okEst = !est || r.estado === est;
+    const okQ = !q || (r.licenseCode || "").toLowerCase().includes(q) || (r.email || "").toLowerCase().includes(q) ||
+      (r.cedula || "").toLowerCase().includes(q) || ((r.nombre || "") + " " + (r.apellido || "")).toLowerCase().includes(q);
+    return okEst && okQ;
+  }));
+}
+async function licCambiarEstado(instanceId) {
+  const sel = document.getElementById("lic-sel-" + instanceId);
+  if (!sel) return;
+  const estado = sel.value;
+  const url = licWorkerUrl();
+  if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/estado", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() },
+      body: JSON.stringify({ estado })
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    mostrarConfirmacion("Estado actualizado: " + estado);
+    const r = _licData.find(x => x.instanceId === instanceId);
+    if (r) r.estado = estado;
+    licRenderStats(_licData);
+  } catch (e) {
+    mostrarConfirmacion("Error al actualizar: " + e.message);
+  }
+}
+function licExportCSV() {
+  if (!_licData.length) { mostrarConfirmacion("No hay instancias que exportar todavía"); return; }
+  const cols = ["licenseCode", "nombre", "apellido", "email", "cedula", "estado", "activatedAt", "lastSeen", "instanceId"];
+  const rows = _licData.map(r => cols.map(c => {
+    let v = r[c] != null ? String(r[c]) : "";
+    if (c.endsWith("At") && r[c]) v = licFmtDate(r[c]);
+    return '"' + v.replace(/"/g, '""') + '"';
+  }).join(","));
+  const csv = [cols.join(","), ...rows].join("\n");
+  const a = document.createElement("a");
+  a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+  a.download = "friendly123-licencias-" + (new Date()).toISOString().slice(0, 10) + ".csv";
+  a.click();
 }
 
 // ── MODAL — segundo PIN ──
