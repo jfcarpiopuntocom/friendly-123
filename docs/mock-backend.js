@@ -85,20 +85,20 @@
 
   const productos = [
     {"id":"p01","nombre":"Butane Torch Lighter","categoria":"Smoke Accessories","sku":"CAM-PF-DSM","barcode":"7861000030019","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":30,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Coastal Wholesale Co."},
-    {"id":"p02","nombre":"4-Piece Herb Grinder","categoria":"Smoke Accessories","sku":"CAM-MET-MOP","estrella":true,"barcode":"7861000030026","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":8,"umbralRojo":10,"umbralAmarillo":18,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p02","nombre":"Souvenir Shot Glass","categoria":"Gifts & Souvenirs","sku":"CAM-MET-MOP","estrella":true,"barcode":"7861000030026","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":8,"umbralRojo":10,"umbralAmarillo":18,"proveedor":"Riverside Gift & Souvenir Co."},
     {"id":"p03","nombre":"Local History Zine Vol. 3","categoria":"Books","sku":"CAM-ACDC-BIB","estrella":true,"barcode":"7861000030033","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":25,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Indie Press Collective"},
-    {"id":"p04","nombre":"Rolling Papers Multi-Pack","categoria":"Smoke Accessories","sku":"CAM-NIR-NVM","barcode":"7861000030040","ubicacionId":"smokeshop","precio":21,"costo":9,"stockActual":15,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p04","nombre":"Souvenir Keychain 3-Pack","categoria":"Gifts & Souvenirs","sku":"CAM-NIR-NVM","barcode":"7861000030040","ubicacionId":"smokeshop","precio":21,"costo":9,"stockActual":15,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Gift & Souvenir Co."},
     {"id":"p05","nombre":"Graphic Tee — Skyline Print","categoria":"Apparel","sku":"CAM-IM-TRP","barcode":"7861000030057","ubicacionId":"fairbooth","precio":23,"costo":10,"stockActual":4,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Textiles"},
     {"id":"p06","nombre":"Poetry Chapbook — Late Bloom","categoria":"Books","sku":"CAM-RS-TON","barcode":"7861000030064","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":18,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Indie Press Collective"},
-    {"id":"p07","nombre":"Novelty Glass Pipe","categoria":"Smoke Accessories","sku":"CAM-LZ-ICA","barcode":"7861000030071","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":12,"umbralRojo":5,"umbralAmarillo":13,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p07","nombre":"Postcard Rack Set","categoria":"Gifts & Souvenirs","sku":"CAM-LZ-ICA","barcode":"7861000030071","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":12,"umbralRojo":5,"umbralAmarillo":13,"proveedor":"Riverside Gift & Souvenir Co."},
     {"id":"p08","nombre":"Graphic Tee — Retro Sunset","categoria":"Apparel","sku":"CAM-RAM-PRS","barcode":"7861000030088","ubicacionId":"fairbooth","precio":19,"costo":8,"stockActual":9,"umbralRojo":5,"umbralAmarillo":11,"proveedor":"Riverside Textiles"},
-    {"id":"p09","nombre":"Metal Ashtray","categoria":"Smoke Accessories","sku":"CAM-GNR-APP","barcode":"7861000030095","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":20,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p09","nombre":"Fridge Magnet Set","categoria":"Gifts & Souvenirs","sku":"CAM-GNR-APP","barcode":"7861000030095","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":20,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Gift & Souvenir Co."},
     {"id":"p10","nombre":"Short Story Collection — Night Shift","categoria":"Books","sku":"CAM-QUE-CRS","barcode":"7861000030101","ubicacionId":"bookshelf","precio":21,"costo":9,"stockActual":3,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Indie Press Collective"},
     {"id":"p11","nombre":"Handmade Beaded Bracelet","categoria":"Handmade Crafts","sku":"SOU-TAZ-001","estrella":true,"barcode":"7861000030118","ubicacionId":"fairbooth","precio":8,"costo":3,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"River Valley Artisans"},
     {"id":"p12","nombre":"Bookmark Set — Pressed Flowers","categoria":"Stationery & Gifts","sku":"SOU-LLA-001","barcode":"7861000030125","ubicacionId":"bookshelf","precio":3.5,"costo":1.2,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Paper & Bind Co."},
     {"id":"p13","nombre":"Incense Sticks — Sandalwood","categoria":"Smoke Accessories","sku":"ACC-PIN-001","barcode":"7861000030132","ubicacionId":"smokeshop","precio":4,"costo":1.5,"stockActual":50,"umbralRojo":12,"umbralAmarillo":25,"proveedor":"Coastal Wholesale Co."},
     {"id":"p14","nombre":"Embroidered Patch — Mountain Range","categoria":"Handmade Crafts","sku":"ACC-PAR-001","barcode":"7861000030149","ubicacionId":"fairbooth","precio":5,"costo":2,"stockActual":35,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"River Valley Artisans"},
-    {"id":"p15","nombre":"Snapback Cap — Logo","categoria":"Smoke Accessories","sku":"SOU-GOR-001","barcode":"7861000030156","ubicacionId":"smokeshop","precio":15,"costo":6.5,"stockActual":6,"umbralRojo":5,"umbralAmarillo":9,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p15","nombre":"Snapback Cap — Logo","categoria":"Apparel","sku":"SOU-GOR-001","barcode":"7861000030156","ubicacionId":"smokeshop","precio":15,"costo":6.5,"stockActual":6,"umbralRojo":5,"umbralAmarillo":9,"proveedor":"Coastal Wholesale Co."},
     {"id":"p16","nombre":"Reading Journal — Lined","categoria":"Stationery & Gifts","sku":"ACC-PUA-006","barcode":"7861000030163","ubicacionId":"bookshelf","precio":6,"costo":2.2,"stockActual":22,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Paper & Bind Co."},
     /* Novela latinoamericana contemporánea — 8 títulos cultos, selección JFC 2026-07-03 */
     {"id":"p17","nombre":"Memoir — Where the River Turns","categoria":"Books","sku":"LIB-ENR-NPN","barcode":"9789584293152","ubicacionId":"smokeshop","precio":22,"costo":9.5,"stockActual":3,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Indie Press Collective"},
@@ -117,7 +117,7 @@
     /* ROJO intensidad 3 — exactamente en el umbral rojo (limite de emergencia) */
     {"id":"p27","nombre":"Graphic Tee — Vintage Fade","categoria":"Apparel","sku":"CAM-BOW-ZIG","barcode":"7861000030194","ubicacionId":"fairbooth","precio":24,"costo":10,"stockActual":5,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Riverside Textiles"},
     /* NARANJA encendido 3 — a 1 unidad del umbral rojo (revisar hoy) */
-    {"id":"p28","nombre":"Metal Poster — Neon City","categoria":"Smoke Accessories","sku":"ACC-POS-001","barcode":"7861000030200","ubicacionId":"smokeshop","precio":12,"costo":7,"stockActual":6,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p28","nombre":"Metal Poster — Neon City","categoria":"Home & Decor","sku":"ACC-POS-001","barcode":"7861000030200","ubicacionId":"smokeshop","precio":12,"costo":7,"stockActual":6,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Coastal Wholesale Co."},
     /* NARANJA encendido 1 — recién entrando a la zona de revisar */
     {"id":"p29","nombre":"Novel — Static Line","categoria":"Books","sku":"CAM-CUR-DIS","barcode":"7861000030217","ubicacionId":"bookshelf","precio":22,"costo":13,"stockActual":9,"umbralRojo":4,"umbralAmarillo":14,"proveedor":"Indie Press Collective"},
     /* NARANJA encendido 1 — tope del rango, sin apuro todavía */
@@ -136,17 +136,17 @@
     {"id":"p36","nombre":"Collectible Figure — Limited Run","categoria":"Collectibles","sku":"COL-IM-EDI","estrella":true,"barcode":"7861000030286","ubicacionId":"fairbooth","precio":65,"costo":18,"stockActual":5,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Second Spin Records"},
     /* PERECIBLES — 3 grados de urgencia por vencimiento */
     /* Rojo por vencimiento: vence en 2 dias (retiralo ya aunque el stock sea bueno) */
-    {"id":"p37","nombre":"Energy Drink 12oz","categoria":"Smoke Accessories","sku":"ALI-CAF-001","barcode":"7861000030293","ubicacionId":"smokeshop","precio":7,"costo":3,"stockActual":15,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-05","proveedor":"Coastal Wholesale Co."},
+    {"id":"p37","nombre":"Homemade Strawberry Jam 8oz","categoria":"Local Foods","sku":"ALI-CAF-001","barcode":"7861000030293","ubicacionId":"smokeshop","precio":7,"costo":3,"stockActual":15,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-05","proveedor":"Grandma's Kitchen Preserves"},
     /* Amarillo por vencimiento: vence en 5 dias (vendelo primero) */
-    {"id":"p38","nombre":"Chocolate Bar — Dark 70%","categoria":"Smoke Accessories","sku":"ALI-CHO-001","barcode":"7861000030309","ubicacionId":"bookshelf","precio":4,"costo":1.8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-08","proveedor":"Coastal Wholesale Co."},
+    {"id":"p38","nombre":"Chocolate Bar — Dark 70%","categoria":"Snacks & Drinks","sku":"ALI-CHO-001","barcode":"7861000030309","ubicacionId":"bookshelf","precio":4,"costo":1.8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-08","proveedor":"Coastal Wholesale Co."},
     /* Rojo extremo: ya vencio hace 3 dias (retirar inmediatamente) */
-    {"id":"p39","nombre":"Trail Mix Bag","categoria":"Smoke Accessories","sku":"ALI-GRA-001","barcode":"7861000030316","ubicacionId":"fairbooth","precio":9,"costo":4.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-06-30","proveedor":"Coastal Wholesale Co."},
+    {"id":"p39","nombre":"Trail Mix Bag","categoria":"Local Foods","sku":"ALI-GRA-001","barcode":"7861000030316","ubicacionId":"fairbooth","precio":9,"costo":4.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-06-30","proveedor":"Coastal Wholesale Co."},
 
     /* ---- VITRINA GRADOS DE ENCENDIDO (JFC 2026-07-07): completa los niveles
        1-3 de cada color que faltaban, para que el visitante VEA la Escala
        Sinclair Bloom en acción sin tener que operar nada. ---- */
     /* VERDE encendido 1 — sano pero con poco fondo (stock < 7) */
-    {"id":"p40","nombre":"Keychain — Bottle Opener","categoria":"Smoke Accessories","sku":"ACC-LLA-001","barcode":"7861000030323","ubicacionId":"smokeshop","precio":12,"costo":8,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Coastal Wholesale Co."},
+    {"id":"p40","nombre":"Keychain — Bottle Opener","categoria":"Gifts & Souvenirs","sku":"ACC-LLA-001","barcode":"7861000030323","ubicacionId":"smokeshop","precio":12,"costo":8,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Coastal Wholesale Co."},
     /* VERDE encendido 2 — sano, fondo medio (7-14) */
     {"id":"p41","nombre":"Embroidered Patch — Wave","categoria":"Stationery & Gifts","sku":"ACC-PAR-001","barcode":"7861000030330","ubicacionId":"bookshelf","precio":14,"costo":9,"stockActual":10,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Paper & Bind Co."},
     /* AMARILLO (oportunidad) encendido 1 — margen 52%, recién cruza el umbral */
