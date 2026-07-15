@@ -31,10 +31,13 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="friendly-123">
 <meta property="og:description" content="Your business, in color. Serverless point of sale and inventory control for small business.">
-<meta property="og:image" content="./favicon.png">
-<!-- Favicon "123" (Sinclair chassis): browser tab and home-screen icon on iPhone -->
-<link rel="icon" type="image/png" href="./favicon.png">
-<link rel="apple-touch-icon" href="./favicon.png">
+<meta property="og:image" content="./icons/android-chrome-512x512.png">
+<!-- Favicon "123" (cropped from the friendly-123 wordmark, not the full logo —
+     illegible at 16px). Full set generated 2026-07-15 from friendly-123-logo-source. -->
+<link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
+<link rel="icon" type="image/x-icon" href="./favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
 <!-- manifest.json habilita "Instalar en pantalla de inicio" como OPCION adicional.
      La app funciona perfectamente como website sin instalar — esto es solo una
      mejora opcional para quienes prefieren el ícono en la pantalla principal.
@@ -840,7 +843,8 @@
     #modalEtiqueta.activo .cerrar,
     #modalEtiqueta.activo .imprimir,
     #modalEtiqueta.activo #oc-print-completa,
-    #modalEtiqueta.activo #barrasClicable + div { display:none !important; }
+    #modalEtiqueta.activo #barrasClicable + div,
+    #modalEtiqueta.activo .no-print { display:none !important; }
   }
 
   /* ================= AVANZADO ================= */
@@ -1001,6 +1005,7 @@
     <div>
       <h1><span id="oc-negocio-nombre">Mi Local Comercial o Percha(s)</span><button id="oc-negocio-editar" type="button" title="Editar el nombre de tu negocio" aria-label="Editar nombre del negocio" style="display:none;margin-left:8px;font-size:14px;line-height:1;background:transparent;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;vertical-align:middle;padding:2px 4px;">✎</button></h1>
       <div class="sub" data-i18n="brand.slogan">Your business, in color</div>
+      <div id="oc-offline-badge" style="display:none;font-size:13px;font-weight:700;color:#fff;background:var(--sim-naranja-dk,#C05000);padding:2px 8px;border-radius:999px;margin-top:4px;width:fit-content;">📴 <span data-i18n="offline.badge">Offline — saved locally</span></div>
     </div>
   </div>
   <!-- Switch bilingüe EN/ES + sello "Truly bilingual". Va en el header, discreto
@@ -1140,6 +1145,7 @@
       <button data-estado="azul" data-i18n="filter.data">Data</button>
       <button data-estado="negro" data-i18n="filter.dormant">Dormant</button>
     </div>
+    <input id="inputBuscarInventario" type="search" data-i18n-attr="placeholder:inv.searchPlaceholder" placeholder="Search by name, SKU or category…" style="width:100%;padding:10px 12px;margin-bottom:10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:15px;">
     <div class="grid-cajas" id="gridInventario"></div>
     <!-- Log de movimientos: SOLO dueño, anti-descuadre -->
     <div id="seccionLogAjustes" style="display:none;">
@@ -1267,9 +1273,8 @@
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.1">1. Tap any product card to open its printable label.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.lab.2html">2. <strong>Print full label</strong> prints ONLY the label — nothing else on the page.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.3">3. Tap the barcode itself to print or save just the barcode, for smaller labels.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.4">4. The QR code links straight to the product's full record for anyone who scans it.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.3">2. Tap the barcode itself to print or save just the barcode, for smaller labels.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.4">3. The QR code links straight to the product's full record for anyone who scans it.</p>
       </div>
     </details>
     <div class="grid-etiquetas" id="gridEtiquetas"></div>
@@ -1362,6 +1367,13 @@
     <h3 class="seccion" style="margin-top:0;" data-i18n="adv.recentActivity">Recent activity</h3>
     <div id="listaActividad" class="tag-card" style="text-align:left;max-height:280px;overflow-y:auto;"></div>
 
+    <h3 class="seccion" data-i18n="adv.timezoneHeading">Timezone</h3>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p data-i18n="adv.timezoneIntro">Used to decide what counts as "today" for sales, expenses, and daily close. Pick your store's timezone, or leave it on auto to use this device's timezone.</p>
+      <select id="selectTimezone" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;max-width:320px;"></select>
+      <p id="msgTimezone" style="font-size:14px; margin-top:10px;"></p>
+    </div>
+
     <h3 class="seccion" data-i18n="adv.monthlyExpenses">Monthly expenses</h3>
     <div class="panel-escaner tag-card" style="text-align:left;">
       <p data-i18n-html="adv.expensesIntro">Rent, electricity, payroll, internet, etc. Enter the monthly total for the selected location. It's split across the real days in the month to estimate the daily operating cost in the P&amp;L.</p>
@@ -1397,6 +1409,8 @@
   <div class="etiqueta-imprimible tag-card" id="contenidoEtiqueta">
     <button class="cerrar" id="cerrarModal">✕</button>
   </div>
+  <!-- Botones de acción fuera de la etiqueta imprimible: no aparecen en el preview ni en papel -->
+  <div id="oc-etiqueta-acciones" class="no-print" style="margin-top:12px;text-align:center;"></div>
 </div>
 
 <!-- Modal de ficha/edición de producto (JFC 2026-07-07): la tarjeta de
@@ -1447,7 +1461,7 @@ async function cargarUbicaciones(){
       if (cd && cd.open) {
         cargarCierreLista();
         const m = document.getElementById("cierreMsg");
-        if (m) { m.textContent = "Cambiaste de percha: la lista del cierre se recargó con la nueva."; m.style.color = "var(--sim-naranja-dk)"; }
+        if (m) { m.textContent = t("sold.branchChanged"); m.style.color = "var(--sim-naranja-dk)"; }
       }
     });
   }
@@ -1518,7 +1532,7 @@ async function cargarCierreLista(){
   const totalHoy = Object.values(hoyMap).reduce((a, b) => a + b, 0);
   // "hoy: N" = lo YA registrado (toques de arriba o cierres previos). Lo que
   // se teclea aquí es ADICIONAL — por eso nunca se pre-carga en el input.
-  cont.innerHTML = `<p style="font-size:15px;font-weight:700;color:var(--sim-verde-dk);margin:8px 0 4px;">Ya registradas hoy: ${totalHoy} unidad(es). Apunta solo lo que falte.</p>` + conStock.map(p => `
+  cont.innerHTML = `<p style="font-size:15px;font-weight:700;color:var(--sim-verde-dk);margin:8px 0 4px;">${tf("sold.alreadyToday", {n: totalHoy})}</p>` + conStock.map(p => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--linea,#D7E0E8);">
       <span style="font-size:15px;color:#0F1923;flex:1;">${escHtml(p.nombre)} <span style="color:#2C3E50;">(hay ${p.stockActual})</span>${hoyMap[p.id] ? ` <span style="font-size:14px;font-weight:700;color:var(--sim-verde-dk);">· hoy: ${hoyMap[p.id]}</span>` : ""}</span>
       <input type="number" min="0" max="${p.stockActual}" value="${previos[p.id] || 0}" data-cierre-prod="${p.id}" inputmode="numeric" style="width:76px;padding:8px;border:2px solid var(--azul-medio);border-radius:6px;text-align:center;">
@@ -1617,16 +1631,13 @@ if (elBtnCierre) elBtnCierre.addEventListener("click", async () => {
     .map(i => ({ productoId: i.dataset.cierreProd, cantidad: Number(i.value) || 0 }))
     .filter(i => i.cantidad > 0);
   const msgEl = document.getElementById("cierreMsg");
-  if (!items.length) { msgEl.textContent = "No apuntaste ninguna cantidad."; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
+  if (!items.length) { msgEl.textContent = t("sold.noQty"); msgEl.style.color = "var(--sim-rojo-dk)"; return; }
   const totalCierre = items.reduce((a, i) => a + i.cantidad, 0);
-  if (!confirm(`Esto registra ${totalCierre} unidad(es) vendida(s) HOY y descuenta el stock. ¿Aplicar el cierre?`)) {
-    if (window.dialogosBloqueados && window.dialogosBloqueados()) { msgEl.textContent = "Tu navegador bloquea las confirmaciones (pasa en el navegador de WhatsApp). Open friendly-123 in Chrome or Safari to apply the close."; msgEl.style.color = "var(--sim-rojo-dk)"; }
-    return;
-  }
+  if (!(await ocConfirm(tf("sold.closeConfirm", {n: totalCierre})))) return;
   const res = await fetch(`${API}/ventas/cierre`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }) });
   const r = await res.json();
   if (!res.ok) { msgEl.textContent = r.error; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
-  msgEl.textContent = `Cierre aplicado: ${r.aplicadas} unidad(es) registradas.` + (r.errores.length ? " Ojo: " + r.errores.join(" · ") : "");
+  msgEl.textContent = tf("sold.closeApplied", {n: r.aplicadas}) + (r.errores.length ? tf("sold.closeIssues", {errors: r.errores.join(" · ")}) : "");
   msgEl.style.color = r.errores.length ? "var(--sim-naranja-dk)" : "var(--sim-verde-dk)";
   cargarCierreLista();
   cargarGridVender();
@@ -1723,7 +1734,8 @@ function tarjetaCliente(c, esDueno){
     </div>${campoHora}` : "";
   const btnDespedir = (esDueno && ev.trato === -1 && ev.confiabilidad === -1)
     ? `<button style="margin-top:8px;font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;"
-        onclick="despedirCliente('${c.id}','${escHtml(c.nombre)}')">Despedir cliente 🚪</button>` : "";
+        data-despedir-id="${c.id}" data-despedir-nombre="${escHtml(c.nombre)}"
+        onclick="despedirCliente(this.dataset.despedirId, this.dataset.despedirNombre)">Despedir cliente 🚪</button>` : "";
   return `<div style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
@@ -1798,7 +1810,8 @@ async function cargarClientes(){
             <div style="background:#FDECEA;border:1.5px solid #C0392B;border-radius:8px;padding:8px 12px;margin:4px 0;display:flex;justify-content:space-between;align-items:center;">
               <span style="font-size:15px;color:#0F1923;">${escHtml(c.nombre)}</span>
               <button style="font-size:13px;padding:3px 10px;background:#E8F8F0;border:1.5px solid #009A5A;border-radius:6px;color:#009A5A !important;-webkit-text-fill-color:#009A5A !important;cursor:pointer;"
-                onclick="reactivarCliente('${c.id}','${escHtml(c.nombre)}')">Reactivar</button>
+                data-reactivar-id="${c.id}" data-reactivar-nombre="${escHtml(c.nombre)}"
+                onclick="reactivarCliente(this.dataset.reactivarId, this.dataset.reactivarNombre)">Reactivar</button>
             </div>`).join("")}
           </div>
         </details>` : ""}`;
@@ -2038,7 +2051,7 @@ const MOODS = [
 function actualizarReloj(){
   const el = document.getElementById("heroReloj");
   if (!el) return;
-  el.textContent = new Date().toLocaleString(window.OCI18n.locale(), { weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
+  el.textContent = new Date().toLocaleString(OCI18n.getLang() === "en" ? "en-US" : "es", { weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
 }
 
 // --- VISTA HOY ---
@@ -2222,6 +2235,25 @@ function renderBloom(estado, nivel){
   </div>`;
 }
 
+// Filtro por nombre/SKU/categoria (Microcirugia #11, alto ROI): reduce el
+// scroll en tiendas con decenas/cientos de productos. Filtra en el DOM
+// (data-buscar ya trae el texto normalizado), sin fetch adicional.
+function filtrarBusquedaInventario(){
+  const input = document.getElementById("inputBuscarInventario");
+  if (!input) return;
+  const q = input.value.trim().toLowerCase();
+  document.querySelectorAll("#gridInventario [data-buscar]").forEach(card => {
+    card.style.display = (!q || card.dataset.buscar.includes(q)) ? "" : "none";
+  });
+}
+(function () {
+  const input = document.getElementById("inputBuscarInventario");
+  if (input && !input.dataset.ocListo) {
+    input.dataset.ocListo = "1";
+    input.addEventListener("input", filtrarBusquedaInventario);
+  }
+})();
+
 async function cargarInventario(){
   // El "+" de alta libre es del dueno; el empleado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
@@ -2247,7 +2279,7 @@ async function cargarInventario(){
   }
   const esDuenoInv = window.OCAuth && window.OCAuth.rolActual() === "dueno";
   grid.innerHTML = productos.map(p => `
-    <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}">
+    <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}" data-buscar="${escHtml(`${p.nombre} ${p.sku} ${p.categoria}`.toLowerCase())}">
       ${p.estrella ? '<span class="estrella-badge">⭐</span>' : ''}
       <div onclick="abrirFichaDesdeInventario('${p.id}')" style="cursor:pointer;">
         <div class="nombre">${escHtml(p.nombre)}${p.perecible ? ' 🕓' : ''}</div>
@@ -2263,6 +2295,7 @@ async function cargarInventario(){
       </div>
     </div>
   `).join("");
+  filtrarBusquedaInventario();
 
   // Ajuste rápido +/- stock sin escanear. Pide motivo, deja log para el dueño.
   grid.querySelectorAll("[data-ajuste-menos],[data-ajuste-mas]").forEach(btn => {
@@ -2281,8 +2314,8 @@ async function cargarInventario(){
           body: JSON.stringify({ delta, motivo })
         });
         r8 = await res8.json();
-      } catch (_) { alert('No se pudo ajustar el stock. Intenta de nuevo.'); return; }
-      if (!res8.ok){ alert(r8.error); return; }
+      } catch (_) { await ocAlert('No se pudo ajustar el stock. Intenta de nuevo.'); return; }
+      if (!res8.ok){ await ocAlert(r8.error); return; }
       cargarInventario();
     });
   });
@@ -2295,7 +2328,7 @@ async function cargarInventario(){
         method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"
       });
       const r = await res.json();
-      if (!res.ok){ alert(r.error); return; }
+      if (!res.ok){ await ocAlert(r.error); return; }
       cargarInventario();
     });
   });
@@ -2394,7 +2427,7 @@ async function cargarLogAjustes(){
   }
   if (!movs.length){ cont.innerHTML = `<p style="color:var(--ink-soft);">${t("log.empty")}</p>`; return; }
   cont.innerHTML = movs.slice(0, 20).map(m => {
-    const fecha = new Date(m.fecha).toLocaleString(window.OCI18n.locale(), { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+    const fecha = new Date(m.fecha).toLocaleString(OCI18n.getLang() === "en" ? "en-US" : "es", { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
     const icono = m.tipo === 'ajuste' ? '📦' : m.tipo === 'venta' ? '💰' : m.tipo === 'estrella' ? '⭐' : m.tipo === 'anulacion' ? '🔄' : m.tipo === 'alta' ? '🆕' : '📋';
     const detalle = escHtml((m.detalle && m.detalle.producto) || '');
     const extra = m.tipo === 'ajuste' ? ` (${m.detalle.delta > 0 ? '+' : ''}${m.detalle.delta}) — ${escHtml(m.detalle.motivo)}` : m.tipo === 'venta' ? ` × ${m.detalle.cantidad} = $${m.detalle.total}` : m.tipo === 'estrella' ? ` ${escHtml(m.detalle.accion)}` : '';
@@ -2501,24 +2534,24 @@ async function cargarPerchas(){
 
   // ---- Eventos sucursales ----
   grid.querySelectorAll('[data-suc-renombrar]').forEach(btn => btn.addEventListener('click', async () => {
-    const nuevo = (prompt('Nuevo nombre de la sucursal:') || '').trim();
+    const nuevo = (await ocPrompt('Nuevo nombre de la sucursal:', '') || '').trim();
     if (!nuevo) return;
     const res = await fetch(`${API}/sucursales/${btn.dataset.sucRenombrar}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre: nuevo }) });
     if (res.ok) cargarPerchas();
   }));
   grid.querySelectorAll('[data-suc-borrar]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!confirm(`Borrar la sucursal "${btn.dataset.nombre}". Solo posible si no tiene perchas asignadas.`)) return;
+    if (!(await ocConfirm(`Borrar la sucursal "${btn.dataset.nombre}". Solo posible si no tiene perchas asignadas.`, { danger: true }))) return;
     const res = await fetch(`${API}/sucursales/${btn.dataset.sucBorrar}`, { method:'DELETE' });
-    const r = await res.json(); if (!res.ok) { alert(r.error); return; }
+    const r = await res.json(); if (!res.ok) { await ocAlert(r.error); return; }
     cargarPerchas();
   }));
 
   // ---- Eventos perchas ----
   grid.querySelectorAll('[data-percha-renombrar]').forEach(btn => btn.addEventListener('click', async () => {
-    const nuevo = (prompt('Nuevo nombre de la percha:') || '').trim();
+    const nuevo = (await ocPrompt('Nuevo nombre de la percha:', '') || '').trim();
     if (!nuevo) return;
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaRenombrar}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre: nuevo }) });
-    const r = await res.json(); if (!res.ok){ alert(r.error); return; }
+    const r = await res.json(); if (!res.ok){ await ocAlert(r.error); return; }
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones();
   }));
   grid.querySelectorAll('[data-percha-toggle]').forEach(btn => btn.addEventListener('click', async () => {
@@ -2527,7 +2560,7 @@ async function cargarPerchas(){
     const aviso = esFeria
       ? 'Se cerrará la feria: deja de recibir ventas y verás su liquidación. Su historial se conserva. ¿Continuar?'
       : 'Esta percha dejará de recibir ventas nuevas. Su historial se conserva. ¿Continuar?';
-    if (activaAhora && !confirm(aviso)) return;
+    if (activaAhora && !(await ocConfirm(aviso))) return;
     const accion = activaAhora ? 'desactivar' : 'activar';
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaToggle}/${accion}`, { method:'POST' });
     if (res.ok){
@@ -2537,9 +2570,9 @@ async function cargarPerchas(){
     }
   }));
   grid.querySelectorAll('[data-percha-borrar]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!confirm(`Borrar la percha "${btn.dataset.nombre}" y TODOS sus productos. Esto no se puede deshacer. ¿Seguro?`)) return;
+    if (!(await ocConfirm(`Borrar la percha "${btn.dataset.nombre}" y TODOS sus productos. Esto no se puede deshacer. ¿Seguro?`, { danger: true }))) return;
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaBorrar}`, { method:'DELETE' });
-    const r = await res.json(); if (!res.ok){ alert(r.error); return; }
+    const r = await res.json(); if (!res.ok){ await ocAlert(r.error); return; }
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones(); cargarInventario();
   }));
   grid.querySelectorAll('[data-percha-mover]').forEach(sel => sel.addEventListener('change', async () => {
@@ -2740,6 +2773,7 @@ async function crearProductoNuevo(codigoEscaneado){
   const msg = document.getElementById("np-msg");
   if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
   if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.codeRequired"); return; }
+  if (Number(body.precio) === 0){ if (!(await ocConfirm(t("form.zeroPriceConfirm")))) return; }
   const res = await fetch(`${API}/productos`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
   const data = await res.json();
   if (!res.ok){ msg.style.color = "var(--rojo)"; msg.textContent = data.error; return; }
@@ -2830,15 +2864,58 @@ async function eliminarProductoUI(id, btn){
   }
   const res = await fetch(`${API}/productos/${id}`, { method: "DELETE" });
   const data = await res.json();
-  if (!res.ok){ alert(data.error); return; }
+  if (!res.ok){ await ocAlert(data.error); return; }
   document.getElementById("fichaResultado").innerHTML = `<p style="font-weight:700;">${t("delete.done")}</p>`;
   cargarInventario();
 }
 
 // "+" general del inventario: alta SIN escanear (el codigo se digita a mano).
 function abrirAltaProducto(){
-  document.querySelector('nav button[data-vista="escanear"]').click();
-  mostrarFormNuevoProducto("");
+  // FIX 2026-07-15: en vez de navegar a Escanear/Vender (donde cargarGridVender()
+  // sobreescribía el form recién pintado), abrimos el modal de Inventario directamente.
+  fichaTargetActual = "fichaModalBody";
+  const body = document.getElementById("fichaModalBody");
+  const modal = document.getElementById("modalFicha");
+  if (!body || !modal) return;
+  // Reutilizar mostrarFormNuevoProducto pero apuntando al modal body
+  const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"';
+  body.innerHTML = `
+    <div class="ficha-producto tag-card" style="text-align:left;">
+      <div class="titulo">${t("form.newProduct")}</div>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.barcodeLabel")}<br>
+        <input id="np-barcode" type="text" placeholder="${t('form.barcodePlaceholder')}" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
+        <input id="np-nombre" type="text" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
+        <input id="np-categoria" type="text" placeholder="${t('form.categoryPlaceholder')}" ${inp}></label>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br>
+          <input id="np-precio" type="number" min="0" step="0.01" ${inp}></label>
+        <label style="flex:1;font-size:14px;">${t("form.cost")}<br>
+          <input id="np-costo" type="number" min="0" step="0.01" ${inp}></label>
+      </div>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.initialStock")}<br>
+        <input id="np-stock" type="number" min="0" step="1" value="0" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.supplier")}<br>
+        <input id="np-proveedor" type="text" ${inp}></label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
+        <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
+      <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
+        <label style="display:block;font-size:14px;">${t("form.expiryDate")}<br>
+          <input id="np-fecha" type="date" ${inp}></label>
+        <label style="display:block;margin-top:8px;font-size:14px;">${t("form.sellOrder")}<br>
+          <select id="np-metodo" ${inp}>
+            <option value="FIFO">${t("form.fifo")}</option>
+            <option value="LIFO">${t("form.lifo")}</option>
+          </select></label>
+      </div>
+      <div id="np-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
+      <button class="ir" style="margin-top:12px;" onclick="crearProductoNuevo('')">${t("form.saveProduct")}</button>
+    </div>`;
+  document.getElementById("np-perecible").addEventListener("change", (e) => {
+    document.getElementById("np-fecha-wrap").style.display = e.target.checked ? "block" : "none";
+  });
+  modal.classList.add("activo");
 }
 
 document.getElementById("btnEscanear").addEventListener("click", ejecutarEscaneo);
@@ -2851,6 +2928,7 @@ document.getElementById("inputEscaner").addEventListener("keydown", (e) => {
 // por abrirFichaDesdeInventario()/cerrar del modal y ejecutarEscaneo().
 let fichaTargetActual = "fichaResultado";
 function pintarFicha(p){
+  if (p && p.id) _occoProductCache.set(p.id, p); // mantener caché fresca para abrirVistaCliente(id)
   const contenedor = document.getElementById(fichaTargetActual) || document.getElementById("fichaResultado");
   contenedor.innerHTML = `
     <div class="ficha-producto tag-card">
@@ -2868,6 +2946,11 @@ function pintarFicha(p){
         <button onclick="ajustar('${p.id}', 1)">+1 stock</button>
         <button onclick="ajustar('${p.id}', -1)">-1 stock</button>
         <button class="etiqueta" onclick="abrirEtiqueta('${p.id}')">${t("ficha.viewLabel")}</button>
+      </div>
+      <!-- "Mostrar al cliente": visible para cualquier rol autenticado (empleado o dueño) —
+           ambos están detrás del mostrador y pueden girar el teléfono hacia el cliente. -->
+      <div class="acciones-rapidas" style="margin-top:8px;">
+        <button onclick="abrirVistaCliente('${p.id}')" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
       </div>
       ${(window.OCAuth && window.OCAuth.rolActual() === "dueno") ? `<div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
@@ -2902,20 +2985,27 @@ async function solicitarTransferencia(origenId, destinoId, cantidad, btn){
   btn.disabled = true;
   const res = await fetch(`${API}/transferencias`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productoOrigenId: origenId, productoDestinoId: destinoId, cantidad }) });
   const r = await res.json();
-  if (!res.ok){ alert(r.error); btn.disabled = false; return; }
+  if (!res.ok){ await ocAlert(r.error); btn.disabled = false; return; }
   btn.parentElement.innerHTML = `<div style="font-size:14px;">${t("transfer.requested")}</div>`;
 }
 
+const _ventasEnCurso = new Set(); // guard: evita ventas duplicadas por doble-tap
 async function venderUno(id){
-  const sel = document.getElementById("ventaCliente");
-  const res = await fetch(`${API}/productos/${id}/venta`, {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({cantidad:1, clienteId: (sel && sel.value) || undefined})
-  });
-  const data = await res.json();
-  if (!res.ok){ alert(data.error); return; }
-  pintarFicha(data.producto);
-  if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+  if (_ventasEnCurso.has(id)) return;
+  _ventasEnCurso.add(id);
+  try {
+    const sel = document.getElementById("ventaCliente");
+    const res = await fetch(`${API}/productos/${id}/venta`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({cantidad:1, clienteId: (sel && sel.value) || undefined})
+    });
+    const data = await res.json();
+    if (!res.ok){ await ocAlert(data.error); return; }
+    pintarFicha(data.producto);
+    if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+  } finally {
+    _ventasEnCurso.delete(id);
+  }
 }
 
 // Guarda el interval activo del toast para poder cancelarlo si llega un segundo
@@ -2946,10 +3036,9 @@ function mostrarToastAnular(ventaId, productoId){
     cont.innerHTML = "";
     const res = await fetch(`${API}/ventas/${ventaId}/anular`, { method: "POST" });
     const data = await res.json();
-    if (!res.ok){ alert(data.error); return; }
+    if (!res.ok){ await ocAlert(data.error); return; }
     pintarFicha(data.producto);
   });
-  toastVentaTimer = setTimeout(() => { clearInterval(intervalo); cont.innerHTML = ""; }, 5000);
 }
 
 async function ajustar(id, delta){
@@ -2958,7 +3047,7 @@ async function ajustar(id, delta){
     body: JSON.stringify({delta, motivo:"Ajuste manual desde panel"})
   });
   const data = await res.json();
-  if (!res.ok){ alert(data.error); return; }
+  if (!res.ok){ await ocAlert(data.error); return; }
   pintarFicha(data);
 }
 
@@ -2998,6 +3087,7 @@ async function abrirEtiqueta(id){
   // imprimir el documento completo con window.print() sacaba botones, la X y el
   // nav en el papel. Ahora el print se arma limpio, solo la etiqueta.
   window._etiquetaActual = { data, p };
+  // Contenido imprimible — solo lo que aparece en papel (sin botón "Imprimir")
   document.getElementById("contenidoEtiqueta").innerHTML = `
     <button class="cerrar" id="cerrarModal2">✕</button>
     <h4>${p.nombre}</h4>
@@ -3008,9 +3098,10 @@ async function abrirEtiqueta(id){
     <div style="font-size:13px;color:var(--azul-medio,#2c4a68);margin-top:-6px;">👆 Toca el código de barras para imprimirlo o guardarlo solo</div>
     ${data.qrDataUrl ? `<img src="${data.qrDataUrl}" width="160" height="160" alt="QR del producto">
     <div style="font-size:13px; color:var(--azul-medio);">Escanea para ver la ficha completa</div>` : ""}
-    <br>
-    <button class="imprimir" id="oc-print-completa">Imprimir etiqueta completa</button>
   `;
+  // Botón de impresión fuera de la etiqueta — no viaja al papel ni aparece en el preview
+  const accionesEl = document.getElementById("oc-etiqueta-acciones");
+  if (accionesEl) accionesEl.innerHTML = `<button class="imprimir" id="oc-print-completa">Imprimir etiqueta completa</button>`;
   document.getElementById("modalEtiqueta").classList.add("activo");
   document.getElementById("cerrarModal2").addEventListener("click", cerrarModalEtiqueta);
   document.getElementById("barrasClicable").addEventListener("click", (e) => mostrarMenuBarcode(e, data.barcodeSvg, p));
@@ -3382,7 +3473,7 @@ async function evaluarCliente(clienteId, campo, valor) {
 }
 
 async function despedirCliente(clienteId, nombre) {
-  if (!confirm(`¿Despedir a ${nombre}? Dejará de aparecer en el selector de ventas.\nPuedes reactivarlo después desde esta misma sección.`)) return;
+  if (!(await ocConfirm(`¿Despedir a ${nombre}? Dejará de aparecer en el selector de ventas.\nPuedes reactivarlo después desde esta misma sección.`))) return;
   try {
     const quien = (window.OCAuth && window.OCAuth.usuarioActual && window.OCAuth.usuarioActual().nombre) || "Sistema";
     await fetch(`${API}/clientes/${clienteId}/despedir`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quien }) });
@@ -3399,7 +3490,7 @@ async function reactivarCliente(clienteId, nombre) {
 }
 
 async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
-  if (!confirm("¿Confirmas que ya le pagaste a la promotor/a lo que corresponde este mes?")) return;
+  if (!(await ocConfirm("¿Confirmas que ya le pagaste a la promotor/a lo que corresponde este mes?"))) return;
   // #19: capturamos el desglose ANTES de sellar (marcar-pagado deja pendientes en 0).
   const detalle = (window._ocLiqDet && window._ocLiqDet[ubicacionId]) || [];
   const res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST" });
@@ -3408,7 +3499,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   // Recibo para WhatsApp: solo se ofrece si hay nombre de promotora y monto > 0.
   if (promotorNombre && monto > 0) {
     const neg = (function(){ try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch(_){ return ""; } })();
-    const mes = new Date().toLocaleDateString(window.OCI18n.locale(), { month: "long", year: "numeric" });
+    const mes = new Date().toLocaleDateString("es", { month: "long", year: "numeric" });
     // #19: lineas del desglose — "de qué ventas exactas". Cada producto con
     // unidades y comisión, para que el socio concilie sin preguntar.
     const lineasDet = detalle.map(d =>
@@ -3426,13 +3517,52 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
       ``,
       `Gracias por tu trabajo este mes. — friendly-123`,
     ].filter(Boolean).join("\n");
-    if (confirm(`¿Enviar recibo a ${promotorNombre} por WhatsApp?`)) {
+    if (await ocConfirm(`¿Enviar recibo a ${promotorNombre} por WhatsApp?`)) {
       window.open("https://wa.me/?text=" + encodeURIComponent(recibo), "_blank");
     }
   }
 }
 
 // --- VISTA AVANZADO ---
+// --- Selector de zona horaria (Microcirugia USA-ready 2026-07-15) ---
+// Zonas más comunes de USA + la detectada por el navegador (para que un
+// dueño en, digamos, Denver, no tenga que buscarla en una lista larga).
+// El valor se guarda en localStorage("oc_timezone"); mock-backend.js y
+// server.js lo leen ahí para decidir qué cuenta como "hoy". Vacío = auto.
+const TIMEZONES_COMUNES = [
+  "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix",
+  "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu",
+];
+// --- Indicador offline (Microcirugia USA-ready 2026-07-15) ---
+// El service worker ya soporta trabajar sin conexion, pero no habia forma
+// visible de saber si una venta se guardo local o si de plano no hay señal.
+(function () {
+  const badge = document.getElementById("oc-offline-badge");
+  function actualizar() { if (badge) badge.style.display = navigator.onLine ? "none" : "flex"; }
+  window.addEventListener("online", actualizar);
+  window.addEventListener("offline", actualizar);
+  actualizar();
+})();
+
+function inicializarSelectorTimezone(){
+  const sel = document.getElementById("selectTimezone");
+  if (!sel || sel.dataset.ocListo) return;
+  sel.dataset.ocListo = "1";
+  const detectada = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const zonas = TIMEZONES_COMUNES.includes(detectada) ? TIMEZONES_COMUNES : [detectada, ...TIMEZONES_COMUNES];
+  sel.innerHTML = `<option value="">${t("adv.timezoneAuto")} — ${detectada}</option>` +
+    zonas.map(z => `<option value="${z}">${z}</option>`).join("");
+  sel.value = localStorage.getItem("oc_timezone") || "";
+  sel.addEventListener("change", () => {
+    const msg = document.getElementById("msgTimezone");
+    if (sel.value) localStorage.setItem("oc_timezone", sel.value);
+    else localStorage.removeItem("oc_timezone");
+    msg.style.color = "var(--verde)";
+    msg.textContent = t("adv.timezoneSaved");
+    cargarAvanzado();
+  });
+}
+
 async function cargarGastosMensuales(){
   const input = document.getElementById("inputGastosMensuales");
   const msg = document.getElementById("msgGastos");
@@ -3489,6 +3619,7 @@ document.getElementById("btnGuardarGastos").addEventListener("click", async () =
 });
 
 async function cargarAvanzado(){
+  inicializarSelectorTimezone();
   await cargarGastosMensuales();
   await cargarActividad();
   const [pl, balance, valorizado] = await Promise.all([
@@ -3499,37 +3630,33 @@ async function cargarAvanzado(){
 
   // Color intencional: azul = capa contable (Simon semantica). Verde solo
   // en resultados positivos. Sin rojo — los gastos son normales, no alarma.
-  // friendly-123 (USA): sin IVA embebido en el precio (ver SALES_TAX_RATE en
-  // server.js/mock-backend.js) — ingresosConIva === ingresos siempre, asi que
-  // se muestra una sola fila de "Ventas" en vez de las 3 filas Ecuador-specific
-  // (con IVA / IVA cobrado / sin IVA) que mostraban $0 de IVA y mencionaban al SRI.
   document.getElementById("tablaPL").innerHTML = `
-    <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("pl.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("pl.amount")}</th></tr>
-    <tr><td>${t("pl.revenue")}</td><td>${fmtMoney(pl.ingresos)}</td></tr>
-    <tr><td>${t("pl.cogs")}</td><td>${fmtMoney(pl.costoVentas)}</td></tr>
-    <tr style="color:var(--sim-verde-dk);"><td>${t("pl.grossProfit")}</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>
-    <tr><td>${t("pl.opex")}</td><td>${fmtMoney(pl.gastosOperativos)}</td></tr>
-    <tr style="background:var(--sim-verde-bg);"><td><strong style="color:var(--sim-verde-dk);">${t("pl.netProfit")}</strong></td><td><strong style="color:var(--sim-verde-dk);">${fmtMoney(pl.utilidadNeta)}</strong></td></tr>
+    <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
+    <tr><td>${t("adv.pl.revenue")}</td><td>${fmtMoney(pl.ingresos)}</td></tr>
+    <tr><td>${t("adv.pl.cogs")}</td><td>${fmtMoney(pl.costoVentas)}</td></tr>
+    <tr style="color:var(--sim-verde-dk);"><td>${t("adv.pl.grossProfit")}</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>
+    <tr><td>${t("adv.pl.opex")}</td><td>${fmtMoney(pl.gastosOperativos)}</td></tr>
+    <tr style="background:var(--sim-verde-bg);"><td><strong style="color:var(--sim-verde-dk);">${t("adv.pl.netProfit")}</strong></td><td><strong style="color:var(--sim-verde-dk);">${fmtMoney(pl.utilidadNeta)}</strong></td></tr>
   `;
 
   document.getElementById("tablaBalance").innerHTML = `
-    <tr><th style="background:var(--sim-azul-dk);color:#fff;">Concepto</th><th style="background:var(--sim-azul-dk);color:#fff;">Monto</th></tr>
-    <tr><td>Ingresos del día estimados</td><td>${fmtMoney(balance.activos.efectivoEstimado)}</td></tr>
-    <tr><td>Inventario valorizado</td><td>${fmtMoney(balance.activos.inventarioValorizado)}</td></tr>
-    <tr style="background:var(--sim-azul-bg);"><td><strong style="color:var(--sim-azul-dk);">Total activos</strong></td><td><strong style="color:var(--sim-azul-dk);">${fmtMoney(balance.activos.total)}</strong></td></tr>
+    <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
+    <tr><td>${t("adv.bal.estCash")}</td><td>${fmtMoney(balance.activos.efectivoEstimado)}</td></tr>
+    <tr><td>${t("adv.bal.valuedInv")}</td><td>${fmtMoney(balance.activos.inventarioValorizado)}</td></tr>
+    <tr style="background:var(--sim-azul-bg);"><td><strong style="color:var(--sim-azul-dk);">${t("adv.bal.totalAssets")}</strong></td><td><strong style="color:var(--sim-azul-dk);">${fmtMoney(balance.activos.total)}</strong></td></tr>
   `;
 
   document.getElementById("tablaValorizado").innerHTML = `
     <tr>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Producto</th>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Stock</th>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Valor costo</th>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Valor venta</th>
-      <th style="background:var(--sim-azul-dk);color:#fff;">Utilidad potencial</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.product")}</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.stock")}</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.costValue")}</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.saleValue")}</th>
+      <th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.val.potentialProfit")}</th>
     </tr>
     ${valorizado.productos.map(p => `
       <tr>
-        <td>${p.nombre}</td>
+        <td>${escHtml(p.nombre)}</td>
         <td>${p.stockActual}</td>
         <td>${fmtMoney(p.valorCosto)}</td>
         <td>${fmtMoney(p.valorVenta)}</td>
@@ -3537,7 +3664,7 @@ async function cargarAvanzado(){
       </tr>
     `).join("")}
     <tr style="background:var(--sim-azul-bg);">
-      <td><strong style="color:var(--sim-azul-dk);">Total</strong></td>
+      <td><strong style="color:var(--sim-azul-dk);">${t("adv.val.total")}</strong></td>
       <td></td>
       <td><strong style="color:var(--sim-azul-dk);">${fmtMoney(valorizado.totales.valorCosto)}</strong></td>
       <td><strong style="color:var(--sim-azul-dk);">${fmtMoney(valorizado.totales.valorVenta)}</strong></td>
@@ -3642,7 +3769,13 @@ window.addEventListener("oc-datos-importados", async () => {
 // veces bloquea prompt()/confirm() (devuelven null/false al instante, sin
 // dialogo). dialogosBloqueados() lo detecta para avisar claro en vez de
 // fallar mudo. Heuristica: confirm respondiendo en <15ms = no hubo dialogo
-// humano. Se consulta SOLO donde el flujo depende de un prompt/confirm.
+// humano.
+// DORMANT parcial (2026-07-15): su único call site (cierre del día) ahora
+// usa ocConfirm() propio, que no depende de window.confirm y por tanto no
+// puede ser bloqueado por el webview. Se deja la función viva porque
+// prompt() (renombrar sucursal/percha) sigue siendo nativo y podría
+// usarla si se detecta el mismo problema ahí. NO BORRAR sin revisar esos
+// call sites primero.
 window.dialogosBloqueados = function () {
   try {
     const t0 = performance.now();
@@ -3677,5 +3810,223 @@ window.dialogosBloqueados = function () {
      El toast usa position:fixed pero un padre con display:none lo oculta igual.
      Fix 2026-07-07: mover fuera de pintarFicha() y de cualquier vista. -->
 <div id="oc-toast-venta"></div>
+
+<!-- =====================================================================
+     FEATURE: ocConfirm()/ocAlert() — reemplazo de confirm()/alert() nativos.
+     Los diálogos nativos bloquean el hilo, se ven fuera de lugar en el
+     estilo de la app, y en el navegador interno de WhatsApp/Instagram a
+     veces ni siquiera se muestran (devuelven false/undefined al instante).
+     Estas versiones son promesas resueltas por un modal propio, con el
+     mismo lenguaje visual del resto de la app (tag-card, colores Simon).
+     Uso: if (!(await ocConfirm("¿Seguro?"))) return;   await ocAlert("Error X");
+     ===================================================================== -->
+<div id="oc-modal-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,20,30,0.55);align-items:center;justify-content:center;padding:20px;">
+  <div id="oc-modal-caja" class="tag-card" style="max-width:380px;width:100%;text-align:left;background:var(--blanco-calido,#fbf5e8);padding:22px 20px;border-radius:12px;">
+    <div id="oc-modal-msg" style="font-size:15px;color:var(--ink,#211c14);white-space:pre-line;margin-bottom:18px;"></div>
+    <div id="oc-modal-botones" style="display:flex;gap:10px;justify-content:flex-end;"></div>
+  </div>
+</div>
+<script>
+let _ocModalResolve = null; // rastrea la promise pendiente; permite que un segundo modal cancele el primero
+function _ocModalMostrar(mensaje, botonesConfig) {
+  return new Promise((resolve) => {
+    // Si ya hay un modal abierto, resolver la promise vieja de forma defensiva (false = cancelar)
+    if (_ocModalResolve) { _ocModalResolve(false); _ocModalResolve = null; }
+    _ocModalResolve = resolve;
+    const overlay = document.getElementById("oc-modal-overlay");
+    const msgEl = document.getElementById("oc-modal-msg");
+    const botonesEl = document.getElementById("oc-modal-botones");
+    msgEl.textContent = mensaje;
+    botonesEl.innerHTML = "";
+    botonesConfig.forEach(cfg => {
+      const b = document.createElement("button");
+      b.textContent = cfg.label;
+      if (cfg.danger) b.style.cssText = "border-color:var(--rojo,#a3392a);color:var(--rojo,#a3392a);";
+      b.addEventListener("click", () => {
+        overlay.style.display = "none";
+        _ocModalResolve = null;
+        resolve(cfg.value);
+      });
+      botonesEl.appendChild(b);
+    });
+    overlay.style.display = "flex";
+  });
+}
+// Reemplazo de confirm(): resuelve true (aceptar) / false (cancelar).
+function ocConfirm(mensaje, opts) {
+  opts = opts || {};
+  return _ocModalMostrar(mensaje, [
+    { label: opts.cancelLabel || t("common.cancel"), value: false },
+    { label: opts.confirmLabel || t("common.accept"), value: true, danger: !!opts.danger },
+  ]);
+}
+// Reemplazo de alert(): resuelve al cerrar (equivalente a "OK").
+function ocAlert(mensaje) {
+  return _ocModalMostrar(mensaje, [{ label: t("common.ok"), value: true }]);
+}
+// Reemplazo de prompt(): muestra un modal con campo de texto. Resuelve con el string
+// ingresado (puede ser "") o null si el usuario cancela.
+function ocPrompt(mensaje, valorInicial) {
+  return new Promise((resolve) => {
+    if (_ocModalResolve) { _ocModalResolve(null); _ocModalResolve = null; }
+    _ocModalResolve = (v) => resolve(v);
+    const overlay = document.getElementById("oc-modal-overlay");
+    const msgEl = document.getElementById("oc-modal-msg");
+    const botonesEl = document.getElementById("oc-modal-botones");
+    msgEl.innerHTML = `<span style="font-weight:700;">${escHtml(mensaje)}</span><br><input id="oc-prompt-input" type="text" maxlength="120" value="${escHtml(valorInicial||'')}" style="margin-top:10px;width:100%;padding:8px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;">`;
+    botonesEl.innerHTML = "";
+    const cancel = document.createElement("button");
+    cancel.textContent = t("common.cancel");
+    cancel.addEventListener("click", () => { overlay.style.display="none"; _ocModalResolve=null; resolve(null); });
+    const ok = document.createElement("button");
+    ok.textContent = t("common.accept");
+    ok.addEventListener("click", () => {
+      const v = (document.getElementById("oc-prompt-input").value||"").trim();
+      overlay.style.display="none"; _ocModalResolve=null; resolve(v);
+    });
+    botonesEl.appendChild(cancel);
+    botonesEl.appendChild(ok);
+    overlay.style.display = "flex";
+    setTimeout(() => { const inp = document.getElementById("oc-prompt-input"); if(inp) { inp.focus(); inp.select(); } }, 50);
+    const inp = document.getElementById("oc-prompt-input");
+    if (inp) inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") ok.click();
+      if (e.key === "Escape") cancel.click();
+    });
+  });
+}
+</script>
+
+<!-- =====================================================================
+     FEATURE: "Mostrar al cliente" — vista de mostrador fullscreen.
+     Muestra solo nombre, foto y precio al cliente. Sin stock exacto,
+     sin costo, sin proveedor, sin botones internos.
+     El empleado entra con el botón 👁 en la ficha y sale con el botón
+     "← Volver a mi vista" o con el auto-retorno de 60s por inactividad.
+     ===================================================================== -->
+<div id="oc-customer-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--azul-oscuro,#1c3049);color:#fff;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;touch-action:none;">
+
+  <!-- Foto del producto (grande) -->
+  <div id="occo-foto" style="margin-bottom:24px;"></div>
+
+  <!-- Nombre del producto -->
+  <div id="occo-nombre" style="font-family:var(--font-display,sans-serif);font-size:clamp(26px,6vw,48px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;max-width:520px;"></div>
+
+  <!-- Precio -->
+  <div id="occo-precio" style="font-size:clamp(36px,9vw,72px);font-weight:900;color:var(--verde,#28ECAA);letter-spacing:-1px;margin-bottom:20px;"></div>
+
+  <!-- Disponibilidad (sin número exacto) -->
+  <div id="occo-disponibilidad" style="font-size:18px;font-weight:700;padding:8px 22px;border-radius:999px;display:inline-block;margin-bottom:40px;"></div>
+
+  <!-- Botón volver + countdown -->
+  <button id="occo-volver" onclick="cerrarVistaCliente()" style="background:rgba(255,255,255,0.12);color:#fff;border:2px solid rgba(255,255,255,0.35);border-radius:8px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;min-width:200px;min-height:48px;"></button>
+  <div id="occo-countdown" style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.55);min-height:18px;"></div>
+
+</div>
+
+<script>
+// --- "Mostrar al cliente" — lógica de overlay ---
+
+let _occoTimer = null;      // intervalo del countdown
+let _occoSecs  = 60;        // segundos restantes antes del auto-retorno
+let _occoProduct = null;    // producto actualmente en pantalla
+const _occoProductCache = new Map(); // id → product object, actualizado por pintarFicha()
+
+// Abre el overlay con los datos del producto p.
+// Llamado desde pintarFicha() cuando el empleado toca "👁 Mostrar al cliente".
+function abrirVistaCliente(idOrObj) {
+  const p = typeof idOrObj === "string" ? _occoProductCache.get(idOrObj) : idOrObj;
+  if (!p) return; // producto no en caché aún — no debería ocurrir
+  _occoProduct = p;
+  const ol = document.getElementById("oc-customer-overlay");
+
+  // Foto
+  const fotoEl = document.getElementById("occo-foto");
+  fotoEl.innerHTML = p.foto
+    ? `<img src="${p.foto}" alt="" style="width:140px;height:140px;object-fit:cover;border-radius:16px;border:3px solid rgba(255,255,255,0.2);">`
+    : `<div style="width:100px;height:100px;border-radius:16px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:48px;">🛍️</div>`;
+
+  // Nombre y precio
+  document.getElementById("occo-nombre").textContent = p.nombre || "";
+  document.getElementById("occo-precio").textContent = typeof fmtMoney === "function" ? fmtMoney(p.precio) : "$" + Number(p.precio).toFixed(2);
+
+  // Disponibilidad — mostramos estado sin revelar el número exacto
+  const dispEl = document.getElementById("occo-disponibilidad");
+  const stockN = Number(p.stockActual ?? 0);
+  let label, bg;
+  if (stockN <= 0) {
+    label = t("customer.soldOut");
+    bg = "rgba(220,60,60,0.85)";
+  } else if (p.estado === "rojo" || p.estado === "amarillo" || stockN <= 3) {
+    label = t("customer.lastUnits");
+    bg = "rgba(200,130,0,0.85)";
+  } else {
+    label = t("customer.available");
+    bg = "rgba(30,160,90,0.85)";
+  }
+  dispEl.textContent = label;
+  dispEl.style.background = bg;
+
+  // Botón de regreso
+  document.getElementById("occo-volver").textContent = t("customer.backTitle");
+
+  // Mostrar el overlay
+  ol.style.display = "flex";
+  document.body.style.overflow = "hidden"; // evita scroll accidental del fondo
+
+  // Arrancar countdown de 60s
+  _iniciarCountdown();
+
+  // Cualquier toque reinicia el countdown (el empleado sigue mirando junto al cliente)
+  ol.addEventListener("touchstart", _resetCountdown, { passive: true });
+  ol.addEventListener("click", _resetCountdown);
+}
+
+function cerrarVistaCliente() {
+  _detenerCountdown();
+  const ol = document.getElementById("oc-customer-overlay");
+  ol.style.display = "none";
+  document.body.style.overflow = "";
+  ol.removeEventListener("touchstart", _resetCountdown);
+  ol.removeEventListener("click", _resetCountdown);
+  _occoProduct = null;
+}
+
+function _iniciarCountdown() {
+  _detenerCountdown();
+  _occoSecs = 60;
+  _actualizarCountdown();
+  _occoTimer = setInterval(() => {
+    _occoSecs--;
+    _actualizarCountdown();
+    if (_occoSecs <= 0) cerrarVistaCliente();
+  }, 1000);
+}
+
+function _resetCountdown() {
+  // No reiniciar si el clic fue en el botón "Volver" (ese ya llama a cerrar)
+  _occoSecs = 60;
+  _actualizarCountdown();
+}
+
+function _detenerCountdown() {
+  if (_occoTimer) { clearInterval(_occoTimer); _occoTimer = null; }
+  document.getElementById("occo-countdown").textContent = "";
+}
+
+function _actualizarCountdown() {
+  const cd = document.getElementById("occo-countdown");
+  if (!cd) return;
+  // Solo muestra el aviso en los últimos 10s para no distraer
+  cd.textContent = _occoSecs <= 10
+    ? t("customer.autoReturn").replace("{n}", _occoSecs)
+    : "";
+}
+
+// Actualizar textos del overlay si el idioma cambia mientras está abierto
+document.addEventListener("oc-lang-change", () => {
+  if (_occoProduct) abrirVistaCliente(_occoProduct);
+});
+</script>
 
 </body></html>

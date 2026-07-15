@@ -359,22 +359,22 @@
     wrap.innerHTML = ""
       + '<div id="oc-act-card">'
       +   '<div id="oc-act-form">'
-      +     '<p class="marca">friendly-123 &middot; activar mi negocio</p>'
-      +     '<h2>Este dispositivo pasa a ser tuyo</h2>'
-      +     '<p>De aqui en adelante, esta copia es tu negocio: tus productos, tus clientes, tus claves. Todo vive en tu dispositivo, sin nube ni intermediarios.</p>'
-      +     '<label class="op"><input type="radio" name="oc-act-datos" value="vaciar" checked><strong>Empezar vacio</strong><span>Quita los datos de ejemplo. Arrancas de cero con lo tuyo.</span></label>'
-      +     '<label class="op"><input type="radio" name="oc-act-datos" value="conservar"><strong>Conservar lo que ya cargue aqui</strong><span>Si ya metiste tus productos reales en este dispositivo, se quedan.</span></label>'
-      +     '<label class="lbl" for="oc-act-email">Tu correo (para recuperar el acceso si olvidas el PIN)</label>'
+      +     '<p class="marca">' + window.t("auth.act.tagline") + '</p>'
+      +     '<h2>' + window.t("auth.act.title") + '</h2>'
+      +     '<p>' + window.t("auth.act.intro") + '</p>'
+      +     '<label class="op"><input type="radio" name="oc-act-datos" value="vaciar" checked><strong>' + window.t("auth.act.startEmptyTitle") + '</strong><span>' + window.t("auth.act.startEmptyDesc") + '</span></label>'
+      +     '<label class="op"><input type="radio" name="oc-act-datos" value="conservar"><strong>' + window.t("auth.act.keepTitle") + '</strong><span>' + window.t("auth.act.keepDesc") + '</span></label>'
+      +     '<label class="lbl" for="oc-act-email">' + window.t("auth.act.emailLabel") + '</label>'
       +     '<input id="oc-act-email" type="email" inputmode="email" autocomplete="email" placeholder="tucorreo@dominio.com">'
-      +     '<button id="oc-act-confirmar" class="primario">Activar mi negocio</button>'
-      +     '<button id="oc-act-cancelar" class="secundario">Ahora no</button>'
+      +     '<button id="oc-act-confirmar" class="primario">' + window.t("auth.act.confirmBtn") + '</button>'
+      +     '<button id="oc-act-cancelar" class="secundario">' + window.t("auth.act.cancelBtn") + '</button>'
       +     '<p id="oc-act-msg" class="msg"></p>'
       +   '</div>'
       +   '<div id="oc-act-exito" style="display:none;">'
-      +     '<p class="marca">friendly-123 &middot; listo</p>'
-      +     '<h2>Tu negocio esta activo</h2>'
+      +     '<p class="marca">' + window.t("auth.act.doneTagline") + '</p>'
+      +     '<h2>' + window.t("auth.act.doneTitle") + '</h2>'
       +     '<p id="oc-act-exito-txt"></p>'
-      +     '<button id="oc-act-entrar" class="primario">Entrar a mi negocio</button>'
+      +     '<button id="oc-act-entrar" class="primario">' + window.t("auth.act.enterBtn") + '</button>'
       +   '</div>'
       + '</div>';
     document.body.appendChild(wrap);
@@ -388,10 +388,10 @@
 
     wrap.querySelector("#oc-act-confirmar").addEventListener("click", async function () {
       var email = (emailIn.value || "").trim();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setMsg("Escribe un correo valido — es tu unica forma de recuperar el acceso si olvidas el PIN."); emailIn.focus(); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setMsg(window.t("auth.act.invalidEmail")); emailIn.focus(); return; }
       var vaciar = (wrap.querySelector('input[name="oc-act-datos"]:checked') || {}).value !== "conservar";
       var btn = wrap.querySelector("#oc-act-confirmar");
-      btn.disabled = true; setMsg("Activando...", true);
+      btn.disabled = true; setMsg(window.t("auth.act.activating"), true);
       var idInstancia = (globalThis.crypto && globalThis.crypto.randomUUID)
         ? globalThis.crypto.randomUUID()
         : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));

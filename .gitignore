@@ -3,7 +3,9 @@ node_modules/
 .DS_Store
 .env
 
-# Backups locales con timestamp (disciplina de backup antes de editar) — se
-# quedan en el disco del dev, nunca en el repo que se entrega/vende.
+# Local backup files (timestamped by dev convention — never commit these)
+docs/*_2026-*.js
+docs/*_2026-*.html
+docs/*_2026-*.png
+docs/*_2026-*.webp
 _local_backups/
-*_20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9]-[0-9][0-9].*
