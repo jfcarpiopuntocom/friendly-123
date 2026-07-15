@@ -1618,10 +1618,7 @@ if (elBtnCierre) elBtnCierre.addEventListener("click", async () => {
   const msgEl = document.getElementById("cierreMsg");
   if (!items.length) { msgEl.textContent = "No apuntaste ninguna cantidad."; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
   const totalCierre = items.reduce((a, i) => a + i.cantidad, 0);
-  if (!confirm(`Esto registra ${totalCierre} unidad(es) vendida(s) HOY y descuenta el stock. ¿Aplicar el cierre?`)) {
-    if (window.dialogosBloqueados && window.dialogosBloqueados()) { msgEl.textContent = "Tu navegador bloquea las confirmaciones (pasa en el navegador de WhatsApp). Open friendly-123 in Chrome or Safari to apply the close."; msgEl.style.color = "var(--sim-rojo-dk)"; }
-    return;
-  }
+  if (!(await ocConfirm(`Esto registra ${totalCierre} unidad(es) vendida(s) HOY y descuenta el stock. ¿Aplicar el cierre?`))) return;
   const res = await fetch(`${API}/ventas/cierre`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }) });
   const r = await res.json();
   if (!res.ok) { msgEl.textContent = r.error; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
@@ -2280,8 +2277,8 @@ async function cargarInventario(){
           body: JSON.stringify({ delta, motivo })
         });
         r8 = await res8.json();
-      } catch (_) { alert('No se pudo ajustar el stock. Intenta de nuevo.'); return; }
-      if (!res8.ok){ alert(r8.error); return; }
+      } catch (_) { await ocAlert('No se pudo ajustar el stock. Intenta de nuevo.'); return; }
+      if (!res8.ok){ await ocAlert(r8.error); return; }
       cargarInventario();
     });
   });
@@ -2294,7 +2291,7 @@ async function cargarInventario(){
         method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"
       });
       const r = await res.json();
-      if (!res.ok){ alert(r.error); return; }
+      if (!res.ok){ await ocAlert(r.error); return; }
       cargarInventario();
     });
   });
@@ -2506,9 +2503,9 @@ async function cargarPerchas(){
     if (res.ok) cargarPerchas();
   }));
   grid.querySelectorAll('[data-suc-borrar]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!confirm(`Borrar la sucursal "${btn.dataset.nombre}". Solo posible si no tiene perchas asignadas.`)) return;
+    if (!(await ocConfirm(`Borrar la sucursal "${btn.dataset.nombre}". Solo posible si no tiene perchas asignadas.`, { danger: true }))) return;
     const res = await fetch(`${API}/sucursales/${btn.dataset.sucBorrar}`, { method:'DELETE' });
-    const r = await res.json(); if (!res.ok) { alert(r.error); return; }
+    const r = await res.json(); if (!res.ok) { await ocAlert(r.error); return; }
     cargarPerchas();
   }));
 
@@ -2517,7 +2514,7 @@ async function cargarPerchas(){
     const nuevo = (prompt('Nuevo nombre de la percha:') || '').trim();
     if (!nuevo) return;
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaRenombrar}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre: nuevo }) });
-    const r = await res.json(); if (!res.ok){ alert(r.error); return; }
+    const r = await res.json(); if (!res.ok){ await ocAlert(r.error); return; }
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones();
   }));
   grid.querySelectorAll('[data-percha-toggle]').forEach(btn => btn.addEventListener('click', async () => {
@@ -2526,7 +2523,7 @@ async function cargarPerchas(){
     const aviso = esFeria
       ? 'Se cerrará la feria: deja de recibir ventas y verás su liquidación. Su historial se conserva. ¿Continuar?'
       : 'Esta percha dejará de recibir ventas nuevas. Su historial se conserva. ¿Continuar?';
-    if (activaAhora && !confirm(aviso)) return;
+    if (activaAhora && !(await ocConfirm(aviso))) return;
     const accion = activaAhora ? 'desactivar' : 'activar';
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaToggle}/${accion}`, { method:'POST' });
     if (res.ok){
@@ -2536,9 +2533,9 @@ async function cargarPerchas(){
     }
   }));
   grid.querySelectorAll('[data-percha-borrar]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!confirm(`Borrar la percha "${btn.dataset.nombre}" y TODOS sus productos. Esto no se puede deshacer. ¿Seguro?`)) return;
+    if (!(await ocConfirm(`Borrar la percha "${btn.dataset.nombre}" y TODOS sus productos. Esto no se puede deshacer. ¿Seguro?`, { danger: true }))) return;
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaBorrar}`, { method:'DELETE' });
-    const r = await res.json(); if (!res.ok){ alert(r.error); return; }
+    const r = await res.json(); if (!res.ok){ await ocAlert(r.error); return; }
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones(); cargarInventario();
   }));
   grid.querySelectorAll('[data-percha-mover]').forEach(sel => sel.addEventListener('change', async () => {
@@ -2829,7 +2826,7 @@ async function eliminarProductoUI(id, btn){
   }
   const res = await fetch(`${API}/productos/${id}`, { method: "DELETE" });
   const data = await res.json();
-  if (!res.ok){ alert(data.error); return; }
+  if (!res.ok){ await ocAlert(data.error); return; }
   document.getElementById("fichaResultado").innerHTML = `<p style="font-weight:700;">${t("delete.done")}</p>`;
   cargarInventario();
 }
@@ -2906,7 +2903,7 @@ async function solicitarTransferencia(origenId, destinoId, cantidad, btn){
   btn.disabled = true;
   const res = await fetch(`${API}/transferencias`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productoOrigenId: origenId, productoDestinoId: destinoId, cantidad }) });
   const r = await res.json();
-  if (!res.ok){ alert(r.error); btn.disabled = false; return; }
+  if (!res.ok){ await ocAlert(r.error); btn.disabled = false; return; }
   btn.parentElement.innerHTML = `<div style="font-size:14px;">${t("transfer.requested")}</div>`;
 }
 
@@ -2917,7 +2914,7 @@ async function venderUno(id){
     body: JSON.stringify({cantidad:1, clienteId: (sel && sel.value) || undefined})
   });
   const data = await res.json();
-  if (!res.ok){ alert(data.error); return; }
+  if (!res.ok){ await ocAlert(data.error); return; }
   pintarFicha(data.producto);
   if (data.ventaId) mostrarToastAnular(data.ventaId, id);
 }
@@ -2950,7 +2947,7 @@ function mostrarToastAnular(ventaId, productoId){
     cont.innerHTML = "";
     const res = await fetch(`${API}/ventas/${ventaId}/anular`, { method: "POST" });
     const data = await res.json();
-    if (!res.ok){ alert(data.error); return; }
+    if (!res.ok){ await ocAlert(data.error); return; }
     pintarFicha(data.producto);
   });
   toastVentaTimer = setTimeout(() => { clearInterval(intervalo); cont.innerHTML = ""; }, 5000);
@@ -2962,7 +2959,7 @@ async function ajustar(id, delta){
     body: JSON.stringify({delta, motivo:"Ajuste manual desde panel"})
   });
   const data = await res.json();
-  if (!res.ok){ alert(data.error); return; }
+  if (!res.ok){ await ocAlert(data.error); return; }
   pintarFicha(data);
 }
 
@@ -3386,7 +3383,7 @@ async function evaluarCliente(clienteId, campo, valor) {
 }
 
 async function despedirCliente(clienteId, nombre) {
-  if (!confirm(`¿Despedir a ${nombre}? Dejará de aparecer en el selector de ventas.\nPuedes reactivarlo después desde esta misma sección.`)) return;
+  if (!(await ocConfirm(`¿Despedir a ${nombre}? Dejará de aparecer en el selector de ventas.\nPuedes reactivarlo después desde esta misma sección.`))) return;
   try {
     const quien = (window.OCAuth && window.OCAuth.usuarioActual && window.OCAuth.usuarioActual().nombre) || "Sistema";
     await fetch(`${API}/clientes/${clienteId}/despedir`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quien }) });
@@ -3403,7 +3400,7 @@ async function reactivarCliente(clienteId, nombre) {
 }
 
 async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
-  if (!confirm("¿Confirmas que ya le pagaste a la promotor/a lo que corresponde este mes?")) return;
+  if (!(await ocConfirm("¿Confirmas que ya le pagaste a la promotor/a lo que corresponde este mes?"))) return;
   // #19: capturamos el desglose ANTES de sellar (marcar-pagado deja pendientes en 0).
   const detalle = (window._ocLiqDet && window._ocLiqDet[ubicacionId]) || [];
   const res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST" });
@@ -3430,7 +3427,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
       ``,
       `Gracias por tu trabajo este mes. — friendly-123`,
     ].filter(Boolean).join("\n");
-    if (confirm(`¿Enviar recibo a ${promotorNombre} por WhatsApp?`)) {
+    if (await ocConfirm(`¿Enviar recibo a ${promotorNombre} por WhatsApp?`)) {
       window.open("https://wa.me/?text=" + encodeURIComponent(recibo), "_blank");
     }
   }
@@ -3644,7 +3641,13 @@ window.addEventListener("oc-datos-importados", async () => {
 // veces bloquea prompt()/confirm() (devuelven null/false al instante, sin
 // dialogo). dialogosBloqueados() lo detecta para avisar claro en vez de
 // fallar mudo. Heuristica: confirm respondiendo en <15ms = no hubo dialogo
-// humano. Se consulta SOLO donde el flujo depende de un prompt/confirm.
+// humano.
+// DORMANT parcial (2026-07-15): su único call site (cierre del día) ahora
+// usa ocConfirm() propio, que no depende de window.confirm y por tanto no
+// puede ser bloqueado por el webview. Se deja la función viva porque
+// prompt() (renombrar sucursal/percha) sigue siendo nativo y podría
+// usarla si se detecta el mismo problema ahí. NO BORRAR sin revisar esos
+// call sites primero.
 window.dialogosBloqueados = function () {
   try {
     const t0 = performance.now();
@@ -3679,6 +3682,53 @@ window.dialogosBloqueados = function () {
      El toast usa position:fixed pero un padre con display:none lo oculta igual.
      Fix 2026-07-07: mover fuera de pintarFicha() y de cualquier vista. -->
 <div id="oc-toast-venta"></div>
+
+<!-- =====================================================================
+     FEATURE: ocConfirm()/ocAlert() — reemplazo de confirm()/alert() nativos.
+     Los diálogos nativos bloquean el hilo, se ven fuera de lugar en el
+     estilo de la app, y en el navegador interno de WhatsApp/Instagram a
+     veces ni siquiera se muestran (devuelven false/undefined al instante).
+     Estas versiones son promesas resueltas por un modal propio, con el
+     mismo lenguaje visual del resto de la app (tag-card, colores Simon).
+     Uso: if (!(await ocConfirm("¿Seguro?"))) return;   await ocAlert("Error X");
+     ===================================================================== -->
+<div id="oc-modal-overlay" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,20,30,0.55);align-items:center;justify-content:center;padding:20px;">
+  <div id="oc-modal-caja" class="tag-card" style="max-width:380px;width:100%;text-align:left;background:var(--blanco-calido,#fbf5e8);padding:22px 20px;border-radius:12px;">
+    <div id="oc-modal-msg" style="font-size:15px;color:var(--ink,#211c14);white-space:pre-line;margin-bottom:18px;"></div>
+    <div id="oc-modal-botones" style="display:flex;gap:10px;justify-content:flex-end;"></div>
+  </div>
+</div>
+<script>
+function _ocModalMostrar(mensaje, botonesConfig) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("oc-modal-overlay");
+    const msgEl = document.getElementById("oc-modal-msg");
+    const botonesEl = document.getElementById("oc-modal-botones");
+    msgEl.textContent = mensaje;
+    botonesEl.innerHTML = "";
+    botonesConfig.forEach(cfg => {
+      const b = document.createElement("button");
+      b.textContent = cfg.label;
+      if (cfg.danger) b.style.cssText = "border-color:var(--rojo,#a3392a);color:var(--rojo,#a3392a);";
+      b.addEventListener("click", () => { overlay.style.display = "none"; resolve(cfg.value); });
+      botonesEl.appendChild(b);
+    });
+    overlay.style.display = "flex";
+  });
+}
+// Reemplazo de confirm(): resuelve true (aceptar) / false (cancelar).
+function ocConfirm(mensaje, opts) {
+  opts = opts || {};
+  return _ocModalMostrar(mensaje, [
+    { label: opts.cancelLabel || t("common.cancel"), value: false },
+    { label: opts.confirmLabel || t("common.accept"), value: true, danger: !!opts.danger },
+  ]);
+}
+// Reemplazo de alert(): resuelve al cerrar (equivalente a "OK").
+function ocAlert(mensaje) {
+  return _ocModalMostrar(mensaje, [{ label: t("common.ok"), value: true }]);
+}
+</script>
 
 <!-- =====================================================================
      FEATURE: "Mostrar al cliente" — vista de mostrador fullscreen.
