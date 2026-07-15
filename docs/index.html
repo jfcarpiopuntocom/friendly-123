@@ -1141,6 +1141,7 @@
       <button data-estado="azul" data-i18n="filter.data">Data</button>
       <button data-estado="negro" data-i18n="filter.dormant">Dormant</button>
     </div>
+    <input id="inputBuscarInventario" type="search" data-i18n-attr="placeholder:inv.searchPlaceholder" placeholder="Search by name, SKU or category…" style="width:100%;padding:10px 12px;margin-bottom:10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:15px;">
     <div class="grid-cajas" id="gridInventario"></div>
     <!-- Log de movimientos: SOLO dueño, anti-descuadre -->
     <div id="seccionLogAjustes" style="display:none;">
@@ -2226,6 +2227,25 @@ function renderBloom(estado, nivel){
   </div>`;
 }
 
+// Filtro por nombre/SKU/categoria (Microcirugia #11, alto ROI): reduce el
+// scroll en tiendas con decenas/cientos de productos. Filtra en el DOM
+// (data-buscar ya trae el texto normalizado), sin fetch adicional.
+function filtrarBusquedaInventario(){
+  const input = document.getElementById("inputBuscarInventario");
+  if (!input) return;
+  const q = input.value.trim().toLowerCase();
+  document.querySelectorAll("#gridInventario [data-buscar]").forEach(card => {
+    card.style.display = (!q || card.dataset.buscar.includes(q)) ? "" : "none";
+  });
+}
+(function () {
+  const input = document.getElementById("inputBuscarInventario");
+  if (input && !input.dataset.ocListo) {
+    input.dataset.ocListo = "1";
+    input.addEventListener("input", filtrarBusquedaInventario);
+  }
+})();
+
 async function cargarInventario(){
   // El "+" de alta libre es del dueno; el empleado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
@@ -2251,7 +2271,7 @@ async function cargarInventario(){
   }
   const esDuenoInv = window.OCAuth && window.OCAuth.rolActual() === "dueno";
   grid.innerHTML = productos.map(p => `
-    <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}">
+    <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}" data-buscar="${escHtml(`${p.nombre} ${p.sku} ${p.categoria}`.toLowerCase())}">
       ${p.estrella ? '<span class="estrella-badge">⭐</span>' : ''}
       <div onclick="abrirFichaDesdeInventario('${p.id}')" style="cursor:pointer;">
         <div class="nombre">${escHtml(p.nombre)}${p.perecible ? ' 🕓' : ''}</div>
@@ -2267,6 +2287,7 @@ async function cargarInventario(){
       </div>
     </div>
   `).join("");
+  filtrarBusquedaInventario();
 
   // Ajuste rápido +/- stock sin escanear. Pide motivo, deja log para el dueño.
   grid.querySelectorAll("[data-ajuste-menos],[data-ajuste-mas]").forEach(btn => {
