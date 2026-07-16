@@ -1,7 +1,7 @@
 {
   "name": "friendly-123",
   "short_name": "friendly",
-  "description": "Your business, in color. Serverless point of sale and inventory control for small business.",
+  "description": "Manage your business, in color. Inventory, clients, commissions and racks for small business - no servers, your data stays yours.",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait-primary",

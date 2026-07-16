@@ -25,10 +25,16 @@ function requireMasterKey(req, env) {
 }
 
 async function handleCheckin(req, env) {
+  // Hardening (2026-07-16): endpoint publico — cap de tamano y validacion de formato
+  // para que un bot no pueda llenar el KV con basura ni payloads gigantes.
+  const raw = await req.text();
+  if (raw.length > 4096) return json({ error: "Payload too large" }, 413);
   let body;
-  try { body = await req.json(); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
+  try { body = JSON.parse(raw); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
   const instanceId = String(body.instanceId || "").slice(0, 120);
   if (!instanceId) return json({ error: "Missing instanceId" }, 400);
+  // instanceId legitimo: uuid o token alfanumerico corto (el cliente genera uuid/base36)
+  if (!/^[a-zA-Z0-9-]{6,120}$/.test(instanceId)) return json({ error: "Invalid instanceId" }, 400);
 
   const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "";
   const existenteRaw = await env.LICENCIAS.get(`inst:${instanceId}`);

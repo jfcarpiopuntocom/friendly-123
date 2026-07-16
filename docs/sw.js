@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "amigable-shell-v5"; // bumped 2026-07-15 fix(audit): añadir i18n.js al precache // subir el numero purga la cache vieja en todos los dispositivos
+const CACHE = "f123-shell-v6"; // bumped 2026-07-15 fix(audit): añadir i18n.js al precache // subir el numero purga la cache vieja en todos los dispositivos
 const SHELL = [
   "./",
   "./index.html",
@@ -43,7 +43,7 @@ self.addEventListener("install", (evento) => {
 
 self.addEventListener("activate", (evento) => {
   evento.waitUntil(
-    caches.keys().then((nombres) => Promise.all(nombres.filter((n) => n !== CACHE).map((n) => caches.delete(n))))
+    caches.keys().then((nombres) => Promise.all(nombres.filter((n) => n.startsWith("f123-shell-") && n !== CACHE).map((n) => caches.delete(n))))
   );
   self.clients.claim();
 });

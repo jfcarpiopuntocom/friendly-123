@@ -17,6 +17,7 @@
      cambios grandes, actualiza el bloque de "Instancias · detalle" y la tabla
      de "Control de versiones" de abajo. -->
 <meta charset="UTF-8">
+<meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="dark">
@@ -546,9 +547,10 @@ const PANEL_EMOJIS = [
 
 // HASH esperado del código de acceso. El código NO aparece como literal.
 // PIN de 6 dígitos — JFC puede cambiarlo editando este array (mismo orden = el PIN).
-const _P = ["8","9","5","7","5","9"]; // seis partes — no revelan el número solo de verlas
-const _PIN_LEN = _P.length; // 6 — usado en todo el JS de abajo, no hardcodear "6" suelto
-let _expectedHash = null;
+// SEGURIDAD (2026-07-16): el PIN ya NO vive en el codigo fuente, solo su hash SHA-256.
+// Para cambiar el PIN: sha256 del nuevo PIN -> reemplazar _expectedHash. NO poner el PIN en claro.
+const _PIN_LEN = 6;
+const _expectedHash = "eaa98de6c2fe709ba90d71464e4bd004cbe5cc13f5400ed6f49efc2fb0308068";
 
 async function sha256hex(str) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
@@ -612,7 +614,7 @@ function montarTeclado(padEl, slotsEl, onComplete) {
 
 // ── GATE ──
 async function initGate() {
-  _expectedHash = await sha256hex(_P.join(""));
+  
   const padEl = document.getElementById("gate-pad");
   const slotsEl = document.getElementById("gate-slots");
   const msgEl = document.getElementById("gate-msg");
