@@ -79,17 +79,17 @@
            background:${c.bg};color:${c.tx};font-family:var(--font-display);font-size:64px;font-weight:700;">
            ${esc((p.nombre || '?').trim().charAt(0).toUpperCase())}</div>`;
 
-    const badgeMeta = p.cumplimiento === null ? 'sin meta' : p.cumplimiento.toFixed(0) + '% meta cumplida';
+    const badgeMeta = p.cumplimiento === null ? 'no target' : p.cumplimiento.toFixed(0) + '% of target met';
 
     const datos = esDueno ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:12px 14px;background:var(--blanco-calido,#fbf5e8);">
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Ventas del mes</span>
+        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Monthly sales</span>
           <strong style="font-size:16px;color:var(--ink);">${money(p.ventasMes)}</strong></div>
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Meta</span>
+        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Target</span>
           <strong style="font-size:16px;color:var(--ink);">${p.meta ? money(p.meta) : '—'}</strong></div>
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Comisión</span>
+        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Commission</span>
           <strong style="font-size:16px;color:var(--ink);">${money(p.comision)}</strong></div>
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Promotora/e</span>
+        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Promoter</span>
           <strong style="font-size:16px;color:var(--ink);">${p.promotor ? esc(p.promotor) : '—'}</strong></div>
       </div>` : '';
 
@@ -132,7 +132,7 @@
     if (existente || !seccion || !grid) return;
     const btnAgregar = document.createElement('button');
     btnAgregar.id = 'vp-btn-agregar';
-    btnAgregar.textContent = '+ Agregar percha';
+    btnAgregar.textContent = '+ Add rack';
     btnAgregar.style.cssText = 'display:inline-block;margin:0 0 16px;padding:10px 18px;' +
       'border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);' +
       'color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;' +
@@ -153,7 +153,7 @@
         fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
       ]);
       if (!Array.isArray(perchas) || !perchas.length) {
-        grid.innerHTML = '<p style="font-size:15px;color:var(--ink-soft);">No hay perchas. Créalas con el botón "Agregar +" de arriba.</p>';
+        grid.innerHTML = '<p style="font-size:15px;color:var(--ink-soft);">No racks yet. Create them with the "Add +" button above.</p>';
         return;
       }
       const liqPor = {}; (Array.isArray(liq) ? liq : []).forEach((f) => { liqPor[f.ubicacionId] = f; });
@@ -192,7 +192,7 @@
   modal.innerHTML = `<div id="vp-carpeta-sheet" style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;max-height:84vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:18px 16px 24px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <strong id="vp-carpeta-titulo" style="font-family:var(--font-display);font-size:20px;color:var(--ink);flex:1;"></strong>
-        <button id="vp-carpeta-cerrar" style="font-size:14px;padding:8px 14px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Cerrar</button>
+        <button id="vp-carpeta-cerrar" style="font-size:14px;padding:8px 14px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Close</button>
       </div>
       <div id="vp-carpeta-body"></div>
     </div>`;
@@ -208,7 +208,7 @@
     try {
       const prods = await fetch(`${API}/productos?ubicacionId=${encodeURIComponent(perchaId)}`).then((r) => r.json());
       if (!Array.isArray(prods) || !prods.length) {
-        body.innerHTML = '<p style="font-size:15px;color:var(--ink-soft);">Esta percha aún no tiene productos. Agrégalos en Inventario o Escanear.</p>';
+        body.innerHTML = '<p style="font-size:15px;color:var(--ink-soft);">This rack has no products yet. Add them in Inventory or Scanner.</p>';
         return;
       }
       body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">${
@@ -302,20 +302,20 @@
   modalAgregar.innerHTML = `
     <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:20px 18px 28px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-        <strong style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;">Nueva percha</strong>
+        <strong style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;">New rack</strong>
         <button id="vp-a-cerrar" style="font-size:14px;padding:6px 12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Cerrar</button>
       </div>
-      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;">Nombre de la percha
-        <input id="vp-a-nombre" type="text" maxlength="60" placeholder="Ej: Percha Pared Izquierda"
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;">Rack name
+        <input id="vp-a-nombre" type="text" maxlength="60" placeholder="e.g. Left wall rack"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);
                  border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
       <p style="font-size:13px;color:var(--ink-soft);margin:4px 0 14px;">
-        Después puedes asignarle productos desde Inventario, y una foto desde Mis perchas.
+        You can assign products from Inventory, and add a photo from My Racks.
       </p>
       <button id="vp-a-crear" style="padding:10px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;
         background:var(--azul-medio,#2c4a68);color:#fbf5e8;font-size:14px;font-weight:700;cursor:pointer;width:100%;">
-        Crear percha
+        Create rack
       </button>
       <p id="vp-a-msg" style="font-size:13px;margin:8px 0 0;font-weight:700;"></p>
     </div>`;
@@ -419,7 +419,7 @@
       } else {
         const d = await res.json().catch(() => ({}));
         msg.style.color = 'var(--rojo,#a3392a)';
-        msg.textContent = d.error || 'No se pudo borrar.';
+        msg.textContent = d.error || 'Could not delete.';
       }
       return;
     }
@@ -427,7 +427,7 @@
     if (e.target.id === 'vp-a-crear') {
       const nombre = (document.getElementById('vp-a-nombre').value || '').trim();
       const msg = document.getElementById('vp-a-msg');
-      if (!nombre) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = 'El nombre es obligatorio.'; return; }
+      if (!nombre) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = 'Name is required.'; return; }
       const res = await fetch(`${API}/ubicaciones`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }),
       });
@@ -437,7 +437,7 @@
       } else {
         const d = await res.json().catch(() => ({}));
         msg.style.color = 'var(--rojo,#a3392a)';
-        msg.textContent = d.error || 'No se pudo crear la percha.';
+        msg.textContent = d.error || 'Could not create the rack.';
       }
       return;
     }

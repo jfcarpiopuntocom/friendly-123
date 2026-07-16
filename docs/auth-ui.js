@@ -429,9 +429,9 @@
       registrarExito();
       var seguro = email.replace(/[&<>"']/g, "");
       wrap.querySelector("#oc-act-exito-txt").innerHTML =
-        "Tu PIN de dueno es <strong>789</strong> — cambialo cuando quieras en Avanzado &rarr; Claves. " +
-        "Guardamos <strong>" + seguro + "</strong> para recuperar tu acceso. " +
-        "Para usar tu negocio en otro celular o tablet, ve a Avanzado &rarr; Sincronizacion.";
+        "Your owner PIN is <strong>789</strong> — change it anytime in Advanced &rarr; Keys. " +
+        "We saved <strong>" + seguro + "</strong> to recover your access. " +
+        "To use your system on another phone or tablet, go to Advanced &rarr; Sync.";
       wrap.querySelector("#oc-act-form").style.display = "none";
       wrap.querySelector("#oc-act-exito").style.display = "block";
     });
@@ -493,7 +493,7 @@
   function reiniciarInactividad() {
     clearTimeout(temporizadorInactividad);
     if (!rol) return;
-    temporizadorInactividad = setTimeout(() => cerrarSesion("Sesión cerrada por inactividad."), INACTIVIDAD_MS);
+    temporizadorInactividad = setTimeout(() => cerrarSesion("Session closed due to inactivity."), INACTIVIDAD_MS);
   }
   document.addEventListener("click", reiniciarInactividad);
   document.addEventListener("keydown", reiniciarInactividad);

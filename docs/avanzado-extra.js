@@ -168,17 +168,17 @@
       const blob = await window.OCSecure.cifrarSync(JSON.stringify(paraEnviar));
       try {
         const res = await fetchOriginal(`${API}/sync/push`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device: deviceId(), blob }) });
-        if (!res.ok) return { ok: false, motivo: "Tu servidor de sync rechazó el envío." };
+        if (!res.ok) return { ok: false, motivo: "Your sync server rejected the upload." };
         cola = cola.slice(n);
         await guardarColaCifrada();
         return { ok: true, enviado: n };
-      } catch (_) { return { ok: false, motivo: "Sin conexión a tu servidor de sync (¿ya agregaste las rutas /api/sync?)." }; }
+      } catch (_) { return { ok: false, motivo: "No connection to your sync server (did you add the /api/sync routes?)." }; }
     }
     async function pull() {
       if (!syncOn || !window.OCSecure.syncActiva()) return { ok: true, recibido: 0 };
       try {
         const res = await fetchOriginal(`${API}/sync/pull?device=${encodeURIComponent(deviceId())}`, { method: "GET" });
-        if (!res.ok) return { ok: false, motivo: "Tu servidor de sync rechazó la consulta." };
+        if (!res.ok) return { ok: false, motivo: "Your sync server rejected the query." };
         const paquetes = (await res.json()) || []; // [{device, blob}, ...] de otros dispositivos
         let recibido = 0;
         for (const p of paquetes) {
@@ -189,7 +189,7 @@
           if (ops.length) { await reproducir(ops); recibido += ops.length; }
         }
         return { ok: true, recibido };
-      } catch (_) { return { ok: false, motivo: "Sin conexión a tu servidor de sync." }; }
+      } catch (_) { return { ok: false, motivo: "No connection to your sync server." }; }
     }
     let onlineListenerListo = false;
     function arrancarIntervalo() {
@@ -216,16 +216,16 @@
     const MANUAL_MAX_BYTES = 2 * 1024 * 1024; // 2MB: un paquete manual razonable jamás debería pesar más
     async function importarPaqueteManual(texto) {
       texto = (texto || "").trim();
-      if (texto.indexOf("OCSYNC1:") !== 0) return { ok: false, motivo: "Ese texto no es un paquete de sincronización válido." };
-      if (texto.length > MANUAL_MAX_BYTES) return { ok: false, motivo: "Ese paquete es demasiado grande para ser válido." };
+      if (texto.indexOf("OCSYNC1:") !== 0) return { ok: false, motivo: "This text is not a valid sync package." };
+      if (texto.length > MANUAL_MAX_BYTES) return { ok: false, motivo: "This package is too large to be valid." };
       let paquete;
-      try { paquete = JSON.parse(decodeURIComponent(escape(atob(texto.slice(8))))); } catch (_) { return { ok: false, motivo: "El paquete está corrupto o incompleto." }; }
-      if (!paquete || paquete.v !== 1 || typeof paquete.blob !== "string" || typeof paquete.device !== "string") return { ok: false, motivo: "El paquete no tiene el formato esperado." };
-      if (paquete.device === deviceId()) return { ok: false, motivo: "Ese paquete es de este mismo dispositivo." };
+      try { paquete = JSON.parse(decodeURIComponent(escape(atob(texto.slice(8))))); } catch (_) { return { ok: false, motivo: "The package is corrupted or incomplete." }; }
+      if (!paquete || paquete.v !== 1 || typeof paquete.blob !== "string" || typeof paquete.device !== "string") return { ok: false, motivo: "The package does not have the expected format." };
+      if (paquete.device === deviceId()) return { ok: false, motivo: "This package is from this same device." };
       const texto2 = await window.OCSecure.descifrarSync(paquete.blob);
-      if (!texto2) return { ok: false, motivo: "No se pudo descifrar (¿es del mismo negocio, con el mismo PIN de dueño activado aquí?)." };
+      if (!texto2) return { ok: false, motivo: "Could not decrypt (is this from the same business, with the same owner PIN activated here?)." };
       let ops = []; try { ops = JSON.parse(texto2); } catch (_) {}
-      if (!Array.isArray(ops)) return { ok: false, motivo: "El contenido del paquete no es una lista de operaciones válida." };
+      if (!Array.isArray(ops)) return { ok: false, motivo: "The package content is not a valid list of operations." };
       if (!ops.length) return { ok: true, recibido: 0 };
       await reproducir(ops);
       return { ok: true, recibido: ops.length };
@@ -257,7 +257,7 @@
     const chartBox = document.createElement("div");
     chartBox.className = "tag-card";
     chartBox.style.cssText = "margin-bottom:22px;text-align:left;";
-    chartBox.innerHTML = `<h3 class="seccion" style="margin-top:0;">Comparativo por ubicación (este mes)</h3><div id="oc-chart"></div>`;
+    chartBox.innerHTML = `<h3 class="seccion" style="margin-top:0;">Location comparison (this month)</h3><div id="oc-chart"></div>`;
     cont.appendChild(chartBox);
 
     // Mover PL / balance / valorizado (h3 + tabla-wrap) al contenedor
@@ -281,9 +281,9 @@
     descargaBox.className = "tag-card";
     descargaBox.style.cssText = "text-align:left;margin-top:22px;";
     descargaBox.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Reporte para el contador</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">P&amp;G, balance e inventario valorizado en un solo archivo, listo para Excel. No es una declaración ante el SRI — es el insumo para que tu contador la prepare.</p>
-      <button id="oc-descargar-csv" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">📄 Descargar reporte contable (.csv)</button>
+      <h3 class="seccion" style="margin-top:0;">Accounting report</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">P&amp;L, balance sheet, and valued inventory in one file, ready for Excel. Not a tax declaration — it's the input your accountant needs.</p>
+      <button id="oc-descargar-csv" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">📄 Download accounting report (.csv)</button>
     `;
     cont.appendChild(descargaBox);
 
@@ -295,27 +295,27 @@
     respaldo.className = "tag-card";
     respaldo.style.cssText = "text-align:left;margin-top:22px;";
     respaldo.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Respaldo</h3>
+      <h3 class="seccion" style="margin-top:0;">Backup</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Descarga TODO tu negocio (productos, ventas, movimientos, gastos, claves y fotos de perchas) en un archivo. Guárdalo en tu correo, tu Drive, donde sea — es tu copia de seguridad si se borra el caché o se daña el dispositivo.</p>
+        Download your full business data (products, sales, movements, costs, keys, and rack photos) in one file. Save it to your email, Drive, or anywhere — it's your backup if the cache is cleared or the device fails.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="oc-exportar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">⬇️ Exportar respaldo</button>
-        <label class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);display:inline-flex;align-items:center;cursor:pointer;">⬆️ Importar respaldo
+        <button id="oc-exportar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">⬇️ Export backup</button>
+        <label class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);display:inline-flex;align-items:center;cursor:pointer;">⬆️ Import backup
           <input id="oc-importar-file" type="file" accept=".json" style="display:none;">
         </label>
       </div>
       <p id="oc-respaldo-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></p>
       <p id="oc-respaldo-free" style="font-size:13px;margin-top:6px;display:none;"></p>
       <hr style="border:none;border-top:1px solid var(--azul-suave,#dde5ec);margin:16px 0;">
-      <h4 style="margin:0 0 6px;font-size:14px;">🔐 Caja fuerte local (automática)</h4>
+      <h4 style="margin:0 0 6px;font-size:14px;">🔐 Local safe (automatic)</h4>
       <p style="font-size:13px;color:var(--ink-soft);margin-top:0;">
-        Además del respaldo manual de arriba, AMIGABLE guarda solo AQUÍ (en este navegador) una foto de tus datos cada cierto tiempo,
-        por si borras algo sin querer. Esto NO reemplaza el respaldo manual — si se borra el caché del navegador, se pierden estos puntos también.
-        <em>Fase futura (no implementada todavía): repartir estos puntos entre dispositivos por QR/texto dividido, al estilo 3-2-1, para no depender de un solo navegador.</em></p>
+        In addition to the manual backup above, friendly-123 saves a snapshot of your data here (in this browser) periodically,
+        in case you delete something by accident. This does NOT replace the manual backup — if the browser cache is cleared, these checkpoints are lost too.
+        <em>Future phase (not yet implemented): distribute checkpoints across devices by QR/split text, 3-2-1 style, to avoid depending on a single browser.</em></p>
       <p id="oc-caja-alerta" style="font-size:13px;font-weight:700;"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">📸 Guardar punto ahora</button>
-        <button id="oc-caja-ver" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">🗂️ Ver puntos guardados</button>
+        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">📸 Save checkpoint now</button>
+        <button id="oc-caja-ver" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">🗂️ View saved checkpoints</button>
       </div>
       <div id="oc-caja-lista" style="display:none;margin-top:10px;"></div>
     `;
@@ -325,7 +325,7 @@
     const lock = document.createElement("div");
     lock.id = "oc-acct-lock";
     lock.className = "tag-card";
-    lock.innerHTML = `<button id="oc-acct-open">🔒 Ver capa contable</button>`;
+    lock.innerHTML = `<button id="oc-acct-open">🔒 View accounting layer</button>`;
     // Boton al inicio, justo bajo el blurb de "Modo avanzado" (JFC 2026-07-04:
     // "no moviste el boton mismo de 'ver capa contable' al inicio, animal").
     const aviso = vista.querySelector(".avanzado-aviso");
@@ -349,17 +349,17 @@
     gestion.className = "panel-escaner tag-card";
     gestion.style.cssText = "text-align:left;margin-top:22px;";
     gestion.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Acceso y recuperación</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Correo del dueño para recuperar las claves. Una vez guardado se oculta y queda ofuscado.</p>
+      <h3 class="seccion" style="margin-top:0;">Access & recovery</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Owner email for key recovery. Once saved, it's masked for privacy.</p>
       <div id="oc-email-row"></div>
       <div id="oc-clave-block" style="margin-top:18px;">
-        <p style="font-size:14px;color:var(--ink-soft);">Claves (PIN de 3 dígitos). Por seguridad, los códigos actuales NO se muestran aquí (se guardan cifrados) — escribe los NUEVOS solo si quieres cambiarlos.</p>
+        <p style="font-size:14px;color:var(--ink-soft);">PINs (3 digits). For security, current codes are NOT shown here (stored encrypted) — enter NEW ones only if you want to change them.</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;">
-          <label style="font-size:13px;">Dueño <input id="oc-c-owner" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">Empleado <input id="oc-c-emp" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">Contable <input id="oc-c-acct" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">Owner <input id="oc-c-owner" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">Employee <input id="oc-c-emp" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">Accounting <input id="oc-c-acct" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
         </div>
-        <button id="oc-save-codes" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Guardar nuevas claves</button>
+        <button id="oc-save-codes" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Save new PINs</button>
         <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
       </div>`;
     vista.appendChild(gestion);
@@ -374,25 +374,25 @@
     empPanel.id = "oc-emp-panel";
     empPanel.style.cssText = "text-align:left;margin-top:22px;";
     empPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Empleados</h3>
+      <h3 class="seccion" style="margin-top:0;">Employees</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Cada empleado tiene su propio PIN de 3 digitos. Sus ventas, ajustes y movimientos
-        quedan registrados con su nombre en el historial. El PIN del dueno no aparece aqui.
+        Each employee has their own 3-digit PIN. Their sales, adjustments, and movements
+        are recorded with their name in the history log. The owner PIN does not appear here.
       </p>
       <div id="oc-emp-lista" style="margin-bottom:18px;"></div>
       <details id="oc-emp-form-wrap" style="margin-bottom:6px;">
         <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--azul-medio);margin-bottom:10px;">
-          + Agregar empleado
+          + Add employee
         </summary>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;margin-top:10px;">
-          <label style="font-size:13px;">Nombre
+          <label style="font-size:13px;">Name
             <input id="oc-emp-nombre" maxlength="60" placeholder="Ej: Maria Auquilla"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
-          <label style="font-size:13px;">PIN (3 dígitos)<!-- Microcirugia 7 (2026-07-08): warning de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el empleado queda bloqueado silenciosamente. -->
+          <label style="font-size:13px;">PIN (3 digits)<!-- Microcirugia 7 (2026-07-08): warning de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el empleado queda bloqueado silenciosamente. -->
             <span style="display:block;font-size:12px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;">
-              No uses el mismo PIN del dueño, empleado general ni contador. Si coincide con alguno de esos, este empleado no podrá entrar.
+              Do not use the same PIN as the owner, general employee, or accountant. If it matches any of those, this employee cannot log in.
             </span>
             <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="•••"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
@@ -401,7 +401,7 @@
           </label>
           <button id="oc-emp-agregar" class="ir"
             style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">
-            Crear empleado
+            Create employee
           </button>
           <p id="oc-emp-msg" style="font-size:14px;margin:0;font-weight:700;"></p>
         </div>
@@ -419,7 +419,7 @@
       } catch (_) {}
 
       if (!empleados.length) {
-        lista.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);margin:0;">Todavia no hay empleados registrados.</p>';
+        lista.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);margin:0;">No employees registered yet.</p>';
         return;
       }
 
@@ -427,9 +427,9 @@
       lista.innerHTML = `
         <table style="width:100%;border-collapse:collapse;font-size:14px;">
           <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
-            <th style="text-align:left;padding:6px 8px;font-weight:700;">Nombre</th>
-            <th style="text-align:center;padding:6px 8px;font-weight:700;">Estado</th>
-            <th style="text-align:right;padding:6px 8px;font-weight:700;">Acciones</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:700;">Name</th>
+            <th style="text-align:center;padding:6px 8px;font-weight:700;">Status</th>
+            <th style="text-align:right;padding:6px 8px;font-weight:700;">Actions</th>
           </tr></thead>
           <tbody id="oc-emp-tbody"></tbody>
         </table>`;
@@ -438,8 +438,8 @@
         const tr = document.createElement("tr");
         tr.style.borderBottom = "1px solid var(--azul-suave,#dde5ec)";
         const estadoColor = u.activo ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)";
-        const estadoTxt   = u.activo ? "Activo" : "Inactivo";
-        const btnLabel    = u.activo ? "Desactivar" : "Activar";
+        const estadoTxt   = u.activo ? "Active" : "Inactive";
+        const btnLabel    = u.activo ? "Deactivate" : "Activate";
         const btnColor    = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
         tr.innerHTML = `
           <td style="padding:8px;">${escHtml(u.nombre)}</td>
@@ -465,9 +465,9 @@
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ activo: !activo }),
             });
-            if (!r.ok) { const e = await r.json(); alert(e.error || "Error al actualizar empleado."); return; }
+            if (!r.ok) { const e = await r.json(); alert(e.error || "Error updating employee."); return; }
             await renderEmpleados(); // refrescar lista
-          } catch (_) { alert("Error de red al actualizar empleado."); }
+          } catch (_) { alert("Network error updating employee."); }
         });
       });
     }
@@ -478,8 +478,8 @@
       const pin    = (document.getElementById("oc-emp-pin").value    || "").trim();
       const msgEl  = document.getElementById("oc-emp-msg");
       msgEl.style.color = "var(--rojo,#a3392a)";
-      if (!nombre) { msgEl.textContent = "Escribe el nombre del empleado."; return; }
-      if (!/^\d{3}$/.test(pin)) { msgEl.textContent = "El PIN debe ser exactamente 3 digitos numericos."; return; }
+      if (!nombre) { msgEl.textContent = "Enter employee name."; return; }
+      if (!/^\d{3}$/.test(pin)) { msgEl.textContent = "PIN must be exactly 3 numeric digits."; return; }
       try {
         const r = await fetch("/api/usuarios", {
           method: "POST",
@@ -487,14 +487,14 @@
           body: JSON.stringify({ nombre, pin }),
         });
         const data = await r.json();
-        if (!r.ok) { msgEl.textContent = data.error || "Error al crear empleado."; return; }
+        if (!r.ok) { msgEl.textContent = data.error || "Error creating employee."; return; }
         msgEl.style.color = "var(--sim-verde-dk,#1a6e3c)";
-        msgEl.textContent = `Empleado "${data.nombre}" creado. PIN configurado.`;
+        msgEl.textContent = `Employee "${data.nombre}" created. PIN set.`;
         document.getElementById("oc-emp-nombre").value = "";
         document.getElementById("oc-emp-pin").value    = "";
         document.getElementById("oc-emp-form-wrap").open = false;
         await renderEmpleados();
-      } catch (_) { msgEl.textContent = "Error de red al crear empleado."; }
+      } catch (_) { msgEl.textContent = "Network error creating employee."; }
     });
 
     // Cargar empleados al montar Avanzado
@@ -515,12 +515,12 @@
       afPanel.id = "oc-antifraude-panel";
       afPanel.style.cssText = "text-align:left;margin-top:22px;";
       afPanel.innerHTML = `
-        <h3 class="seccion" style="margin-top:0;">Control anti fraude</h3>
-        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Integridad del historial y señales de riesgo del día. Cada movimiento va sellado: si alguien edita o borra el historial en este equipo, aquí se nota.</p>
+        <h3 class="seccion" style="margin-top:0;">Fraud control</h3>
+        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">History integrity and daily risk signals. Every movement is sealed: if someone edits or deletes the history on this device, it shows here.</p>
         <div id="oc-af-integridad" style="margin-bottom:14px;"></div>
         <div id="oc-af-senales"></div>
-        <button id="oc-af-refrescar" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Verificar ahora</button>
-        <p style="font-size:13px;color:var(--ink-soft);margin:10px 0 0;">El sello detecta manipulación casual del historial. No es a prueba de expertos (el equipo es local), pero deja evidencia de cualquier edición común.</p>`;
+        <button id="oc-af-refrescar" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Verify now</button>
+        <p style="font-size:13px;color:var(--ink-soft);margin:10px 0 0;">The seal detects casual tampering. It's not expert-proof (the device is local), but it leaves evidence of any common edit.</p>`;
       vista.appendChild(afPanel);
 
       async function renderAntiFraude() {
@@ -530,12 +530,12 @@
           try {
             const d = await (await fetch("/api/integridad")).json();
             if (d.ok) {
-              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#e7f7ee;border:2px solid #1a6e3c;"><strong style="color:#1a6e3c;">✓ Historial íntegro</strong> <span style="color:#0F1923;font-size:14px;">— ${d.sellados} movimiento(s) sellado(s)${d.historico ? ", " + d.historico + " histórico(s) sin sello" : ""}.</span></div>`;
+              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#e7f7ee;border:2px solid #1a6e3c;"><strong style="color:#1a6e3c;">✓ History intact</strong> <span style="color:#0F1923;font-size:14px;">— ${d.sellados} movement(s) sealed${d.historico ? ", " + d.historico + " unsealed historic(s)" : ""}.</span></div>`;
             } else {
               const det = d.ruptura
-                ? `en la posición ${d.ruptura.index} (${escHtml(d.ruptura.tipo)} · ${escHtml(d.ruptura.usuarioNombre)} · ${escHtml(new Date(d.ruptura.fecha).toLocaleString())}) — ${escHtml(d.ruptura.motivo)}`
-                : (d.colaOk === false ? "se recortó el final del historial" : "inconsistencia detectada");
-              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#fdecea;border:2px solid #a3392a;"><strong style="color:#a3392a;">⚠ El historial fue alterado</strong> <span style="color:#0F1923;font-size:14px;">— ${det}.</span></div>`;
+                ? `at position ${d.ruptura.index} (${escHtml(d.ruptura.tipo)} · ${escHtml(d.ruptura.usuarioNombre)} · ${escHtml(new Date(d.ruptura.fecha).toLocaleString())}) — ${escHtml(d.ruptura.motivo)}`
+                : (d.colaOk === false ? "end of history was trimmed" : "inconsistency detected");
+              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#fdecea;border:2px solid #a3392a;"><strong style="color:#a3392a;">⚠ History has been altered</strong> <span style="color:#0F1923;font-size:14px;">— ${det}.</span></div>`;
             }
           } catch (_) { cont.innerHTML = ""; }
         }
@@ -554,13 +554,13 @@
             });
             const bloque = (titulo, obj, unidad) => {
               const ents = Object.entries(obj);
-              if (!ents.length) return `<p style="font-size:14px;color:var(--ink-soft);margin:6px 0;">${titulo}: sin actividad hoy.</p>`;
+              if (!ents.length) return `<p style="font-size:14px;color:var(--ink-soft);margin:6px 0;">${titulo}: no activity today.</p>`;
               return `<p style="font-size:14px;font-weight:700;color:var(--ink);margin:10px 0 2px;">${titulo}:</p>` +
                 ents.map(([n, v]) => `<div style="font-size:14px;color:#0F1923;padding:2px 0;">• ${escHtml(n)}: <strong>${v}</strong> ${unidad}</div>`).join("");
             };
             sen.innerHTML =
-              bloque("Anulaciones de venta por persona (hoy)", anul, "anulación(es)") +
-              bloque("Unidades bajadas a mano / mermas por persona (hoy)", merma, "unidad(es)");
+              bloque("Voided sales per person (today)", anul, "void(s)") +
+              bloque("Manual stock reductions / shrinkage per person (today)", merma, "unit(s)");
           } catch (_) { sen.innerHTML = ""; }
         }
       }
@@ -584,8 +584,8 @@
     transfPanel.className = "tag-card";
     transfPanel.style.cssText = "text-align:left;margin-top:22px;";
     transfPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Transferencias entre ubicaciones</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Solicitudes de traspaso de stock entre tus locales.</p>
+      <h3 class="seccion" style="margin-top:0;">Transfers between locations</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Stock transfer requests between your locations.</p>
       <div id="oc-transf-lista"></div>`;
     vista.appendChild(transfPanel);
     renderTransferencias();
@@ -602,34 +602,34 @@
     const pbUrlActual = localStorage.getItem("OC_PB_URL") || "";
     const conectado = !!(window.OC_PB_CONNECTED);
     syncPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Sincronización remota (opcional)</h3>
+      <h3 class="seccion" style="margin-top:0;">Remote sync (optional)</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Por defecto este negocio corre 100% local, sin depender de internet.
-        Solo si quieres recibir actualizaciones desde el panel central, pega
-        aquí la URL de tu PocketBase en Fly.io.
+        By default this system runs 100% locally, without depending on the internet.
+        Only if you want to receive updates from the central panel, paste
+        your PocketBase URL on Fly.io here.
       </p>
       <p style="font-size:14px;font-weight:700;margin:8px 0;color:${conectado ? "var(--sim-verde-dk)" : "var(--ink)"};">
-        Estado: ${conectado ? "🟢 Conectado" : "⚪ Local (sin sync)"}
+        Estado: ${conectado ? "🟢 Connected" : "⚪ Local (no sync)"}
       </p>
       <input id="oc-pb-url" type="text" placeholder="https://tu-negocio.fly.dev" value="${escHtml(pbUrlActual)}" style="width:100%;max-width:340px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;">
       <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
-        <button id="oc-pb-guardar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Guardar y conectar</button>
-        ${pbUrlActual ? `<button id="oc-pb-quitar" class="ir" style="background:transparent;color:var(--rojo);border-color:var(--rojo);">Volver a local</button>` : ""}
+        <button id="oc-pb-guardar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Save and connect</button>
+        ${pbUrlActual ? `<button id="oc-pb-quitar" class="ir" style="background:transparent;color:var(--rojo);border-color:var(--rojo);">Switch to local</button>` : ""}
       </div>
       <p id="oc-pb-msg" style="font-size:14px;margin-top:8px;"></p>`;
     vista.appendChild(syncPanel);
 
     $("oc-pb-guardar").addEventListener("click", () => {
       const url = $("oc-pb-url").value.trim();
-      if (!url) { msg("oc-pb-msg", "Pega la URL de tu PocketBase primero.", "var(--rojo)"); return; }
+      if (!url) { msg("oc-pb-msg", "Paste your PocketBase URL first.", "var(--rojo)"); return; }
       localStorage.setItem("OC_PB_URL", url);
-      msg("oc-pb-msg", "Guardado. Recargando para conectar...", "var(--sim-verde-dk)");
+      msg("oc-pb-msg", "Saved. Reloading to connect...", "var(--sim-verde-dk)");
       setTimeout(() => window.location.reload(), 800);
     });
     const btnQuitar = document.getElementById("oc-pb-quitar");
     if (btnQuitar) btnQuitar.addEventListener("click", () => {
       localStorage.removeItem("OC_PB_URL");
-      msg("oc-pb-msg", "Sync quitado. Recargando en modo local...", "var(--ink)");
+      msg("oc-pb-msg", "Sync removed. Reloading in local mode...", "var(--ink)");
       setTimeout(() => window.location.reload(), 800);
     });
 
@@ -657,12 +657,12 @@
       if (window.OCAuth.esDemo && window.OCAuth.esDemo()) return; // demo: sin cambio de claves
       const o = $("oc-c-owner").value.trim(), e = $("oc-c-emp").value.trim(), a = $("oc-c-acct").value.trim();
       const valido = (s) => /^[0-9]{3}$/.test(s);
-      if (![o, e, a].every(valido)) { msg("oc-codes-msg", "Cada clave debe ser 3 dígitos (0-9).", "var(--rojo)"); return; }
+      if (![o, e, a].every(valido)) { msg("oc-codes-msg", "Each PIN must be 3 digits (0-9).", "var(--rojo)"); return; }
       const correoActual = window.OCSecure.leerCorreo();
-      if (!correoActual) { msg("oc-codes-msg", "Antes de cambiar las claves, registra tu correo de recuperación arriba (si olvidas el código nuevo, sin correo no hay forma de recuperarlo).", "var(--rojo)"); return; }
+      if (!correoActual) { msg("oc-codes-msg", "Before changing PINs, register your recovery email above (if you forget the new PIN, without an email there is no way to recover it).", "var(--rojo)"); return; }
       await window.OCSecure.guardarSecreto(o, [e], a, correoActual);
       $("oc-c-owner").value = ""; $("oc-c-emp").value = ""; $("oc-c-acct").value = "";
-      msg("oc-codes-msg", "Claves guardadas y cifradas.", "var(--verde)");
+      msg("oc-codes-msg", "PINs saved and encrypted.", "var(--verde)");
     });
 
     $("oc-descargar-csv").addEventListener("click", async () => {
@@ -674,25 +674,25 @@
       ]);
       const fila = (a, b) => `"${a}","${b}"`;
       const filas = [
-        fila("Reporte contable — friendly-123", new Date().toLocaleString(window.OCI18n ? window.OCI18n.locale() : "en-US")),
-        fila("AVISO", "Insumo para el contador. No es una declaración válida ante el SRI."),
+        fila("Accounting report — friendly-123", new Date().toLocaleString(window.OCI18n ? window.OCI18n.locale() : "en-US")),
+        fila("NOTICE", "Input for your accountant. Not a valid tax declaration."),
         fila("", ""),
-        fila("PÉRDIDAS Y GANANCIAS (hoy)", ""),
-        fila("Ventas cobradas (con IVA)", money(pl.ingresosConIva)),
-        fila("IVA cobrado (15%, se liquida al SRI)", money(pl.ivaCobrado)),
-        fila("Ingresos netos (sin IVA)", money(pl.ingresos)),
-        fila("Costo de ventas", money(pl.costoVentas)),
-        fila("Utilidad bruta", money(pl.utilidadBruta)),
-        fila("Gastos operativos", money(pl.gastosOperativos)),
-        fila("Utilidad neta", money(pl.utilidadNeta)),
+        fila("PROFIT & LOSS (today)", ""),
+        fila("Sales collected (incl. VAT)", money(pl.ingresosConIva)),
+        fila("VAT collected (15%, remitted to tax authority)", money(pl.ivaCobrado)),
+        fila("Net revenue (excl. VAT)", money(pl.ingresos)),
+        fila("Cost of sales", money(pl.costoVentas)),
+        fila("Gross profit", money(pl.utilidadBruta)),
+        fila("Operating expenses", money(pl.gastosOperativos)),
+        fila("Net profit", money(pl.utilidadNeta)),
         fila("", ""),
-        fila("BALANCE SIMPLIFICADO", ""),
-        fila("Ingresos del día estimados", money(bal.activos.efectivoEstimado)),
-        fila("Inventario valorizado", money(bal.activos.inventarioValorizado)),
-        fila("Total activos", money(bal.activos.total)),
+        fila("SIMPLIFIED BALANCE", ""),
+        fila("Estimated daily revenue", money(bal.activos.efectivoEstimado)),
+        fila("Valued inventory", money(bal.activos.inventarioValorizado)),
+        fila("Total assets", money(bal.activos.total)),
         fila("", ""),
-        fila("INVENTARIO VALORIZADO POR PRODUCTO", ""),
-        fila("Producto", "Stock,Costo,Venta,Utilidad potencial"),
+        fila("VALUED INVENTORY BY PRODUCT", ""),
+        fila("Product", "Stock,Costo,Venta,Utilidad potencial"),
         ...val.productos.map((p) => fila(p.nombre, `${p.stockActual},${money(p.valorCosto)},${money(p.valorVenta)},${money(p.utilidadPotencial)}`)),
       ];
       const csv = "﻿" + filas.join("\n"); // BOM para que Excel abra tildes bien
@@ -739,13 +739,13 @@
         // completo (incluye oc_secure: hashes de PIN + correo) sale cifrado
         // con AES-256-GCM real, no solo "protegido por no compartirlo". Si la
         // deja vacía, se exporta igual que antes (compatibilidad).
-        const clave = prompt("Clave para proteger este respaldo (mínimo 8 caracteres). Déjalo en blanco para exportar sin cifrar:");
+        const clave = prompt("Key to protect this backup (minimum 8 characters). Leave blank to export unencrypted:");
         // FIX 2026-07-07: "Cancelar" devolvia null y caia al camino sin cifrar —
         // exportaba un archivo CON oc_secure adentro sin que el dueno lo pidiera.
         // Cancelar ahora cancela de verdad.
         if (clave === null) {
-          if (window.dialogosBloqueados && window.dialogosBloqueados()) { msg("oc-respaldo-msg", "Tu navegador bloquea los diálogos (pasa en el navegador de WhatsApp). Abre friendly-123 en Chrome o Safari para exportar con clave.", "var(--rojo)"); return; }
-          msg("oc-respaldo-msg", "Exportación cancelada.", "var(--ink)");
+          if (window.dialogosBloqueados && window.dialogosBloqueados()) { msg("oc-respaldo-msg", "Your browser blocks dialogs (happens in WhatsApp's browser). Open friendly-123 in Chrome or Safari to export with a key.", "var(--rojo)"); return; }
+          msg("oc-respaldo-msg", "Export cancelled.", "var(--ink)");
           return;
         }
         let archivoFinal;
@@ -762,8 +762,8 @@
         a.click();
         URL.revokeObjectURL(a.href);
         localStorage.setItem("oc_ultimo_export_manual", String(Date.now()));
-        msg("oc-respaldo-msg", "Respaldo descargado" + (clave ? " y cifrado" : "") + ". Guárdalo en un lugar seguro.", "var(--verde)");
-      } catch (e) { msg("oc-respaldo-msg", "No se pudo exportar: " + e.message, "var(--rojo)"); }
+        msg("oc-respaldo-msg", "Backup downloaded" + (clave ? " and encrypted" : "") + ". Save it somewhere safe.", "var(--verde)");
+      } catch (e) { msg("oc-respaldo-msg", "Export failed: " + e.message, "var(--rojo)"); }
     });
 
     $("oc-importar-file").addEventListener("change", async (e) => {
@@ -771,29 +771,29 @@
       try {
         let paquete = JSON.parse(await file.text());
         if (paquete.amigableRespaldoCifrado) {
-          const clave = prompt("Este respaldo está cifrado. Ingresa la clave con la que se exportó:");
+          const clave = prompt("This backup is encrypted. Enter the key it was exported with:");
           if (!clave) { e.target.value = ""; return; }
           const texto = await window.OCSecure.descifrarTextoConClave(paquete, clave.trim());
-          if (!texto) { msg("oc-respaldo-msg", "Clave incorrecta o archivo dañado.", "var(--rojo)"); e.target.value = ""; return; }
+          if (!texto) { msg("oc-respaldo-msg", "Wrong key or damaged file.", "var(--rojo)"); e.target.value = ""; return; }
           const checksumOk = paquete.checksum ? (await window.OCSecure.hashTexto(texto)) === paquete.checksum : true;
-          if (!checksumOk) { msg("oc-respaldo-msg", "El contenido no coincide con su checksum — el archivo pudo dañarse.", "var(--rojo)"); e.target.value = ""; return; }
+          if (!checksumOk) { msg("oc-respaldo-msg", "Content does not match its checksum — file may be corrupted.", "var(--rojo)"); e.target.value = ""; return; }
           paquete = JSON.parse(texto);
         } else if (paquete.checksum) {
           const { checksum, ...resto } = paquete;
           const ok = (await window.OCSecure.hashTexto(JSON.stringify(resto))) === checksum;
-          if (!ok) { msg("oc-respaldo-msg", "El contenido no coincide con su checksum — el archivo pudo dañarse.", "var(--rojo)"); e.target.value = ""; return; }
+          if (!ok) { msg("oc-respaldo-msg", "Content does not match its checksum — file may be corrupted.", "var(--rojo)"); e.target.value = ""; return; }
         }
-        if (!paquete.datos) { msg("oc-respaldo-msg", "Ese archivo no parece un respaldo de AMIGABLE.", "var(--rojo)"); return; }
-        if ((paquete.schemaVersion || 1) > 3) { msg("oc-respaldo-msg", "Este respaldo es de una versión más nueva de AMIGABLE que esta pantalla — actualiza la app antes de importarlo.", "var(--rojo)"); return; }
-        if (!confirm("Esto REEMPLAZA todos los datos actuales (productos, ventas, claves) con los del respaldo. ¿Continuar?")) return;
+        if (!paquete.datos) { msg("oc-respaldo-msg", "This file does not look like a friendly-123 backup.", "var(--rojo)"); return; }
+        if ((paquete.schemaVersion || 1) > 3) { msg("oc-respaldo-msg", "This backup is from a newer version of friendly-123 — update the app before importing it.", "var(--rojo)"); return; }
+        if (!confirm("This REPLACES all current data (products, sales, keys) with the backup data. Continue?")) return;
         const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
         const r = await res.json();
         if (!res.ok) { msg("oc-respaldo-msg", r.error, "var(--rojo)"); return; }
         if (paquete.oc_secure) localStorage.setItem("oc_secure", paquete.oc_secure);
         if (paquete.fotosPerchas) Object.entries(paquete.fotosPerchas).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch (_) {} });
         window.dispatchEvent(new CustomEvent("oc-datos-importados")); // index re-sincroniza la UI solo
-        msg("oc-respaldo-msg", "Respaldo importado. La pantalla ya muestra los datos restaurados.", "var(--verde)");
-      } catch (err) { msg("oc-respaldo-msg", "No se pudo importar: " + err.message, "var(--rojo)"); }
+        msg("oc-respaldo-msg", "Backup imported. Screen now shows restored data.", "var(--verde)");
+      } catch (err) { msg("oc-respaldo-msg", "Import failed: " + err.message, "var(--rojo)"); }
       e.target.value = "";
     });
 
@@ -840,31 +840,31 @@
         lista.push({ fecha: new Date().toISOString(), contenido, checksum });
         const guardado = cajaGuardar(lista);
         if (!silencioso) {
-          msg("oc-respaldo-msg", guardado ? "Punto de restauración guardado en este navegador." : "No se pudo guardar (¿localStorage lleno? intenta exportar un respaldo manual y libera espacio).", guardado ? "var(--verde)" : "var(--rojo)");
+          msg("oc-respaldo-msg", guardado ? "Checkpoint saved in this browser." : "Could not save checkpoint (localStorage full? Try exporting a manual backup to free space).", guardado ? "var(--verde)" : "var(--rojo)");
         }
-      } catch (_) { if (!silencioso) msg("oc-respaldo-msg", "No se pudo tomar el punto de restauración.", "var(--rojo)"); }
+      } catch (_) { if (!silencioso) msg("oc-respaldo-msg", "Could not take a checkpoint.", "var(--rojo)"); }
     }
     async function cajaRestaurar(idx) {
       const lista = cajaLeer();
       const punto = lista[idx];
       if (!punto) return;
       const okChecksum = (await window.OCSecure.hashTexto(punto.contenido)) === punto.checksum;
-      if (!okChecksum) { msg("oc-respaldo-msg", "Este punto no pasó la verificación de checksum — puede estar corrupto. No se restauró nada.", "var(--rojo)"); return; }
-      if (!confirm(`Esto REEMPLAZA los datos actuales con el punto del ${new Date(punto.fecha).toLocaleString()}. ¿Continuar?`)) return;
-      let paquete; try { paquete = JSON.parse(punto.contenido); } catch { msg("oc-respaldo-msg", "El punto está corrupto.", "var(--rojo)"); return; }
+      if (!okChecksum) { msg("oc-respaldo-msg", "This checkpoint failed the checksum check — may be corrupted. Nothing was restored.", "var(--rojo)"); return; }
+      if (!confirm(`This REPLACES current data with the checkpoint from ${new Date(punto.fecha).toLocaleString()}. Continue?`)) return;
+      let paquete; try { paquete = JSON.parse(punto.contenido); } catch { msg("oc-respaldo-msg", "This checkpoint is corrupted.", "var(--rojo)"); return; }
       const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
-      if (!res.ok) { const r = await res.json(); msg("oc-respaldo-msg", r.error || "No se pudo restaurar.", "var(--rojo)"); return; }
+      if (!res.ok) { const r = await res.json(); msg("oc-respaldo-msg", r.error || "Could not restore.", "var(--rojo)"); return; }
       window.dispatchEvent(new CustomEvent("oc-datos-importados"));
-      msg("oc-respaldo-msg", "Restaurado. La pantalla ya muestra los datos del punto elegido.", "var(--verde)");
+      msg("oc-respaldo-msg", "Restored. Screen now shows data from the chosen checkpoint.", "var(--verde)");
     }
     function cajaPintarAlerta() {
       const ultimo = Number(localStorage.getItem("oc_ultimo_export_manual") || 0);
       const el = $("oc-caja-alerta");
       if (!el) return;
-      if (!ultimo) { el.textContent = "⚠️ Todavía no has hecho ningún respaldo manual (el de arriba) — hazlo al menos una vez."; el.style.color = "var(--rust)"; return; }
+      if (!ultimo) { el.textContent = "⚠️ You have not made a manual backup yet (the one above) — do it at least once."; el.style.color = "var(--rust)"; return; }
       const dias = Math.floor((Date.now() - ultimo) / 86400000);
-      if (dias >= CAJA_ALERTA_DIAS) { el.textContent = `⚠️ Tu último respaldo manual tiene ${dias} días — considera hacer uno nuevo.`; el.style.color = "var(--rust)"; }
-      else { el.textContent = `✅ Último respaldo manual: hace ${dias} día(s).`; el.style.color = "var(--verde)"; }
+      if (dias >= CAJA_ALERTA_DIAS) { el.textContent = `⚠️ Your last manual backup is ${dias} days old — consider making a new one.`; el.style.color = "var(--rust)"; }
+      else { el.textContent = `✅ Last manual backup: ${dias} day(s) ago.`; el.style.color = "var(--verde)"; }
     }
     cajaPintarAlerta();
     // FIX 2026-07-07: los timers ya no trabajan con la sesion cerrada
@@ -882,10 +882,10 @@
             const idxReal = lista.length - 1 - i;
             return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--azul-suave,#dde5ec);font-size:13px;">
               <span>${escHtml(new Date(p.fecha).toLocaleString())}</span>
-              <button data-caja-restaurar="${idxReal}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Restaurar</button>
+              <button data-caja-restaurar="${idxReal}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Restore</button>
             </div>`;
           }).join("")
-        : `<p style="font-size:13px;color:var(--ink-soft);">Todavía no hay puntos guardados.</p>`;
+        : `<p style="font-size:13px;color:var(--ink-soft);">No checkpoints saved yet.</p>`;
       cont.style.display = "block";
       cont.querySelectorAll("[data-caja-restaurar]").forEach((b) => b.addEventListener("click", () => cajaRestaurar(Number(b.dataset.cajaRestaurar))));
     });
@@ -901,15 +901,15 @@
     const cont = $("oc-transf-lista");
     if (!cont) return;
     const lista = await (await fetch(`${API}/transferencias`)).json();
-    if (!lista.length) { cont.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No hay transferencias todavía.</p>`; return; }
+    if (!lista.length) { cont.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No transfers yet.</p>`; return; }
     cont.innerHTML = lista.map((t) => {
       const colorEstado = t.estado === "recibida" ? "verde" : t.estado === "rechazada" ? "rojo" : t.estado === "en_transito" ? "azul" : "amarillo";
       let acciones = "";
       if (t.estado === "solicitada") {
-        acciones = `<button data-transf-aprobar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--verde);border-radius:5px;background:transparent;color:var(--verde);cursor:pointer;">Aprobar</button>
-          <button data-transf-rechazar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Rechazar</button>`;
+        acciones = `<button data-transf-aprobar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--verde);border-radius:5px;background:transparent;color:var(--verde);cursor:pointer;">Approve</button>
+          <button data-transf-rechazar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Reject</button>`;
       } else if (t.estado === "en_transito") {
-        acciones = `<button data-transf-confirmar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Confirmar recepción</button>`;
+        acciones = `<button data-transf-confirmar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Confirm receipt</button>`;
       }
       return `<div class="tag-card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;flex-wrap:wrap;">
         <div style="flex:1;min-width:180px;">
@@ -944,17 +944,17 @@
     if (email) {
       row.innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="font-family:var(--font-mono);font-size:15px;color:var(--ink);">${window.OCAuth.enmascarar(email)}</span>
-        <button id="oc-email-edit" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Cambiar (requiere código maestro)</button></div>`;
+        <button id="oc-email-edit" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Change (requires master code)</button></div>`;
       $("oc-email-edit").addEventListener("click", pedirMaestroYCambiarCorreo);
     } else {
       row.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <input id="oc-email-in" type="email" placeholder="correo@dominio.com" style="flex:1;min-width:200px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);">
-        <button id="oc-email-save" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">Guardar</button></div>
+        <input id="oc-email-in" type="email" placeholder="email@domain.com" style="flex:1;min-width:200px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);">
+        <button id="oc-email-save" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">Save</button></div>
         <p id="oc-email-msg" style="font-size:14px;margin-top:8px;"></p>`;
       $("oc-email-save").addEventListener("click", () => {
         if (window.OCAuth.esDemo && window.OCAuth.esDemo()) return; // demo: sin cambio de correo
         const v = $("oc-email-in").value.trim();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { msg("oc-email-msg", "Correo no válido.", "var(--rojo)"); return; }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { msg("oc-email-msg", "Invalid email.", "var(--rojo)"); return; }
         window.OCSecure.actualizarCorreo(v);
         pintarEmail();
         if (reasignacionViaMaestro) {
@@ -971,12 +971,12 @@
     const cont = document.createElement("div");
     cont.className = "oc-subgate";
     cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido);border:2px solid var(--brass);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
-      <h2 style="font-family:var(--font-display);color:var(--ink);font-size:20px;margin:0 0 4px;">Código maestro</h2>
-      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:14px;">Solo JFC lo tiene. Identifica al dueño en persona o videollamada antes de dárselo.</p>
+      <h2 style="font-family:var(--font-display);color:var(--ink);font-size:20px;margin:0 0 4px;">Master code</h2>
+      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:14px;">Only JFC has this. Verify the owner's identity in person or via video call before sharing it.</p>
       <input id="mst-codigo" type="text" style="width:100%;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);text-align:center;">
       <div style="display:flex;gap:8px;margin-top:12px;">
-        <button id="mst-cancelar" style="flex:1;padding:10px;border-radius:6px;border:2px solid var(--azul-medio);background:transparent;color:var(--azul-medio);cursor:pointer;">Cancelar</button>
-        <button id="mst-ok" class="ir" style="flex:1;">Verificar</button>
+        <button id="mst-cancelar" style="flex:1;padding:10px;border-radius:6px;border:2px solid var(--azul-medio);background:transparent;color:var(--azul-medio);cursor:pointer;">Cancel</button>
+        <button id="mst-ok" class="ir" style="flex:1;">Verify</button>
       </div>
       <p id="mst-msg" style="font-size:14px;margin-top:10px;font-weight:700;color:var(--rojo);"></p>
     </div>`;
@@ -985,7 +985,7 @@
     cont.querySelector("#mst-ok").addEventListener("click", async () => {
       const codigo = cont.querySelector("#mst-codigo").value.trim();
       const ok = await window.OCSecure.verificarMaestro(codigo);
-      if (!ok) { cont.querySelector("#mst-msg").textContent = "Código maestro incorrecto."; return; }
+      if (!ok) { cont.querySelector("#mst-msg").textContent = "Incorrect master code."; return; }
       window.OCSecure.actualizarCorreo("");
       reasignacionViaMaestro = true;
       cont.remove();
@@ -1006,58 +1006,58 @@
     const necesitaPin = OCSync.requiereReactivar();
     const pend = OCSync.pendientes();
     box.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Sincronización entre dispositivos</h3>
+      <h3 class="seccion" style="margin-top:0;">Device-to-device sync</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Para cuando el mismo negocio corre en más de un celular/tablet (ej. caja y bodega).
-        Cada dispositivo cifra sus propios cambios con tu PIN de dueño — ni siquiera el
-        servidor de sincronización puede leerlos.
+        For when the same business runs on more than one phone/tablet (e.g. register and stockroom).
+        Each device encrypts its own changes with your owner PIN — not even the
+        sync server can read them.
       </p>
       <p style="font-size:14px;font-weight:700;margin:8px 0;color:${activo && !necesitaPin ? "var(--sim-verde-dk)" : "var(--ink)"};">
-        Estado: ${!activo ? "⚪ Desactivada" : necesitaPin ? "🟡 Activada, pero pide tu PIN de nuevo en este navegador" : "🟢 Activada"}
-        ${activo && !necesitaPin && pend ? ` · ${pend} cambio(s) sin enviar` : ""}
+        Estado: ${!activo ? "⚪ Disabled" : necesitaPin ? "🟡 Enabled, but needs your PIN again in this browser" : "🟢 Enabled"}
+        ${activo && !necesitaPin && pend ? ` · ${pend} change(s) pending` : ""}
       </p>
       <p id="oc-syncdev-msg" style="font-size:14px;font-weight:700;margin-bottom:10px;"></p>
       ${(!activo || necesitaPin) ? `
-        <button id="oc-syncdev-activar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">${necesitaPin ? "Ingresar PIN para reactivar" : "Activar en este dispositivo (pide tu PIN)"}</button>
+        <button id="oc-syncdev-activar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">${necesitaPin ? "Enter PIN to reactivate" : "Enable on this device (needs your PIN)"}</button>
       ` : `
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-          <button id="oc-syncdev-push" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">🔄 Sync automático (Fly.io)</button>
-          <button id="oc-syncdev-copiar" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">📋 Copiar cambios para enviar</button>
-          <button id="oc-syncdev-wa-cambios" class="ir" style="background:#25D366;color:#0a3d20;border-color:#1da851;">📲 Cambios recientes → WhatsApp</button>
-          <button id="oc-syncdev-wa-respaldo" class="ir" style="background:#128C7E;color:#e8fff7;border-color:#0c6b60;">📲 Respaldo completo → WhatsApp</button>
-          <button id="oc-syncdev-qr-mostrar" class="ir" style="background:var(--azul-oscuro);color:var(--blanco-calido);border-color:var(--brass);">📱 Mostrar QR de cambios</button>
-          <button id="oc-syncdev-qr-escanear" class="ir" style="background:var(--azul-oscuro);color:var(--blanco-calido);border-color:var(--brass);">📷 Escanear QR del otro equipo</button>
-          <button id="oc-syncdev-off" style="font-size:13px;padding:8px 12px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Desactivar</button>
+          <button id="oc-syncdev-push" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">🔄 Auto sync (Fly.io)</button>
+          <button id="oc-syncdev-copiar" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">📋 Copy changes to send</button>
+          <button id="oc-syncdev-wa-cambios" class="ir" style="background:#25D366;color:#0a3d20;border-color:#1da851;">📲 Recent changes → WhatsApp</button>
+          <button id="oc-syncdev-wa-respaldo" class="ir" style="background:#128C7E;color:#e8fff7;border-color:#0c6b60;">📲 Full backup → WhatsApp</button>
+          <button id="oc-syncdev-qr-mostrar" class="ir" style="background:var(--azul-oscuro);color:var(--blanco-calido);border-color:var(--brass);">📱 Show changes QR</button>
+          <button id="oc-syncdev-qr-escanear" class="ir" style="background:var(--azul-oscuro);color:var(--blanco-calido);border-color:var(--brass);">📷 Scan QR from other device</button>
+          <button id="oc-syncdev-off" style="font-size:13px;padding:8px 12px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Disable</button>
         </div>
         <div id="oc-syncdev-qr-zona" style="display:none;margin:10px 0;text-align:center;"></div>
-        <details><summary style="font-size:14px;cursor:pointer;color:var(--azul-medio);">Pegar cambios recibidos de otro dispositivo</summary>
-          <textarea id="oc-syncdev-pegar" rows="3" placeholder="Pega aquí el texto que empieza con OCSYNC1:..." style="width:100%;margin-top:8px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);font-size:12px;"></textarea>
-          <button id="oc-syncdev-importar" class="ir" style="margin-top:8px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Importar</button>
+        <details><summary style="font-size:14px;cursor:pointer;color:var(--azul-medio);">Paste changes received from another device</summary>
+          <textarea id="oc-syncdev-pegar" rows="3" placeholder="Paste the text starting with OCSYNC1: here..." style="width:100%;margin-top:8px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);font-size:12px;"></textarea>
+          <button id="oc-syncdev-importar" class="ir" style="margin-top:8px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Import</button>
         </details>
       `}`;
 
     const btnActivar = $("oc-syncdev-activar");
     if (btnActivar) btnActivar.addEventListener("click", async () => {
-      const pin = prompt("PIN del dueño (3 dígitos) para activar sincronización en este dispositivo:");
+      const pin = prompt("Owner PIN (3 digits) to enable sync on this device:");
       if (pin === null) return;
       const ok = await OCSync.activar(pin.trim());
-      msg("oc-syncdev-msg", ok ? "Sincronización activada en este dispositivo." : "PIN incorrecto.", ok ? "var(--verde)" : "var(--rojo)");
+      msg("oc-syncdev-msg", ok ? "Sync enabled on this device." : "Incorrect PIN.", ok ? "var(--verde)" : "var(--rojo)");
       pintarSyncDev();
     });
     const btnPush = $("oc-syncdev-push");
     if (btnPush) btnPush.addEventListener("click", async () => {
-      msg("oc-syncdev-msg", "Enviando y recibiendo...", "var(--ink)");
+      msg("oc-syncdev-msg", "Sending and receiving...", "var(--ink)");
       const rPush = await OCSync.push();
       const rPull = await OCSync.pull();
-      if (rPush.ok && rPull.ok) msg("oc-syncdev-msg", `Listo. Enviados: ${rPush.enviado || 0} · Recibidos: ${rPull.recibido || 0}.`, "var(--verde)");
-      else msg("oc-syncdev-msg", (rPush.motivo || rPull.motivo) + " Mientras tanto, usa \"Copiar cambios\".", "var(--rojo)");
+      if (rPush.ok && rPull.ok) msg("oc-syncdev-msg", `Done. Sent: ${rPush.enviado || 0} · Received: ${rPull.recibido || 0}.`, "var(--verde)");
+      else msg("oc-syncdev-msg", (rPush.motivo || rPull.motivo) + " In the meantime, use \"Copy changes\".", "var(--rojo)");
       pintarSyncDev();
     });
     const btnCopiar = $("oc-syncdev-copiar");
     if (btnCopiar) btnCopiar.addEventListener("click", async () => {
       const texto = await OCSync.generarPaqueteManual();
-      if (!texto) { msg("oc-syncdev-msg", "No hay cambios pendientes en este dispositivo.", "var(--ink)"); return; }
-      try { await navigator.clipboard.writeText(texto); msg("oc-syncdev-msg", "Copiado. Envíalo por WhatsApp u otro medio al otro dispositivo.", "var(--verde)"); }
+      if (!texto) { msg("oc-syncdev-msg", "No pending changes on this device.", "var(--ink)"); return; }
+      try { await navigator.clipboard.writeText(texto); msg("oc-syncdev-msg", "Copied. Send it to the other device via WhatsApp or any channel.", "var(--verde)"); }
       catch (_) { prompt("Copia este texto manualmente:", texto); }
       pintarSyncDev();
     });
@@ -1069,13 +1069,13 @@
     if (btnWaCambios) btnWaCambios.addEventListener("click", async () => {
       const texto = await OCSync.generarPaqueteManual();
       if (!texto) { msg("oc-syncdev-msg", "No hay cambios pendientes en este dispositivo.", "var(--ink)"); return; }
-      const mensaje = "friendly-123 — cambios para sincronizar. Pega esto en el otro equipo (Avanzado → Pegar cambios):\n\n" + texto;
+      const mensaje = "friendly-123 — changes to sync. Paste this on the other device (Advanced → Paste changes):\n\n" + texto;
       if (navigator.share) {
-        try { await navigator.share({ text: mensaje }); msg("oc-syncdev-msg", "Compartido. En el otro equipo: Avanzado → Pegar cambios.", "var(--verde)"); return; } catch (_) {}
+        try { await navigator.share({ text: mensaje }); msg("oc-syncdev-msg", "Shared. On the other device: Advanced → Paste changes.", "var(--verde)"); return; } catch (_) {}
       }
-      if (mensaje.length < 1500) { window.open("https://wa.me/?text=" + encodeURIComponent(mensaje), "_blank"); msg("oc-syncdev-msg", "Abrí WhatsApp con los cambios listos para enviar.", "var(--verde)"); return; }
-      try { await navigator.clipboard.writeText(texto); msg("oc-syncdev-msg", "Son muchos cambios para un enlace directo. Los copié — pégalos tú en WhatsApp.", "var(--verde)"); }
-      catch (_) { prompt("Copia este texto y envíalo por WhatsApp:", texto); }
+      if (mensaje.length < 1500) { window.open("https://wa.me/?text=" + encodeURIComponent(mensaje), "_blank"); msg("oc-syncdev-msg", "Opened WhatsApp with the changes ready to send.", "var(--verde)"); return; }
+      try { await navigator.clipboard.writeText(texto); msg("oc-syncdev-msg", "Too many changes for a direct link. Copied them — paste them yourself in WhatsApp.", "var(--verde)"); }
+      catch (_) { prompt("Copy this text and send it via WhatsApp:", texto); }
     });
 
     // Enviar RESPALDO COMPLETO (.json cifrado) por WhatsApp como ARCHIVO.
@@ -1091,21 +1091,21 @@
         const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("oc_secure"), fotosPerchas };
         const contenidoPlano = JSON.stringify(paquete);
         const checksum = await window.OCSecure.hashTexto(contenidoPlano);
-        const clave = prompt("Clave para cifrar el respaldo antes de mandarlo por WhatsApp (mínimo 8). En blanco = sin cifrar (no recomendado para WhatsApp):");
-        if (clave === null) { msg("oc-syncdev-msg", "Envío cancelado.", "var(--ink)"); return; }
+        const clave = prompt("Key to encrypt the backup before sending via WhatsApp (min 8 chars). Leave blank = no encryption (not recommended for WhatsApp):");
+        if (clave === null) { msg("oc-syncdev-msg", "Send cancelled.", "var(--ink)"); return; }
         let archivoFinal;
         if (clave && clave.trim()) { const cif = await window.OCSecure.cifrarTextoConClave(contenidoPlano, clave.trim()); archivoFinal = JSON.stringify({ amigableRespaldoCifrado: true, checksum, ...cif }, null, 2); }
         else archivoFinal = JSON.stringify({ ...paquete, checksum }, null, 2);
         const nombre = `respaldo-amigable-${new Date().toISOString().slice(0, 10)}.json`;
         const file = new File([archivoFinal], nombre, { type: "application/json" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: "Respaldo friendly-123", text: "Respaldo de mi negocio (friendly-123)." });
-          msg("oc-syncdev-msg", "Respaldo compartido. En el otro equipo: Avanzado → Importar respaldo.", "var(--verde)");
+          await navigator.share({ files: [file], title: "friendly-123 backup", text: "My business backup (friendly-123)." });
+          msg("oc-syncdev-msg", "Backup shared. On the other device: Advanced → Import backup.", "var(--verde)");
         } else {
           const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = nombre; a.click(); URL.revokeObjectURL(a.href);
-          msg("oc-syncdev-msg", "Tu navegador no comparte archivos directo. Lo descargué — adjúntalo tú en WhatsApp.", "var(--ink)");
+          msg("oc-syncdev-msg", "Your browser doesn't share files directly. Downloaded it — attach it yourself in WhatsApp.", "var(--ink)");
         }
-      } catch (e) { msg("oc-syncdev-msg", "No se pudo preparar el respaldo: " + e.message, "var(--rojo)"); }
+      } catch (e) { msg("oc-syncdev-msg", "Could not prepare the backup: " + e.message, "var(--rojo)"); }
     });
     const btnImportar = $("oc-syncdev-importar");
     if (btnImportar) btnImportar.addEventListener("click", async () => {
@@ -1116,7 +1116,7 @@
     });
     const btnOff = $("oc-syncdev-off");
     if (btnOff) btnOff.addEventListener("click", () => {
-      if (!confirm("¿Desactivar sincronización en este dispositivo?")) return;
+      if (!confirm("Disable sync on this device?")) return;
       OCSync.desactivar();
       pintarSyncDev();
     });
@@ -1147,7 +1147,7 @@
     async function mostrarQRCambios() {
       const zona = $("oc-syncdev-qr-zona");
       if (zona.style.display !== "none") { zona.style.display = "none"; zona.innerHTML = ""; return; }
-      if (!qrLib()) { msg("oc-syncdev-msg", "El generador QR local no cargó (qrcode-local.js).", "var(--rojo)"); return; }
+      if (!qrLib()) { msg("oc-syncdev-msg", "The local QR generator did not load (qrcode-local.js).", "var(--rojo)"); return; }
       const texto = await OCSync.generarPaqueteManual();
       if (!texto) { msg("oc-syncdev-msg", "No hay cambios pendientes en este dispositivo.", "var(--ink)"); return; }
       const sesion = Math.random().toString(36).slice(2, 6);
@@ -1155,8 +1155,8 @@
       // FIX preventivo 2026-07-07: con una cola enorme (semanas sin sincronizar)
       // esto generaria decenas de QRs y congelaria la pestana. Tope duro y
       // camino claro: para paquetes grandes, Copiar/Pegar es el canal correcto.
-      if (total > 12) { msg("oc-syncdev-msg", `Son demasiados cambios para QR (${total} códigos). Usa "Copiar cambios" y pégalo en el otro equipo — misma seguridad.`, "var(--rojo)"); return; }
-      let html = `<p style="font-size:14px;font-weight:700;color:var(--ink);">Escanea ${total > 1 ? "los " + total + " códigos, en cualquier orden," : "este código"} desde el otro equipo (Avanzado → Escanear QR):</p>`;
+      if (total > 12) { msg("oc-syncdev-msg", `Too many changes for QR (${total} codes). Use "Copy changes" and paste on the other device — same security.`, "var(--rojo)"); return; }
+      let html = `<p style="font-size:14px;font-weight:700;color:var(--ink);">Scan ${total > 1 ? "the " + total + " codes, in any order," : "this code"} from the other device (Advanced → Escanear QR):</p>`;
       for (let i = 0; i < total; i++) {
         const frag = "OCQ|" + sesion + "|" + (i + 1) + "|" + total + "|" + texto.slice(i * QR_CHUNK, (i + 1) * QR_CHUNK);
         const q = qrLib()(0, "M");
@@ -1166,7 +1166,7 @@
       }
       zona.innerHTML = html;
       zona.style.display = "block";
-      msg("oc-syncdev-msg", "QR listos. Los cambios NO se borran de aquí hasta que el otro equipo los importe (dedup por operación: escanear dos veces no duplica).", "var(--verde)");
+      msg("oc-syncdev-msg", "QR codes ready. Changes are NOT removed here until the other device imports them (dedup by op: scanning twice does not duplicate).", "var(--verde)");
     }
 
     let escaneoActivo = null; // { stream, timer } para poder apagar la cámara siempre
@@ -1186,19 +1186,19 @@
 
     async function escanearQRCambios() {
       if (!("BarcodeDetector" in window)) {
-        msg("oc-syncdev-msg", "Este navegador no puede escanear QR (típico en iPhone). Usa \"Copiar cambios\" y pégalo en el otro equipo — misma seguridad.", "var(--rojo)");
+        msg("oc-syncdev-msg", "This browser cannot scan QR codes (common on iPhone). Use \"Copy changes\" and paste on the other device — same security.", "var(--rojo)");
         return;
       }
-      if (!window.OCSecure.syncActiva()) { msg("oc-syncdev-msg", "Primero activa la sincronización con tu PIN.", "var(--rojo)"); return; }
+      if (!window.OCSecure.syncActiva()) { msg("oc-syncdev-msg", "First enable sync with your PIN.", "var(--rojo)"); return; }
       let stream;
       try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); }
-      catch (_) { msg("oc-syncdev-msg", "No se pudo abrir la cámara (¿permiso denegado?).", "var(--rojo)"); return; }
+      catch (_) { msg("oc-syncdev-msg", "Could not open camera (permission denied?).", "var(--rojo)"); return; }
       const ov = document.createElement("div");
       ov.id = "oc-syncdev-qr-overlay";
       ov.style.cssText = "position:fixed;inset:0;z-index:10001;background:#0F1923;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;";
       ov.innerHTML = `
         <video autoplay playsinline style="width:100%;max-width:420px;border-radius:10px;border:3px solid #5294AC;"></video>
-        <p id="oc-qr-progreso" style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:17px;font-weight:700;margin:0;">Apunta al QR del otro equipo…</p>
+        <p id="oc-qr-progreso" style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:17px;font-weight:700;margin:0;">Point at the QR from the other device...</p>
         <button id="oc-qr-cerrar" style="min-height:44px;padding:10px 22px;border-radius:8px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;">Cancelar</button>`;
       document.body.appendChild(ov);
       const video = ov.querySelector("video");
@@ -1219,13 +1219,13 @@
             total = Number(nStr) || 0;
             frags[Number(iStr)] = pedazo;
             const tengo = Object.keys(frags).length;
-            $("oc-qr-progreso").textContent = `Leídos ${tengo} de ${total}…`;
+            $("oc-qr-progreso").textContent = `Read ${tengo} of ${total}...`;
             if (total > 0 && tengo >= total) {
               detenerEscaneo();
               let texto = "";
               for (let i = 1; i <= total; i++) texto += frags[i];
               const r = await OCSync.importarPaqueteManual(texto);
-              msg("oc-syncdev-msg", r.ok ? `Importado por QR: ${r.recibido || 0} cambio(s) aplicados.` : r.motivo, r.ok ? "var(--verde)" : "var(--rojo)");
+              msg("oc-syncdev-msg", r.ok ? `Imported via QR: ${r.recibido || 0} change(s) applied.` : r.motivo, r.ok ? "var(--verde)" : "var(--rojo)");
               return;
             }
           }
@@ -1251,12 +1251,12 @@
     // cobrado NO es ingreso del negocio — es un pasivo (se le debe al SRI),
     // por eso tiene su propia cuenta en vez de mezclarse con Ventas.
     const cuentas = [
-      { nombre: "Caja (Activo)", debe: [["Cobrado hoy (con IVA)", pl.ingresosConIva]], haber: [["Gastos operativos", pl.gastosOperativos]] },
-      { nombre: "Ventas (Ingreso)", debe: [], haber: [["Ingresos netos del día", pl.ingresos]] },
-      { nombre: "IVA por Pagar (Pasivo)", debe: [], haber: [["IVA cobrado hoy (15%)", pl.ivaCobrado]] },
-      { nombre: "Costo de Ventas (Gasto)", debe: [["Costo de lo vendido", pl.costoVentas]], haber: [] },
-      { nombre: "Inventario (Activo)", debe: [["Saldo valorizado", bal.activos.inventarioValorizado]], haber: [["Salida por ventas", pl.costoVentas]] },
-      { nombre: "Gastos Operativos (Gasto)", debe: [["Prorrateo del día", pl.gastosOperativos]], haber: [] },
+      { nombre: "Cash (Asset)", debe: [["Collected today (incl. VAT)", pl.ingresosConIva]], haber: [["Operating expenses", pl.gastosOperativos]] },
+      { nombre: "Sales (Revenue)", debe: [], haber: [["Net revenue today", pl.ingresos]] },
+      { nombre: "VAT Payable (Liability)", debe: [], haber: [["VAT collected today (15%)", pl.ivaCobrado]] },
+      { nombre: "Cost of Sales (Expense)", debe: [["Cost of goods sold", pl.costoVentas]], haber: [] },
+      { nombre: "Inventory (Asset)", debe: [["Valued balance", bal.activos.inventarioValorizado]], haber: [["Sold outflow", pl.costoVentas]] },
+      { nombre: "Operating Expenses (Expense)", debe: [["Daily allocation", pl.gastosOperativos]], haber: [] },
     ];
     $("oc-taccounts").innerHTML = cuentas.map(tAccount).join("");
     await renderChart();
@@ -1270,7 +1270,7 @@
     const box = $("oc-chart");
     if (!box) return;
     const filas = await (await fetch(`${API}/liquidaciones`)).json();
-    if (!filas.length) { box.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">Sin ubicaciones tipo socio/franquicia/consignación todavía.</p>`; return; }
+    if (!filas.length) { box.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No partner/franchise/consignment locations yet.</p>`; return; }
     const maxCumplimiento = Math.max(100, ...filas.map((f) => f.cumplimientoMeta || 0));
     box.innerHTML = filas.map((f) => {
       const comisionEfectivaPct = f.ventasBrutas > 0 ? (f.comisionSocio / f.ventasBrutas) * 100 : 0;
@@ -1279,12 +1279,12 @@
       <div style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
           <strong>${escHtml(f.ubicacion)}</strong>
-          <span style="color:var(--ink-soft);">${fmtVentas(f.ventasBrutas)} vendido · ${f.cumplimientoMeta ?? 0}% de meta</span>
+          <span style="color:var(--ink-soft);">${fmtVentas(f.ventasBrutas)} sold · ${f.cumplimientoMeta ?? 0}% of target</span>
         </div>
         <div style="background:var(--sim-azul-bg,#D4ECF5);border-radius:6px;overflow:hidden;height:22px;position:relative;">
           <div style="background:${(f.cumplimientoMeta || 0) >= 100 ? "var(--sim-verde,#00C87A)" : "var(--sim-azul,#5294AC)"};height:100%;width:${anchoMeta}%;transition:width .3s;"></div>
         </div>
-        <div style="font-size:12px;color:var(--ink-soft);margin-top:3px;">Comisión efectiva pagada: ${comisionEfectivaPct.toFixed(1)}% (${money(f.comisionSocio)})</div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-top:3px;">Effective commission paid: ${comisionEfectivaPct.toFixed(1)}% (${money(f.comisionSocio)})</div>
       </div>`;
     }).join("");
   }
@@ -1306,8 +1306,8 @@
       <div style="font-family:var(--font-display);font-weight:700;font-size:14px;text-align:center;color:var(--sim-azul-dk);border-bottom:2px solid var(--sim-azul);padding-bottom:6px;margin-bottom:4px;">${escHtml(c.nombre)}</div>
       <table style="width:100%;border-collapse:collapse;">
         <tr>
-          <th style="font-size:11px;color:var(--sim-azul);border-right:1.5px solid var(--sim-azul);border-bottom:1px solid var(--sim-azul);">DEBE</th>
-          <th style="font-size:11px;color:var(--sim-azul);border-bottom:1px solid var(--sim-azul);">HABER</th>
+          <th style="font-size:11px;color:var(--sim-azul);border-right:1.5px solid var(--sim-azul);border-bottom:1px solid var(--sim-azul);">DEBIT</th>
+          <th style="font-size:11px;color:var(--sim-azul);border-bottom:1px solid var(--sim-azul);">CREDIT</th>
         </tr>
         ${rows}
       </table></div>`;

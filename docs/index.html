@@ -1580,12 +1580,12 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
         <input id="oc-ncli-nombre" type="text" maxlength="80" autocomplete="off"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
-      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;">Teléfono (opcional)
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;">Phone (optional)
         <input id="oc-ncli-tel" type="tel" maxlength="20" autocomplete="off"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
       <button id="oc-ncli-crear" style="width:100%;padding:11px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;font-size:15px;font-weight:700;cursor:pointer;">
-        Guardar y seleccionar
+        Save and select
       </button>
       <p id="oc-ncli-msg" style="font-size:13px;margin:8px 0 0;font-weight:700;"></p>
     </div>`;
@@ -1618,7 +1618,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
     try {
       const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono }) });
       const r = await res.json();
-      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "No se pudo crear el cliente."; btn2.disabled = false; return; }
+      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Error creating client."; btn2.disabled = false; return; }
       // Agregar al selector y seleccionarlo automáticamente
       const sel = document.getElementById("ventaCliente");
       if (sel) {
@@ -1629,7 +1629,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
         sel.value = r.id;
       }
       cerrar();
-    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Error de red. Intenta de nuevo."; btn2.disabled = false; }
+    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Network error. Try again."; btn2.disabled = false; }
   });
 })();
 
@@ -1657,10 +1657,10 @@ if (elBtnCierre) elBtnCierre.addEventListener("click", async () => {
 // - Matriz de estaciones (clientes) y matriz BCG (inventario): SOLO dueno.
 // ============================================================================
 const ESTACIONES = {
-  verano:    { icono: "☀️", titulo: "Verano — en plena cosecha",  bg: "var(--sim-amarillo-bg)", borde: "var(--sim-amarillo)", tinta: "#B8860B", frase: "Compran seguido y fuerte. Cuídalos como oro." },
-  primavera: { icono: "🌱", titulo: "Primavera — creciendo",       bg: "var(--sim-verde-bg)",    borde: "var(--sim-verde)",    tinta: "#009A5A", frase: "Recién germinan. Riégalos: una atención y vuelven." },
-  otono:     { icono: "🍂", titulo: "Otoño — enfriándose",         bg: "var(--sim-naranja-bg)",  borde: "var(--sim-naranja)",  tinta: "#C05000", frase: "Eran de tus mejores y hace rato no vienen. Búscalos hoy." },
-  invierno:  { icono: "❄️", titulo: "Invierno — dormidos",         bg: "var(--sim-azul-bg)",     borde: "var(--sim-azul)",     tinta: "#2E6278", frase: "Sin señales de vida. Un mensaje puede despertarlos." },
+  verano:    { icono: "☀️", titulo: "Summer — peak harvest",  bg: "var(--sim-amarillo-bg)", borde: "var(--sim-amarillo)", tinta: "#B8860B", frase: "Buy often and big. Treat them like gold." },
+  primavera: { icono: "🌱", titulo: "Spring — growing",       bg: "var(--sim-verde-bg)",    borde: "var(--sim-verde)",    tinta: "#009A5A", frase: "Just sprouting. One touch of attention and they come back." },
+  otono:     { icono: "🍂", titulo: "Autumn — cooling down",         bg: "var(--sim-naranja-bg)",  borde: "var(--sim-naranja)",  tinta: "#C05000", frase: "Were your best clients and haven't shown up in a while. Reach out today." },
+  invierno:  { icono: "❄️", titulo: "Winter — dormant",         bg: "var(--sim-azul-bg)",     borde: "var(--sim-azul)",     tinta: "#2E6278", frase: "No signs of life. One message might wake them up." },
 };
 // Etiqueta de comportamiento según trato × confiabilidad.
 // Badges de comportamiento como chips HTML — sin emojis, legibles y serios.
@@ -1685,20 +1685,20 @@ function badgeComportamiento(ev) {
   const chip = (icon, txt, bg, color) =>
     `<span title="${txt}" style="display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700;background:${bg};color:${color} !important;-webkit-text-fill-color:${color} !important;">${icon}${txt}</span>`;
   if (t === 1 && cv === 1)   return chip(svgStar,  "VIP",      "#FEF6E0", "#8A5A00");
-  if (t === -1 && cv === -1) return chip(svgFlag,  "Alerta",   "#FDECEA", "#C0392B");
-  if (t === 1 && cv === -1)  return chip(svgEye,   "Ojo",      "#FFF3EE", "#E86040");
-  if (t === -1 && cv === 1)  return chip(svgCase,  "Difícil",  "#EBF4F9", "#2E6278");
-  if (t === 1)   return chip(svgThumbUp, "Buen trato",  "#EDFAF4", "#006B3C");
-  if (t === -1)  return chip(svgThumbDn, "Trato difícil","#FDECEA","#C0392B");
-  if (cv === 1)  return chip(svgShield,  "Confiable",   "#EDFAF4", "#006B3C");
-  if (cv === -1) return chip(svgWarn,    "Precaución",  "#FEF6E0", "#8A5A00");
+  if (t === -1 && cv === -1) return chip(svgFlag,  "Alert",   "#FDECEA", "#C0392B");
+  if (t === 1 && cv === -1)  return chip(svgEye,   "Watch",   "#FFF3EE", "#E86040");
+  if (t === -1 && cv === 1)  return chip(svgCase,  "Difficult",  "#EBF4F9", "#2E6278");
+  if (t === 1)   return chip(svgThumbUp, "Good manner",  "#EDFAF4", "#006B3C");
+  if (t === -1)  return chip(svgThumbDn, "Difficult manner","#FDECEA","#C0392B");
+  if (cv === 1)  return chip(svgShield,  "Reliable",   "#EDFAF4", "#006B3C");
+  if (cv === -1) return chip(svgWarn,    "Caution",  "#FEF6E0", "#8A5A00");
   return "";
 }
 
 function tarjetaCliente(c, esDueno){
   const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
   const dato = esDueno
-    ? `<div style="font-size:15px;color:#2C3E50;margin-top:3px;">${c.frecuencia} compra(s) en 90 días · ${fmtMoney(c.monto)}${c.recencia != null ? ` · última hace ${c.recencia} día(s)` : " · sin compras aún"}</div>`
+    ? `<div style="font-size:15px;color:#2C3E50;margin-top:3px;">${c.frecuencia} purchase(s) in 90 days · ${fmtMoney(c.monto)}${c.recencia != null ? ` · last ${c.recencia} day(s) ago` : " · no purchases yet"}</div>`
     : "";
   // Controles de evaluación: visibles a dueño y empleados (no en demo si no hay sesión).
   const puedeEvaluar = window.OCAuth && window.OCAuth.rolActual && (window.OCAuth.rolActual() === "dueno" || window.OCAuth.rolActual() === "empleado");
@@ -1728,22 +1728,22 @@ function tarjetaCliente(c, esDueno){
   const campoHora = puedeEvaluar ? `
     <div id="oc-inc-wrap-${c.id}" style="display:${hayNegativo ? "flex" : "none"};align-items:center;gap:8px;margin-top:6px;padding:6px 10px;background:#FFF8F8;border:1px solid #FDDBD8;border-radius:7px;flex-wrap:wrap;">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#C0392B" stroke-width="1.4" style="flex-shrink:0;"><circle cx="7" cy="7" r="6"/><path d="M7 4v3l2 1.5"/></svg>
-      <label style="font-size:13px;font-weight:700;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;">Hora del incidente:</label>
+      <label style="font-size:13px;font-weight:700;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;">Incident time:</label>
       <input type="time" id="oc-inc-${c.id}" value="${ahoraHora}"
         style="padding:3px 8px;border:1.5px solid #E0B0AD;border-radius:5px;font-size:13px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;background:#fff;">
-      <span style="font-size:12px;color:#999999 !important;-webkit-text-fill-color:#999999 !important;">(para conciliación con cámaras / audios)</span>
+      <span style="font-size:12px;color:#999999 !important;-webkit-text-fill-color:#999999 !important;">(for cross-reference with cameras / audio)</span>
     </div>` : "";
   const controles = puedeEvaluar ? `
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;align-items:center;">
-      <span style="font-size:13px;font-weight:700;color:#2E6278;">Trato:</span>
-      ${btnEv("trato",-1,"Difícil")}${btnEv("trato",0,"Normal")}${btnEv("trato",1,"Agradable")}
-      <span style="font-size:13px;font-weight:700;color:#2E6278;margin-left:6px;">Confiabilidad:</span>
-      ${btnEv("confiabilidad",-1,"Precaución")}${btnEv("confiabilidad",0,"Normal")}${btnEv("confiabilidad",1,"Confiable")}
+      <span style="font-size:13px;font-weight:700;color:#2E6278;">Manner:</span>
+      ${btnEv("trato",-1,"Difficult")}${btnEv("trato",0,"Neutral")}${btnEv("trato",1,"Pleasant")}
+      <span style="font-size:13px;font-weight:700;color:#2E6278;margin-left:6px;">Reliability:</span>
+      ${btnEv("confiabilidad",-1,"Caution")}${btnEv("confiabilidad",0,"Neutral")}${btnEv("confiabilidad",1,"Reliable")}
     </div>${campoHora}` : "";
   const btnDespedir = (esDueno && ev.trato === -1 && ev.confiabilidad === -1)
     ? `<button style="margin-top:8px;font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;"
         data-despedir-id="${c.id}" data-despedir-nombre="${escHtml(c.nombre)}"
-        onclick="despedirCliente(this.dataset.despedirId, this.dataset.despedirNombre)">Despedir cliente 🚪</button>` : "";
+        onclick="despedirCliente(this.dataset.despedirId, this.dataset.despedirNombre)">Fire client 🚪</button>` : "";
   return `<div style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
@@ -1765,7 +1765,7 @@ async function cargarClientes(){
       <div style="font-family:var(--font-display);font-size:17px;font-weight:700;color:${e.tinta};">${e.icono} ${e.titulo} (${lista.length})</div>
       <div style="font-size:15px;color:#2C3E50;margin:2px 0 8px;">${e.frase}</div>
       ${lista.map((c) => tarjetaCliente(c, esDueno)).join("")}</div>`;
-  }).join("") || '<p style="font-size:16px;">Todavía no hay clientes. Agrega el primero arriba.</p>';
+  }).join("") || '<p style="font-size:16px;">No clients yet. Add the first one above.</p>';
   // Matriz de estaciones 2x2 — solo dueno. Eje horizontal: qué tan reciente
   // compra. Eje vertical: cuánto valor deja. Es la lectura RFM en un vistazo.
   const mc = document.getElementById("matrizClientes");
@@ -1774,8 +1774,8 @@ async function cargarClientes(){
     const celda = (k) => { const e = ESTACIONES[k], l = grupos[k] || []; return `<div style="background:${e.bg};border:2px solid ${e.borde};border-radius:10px;padding:12px;min-height:90px;">
       <div style="font-weight:700;font-size:15px;color:${e.tinta};">${e.icono} ${e.titulo.split(" — ")[0]}</div>
       <div style="font-size:14px;color:#0F1923;margin-top:6px;">${l.length ? l.map((c) => escHtml(c.nombre.split(" ")[0])).join(", ") : "—"}</div></div>`; };
-    mc.innerHTML = `<h3 class="seccion">Matriz de estaciones</h3>
-      <p style="font-size:15px;color:var(--ink-soft);margin-top:0;">Derecha: compran hace poco. Arriba: dejan más dinero. La esquina 🍂 es donde se recupera plata perdida.</p>
+    mc.innerHTML = `<h3 class="seccion">Seasonal matrix</h3>
+      <p style="font-size:15px;color:var(--ink-soft);margin-top:0;">Right: bought recently. Top: higher value. The 🍂 corner is where lost revenue is recovered.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         ${celda("otono")}${celda("verano")}
         ${celda("invierno")}${celda("primavera")}
@@ -1787,15 +1787,15 @@ async function cargarClientes(){
     try { comp = await (await fetch(`${API}/clientes/comportamiento`)).json(); } catch(_) { comp = null; }
     if (comp) {
       const CUAD = [
-        { key:"estrella",  emoji:"⭐", titulo:"Estrellas",      sub:"Agradables y confiables. Cuídalos como oro.",      bg:"#FFFBEA", borde:"#E8A020", tinta:"#B8760A" },
-        { key:"ojo",       emoji:"👀", titulo:"Ojo con estos",  sub:"Simpáticos pero con historial de problemas.",      bg:"#FFF4E8", borde:"#E86040", tinta:"#C04020" },
-        { key:"tolerable", emoji:"💼", titulo:"Tolerables",     sub:"Difíciles de trato, pero cumplen y pagan bien.",   bg:"#EBF4FF", borde:"#2E6278", tinta:"#1E4258" },
-        { key:"bandera",   emoji:"🚩", titulo:"Bandera roja",   sub:"Problema de trato y confiabilidad. Evalúa si vale la pena.", bg:"#FDECEA", borde:"#C0392B", tinta:"#8B0000" },
+        { key:"estrella",  emoji:"⭐", titulo:"Stars",          sub:"Pleasant and reliable. Treat them like gold.",      bg:"#FFFBEA", borde:"#E8A020", tinta:"#B8760A" },
+        { key:"ojo",       emoji:"👀", titulo:"Watch list",     sub:"Friendly but with a history of issues.",      bg:"#FFF4E8", borde:"#E86040", tinta:"#C04020" },
+        { key:"tolerable", emoji:"💼", titulo:"Tolerable",      sub:"Difficult manner, but they follow through and pay.",   bg:"#EBF4FF", borde:"#2E6278", tinta:"#1E4258" },
+        { key:"bandera",   emoji:"🚩", titulo:"Red flag",       sub:"Issues on both axes. Evaluate whether it's worth it.", bg:"#FDECEA", borde:"#C0392B", tinta:"#8B0000" },
       ];
       const celdaComp = (q) => {
         const lista = comp[q.key] || [];
         const chips = lista.slice(0,6).map(c => `<span style="display:inline-block;background:#FFFFFF;border:1.5px solid ${q.borde};border-radius:6px;padding:2px 8px;margin:2px;font-size:13px;color:#0F1923;">${escHtml(c.nombre.split(" ")[0])}</span>`).join("");
-        const extra = lista.length > 6 ? `<span style="font-size:13px;color:${q.tinta};">+${lista.length-6} más</span>` : "";
+        const extra = lista.length > 6 ? `<span style="font-size:13px;color:${q.tinta};">+${lista.length-6} more</span>` : "";
         return `<div style="background:${q.bg};border:2px solid ${q.borde};border-radius:10px;padding:12px;min-height:80px;">
           <div style="font-weight:700;font-size:15px;color:${q.tinta};">${q.emoji} ${q.titulo} (${lista.length})</div>
           <div style="font-size:13px;color:${q.tinta};margin:2px 0 6px;">${q.sub}</div>
@@ -1804,13 +1804,13 @@ async function cargarClientes(){
       const neutros = comp.neutro || [];
       const despedidos = comp.despedidos || [];
       mc.innerHTML += `
-        <h3 class="seccion" style="margin-top:24px;">Matriz de comportamiento</h3>
-        <p style="font-size:15px;color:var(--ink-soft);margin-top:0;">El negocio evalúa al cliente. Usa los botones 😤/😊 y ⚠️/✅ en cada tarjeta para clasificar.</p>
+        <h3 class="seccion" style="margin-top:24px;">Behavior matrix</h3>
+        <p style="font-size:15px;color:var(--ink-soft);margin-top:0;">Your business rates the client. Use the 😤/😊 and ⚠️/✅ buttons on each card to classify.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           ${celdaComp(CUAD[0])}${celdaComp(CUAD[1])}
           ${celdaComp(CUAD[2])}${celdaComp(CUAD[3])}
         </div>
-        ${neutros.length ? `<p style="font-size:14px;color:var(--ink-soft);margin-top:10px;">Sin evaluar aún: ${neutros.map(c=>escHtml(c.nombre.split(" ")[0])).join(", ")}.</p>` : ""}
+        ${neutros.length ? `<p style="font-size:14px;color:var(--ink-soft);margin-top:10px;">Not evaluated yet: ${neutros.map(c=>escHtml(c.nombre.split(" ")[0])).join(", ")}.</p>` : ""}
         ${despedidos.length ? `
         <details style="margin-top:14px;">
           <summary style="font-size:14px;font-weight:700;cursor:pointer;color:#C0392B;">Clientes despedidos (${despedidos.length})</summary>
@@ -1843,7 +1843,7 @@ async function cargarClientes(){
       const r = await res.json();
       const msgEl = document.getElementById("cliMsg");
       if (!res.ok) { msgEl.textContent = r.error; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
-      msgEl.textContent = `Cliente registrado con código ${r.codigo}.`;
+      msgEl.textContent = `Client registered with code ${r.codigo}.`;
       msgEl.style.color = "var(--sim-verde-dk)";
       document.getElementById("cliNombre").value = ""; document.getElementById("cliTelefono").value = "";
       cargarClientes();
@@ -1901,19 +1901,19 @@ function inicializarImportCSV(){
     if (!f) return;
     if (f.size > 1024 * 1024){ msg.textContent = "El archivo es muy grande (maximo 1 MB)."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
     let texto;
-    try { texto = await f.text(); } catch (_){ msg.textContent = "No se pudo leer el archivo."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
+    try { texto = await f.text(); } catch (_){ msg.textContent = "Could not read the file."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
     let filas = parsearCSV(texto);
     if (!filas.length){ msg.textContent = "El archivo esta vacio."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
     // Descartar una cabecera si la primera fila parece titulos.
     const c0 = (filas[0][0] || "").toLowerCase(), c1 = (filas[0][1] || "").toLowerCase();
     if (c0.includes("nombre") || c1.includes("tel")) filas = filas.slice(1);
     const nuevos = filas.map((r) => ({ nombre: r[0] || "", telefono: r[1] || "" })).filter((c) => c.nombre);
-    if (!nuevos.length){ msg.textContent = "No encontre nombres validos. La primera columna debe ser el nombre."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
-    if (nuevos.length > 5000){ msg.textContent = "Demasiados clientes de una vez (maximo 5000)."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
+    if (!nuevos.length){ msg.textContent = "No valid names found. The first column must be the name."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
+    if (nuevos.length > 5000){ msg.textContent = "Too many clients at once (max 5,000)."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
     msg.textContent = "Importando " + nuevos.length + "..."; msg.style.color = "var(--ink)";
     let r;
     try { r = await (await fetch(`${API}/clientes/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientes: nuevos }) })).json(); }
-    catch (_){ msg.textContent = "No se pudo importar (sin conexion al motor local)."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
+    catch (_){ msg.textContent = "Import failed (no connection to local server)."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
     if (r.error){ msg.textContent = r.error; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
     msg.textContent = `Listo: ${r.agregados} cliente(s) agregados` + (r.repetidos ? `, ${r.repetidos} repetido(s) saltados` : "") + (r.invalidos ? `, ${r.invalidos} sin nombre` : "") + ".";
     msg.style.color = "var(--sim-verde-dk)";
@@ -1930,17 +1930,17 @@ async function cargarBCG(){
   let q;
   // Microcirugia 10 (2026-07-08): catch silencioso dejaba la matriz BCG en blanco.
   try { q = await (await fetch(`${API}/inventario/bcg?ubicacionId=${ubicacionActual}`)).json(); }
-  catch (_) { cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No se pudo cargar el análisis BCG. Recarga la vista.</p>'; return; }
+  catch (_) { cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">Could not load BCG analysis. Reload the view.</p>'; return; }
   const CUAD = {
-    estrellas:    { icono: "⭐", titulo: "Estrellas",      sub: "Venden mucho y van subiendo. Protege su stock.",         bg: "var(--sim-verde-bg)",    borde: "var(--sim-verde)",    tinta: "#009A5A" },
-    vacas:        { icono: "🐄", titulo: "Vacas lecheras", sub: "Venden mucho, estables. Financian todo lo demás.",       bg: "var(--sim-amarillo-bg)", borde: "var(--sim-amarillo)", tinta: "#B8860B" },
-    promesas:     { icono: "❓", titulo: "Promesas",       sub: "Venden poco pero van subiendo. Dales vitrina.",          bg: "var(--sim-azul-bg)",     borde: "var(--sim-azul)",     tinta: "#2E6278" },
-    pesosMuertos: { icono: "💤", titulo: "Pesos muertos",  sub: "Sin movimiento en 60 días. Libera ese capital.",         bg: "var(--sim-plata-bg)",    borde: "var(--sim-plata-dk)", tinta: "#2C3E50" },
+    estrellas:    { icono: "⭐", titulo: "Estrellas",      sub: "Sell a lot and trending up. Protect their stock.",         bg: "var(--sim-verde-bg)",    borde: "var(--sim-verde)",    tinta: "#009A5A" },
+    vacas:        { icono: "🐄", titulo: "Cash cows", sub: "Sell a lot, stable. They fund everything else.",       bg: "var(--sim-amarillo-bg)", borde: "var(--sim-amarillo)", tinta: "#B8860B" },
+    promesas:     { icono: "❓", titulo: "Rising stars",       sub: "Sell little but trending up. Give them shelf space.",          bg: "var(--sim-azul-bg)",     borde: "var(--sim-azul)",     tinta: "#2E6278" },
+    pesosMuertos: { icono: "💤", titulo: "Dead weight",  sub: "No movement in 60 days. Free up that capital.",         bg: "var(--sim-plata-bg)",    borde: "var(--sim-plata-dk)", tinta: "#2C3E50" },
   };
   const celda = (k) => {
     const c = CUAD[k], l = q[k] || [];
     const chips = l.slice(0, 8).map((i) => `<span style="display:inline-block;background:#FFFFFF;border:1.5px solid ${c.borde};border-radius:6px;padding:3px 8px;margin:3px 3px 0 0;font-size:14px;color:#0F1923;">${escHtml(i.nombre)}${i.total > 0 ? ` · ${fmtMoney(i.total)}` : ""}</span>`).join("");
-    const extra = l.length > 8 ? `<div style="font-size:14px;color:#2C3E50;margin-top:4px;">y ${l.length - 8} más…</div>` : "";
+    const extra = l.length > 8 ? `<div style="font-size:14px;color:#2C3E50;margin-top:4px;">and ${l.length - 8} more…</div>` : "";
     return `<div style="background:${c.bg};border:2px solid ${c.borde};border-radius:10px;padding:12px;">
       <div style="font-weight:700;font-size:15px;color:${c.tinta};">${c.icono} ${c.titulo} (${l.length})</div>
       <div style="font-size:14px;color:#2C3E50;margin:2px 0 6px;">${c.sub}</div>${chips}${extra}</div>`;
@@ -2014,7 +2014,7 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   btn.addEventListener("click", async () => {
     try {
       const actual = span.textContent.trim();
-      const nuevo = (prompt("Nombre de tu negocio (aparece aquí arriba):", actual === TITULO_DEFECTO ? "" : actual) || "").trim();
+      const nuevo = (prompt("Your business name (shown above):", actual === TITULO_DEFECTO ? "" : actual) || "").trim();
       if (!nuevo) return;
       const d = await (await fetch(`${API}/instancia/nombre`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nuevo }) })).json();
       if (d && d.ok) {
@@ -2041,18 +2041,18 @@ document.querySelectorAll("nav button").forEach(btn => {
 
 // Mood/flavor del día para el dueño (12, voz JFC). Estable por día.
 const MOODS = [
-  "Lo que ya es tuyo cuenta doble: cuida el inventario antes de perseguir la venta.",
-  "Día de precios finos. Revisa lo que se mueve lento y dale una razón para salir.",
-  "Empieza por lo rojo. Repón lo urgente y el resto se acomoda solo.",
-  "Cuadra la caja temprano. Un número claro en la mañana vale por diez en la noche.",
-  "Tus perchas hablan. Mira cuál rinde y cuál se está durmiendo.",
-  "El estrella de hoy lo eliges tú. Ponle foco a un producto y empújalo.",
-  "Menos descuento, más historia. Vende el porqué, no solo el precio.",
-  "Cada venta bien registrada es una decisión mejor mañana. Anota todo.",
-  "Lo que no rota, pesa. Identifica lo quieto y muévelo antes de que se enfríe.",
-  "Tu margen se cuida solo si tú lo cuidas. Revisa costos hoy.",
-  "Un local ordenado vende más. Diez minutos de orden, todo el día de claridad.",
-  "Confía en tus colores. El semáforo ya te dijo por dónde empezar.",
+  "What you already have counts double: protect your inventory before chasing the next sale.",
+  "Fine-pricing day. Look at what moves slowly and give it a reason to leave.",
+  "Start with the red. Restock the urgent and the rest falls into place.",
+  "Balance the till early. A clear number in the morning is worth ten at night.",
+  "Your racks are talking. See which ones perform and which ones are sleeping.",
+  "Today's star is your call. Pick one product, focus on it, and push it.",
+  "Less discount, more story. Sell the why, not just the price.",
+  "Every sale logged right is a better decision tomorrow. Record everything.",
+  "What doesn't move, weighs you down. Spot the slow items and move them before they go cold.",
+  "Your margin takes care of itself only if you take care of it. Review costs today.",
+  "A tidy space sells more. Ten minutes of order, a full day of clarity.",
+  "Trust your colors. The signal already told you where to start.",
 ];
 
 // Reloj del hero (sin clima). Se actualiza al cargar y cada 20s.
@@ -2209,12 +2209,12 @@ function calcularNivelBloom(p){
 // un vistazo (espíritu de la Alternativa C, sin sacrificar el rigor de B).
 function captionBloom(estado, nivel){
   const FRASES = {
-    verde:    ["Justo a tiempo, no te despistes", "Buen colchón de stock", "Sobra para rato"],
-    amarillo: ["Empieza a pensar en reponer", "Se acerca la hora de reponer", "Última unidad — no esperes más"],
-    naranja:  ["Vigílalo, aún hay tiempo", "Que no se te pase", "Se vence ya — dale salida"],
-    rojo:     ["Actúa hoy", "Actúa hoy", "Emergencia: sin stock"],
-    azul:     ["Buen margen", "Margen jugoso", "Tu joya de más rentabilidad"],
-    negro:    ["Se está enfriando", "Lleva un buen tiempo dormido", "Nadie lo ha tocado en meses"],
+    verde:    ["Right on time, don't let up", "Healthy stock cushion", "Plenty to last a while"],
+    amarillo: ["Start thinking about restocking", "Getting close to restock time", "Last unit — don't wait any longer"],
+    naranja:  ["Keep an eye on it, still time", "Don't let it slip by", "Expiring soon — move it"],
+    rojo:     ["Act today", "Act today", "Emergency: out of stock"],
+    azul:     ["Good margin", "Strong margin", "Your most profitable item"],
+    negro:    ["Cooling down", "Has been dormant for a while", "Nobody has touched it in months"],
   };
   const arr = FRASES[estado];
   if (!arr) return "";
@@ -2322,7 +2322,7 @@ async function cargarInventario(){
           body: JSON.stringify({ delta, motivo })
         });
         r8 = await res8.json();
-      } catch (_) { await ocAlert('No se pudo ajustar el stock. Intenta de nuevo.'); return; }
+      } catch (_) { await ocAlert('Could not adjust stock. Try again.'); return; }
       if (!res8.ok){ await ocAlert(r8.error); return; }
       cargarInventario();
     });
@@ -2454,8 +2454,8 @@ async function cargarLogAjustes(){
 function renderPerchaCard(u, sucursalesDisp, promotorasDisp) {
   const inactiva = u.activa === false;
   const tipo = u.tipo || 'propio';
-  const tipoLabel = { propio:'Propio', socio:'Socio', franquicia:'Franquicia', consignacion:'Consignación' }[tipo] || tipo;
-  const comLabel = (tipo !== 'propio') ? ` · ${Number(u.comisionSocio)||0}% comisión` : '';
+  const tipoLabel = { propio:'Own', socio:'Partner', franquicia:'Franchise', consignacion:'Consignment' }[tipo] || tipo;
+  const comLabel = (tipo !== 'propio') ? ` · ${Number(u.comisionSocio)||0}% commission` : '';
   const optsS = sucursalesDisp.map(s =>
     `<option value="${s.id}"${u.sucursalId === s.id ? ' selected' : ''}>${escHtml(s.nombre)}</option>`
   ).join('');
@@ -2463,14 +2463,14 @@ function renderPerchaCard(u, sucursalesDisp, promotorasDisp) {
     <strong style="font-size:16px;color:var(--ink);">${escHtml(u.nombre)}</strong>
     <div style="font-size:13px;color:var(--ink-soft);margin:4px 0 10px;">${tipoLabel}${comLabel}${u.esFeria ? ' · <strong style="color:var(--rust,#E86040);">FERIA</strong>' : ''}${inactiva ? ' · DESACTIVADA' : ''}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-      <button data-percha-renombrar="${u.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Renombrar</button>
-      <button data-percha-toggle="${u.id}" data-activa="${u.activa !== false}" data-feria="${u.esFeria ? '1' : ''}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust);border-radius:5px;background:transparent;color:var(--rust);cursor:pointer;">${inactiva ? 'Reactivar' : (u.esFeria ? 'Cerrar y liquidar' : 'Desactivar')}</button>
-      <button data-percha-borrar="${u.id}" data-nombre="${escHtml(u.nombre)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo,#E8365D);border-radius:5px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">Borrar</button>
-      <label style="font-size:12px;color:var(--ink-soft);">Mover a:
+      <button data-percha-renombrar="${u.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Rename</button>
+      <button data-percha-toggle="${u.id}" data-activa="${u.activa !== false}" data-feria="${u.esFeria ? '1' : ''}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust);border-radius:5px;background:transparent;color:var(--rust);cursor:pointer;">${inactiva ? 'Reactivate' : (u.esFeria ? 'Close and settle' : 'Deactivate')}</button>
+      <button data-percha-borrar="${u.id}" data-nombre="${escHtml(u.nombre)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo,#E8365D);border-radius:5px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">Delete</button>
+      <label style="font-size:12px;color:var(--ink-soft);">Move to:
         <select data-percha-mover="${u.id}" style="font-size:12px;padding:4px 6px;border:1px solid var(--azul-medio);border-radius:4px;margin-left:4px;">
           <option value="">— Sin sucursal —</option>${optsS}
         </select></label>
-      <label style="font-size:12px;color:var(--ink-soft);">Promotor/a:
+      <label style="font-size:12px;color:var(--ink-soft);">Promoter:
         <select data-percha-promotor="${u.id}" style="font-size:12px;padding:4px 6px;border:1px solid var(--azul-medio);border-radius:4px;margin-left:4px;">
           <option value="">— Ninguno —</option>${(promotorasDisp||[]).map(pr => `<option value="${pr.id}"${u.promotoraId === pr.id ? ' selected' : ''}>${escHtml(pr.nombre)}</option>`).join('')}
         </select></label>
@@ -2493,7 +2493,7 @@ async function cargarPerchas(){
     promotorasDisp = await resProm.json();
   } catch (_) {
     const g = document.getElementById('gridPerchas');
-    if (g) g.innerHTML = '<p style="color:var(--rojo,#a3392a);font-size:14px;">No se pudo cargar las perchas. Recarga la vista.</p>';
+    if (g) g.innerHTML = '<p style="color:var(--rojo,#a3392a);font-size:14px;">Could not load racks. Reload the view.</p>';
     return;
   }
   const grid = document.getElementById('gridPerchas');
@@ -2518,12 +2518,12 @@ async function cargarPerchas(){
   sucursalesDisp.forEach(s => {
     const ps = porSucursal[s.id] || [];
     const btnBorrarSuc = ps.length === 0
-      ? `<button data-suc-borrar="${s.id}" data-nombre="${escHtml(s.nombre)}" style="font-size:12px;padding:3px 8px;border:1px solid var(--rojo,#E8365D);border-radius:4px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">Borrar</button>`
+      ? `<button data-suc-borrar="${s.id}" data-nombre="${escHtml(s.nombre)}" style="font-size:12px;padding:3px 8px;border:1px solid var(--rojo,#E8365D);border-radius:4px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">Delete</button>`
       : '';
     html += `<div style="margin-bottom:20px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;border-bottom:1px solid var(--azul-medio,#4a7fa5);padding-bottom:4px;">
         <span style="font-size:13px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;">Sucursal: ${escHtml(s.nombre)}</span>
-        <button data-suc-renombrar="${s.id}" style="font-size:12px;padding:3px 8px;border:1px solid var(--azul-medio);border-radius:4px;background:transparent;color:var(--azul-medio);cursor:pointer;">Renombrar</button>
+        <button data-suc-renombrar="${s.id}" style="font-size:12px;padding:3px 8px;border:1px solid var(--azul-medio);border-radius:4px;background:transparent;color:var(--azul-medio);cursor:pointer;">Rename</button>
         ${btnBorrarSuc}
       </div>
       ${ps.length ? ps.map(u => renderPerchaCard(u, sucursalesDisp, promotorasDisp)).join('') : '<p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">Ninguna percha asignada.</p>'}
@@ -2537,7 +2537,7 @@ async function cargarPerchas(){
       ${sinSucursal.map(u => renderPerchaCard(u, sucursalesDisp, promotorasDisp)).join('')}
     </div>`;
   }
-  if (!perchas.length) html = '<p style="font-size:14px;color:var(--ink-soft);">No hay perchas registradas.</p>';
+  if (!perchas.length) html = '<p style="font-size:14px;color:var(--ink-soft);">No racks registered.</p>';
   grid.innerHTML = html;
 
   // ---- Eventos sucursales ----
@@ -2548,7 +2548,7 @@ async function cargarPerchas(){
     if (res.ok) cargarPerchas();
   }));
   grid.querySelectorAll('[data-suc-borrar]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!(await ocConfirm(`Borrar la sucursal "${btn.dataset.nombre}". Solo posible si no tiene perchas asignadas.`, { danger: true }))) return;
+    if (!(await ocConfirm(`Delete location "${btn.dataset.nombre}". Only possible if it has no assigned racks.`, { danger: true }))) return;
     const res = await fetch(`${API}/sucursales/${btn.dataset.sucBorrar}`, { method:'DELETE' });
     const r = await res.json(); if (!res.ok) { await ocAlert(r.error); return; }
     cargarPerchas();
@@ -2566,8 +2566,8 @@ async function cargarPerchas(){
     const activaAhora = btn.dataset.activa === 'true';
     const esFeria = btn.dataset.feria === '1';
     const aviso = esFeria
-      ? 'Se cerrará la feria: deja de recibir ventas y verás su liquidación. Su historial se conserva. ¿Continuar?'
-      : 'Esta percha dejará de recibir ventas nuevas. Su historial se conserva. ¿Continuar?';
+      ? 'This event will close: it stops receiving sales and you will see the settlement. History is preserved. Continue?'
+      : 'This rack will stop receiving new sales. History is preserved. Continue?';
     if (activaAhora && !(await ocConfirm(aviso))) return;
     const accion = activaAhora ? 'desactivar' : 'activar';
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaToggle}/${accion}`, { method:'POST' });
@@ -2578,7 +2578,7 @@ async function cargarPerchas(){
     }
   }));
   grid.querySelectorAll('[data-percha-borrar]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!(await ocConfirm(`Borrar la percha "${btn.dataset.nombre}" y TODOS sus productos. Esto no se puede deshacer. ¿Seguro?`, { danger: true }))) return;
+    if (!(await ocConfirm(`Delete rack "${btn.dataset.nombre}" and ALL its products. This cannot be undone. Are you sure?`, { danger: true }))) return;
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaBorrar}`, { method:'DELETE' });
     const r = await res.json(); if (!res.ok){ await ocAlert(r.error); return; }
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones(); cargarInventario();
@@ -2602,7 +2602,7 @@ document.addEventListener('click', async (e) => {
   if (e.target.id === 'sucursalCrear') {
     const nombre = document.getElementById('sucursalNombre').value.trim();
     const msg = document.getElementById('sucursalMsg');
-    if (!nombre){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent='El nombre es obligatorio.'; return; }
+    if (!nombre){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent='Name is required.'; return; }
     const res = await fetch(`${API}/sucursales`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre }) });
     const r = await res.json(); if (!res.ok){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent=r.error; return; }
     document.getElementById('sucursalNombre').value='';
@@ -2614,11 +2614,11 @@ document.addEventListener('click', async (e) => {
     const nombre = document.getElementById('feriaNombre').value.trim();
     const comisionSocio = document.getElementById('feriaComision').value;
     const msg = document.getElementById('feriaMsg');
-    if (!nombre){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent='El nombre del evento es obligatorio.'; return; }
+    if (!nombre){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent='Event name is required.'; return; }
     const res = await fetch(`${API}/ubicaciones`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre: 'Feria: ' + nombre, tipo:'consignacion', comisionSocio, esFeria:true }) });
     const r = await res.json(); if (!res.ok){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent=r.error; return; }
     document.getElementById('feriaNombre').value=''; document.getElementById('feriaComision').value='';
-    msg.style.color='var(--verde,#2f7a4f)'; msg.textContent=`Feria "${r.nombre}" abierta. Asígnale productos en Inventario y, al terminar, ciérrala desde su tarjeta.`;
+    msg.style.color='var(--verde,#2f7a4f)'; msg.textContent=`Event "${r.nombre}" opened. Assign products in Inventory and, when done, close it from its card.`;
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones();
     return;
   }
@@ -2629,7 +2629,7 @@ document.addEventListener('click', async (e) => {
     const metaMensual = document.getElementById('perchaMeta').value;
     const sucursalId = document.getElementById('perchaSucursal').value || null;
     const msg = document.getElementById('perchaMsg');
-    if (!nombre){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent='El nombre es obligatorio.'; return; }
+    if (!nombre){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent='Name is required.'; return; }
     const res = await fetch(`${API}/ubicaciones`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre, tipo, comisionSocio, metaMensual, sucursalId }) });
     const r = await res.json(); if (!res.ok){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent=r.error; return; }
     document.getElementById('perchaNombre').value=''; document.getElementById('perchaComision').value=''; document.getElementById('perchaMeta').value='';
@@ -2731,7 +2731,7 @@ function mostrarFormNuevoProducto(codigoEscaneado){
     <div class="ficha-producto tag-card" style="text-align:left;">
       <div class="titulo">${t("form.newProduct")}</div>
       ${codigoEscaneado
-        ? `<div class="linea"><strong>Código:</strong> ${codigoEscaneado}</div>`
+        ? `<div class="linea"><strong>Code:</strong> ${codigoEscaneado}</div>`
         : `<label style="display:block;margin-top:10px;font-size:14px;">${t("form.barcodeLabel")}<br>
             <input id="np-barcode" type="text" placeholder="${t('form.barcodePlaceholder')}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>`}
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
@@ -3027,7 +3027,7 @@ function mostrarToastAnular(ventaId, productoId){
   cont.innerHTML = `<div class="tag-card" style="position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h,78px) + 16px);z-index:400;
     background:var(--azul-oscuro,#1c3049);color:var(--blanco-calido,#F8F9FB);padding:14px 16px;border-radius:8px;
     display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;" id="oc-toast-anular">
-    <span>✓ Vendido. Toca aquí si fue error (desaparece en 5s)</span>
+    <span>✓ Sold. Tap here to undo (disappears in 5s)</span>
     <strong id="oc-toast-cuenta">5s</strong>
   </div>`;
   let restante = 5;
@@ -3067,7 +3067,7 @@ async function cargarEtiquetas(){
     const res = await fetch(`${API}/productos?ubicacionId=${ubicacionActual}`);
     productos = await res.json();
   } catch (_) {
-    grid.innerHTML = `<p>No se pudieron cargar las etiquetas. Revisa tu conexión e intenta de nuevo.</p>`;
+    grid.innerHTML = `<p>Could not load labels. Check your connection and try again.</p>`;
     return;
   }
   if (!Array.isArray(productos)){
@@ -3102,8 +3102,8 @@ async function abrirEtiqueta(id){
     <div class="precio-grande">${fmtMoney(p.precio)}</div>
     ${p.perecible && p.fechaCaducidad ? `<div style="font-size:13px;font-weight:700;color:var(--rust);">Vence: ${p.fechaCaducidad}</div>` : ""}
     <div class="codigo">${p.barcode}</div>
-    <div class="barras" id="barrasClicable" style="cursor:pointer;position:relative;" title="Toca para imprimir o guardar solo el código de barras">${data.barcodeSvg || ""}</div>
-    <div style="font-size:13px;color:var(--azul-medio,#2c4a68);margin-top:-6px;">👆 Toca el código de barras para imprimirlo o guardarlo solo</div>
+    <div class="barras" id="barrasClicable" style="cursor:pointer;position:relative;" title="Tap to print or save just the barcode">${data.barcodeSvg || ""}</div>
+    <div style="font-size:13px;color:var(--azul-medio,#2c4a68);margin-top:-6px;">👆 Tap the barcode to print or save it alone</div>
     ${data.qrDataUrl ? `<img src="${data.qrDataUrl}" width="160" height="160" alt="QR del producto">
     <div style="font-size:13px; color:var(--azul-medio);">Escanea para ver la ficha completa</div>` : ""}
   `;
@@ -3178,8 +3178,8 @@ function mostrarMenuBarcode(e, svgBarcode, producto){
   menu.style.left = Math.max(8, rect.left) + "px";
   menu.style.top = (rect.bottom + 8) + "px";
   menu.innerHTML = `
-    <button id="oc-mb-imprimir" style="text-align:left;padding:10px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:14px;color:var(--ink,#211c14);">🖨️ Imprimir solo el código</button>
-    <button id="oc-mb-guardar" style="text-align:left;padding:10px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:14px;color:var(--ink,#211c14);">💾 Guardar como imagen</button>
+    <button id="oc-mb-imprimir" style="text-align:left;padding:10px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:14px;color:var(--ink,#211c14);">🖨️ Print barcode only</button>
+    <button id="oc-mb-guardar" style="text-align:left;padding:10px;border:none;background:transparent;border-radius:5px;cursor:pointer;font-size:14px;color:var(--ink,#211c14);">💾 Save as image</button>
   `;
   document.body.appendChild(menu);
   const cerrar = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener("click", cerrar, true); } };
@@ -3257,11 +3257,11 @@ async function cargarActividad(){
     if (!res.ok) throw new Error(res.status);
     items = await res.json();
   } catch (_) {
-    if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No se pudo cargar la actividad.</p>';
+    if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">Could not load activity.</p>';
     return;
   }
   if (items.length === 0){
-    cont.innerHTML = `<p>Todavía no hay actividad registrada en esta sesión.</p>`;
+    cont.innerHTML = `<p>No activity recorded yet in this session.</p>`;
     return;
   }
   // Fix 2026-07-08: antes se inyectaba JSON.stringify(it.detalle) SIN escapar —
@@ -3298,14 +3298,14 @@ async function cargarComisiones(){
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
     ]);
   } catch (_) {
-    if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo,#a3392a);">No se pudo cargar las comisiones. Recarga la vista.</p>';
+    if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load commissions. Reload the view.</p>';
     return;
   }
   // Rec 03: botón que arma el resumen del día y lo abre en WhatsApp listo.
   const btnWA = `<button class="ir" style="margin-bottom:16px;background:#25D366;color:#fff;border-color:#1da851;" onclick="enviarResumenWhatsApp()">Enviar resumen por WhatsApp</button>`;
 
   if (filas.length === 0){
-    cont.innerHTML = btnWA + `<p>Todavía no tienes perchas que generen comisión (socio, franquicia o consignación). Créalas en Inventario → Perchas.</p>`;
+    cont.innerHTML = btnWA + `<p>You don't have racks that generate commission yet (partner, franchise, or consignment). Create them in Inventory → Racks.</p>`;
     return;
   }
 
@@ -3336,11 +3336,11 @@ async function cargarComisiones(){
                 : pct >= 60  ? "#00C87A"   // verde: bien encaminada
                 : pct >= 30  ? "#E86040"   // naranja: en riesgo
                 :              "#C0392B";  // rojo: muy atrasada
-    const etiqueta = pct >= 100 ? "¡Meta cumplida!" : `${pct}% de la meta`;
+    const etiqueta = pct >= 100 ? "Target reached!" : `${pct}% of target`;
     return `
       <div style="margin-top:10px;">
         <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:${color};margin-bottom:4px;">
-          <span>Meta mensual: ${fmtMoney(meta)}</span><span>${etiqueta}</span>
+          <span>Monthly target: ${fmtMoney(meta)}</span><span>${etiqueta}</span>
         </div>
         <div style="background:#e8e0d4;border-radius:6px;height:10px;overflow:hidden;">
           <div class="oc-thermo-fill" data-pct="${p}" style="height:100%;width:0%;background:${color};border-radius:6px;transition:width 0.7s cubic-bezier(.4,0,.2,1);"></div>
@@ -3360,9 +3360,9 @@ async function cargarComisiones(){
     const uid = f.ubicacionId.replace(/[^a-z0-9]/gi, "");
     return `
       <details style="margin-top:10px;">
-        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);user-select:none;">¿Qué pasa si vendo más? →</summary>
+        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);user-select:none;">What if I sell more? →</summary>
         <div style="padding:10px 0 4px;">
-          <label style="font-size:13px;">Ventas proyectadas: <strong id="sim-lbl-${uid}">${fmtMoney(f.ventasBrutas)}</strong></label><br>
+          <label style="font-size:13px;">Projected sales: <strong id="sim-lbl-${uid}">${fmtMoney(f.ventasBrutas)}</strong></label><br>
           <input type="range" id="sim-rng-${uid}"
             min="0" max="${Math.round(max)}" step="5" value="${Math.round(f.ventasBrutas)}"
             style="width:100%;margin:6px 0 4px;accent-color:#E8A020;"
@@ -3374,8 +3374,8 @@ async function cargarComisiones(){
               document.getElementById('sim-net-${uid}').textContent=fmtMoney(neto);
             })(+this.value)">
           <div style="display:flex;gap:16px;font-size:14px;margin-top:4px;">
-            <span>Comisión promotor/a: <strong id="sim-com-${uid}" style="color:#C0392B;">${fmtMoney(f.comisionSocio)}</strong></span>
-            <span>Tu neto: <strong id="sim-net-${uid}" style="color:#009A5A;">${fmtMoney(f.netoDueno)}</strong></span>
+            <span>Promoter commission: <strong id="sim-com-${uid}" style="color:#C0392B;">${fmtMoney(f.comisionSocio)}</strong></span>
+            <span>Your net: <strong id="sim-net-${uid}" style="color:#009A5A;">${fmtMoney(f.netoDueno)}</strong></span>
           </div>
         </div>
       </details>`;
@@ -3388,22 +3388,22 @@ async function cargarComisiones(){
 
   const cardsHtml = filas.map(f => {
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
-      ? `<span class="badge-estado rojo" style="font-size:11px;">dormida ${f.diasSinVenta}d</span>` : "";
+      ? `<span class="badge-estado rojo" style="font-size:11px;">dormant ${f.diasSinVenta}d</span>` : "";
     return `
     <div class="tag-card" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}</strong>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${f.estado}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "no sales" ? "amarillo" : "rojo"}">${f.estado}</span></div>
       </div>
-      ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promotor/a: <strong>${escHtml(f.promotorNombre)}</strong></div>` : ""}
+      ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promoter: <strong>${escHtml(f.promotorNombre)}</strong></div>` : ""}
       <table style="width:100%;margin-top:10px;font-size:14px;">
-        <tr><td>Ventas del mes</td><td style="text-align:right;">${fmtMoney(f.ventasBrutas)}</td></tr>
-        <tr><td><strong>Comisión de la promotor/a</strong></td><td style="text-align:right;"><strong>${fmtMoney(f.comisionSocio)}</strong></td></tr>
-        <tr><td>Neto para el dueño</td><td style="text-align:right;">${fmtMoney(f.netoDueno)}</td></tr>
+        <tr><td>Monthly sales</td><td style="text-align:right;">${fmtMoney(f.ventasBrutas)}</td></tr>
+        <tr><td><strong>Promoter commission</strong></td><td style="text-align:right;"><strong>${fmtMoney(f.comisionSocio)}</strong></td></tr>
+        <tr><td>Owner net</td><td style="text-align:right;">${fmtMoney(f.netoDueno)}</td></tr>
       </table>
       ${(f.detallePendientes && f.detallePendientes.length) ? `
       <details style="margin-top:8px;">
-        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);user-select:none;">¿De qué ventas es este pago? →</summary>
+        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);user-select:none;">Which sales does this payment cover? →</summary>
         <table style="width:100%;margin-top:6px;font-size:14px;">
           ${f.detallePendientes.map(d => `<tr><td>${d.cantidad}× ${escHtml(d.producto)}</td><td style="text-align:right;">${fmtMoney(d.comisionSocio)}</td></tr>`).join("")}
         </table>
@@ -3436,11 +3436,11 @@ async function enviarResumenWhatsApp(){
   const pend = (Array.isArray(liq) ? liq : []).filter(f => f.estado === "pendiente");
   const totalPend = pend.reduce((a, f) => a + (f.comisionSocio || 0), 0);
   const criticos = (dash.alertas || []).filter(a => a.estado === "rojo").slice(0, 3).map(a => a.mensaje);
-  const L = ["*Resumen del día — friendly-123*"];
-  L.push(`Ventas de hoy: ${fmtMoney(rd.entra || 0)} en ${rd.ventasCount || 0} venta(s).`);
-  if (totalPend > 0) L.push(`Comisiones pendientes: ${fmtMoney(totalPend)} (${pend.length} percha/s).`);
-  if (criticos.length){ L.push("Stock crítico:"); criticos.forEach(c => L.push("• " + c)); }
-  else L.push("Sin stock crítico. Todo en orden.");
+  const L = ["*Daily summary — friendly-123*"];
+  L.push(`Today's sales: ${fmtMoney(rd.entra || 0)} in ${rd.ventasCount || 0} sale(s).`);
+  if (totalPend > 0) L.push(`Pending commissions: ${fmtMoney(totalPend)} (${pend.length} rack(s)).`);
+  if (criticos.length){ L.push("Critical stock:"); criticos.forEach(c => L.push("• " + c)); }
+  else L.push("No critical stock. Everything is fine.");
   window.open("https://wa.me/?text=" + encodeURIComponent(L.join("\n")), "_blank");
 }
 
@@ -3481,7 +3481,7 @@ async function evaluarCliente(clienteId, campo, valor) {
 }
 
 async function despedirCliente(clienteId, nombre) {
-  if (!(await ocConfirm(`¿Despedir a ${nombre}? Dejará de aparecer en el selector de ventas.\nPuedes reactivarlo después desde esta misma sección.`))) return;
+  if (!(await ocConfirm(`Fire ${nombre}? They will no longer appear in the sales selector.\nYou can reactivate them later from this section.`))) return;
   try {
     const quien = (window.OCAuth && window.OCAuth.usuarioActual && window.OCAuth.usuarioActual().nombre) || "Sistema";
     await fetch(`${API}/clientes/${clienteId}/despedir`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quien }) });
@@ -3498,7 +3498,7 @@ async function reactivarCliente(clienteId, nombre) {
 }
 
 async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
-  if (!(await ocConfirm("¿Confirmas que ya le pagaste a la promotor/a lo que corresponde este mes?"))) return;
+  if (!(await ocConfirm("Confirm you have already paid the promoter what is owed this month?"))) return;
   // #19: capturamos el desglose ANTES de sellar (marcar-pagado deja pendientes en 0).
   const detalle = (window._ocLiqDet && window._ocLiqDet[ubicacionId]) || [];
   const res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST" });
@@ -3514,7 +3514,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
       `• ${d.cantidad}× ${d.producto} — ${fmtMoney(d.comisionSocio)}`
     );
     const recibo = [
-      `✅ *Pago de comisión confirmado*`,
+      `✅ *Commission payment confirmed*`,
       `Promotor/a: ${promotorNombre}`,
       `Monto: ${fmtMoney(monto)}`,
       `Mes: ${mes}`,
@@ -3525,7 +3525,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
       ``,
       `Gracias por tu trabajo este mes. — friendly-123`,
     ].filter(Boolean).join("\n");
-    if (await ocConfirm(`¿Enviar recibo a ${promotorNombre} por WhatsApp?`)) {
+    if (await ocConfirm(`Send receipt to ${promotorNombre} via WhatsApp?`)) {
       window.open("https://wa.me/?text=" + encodeURIComponent(recibo), "_blank");
     }
   }
@@ -3585,7 +3585,7 @@ async function cargarGastosMensuales(){
   if (ubicacionActual === "todas"){
     input.disabled = true;
     btn.disabled = true;
-    msg.textContent = `Este número es la suma de ${fmtMoney(data.gastosMensuales)} entre todas tus ubicaciones. Elige una abajo para editarla.`;
+    msg.textContent = `This total covers ${fmtMoney(data.gastosMensuales)} across all your locations. Pick one below to edit.`;
     // Antes esto solo mostraba un mensaje y el dueño tenía que acordarse de
     // subir hasta el selector del header — muchos pensaban que la caja
     // estaba rota. Ahora el selector vive aquí mismo, al lado del problema.
@@ -3700,10 +3700,10 @@ async function cargarDashboardInicial(intento){
     hero.className = "hero-semaforo tag-card amarillo";
     if (window.OC_DEMO) {
       document.getElementById("heroTitulo").textContent = "Cargando la demo…";
-      document.getElementById("heroSubtitulo").textContent = "Si esto no cambia en unos segundos, recarga la página.";
+      document.getElementById("heroSubtitulo").textContent = "If this doesn't change in a few seconds, reload the page.";
     } else {
-      document.getElementById("heroTitulo").textContent = "No se pudo conectar con el servidor.";
-      document.getElementById("heroSubtitulo").textContent = "Verifica que el backend (server.js) esté corriendo y vuelve a cargar la página.";
+      document.getElementById("heroTitulo").textContent = "Could not connect to the server.";
+      document.getElementById("heroSubtitulo").textContent = "Verify that the backend (server.js) is running and reload the page.";
     }
   }
 }
@@ -3765,8 +3765,8 @@ window.addEventListener("oc-datos-importados", async () => {
       const d = document.createElement("div");
       d.setAttribute("role", "status");
       d.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:10004;background:#0F1923;border-top:3px solid #E86040;padding:10px 14px;text-align:center;";
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">Algo falló en esta pantalla. Recarga la página; si se repite, avísanos por WhatsApp.</span>' +
-        ' <button style="margin-left:10px;min-height:40px;padding:8px 14px;border-radius:6px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;cursor:pointer;" onclick="location.reload()">Recargar</button>';
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">Something failed on this screen. Reload the page; if it happens again, let us know via WhatsApp.</span>' +
+        ' <button style="margin-left:10px;min-height:40px;padding:8px 14px;border-radius:6px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;cursor:pointer;" onclick="location.reload()">Reload</button>';
       (document.body || document.documentElement).appendChild(d);
       setTimeout(() => d.remove(), 12000);
     } catch (_) {}
@@ -3803,8 +3803,8 @@ window.dialogosBloqueados = function () {
       const d = document.createElement("div");
       d.id = "oc-doble-tab";
       d.style.cssText = "position:fixed;inset:0;z-index:10003;background:#0F1923;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;";
-      d.innerHTML = '<p style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:18px;font-weight:700;max-width:420px;">Ya hay una caja de friendly-123 abierta en otra pestaña. Para no pisar los datos, usa una sola a la vez.</p>' +
-        '<button id="oc-doble-usar" style="min-height:48px;padding:12px 22px;border-radius:8px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;">Usar aquí de todos modos</button>';
+      d.innerHTML = '<p style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:18px;font-weight:700;max-width:420px;">A friendly-123 session is already open in another tab. To avoid data conflicts, use only one at a time.</p>' +
+        '<button id="oc-doble-usar" style="min-height:48px;padding:12px 22px;border-radius:8px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;">Use here anyway</button>';
       document.body.appendChild(d);
       document.getElementById("oc-doble-usar").addEventListener("click", () => { soyPrincipal = true; d.remove(); });
     }

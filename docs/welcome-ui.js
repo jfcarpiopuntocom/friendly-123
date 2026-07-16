@@ -62,14 +62,14 @@
   modal.id = 'am-welcome';
   modal.setAttribute('aria-hidden', 'true');
   modal.innerHTML = `
-    <div id="am-welcome-card" role="dialog" aria-label="Bienvenida">
+    <div id="am-welcome-card" role="dialog" aria-label="Welcome">
       <p class="marca">friendly-123</p>
-      <h2>Bienvenido</h2>
-      <p class="tagline">Tu negocio, a color</p>
-      <p class="formal">Control de inventario, clientes y perchas</p>
-      <p class="cuerpo">Manejar tu negocio no tiene por qué ser aburrido ni abrumador. Aquí tus productos hablan en colores que se encienden solos cuando hay que actuar: verde si todo marcha bien, dorado si hay dinero esperándote, rojo si toca actuar ya. Funciona sin internet, tus datos son solo tuyos, y no hay suscripciones ni anuncios de nadie.</p>
-      <button id="am-welcome-guia">Ver la guía</button>
-      <button id="am-welcome-ok">Empezar</button>
+      <h2>Welcome</h2>
+      <p class="tagline">Manage your business, in color</p>
+      <p class="formal">Inventory management · clients · commissions · racks</p>
+      <p class="cuerpo">Managing your business doesn't have to be complicated. Products talk in colors that light up when action is needed: green when everything's good, gold when money is waiting, red when it's time to move. Works offline. Your data is yours alone. No subscriptions, no ads.</p>
+      <button id="am-welcome-guia">See the guide</button>
+      <button id="am-welcome-ok">Get started</button>
     </div>`;
   document.body.appendChild(modal);
 

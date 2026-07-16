@@ -110,7 +110,7 @@
     <!-- Tagline (JFC 2026-07-15): "Manage your business, in color" — marketing promise, not description. -->
     <p style="font-family:var(--font-display,sans-serif);color:#E8A020;font-size:15px;font-weight:700;margin:0 0 14px;">Manage your business, in color</p>
     <div id="oc-help-body"></div>
-    <button id="oc-help-cerrar">Entendido</button>
+    <button id="oc-help-cerrar">Got it</button>
   </div>`;
   document.body.appendChild(modal);
 
