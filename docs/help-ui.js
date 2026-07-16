@@ -118,12 +118,12 @@
 
   const btn = document.createElement("button");
   btn.id = "oc-help-btn";
-  btn.textContent = "Ayuda (?)";
+  btn.textContent = "Help (?)";
 
-  // brandWrap: logo friendly-123 encima del botón Ayuda, igual que AMIGABLE.
+  // brandWrap: logo friendly-123 encima del botón Help, igual que AMIGABLE.
   // ESTADO APROBADO POR JFC (2026-07-15). NO CAMBIAR ESTRUCTURA.
   // - Logo: logo.png (wordmark coloreado), height:22px, clickeable → va a Hoy
-  // - Btn: "Ayuda (?)" debajo del logo
+  // - Btn: "Help (?)" debajo del logo
   // - Se inserta afterend de #oc-logout en el header (flex child del header)
   // ❌ NO ocultar el img ❌ NO cambiar flex-direction a row
   const brandWrap = document.createElement("div");

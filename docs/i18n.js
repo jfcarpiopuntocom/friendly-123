@@ -18,7 +18,7 @@
 (function () {
   const DICT = {
     en: {
-      "brand.slogan": "Your business, in color",
+      "brand.slogan": "Manage your business, in color",
       "brand.bilingual": "Truly bilingual",
       "header.locationLabel": "Store / shelf",
       "header.bizNameDefault": "My store or shelf(s)",
@@ -309,7 +309,7 @@
       "pl.netProfit": "Net profit",
     },
     es: {
-      "brand.slogan": "Tu negocio, a color",
+      "brand.slogan": "Administra tu negocio, a color",
       "brand.bilingual": "Truly bilingual",
       "header.locationLabel": "Sucursal / percha",
       "header.bizNameDefault": "Mi Local Comercial o Percha(s)",
