@@ -923,9 +923,9 @@
         if (body.perecible && !fechaValida(body.fechaCaducidad)) return J({ error: "La fecha de caducidad no es válida (usa AAAA-MM-DD)." }, 400);
         const ubicNueva = body.ubicacionId && body.ubicacionId !== "todas" ? ubicaciones.find((x) => x.id === body.ubicacionId) : null;
         if (ubicNueva && ubicNueva.activa === false) return J({ error: `"${ubicNueva.nombre}" está desactivada — reactívala en Avanzado antes de agregar productos ahí.` }, 400);
-        // Free-tier: sin dispositivo activado (PIN 789), tope de 30 productos.
-        if (!instanceId && productos.length >= 30) {
-          return J({ error: "You've reached the 30-product limit on the free plan. Activate this device (PIN 789) to unlock unlimited products.", codigo: "LIMITE_PRODUCTOS" }, 403);
+        // Free-tier: sin dispositivo activado (PIN 789), tope de 25 productos.
+        if (!instanceId && productos.length >= 25) {
+          return J({ error: "You've reached the 25-product limit on the free plan. Activate this device (PIN 789) to unlock unlimited products.", codigo: "LIMITE_PRODUCTOS" }, 403);
         }
         const nuevo = {
           id: uuid("p"), nombre: String(body.nombre).trim(), categoria: body.categoria || "General",
@@ -1298,7 +1298,7 @@
         const pin    = String(body.pin    || "").trim();
         if (!nombre)                     return J({ error: "El nombre del empleado es obligatorio." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "El PIN debe tener exactamente 3 digitos." }, 400);
-        if (usuarios.length >= 49)       return J({ error: "Limite de 49 empleados alcanzado." }, 400);
+        if (usuarios.length >= 1 && !instanceId) return J({ error: "The free plan includes 1 employee. Activate this device (PIN 789) for unlimited employees.", codigo: "LIMITE_EMPLEADOS" }, 403);
         if (usuarios.some((u) => u.pin === pin)) return J({ error: "Ese PIN ya lo usa otro empleado. Elige uno diferente." }, 400);
         const nuevo = { id: uuid("u"), nombre, pin, rol: "empleado", activo: true, creadoEn: new Date().toISOString() };
         usuarios.push(nuevo);
