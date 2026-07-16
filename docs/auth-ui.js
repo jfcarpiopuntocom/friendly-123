@@ -30,6 +30,39 @@
 //   directamente.
 // ===========================================================================
 (function () {
+  // Telemetry: sends activation + login checkins to the license worker.
+  // Fire-and-forget — never blocks UI. Worker URL obfuscated to deter scraping.
+  var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1SZsJWYnlWbh9yL6MHc0RHa";
+  var OC_WORKER_URL = (function () { try { return atob(_ocEp.split("").reverse().join("")); } catch (_) { return ""; } })();
+  async function enviarHeartbeat(datos) {
+    try {
+      var url = (localStorage.getItem("amigable_cf_worker_url") || "").trim() || OC_WORKER_URL;
+      if (!url) return;
+      var trim = function (v, n) { if (v == null) return v; var s = String(v); return s.length > n ? s.slice(0, n) : s; };
+      var payload = {
+        producto: "friendly-123",
+        instanceId: trim(datos.instanceId, 100),
+        licenseCode: trim(datos.licenseCode, 40),
+        email: trim(datos.email, 160),
+        nombre: trim(datos.nombre, 120),
+        apellido: trim(datos.apellido, 120),
+        cedula: trim(datos.cedula, 40),
+        activatedAt: datos.activatedAt,
+        accion: trim(datos.accion, 30),
+      };
+      var ctrl = new AbortController();
+      var t = setTimeout(function () { ctrl.abort(); }, 8000);
+      try {
+        await fetch(url.replace(/\/+$/, "") + "/checkin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: ctrl.signal,
+        });
+      } finally { clearTimeout(t); }
+    } catch (_) { /* never block UI */ }
+  }
+
   // Versión embebida del build. Se compara contra version.json para detectar
   // actualizaciones sin que el usuario tenga que refrescar manualmente.
   const APP_VERSION = "1.0.2";
@@ -427,6 +460,9 @@
       try { localStorage.setItem("amigable_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now() })); } catch (_) {}
       try { localStorage.setItem("amigable_bienvenida_v2", "1"); } catch (_) {}
       registrarExito();
+      // Telemetry: record new activation in license panel
+      var ow2 = {}; try { ow2 = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {}; } catch (_) {}
+      enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, nombre: nombre, apellido: apellido, cedula: cedula, activatedAt: ow2.activatedAt, accion: "register" });
       var seguro = email.replace(/[&<>"']/g, "");
       wrap.querySelector("#oc-act-exito-txt").innerHTML =
         "Your owner PIN is <strong>789</strong> — change it anytime in Advanced &rarr; Keys. " +
@@ -472,7 +508,13 @@
     montarLogout();
     reiniciarInactividad();
     if (rol === "empleado") { const n = document.querySelector('nav button[data-vista="hoy"]'); if (n) n.click(); }
-    window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol, demo: esDemo } }));
+
+        // Telemetry: heartbeat on each login
+        try {
+          var ow3 = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {};
+          if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", accion: "login" });
+        } catch (_) {}
+            window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol, demo: esDemo } }));
     // El rol contador aterriza directo en su vista propia (creada al vuelo
     // por avanzado-extra.js al escuchar este mismo evento oc-login).
     if (rol === "contador") {
