@@ -1,0 +1,14 @@
+name = "amigable-licencias"
+main = "worker.js"
+compatibility_date = "2026-07-10"
+preview_urls = false
+
+kv_namespaces = [
+  { binding = "LICENCIAS", id = "df0d18c7aada468c8c03f81793fbf1e9" }
+]
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
