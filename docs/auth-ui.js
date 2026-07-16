@@ -53,12 +53,21 @@
       var ctrl = new AbortController();
       var t = setTimeout(function () { ctrl.abort(); }, 8000);
       try {
-        await fetch(url.replace(/\/+$/, "") + "/checkin", {
+        var res = await fetch(url.replace(/\/+$/, "") + "/checkin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
           signal: ctrl.signal,
         });
+        if (res && res.ok) {
+          var r = await res.json();
+          if (r && r.estado) {
+            var owned = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {};
+            owned.licenseEstado = r.estado;
+            owned.licenseEstadoAt = Date.now();
+            localStorage.setItem("amigable_owned", JSON.stringify(owned));
+          }
+        }
       } finally { clearTimeout(t); }
     } catch (_) { /* never block UI */ }
   }
@@ -491,6 +500,15 @@
 
   function entrar(nuevoRol) {
     const esDemo = nuevoRol === "demo";
+    if (!esDemo) {
+      try {
+        var owned = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {};
+        if (owned.licenseEstado === "bloqueada") {
+          error("This instance is blocked. Contact the friendly-123 administrator.");
+          return;
+        }
+      } catch (_) {}
+    }
     // A diferencia del demo (que navega con acceso de dueño), "contador" es
     // un rol propio: NO se remapea a "dueno", queda aislado y solo-lectura.
     demoSesion = esDemo;
