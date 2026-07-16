@@ -35,67 +35,72 @@
   `;
   document.head.appendChild(css);
 
-  // Contenido del DUEÑO: cubre todo el sistema con lenguaje des-abrumador.
-  // Sistema Simon: colores = vocabulario visual del dinero, no decoración.
-  // Verde=saludable, Dorado=oportunidad, Naranja=urgente, Rojo=emergencia,
-  // Azul=sabiduría (tips/consejos, la capa contable es solo UNA aplicación),
-  // Negro=inventario muerto. (JFC 2026-07-04, corrigio "azul=solo contable")
+  // AYUDA_DUENO — updated 2026-07-15 per JFC: reflects true product identity.
+  // This is NOT a POS. It is inventory management for vendors, promoters, and
+  // commission tracking — built around "perchas" (slots/racks) as the core unit,
+  // color-coded for instant interpretation, data always local (you own it).
+  // 2 years of patches and updates included — vs the industry standard of 1.
   const AYUDA_DUENO = `
-    <span class="rolTag">Guía del dueño</span>
-    <h3>Los colores son el idioma de tu negocio</h3>
+    <span class="rolTag">Owner's guide</span>
+    <h3>What friendly-123 actually is</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
-      Tu negocio habla en colores. Verde: todo bien. Rojo: actúa ya. Dorado: hay plata ahí.
-      Sin hoja de cálculo, sin terminología contable.
+      Not a cash register. An inventory management system for vendors, promoters,
+      and commission tracking — organized around <b>perchas</b> (your slots, racks,
+      or locations) as the essential unit. Colors replace spreadsheets. Your data
+      stays on your device: no subscription lock-in, no cloud required.
     </p>
+    <h3>The color language (Simon system)</h3>
     <ul>
-      <li><b style="color:#00C87A;">Verde</b>: todo marcha bien. Sigue así.</li>
-      <li><b style="color:#E8A020;">Dorado</b>: hay dinero esperándote.</li>
-      <li><b style="color:#F97316;">Naranja</b>: se está acabando — revísalo pronto, antes de que sea emergencia.</li>
-      <li><b style="color:#E8365D;">Rojo</b>: emergencia — actúa ahora.</li>
-      <li><b style="color:#5294AC;">Azul</b>: sabiduría — tips y consejos útiles para tu negocio. (La capa contable es una parte de esto.)</li>
-      <li><b style="color:#0A0A0F;">Negro</b>: tu dinero está descansando ahí. Haz que vuelva a trabajar.</li>
+      <li><b style="color:#00C87A;">Green</b>: healthy — keep going.</li>
+      <li><b style="color:#E8A020;">Gold</b>: money sitting there — act on it.</li>
+      <li><b style="color:#F97316;">Orange</b>: running low — restock before it becomes a problem.</li>
+      <li><b style="color:#E8365D;">Red</b>: emergency — act now.</li>
+      <li><b style="color:#5294AC;">Blue</b>: wisdom — tips, insights, and the accounting layer.</li>
+      <li><b style="color:#0A0A0F;">Black</b>: dead stock — your money isn't moving. Fix that.</li>
     </ul>
-    <h3>Hoy: tu semáforo del día</h3>
+    <h3>Today: your daily signal</h3>
     <ul>
-      <li>Cada mañana, antes de abrir tu negocio, mira esta pantalla. Ella te dirá exactamente por dónde empezar.</li>
-      <li>Un solo vistazo: cuánto entró, cuánto salió, qué pide acción.</li>
-      <li>El color del encabezado refleja el estado general del día.</li>
+      <li>One glance at Today tells you what needs attention before you open.</li>
+      <li>The header color reflects the overall state of the day.</li>
+      <li>Didn't log sales live? Use Day Close to record everything at once.</li>
     </ul>
-    <h3>Inventario y Vender</h3>
+    <h3>Sold (not "sell")</h3>
     <ul>
-      <li>En Vender: toca el producto en la cuadrícula y listo — una unidad vendida (puedes deshacer). También puedes escanear o buscar por código.</li>
-      <li>¿No registraste en vivo? Usa el Cierre del día: apunta cuánto salió de cada producto y aplica todo junto.</li>
-      <li>Cada movimiento queda registrado con motivo y quién lo hizo.</li>
+      <li>Tap a product in the grid — one unit logged as sold. Undo within 5 seconds.</li>
+      <li>Every movement is recorded with reason and who did it.</li>
+      <li>Commissions calculate automatically per percha and per vendor.</li>
     </ul>
-    <h3>Avanzado (solo tú, candado aparte)</h3>
+    <h3>Advanced (your lock, your rules)</h3>
     <ul>
-      <li><b>Gastos fijos</b>: arriendo, luz, sueldos — se dividen en 30 días para saber cuánto cuesta abrir mañana.</li>
-      <li><b>Capa contable azul</b>: cuentas T, pérdidas y ganancias, balance. Tiene su propio código — distinto al de entrada.</li>
-      <li><b>Claves y recuperación</b>: guarda tu correo antes de cambiar cualquier clave. Sin correo registrado no hay recuperación posible.</li>
+      <li><b>Fixed costs</b>: rent, utilities, payroll — divided across 30 days so you know the real cost of opening tomorrow.</li>
+      <li><b>Accounting layer</b>: T-accounts, P&amp;L, balance sheet. Separate PIN — your accountant or partner can access it directly without seeing the full system.</li>
+      <li><b>Keys and recovery</b>: save your email before changing any PIN. No email on file = no recovery possible.</li>
     </ul>
-    <h3>Seguridad sin paranoia</h3>
-    <p>Tus 3 claves se guardan cifradas en este dispositivo. El teclado mezcla los números con un emoji diferente cada vez — nadie puede memorizarlos mirando por encima de tu hombro.</p>
+    <h3>Ownership and updates</h3>
+    <p style="font-size:14px;line-height:1.6;margin:0;">
+      Your data lives on this device — no server has it, no subscription can take it away.
+      Activation unlocks unlimited products and exports. Includes <b>2 years of patches
+      and updates</b> (the industry standard is 1).
+    </p>
   `;
 
-  // Contenido del EMPLEADO: solo lo operativo del turno, lenguaje simple.
-  // Sin mención a claves, gastos ni contabilidad — esa capa no le aparece.
+  // AYUDA_EMPLEADO: operational only — no mention of PINs, costs, or accounting.
   const AYUDA_EMPLEADO = `
-    <span class="rolTag">Guía del empleado</span>
-    <h3>Los colores te dicen qué está pasando</h3>
+    <span class="rolTag">Vendor / promoter guide</span>
+    <h3>Colors tell you what's happening</h3>
     <ul>
-      <li><b style="color:#00C87A;">Verde</b>: bien. <b style="color:#E8A020;">Dorado</b>: hay dinero ahí. <b style="color:#F97316;">Naranja</b>: avisar al dueño pronto. <b style="color:#E8365D;">Rojo</b>: avisar ya.</li>
-      <li><b style="color:#5294AC;">Azul</b>: tip o consejo útil. <b style="color:#0A0A0F;">Negro</b>: no se vende, avisa al dueño.</li>
-      <li>No necesitas interpretar nada — el color hace el trabajo.</li>
+      <li><b style="color:#00C87A;">Green</b>: good. <b style="color:#E8A020;">Gold</b>: money waiting. <b style="color:#F97316;">Orange</b>: alert the owner soon. <b style="color:#E8365D;">Red</b>: alert now.</li>
+      <li><b style="color:#0A0A0F;">Black</b>: not moving — flag it to the owner.</li>
+      <li>You don't need to interpret anything — the color does the work.</li>
     </ul>
-    <h3>Tu turno en 4 pasos</h3>
+    <h3>Your shift in 3 steps</h3>
     <ul>
-      <li><b>Hoy</b>: mira el resumen del día al entrar. Si hay rojo, avisa.</li>
-      <li><b>Vender</b>: toca el producto en la cuadrícula, o escanea/escribe su código si no lo encuentras rápido.</li>
-      <li><b>Vender</b>: toca "Vender 1" para descontar del stock al momento.</li>
-      <li><b>Ajustar</b>: si algo se rompió, se venció o el conteo estaba mal — usa Ajustar y escribe el motivo. Queda registrado.</li>
+      <li><b>Today</b>: check the daily summary when you arrive. Red means alert the owner.</li>
+      <li><b>Sold</b>: tap the product in the grid — one unit logged. Or scan / type the code if you can't find it fast.</li>
+      <li><b>Adjust</b>: something broke, expired, or the count was off? Use Adjust and write the reason. It stays on record.</li>
     </ul>
-    <h3>Etiquetas</h3>
-    <p>Si necesitas reimprimir una etiqueta perdida o dañada, búscala por nombre o código.</p>
+    <h3>Labels</h3>
+    <p>Need to reprint a lost or damaged label? Find it by name or code in the Labels tab.</p>
   `;
 
   const modal = document.createElement("div");
