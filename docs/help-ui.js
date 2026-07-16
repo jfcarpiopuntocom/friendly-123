@@ -115,6 +115,31 @@
   btn.id = "oc-help-btn";
   btn.textContent = "Ayuda (?)";
 
+  // brandWrap: logo friendly-123 encima del botón Ayuda, igual que AMIGABLE.
+  // ESTADO APROBADO POR JFC (2026-07-15). NO CAMBIAR ESTRUCTURA.
+  // - Logo: logo.png (wordmark coloreado), height:22px, clickeable → va a Hoy
+  // - Btn: "Ayuda (?)" debajo del logo
+  // - Se inserta afterend de #oc-logout en el header (flex child del header)
+  // ❌ NO ocultar el img ❌ NO cambiar flex-direction a row
+  const brandWrap = document.createElement("div");
+  brandWrap.id = "oc-brand-help";
+  brandWrap.style.cssText = "display:none;flex-direction:column;align-items:flex-end;gap:2px;margin-left:10px;";
+
+  const brandLogo = document.createElement("img");
+  brandLogo.src = "./logo.png";
+  brandLogo.alt = "friendly-123";
+  brandLogo.title = "Ir a Hoy";
+  brandLogo.style.cssText = "height:22px;width:auto;object-fit:contain;display:block;cursor:pointer;";
+  brandLogo.onerror = function () { this.style.display = "none"; };
+  brandLogo.addEventListener("click", () => {
+    const hoy = document.querySelector('nav button[data-vista="hoy"]');
+    if (hoy) hoy.click();
+  });
+
+  btn.style.marginTop = "0";
+  brandWrap.appendChild(brandLogo);
+  brandWrap.appendChild(btn);
+
   function abrir() {
     const rol = window.OCAuth ? window.OCAuth.rolActual() : null;
     document.getElementById("oc-help-body").innerHTML = rol === "empleado" ? AYUDA_EMPLEADO : AYUDA_DUENO;
@@ -127,18 +152,16 @@
   document.getElementById("oc-help-cerrar").addEventListener("click", () => modal.classList.remove("abierto"));
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("abierto"); });
 
-  // Se inserta justo después de #oc-logout (creado por auth-ui.js al iniciar
-  // sesión) para que quede debajo del botón Salir en el header, no como
-  // elemento flotante encima del contenido.
   window.addEventListener("oc-login", () => {
     const logout = document.getElementById("oc-logout");
-    if (logout && logout.parentNode && !document.body.contains(btn)) {
-      logout.insertAdjacentElement("afterend", btn);
+    if (logout && logout.parentNode && !document.body.contains(brandWrap)) {
+      logout.insertAdjacentElement("afterend", brandWrap);
     }
+    brandWrap.style.display = "flex";
     btn.style.display = "block";
   });
   window.addEventListener("oc-logout", () => {
-    btn.remove(); // vuelve a insertarse junto al próximo #oc-logout en el siguiente login
+    brandWrap.remove();
     modal.classList.remove("abierto");
   });
 })();
