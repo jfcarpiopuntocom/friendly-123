@@ -106,11 +106,9 @@
   const modal = document.createElement("div");
   modal.id = "oc-help-modal";
   modal.innerHTML = `<div id="oc-help-sheet">
-    <h2>¿Cómo funciona friendly-123?</h2>
-    <!-- Slogan informal de Amigable (JFC 2026-07-02): "tu negocio, a color".
-         Va aquí y en la bienvenida (welcome-ui.js). El formal "Amigable: punto
-         de venta y control de inventario" vive en el footer y la bienvenida. -->
-    <p style="font-family:var(--font-display,sans-serif);color:#E8A020;font-size:15px;font-weight:700;margin:0 0 14px;">Tu negocio, a color</p>
+    <h2>How does friendly-123 work?</h2>
+    <!-- Tagline (JFC 2026-07-15): "Manage your business, in color" — marketing promise, not description. -->
+    <p style="font-family:var(--font-display,sans-serif);color:#E8A020;font-size:15px;font-weight:700;margin:0 0 14px;">Manage your business, in color</p>
     <div id="oc-help-body"></div>
     <button id="oc-help-cerrar">Entendido</button>
   </div>`;
