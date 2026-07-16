@@ -311,7 +311,7 @@
       <p style="font-size:13px;color:var(--ink-soft);margin-top:0;">
         In addition to the manual backup above, friendly-123 saves a snapshot of your data here (in this browser) periodically,
         in case you delete something by accident. This does NOT replace the manual backup — if the browser cache is cleared, these checkpoints are lost too.
-        <em>Future phase (not yet implemented): distribute checkpoints across devices by QR/split text, 3-2-1 style, to avoid depending on a single browser.</em></p>
+        <em>Coming soon: automatic replication of these checkpoints across your devices. In the meantime, you can copy your data to another device via Advanced → QR Sync.</em></p>
       <p id="oc-caja-alerta" style="font-size:13px;font-weight:700;"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">📸 Save checkpoint now</button>
