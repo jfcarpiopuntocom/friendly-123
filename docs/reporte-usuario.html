@@ -704,12 +704,12 @@ function applyLang(lang){
   document.querySelectorAll(".lang-toggle button").forEach(b=>{
     b.classList.toggle("active", b.dataset.lang===lang);
   });
-  localStorage.setItem("amigable_lang", lang);
+  localStorage.setItem("f123_lang", lang);
 }
 document.querySelectorAll(".lang-toggle button").forEach(b=>{
   b.addEventListener("click", ()=>applyLang(b.dataset.lang));
 });
-const savedLang = localStorage.getItem("amigable_lang") || (navigator.language.startsWith("es")?"es":"en");
+const savedLang = localStorage.getItem("f123_lang") || (navigator.language.startsWith("es")?"es":"en");
 applyLang(savedLang);
 
 /* ================= REVEAL ON SCROLL ================= */

@@ -2019,7 +2019,7 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
       const d = await (await fetch(`${API}/instancia/nombre`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nuevo }) })).json();
       if (d && d.ok) {
         span.textContent = d.nombreNegocio || nuevo;
-        try { const o = JSON.parse(localStorage.getItem("amigable_owned") || "null"); if (o) { o.nombreNegocio = d.nombreNegocio || nuevo; localStorage.setItem("amigable_owned", JSON.stringify(o)); } } catch (_) {}
+        try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o) { o.nombreNegocio = d.nombreNegocio || nuevo; localStorage.setItem("f123_owned", JSON.stringify(o)); } } catch (_) {}
       }
     } catch (_) {}
   });
@@ -3560,11 +3560,11 @@ function inicializarSelectorTimezone(){
   const zonas = TIMEZONES_COMUNES.includes(detectada) ? TIMEZONES_COMUNES : [detectada, ...TIMEZONES_COMUNES];
   sel.innerHTML = `<option value="">${t("adv.timezoneAuto")} — ${detectada}</option>` +
     zonas.map(z => `<option value="${z}">${z}</option>`).join("");
-  sel.value = localStorage.getItem("oc_timezone") || "";
+  sel.value = localStorage.getItem("f123_timezone") || "";
   sel.addEventListener("change", () => {
     const msg = document.getElementById("msgTimezone");
-    if (sel.value) localStorage.setItem("oc_timezone", sel.value);
-    else localStorage.removeItem("oc_timezone");
+    if (sel.value) localStorage.setItem("f123_timezone", sel.value);
+    else localStorage.removeItem("f123_timezone");
     msg.style.color = "var(--verde)";
     msg.textContent = t("adv.timezoneSaved");
     cargarAvanzado();
@@ -3755,9 +3755,9 @@ window.addEventListener("oc-datos-importados", async () => {
   let avisado = false;
   window.addEventListener("error", (e) => {
     try {
-      const lista = JSON.parse(localStorage.getItem("oc_errores") || "[]");
+      const lista = JSON.parse(localStorage.getItem("f123_errores") || "[]");
       lista.push({ fecha: new Date().toISOString(), msg: String(e.message || ""), src: String(e.filename || "").split("/").pop() + ":" + (e.lineno || 0) });
-      localStorage.setItem("oc_errores", JSON.stringify(lista.slice(-20)));
+      localStorage.setItem("f123_errores", JSON.stringify(lista.slice(-20)));
     } catch (_) {}
     if (avisado) return;
     avisado = true;

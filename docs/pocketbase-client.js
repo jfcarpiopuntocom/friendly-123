@@ -10,7 +10,7 @@
 // Un cliente con datos sensibles puede agregar reglas de auth en la admin UI
 // de PocketBase sin tocar este archivo.
 (function () {
-  const PB_URL = (localStorage.getItem("OC_PB_URL") || "").replace(/\/$/, "");
+  const PB_URL = (localStorage.getItem("F123_PB_URL") || "").replace(/\/$/, "");
   if (!PB_URL) return; // modo demo: mock-backend.js maneja todo
 
   window.OC_DEMO = false;

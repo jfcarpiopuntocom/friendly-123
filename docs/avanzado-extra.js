@@ -57,11 +57,11 @@
     const fetchOriginal = window.fetch.bind(window);
     let cola = [];             // operaciones pendientes de enviar, en memoria
     let temporizador = null;
-    let syncOn = localStorage.getItem("oc_sync_on") === "1";
+    let syncOn = localStorage.getItem("f123_sync_on") === "1";
 
     function deviceId() {
-      let id = localStorage.getItem("oc_device_id");
-      if (!id) { id = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4); localStorage.setItem("oc_device_id", id); }
+      let id = localStorage.getItem("f123_device_id");
+      if (!id) { id = Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4); localStorage.setItem("f123_device_id", id); }
       return id;
     }
     function opId() { return deviceId() + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6); }
@@ -92,11 +92,11 @@
     async function guardarColaCifrada() {
       if (!window.OCSecure.syncActiva()) return;
       const blob = await window.OCSecure.cifrarSync(JSON.stringify(cola));
-      if (blob) localStorage.setItem("oc_sync_pending", blob);
+      if (blob) localStorage.setItem("f123_sync_pending", blob);
     }
     async function restaurarCola() {
       if (!window.OCSecure.syncActiva()) return;
-      const blob = localStorage.getItem("oc_sync_pending");
+      const blob = localStorage.getItem("f123_sync_pending");
       if (!blob) return;
       const texto = await window.OCSecure.descifrarSync(blob);
       if (texto) { try { cola = JSON.parse(texto) || []; } catch { cola = []; } }
@@ -106,10 +106,10 @@
     // dos operaciones con timestamps iguales o paquetes parciales/reenviados
     // ya no se saltan ni se duplican, porque el ledger es por id exacto.
     function idsAplicados() {
-      try { return new Set(JSON.parse(localStorage.getItem("oc_sync_ids_aplicados") || "[]")); } catch { return new Set(); }
+      try { return new Set(JSON.parse(localStorage.getItem("f123_sync_ids_aplicados") || "[]")); } catch { return new Set(); }
     }
     function guardarIdsAplicados(set) {
-      localStorage.setItem("oc_sync_ids_aplicados", JSON.stringify(Array.from(set).slice(-3000)));
+      localStorage.setItem("f123_sync_ids_aplicados", JSON.stringify(Array.from(set).slice(-3000)));
     }
 
     // Reproduce las operaciones de OTROS dispositivos contra el backend
@@ -142,14 +142,14 @@
       const ok = await window.OCSecure.activarSync(pin);
       if (!ok) return false;
       syncOn = true;
-      localStorage.setItem("oc_sync_on", "1");
+      localStorage.setItem("f123_sync_on", "1");
       await restaurarCola();
       arrancarIntervalo();
       return true;
     }
     function desactivar() {
       syncOn = false;
-      localStorage.removeItem("oc_sync_on");
+      localStorage.removeItem("f123_sync_on");
       window.OCSecure.desactivarSync();
       if (temporizador) clearInterval(temporizador);
     }
@@ -599,7 +599,7 @@
     const syncPanel = document.createElement("div");
     syncPanel.className = "tag-card";
     syncPanel.style.cssText = "text-align:left;margin-top:22px;";
-    const pbUrlActual = localStorage.getItem("OC_PB_URL") || "";
+    const pbUrlActual = localStorage.getItem("F123_PB_URL") || "";
     const conectado = !!(window.OC_PB_CONNECTED);
     syncPanel.innerHTML = `
       <h3 class="seccion" style="margin-top:0;">Remote sync (optional)</h3>
@@ -622,13 +622,13 @@
     $("oc-pb-guardar").addEventListener("click", () => {
       const url = $("oc-pb-url").value.trim();
       if (!url) { msg("oc-pb-msg", "Paste your PocketBase URL first.", "var(--rojo)"); return; }
-      localStorage.setItem("OC_PB_URL", url);
+      localStorage.setItem("F123_PB_URL", url);
       msg("oc-pb-msg", "Saved. Reloading to connect...", "var(--sim-verde-dk)");
       setTimeout(() => window.location.reload(), 800);
     });
     const btnQuitar = document.getElementById("oc-pb-quitar");
     if (btnQuitar) btnQuitar.addEventListener("click", () => {
-      localStorage.removeItem("OC_PB_URL");
+      localStorage.removeItem("F123_PB_URL");
       msg("oc-pb-msg", "Sync removed. Reloading in local mode...", "var(--ink)");
       setTimeout(() => window.location.reload(), 800);
     });
@@ -732,7 +732,7 @@
           const k = localStorage.key(i);
           if (k && k.indexOf("vp_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k);
         }
-        const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("oc_secure"), fotosPerchas };
+        const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("f123_secure"), fotosPerchas };
         const contenidoPlano = JSON.stringify(paquete);
         const checksum = await window.OCSecure.hashTexto(contenidoPlano);
         // Contraseña de exportación OPCIONAL: si el dueño la pone, el archivo
@@ -761,7 +761,7 @@
         a.download = `respaldo-amigable-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
-        localStorage.setItem("oc_ultimo_export_manual", String(Date.now()));
+        localStorage.setItem("f123_ultimo_export_manual", String(Date.now()));
         msg("oc-respaldo-msg", "Backup downloaded" + (clave ? " and encrypted" : "") + ". Save it somewhere safe.", "var(--verde)");
       } catch (e) { msg("oc-respaldo-msg", "Export failed: " + e.message, "var(--rojo)"); }
     });
@@ -789,7 +789,7 @@
         const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
         const r = await res.json();
         if (!res.ok) { msg("oc-respaldo-msg", r.error, "var(--rojo)"); return; }
-        if (paquete.oc_secure) localStorage.setItem("oc_secure", paquete.oc_secure);
+        if (paquete.oc_secure) localStorage.setItem("f123_secure", paquete.oc_secure);
         if (paquete.fotosPerchas) Object.entries(paquete.fotosPerchas).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch (_) {} });
         window.dispatchEvent(new CustomEvent("oc-datos-importados")); // index re-sincroniza la UI solo
         msg("oc-respaldo-msg", "Backup imported. Screen now shows restored data.", "var(--verde)");
@@ -825,10 +825,10 @@
     const CAJA_ALERTA_DIAS = 7; // avisa si el ÚLTIMO RESPALDO MANUAL tiene más de esto
 
     function cajaLeer() {
-      try { return JSON.parse(localStorage.getItem("oc_caja_snapshots") || "[]"); } catch { return []; }
+      try { return JSON.parse(localStorage.getItem("f123_caja_snapshots") || "[]"); } catch { return []; }
     }
     function cajaGuardar(lista) {
-      try { localStorage.setItem("oc_caja_snapshots", JSON.stringify(lista.slice(-CAJA_MAX_SNAPSHOTS))); return true; }
+      try { localStorage.setItem("f123_caja_snapshots", JSON.stringify(lista.slice(-CAJA_MAX_SNAPSHOTS))); return true; }
       catch { return false; } // localStorage lleno: no rompe la app, solo no guarda este punto
     }
     async function cajaGuardarPunto(silencioso) {
@@ -858,7 +858,7 @@
       msg("oc-respaldo-msg", "Restored. Screen now shows data from the chosen checkpoint.", "var(--verde)");
     }
     function cajaPintarAlerta() {
-      const ultimo = Number(localStorage.getItem("oc_ultimo_export_manual") || 0);
+      const ultimo = Number(localStorage.getItem("f123_ultimo_export_manual") || 0);
       const el = $("oc-caja-alerta");
       if (!el) return;
       if (!ultimo) { el.textContent = "⚠️ You have not made a manual backup yet (the one above) — do it at least once."; el.style.color = "var(--rust)"; return; }
@@ -1088,7 +1088,7 @@
         const datos = await (await fetch(`${API}/respaldo/exportar`)).json();
         const fotosPerchas = {};
         for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("vp_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k); }
-        const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("oc_secure"), fotosPerchas };
+        const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("f123_secure"), fotosPerchas };
         const contenidoPlano = JSON.stringify(paquete);
         const checksum = await window.OCSecure.hashTexto(contenidoPlano);
         const clave = prompt("Key to encrypt the backup before sending via WhatsApp (min 8 chars). Leave blank = no encryption (not recommended for WhatsApp):");

@@ -11,7 +11,7 @@
 (function () {
   'use strict';
 
-  const FLAG = 'amigable_bienvenida_v2'; // subir versión = volver a mostrarla
+  const FLAG = 'f123_bienvenida_v2'; // subir versión = volver a mostrarla
 
   const css = document.createElement('style');
   // Paleta: SOLO el chasis Sinclair Bloom oficial de index.html (plata

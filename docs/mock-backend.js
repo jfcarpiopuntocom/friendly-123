@@ -12,7 +12,7 @@
   window.OC_DEMO = true;
   // Timezone: reads from localStorage (set by store owner in Avanzado) or falls back to browser local.
   const ZONA = (() => {
-    const tz = localStorage.getItem("oc_timezone");
+    const tz = localStorage.getItem("f123_timezone");
     if (!tz) return Intl.DateTimeFormat().resolvedOptions().timeZone;
     try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; }
     catch (_) { return Intl.DateTimeFormat().resolvedOptions().timeZone; }
@@ -411,7 +411,7 @@
       } else {
         // Estado guardado no pasa validación — rescatar raw ANTES de sobrescribir con datos semilla.
         // El dueño puede recuperar el archivo desde Avanzado > Exportar (busca oc_rescate_v4).
-        try { localStorage.setItem("oc_rescate_v4", raw); } catch (_) {}
+        try { localStorage.setItem("f123_rescate_v4", raw); } catch (_) {}
         // Banda roja: advertir inmediatamente, no fallar silencioso
         setTimeout(() => {
           try {

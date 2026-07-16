@@ -746,7 +746,7 @@ function applyLang(lang) {
 
   // Safe localStorage
   try {
-    localStorage.setItem("amigable_lang", lang);
+    localStorage.setItem("f123_lang", lang);
   } catch (e) {}
 }
 
@@ -762,7 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial language
   let savedLang = 'es';
   try {
-    const saved = localStorage.getItem("amigable_lang");
+    const saved = localStorage.getItem("f123_lang");
     if (saved === 'es' || saved === 'en') savedLang = saved;
   } catch (e) {}
 

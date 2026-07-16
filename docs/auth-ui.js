@@ -36,7 +36,7 @@
   var OC_WORKER_URL = (function () { try { return atob(_ocEp.split("").reverse().join("")); } catch (_) { return ""; } })();
   async function enviarHeartbeat(datos) {
     try {
-      var url = (localStorage.getItem("amigable_cf_worker_url") || "").trim() || OC_WORKER_URL;
+      var url = (localStorage.getItem("f123_cf_worker_url") || "").trim() || OC_WORKER_URL;
       if (!url) return;
       var trim = function (v, n) { if (v == null) return v; var s = String(v); return s.length > n ? s.slice(0, n) : s; };
       var payload = {
@@ -62,10 +62,10 @@
         if (res && res.ok) {
           var r = await res.json();
           if (r && r.estado) {
-            var owned = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {};
+            var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
             owned.licenseEstado = r.estado;
             owned.licenseEstadoAt = Date.now();
-            localStorage.setItem("amigable_owned", JSON.stringify(owned));
+            localStorage.setItem("f123_owned", JSON.stringify(owned));
           }
         }
       } finally { clearTimeout(t); }
@@ -108,7 +108,7 @@
   // puede redundar la apropiacion en el mismo dispositivo.
   const ACTIVATION_PIN = "789";
   function dispositivoApropiado() {
-    try { return !!(JSON.parse(localStorage.getItem("amigable_owned") || "null") || {}).instanceId; }
+    try { return !!(JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId; }
     catch (_) { return false; }
   }
   let demoSesion = false;
@@ -466,11 +466,11 @@
       if (vaciar) {
         try { var rm = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("vp_foto_percha_") === 0) rm.push(k); } rm.forEach(function (kk) { localStorage.removeItem(kk); }); } catch (_) {}
       }
-      try { localStorage.setItem("amigable_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now() })); } catch (_) {}
-      try { localStorage.setItem("amigable_bienvenida_v2", "1"); } catch (_) {}
+      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now() })); } catch (_) {}
+      try { localStorage.setItem("f123_bienvenida_v2", "1"); } catch (_) {}
       registrarExito();
       // Telemetry: record new activation in license panel
-      var ow2 = {}; try { ow2 = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {}; } catch (_) {}
+      var ow2 = {}; try { ow2 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
       enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, nombre: nombre, apellido: apellido, cedula: cedula, activatedAt: ow2.activatedAt, accion: "register" });
       var seguro = email.replace(/[&<>"']/g, "");
       wrap.querySelector("#oc-act-exito-txt").innerHTML =
@@ -502,7 +502,7 @@
     const esDemo = nuevoRol === "demo";
     if (!esDemo) {
       try {
-        var owned = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {};
+        var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
         if (owned.licenseEstado === "bloqueada") {
           error("This instance is blocked. Contact the friendly-123 administrator.");
           return;
@@ -529,7 +529,7 @@
 
         // Telemetry: heartbeat on each login
         try {
-          var ow3 = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {};
+          var ow3 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
           if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", accion: "login" });
         } catch (_) {}
             window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol, demo: esDemo } }));

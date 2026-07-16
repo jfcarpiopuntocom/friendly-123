@@ -103,13 +103,13 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // Si José ya había configurado sus claves/correo antes de este cambio, NO se
   // pierden ni se resetean: se migran tal cual a oc_secure en el primer load.
   async function migrarSiHaceFalta() {
-    if (!localStorage.getItem("oc_secure")) {
+    if (!localStorage.getItem("f123_secure")) {
       let viejo = null;
-      try { viejo = JSON.parse(localStorage.getItem("oc_auth") || "null"); } catch {}
+      try { viejo = JSON.parse(localStorage.getItem("f123_auth") || "null"); } catch {}
       const DEF = { owner: "888", empleados: ["260"], acct: "357", email: "" };
       const base = viejo || DEF;
       await guardarSecreto(base.owner, base.empleados || [], base.acct, base.email || "");
-      localStorage.removeItem("oc_auth"); // ya no queda nada en texto plano
+      localStorage.removeItem("f123_auth"); // ya no queda nada en texto plano
     }
     // AMIGABLE (JFC 2026-07-02): el PIN de dueño pasó de 159 a 888. Si un
     // navegador ya tenía guardado el default viejo (159), lo subimos a 888 sin
@@ -125,11 +125,11 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const employeeHashes = [];
     for (const p of empleadosPins) employeeHashes.push(await hashPin(p, salt, "emp"));
     const acctHash = await hashPin(acctPin, salt, "acct");
-    localStorage.setItem("oc_secure", JSON.stringify({ v: 1, salt, ownerHash, employeeHashes, acctHash, email: email || "" }));
+    localStorage.setItem("f123_secure", JSON.stringify({ v: 1, salt, ownerHash, employeeHashes, acctHash, email: email || "" }));
   }
 
   function leerSecreto() {
-    try { return JSON.parse(localStorage.getItem("oc_secure")); } catch { return null; }
+    try { return JSON.parse(localStorage.getItem("f123_secure")); } catch { return null; }
   }
 
   // Verifica un PIN de 3 dígitos contra un rol ("owner"|"acct") o la lista de empleados.
@@ -169,7 +169,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   function actualizarCorreo(email) {
     const s = leerSecreto(); if (!s) return;
     s.email = email || "";
-    localStorage.setItem("oc_secure", JSON.stringify(s));
+    localStorage.setItem("f123_secure", JSON.stringify(s));
   }
 
   // ---- Código maestro (ver nota arriba) ----
@@ -197,7 +197,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   async function fijarCodigoMaestro(codigoNuevo) {
     const s = leerSecreto(); if (!s) return;
     s.masterHash = await hashMaestro(codigoNuevo);
-    localStorage.setItem("oc_secure", JSON.stringify(s));
+    localStorage.setItem("f123_secure", JSON.stringify(s));
   }
 
   // Cambia SOLO el PIN de dueño (re-hash bajo el salt existente) sin rotar
@@ -206,7 +206,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const s = leerSecreto(); if (!s) return;
     s.ownerHash = await hashPin(nuevoPin, s.salt, "owner");
     s.ownerPinR = xorPin(nuevoPin);
-    localStorage.setItem("oc_secure", JSON.stringify(s));
+    localStorage.setItem("f123_secure", JSON.stringify(s));
   }
 
   // ---- Reseteo de acceso por correo ("olvidé mi clave") ----
@@ -255,17 +255,17 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const codigo = randDigits(6);
     const salt = randSalt();
     const codeHash = await hashPin(codigo, salt, "reset");
-    localStorage.setItem("oc_reset", JSON.stringify({ codeHash, salt, expiresAt: Date.now() + 15 * 60 * 1000 }));
+    localStorage.setItem("f123_reset", JSON.stringify({ codeHash, salt, expiresAt: Date.now() + 15 * 60 * 1000 }));
     return codigo; // en claro, solo para que quien llama lo envíe por correo
   }
   function leerReset() {
-    try { return JSON.parse(localStorage.getItem("oc_reset")); } catch { return null; }
+    try { return JSON.parse(localStorage.getItem("f123_reset")); } catch { return null; }
   }
   async function resetearConCodigo(codigoIngresado, nuevoOwnerPin) {
     if (segundosBloqueo("reset") > 0) return { error: `Demasiados intentos. Espera ${segundosBloqueo("reset")}s.` };
     const r = leerReset();
     if (!r) return { error: "No hay ningún reseteo pendiente. Pide un código nuevo." };
-    if (Date.now() > r.expiresAt) { localStorage.removeItem("oc_reset"); return { error: "El código venció (15 min). Pide uno nuevo." }; }
+    if (Date.now() > r.expiresAt) { localStorage.removeItem("f123_reset"); return { error: "El código venció (15 min). Pide uno nuevo." }; }
     const hashIngresado = await hashPin(codigoIngresado, r.salt, "reset");
     if (hashIngresado !== r.codeHash) { registrarFallo("reset"); return { error: "Código incorrecto." }; }
     registrarExito("reset");
@@ -273,7 +273,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const nuevoEmpleado = randDigits(3);
     const nuevoAcct = randDigits(3);
     await guardarSecreto(nuevoOwnerPin, [nuevoEmpleado], nuevoAcct, correoActual);
-    localStorage.removeItem("oc_reset");
+    localStorage.removeItem("f123_reset");
     return { ok: true, empleado: nuevoEmpleado, acct: nuevoAcct };
   }
 
