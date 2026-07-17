@@ -1,9 +1,18 @@
-// worker.js — license telemetry for friendly-123 / amigable-123.
+// worker.js — license ping for friendly-123 / amigable-123.
 // Handles both products. Endpoints:
 //   POST /checkin  — public, called on activation & login (body.accion = "register"|"login")
 //   POST /register — alias for /checkin (legacy)
 //   GET  /licencias                    — requires X-Master-Key header
 //   POST /licencias/:id/estado         — requires X-Master-Key header
+//
+// SCOPE, ON PURPOSE (JFC 2026-07-16): this worker exists ONLY to register/
+// license-check instances and let JFC reach an owner via the WhatsApp number
+// they optionally register. It does NOT and must NOT store business data
+// (products, sales, backups). NO CLOUD is core to the product manifesto —
+// local-first, no server, no SaaS, no POS. A "cloud backup" feature was
+// built and then ripped out the same day for contradicting this. If a
+// future request smells like "store the user's data on our server", stop
+// and ask before building — see feedback_no_cloud_manifiesto memory.
 //
 // Deploy:
 //   1. wrangler kv:namespace create LICENCIAS     → paste the ID below in wrangler.toml
@@ -49,6 +58,10 @@ async function handleCheckin(req, env) {
     nombreNegocio: body.nombreNegocio != null ? String(body.nombreNegocio).slice(0, 240) : (existente.nombreNegocio || ""),
     email: body.email != null ? String(body.email).slice(0, 240) : (existente.email || ""),
     licenseCode: body.licenseCode || existente.licenseCode || "",
+    // Mejora #5 (JFC 2026-07-16): telefono de contacto del dueno, para el
+    // link clickeable a wa.me en panel.html. Contacto deliberadamente
+    // unidireccional (JFC -> dueno) — ver cloud copy en avanzado-extra.js.
+    whatsapp: body.whatsapp != null ? String(body.whatsapp).replace(/\D/g, "").slice(0, 15) : (existente.whatsapp || ""), // Fix-11: strip non-digits so wa.me link always works
     nombre: body.nombre || existente.nombre || "",
     apellido: body.apellido || existente.apellido || "",
     cedula: body.cedula || existente.cedula || "",

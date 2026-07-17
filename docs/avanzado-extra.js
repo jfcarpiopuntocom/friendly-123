@@ -352,6 +352,8 @@
       <h3 class="seccion" style="margin-top:0;">Access & recovery</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Owner email for key recovery. Once saved, it's masked for privacy.</p>
       <div id="oc-email-row"></div>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:18px;">${window.t("auth.act.whatsappLabel")} — ${window.t("auth.act.whatsappHint")}</p>
+      <div id="oc-whatsapp-row"></div>
       <div id="oc-clave-block" style="margin-top:18px;">
         <p style="font-size:14px;color:var(--ink-soft);">PINs (3 digits). For security, current codes are NOT shown here (stored encrypted) — enter NEW ones only if you want to change them.</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;">
@@ -645,7 +647,7 @@
     vista.appendChild(syncDevPanel);
     pintarSyncDev();
 
-    window.OCAuth.listo().then(() => { pintarEmail(); });
+    window.OCAuth.listo().then(() => { pintarEmail(); pintarWhatsapp(); });
 
     // Cambiar los 3 PINs rota TODO (nuevo salt + nuevos hashes). Por eso se
     // piden los tres juntos: no se puede "mantener" un hash viejo bajo un
@@ -784,7 +786,7 @@
           if (!ok) { msg("oc-respaldo-msg", "Content does not match its checksum — file may be corrupted.", "var(--rojo)"); e.target.value = ""; return; }
         }
         if (!paquete.datos) { msg("oc-respaldo-msg", "This file does not look like a friendly-123 backup.", "var(--rojo)"); return; }
-        if ((paquete.schemaVersion || 1) > 3) { msg("oc-respaldo-msg", "This backup is from a newer version of friendly-123 — update the app before importing it.", "var(--rojo)"); return; }
+        if ((paquete.schemaVersion || 1) > 2) { msg("oc-respaldo-msg", "This backup is from a newer version of friendly-123 — update the app before importing it.", "var(--rojo)"); return; }
         if (!confirm("This REPLACES all current data (products, sales, keys) with the backup data. Continue?")) return;
         const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
         const r = await res.json();
@@ -963,6 +965,47 @@
         }
       });
     }
+  }
+
+  // WhatsApp del dueno (Mejora #5, JFC 2026-07-16). A diferencia del correo,
+  // SIEMPRE editable — no es via de recuperacion de acceso, solo un dato de
+  // contacto/notificacion. Se guarda local (crypto-store.js) Y se manda al
+  // worker (mismo endpoint que el registro de licencia) para que aparezca
+  // en el panel de JFC con un link clickeable a wa.me. Primer contacto
+  // deliberadamente unidireccional (JFC -> dueno): la copia de este campo
+  // NUNCA invita al dueno a escribirle a JFC por WhatsApp, solo explica el
+  // beneficio para el/ella (resumenes + sync). Soporte sigue siendo solo
+  // por correo — no cambiar esta redaccion sin que JFC lo pida.
+  function pintarWhatsapp() {
+    const wa = window.OCSecure.leerWhatsapp();
+    const row = $("oc-whatsapp-row");
+    row.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <input id="oc-whatsapp-in" type="tel" inputmode="tel" placeholder="${window.t("auth.act.whatsappPlaceholder")}" value="${escHtml(wa)}" style="flex:1;min-width:200px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);">
+      <button id="oc-whatsapp-save" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">${window.t("auth.act.whatsappSave")}</button></div>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:6px;">${window.t("auth.act.whatsappCountryHint")}</p>
+      <p id="oc-whatsapp-msg" style="font-size:14px;margin-top:8px;"></p>`;
+    $("oc-whatsapp-save").addEventListener("click", async () => {
+      if (window.OCAuth.esDemo && window.OCAuth.esDemo()) return;
+      const v = $("oc-whatsapp-in").value.trim();
+      if (v && !/^\+?[0-9 ()-]{7,20}$/.test(v)) { msg("oc-whatsapp-msg", window.t("auth.act.whatsappInvalid"), "var(--rojo)"); return; }
+      const waOk = window.OCSecure.actualizarWhatsapp(v); // Fix-7: false si f123_secure ausente/corrupto
+      if (!waOk) { msg("oc-whatsapp-msg", "Could not save (storage issue — try reloading).", "var(--rojo)"); return; }
+      msg("oc-whatsapp-msg", window.t("auth.act.whatsappSaved"), "var(--verde)");
+      // Sube el numero al mismo worker de registro de licencia — asi JFC
+      // lo ve en su panel con un link directo. Best-effort: si falla (sin
+      // conexion, worker no configurado), el dato local ya quedo guardado.
+      try {
+        const url = window.OCAuth.workerUrl();
+        let owned = {};
+        try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
+        if (url && owned.instanceId) {
+          fetch(url.replace(/\/+$/, "") + "/checkin", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ instanceId: owned.instanceId, licenseCode: owned.licenseCode || "", email: window.OCSecure.leerCorreo() || "", whatsapp: v, accion: "update" }),
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    });
   }
 
   // Pide el código maestro (candado de JFC) antes de dejar editar un correo

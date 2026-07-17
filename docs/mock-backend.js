@@ -1,6 +1,14 @@
 // mock-backend.js — Backend simulado dentro del navegador, para la demo
 // pública en GitHub Pages (que no puede correr Node). Intercepta fetch a
 // /api/* y responde con la misma lógica que server.js, usando datos de
+//
+// NO CLOUD (JFC, regla dura, ver PRIVACY.md): TODO lo que este archivo
+// maneja (productos, ventas, clientes, movimientos, comisiones, fotos) vive
+// y muere en localStorage de ESTE navegador. Este archivo NUNCA debe hacer
+// fetch() hacia un dominio externo — cero excepciones. El unico feature con
+// permiso de tocar red es el ping de licencia en auth-ui.js (instanceId +
+// datos de contacto opcionales), y ese vive en otro archivo a proposito.
+// Antes de agregar cualquier fetch() aqui: parar y preguntar a JFC.
 // ejemplo en memoria. En el servidor real este archivo NO se carga.
 (function () {
   // Local-first: si pocketbase-client.js ya activó una conexión remota
@@ -275,6 +283,12 @@
   // se fija al activar con 789. Viaja en respaldos/sync para que los datos
   // queden atados a un negocio y no se confundan entre compradores.
   let instanceId = null;
+  // Mejora #2 (JFC 2026-07-16): "limitada" = JFC bajo el estado desde el panel
+  // (ej. cliente moroso) sin bloquear del todo. Se comporta como si el
+  // dispositivo NUNCA se hubiera activado: vuelve a los topes free (25/100/1).
+  function licenciaLimitada() {
+    try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseEstado === "limitada"; } catch (_) { return false; }
+  }
   // Nombre editable del negocio (identidad de instancia, 2026-07-08). Viaja en
   // respaldos/sync. El header lo muestra; vacío = usa el título por defecto.
   let nombreNegocio = "";
@@ -903,7 +917,12 @@
         // en alertas (ahora son rojo/naranja) — el hero saltaba de verde a rojo.
         let sem = "verde";
         if (alertas.some((a) => a.estado === "rojo")) sem = "rojo"; else if (alertas.some((a) => a.estado === "naranja")) sem = "amarillo";
-        return J({ semaforoGeneral: sem, resumenDia: { entra: +entra.toFixed(2), sale: +sale.toFixed(2), gananciaHoy: +(entra - sale).toFixed(2), inventarioValorizado: +inv.toFixed(2), ventasCount: vh.length }, alertas });
+        // Mejora #5 (JFC 2026-07-16): resumen semanal para el nudge de WhatsApp
+        // (weekly-summary en index.html). Ultimos 7 dias, misma ubicacion filtrada.
+        const hace7dias = new Date(hoyISO()).getTime() - 6 * 86400000; // Fix-8: ZONA-aware boundary, not UTC epoch
+        const vSemana = ventas.filter((v) => new Date(v.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || v.ubicacionId === uid));
+        const entraSemana = vSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
+        return J({ semaforoGeneral: sem, resumenDia: { entra: +entra.toFixed(2), sale: +sale.toFixed(2), gananciaHoy: +(entra - sale).toFixed(2), inventarioValorizado: +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas });
       }
 
       if (path === "/api/productos" && (!opts || opts.method !== "POST")) {
@@ -924,7 +943,7 @@
         const ubicNueva = body.ubicacionId && body.ubicacionId !== "todas" ? ubicaciones.find((x) => x.id === body.ubicacionId) : null;
         if (ubicNueva && ubicNueva.activa === false) return J({ error: `"${ubicNueva.nombre}" está desactivada — reactívala en Avanzado antes de agregar productos ahí.` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 25 productos.
-        if (!instanceId && productos.length >= 25) {
+        if ((!instanceId || licenciaLimitada()) && productos.length >= 25) {
           return J({ error: "You've reached the 25-product limit on the free plan. Activate this device (PIN 789) to unlock unlimited products.", codigo: "LIMITE_PRODUCTOS" }, 403);
         }
         const nuevo = {
@@ -950,7 +969,7 @@
         const cant = Number.isInteger(body.cantidad) && body.cantidad > 0 ? body.cantidad : 1;
         if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
-        if (!instanceId && ventasCountMesGlobal() >= 100) {
+        if ((!instanceId || licenciaLimitada()) && ventasCountMesGlobal() >= 100) {
           return J({ error: "You've reached the 100-sales/month limit on the free plan. Activate this device (PIN 789) to unlock unlimited sales.", codigo: "LIMITE_VENTAS" }, 403);
         }
         const montoBruto = p.precio * cant;
@@ -1039,7 +1058,7 @@
 
       if (path === "/api/respaldo/exportar") {
         // Free-tier: sin dispositivo activado (PIN 789), respaldo bloqueado.
-        if (!instanceId) return J({ error: "Backup export requires activating this device (PIN 789)." }, 403);
+        if (!instanceId || licenciaLimitada()) return J({ error: "Backup export requires activating this device (PIN 789)." }, 403);
         return J(estadoActualExportable());
       }
       if (path === "/api/respaldo/importar") {
@@ -1171,6 +1190,7 @@
       // una sola vez (misma logica de split/comisiones que la venta normal).
       // Se aplican los items validos y se reportan los que no calzan.
       if (path === "/api/ventas/cierre" && opts && opts.method === "POST") {
+        if (!instanceId || licenciaLimitada()) return J({ error: "Activate this device (PIN 789) to use day close." }, 403);
         const items = Array.isArray(body.items) ? body.items : [];
         if (!items.length) return J({ error: "No hay cantidades que aplicar." }, 400);
         const errores = [];
@@ -1263,7 +1283,7 @@
         // horaIncidente: hora local del evento según el empleado (HH:MM), para conciliación con cámaras/audios.
         c.evaluacion.historial.push({ trato: c.evaluacion.trato, confiabilidad: c.evaluacion.confiabilidad, quien: body.quien || "Sistema", fecha: new Date().toISOString(), horaIncidente: body.horaIncidente || null });
         mov("cliente-evaluado", { cliente: c.nombre, trato: c.evaluacion.trato, confiabilidad: c.evaluacion.confiabilidad, horaIncidente: body.horaIncidente || null });
-        guardar();
+        guardarEstadoLocal();
         return J(fichaCliente(c));
       }
 
@@ -1276,7 +1296,7 @@
         const accion = mCliAct[2];
         c.despedido = accion === "despedir";
         mov(accion === "despedir" ? "cliente-despedido" : "cliente-reactivado", { cliente: c.nombre, quien: body.quien || "Sistema" });
-        guardar();
+        guardarEstadoLocal();
         return J({ ok: true, despedido: c.despedido });
       }
       if (path === "/api/inventario/bcg") return J(matrizBCG(uid));
@@ -1298,7 +1318,7 @@
         const pin    = String(body.pin    || "").trim();
         if (!nombre)                     return J({ error: "El nombre del empleado es obligatorio." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "El PIN debe tener exactamente 3 digitos." }, 400);
-        if (usuarios.length >= 1 && !instanceId) return J({ error: "The free plan includes 1 employee. Activate this device (PIN 789) for unlimited employees.", codigo: "LIMITE_EMPLEADOS" }, 403);
+        if (usuarios.length >= 1 && (!instanceId || licenciaLimitada())) return J({ error: "The free plan includes 1 employee. Activate this device (PIN 789) for unlimited employees.", codigo: "LIMITE_EMPLEADOS" }, 403);
         if (usuarios.some((u) => u.pin === pin)) return J({ error: "Ese PIN ya lo usa otro empleado. Elige uno diferente." }, 400);
         const nuevo = { id: uuid("u"), nombre, pin, rol: "empleado", activo: true, creadoEn: new Date().toISOString() };
         usuarios.push(nuevo);

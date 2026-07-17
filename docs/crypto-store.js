@@ -114,8 +114,13 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     // AMIGABLE (JFC 2026-07-02): el PIN de dueño pasó de 159 a 888. Si un
     // navegador ya tenía guardado el default viejo (159), lo subimos a 888 sin
     // tocar empleado/contable/correo. No-op si el dueño ya no es 159.
-    if (await verificarOwner("159") && !(await verificarOwner("888"))) {
-      await fijarOwnerPin("888");
+    // Fix-5: flag de un-solo-run — sin esto verificarOwner("159") corre en CADA
+    // pageload y acumula registrarFallo("owner") hasta lockout del dueño.
+    if (!localStorage.getItem("f123_migrado_159_888")) {
+      if (await verificarOwner("159") && !(await verificarOwner("888"))) {
+        await fijarOwnerPin("888");
+      }
+      localStorage.setItem("f123_migrado_159_888", "1");
     }
   }
 
@@ -170,6 +175,34 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const s = leerSecreto(); if (!s) return;
     s.email = email || "";
     localStorage.setItem("f123_secure", JSON.stringify(s));
+  }
+
+  // WhatsApp del dueno (Mejora #5, JFC 2026-07-16) — a diferencia del correo,
+  // NO esta bloqueado tras codigo maestro: es solo un dato de contacto/
+  // notificacion, no la via de recuperacion de acceso. Editable libremente.
+  function leerWhatsapp() {
+    const s = leerSecreto();
+    return s ? (s.whatsapp || "") : "";
+  }
+  function actualizarWhatsapp(numero) {
+    const s = leerSecreto(); if (!s) return false; // Fix-7: return false so caller can check
+    s.whatsapp = numero || "";
+    localStorage.setItem("f123_secure", JSON.stringify(s));
+    return true;
+  }
+  // Fix-2: recuperarPinDueno — lee ownerPinR (XOR+base64 opaco) si fue guardado.
+  // Actualmente guardarSecreto no escribe ownerPinR, así que retorna null y el
+  // flujo de "Olvidaste?" muestra el mensaje de "activa recuperación primero".
+  // Exportada para que auth-ui.js no explote con TypeError al llamarla.
+  function recuperarPinDueno() {
+    try {
+      const s = leerSecreto();
+      if (!s || !s.ownerPinR) return null;
+      const bin = atob(s.ownerPinR);
+      let out = "";
+      for (let i = 0; i < bin.length; i += 2) out += String.fromCharCode(bin.charCodeAt(i) ^ bin.charCodeAt(i + 1));
+      return /^\d{3}$/.test(out) ? out : null;
+    } catch { return null; }
   }
 
   // ---- Código maestro (ver nota arriba) ----
@@ -376,5 +409,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia
     activarSync, syncActiva, desactivarSync, cifrarSync, descifrarSync,
     hashTexto, cifrarTextoConClave, descifrarTextoConClave,
+    leerWhatsapp, actualizarWhatsapp, // Mejora #5, 2026-07-16
+    recuperarPinDueno, // Fix-2: evita TypeError en abrirFlujoReset si no hay ownerPinR
   };
 })();

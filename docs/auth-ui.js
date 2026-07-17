@@ -30,8 +30,14 @@
 //   directamente.
 // ===========================================================================
 (function () {
-  // Telemetry: sends activation + login checkins to the license worker.
+  // Ping: sends activation + login checkins to the license worker.
   // Fire-and-forget — never blocks UI. Worker URL obfuscated to deter scraping.
+  // NO CLOUD (JFC, regla dura, ver PRIVACY.md): este es EL UNICO lugar del
+  // codigo con permiso de mandar datos fuera del dispositivo, y SOLO estos
+  // campos: instanceId, licenseCode, email/nombre/apellido/cedula/whatsapp
+  // (todos opcionales, solo si el dueno los ingreso), y el estado de accion
+  // (register/login/update). JAMAS productos, ventas, clientes, inventario,
+  // ni nada de negocio. Ver worker.js para el lado servidor de esta regla.
   var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1SZsJWYnlWbh9yL6MHc0RHa";
   var OC_WORKER_URL = (function () { try { return atob(_ocEp.split("").reverse().join("")); } catch (_) { return ""; } })();
   async function enviarHeartbeat(datos) {
@@ -72,9 +78,6 @@
     } catch (_) { /* never block UI */ }
   }
 
-  // Versión embebida del build. Se compara contra version.json para detectar
-  // actualizaciones sin que el usuario tenga que refrescar manualmente.
-  const APP_VERSION = "1.0.2";
 
   // Pool de emojis de adorno — emojis de oficina/negocios, apropiados para
   // un sistema contable y de inventarios. Retrocompatibles: los PINs son
@@ -178,18 +181,6 @@
   #oc-logout{font-family:var(--font-display,sans-serif);font-size:13px;padding:8px 12px;border-radius:5px;
     border:2px solid var(--brass,#9c7a35);background:transparent;color:var(--blanco-calido,#fbf5e8);
     cursor:pointer;text-transform:uppercase;}
-  /* --- Banner de actualización (version.json) --- */
-  #oc-update-banner{margin-top:14px;border-top:1px solid var(--azul-medio,#2c4a68);padding-top:12px;display:none;}
-  #oc-update-banner.visible{display:block;}
-  #oc-update-banner .upd-txt{font-size:13px;color:var(--ink-soft,#5d5340);margin-bottom:8px;line-height:1.4;}
-  #oc-update-banner .upd-txt strong{color:var(--ink,#211c14);}
-  #oc-update-banner .upd-txt.requerida{color:var(--rojo,#a3392a);font-weight:700;}
-  #oc-update-banner button#oc-btn-actualizar{
-    font-family:var(--font-display,sans-serif);font-size:13px;padding:10px 16px;border-radius:6px;
-    border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);
-    color:var(--blanco-calido,#fbf5e8);cursor:pointer;min-height:44px;width:100%;}
-  #oc-update-banner button#oc-btn-actualizar.requerida{
-    border-color:var(--rojo,#a3392a);background:var(--rojo,#a3392a);font-size:15px;}
   /* FIX 2026-07-02: la vista se renombró de "liquidaciones" a "comisiones";
      este selector seguía apuntando al data-vista viejo y el EMPLEADO veía el
      botón Comisiones (datos financieros del dueño). Mantener sincronizado con
@@ -290,10 +281,6 @@
         <button id="oc-recuperar">${window.t("auth.gate.forgot")}</button>
       </div>
       <div class="oc-msg" id="oc-msg"></div>
-      <div id="oc-update-banner">
-        <div class="upd-txt" id="oc-upd-txt"></div>
-        <button id="oc-btn-actualizar">${window.t("auth.gate.updateApp")}</button>
-      </div>
     </div>`;
   document.body.appendChild(gate);
 
@@ -425,10 +412,11 @@
       +     '<p class="marca">' + window.t("auth.act.tagline") + '</p>'
       +     '<h2>' + window.t("auth.act.title") + '</h2>'
       +     '<p>' + window.t("auth.act.intro") + '</p>'
+      +     '<p style="font-weight:700;">' + window.t("auth.act.dataPromise") + '</p>'
       +     '<label class="op"><input type="radio" name="oc-act-datos" value="vaciar" checked><strong>' + window.t("auth.act.startEmptyTitle") + '</strong><span>' + window.t("auth.act.startEmptyDesc") + '</span></label>'
       +     '<label class="op"><input type="radio" name="oc-act-datos" value="conservar"><strong>' + window.t("auth.act.keepTitle") + '</strong><span>' + window.t("auth.act.keepDesc") + '</span></label>'
       +     '<label class="lbl" for="oc-act-email">' + window.t("auth.act.emailLabel") + '</label>'
-      +     '<input id="oc-act-email" type="email" inputmode="email" autocomplete="email" placeholder="tucorreo@dominio.com">'
+      +     '<input id="oc-act-email" type="email" inputmode="email" autocomplete="email" placeholder="' + window.t("auth.act.emailPlaceholder") + '">'
       +     '<button id="oc-act-confirmar" class="primario">' + window.t("auth.act.confirmBtn") + '</button>'
       +     '<button id="oc-act-cancelar" class="secundario">' + window.t("auth.act.cancelBtn") + '</button>'
       +     '<p id="oc-act-msg" class="msg"></p>'
@@ -467,9 +455,11 @@
         try { var rm = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("vp_foto_percha_") === 0) rm.push(k); } rm.forEach(function (kk) { localStorage.removeItem(kk); }); } catch (_) {}
       }
       try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now() })); } catch (_) {}
-      try { localStorage.setItem("f123_bienvenida_v2", "1"); } catch (_) {}
+      // NO marcar f123_bienvenida_v3 aqui — el wizard debe mostrarse de verdad
+      // tras el primer login post-activacion (ver welcome-ui.js). Bug anterior:
+      // se marcaba "vista" en este punto sin que el usuario la viera nunca.
       registrarExito();
-      // Telemetry: record new activation in license panel
+      // Ping: record new activation in license panel
       var ow2 = {}; try { ow2 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
       enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, nombre: nombre, apellido: apellido, cedula: cedula, activatedAt: ow2.activatedAt, accion: "register" });
       var seguro = email.replace(/[&<>"']/g, "");
@@ -527,7 +517,7 @@
     reiniciarInactividad();
     if (rol === "empleado") { const n = document.querySelector('nav button[data-vista="hoy"]'); if (n) n.click(); }
 
-        // Telemetry: heartbeat on each login
+        // Ping: heartbeat on each login
         try {
           var ow3 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
           if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", accion: "login" });
@@ -567,7 +557,7 @@
     rol = null;
     demoSesion = false;
     window.OCCurrentUser = null; // borrar sesion de empleado nombrado
-    document.body.classList.remove("rol-empleado", "rol-dueno", "rol-demo");
+    document.body.classList.remove("rol-empleado", "rol-dueno", "rol-demo", "rol-contador"); // Fix-6: rol-contador también
     nuevoTeclado();
     gate.style.display = "flex";
     document.body.style.overflow = "hidden"; // candado visible: el fondo no se mueve
@@ -586,41 +576,14 @@
   $("oc-recuperar").addEventListener("click", () => abrirFlujoReset());
   nuevoTeclado();
 
-  // ---------------------------------------------------------------------------
-  // VERIFICACIÓN DE VERSIÓN (JFC, 2026-07-03): fetch version.json (no-cache)
-  // y compara contra APP_VERSION embebida. Ver OC/auth-ui.js para documentación
-  // completa del comportamiento (requerida vs opcional).
-  // ---------------------------------------------------------------------------
-  async function verificarVersion() {
-    try {
-      const res = await fetch("./version.json?_=" + Date.now(), { cache: "no-cache" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data.version || data.version === APP_VERSION) return;
-      const banner = $("oc-update-banner");
-      const txt    = $("oc-upd-txt");
-      const btn    = $("oc-btn-actualizar");
-      banner.classList.add("visible");
-      if (data.requerida) {
-        txt.className = "upd-txt requerida";
-        txt.innerHTML = `<strong>${window.t("auth.gate.updateRequired")} (v${data.version})</strong><br>${data.changelog || ""}`;
-        btn.textContent  = window.t("auth.gate.updateNow");
-        btn.className    = "requerida";
-        $("oc-pad").style.display       = "none";
-        $("oc-borrar").style.display    = "none";
-        $("oc-recuperar").style.display = "none";
-        $("oc-msg").textContent = "";
-      } else {
-        txt.className = "upd-txt";
-        // FIX 2026-07-07: version.json es archivo propio, pero si Pages o un mirror
-        // se compromete, esto era XSS directo. Se escapa antes de inyectar.
-        const escV = (v) => String(v).replace(/[&<>"\']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "\'": "&#39;" }[c]));
-        txt.innerHTML = `${window.t("auth.gate.newVersionAvailable")} <strong>v${escV(data.version)}</strong>${data.changelog ? " — " + escV(data.changelog) : ""}`;
-      }
-      btn.addEventListener("click", () => { location.reload(true); });
-    } catch { /* sin conexión o version.json ausente → silencio */ }
-  }
-  verificarVersion();
+  // Banner manual de "Actualizar app" QUITADO (JFC 2026-07-16): "no tiene el
+  // menor sentido — YO mantengo la app actualizada (2 años de soporte), y si
+  // es el cache del usuario, para eso estan los meta tags y otros metodos de
+  // refresh ya puestos". Ademas tenia un bug real: APP_VERSION vivia
+  // hardcodeada aqui y nunca se sincronizaba con version.json, asi que el
+  // banner salia SIEMPRE, en cada visita, sin que hubiera update real.
+  // version.json se deja intacto (lo usan el cache-busting / SW), pero nada
+  // en esta pantalla lo lee ni lo muestra. NO reintroducir sin que JFC lo pida.
 
   // ---------------------------------------------------------------------------
   // "Olvide mi clave" (JFC, 2026-07-02): envia el PIN del dueno a su correo
@@ -702,6 +665,12 @@
     enmascarar,
     listo: () => listo,
     abrirFlujoReset,
+    // Expuesto para avanzado-extra.js (registro de WhatsApp, Mejora #5,
+    // 2026-07-16): reusa la misma resolucion de URL que enviarHeartbeat
+    // (override en localStorage si existe, si no el endpoint ofuscado por
+    // defecto) — sin duplicar el string. NO usar esto para guardar datos del
+    // negocio en el worker — ver nota "NO CLOUD" al inicio de worker.js.
+    workerUrl: () => (localStorage.getItem("f123_cf_worker_url") || "").trim() || OC_WORKER_URL,
     // Pide la subclave contable con su propio teclado (emojis barajados, casillas enmascaradas).
     pedirSubclaveContable() {
       return new Promise((resolve) => {
