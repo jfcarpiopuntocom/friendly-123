@@ -50,7 +50,9 @@
   }
 
   // ── fotos en localStorage ──────────────────────────────────────────────────
-  const FOTO_KEY = (id) => 'vp_foto_percha_' + id;
+  // f123_ prefijo (2026-07-17): sin esto las fotos de percha compartian
+  // namespace con AMIGABLE (mismo origen en GitHub Pages).
+  const FOTO_KEY = (id) => 'f123_foto_percha_' + id;
   const getFoto = (id) => { try { return localStorage.getItem(FOTO_KEY(id)); } catch { return null; } };
 
   function redimensionar(file, cb) {

@@ -732,7 +732,7 @@
         const fotosPerchas = {};
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          if (k && k.indexOf("vp_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k);
+          if (k && k.indexOf("f123_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k);
         }
         const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("f123_secure"), fotosPerchas };
         const contenidoPlano = JSON.stringify(paquete);
@@ -1130,7 +1130,7 @@
       try {
         const datos = await (await fetch(`${API}/respaldo/exportar`)).json();
         const fotosPerchas = {};
-        for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("vp_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k); }
+        for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k); }
         const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("f123_secure"), fotosPerchas };
         const contenidoPlano = JSON.stringify(paquete);
         const checksum = await window.OCSecure.hashTexto(contenidoPlano);

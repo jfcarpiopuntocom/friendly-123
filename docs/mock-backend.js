@@ -298,7 +298,25 @@
   // recargar la página se perdían ventas/productos nuevos. Ahora todo el
   // estado se persiste en localStorage tras cada mutación (ver debePersistir
   // en el interceptor de fetch) y se recarga al arrancar (cargarEstadoLocal).
-  const OC_STATE_KEY = "amigable_demo_state_v4"; // v4 (2026-07-08): + evaluacion de clientes
+  // CRITICO (2026-07-17): la clave vieja "amigable_demo_state_v4" nunca tuvo
+  // prefijo f123_, y GitHub Pages sirve friendly-123 y AMIGABLE bajo el MISMO
+  // origen (jfcarpiopuntocom.github.io) — localStorage se comparte por origen,
+  // no por carpeta. Con la clave vieja, TODO el estado del negocio (productos,
+  // ventas, clientes) se mezclaba entre ambas apps en el mismo navegador.
+  const OC_STATE_KEY_VIEJA = "amigable_demo_state_v4";
+  const OC_STATE_KEY = "f123_estado_v4";
+  // Migracion de un solo uso: si ya hay estado bajo la clave nueva, no tocar
+  // nada. Si NO hay nada bajo la nueva pero SI bajo la vieja compartida,
+  // copiarlo una vez para no perder datos de un cliente que ya venia usando
+  // la app antes de este fix (aunque ese estado pudo venir mezclado con
+  // AMIGABLE si el cliente tambien uso esa app en el mismo navegador).
+  (function migrarEstadoSiHaceFalta() {
+    try {
+      if (localStorage.getItem(OC_STATE_KEY) != null) return;
+      const viejo = localStorage.getItem(OC_STATE_KEY_VIEJA);
+      if (viejo != null) localStorage.setItem(OC_STATE_KEY, viejo);
+    } catch (_) {}
+  })();
   // Severidad Simon (menor = mas grave). Usado para quedarse con la señal
   // mas urgente entre stock y vencimiento, y para ordenar alertas.
   const ORDEN = { rojo: 0, naranja: 1, amarillo: 2, negro: 3, azul: 4, verde: 5 };

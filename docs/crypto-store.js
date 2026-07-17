@@ -260,7 +260,11 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // que sobreviva un refresh de página.
   const INTENTOS_MAX = 5;
   const BLOQUEO_BASE_MS = 30 * 1000;
-  function intentosKey(ambito) { return "oc_intentos_" + ambito; }
+  // f123_ prefijo (2026-07-17): sin esto, los contadores de bloqueo por
+  // intentos fallidos se compartian con AMIGABLE (mismo origen en GitHub
+  // Pages). Solo son contadores de lockout, sin datos sensibles — renombrar
+  // directo es seguro, en el peor caso un lockout activo se reinicia.
+  function intentosKey(ambito) { return "f123_intentos_" + ambito; }
   function leerIntentos(ambito) {
     try { return JSON.parse(localStorage.getItem(intentosKey(ambito)) || "null") || { n: 0, bloqueadoHasta: 0 }; }
     catch { return { n: 0, bloqueadoHasta: 0 }; }

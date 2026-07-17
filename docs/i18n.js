@@ -679,7 +679,7 @@
     },
   };
 
-  const LS_KEY = "oc_lang";
+  const LS_KEY = "f123_lang"; // f123_ prefijo (2026-07-17): namespace propio, no compartir con AMIGABLE
   let lang = localStorage.getItem(LS_KEY);
   if (lang !== "en" && lang !== "es") lang = "en"; // default English
 
