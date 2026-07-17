@@ -341,7 +341,7 @@
     <div class="tabla-wrap">
       <div id="lic-empty" style="padding:34px 20px;text-align:center;color:var(--ink-soft);font-size:14px;display:none;">Aún no hay instancias. Cuando tengas el Worker configurado, aparecerán aquí.</div>
       <table class="versiones" id="lic-tabla" style="display:none;">
-        <thead><tr><th>Estado</th><th>Código f123</th><th>Nombre</th><th>Email</th><th>Cédula</th><th>Activado</th><th>Última vez</th><th>Acción</th></tr></thead>
+        <thead><tr><th>Estado</th><th>Código f123</th><th>Nombre</th><th>Email</th><th>WhatsApp</th><th>Cédula</th><th>Activado</th><th>Última vez</th><th>Acción</th></tr></thead>
         <tbody id="lic-tbody"></tbody>
       </table>
     </div>
@@ -731,6 +731,11 @@ function licMostrarVacio() {
   document.getElementById("lic-empty").style.display = "block";
   document.getElementById("lic-tabla").style.display = "none";
 }
+// wa.me exige solo digitos (con codigo de pais, sin "+", espacios ni guiones).
+function licWaHref(tel) {
+  const digits = String(tel || "").replace(/\D/g, "");
+  return digits ? "https://wa.me/" + digits : "";
+}
 function licRenderTabla(data) {
   if (!data.length) { licMostrarVacio(); return; }
   document.getElementById("lic-empty").style.display = "none";
@@ -740,12 +745,14 @@ function licRenderTabla(data) {
   data.forEach(r => {
     const est = r.estado || "activa";
     const id = licEsc(r.instanceId);
+    const waHref = licWaHref(r.whatsapp);
     const tr = document.createElement("tr");
     tr.innerHTML =
       `<td><span class="lic-badge ${licEsc(est)}">${licEsc(est)}</span></td>` +
       `<td class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}</td>` +
       `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || "—")}</td>` +
       `<td style="font-size:13px;">${licEsc(r.email || "—")}</td>` +
+      `<td style="font-size:13px;">${waHref ? `<a href="${waHref}" target="_blank" style="color:#25D366;">💬 ${licEsc(r.whatsapp)}</a>` : "—"}</td>` +
       `<td style="font-size:13px;">${licEsc(r.cedula || "—")}</td>` +
       `<td class="date">${licFmtDate(r.activatedAt)}</td>` +
       `<td class="date">${licFmtDate(r.lastSeen)}</td>` +
@@ -791,7 +798,7 @@ async function licCambiarEstado(instanceId) {
 }
 function licExportCSV() {
   if (!_licData.length) { mostrarConfirmacion("No hay instancias que exportar todavía"); return; }
-  const cols = ["licenseCode", "nombre", "apellido", "email", "cedula", "estado", "activatedAt", "lastSeen", "instanceId"];
+  const cols = ["licenseCode", "nombre", "apellido", "email", "whatsapp", "cedula", "estado", "activatedAt", "lastSeen", "instanceId"];
   const rows = _licData.map(r => cols.map(c => {
     let v = r[c] != null ? String(r[c]) : "";
     if (c.endsWith("At") && r[c]) v = licFmtDate(r[c]);

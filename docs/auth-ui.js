@@ -281,6 +281,7 @@
         <button id="oc-recuperar">${window.t("auth.gate.forgot")}</button>
       </div>
       <div class="oc-msg" id="oc-msg"></div>
+      <p id="oc-gate-tagline" style="margin:10px 0 0;font-size:12px;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">friendly-123 &middot; ${window.t("auth.gate.tagline")}</p>
     </div>`;
   document.body.appendChild(gate);
 

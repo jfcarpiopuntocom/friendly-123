@@ -106,6 +106,12 @@ Open an issue before opening a PR. The roadmap is opinionated.
 
 ---
 
+## Data & Privacy
+
+See [PRIVACY.md](./PRIVACY.md) — short version: your business data never leaves your device, the only thing we track is your license, and you can verify it yourself by reading the code.
+
+---
+
 ## License
 
 Proprietary. See `LICENSE`.

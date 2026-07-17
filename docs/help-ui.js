@@ -76,12 +76,27 @@
       <li><b>Accounting layer</b>: T-accounts, P&amp;L, balance sheet. Separate PIN — your accountant or partner can access it directly without seeing the full system.</li>
       <li><b>Keys and recovery</b>: save your email before changing any PIN. No email on file = no recovery possible.</li>
     </ul>
+    <h3>What data leaves this device?</h3>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
+      Short answer: your business data never does. Products, sales, customers, inventory,
+      photos — all of it stays in this browser, on this device, always. The only thing
+      that's ever sent anywhere is your <b>license</b>: a random device ID, and (only if
+      you chose to enter them) your name, email, license code, and WhatsApp number — so
+      we can recover your access or reach you if needed. Nothing else, ever, under any
+      feature. See <a href="https://github.com/jfcarpiopuntocom/friendly-123/blob/main/PRIVACY.md" target="_blank" rel="noopener" style="color:#5294AC;">PRIVACY.md</a>
+      for the full detail, or just open DevTools → Network and watch for yourself.
+    </p>
     <h3>Ownership and updates</h3>
-    <p style="font-size:14px;line-height:1.6;margin:0;">
+    <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
       Your data lives on this device — no server has it, no subscription can take it away.
       Activation unlocks unlimited products and exports. Includes <b>2 years of patches
       and updates</b> (the industry standard is 1).
     </p>
+    <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
+      border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
+      font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
+      See the welcome tutorial again
+    </button>
   `;
 
   // AYUDA_EMPLEADO: operational only — no mention of PINs, costs, or accounting.
@@ -154,6 +169,15 @@
   window.OCHelp = { abrir };
   document.getElementById("oc-help-cerrar").addEventListener("click", () => modal.classList.remove("abierto"));
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("abierto"); });
+  // "See the welcome tutorial again" (JFC 2026-07-16): delegado sobre oc-help-body
+  // porque su contenido se reemplaza por completo en cada abrir(). Solo reabre el
+  // wizard (window.OCWelcome de welcome-ui.js) — no toca ninguna flag.
+  document.getElementById("oc-help-body").addEventListener("click", (e) => {
+    if (e.target && e.target.id === "oc-help-ver-bienvenida") {
+      modal.classList.remove("abierto");
+      if (window.OCWelcome && window.OCWelcome.abrir) window.OCWelcome.abrir();
+    }
+  });
 
   window.addEventListener("oc-login", () => {
     const logout = document.getElementById("oc-logout");

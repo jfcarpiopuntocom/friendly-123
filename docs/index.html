@@ -3302,7 +3302,7 @@ async function cargarComisiones(){
     return;
   }
   // Rec 03: botón que arma el resumen del día y lo abre en WhatsApp listo.
-  const btnWA = `<button class="ir" style="margin-bottom:16px;background:#25D366;color:#fff;border-color:#1da851;" onclick="enviarResumenWhatsApp()">Enviar resumen por WhatsApp</button>`;
+  const btnWA = `<button class="ir" style="margin-bottom:16px;background:#25D366;color:#fff;border-color:#1da851;" onclick="enviarResumenWhatsApp()">${t("comm.sendWhatsappDaily")}</button>`;
 
   if (filas.length === 0){
     cont.innerHTML = btnWA + `<p>You don't have racks that generate commission yet (partner, franchise, or consignment). Create them in Inventory → Racks.</p>`;
@@ -3443,6 +3443,50 @@ async function enviarResumenWhatsApp(){
   else L.push("No critical stock. Everything is fine.");
   window.open("https://wa.me/?text=" + encodeURIComponent(L.join("\n")), "_blank");
 }
+
+// Mejora #5 (JFC 2026-07-16): resumen SEMANAL por WhatsApp, ofrecido solo (no
+// enviado en automático — no existe forma de mandar WhatsApp sin que el
+// dueno lo confirme, wa.me siempre abre la app para que el humano toque
+// enviar). Se ofrece como maximo una vez cada 7 dias, con un toast chico y
+// descartable — nunca bloquea el flujo ni se repite el mismo dia.
+async function enviarResumenSemanalWhatsApp(){
+  const [dash, liq] = await Promise.all([
+    fetch(`${API}/dashboard?ubicacionId=${ubicacionActual}`).then(r => r.json()).catch(() => ({})),
+    fetch(`${API}/liquidaciones`).then(r => r.json()).catch(() => []),
+  ]);
+  const rs = dash.resumenSemana || {};
+  const pend = (Array.isArray(liq) ? liq : []).filter(f => f.estado === "pendiente");
+  const totalPend = pend.reduce((a, f) => a + (f.comisionSocio || 0), 0);
+  const criticos = (dash.alertas || []).filter(a => a.estado === "rojo").slice(0, 5).map(a => a.mensaje);
+  const L = [t("weekly.msgTitle")];
+  L.push(tf("weekly.msgSales", { amount: fmtMoney(rs.entra || 0), count: rs.ventasCount || 0 }));
+  if (totalPend > 0) L.push(tf("weekly.msgPending", { amount: fmtMoney(totalPend), count: pend.length }));
+  if (criticos.length){ L.push(t("weekly.msgCritical")); criticos.forEach(c => L.push("• " + c)); }
+  else L.push(t("weekly.msgNoCritical"));
+  const mensaje = L.join("\n");
+  if (navigator.share) { try { await navigator.share({ text: mensaje }); return; } catch (_) {} }
+  window.open("https://wa.me/?text=" + encodeURIComponent(mensaje), "_blank");
+}
+
+function ofrecerResumenSemanalSiToca(){
+  if (!window.OCAuth || window.OCAuth.rolActual() !== "dueno") return;
+  if (window.OCAuth.esDemo && window.OCAuth.esDemo()) return;
+  let ultimo = 0;
+  try { ultimo = Number(localStorage.getItem("f123_resumen_semanal_ofrecido") || 0); } catch (_) {}
+  if (Date.now() - ultimo < 7 * 86400000) return;
+  try { localStorage.setItem("f123_resumen_semanal_ofrecido", String(Date.now())); } catch (_) {}
+  const toast = document.createElement("div");
+  toast.style.cssText = "position:fixed;bottom:16px;left:16px;right:16px;max-width:420px;margin:0 auto;background:#0F1923;border:2px solid #25D366;border-radius:10px;padding:14px 16px;z-index:9500;box-shadow:0 8px 30px #060d14;";
+  toast.innerHTML = `<p style="color:#F8F9FB !important;-webkit-text-fill-color:#F8F9FB !important;font-size:14px;margin:0 0 10px;font-weight:700;">${t("weekly.nudgeTitle")}</p>
+    <div style="display:flex;gap:8px;">
+      <button id="oc-resumen-sem-si" style="flex:1;min-height:44px;border:none;border-radius:7px;background:#25D366;color:#04210f !important;-webkit-text-fill-color:#04210f !important;font-weight:700;cursor:pointer;">${t("weekly.nudgeSend")}</button>
+      <button id="oc-resumen-sem-no" style="min-height:44px;padding:0 14px;border:2px solid #5294AC;border-radius:7px;background:transparent;color:#F8F9FB !important;-webkit-text-fill-color:#F8F9FB !important;cursor:pointer;">${t("weekly.nudgeNotNow")}</button>
+    </div>`;
+  document.body.appendChild(toast);
+  toast.querySelector("#oc-resumen-sem-si").addEventListener("click", () => { enviarResumenSemanalWhatsApp(); toast.remove(); });
+  toast.querySelector("#oc-resumen-sem-no").addEventListener("click", () => toast.remove());
+}
+window.addEventListener("oc-login", () => setTimeout(ofrecerResumenSemanalSiToca, 1200));
 
 // MEJORA 3 — Recibo instantáneo al pagar comisión.
 // Después de marcar como pagado, la app arma un mini-recibo en WhatsApp listo
