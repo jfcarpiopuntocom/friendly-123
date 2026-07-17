@@ -9,3 +9,9 @@ docs/*_2026-*.html
 docs/*_2026-*.png
 docs/*_2026-*.webp
 _local_backups/
+_local/
+.wrangler/
+PRIVACY.md
+check-no-cloud.sh
+cloudflare-worker/.wrangler/
+_backups/
