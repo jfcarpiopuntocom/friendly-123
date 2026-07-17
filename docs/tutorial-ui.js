@@ -109,7 +109,7 @@
     const txt = L.pasos[idx];
     const el = objetivoDe(d);
     if (!el) return;
-    try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {}
+    try { el.scrollIntoView({ block: "center", behavior: "instant" }); } catch (_) {}
     const r = el.getBoundingClientRect();
     const pad = 6;
     foco.style.left = Math.max(4, r.left - pad) + "px";
