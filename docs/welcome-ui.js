@@ -81,6 +81,7 @@
       <p class="tagline">Manage your business, in color</p>
       <p class="formal">Inventory management · clients · commissions · racks</p>
       <p class="cuerpo">Managing your business doesn't have to be complicated. Products talk in colors that light up when action is needed: green when everything's good, gold when money is waiting, red when it's time to move. Works offline. Your data is yours alone. No subscriptions, no ads.</p>
+      <button id="am-welcome-tut" style="width:100%;min-height:46px;margin-bottom:8px;border-radius:8px;border:2px solid #E86040;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;cursor:pointer;">Take the guided tutorial</button>
       <button id="am-welcome-guia">See the guide</button>
       <button id="am-welcome-ok">Get started</button>
     </div>`;
@@ -110,6 +111,10 @@
     try { localStorage.setItem(FLAG, '1'); } catch (_) { /* modo privado: se mostrará otra vez, aceptable */ }
   }
   document.getElementById('am-welcome-ok').addEventListener('click', cerrar);
+  document.getElementById('am-welcome-tut').addEventListener('click', () => {
+    cerrar();
+    if (window.OCTutorial && window.OCTutorial.iniciar) window.OCTutorial.iniciar();
+  });
   // "Ver la guia" cierra la bienvenida (queda marcada como vista) y abre la
   // Ayuda completa via la API de help-ui.js. La Ayuda sigue siempre
   // disponible en el boton (?) — esto es solo el atajo del primer minuto.
@@ -129,8 +134,9 @@
     }
   });
   document.getElementById('am-rec-ver').addEventListener('click', () => {
+    // Launches the interactive TUTORIAL (tutorial-ui.js) — NOT the reading guide.
     reminder.classList.remove('abierto');
-    modal.classList.add('abierto');
+    if (window.OCTutorial && window.OCTutorial.iniciar) window.OCTutorial.iniciar();
   });
   // Sin click-outside-to-close ni tecla Escape aqui a proposito: el candado
   // de confirmacion es el punto entero de este modal.

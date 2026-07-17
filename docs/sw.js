@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v11"; // bumped 2026-07-17: fix critico localStorage compartido con AMIGABLE + bilinguismo perchas/ayuda + panel // subir el numero purga la cache vieja en todos los dispositivos
+const CACHE = "f123-shell-v12"; // bumped 2026-07-17: fix critico localStorage compartido con AMIGABLE + bilinguismo perchas/ayuda + panel // subir el numero purga la cache vieja en todos los dispositivos
 const SHELL = [
   "./",
   "./index.html",
@@ -28,6 +28,7 @@ const SHELL = [
   "./help-ui.js",
   "./vista-perchas.js",
   "./welcome-ui.js",
+  "./tutorial-ui.js",
   "./manifest.json",
 ];
 
