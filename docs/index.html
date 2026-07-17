@@ -3468,7 +3468,9 @@ async function enviarResumenSemanalWhatsApp(){
   // (2026-07-17) el resumen semanal es "para ti": si el dueno registro su
   // WhatsApp en Avanzado, se abre directo a su propio numero — cero pasos extra.
   const numPropio = (window.OCSecure && window.OCSecure.leerWhatsapp && String(window.OCSecure.leerWhatsapp() || "").replace(/\D/g, "")) || "";
-  window.open("https://wa.me/" + numPropio + "?text=" + encodeURIComponent(mensaje), "_blank");
+  // Guard: sin numero registrado, wa.me abre picker de contactos — el resumen
+  // podria acabar en el chat equivocado. Mejor avisar y abrir picker consciente.
+  window.open("https://wa.me/" + (numPropio || "") + "?text=" + encodeURIComponent(numPropio ? mensaje : mensaje + "\n\n(" + t("weekly.noWhatsappHint") + ")"), "_blank");
 }
 
 function ofrecerResumenSemanalSiToca(){
@@ -3791,7 +3793,7 @@ if ("serviceWorker" in navigator) {
 (async function () {
   try {
     const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
-    if (!r.ok) return;
+    if (!r.ok) { try { const eb = JSON.parse(localStorage.getItem("f123_errores") || "[]"); eb.push({ ts: Date.now(), tipo: "version-check", msg: "version.json " + r.status }); if (eb.length > 50) eb.splice(0, eb.length - 50); localStorage.setItem("f123_errores", JSON.stringify(eb)); } catch (_) {} return; }
     const v = String(((await r.json()) || {}).version || "");
     if (!v) return;
     const K = "f123_version_vista";

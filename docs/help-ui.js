@@ -97,7 +97,7 @@
     <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
       border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
       font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
-      See the welcome tutorial again
+      Take the guided tutorial
     </button>
   `;
 
@@ -158,7 +158,7 @@
     <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
       border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
       font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
-      Ver el tutorial de bienvenida otra vez
+      Hacer el tutorial guiado
     </button>
   `;
 
@@ -279,7 +279,8 @@
   document.getElementById("oc-help-body").addEventListener("click", (e) => {
     if (e.target && e.target.id === "oc-help-ver-bienvenida") {
       modal.classList.remove("abierto");
-      if (window.OCWelcome && window.OCWelcome.abrir) window.OCWelcome.abrir();
+      if (window.OCTutorial && window.OCTutorial.iniciar) window.OCTutorial.iniciar();
+      else if (window.OCWelcome && window.OCWelcome.abrir) window.OCWelcome.abrir();
     }
   });
 

@@ -746,5 +746,20 @@ function init() {
 
 window.onload = init;
 </script>
+
+<script>
+// Version kill-switch (parity with index.html, 2026-07-17): si la version
+// publicada cambio, purga caches y recarga. Evita que leads con este HTML
+// cacheado queden atascados en una version vieja para siempre.
+(async function(){try{
+var r=await fetch("./version.json?ts="+Date.now(),{cache:"no-store"});
+if(!r.ok){try{var eb=JSON.parse(localStorage.getItem("f123_errores")||"[]");eb.push({ts:Date.now(),tipo:"version-check",msg:"version.json "+r.status});if(eb.length>50)eb.splice(0,eb.length-50);localStorage.setItem("f123_errores",JSON.stringify(eb))}catch(_){}return}
+var v=String(((await r.json())||{}).version||"");if(!v)return;
+var K="f123_version_vista",prev=localStorage.getItem(K);
+if(prev===v)return;localStorage.setItem(K,v);
+try{var cs=await caches.keys();for(var c of cs){try{await caches.delete(c)}catch(_){}}}catch(_){}
+location.reload();
+}catch(_){}})();
+</script>
 </body>
 </html>

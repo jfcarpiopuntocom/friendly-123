@@ -168,19 +168,6 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     registrarFallo("login");
     return null;
   }
-  // Paridad AMIGABLE (2026-07-17): verificacion combinada dueno/empleado con
-  // UN solo ambito de lockout ("login") — evita que probar un PIN de empleado
-  // acumule fallos en el contador del dueno y viceversa.
-  async function verificarOwnerOEmpleado(pin) {
-    if (segundosBloqueo("login") > 0) return null;
-    const s = leerSecreto();
-    if (!s) return null;
-    if ((await hashPin(pin, s.salt, "owner")) === s.ownerHash) { registrarExito("login"); return "dueno"; }
-    const h = await hashPin(pin, s.salt, "emp");
-    if ((s.employeeHashes || []).includes(h)) { registrarExito("login"); return "empleado"; }
-    registrarFallo("login");
-    return null;
-  }
   async function verificarAcct(pin) {
     if (segundosBloqueo("acct") > 0) return false;
     const s = leerSecreto(); if (!s) return false;
@@ -452,7 +439,6 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     activarSync, syncActiva, desactivarSync, cifrarSync, descifrarSync,
     hashTexto, cifrarTextoConClave, descifrarTextoConClave,
     leerWhatsapp, actualizarWhatsapp, // Mejora #5, 2026-07-16
-    verificarOwnerOEmpleado, // paridad AMIGABLE, lockout unico
     verificarOwnerOEmpleado, // paridad AMIGABLE, lockout unico
     recuperarPinDueno, // Fix-2: evita TypeError en abrirFlujoReset si no hay ownerPinR
   };

@@ -1393,7 +1393,10 @@
       // en blanco (sin datos-semilla de ejemplo). Persiste el estado para que
       // el arranque quede fijado como instancia propia, no como demo.
       if (path === "/api/instancia/activar" && opts && opts.method === "POST") {
-        if (typeof body.instanceId === "string" && body.instanceId) instanceId = body.instanceId;
+        // Guard: safeParse puede devolver {} — sin instanceId el dispositivo
+        // queda "activado a medias" (owned con instanceId:null). Rechazar.
+        if (!body.instanceId || typeof body.instanceId !== "string") return J({ error: "instanceId requerido" }, { status: 400 });
+        instanceId = body.instanceId;
         if (body.vaciar === true) {
           productos.length = 0; ubicaciones.length = 0; ventas.length = 0;
           movimientos.length = 0; transferencias.length = 0; clientes.length = 0;
