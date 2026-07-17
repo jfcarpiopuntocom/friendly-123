@@ -155,6 +155,32 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     ok ? registrarExito("emp") : registrarFallo("emp");
     return ok;
   }
+  // Paridad AMIGABLE (2026-07-17): verificacion combinada dueno/empleado con
+  // UN solo ambito de lockout ("login") — evita que probar un PIN de empleado
+  // acumule fallos en el contador del dueno y viceversa.
+  async function verificarOwnerOEmpleado(pin) {
+    if (segundosBloqueo("login") > 0) return null;
+    const s = leerSecreto();
+    if (!s) return null;
+    if ((await hashPin(pin, s.salt, "owner")) === s.ownerHash) { registrarExito("login"); return "dueno"; }
+    const h = await hashPin(pin, s.salt, "emp");
+    if ((s.employeeHashes || []).includes(h)) { registrarExito("login"); return "empleado"; }
+    registrarFallo("login");
+    return null;
+  }
+  // Paridad AMIGABLE (2026-07-17): verificacion combinada dueno/empleado con
+  // UN solo ambito de lockout ("login") — evita que probar un PIN de empleado
+  // acumule fallos en el contador del dueno y viceversa.
+  async function verificarOwnerOEmpleado(pin) {
+    if (segundosBloqueo("login") > 0) return null;
+    const s = leerSecreto();
+    if (!s) return null;
+    if ((await hashPin(pin, s.salt, "owner")) === s.ownerHash) { registrarExito("login"); return "dueno"; }
+    const h = await hashPin(pin, s.salt, "emp");
+    if ((s.employeeHashes || []).includes(h)) { registrarExito("login"); return "empleado"; }
+    registrarFallo("login");
+    return null;
+  }
   async function verificarAcct(pin) {
     if (segundosBloqueo("acct") > 0) return false;
     const s = leerSecreto(); if (!s) return false;
@@ -271,15 +297,27 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   }
   function segundosBloqueo(ambito) {
     const i = leerIntentos(ambito);
-    return i.bloqueadoHasta && Date.now() < i.bloqueadoHasta ? Math.ceil((i.bloqueadoHasta - Date.now()) / 1000) : 0;
+    const m = _memInt[ambito] || {};
+    const hasta = Math.max(i.bloqueadoHasta || 0, m.bloqueadoHasta || 0);
+    return hasta && Date.now() < hasta ? Math.ceil((hasta - Date.now()) / 1000) : 0;
   }
+  // Espejo EN MEMORIA del contador de intentos (antitampering 2026-07-17):
+  // borrar localStorage desde la consola ya no resetea el lockout de la
+  // sesion viva. Se toma siempre el peor de los dos contadores.
+  const _memInt = {};
   function registrarFallo(ambito) {
     const i = leerIntentos(ambito);
     i.n = (i.n || 0) + 1;
-    if (i.n >= INTENTOS_MAX) i.bloqueadoHasta = Date.now() + BLOQUEO_BASE_MS * Math.min(20, Math.floor(i.n / INTENTOS_MAX));
-    localStorage.setItem(intentosKey(ambito), JSON.stringify(i));
+    const m = _memInt[ambito] = _memInt[ambito] || { n: 0, bloqueadoHasta: 0 };
+    m.n++;
+    if (m.n > i.n) i.n = m.n;
+    if (i.n >= INTENTOS_MAX) { i.bloqueadoHasta = Date.now() + BLOQUEO_BASE_MS * Math.min(20, Math.floor(i.n / INTENTOS_MAX)); m.bloqueadoHasta = i.bloqueadoHasta; }
+    try { localStorage.setItem(intentosKey(ambito), JSON.stringify(i)); } catch (_) {}
   }
-  function registrarExito(ambito) { localStorage.setItem(intentosKey(ambito), JSON.stringify({ n: 0, bloqueadoHasta: 0 })); }
+  function registrarExito(ambito) {
+    delete _memInt[ambito];
+    try { localStorage.setItem(intentosKey(ambito), JSON.stringify({ n: 0, bloqueadoHasta: 0 })); } catch (_) {}
+  }
 
   function randDigits(n) {
     let s = "";
@@ -414,6 +452,8 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     activarSync, syncActiva, desactivarSync, cifrarSync, descifrarSync,
     hashTexto, cifrarTextoConClave, descifrarTextoConClave,
     leerWhatsapp, actualizarWhatsapp, // Mejora #5, 2026-07-16
+    verificarOwnerOEmpleado, // paridad AMIGABLE, lockout unico
+    verificarOwnerOEmpleado, // paridad AMIGABLE, lockout unico
     recuperarPinDueno, // Fix-2: evita TypeError en abrirFlujoReset si no hay ownerPinR
   };
 })();

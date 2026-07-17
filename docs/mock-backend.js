@@ -761,6 +761,21 @@
   // Al arrancar: si hay un estado persistido válido, reemplaza los datos
   // semilla (item 1 — persistencia local real).
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
+  // AUTO-HEAL (paridad AMIGABLE, 2026-07-17): si el catalogo quedo VACIO por un
+  // 789 disparado sin querer en un dispositivo que debia seguir en demo, se
+  // repara UNA sola vez en la vida del dispositivo (guardia en localStorage,
+  // nunca sessionStorage: el usuario debe poder vaciar su inventario real
+  // legitimamente despues sin que esto se vuelva a disparar).
+  try {
+    if (!localStorage.getItem("f123_autoheal_888_v1")) {
+      localStorage.setItem("f123_autoheal_888_v1", "1");
+      if (productos.length === 0 && ubicaciones.length === 0) {
+        localStorage.removeItem("f123_owned");
+        localStorage.removeItem(OC_STATE_KEY);
+        location.reload();
+      }
+    }
+  } catch (_) {}
 
   const realFetch = window.fetch.bind(window);
 
@@ -789,7 +804,7 @@
       // reventaba el interceptor entero con un 500 generico. Se degrada a {}
       // y cada endpoint responde su error especifico.
       let body = {};
-      if (opts && opts.body) { try { body = JSON.parse(opts.body); } catch (_) { body = {}; } }
+      if (opts && opts.body) { try { body = (function () { try { return JSON.parse(opts.body); } catch (_) { return {}; } })(); } catch (_) { body = {}; } }
       const method = (opts && opts.method ? opts.method : "GET").toUpperCase();
       debePersistir = ["POST", "PUT", "PATCH", "DELETE"].includes(method) && !path.startsWith("/api/sync") && path !== "/api/respaldo/exportar";
       const uid = q.get("ubicacionId");
@@ -1090,6 +1105,7 @@
           // dejar la app inservible.
           const error = validarRespaldo(body);
           if (error) return J({ error }, 400);
+          try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
           aplicarRespaldo(body);
           guardarEstadoLocal();
           return J({ ok: true, schemaVersion: body.schemaVersion || 1 });

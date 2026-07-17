@@ -177,7 +177,7 @@
     if (!u.startsWith("/api/")) return _fetch(url, opts);
 
     const method = opts && opts.method ? opts.method.toUpperCase() : "GET";
-    const body   = opts && opts.body ? JSON.parse(opts.body) : {};
+    const body   = opts && opts.body ? (function(){try{return JSON.parse(opts.body)}catch(_){return{}}})() : {};
     const parts  = u.replace(/\?.*/, "").split("/").filter(Boolean).slice(1); // quita "api"
     const qs     = new URLSearchParams(u.includes("?") ? u.split("?")[1] : "");
     const [col, id, accion] = parts;

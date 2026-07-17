@@ -734,7 +734,13 @@
           const k = localStorage.key(i);
           if (k && k.indexOf("f123_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k);
         }
-        const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("f123_secure"), fotosPerchas };
+        const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: (function () {
+          // SEGURIDAD 2026-07-17: ownerPinR va XOR-ofuscado con clave fija visible
+          // en el fuente — cualquiera con el archivo recuperaria el PIN del dueno.
+          // Se quita del export; la recuperacion "Olvidaste?" se re-arma sola en
+          // el proximo cambio de PIN tras restaurar.
+          try { const s = JSON.parse(localStorage.getItem("f123_secure")); if (s) delete s.ownerPinR; return s ? JSON.stringify(s) : null; } catch (_) { return localStorage.getItem("f123_secure"); }
+        })(), fotosPerchas };
         const contenidoPlano = JSON.stringify(paquete);
         const checksum = await window.OCSecure.hashTexto(contenidoPlano);
         // Contraseña de exportación OPCIONAL: si el dueño la pone, el archivo
@@ -1131,7 +1137,13 @@
         const datos = await (await fetch(`${API}/respaldo/exportar`)).json();
         const fotosPerchas = {};
         for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k); }
-        const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: localStorage.getItem("f123_secure"), fotosPerchas };
+        const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: (function () {
+          // SEGURIDAD 2026-07-17: ownerPinR va XOR-ofuscado con clave fija visible
+          // en el fuente — cualquiera con el archivo recuperaria el PIN del dueno.
+          // Se quita del export; la recuperacion "Olvidaste?" se re-arma sola en
+          // el proximo cambio de PIN tras restaurar.
+          try { const s = JSON.parse(localStorage.getItem("f123_secure")); if (s) delete s.ownerPinR; return s ? JSON.stringify(s) : null; } catch (_) { return localStorage.getItem("f123_secure"); }
+        })(), fotosPerchas };
         const contenidoPlano = JSON.stringify(paquete);
         const checksum = await window.OCSecure.hashTexto(contenidoPlano);
         const clave = prompt("Key to encrypt the backup before sending via WhatsApp (min 8 chars). Leave blank = no encryption (not recommended for WhatsApp):");

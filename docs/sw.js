@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v10"; // bumped 2026-07-17: fix critico localStorage compartido con AMIGABLE + bilinguismo perchas/ayuda + panel // subir el numero purga la cache vieja en todos los dispositivos
+const CACHE = "f123-shell-v11"; // bumped 2026-07-17: fix critico localStorage compartido con AMIGABLE + bilinguismo perchas/ayuda + panel // subir el numero purga la cache vieja en todos los dispositivos
 const SHELL = [
   "./",
   "./index.html",
@@ -36,7 +36,7 @@ const HOSTS_PERMITIDOS = [self.location.origin, "https://fonts.googleapis.com", 
 
 self.addEventListener("install", (evento) => {
   evento.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).catch(() => {}) // si un archivo falla, no bloquea la instalación
+    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} }) // si un archivo falla, no bloquea la instalación
   );
   self.skipWaiting();
 });
