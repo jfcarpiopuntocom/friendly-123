@@ -3793,7 +3793,8 @@ if ("serviceWorker" in navigator) {
     const prev = localStorage.getItem(K);
     if (prev === v) return;
     localStorage.setItem(K, v);
-    if (prev == null) return; // primera visita: nada que purgar
+    // Sin excepcion de primera visita: los dispositivos atascados en una
+    // version vieja nunca guardaron esta clave — tambien necesitan la purga.
     try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
     try { const cs = await caches.keys(); for (const c of cs) { try { await caches.delete(c); } catch (_) {} } } catch (_) {}
     location.reload();
