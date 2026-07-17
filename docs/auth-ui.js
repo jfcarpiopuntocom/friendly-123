@@ -272,7 +272,7 @@
              onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';">
         <h2 style="display:none;">friendly-123</h2>
       </div>
-      <p id="oc-gate-tagline" style="margin:6px 0 10px;font-size:13px;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">friendly-123 &middot; ${window.t("auth.gate.tagline")}</p>
+      <p id="oc-gate-tagline" style="margin:6px 0 10px;font-size:13px;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">${window.t("auth.gate.tagline")}</p>
       <div class="sub">${window.t("auth.gate.subtitle")}</div>
       <div class="oc-slots" id="oc-slots"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
       <div class="oc-pad" id="oc-pad"></div>
