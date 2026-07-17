@@ -186,7 +186,6 @@
      botón Comisiones (datos financieros del dueño). Mantener sincronizado con
      el data-vista del nav en index.html. */
   body.rol-empleado nav button[data-vista="avanzado"],
-  body.rol-empleado nav button[data-vista="perchas"],
   body.rol-empleado nav button[data-vista="comisiones"]{display:none!important;}
   /* Rol CONTADOR (JFC 2026-07-15): PIN 357 directo en el candado principal
      entra en modo solo-lectura contable — sin POS, inventario, clientes ni
