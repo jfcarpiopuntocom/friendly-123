@@ -419,6 +419,10 @@
       const body = JSON.parse(raw);
       // Rechazar estados escritos por una pestaña más antigua (_rev más bajo) — solo en eventos onstorage
       if (typeof body._rev === "number" && body._rev < _localRev) return;
+      // Sincroniza el contador local con el _rev cargado — si no, una pestaña que
+      // nunca guardó (_localRev=0) sobreescribe con un _rev más bajo el estado más
+      // fresco que ya dejó otra pestaña, perdiendo silenciosamente sus cambios.
+      if (typeof body._rev === "number" && body._rev > _localRev) _localRev = body._rev;
       const error = validarRespaldo(body);
       if (!error) {
         aplicarRespaldo(body);

@@ -35,12 +35,14 @@
   `;
   document.head.appendChild(css);
 
-  // AYUDA_DUENO — updated 2026-07-15 per JFC: reflects true product identity.
-  // This is NOT a POS. It is inventory management for vendors, promoters, and
-  // commission tracking — built around "perchas" (slots/racks) as the core unit,
+  // AYUDA_DUENO/AYUDA_EMPLEADO — updated 2026-07-15 per JFC: reflects true product
+  // identity. This is NOT a POS. It is inventory management for vendors, promoters,
+  // and commission tracking — built around "perchas" (slots/racks) as the core unit,
   // color-coded for instant interpretation, data always local (you own it).
   // 2 years of patches and updates included — vs the industry standard of 1.
-  const AYUDA_DUENO = `
+  // Bilingual (2026-07-17 fix): content is picked per current i18n.js language —
+  // see ayudaDuenoHTML()/ayudaEmpleadoHTML() below.
+  const AYUDA_DUENO_EN = `
     <span class="rolTag">Owner's guide</span>
     <h3>What friendly-123 actually is</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
@@ -99,8 +101,69 @@
     </button>
   `;
 
+  const AYUDA_DUENO_ES = `
+    <span class="rolTag">Guía del dueño</span>
+    <h3>Qué es friendly-123 en realidad</h3>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
+      No es una caja registradora. Es un sistema de gestión de inventario para
+      vendedores, promotoras y control de comisiones — organizado alrededor de
+      <b>perchas</b> (tus espacios, racks o ubicaciones) como unidad esencial. Los
+      colores reemplazan a las hojas de cálculo. Tus datos se quedan en tu
+      dispositivo: sin suscripción atada, sin necesidad de nube.
+    </p>
+    <h3>El lenguaje de colores (sistema Simon)</h3>
+    <ul>
+      <li><b style="color:#00C87A;">Verde</b>: saludable — sigue así.</li>
+      <li><b style="color:#E8A020;">Dorado</b>: plata quieta ahí — actúa.</li>
+      <li><b style="color:#F97316;">Naranja</b>: se está agotando — reabastece antes de que sea problema.</li>
+      <li><b style="color:#E8365D;">Rojo</b>: emergencia — actúa ya.</li>
+      <li><b style="color:#5294AC;">Azul</b>: sabiduría — tips, insights y la capa contable.</li>
+      <li><b style="color:#0A0A0F;">Negro</b>: stock muerto — tu plata no se mueve. Arregla eso.</li>
+    </ul>
+    <h3>Hoy: tu señal diaria</h3>
+    <ul>
+      <li>Un vistazo a Hoy te dice qué necesita atención antes de abrir.</li>
+      <li>El color del encabezado refleja el estado general del día.</li>
+      <li>¿No registraste ventas en vivo? Usa Cierre de día para anotar todo de una vez.</li>
+    </ul>
+    <h3>Vendido (no "vender")</h3>
+    <ul>
+      <li>Toca un producto en la grilla — una unidad se registra como vendida. Deshazlo en 5 segundos.</li>
+      <li>Cada movimiento queda registrado con motivo y quién lo hizo.</li>
+      <li>Las comisiones se calculan automáticamente por percha y por vendedor.</li>
+    </ul>
+    <h3>Avanzado (tu clave, tus reglas)</h3>
+    <ul>
+      <li><b>Gastos fijos</b>: alquiler, servicios, planilla — divididos entre los días reales del mes para que sepas el costo real de abrir mañana.</li>
+      <li><b>Capa contable</b>: cuentas T, P&amp;G, balance. PIN separado — tu contador o socio puede entrar directo sin ver todo el sistema.</li>
+      <li><b>Claves y recuperación</b>: guarda tu correo antes de cambiar cualquier PIN. Sin correo registrado no hay recuperación posible.</li>
+    </ul>
+    <h3>¿Qué datos salen de este dispositivo?</h3>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
+      Respuesta corta: tus datos de negocio nunca salen. Productos, ventas, clientes,
+      inventario, fotos — todo se queda en este navegador, en este dispositivo, siempre.
+      Lo único que se envía alguna vez es tu <b>licencia</b>: un ID de dispositivo
+      aleatorio, y (solo si decidiste ingresarlos) tu nombre, correo, código de licencia
+      y número de WhatsApp — para poder recuperar tu acceso o contactarte si hace falta.
+      Nada más, nunca, en ninguna función. Ve <a href="https://github.com/jfcarpiopuntocom/friendly-123/blob/main/PRIVACY.md" target="_blank" rel="noopener" style="color:#5294AC;">PRIVACY.md</a>
+      para el detalle completo, o abre DevTools → Network y compruébalo tú mismo.
+    </p>
+    <h3>Propiedad y actualizaciones</h3>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
+      Tus datos viven en este dispositivo — ningún servidor los tiene, ninguna
+      suscripción te los puede quitar. La activación desbloquea productos y
+      exportaciones ilimitadas. Incluye <b>2 años de parches y actualizaciones</b>
+      (el estándar de la industria es 1).
+    </p>
+    <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
+      border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
+      font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
+      Ver el tutorial de bienvenida otra vez
+    </button>
+  `;
+
   // AYUDA_EMPLEADO: operational only — no mention of PINs, costs, or accounting.
-  const AYUDA_EMPLEADO = `
+  const AYUDA_EMPLEADO_EN = `
     <span class="rolTag">Vendor / promoter guide</span>
     <h3>Colors tell you what's happening</h3>
     <ul>
@@ -118,12 +181,37 @@
     <p>Need to reprint a lost or damaged label? Find it by name or code in the Labels tab.</p>
   `;
 
+  const AYUDA_EMPLEADO_ES = `
+    <span class="rolTag">Guía de vendedor / promotora</span>
+    <h3>Los colores te dicen qué está pasando</h3>
+    <ul>
+      <li><b style="color:#00C87A;">Verde</b>: bien. <b style="color:#E8A020;">Dorado</b>: plata esperando. <b style="color:#F97316;">Naranja</b>: avisa al dueño pronto. <b style="color:#E8365D;">Rojo</b>: avisa ya.</li>
+      <li><b style="color:#0A0A0F;">Negro</b>: no se mueve — repórtalo al dueño.</li>
+      <li>No necesitas interpretar nada — el color hace el trabajo.</li>
+    </ul>
+    <h3>Tu turno en 3 pasos</h3>
+    <ul>
+      <li><b>Hoy</b>: revisa el resumen diario al llegar. Rojo significa avisar al dueño.</li>
+      <li><b>Vendido</b>: toca el producto en la grilla — una unidad registrada. O escanea / escribe el código si no lo encuentras rápido.</li>
+      <li><b>Ajustar</b>: ¿algo se rompió, venció o el conteo estaba mal? Usa Ajustar y escribe el motivo. Queda en el registro.</li>
+    </ul>
+    <h3>Etiquetas</h3>
+    <p>¿Necesitas reimprimir una etiqueta perdida o dañada? Búscala por nombre o código en la pestaña Etiquetas.</p>
+  `;
+
+  function ayudaDuenoHTML() {
+    return (window.OCI18n && window.OCI18n.getLang() === "es") ? AYUDA_DUENO_ES : AYUDA_DUENO_EN;
+  }
+  function ayudaEmpleadoHTML() {
+    return (window.OCI18n && window.OCI18n.getLang() === "es") ? AYUDA_EMPLEADO_ES : AYUDA_EMPLEADO_EN;
+  }
+
   const modal = document.createElement("div");
   modal.id = "oc-help-modal";
   modal.innerHTML = `<div id="oc-help-sheet">
-    <h2>How does friendly-123 work?</h2>
+    <h2 id="oc-help-titulo">How does friendly-123 work?</h2>
     <!-- Tagline (JFC 2026-07-15): "Manage your business, in color" — marketing promise, not description. -->
-    <p style="font-family:var(--font-display,sans-serif);color:#E8A020;font-size:15px;font-weight:700;margin:0 0 14px;">Manage your business, in color</p>
+    <p id="oc-help-tagline" style="font-family:var(--font-display,sans-serif);color:#E8A020;font-size:15px;font-weight:700;margin:0 0 14px;">Manage your business, in color</p>
     <div id="oc-help-body"></div>
     <button id="oc-help-cerrar">Got it</button>
   </div>`;
@@ -132,6 +220,21 @@
   const btn = document.createElement("button");
   btn.id = "oc-help-btn";
   btn.textContent = "Help (?)";
+
+  // Bilingue (2026-07-17): re-pinta los textos fijos del modal/boton al cambiar
+  // de idioma con window.t(); AYUDA_DUENO/EMPLEADO se re-seleccionan en abrir().
+  function pintarTextosFijos() {
+    if (!window.t) return;
+    btn.textContent = window.t("help.btnLabel");
+    const tit = document.getElementById("oc-help-titulo");
+    if (tit) tit.textContent = window.t("help.title");
+    const tag = document.getElementById("oc-help-tagline");
+    if (tag) tag.textContent = window.t("brand.slogan");
+    const cerrar = document.getElementById("oc-help-cerrar");
+    if (cerrar) cerrar.textContent = window.t("help.gotIt");
+  }
+  window.addEventListener("oc-lang-change", pintarTextosFijos);
+  pintarTextosFijos();
 
   // brandWrap: logo friendly-123 encima del botón Help, igual que AMIGABLE.
   // ESTADO APROBADO POR JFC (2026-07-15). NO CAMBIAR ESTRUCTURA.
@@ -160,7 +263,8 @@
 
   function abrir() {
     const rol = window.OCAuth ? window.OCAuth.rolActual() : null;
-    document.getElementById("oc-help-body").innerHTML = rol === "empleado" ? AYUDA_EMPLEADO : AYUDA_DUENO;
+    pintarTextosFijos();
+    document.getElementById("oc-help-body").innerHTML = rol === "empleado" ? ayudaEmpleadoHTML() : ayudaDuenoHTML();
     modal.classList.add("abierto");
   }
   btn.addEventListener("click", abrir);

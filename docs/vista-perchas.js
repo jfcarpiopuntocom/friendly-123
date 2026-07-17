@@ -79,17 +79,17 @@
            background:${c.bg};color:${c.tx};font-family:var(--font-display);font-size:64px;font-weight:700;">
            ${esc((p.nombre || '?').trim().charAt(0).toUpperCase())}</div>`;
 
-    const badgeMeta = p.cumplimiento === null ? 'no target' : p.cumplimiento.toFixed(0) + '% of target met';
+    const badgeMeta = p.cumplimiento === null ? window.t('shelves.noTarget') : p.cumplimiento.toFixed(0) + window.t('shelves.ofTargetMet');
 
     const datos = esDueno ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:12px 14px;background:var(--blanco-calido,#fbf5e8);">
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Monthly sales</span>
+        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.monthlySales')}</span>
           <strong style="font-size:16px;color:var(--ink);">${money(p.ventasMes)}</strong></div>
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Target</span>
+        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.target')}</span>
           <strong style="font-size:16px;color:var(--ink);">${p.meta ? money(p.meta) : '—'}</strong></div>
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Commission</span>
+        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.commission')}</span>
           <strong style="font-size:16px;color:var(--ink);">${money(p.comision)}</strong></div>
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">Promoter</span>
+        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.promoter')}</span>
           <strong style="font-size:16px;color:var(--ink);">${p.promotor ? esc(p.promotor) : '—'}</strong></div>
       </div>` : '';
 
@@ -107,7 +107,7 @@
             font-weight:700;background:rgba(0,0,0,.65);color:#fff;padding:4px 10px;border-radius:20px;">${badgeMeta}</span>
           ${(p.diasSinVenta != null && p.diasSinVenta >= 7) ? `<span style="position:absolute;top:10px;left:10px;font-family:var(--font-mono);font-size:12px;font-weight:700;background:#E53935;color:#fff;padding:3px 9px;border-radius:20px;">dormida ${p.diasSinVenta}d</span>` : ''}
           <!-- Abrir carpeta: pista visual -->
-          <span style="position:absolute;bottom:10px;right:${esDueno ? '52px' : '10px'};font-family:var(--font-mono);font-size:12px;font-weight:700;background:#152840;color:#fff;padding:4px 9px;border-radius:20px;">Abrir ▸</span>
+          <span style="position:absolute;bottom:10px;right:${esDueno ? '52px' : '10px'};font-family:var(--font-mono);font-size:12px;font-weight:700;background:#152840;color:#fff;padding:4px 9px;border-radius:20px;">${window.t('shelves.open')} ▸</span>
           ${esDueno ? `<button data-vp-foto="${esc(p.id)}" title="Cambiar foto" style="position:absolute;bottom:10px;right:10px;font-size:16px;line-height:1;
             background:rgba(0,0,0,.55);border:none;padding:6px 8px;border-radius:8px;color:#fff;cursor:pointer;">📷</button>` : ''}
         </div>
@@ -132,7 +132,7 @@
     if (existente || !seccion || !grid) return;
     const btnAgregar = document.createElement('button');
     btnAgregar.id = 'vp-btn-agregar';
-    btnAgregar.textContent = '+ Add rack';
+    btnAgregar.textContent = window.t('shelves.addRackBtn');
     btnAgregar.style.cssText = 'display:inline-block;margin:0 0 16px;padding:10px 18px;' +
       'border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);' +
       'color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;' +
@@ -140,6 +140,28 @@
     btnAgregar.addEventListener('click', abrirAgregar);
     seccion.insertBefore(btnAgregar, grid);
   }
+
+  // Re-pinta los textos fijos que se construyen UNA sola vez al cargar el
+  // script (botón "Agregar +", modal "carpeta" y modal "Nueva percha") —
+  // esos innerHTML no se regeneran solos al cambiar de idioma.
+  window.addEventListener('oc-lang-change', () => {
+    const b = document.getElementById('vp-btn-agregar');
+    if (b) b.textContent = window.t('shelves.addRackBtn');
+    const carpetaCerrar = document.getElementById('vp-carpeta-cerrar');
+    if (carpetaCerrar) carpetaCerrar.textContent = window.t('common.close');
+    const aCerrar = document.getElementById('vp-a-cerrar');
+    if (aCerrar) aCerrar.textContent = window.t('common.close');
+    const aTitulo = modalAgregar.querySelector('strong');
+    if (aTitulo) aTitulo.textContent = window.t('shelves.newRackTitle');
+    const aLabel = modalAgregar.querySelector('label');
+    if (aLabel) aLabel.firstChild.textContent = window.t('shelves.rackNameLabel') + '\n        ';
+    const aInput = document.getElementById('vp-a-nombre');
+    if (aInput) aInput.placeholder = window.t('shelves.rackNamePlaceholder');
+    const aHint = modalAgregar.querySelector('p');
+    if (aHint) aHint.textContent = window.t('shelves.assignHint');
+    const aCrear = document.getElementById('vp-a-crear');
+    if (aCrear) aCrear.textContent = window.t('shelves.createRackBtn');
+  });
 
   async function cargar() {
     inyectarBotonAgregar(); // el botón general vive fuera del grid, no se borra al re-render
@@ -153,7 +175,7 @@
         fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
       ]);
       if (!Array.isArray(perchas) || !perchas.length) {
-        grid.innerHTML = '<p style="font-size:15px;color:var(--ink-soft);">No racks yet. Create them with the "Add +" button above.</p>';
+        grid.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noRacksYet'))}</p>`;
         return;
       }
       const liqPor = {}; (Array.isArray(liq) ? liq : []).forEach((f) => { liqPor[f.ubicacionId] = f; });
@@ -192,7 +214,7 @@
   modal.innerHTML = `<div id="vp-carpeta-sheet" style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;max-height:84vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:18px 16px 24px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <strong id="vp-carpeta-titulo" style="font-family:var(--font-display);font-size:20px;color:var(--ink);flex:1;"></strong>
-        <button id="vp-carpeta-cerrar" style="font-size:14px;padding:8px 14px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Close</button>
+        <button id="vp-carpeta-cerrar" style="font-size:14px;padding:8px 14px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${window.t('common.close')}</button>
       </div>
       <div id="vp-carpeta-body"></div>
     </div>`;
@@ -208,7 +230,7 @@
     try {
       const prods = await fetch(`${API}/productos?ubicacionId=${encodeURIComponent(perchaId)}`).then((r) => r.json());
       if (!Array.isArray(prods) || !prods.length) {
-        body.innerHTML = '<p style="font-size:15px;color:var(--ink-soft);">This rack has no products yet. Add them in Inventory or Scanner.</p>';
+        body.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noProductsYet'))}</p>`;
         return;
       }
       body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">${
@@ -302,20 +324,20 @@
   modalAgregar.innerHTML = `
     <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:20px 18px 28px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-        <strong style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;">New rack</strong>
-        <button id="vp-a-cerrar" style="font-size:14px;padding:6px 12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Cerrar</button>
+        <strong style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;">${window.t('shelves.newRackTitle')}</strong>
+        <button id="vp-a-cerrar" style="font-size:14px;padding:6px 12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${window.t('common.close')}</button>
       </div>
-      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;">Rack name
-        <input id="vp-a-nombre" type="text" maxlength="60" placeholder="e.g. Left wall rack"
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;">${window.t('shelves.rackNameLabel')}
+        <input id="vp-a-nombre" type="text" maxlength="60" placeholder="${esc(window.t('shelves.rackNamePlaceholder'))}"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);
                  border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
       <p style="font-size:13px;color:var(--ink-soft);margin:4px 0 14px;">
-        You can assign products from Inventory, and add a photo from My Racks.
+        ${window.t('shelves.assignHint')}
       </p>
       <button id="vp-a-crear" style="padding:10px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;
         background:var(--azul-medio,#2c4a68);color:#fbf5e8;font-size:14px;font-weight:700;cursor:pointer;width:100%;">
-        Create rack
+        ${window.t('shelves.createRackBtn')}
       </button>
       <p id="vp-a-msg" style="font-size:13px;margin:8px 0 0;font-weight:700;"></p>
     </div>`;
@@ -419,7 +441,7 @@
       } else {
         const d = await res.json().catch(() => ({}));
         msg.style.color = 'var(--rojo,#a3392a)';
-        msg.textContent = d.error || 'Could not delete.';
+        msg.textContent = d.error || window.t('shelves.couldNotDelete');
       }
       return;
     }
@@ -427,7 +449,7 @@
     if (e.target.id === 'vp-a-crear') {
       const nombre = (document.getElementById('vp-a-nombre').value || '').trim();
       const msg = document.getElementById('vp-a-msg');
-      if (!nombre) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = 'Name is required.'; return; }
+      if (!nombre) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = window.t('shelves.nameRequired'); return; }
       const res = await fetch(`${API}/ubicaciones`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre }),
       });
@@ -437,7 +459,7 @@
       } else {
         const d = await res.json().catch(() => ({}));
         msg.style.color = 'var(--rojo,#a3392a)';
-        msg.textContent = d.error || 'Could not create the rack.';
+        msg.textContent = d.error || window.t('shelves.couldNotCreate');
       }
       return;
     }
