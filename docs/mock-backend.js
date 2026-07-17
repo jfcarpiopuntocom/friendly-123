@@ -1057,8 +1057,6 @@
       }
 
       if (path === "/api/respaldo/exportar") {
-        // Free-tier: sin dispositivo activado (PIN 789), respaldo bloqueado.
-        if (!instanceId || licenciaLimitada()) return J({ error: "Backup export requires activating this device (PIN 789)." }, 403);
         return J(estadoActualExportable());
       }
       if (path === "/api/respaldo/importar") {
