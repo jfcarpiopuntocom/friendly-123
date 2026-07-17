@@ -273,6 +273,7 @@
              onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';">
         <h2 style="display:none;">friendly-123</h2>
       </div>
+      <p id="oc-gate-tagline" style="margin:6px 0 10px;font-size:13px;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">friendly-123 &middot; ${window.t("auth.gate.tagline")}</p>
       <div class="sub">${window.t("auth.gate.subtitle")}</div>
       <div class="oc-slots" id="oc-slots"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
       <div class="oc-pad" id="oc-pad"></div>
@@ -281,7 +282,7 @@
         <button id="oc-recuperar">${window.t("auth.gate.forgot")}</button>
       </div>
       <div class="oc-msg" id="oc-msg"></div>
-      <p id="oc-gate-tagline" style="margin:10px 0 0;font-size:12px;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">friendly-123 &middot; ${window.t("auth.gate.tagline")}</p>
+      <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;">v1.0 &mdash; friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
     </div>`;
   document.body.appendChild(gate);
 

@@ -29,7 +29,7 @@
         "http.server",
         "8736",
         "--directory",
-        "docs"
+        "C:\\00 Projects\\friendly-123\\docs"
       ],
       "port": 8736
     }
