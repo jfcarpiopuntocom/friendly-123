@@ -118,7 +118,7 @@
     foco.style.height = Math.min(window.innerHeight - 8, r.height + pad * 2) + "px";
     tarjeta.querySelector(".paso").textContent = L.pasoDe(idx + 1, DESTINOS.length);
     tarjeta.querySelector("h3").textContent = txt.titulo;
-    tarjeta.querySelector("p").textContent = txt.texto;
+    tarjeta.querySelector(".cuerpo").textContent = txt.texto;
     const bAtras = document.getElementById("oc-tut-atras");
     bAtras.style.display = idx === 0 ? "none" : "";
     bAtras.textContent = L.atras;
@@ -137,7 +137,9 @@
     if (idx >= DESTINOS.length) return terminar();
     irAVista(DESTINOS[idx].vista);
     // Short wait so the view paints before measuring the target.
-    setTimeout(pintar, 380);
+    setTimeout(pintar, 620);
+    // segundo ajuste tras asentar scroll/animacion: realinea el foco
+    setTimeout(() => { if (idx === n) pintar(); }, 900);
   }
 
   function terminar() {
@@ -165,7 +167,7 @@
     foco = document.createElement("div"); foco.id = "oc-tut-foco";
     tarjeta = document.createElement("div"); tarjeta.id = "oc-tut-card";
     tarjeta.innerHTML =
-      '<p class="paso"></p><h3></h3><p></p>' +
+      '<p class="paso"></p><h3></h3><p class="cuerpo"></p>' +
       '<div class="fila"><button id="oc-tut-atras"></button><button id="oc-tut-sig"></button></div>' +
       '<button id="oc-tut-salir"></button>';
     document.body.appendChild(foco);
