@@ -1,5 +1,42 @@
 <!DOCTYPE html>
 <html lang="es"><head>
+<!-- SAFEGUARD NUCLEAR (2026-07-17): repara dispositivos atrapados con un SW
+     viejo que no tiene el kill-switch de version. Corre ANTES que todo.
+     Si el SW viejo sirve este HTML cacheado, este script no estara ahi y no
+     pasa nada. Si el SW es network-first (como el actual), el HTML es fresco
+     y este script detecta SWs obsoletos y los mata. Cubre el caso de que el
+     navegador sirva el HTML fresco pero los sub-recursos (JS) desde cache
+     vieja del SW. Al desregistrar el SW viejo y purgar caches, el siguiente
+     reload carga todo fresco. Solo dispara UNA vez (flag en localStorage). -->
+<script>
+(function(){
+  if(!("serviceWorker" in navigator))return;
+  var K="f123_sw_nuke_v1";
+  if(localStorage.getItem(K))return;
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    if(!regs.length){localStorage.setItem(K,"1");return}
+    var nukd=false;
+    var p=[];
+    regs.forEach(function(r){
+      if(r.active&&r.active.scriptURL&&r.active.scriptURL.indexOf("sw.js")!==-1){
+        p.push(caches.keys().then(function(cs){
+          return Promise.all(cs.map(function(c){return caches.delete(c)}));
+        }));
+        p.push(r.unregister());
+        nukd=true;
+      }
+    });
+    if(nukd){
+      Promise.all(p).then(function(){
+        localStorage.setItem(K,"1");
+        location.reload();
+      });
+    }else{
+      localStorage.setItem(K,"1");
+    }
+  }).catch(function(){});
+})();
+</script>
 <!-- OC_DEMO se setea aquí, al inicio del head, antes de que cualquier script
      se cargue. Así cargarDashboardInicial() siempre ve la bandera correcta
      aunque mock-backend.js tarde en ejecutarse (red lenta / carga asíncrona). -->
@@ -3781,7 +3818,7 @@ setTimeout(() => {
 // El chequeo de version (Fase 2) vive en auth-ui.js — no duplicarlo aqui.
 // Falla en silencio en navegadores sin soporte — nunca bloquea la carga.
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
+  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).catch(() => {}); });
 }
 // CONTROL DE VERSION FORZADO (JFC 2026-07-17, "no podemos andar sirviendo
 // versiones viejas"): en CADA carga se pide version.json fresco (el SW nunca
