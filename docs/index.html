@@ -3776,6 +3776,29 @@ setTimeout(() => {
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
 }
+// CONTROL DE VERSION FORZADO (JFC 2026-07-17, "no podemos andar sirviendo
+// versiones viejas"): en CADA carga se pide version.json fresco (el SW nunca
+// lo cachea, por diseno). Si la version publicada difiere de la ultima vista
+// en este dispositivo, se purgan TODAS las caches, se actualiza el SW y se
+// recarga UNA sola vez — automatico, sin banner, sin pedirle nada al usuario.
+// Anti-loop: la version nueva se guarda ANTES de recargar, asi la segunda
+// carga ya coincide y no vuelve a recargar. Primera visita: solo registra.
+(async function () {
+  try {
+    const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) return;
+    const v = String(((await r.json()) || {}).version || "");
+    if (!v) return;
+    const K = "f123_version_vista";
+    const prev = localStorage.getItem(K);
+    if (prev === v) return;
+    localStorage.setItem(K, v);
+    if (prev == null) return; // primera visita: nada que purgar
+    try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
+    try { const cs = await caches.keys(); for (const c of cs) { try { await caches.delete(c); } catch (_) {} } } catch (_) {}
+    location.reload();
+  } catch (_) {}
+})();
 
 // Microcirugia 5 (2026-07-07): tras importar un respaldo o restaurar un punto
 // de la caja fuerte (avanzado-extra dispara "oc-datos-importados"), la UI se
