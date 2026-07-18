@@ -462,7 +462,7 @@
       registrarExito();
       // Ping: record new activation in license panel
       var ow2 = {}; try { ow2 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
-      enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, nombre: nombre, apellido: apellido, cedula: cedula, activatedAt: ow2.activatedAt, accion: "register" });
+      enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, activatedAt: ow2.activatedAt, accion: "register" });
       var seguro = email.replace(/[&<>"']/g, "");
       wrap.querySelector("#oc-act-exito-txt").innerHTML =
         "Your owner PIN is <strong>789</strong> — change it anytime in Advanced &rarr; Keys. " +

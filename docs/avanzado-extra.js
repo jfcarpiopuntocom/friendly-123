@@ -908,7 +908,17 @@
   async function renderTransferencias() {
     const cont = $("oc-transf-lista");
     if (!cont) return;
-    const lista = await (await fetch(`${API}/transferencias`)).json();
+    // Reforzado (JFC 2026-07-18): sin este guard, aprobar/rechazar/confirmar
+    // una transferencia hacia el re-render, y si la red fallaba en ese
+    // re-render la lista se quedaba muda (parecia que el boton no hizo nada).
+    let lista;
+    try {
+      lista = await (await fetch(`${API}/transferencias`)).json();
+    } catch (err) {
+      console.error("[renderTransferencias]", err);
+      cont.innerHTML = `<p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load. Check your connection and try again.</p>`;
+      return;
+    }
     if (!lista.length) { cont.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No transfers yet.</p>`; return; }
     cont.innerHTML = lista.map((t) => {
       const colorEstado = t.estado === "recibida" ? "verde" : t.estado === "rechazada" ? "rojo" : t.estado === "en_transito" ? "azul" : "amarillo";
@@ -1298,10 +1308,22 @@
 
   async function render() {
     const u = ubic();
-    const [pl, bal] = await Promise.all([
-      fetch(`${API}/reportes/pl?ubicacionId=${u}`).then((r) => r.json()),
-      fetch(`${API}/reportes/balance?ubicacionId=${u}`).then((r) => r.json()),
-    ]);
+    // Reforzado (JFC 2026-07-18): render() se llama tras desbloquear la capa
+    // contable con PIN (click handler sin try/catch propio) — sin este guard,
+    // un fallo de red aqui dejaba el panel VISIBLE pero VACIO, justo despues
+    // de que el dueño tecleara su clave. Ahora se avisa claro en vez de
+    // quedarse en blanco.
+    let pl, bal;
+    try {
+      [pl, bal] = await Promise.all([
+        fetch(`${API}/reportes/pl?ubicacionId=${u}`).then((r) => r.json()),
+        fetch(`${API}/reportes/balance?ubicacionId=${u}`).then((r) => r.json()),
+      ]);
+    } catch (err) {
+      console.error("[render/oc-taccounts]", err);
+      $("oc-taccounts").innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">Could not load. Check your connection and try again.</p>`;
+      return;
+    }
     // Cuentas T derivadas del día (partida doble simplificada). El IVA
     // cobrado NO es ingreso del negocio — es un pasivo (se le debe al SRI),
     // por eso tiene su propia cuenta en vez de mezclarse con Ventas.
@@ -1324,7 +1346,16 @@
   async function renderChart() {
     const box = $("oc-chart");
     if (!box) return;
-    const filas = await (await fetch(`${API}/liquidaciones`)).json();
+    // Reforzado (JFC 2026-07-18): sin este guard, un fallo de red aqui dejaba
+    // el grafico de comisiones vacio/roto sin ningun aviso.
+    let filas;
+    try {
+      filas = await (await fetch(`${API}/liquidaciones`)).json();
+    } catch (err) {
+      console.error("[renderChart]", err);
+      box.innerHTML = `<p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load. Check your connection and try again.</p>`;
+      return;
+    }
     if (!filas.length) { box.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No partner/franchise/consignment locations yet.</p>`; return; }
     const maxCumplimiento = Math.max(100, ...filas.map((f) => f.cumplimientoMeta || 0));
     box.innerHTML = filas.map((f) => {
