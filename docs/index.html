@@ -3954,6 +3954,10 @@ setTimeout(() => {
 <script src="./auth-ui.js"></script>
 <script src="./avanzado-extra.js"></script>
 <script src="./help-ui.js"></script>
+<!-- idb-fotos.js (JFC 2026-07-18): DEBE cargar antes de vista-perchas.js —
+     expone window.OCFotos, que vista-perchas.js usa para persistir fotos de
+     percha en IndexedDB en vez de localStorage. -->
+<script src="./idb-fotos.js"></script>
 <script src="./vista-perchas.js"></script>
 <script src="./welcome-ui.js"></script>
 <script src="./tutorial-ui.js"></script>

@@ -49,11 +49,19 @@
     return 'rojo';
   }
 
-  // ── fotos en localStorage ──────────────────────────────────────────────────
-  // f123_ prefijo (2026-07-17): sin esto las fotos de percha compartian
-  // namespace con AMIGABLE (mismo origen en GitHub Pages).
-  const FOTO_KEY = (id) => 'f123_foto_percha_' + id;
-  const getFoto = (id) => { try { return localStorage.getItem(FOTO_KEY(id)); } catch { return null; } };
+  // ── fotos en IndexedDB (JFC 2026-07-18) ────────────────────────────────────
+  // Antes vivian en localStorage (limite practico ~5-10MB; con 10-15 perchas
+  // con foto ya reventaba — "espacio lleno"). Ahora persisten en IndexedDB
+  // (ver idb-fotos.js), sin ese techo. getFoto() sigue siendo SINCRONO: lee de
+  // un cache en memoria precargado por precargarFotos() antes de pintar el
+  // grid, asi _tarjeta() no cambia de forma.
+  let fotoCache = {};
+  const getFoto = (id) => fotoCache[id] || null;
+  async function precargarFotos() {
+    if (!window.OCFotos) return; // idb-fotos.js no cargo: sin fotos, sin crash
+    await window.OCFotos.migrarSiHaceFalta(); // no-op rapido tras la 1a vez
+    fotoCache = await window.OCFotos.leerTodas();
+  }
 
   function redimensionar(file, cb) {
     const img = new Image();
@@ -171,6 +179,7 @@
     if (!grid) return;
     grid.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);padding:8px 0;">Cargando perchas…</p>';
     try {
+      await precargarFotos();
       const [perchas, liq, promotoras] = await Promise.all([
         fetch(`${API}/ubicaciones?todas=1`).then((r) => r.json()),
         fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
@@ -372,11 +381,13 @@
     const id = perchaFotoPendiente;
     inputFoto.value = ''; perchaFotoPendiente = null;
     if (!file || !id) return;
-    redimensionar(file, (dataUrl) => {
-      try { localStorage.setItem(FOTO_KEY(id), dataUrl); } catch (e) {
+    redimensionar(file, async (dataUrl) => {
+      const ok = window.OCFotos ? await window.OCFotos.guardarFoto(id, dataUrl) : false;
+      if (!ok) {
         alert('No se pudo guardar la foto (espacio lleno). Borra alguna foto vieja.');
         return;
       }
+      fotoCache[id] = dataUrl; // optimista: se ve de inmediato, sin esperar otra lectura
       cargar();
     });
   });
@@ -435,9 +446,11 @@
       }
       const res = await fetch(`${API}/ubicaciones/${perchaGestionId}`, { method: 'DELETE' });
       if (res.ok) {
-        // Microcirugia 6 (2026-07-08): borrar la foto huerfana de localStorage.
-        // Sin esto cada percha borrada deja 200-800KB de base64 acumulandose.
-        try { localStorage.removeItem(FOTO_KEY(perchaGestionId)); } catch (_) {}
+        // Microcirugia 6 (2026-07-08): borrar la foto huerfana. Sin esto cada
+        // percha borrada deja 200-800KB acumulandose (localStorage antes,
+        // IndexedDB ahora — mismo cuidado, otro almacen).
+        if (window.OCFotos) window.OCFotos.borrarFoto(perchaGestionId); // async, fire-and-forget
+        delete fotoCache[perchaGestionId];
         cerrarGestion(); cargar();
         if (window.cargarUbicaciones) window.cargarUbicaciones();
       } else {

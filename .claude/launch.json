@@ -32,6 +32,18 @@
         "C:\\00 Projects\\friendly-123\\docs"
       ],
       "port": 8736
+    },
+    {
+      "name": "f123-fresh",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8961",
+        "--directory",
+        "C:\\00 Projects\\friendly-123\\docs"
+      ],
+      "port": 8961
     }
   ]
 }
