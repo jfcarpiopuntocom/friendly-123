@@ -875,6 +875,30 @@
       else { el.textContent = `✅ Last manual backup: ${dias} day(s) ago.`; el.style.color = "var(--verde)"; }
     }
     cajaPintarAlerta();
+
+    // StorageManager: aviso preventivo si el dispositivo ya uso >80% de la cuota.
+    // Solo corre una vez al abrir Avanzado, silencioso si la API no existe o falla.
+    // El elemento se inyecta ANTES del primer hijo de #vista-avanzado para que sea
+    // lo primero visible — si hay problema de espacio, el dueno lo ve de inmediato.
+    (async () => {
+      try {
+        if (!navigator.storage || !navigator.storage.estimate) return;
+        const { usage, quota } = await navigator.storage.estimate();
+        if (!quota) return;
+        const pct = Math.round((usage / quota) * 100);
+        if (pct < 80) return; // sin problema, no molestamos
+        const aviso = document.createElement("p");
+        aviso.id = "oc-storage-aviso";
+        aviso.style.cssText = "font-size:14px;font-weight:700;color:var(--rojo,#a3392a);"
+          + "background:#fff5f5;border:2px solid var(--rojo,#a3392a);border-radius:8px;"
+          + "padding:10px 14px;margin:0 0 14px;";
+        aviso.textContent = "Espacio al " + pct + "% — considera borrar fotos viejas de perchas "
+          + "o hacer un respaldo desde Checkpoints y luego liberar espacio en tu dispositivo.";
+        const vista = document.getElementById("vista-avanzado");
+        if (vista && !document.getElementById("oc-storage-aviso")) vista.insertBefore(aviso, vista.firstChild);
+      } catch (_) {}
+    })();
+
     // FIX 2026-07-07: los timers ya no trabajan con la sesion cerrada
     // (trabajo fantasma y bateria en tablets que quedan encendidas).
     setInterval(() => { if (window.OCAuth && window.OCAuth.rolActual()) cajaGuardarPunto(true); }, CAJA_INTERVALO_MS);
