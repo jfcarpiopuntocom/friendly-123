@@ -460,6 +460,11 @@
       // tras el primer login post-activacion (ver welcome-ui.js). Bug anterior:
       // se marcaba "vista" en este punto sin que el usuario la viera nunca.
       registrarExito();
+      // Pedir storage persistente al momento de activacion — Chrome puede evictar
+      // IndexedDB/localStorage "best-effort" bajo presion de espacio sin avisar.
+      // Hacerlo aqui (un solo intento, silencioso) en el momento de mayor
+      // compromiso del usuario. No bloquea ni rompe nada si falla o no esta disponible.
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (_) {}
       // Ping: record new activation in license panel
       var ow2 = {}; try { ow2 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
       enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, activatedAt: ow2.activatedAt, accion: "register" });
