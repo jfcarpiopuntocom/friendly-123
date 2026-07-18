@@ -318,8 +318,22 @@
         <button id="oc-caja-ver" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">🗂️ View saved checkpoints</button>
       </div>
       <div id="oc-caja-lista" style="display:none;margin-top:10px;"></div>
+      <p id="oc-storage-info" style="font-size:12px;color:var(--ink-soft);margin:10px 0 0;font-family:monospace;"></p>
     `;
     cont.appendChild(respaldo);
+    // Mostrar usage/quota en el panel de checkpoints — util para diagnostico remoto
+    // (JFC puede pedir screenshot de esta linea para saber si el problema es espacio).
+    (async () => {
+      try {
+        if (!navigator.storage || !navigator.storage.estimate) return;
+        const { usage, quota } = await navigator.storage.estimate();
+        const el = document.getElementById("oc-storage-info");
+        if (!el || !quota) return;
+        const mb = n => (n / 1048576).toFixed(1) + " MB";
+        el.textContent = "Storage: " + mb(usage) + " used / " + mb(quota) + " quota ("
+          + Math.round((usage / quota) * 100) + "%)";
+      } catch (_) {}
+    })();
 
     // --- Candado ---
     const lock = document.createElement("div");
