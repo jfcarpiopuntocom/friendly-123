@@ -94,6 +94,19 @@
       Activation unlocks unlimited products and exports. Includes <b>2 years of patches
       and updates</b> (the industry standard is 1).
     </p>
+    <h3>The promise</h3>
+    <ul style="font-size:14px;line-height:1.6;">
+      <li>Saves you <b>50% of your time</b> versus doing it by hand.</li>
+      <li>You learn it <b>in 10 minutes</b> — no manual required.</li>
+      <li>Built to <b>last 10 years</b> — no subscription can take it away.</li>
+    </ul>
+    <h3>Your license</h3>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
+      A private license: permanent use of the app, enforced consensually and without invoking
+      intellectual property claims against you. The app itself lives on our website — but
+      everything you enter stays on your devices only. It never goes up to any "cloud" or
+      central server.
+    </p>
     <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
       border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
       font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
@@ -154,6 +167,19 @@
       suscripción te los puede quitar. La activación desbloquea productos y
       exportaciones ilimitadas. Incluye <b>2 años de parches y actualizaciones</b>
       (el estándar de la industria es 1).
+    </p>
+    <h3>La promesa</h3>
+    <ul style="font-size:14px;line-height:1.6;">
+      <li>Te ahorra <b>50% de tu tiempo</b> comparado con hacerlo a mano.</li>
+      <li>Se aprende <b>en 10 minutos</b> — sin manual necesario.</li>
+      <li>Construida para <b>durar 10 años</b> — ninguna suscripción te la puede quitar.</li>
+    </ul>
+    <h3>Tu licencia</h3>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
+      Licencia privada: uso permanente de la app, con cumplimiento consensuado
+      y sin invocar propiedad intelectual en tu contra. La app en sí vive en
+      nuestro sitio web — pero todo lo que tú ingresas se mantiene solamente
+      en tus dispositivos. Nunca sube a ninguna "nube" ni servidor central.
     </p>
     <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
       border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
