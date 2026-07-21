@@ -380,6 +380,15 @@
       </div>`;
     vista.appendChild(gestion);
 
+    // --- Respaldo soberano por correo/WhatsApp (JFC 2026-07-21) ---
+    // Vive FUERA de la subclave contable (junto a Gestión): es una
+    // preferencia de seguridad del dueño, no un dato contable sensible.
+    // El módulo backup-scheduler.js hace todo el trabajo; aquí solo montamos.
+    const bkMount = document.createElement("div");
+    bkMount.id = "oc-backup-scheduler-mount";
+    vista.appendChild(bkMount);
+    if (window.OCBackupScheduler) window.OCBackupScheduler.montar(bkMount);
+
     // === EMPLEADOS (multi-usuario 2026-07-07) ==============================
     // Panel de gestion de empleados nombrados. Solo el dueno llega a Avanzado.
     // Cada empleado tiene un PIN propio de 3 digitos. Al loguearse, sus acciones
@@ -423,6 +432,92 @@
         </div>
       </details>`;
     vista.appendChild(empPanel);
+
+    // --- Reporte trimestral $100 (upsell OPCIONAL — JFC 2026-07-21) -------
+    // NO es parte del producto base. Va al fondo de Avanzado a propósito:
+    // el dueño ya vio todo lo operativo antes de encontrarse con esto.
+    // Flujo: el dueño aprueba QUÉ datos se envían (checkbox explícito por
+    // categoría) antes de que se arme el correo — nunca se manda nada sin
+    // que él vea exactamente qué lleva. Solo se puede pedir 1 vez por
+    // trimestre (90 días) para que no se vuelva una dependencia.
+    const reportePanel = document.createElement("div");
+    reportePanel.className = "tag-card";
+    reportePanel.id = "oc-reporte-upsell";
+    reportePanel.style.cssText = "text-align:left;margin-top:28px;border:2px dashed var(--azul-medio,#2E6278);opacity:1;";
+    reportePanel.innerHTML = `
+      <h3 class="seccion" style="margin-top:0;">Quarterly business report — $100 (optional)</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
+        A one-time, opt-in report where JFC personally reads your numbers and compares them
+        against healthy ratios for your sector, activity, and city — the kind of "Death Valley"
+        financial, marketing, and customer-acquisition indicators investors use to spot trouble early.
+        You approve exactly what gets sent before anything goes out. This is orientation, not
+        dependency — the goal is for you to need it less over time, not more. Once per quarter max.
+      </p>
+      <p id="oc-reporte-estado" style="font-size:13px;color:var(--ink-soft);margin:0 0 10px;font-style:italic;"></p>
+      <button id="oc-reporte-solicitar" class="ir" style="background:transparent;color:var(--azul-medio);border:2px solid var(--azul-medio);">
+        📊 Request quarterly report ($100, optional)
+      </button>
+    `;
+    vista.appendChild(reportePanel);
+
+    (function initReporteUpsell() {
+      const LS_KEY = "oc_reporte_ultimo_pedido";
+      const TRIMESTRE_MS = 90 * 24 * 60 * 60 * 1000;
+      const estadoEl = reportePanel.querySelector("#oc-reporte-estado");
+      const btn = reportePanel.querySelector("#oc-reporte-solicitar");
+
+      function ultimoPedido() {
+        try { return parseInt(localStorage.getItem(LS_KEY) || "0", 10) || 0; } catch (_) { return 0; }
+      }
+      function refrescarEstado() {
+        const ult = ultimoPedido();
+        if (!ult) { estadoEl.textContent = ""; btn.disabled = false; btn.style.opacity = "1"; return; }
+        const faltan = TRIMESTRE_MS - (Date.now() - ult);
+        if (faltan > 0) {
+          const dias = Math.ceil(faltan / (24 * 60 * 60 * 1000));
+          estadoEl.textContent = `Last requested ${new Date(ult).toLocaleDateString()}. Next request available in ${dias} day(s).`;
+          btn.disabled = true; btn.style.opacity = ".55"; btn.style.cursor = "not-allowed";
+        } else {
+          estadoEl.textContent = `Last requested ${new Date(ult).toLocaleDateString()}. You can request a new one now.`;
+          btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+        }
+      }
+      refrescarEstado();
+
+      btn.addEventListener("click", () => {
+        const CATS = [
+          { id: "financiero", label: "Financial ratios (margins, fixed costs, break-even)" },
+          { id: "marketing", label: "Marketing / promotional channel performance" },
+          { id: "clientes", label: "Customer acquisition & retention indicators" },
+          { id: "inventario", label: "Inventory turnover and dead-stock summary" },
+        ];
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;z-index:9995;background:rgba(15,25,35,.72);display:flex;align-items:center;justify-content:center;padding:16px;";
+        overlay.innerHTML = `
+          <div style="background:#F8F9FB;border-radius:12px;padding:20px;max-width:440px;width:100%;max-height:86vh;overflow-y:auto;">
+            <h3 style="margin-top:0;">What gets included?</h3>
+            <p style="font-size:14px;color:var(--ink-soft);">Uncheck anything you don't want sent. Nothing goes out until you approve below.</p>
+            <div id="oc-reporte-cats" style="display:flex;flex-direction:column;gap:8px;margin:14px 0;">
+              ${CATS.map((c) => `<label style="font-size:14px;"><input type="checkbox" checked value="${c.id}" style="margin-right:8px;min-width:18px;min-height:18px;vertical-align:middle;">${c.label}</label>`).join("")}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+              <button id="oc-reporte-aprobar" class="ir" style="background:var(--azul-medio);color:#fff;border-color:var(--azul-oscuro);">Approve & send request</button>
+              <button id="oc-reporte-cancelar" class="ir" style="background:transparent;color:var(--ink-soft);border-color:var(--azul-suave,#dde5ec);">Cancel</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector("#oc-reporte-cancelar").addEventListener("click", () => overlay.remove());
+        overlay.querySelector("#oc-reporte-aprobar").addEventListener("click", () => {
+          const marcados = [...overlay.querySelectorAll("#oc-reporte-cats input:checked")].map((i) => i.value);
+          const cuerpo = `Quarterly report request ($100, optional).\n\nApproved data categories:\n- ${marcados.join("\n- ") || "(none selected)"}\n\n(Sent from friendly-123 Advanced panel.)`;
+          const href = `mailto:jfcarpio@gmail.com?subject=${encodeURIComponent("friendly-123 — quarterly report request")}&body=${encodeURIComponent(cuerpo)}`;
+          window.location.href = href;
+          try { localStorage.setItem(LS_KEY, String(Date.now())); } catch (_) {}
+          overlay.remove();
+          refrescarEstado();
+        });
+      });
+    })();
 
     // Renderiza la tabla de empleados (llama al endpoint cada vez que hay cambio)
     async function renderEmpleados() {
