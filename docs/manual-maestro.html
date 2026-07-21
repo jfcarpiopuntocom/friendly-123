@@ -1316,13 +1316,19 @@ Carmen Ulloa,</pre>
   }
 
   // -------- Simulador de semáforo interactivo --------
+  // REDISEÑADO (JFC 2026-07-21): antes usaba el MISMO gradiente en los 3
+  // niveles y solo prendía un glow de box-shadow en n3 — "eso del glow no
+  // sirve". Ahora replica EXACTO el sistema real de index.html: 3 tonos
+  // solidos y planos por color (bg = aguado, base = medio, dk = intenso),
+  // sin degrade interno, sin glow. Mismos hex que las variables --sim-* de
+  // la app — si cambian ahí, cambian aquí.
   var ESTADOS = {
-    verde:   {bg:'linear-gradient(135deg, #00C87A 0%, #009A5A 100%)', borde:'#009A5A', msg:'Stock saludable', stock:22},
-    amarillo:{bg:'linear-gradient(135deg, #FFC700 0%, #B8860B 100%)', borde:'#B8860B', msg:'Buen margen — hay dinero esperándote', stock:9, tinta:'#0F1923'},
-    naranja: {bg:'linear-gradient(135deg, #F97316 0%, #C05000 100%)', borde:'#C05000', msg:'Quedan pocas — revisar pronto', stock:5},
-    rojo:    {bg:'linear-gradient(135deg, #E8365D 0%, #B0183E 100%)', borde:'#B0183E', msg:'Sin stock — repón cuanto antes', stock:0},
-    azul:    {bg:'linear-gradient(135deg, #5294AC 0%, #2E6278 100%)', borde:'#2E6278', msg:'Margen 13% — revisa el precio o el costo', stock:48},
-    negro:   {bg:'#0A0A0F', borde:'#000000', msg:'Sin ventas hace 82 días — tu dinero está descansando ahí', stock:15}
+    verde:   {bg:'#C0F5E0', base:'#00C87A', dk:'#009A5A', msg:'Stock saludable', stock:22},
+    amarillo:{bg:'#FFF3C2', base:'#FFC700', dk:'#B8860B', msg:'Buen margen — hay dinero esperándote', stock:9, tintaOscuraHastaN2:true},
+    naranja: {bg:'#FDD9BE', base:'#F97316', dk:'#C05000', msg:'Quedan pocas — revisar pronto', stock:5},
+    rojo:    {bg:'#FAD5DE', base:'#E8365D', dk:'#B0183E', msg:'Sin stock — repón cuanto antes', stock:0},
+    azul:    {bg:'#D4ECF5', base:'#5294AC', dk:'#2E6278', msg:'Margen 13% — revisa el precio o el costo', stock:48},
+    negro:   {bg:'#17171D', base:'#0A0A0F', dk:'#000000', msg:'Sin ventas hace 82 días — tu dinero está descansando ahí', stock:15, siempreBlanco:true}
   };
   var estadoActual = 'verde', nivelActual = 1;
   var demoCaja = document.getElementById('demoCaja');
@@ -1331,15 +1337,24 @@ Carmen Ulloa,</pre>
   function pintarDemo(){
     var e = ESTADOS[estadoActual];
     if(!demoCaja) return;
-    var factor = nivelActual === 1 ? 0.55 : nivelActual === 2 ? 0.8 : 1;
-    demoCaja.style.background = e.bg;
-    demoCaja.style.borderColor = e.borde;
-    demoCaja.style.color = e.tinta || '#FFFFFF';
-    demoCaja.style.boxShadow = nivelActual === 3 ? ('0 0 22px -2px ' + e.borde) : 'none';
+    var tonos = [e.bg, e.base, e.dk]; // índice 0/1/2 = nivel 1/2/3
+    var fondo = tonos[nivelActual - 1];
+    var borde = nivelActual === 1 ? e.base : e.dk;
+    // Tinta: negro siempre blanca; amarillo oscura hasta n2, blanca en n3;
+    // el resto, oscura solo en n1 (fondo aguado), blanca en n2/n3 — mismas
+    // reglas de contraste que .caja.n1:not(.negro) en index.html.
+    var tinta;
+    if (e.siempreBlanco) tinta = '#FFFFFF';
+    else if (e.tintaOscuraHastaN2) tinta = nivelActual === 3 ? '#FFFFFF' : '#0F1923';
+    else tinta = nivelActual === 1 ? '#0F1923' : '#FFFFFF';
+    demoCaja.style.background = fondo;
+    demoCaja.style.borderColor = borde;
+    demoCaja.style.color = tinta;
+    demoCaja.style.boxShadow = 'none'; // nunca glow — plano, siempre
     demoStock.textContent = e.stock;
-    demoStock.style.color = e.tinta || '#FFFFFF';
+    demoStock.style.color = tinta;
     demoMsg.textContent = e.msg + '  ·  intensidad ' + nivelActual + '/3';
-    demoMsg.style.color = e.tinta || '#FFFFFF';
+    demoMsg.style.color = tinta;
   }
   document.querySelectorAll('.simulador .estado-btn').forEach(function(btn){
     btn.addEventListener('click', function(){

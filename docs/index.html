@@ -559,34 +559,50 @@
      mas que naranja (urgente pero no emergencia). Negro es la excepcion:
      nada de degradé de color, solo un vinieta hacia el negro absoluto —
      "oscuridad que se traga todo". */
-  /* ============ ENCENDIDOS EN LA PROPIA TARJETA (JFC 2026-07-07) ============
-     La Escala Sinclair Bloom se APLICA a la tarjeta entera, no se dibuja como
-     indicador aparte (la mini-escala de barras quedo DORMANT abajo):
-       n1 (tenue)     -> fondo -bg del color, borde base, TINTA OSCURA
-       n2 (medio)     -> degrade base->dk (el look clasico), texto blanco
-       n3 (encendido) -> degrade cargado al -dk + GLOW del propio color
-     Mismo color siempre; solo cambia que tan fuerte esta encendido.
-     Sin clase n* cae al look n2 (retrocompatible). Negro es excepcion: sus
-     3 niveles oscurecen hacia el negro absoluto, texto blanco siempre. */
-  .caja.verde{background:linear-gradient(135deg, var(--sim-verde) 0%, var(--sim-verde-dk) 100%); border-color:var(--sim-verde-dk);}
+  /* ============ ESCALA SINCLAIR BLOOM — plana, sin glow (JFC 2026-07-21) ====
+     REDISEÑADO: la version anterior usaba degrade interno (135deg base->dk)
+     y un halo de box-shadow color-glow en n3 — "eso del glow no sirve". El
+     dueño no quiere brillo ni degrade dentro de la tarjeta: quiere 3 tonos
+     SOLIDOS Y PLANOS del mismo color, de mas aguado a mas intenso, como una
+     escalera de transparencia hecha con hex solidos (nunca rgba/opacity —
+     serian los mismos --sim-X-bg/--sim-X/--sim-X-dk ya definidos arriba,
+     que YA son el color mezclado con el fondo en distintos grados):
+       n1 (aguado)   -> fondo -bg (el color mas diluido), TINTA OSCURA
+       n2 (medio)    -> fondo base, plano, texto blanco (o tinta si el color
+                        es claro — ver reglas de texto mas abajo)
+       n3 (intenso)  -> fondo -dk, plano, texto blanco
+     Sin gradiente interno, sin box-shadow de color. Mismo color siempre,
+     solo cambia el tono. Sin clase n* cae al look n2 (retrocompatible).
+     Negro sigue la misma escalera plana (ya no tiene vinieta radial). */
+  .caja.verde{background:var(--sim-verde); border-color:var(--sim-verde-dk);}
   .caja.verde.n1{background:var(--sim-verde-bg); border-color:var(--sim-verde);}
-  .caja.verde.n3{background:linear-gradient(135deg, var(--sim-verde) 0%, var(--sim-verde-dk) 45%, var(--sim-verde-dk) 100%); box-shadow:0 0 16px -2px var(--sim-verde);}
-  .caja.amarillo{background:linear-gradient(135deg, var(--sim-amarillo) 0%, var(--sim-amarillo-dk) 100%); border-color:var(--sim-amarillo-dk);}
+  .caja.verde.n2{background:var(--sim-verde); border-color:var(--sim-verde-dk);}
+  .caja.verde.n3{background:var(--sim-verde-dk); border-color:var(--sim-verde-dk);}
+  .caja.amarillo{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk);}
   .caja.amarillo.n1{background:var(--sim-amarillo-bg); border-color:var(--sim-amarillo);}
-  .caja.amarillo.n2{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk); box-shadow:0 3px 0 0 var(--sim-amarillo-dk), 0 4px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -1px 0 rgba(0,0,0,0.08);}
-  .caja.amarillo.n3{box-shadow:0 0 16px -2px var(--sim-amarillo);}
-  .caja.rojo{background:linear-gradient(135deg, var(--sim-rojo) 0%, var(--sim-rojo-dk) 100%); border-color:var(--sim-rojo-dk); animation:pulsoEmergencia 2.2s ease-in-out infinite;}
+  .caja.amarillo.n2{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk);}
+  .caja.amarillo.n3{background:var(--sim-amarillo-dk); border-color:var(--sim-amarillo-dk);}
+  .caja.rojo{background:var(--sim-rojo); border-color:var(--sim-rojo-dk); animation:pulsoEmergencia 2.2s ease-in-out infinite;}
   .caja.rojo.n1{background:var(--sim-rojo-bg); border-color:var(--sim-rojo); animation:none;}
-  .caja.rojo.n3{background:linear-gradient(135deg, var(--sim-rojo) 0%, var(--sim-rojo-dk) 45%, var(--sim-rojo-dk) 100%);}
-  .caja.naranja{background:linear-gradient(135deg, var(--sim-naranja) 0%, var(--sim-naranja-dk) 100%); border-color:var(--sim-naranja-dk);}
+  .caja.rojo.n2{background:var(--sim-rojo); border-color:var(--sim-rojo-dk);}
+  .caja.rojo.n3{background:var(--sim-rojo-dk); border-color:var(--sim-rojo-dk);}
+  .caja.naranja{background:var(--sim-naranja); border-color:var(--sim-naranja-dk);}
   .caja.naranja.n1{background:var(--sim-naranja-bg); border-color:var(--sim-naranja);}
-  .caja.naranja.n3{background:linear-gradient(135deg, var(--sim-naranja) 0%, var(--sim-naranja-dk) 45%, var(--sim-naranja-dk) 100%); box-shadow:0 0 16px -2px var(--sim-naranja);}
-  .caja.azul{background:linear-gradient(135deg, var(--sim-azul) 0%, var(--sim-azul-dk) 100%); border-color:var(--sim-azul-dk);}
+  .caja.naranja.n2{background:var(--sim-naranja); border-color:var(--sim-naranja-dk);}
+  .caja.naranja.n3{background:var(--sim-naranja-dk); border-color:var(--sim-naranja-dk);}
+  .caja.azul{background:var(--sim-azul); border-color:var(--sim-azul-dk);}
   .caja.azul.n1{background:var(--sim-azul-bg); border-color:var(--sim-azul);}
-  .caja.azul.n3{background:linear-gradient(135deg, var(--sim-azul) 0%, var(--sim-azul-dk) 45%, var(--sim-azul-dk) 100%); box-shadow:0 0 16px -2px var(--sim-azul);}
+  .caja.azul.n2{background:var(--sim-azul); border-color:var(--sim-azul-dk);}
+  .caja.azul.n3{background:var(--sim-azul-dk); border-color:var(--sim-azul-dk);}
   .caja.negro{background:var(--sim-negro); border-color:var(--sim-negro-dk);}
   .caja.negro.n1{background:var(--sim-negro-bg); border-color:var(--sim-negro);}
-  .caja.negro.n3{background:radial-gradient(circle at 30% 20%, #16161C 0%, var(--sim-negro) 55%, #000000 100%); border-color:var(--sim-negro-dk); box-shadow:inset 0 0 22px rgba(0,0,0,0.9);}
+  .caja.negro.n2{background:var(--sim-negro); border-color:var(--sim-negro-dk);}
+  .caja.negro.n3{background:var(--sim-negro-dk); border-color:var(--sim-negro-dk);}
+  /* Amarillo-dk (#B8860B, dorado oscuro) ya no es lo bastante claro para
+     tinta oscura como el resto de niveles amarillo — sube a texto blanco
+     SOLO en n3, igual que el resto de colores oscurecidos. */
+  .caja.amarillo.n3 .nombre,.caja.amarillo.n3 .stock{color:#FFFFFF !important;}
+  .caja.amarillo.n3 .detalle{color:rgba(255,255,255,1) !important;}
   @keyframes pulsoEmergencia{
     0%, 100%{box-shadow:0 0 0 0 rgba(232,54,93,0.55), 0 4px 8px rgba(0,0,0,0.18);}
     50%{box-shadow:0 0 0 8px rgba(232,54,93,0), 0 4px 8px rgba(0,0,0,0.18);}
