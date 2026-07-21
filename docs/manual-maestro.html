@@ -381,7 +381,7 @@
   <a href="#vista-hoy">4. Vista Hoy</a>
   <a href="#inventario">5. Inventario</a>
   <a href="#perchas">6. Perchas y sucursales</a>
-  <a href="#vender">7. Vender</a>
+  <a href="#vender">7. Vendido</a>
   <a href="#etiquetas">8. Etiquetas</a>
   <a href="#clientes">9. Clientes y estaciones</a>
   <a href="#comisiones">10. Comisiones</a>
@@ -405,7 +405,7 @@
   <a href="#vista-hoy">Hoy</a>
   <a href="#inventario">Inventario</a>
   <a href="#perchas">Perchas</a>
-  <a href="#vender">Vender</a>
+  <a href="#vender">Vendido</a>
   <a href="#etiquetas">Etiquetas</a>
   <a href="#clientes">Clientes</a>
   <a href="#comisiones">Comisiones</a>
@@ -461,7 +461,7 @@
       <tr><th>Vista</th><th>Qué resuelve</th><th>Quién la ve</th></tr>
       <tr><td><strong>Hoy</strong></td><td>Semáforo general del negocio, alertas, ganancia del día, producto estrella</td><td>Dueño (plata) / Empleado (conteos)</td></tr>
       <tr><td><strong>Inventario</strong></td><td>Todas las tarjetas de producto, filtros por color, ajustes rápidos, alta de producto</td><td>Ambos (alta y perchas solo dueño)</td></tr>
-      <tr><td><strong>Vender</strong></td><td>Cuadrícula táctil de venta, escáner de código de barras, cierre del día</td><td>Ambos</td></tr>
+      <tr><td><strong>Vendido</strong></td><td>Cuadrícula táctil de venta, escáner de código de barras, cierre del día</td><td>Ambos</td></tr>
       <tr><td><strong>Etiquetas</strong></td><td>Código de barras Code128 y QR listos para imprimir</td><td>Ambos</td></tr>
       <tr><td><strong>Perchas</strong></td><td>Fotos de cada percha con semáforo de cumplimiento de meta</td><td>Ambos (fotos) / Dueño (gestión)</td></tr>
       <tr><td><strong>Clientes</strong></td><td>Fichas con código único y matriz de estaciones (RFM)</td><td>Ambos</td></tr>
@@ -502,7 +502,7 @@
   </div>
   <div class="paso">
     <div class="num">5</div>
-    <div class="txt"><h4>Da de alta tus primeros productos</h4><p>A mano desde Inventario → "+ Agregar", o escaneando el código de barras en Vender y llenando la ficha nueva. Define nombre, categoría, precio, costo, proveedor, stock inicial y los umbrales rojo/amarillo (de cuántas unidades para abajo se enciende cada alerta).</p></div>
+    <div class="txt"><h4>Da de alta tus primeros productos</h4><p>A mano desde Inventario → "+ Agregar", o escaneando el código de barras en Vendido y llenando la ficha nueva. Define nombre, categoría, precio, costo, proveedor, stock inicial y los umbrales rojo/amarillo (de cuántas unidades para abajo se enciende cada alerta).</p></div>
   </div>
   <div class="paso">
     <div class="num">6</div>
@@ -519,7 +519,7 @@
     <li>Al menos 10 productos reales cargados con precio, costo y umbrales</li>
     <li>Gastos mensuales de cada ubicación registrados en Avanzado</li>
     <li>Primer respaldo cifrado descargado y guardado fuera del celular</li>
-    <li>Empleado capacitado en Vender + ajuste rápido de stock</li>
+    <li>Empleado capacitado en Vendido + ajuste rápido de stock</li>
   </ul>
 </section>
 
@@ -652,7 +652,7 @@
       <tr><td>Nombre</td><td>Camiseta AC/DC — Back in Black</td><td>Se ve en tarjetas, etiquetas y reportes</td></tr>
       <tr><td>Categoría</td><td>Camisetas</td><td>Agrupa en Etiquetas y en reportes</td></tr>
       <tr><td>SKU</td><td>CAM-ACDC-BIB</td><td>Código interno legible, no cambia al renombrar el producto</td></tr>
-      <tr><td>Código de barras</td><td>7861000030033</td><td>Lo que lee el escáner en Vender</td></tr>
+      <tr><td>Código de barras</td><td>7861000030033</td><td>Lo que lee el escáner en Vendido</td></tr>
       <tr><td>Precio de venta</td><td>$20.00</td><td>Lo que paga el cliente</td></tr>
       <tr><td>Costo</td><td>$8.50</td><td>Define el margen y por tanto si el producto puede ser azul o amarillo</td></tr>
       <tr><td>Umbral rojo / amarillo</td><td>8 / 16 unidades</td><td>Debajo de 8 se enciende rojo; entre 8 y 16, naranja</td></tr>
@@ -668,7 +668,7 @@
   <p>Cada tarjeta tiene botones <strong>−</strong> y <strong>+</strong> para mover 1 unidad sin pasar por el escáner — perfecto para conteos físicos, mermas o ingresos de mercadería. La app siempre pide un motivo corto ("Merma", "Conteo físico", "Regalo a cliente") y lo guarda en el log de movimientos, visible solo para el dueño — el candado natural contra descuadres.</p>
 
   <h3>La estrella ⭐: el producto que quieres empujar hoy</h3>
-  <p>El dueño puede marcar cualquier producto con una estrella. Ese producto aparece automáticamente en la sección "Para impulsar hoy" de la Vista Hoy y arriba del todo en la cuadrícula de Vender — así el empleado sabe exactamente qué recomendar sin que el dueño tenga que estar presente.</p>
+  <p>El dueño puede marcar cualquier producto con una estrella. Ese producto aparece automáticamente en la sección "Para impulsar hoy" de la Vista Hoy y arriba del todo en la cuadrícula de Vendido — así el empleado sabe exactamente qué recomendar sin que el dueño tenga que estar presente.</p>
 
   <div class="tip"><strong>Filtros de Inventario:</strong> Todos · Urgente (rojo) · Revisar (naranja) · Oportunidad (amarillo) · Sano (verde) · Dato (azul) · Dormido (negro). Úsalos cada mañana en este orden: primero Urgente, luego Revisar, y una vez a la semana revisa Dormido para liberar capital.</div>
 </section>
@@ -710,8 +710,8 @@
 
 <section class="bloque revela" id="vender">
   <div class="eyebrow">Sección 7</div>
-  <h2>Vender: cuadrícula táctil + escáner + cierre del día</h2>
-  <p class="lead">Vender no es un carrito de compras: es control de inventario en tiempo real. Cada toque es una unidad menos en stock, con 5 segundos para deshacer.</p>
+  <h2>Vendido: cuadrícula táctil + escáner + cierre del día</h2>
+  <p class="lead">Vendido no es un carrito de compras: es control de inventario en tiempo real. Cada toque es una unidad menos en stock, con 5 segundos para deshacer.</p>
 
   <h3>Tres formas de registrar una venta</h3>
   <div class="grid3">
@@ -796,7 +796,7 @@
   </div>
   <div class="paso">
     <div class="num">2</div>
-    <div class="txt"><h4>Selecciónalo al vender</h4><p>En Vender, el selector "Cliente" aplica ese código a la venta. Así la app arma su historial sin trabajo extra.</p></div>
+    <div class="txt"><h4>Selecciónalo al vender</h4><p>En Vendido, el selector "Cliente" aplica ese código a la venta. Así la app arma su historial sin trabajo extra.</p></div>
   </div>
   <div class="paso">
     <div class="num">3</div>
@@ -1117,7 +1117,7 @@ Carmen Ulloa,</pre>
           <p>Agua, pilas, cinta adhesiva, fundas de regalo, chicles. Márgenes ajustados por naturaleza del rubro — el terreno natural del color azul.</p>
           <ul class="lista">
             <li><strong>Ejemplo azul:</strong> Agua sin gas 600ml cuesta $0.70 y se vende a $0.80 — margen de apenas 12.5%. La app la marca azul n3: "Margen 13% — revisa el precio o el costo". Es información honesta, no un error: en básicos de alta rotación el margen bajo es normal, pero vale la pena negociarlo con el distribuidor cada semestre.</li>
-            <li><strong>Alta rotación, ticket bajo:</strong> ideal para el modo Vender por cuadrícula táctil — decenas de toques rápidos al día sin escribir nada.</li>
+            <li><strong>Alta rotación, ticket bajo:</strong> ideal para el modo Vendido por cuadrícula táctil — decenas de toques rápidos al día sin escribir nada.</li>
             <li><strong>Reporte contable:</strong> con márgenes tan ajustados, el dueño revisa el CSV contable cada semana (no solo mensual) para vigilar que el volumen sí compense el margen bajo.</li>
           </ul>
         </div>
