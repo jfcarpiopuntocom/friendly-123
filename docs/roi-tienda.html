@@ -21,20 +21,29 @@
 <link rel="canonical"            href="https://jfcarpiopuntocom.github.io/AMIGABLE/roi-tienda.html" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&amp;family=Source+Sans+3:wght@400;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #0B1220;
-    --ink-soft: #3B4759;
-    --muted: #6B7684;
+    color-scheme: light only;
+    forced-color-adjust: none;
+    --ink: #0F1923;
+    --ink-soft: #2C3E50;
+    --muted: #2C3E50;
     --line: #E6E9EF;
-    --bg: #FFFFFF;
-    --bg-soft: #F8F9FB;
-    --accent: #0B5FFF;
+    --bg: #F8F9FB;
+    --bg-soft: #FFFFFF;
+    --accent: #E86040;
+    --azul-oscuro: #0F1923;
     --green: #00C87A;
-    --orange: #FF6A3D;
-    --serif: 'Instrument Serif', Georgia, serif;
-    --sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --green-dk: #009A5A;
+    --orange: #E86040;
+    --amarillo: #FFC700;
+    --font-display: 'Space Grotesk', 'Avenir Next Condensed', sans-serif;
+    --font-body: 'Source Sans 3', 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    /* legacy aliases kept so nothing else in the file needs renaming */
+    --serif: var(--font-display);
+    --sans: var(--font-body);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -47,18 +56,20 @@
 
   header {
     padding: 70px 0 50px;
-    border-bottom: 1px solid var(--line);
+    background: var(--azul-oscuro);
+    border-bottom: 4px solid var(--amarillo);
   }
   .badge {
     display: inline-block;
-    font-size: 12px;
-    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
     letter-spacing: .12em;
     text-transform: uppercase;
     padding: 6px 14px;
     border-radius: 999px;
-    background: #F0F5FF;
-    color: var(--accent);
+    background: var(--amarillo);
+    color: var(--azul-oscuro);
     margin-bottom: 20px;
   }
   h1 {
@@ -67,10 +78,11 @@
     line-height: 1.08;
     letter-spacing: -.02em;
     margin-bottom: 14px;
+    color: #FFFFFF;
   }
   .lead {
     font-size: 18px;
-    color: var(--ink-soft);
+    color: #CCCCCC;
     max-width: 580px;
   }
 
@@ -138,19 +150,21 @@
   }
 
   .final {
-    background: var(--ink);
-    color: white;
+    background: var(--azul-oscuro);
+    color: #FFFFFF;
     border-radius: 20px;
     padding: 48px 40px;
     text-align: center;
+    border-bottom: 4px solid var(--amarillo);
   }
   .final h2 {
-    color: white;
+    font-family: var(--font-display);
+    color: #FFFFFF;
     font-size: 28px;
     margin-bottom: 12px;
   }
   .final p {
-    color: rgba(255,255,255,.7);
+    color: #CCCCCC;
     font-size: 16px;
   }
 </style>
@@ -286,13 +300,13 @@
   <div class="container" style="text-align:center;">
     <div class="final">
       <h2>Ve como funciona en vivo</h2>
-      <p style="color:rgba(255,255,255,.75);margin-bottom:28px;">La demo es gratuita y funciona sin instalacion. Solo abre el enlace en tu celular o computadora.</p>
-      <a href="https://jfcarpiopuntocom.github.io/AMIGABLE/" style="display:inline-block;background:#00C87A;color:#0B1220;font-weight:700;font-size:16px;padding:16px 36px;border-radius:999px;text-decoration:none;">Probar AMIGABLE-123 &rarr;</a>
+      <p style="color:#CCCCCC;margin-bottom:28px;">La demo es gratuita y funciona sin instalacion. Solo abre el enlace en tu celular o computadora.</p>
+      <a href="https://jfcarpiopuntocom.github.io/AMIGABLE/" style="display:inline-block;font-family:'Space Grotesk',sans-serif;background:#E86040;color:#FFFFFF;font-weight:700;font-size:16px;padding:16px 36px;border-radius:999px;text-decoration:none;">Probar AMIGABLE-123 &rarr;</a>
     </div>
   </div>
 </section>
 
-<footer style="padding:32px 40px;border-top:1px solid #E6E9EF;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#6B7684;flex-wrap:wrap;gap:12px;">
+<footer style="padding:32px 40px;border-top:1px solid #E6E9EF;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#2C3E50;flex-wrap:wrap;gap:12px;">
   <div>AMIGABLE-123 &middot; <a href="https://jfcarpio.com" style="color:inherit;">jfcarpio.com</a></div>
   <div>Analisis ROI para negocios ecuatorianos &middot; 2026</div>
 </footer>

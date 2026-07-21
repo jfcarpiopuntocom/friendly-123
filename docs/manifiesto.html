@@ -26,20 +26,24 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#0B1220;
-    --ink-soft:#3B4759;
-    --muted:#6B7684;
-    --line:#E6E9EF;
-    --bg:#FFFFFF;
-    --bg-soft:#F7F8FA;
-    --accent:#0B5FFF;
-    --accent-2:#00C87A;
-    --accent-3:#FF6A3D;
-    --serif:'Instrument Serif', Georgia, serif;
-    --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    /* App design system (matches docs/index.html) */
+    --ink:#0F1923;
+    --ink-soft:#2C3E50;
+    --muted:#2C3E50;
+    --line:#E1E5EA;
+    --bg:#F8F9FB;
+    --bg-soft:#F0F2F5;
+    --accent:#E86040;
+    --accent-2:#2E6278;
+    --accent-3:#C05000;
+    --serif:var(--font-display);
+    --sans:var(--font-body);
+    --font-display:"Space Grotesk", "Avenir Next Condensed", sans-serif;
+    --font-body:"Source Sans 3", "Segoe UI", sans-serif;
+    --font-mono:"JetBrains Mono", monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
@@ -57,9 +61,11 @@
     position:fixed;top:0;left:0;right:0;z-index:50;
     display:flex;align-items:center;justify-content:space-between;
     padding:18px 40px;
-    backdrop-filter:blur(20px) saturate(180%);
-    background:rgba(255,255,255,.75);
-    border-bottom:1px solid rgba(11,18,32,.06);
+    background:#FFFFFF;
+    border-bottom:1px solid var(--line);
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    nav{backdrop-filter:blur(20px) saturate(180%);background:#FFFFFFEE}
   }
   nav .brand{
     font-family:var(--serif);
@@ -69,8 +75,7 @@
   }
   nav .brand .dot{
     width:10px;height:10px;border-radius:50%;
-    background:linear-gradient(135deg,var(--accent),var(--accent-2));
-    box-shadow:0 0 0 4px rgba(11,95,255,.12);
+    background:var(--accent);
   }
   nav .links{display:flex;gap:28px;align-items:center;font-size:14px;font-weight:500}
   nav .links a{color:var(--ink-soft);text-decoration:none;transition:color .2s}
@@ -220,7 +225,7 @@
     width:64px;height:64px;border-radius:18px;
     display:flex;align-items:center;justify-content:center;
     font-size:30px;margin-bottom:26px;
-    background:linear-gradient(135deg,#F0F5FF,#E6F7EF);
+    background:var(--bg-soft);
     border:1px solid var(--line);
   }
   .aud-card h3{
@@ -265,15 +270,16 @@
   }
 
   .colors{
-    background:#0B1220;
+    background:var(--ink);
     color:#fff;
     border-radius:32px;
     margin:0 28px;
     padding:110px 70px;
+    border-bottom:4px solid #FFC700;
   }
   .colors h2{color:#fff}
-  .colors h2 em{color:#8FB4FF}
-  .colors .section-head p{color:rgba(255,255,255,.6)}
+  .colors h2 em{color:#FFC700}
+  .colors .section-head p{color:#CCCCCC}
   .color-grid{
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
@@ -297,7 +303,7 @@
     box-shadow:0 0 0 6px rgba(255,255,255,.06);
   }
   .color-card h4{font-size:18px;font-weight:700;margin-bottom:8px}
-  .color-card p{font-size:14.5px;color:rgba(255,255,255,.65);line-height:1.65}
+  .color-card p{font-size:14.5px;color:#CCCCCC;line-height:1.65}
 
   .features{background:var(--bg)}
   .feat-grid{
@@ -320,9 +326,9 @@
     border-radius:999px;
     margin-bottom:14px;
   }
-  .feat.ventas .tag{background:#E6F0FF;color:#0B5FFF}
-  .feat.inv .tag{background:#E6F9F0;color:#00A35A}
-  .feat.com .tag{background:#FFF0E6;color:#E85D2E}
+  .feat.ventas .tag{background:#FDD9BE;color:#C05000}
+  .feat.inv .tag{background:#C0F5E0;color:#009A5A}
+  .feat.com .tag{background:#D4ECF5;color:#2E6278}
   .feat h4{font-size:19px;font-weight:700;margin-bottom:12px;letter-spacing:-.01em}
   .feat p{font-size:15px;color:var(--ink-soft);line-height:1.7}
 
@@ -373,10 +379,7 @@
   .cta{
     text-align:center;
     padding:150px 40px;
-    background:
-      radial-gradient(700px circle at 15% 25%, rgba(11,95,255,.07), transparent 55%),
-      radial-gradient(600px circle at 85% 75%, rgba(0,200,122,.07), transparent 55%),
-      #fff;
+    background:var(--bg);
   }
   .cta h2{margin-bottom:26px}
   .cta p{
@@ -693,7 +696,7 @@
 
 <footer>
   <div>Ya existe algo pensado exactamente para esto. Se llama <strong>AMIGABLE-123</strong>.</div>
-  <div>Hecho con respeto para quienes viven del mostrador. &nbsp;<a href="https://jfcarpio.com" style="color:inherit;opacity:.6;">jfcarpio.com</a></div>
+  <div>Hecho con respeto para quienes viven del mostrador. &nbsp;<a href="https://jfcarpio.com" style="color:var(--ink-soft);">jfcarpio.com</a></div>
 </footer>
 
 <script>

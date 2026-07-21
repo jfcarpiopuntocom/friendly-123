@@ -22,24 +22,48 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="dark">
 <title>Panel · f123</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0f1117;
-    --surface:#1a1e2a;
-    --surface2:#222736;
-    --border:#2e3448;
-    --gold:#c9953a;
-    --gold-dim:#b8862f;
-    --green:#28c98a;
-    --green-dim:#1a7a52;
-    --amber:#d4832a;
-    --red:#c94040;
-    --blue:#4a7fd4;      /* marca de proyectos relacionados/otros */
-    --ink:#e8e4dc;
-    --ink-soft:#b8b3bf;  /* secundario legible (>= #999, regla de legibilidad) */
-    --ink-dim:#9d9aa8;   /* terciario — nunca más oscuro que #999 */
-    --font:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
-    --mono:"Cascadia Code","JetBrains Mono","Consolas",monospace;
+    /* ── PALETA HOMOLOGADA con docs/index.html (la app) — fuente de verdad.
+       JFC pidió que el panel maestro se vea de la misma familia visual que
+       la app. Estas variables son las oficiales del sistema Sinclair Bloom;
+       las variables de abajo (--bg, --gold, etc.) son ALIAS internos del
+       panel que ahora apuntan a estos valores, para no tener que renombrar
+       cientos de var(--gold)/var(--border) usados en todo este archivo. */
+    --azul-oscuro:#0F1923;   /* tinta-azul de cabecera (igual que la app) */
+    --azul-medio:#2E6278;
+    --rust:#E86040;          /* accent primario / CTA */
+    --rust-deep:#C05000;
+    --sim-verde:#00C87A;    --sim-verde-dk:#009A5A;
+    --sim-amarillo:#FFC700; --sim-amarillo-dk:#B8860B;
+    --sim-rojo:#E8365D;     --sim-rojo-dk:#B0183E;
+    --sim-azul:#5294AC;     --sim-azul-dk:#2E6278;
+    --font-display:"Space Grotesk", "Avenir Next Condensed", sans-serif;  /* headings/marca */
+    --font-body:"Source Sans 3", "Segoe UI", sans-serif;                  /* cuerpo */
+    --font-mono:"JetBrains Mono", "Consolas", monospace;                  /* labels/timestamps/código */
+
+    /* ── ALIAS internos (mismos nombres que usaba el panel antes, ahora
+       resueltos contra la paleta de arriba — NO se tocó ningún selector
+       que consuma estas variables, solo sus valores). ── */
+    --bg:var(--azul-oscuro);
+    --surface:#17212c;
+    --surface2:#1c2a38;
+    --border:#2c3e50;
+    --gold:var(--rust);           /* CTA/primario del panel = rust de la app */
+    --gold-dim:var(--rust-deep);
+    --green:var(--sim-verde);
+    --green-dim:var(--sim-verde-dk);
+    --amber:var(--sim-amarillo);
+    --red:var(--sim-rojo);
+    --blue:var(--sim-azul);      /* marca de proyectos relacionados/otros */
+    --ink:#FFFFFF;               /* texto primario sobre fondo oscuro */
+    --ink-soft:#CCCCCC;          /* secundario — piso de legibilidad de la casa */
+    --ink-dim:#999999;           /* terciario — nunca más oscuro que esto */
+    --font:var(--font-body);
+    --mono:var(--font-mono);
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;}
@@ -48,7 +72,7 @@
   #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;flex-direction:column;gap:0;}
   #gate-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px 28px;width:min(380px,92vw);display:flex;flex-direction:column;align-items:center;gap:20px;}
   #gate-brand{font-size:14px;font-family:var(--mono);color:var(--ink-dim);letter-spacing:0.08em;text-transform:uppercase;}
-  #gate-title{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:0.01em;}
+  #gate-title{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:0.01em;font-family:var(--font-display);}
 
   /* Casillas de entrada (●●●●●●) — 6 dígitos */
   .slots{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
@@ -71,10 +95,10 @@
   #panel.visible{display:block;}
 
   /* Topbar */
-  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:3px solid var(--amber);background:var(--azul-oscuro);position:sticky;top:0;z-index:10;}
   .topbar-brand{display:flex;align-items:center;gap:10px;}
-  .topbar-sello{width:34px;height:34px;border-radius:8px;background:var(--gold);color:#000;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .topbar-brand h1{font-size:16px;font-weight:700;}
+  .topbar-sello{width:34px;height:34px;border-radius:8px;background:var(--gold);color:#FFFFFF;font-weight:800;font-size:14px;font-family:var(--font-display);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .topbar-brand h1{font-size:16px;font-weight:700;font-family:var(--font-display);}
   .topbar-brand .role{font-size:13px;color:var(--ink-soft);font-family:var(--mono);margin-top:1px;}
   .topbar-right{display:flex;align-items:center;gap:14px;}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2.5s ease-in-out infinite;}
@@ -93,7 +117,7 @@
 
   /* Sección heading */
   .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;margin-top:34px;padding-bottom:8px;border-bottom:1px solid var(--border);}
-  .sec-head h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gold);}
+  .sec-head h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gold);font-family:var(--font-display);}
   .sec-head .hint{font-size:13px;font-family:var(--mono);color:var(--ink-dim);}
 
   /* Callout de ROLES — evita confundir master con dueño y proyectos entre sí */
@@ -113,7 +137,7 @@
   .pcard.main{border-top:3px solid var(--gold);}
   .pcard.otro{border-top:3px solid var(--blue);}
   .pcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
-  .pcard-nombre{font-size:17px;font-weight:700;line-height:1.2;}
+  .pcard-nombre{font-size:17px;font-weight:700;line-height:1.2;font-family:var(--font-display);}
   .pcard-sub{font-size:13px;color:var(--ink-soft);font-family:var(--mono);margin-top:2px;}
   .badge{font-size:12px;font-family:var(--mono);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:4px;flex-shrink:0;}
   .badge-prod{background:rgba(40,201,138,.16);color:var(--green);}
@@ -132,7 +156,7 @@
   .pcard-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;}
   .btn{display:inline-flex;align-items:center;gap:5px;padding:8px 13px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid transparent;transition:opacity .15s;}
   .btn:hover{opacity:.82;}
-  .btn-primary{background:var(--gold);color:#000;}
+  .btn-primary{background:var(--gold);color:#FFFFFF;}
   .btn-outline{background:transparent;border-color:var(--border);color:var(--ink-soft);}
   .btn-outline:hover{border-color:var(--gold-dim);color:var(--ink);}
   .btn-danger{background:transparent;border-color:var(--red);color:var(--red);}
@@ -188,7 +212,7 @@
   #modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;}
   #modal-overlay.visible{display:flex;}
   #modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 26px;width:min(360px,90vw);display:flex;flex-direction:column;align-items:center;gap:16px;}
-  #modal-titulo{font-size:16px;font-weight:700;text-align:center;}
+  #modal-titulo{font-size:16px;font-weight:700;text-align:center;font-family:var(--font-display);}
   #modal-desc{font-size:14px;color:var(--ink-soft);text-align:center;line-height:1.5;}
   #modal-msg{font-size:13px;font-family:var(--mono);min-height:16px;color:var(--red);}
   #modal-cancelar{font-size:13px;color:var(--ink-dim);background:transparent;border:none;cursor:pointer;padding:4px 8px;}
