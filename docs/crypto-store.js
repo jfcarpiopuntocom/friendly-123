@@ -47,14 +47,31 @@
 // LIMITACIÓN HONESTA: como esta es una app 100% cliente sin servidor, este
 // código vive embebido en el JS — cualquiera que lea el código fuente puede
 // verlo (aunque solo se guarda su HASH, no en texto plano). Es la única forma
-// de tener un "candado maestro" sin backend. Por eso el default de abajo debe
-// cambiarse por negocio si JFC quiere aislar el riesgo entre clientes.
+// de tener un "candado maestro" sin backend.
 //
-// CAMBIAR ESTE CÓDIGO: edita MASTER_CODE_DEFAULT antes de entregar la app a
-// cada nuevo negocio (o dile a JFC su código actual si no lo recuerda — sin
-// él, ni siquiera JFC puede reasignar un correo ya registrado en ese negocio).
+// GAP DE SEGURIDAD CERRADO (JFC 2026-07-21): antes MASTER_CODE_DEFAULT era un
+// string LITERAL idéntico para TODO negocio que corriera esta app — quien
+// conociera el código de un cliente lo tenía para TODOS, y dependía de que
+// alguien recordara editar esta constante a mano antes de cada entrega (un
+// paso manual que, sin checklist forzado, se olvida). Ahora el default se
+// DERIVA del dominio+ruta donde vive cada instancia (cada negocio es su
+// propia subcarpeta/branch, ver PLAN-AMIGABLE-DISTRIBUCION.md) — así, aunque
+// nadie llame nunca a fijarCodigoMaestro(), cada negocio YA arranca con un
+// código default distinto, sin depender de que un humano no se olvide.
+// fijarCodigoMaestro() sigue siendo la forma correcta de fijar uno propio,
+// fuerte y memorizable, cuando JFC quiera reforzarlo caso por caso — esto
+// solo eleva el piso de "todos comparten el mismo secreto por accidente".
+// JFC puede recalcular el default de cualquier negocio: PREFIX + "::" +
+// location.hostname + location.pathname de esa instancia.
 // ===========================================================================
-const MASTER_CODE_DEFAULT = "POSCUENCA-MAESTRO-2026";
+const MASTER_CODE_PREFIX = "POSCUENCA-MAESTRO-2026";
+function masterCodeDefault() {
+  try {
+    const host = (typeof location !== "undefined" && location.hostname) || "local";
+    const path = (typeof location !== "undefined" && location.pathname) || "/";
+    return MASTER_CODE_PREFIX + "::" + host + path;
+  } catch (_) { return MASTER_CODE_PREFIX; }
+}
 
 // Sal fija para ofuscar el PIN del dueño (no es un secreto fuerte — protege
 // solo de lectura casual de localStorage; el hash PBKDF2 es el verdadero
@@ -235,7 +252,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     if (segundosBloqueo("maestro") > 0) return false;
     const guardado = leerHashMaestroGuardado();
     const hashIngresado = await hashMaestro(codigo);
-    const ok = guardado ? hashIngresado === guardado : hashIngresado === (await hashMaestro(MASTER_CODE_DEFAULT));
+    const ok = guardado ? hashIngresado === guardado : hashIngresado === (await hashMaestro(masterCodeDefault()));
     ok ? registrarExito("maestro") : registrarFallo("maestro");
     return ok;
   }

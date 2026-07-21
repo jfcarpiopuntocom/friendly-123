@@ -32,14 +32,32 @@ const EMAILJS_CONFIG = {
     return !Object.values(EMAILJS_CONFIG).some((v) => v.startsWith("TU_"));
   }
 
+  // GAP DE SEGURIDAD CERRADO (JFC 2026-07-21): antes se cargaba "@4" (tag
+  // flotante, cualquier versión 4.x.x futura) SIN verificación de integridad
+  // — si el CDN o el paquete se comprometieran, ese script correría con
+  // acceso completo al localStorage del negocio (PINs hasheados, correo,
+  // etc). Ahora la versión queda FIJA (4.4.1) y el navegador verifica el
+  // hash SHA-384 antes de ejecutar una sola línea — si algo no calza
+  // (CDN comprometido, MITM, archivo corrupto), onerror se dispara y el
+  // sistema cae al modo "mostrar el código en pantalla" (ver enviarCodigo),
+  // nunca ejecuta código no verificado.
+  // Para actualizar de versión: descargar el nuevo archivo, recalcular con
+  // `openssl dgst -sha384 -binary archivo.js | openssl base64 -A`, y
+  // actualizar AMBOS el número de versión en la URL y el hash de abajo —
+  // nunca solo uno de los dos.
+  const EMAILJS_VERSION = "4.4.1";
+  const EMAILJS_SRI = "sha384-SALc35EccAf6RzGw4iNsyj7kTPr33K7RoGzYu+7heZhT8s0GZouafRiCg1qy44AS";
+
   let emailjsListo = null;
   function cargarEmailJS() {
     if (emailjsListo) return emailjsListo;
     emailjsListo = new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js";
+      s.src = `https://cdn.jsdelivr.net/npm/@emailjs/browser@${EMAILJS_VERSION}/dist/email.min.js`;
+      s.integrity = EMAILJS_SRI;
+      s.crossOrigin = "anonymous";
       s.onload = () => { window.emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey }); resolve(); };
-      s.onerror = () => reject(new Error("No se pudo cargar EmailJS (¿sin internet?)."));
+      s.onerror = () => reject(new Error("No se pudo cargar EmailJS (¿sin internet, o el CDN falló la verificación de integridad?)."));
       document.head.appendChild(s);
     });
     return emailjsListo;

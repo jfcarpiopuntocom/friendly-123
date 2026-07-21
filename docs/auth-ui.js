@@ -447,15 +447,30 @@
       var idInstancia = (globalThis.crypto && globalThis.crypto.randomUUID)
         ? globalThis.crypto.randomUUID()
         : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
+      // GAP DE SEGURIDAD CERRADO (JFC 2026-07-21): server.js ahora exige un
+      // header X-Instance-Key en cada /api/* — esta activación es la ÚNICA
+      // vez que el servidor la revela. Si no se captura y guarda aquí, se
+      // pierde para siempre (server.js nunca la vuelve a exponer, a
+      // propósito, ver comentario ahí). instanceKeyRecibida queda vacío si
+      // el servidor no soporta esto todavía (docs/ estático con
+      // mock-backend.js, sin server.js real) — window-fetch-con-key.js
+      // simplemente no manda el header y todo sigue funcionando igual que
+      // antes en ese modo.
+      var instanceKeyRecibida = "";
       try {
-        await fetch("/api/instancia/activar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vaciar: vaciar, instanceId: idInstancia }) });
+        var respActivar = await fetch("/api/instancia/activar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vaciar: vaciar, instanceId: idInstancia }) });
+        var dataActivar = await respActivar.json().catch(function () { return {}; });
+        instanceKeyRecibida = dataActivar.instanceKey || "";
       } catch (_) {}
       try { await window.OCSecure.fijarOwnerPin("789"); } catch (_) {}
       try { window.OCSecure.actualizarCorreo(email); } catch (_) {}
       if (vaciar) {
         try { var rm = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rm.push(k); } rm.forEach(function (kk) { localStorage.removeItem(kk); }); } catch (_) {}
       }
-      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now() })); } catch (_) {}
+      try {
+        var ownedPrevio = {}; try { ownedPrevio = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
+        localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now(), instanceKey: instanceKeyRecibida || ownedPrevio.instanceKey || "" }));
+      } catch (_) {}
       // NO marcar f123_bienvenida_v3 aqui — el wizard debe mostrarse de verdad
       // tras el primer login post-activacion (ver welcome-ui.js). Bug anterior:
       // se marcaba "vista" en este punto sin que el usuario la viera nunca.
