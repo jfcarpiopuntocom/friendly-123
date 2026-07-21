@@ -440,6 +440,14 @@
     // categoría) antes de que se arme el correo — nunca se manda nada sin
     // que él vea exactamente qué lleva. Solo se puede pedir 1 vez por
     // trimestre (90 días) para que no se vuelva una dependencia.
+    //
+    // FIX PREVENTIVO (JFC 2026-07-21): en modo demo (sin activación real) el
+    // dueño no debería poder disparar un correo real a JFC — mismo patrón ya
+    // usado para otros botones sensibles (ver index.html ~línea 2066 y 3633).
+    // Nota: es un `if` que envuelve todo el bloque, NO un `return` — un
+    // return temprano aquí cortaría también el render de Empleados que
+    // sigue más abajo en esta misma función.
+    if (!(window.OCAuth && window.OCAuth.esDemo && window.OCAuth.esDemo())) {
     const reportePanel = document.createElement("div");
     reportePanel.className = "tag-card";
     reportePanel.id = "oc-reporte-upsell";
@@ -500,6 +508,7 @@
             <div id="oc-reporte-cats" style="display:flex;flex-direction:column;gap:8px;margin:14px 0;">
               ${CATS.map((c) => `<label style="font-size:14px;"><input type="checkbox" checked value="${c.id}" style="margin-right:8px;min-width:18px;min-height:18px;vertical-align:middle;">${c.label}</label>`).join("")}
             </div>
+            <p id="oc-reporte-cats-warn" style="font-size:13px;color:var(--rojo,#E8365D);font-weight:700;margin:0 0 8px;display:none;">Select at least one category to send.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
               <button id="oc-reporte-aprobar" class="ir" style="background:var(--azul-medio);color:#fff;border-color:var(--azul-oscuro);">Approve & send request</button>
               <button id="oc-reporte-cancelar" class="ir" style="background:transparent;color:var(--ink-soft);border-color:var(--azul-suave,#dde5ec);">Cancel</button>
@@ -507,9 +516,31 @@
           </div>`;
         document.body.appendChild(overlay);
         overlay.querySelector("#oc-reporte-cancelar").addEventListener("click", () => overlay.remove());
-        overlay.querySelector("#oc-reporte-aprobar").addEventListener("click", () => {
-          const marcados = [...overlay.querySelectorAll("#oc-reporte-cats input:checked")].map((i) => i.value);
-          const cuerpo = `Quarterly report request ($100, optional).\n\nApproved data categories:\n- ${marcados.join("\n- ") || "(none selected)"}\n\n(Sent from friendly-123 Advanced panel.)`;
+        // FIX PREVENTIVO (JFC 2026-07-21): antes se podía destildar las 4
+        // categorías y aun así enviar el correo (llegaba "(none selected)"),
+        // quemando el único pedido permitido por trimestre en una request
+        // vacía. Ahora se bloquea al click Y se refleja en vivo con cada
+        // cambio de checkbox — mismo idioma visual de disable ya usado en
+        // refrescarEstado() (línea ~484: btn.disabled + opacity ".55").
+        const aprobarBtn = overlay.querySelector("#oc-reporte-aprobar");
+        const catsWrap = overlay.querySelector("#oc-reporte-cats");
+        const warnEl = overlay.querySelector("#oc-reporte-cats-warn");
+        function marcadosAhora() {
+          return [...catsWrap.querySelectorAll("input:checked")].map((i) => i.value);
+        }
+        function refrescarBotonAprobar() {
+          const hay = marcadosAhora().length > 0;
+          aprobarBtn.disabled = !hay;
+          aprobarBtn.style.opacity = hay ? "1" : ".55";
+          aprobarBtn.style.cursor = hay ? "pointer" : "not-allowed";
+          warnEl.style.display = hay ? "none" : "block";
+        }
+        catsWrap.addEventListener("change", refrescarBotonAprobar);
+        refrescarBotonAprobar();
+        aprobarBtn.addEventListener("click", () => {
+          const marcados = marcadosAhora();
+          if (marcados.length === 0) { refrescarBotonAprobar(); return; } // guard duro: nunca enviar vacío
+          const cuerpo = `Quarterly report request ($100, optional).\n\nApproved data categories:\n- ${marcados.join("\n- ")}\n\n(Sent from friendly-123 Advanced panel.)`;
           const href = `mailto:jfcarpio@gmail.com?subject=${encodeURIComponent("friendly-123 — quarterly report request")}&body=${encodeURIComponent(cuerpo)}`;
           window.location.href = href;
           try { localStorage.setItem(LS_KEY, String(Date.now())); } catch (_) {}
@@ -518,6 +549,7 @@
         });
       });
     })();
+    } // fin if (!esDemo) del panel de reporte trimestral
 
     // Renderiza la tabla de empleados (llama al endpoint cada vez que hay cambio)
     async function renderEmpleados() {

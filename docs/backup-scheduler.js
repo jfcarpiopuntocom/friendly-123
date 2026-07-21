@@ -107,6 +107,15 @@
     return (num || "").replace(/[^\d]/g, "");
   }
 
+  // FIX PREVENTIVO (JFC 2026-07-21): normalizeWa() solo limpia el texto, no
+  // valida que sea un número real — un número truncado ("593") generaba un
+  // link wa.me roto sin ningún aviso al dueño. 8 dígitos es un mínimo laxo
+  // (cubre números locales de 7-8 dígitos + variantes cortas), suficiente
+  // para atrapar el caso de "se me fue el dedo" sin bloquear números válidos.
+  function waEsValido(num) {
+    return normalizeWa(num).length >= 8;
+  }
+
   // Descarga real del respaldo. Reusa el flujo canónico: /api/respaldo/exportar.
   // Si hay passphrase configurada en OCCryptoStore, se cifra igual que la
   // exportación manual (mismo camino, misma cripto — no reinventamos nada).
@@ -188,10 +197,21 @@
         : "Enter your preferred email in Advanced before backing up.");
       return;
     }
-    if (prefs.canalWhatsapp && !normalizeWa(prefs.whatsapp)) {
+    if (prefs.canalWhatsapp && !waEsValido(prefs.whatsapp)) {
       alert(getLang() === "es"
-        ? "Escribe tu WhatsApp preferido en Avanzado (con código de país) antes de respaldar."
-        : "Enter your preferred WhatsApp number (with country code) in Advanced before backing up.");
+        ? "Tu WhatsApp en Avanzado parece incompleto (con código de país). Corrígelo antes de respaldar."
+        : "Your WhatsApp number in Advanced looks incomplete (with country code). Fix it before backing up.");
+      return;
+    }
+    // FIX PREVENTIVO (JFC 2026-07-21): negocios de feria/mercado suelen
+    // quedarse sin señal — distinguir "estás offline" de un error real evita
+    // que el dueño interprete un fallo de red como que la app está rota.
+    // No marcamos setLast() en ningún caso de fallo: el recordatorio vuelve
+    // a aparecer la próxima vez que abra Avanzado, que es lo correcto.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      alert(getLang() === "es"
+        ? "Estás sin conexión ahora mismo. El respaldo necesita internet un momento para leer tus datos — inténtalo de nuevo cuando tengas señal."
+        : "You're offline right now. The backup needs internet for a moment to read your data — try again once you have signal.");
       return;
     }
     let info;
@@ -232,9 +252,14 @@
 
   function mostrarAssurance() {
     if (document.getElementById("oc-backup-assurance")) return;
+    if (!esDuenoReal()) return; // revalidado: pudo cambiar de rol (o ser demo) durante el delay de arranque
     const wrap = document.createElement("div");
     wrap.id = "oc-backup-assurance";
-    wrap.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9990;"
+    // bottom:90px (no 16px/0) para no chocar con el toast de deshacer venta
+    // (bottom:16px, z-index:9500, index.html:3640) ni con la barra inferior
+    // full-width (bottom:0, z-index:10004, index.html:4031) — ambas ya
+    // existían antes de este módulo.
+    wrap.style.cssText = "position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:9490;"
       + "background:#F8F9FB;color:#0F1923;border:2px solid #E8A020;border-radius:12px;padding:14px 16px;"
       + "max-width:420px;width:calc(100% - 28px);box-shadow:0 12px 28px rgba(15,25,35,.28);"
       + "font-family:Georgia,serif;font-size:15px;line-height:1.45;";
@@ -263,13 +288,34 @@
     });
   }
 
+  function esDueno() {
+    const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : null;
+    return rol === "dueno" || rol === "dueño" || rol === "owner";
+  }
+
+  // FIX PREVENTIVO (JFC 2026-07-21): en demo, auth-ui.js asigna rol="dueno"
+  // igual (ver auth-ui.js:511), así que esDueno() por sí solo NO excluye la
+  // sesión de prueba. Nadie que solo está probando la app debería ver el
+  // panel de backup ni recibir el nag de "es hora de respaldar" — mismo
+  // patrón ya usado en avanzado-extra.js (líneas 777, 1115, 1146) y en el
+  // gate del reporte trimestral que agregamos antes.
+  function esDuenoReal() {
+    return esDueno() && !(window.OCAuth && window.OCAuth.esDemo && window.OCAuth.esDemo());
+  }
+
   // Chequea al arrancar (con delay para no molestar en el splash) si toca
   // respaldo o assurance. Nunca es bloqueante.
+  //
+  // FIX PREVENTIVO (JFC 2026-07-21): el dueño puede loguearse y ceder el
+  // dispositivo a un empleado DENTRO de los 4s de este delay (pasa seguido
+  // en mostrador). Por eso el rol se revalida DOS VECES: aquí al programar
+  // el timeout, y otra vez justo antes de pintar cada popup (ver
+  // mostrarRecordatorioRespaldo/mostrarAssurance) — nunca confiar en una
+  // sola lectura de rol tomada segundos antes de usarla.
   function chequearAlArrancar() {
     setTimeout(() => {
       try {
-        const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : null;
-        if (rol !== "dueno" && rol !== "dueño" && rol !== "owner") return; // solo el dueño
+        if (!esDuenoReal()) return; // solo el dueño real, nunca demo
         const prefs = getPrefs();
         if (!prefs.configurado) return; // no molestar hasta que el dueño abra Avanzado y configure
         if (toca(prefs)) {
@@ -283,9 +329,11 @@
 
   function mostrarRecordatorioRespaldo() {
     if (document.getElementById("oc-backup-remind")) return;
+    if (!esDuenoReal()) return; // revalidado: pudo cambiar de rol (o ser demo) durante el delay de arranque
     const wrap = document.createElement("div");
     wrap.id = "oc-backup-remind";
-    wrap.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9991;"
+    // bottom:90px, ver nota en mostrarAssurance() sobre el toast/barra existentes.
+    wrap.style.cssText = "position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:9491;"
       + "background:#F8F9FB;color:#0F1923;border:2px solid #E8A020;border-radius:12px;padding:14px 16px;"
       + "max-width:440px;width:calc(100% - 28px);box-shadow:0 12px 28px rgba(15,25,35,.32);"
       + "font-family:Georgia,serif;font-size:15px;line-height:1.45;";
@@ -326,6 +374,9 @@
   // ==========================================================================
   function renderPanel(mount) {
     if (!mount) return;
+    // FIX PREVENTIVO: no mostrar la config de backup a quien solo prueba la
+    // demo — ver nota en esDuenoReal() más arriba.
+    if (window.OCAuth && window.OCAuth.esDemo && window.OCAuth.esDemo()) { mount.innerHTML = ""; return; }
     const prefs = getPrefs();
     const lang = getLang();
     const T = (es, en) => lang === "es" ? es : en;
@@ -403,7 +454,7 @@
       };
       // Validación mínima: si eligió email, tiene que tener correo. Igual WhatsApp.
       if (nueva.canalEmail && !nueva.email) { msg(T("Falta tu correo.", "Missing your email."), "#E8365D"); return; }
-      if (nueva.canalWhatsapp && !normalizeWa(nueva.whatsapp)) { msg(T("Falta tu WhatsApp con código de país.", "Missing your WhatsApp with country code."), "#E8365D"); return; }
+      if (nueva.canalWhatsapp && !waEsValido(nueva.whatsapp)) { msg(T("Tu WhatsApp parece incompleto — inclúyelo con código de país.", "Your WhatsApp looks incomplete — include the country code."), "#E8365D"); return; }
       if (!nueva.canalEmail && !nueva.canalWhatsapp) { msg(T("Elige al menos un canal.", "Pick at least one channel."), "#E8365D"); return; }
       setPrefs(nueva);
       msg(T("Listo. Guardado. Podemos respaldar cuando quieras.", "Saved. We can back up whenever you like."), "#00C87A");
@@ -431,5 +482,23 @@
   // Auto-boot: cuando el dueño hace login, arrancamos el chequeo.
   window.addEventListener("oc-login", () => {
     chequearAlArrancar();
+  });
+
+  // FIX PREVENTIVO (JFC 2026-07-21): a diferencia de help-ui.js (que escucha
+  // "oc-lang-change" y repinta sus textos fijos, ver help-ui.js:262), este
+  // módulo se quedaba congelado en el idioma con el que se renderizó. Si el
+  // panel de Avanzado está montado, se re-renderiza con renderPanel() (ya es
+  // idempotente: reconstruye su innerHTML leyendo getLang() de nuevo). Los
+  // popups de recordatorio/assurance, si están abiertos, simplemente se
+  // cierran — el próximo chequeo automático los vuelve a mostrar ya en el
+  // idioma correcto; repintar un popup abierto en caliente no vale la
+  // complejidad extra para un caso tan raro.
+  window.addEventListener("oc-lang-change", () => {
+    const mount = document.getElementById("oc-backup-scheduler-mount");
+    if (mount && mount.childNodes.length) renderPanel(mount);
+    const remind = document.getElementById("oc-backup-remind");
+    if (remind) remind.remove();
+    const assurance = document.getElementById("oc-backup-assurance");
+    if (assurance) assurance.remove();
   });
 })();
