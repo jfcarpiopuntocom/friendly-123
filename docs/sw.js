@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v20"; // bumped 2026-07-22: backup-scheduler snooze + wa guard
+const CACHE = "f123-shell-v21"; // bumped 2026-07-22: resilient precache + crypto guard + mobile popup/iOS fixes
 const SHELL = [
   "./",
   "./index.html",
@@ -38,8 +38,17 @@ const SHELL = [
 const HOSTS_PERMITIDOS = [self.location.origin, "https://fonts.googleapis.com", "https://fonts.gstatic.com"];
 
 self.addEventListener("install", (evento) => {
+  // PRECACHE RESILIENTE (JFC 2026-07-22) — NO volver a cache.addAll(SHELL).
+  // addAll es ATÓMICO: si UN archivo del SHELL falla (renombrado, 404, o un
+  // timeout de red en el móvil durante la instalación), TODO el precache se
+  // aborta y el dispositivo queda SIN shell offline. (El .catch de antes solo
+  // evitaba que install rechazara, pero igual no cacheaba NADA.) Con cache.add
+  // por archivo + allSettled, un archivo malo solo se pierde a sí mismo y el
+  // resto queda cacheado: la app sigue abriendo offline en teléfonos/tablets.
   evento.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} }) // si un archivo falla, no bloquea la instalación
+    caches.open(CACHE).then((cache) => Promise.allSettled(
+      SHELL.map((u) => cache.add(u).catch((e) => { try { console.warn("[SW] no se pudo precachear", u, e && e.message); } catch (_) {} }))
+    )).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} })
   );
   self.skipWaiting();
 });

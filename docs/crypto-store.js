@@ -63,6 +63,33 @@ const MASTER_CODE_DEFAULT = "POSCUENCA-MAESTRO-2026";
 const PIN_XOR_KEY = "oc-pin-r-v1";
 
 (function () {
+  /* SECURE-CONTEXT GUARD (JFC 2026-07-22) — DO NOT REMOVE, purely additive.
+     crypto.subtle only exists in a secure context (https:// or localhost). If
+     the owner opens the app over a LAN IP (http://192.168.x.x) on a tablet or
+     phone to test, everything using PBKDF2/AES (keys, encrypted sync, backup
+     checksums) would throw a cryptic error with no explanation. We detect that
+     case ONCE and show an actionable notice. It modifies none of the functions
+     below — it just warns before they fail blindly. */
+  try {
+    var _ctxSeguro = (typeof self !== "undefined" && self.isSecureContext) || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    var _haySubtle = !!(typeof self !== "undefined" && self.crypto && self.crypto.subtle);
+    if (!_ctxSeguro || !_haySubtle) {
+      try { console.warn("[crypto-store] Insecure context: keys and encrypted backup won't work. Open the app over HTTPS or localhost, not a LAN IP."); } catch (_) {}
+      if (typeof document !== "undefined") {
+        var _avisoCrypto = function () {
+          if (document.getElementById("f123-crypto-insecure")) return;
+          var b = document.createElement("div");
+          b.id = "f123-crypto-insecure";
+          b.setAttribute("role", "alert");
+          b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:100000;background:#a3392a;color:#fff;font-family:Georgia,serif;font-size:14px;line-height:1.4;padding:10px 14px;text-align:center;";
+          b.textContent = "Open this app from its official https://… address (or localhost). Over a local-network IP, keys and encrypted backup don't work.";
+          document.body.appendChild(b);
+        };
+        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", _avisoCrypto);
+        else _avisoCrypto();
+      }
+    }
+  } catch (_) {}
   const enc = new TextEncoder();
   const dec = new TextDecoder();
   const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));

@@ -143,7 +143,12 @@
     a.href = url;
     a.download = nombre;
     document.body.appendChild(a);
-    a.click();
+    // PREVENTIVE FIX iOS/webview (JFC 2026-07-22) — do NOT reduce back to a
+    // bare a.click(). On iPhone/iPad the download attribute is ignored and the
+    // file opens in a tab; some locked-down webviews throw on a programmatic
+    // click. We wrap it and, as a last resort, open the blob in a tab so the
+    // owner can save it by hand. We never leave the owner without their file.
+    try { a.click(); } catch (_) { try { window.open(url, "_blank"); } catch (_) {} }
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
     return { nombre, humano: stampHumano(now) };
@@ -151,7 +156,7 @@
 
   function cuerpoEmail(nombreArchivo, humano) {
     return `friendly-123 backup generated on ${humano}.\n\n`
-         + `1) Attach the file "${nombreArchivo}" that just downloaded on this device (Downloads folder).\n`
+         + `1) Attach the file "${nombreArchivo}" that just downloaded on this device (Android/PC: Downloads folder; iPhone/iPad: it opens in a tab — tap Share and "Save to Files").\n`
          + `2) Send it to this address (to yourself).\n\n`
          + `— Your backup goes to YOU, not to a server. You never lose control of your data.`;
   }
@@ -166,9 +171,42 @@
     window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(body)}`;
   }
 
+  // PREVENTIVE MOBILE FIX (JFC 2026-07-22) — DO NOT REMOVE. window.open runs
+  // AFTER an await (the backup download), i.e. outside the user gesture.
+  // Safari/Chrome on phones/tablets block that popup and return null: the
+  // WhatsApp backup was failing SILENTLY. Here, if the open is blocked, we
+  // show a tappable link — a tap IS a fresh gesture, so the link always opens.
+  function mostrarLinkFallback(url, etiqueta) {
+    try {
+      const prev = document.getElementById("f123-backup-linkfallback");
+      if (prev) prev.remove();
+      const wrap = document.createElement("div");
+      wrap.id = "f123-backup-linkfallback";
+      wrap.style.cssText = "position:fixed;bottom:150px;left:50%;transform:translateX(-50%);z-index:9492;"
+        + "background:#0F1923;color:#fff;border:2px solid #E8A020;border-radius:12px;padding:12px 16px;"
+        + "max-width:420px;width:calc(100% - 28px);box-shadow:0 12px 28px rgba(15,25,35,.35);"
+        + "font-family:Georgia,serif;font-size:14px;line-height:1.45;text-align:center;";
+      const intro = document.createElement("div");
+      intro.style.cssText = "margin-bottom:8px;color:#fff;";
+      intro.textContent = "Your browser blocked the window. Tap here to open it:";
+      const a = document.createElement("a");
+      a.href = url; a.target = "_blank"; a.rel = "noopener";
+      a.textContent = etiqueta;
+      a.style.cssText = "display:inline-block;min-height:44px;line-height:44px;padding:0 18px;"
+        + "background:#25D366;color:#0a3d20;border-radius:8px;font-weight:700;text-decoration:none;";
+      a.addEventListener("click", () => { try { wrap.remove(); } catch (_) {} });
+      wrap.appendChild(intro); wrap.appendChild(a);
+      document.body.appendChild(wrap);
+      setTimeout(() => { try { wrap.remove(); } catch (_) {} }, 25000);
+    } catch (_) {}
+  }
+
   function abrirWa(num, nombreArchivo, humano) {
     const texto = cuerpoWa(nombreArchivo, humano);
-    window.open(`https://wa.me/${normalizeWa(num)}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+    const url = `https://wa.me/${normalizeWa(num)}?text=${encodeURIComponent(texto)}`;
+    let w = null;
+    try { w = window.open(url, "_blank", "noopener"); } catch (_) { w = null; }
+    if (!w) mostrarLinkFallback(url, "Open WhatsApp");
   }
 
   // Runs the full routine: download + open chosen channels + mark timestamp.
@@ -252,8 +290,8 @@
       <div style="font-weight:700;color:#E8A020;margin-bottom:4px;">${_textoAssu}</div>
       <div style="margin-bottom:10px;">${_cuerpoAssu}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="f123-backup-assured-ok" style="flex:1;min-height:40px;padding:8px 12px;border:2px solid #00C87A;background:#00C87A;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">Yes, it arrived — thanks!</button>
-        <button id="f123-backup-assured-resend" style="flex:1;min-height:40px;padding:8px 12px;border:2px solid #2E6278;background:#fff;color:#2E6278;border-radius:8px;font-weight:700;cursor:pointer;">Send again now</button>
+        <button id="f123-backup-assured-ok" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #00C87A;background:#00C87A;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">Yes, it arrived — thanks!</button>
+        <button id="f123-backup-assured-resend" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #2E6278;background:#fff;color:#2E6278;border-radius:8px;font-weight:700;cursor:pointer;">Send again now</button>
       </div>`;
     document.body.appendChild(wrap);
     document.getElementById("f123-backup-assured-ok").addEventListener("click", () => {
@@ -335,8 +373,8 @@
       <div style="font-weight:700;color:#E8A020;margin-bottom:4px;">Time for your backup</div>
       <div style="margin-bottom:10px;">${msg}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="f123-backup-remind-ok" style="flex:1;min-height:40px;padding:8px 12px;border:2px solid #E8A020;background:#E8A020;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">Back up now</button>
-        <button id="f123-backup-remind-later" style="flex:1;min-height:40px;padding:8px 12px;border:2px solid #2E6278;background:#fff;color:#2E6278;border-radius:8px;font-weight:700;cursor:pointer;">Later</button>
+        <button id="f123-backup-remind-ok" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #E8A020;background:#E8A020;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">Back up now</button>
+        <button id="f123-backup-remind-later" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #2E6278;background:#fff;color:#2E6278;border-radius:8px;font-weight:700;cursor:pointer;">Later</button>
       </div>`;
     document.body.appendChild(wrap);
     document.getElementById("f123-backup-remind-ok").addEventListener("click", () => {

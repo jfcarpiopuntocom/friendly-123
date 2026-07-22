@@ -95,10 +95,26 @@ async function handleRecoverPin(req, env) {
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Email inválido" }, 400);
   if (!/^\d{1,3}$/.test(pin)) return json({ error: "PIN inválido" }, 400);
 
-  // Anti-abuso leve: instanceId debe existir en KV si se proporcionó.
+  // Anti-abuso (JFC 2026-07-22). Dos blindajes, ambos fail-open para NUNCA
+  // romper una recuperación legítima si el KV tiene un hipo:
+  //   1) El correo destino es el REGISTRADO en KV para esa instancia, no el
+  //      que venga en el request. Sin esto, cualquiera con un instanceId
+  //      válido podía usar el endpoint como relay de spam hacia direcciones
+  //      ajenas (gastando además la cuota de Resend). Si la instancia aún no
+  //      tiene correo guardado, caemos al del request (primer registro).
+  //   2) Rate-limit leve por instancia (5/hora) con contador en KV con TTL.
+  let emailDestino = email;
   if (instanceId && env.LICENCIAS) {
-    const existe = await env.LICENCIAS.get(`inst:${instanceId}`).catch(() => null);
-    if (!existe) return json({ error: "Instancia desconocida" }, 403);
+    let reg = null;
+    try { const r = await env.LICENCIAS.get(`inst:${instanceId}`); reg = r ? JSON.parse(r) : null; } catch (_) { reg = null; }
+    if (!reg) return json({ error: "Instancia desconocida" }, 403);
+    if (reg.email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reg.email)) emailDestino = reg.email;
+    try {
+      const rlKey = `rl:recover:${instanceId}`;
+      const n = parseInt((await env.LICENCIAS.get(rlKey)) || "0", 10) || 0;
+      if (n >= 5) return json({ ok: true, enviado: false, motivo: "rate_limited" });
+      await env.LICENCIAS.put(rlKey, String(n + 1), { expirationTtl: 3600 });
+    } catch (_) { /* fail-open: si el KV falla, dejamos pasar */ }
   }
 
   // Sin RESEND_API_KEY → respuesta "soft" para que el cliente use fallback en pantalla.
@@ -121,7 +137,7 @@ async function handleRecoverPin(req, env) {
       },
       body: JSON.stringify({
         from: `amigable-123 <${fromEmail}>`,
-        to: [email],
+        to: [emailDestino],
         subject: "Tu clave de acceso — amigable-123",
         text: [
           `Tu clave de dueño en amigable-123 es: ${pinDisplay}`,
