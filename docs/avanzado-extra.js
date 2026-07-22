@@ -322,14 +322,6 @@
     `;
     cont.appendChild(respaldo);
 
-    // --- Automatic backup scheduler (JFC 2026-07-21) ---
-    // Mounted here (outside the accounting lock) so every owner can configure
-    // their backup without needing to unlock the P&L layer first.
-    const bkMount = document.createElement("div");
-    bkMount.id = "f123-backup-scheduler-mount";
-    cont.appendChild(bkMount);
-    if (window.OCBackupScheduler) window.OCBackupScheduler.montar(bkMount);
-
     // Mostrar usage/quota en el panel de checkpoints — util para diagnostico remoto
     // (JFC puede pedir screenshot de esta linea para saber si el problema es espacio).
     (async () => {
@@ -355,6 +347,14 @@
     if (aviso) aviso.insertAdjacentElement("afterend", lock);
     else vista.appendChild(lock);
     vista.appendChild(cont);
+
+    // --- Automatic backup scheduler (JFC 2026-07-21) ---
+    // Mounted on vista directly (NOT inside cont) so the owner can configure
+    // their backup without needing to unlock the accounting layer first.
+    const bkMount = document.createElement("div");
+    bkMount.id = "f123-backup-scheduler-mount";
+    vista.appendChild(bkMount);
+    if (window.OCBackupScheduler) window.OCBackupScheduler.montar(bkMount);
 
     $("oc-acct-open").addEventListener("click", async () => {
       if (!desbloqueadaSesion) {

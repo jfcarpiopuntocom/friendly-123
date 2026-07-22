@@ -221,9 +221,18 @@
       + "background:#F8F9FB;color:#0F1923;border:2px solid #E8A020;border-radius:12px;padding:14px 16px;"
       + "max-width:420px;width:calc(100% - 28px);box-shadow:0 12px 28px rgba(15,25,35,.28);"
       + "font-family:Georgia,serif;font-size:15px;line-height:1.45;";
+    // Dynamic text based on backup channel — don't say "inbox" to someone who backed up via WhatsApp only.
+    const _last = getLast();
+    const _canalAssu = _last ? _last.canal : (getPrefs().canalEmail ? "email" : "whatsapp");
+    const _textoAssu = _canalAssu === "whatsapp"
+      ? "Did your backup reach your WhatsApp?"
+      : (_canalAssu === "both" ? "Did your backup arrive — email or WhatsApp?" : "Did your backup reach your inbox?");
+    const _cuerpoAssu = _canalAssu === "whatsapp"
+      ? "Check your WhatsApp and confirm you have the file. It's yours — it never passes through us. Have a great week!"
+      : "Open it in your inbox and confirm it's there. It's yours — it never passes through us. Have a great week!";
     wrap.innerHTML = `
-      <div style="font-weight:700;color:#E8A020;margin-bottom:4px;">Did your backup reach your inbox?</div>
-      <div style="margin-bottom:10px;">Open it in your inbox and confirm it's there. It's yours — it never passes through us. Have a great week!</div>
+      <div style="font-weight:700;color:#E8A020;margin-bottom:4px;">${_textoAssu}</div>
+      <div style="margin-bottom:10px;">${_cuerpoAssu}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button id="f123-backup-assured-ok" style="flex:1;min-height:40px;padding:8px 12px;border:2px solid #00C87A;background:#00C87A;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">Yes, it arrived — thanks!</button>
         <button id="f123-backup-assured-resend" style="flex:1;min-height:40px;padding:8px 12px;border:2px solid #2E6278;background:#fff;color:#2E6278;border-radius:8px;font-weight:700;cursor:pointer;">Send again now</button>
@@ -348,7 +357,7 @@
             <input type="range" id="f123-bk-frec" min="0" max="3" step="1" value="${frecIdxSafe}"
               style="width:100%;max-width:320px;accent-color:#E86040;height:6px;cursor:pointer;">
             <div style="display:flex;justify-content:space-between;max-width:320px;margin-top:5px;">
-              ${FREQS.map((f) => `<span style="font-size:12px;color:#2C3E50;text-align:center;width:25%;">${f.label}</span>`).join("")}
+              ${FREQS.map((f) => `<span style="font-size:13px;color:#2C3E50;text-align:center;width:25%;">${f.label.replace(" (minimum)","")}</span>`).join("")}
             </div>
             <p id="f123-bk-frec-label" style="margin:6px 0 0;font-size:13px;color:#E86040;font-weight:700;">
               Selected: ${FREQS[frecIdxSafe].label}
@@ -383,7 +392,7 @@
           <b>Honest note:</b>
           mailto: and wa.me links can't attach files automatically (web standard limitation). So we download the file first and open the message with the recipient and body already filled — you just attach and send. Most automatic possible without your data passing through us.
         </p>
-        <p style="margin:8px 0 0;font-size:12px;color:#5A6270;">
+        <p style="margin:8px 0 0;font-size:13px;color:#5A6270;">
           <b>Scope of this backup:</b> includes products, sales, clients, commissions, and business settings.
           The file is not encrypted — store it somewhere you trust.
           For a full backup (including security keys and rack photos) use <b>Advanced → Export backup</b>.
