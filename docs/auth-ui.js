@@ -206,6 +206,14 @@
   /* Rol DEMO: ocultar cambio de claves y de correo (todo lo demás funciona) */
   body.rol-demo #oc-clave-block, body.rol-demo #oc-email-edit,
   body.rol-demo #oc-email-save, body.rol-demo #oc-email-in{display:none!important;}
+  /* Rol ADMIN: ve todo lo que ve el dueño EXCEPTO cambiar credenciales del dueño
+     y gestionar otros admins (eso es exclusivo del dueño). El campo de admin
+     en la sección Equipo se oculta por JS en avanzado-extra.js. */
+  body.rol-admin #oc-c-owner,
+  body.rol-admin label:has(#oc-c-owner){display:none!important;}
+  body.rol-admin #oc-email-edit,
+  body.rol-admin #oc-email-save,
+  body.rol-admin #oc-email-in{display:none!important;}
   `;
   document.head.appendChild(css);
 
@@ -352,7 +360,9 @@
     // Multi-usuario (2026-07-07): si el PIN no coincidio con dueno/empleado-gen/demo,
     // pregunta al backend si es un empleado nombrado por el dueno en Avanzado.
     const uNombrado = await verificarUsuarioNombrado(code);
-    if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); return entrar("empleado"); }
+    // Los admins nombrados entran como "admin" (acceso nivel dueño con restricciones);
+    // los empleados nombrados siguen entrando como "empleado".
+    if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); return entrar(uNombrado.rol === "admin" ? "admin" : "empleado"); }
     registrarFallo();
     const restante = msRestantesBloqueo();
     if (restante > 0) { error(window.tf("auth.gate.tooManyAttempts", {s: Math.ceil(restante / 1000)})); return; }
@@ -513,6 +523,7 @@
     document.body.classList.toggle("rol-dueno", rol === "dueno");
     document.body.classList.toggle("rol-demo", esDemo);
     document.body.classList.toggle("rol-contador", rol === "contador");
+    document.body.classList.toggle("rol-admin", rol === "admin");
     gate.style.display = "none";
     document.body.style.overflow = ""; // reabre el scroll del fondo
     // Primera impresion controlada: foco fuera de cualquier boton fantasma
@@ -521,7 +532,8 @@
     window.scrollTo(0, 0);
     montarLogout();
     reiniciarInactividad();
-    if (rol === "empleado") { const n = document.querySelector('nav button[data-vista="hoy"]'); if (n) n.click(); }
+    // Empleados y admins aterrizan en Hoy (vista operativa del turno).
+    if (rol === "empleado" || rol === "admin") { const n = document.querySelector('nav button[data-vista="hoy"]'); if (n) n.click(); }
 
         // Ping: heartbeat on each login
         try {
@@ -563,7 +575,7 @@
     rol = null;
     demoSesion = false;
     window.OCCurrentUser = null; // borrar sesion de empleado nombrado
-    document.body.classList.remove("rol-empleado", "rol-dueno", "rol-demo", "rol-contador"); // Fix-6: rol-contador también
+    document.body.classList.remove("rol-empleado", "rol-dueno", "rol-demo", "rol-contador", "rol-admin");
     nuevoTeclado();
     gate.style.display = "flex";
     document.body.style.overflow = "hidden"; // candado visible: el fondo no se mueve

@@ -3954,6 +3954,11 @@ setTimeout(() => {
 <script src="./auth-ui.js"></script>
 <script src="./backup-scheduler.js"></script>
 <script src="./avanzado-extra.js"></script>
+<!-- Novedades: experimental employee gamification (EXPERIMENTAL FEATURE,
+     JFC 2026-07-22). Separate module, ON by DEFAULT (owner can turn it off
+     in Advanced with an explicit "0").
+     See novedades.js for detail — never touches real sales/inventory. -->
+<script src="./novedades.js"></script>
 <script src="./help-ui.js"></script>
 <!-- idb-fotos.js (JFC 2026-07-18): DEBE cargar antes de vista-perchas.js —
      expone window.OCFotos, que vista-perchas.js usa para persistir fotos de

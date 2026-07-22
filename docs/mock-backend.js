@@ -1344,45 +1344,54 @@
       // (esos hashes viven en crypto-store, no en este mock). Se pide al dueno
       // que elija PINs que no coincidan con los suyos.
 
-      // GET /api/usuarios — lista empleados (sin PIN, solo id/nombre/rol/activo)
+      // GET /api/usuarios — lista usuarios del equipo (sin PIN; id/nombre/rol/email/activo)
       if (path === "/api/usuarios" && (!opts || !opts.method || opts.method === "GET")) {
-        return J(usuarios.map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, activo: u.activo, creadoEn: u.creadoEn })));
+        return J(usuarios.map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn })));
       }
-      // POST /api/usuarios — crear empleado (solo alcanzable desde Avanzado = dueno)
+      // POST /api/usuarios — crear miembro del equipo (empleado o admin); desde Avanzado = solo dueno.
+      // Los admins NO cuentan contra el limite de empleados del plan free — son co-responsables,
+      // no personal adicional, y el dueno debe poder agregar al menos uno sin activar.
       if (path === "/api/usuarios" && opts && opts.method === "POST") {
         const nombre = String(body.nombre || "").trim().slice(0, 60);
         const pin    = String(body.pin    || "").trim();
-        if (!nombre)                     return J({ error: "El nombre del empleado es obligatorio." }, 400);
+        const email  = String(body.email  || "").trim().slice(0, 160) || null;
+        const rolNuevo = (body.rol === "admin") ? "admin" : "empleado";
+        if (!nombre)                     return J({ error: "El nombre es obligatorio." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "El PIN debe tener exactamente 3 digitos." }, 400);
-        if (usuarios.length >= 1 && (!instanceId || licenciaLimitada())) return J({ error: "The free plan includes 1 employee. Activate this device (PIN 789) for unlimited employees.", codigo: "LIMITE_EMPLEADOS" }, 403);
-        if (usuarios.some((u) => u.pin === pin)) return J({ error: "Ese PIN ya lo usa otro empleado. Elige uno diferente." }, 400);
-        const nuevo = { id: uuid("u"), nombre, pin, rol: "empleado", activo: true, creadoEn: new Date().toISOString() };
+        // Limite free: 1 empleado (admins exentos — son co-duenos, no personal)
+        const empleadosActuales = usuarios.filter((u) => u.rol === "empleado").length;
+        if (rolNuevo === "empleado" && empleadosActuales >= 1 && (!instanceId || licenciaLimitada()))
+          return J({ error: "The free plan includes 1 employee. Activate this device (PIN 789) for unlimited employees.", codigo: "LIMITE_EMPLEADOS" }, 403);
+        if (usuarios.some((u) => u.pin === pin)) return J({ error: "Ese PIN ya lo usa otro miembro del equipo. Elige uno diferente." }, 400);
+        const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: new Date().toISOString() };
         usuarios.push(nuevo);
-        mov("usuario-alta", { nombre, rol: "empleado" });
-        return J({ id: nuevo.id, nombre: nuevo.nombre, rol: nuevo.rol, activo: nuevo.activo, creadoEn: nuevo.creadoEn });
+        mov("usuario-alta", { nombre, rol: rolNuevo });
+        return J({ id: nuevo.id, nombre: nuevo.nombre, rol: nuevo.rol, email: nuevo.email, activo: nuevo.activo, creadoEn: nuevo.creadoEn });
       }
-      // PATCH /api/usuarios/:id — editar nombre, activar/desactivar, cambiar PIN
+      // PATCH /api/usuarios/:id — editar nombre, activar/desactivar, cambiar PIN, actualizar email
+      // El admin puede editar empleados pero NO a otros admins (ese control vive en la UI).
       if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "PATCH") {
         const uid2 = path.split("/").pop();
         const u = usuarios.find((x) => x.id === uid2);
-        if (!u) return J({ error: "Empleado no encontrado." }, 404);
+        if (!u) return J({ error: "Miembro no encontrado." }, 404);
         if (body.nombre !== undefined) u.nombre = String(body.nombre).trim().slice(0, 60) || u.nombre;
         if (body.activo !== undefined) u.activo = !!body.activo;
+        if (body.email  !== undefined) u.email  = String(body.email || "").trim().slice(0, 160) || null;
         if (body.pin !== undefined) {
           const np = String(body.pin).trim();
           if (!/^\d{3}$/.test(np)) return J({ error: "El nuevo PIN debe tener 3 digitos." }, 400);
-          if (usuarios.some((x) => x.id !== uid2 && x.pin === np)) return J({ error: "Ese PIN ya lo usa otro empleado." }, 400);
+          if (usuarios.some((x) => x.id !== uid2 && x.pin === np)) return J({ error: "Ese PIN ya lo usa otro miembro del equipo." }, 400);
           u.pin = np;
         }
-        mov("usuario-editar", { id: uid2, nombre: u.nombre });
-        return J({ id: u.id, nombre: u.nombre, rol: u.rol, activo: u.activo, creadoEn: u.creadoEn });
+        mov("usuario-editar", { id: uid2, nombre: u.nombre, rol: u.rol });
+        return J({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn });
       }
       // POST /api/usuarios/verificar — recibe { pin }, devuelve { id, nombre, rol } o 401
-      // Llamado por auth-ui.js durante el login para identificar empleados nombrados.
+      // Llamado por auth-ui.js durante el login para identificar empleados y admins nombrados.
       if (path === "/api/usuarios/verificar" && opts && opts.method === "POST") {
         const pin = String(body.pin || "").trim();
         const u = usuarios.find((x) => x.activo && x.pin === pin);
-        if (!u) return J({ error: "PIN no corresponde a ningun empleado activo." }, 401);
+        if (!u) return J({ error: "PIN no corresponde a ningun miembro activo del equipo." }, 401);
         return J({ id: u.id, nombre: u.nombre, rol: u.rol });
       }
       // =========================================================================

@@ -389,144 +389,302 @@
       </div>`;
     vista.appendChild(gestion);
 
-    // === EMPLEADOS (multi-usuario 2026-07-07) ==============================
-    // Panel de gestion de empleados nombrados. Solo el dueno llega a Avanzado.
-    // Cada empleado tiene un PIN propio de 3 digitos. Al loguearse, sus acciones
-    // quedan registradas en movimientos con su nombre (via window.OCCurrentUser).
-    // Limite: 49 empleados. El dueno NO aparece en esta lista.
-    const empPanel = document.createElement("div");
-    empPanel.className = "tag-card";
-    empPanel.id = "oc-emp-panel";
-    empPanel.style.cssText = "text-align:left;margin-top:22px;";
-    empPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Employees</h3>
+    // === EQUIPO (multi-usuario, admins + empleados, 2026-07-22) ===========
+    // Panel de gestión del Equipo: admins + empleados con PINs y correos.
+    // - Dueño: crea admins y empleados, cambia cualquier PIN, desactiva cualquiera.
+    // - Admin: crea y gestiona empleados (NO puede crear otros admins ni editar el PIN de admins).
+    // - Límite free: 1 empleado (admins exentos — son co-dueños, no personal).
+    const isDueno = () => window.OCAuth && window.OCAuth.rolActual() === "dueno";
+    const isAdmin = () => window.OCAuth && window.OCAuth.rolActual() === "admin";
+
+    const equipoPanel = document.createElement("div");
+    equipoPanel.className = "tag-card";
+    equipoPanel.id = "oc-emp-panel";
+    equipoPanel.style.cssText = "text-align:left;margin-top:22px;";
+    equipoPanel.innerHTML = `
+      <h3 class="seccion" style="margin-top:0;">Equipo</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Each employee has their own 3-digit PIN. Their sales, adjustments, and movements
-        are recorded with their name in the history log. The owner PIN does not appear here.
+        Cada miembro tiene su propio PIN de 3 dígitos. Sus ventas, ajustes y movimientos
+        quedan registrados con su nombre en el historial. El PIN del dueño no aparece aquí.
       </p>
       <div id="oc-emp-lista" style="margin-bottom:18px;"></div>
       <details id="oc-emp-form-wrap" style="margin-bottom:6px;">
         <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--azul-medio);margin-bottom:10px;">
-          + Add employee
+          + Agregar miembro del equipo
         </summary>
-        <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;margin-top:10px;">
-          <label style="font-size:13px;">Name
-            <input id="oc-emp-nombre" maxlength="60" placeholder="Ej: Maria Auquilla"
+        <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;margin-top:10px;">
+          <label style="font-size:13px;">Nombre
+            <input id="oc-emp-nombre" maxlength="60" placeholder="Ej: María Auquilla"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
-          <label style="font-size:13px;">PIN (3 digits)<!-- Microcirugia 7 (2026-07-08): warning de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el empleado queda bloqueado silenciosamente. -->
+          <label style="font-size:13px;">Correo (opcional — para notificaciones)
+            <input id="oc-emp-email" type="email" maxlength="160" placeholder="correo@ejemplo.com"
+              style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
+                     border-radius:5px;font-size:14px;box-sizing:border-box;">
+          </label>
+          <label style="font-size:13px;">PIN (3 dígitos)<!-- Microcirugia 7 (2026-07-08): aviso de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el miembro queda bloqueado silenciosamente. -->
             <span style="display:block;font-size:12px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;">
-              Do not use the same PIN as the owner, general employee, or accountant. If it matches any of those, this employee cannot log in.
+              No uses el mismo PIN del dueño, empleado general ni contador.
             </span>
             <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="•••"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;text-align:center;font-family:var(--font-mono);
                      box-sizing:border-box;letter-spacing:.2em;">
           </label>
+          <label id="oc-emp-rol-label" style="font-size:13px;">Rol
+            <select id="oc-emp-rol"
+              style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
+                     border-radius:5px;font-size:14px;box-sizing:border-box;background:var(--blanco-calido,#fbf5e8);">
+              <option value="empleado">Empleado — acceso operativo (ventas, inventario, perchas)</option>
+              <option value="admin">Administrador — acceso completo excepto credenciales del dueño</option>
+            </select>
+            <span style="display:block;font-size:12px;color:var(--ink-soft);margin-top:3px;">
+              Solo el dueño puede crear administradores.
+            </span>
+          </label>
           <button id="oc-emp-agregar" class="ir"
             style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">
-            Create employee
+            Agregar al equipo
           </button>
           <p id="oc-emp-msg" style="font-size:14px;margin:0;font-weight:700;"></p>
         </div>
       </details>`;
-    vista.appendChild(empPanel);
+    vista.appendChild(equipoPanel);
 
-    // Renderiza la tabla de empleados (llama al endpoint cada vez que hay cambio)
+    // Renderiza la tabla del equipo (llama al endpoint cada vez que hay cambio).
+    // También actualiza la visibilidad del selector de rol (dueño vs admin),
+    // porque init() corre antes del login y el rol real no está disponible aún.
     async function renderEmpleados() {
+      const rolLabel = document.getElementById("oc-emp-rol-label");
+      if (rolLabel) rolLabel.style.display = isDueno() ? "" : "none";
       const lista = document.getElementById("oc-emp-lista");
       if (!lista) return;
-      let empleados = [];
+      let equipo = [];
       try {
         const r = await fetch("/api/usuarios");
-        if (r.ok) empleados = await r.json();
+        if (r.ok) equipo = await r.json();
       } catch (_) {}
 
-      if (!empleados.length) {
-        lista.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);margin:0;">No employees registered yet.</p>';
+      if (!equipo.length) {
+        lista.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);margin:0;">Aún no hay miembros del equipo.</p>';
         return;
       }
 
-      // Tabla simple: nombre, PIN (oculto salvo hover), estado, acciones
       lista.innerHTML = `
         <table style="width:100%;border-collapse:collapse;font-size:14px;">
           <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
-            <th style="text-align:left;padding:6px 8px;font-weight:700;">Name</th>
-            <th style="text-align:center;padding:6px 8px;font-weight:700;">Status</th>
-            <th style="text-align:right;padding:6px 8px;font-weight:700;">Actions</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:700;">Miembro</th>
+            <th style="text-align:center;padding:6px 8px;font-weight:700;">Rol</th>
+            <th style="text-align:center;padding:6px 8px;font-weight:700;">Estado</th>
+            <th style="text-align:right;padding:6px 8px;font-weight:700;">Acciones</th>
           </tr></thead>
           <tbody id="oc-emp-tbody"></tbody>
         </table>`;
       const tbody = document.getElementById("oc-emp-tbody");
-      empleados.forEach((u) => {
+
+      equipo.forEach((u) => {
         const tr = document.createElement("tr");
         tr.style.borderBottom = "1px solid var(--azul-suave,#dde5ec)";
-        const estadoColor = u.activo ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)";
-        const estadoTxt   = u.activo ? "Active" : "Inactive";
-        const btnLabel    = u.activo ? "Deactivate" : "Activate";
-        const btnColor    = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
+        const estadoColor  = u.activo ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)";
+        const estadoTxt    = u.activo ? "Activo" : "Inactivo";
+        const btnEstLabel  = u.activo ? "Desactivar" : "Activar";
+        const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
+        const rolBadge     = u.rol === "admin"
+          ? `<span style="font-size:11px;font-weight:700;background:#E8A020;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
+          : `<span style="font-size:11px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Empleado</span>`;
+        // Admin solo puede editar empleados, no a otros admins (seguridad por capas)
+        const puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado");
         tr.innerHTML = `
-          <td style="padding:8px;">${escHtml(u.nombre)}</td>
+          <td style="padding:8px;">
+            <div style="font-weight:700;">${escHtml(u.nombre)}</div>
+            ${u.email ? `<div style="font-size:12px;color:var(--ink-soft);">${escHtml(u.email)}</div>` : ""}
+          </td>
+          <td style="padding:8px;text-align:center;">${rolBadge}</td>
           <td style="padding:8px;text-align:center;color:${estadoColor};font-weight:700;">${estadoTxt}</td>
-          <td style="padding:8px;text-align:right;">
-            <button data-id="${escHtml(u.id)}" data-activo="${u.activo}"
-              style="font-size:12px;padding:5px 10px;border:2px solid ${btnColor};
-                     border-radius:5px;background:transparent;color:${btnColor};cursor:pointer;">
-              ${btnLabel}
-            </button>
+          <td style="padding:8px;text-align:right;white-space:nowrap;">
+            ${puedeEditar ? `
+              <button data-toggle-id="${escHtml(u.id)}" data-activo="${u.activo}"
+                style="font-size:12px;padding:5px 10px;border:2px solid ${btnEstColor};
+                       border-radius:5px;background:transparent;color:${btnEstColor};cursor:pointer;">
+                ${btnEstLabel}
+              </button>
+              <button data-cambiar-pin="${escHtml(u.id)}"
+                style="font-size:12px;padding:5px 10px;border:2px solid var(--azul-medio);
+                       border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;margin-left:4px;">
+                PIN
+              </button>
+            ` : `<span style="font-size:12px;color:var(--ink-soft);">Solo dueño</span>`}
           </td>`;
         tbody.appendChild(tr);
+
+        // Fila inline para cambiar PIN (oculta hasta click en "PIN")
+        if (puedeEditar) {
+          const trPin = document.createElement("tr");
+          trPin.id = `oc-pin-row-${u.id}`;
+          trPin.style.cssText = "display:none;background:var(--azul-suave,#EEF3F7);";
+          trPin.innerHTML = `
+            <td colspan="4" style="padding:10px 12px;">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <span style="font-size:13px;font-weight:700;">Nuevo PIN para ${escHtml(u.nombre)}:</span>
+                <input data-pin-input="${escHtml(u.id)}" maxlength="3" inputmode="numeric" placeholder="•••"
+                  style="width:80px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:5px;
+                         font-size:14px;text-align:center;font-family:var(--font-mono);letter-spacing:.15em;">
+                <button data-guardar-pin="${escHtml(u.id)}"
+                  style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:5px;
+                         background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">
+                  Guardar
+                </button>
+                <span data-pin-msg="${escHtml(u.id)}" style="font-size:13px;font-weight:700;"></span>
+              </div>
+            </td>`;
+          tbody.appendChild(trPin);
+        }
       });
 
-      // Bind toggle-active buttons
-      tbody.querySelectorAll("button[data-id]").forEach((btn) => {
+      // Bind: toggle activo/inactivo
+      tbody.querySelectorAll("[data-toggle-id]").forEach((btn) => {
         btn.addEventListener("click", async () => {
-          const id     = btn.dataset.id;
+          const id = btn.dataset.toggleId;
           const activo = btn.dataset.activo === "true";
           try {
             const r = await fetch("/api/usuarios/" + id, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
+              method: "PATCH", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ activo: !activo }),
             });
-            if (!r.ok) { const e = await r.json(); alert(e.error || "Error updating employee."); return; }
-            await renderEmpleados(); // refrescar lista
-          } catch (_) { alert("Network error updating employee."); }
+            if (!r.ok) { const e = await r.json(); alert(e.error || "Error al actualizar."); return; }
+            await renderEmpleados();
+          } catch (_) { alert("Error de red."); }
+        });
+      });
+
+      // Bind: mostrar/ocultar fila de cambio de PIN
+      tbody.querySelectorAll("[data-cambiar-pin]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const row = document.getElementById("oc-pin-row-" + btn.dataset.cambiarPin);
+          if (row) row.style.display = row.style.display === "none" ? "" : "none";
+        });
+      });
+
+      // Bind: guardar nuevo PIN
+      tbody.querySelectorAll("[data-guardar-pin]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id  = btn.dataset.guardarPin;
+          const inp = tbody.querySelector(`[data-pin-input="${id}"]`);
+          const msg = tbody.querySelector(`[data-pin-msg="${id}"]`);
+          const pin = (inp ? inp.value : "").trim();
+          msg.style.color = "var(--rojo,#a3392a)";
+          if (!/^\d{3}$/.test(pin)) { msg.textContent = "El PIN debe tener 3 dígitos."; return; }
+          try {
+            const r = await fetch("/api/usuarios/" + id, {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pin }),
+            });
+            const data = await r.json();
+            if (!r.ok) { msg.textContent = data.error || "Error al guardar PIN."; return; }
+            msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
+            msg.textContent = "PIN actualizado.";
+            if (inp) inp.value = "";
+            setTimeout(() => renderEmpleados(), 1500);
+          } catch (_) { msg.textContent = "Error de red."; }
         });
       });
     }
 
-    // Bind form: crear empleado
+    // Bind form: agregar miembro del equipo
     document.getElementById("oc-emp-agregar").addEventListener("click", async () => {
       const nombre = (document.getElementById("oc-emp-nombre").value || "").trim();
+      const email  = (document.getElementById("oc-emp-email").value  || "").trim();
       const pin    = (document.getElementById("oc-emp-pin").value    || "").trim();
-      const msgEl  = document.getElementById("oc-emp-msg");
+      const rolSel = document.getElementById("oc-emp-rol");
+      // Admin que llega aquí solo puede crear empleados; dueño puede elegir admin
+      const rol = (isDueno() && rolSel) ? (rolSel.value || "empleado") : "empleado";
+      const msgEl = document.getElementById("oc-emp-msg");
       msgEl.style.color = "var(--rojo,#a3392a)";
-      if (!nombre) { msgEl.textContent = "Enter employee name."; return; }
-      if (!/^\d{3}$/.test(pin)) { msgEl.textContent = "PIN must be exactly 3 numeric digits."; return; }
+      if (!nombre) { msgEl.textContent = "El nombre es obligatorio."; return; }
+      if (!/^\d{3}$/.test(pin)) { msgEl.textContent = "El PIN debe tener exactamente 3 dígitos."; return; }
       try {
         const r = await fetch("/api/usuarios", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nombre, pin }),
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre, pin, email: email || undefined, rol }),
         });
         const data = await r.json();
-        if (!r.ok) { msgEl.textContent = data.error || "Error creating employee."; return; }
+        if (!r.ok) { msgEl.textContent = data.error || "Error al agregar miembro."; return; }
         msgEl.style.color = "var(--sim-verde-dk,#1a6e3c)";
-        msgEl.textContent = `Employee "${data.nombre}" created. PIN set.`;
+        msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Empleado"} "${data.nombre}" agregado.`;
         document.getElementById("oc-emp-nombre").value = "";
+        document.getElementById("oc-emp-email").value  = "";
         document.getElementById("oc-emp-pin").value    = "";
+        if (rolSel) rolSel.value = "empleado";
         document.getElementById("oc-emp-form-wrap").open = false;
         await renderEmpleados();
-      } catch (_) { msgEl.textContent = "Network error creating employee."; }
+      } catch (_) { msgEl.textContent = "Error de red."; }
     });
 
-    // Cargar empleados al montar Avanzado
+    // Cargar equipo al montar la vista Avanzado + refrescar en cada login
     renderEmpleados();
-    // Tambien refrescar cuando el usuario vuelve a la vista (por si otro dispositivo agrego empleados)
     window.addEventListener("oc-login", renderEmpleados);
-    // === FIN EMPLEADOS =====================================================
+    // === FIN EQUIPO ========================================================
+
+    // === LOG DE ACTIVIDAD (2026-07-22) =====================================
+    // Disponible para dueño y admins. Muestra los últimos 100 movimientos con
+    // quién los hizo, cuándo y qué (tipo + detalle). El log es append-only
+    // y sellado (anti-tamper via mock-backend.js). Este panel solo LEE.
+    const logPanel = document.createElement("div");
+    logPanel.className = "tag-card";
+    logPanel.id = "oc-log-panel";
+    logPanel.style.cssText = "text-align:left;margin-top:22px;";
+    logPanel.innerHTML = `
+      <h3 class="seccion" style="margin-top:0;">Log de actividad</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
+        Últimos 100 movimientos registrados en este dispositivo. Cada entrada incluye
+        quién lo hizo y cuándo. El historial es de solo lectura — no se puede editar.
+      </p>
+      <button id="oc-log-cargar"
+        style="font-size:13px;padding:7px 14px;border:2px solid var(--azul-medio);
+               border-radius:6px;background:transparent;color:var(--azul-medio);cursor:pointer;margin-bottom:12px;">
+        Cargar historial
+      </button>
+      <div id="oc-log-body"></div>`;
+    vista.appendChild(logPanel);
+
+    document.getElementById("oc-log-cargar").addEventListener("click", async () => {
+      const logBody = document.getElementById("oc-log-body");
+      logBody.innerHTML = '<p style="font-size:13px;color:var(--ink-soft);">Cargando...</p>';
+      try {
+        const r = await fetch("/api/actividad");
+        if (!r.ok) { logBody.innerHTML = '<p style="color:var(--rojo,#a3392a);">No se pudo cargar el historial.</p>'; return; }
+        const movs = await r.json();
+        if (!movs.length) { logBody.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">Sin movimientos registrados aún.</p>'; return; }
+        const tipoLabel = (t) => {
+          const m = {
+            alta: "Alta producto", venta: "Venta", ajuste: "Ajuste stock",
+            edicion: "Edición producto", baja: "Baja producto",
+            "usuario-alta": "Nuevo miembro", "usuario-editar": "Edición miembro",
+            transferencia: "Transferencia", liquidacion: "Liquidación", estrella: "Estrella"
+          };
+          return m[t] || t;
+        };
+        logBody.innerHTML = `<div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
+              <th style="text-align:left;padding:5px 8px;font-weight:700;white-space:nowrap;">Cuándo</th>
+              <th style="text-align:left;padding:5px 8px;font-weight:700;">Quién</th>
+              <th style="text-align:left;padding:5px 8px;font-weight:700;">Qué</th>
+            </tr></thead>
+            <tbody>${movs.slice(0, 100).map((m) => {
+              const fecha = new Date(m.fecha).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" });
+              const det   = m.detalle ? Object.entries(m.detalle).map(([k, v]) => `${k}: ${v}`).join(", ") : "";
+              return `<tr style="border-bottom:1px solid var(--azul-suave,#dde5ec);">
+                <td style="padding:5px 8px;white-space:nowrap;color:var(--ink-soft);">${escHtml(fecha)}</td>
+                <td style="padding:5px 8px;font-weight:700;">${escHtml(m.usuarioNombre || "Sistema")}</td>
+                <td style="padding:5px 8px;">${escHtml(tipoLabel(m.tipo))}${det ? ` — <span style="color:var(--ink-soft);">${escHtml(det)}</span>` : ""}</td>
+              </tr>`;
+            }).join("")}</tbody>
+          </table></div>`;
+      } catch (_) { logBody.innerHTML = '<p style="color:var(--rojo,#a3392a);">Error de red.</p>'; }
+    });
+    // === FIN LOG ===========================================================
 
     // === CONTROL ANTI FRAUDE (2026-07-08) ==================================
     // Integridad del historial (cadena de sellos anti-tamper) + señales de las
