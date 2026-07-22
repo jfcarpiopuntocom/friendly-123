@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v21"; // bumped 2026-07-22: resilient precache + crypto guard + mobile popup/iOS fixes
+const CACHE = "f123-shell-v22"; // bumped 2026-07-22: autoenvío HTML5 (Web Share backup + PIN mailto self-send)
 const SHELL = [
   "./",
   "./index.html",

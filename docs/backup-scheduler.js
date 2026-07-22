@@ -122,8 +122,9 @@
     return true;
   }
 
-  // Downloads the backup. Reuses the canonical flow: /api/respaldo/exportar.
-  async function descargarRespaldo() {
+  // Builds the backup package (no side effects). Reuses the canonical flow:
+  // /api/respaldo/exportar (intercepted by mock-backend, local).
+  async function construirArchivoRespaldo() {
     const res = await fetch("/api/respaldo/exportar");
     if (res.status === 403) throw new Error("This device is not activated. Log in with PIN 789 to activate it, then come back to back up.");
     if (!res.ok) throw new Error("Could not read business data.");
@@ -135,23 +136,26 @@
       datos,
     };
     const texto = JSON.stringify(paquete, null, 2);
-    const blob = new Blob([texto], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
     const now = new Date();
     const nombre = `backup-friendly-123-${stampArchivo(now)}.json`;
+    return { texto, nombre, humano: stampHumano(now) };
+  }
+
+  // Downloads the file (fallback for laptop / browsers without Web Share).
+  // iOS/webview FIX (JFC 2026-07-22) — do NOT reduce to a bare a.click(): on
+  // iPhone/iPad the download attribute is ignored (opens a tab) and some
+  // locked-down webviews throw. try/catch + fallback to a tab: we never leave
+  // the owner without their file.
+  function descargarArchivo(texto, nombre) {
+    const blob = new Blob([texto], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = nombre;
     document.body.appendChild(a);
-    // PREVENTIVE FIX iOS/webview (JFC 2026-07-22) — do NOT reduce back to a
-    // bare a.click(). On iPhone/iPad the download attribute is ignored and the
-    // file opens in a tab; some locked-down webviews throw on a programmatic
-    // click. We wrap it and, as a last resort, open the blob in a tab so the
-    // owner can save it by hand. We never leave the owner without their file.
     try { a.click(); } catch (_) { try { window.open(url, "_blank"); } catch (_) {} }
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    return { nombre, humano: stampHumano(now) };
   }
 
   function cuerpoEmail(nombreArchivo, humano) {
@@ -225,17 +229,49 @@
       return;
     }
     // No navigator.onLine check — mock-backend intercepts fetch locally, no internet needed.
-    // The file downloads offline fine. mailto:/wa.me open when the user has connectivity.
     let info;
     try {
-      info = await descargarRespaldo();
+      info = await construirArchivoRespaldo();
     } catch (e) {
       alert("Could not generate backup: " + e.message);
       return;
     }
-    // Open WhatsApp first (new tab), then mailto (same tab) so mailto doesn't lose the wa.me open().
-    if (prefs.canalWhatsapp) abrirWa(prefs.whatsapp, info.nombre, info.humano);
-    if (prefs.canalEmail)    setTimeout(() => abrirMailto(prefs.email, info.nombre, info.humano), 300);
+
+    // ========================================================================
+    // IDEAL METHOD (JFC FINAL DECISION 2026-07-22) — see memory note
+    // feedback_metodo_autoenvio_html5. The backup is SELF-SENT with pure HTML5,
+    // NO backend, NO cloud: the app forces the owner to send their own data to
+    // themselves with the client they ALREADY have set up.
+    //   1) Web Share API (navigator.share) with the file ALREADY ATTACHED: on
+    //      phone/tablet it opens the system share sheet with the .json attached;
+    //      the owner picks THEIR WhatsApp/Gmail and sends it to themselves.
+    //   2) Fallback (laptop / no Web Share): download the file + open premade
+    //      email/WhatsApp (owner attaches the just-downloaded file).
+    // NEVER put a server in the middle of this data. That rule is JFC's.
+    // ========================================================================
+    let resultado = "fallback"; // "compartido" | "fallback" | "cancelado"
+    try {
+      const file = new File([info.texto], info.nombre, { type: "application/json" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        const canalTxt = prefs.canalWhatsapp && !prefs.canalEmail ? "WhatsApp" : "email or WhatsApp";
+        await navigator.share({
+          files: [file],
+          title: "friendly-123 backup",
+          text: `Backup of your business (friendly-123) ${info.humano}. Send it to YOURSELF via ${canalTxt} — it's yours, it never goes through any server.`,
+        });
+        resultado = "compartido";
+      }
+    } catch (e) {
+      resultado = (e && e.name === "AbortError") ? "cancelado" : "fallback";
+    }
+
+    if (resultado === "cancelado") return; // owner closed the share sheet — don't mark a backup that didn't happen
+
+    if (resultado === "fallback") {
+      descargarArchivo(info.texto, info.nombre);
+      if (prefs.canalWhatsapp) abrirWa(prefs.whatsapp, info.nombre, info.humano);
+      if (prefs.canalEmail)    setTimeout(() => abrirMailto(prefs.email, info.nombre, info.humano), 300);
+    }
 
     const canal = prefs.canalEmail && prefs.canalWhatsapp ? "both" : (prefs.canalEmail ? "email" : "whatsapp");
     setLast(canal);
