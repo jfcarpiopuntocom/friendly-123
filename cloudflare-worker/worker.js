@@ -106,7 +106,9 @@ async function handleRecoverPin(req, env) {
     return json({ ok: true, enviado: false, motivo: "email_no_configurado" });
   }
 
-  const fromEmail = (env.FROM_EMAIL || "noreply@amigable-123.com").trim();
+    // Fallback: onboarding@resend.dev works on all Resend accounts without domain
+  // verification. noreply@amigable-123.com would fail — that domain is not verified.
+  const fromEmail = (env.FROM_EMAIL || "onboarding@resend.dev").trim();
   const pinDisplay = pin.padStart(3, "0"); // siempre 3 dígitos con ceros
 
   let resendResp;

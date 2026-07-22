@@ -248,6 +248,10 @@
     });
   }
 
+  // Tracks the active startup timeout — prevents rapid login/logout/login cycles
+  // (within 4s) from stacking multiple timers and showing duplicate toasts.
+  let _chequeoTimeout = null;
+
   // On startup (with delay to not block the splash), check if backup or assurance is due.
   //
   // AUTO-CONFIG (JFC 2026-07-21): if the owner never opened Advanced but has
@@ -255,7 +259,9 @@
   // The "monthly minimum" promise cannot depend on the owner remembering to
   // open Advanced first.
   function chequearAlArrancar() {
-    setTimeout(() => {
+    if (_chequeoTimeout) clearTimeout(_chequeoTimeout);
+    _chequeoTimeout = setTimeout(() => {
+      _chequeoTimeout = null;
       try {
         if (!esDuenoReal()) return;
         let prefs = getPrefs();
@@ -294,7 +300,11 @@
     const prefs = getPrefs();
     const f = frecDe(prefs.frecKey);
     const canales = [prefs.canalEmail && "email", prefs.canalWhatsapp && "WhatsApp"].filter(Boolean).join(" + ");
-    const msg = `Tap "Back up now" and we'll prepare the file + a message with everything ready. You just attach and send — <b>to yourself</b>. Chosen frequency: <b>${f.label.toLowerCase()}</b> via ${canales || "email"}.`;
+    // Dynamic message — show the actual channel, not a generic placeholder.
+    const _canalMsg = canales === "WhatsApp" ? "a WhatsApp message"
+      : (canales === "email + WhatsApp" ? "an email and a WhatsApp message"
+      : "an email");
+    const msg = `Tap "Back up now" and we'll prepare the file + ${_canalMsg} with everything ready. You just attach and send — <b>to yourself</b>. Chosen frequency: <b>${f.label.toLowerCase()}</b> via ${canales || "email"}.`;
     wrap.innerHTML = `
       <div style="font-weight:700;color:#E8A020;margin-bottom:4px;">Time for your backup</div>
       <div style="margin-bottom:10px;">${msg}</div>
