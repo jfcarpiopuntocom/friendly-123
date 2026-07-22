@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v18"; // bumped 2026-07-18: activation crash fix, network hardening, logo/splash, IndexedDB photos (idb-fotos.js)
+const CACHE = "f123-shell-v19"; // bumped 2026-07-21: backup-scheduler.js added to SHELL
 const SHELL = [
   "./",
   "./index.html",
@@ -24,6 +24,7 @@ const SHELL = [
   "./crypto-store.js",
   "./email-recovery.js",
   "./auth-ui.js",
+  "./backup-scheduler.js",
   "./avanzado-extra.js",
   "./help-ui.js",
   "./idb-fotos.js",

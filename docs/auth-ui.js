@@ -617,8 +617,11 @@
 
     msgEl.style.color = "var(--ink-soft,#5d5340)";
     msgEl.textContent = window.t("auth.gate.sending");
+    // Bug fix (2026-07-21): pasar instanceId para que el Worker pueda validar
+    // la instancia en KV (anti-abuso leve en /recover-pin).
+    var _f123owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
     const resultado = window.OCEmailRecovery
-      ? await window.OCEmailRecovery.enviarCodigo(email, pin)
+      ? await window.OCEmailRecovery.enviarCodigo(email, pin, _f123owned.instanceId || "")
       : { enviado: false, codigo: pin };
     if (resultado.enviado) {
       msgEl.style.color = "var(--verde-suave,#2f7a4f)";

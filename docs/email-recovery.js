@@ -1,65 +1,79 @@
-// email-recovery.js — Envío real del código de reseteo por correo, usando
-// EmailJS (servicio gratuito hasta 200 correos/mes, diseñado para apps sin
-// backend: todo corre en el navegador con una "public key", no hace falta
-// servidor ni SMTP propio). Sin esto, "olvidé mi clave" solo podría MOSTRAR
-// el código en pantalla — con esto llega de verdad al correo del dueño.
+// email-recovery.js — PIN recovery via Cloudflare Worker + Resend.
+// Replaces the EmailJS dependency (credentials were placeholders, never worked).
+// Uses the same Worker already in use for license heartbeats, with a new
+// /recover-pin endpoint.
 //
-// ===========================================================================
-// CONFIGURACIÓN PENDIENTE (JFC) — sin esto el correo NO se envía
-// ---------------------------------------------------------------------------
-// 1. Crea una cuenta gratis en https://www.emailjs.com
-// 2. Conecta un servicio de correo (Gmail, Outlook, etc.) → te da un
-//    "Service ID" (ej. "service_abc123")
-// 3. Crea un template de email con estas variables: {{to_email}} y
-//    {{codigo}} — ej: "Tu código de recuperación de Olimpo Control es:
-//    {{codigo}}. Vence en 15 minutos." → te da un "Template ID"
-// 4. En "Account" → "General" copia tu "Public Key"
-// 5. Pega los 3 valores abajo, en EMAILJS_CONFIG. Repite esto (con su propio
-//    template si quieres) en cada negocio/repo — este archivo es idéntico en
-//    todos, solo cambia esta configuración.
-// Mientras EMAILJS_CONFIG tenga los placeholders de abajo, el sistema cae en
-// modo "mostrar el código en pantalla" automáticamente (ver enviarCodigo) —
-// nunca falla en seco ni miente diciendo que se envió un correo que no salió.
-// ===========================================================================
-const EMAILJS_CONFIG = {
-  serviceId: "TU_SERVICE_ID",
-  templateId: "TU_TEMPLATE_ID",
-  publicKey: "TU_PUBLIC_KEY",
-};
+// Flow:
+//   1. auth-ui.js calls OCEmailRecovery.enviarCodigo(email, pin, instanceId).
+//   2. We call Worker /recover-pin with those 3 fields.
+//   3. Worker validates instanceId against KV (light anti-abuse) and sends
+//      the email via Resend (API key stored as Worker secret RESEND_API_KEY).
+//   4. If Worker fails for any reason (no internet, not deployed, Resend down,
+//      timeout), we return { enviado: false, codigo: pin } and auth-ui.js
+//      shows the PIN on screen — the owner is never left without a way out.
+//
+// TO ACTIVATE EMAIL DELIVERY — one-time setup (5 min):
+//   1. Free account at resend.com (3,000 emails/month)
+//   2. Resend → Domains → Add Domain → verify your domain (2 DNS records)
+//   3. Resend → API Keys → Create API Key → copy the key
+//   4. In cloudflare-worker/:
+//      wrangler secret put RESEND_API_KEY    ← paste the key
+//      wrangler secret put FROM_EMAIL        ← e.g. noreply@youromain.com
+//      wrangler deploy
+//   Done. No code changes needed.
 
 (function () {
-  function configurado() {
-    return !Object.values(EMAILJS_CONFIG).some((v) => v.startsWith("TU_"));
-  }
-
-  let emailjsListo = null;
-  function cargarEmailJS() {
-    if (emailjsListo) return emailjsListo;
-    emailjsListo = new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js";
-      s.onload = () => { window.emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey }); resolve(); };
-      s.onerror = () => reject(new Error("No se pudo cargar EmailJS (¿sin internet?)."));
-      document.head.appendChild(s);
-    });
-    return emailjsListo;
-  }
-
-  // Devuelve { enviado: true } si el correo salió de verdad, o
-  // { enviado: false, codigo } si no hay configuración de EmailJS todavía
-  // (modo de respaldo: se muestra el código en pantalla, nunca se pierde el
-  // flujo de recuperación por falta de configuración).
-  async function enviarCodigo(email, codigo) {
-    if (!configurado()) return { enviado: false, codigo };
+  // Same obfuscated URL as auth-ui.js — read at call time to honor any
+  // override the owner may have saved in localStorage.
+  var _amgEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1SZsJWYnlWbh9yL6MHc0RHa";
+  function workerBase() {
     try {
-      await cargarEmailJS();
-      await window.emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, { to_email: email, codigo });
-      return { enviado: true };
+      var ov = (localStorage.getItem("f123_cf_worker_url") || "").trim();
+      if (ov) return ov.replace(/\/+$/, "");
+    } catch (_) {}
+    try { return atob(_amgEp.split("").reverse().join("")).replace(/\/+$/, ""); } catch (_) { return ""; }
+  }
+
+  async function enviarCodigo(email, pin, instanceId) {
+    var base = workerBase();
+    if (!base) return { enviado: false, codigo: pin }; // no URL → show on screen
+
+    var ctrl = null;
+    var timeout = null;
+    try {
+      ctrl = new AbortController();
+      timeout = setTimeout(function () { try { ctrl.abort(); } catch (_) {} }, 8000);
+    } catch (_) {}
+
+    try {
+      var resp = await fetch(base + "/recover-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, pin: pin, instanceId: instanceId || "" }),
+        signal: ctrl ? ctrl.signal : undefined,
+      });
+      if (timeout) clearTimeout(timeout);
+
+      if (!resp.ok) {
+        console.warn("[email-recovery] Worker responded", resp.status);
+        return { enviado: false, codigo: pin };
+      }
+      var result;
+      try { result = await resp.json(); } catch (_) { result = {}; }
+      if (result && result.enviado === true) return { enviado: true };
+      // Worker alive but Resend not configured → show on screen
+      return { enviado: false, codigo: pin };
+
     } catch (err) {
-      console.error("EmailJS falló, se muestra el código en pantalla como respaldo:", err);
-      return { enviado: false, codigo };
+      if (timeout) clearTimeout(timeout);
+      console.warn("[email-recovery] network or timeout:", err && err.message);
+      return { enviado: false, codigo: pin }; // always fallback
     }
   }
 
-  window.OCEmailRecovery = { enviarCodigo, configurado };
+  window.OCEmailRecovery = {
+    enviarCodigo: enviarCodigo,
+    // configurado() — backward-compat in case any code checks this
+    configurado: function () { return !!workerBase(); },
+  };
 })();

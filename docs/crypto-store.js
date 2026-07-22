@@ -207,14 +207,14 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // Actualmente guardarSecreto no escribe ownerPinR, así que retorna null y el
   // flujo de "Olvidaste?" muestra el mensaje de "activa recuperación primero".
   // Exportada para que auth-ui.js no explote con TypeError al llamarla.
+  // Bug fix (2026-07-21): el decode anterior usaba XOR par-de-bytes, incompatible
+  // con xorPin() que usa PIN_XOR_KEY. unxorPin() es el inverso correcto.
   function recuperarPinDueno() {
     try {
       const s = leerSecreto();
       if (!s || !s.ownerPinR) return null;
-      const bin = atob(s.ownerPinR);
-      let out = "";
-      for (let i = 0; i < bin.length; i += 2) out += String.fromCharCode(bin.charCodeAt(i) ^ bin.charCodeAt(i + 1));
-      return /^\d{3}$/.test(out) ? out : null;
+      const out = unxorPin(s.ownerPinR);
+      return out && /^\d{3}$/.test(out) ? out : null;
     } catch { return null; }
   }
 

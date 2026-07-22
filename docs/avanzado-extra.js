@@ -321,6 +321,15 @@
       <p id="oc-storage-info" style="font-size:12px;color:var(--ink-soft);margin:10px 0 0;font-family:monospace;"></p>
     `;
     cont.appendChild(respaldo);
+
+    // --- Automatic backup scheduler (JFC 2026-07-21) ---
+    // Mounted here (outside the accounting lock) so every owner can configure
+    // their backup without needing to unlock the P&L layer first.
+    const bkMount = document.createElement("div");
+    bkMount.id = "f123-backup-scheduler-mount";
+    cont.appendChild(bkMount);
+    if (window.OCBackupScheduler) window.OCBackupScheduler.montar(bkMount);
+
     // Mostrar usage/quota en el panel de checkpoints — util para diagnostico remoto
     // (JFC puede pedir screenshot de esta linea para saber si el problema es espacio).
     (async () => {
