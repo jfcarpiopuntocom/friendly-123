@@ -29,6 +29,17 @@
   const LS_PREFS   = "f123_backup_prefs_v1";
   const LS_LAST    = "f123_backup_last_v1";    // { ts: number, canal: "email"|"whatsapp"|"both" }
   const LS_ASSURED = "f123_backup_assurance_last_v1";
+  // Snooze: until when NOT to show the reminder again. Set by "Later" (24h)
+  // and by auto-config (one grace cycle). Without it, toca() only looks at the
+  // last backup date and the nag reappears on every login.
+  const LS_SNOOZE  = "f123_backup_snooze_v1";
+
+  function getSnooze() {
+    try { return parseInt(localStorage.getItem(LS_SNOOZE) || "0", 10) || 0; } catch (_) { return 0; }
+  }
+  function setSnooze(ms) {
+    try { localStorage.setItem(LS_SNOOZE, String(Date.now() + ms)); } catch (_) {}
+  }
 
   // Frequency options in days. Monthly (30) is the enforced minimum: you
   // cannot choose MORE than 30 days. You can choose less (daily, weekly, biweekly).
@@ -100,8 +111,15 @@
   }
 
   function waEsValido(num) {
-    // 8 digits minimum — loose check (covers 7-8 digit local numbers + country code variants)
-    return normalizeWa(num).length >= 8;
+    const d = normalizeWa(num);
+    // 8 digits minimum — loose check (covers country code + local number).
+    if (d.length < 8) return false;
+    // wa.me needs FULL international format (country code, no +). A leading 0
+    // is a national trunk prefix (e.g. 020..., 09...): wa.me/0... opens an
+    // empty/invalid chat. Reject it so the owner adds their country code.
+    // friendly-123 is international, so we can't guess the code for them.
+    if (d[0] === "0") return false;
+    return true;
   }
 
   // Downloads the backup. Reuses the canonical flow: /api/respaldo/exportar.
@@ -275,11 +293,19 @@
               configurado: true,
             });
             setPrefs(prefs);
+            // Just auto-configured: give one grace cycle (the chosen
+            // frequency) before the first reminder, so we don't nag 4s after
+            // the owner activated the device and has no data yet. We do NOT
+            // seed a fake backup (that would trigger the weekly assurance).
+            setSnooze(frecDe(prefs.frecKey).dias * 24 * 60 * 60 * 1000);
           } else {
             return; // no email and no config — don't nag
           }
         }
-        if (toca(prefs)) {
+        // Snooze silences ONLY the reminder ("Later"/initial grace), never the
+        // "did your backup arrive?" assurance.
+        const snoozed = getSnooze() > Date.now();
+        if (toca(prefs) && !snoozed) {
           mostrarRecordatorioRespaldo();
         } else if (tocaAssurance()) {
           mostrarAssurance();
@@ -319,8 +345,10 @@
     });
     document.getElementById("f123-backup-remind-later").addEventListener("click", () => {
       wrap.remove();
-      // Postpone 24h: mark assured so it doesn't nag again today.
-      try { localStorage.setItem(LS_ASSURED, String(Date.now() - (6 * 24 * 60 * 60 * 1000))); } catch (_) {}
+      // Postpone 24h for real. This used to set LS_ASSURED, which toca()
+      // ignores — the reminder came back on the next login. Snooze is the one
+      // chequearAlArrancar() actually respects.
+      setSnooze(24 * 60 * 60 * 1000);
     });
   }
 

@@ -12,15 +12,17 @@
 //      timeout), we return { enviado: false, codigo: pin } and auth-ui.js
 //      shows the PIN on screen — the owner is never left without a way out.
 //
-// TO ACTIVATE EMAIL DELIVERY — one-time setup (5 min):
-//   1. Free account at resend.com (3,000 emails/month)
-//   2. Resend → Domains → Add Domain → verify your domain (2 DNS records)
-//   3. Resend → API Keys → Create API Key → copy the key
-//   4. In cloudflare-worker/:
-//      wrangler secret put RESEND_API_KEY    ← paste the key
-//      wrangler secret put FROM_EMAIL        ← e.g. noreply@youromain.com
-//      wrangler deploy
-//   Done. No code changes needed.
+// CURRENT STATE (JFC 2026-07-22): ALREADY DEPLOYED AND WORKING.
+//   RESEND_API_KEY is set as a secret and the Worker sends from
+//   onboarding@resend.dev (the Worker's fallback), which works on any Resend
+//   account WITHOUT domain verification. Nothing else to do.
+//
+// IF you ever want email to come from your own domain:
+//   1. Resend → Domains → Add Domain → verify your domain (DNS records).
+//   2. wrangler secret put FROM_EMAIL   ← e.g. noreply@yourdomain.com
+//   3. wrangler deploy
+//   NOTE: do NOT set FROM_EMAIL to an unverified domain — Resend rejects it
+//   and delivery fails silently. When in doubt, leave the default.
 
 (function () {
   // Same obfuscated URL as auth-ui.js — read at call time to honor any
