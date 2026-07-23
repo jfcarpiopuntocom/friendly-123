@@ -534,6 +534,14 @@
   }
   // ---- Inventario compartido (espejo de data.js) ----
   function estadoSimple(p) { if (p.stockActual <= 0) return "rojo"; if (p.stockActual <= p.umbralRojo) return "rojo"; if (p.stockActual <= p.umbralAmarillo) return "amarillo"; return "verde"; }
+  // Multi-percha real (homologado de AMIGABLE, 2026-07-23): el mismo SKU
+  // vive como filas separadas por percha; esto las hace visibles y da una
+  // forma rapida de agregar el producto a una percha nueva.
+  function getHermanosPercha(productoId) {
+    const p = productos.find((x) => x.id === productoId);
+    if (!p) return [];
+    return productos.filter((x) => x.sku === p.sku && x.id !== p.id).map((x) => ({ id: x.id, ubicacionId: x.ubicacionId, ubicacionNombre: nombreUbic(x.ubicacionId), stockActual: x.stockActual, estado: estadoDe(x).estado, precio: x.precio }));
+  }
   function getSugerenciasTransferencia(productoId) {
     const p = productos.find((x) => x.id === productoId);
     // BUG FIX (2026-07-03): estadoSimple() ignoraba perecibles; un producto a
@@ -707,7 +715,7 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", comisionProveedorPct: p.comisionProveedorPct || 0, foto: p.foto || null };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", comisionProveedorPct: p.comisionProveedorPct || 0, otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
   }
   function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
@@ -827,7 +835,7 @@
         // stock del origen esperando que el destino lo reciba. Borrar el
         // producto origen o destino en ese estado perdía esas unidades para
         // siempre, sin rastro. Bloquear hasta que se confirme o resuelva.
-        const enTransito = transferencias.find((t) => t.estado === "en_transito" && (t.productoOrigenId === m[1] || t.productoDestinoId === m[1]));
+        const enTransito = transferencias.find((t) => (t.estado === "en_transito" || t.estado === "solicitada") && (t.productoOrigenId === m[1] || t.productoDestinoId === m[1]));
         if (enTransito) return J({ error: `"${productos[i].nombre}" tiene una transferencia en tránsito (${enTransito.cantidad} unidades). Espera a que se confirme o se resuelva antes de borrarlo.` }, 400);
         const borrado = productos.splice(i, 1)[0];
         mov("baja", { producto: borrado.nombre, sku: borrado.sku, ubicacion: nombreUbic(borrado.ubicacionId) });
@@ -1123,6 +1131,20 @@
         return J({ ok: true, ventasLiquidadas: pend.length });
       }
 
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/hermanos$/))) {
+        return J(getHermanosPercha(m[1]));
+      }
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/clonar-percha$/)) && opts && opts.method === "POST") {
+        const origen = productos.find((x) => x.id === m[1]);
+        if (!origen) return J({ error: "Producto no encontrado." }, 404);
+        const destUbic = ubicaciones.find((u) => u.id === body.ubicacionId && u.activa !== false);
+        if (!destUbic) return J({ error: "Esa percha no existe o esta desactivada." }, 400);
+        if (productos.some((x) => x.sku === origen.sku && x.ubicacionId === destUbic.id)) return J({ error: `Este producto ya tiene una fila en "${destUbic.nombre}". Usa Transferir en vez de Agregar percha.` }, 400);
+        const clon = { id: uuid("p"), nombre: origen.nombre, categoria: origen.categoria, sku: origen.sku, barcode: origen.barcode, ubicacionId: destUbic.id, precio: origen.precio, costo: origen.costo || 0, stockActual: 0, umbralRojo: origen.umbralRojo, umbralAmarillo: origen.umbralAmarillo, proveedor: origen.proveedor || "", tipoProveedor: origen.tipoProveedor || "compra", comisionProveedorPct: origen.comisionProveedorPct || 0, perecible: !!origen.perecible, fechaCaducidad: origen.perecible ? (origen.fechaCaducidad || null) : null, metodoCosteo: origen.metodoCosteo || "FIFO", foto: origen.foto || null, creadoEn: new Date().toISOString() };
+        productos.push(clon);
+        mov("alta-percha", { producto: clon.nombre, sku: clon.sku, desde: nombreUbic(origen.ubicacionId), hacia: destUbic.nombre });
+        return J(ficha(clon));
+      }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/sugerencias-transferencia$/))) {
         return J(getSugerenciasTransferencia(m[1]));
       }

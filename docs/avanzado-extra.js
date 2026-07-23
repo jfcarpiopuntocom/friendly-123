@@ -1144,18 +1144,25 @@
       </div>`;
     }).join("");
 
+    // try/catch (homologado de AMIGABLE, auditoria 2026-07-23): los 3
+    // botones de transferencias no tenian proteccion de red.
     cont.querySelectorAll("[data-transf-aprobar]").forEach((btn) => btn.addEventListener("click", async () => {
-      const res = await fetch(`${API}/transferencias/${btn.dataset.transfAprobar}/aprobar`, { method: "POST" });
-      const r = await res.json(); if (!res.ok) { alert(r.error); return; }
+      let res, r;
+      try { res = await fetch(`${API}/transferencias/${btn.dataset.transfAprobar}/aprobar`, { method: "POST" }); r = await res.json(); }
+      catch (err) { console.error("[transf-aprobar]", err); alert("Could not reach the server. Try again."); return; }
+      if (!res.ok) { alert(r.error); return; }
       renderTransferencias();
     }));
     cont.querySelectorAll("[data-transf-rechazar]").forEach((btn) => btn.addEventListener("click", async () => {
-      await fetch(`${API}/transferencias/${btn.dataset.transfRechazar}/rechazar`, { method: "POST" });
+      try { await fetch(`${API}/transferencias/${btn.dataset.transfRechazar}/rechazar`, { method: "POST" }); }
+      catch (err) { console.error("[transf-rechazar]", err); alert("Could not reach the server. Try again."); return; }
       renderTransferencias();
     }));
     cont.querySelectorAll("[data-transf-confirmar]").forEach((btn) => btn.addEventListener("click", async () => {
-      const res = await fetch(`${API}/transferencias/${btn.dataset.transfConfirmar}/confirmar-recepcion`, { method: "POST" });
-      const r = await res.json(); if (!res.ok) { alert(r.error); return; }
+      let res, r;
+      try { res = await fetch(`${API}/transferencias/${btn.dataset.transfConfirmar}/confirmar-recepcion`, { method: "POST" }); r = await res.json(); }
+      catch (err) { console.error("[transf-confirmar]", err); alert("Could not reach the server. Try again."); return; }
+      if (!res.ok) { alert(r.error); return; }
       renderTransferencias();
       cargarInventario();
     }));

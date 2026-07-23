@@ -3785,8 +3785,19 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   if (!(await ocConfirm("Confirm you have already paid the promoter what is owed this month?"))) return;
   // #19: capturamos el desglose ANTES de sellar (marcar-pagado deja pendientes en 0).
   const detalle = (window._ocLiqDet && window._ocLiqDet[ubicacionId]) || [];
-  const res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST" });
-  if (!res.ok) return;
+  // try/catch (homologado de AMIGABLE, auditoria 2026-07-23): antes un fallo
+  // de red aqui tiraba una excepcion no atrapada, y si el servidor respondia
+  // con error, fallaba en silencio total sin avisar nada al dueño.
+  let res, r;
+  try {
+    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST" });
+    r = await res.json();
+  } catch (err) {
+    console.error("[marcarComisionPagada]", err);
+    await ocAlert("Could not reach the server. The payment was NOT recorded. Check your connection and try again.");
+    return;
+  }
+  if (!res.ok) { await ocAlert(r.error || "Could not mark the payment."); return; }
   cargarComisiones();
   // Recibo para WhatsApp: solo se ofrece si hay nombre de promotora y monto > 0.
   if (promotorNombre && monto > 0) {
