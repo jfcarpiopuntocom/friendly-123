@@ -206,17 +206,10 @@
     pointer-events:none;
   }
   .tag-card::after{
-    /* Triángulo azul marino apuntando arriba (JFC 2026-07-02): serio y
-       permanente. Reemplaza la bolita dorada. Para volver atrás: border-radius
-       50% + background var(--brass) + box-shadow del anillo. */
-    content:"";
-    position:absolute;
-    top:6px; right:8px;
-    width:0; height:0;
-    border-left:5px solid transparent;
-    border-right:5px solid transparent;
-    border-bottom:9px solid #152840;
-    filter:drop-shadow(0 1px 0 var(--blanco-calido));
+    /* TRIANGULO DE ESQUINA — DORMANT (homologado de AMIGABLE, JFC 2026-07-22).
+       Se confundia con un indicador o un desplegable. NO BORRAR.
+       Para re-activar: restaurar la version previa de esta regla. */
+    content:none;
   }
   @media (hover:hover){
     .caja.tag-card:hover, .etiqueta-card.tag-card:hover{
@@ -2356,10 +2349,14 @@ async function cargarInventario(){
         <button data-ajuste-menos="${p.id}" title="${t('inv.removeOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
         <button data-ajuste-mas="${p.id}" title="${t('inv.addOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
         ${esDuenoInv ? `<button data-estrella-toggle="${p.id}" title="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
+        ${esDuenoInv ? `<button data-editar-directo="${p.id}" title="${t('inv.editTooltip')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:15px;cursor:pointer;">✏️</button>` : ''}
       </div>
     </div>
   `).join("");
   filtrarBusquedaInventario();
+  grid.querySelectorAll("[data-editar-directo]").forEach(btn => {
+    btn.addEventListener("click", (ev) => { ev.stopPropagation(); abrirEdicionDesdeInventario(btn.dataset.editarDirecto); });
+  });
 
   // Ajuste rápido +/- stock sin escanear. Pide motivo, deja log para el dueño.
   grid.querySelectorAll("[data-ajuste-menos],[data-ajuste-mas]").forEach(btn => {
@@ -2715,6 +2712,16 @@ async function abrirFichaDesdeInventario(id){
   const modal = document.getElementById("modalFicha");
   if (modal) modal.classList.add("activo");
 }
+
+// Acceso directo #2 a la edicion (homologado de AMIGABLE, 2026-07-22,
+// "todo lleva a todo"): el lapiz de la tarjeta abre el modal YA en modo
+// edicion, sin pasar por la ficha. La ruta clasica (ficha -> Editar) sigue.
+async function abrirEdicionDesdeInventario(id){
+  fichaTargetActual = "fichaModalBody";
+  const modal = document.getElementById("modalFicha");
+  if (modal) modal.classList.add("activo");
+  await mostrarFormEditarProducto(id);
+}
 (function () {
   const modal = document.getElementById("modalFicha");
   const cerrar = () => {
@@ -2722,6 +2729,9 @@ async function abrirFichaDesdeInventario(id){
     modal.classList.remove("activo");
     fichaTargetActual = "fichaResultado"; // el buscador de Vender vuelve a ser el destino
     cargarInventario(); // reflejar ediciones/ventas hechas dentro del modal
+    // TODO LLEVA A TODO (homologado de AMIGABLE, 2026-07-22): si el modal se
+    // abrio desde Perchas, refrescar tambien esa vista.
+    if (vistaActivaId && vistaActivaId() === "perchas" && window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar();
   };
   const btn = document.getElementById("cerrarModalFicha");
   if (btn) btn.addEventListener("click", cerrar);
@@ -2826,6 +2836,8 @@ function mostrarFormNuevoProducto(codigoEscaneado){
         <input id="np-stock" type="number" min="0" step="1" value="0" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.supplier")}<br>
         <input id="np-proveedor" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.photoAltaLabel")}<br>
+        <input id="np-foto" type="file" accept="image/*" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
         <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
@@ -2852,7 +2864,9 @@ async function crearProductoNuevo(codigoEscaneado){
   const body = {
     nombre: val("np-nombre"), categoria: val("np-categoria"), barcode: codigoEscaneado || val("np-barcode"),
     precio: val("np-precio"), costo: val("np-costo"), stockInicial: val("np-stock"), proveedor: val("np-proveedor"),
-    ubicacionId: ubicacionActual === "todas" ? "todas" : ubicacionActual,
+    ubicacionId: document.getElementById("np-ubicacion") ? val("np-ubicacion") : (ubicacionActual === "todas" ? "todas" : ubicacionActual),
+    tipoProveedor: document.getElementById("np-tipo-proveedor") ? document.getElementById("np-tipo-proveedor").value : "compra",
+    comisionProveedorPct: document.getElementById("np-tipo-proveedor") && document.getElementById("np-tipo-proveedor").value === "consignacion" ? Number(val("np-comision-pct")) || 0 : 0,
     perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
     metodoCosteo: perecible ? document.getElementById("np-metodo").value : "FIFO",
   };
@@ -2860,6 +2874,9 @@ async function crearProductoNuevo(codigoEscaneado){
   if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
   if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.codeRequired"); return; }
   if (Number(body.precio) === 0){ if (!(await ocConfirm(t("form.zeroPriceConfirm")))) return; }
+  // Foto por producto en alta (homologado de AMIGABLE, 2026-07-22)
+  const fotoNp = document.getElementById("np-foto");
+  if (fotoNp) { const fotoNueva = await leerFotoRedimensionada(fotoNp); if (fotoNueva) body.foto = fotoNueva; }
   let res, data;
   try {
     res = await fetch(`${API}/productos`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
@@ -2882,18 +2899,29 @@ async function crearProductoNuevo(codigoEscaneado){
 async function mostrarFormEditarProducto(id){
   // Reforzado (JFC 2026-07-18): sin este catch, un fallo de red aqui tiraba
   // una excepcion no atrapada y "Editar" no hacia nada visible.
-  let p;
+  let p, perchas = [];
   try {
     const res = await fetch(`${API}/productos/${id}`);
     p = await res.json();
+    if (!res.ok || !p || !p.id) throw new Error(p && p.error ? p.error : "product not found");
   } catch (err) {
     console.error("[mostrarFormEditarProducto]", err);
     await ocAlert("Could not reach the server. Check your connection and try again.");
     return;
   }
-  const contenedor = document.getElementById("fichaResultado");
+  // Blindaje (2026-07-22, homologado de AMIGABLE): las perchas son OPCIONALES
+  // para editar — si su fetch falla, el editor abre igual con "Sin percha".
+  try {
+    perchas = await (await fetch(`${API}/ubicaciones`)).json();
+    if (!Array.isArray(perchas)) perchas = [];
+  } catch (_) { perchas = []; }
+  const contenedor = document.getElementById(fichaTargetActual) || document.getElementById("fichaResultado");
   const q = (s) => escHtml(s == null ? "" : s); // item 20: escape completo (<,>,&,comillas), no solo comillas
   const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"';
+  // Multi-percha + tipo proveedor/artista (homologado de AMIGABLE, 2026-07-22)
+  const optsPerchas = perchas.map(u =>
+    `<option value="${escHtml(u.id)}"${u.id === p.ubicacionId ? " selected" : ""}>${escHtml(u.nombre)}</option>`
+  ).join("");
   contenedor.innerHTML = `
     <div class="ficha-producto tag-card" style="text-align:left;">
       <div class="titulo">${t("form.editTitle")}</div>
@@ -2904,7 +2932,28 @@ async function mostrarFormEditarProducto(id){
       ${p.foto ? `<img src="${p.foto}" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin-top:6px;">` : ""}
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br><input id="ed-precio" type="number" min="0" step="0.01" value="${p.precio}" ${inp}></label>
+        <label style="flex:1;font-size:14px;">${t("form.cost")}<br><input id="ed-costo" type="number" min="0" step="0.01" value="${p.costo || 0}" ${inp}></label>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">${t("form.supplier")}<br><input id="ed-proveedor" type="text" value="${q(p.proveedor)}" ${inp}></label>
+        <label style="flex:1;font-size:14px;">${t("form.relationType")}<br>
+          <select id="ed-tipo-proveedor" ${inp}>
+            <option value="compra"${p.tipoProveedor !== "consignacion" ? " selected" : ""}>${t("form.directPurchase")}</option>
+            <option value="consignacion"${p.tipoProveedor === "consignacion" ? " selected" : ""}>${t("form.consignmentArtist")}</option>
+          </select></label>
+      </div>
+      <div id="ed-comision-wrap" style="margin-top:8px;display:${p.tipoProveedor === "consignacion" ? "block" : "none"};">
+        <label style="display:block;font-size:14px;">${t("form.artistCommissionPct")}<br>
+          <input id="ed-comision-pct" type="number" min="0" max="100" step="1" value="${p.comisionProveedorPct || 0}" ${inp}></label>
+      </div>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.shelfLabel")}<br>
+        <select id="ed-ubicacion" ${inp}>
+          <option value="todas"${!p.ubicacionId || p.ubicacionId === "todas" ? " selected" : ""}>${t("form.noShelf")}</option>
+          ${optsPerchas}
+        </select></label>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <label style="flex:1;font-size:14px;">${t("form.redThreshold")}<br><input id="ed-umbral-rojo" type="number" min="0" step="1" value="${p.umbralRojo || 0}" ${inp}></label>
+        <label style="flex:1;font-size:14px;">${t("form.yellowThreshold")}<br><input id="ed-umbral-amarillo" type="number" min="0" step="1" value="${p.umbralAmarillo || 0}" ${inp}></label>
       </div>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
         <input id="ed-categoria" type="text" value="${q(p.categoria)}" ${inp}></label>
@@ -2916,6 +2965,9 @@ async function mostrarFormEditarProducto(id){
         <button onclick="abrirFichaDesdeInventario('${p.id}')">${t("motivo.cancel")}</button>
       </div>
     </div>`;
+  document.getElementById("ed-tipo-proveedor").addEventListener("change", (e) => {
+    document.getElementById("ed-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
+  });
 }
 
 // Redimensiona la foto en el navegador (lado mayor 320px, JPEG 82%) a dataURL.
@@ -2941,9 +2993,12 @@ function leerFotoRedimensionada(fileInput){
 }
 
 async function guardarEdicionProducto(id){
-  const v = (x) => document.getElementById(x).value.trim();
+  // Blindaje (2026-07-22, homologado de AMIGABLE): lectura null-safe — si un
+  // campo no existe en el DOM, se OMITE del PATCH en vez de reventar todo.
+  const v = (x) => { const el = document.getElementById(x); return el ? el.value.trim() : undefined; };
   // OJO: el SKU no se toca aqui — solo el barcode si el dueno lo digito.
-  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode") };
+  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct") };
+  Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   const foto = await leerFotoRedimensionada(document.getElementById("ed-foto"));
   if (foto) body.foto = foto;
   const msg = document.getElementById("ed-msg");
@@ -2987,13 +3042,16 @@ async function eliminarProductoUI(id, btn){
 }
 
 // "+" general del inventario: alta SIN escanear (el codigo se digita a mano).
-function abrirAltaProducto(){
+async function abrirAltaProducto(){
   // FIX 2026-07-15: en vez de navegar a Escanear/Vender (donde cargarGridVender()
   // sobreescribía el form recién pintado), abrimos el modal de Inventario directamente.
   fichaTargetActual = "fichaModalBody";
   const body = document.getElementById("fichaModalBody");
   const modal = document.getElementById("modalFicha");
   if (!body || !modal) return;
+  // Homologado de AMIGABLE (2026-07-22): fetch perchas para el selector de alta
+  let perchasAlta = [];
+  try { perchasAlta = await (await fetch(`${API}/ubicaciones`)).json(); if (!Array.isArray(perchasAlta)) perchasAlta = []; } catch(_){}
   // Reutilizar mostrarFormNuevoProducto pero apuntando al modal body
   const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"';
   body.innerHTML = `
@@ -3015,6 +3073,24 @@ function abrirAltaProducto(){
         <input id="np-stock" type="number" min="0" step="1" value="0" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.supplier")}<br>
         <input id="np-proveedor" type="text" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.photoAltaLabel")}<br>
+        <input id="np-foto" type="file" accept="image/*" ${inp}></label>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <label style="flex:1;font-size:14px;">${t("form.relationType")}<br>
+          <select id="np-tipo-proveedor" ${inp}>
+            <option value="compra">${t("form.directPurchase")}</option>
+            <option value="consignacion">${t("form.consignmentArtist")}</option>
+          </select></label>
+        <label style="flex:1;font-size:14px;">${t("form.shelfLabel")}<br>
+          <select id="np-ubicacion" ${inp}>
+            <option value="todas">${t("form.noShelf")}</option>
+            ${perchasAlta.map(u => `<option value="${escHtml(u.id)}"${u.id === ubicacionActual ? " selected" : ""}>${escHtml(u.nombre)}</option>`).join("")}
+          </select></label>
+      </div>
+      <div id="np-comision-wrap" style="display:none;margin-top:8px;">
+        <label style="display:block;font-size:14px;">${t("form.artistCommissionPct")}<br>
+          <input id="np-comision-pct" type="number" min="0" max="100" step="1" ${inp}></label>
+      </div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
         <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
@@ -3031,6 +3107,9 @@ function abrirAltaProducto(){
     </div>`;
   document.getElementById("np-perecible").addEventListener("change", (e) => {
     document.getElementById("np-fecha-wrap").style.display = e.target.checked ? "block" : "none";
+  });
+  document.getElementById("np-tipo-proveedor").addEventListener("change", (e) => {
+    document.getElementById("np-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
   });
   modal.classList.add("activo");
 }

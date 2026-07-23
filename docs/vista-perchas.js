@@ -248,11 +248,13 @@
         prods.map((p) => {
           const c = SIMON[p.estado] || SIMON.azul;
           const estrella = p.estrella ? '★ ' : '';
+          const puedeEd = !!(window.OCAuth && window.OCAuth.rolActual() === "dueno");
           return `<button data-vp-prod="${esc(p.id)}" style="text-align:left;border:2px solid ${c.border};border-radius:10px;padding:0;overflow:hidden;background:var(--blanco-calido,#fbf5e8);cursor:pointer;">
             <div style="height:8px;background:${c.bg};"></div>
             <div style="padding:10px 12px;">
               <strong style="font-family:var(--font-display);font-size:15px;color:var(--ink);display:block;line-height:1.2;">${estrella}${esc(p.nombre)}</strong>
               <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Stock: ${p.stockActual} · ${money(p.precio)}</div>
+              ${puedeEd ? `<span data-vp-edit="${esc(p.id)}" style="display:inline-block;margin-top:8px;padding:4px 12px;border:2px solid var(--azul-medio,#2E6278);border-radius:5px;font-size:13px;font-weight:700;color:var(--azul-medio,#2E6278);">Edit</span>` : ""}
             </div>
           </button>`;
         }).join('')
@@ -401,6 +403,15 @@
     // Cerrar agregar
     if (e.target.id === 'vp-a-cerrar' || e.target === modalAgregar) { cerrarAgregar(); return; }
 
+    // Edicion directa (homologado de AMIGABLE, 2026-07-22) — atendida ANTES
+    // que abrir-ficha porque el chip vive dentro del mismo card clicable.
+    const editBtn = e.target.closest('[data-vp-edit]');
+    if (editBtn) {
+      e.stopPropagation();
+      cerrarCarpeta();
+      if (window.abrirEdicionDesdeInventario) window.abrirEdicionDesdeInventario(editBtn.dataset.vpEdit);
+      return;
+    }
     // Abrir ficha de un producto desde la carpeta
     const prodBtn = e.target.closest('[data-vp-prod]');
     if (prodBtn) {
