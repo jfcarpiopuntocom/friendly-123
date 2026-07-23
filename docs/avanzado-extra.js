@@ -389,6 +389,126 @@
       </div>`;
     vista.appendChild(gestion);
 
+    // === SINCRONIZAR EQUIPO (tiempo real, homologado de AMIGABLE, 2026-07-23) ==
+    // Solo dueño. Si nunca hay codigo de sync, la app funciona exactamente igual
+    // que siempre (solo local) - este panel es 100% opcional, cero dependencia.
+    // Sync corre 24/7 desde que se activa (automatico al licenciarse) - este
+    // panel es de ESTADO, no de switch on/off manual del flujo normal.
+    (function () {
+      if (!window.OCSyncControl) return;
+      const panel = document.createElement("div");
+      panel.className = "tag-card";
+      panel.id = "oc-sync-panel";
+      panel.style.cssText = "text-align:left;margin-top:22px;";
+      const salaActiva = window.OCSyncControl.salaActiva();
+      const codigoPrecargado = (function () {
+        try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).syncCode || ""; } catch (_) { return ""; }
+      })();
+      panel.innerHTML = `
+        <h3 class="seccion" style="margin-top:0;">${window.t("sync.panel.title")}</h3>
+        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">${window.t("sync.panel.body")}</p>
+        <p style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:0;">${window.t("sync.panel.privacy")}</p>
+        <div id="oc-sync-estado" style="font-size:13px;font-weight:700;margin-bottom:10px;"></div>
+        <div id="oc-sync-apagado" style="display:${salaActiva ? "none" : "flex"};gap:8px;flex-wrap:wrap;align-items:center;">
+          <input id="oc-sync-codigo" type="text" value="${escHtml(codigoPrecargado)}" placeholder="${window.t("sync.panel.codePlaceholder")}" maxlength="40"
+            style="flex:1;min-width:220px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;">
+          <button id="oc-sync-activar" class="ir">${window.t("sync.panel.activate")}</button>
+        </div>
+        <div id="oc-sync-activo" style="display:${salaActiva ? "block" : "none"};">
+          <p style="font-size:13px;color:var(--ink-soft);">${window.t("sync.panel.shareHint")}</p>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <code id="oc-sync-codigo-actual" style="font-size:16px;font-weight:700;background:var(--paper-deep,#E2E8ED);padding:6px 12px;border-radius:6px;">${escHtml(salaActiva || "")}</code>
+            <div id="oc-sync-qr" style="margin-top:8px;"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+            <button id="oc-sync-compartir" class="ir" style="background:#25D366;border-color:#1da851;">${window.t("sync.panel.share")}</button>
+            <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
+            <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
+          </div>
+        </div>
+        <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
+      vista.appendChild(panel);
+
+      const pillTexto = (estado, n) => {
+        if (estado === "conectado") return window.t("sync.panel.statusOn") + (n != null ? ` · ${n}` : "");
+        if (window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente()) {
+          return window.t("sync.panel.statusFailed");
+        }
+        return ({
+          apagado: window.t("sync.panel.statusOff"),
+          conectando: window.t("sync.panel.statusConnecting"),
+          reconectando: window.t("sync.panel.statusReconnecting"),
+        }[estado] || estado);
+      };
+      const pillColor = (estado) => {
+        if (estado === "conectado") return "var(--sim-verde-dk,#1a6e3c)";
+        if (estado === "apagado") return "var(--ink-soft)";
+        if (window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente()) return "var(--rojo,#a3392a)";
+        return "#B8760A";
+      };
+
+      function pintarEstado(estado, n) {
+        const el = document.getElementById("oc-sync-estado");
+        if (!el) return;
+        const e = estado || window.OCSyncControl.estado();
+        el.textContent = pillTexto(e, n != null ? n : window.OCSyncControl.presencia());
+        el.style.color = pillColor(e);
+      }
+      pintarEstado();
+      window.OCSyncControl.onEstado(pintarEstado);
+
+      function pintarQR(codigo) {
+        const cont = document.getElementById("oc-sync-qr");
+        if (!cont || !window.qrcode) return;
+        try {
+          const q = window.qrcode(0, "M");
+          q.addData("AMIGABLE123-SYNC:" + codigo);
+          q.make();
+          cont.innerHTML = `<img src="${q.createDataURL(4, 4)}" width="120" height="120" alt="QR" style="border-radius:6px;">`;
+        } catch (_) { /* QR es un extra visual */ }
+      }
+      if (salaActiva) pintarQR(salaActiva);
+
+      document.getElementById("oc-sync-activar").addEventListener("click", (ev) => {
+        const btn = ev.currentTarget;
+        if (btn.disabled) return;
+        btn.disabled = true;
+        setTimeout(() => { btn.disabled = false; }, 1200);
+        const codigo = document.getElementById("oc-sync-codigo").value;
+        const r = window.OCSyncControl.activar(codigo);
+        const msg = document.getElementById("oc-sync-msg");
+        if (!r.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error; return; }
+        msg.textContent = "";
+        document.getElementById("oc-sync-apagado").style.display = "none";
+        document.getElementById("oc-sync-activo").style.display = "block";
+        document.getElementById("oc-sync-codigo-actual").textContent = codigo.trim();
+        pintarQR(codigo.trim());
+      });
+      const btnCompartir = document.getElementById("oc-sync-compartir");
+      if (btnCompartir) btnCompartir.addEventListener("click", () => {
+        const codigo = (window.OCSyncControl.salaActiva() || "").trim();
+        const negocio = (function () { try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch (_) { return ""; } })();
+        const texto = window.t("sync.panel.shareText")
+          .replace("{business}", negocio ? " (" + negocio + ")" : "")
+          .replace("{code}", codigo);
+        window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
+      });
+      const btnResync = document.getElementById("oc-sync-resincronizar");
+      if (btnResync) btnResync.addEventListener("click", () => {
+        const msg = document.getElementById("oc-sync-msg");
+        window.OCSyncControl.resincronizar();
+        msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
+        msg.textContent = window.t("sync.panel.resyncing");
+        setTimeout(() => { if (msg.textContent === window.t("sync.panel.resyncing")) msg.textContent = ""; }, 3000);
+      });
+      document.getElementById("oc-sync-desactivar").addEventListener("click", () => {
+        window.OCSyncControl.desactivar();
+        document.getElementById("oc-sync-apagado").style.display = "flex";
+        document.getElementById("oc-sync-activo").style.display = "none";
+      });
+    })();
+    // === FIN SINCRONIZAR EQUIPO ==================================================
+
     // === EQUIPO (multi-usuario, admins + empleados, 2026-07-22) ===========
     // Panel de gestión del Equipo: admins + empleados con PINs y correos.
     // - Dueño: crea admins y empleados, cambia cualquier PIN, desactiva cualquiera.

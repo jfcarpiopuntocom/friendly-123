@@ -751,6 +751,65 @@
     selloUltimo = m.sello;
     movimientos.push(m);
   }
+
+  // === PUENTE DE SYNC (homologado de AMIGABLE, 2026-07-23) ===================
+  // mock-backend.js NUNCA hace fetch externo — la red vive en sync-realtime.js.
+  // Este puente es 100% local: emite deltas de stock para que sync-realtime.js
+  // los cifre y transmita, y aplica los que lleguen de otros dispositivos.
+  // Idempotente por opId — un opId repetido (reintento de red, reconexion) es
+  // un no-op seguro. Solo DELTAS, nunca valores absolutos — dos ventas
+  // simultaneas de las mismas ultimas unidades se SUMAN, nunca se pisan.
+  const OPS_APLICADAS_KEY = "amigable_sync_ops_aplicadas";
+  let _opsAplicadas = null;
+  function _cargarOpsAplicadas() {
+    if (_opsAplicadas) return _opsAplicadas;
+    try { _opsAplicadas = new Set(JSON.parse(localStorage.getItem(OPS_APLICADAS_KEY) || "[]")); }
+    catch (_) { _opsAplicadas = new Set(); }
+    return _opsAplicadas;
+  }
+  function _marcarOpAplicada(opId) {
+    const s = _cargarOpsAplicadas();
+    s.add(opId);
+    if (s.size > 500) { const arr = [...s]; s.clear(); arr.slice(-500).forEach((x) => s.add(x)); }
+    try { localStorage.setItem(OPS_APLICADAS_KEY, JSON.stringify([...s])); } catch (_) {}
+  }
+  function emitirOpStock(tipo, payload) {
+    if (window.OCSyncEmit) { try { window.OCSyncEmit(tipo, payload); } catch (_) {} }
+  }
+  window.OCSync = {
+    // Llamado por sync-realtime.js al recibir un Op de otro dispositivo. Si
+    // el resultado queda negativo, se deja ver (mov "alerta-descuadre") en
+    // vez de esconderlo: eso es un sobrante real que ocurrio en el mundo
+    // fisico, no un bug. Si es una venta remota, TAMBIEN crea la fila en
+    // `ventas` con su split de comision — sin esto, la comision de percha
+    // quedaba invisible en cualquier dispositivo que no fuera el vendedor.
+    aplicarOpRemota(op) {
+      if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Op invalida" };
+      const vistos = _cargarOpsAplicadas();
+      if (vistos.has(op.opId)) return { ok: true, repetida: true };
+      const pl = op.payload;
+      try {
+        const p = productos.find((x) => x.id === pl.productoId);
+        if (!p) return { ok: false, error: "Producto no existe en este dispositivo (sincroniza el catalogo primero)" };
+        p.stockActual += pl.delta;
+        if (op.tipo === "venta" && pl.delta < 0) {
+          const cant = -pl.delta;
+          const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
+          const montoBruto = p.precio * cant;
+          const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
+          const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null;
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, liquidada: false, clienteId: null, origenRemoto: true });
+        }
+        mov(op.tipo + "-remoto", { producto: p.nombre, delta: pl.delta, dispositivo: op.deviceNombre || op.deviceId || "otro dispositivo" });
+        if (p.stockActual < 0) mov("alerta-descuadre", { producto: p.nombre, stockActual: p.stockActual, motivo: "Dos dispositivos vendieron las mismas ultimas unidades casi a la vez." });
+        _marcarOpAplicada(op.opId);
+        guardarEstadoLocal();
+        return { ok: true };
+      } catch (err) { return { ok: false, error: String(err) }; }
+    },
+  };
+  // === FIN PUENTE DE SYNC ======================================================
+
   const J = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { "Content-Type": "application/json" } });
 
   // Item 3 COMPLETO (2026-07-07): QR generado 100% local con qrcode-local.js
@@ -1031,6 +1090,7 @@
         const ventaId = uuid("v");
         ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null });
         mov("venta", { producto: p.nombre, cantidad: cant, total: +(p.precio * cant).toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
+        emitirOpStock("venta", { productoId: p.id, delta: -cant });
         return J({ producto: ficha(p), ventaId });
       }
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/anular$/))) {
@@ -1054,6 +1114,7 @@
         p.stockActual += venta.cantidad;
         ventas.splice(idx, 1);
         mov("anulacion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId) });
+        emitirOpStock("anulacion", { productoId: p.id, delta: venta.cantidad });
         return J({ producto: ficha(p) });
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/ajustar$/))) {
@@ -1066,6 +1127,7 @@
         if (p.stockActual + d < 0) return J({ error: `Ese ajuste dejaría el stock en negativo (actual: ${p.stockActual}).` }, 400);
         p.stockActual += d;
         mov("ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || "Ajuste manual", stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) });
+        emitirOpStock("ajuste", { productoId: p.id, delta: d });
         return J(ficha(p));
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/etiqueta$/))) {
@@ -1172,6 +1234,7 @@
         origen.stockActual -= t.cantidad;
         t.estado = "en_transito";
         mov("transferencia-aprobada", { producto: t.nombre, cantidad: t.cantidad, desde: t.desdeNombre, hacia: t.haciaNombre });
+        emitirOpStock("transferencia-aprobada", { productoId: origen.id, delta: -t.cantidad });
         return J(t);
       }
       if ((m = path.match(/^\/api\/transferencias\/([^/]+)\/confirmar-recepcion$/))) {
@@ -1182,6 +1245,7 @@
         destino.stockActual += t.cantidad;
         t.estado = "recibida";
         mov("transferencia-recibida", { producto: t.nombre, cantidad: t.cantidad, desde: t.desdeNombre, hacia: t.haciaNombre });
+        emitirOpStock("transferencia-recibida", { productoId: destino.id, delta: t.cantidad });
         return J(t);
       }
       if ((m = path.match(/^\/api\/transferencias\/([^/]+)\/rechazar$/))) {

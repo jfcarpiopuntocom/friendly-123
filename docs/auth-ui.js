@@ -114,6 +114,15 @@
     try { return !!(JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId; }
     catch (_) { return false; }
   }
+  // Codigo de sala para "sincro-equipos" (homologado de AMIGABLE, 2026-07-23).
+  // Independiente del licenseCode del Worker de licencias (ese es server-side
+  // y hoy no se genera localmente en friendly-123) — este codigo es SOLO la
+  // semilla del cifrado E2E de sync-realtime.js, generado 100% local.
+  function generarCodigoSync() {
+    var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    var seg = function () { return Array.from({ length: 4 }, function () { return chars[Math.floor(Math.random() * chars.length)]; }).join(""); };
+    return "F123-" + seg() + "-" + seg();
+  }
   let demoSesion = false;
   let listo = window.OCSecure.migrarSiHaceFalta(); // promesa: migra oc_auth viejo (si existe) sin perder lo que el propietario ya configuró
 
@@ -288,6 +297,7 @@
         <button id="oc-borrar">${window.t("auth.gate.clear")}</button>
         <button id="oc-recuperar">${window.t("auth.gate.forgot")}</button>
       </div>
+      <button type="button" id="oc-unirse-equipo" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;font-size:13px;text-decoration:underline;cursor:pointer;margin-top:10px;padding:6px;display:block;width:100%;text-align:center;">${window.t("auth.gate.joinTeam")}</button>
       <div class="oc-msg" id="oc-msg"></div>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;">v1.0 &mdash; friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
     </div>`;
@@ -465,7 +475,12 @@
       if (vaciar) {
         try { var rm = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rm.push(k); } rm.forEach(function (kk) { localStorage.removeItem(kk); }); } catch (_) {}
       }
-      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now() })); } catch (_) {}
+      // Sincro-equipos (homologado de AMIGABLE, 2026-07-23): generar el codigo
+      // de sala y activar sync en el mismo instante — sin pantalla extra. Sync
+      // queda encendido 24/7 desde ahora, no es un "modo evento".
+      var syncCode = generarCodigoSync();
+      try { if (window.OCSyncControl) window.OCSyncControl.activar(syncCode); } catch (_) {}
+      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now(), syncCode: syncCode })); } catch (_) {}
       // NO marcar f123_bienvenida_v3 aqui — el wizard debe mostrarse de verdad
       // tras el primer login post-activacion (ver welcome-ui.js). Bug anterior:
       // se marcaba "vista" en este punto sin que el usuario la viera nunca.
@@ -592,6 +607,7 @@
 
   $("oc-borrar").addEventListener("click", () => { $("oc-msg").textContent = ""; if (teclado) teclado.reset(); });
   $("oc-recuperar").addEventListener("click", () => abrirFlujoReset());
+  $("oc-unirse-equipo").addEventListener("click", () => abrirUnirseEquipo());
   nuevoTeclado();
 
   // Banner manual de "Actualizar app" QUITADO (JFC 2026-07-16): "no tiene el
@@ -610,6 +626,37 @@
   // localStorage. Sin correo o sin PIN recuperable, muestra instruccion clara.
   // Sin modales, sin pasos: solo el mensaje en pantalla.
   // ---------------------------------------------------------------------------
+  // Unirme a mi equipo (homologado de AMIGABLE, 2026-07-23): flujo liviano
+  // para dispositivos de empleados/admins — solo pide el codigo de sala del
+  // negocio, no activa modo dueno ni toca f123_owned. Una vez, para siempre.
+  function abrirUnirseEquipo() {
+    const cont = document.createElement("div");
+    cont.className = "oc-subgate";
+    cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
+      <h2 style="font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;">${window.t("auth.join.title")}</h2>
+      <p style="font-size:14px;color:var(--ink-soft,#5d5340);margin:0 0 14px;">${window.t("auth.join.body")}</p>
+      <input id="oc-ue-codigo" type="text" placeholder="${window.t("auth.join.placeholder")}" style="width:100%;box-sizing:border-box;padding:11px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:16px;font-family:var(--font-mono,monospace);text-align:center;text-transform:uppercase;margin-bottom:10px;">
+      <button id="oc-ue-confirmar" style="width:100%;min-height:48px;padding:14px;border-radius:9px;border:2px solid var(--rust,#b2461f);background:var(--rust,#b2461f);color:#fff;font-size:16px;font-weight:700;cursor:pointer;">${window.t("auth.join.confirm")}</button>
+      <button id="oc-ue-cancelar" style="width:100%;min-height:44px;margin-top:10px;padding:11px;border-radius:9px;border:2px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68);font-size:15px;font-weight:700;cursor:pointer;">${window.t("auth.join.cancel")}</button>
+      <p id="oc-ue-msg" style="min-height:20px;font-size:14px;font-weight:700;color:var(--rojo,#a3392a);margin-top:12px;"></p>
+    </div>`;
+    document.body.appendChild(cont);
+    const msgEl = cont.querySelector("#oc-ue-msg");
+    cont.querySelector("#oc-ue-cancelar").addEventListener("click", () => cont.remove());
+    cont.querySelector("#oc-ue-confirmar").addEventListener("click", (ev) => {
+      const btn = ev.currentTarget;
+      if (btn.disabled) return;
+      btn.disabled = true; setTimeout(() => { btn.disabled = false; }, 1200);
+      const codigo = cont.querySelector("#oc-ue-codigo").value.trim();
+      if (!window.OCSyncControl) { msgEl.textContent = window.t("auth.join.unavailable"); return; }
+      const r = window.OCSyncControl.unirse(codigo);
+      if (!r.ok) { msgEl.textContent = r.error; return; }
+      msgEl.style.color = "var(--verde-suave,#2f7a4f)";
+      msgEl.textContent = window.t("auth.join.success");
+      setTimeout(() => cont.remove(), 1800);
+    });
+  }
+
   async function abrirFlujoReset() {
     await listo;
     const email = window.OCSecure.leerCorreo();
