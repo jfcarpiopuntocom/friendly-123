@@ -50,8 +50,8 @@
     { vista: "inventario", sel: "#btnAltaProducto" },
     { vista: "inventario", sel: "#gridInventario" },
     { vista: "escanear", sel: null },
-    { vista: "perchas", sel: "#perchaCrear" },
-    { vista: "clientes", sel: "#btnNuevoCliente" },
+    { vista: "perchas", sel: "#vp-btn-agregar" },
+    { vista: "clientes", sel: "#btnAltaCliente" },
     { vista: "comisiones", sel: null },
     { vista: "avanzado", sel: null },
   ];
@@ -103,7 +103,8 @@
     return el;
   }
 
-  function pintar() {
+  function pintar(intento) {
+    intento = intento || 0;
     const L = idioma();
     const d = DESTINOS[idx];
     const txt = L.pasos[idx];
@@ -111,6 +112,15 @@
     if (!el) return;
     try { el.scrollIntoView({ block: "center", behavior: "instant" }); } catch (_) {}
     const r = el.getBoundingClientRect();
+    // Blindaje (homologado de AMIGABLE, 2026-07-23): en vistas que pintan su
+    // contenido async (Perchas, Clientes) o en equipos lentos, el elemento a
+    // veces mide 0x0 justo cuando este timeout dispara — el foco quedaba
+    // clavado en la esquina (0,0) en vez de rodear el boton real. Reintentamos
+    // con backoff en vez de rendirnos.
+    if (r.width === 0 && r.height === 0 && intento < 10) {
+      setTimeout(() => { if (idx >= 0) pintar(intento + 1); }, 150);
+      return;
+    }
     const pad = 6;
     foco.style.left = Math.max(4, r.left - pad) + "px";
     foco.style.top = Math.max(4, r.top - pad) + "px";

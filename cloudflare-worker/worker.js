@@ -33,6 +33,35 @@ function requireMasterKey(req, env) {
   return env.MASTER_KEY && k === env.MASTER_KEY;
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   LICENSE STATES (model defined by JFC, 2026-07-28)
+
+     minima     Free forever, for anyone, no permission needed.
+                Caps: 25 products, 100 sales per month (resets monthly)
+                and 1 employee. Default state for every new instance.
+     full       Unlimited. JFC flips it from the panel when a customer pays.
+     bloqueada  Cut off for abuse or non-payment. The only punitive state.
+
+   "observada" was removed: there was no point watching someone who is on a
+   legitimate free plan. Old records carrying it read as "minima".
+
+   normalizarEstado() keeps records written BEFORE this change working with
+   no migration. It runs on read, on list and on write, so KV cleans itself
+   as instances check in. Do NOT drop it until no old names remain. */
+const MAPA_ESTADOS_VIEJOS = {
+  activa: "full",
+  limitada: "minima",
+  observada: "minima",
+};
+const ESTADOS_VALIDOS = ["minima", "full", "bloqueada"];
+function normalizarEstado(e) {
+  const v = String(e || "").toLowerCase();
+  if (ESTADOS_VALIDOS.includes(v)) return v;
+  // Unknown or empty degrades to the free plan, never to blocked:
+  // when in doubt we give service, we do not punish.
+  return MAPA_ESTADOS_VIEJOS[v] || "minima";
+}
+
 async function handleCheckin(req, env) {
   // Hardening (2026-07-16): endpoint publico — cap de tamano y validacion de formato
   // para que un bot no pueda llenar el KV con basura ni payloads gigantes.
@@ -65,8 +94,9 @@ async function handleCheckin(req, env) {
     nombre: body.nombre || existente.nombre || "",
     apellido: body.apellido || existente.apellido || "",
     cedula: body.cedula || existente.cedula || "",
-    // New instances start as "observada" — JFC decides activa/limitada/bloqueada from panel
-    estado: existente.estado || "observada",
+    // Every new instance starts on "minima": the free plan is the floor,
+    // not a punishment. JFC raises it to "full" from the panel when paid.
+    estado: normalizarEstado(existente.estado),
     ip,
     activatedAt: existente.activatedAt || (body.activatedAt ? body.activatedAt : null),
     firstSeen: existente.firstSeen || Date.now(),
@@ -193,6 +223,7 @@ export default {
       if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
       const lista = await env.LICENCIAS.list({ prefix: "inst:" });
       const registros = await Promise.all(lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => JSON.parse(v))));
+      registros.forEach((r) => { if (r) r.estado = normalizarEstado(r.estado); });
       registros.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
       return json(registros);
     }
@@ -206,8 +237,11 @@ export default {
       if (!raw) return json({ error: "Instancia no encontrada" }, 404);
       const reg = JSON.parse(raw);
       let body; try { body = await req.json(); } catch (_) { body = {}; }
-      if (!["activa", "observada", "limitada", "bloqueada"].includes(body.estado)) return json({ error: "Estado inválido" }, 400);
-      reg.estado = body.estado;
+      const _e = String(body.estado || "").toLowerCase();
+      if (!ESTADOS_VALIDOS.includes(_e) && !MAPA_ESTADOS_VIEJOS[_e]) {
+        return json({ error: "Invalid state" }, 400);
+      }
+      reg.estado = normalizarEstado(body.estado);
       await env.LICENCIAS.put(`inst:${instanceId}`, JSON.stringify(reg));
       return json({ ok: true });
     }

@@ -156,10 +156,15 @@
      Todo el monitoreo de instancias vive AQUÍ, en el panel maestro. Config del
      Worker vacía por defecto — friendly-123 aún no tiene Worker propio desplegado. */
   .lic-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.04em;font-family:var(--mono);}
-  .lic-badge.activa{background:rgba(40,201,138,.18);color:var(--green);}
-  .lic-badge.observada{background:rgba(74,127,212,.18);color:var(--blue);}
-  .lic-badge.limitada{background:rgba(212,131,42,.20);color:var(--amber);}
+  /* Model (JFC 2026-07-28): minima = free forever for anyone,
+     full = paid and uncapped, bloqueada = abuse or non-payment.
+     "observada" was removed; old records read as minima from the worker. */
+  .lic-badge.full{background:rgba(40,201,138,.18);color:var(--green);}
+  .lic-badge.minima{background:rgba(212,131,42,.20);color:var(--amber);}
   .lic-badge.bloqueada{background:rgba(201,64,64,.20);color:var(--red);}
+  /* Aliases for old names, in case an unnormalized record shows up. */
+  .lic-badge.activa{background:rgba(40,201,138,.18);color:var(--green);}
+  .lic-badge.limitada,.lic-badge.observada{background:rgba(212,131,42,.20);color:var(--amber);}
   .lic-input{padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:14px;font-family:var(--mono);}
   .lic-input:focus{outline:none;border-color:var(--gold-dim);}
   #lic-tabla td.date{font-size:12px;color:var(--ink-soft);font-family:var(--mono);}
@@ -332,9 +337,8 @@
       <input class="lic-input" id="lic-filtro" placeholder="Buscar nombre, email, cédula o código…" oninput="licFiltrar()" style="flex:1;min-width:200px;">
       <select class="lic-input" id="lic-filtro-estado" onchange="licFiltrar()" style="cursor:pointer;">
         <option value="">Todos los estados</option>
-        <option value="activa">Activa</option>
-        <option value="observada">Observada</option>
-        <option value="limitada">Limitada</option>
+        <option value="full">Full</option>
+        <option value="minima">Minimal</option>
         <option value="bloqueada">Bloqueada</option>
       </select>
     </div>
@@ -717,15 +721,21 @@ function licFmtDate(ts) {
   const d = new Date(ts);
   return d.toLocaleDateString("es") + " " + d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
 }
+function licNormEstado(e) {
+  e = String(e || "").toLowerCase();
+  if (e === "full" || e === "minima" || e === "bloqueada") return e;
+  if (e === "activa") return "full";
+  if (e === "limitada" || e === "observada") return "minima";
+  return "minima";
+}
 function licRenderStats(data) {
-  const c = { activa: 0, observada: 0, limitada: 0, bloqueada: 0 };
-  data.forEach(r => { if (c[r.estado] !== undefined) c[r.estado]++; });
+  const c = { full: 0, minima: 0, bloqueada: 0 };
+  data.forEach(r => { const e = licNormEstado(r.estado); if (c[e] !== undefined) c[e]++; });
   document.getElementById("lic-stats").innerHTML =
     `<div class="stat-box"><div class="stat-value">${data.length}</div><div class="stat-label">Total</div></div>` +
-    `<div class="stat-box"><div class="stat-value" style="color:var(--green);">${c.activa}</div><div class="stat-label">Activas</div></div>` +
-    `<div class="stat-box"><div class="stat-value" style="color:var(--blue);">${c.observada}</div><div class="stat-label">Observadas</div></div>` +
-    `<div class="stat-box"><div class="stat-value" style="color:var(--amber);">${c.limitada}</div><div class="stat-label">Limitadas</div></div>` +
-    `<div class="stat-box"><div class="stat-value" style="color:var(--red);">${c.bloqueada}</div><div class="stat-label">Bloqueadas</div></div>`;
+    `<div class="stat-box"><div class="stat-value" style="color:var(--green);">${c.full}</div><div class="stat-label">Full</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--amber);">${c.minima}</div><div class="stat-label">Minimal</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--red);">${c.bloqueada}</div><div class="stat-label">Blocked</div></div>`;
 }
 function licMostrarVacio() {
   document.getElementById("lic-empty").style.display = "block";
@@ -757,10 +767,9 @@ function licRenderTabla(data) {
       `<td class="date">${licFmtDate(r.activatedAt)}</td>` +
       `<td class="date">${licFmtDate(r.lastSeen)}</td>` +
       `<td><select id="lic-sel-${id}">` +
-      `<option value="activa"${est === "activa" ? " selected" : ""}>Activa</option>` +
-      `<option value="observada"${est === "observada" ? " selected" : ""}>Observada</option>` +
-      `<option value="limitada"${est === "limitada" ? " selected" : ""}>Limitada</option>` +
-      `<option value="bloqueada"${est === "bloqueada" ? " selected" : ""}>Bloqueada</option>` +
+      `<option value="minima"${licNormEstado(est) === "minima" ? " selected" : ""}>Minimal — free (25 items · 100 sales/mo · 1 employee)</option>` +
+      `<option value="full"${licNormEstado(est) === "full" ? " selected" : ""}>Full — uncapped</option>` +
+      `<option value="bloqueada"${licNormEstado(est) === "bloqueada" ? " selected" : ""}>Blocked</option>` +
       `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button></td>`;
     tb.appendChild(tr);
   });

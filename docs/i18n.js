@@ -18,6 +18,11 @@
 (function () {
   const DICT = {
     en: {
+      // Ojito ver/no ver en campos de password + aviso de modulo cargando
+      // (homologado de AMIGABLE, 2026-07-28).
+      "auth.pw.show": "SHOW",
+      "auth.pw.hide": "HIDE",
+      "welcome.stillLoading": "Still loading. Give it a moment and tap again.",
       "brand.slogan": "Manage your business, in color",
       "brand.bilingual": "Truly bilingual",
       "header.locationLabel": "Store / shelf",
@@ -388,6 +393,9 @@
       "pl.netProfit": "Net profit",
     },
     es: {
+      "auth.pw.show": "VER",
+      "auth.pw.hide": "NO",
+      "welcome.stillLoading": "Todavía se está cargando. Espera un momento y vuelve a tocar.",
       "brand.slogan": "Administra tu negocio, a color",
       "brand.bilingual": "Truly bilingual",
       "header.locationLabel": "Sucursal / percha",

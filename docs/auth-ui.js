@@ -159,10 +159,17 @@
   // ---------- CSS ----------
   const css = document.createElement("style");
   css.textContent = `
+  /* iOS: sin overscroll-behavior, arrastrar el dedo sobre el gate pasaba el
+     gesto al <body> de atras y la pagina real se movia debajo de una capa que
+     ni deberia ser tocable; al volver, el logo quedaba aplastado arriba porque
+     align-items:center recorta por arriba cuando el contenido desborda.
+     overflow-y + margin:auto permiten desplazar DENTRO del gate sin recortar. */
   #oc-gate{position:fixed;inset:0;z-index:9999;background:var(--azul-oscuro,#1c3049);
-    display:flex;align-items:center;justify-content:center;padding:20px;}
+    display:flex;align-items:center;justify-content:center;padding:20px;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;overscroll-behavior-y:contain;}
   #oc-gate .caja{background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);
-    border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;}
+    border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;
+    margin:auto;flex:0 0 auto;}
   #oc-gate h2{font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;}
   #oc-gate .sub{font-size:14px;color:var(--ink-soft,#5d5340);margin-bottom:18px;}
   .oc-slots{display:flex;gap:10px;justify-content:center;margin-bottom:16px;}
@@ -211,7 +218,9 @@
     border-radius:6px;border:2px solid var(--rust,#b2461f);background:var(--rust,#b2461f);
     color:var(--blanco-calido,#fbf5e8);cursor:pointer;min-height:44px;}
   .oc-subgate{position:fixed;inset:0;z-index:9999;background:rgba(28,48,73,0.92);
-    display:flex;align-items:center;justify-content:center;padding:20px;}
+    display:flex;align-items:center;justify-content:center;padding:20px;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;overscroll-behavior-y:contain;}
+  .oc-subgate > .caja{margin:auto;flex:0 0 auto;}
   /* Rol DEMO: ocultar cambio de claves y de correo (todo lo demás funciona) */
   body.rol-demo #oc-clave-block, body.rol-demo #oc-email-edit,
   body.rol-demo #oc-email-save, body.rol-demo #oc-email-in{display:none!important;}
@@ -629,9 +638,149 @@
   // Unirme a mi equipo (homologado de AMIGABLE, 2026-07-23): flujo liviano
   // para dispositivos de empleados/admins — solo pide el codigo de sala del
   // negocio, no activa modo dueno ni toca f123_owned. Una vez, para siempre.
-  function abrirUnirseEquipo() {
-    const cont = document.createElement("div");
+  /* =====================================================================
+     BLINDAJE DE MODALES .oc-subgate  (homologado de AMIGABLE, 2026-07-28)
+     Corrige 4 fallas que dejaban al usuario tirado:
+       1. Sin guard anti-doble-apertura: dos taps (comun en movil, donde el
+          primero a veces no da feedback) apilaban dos modales identicos y
+          cerrar el de arriba dejaba un clon fantasma.
+       2. setTimeout(cont.remove) diferidos seguian vivos tras cerrar y podian
+          borrar un modal NUEVO abierto despues.
+       3. Sin Escape: sin salida por teclado si el boton Cancelar quedaba
+          fuera de viewport en pantallas cortas.
+       4. Sin click-en-el-fondo, el primer gesto que prueba todo usuario.
+
+     Uso obligatorio para CUALQUIER modal nuevo:
+       var cont = _ocSubgate("id-unico");
+       if (!cont) return;
+       ... cont.innerHTML = ...; document.body.appendChild(cont);
+       boton.addEventListener("click", function(){ cont.cerrar() });
+       cont.luego(fn, ms);            // en vez de setTimeout
+     NO usar cont.remove() directo: salta la limpieza de timers y listeners.
+
+     opts.alCerrar: red de seguridad para modales que envuelven una Promise.
+     Garantiza que la Promise SIEMPRE se salda, se cierre por donde se cierre.
+     opts.obligatorio: desactiva Escape y click-afuera (candados a proposito).
+     ===================================================================== */
+  function _ocSubgate(id, opts) {
+    opts = opts || {};
+    if (id && document.getElementById(id)) return null;   // guard anti-doble
+    var cont = document.createElement("div");
     cont.className = "oc-subgate";
+    if (id) cont.id = id;
+    var timers = [];
+    var cerrado = false;
+    function cerrar() {
+      if (cerrado) return;                                 // idempotente
+      cerrado = true;
+      for (var i = 0; i < timers.length; i++) { try { clearTimeout(timers[i]); } catch (_) {} }
+      timers.length = 0;
+      try { document.removeEventListener("keydown", onKey, true); } catch (_) {}
+      try { cont.remove(); } catch (_) {}
+      if (typeof opts.alCerrar === "function") { try { opts.alCerrar(); } catch (_) {} }
+    }
+    function onKey(e) {
+      if (e.key === "Escape" || e.key === "Esc") { try { e.stopPropagation(); } catch (_) {} cerrar(); }
+    }
+    if (!opts.obligatorio) {
+      document.addEventListener("keydown", onKey, true);
+      // Solo el fondo cierra; un click dentro de la .caja no debe descartar
+      // lo que el usuario esta escribiendo.
+      cont.addEventListener("click", function (e) { if (e.target === cont) cerrar(); });
+    }
+    cont.cerrar = cerrar;
+    cont.luego = function (fn, ms) {
+      var t = setTimeout(function () { if (!cerrado) { try { fn(); } catch (_) {} } }, ms);
+      timers.push(t);
+      return t;
+    };
+    return cont;
+  }
+
+  /* Ojito ver / no ver en inputs de password. Arranca SIEMPRE oculto: mirar
+     por encima del hombro es el escenario real en un mostrador. Boton 44x44
+     (minimo tactil) y tabindex=-1 para no estorbar el llenado con teclado.
+     Los rotulos salen de i18n (EN por defecto), no hardcodeados. */
+  function _ocPonerOjitos(cont) {
+    try {
+      var inputs = cont.querySelectorAll('input[type="password"]');
+      for (var i = 0; i < inputs.length; i++) {
+        (function (inp) {
+          if (inp.dataset.ocOjito) return;
+          inp.dataset.ocOjito = "1";
+          var wrap = document.createElement("div");
+          wrap.style.cssText = "position:relative;display:block;";
+          inp.parentNode.insertBefore(wrap, inp);
+          wrap.appendChild(inp);
+          inp.style.paddingRight = "52px";
+          var b = document.createElement("button");
+          b.type = "button";
+          b.tabIndex = -1;
+          b.style.cssText = "position:absolute;right:2px;top:50%;transform:translateY(-50%);"
+            + "margin-top:-5px;width:48px;height:44px;display:flex;align-items:center;"
+            + "justify-content:center;background:none;border:none;cursor:pointer;padding:0;"
+            + "font-size:13px;font-weight:700;color:#2c4a68 !important;"
+            + "-webkit-text-fill-color:#2c4a68 !important;";
+          function tt(k, fb) { try { return (window.t ? window.t(k) : fb) || fb; } catch (_) { return fb; } }
+          function pintar() {
+            var oculto = inp.type === "password";
+            b.textContent = oculto ? tt("auth.pw.show", "SHOW") : tt("auth.pw.hide", "HIDE");
+            b.setAttribute("aria-label", b.textContent);
+          }
+          b.addEventListener("click", function () {
+            inp.type = (inp.type === "password") ? "text" : "password";
+            pintar();
+            try { inp.focus(); } catch (_) {}
+          });
+          pintar();
+          wrap.appendChild(b);
+        })(inputs[i]);
+      }
+    } catch (_) { /* si falla, el input sigue funcionando tal cual */ }
+  }
+
+  /* Mascara del codigo de sala. DIFERENCIA CON AMIGABLE: aqui el formato es
+     F123-XXXX-XXXX (2 grupos de 4 = 8 significativos), no AMG-XXXX-XXXX-XXXX.
+     Ver generarCodigoSync(). Importa porque este codigo ES la sala de sync y
+     activar() solo exige una longitud minima: un codigo mal tecleado NO da
+     error, mete al equipo en una sala vacia y la desincronizacion es silenciosa.
+     El cursor va al final a proposito: es un campo que se llena de una pasada. */
+  function _ocMascaraCodigo(inp) {
+    if (!inp || inp.dataset.ocMask) return;
+    inp.dataset.ocMask = "1";
+    inp.setAttribute("autocapitalize", "characters");
+    inp.setAttribute("autocorrect", "off");
+    inp.setAttribute("spellcheck", "false");
+    inp.setAttribute("maxlength", "14");        // F123- + 4 + 1 + 4 = 14
+    function formatear(raw) {
+      var v = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (v.indexOf("F123") === 0) v = v.slice(4);
+      v = v.slice(0, 8);                        // 2 grupos de 4
+      var out = "F123";
+      for (var i = 0; i < v.length; i += 4) out += "-" + v.slice(i, i + 4);
+      return out;
+    }
+    function alEscribir() {
+      var antes = inp.value;
+      var despues = formatear(antes);
+      if (antes !== despues) {
+        inp.value = despues;
+        try { inp.setSelectionRange(despues.length, despues.length); } catch (_) {}
+      }
+    }
+    inp.addEventListener("input", alEscribir);
+    inp.addEventListener("paste", function () { setTimeout(alEscribir, 0); });
+    inp.addEventListener("focus", function () {
+      if (!inp.value) { inp.value = "F123-"; try { inp.setSelectionRange(5, 5); } catch (_) {} }
+    });
+    inp.addEventListener("blur", function () {
+      if (inp.value === "F123-" || inp.value === "F123") inp.value = "";
+    });
+  }
+
+  function abrirUnirseEquipo() {
+    const cont = _ocSubgate("oc-ue-modal");
+    if (!cont) return;
     cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
       <h2 style="font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;">${window.t("auth.join.title")}</h2>
       <p style="font-size:14px;color:var(--ink-soft,#5d5340);margin:0 0 14px;">${window.t("auth.join.body")}</p>
@@ -641,8 +790,9 @@
       <p id="oc-ue-msg" style="min-height:20px;font-size:14px;font-weight:700;color:var(--rojo,#a3392a);margin-top:12px;"></p>
     </div>`;
     document.body.appendChild(cont);
+    _ocMascaraCodigo(cont.querySelector("#oc-ue-codigo"));
     const msgEl = cont.querySelector("#oc-ue-msg");
-    cont.querySelector("#oc-ue-cancelar").addEventListener("click", () => cont.remove());
+    cont.querySelector("#oc-ue-cancelar").addEventListener("click", () => cont.cerrar());
     cont.querySelector("#oc-ue-confirmar").addEventListener("click", (ev) => {
       const btn = ev.currentTarget;
       if (btn.disabled) return;
@@ -653,7 +803,7 @@
       if (!r.ok) { msgEl.textContent = r.error; return; }
       msgEl.style.color = "var(--verde-suave,#2f7a4f)";
       msgEl.textContent = window.t("auth.join.success");
-      setTimeout(() => cont.remove(), 1800);
+      cont.luego(() => cont.cerrar(), 1800);
     });
   }
 
@@ -742,8 +892,11 @@
     // Pide la subclave contable con su propio teclado (emojis barajados, casillas enmascaradas).
     pedirSubclaveContable() {
       return new Promise((resolve) => {
-        const cont = document.createElement("div");
-        cont.className = "oc-subgate";
+        // alCerrar garantiza que la Promise se salda por cualquier via de cierre
+        // (boton, Escape, click-afuera o guard). Sin esto, un cierre imprevisto
+        // dejaba al llamador esperando para siempre y la pantalla muerta.
+        const cont = _ocSubgate("oc-sc-modal", { alCerrar: () => resolve(false) });
+        if (!cont) { resolve(false); return; }
         cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
           <h2 style="font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;">${window.t("auth.gate.accountingLayer")}</h2>
           <div class="sub" style="font-size:14px;color:var(--ink-soft,#5d5340);margin-bottom:18px;">${window.t("auth.gate.accountingSubtitle")}</div>
@@ -754,7 +907,7 @@
         document.body.appendChild(cont);
         let tec;
         async function alCompletar(code) {
-          if (await window.OCSecure.verificarAcct(code)) { cont.remove(); resolve(true); }
+          if (await window.OCSecure.verificarAcct(code)) { resolve(true); cont.cerrar(); }
           else {
             cont.querySelector("#oc-msg2").textContent = window.t("auth.gate.wrongSubPin");
             cont.classList.add("err"); setTimeout(() => cont.classList.remove("err"), 400);
@@ -763,7 +916,7 @@
         }
         tec = montarTeclado(cont.querySelector("#oc-pad2"), cont.querySelector("#oc-slots2"), alCompletar);
         cont.querySelector("#sc-borrar").addEventListener("click", () => tec.reset());
-        cont.querySelector("#sc-cancelar").addEventListener("click", () => { cont.remove(); resolve(false); });
+        cont.querySelector("#sc-cancelar").addEventListener("click", () => cont.cerrar());
       });
     },
   };

@@ -110,17 +110,39 @@
     modal.classList.remove('abierto');
     try { localStorage.setItem(FLAG, '1'); } catch (_) { /* modo privado: se mostrará otra vez, aceptable */ }
   }
+  /* Blindaje (homologado de AMIGABLE, 2026-07-28): antes estos botones hacian
+     cerrar() PRIMERO y recien despues comprobaban que el modulo destino
+     existiera. Si tutorial-ui.js o help-ui.js no habian cargado (red lenta,
+     script diferido, cache a medias), el usuario perdia la bienvenida Y no
+     recibia nada a cambio: pantalla vacia, sin camino de vuelta, y con la flag
+     ya marcada como "visto". Ahora se comprueba ANTES: si el destino no esta
+     listo, el modal se queda abierto y se avisa. Nunca se cierra a cambio de
+     nada. El aviso sale de i18n (EN por defecto). */
+  function _amAvisarCargando(cardId) {
+    const c = document.getElementById(cardId);
+    if (!c || c.querySelector('.am-welcome-err')) return;
+    const p = document.createElement('p');
+    p.className = 'am-welcome-err';
+    p.style.cssText = 'font-size:15px;font-weight:700;line-height:1.4;margin:10px 0 0;color:#B2461F !important;-webkit-text-fill-color:#B2461F !important;';
+    let txt = 'Still loading. Give it a moment and tap again.';
+    try { if (window.t) txt = window.t('welcome.stillLoading') || txt; } catch (_) {}
+    p.textContent = txt;
+    c.appendChild(p);
+    setTimeout(() => { try { p.remove(); } catch (_) {} }, 4000);
+  }
   document.getElementById('am-welcome-ok').addEventListener('click', cerrar);
   document.getElementById('am-welcome-tut').addEventListener('click', () => {
+    if (!(window.OCTutorial && window.OCTutorial.iniciar)) { _amAvisarCargando('am-welcome-card'); return; }
     cerrar();
-    if (window.OCTutorial && window.OCTutorial.iniciar) window.OCTutorial.iniciar();
+    window.OCTutorial.iniciar();
   });
   // "Ver la guia" cierra la bienvenida (queda marcada como vista) y abre la
   // Ayuda completa via la API de help-ui.js. La Ayuda sigue siempre
   // disponible en el boton (?) — esto es solo el atajo del primer minuto.
   document.getElementById('am-welcome-guia').addEventListener('click', () => {
+    if (!(window.OCHelp && window.OCHelp.abrir)) { _amAvisarCargando('am-welcome-card'); return; }
     cerrar();
-    if (window.OCHelp && window.OCHelp.abrir) window.OCHelp.abrir();
+    window.OCHelp.abrir();
   });
   modal.addEventListener('click', (e) => { if (e.target === modal) cerrar(); });
 
@@ -135,8 +157,14 @@
   });
   document.getElementById('am-rec-ver').addEventListener('click', () => {
     // Launches the interactive TUTORIAL (tutorial-ui.js) — NOT the reading guide.
+    /* Este caso era mas grave que el del modal de arriba: se quitaba el
+       recordatorio ANTES de comprobar OCTutorial, asi que con el modulo sin
+       cargar el candado de confirmacion se abria solo y el usuario entraba sin
+       tutorial y sin haber tildado nada — justo lo que este modal existe para
+       impedir. Ahora el candado solo cede si el tutorial va a correr de verdad. */
+    if (!(window.OCTutorial && window.OCTutorial.iniciar)) { _amAvisarCargando('am-rec-card'); return; }
     reminder.classList.remove('abierto');
-    if (window.OCTutorial && window.OCTutorial.iniciar) window.OCTutorial.iniciar();
+    window.OCTutorial.iniciar();
   });
   // Sin click-outside-to-close ni tecla Escape aqui a proposito: el candado
   // de confirmacion es el punto entero de este modal.

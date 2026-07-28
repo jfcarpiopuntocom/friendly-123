@@ -372,7 +372,16 @@
     border-top:2px solid var(--ink);
     position:fixed;
     left:0; right:0; bottom:0;
+    /* ALTURA FIJA + content-box (homologado de AMIGABLE, 2026-07-28).
+       Con border-box (el default aqui), la altura INCLUIA el safe-area, asi
+       que en iPhones con notch el padding inferior se comia el alto util y
+       aplastaba los botones. Con content-box el alto del contenido es fijo y
+       solo el padding absorbe el home indicator. align-items:center evita
+       que los botones se estiren si iOS cambia el inset al colapsar la barra
+       de URL — la causa de que la nav "creciera" hasta el siguiente refresh. */
+    box-sizing:content-box;
     height:var(--nav-h);
+    align-items:center;
     padding:4px 6px env(safe-area-inset-bottom, 4px);
     z-index:35;
     /* Con 7 botones (Comisiones y Avanzado se agregaron después), flex:1
