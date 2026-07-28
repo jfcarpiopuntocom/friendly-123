@@ -824,6 +824,8 @@ async function licBorrar(instanceId) {
   const url = licWorkerUrl();
   if (!url) { mostrarConfirmacion("Set the Worker URL first"); return; }
   if (!confirm("Delete this record from the list?\n\nIt is archived in the Worker before being deleted, so it can be recovered. To cut someone's service off use Blocked, not this.")) return;
+  const _conf = prompt("This is IRREVERSIBLE from this panel (though it stays archived in the Worker).\n\nType DELETE in capitals to confirm:");
+  if (_conf !== "DELETE") { if (_conf !== null) alert("You did not type DELETE exactly. Cancelled, nothing was deleted."); return; }
   try {
     const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId),
       { method: "DELETE", headers: { "X-Master-Key": licMasterKey() } });
