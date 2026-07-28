@@ -775,6 +775,21 @@
   }
   function emitirOpStock(tipo, payload) {
     if (window.OCSyncEmit) { try { window.OCSyncEmit(tipo, payload); } catch (_) {} }
+    // MYCELIUM PHASE B (2026-07-28). This is the only place where the stock
+    // move has already happened AND the resulting stock is known. Emitting the
+    // fact from here rather than from a UI wrapper matters: a UI function may
+    // return nothing, which leaves the fact without its resulting number, and
+    // then reconciliacion.js cannot rebuild inventory at all. Wrapped in
+    // try/catch: a broken bus must NEVER break a sale.
+    try {
+      var _mp = productos.find(function (x) { return x.id === (payload && payload.productoId); });
+      if (window.AMG && window.AMG.EventBus) {
+        window.AMG.EventBus.emit("inventario_" + tipo + ":completado", {
+          payload: payload,
+          resultado: _mp ? { productoId: _mp.id, stockActual: _mp.stockActual, sku: _mp.sku } : null
+        });
+      }
+    } catch (_) {}
   }
   window.OCSync = {
     // Llamado por sync-realtime.js al recibir un Op de otro dispositivo. Si

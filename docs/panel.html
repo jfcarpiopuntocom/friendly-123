@@ -752,17 +752,36 @@ function licRenderTabla(data) {
   document.getElementById("lic-tabla").style.display = "table";
   const tb = document.getElementById("lic-tbody");
   tb.innerHTML = "";
+
+  // ONE LICENSE = ONE BUSINESS = ONE ROW (JFC 2026-07-28).
+  // Every device makes its own instanceId, so activating the same license on a
+  // second phone used to add a second row and look like a second customer. The
+  // most recent device heads the row (data arrives sorted by lastSeen) and the
+  // rest fold underneath. Instances with no code are NOT grouped: those are
+  // independent demos, and lumping them under "" would mix strangers together.
+  const grupos = [];
+  const idx = {};
   data.forEach(r => {
-    const est = r.estado || "activa";
+    const cod = String(r.licenseCode || "").trim().toUpperCase();
+    if (!cod) { grupos.push({ cod: "", filas: [r] }); return; }
+    if (idx[cod] === undefined) { idx[cod] = grupos.length; grupos.push({ cod: cod, filas: [] }); }
+    grupos[idx[cod]].filas.push(r);
+  });
+
+  grupos.forEach(g => {
+    const r = g.filas[0];
+    const est = r.estado || "minima";
     const id = licEsc(r.instanceId);
     const waHref = licWaHref(r.whatsapp);
+    const n = g.filas.length;
     const tr = document.createElement("tr");
     tr.innerHTML =
-      `<td><span class="lic-badge ${licEsc(est)}">${licEsc(est)}</span></td>` +
-      `<td class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}</td>` +
+      `<td><span class="lic-badge ${licEsc(licNormEstado(est))}">${licEsc(licNormEstado(est))}</span></td>` +
+      `<td class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}` +
+      (n > 1 ? `<br><button onclick="licToggleDisp('${id}')" style="margin-top:4px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-size:13px;cursor:pointer;">${n} devices</button>` : "") + `</td>` +
       `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || "—")}</td>` +
       `<td style="font-size:13px;">${licEsc(r.email || "—")}</td>` +
-      `<td style="font-size:13px;">${waHref ? `<a href="${waHref}" target="_blank" style="color:#25D366;">💬 ${licEsc(r.whatsapp)}</a>` : "—"}</td>` +
+      `<td style="font-size:13px;">${waHref ? `<a href="${waHref}" target="_blank" style="color:#25D366;">${licEsc(r.whatsapp)}</a>` : "—"}</td>` +
       `<td style="font-size:13px;">${licEsc(r.cedula || "—")}</td>` +
       `<td class="date">${licFmtDate(r.activatedAt)}</td>` +
       `<td class="date">${licFmtDate(r.lastSeen)}</td>` +
@@ -770,15 +789,56 @@ function licRenderTabla(data) {
       `<option value="minima"${licNormEstado(est) === "minima" ? " selected" : ""}>Minimal — free (25 items · 100 sales/mo · 1 employee)</option>` +
       `<option value="full"${licNormEstado(est) === "full" ? " selected" : ""}>Full — uncapped</option>` +
       `<option value="bloqueada"${licNormEstado(est) === "bloqueada" ? " selected" : ""}>Blocked</option>` +
-      `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button></td>`;
+      `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button>` +
+      ` <button class="btn-ok" title="Delete this record (archived first, recoverable)" onclick="licBorrar('${id}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);margin-left:4px;">Delete</button></td>`;
     tb.appendChild(tr);
+
+    // Extra devices of the same business: same license, different hardware.
+    // Folded, with their own buttons, because what you delete is one DEVICE,
+    // never the whole license.
+    g.filas.slice(1).forEach(h => {
+      const hid = licEsc(h.instanceId);
+      const trh = document.createElement("tr");
+      trh.className = "lic-disp lic-disp-" + id;
+      trh.style.display = "none";
+      trh.style.background = "rgba(255,255,255,.03)";
+      trh.innerHTML =
+        `<td></td><td class="mono" style="font-size:13px;color:#CCCCCC;">same business, another device</td>` +
+        `<td colspan="4" style="font-size:13px;color:#CCCCCC;">${licEsc(h.instanceId)}</td>` +
+        `<td class="date">${licFmtDate(h.activatedAt)}</td><td class="date">${licFmtDate(h.lastSeen)}</td>` +
+        `<td><button class="btn-ok" onclick="licBorrar('${hid}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);">Delete</button></td>`;
+      tb.appendChild(trh);
+    });
   });
 }
+
+function licToggleDisp(id) {
+  document.querySelectorAll(".lic-disp-" + id).forEach(f => {
+    f.style.display = f.style.display === "none" ? "table-row" : "none";
+  });
+}
+
+// Delete archives the record in the Worker first (key borrado:<id>), so it is
+// recoverable. It still asks: this panel is one click away from everything.
+async function licBorrar(instanceId) {
+  const url = licWorkerUrl();
+  if (!url) { mostrarConfirmacion("Set the Worker URL first"); return; }
+  if (!confirm("Delete this record from the list?\n\nIt is archived in the Worker before being deleted, so it can be recovered. To cut someone's service off use Blocked, not this.")) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId),
+      { method: "DELETE", headers: { "X-Master-Key": licMasterKey() } });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Error: " + (j.error || res.status)); return; }
+    mostrarConfirmacion("Record deleted and archived");
+    licRecargar();
+  } catch (e) { alert("Network error: " + e.message); }
+}
+
 function licFiltrar() {
   const q = document.getElementById("lic-filtro").value.toLowerCase();
   const est = document.getElementById("lic-filtro-estado").value;
   licRenderTabla(_licData.filter(r => {
-    const okEst = !est || r.estado === est;
+    const okEst = !est || licNormEstado(r.estado) === est;
     const okQ = !q || (r.licenseCode || "").toLowerCase().includes(q) || (r.email || "").toLowerCase().includes(q) ||
       (r.cedula || "").toLowerCase().includes(q) || ((r.nombre || "") + " " + (r.apellido || "")).toLowerCase().includes(q);
     return okEst && okQ;

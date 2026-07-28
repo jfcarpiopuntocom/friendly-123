@@ -33,35 +33,6 @@ function requireMasterKey(req, env) {
   return env.MASTER_KEY && k === env.MASTER_KEY;
 }
 
-/* ─────────────────────────────────────────────────────────────────────
-   LICENSE STATES (model defined by JFC, 2026-07-28)
-
-     minima     Free forever, for anyone, no permission needed.
-                Caps: 25 products, 100 sales per month (resets monthly)
-                and 1 employee. Default state for every new instance.
-     full       Unlimited. JFC flips it from the panel when a customer pays.
-     bloqueada  Cut off for abuse or non-payment. The only punitive state.
-
-   "observada" was removed: there was no point watching someone who is on a
-   legitimate free plan. Old records carrying it read as "minima".
-
-   normalizarEstado() keeps records written BEFORE this change working with
-   no migration. It runs on read, on list and on write, so KV cleans itself
-   as instances check in. Do NOT drop it until no old names remain. */
-const MAPA_ESTADOS_VIEJOS = {
-  activa: "full",
-  limitada: "minima",
-  observada: "minima",
-};
-const ESTADOS_VALIDOS = ["minima", "full", "bloqueada"];
-function normalizarEstado(e) {
-  const v = String(e || "").toLowerCase();
-  if (ESTADOS_VALIDOS.includes(v)) return v;
-  // Unknown or empty degrades to the free plan, never to blocked:
-  // when in doubt we give service, we do not punish.
-  return MAPA_ESTADOS_VIEJOS[v] || "minima";
-}
-
 async function handleCheckin(req, env) {
   // Hardening (2026-07-16): endpoint publico — cap de tamano y validacion de formato
   // para que un bot no pueda llenar el KV con basura ni payloads gigantes.
@@ -94,9 +65,8 @@ async function handleCheckin(req, env) {
     nombre: body.nombre || existente.nombre || "",
     apellido: body.apellido || existente.apellido || "",
     cedula: body.cedula || existente.cedula || "",
-    // Every new instance starts on "minima": the free plan is the floor,
-    // not a punishment. JFC raises it to "full" from the panel when paid.
-    estado: normalizarEstado(existente.estado),
+    // New instances start as "observada" — JFC decides activa/limitada/bloqueada from panel
+    estado: existente.estado || "observada",
     ip,
     activatedAt: existente.activatedAt || (body.activatedAt ? body.activatedAt : null),
     firstSeen: existente.firstSeen || Date.now(),
@@ -203,46 +173,6 @@ async function handleRecoverPin(req, env) {
   return json({ ok: true, enviado: true });
 }
 
-
-/* ---------------------------------------------------------------------
-   ONE LICENSE, MANY DEVICES (JFC 2026-07-28)
-
-   KV is keyed by instanceId and every device makes its own, so activating
-   the same license on a second phone creates a second row. The panel used
-   to paint them one under the other, as if they were two customers.
-
-   This is NOT fixed by deleting the second row. Both rows are real and both
-   are needed: a device has its own IP and last-seen and can be lost or
-   stolen; a license is the business, and the sync room. Merging them in KV
-   would destroy the per-device trail, which is exactly what you need the day
-   someone says "I lost my phone". So it is fixed in the PRESENTATION.
-
-   Instances with no license code are NOT grouped together: those are demo
-   devices, each independent. Grouping them all under "" would have put
-   strangers in the same row.
-   --------------------------------------------------------------------- */
-// Defined locally: this worker is the trimmed twin and has no normLicencia.
-// Compare normalized, never raw — "f123-abcd" and "F123-ABCD " are the same
-// license, and treating them as different would split one business in two.
-function normCodigoLic(s) { return String(s || "").trim().toUpperCase(); }
-
-function anotarHermanos(registros) {
-  const porCodigo = {};
-  registros.forEach((r) => {
-    if (!r) return;
-    const cod = normCodigoLic(r.licenseCode);
-    if (!cod) return;
-    (porCodigo[cod] = porCodigo[cod] || []).push(r.instanceId);
-  });
-  registros.forEach((r) => {
-    if (!r) return;
-    const cod = normCodigoLic(r.licenseCode);
-    const grupo = cod ? (porCodigo[cod] || []) : [];
-    r.dispositivos = grupo.length || 1;
-    r.hermanos = grupo.filter((id) => id !== r.instanceId);
-  });
-}
-
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -263,30 +193,9 @@ export default {
       if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
       const lista = await env.LICENCIAS.list({ prefix: "inst:" });
       const registros = await Promise.all(lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => JSON.parse(v))));
-      registros.forEach((r) => { if (r) r.estado = normalizarEstado(r.estado); });
       registros.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
-      anotarHermanos(registros);
       return json(registros);
     }
-
-    // Delete an instance (master only). Meant for cleaning up test records,
-    // not for punishing anyone: to cut service off use "bloqueada".
-    const mBorrar = url.pathname.match(/^\/licencias\/([^/]+)$/);
-    if (mBorrar && req.method === "DELETE") {
-      if (!requireMasterKey(req, env)) return json({ error: "Wrong Master Key" }, 401);
-      const instanceId = decodeURIComponent(mBorrar[1]);
-      const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
-      if (!raw) return json({ error: "Instance not found" }, 404);
-      // Archived BEFORE deleting, with no expiry. A one-click delete in a
-      // panel is exactly where regrets happen, and this costs a few hundred
-      // bytes. To recover: read borrado:<instanceId> and write it back.
-      await env.LICENCIAS.put(`borrado:${instanceId}`, JSON.stringify({
-        borradoEn: Date.now(), registro: JSON.parse(raw),
-      }));
-      await env.LICENCIAS.delete(`inst:${instanceId}`);
-      return json({ ok: true, archivadoEn: `borrado:${instanceId}` });
-    }
-
 
     // Change instance status
     const mEstado = url.pathname.match(/^\/licencias\/([^/]+)\/estado$/);
@@ -297,11 +206,8 @@ export default {
       if (!raw) return json({ error: "Instancia no encontrada" }, 404);
       const reg = JSON.parse(raw);
       let body; try { body = await req.json(); } catch (_) { body = {}; }
-      const _e = String(body.estado || "").toLowerCase();
-      if (!ESTADOS_VALIDOS.includes(_e) && !MAPA_ESTADOS_VIEJOS[_e]) {
-        return json({ error: "Invalid state" }, 400);
-      }
-      reg.estado = normalizarEstado(body.estado);
+      if (!["activa", "observada", "limitada", "bloqueada"].includes(body.estado)) return json({ error: "Estado inválido" }, 400);
+      reg.estado = body.estado;
       await env.LICENCIAS.put(`inst:${instanceId}`, JSON.stringify(reg));
       return json({ ok: true });
     }

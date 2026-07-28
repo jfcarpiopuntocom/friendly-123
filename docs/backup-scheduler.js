@@ -214,6 +214,44 @@
   }
 
   // Runs the full routine: download + open chosen channels + mark timestamp.
+  // ==========================================================================
+  // FILE DELIVERY — extracted from correrRespaldo() (JFC 2026-07-28) so the
+  // EMPLOYEE backup (respaldo-empleado.js) reuses exactly this path instead of
+  // duplicating it. Several hard-won fixes live here: the Web Share AbortError,
+  // the blocked popup on mobile, the ignored download attribute on iOS.
+  // Duplicating this block would mean losing those fixes in the copy.
+  //
+  // Returns "compartido" | "fallback" | "cancelado".
+  //   cancelado = the user closed the share sheet on purpose; the caller must
+  //   NOT mark the backup as done nor stop reminding.
+  //
+  // plantillaTexto accepts the %CANAL% marker, replaced with the channel
+  // actually chosen, so we never say "email" to someone backing up by WhatsApp.
+  // ==========================================================================
+  async function entregarArchivo(info, prefs, titulo, plantillaTexto) {
+    let resultado = "fallback";
+    try {
+      const file = new File([info.texto], info.nombre, { type: "application/json" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        const canalTxt = prefs.canalWhatsapp && !prefs.canalEmail ? "WhatsApp" : "email or WhatsApp";
+        await navigator.share({
+          files: [file],
+          title: titulo,
+          text: String(plantillaTexto).replace("%CANAL%", canalTxt),
+        });
+        resultado = "compartido";
+      }
+    } catch (e) {
+      resultado = (e && e.name === "AbortError") ? "cancelado" : "fallback";
+    }
+    if (resultado === "fallback") {
+      descargarArchivo(info.texto, info.nombre);
+      if (prefs.canalWhatsapp) abrirWa(prefs.whatsapp, info.nombre, info.humano);
+      if (prefs.canalEmail)    setTimeout(() => abrirMailto(prefs.email, info.nombre, info.humano), 300);
+    }
+    return resultado;
+  }
+
   async function correrRespaldo(silencioso) {
     const prefs = getPrefs();
     if (!prefs.canalEmail && !prefs.canalWhatsapp) {
@@ -249,29 +287,10 @@
     //      email/WhatsApp (owner attaches the just-downloaded file).
     // NEVER put a server in the middle of this data. That rule is JFC's.
     // ========================================================================
-    let resultado = "fallback"; // "compartido" | "fallback" | "cancelado"
-    try {
-      const file = new File([info.texto], info.nombre, { type: "application/json" });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        const canalTxt = prefs.canalWhatsapp && !prefs.canalEmail ? "WhatsApp" : "email or WhatsApp";
-        await navigator.share({
-          files: [file],
-          title: "friendly-123 backup",
-          text: `Backup of your business (friendly-123) ${info.humano}. Send it to YOURSELF via ${canalTxt} — it's yours, it never goes through any server.`,
-        });
-        resultado = "compartido";
-      }
-    } catch (e) {
-      resultado = (e && e.name === "AbortError") ? "cancelado" : "fallback";
-    }
+    const resultado = await entregarArchivo(info, prefs, "friendly-123 backup",
+      `Backup of your business (friendly-123) ${info.humano}. Send it to YOURSELF via %CANAL% — it's yours, it never goes through any server.`);
 
     if (resultado === "cancelado") return; // owner closed the share sheet — don't mark a backup that didn't happen
-
-    if (resultado === "fallback") {
-      descargarArchivo(info.texto, info.nombre);
-      if (prefs.canalWhatsapp) abrirWa(prefs.whatsapp, info.nombre, info.humano);
-      if (prefs.canalEmail)    setTimeout(() => abrirMailto(prefs.email, info.nombre, info.humano), 300);
-    }
 
     const canal = prefs.canalEmail && prefs.canalWhatsapp ? "both" : (prefs.canalEmail ? "email" : "whatsapp");
     setLast(canal);
@@ -553,6 +572,12 @@
     correr: correrRespaldo,
     chequearAlArrancar,
     getPrefs,
+    // Reused by respaldo-empleado.js — same delivery path, same WhatsApp
+    // normalization. Do NOT duplicate these in another file.
+    entregarArchivo,
+    stampArchivo,
+    stampHumano,
+    waEsValido,
     // Exposed for manual testing from DevTools:
     _toca: () => toca(getPrefs()),
     _mostrarRecordatorio: mostrarRecordatorioRespaldo,

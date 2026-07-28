@@ -356,6 +356,35 @@
     vista.appendChild(bkMount);
     if (window.OCBackupScheduler) window.OCBackupScheduler.montar(bkMount);
 
+    // === MY WORK RECORD (JFC 2026-07-28, point 13) ==========================
+    // The owner's backup protects the BUSINESS; this one protects the PERSON
+    // at the counter. montar() limits itself to the employee role, so there is
+    // no need to filter here. See docs/respaldo-empleado.js: costs do NOT
+    // travel in that package, and that boundary is deliberate.
+    const reMount = document.createElement("div");
+    reMount.id = "oc-respaldo-empleado-mount";
+    vista.appendChild(reMount);
+    if (window.OCRespaldoEmpleado) window.OCRespaldoEmpleado.montar(reMount);
+
+    // === RESTORE POINTS (mycelium phase B) =================================
+    // The div is built here in JS rather than in index.html: friendly-123 has
+    // no accounting section like AMIGABLE, so there is no equivalent HTML
+    // anchor to hang it from.
+    const recMount = document.createElement("div");
+    recMount.id = "oc-reconciliacion-mount";
+    vista.appendChild(recMount);
+    if (window.AMG && window.AMG.Reconciliacion) window.AMG.Reconciliacion.montarPanel(recMount);
+
+    // === ACCOUNTING EDUTIP =================================================
+    // Blue box at the foot. Color rule: blue lives ONLY here, never as a state
+    // color on inventory cards (there the Simon color language rules).
+    const edMount = document.createElement("div");
+    edMount.id = "oc-edutip-contable";
+    edMount.className = "tag-card";
+    edMount.style.cssText = "text-align:left;border-left:5px solid var(--sim-azul,#2E6278);margin-top:26px;";
+    vista.appendChild(edMount);
+    if (window.OCEdutips) window.OCEdutips.montar();
+
     $("oc-acct-open").addEventListener("click", async () => {
       if (!desbloqueadaSesion) {
         const ok = await window.OCAuth.pedirSubclaveContable();
