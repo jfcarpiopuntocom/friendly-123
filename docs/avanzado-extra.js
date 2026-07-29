@@ -616,7 +616,7 @@
       } catch (_) {}
 
       if (!equipo.length) {
-        lista.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);margin:0;">Aún no hay miembros del equipo.</p>';
+        lista.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);margin:0;">${window.t("team.noMembers")}</p>`;
         return;
       }
 
@@ -752,7 +752,7 @@
           const msg = tbody.querySelector(`[data-pin-msg="${id}"]`);
           const pin = (inp ? inp.value : "").trim();
           msg.style.color = "var(--rojo,#a3392a)";
-          if (!/^\d{3}$/.test(pin)) { msg.textContent = "El PIN debe tener 3 dígitos."; return; }
+          if (!/^\d{3}$/.test(pin)) { msg.textContent = window.t("team.pinMustBe3Digits"); return; }
           try {
             const r = await fetch("/api/usuarios/" + id, {
               method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -780,7 +780,7 @@
       const msgEl = document.getElementById("oc-emp-msg");
       msgEl.style.color = "var(--rojo,#a3392a)";
       if (!nombre) { msgEl.textContent = "El nombre es obligatorio."; return; }
-      if (!/^\d{3}$/.test(pin)) { msgEl.textContent = "El PIN debe tener exactamente 3 dígitos."; return; }
+      if (!/^\d{3}$/.test(pin)) { msgEl.textContent = window.t("team.pinMustBeExactly3Digits"); return; }
       try {
         const r = await fetch("/api/usuarios", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -833,13 +833,13 @@
         const r = await fetch("/api/actividad");
         if (!r.ok) { logBody.innerHTML = '<p style="color:var(--rojo,#a3392a);">No se pudo cargar el historial.</p>'; return; }
         const movs = await r.json();
-        if (!movs.length) { logBody.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">Sin movimientos registrados aún.</p>'; return; }
+        if (!movs.length) { logBody.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">${window.t("log.noMovementsYet")}</p>`; return; }
         const tipoLabel = (t) => {
           const m = {
-            alta: "Alta producto", venta: "Venta", ajuste: "Ajuste stock",
-            edicion: "Edición producto", baja: "Baja producto",
-            "usuario-alta": "Nuevo miembro", "usuario-editar": "Edición miembro",
-            transferencia: "Transferencia", liquidacion: "Liquidación", estrella: "Estrella"
+            alta: window.t("log.type.alta"), venta: window.t("log.type.venta"), ajuste: window.t("log.type.ajuste"),
+            edicion: window.t("log.type.edicion"), baja: window.t("log.type.baja"),
+            "usuario-alta": window.t("log.type.usuarioAlta"), "usuario-editar": window.t("log.type.usuarioEditar"),
+            transferencia: window.t("log.type.transferencia"), liquidacion: window.t("log.type.liquidacion"), estrella: window.t("log.type.estrella")
           };
           return m[t] || t;
         };

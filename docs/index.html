@@ -1057,7 +1057,7 @@
     <!-- NO logoHeader aquí — logo friendly-123 va SOLO encima de Help(?), en brandWrap (help-ui.js).
          Misma decisión que AMIGABLE (2026-07-15, JFC). NO AGREGAR sello/logoHeader de vuelta. -->
     <div>
-      <h1><span id="oc-negocio-nombre">Mi Local Comercial o Percha(s)</span><button id="oc-negocio-editar" type="button" title="Editar el nombre de tu negocio" aria-label="Editar nombre del negocio" style="display:none;margin-left:8px;font-size:14px;line-height:1;background:transparent;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;vertical-align:middle;padding:2px 4px;">✎</button></h1>
+      <h1><span id="oc-negocio-nombre" data-i18n="header.bizNameDefault">My store or shelf(s)</span><button id="oc-negocio-editar" type="button" data-i18n-attr="title:header.editBizName,aria-label:header.editBizName" title="Edit your business name" aria-label="Edit your business name" style="display:none;margin-left:8px;font-size:14px;line-height:1;background:transparent;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;vertical-align:middle;padding:2px 4px;">✎</button></h1>
       <div class="sub" data-i18n="brand.slogan">Manage your business, in color</div>
       <div id="oc-offline-badge" style="display:none;font-size:13px;font-weight:700;color:#fff;background:var(--sim-naranja-dk,#C05000);padding:2px 8px;border-radius:999px;margin-top:4px;width:fit-content;">📴 <span data-i18n="offline.badge">Offline — saved locally</span></div>
     </div>
@@ -3347,8 +3347,8 @@ async function abrirEtiqueta(id){
     <div class="codigo">${p.barcode}</div>
     <div class="barras" id="barrasClicable" style="cursor:pointer;position:relative;" title="Tap to print or save just the barcode">${data.barcodeSvg || ""}</div>
     <div style="font-size:13px;color:var(--azul-medio,#2c4a68);margin-top:-6px;">👆 Tap the barcode to print or save it alone</div>
-    ${data.qrDataUrl ? `<img src="${data.qrDataUrl}" width="160" height="160" alt="QR del producto">
-    <div style="font-size:13px; color:var(--azul-medio);">Escanea para ver la ficha completa</div>` : ""}
+    ${data.qrDataUrl ? `<img src="${data.qrDataUrl}" width="160" height="160" alt="Product QR code">
+    <div style="font-size:13px; color:var(--azul-medio);">Scan to see the full record</div>` : ""}
   `;
   // Botón de impresión fuera de la etiqueta — no viaja al papel ni aparece en el preview
   const accionesEl = document.getElementById("oc-etiqueta-acciones");
