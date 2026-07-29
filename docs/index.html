@@ -1285,7 +1285,31 @@
         <p style="margin:0;font-size:14px;color:var(--ink);" data-i18n-html="sold.step4html">4. If you don't ring up live, use <strong>Day close</strong> at the end.</p>
       </div>
     </details>
+    <!-- Modo de venta: dos RUTAS, no una restricción. "Quick tap" (default,
+         sin cambios) para una salida suelta; "Build a sale" para juntar
+         varios productos, ver el subtotal, y sellar todo junto con el
+         cliente ya elegido arriba. Ninguna reemplaza a la otra. -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button id="btnModoQuick" data-modo-venta="quick" style="font-size:14px;font-weight:700;padding:7px 14px;border-radius:20px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;">⚡ Quick tap</button>
+      <button id="btnModoCarrito" data-modo-venta="carrito" style="font-size:14px;font-weight:700;padding:7px 14px;border-radius:20px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;">🧺 Build a sale</button>
+    </div>
     <div id="gridVender" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px;"></div>
+    <!-- Carrito de "Build a sale": aparece solo en ese modo. Cada linea es
+         editable (+/- y quitar). El sello final es UNA sola accion clara,
+         para que se sienta que la venta quedo completa y guardada. -->
+    <div id="panelCarrito" class="tag-card" style="display:none;margin-bottom:18px;padding:14px 16px;">
+      <h4 style="margin:0 0 8px;font-size:16px;">Building this sale</h4>
+      <div id="listaCarrito"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:2px solid var(--linea,#D7E0E8);">
+        <strong style="font-size:15px;">Subtotal</strong>
+        <strong id="subtotalCarrito" style="font-size:20px;color:#0F1923;">$0.00</strong>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button id="btnVaciarCarrito" style="flex:0 0 auto;font-size:14px;padding:9px 14px;border-radius:8px;border:2px solid #C0392B;background:transparent;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">Clear</button>
+        <button id="btnSellarVenta" style="flex:1;font-size:16px;font-weight:700;padding:9px 14px;border-radius:8px;border:2px solid #006B3C;background:#006B3C;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">✓ Seal sale</button>
+      </div>
+      <p id="carritoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
+    </div>
     <div class="panel-escaner tag-card">
       <h4 style="margin:0 0 6px;font-size:17px;" data-i18n="sold.scanHeading">Scan or search by code</h4>
       <p data-i18n="sold.scanIntro">Type or paste the barcode / SKU. (On a tablet with a camera, the reader connects right here.)</p>
@@ -1544,12 +1568,127 @@ function vistaActivaId(){
 // select, toast de deshacer 5s). Nada de carrito: esto registra salidas, no
 // cobra. Estrellas primero, luego alfabetico; sin stock = apagado.
 // ============================================================================
+// ---- Modo "Build a sale": carrito en memoria, nada persiste hasta sellar ----
+// Vive solo en esta pestaña (se pierde al recargar) — a proposito: es un
+// borrador de trabajo, no un dato que deba sincronizarse entre dispositivos.
+let _modoVenta = "quick";
+let _carritoVenta = []; // { productoId, nombre, precio, cantidad, stockDisponible }
+
+function fijarModoVenta(modo) {
+  _modoVenta = modo;
+  const bq = document.getElementById("btnModoQuick"), bc = document.getElementById("btnModoCarrito");
+  const activo = "background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;";
+  const inactivo = "background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;";
+  if (bq) bq.style.cssText += (modo === "quick" ? activo : inactivo);
+  if (bc) bc.style.cssText += (modo === "carrito" ? activo : inactivo);
+  const panel = document.getElementById("panelCarrito");
+  if (panel) panel.style.display = (modo === "carrito" && _carritoVenta.length) ? "block" : "none";
+}
+document.getElementById("btnModoQuick") && document.getElementById("btnModoQuick").addEventListener("click", () => fijarModoVenta("quick"));
+document.getElementById("btnModoCarrito") && document.getElementById("btnModoCarrito").addEventListener("click", () => fijarModoVenta("carrito"));
+fijarModoVenta("quick");
+
+function agregarAlCarrito(p) {
+  const linea = _carritoVenta.find(l => l.productoId === p.id);
+  const enCarrito = linea ? linea.cantidad : 0;
+  if (enCarrito + 1 > p.stockActual) { pintarCarrito(); return; } // silencioso: el tile ya se ve sin stock
+  if (linea) linea.cantidad += 1;
+  else _carritoVenta.push({ productoId: p.id, nombre: p.nombre, precio: p.precio, cantidad: 1, stockDisponible: p.stockActual });
+  pintarCarrito();
+}
+
+function pintarCarrito() {
+  const panel = document.getElementById("panelCarrito");
+  const lista = document.getElementById("listaCarrito");
+  const subtotalEl = document.getElementById("subtotalCarrito");
+  if (!panel || !lista || !subtotalEl) return;
+  if (!_carritoVenta.length) { panel.style.display = "none"; return; }
+  panel.style.display = "block";
+  let subtotal = 0;
+  lista.innerHTML = _carritoVenta.map(l => {
+    subtotal += l.precio * l.cantidad;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--linea,#D7E0E8);">
+      <span style="flex:1;font-size:14px;color:#0F1923;">${escHtml(l.nombre)}</span>
+      <button data-carrito-menos="${l.productoId}" style="width:28px;height:28px;border-radius:6px;border:2px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-weight:700;">−</button>
+      <span style="min-width:20px;text-align:center;font-weight:700;">${l.cantidad}</span>
+      <button data-carrito-mas="${l.productoId}" ${l.cantidad >= l.stockDisponible ? "disabled" : ""} style="width:28px;height:28px;border-radius:6px;border:2px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-weight:700;">+</button>
+      <span style="min-width:70px;text-align:right;font-weight:700;">${fmtMoney(l.precio * l.cantidad)}</span>
+    </div>`;
+  }).join("");
+  subtotalEl.textContent = fmtMoney(subtotal);
+}
+
+document.getElementById("listaCarrito") && document.getElementById("listaCarrito").addEventListener("click", (e) => {
+  const menos = e.target.closest("[data-carrito-menos]");
+  const mas = e.target.closest("[data-carrito-mas]");
+  const id = (menos && menos.dataset.carritoMenos) || (mas && mas.dataset.carritoMas);
+  if (!id) return;
+  const linea = _carritoVenta.find(l => l.productoId === id);
+  if (!linea) return;
+  if (menos) { linea.cantidad -= 1; if (linea.cantidad <= 0) _carritoVenta = _carritoVenta.filter(l => l.productoId !== id); }
+  if (mas && linea.cantidad < linea.stockDisponible) linea.cantidad += 1;
+  pintarCarrito();
+});
+
+document.getElementById("btnVaciarCarrito") && document.getElementById("btnVaciarCarrito").addEventListener("click", async () => {
+  if (!_carritoVenta.length) return;
+  if (!(await ocConfirm("Clear this sale in progress? Nothing has been recorded yet."))) return;
+  _carritoVenta = [];
+  pintarCarrito();
+});
+
+// Sellar: registra CADA linea con el endpoint de siempre (una llamada por
+// producto, ya probado), amarradas al mismo cliente. Si una linea falla a
+// mitad de camino (ej. alguien mas vendio el ultimo justo antes), se PARA y
+// se informa exactamente que quedo hecho y que no — nunca un "listo" falso.
+async function sellarVenta() {
+  if (!_carritoVenta.length) return;
+  const sel = document.getElementById("ventaCliente");
+  const nombreCliente = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "Counter sale";
+  const subtotal = _carritoVenta.reduce((a, l) => a + l.precio * l.cantidad, 0);
+  const resumen = _carritoVenta.map(l => `${l.cantidad}× ${l.nombre}`).join(", ");
+  if (!(await ocConfirm(`Seal this sale — ${resumen}. Total ${fmtMoney(subtotal)} for ${nombreCliente}?`))) return;
+  const msg = document.getElementById("carritoMsg");
+  const btn = document.getElementById("btnSellarVenta");
+  btn.disabled = true;
+  const hechas = [];
+  for (const l of _carritoVenta) {
+    try {
+      const res = await fetch(`${API}/productos/${l.productoId}/venta`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cantidad: l.cantidad, clienteId: (sel && sel.value) || undefined })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Unknown error");
+      hechas.push(l);
+    } catch (err) {
+      // Corte honesto: lo que ya se sello queda sellado (no se revierte),
+      // lo que falto se informa con nombre y numero exactos.
+      const faltan = _carritoVenta.filter(x => !hechas.includes(x));
+      _carritoVenta = faltan;
+      pintarCarrito();
+      btn.disabled = false;
+      if (msg) { msg.style.color = "#C0392B"; msg.textContent = `Stopped at "${l.nombre}": ${err.message}. Everything before that IS sealed — only the rest is still pending.`; }
+      cargarGridVender();
+      return;
+    }
+  }
+  _carritoVenta = [];
+  pintarCarrito();
+  btn.disabled = false;
+  if (msg) { msg.style.color = "#006B3C"; msg.textContent = `✓ Sealed. ${resumen} — ${fmtMoney(subtotal)} for ${nombreCliente}.`; setTimeout(() => { if (msg) msg.textContent = ""; }, 6000); }
+  cargarGridVender();
+  if (document.getElementById("cierreDia").open) cargarCierreLista();
+}
+document.getElementById("btnSellarVenta") && document.getElementById("btnSellarVenta").addEventListener("click", sellarVenta);
+
 async function cargarGridVender(){
   const grid = document.getElementById("gridVender");
   if (!grid) return;
   let productos;
   try { productos = await (await fetch(`${API}/productos?ubicacionId=${ubicacionActual}`)).json(); } catch (_) { return; }
   if (!Array.isArray(productos)) return;
+  window._productosVenderCache = productos;
   productos.sort((a, b) => (b.estrella - a.estrella) || a.nombre.localeCompare(b.nombre));
   grid.innerHTML = productos.map(p => {
     const sinStock = p.stockActual <= 0;
@@ -1573,6 +1712,13 @@ async function cargarGridVender(){
     grid.addEventListener("click", async (e) => {
       const b = e.target.closest("[data-vender-tile]");
       if (!b || b.disabled) return;
+      if (_modoVenta === "carrito") {
+        // "Build a sale": el toque solo agrega al carrito, NADA se descuenta
+        // de stock todavia — eso pasa solo al sellar. Misma cuadricula, otra ruta.
+        const p = (window._productosVenderCache || []).find(x => x.id === b.dataset.venderTile);
+        if (p) agregarAlCarrito(p);
+        return;
+      }
       b.disabled = true;
       await venderUno(b.dataset.venderTile);
       cargarGridVender();
