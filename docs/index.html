@@ -2129,10 +2129,10 @@ async function poblarSelectClientes(grupos){
     // Microcirugia 9 (2026-07-08): antes el catch silencioso dejaba el select
     // con solo 'Mostrador' sin aviso — el operador asumia que no habia clientes.
     try { lista = await (await fetch(`${API}/clientes`)).json(); }
-    catch (_) { if (sel) sel.title = 'No se pudo cargar la lista de clientes. Recarga la vista.'; return; }
+    catch (_) { if (sel) sel.title = 'Could not load the customer list. Reload this view.'; return; }
   }
   const actual = sel.value;
-  sel.innerHTML = '<option value="">Venta de mostrador (sin cliente)</option>' + lista.map((c) => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("");
+  sel.innerHTML = `<option value="">${escHtml(t("sold.counterSale"))}</option>` + lista.map((c) => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("");
   if (actual) sel.value = actual;
 }
 // Parser CSV minimo y robusto (sin librerias): respeta comillas dobles y
