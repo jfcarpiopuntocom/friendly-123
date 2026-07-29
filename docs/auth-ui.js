@@ -851,6 +851,8 @@
     // así nunca quedan dos ni uno con el nombre del operador anterior.
     const chipPrevio = document.getElementById("oc-user-chip");
     if (chipPrevio) chipPrevio.remove();
+    const rolChipPrevio = document.getElementById("oc-rol-chip");
+    if (rolChipPrevio) rolChipPrevio.remove();
     const b = document.createElement("button");
     b.id = "oc-logout"; b.textContent = window.t("auth.gate.logout");
     b.addEventListener("click", () => cerrarSesion());
@@ -864,6 +866,19 @@
         + "-webkit-text-fill-color:var(--ink,#211c14) !important;margin-right:6px;"
         + "padding:4px 10px;background:var(--amarillo-claro,#fff3c4);border-radius:20px;";
       header.appendChild(chip);
+    }
+    // Chip naranja de rol (homologado de AMIGABLE, JFC 2026-07-29: "no tiene
+    // el indicador naranja de si el usuario es owner o employee"). No se
+    // muestra en sesion demo — solo en dispositivos apropiados de verdad.
+    const _rolChipKey = { dueno: "auth.roleChip.owner", admin: "auth.roleChip.admin", empleado: "auth.roleChip.employee", contador: "auth.roleChip.accountant" }[rol];
+    if (_rolChipKey && !demoSesion) {
+      const rc = document.createElement("span");
+      rc.id = "oc-rol-chip";
+      rc.textContent = window.t(_rolChipKey);
+      rc.style.cssText = "font-size:12px;font-weight:700;color:#fff !important;-webkit-text-fill-color:#fff !important;"
+        + "margin-right:6px;padding:4px 10px;background:var(--rust,#E86040);border-radius:20px;"
+        + "text-transform:uppercase;letter-spacing:.03em;";
+      header.appendChild(rc);
     }
     header.appendChild(b);
   }
