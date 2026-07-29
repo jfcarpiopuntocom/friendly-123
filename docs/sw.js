@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v24"; // bumped 2026-07-23: sincro-equipos en tiempo real (sync-realtime.js)
+const CACHE = "f123-shell-v25"; // bumped 2026-07-28: device-identity.js (deviceId unificado)
 const SHELL = [
   "./",
   "./index.html",
@@ -20,6 +20,7 @@ const SHELL = [
   "./favicon.png",
   "./pocketbase-client.js",
   "./mock-backend.js",
+  "./device-identity.js",
   "./sync-realtime.js",
   "./i18n.js",
   "./crypto-store.js",
