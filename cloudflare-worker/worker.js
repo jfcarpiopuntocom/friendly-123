@@ -378,8 +378,14 @@ export default {
     if (url.pathname === "/licencias" && req.method === "GET") {
       if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
       const lista = await env.LICENCIAS.list({ prefix: "inst:" });
-      const registros = await Promise.all(lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => JSON.parse(v))));
-      registros.forEach((r) => { if (r) r.estado = normalizarEstado(r.estado); });
+      // FIX (homologado de amigable-123, JFC 2026-07-29: "se queda en vacio
+      // en vez de desaparecer" tras borrar): KV.list() es eventualmente
+      // consistente -- justo despues de un DELETE puede seguir enumerando
+      // la llave un instante antes de que la baja se propague. get() de esa
+      // llave ya da null, y JSON.parse(null) NO explota: devuelve null en
+      // silencio. Ese null viajaba al panel y se pintaba como fila vacia.
+      const registros = (await Promise.all(lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => JSON.parse(v))))).filter(Boolean);
+      registros.forEach((r) => { r.estado = normalizarEstado(r.estado); });
       registros.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
       anotarHermanos(registros);
       return json(registros);

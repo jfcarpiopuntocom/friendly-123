@@ -704,7 +704,7 @@ async function licRecargar() {
     const res = await fetch(url.replace(/\/+$/, "") + "/licencias", { headers: { "X-Master-Key": licMasterKey() } });
     if (res.status === 401) { meta.textContent = "Master Key incorrecta"; mostrarConfirmacion("Master Key incorrecta"); return; }
     const data = await res.json();
-    _licData = Array.isArray(data) ? data : [];
+    _licData = (Array.isArray(data) ? data : []).filter(Boolean); // guard: nunca dejar pasar un null (ver worker.js)
     licRenderTabla(_licData);
     licRenderStats(_licData);
     meta.textContent = _licData.length + " instancia(s) · " + (new Date()).toLocaleTimeString("es");
