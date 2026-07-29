@@ -22,7 +22,13 @@
 function cors(resp) {
   resp.headers.set("Access-Control-Allow-Origin", "*");
   resp.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Master-Key");
-  resp.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  // FIX (homologado de amigable-123, JFC 2026-07-28/29): DELETE was missing
+  // here. The browser sends a preflight OPTIONS before any DELETE (because
+  // of the custom X-Master-Key header), and if this list doesn't include
+  // DELETE, the preflight rejects it before it ever reaches the endpoint —
+  // shows up in the panel as "failed to fetch", which has nothing to do
+  // with the network: it's CORS blocking in the browser.
+  resp.headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   return resp;
 }
 function json(obj, status = 200) {
@@ -31,6 +37,36 @@ function json(obj, status = 200) {
 function requireMasterKey(req, env) {
   const k = req.headers.get("X-Master-Key") || "";
   return env.MASTER_KEY && k === env.MASTER_KEY;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   VERSION CONTROL FOR LICENSES (homologado de amigable-123, JFC 2026-07-28)
+
+   Two real incidents in amigable-123: JFC's own name went blank once, and a
+   customer's email reverted to an old value after a KV hiccup. Neither was
+   bad luck — KV only ever held the latest state, with no way to see or
+   undo the step before it.
+
+   guardarConHistorial() is the ONLY place that should write to
+   `inst:<instanceId>`: before overwriting the record, it pushes the current
+   state onto `hist:<instanceId>` (JSON array, newest first, capped at 30
+   versions so a free-tier KV doesn't grow unbounded). With that, ANY
+   accidental overwrite — a bug, a bad deploy, a fat finger in the panel —
+   is reversible via /licencias/:id/historial + /licencias/:id/restaurar. */
+const HISTORIAL_TOPE = 30;
+async function guardarConHistorial(env, instanceId, registroNuevo) {
+  const key = `inst:${instanceId}`;
+  const anteriorRaw = await env.LICENCIAS.get(key);
+  if (anteriorRaw) {
+    try {
+      const histKey = `hist:${instanceId}`;
+      const histRaw = await env.LICENCIAS.get(histKey);
+      const hist = histRaw ? JSON.parse(histRaw) : [];
+      hist.unshift({ ts: Date.now(), registro: JSON.parse(anteriorRaw) });
+      await env.LICENCIAS.put(histKey, JSON.stringify(hist.slice(0, HISTORIAL_TOPE)));
+    } catch (_) { /* history must never block the real save */ }
+  }
+  await env.LICENCIAS.put(key, JSON.stringify(registroNuevo));
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -84,13 +120,19 @@ async function handleCheckin(req, env) {
   const registro = {
     instanceId,
     producto,
-    nombreNegocio: body.nombreNegocio != null ? String(body.nombreNegocio).slice(0, 240) : (existente.nombreNegocio || ""),
-    email: body.email != null ? String(body.email).slice(0, 240) : (existente.email || ""),
+    // FIX (homologado de amigable-123, JFC 2026-07-28): used "!= null" —
+    // a passive heartbeat sending "" (which IS != null) silently wiped a
+    // value the owner had already saved. checkin is automatic, not
+    // deliberate: it must never be able to blank a field, only fill it in
+    // when empty or bring a new non-empty value. Deliberately clearing a
+    // field is the job of an explicit panel action (editar-correo).
+    nombreNegocio: body.nombreNegocio || existente.nombreNegocio || "",
+    email: body.email || existente.email || "",
     licenseCode: body.licenseCode || existente.licenseCode || "",
     // Mejora #5 (JFC 2026-07-16): telefono de contacto del dueno, para el
     // link clickeable a wa.me en panel.html. Contacto deliberadamente
     // unidireccional (JFC -> dueno) — ver copy en avanzado-extra.js.
-    whatsapp: body.whatsapp != null ? String(body.whatsapp).replace(/\D/g, "").slice(0, 15) : (existente.whatsapp || ""), // Fix-11: strip non-digits so wa.me link always works
+    whatsapp: (body.whatsapp ? String(body.whatsapp).replace(/\D/g, "").slice(0, 15) : "") || existente.whatsapp || "", // Fix-11: strip non-digits so wa.me link always works; never blanks an already-saved whatsapp
     nombre: body.nombre || existente.nombre || "",
     apellido: body.apellido || existente.apellido || "",
     cedula: body.cedula || existente.cedula || "",
@@ -103,7 +145,7 @@ async function handleCheckin(req, env) {
     lastSeen: Date.now(),
     lastAccion: body.accion || "checkin",
   };
-  await env.LICENCIAS.put(`inst:${instanceId}`, JSON.stringify(registro));
+  await guardarConHistorial(env, instanceId, registro);
   return json({ ok: true, estado: registro.estado });
 }
 
@@ -243,6 +285,74 @@ function anotarHermanos(registros) {
   });
 }
 
+// POST /editar-correo — master-only (homologado de amigable-123). Edits
+// email/nombre/apellido/nombreNegocio from the panel's pencil icon. Name
+// kept for compatibility, but it's no longer just email — see below.
+//
+// HARD RULE (JFC 2026-07-28, real incident: wiped his own name, a
+// customer's email reverted to a stale value): an empty field in the body
+// NEVER blanks an already-saved field. If the owner really wants to clear
+// a field, that's not an action this endpoint supports — it edits to a new
+// value, never to "nothing". Each non-empty field that arrives is
+// validated and replaces; each empty/absent field is simply ignored and
+// the existing value stays. licenseCode is never touched here — it's
+// hard-generated and immutable.
+async function handleEditarCorreo(req, env) {
+  let body; try { body = await req.json(); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
+  const instanceId = String(body.instanceId || "").slice(0, 120).trim();
+  if (!instanceId) return json({ error: "Falta instanceId" }, 400);
+  const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+  if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+  const reg = JSON.parse(raw);
+
+  if (body.email !== undefined) {
+    const email = String(body.email).slice(0, 240).trim();
+    if (!email) return json({ error: "El correo no puede quedar vacio." }, 400);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Correo invalido" }, 400);
+    reg.email = email;
+  }
+  if (body.nombre !== undefined) {
+    const nombre = String(body.nombre).slice(0, 120).trim();
+    if (!nombre) return json({ error: "El nombre no puede quedar vacio." }, 400);
+    reg.nombre = nombre;
+  }
+  if (body.apellido !== undefined) {
+    const apellido = String(body.apellido).slice(0, 120).trim();
+    if (!apellido) return json({ error: "El apellido no puede quedar vacio." }, 400);
+    reg.apellido = apellido;
+  }
+  if (body.nombreNegocio !== undefined) {
+    const nombreNegocio = String(body.nombreNegocio).slice(0, 240).trim();
+    if (!nombreNegocio) return json({ error: "El nombre del negocio no puede quedar vacio." }, 400);
+    reg.nombreNegocio = nombreNegocio;
+  }
+
+  await guardarConHistorial(env, instanceId, reg);
+  return json({ ok: true, email: reg.email, nombre: reg.nombre, apellido: reg.apellido, nombreNegocio: reg.nombreNegocio });
+}
+
+// GET /licencias/:id/historial — master-only. Up to 30 previous versions
+// (newest first), so JFC can see what changed and when before restoring.
+async function handleHistorial(env, instanceId) {
+  const raw = await env.LICENCIAS.get(`hist:${instanceId}`);
+  return json({ ok: true, historial: raw ? JSON.parse(raw) : [] });
+}
+
+// POST /licencias/:id/restaurar — master-only. Restores a prior version by
+// timestamp. The restore itself goes through guardarConHistorial, so
+// restoring the wrong version is also undoable.
+async function handleRestaurar(req, env, instanceId) {
+  let body; try { body = await req.json(); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
+  const ts = Number(body.ts);
+  if (!ts) return json({ error: "Falta ts (timestamp de la version a restaurar)" }, 400);
+  const raw = await env.LICENCIAS.get(`hist:${instanceId}`);
+  const hist = raw ? JSON.parse(raw) : [];
+  const version = hist.find((h) => h.ts === ts);
+  if (!version) return json({ error: "No existe esa version en el historial" }, 404);
+  await guardarConHistorial(env, instanceId, version.registro);
+  return json({ ok: true, restaurado: version.registro });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -251,6 +361,12 @@ export default {
     // Recuperación de PIN — público pero con validación de instanceId en KV
     if (url.pathname === "/recover-pin" && req.method === "POST") {
       return handleRecoverPin(req, env);
+    }
+
+    // Editar correo/nombre del dueño desde el panel (master, homologado)
+    if (url.pathname === "/editar-correo" && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleEditarCorreo(req, env);
     }
 
     // Public checkin (activation + login heartbeat)
@@ -302,8 +418,22 @@ export default {
         return json({ error: "Invalid state" }, 400);
       }
       reg.estado = normalizarEstado(body.estado);
-      await env.LICENCIAS.put(`inst:${instanceId}`, JSON.stringify(reg));
+      await guardarConHistorial(env, instanceId, reg);
       return json({ ok: true });
+    }
+
+    // Historial de versiones de una instancia (master, homologado)
+    const mHistorial = url.pathname.match(/^\/licencias\/([^/]+)\/historial$/);
+    if (mHistorial && req.method === "GET") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleHistorial(env, decodeURIComponent(mHistorial[1]));
+    }
+
+    // Restaurar una version anterior de una instancia (master, homologado)
+    const mRestaurar = url.pathname.match(/^\/licencias\/([^/]+)\/restaurar$/);
+    if (mRestaurar && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleRestaurar(req, env, decodeURIComponent(mRestaurar[1]));
     }
 
     return json({ error: "Not found" }, 404);
