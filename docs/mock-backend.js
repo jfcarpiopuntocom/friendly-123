@@ -1426,6 +1426,37 @@
         return J(fichaCliente(c));
       }
 
+      // ---- CARTERA DE CLIENTES (fiado/abono) — Roadmap Agosto 2026, Fase 1 ----
+      // El saldo NUNCA se guarda aqui: se deriva en AMG.Cartera reproduciendo
+      // los hechos ya persistidos por hechos.js. Este endpoint solo delega.
+      const mCliCartera = path.match(/^\/api\/clientes\/([^/]+)\/cartera$/);
+      if (mCliCartera && (!opts || !opts.method || opts.method === "GET")) {
+        const c = clientes.find((x) => x.id === mCliCartera[1]);
+        if (!c) return J({ error: "Cliente no encontrado." }, 404);
+        if (!window.AMG || !window.AMG.Cartera) return J({ saldo: 0, movimientos: [] });
+        const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id);
+        return J(window.AMG.Cartera.vistaCarteraSegunRol(info, rol));
+      }
+      const mCliFiar = path.match(/^\/api\/clientes\/([^/]+)\/(fiar|abonar)$/);
+      if (mCliFiar && opts && opts.method === "POST") {
+        const c = clientes.find((x) => x.id === mCliFiar[1]);
+        if (!c) return J({ error: "Cliente no encontrado." }, 404);
+        const monto = Number(body.monto);
+        if (!(monto > 0)) return J({ error: "El monto debe ser mayor a cero." }, 400);
+        if (!window.AMG || !window.AMG.Cartera) return J({ error: "Cartera no disponible." }, 500);
+        const tipo = mCliFiar[2] === "fiar" ? "cargo" : "abono";
+        try {
+          await window.AMG.Cartera.registrarMovimiento(c.id, tipo, monto, body.motivo || "");
+        } catch (e) {
+          return J({ error: (e && e.message) || "No se pudo registrar el movimiento." }, 400);
+        }
+        mov(tipo === "cargo" ? "cartera-fiado" : "cartera-abono", { cliente: c.nombre, monto });
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id);
+        const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
+        return J(window.AMG.Cartera.vistaCarteraSegunRol(info, rol));
+      }
+
       // POST /api/clientes/:id/despedir — excluye al cliente de la operación activa.
       // POST /api/clientes/:id/reactivar — lo devuelve.
       const mCliAct = path.match(/^\/api\/clientes\/([^/]+)\/(despedir|reactivar)$/);

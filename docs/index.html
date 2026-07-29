@@ -1802,14 +1802,59 @@ function tarjetaCliente(c, esDueno){
     ? `<button style="margin-top:8px;font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;"
         data-despedir-id="${c.id}" data-despedir-nombre="${escHtml(c.nombre)}"
         onclick="despedirCliente(this.dataset.despedirId, this.dataset.despedirNombre)">Fire client 🚪</button>` : "";
+  // Cartera (fiado/abono) — Fase 1 del roadmap. El saldo se pide async
+  // despues de pintar la tarjeta (ver cargarClientes) para no bloquear el
+  // render con una lectura a IndexedDB; el placeholder queda vacio hasta ahi.
+  const carteraHtml = `
+    <div id="cartera-${c.id}" style="margin-top:8px;"></div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;"
+        onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record credit (fiado)</button>
+      <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;"
+        onclick="abonarCliente('${c.id}','${escHtml(c.nombre)}')">Record payment (abono)</button>
+    </div>`;
   return `<div style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
       <span style="font-family:var(--font-mono);font-size:14px;color:#2E6278;margin-left:6px;">${escHtml(c.codigo)}</span>
       ${badgeComportamiento(ev)}
     </div>
-    ${dato}${controles}${btnDespedir}
+    ${dato}${controles}${btnDespedir}${carteraHtml}
   </div>`;
+}
+// Pinta el saldo derivado (nunca un numero guardado) en el placeholder de la
+// tarjeta. Formato: "Owes $40.00" / "Credit $10.00" / sin nada si esta en 0.
+async function pintarSaldoCartera(clienteId) {
+  const el = document.getElementById(`cartera-${clienteId}`);
+  if (!el) return;
+  try {
+    const info = await (await fetch(`${API}/clientes/${clienteId}/cartera`)).json();
+    if (!info || !info.saldo) { el.innerHTML = ""; return; }
+    const debe = info.saldo < 0;
+    const color = debe ? "#C0392B" : "#006B3C";
+    const texto = debe ? `Owes ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;">${texto}</span>`;
+  } catch (_) { el.innerHTML = ""; }
+}
+async function fiarCliente(clienteId, nombre) {
+  const monto = parseFloat((await ocPrompt(`Amount ${nombre} is taking on credit ($):`, "") || "").trim());
+  if (!(monto > 0)) return;
+  const motivo = (await ocPrompt("Reason (optional):", "") || "").trim();
+  if (!(await ocConfirm(`Record ${fmtMoney(monto)} owed by ${nombre}?`))) return;
+  try {
+    await fetch(`${API}/clientes/${clienteId}/fiar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo }) });
+    pintarSaldoCartera(clienteId);
+  } catch (e) { console.error("Error registrando fiado:", e); }
+}
+async function abonarCliente(clienteId, nombre) {
+  const monto = parseFloat((await ocPrompt(`Payment amount from ${nombre} ($):`, "") || "").trim());
+  if (!(monto > 0)) return;
+  const motivo = (await ocPrompt("Reason (optional):", "") || "").trim();
+  if (!(await ocConfirm(`Record ${fmtMoney(monto)} paid by ${nombre}?`))) return;
+  try {
+    await fetch(`${API}/clientes/${clienteId}/abonar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo }) });
+    pintarSaldoCartera(clienteId);
+  } catch (e) { console.error("Error registrando abono:", e); }
 }
 async function cargarClientes(){
   const esDueno = window.OCAuth && window.OCAuth.rolActual() === "dueno";
@@ -1824,6 +1869,9 @@ async function cargarClientes(){
       <div style="font-size:15px;color:#2C3E50;margin:2px 0 8px;">${e.frase}</div>
       ${lista.map((c) => tarjetaCliente(c, esDueno)).join("")}</div>`;
   }).join("") || '<p style="font-size:16px;">No clients yet. Add the first one above.</p>';
+  // Saldo de cartera: se pinta DESPUES del render (lectura async a IndexedDB
+  // via AMG.Hechos) para no bloquear la pintura de las tarjetas.
+  orden.forEach((k) => (grupos[k] || []).forEach((c) => pintarSaldoCartera(c.id)));
   // Matriz de estaciones 2x2 — solo dueno. Eje horizontal: qué tan reciente
   // compra. Eje vertical: cuánto valor deja. Es la lectura RFM en un vistazo.
   const mc = document.getElementById("matrizClientes");
@@ -4074,6 +4122,7 @@ setTimeout(() => {
 <script src="./event-bus.js"></script>
 <script src="./hechos.js"></script>
 <script src="./reconciliacion.js"></script>
+<script src="./cartera.js"></script>
 <script src="./respaldo-empleado.js"></script>
 <script src="./edutips.js"></script>
 <script>
