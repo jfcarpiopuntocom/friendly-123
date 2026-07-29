@@ -1200,6 +1200,12 @@
       <button data-estado="negro" data-i18n="filter.dormant">Dormant</button>
     </div>
     <input id="inputBuscarInventario" type="search" data-i18n-attr="placeholder:inv.searchPlaceholder" placeholder="Search by name, SKU or category…" style="width:100%;padding:10px 12px;margin-bottom:10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:15px;">
+    <!-- Ordenar por columna (2026-07-29): mismo dato, otra vista — no reemplaza
+         la busqueda de arriba, la complementa. Todos los roles la ven: el
+         inventario es operativo, no dato personal de cliente. -->
+    <div id="ordenInventario" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 10px;">
+      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;">Sort by:</span>
+    </div>
     <div class="grid-cajas" id="gridInventario"></div>
     <!-- Log de movimientos: SOLO dueño, anti-descuadre -->
     <div id="seccionLogAjustes" style="display:none;">
@@ -1372,6 +1378,9 @@
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.shelf.3html">3. Owner only: manage shelves, branches and weekend pop-ups from <strong>Inventory → Shelves</strong>, further down.</p>
       </div>
     </details>
+    <div id="vp-orden" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 12px;">
+      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;">Sort by:</span>
+    </div>
     <div id="vp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;"></div>
   </section>
 
@@ -1971,7 +1980,7 @@ function tarjetaCliente(c, esDueno){
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
       <span style="font-family:var(--font-mono);font-size:14px;color:#2E6278;margin-left:6px;">${escHtml(c.codigo)}</span>
-      ${badgeComportamiento(ev)}
+      ${esDueno ? badgeComportamiento(ev) : ""}
     </div>
     ${dato}${controles}${btnDespedir}${carteraHtml}
   </div>`;
@@ -2021,21 +2030,44 @@ async function abonarCliente(clienteId, nombre) {
   } catch (e) { console.error("Error registrando abono:", e); }
 }
 async function cargarClientes(){
-  const esDueno = window.OCAuth && window.OCAuth.rolActual() === "dueno";
+  // dueño Y admin ven todo ("plenamente visibles", JFC 2026-07-29) — solo
+  // empleado/contador quedan en modo restringido mas abajo.
+  const rolAhora = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : "";
+  const esDueno = rolAhora === "dueno" || rolAhora === "admin";
   let grupos;
   try { grupos = await (await fetch(`${API}/clientes/matriz`)).json(); } catch (_) { return; }
   const orden = ["verano", "primavera", "otono", "invierno"];
-  document.getElementById("listaClientes").innerHTML = orden.map((k) => {
-    const e = ESTACIONES[k], lista = grupos[k] || [];
-    if (!lista.length) return "";
-    return `<div style="background:${e.bg};border:2px solid ${e.borde};border-radius:12px;padding:14px;margin:10px 0;">
-      <div style="font-family:var(--font-display);font-size:17px;font-weight:700;color:${e.tinta};">${e.icono} ${e.titulo} (${lista.length})</div>
-      <div style="font-size:15px;color:#2C3E50;margin:2px 0 8px;">${e.frase}</div>
-      ${lista.map((c) => tarjetaCliente(c, esDueno)).join("")}</div>`;
-  }).join("") || '<p style="font-size:16px;">No clients yet. Add the first one above.</p>';
+  const todos = orden.reduce((a, k) => a.concat(grupos[k] || []), []);
+
+  // Lista dinámica (búsqueda + orden) — reemplaza el listado plano de antes.
+  // Modo restringido para empleado: sin ver NADA hasta buscar, tope de
+  // resultados, sin el badge de comportamiento (ver tarjetaCliente). No es
+  // "seguridad dura" (esta app no tiene servidor que la imponga) — es
+  // fricción deliberada y respetuosa, no un candado.
+  if (window.AMG && window.AMG.ListaDinamica) {
+    window.AMG.ListaDinamica.crear({
+      contenedorId: "listaClientes",
+      restringido: !esDueno,
+      minCaracteres: 2,
+      limite: 8,
+      placeholderBusqueda: "Search by name or code...",
+      mensajeRestringido: "Type a name or code to look up a customer.",
+      mensajeVacio: "No clients yet. Add the first one above.",
+      columnas: [
+        { key: "nombre", label: "Name", ordenable: true },
+        { key: "codigo", label: "Code", ordenable: true },
+        { key: "monto", label: "90-day spend", ordenable: true, valor: (c) => c.monto || 0 },
+      ],
+      datos: () => todos,
+      renderFila: (c) => tarjetaCliente(c, esDueno),
+    });
+  } else {
+    // Respaldo si el script no cargó: comportamiento anterior, sin romper la pantalla.
+    document.getElementById("listaClientes").innerHTML = todos.map((c) => tarjetaCliente(c, esDueno)).join("") || '<p style="font-size:16px;">No clients yet. Add the first one above.</p>';
+  }
   // Saldo de cartera: se pinta DESPUES del render (lectura async a IndexedDB
   // via AMG.Hechos) para no bloquear la pintura de las tarjetas.
-  orden.forEach((k) => (grupos[k] || []).forEach((c) => pintarSaldoCartera(c.id)));
+  todos.forEach((c) => pintarSaldoCartera(c.id));
   // Matriz de estaciones 2x2 — solo dueno. Eje horizontal: qué tan reciente
   // compra. Eje vertical: cuánto valor deja. Es la lectura RFM en un vistazo.
   const mc = document.getElementById("matrizClientes");
@@ -2532,6 +2564,59 @@ function filtrarBusquedaInventario(){
   }
 })();
 
+// Ordenar por columna (2026-07-29) — complementa la busqueda que ya existia.
+// Estado en memoria, se pierde al recargar (es una preferencia de sesion,
+// no un dato que deba sincronizarse).
+const COLUMNAS_INVENTARIO = [
+  { key: "nombre", label: "Name" },
+  { key: "stockActual", label: "Stock" },
+  { key: "precio", label: "Price" },
+  { key: "categoria", label: "Category" },
+];
+let _ordenInv = { col: null, asc: true };
+function ordenarInventario(lista) {
+  if (!_ordenInv.col) return lista;
+  const col = _ordenInv.col;
+  return lista.slice().sort((a, b) => {
+    const va = a[col], vb = b[col];
+    let r;
+    if (typeof va === "number" && typeof vb === "number") r = va - vb;
+    else r = String(va == null ? "" : va).localeCompare(String(vb == null ? "" : vb), "en", { sensitivity: "base", numeric: true });
+    return _ordenInv.asc ? r : -r;
+  });
+}
+function pintarBotonesOrdenInventario() {
+  const cont = document.getElementById("ordenInventario");
+  if (!cont || cont.dataset.listo) { if (cont) actualizarBotonesOrdenInventario(cont); return; }
+  cont.dataset.listo = "1";
+  COLUMNAS_INVENTARIO.forEach((c) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.ordInvCol = c.key;
+    b.textContent = c.label;
+    b.style.cssText = "font-size:13px;padding:4px 10px;border-radius:6px;border:1.5px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;";
+    cont.appendChild(b);
+  });
+  cont.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-ord-inv-col]");
+    if (!b) return;
+    const key = b.dataset.ordInvCol;
+    if (_ordenInv.col === key) _ordenInv.asc = !_ordenInv.asc;
+    else { _ordenInv.col = key; _ordenInv.asc = true; }
+    cargarInventario();
+  });
+  actualizarBotonesOrdenInventario(cont);
+}
+function actualizarBotonesOrdenInventario(cont) {
+  cont.querySelectorAll("[data-ord-inv-col]").forEach((b) => {
+    const c = COLUMNAS_INVENTARIO.find((x) => x.key === b.dataset.ordInvCol);
+    const activo = _ordenInv.col === b.dataset.ordInvCol;
+    b.style.background = activo ? "var(--azul-medio,#2c4a68)" : "transparent";
+    b.style.color = activo ? "#fbf5e8" : "var(--azul-medio,#2c4a68)";
+    b.style.setProperty("-webkit-text-fill-color", activo ? "#fbf5e8" : "var(--azul-medio,#2c4a68)");
+    b.textContent = c.label + (activo ? (_ordenInv.asc ? " ↑" : " ↓") : "");
+  });
+}
 async function cargarInventario(){
   // El "+" de alta libre es del dueno; el empleado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
@@ -2556,6 +2641,8 @@ async function cargarInventario(){
     return;
   }
   const esDuenoInv = window.OCAuth && window.OCAuth.rolActual() === "dueno";
+  productos = ordenarInventario(productos);
+  pintarBotonesOrdenInventario();
   grid.innerHTML = productos.map(p => `
     <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}" data-buscar="${escHtml(`${p.nombre} ${p.sku} ${p.categoria}`.toLowerCase())}">
       ${p.estrella ? '<span class="estrella-badge">⭐</span>' : ''}
@@ -4288,6 +4375,7 @@ setTimeout(() => {
 <script src="./reconciliacion.js"></script>
 <script src="./cartera.js"></script>
 <script src="./caja-chica.js"></script>
+<script src="./lista-dinamica.js"></script>
 <script src="./respaldo-empleado.js"></script>
 <script src="./edutips.js"></script>
 <script>

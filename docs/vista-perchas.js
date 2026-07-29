@@ -38,6 +38,44 @@
   // Nombre de cada percha, cacheado del último cargar() para títulos de carpeta.
   let nombrePorId = {};
 
+  // Ordenar por columna (2026-07-29) — complementa el semaforo por defecto.
+  const COLUMNAS_PERCHA = [
+    { key: 'nombre', label: 'Name' },
+    { key: 'ventasMes', label: 'Monthly sales' },
+    { key: 'cumplimiento', label: 'Target %' },
+  ];
+  let _ordenPercha = { col: null, asc: true };
+  function pintarBotonesOrdenPercha() {
+    const cont = document.getElementById('vp-orden');
+    if (!cont) return;
+    if (!cont.dataset.listo) {
+      cont.dataset.listo = '1';
+      COLUMNAS_PERCHA.forEach((c) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.ordPerchaCol = c.key;
+        b.style.cssText = 'font-size:13px;padding:4px 10px;border-radius:6px;border:1.5px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;';
+        cont.appendChild(b);
+      });
+      cont.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-ord-percha-col]');
+        if (!b) return;
+        const key = b.dataset.ordPerchaCol;
+        if (_ordenPercha.col === key) _ordenPercha.asc = !_ordenPercha.asc;
+        else { _ordenPercha.col = key; _ordenPercha.asc = true; }
+        cargar();
+      });
+    }
+    cont.querySelectorAll('[data-ord-percha-col]').forEach((b) => {
+      const c = COLUMNAS_PERCHA.find((x) => x.key === b.dataset.ordPerchaCol);
+      const activo = _ordenPercha.col === b.dataset.ordPerchaCol;
+      b.style.background = activo ? 'var(--azul-medio,#2c4a68)' : 'transparent';
+      b.style.color = activo ? '#fbf5e8' : 'var(--azul-medio,#2c4a68)';
+      b.style.setProperty('-webkit-text-fill-color', activo ? '#fbf5e8' : 'var(--azul-medio,#2c4a68)');
+      b.textContent = c.label + (activo ? (_ordenPercha.asc ? ' ↑' : ' ↓') : '');
+    });
+  }
+
   // Percha activa en el modal de gestión (editar/borrar).
   let perchaGestionId = null;
 
@@ -208,7 +246,21 @@
           diasSinVenta: f ? f.diasSinVenta : null,
         };
       });
-      ms.sort((a, b) => (ORDEN[a.semaforo] ?? 5) - (ORDEN[b.semaforo] ?? 5));
+      // Orden por defecto: semaforo de meta (rojo primero). Si el usuario
+      // eligio otra columna ("Ordenar por"), esa manda en su lugar.
+      if (_ordenPercha.col) {
+        const col = _ordenPercha.col;
+        ms.sort((a, b) => {
+          const va = a[col], vb = b[col];
+          let r;
+          if (typeof va === 'number' && typeof vb === 'number') r = (va || 0) - (vb || 0);
+          else r = String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'en', { sensitivity: 'base', numeric: true });
+          return _ordenPercha.asc ? r : -r;
+        });
+      } else {
+        ms.sort((a, b) => (ORDEN[a.semaforo] ?? 5) - (ORDEN[b.semaforo] ?? 5));
+      }
+      pintarBotonesOrdenPercha();
       grid.innerHTML = ms.map(_tarjeta).join('');
     } catch (err) {
       console.error('[VPerchas]', err);
