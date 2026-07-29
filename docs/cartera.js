@@ -119,11 +119,36 @@
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Alerta de saldo pendiente — activable/desactivable POR CLIENTE (JFC,
+  // 2026-07-29): "registro sin penalidad pero con alerta activable o
+  // desactivable por caso". Nunca interes ni recargo — la unica perilla es
+  // si se avisa o no. Es preferencia de UI, no dinero: vive en localStorage,
+  // no como hecho (no es algo que "paso", es una configuracion de vista).
+  var ALERTA_KEY = "amg_cartera_alertas_v1";
+  function leerAlertas() {
+    try { return JSON.parse(localStorage.getItem(ALERTA_KEY) || "{}") || {}; } catch (_) { return {}; }
+  }
+  // Default true: la alerta esta ENCENDIDA salvo que el dueño la apague para
+  // ese cliente puntual (ej. un cliente de confianza con saldo alto normal).
+  function alertaActiva(clienteId) {
+    var m = leerAlertas();
+    return m[clienteId] !== false;
+  }
+  function fijarAlerta(clienteId, activa) {
+    var m = leerAlertas();
+    if (activa) delete m[clienteId]; else m[clienteId] = false;
+    try { localStorage.setItem(ALERTA_KEY, JSON.stringify(m)); } catch (_) {}
+    return alertaActiva(clienteId);
+  }
+
   global.AMG = global.AMG || {};
   global.AMG.Cartera = {
-    VERSION: "1.0.0-fase1",
+    VERSION: "1.1.0-fase1",
     registrarMovimiento: registrarMovimiento,
     saldoDeCliente: saldoDeCliente,
-    vistaCarteraSegunRol: vistaCarteraSegunRol
+    vistaCarteraSegunRol: vistaCarteraSegunRol,
+    alertaActiva: alertaActiva,
+    fijarAlerta: fijarAlerta
   };
 })(typeof window !== "undefined" ? window : this);

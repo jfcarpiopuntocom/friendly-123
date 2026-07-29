@@ -1805,6 +1805,14 @@ function tarjetaCliente(c, esDueno){
   // Cartera (fiado/abono) — Fase 1 del roadmap. El saldo se pide async
   // despues de pintar la tarjeta (ver cargarClientes) para no bloquear el
   // render con una lectura a IndexedDB; el placeholder queda vacio hasta ahi.
+  // Alerta de saldo pendiente: activable/desactivable POR CLIENTE (no hay
+  // penalidad ni recargo nunca — solo si se avisa o no). Default encendida.
+  const alertaOn = window.AMG && window.AMG.Cartera ? window.AMG.Cartera.alertaActiva(c.id) : true;
+  const toggleAlerta = esDueno ? `
+    <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#2C3E50;margin-top:6px;cursor:pointer;">
+      <input type="checkbox" ${alertaOn ? "checked" : ""} onchange="toggleAlertaCliente('${c.id}', this.checked)">
+      Alert me if this client owes money
+    </label>` : "";
   const carteraHtml = `
     <div id="cartera-${c.id}" style="margin-top:8px;"></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
@@ -1812,7 +1820,7 @@ function tarjetaCliente(c, esDueno){
         onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record credit (fiado)</button>
       <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;"
         onclick="abonarCliente('${c.id}','${escHtml(c.nombre)}')">Record payment (abono)</button>
-    </div>`;
+    </div>${toggleAlerta}`;
   return `<div style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
@@ -1833,8 +1841,18 @@ async function pintarSaldoCartera(clienteId) {
     const debe = info.saldo < 0;
     const color = debe ? "#C0392B" : "#006B3C";
     const texto = debe ? `Owes ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;">${texto}</span>`;
+    // La alerta es solo un badge visual (nunca interes/recargo): se muestra
+    // si el cliente debe Y el dueño no la apagó para este caso puntual.
+    const alertaOn = window.AMG && window.AMG.Cartera ? window.AMG.Cartera.alertaActiva(clienteId) : true;
+    const badge = (debe && alertaOn)
+      ? `<span style="margin-left:6px;font-size:12px;font-weight:700;background:#C0392B;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">⚠ pending</span>`
+      : "";
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;">${texto}</span>${badge}`;
   } catch (_) { el.innerHTML = ""; }
+}
+function toggleAlertaCliente(clienteId, activa) {
+  if (window.AMG && window.AMG.Cartera) window.AMG.Cartera.fijarAlerta(clienteId, activa);
+  pintarSaldoCartera(clienteId);
 }
 async function fiarCliente(clienteId, nombre) {
   const monto = parseFloat((await ocPrompt(`Amount ${nombre} is taking on credit ($):`, "") || "").trim());
@@ -4123,6 +4141,7 @@ setTimeout(() => {
 <script src="./hechos.js"></script>
 <script src="./reconciliacion.js"></script>
 <script src="./cartera.js"></script>
+<script src="./caja-chica.js"></script>
 <script src="./respaldo-empleado.js"></script>
 <script src="./edutips.js"></script>
 <script>

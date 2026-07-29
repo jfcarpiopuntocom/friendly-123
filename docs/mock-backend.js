@@ -957,6 +957,34 @@
         mov("ubicacion-borrada", { ubicacion: u.nombre, productosBorrados });
         return J({ ok: true, productosBorrados });
       }
+      // ---- CAJA CHICA por percha — Roadmap Agosto 2026, Fase 2 ----
+      // Mismo espiritu que cartera de clientes: el saldo NUNCA se guarda
+      // aqui, se deriva en AMG.CajaChica reproduciendo los hechos.
+      const mPerchaCaja = path.match(/^\/api\/ubicaciones\/([^/]+)\/caja-chica$/);
+      if (mPerchaCaja && (!opts || !opts.method || opts.method === "GET")) {
+        const u = ubicaciones.find((x) => x.id === mPerchaCaja[1]);
+        if (!u) return J({ error: "Percha no encontrada." }, 404);
+        if (!window.AMG || !window.AMG.CajaChica) return J({ saldo: 0, movimientos: [] });
+        return J(await window.AMG.CajaChica.saldoDePercha(u.id));
+      }
+      const mPerchaCajaMov = path.match(/^\/api\/ubicaciones\/([^/]+)\/caja-chica\/(ingreso|retiro)$/);
+      if (mPerchaCajaMov && opts && opts.method === "POST") {
+        const u = ubicaciones.find((x) => x.id === mPerchaCajaMov[1]);
+        if (!u) return J({ error: "Percha no encontrada." }, 404);
+        const monto = Number(body.monto);
+        if (!(monto > 0)) return J({ error: "El monto debe ser mayor a cero." }, 400);
+        if (!body.motivo || !String(body.motivo).trim()) return J({ error: "El motivo es obligatorio." }, 400);
+        if (!window.AMG || !window.AMG.CajaChica) return J({ error: "Caja chica no disponible." }, 500);
+        const tipo = mPerchaCajaMov[2];
+        try {
+          await window.AMG.CajaChica.registrarMovimiento(u.id, tipo, monto, body.motivo);
+        } catch (e) {
+          return J({ error: (e && e.message) || "No se pudo registrar el movimiento." }, 400);
+        }
+        mov(tipo === "ingreso" ? "caja-chica-ingreso" : "caja-chica-retiro", { ubicacion: u.nombre, monto, motivo: body.motivo });
+        return J(await window.AMG.CajaChica.saldoDePercha(u.id));
+      }
+
       // ---- Promotores/as (comision por traer gente) ----
       if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras);
       if (path === "/api/promotoras" && opts && opts.method === "POST") {
