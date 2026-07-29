@@ -631,11 +631,11 @@
       }
       const hacetiempo = (ts) => {
         const min = Math.round((Date.now() - ts) / 60000);
-        if (min < 1) return "recién";
-        if (min < 60) return `hace ${min} min`;
+        if (min < 1) return window.t("geo.time.now");
+        if (min < 60) return window.tf("geo.time.minAgo", { n: min });
         const h = Math.round(min / 60);
-        if (h < 24) return `hace ${h}h`;
-        return `hace ${Math.round(h / 24)}d`;
+        if (h < 24) return window.tf("geo.time.hAgo", { n: h });
+        return window.tf("geo.time.dAgo", { n: Math.round(h / 24) });
       };
 
       lista.innerHTML = `
@@ -665,12 +665,12 @@
         const ping = ultimasUbic["u:" + u.id];
         const ubicHtml = (isDueno() || isAdmin())
           ? (ping
-              ? `<div style="font-size:12px;color:var(--ink-soft);">📍 Última vez: ${hacetiempo(ping.ts)}${
+              ? `<div style="font-size:12px;color:var(--ink-soft);">📍 ${window.tf("geo.emp.lastSeen", { when: hacetiempo(ping.ts) })}${
                   (ping.lat != null && ping.lon != null)
-                    ? ` · <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">ver en el mapa</a>`
-                    : " · sin ubicación esa vez"
+                    ? ` · <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">${window.t("geo.panel.viewMap")}</a>`
+                    : " · " + window.t("geo.emp.noLocationThatTime")
                 }</div>`
-              : `<div style="font-size:12px;color:var(--ink-soft);">📍 Sin ubicación registrada</div>`)
+              : `<div style="font-size:12px;color:var(--ink-soft);">📍 ${window.t("geo.emp.none")}</div>`)
           : "";
         tr.innerHTML = `
           <td style="padding:8px;">

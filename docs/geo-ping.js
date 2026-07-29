@@ -49,6 +49,13 @@
   var DB_VERSION = 1;
   var STORE = "pings";
 
+  // Bilingue (JFC 2026-07-28, "friendly-123 es EN-first"): mismo patron que
+  // reconciliacion.js — T()/TF() envuelven window.t()/window.tf() (definidos
+  // en i18n.js) y caen a la propia clave si i18n.js no cargo todavia, para
+  // que un fallo de orden de carga nunca deje texto en blanco.
+  function T(k) { try { return (global.t ? global.t(k) : k); } catch (_) { return k; } }
+  function TF(k, vars) { try { return (global.tf ? global.tf(k, vars) : k); } catch (_) { return k; } }
+
   // ---------------------------------------------------------------------------
   // Identidad de quien esta en sesion ("pin" del spec de JFC — en la practica
   // usamos el id del empleado logueado, o el rol para dueño/admin/contador,
@@ -71,10 +78,10 @@
     try {
       if (identidad && identidad.indexOf("u:") === 0 && global.OCCurrentUser) return global.OCCurrentUser.nombre || identidad;
     } catch (_) {}
-    if (identidad === "rol:dueno") return "Dueño/a";
-    if (identidad === "rol:admin") return "Admin";
-    if (identidad === "rol:contador") return "Contador/a";
-    return identidad || "desconocido";
+    if (identidad === "rol:dueno") return T("geo.role.owner");
+    if (identidad === "rol:admin") return T("geo.role.admin");
+    if (identidad === "rol:contador") return T("geo.role.accountant");
+    return identidad || T("geo.role.unknown");
   }
 
   function deviceId() {
@@ -110,9 +117,9 @@
         var caja = global.document.createElement("div");
         caja.style.cssText = "background:#F8F9FB;border-radius:12px;padding:22px 20px;max-width:420px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5);";
         caja.innerHTML =
-          '<h3 style="margin:0 0 10px;font-size:18px;color:#0F1923;">Este negocio registra tu ubicación aproximada</h3>' +
-          '<p style="margin:0 0 14px;font-size:14px;line-height:1.5;color:#2C3E50;">Mientras uses esta app con tu sesión abierta, se guarda tu ubicación aproximada cada 15 minutos — sirve para coordinar el equipo y verificar cumplimiento. No se registra nada cuando cierras sesión, y 15 minutos da margen para un descanso sin quedar marcado.</p>' +
-          '<button id="amg-geo-ok" style="width:100%;padding:12px;border-radius:8px;border:none;background:#E86040;color:#fff;font-weight:700;font-size:15px;cursor:pointer;">Entendido</button>';
+          '<h3 style="margin:0 0 10px;font-size:18px;color:#0F1923;">' + T("geo.consent.title") + '</h3>' +
+          '<p style="margin:0 0 14px;font-size:14px;line-height:1.5;color:#2C3E50;">' + T("geo.consent.body") + '</p>' +
+          '<button id="amg-geo-ok" style="width:100%;padding:12px;border-radius:8px;border:none;background:#E86040;color:#fff;font-weight:700;font-size:15px;cursor:pointer;">' + T("geo.consent.ok") + '</button>';
         overlay.appendChild(caja);
         global.document.body.appendChild(overlay);
         caja.querySelector("#amg-geo-ok").addEventListener("click", function () {
@@ -333,15 +340,18 @@
       return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]);
     });
   }
+  function localeActivo() {
+    try { return global.document.documentElement.lang === "es" ? "es-US" : "en-US"; } catch (_) { return "en-US"; }
+  }
   function fmtFechaGeo(ts) {
-    try { return new Date(ts).toLocaleString("es"); } catch (_) { return String(ts); }
+    try { return new Date(ts).toLocaleString(localeActivo()); } catch (_) { return String(ts); }
   }
   function renderPanel() {
     var mount = global.document.getElementById("amg-geo-panel");
     if (!mount) return;
     todos().then(function (pings) {
       if (!pings.length) {
-        mount.innerHTML = '<p style="font-size:14px;color:var(--ink-soft,#6b7785);">Aún no hay pings registrados.</p>';
+        mount.innerHTML = '<p style="font-size:14px;color:var(--ink-soft,#6b7785);">' + T("geo.panel.empty") + '</p>';
         return;
       }
       var porPin = {};
@@ -350,11 +360,11 @@
       Object.keys(porPin).forEach(function (pin) {
         var lista = porPin[pin];
         html += '<div style="margin-bottom:16px;"><div style="font-weight:700;font-size:14px;margin-bottom:6px;">' +
-          escHtmlGeo(lista[0].nombre) + " · " + lista.length + " ping(s)</div>";
+          escHtmlGeo(lista[0].nombre) + " · " + lista.length + " " + T("geo.panel.pings") + "</div>";
         lista.slice(0, 20).forEach(function (p) {
           var linkMapa = (p.lat != null && p.lon != null)
-            ? '<a href="https://www.google.com/maps?q=' + p.lat + "," + p.lon + '" target="_blank" rel="noopener" style="color:#2E6278;">ver en el mapa</a> (±' + (p.precision || "?") + "m, " + escHtmlGeo(p.fuente) + ")"
-            : '<span style="color:var(--ink-soft,#6b7785);">sin ubicación (' + escHtmlGeo(p.fuente) + ")</span>";
+            ? '<a href="https://www.google.com/maps?q=' + p.lat + "," + p.lon + '" target="_blank" rel="noopener" style="color:#2E6278;">' + T("geo.panel.viewMap") + '</a> (±' + (p.precision || "?") + "m, " + escHtmlGeo(p.fuente) + ")"
+            : '<span style="color:var(--ink-soft,#6b7785);">' + escHtmlGeo(TF("geo.panel.noLocation", { fuente: p.fuente })) + "</span>";
           html += '<div style="font-size:13px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.06);">' +
             fmtFechaGeo(p.ts) + " — " + linkMapa + "</div>";
         });
@@ -362,7 +372,7 @@
       });
       mount.innerHTML = html;
     }).catch(function () {
-      mount.innerHTML = '<p style="font-size:14px;color:var(--rojo,#a3392a);">No se pudo leer el registro de ubicaciones.</p>';
+      mount.innerHTML = '<p style="font-size:14px;color:var(--rojo,#a3392a);">' + T("geo.panel.readError") + '</p>';
     });
   }
 
@@ -391,8 +401,8 @@
         caja.id = "amg-geo-caja";
         caja.className = "tag-card";
         caja.style.cssText = "text-align:left;margin-top:22px;";
-        caja.innerHTML = '<h3 class="seccion" style="margin-top:0;">Dónde estuvo el equipo</h3>' +
-          '<p style="font-size:13px;color:var(--ink-soft,#6b7785);margin-top:0;">Un ping cada 15 minutos mientras cada quien tiene su sesión abierta. Nunca en segundo plano ni al cerrar sesión.</p>' +
+        caja.innerHTML = '<h3 class="seccion" style="margin-top:0;">' + T("geo.panel.title") + '</h3>' +
+          '<p style="font-size:13px;color:var(--ink-soft,#6b7785);margin-top:0;">' + T("geo.panel.body") + '</p>' +
           '<div id="amg-geo-panel"></div>';
         vista.appendChild(caja);
       }
@@ -411,6 +421,19 @@
   } catch (_) {}
   try { global.addEventListener("oc-login", montarPanel); } catch (_) {}
   try { global.addEventListener("oc-logout", montarPanel); } catch (_) {}
+  // Bilingue: re-pinta el titulo/cuerpo estatico y la lista al cambiar de
+  // idioma (mismo evento que escuchan las demas vistas dinamicas, ver i18n.js).
+  try {
+    global.addEventListener("oc-lang-change", function () {
+      var caja = global.document.getElementById("amg-geo-caja");
+      if (!caja) return;
+      var h3 = caja.querySelector("h3.seccion");
+      var p = caja.querySelector("p");
+      if (h3) h3.textContent = T("geo.panel.title");
+      if (p) p.textContent = T("geo.panel.body");
+      if (esDuenoOAdmin()) renderPanel();
+    });
+  } catch (_) {}
 
   global.AMG = global.AMG || {};
   global.AMG.GeoPing = {

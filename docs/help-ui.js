@@ -57,9 +57,9 @@
       <li><b style="color:#E8A020;">Gold</b>: money sitting there — act on it.</li>
       <li><b style="color:#F97316;">Orange</b>: running low — restock before it becomes a problem.</li>
       <li><b style="color:#E8365D;">Red</b>: emergency — act now.</li>
-      <li><b style="color:#5294AC;">Blue</b>: wisdom — tips, insights, and the accounting layer.</li>
       <li><b style="color:#0A0A0F;">Black</b>: dead stock — your money isn't moving. Fix that.</li>
     </ul>
+    <p style="font-size:14px;color:var(--ink-soft);"><b style="color:#5294AC;">Blue</b> is different on purpose: it's never a stock signal. It only shows up in calm sections — accounting notes and short financial reflections.</p>
     <h3>Today: your daily signal</h3>
     <ul>
       <li>One glance at Today tells you what needs attention before you open.</li>
@@ -117,9 +117,9 @@
       <li><b style="color:#E8A020;">Dorado</b>: plata quieta ahí — actúa.</li>
       <li><b style="color:#F97316;">Naranja</b>: se está agotando — reabastece antes de que sea problema.</li>
       <li><b style="color:#E8365D;">Rojo</b>: emergencia — actúa ya.</li>
-      <li><b style="color:#5294AC;">Azul</b>: sabiduría — tips, insights y la capa contable.</li>
       <li><b style="color:#0A0A0F;">Negro</b>: stock muerto — tu plata no se mueve. Arregla eso.</li>
     </ul>
+    <p style="font-size:14px;color:var(--ink-soft);">El <b style="color:#5294AC;">azul</b> es distinto a propósito: nunca es una señal de stock. Solo aparece en secciones serenas — notas contables y reflexiones financieras breves.</p>
     <h3>Hoy: tu señal diaria</h3>
     <ul>
       <li>Un vistazo a Hoy te dice qué necesita atención antes de abrir.</li>
