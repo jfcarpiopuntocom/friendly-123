@@ -2053,11 +2053,13 @@ async function cargarClientes(){
       placeholderBusqueda: "Search by name or code...",
       mensajeRestringido: "Type a name or code to look up a customer.",
       mensajeVacio: "No clients yet. Add the first one above.",
+      // "90-day spend" es dato financiero del cliente — mismo criterio que
+      // el resto de la tarjeta (esDueno): ni siquiera se ofrece como opcion
+      // de orden si no se va a mostrar el numero.
       columnas: [
         { key: "nombre", label: "Name", ordenable: true },
         { key: "codigo", label: "Code", ordenable: true },
-        { key: "monto", label: "90-day spend", ordenable: true, valor: (c) => c.monto || 0 },
-      ],
+      ].concat(esDueno ? [{ key: "monto", label: "90-day spend", ordenable: true, valor: (c) => c.monto || 0 }] : []),
       datos: () => todos,
       renderFila: (c) => tarjetaCliente(c, esDueno),
     });
