@@ -620,6 +620,24 @@
         return;
       }
 
+      // "Última ubicación" (JFC 2026-07-28): geo-ping.js es un archivo aparte
+      // y opcional (ver ese archivo) — si no cargó, o no hay AMG.GeoPing, o
+      // falla la lectura de IndexedDB, esto se degrada a un mapa vacío sin
+      // romper el resto de Mi Equipo. Solo dueño/admin ven esto — un
+      // empleado viendo a sus compañeros no necesita saber dónde estuvieron.
+      let ultimasUbic = {};
+      if ((isDueno() || isAdmin()) && window.AMG && window.AMG.GeoPing && window.AMG.GeoPing.ultimosPorPin) {
+        try { ultimasUbic = await window.AMG.GeoPing.ultimosPorPin(); } catch (_) { ultimasUbic = {}; }
+      }
+      const hacetiempo = (ts) => {
+        const min = Math.round((Date.now() - ts) / 60000);
+        if (min < 1) return "recién";
+        if (min < 60) return `hace ${min} min`;
+        const h = Math.round(min / 60);
+        if (h < 24) return `hace ${h}h`;
+        return `hace ${Math.round(h / 24)}d`;
+      };
+
       lista.innerHTML = `
         <table style="width:100%;border-collapse:collapse;font-size:14px;">
           <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
@@ -644,10 +662,21 @@
           : `<span style="font-size:11px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Empleado</span>`;
         // Admin solo puede editar empleados, no a otros admins (seguridad por capas)
         const puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado");
+        const ping = ultimasUbic["u:" + u.id];
+        const ubicHtml = (isDueno() || isAdmin())
+          ? (ping
+              ? `<div style="font-size:12px;color:var(--ink-soft);">📍 Última vez: ${hacetiempo(ping.ts)}${
+                  (ping.lat != null && ping.lon != null)
+                    ? ` · <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">ver en el mapa</a>`
+                    : " · sin ubicación esa vez"
+                }</div>`
+              : `<div style="font-size:12px;color:var(--ink-soft);">📍 Sin ubicación registrada</div>`)
+          : "";
         tr.innerHTML = `
           <td style="padding:8px;">
             <div style="font-weight:700;">${escHtml(u.nombre)}</div>
             ${u.email ? `<div style="font-size:12px;color:var(--ink-soft);">${escHtml(u.email)}</div>` : ""}
+            ${ubicHtml}
           </td>
           <td style="padding:8px;text-align:center;">${rolBadge}</td>
           <td style="padding:8px;text-align:center;color:${estadoColor};font-weight:700;">${estadoTxt}</td>
