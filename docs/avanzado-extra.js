@@ -1058,14 +1058,104 @@
     vista.appendChild(syncDevPanel);
     pintarSyncDev();
 
-    // Reordenar visualmente (JFC 2026-07-30: "Mi Equipo debe estar encima de
-    // Acceso y Recuperación, primero el manejo/control visual, lista dinamica
-    // editable... mientras que Acceso y recuperación... debe ser al ultimo,
-    // no algo que se hace regularmente"). Todo ya esta armado y con sus
-    // listeners atados arriba — esto solo mueve nodos DOM, no reconstruye
-    // nada ni reordena la lógica.
-    vista.insertBefore(equipoPanel, bkMount);
-    vista.appendChild(gestion);
+    // === RIEL DE CATEGORIAS (JFC 2026-07-30, opcion B elegida: "para tener
+    // siempre de vista como volver o que otras opciones hay") =============
+    // Reemplaza el reorder simple anterior. Reagrupa TODO lo ya construido
+    // arriba en 4 categorias por modelo mental (Shneiderman overview->
+    // detalle + card-sorting), sin reconstruir NINGUN panel ni tocar sus
+    // listeners - solo reparenta nodos DOM ya vivos. El titulo + intro +
+    // "como funciona" quedan SIEMPRE visibles arriba del riel (encabezado
+    // fijo). Cualquier nodo no reconocido cae a "Mi tranquilidad" por
+    // seguridad (nunca se descarta nada silenciosamente) - ver
+    // feedback_aislar_fallos_ui_nunca_datos.
+    (function armarRielAvanzado() {
+      try {
+        const MAPA_CATEGORIA = {
+          "oc-acct-lock": "dinero", "oc-contable": "dinero", "oc-edutip-contable": "dinero",
+          "listaActividad": "dinero",
+          "oc-emp-panel": "gente",
+          "f123-backup-scheduler-mount": "tecnico", "oc-respaldo-empleado-mount": "tecnico",
+          "oc-reconciliacion-mount": "tecnico", "oc-sync-panel": "tecnico", "oc-syncdev-panel": "tecnico",
+          "oc-log-panel": "calma", "oc-antifraude-panel": "calma",
+          "amg-geo-caja": "calma", "oc-nov-switch-card": "calma",
+        };
+        function categoriaDe(nodo) {
+          if (MAPA_CATEGORIA[nodo.id]) return MAPA_CATEGORIA[nodo.id];
+          // Bug real detectado en vivo: buscar solo en un h3/summary HIJO
+          // fallaba para (a) un H3 suelto (es el encabezado, no tiene hijo)
+          // y (b) un DIV de contenido cuyo texto clave vive en un <p> sin
+          // marcar - "Timezone"/"Monthly expenses" caian a "Mi
+          // tranquilidad" por defecto. Usar el texto COMPLETO del nodo
+          // (acotado) evita ambos casos.
+          const texto = (nodo.textContent || "").toLowerCase().slice(0, 300);
+          if (/transfer|traspaso|remote sync|sincronizaci.n remota|device-to-device|sin internet|mano/.test(texto)) return "tecnico";
+          if (/access|acceso|recovery|recuperaci.n/.test(texto)) return "calma";
+          if (/timezone|huso|expense|gasto|recent activity|actividad reciente/.test(texto)) return "dinero";
+          return "calma";
+        }
+        const CATEGORIAS = [
+          { id: "dinero", label: "💰 Mi dinero" },
+          { id: "gente", label: "👥 Mi gente" },
+          { id: "tecnico", label: "🔄 Mi equipo técnico" },
+          { id: "calma", label: "🧘 Mi tranquilidad" },
+        ];
+        const encabezado = Array.from(vista.children).slice(0, 3); // titulo + intro + "como funciona"
+        const resto = Array.from(vista.children).slice(3);
+        const panes = {};
+        CATEGORIAS.forEach((c) => {
+          const p = document.createElement("div");
+          p.id = "oc-riel-" + c.id;
+          p.style.display = "none";
+          panes[c.id] = p;
+        });
+        resto.forEach((nodo) => { panes[categoriaDe(nodo)].appendChild(nodo); });
+
+        const rielNav = document.createElement("div");
+        rielNav.id = "oc-riel-nav";
+        rielNav.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 18px;position:sticky;top:0;background:var(--blanco-calido,#fbf5e8);z-index:5;padding:8px 0;border-bottom:2px solid var(--azul-suave,#dde5ec);";
+        rielNav.innerHTML = CATEGORIAS.map((c) =>
+          `<button type="button" data-riel-tab="${c.id}" style="font-size:14px;font-weight:700;padding:9px 14px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;">${c.label}</button>`
+        ).join("");
+        vista.appendChild(rielNav);
+        CATEGORIAS.forEach((c) => vista.appendChild(panes[c.id]));
+
+        function activarTab(id) {
+          CATEGORIAS.forEach((c) => { panes[c.id].style.display = c.id === id ? "" : "none"; });
+          rielNav.querySelectorAll("[data-riel-tab]").forEach((b) => {
+            const activo = b.dataset.rielTab === id;
+            b.style.background = activo ? "var(--azul-medio,#2c4a68)" : "transparent";
+            b.style.color = activo ? "#fff" : "var(--azul-medio,#2c4a68)";
+            b.style.setProperty("-webkit-text-fill-color", activo ? "#fff" : "var(--azul-medio,#2c4a68)");
+          });
+          try { localStorage.setItem("f123_riel_tab", id); } catch (_) {}
+        }
+        rielNav.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-riel-tab]");
+          if (b) activarTab(b.dataset.rielTab);
+        });
+        let tabInicial = "dinero";
+        try { tabInicial = localStorage.getItem("f123_riel_tab") || "dinero"; } catch (_) {}
+        if (!CATEGORIAS.some((c) => c.id === tabInicial)) tabInicial = "dinero";
+        activarTab(tabInicial);
+
+        // Blindaje (JFC "pecado mortal"): geo-ping.js y novedades.js montan
+        // sus paneles DESPUES de este punto (async, en otro archivo). Sin
+        // esto, "amg-geo-caja" y "oc-nov-switch-card" quedarian huerfanos
+        // al fondo de vista, fuera de cualquier pestaña. Este observer solo
+        // REPARENTA nodos nuevos que Avanzado reciba directo — no lee ni
+        // toca ningun dato de negocio.
+        const obs = new MutationObserver((muts) => {
+          muts.forEach((m) => {
+            m.addedNodes.forEach((n) => {
+              if (n.nodeType === 1 && n.parentNode === vista && n !== rielNav && !CATEGORIAS.some((c) => panes[c.id] === n)) {
+                panes[categoriaDe(n)].appendChild(n);
+              }
+            });
+          });
+        });
+        obs.observe(vista, { childList: true });
+      } catch (_) { /* si el riel falla, los paneles ya armados arriba siguen visibles tal cual estaban - cero riesgo */ }
+    })();
 
     window.OCAuth.listo().then(() => { pintarEmail(); pintarWhatsapp(); });
 
