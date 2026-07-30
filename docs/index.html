@@ -1760,12 +1760,34 @@ function montarBuscadorVender(productos){
   const chipEstilo = (activo) => `font-size:13px;padding:6px 12px;border-radius:999px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;background:${activo ? "var(--azul-medio,#2c4a68)" : "transparent"};color:${activo ? "#fff" : "var(--azul-medio,#2c4a68)"} !important;-webkit-text-fill-color:${activo ? "#fff" : "var(--azul-medio,#2c4a68)"} !important;`;
   chips.innerHTML = `<button type="button" data-chip-cat="" style="${chipEstilo(!_venderCategoriaActiva)}">${window.t("sold.chipAll")}</button>` +
     categorias.map(c => `<button type="button" data-chip-cat="${escHtml(c)}" style="${chipEstilo(_venderCategoriaActiva === c)}">${escHtml(c)}</button>`).join("");
+  // Indice de busqueda tolerante a errores de tipeo (JFC 2026-07-30, "world
+  // standards"). MiniSearch esta vendorizado localmente. Se reconstruye
+  // cada vez que llega una lista nueva de productos (evita indice viejo) y
+  // SIEMPRE en try/catch: si falla, idx queda null y aplicarFiltro() cae
+  // sola al filtro por substring de siempre - ver
+  // feedback_aislar_fallos_ui_nunca_datos (JFC, "pecado mortal").
+  let idx = null;
+  try {
+    if (typeof MiniSearch === "function") {
+      idx = new MiniSearch({ fields: ["nombre", "categoria", "sku", "barcode"], idField: "id", searchOptions: { prefix: true, fuzzy: 0.2 } });
+      idx.addAll(productos);
+    }
+  } catch (_) { idx = null; }
   function aplicarFiltro(){
-    const q = (input.value || "").trim().toLowerCase();
+    const q = (input.value || "").trim();
+    let idsCoinciden = null;
+    if (q && idx) {
+      try { idsCoinciden = new Set(idx.search(q).map(r => r.id)); } catch (_) { idsCoinciden = null; }
+    }
+    const qLower = q.toLowerCase();
     document.querySelectorAll("#gridVender [data-vender-tile]").forEach(btn => {
       const p = (window._productosVenderCache || []).find(x => x.id === btn.dataset.venderTile);
       if (!p) return;
-      const matchTexto = !q || p.nombre.toLowerCase().includes(q) || (p.categoria || "").toLowerCase().includes(q);
+      const matchTexto = !q
+        ? true
+        : idsCoinciden
+          ? idsCoinciden.has(p.id)
+          : (p.nombre.toLowerCase().includes(qLower) || (p.categoria || "").toLowerCase().includes(qLower));
       const matchCategoria = !_venderCategoriaActiva || p.categoria === _venderCategoriaActiva;
       btn.style.display = (matchTexto && matchCategoria) ? "" : "none";
     });
@@ -4427,7 +4449,16 @@ setTimeout(() => {
 <script src="./reconciliacion.js"></script>
 <script src="./cartera.js"></script>
 <script src="./caja-chica.js"></script>
+<!-- uFuzzy (JFC 2026-07-30): busqueda tolerante a errores de tipeo para
+     Clientes (via lista-dinamica.js). Vendorizado localmente, MIT, sin
+     CDN, sin build step - si falta o falla, lista-dinamica.js cae sola al
+     filtro por substring de siempre (ver feedback_aislar_fallos_ui_nunca_datos). -->
+<script src="./vendor/ufuzzy.min.js"></script>
 <script src="./lista-dinamica.js"></script>
+<!-- MiniSearch (JFC 2026-07-30): busqueda tolerante + filtro por categoria
+     para el grid tactil de Sold. Mismo criterio de aislamiento: si falla,
+     el buscador cae al filtro por substring que ya existia. -->
+<script src="./vendor/minisearch.min.js"></script>
 <script src="./respaldo-empleado.js"></script>
 <script src="./edutips.js"></script>
 <script>

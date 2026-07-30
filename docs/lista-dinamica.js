@@ -53,6 +53,35 @@
     return v == null ? "" : String(v).toLowerCase();
   }
 
+  // Busqueda con tolerancia a errores de tipeo (JFC 2026-07-30: "que hagan
+  // parecer amateur la que tenemos" / "world standards"). uFuzzy es
+  // opcional y esta vendorizado localmente (./vendor/ufuzzy.min.js) - si
+  // no cargo o lanza, cae SOLA a la busqueda por substring de siempre.
+  // Nunca debe poder romper el resto de la lista: ver
+  // feedback_aislar_fallos_ui_nunca_datos (JFC, "pecado mortal").
+  function filtrarConTolerancia(datos, columnas, q) {
+    try {
+      if (typeof global.uFuzzy !== "function") throw new Error("uFuzzy no cargado");
+      var haystack = datos.map(function (item) {
+        return columnas.map(function (c) { return textoDe(item, c); }).join(" ");
+      });
+      // intraMode:1 + intraIns/Sub/Trn/Del habilitan tolerancia real a
+      // errores de tipeo DENTRO de cada palabra (insertar/cambiar/
+      // transponer/borrar una letra). Sin esto, uFuzzy por defecto es
+      // solo "coincide el orden y separacion de terminos", sin tolerar
+      // ni un solo error de tipeo - probado en vivo, "Ashly" no
+      // encontraba "Ashley" hasta agregar esto.
+      var uf = new global.uFuzzy({ intraMode: 1, intraIns: 1, intraSub: 1, intraTrn: 1, intraDel: 1 });
+      var idxs = uf.filter(haystack, q);
+      if (idxs == null) return [];
+      return Array.prototype.map.call(idxs, function (i) { return datos[i]; });
+    } catch (_) {
+      return datos.filter(function (item) {
+        return columnas.some(function (c) { return textoDe(item, c).indexOf(q) !== -1; });
+      });
+    }
+  }
+
   /**
    * crear(opts):
    *  contenedorId: id del elemento donde se monta TODO (barra + tabla/lista).
@@ -123,11 +152,7 @@
         return;
       }
 
-      var filtrados = q
-        ? datos.filter(function (item) {
-            return columnas.some(function (c) { return textoDe(item, c).indexOf(q) !== -1; });
-          })
-        : datos;
+      var filtrados = q ? filtrarConTolerancia(datos, columnas, q) : datos;
 
       if (estado.ordenPor) {
         var col = colDe(estado.ordenPor);
