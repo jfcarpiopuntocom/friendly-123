@@ -281,7 +281,12 @@
         const b = e.target.closest("button[data-d]"); if (!b || st.entrada().length >= 3) return;
         st.push(Number(b.dataset.d));
         st.pintar();
-        if (st.entrada().length === 3) { const code = st.entrada().join(""); setTimeout(() => st.onComplete(code), 150); }
+        // JFC 2026-07-29: 150ms apuraba a la gente — apenas alcanza a ver que
+        // toco el 3er digito y ya se envio. Se sube a 900ms: tiempo real para
+        // notar un typo (el punto sigue enmascarado por diseño, pero el
+        // usuario SIENTE que se completo, no que salio disparado) antes de
+        // que cuente como intento.
+        if (st.entrada().length === 3) { const code = st.entrada().join(""); setTimeout(() => st.onComplete(code), 900); }
       });
     }
     pintar();
