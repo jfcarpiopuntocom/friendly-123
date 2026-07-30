@@ -384,8 +384,52 @@
     if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); return entrar(uNombrado.rol === "admin" ? "admin" : "empleado"); }
     registrarFallo();
     const restante = msRestantesBloqueo();
+    // REGLA DURA (JFC 2026-07-29, tras un papelon en vivo con un prospecto:
+    // "no puedo arriesgarme a que la app no se vea porque algo paso con los
+    // PINs, eso NO debe pasar"): en un dispositivo NUNCA activado, un PIN que
+    // no coincide con nada NUNCA deja la pantalla trabada — cae directo a
+    // demo. Es seguro porque un dispositivo sin activar YA esta mostrando
+    // datos de muestra genericos, nunca datos reales de un negocio.
+    //
+    // En un dispositivo YA activado esto NO puede hacer lo mismo: "demo" no
+    // es un set de datos separado, es el MISMO localStorage real con acceso
+    // nivel-dueño (ver mas abajo, esDemo() solo oculta un par de botones de
+    // UI). Caer a demo ahi seria exactamente el backdoor que el codigo ya
+    // bloqueaba antes ("cualquiera que teclee 456 veria los datos reales").
+    // Por eso en un dispositivo activado se mantiene el error + reintento,
+    // pero con el camino de recuperacion siempre visible (mas abajo).
+    if (!dispositivoApropiado()) {
+      registrarExito();
+      entrar("demo");
+      mostrarAvisoCaidaDemo();
+      return;
+    }
     if (restante > 0) { error(window.tf("auth.gate.tooManyAttempts", {s: Math.ceil(restante / 1000)})); return; }
+    const nFallos = leerIntentos().fallos;
+    if (nFallos >= 2) { error(window.t("auth.gate.wrongPin") + " " + window.t("auth.gate.forgotHint")); return; }
     error(window.t("auth.gate.wrongPin"));
+  }
+  // Aviso post-caida-a-demo: nunca deja al usuario preguntandose por que ve
+  // datos de muestra en vez de esperar una pantalla de error. Reutiliza el
+  // toast de auth (mismo mecanismo visual que el resto del gate).
+  function mostrarAvisoCaidaDemo() {
+    try {
+      const existente = document.getElementById("oc-aviso-demo-fallback");
+      if (existente) existente.remove();
+      const t = document.createElement("div");
+      t.id = "oc-aviso-demo-fallback";
+      t.style.cssText = "position:fixed;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 12px);z-index:10005;"
+        + "background:#1c3049;color:#F8F9FB;padding:12px 14px;border-radius:8px;font-size:14px;"
+        + "box-shadow:0 6px 20px rgba(0,0,0,.35);display:flex;align-items:center;gap:10px;max-width:480px;margin:0 auto;";
+      t.innerHTML = '<span style="flex:1;">Ese PIN no se reconoció — estás viendo el modo demo. '
+        + '<button id="oc-aviso-demo-reintentar" style="background:none;border:none;color:#8ecbff;text-decoration:underline;font-weight:700;cursor:pointer;padding:0;font-size:14px;">Reintentar mi PIN</button></span>'
+        + '<button id="oc-aviso-demo-cerrar" style="background:none;border:none;color:#F8F9FB;font-size:18px;cursor:pointer;padding:0 2px;" aria-label="Cerrar">×</button>';
+      document.body.appendChild(t);
+      const cerrar = () => { if (t.isConnected) t.remove(); };
+      document.getElementById("oc-aviso-demo-cerrar").addEventListener("click", cerrar);
+      document.getElementById("oc-aviso-demo-reintentar").addEventListener("click", () => { cerrar(); cerrarSesion(); });
+      setTimeout(cerrar, 10000);
+    } catch (_) {}
   }
   // Consulta al backend si el PIN corresponde a un empleado nombrado.
   // Retorna { id, nombre, rol } o null. Si la red o el endpoint fallan,
