@@ -42,7 +42,7 @@
   "use strict";
 
   var INTERVALO_MS = 15 * 60 * 1000; // 15 minutos
-  var TIMEOUT_GPS_MS = 8000;
+  var TIMEOUT_GPS_MS = 12000; // mas tiempo: alta precision tarda mas en cerrar el primer fix
   var TIMEOUT_IP_MS = 6000;
   var CONSENT_KEY = "amg_geo_consentidos_v1"; // set de identidades que ya vieron el aviso
   var DB_NAME = "amg_geo_db";
@@ -153,14 +153,27 @@
         global.navigator.geolocation.getCurrentPosition(
           function (pos) {
             if (listo) return; listo = true; clearTimeout(t);
+            // JFC 2026-07-30: un fix "exitoso" de getCurrentPosition no siempre
+            // es GPS real — si el chip no cierra a tiempo, el navegador puede
+            // devolver un fix por WiFi/torre celular con accuracy de cientos o
+            // miles de metros, y antes lo etiquetabamos "gps" igual. Ahora se
+            // distingue por precision para que el panel pueda avisar cuando el
+            // pin es solo aproximado, no exacto.
+            var acc = pos.coords.accuracy != null ? Math.round(pos.coords.accuracy) : null;
             resolve({
               lat: pos.coords.latitude, lon: pos.coords.longitude,
-              precision: pos.coords.accuracy != null ? Math.round(pos.coords.accuracy) : null,
-              fuente: "gps",
+              precision: acc,
+              fuente: (acc != null && acc > 300) ? "gps-baja-precision" : "gps",
             });
           },
           function () { if (listo) return; listo = true; clearTimeout(t); resolve(null); },
-          { enableHighAccuracy: false, timeout: TIMEOUT_GPS_MS, maximumAge: 5 * 60 * 1000 }
+          // JFC 2026-07-30: con enableHighAccuracy:false el telefono a veces
+          // resuelve por WiFi/torre celular en vez de GPS real (el chip GPS
+          // ni se enciende) y el resultado puede caer en el centro de la
+          // ciudad — a varias cuadras del sitio real. true fuerza el chip GPS
+          // cuando existe. maximumAge bajo (antes 5 min) evita reusar un fix
+          // viejo y probablemente impreciso.
+          { enableHighAccuracy: true, timeout: TIMEOUT_GPS_MS, maximumAge: 60 * 1000 }
         );
       } catch (_) { resolve(null); }
     });

@@ -670,7 +670,10 @@
           ? (ping
               ? `<div style="font-size:12px;color:var(--ink-soft);">📍 ${window.tf("geo.emp.lastSeen", { when: hacetiempo(ping.ts) })}${
                   (ping.lat != null && ping.lon != null)
-                    ? ` · <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">${window.t("geo.panel.viewMap")}</a>`
+                    ? ` · <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">${window.t("geo.panel.viewMap")}</a>` +
+                      (ping.precision != null && ping.precision > 300
+                        ? ` <span style="color:#E8A020;">(approximate, ±${ping.precision}m — not exact)</span>`
+                        : ping.precision != null ? ` (±${ping.precision}m)` : "")
                     : " · " + window.t("geo.emp.noLocationThatTime")
                 }</div>`
               : `<div style="font-size:12px;color:var(--ink-soft);">📍 ${window.t("geo.emp.none")}</div>`)
@@ -1054,6 +1057,15 @@
     syncDevPanel.style.cssText = "text-align:left;margin-top:22px;";
     vista.appendChild(syncDevPanel);
     pintarSyncDev();
+
+    // Reordenar visualmente (JFC 2026-07-30: "Mi Equipo debe estar encima de
+    // Acceso y Recuperación, primero el manejo/control visual, lista dinamica
+    // editable... mientras que Acceso y recuperación... debe ser al ultimo,
+    // no algo que se hace regularmente"). Todo ya esta armado y con sus
+    // listeners atados arriba — esto solo mueve nodos DOM, no reconstruye
+    // nada ni reordena la lógica.
+    vista.insertBefore(equipoPanel, bkMount);
+    vista.appendChild(gestion);
 
     window.OCAuth.listo().then(() => { pintarEmail(); pintarWhatsapp(); });
 
