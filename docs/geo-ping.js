@@ -370,6 +370,10 @@
   function fmtFechaGeo(ts) {
     try { return new Date(ts).toLocaleString(localeActivo()); } catch (_) { return String(ts); }
   }
+  // JFC 2026-07-30 ("esta muerta, la mataste"): esta lista era el unico
+  // panel de la app SIN busqueda ni orden, mientras Clientes/Productos/
+  // Perchas ya usan AMG.ListaDinamica (busqueda + orden por columna). La
+  // convertimos al mismo componente en vez de mantener un segundo patron.
   function renderPanel() {
     var mount = global.document.getElementById("amg-geo-panel");
     if (!mount) return;
@@ -378,23 +382,34 @@
         mount.innerHTML = '<p style="font-size:14px;color:var(--ink-soft,#6b7785);">' + T("geo.panel.empty") + '</p>';
         return;
       }
-      var porPin = {};
-      pings.forEach(function (p) { (porPin[p.pin] = porPin[p.pin] || []).push(p); });
-      var html = "";
-      Object.keys(porPin).forEach(function (pin) {
-        var lista = porPin[pin];
-        html += '<div style="margin-bottom:16px;"><div style="font-weight:700;font-size:14px;margin-bottom:6px;">' +
-          escHtmlGeo(lista[0].nombre) + " · " + lista.length + " " + T("geo.panel.pings") + "</div>";
-        lista.slice(0, 20).forEach(function (p) {
+      if (!global.AMG || !global.AMG.ListaDinamica) {
+        // Degradacion segura: si lista-dinamica.js no cargo por algun
+        // motivo, no dejamos el panel en blanco - mostramos los pings tal
+        // cual, sin buscador ni orden, en vez de romper todo el panel.
+        mount.innerHTML = pings.slice(0, 40).map(function (p) {
+          return '<div style="font-size:13px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.06);">' +
+            escHtmlGeo(p.nombre) + " — " + fmtFechaGeo(p.ts) + '</div>';
+        }).join("");
+        return;
+      }
+      global.AMG.ListaDinamica.crear({
+        contenedorId: "amg-geo-panel",
+        placeholderBusqueda: T("geo.panel.searchPlaceholder"),
+        columnas: [
+          { key: "nombre", label: T("geo.panel.colMember"), ordenable: true },
+          { key: "ts", label: T("geo.panel.colWhen"), ordenable: true, valor: function (p) { return p.ts; } },
+          { key: "precision", label: T("geo.panel.colPrecision"), ordenable: true, valor: function (p) { return p.precision == null ? -1 : p.precision; } }
+        ],
+        datos: function () { return pings; },
+        mensajeVacio: T("geo.panel.noResults"),
+        renderFila: function (p) {
           var linkMapa = (p.lat != null && p.lon != null)
             ? '<a href="https://www.google.com/maps?q=' + p.lat + "," + p.lon + '" target="_blank" rel="noopener" style="color:#2E6278;">' + T("geo.panel.viewMap") + '</a> (±' + (p.precision || "?") + "m, " + escHtmlGeo(p.fuente) + ")"
             : '<span style="color:var(--ink-soft,#6b7785);">' + escHtmlGeo(TF("geo.panel.noLocation", { fuente: p.fuente })) + "</span>";
-          html += '<div style="font-size:13px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.06);">' +
-            fmtFechaGeo(p.ts) + " — " + linkMapa + "</div>";
-        });
-        html += "</div>";
+          return '<div style="font-size:13px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.06);">' +
+            "<strong>" + escHtmlGeo(p.nombre) + "</strong> — " + fmtFechaGeo(p.ts) + " — " + linkMapa + "</div>";
+        }
       });
-      mount.innerHTML = html;
     }).catch(function () {
       mount.innerHTML = '<p style="font-size:14px;color:var(--rojo,#a3392a);">' + T("geo.panel.readError") + '</p>';
     });
