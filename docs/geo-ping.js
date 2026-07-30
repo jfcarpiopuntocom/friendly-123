@@ -109,8 +109,17 @@
   // closure de auth-ui.js, no expuesto en window; depender de eso hubiera
   // significado tocar ese archivo, y la regla de esta pieza es cero riesgo
   // para lo que ya funciona).
+  //
+  // Guard anti-duplicado (JFC 2026-07-30, "pule"): si oc-login dispara mas
+  // de una vez seguida (pasa en la practica: login + revisita de vista casi
+  // simultanea), arrancarParaSesion() podia llamar esto dos veces antes de
+  // que la primera terminara, mostrando 2 overlays apilados. _avisoPendiente
+  // cachea la promesa en curso: una segunda llamada mientras la primera
+  // sigue abierta espera la MISMA respuesta en vez de crear un overlay nuevo.
+  var _avisoPendiente = null;
   function mostrarAvisoConsentimiento() {
-    return new Promise(function (resolve) {
+    if (_avisoPendiente) return _avisoPendiente;
+    _avisoPendiente = new Promise(function (resolve) {
       try {
         var overlay = global.document.createElement("div");
         overlay.style.cssText = "position:fixed;inset:0;z-index:9500;background:rgba(15,25,35,.85);display:flex;align-items:center;justify-content:center;padding:20px;";
@@ -124,10 +133,12 @@
         global.document.body.appendChild(overlay);
         caja.querySelector("#amg-geo-ok").addEventListener("click", function () {
           overlay.remove();
+          _avisoPendiente = null;
           resolve(true);
         });
-      } catch (_) { resolve(false); }
+      } catch (_) { _avisoPendiente = null; resolve(false); }
     });
+    return _avisoPendiente;
   }
 
   // ---------------------------------------------------------------------------
