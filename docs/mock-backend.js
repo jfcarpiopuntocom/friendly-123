@@ -1129,6 +1129,7 @@
         if (body.clienteId) {
           clienteVenta = clientes.find((c) => c.id === body.clienteId);
           if (!clienteVenta) return J({ error: "Cliente no encontrado." }, 404);
+          if (clienteVenta.despedido) return J({ error: `"${clienteVenta.nombre}" is fired — no new sales allowed. Reactivate them from Customers if this was a mistake.` }, 400);
         }
         const ventaId = uuid("v");
         ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null });
