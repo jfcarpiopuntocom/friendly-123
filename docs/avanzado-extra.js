@@ -662,6 +662,9 @@
           : `<span style="font-size:11px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Empleado</span>`;
         // Admin solo puede editar empleados, no a otros admins (seguridad por capas)
         const puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado");
+        // Promover/degradar (JFC 2026-07-30: "hazlo una lista dinamica y permite
+        // editar y promote y demote") — solo el dueño decide quién es admin.
+        const puedePromover = isDueno();
         const ping = ultimasUbic["u:" + u.id];
         const ubicHtml = (isDueno() || isAdmin())
           ? (ping
@@ -692,6 +695,13 @@
                        border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;margin-left:4px;">
                 PIN
               </button>
+              ${puedePromover ? `
+                <button data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}"
+                  style="font-size:12px;padding:5px 10px;border:2px solid #E8A020;
+                         border-radius:5px;background:transparent;color:#E8A020;cursor:pointer;margin-left:4px;">
+                  ${u.rol === "admin" ? "Degradar a empleado" : "Promover a admin"}
+                </button>
+              ` : ""}
             ` : `<span style="font-size:12px;color:var(--ink-soft);">Solo dueño</span>`}
           </td>`;
         tbody.appendChild(tr);
@@ -736,6 +746,22 @@
         });
       });
 
+      // Bind: promover/degradar (solo dueño ve el botón, ver puedePromover arriba)
+      tbody.querySelectorAll("[data-cambiar-rol]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.cambiarRol;
+          const rolNuevo = btn.dataset.rolActual === "admin" ? "empleado" : "admin";
+          try {
+            const r = await fetch("/api/usuarios/" + id, {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rol: rolNuevo }),
+            });
+            if (!r.ok) { const e = await r.json(); alert(e.error || "Error al cambiar rol."); return; }
+            await renderEmpleados();
+          } catch (_) { alert("Error de red."); }
+        });
+      });
+
       // Bind: mostrar/ocultar fila de cambio de PIN
       tbody.querySelectorAll("[data-cambiar-pin]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -762,8 +788,22 @@
             if (!r.ok) { msg.textContent = data.error || "Error al guardar PIN."; return; }
             msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
             msg.textContent = "PIN actualizado.";
+            // Entrega por correo (JFC 2026-07-30): mailto abre EL PROPIO cliente
+            // de correo del dueño con el mensaje listo — sin backend, sin nube,
+            // cumple la regla dura NUNCA CLOUD. El PIN nunca se guarda en claro
+            // en ningún servidor; solo pasa por esta URL local hacia el mailer.
+            const miembro = equipo.find((x) => x.id === id);
+            if (miembro && miembro.email) {
+              const asunto = encodeURIComponent(`Tu PIN de acceso — ${miembro.nombre}`);
+              const cuerpo = encodeURIComponent(`Hola ${miembro.nombre},\n\nTu nuevo PIN de acceso es: ${pin}\n\nGuárdalo en un lugar seguro.`);
+              const linkMail = document.createElement("a");
+              linkMail.href = `mailto:${miembro.email}?subject=${asunto}&body=${cuerpo}`;
+              linkMail.textContent = " Enviar por correo";
+              linkMail.style.cssText = "margin-left:8px;color:var(--azul-medio);font-weight:700;";
+              msg.appendChild(linkMail);
+            }
             if (inp) inp.value = "";
-            setTimeout(() => renderEmpleados(), 1500);
+            setTimeout(() => renderEmpleados(), 4000);
           } catch (_) { msg.textContent = "Error de red."; }
         });
       });
@@ -790,6 +830,15 @@
         if (!r.ok) { msgEl.textContent = data.error || "Error al agregar miembro."; return; }
         msgEl.style.color = "var(--sim-verde-dk,#1a6e3c)";
         msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Empleado"} "${data.nombre}" agregado.`;
+        if (email) {
+          const asunto = encodeURIComponent(`Tu PIN de acceso — ${data.nombre}`);
+          const cuerpo = encodeURIComponent(`Hola ${data.nombre},\n\nTu PIN de acceso es: ${pin}\n\nGuárdalo en un lugar seguro.`);
+          const linkMail = document.createElement("a");
+          linkMail.href = `mailto:${email}?subject=${asunto}&body=${cuerpo}`;
+          linkMail.textContent = " Enviar por correo";
+          linkMail.style.cssText = "margin-left:8px;color:var(--azul-medio);font-weight:700;";
+          msgEl.appendChild(linkMail);
+        }
         document.getElementById("oc-emp-nombre").value = "";
         document.getElementById("oc-emp-email").value  = "";
         document.getElementById("oc-emp-pin").value    = "";

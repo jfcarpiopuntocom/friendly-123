@@ -1537,7 +1537,7 @@ async function cargarUbicaciones(){
   const sel = document.getElementById("selectUbicacion");
   const valorPrevio = sel.value;
   sel.innerHTML = `<option value="todas" data-i18n="header.allLocations">All locations</option>` +
-    ubicaciones.map(u => `<option value="${u.id}">${u.nombre}</option>`).join("");
+    ubicaciones.map(u => `<option value="${u.id}">${escHtml(u.nombre)}</option>`).join("");
   // Si la ubicación que estaba seleccionada ya no existe en la lista (ej. se
   // desactivó), vuelve a "todas" en vez de quedar en un valor fantasma.
   if ([...sel.options].some(o => o.value === valorPrevio)) sel.value = valorPrevio;
@@ -3642,7 +3642,7 @@ async function abrirEtiqueta(id){
   // Contenido imprimible — solo lo que aparece en papel (sin botón "Imprimir")
   document.getElementById("contenidoEtiqueta").innerHTML = `
     <button class="cerrar" id="cerrarModal2">✕</button>
-    <h4>${p.nombre}</h4>
+    <h4>${escHtml(p.nombre)}</h4>
     <div class="precio-grande">${fmtMoney(p.precio)}</div>
     ${p.perecible && p.fechaCaducidad ? `<div style="font-size:13px;font-weight:700;color:var(--rust);">Vence: ${p.fechaCaducidad}</div>` : ""}
     <div class="codigo">${p.barcode}</div>
@@ -3745,7 +3745,7 @@ function imprimirSoloBarcode(svgBarcode, producto){
   document.body.appendChild(iframe);
   const doc = iframe.contentWindow.document;
   doc.open();
-  doc.write(`<!DOCTYPE html><html><head><title>${producto.nombre}</title><style>
+  doc.write(`<!DOCTYPE html><html><head><title>${escHtml(producto.nombre)}</title><style>
     body{margin:0;padding:24px;text-align:center;font-family:sans-serif;}
     svg{max-width:100%;height:auto;}
     p{font-size:14px;margin-top:8px;letter-spacing:2px;}
@@ -4209,7 +4209,7 @@ async function cargarGastosMensuales(){
     // estaba rota. Ahora el selector vive aquí mismo, al lado del problema.
     selectorWrap.style.display = "block";
     const sel = document.getElementById("gastosUbicSelector");
-    sel.innerHTML = ubicaciones.map(u => `<option value="${u.id}">${u.nombre}</option>`).join("");
+    sel.innerHTML = ubicaciones.map(u => `<option value="${u.id}">${escHtml(u.nombre)}</option>`).join("");
     if (!sel.dataset.ocListo) {
       sel.dataset.ocListo = "1";
       sel.addEventListener("change", () => {

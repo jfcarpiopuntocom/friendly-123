@@ -1546,8 +1546,24 @@
           if (usuarios.some((x) => x.id !== uid2 && x.pin === np)) return J({ error: "Ese PIN ya lo usa otro miembro del equipo." }, 400);
           u.pin = np;
         }
+        // Promover/degradar rol (JFC 2026-07-30): admin<->empleado. Los admins no
+        // cuentan contra el limite de empleados del plan free (ver POST arriba),
+        // asi que promover a alguien puede liberar un cupo y degradarlo puede
+        // volver a topar el limite en el proximo alta — eso ya lo valida el POST.
+        if (body.rol !== undefined && (body.rol === "admin" || body.rol === "empleado")) u.rol = body.rol;
         mov("usuario-editar", { id: uid2, nombre: u.nombre, rol: u.rol });
         return J({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn });
+      }
+      // DELETE /api/usuarios/:id — quitar por completo (distinto de desactivar:
+      // desactivar conserva el registro para reactivarlo despues; borrar es
+      // definitivo, para cuando alguien deja el negocio de verdad).
+      if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "DELETE") {
+        const uid3 = path.split("/").pop();
+        const i3 = usuarios.findIndex((x) => x.id === uid3);
+        if (i3 === -1) return J({ error: "Miembro no encontrado." }, 404);
+        const [borrado] = usuarios.splice(i3, 1);
+        mov("usuario-borrar", { nombre: borrado.nombre, rol: borrado.rol });
+        return J({ ok: true });
       }
       // POST /api/usuarios/verificar — recibe { pin }, devuelve { id, nombre, rol } o 401
       // Llamado por auth-ui.js durante el login para identificar empleados y admins nombrados.
