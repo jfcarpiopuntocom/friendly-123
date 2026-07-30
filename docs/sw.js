@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v30"; // bumped 2026-07-30: buscador/categorias en Sold antes del grid tactil
+const CACHE = "f123-shell-v31"; // bumped 2026-07-30: MiniSearch/uFuzzy tolerantes a tipeo (vendorizados)
 const SHELL = [
   "./",
   "./index.html",
