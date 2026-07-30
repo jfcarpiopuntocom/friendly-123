@@ -1285,7 +1285,8 @@
     <details style="margin:-4px 0 12px;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="sold.howToggle">How does it work? ▸</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step1">1. Pick the customer (if any) in the selector below.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step0">1. Search by name or filter by category, at the top.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step1">2. Pick the customer (if any) in the selector below.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step2">2. Tap the product: one unit is deducted from stock.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step3">3. A blue notice appears below: tap it within 5s if it was a mistake.</p>
         <p style="margin:0;font-size:14px;color:var(--ink);" data-i18n-html="sold.step4html">4. If you don't ring up live, use <strong>Day close</strong> at the end.</p>
@@ -1299,6 +1300,15 @@
       <button id="btnModoQuick" data-modo-venta="quick" style="font-size:14px;font-weight:700;padding:7px 14px;border-radius:20px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;">⚡ Quick tap</button>
       <button id="btnModoCarrito" data-modo-venta="carrito" style="font-size:14px;font-weight:700;padding:7px 14px;border-radius:20px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;">🧺 Build a sale</button>
     </div>
+    <!-- Buscador/filtro rapido ANTES del grid tactil (JFC 2026-07-30). Solo
+         filtra los botones ya renderizados por cargarGridVender() - no
+         toca esa logica ni el listener delegado de venta. -->
+    <div id="venderBuscador" style="margin-bottom:12px;">
+      <input id="venderBuscarInput" type="text" data-i18n-attr="placeholder:sold.searchPlaceholder" placeholder="Search by name or category..."
+        style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;font-size:15px;margin-bottom:8px;">
+      <div id="venderCategoriaChips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <p style="font-size:14px;font-weight:700;color:var(--ink-soft);margin:0 0 8px;" data-i18n="sold.nextStep">Next step: tap a product</p>
     <div id="gridVender" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px;"></div>
     <!-- Carrito de "Build a sale": aparece solo en ese modo. Cada linea es
          editable (+/- y quitar). El sello final es UNA sola accion clara,
@@ -1734,6 +1744,46 @@ async function cargarGridVender(){
       if (document.getElementById("cierreDia").open) cargarCierreLista(); // el "hoy: N" de abajo se actualiza al instante
     });
   }
+  montarBuscadorVender(productos);
+}
+
+// Buscador + chips de categoria para el grid tactil de Sold (JFC
+// 2026-07-30). Filtra por display:none los botones ya renderizados -
+// nunca vuelve a pedir datos ni toca el listener de venta.
+let _venderCategoriaActiva = "";
+function montarBuscadorVender(productos){
+  const chips = document.getElementById("venderCategoriaChips");
+  const input = document.getElementById("venderBuscarInput");
+  if (!chips || !input) return;
+  const categorias = Array.from(new Set(productos.map(p => (p.categoria || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  if (_venderCategoriaActiva && !categorias.includes(_venderCategoriaActiva)) _venderCategoriaActiva = "";
+  const chipEstilo = (activo) => `font-size:13px;padding:6px 12px;border-radius:999px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;background:${activo ? "var(--azul-medio,#2c4a68)" : "transparent"};color:${activo ? "#fff" : "var(--azul-medio,#2c4a68)"} !important;-webkit-text-fill-color:${activo ? "#fff" : "var(--azul-medio,#2c4a68)"} !important;`;
+  chips.innerHTML = `<button type="button" data-chip-cat="" style="${chipEstilo(!_venderCategoriaActiva)}">${window.t("sold.chipAll")}</button>` +
+    categorias.map(c => `<button type="button" data-chip-cat="${escHtml(c)}" style="${chipEstilo(_venderCategoriaActiva === c)}">${escHtml(c)}</button>`).join("");
+  function aplicarFiltro(){
+    const q = (input.value || "").trim().toLowerCase();
+    document.querySelectorAll("#gridVender [data-vender-tile]").forEach(btn => {
+      const p = (window._productosVenderCache || []).find(x => x.id === btn.dataset.venderTile);
+      if (!p) return;
+      const matchTexto = !q || p.nombre.toLowerCase().includes(q) || (p.categoria || "").toLowerCase().includes(q);
+      const matchCategoria = !_venderCategoriaActiva || p.categoria === _venderCategoriaActiva;
+      btn.style.display = (matchTexto && matchCategoria) ? "" : "none";
+    });
+  }
+  if (!chips.dataset.listenerListo) {
+    chips.dataset.listenerListo = "1";
+    chips.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-chip-cat]");
+      if (!b) return;
+      _venderCategoriaActiva = b.dataset.chipCat;
+      montarBuscadorVender(window._productosVenderCache || []);
+    });
+  }
+  if (!input.dataset.listenerListo) {
+    input.dataset.listenerListo = "1";
+    input.addEventListener("input", aplicarFiltro);
+  }
+  aplicarFiltro();
 }
 
 // ---- Cierre del dia ----
