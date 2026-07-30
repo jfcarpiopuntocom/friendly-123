@@ -1070,45 +1070,52 @@
     // feedback_aislar_fallos_ui_nunca_datos.
     (function armarRielAvanzado() {
       try {
-        const MAPA_CATEGORIA = {
-          "oc-acct-lock": "dinero", "oc-contable": "dinero", "oc-edutip-contable": "dinero",
-          "listaActividad": "dinero",
-          "oc-emp-panel": "gente",
-          "f123-backup-scheduler-mount": "tecnico", "oc-respaldo-empleado-mount": "tecnico",
-          "oc-reconciliacion-mount": "tecnico", "oc-sync-panel": "tecnico", "oc-syncdev-panel": "tecnico",
-          "oc-log-panel": "calma", "oc-antifraude-panel": "calma",
-          "amg-geo-caja": "calma", "oc-nov-switch-card": "calma",
-        };
-        function categoriaDe(nodo) {
-          if (MAPA_CATEGORIA[nodo.id]) return MAPA_CATEGORIA[nodo.id];
-          // Bug real detectado en vivo: buscar solo en un h3/summary HIJO
-          // fallaba para (a) un H3 suelto (es el encabezado, no tiene hijo)
-          // y (b) un DIV de contenido cuyo texto clave vive en un <p> sin
-          // marcar - "Timezone"/"Monthly expenses" caian a "Mi
-          // tranquilidad" por defecto. Usar el texto COMPLETO del nodo
-          // (acotado) evita ambos casos.
-          const texto = (nodo.textContent || "").toLowerCase().slice(0, 300);
-          if (/transfer|traspaso|remote sync|sincronizaci.n remota|device-to-device|sin internet|mano/.test(texto)) return "tecnico";
-          if (/access|acceso|recovery|recuperaci.n/.test(texto)) return "calma";
-          if (/timezone|huso|expense|gasto|recent activity|actividad reciente/.test(texto)) return "dinero";
-          return "calma";
+        // JFC 2026-07-30 ("nada es 'mi tranquilidad', no te inventes
+        // tonterias, solo pon los elementos que YA HABIA... agrupados
+        // debidamente"): SIN categorias inventadas. Cada seccion que ya
+        // existia (cada bloque con su propio titulo real) es su propia
+        // entrada del riel, usando el titulo que YA tenia en pantalla.
+        const ETIQUETA_FIJA = { "oc-acct-lock": "Capa contable" };
+        function tituloPropio(nodo) {
+          if (ETIQUETA_FIJA[nodo.id]) return ETIQUETA_FIJA[nodo.id];
+          if (/^H[1-6]$/.test(nodo.tagName)) return nodo.textContent.trim();
+          const h = nodo.querySelector && nodo.querySelector("h3,h4");
+          if (h) return h.textContent.trim();
+          if (nodo.tagName === "DETAILS") {
+            const s = nodo.querySelector("summary");
+            if (s) return s.textContent.trim();
+          }
+          return null;
         }
-        const CATEGORIAS = [
-          { id: "dinero", label: "💰 Mi dinero" },
-          { id: "gente", label: "👥 Mi gente" },
-          { id: "tecnico", label: "🔄 Mi equipo técnico" },
-          { id: "calma", label: "🧘 Mi tranquilidad" },
-        ];
         const encabezado = Array.from(vista.children).slice(0, 3); // titulo + intro + "como funciona"
         const resto = Array.from(vista.children).slice(3);
-        const panes = {};
-        CATEGORIAS.forEach((c) => {
-          const p = document.createElement("div");
-          p.id = "oc-riel-" + c.id;
-          p.style.display = "none";
-          panes[c.id] = p;
+        // Arma secciones EN EL ORDEN ORIGINAL: cada nodo con titulo propio
+        // arranca una seccion nueva; lo que sigue sin titulo (ej. el select
+        // de huso horario debajo de su encabezado) se pega a la anterior.
+        // Nada se descarta nunca - ver feedback_aislar_fallos_ui_nunca_datos.
+        const secciones = [];
+        let actual = null;
+        resto.forEach((nodo) => {
+          const titulo = tituloPropio(nodo);
+          if (titulo) {
+            actual = { id: "s" + secciones.length, label: titulo, nodos: [nodo] };
+            secciones.push(actual);
+          } else if (actual) {
+            actual.nodos.push(nodo);
+          } else {
+            actual = { id: "s" + secciones.length, label: "General", nodos: [nodo] };
+            secciones.push(actual);
+          }
         });
-        resto.forEach((nodo) => { panes[categoriaDe(nodo)].appendChild(nodo); });
+        const CATEGORIAS = secciones.map((s) => ({ id: s.id, label: s.label }));
+        const panes = {};
+        secciones.forEach((s) => {
+          const p = document.createElement("div");
+          p.id = "oc-riel-" + s.id;
+          p.style.display = "none";
+          s.nodos.forEach((n) => p.appendChild(n));
+          panes[s.id] = p;
+        });
 
         // JFC 2026-07-30 ("NOOOO, yo te aprobe B, el modelo de LISTA al lado
         // izquierdo para siempre ver la navegacion en texto, no esas
@@ -1151,22 +1158,36 @@
           const b = e.target.closest("[data-riel-tab]");
           if (b) activarTab(b.dataset.rielTab);
         });
-        let tabInicial = "dinero";
-        try { tabInicial = localStorage.getItem("f123_riel_tab") || "dinero"; } catch (_) {}
-        if (!CATEGORIAS.some((c) => c.id === tabInicial)) tabInicial = "dinero";
-        activarTab(tabInicial);
+        const idDefault = secciones.length ? secciones[0].id : null;
+        let tabInicial = idDefault;
+        try { tabInicial = localStorage.getItem("f123_riel_tab") || idDefault; } catch (_) {}
+        if (!CATEGORIAS.some((c) => c.id === tabInicial)) tabInicial = idDefault;
+        if (tabInicial) activarTab(tabInicial);
 
         // Blindaje (JFC "pecado mortal"): geo-ping.js y novedades.js montan
         // sus paneles DESPUES de este punto (async, en otro archivo). Sin
         // esto, "amg-geo-caja" y "oc-nov-switch-card" quedarian huerfanos
-        // al fondo de vista, fuera de cualquier pestaña. Este observer solo
-        // REPARENTA nodos nuevos que Avanzado reciba directo — no lee ni
-        // toca ningun dato de negocio.
+        // al fondo de vista, fuera de cualquier pestaña. Cada uno llega con
+        // su PROPIO titulo real (tituloPropio) y se agrega como una entrada
+        // MAS del riel - nunca se mete dentro de otra seccion inventada.
         const obs = new MutationObserver((muts) => {
           muts.forEach((m) => {
             m.addedNodes.forEach((n) => {
-              if (n.nodeType === 1 && n.parentNode === vista && n !== rielFila && !CATEGORIAS.some((c) => panes[c.id] === n)) {
-                panes[categoriaDe(n)].appendChild(n);
+              if (n.nodeType === 1 && n.parentNode === vista && n !== rielFila) {
+                const titulo = tituloPropio(n) || "Más";
+                const id = "s" + CATEGORIAS.length;
+                const p = document.createElement("div");
+                p.id = "oc-riel-" + id;
+                p.style.display = "none";
+                p.appendChild(n);
+                panes[id] = p;
+                CATEGORIAS.push({ id, label: titulo });
+                const b = document.createElement("button");
+                b.type = "button"; b.dataset.rielTab = id;
+                b.style.cssText = "display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:10px 8px;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;";
+                b.textContent = titulo;
+                rielNav.appendChild(b);
+                rielContenido.appendChild(p);
               }
             });
           });

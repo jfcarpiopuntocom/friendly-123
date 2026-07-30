@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v33"; // bumped 2026-07-30: riel corregido a lista de TEXTO a la izquierda (opcion B real)
+const CACHE = "f123-shell-v34"; // bumped 2026-07-30: riel sin categorias inventadas, un item por seccion real
 const SHELL = [
   "./",
   "./index.html",
