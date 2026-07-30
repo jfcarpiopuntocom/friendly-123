@@ -399,9 +399,12 @@
     // Por eso en un dispositivo activado se mantiene el error + reintento,
     // pero con el camino de recuperacion siempre visible (mas abajo).
     if (!dispositivoApropiado()) {
+      console.log("[DEBUG] entrando fallback demo");
       registrarExito();
       entrar("demo");
+      console.log("[DEBUG] entrar(demo) termino, rol=", rol, "demoSesion=", demoSesion);
       mostrarAvisoCaidaDemo();
+      console.log("[DEBUG] mostrarAvisoCaidaDemo termino, elemento existe=", !!document.getElementById("oc-aviso-demo-fallback"));
       return;
     }
     if (restante > 0) { error(window.tf("auth.gate.tooManyAttempts", {s: Math.ceil(restante / 1000)})); return; }
