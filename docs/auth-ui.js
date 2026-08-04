@@ -410,6 +410,14 @@
       return;
     }
     if (restante > 0) { error(window.tf("auth.gate.tooManyAttempts", {s: Math.ceil(restante / 1000)})); return; }
+    // Guard G2 (JFC 2026-08-04): si el secreto está corrupto (no vacío, sino
+    // ILEGIBLE), NINGÚN PIN va a funcionar jamás, y sin esto el dueño vería
+    // "Clave incorrecta" para siempre sin ninguna pista de que el problema
+    // no es que se equivocó de número.
+    if (window.OCSecure.estadoSecreto && window.OCSecure.estadoSecreto() === "corrupto") {
+      error(window.t("auth.gate.secretCorrupted"));
+      return;
+    }
     const nFallos = leerIntentos().fallos;
     if (nFallos >= 2) { error(window.t("auth.gate.wrongPin") + " " + window.t("auth.gate.forgotHint")); return; }
     error(window.t("auth.gate.wrongPin"));

@@ -126,6 +126,21 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     } catch { return null; }
   }
 
+  // Guard G2 (JFC 2026-08-04): distingue "nunca existió" de "existe pero está
+  // dañado" (JSON.parse fallaría o le faltan campos clave). Antes leerSecreto()
+  // trataba ambos casos igual (devolvía null), así que verificarOwner/Empleado
+  // devolvían false para TODOS los PINs y el dueño quedaba viendo "Clave
+  // incorrecta" para siempre sin ninguna pista de que el problema no era su
+  // memoria del PIN, sino el dato mismo.
+  function estadoSecreto() {
+    const raw = localStorage.getItem("f123_secure");
+    if (!raw) return "vacio";
+    try {
+      const s = JSON.parse(raw);
+      return (s && s.salt && s.ownerHash) ? "ok" : "corrupto";
+    } catch (_) { return "corrupto"; }
+  }
+
   // ---- migración silenciosa desde el formato viejo en texto plano (oc_auth) ----
   // Si José ya había configurado sus claves/correo antes de este cambio, NO se
   // pierden ni se resetean: se migran tal cual a oc_secure en el primer load.
@@ -137,6 +152,17 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       const base = viejo || DEF;
       await guardarSecreto(base.owner, base.empleados || [], base.acct, base.email || "");
       localStorage.removeItem("f123_auth"); // ya no queda nada en texto plano
+    } else if (estadoSecreto() === "corrupto") {
+      // Guard G2: auto-reparar a defaults SOLO si el dispositivo NUNCA fue
+      // activado (sin instanceId en f123_owned). En un dispositivo YA
+      // activado, auto-reparar sería exactamente el backdoor que el resto
+      // del código bloquea a propósito — ahí se deja corrupto y auth-ui.js
+      // ofrece el flujo de recuperación por correo en vez de arreglarlo solo.
+      let _apropiado = false;
+      try { _apropiado = !!(JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId; } catch (_) {}
+      if (!_apropiado) {
+        await guardarSecreto("888", ["260"], "357", "");
+      }
     }
     // AMIGABLE (JFC 2026-07-02): el PIN de dueño pasó de 159 a 888. Si un
     // navegador ya tenía guardado el default viejo (159), lo subimos a 888 sin
@@ -497,6 +523,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
 
   window.OCSecure = {
     migrarSiHaceFalta, guardarSecreto, verificarOwner, verificarEmpleado, verificarAcct, leerCorreo, actualizarCorreo,
+    estadoSecreto, // Guard G2, JFC 2026-08-04: distingue "vacío"/"ok"/"corrupto" para dar mensajes honestos
     verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo, segundosBloqueo,
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia
     activarSync, syncActiva, desactivarSync, cifrarSync, descifrarSync,
