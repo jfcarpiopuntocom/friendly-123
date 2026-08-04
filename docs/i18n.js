@@ -486,10 +486,10 @@
       "geo.role.admin": "Admin",
       "geo.role.accountant": "Accountant",
       "geo.role.unknown": "unknown",
-      "auth.roleChip.owner": "License Owner",
-      "auth.roleChip.admin": "Admin",
-      "auth.roleChip.employee": "Employee",
-      "auth.roleChip.accountant": "Accountant",
+      "auth.roleChip.owner": "owner",
+      "auth.roleChip.admin": "admin",
+      "auth.roleChip.employee": "employee",
+      "auth.roleChip.accountant": "accountant",
     },
     es: {
       // Puntos de retorno + constancia del empleado + edutips
@@ -958,10 +958,10 @@
       "geo.role.admin": "Admin",
       "geo.role.accountant": "Contador/a",
       "geo.role.unknown": "desconocido",
-      "auth.roleChip.owner": "Dueño/a de la licencia",
-      "auth.roleChip.admin": "Admin",
-      "auth.roleChip.employee": "Empleado/a",
-      "auth.roleChip.accountant": "Contador/a",
+      "auth.roleChip.owner": "dueño",
+      "auth.roleChip.admin": "admin",
+      "auth.roleChip.employee": "empleado",
+      "auth.roleChip.accountant": "contador",
     },
   };
 
