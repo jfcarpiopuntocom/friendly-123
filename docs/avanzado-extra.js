@@ -1460,6 +1460,33 @@
       } catch (_) {}
     })();
 
+    // Fase 1 (2026-08-04): aviso de PERSISTENCIA, distinto del aviso de cuota
+    // de arriba. Cuota = "te estas quedando sin espacio". Persistencia =
+    // "el sistema operativo puede borrar tus datos sin avisar si no usas la
+    // app por unos dias" (tipico en iOS Safari sin instalar la PWA). Es el
+    // riesgo mas serio de perdida total de datos y el mas barato de evitar:
+    // instalar la app en la pantalla de inicio sube mucho la probabilidad de
+    // que el navegador conceda persistencia.
+    (async () => {
+      try {
+        if (!window.OCStorageDurable) return;
+        const persistido = await window.OCStorageDurable.verificarYSolicitar();
+        if (persistido !== false) return; // true = protegido, null = API no existe (nada que avisar)
+        if (document.getElementById("oc-persist-aviso")) return;
+        const aviso = document.createElement("p");
+        aviso.id = "oc-persist-aviso";
+        aviso.style.cssText = "font-size:14px;font-weight:700;color:var(--rojo,#a3392a);"
+          + "background:#fff5f5;border:2px solid var(--rojo,#a3392a);border-radius:8px;"
+          + "padding:10px 14px;margin:0 0 14px;";
+        aviso.textContent = "Tus datos viven solo en este navegador y el sistema operativo puede "
+          + "borrarlos si no usas la app por varios dias — instala amigable-123 en tu pantalla de "
+          + "inicio (menu del navegador → \"Agregar a inicio\" / \"Instalar app\") y haz un respaldo "
+          + "seguido en Checkpoints.";
+        const vista = document.getElementById("vista-avanzado");
+        if (vista && !document.getElementById("oc-persist-aviso")) vista.insertBefore(aviso, vista.firstChild);
+      } catch (_) {}
+    })();
+
     // FIX 2026-07-07: los timers ya no trabajan con la sesion cerrada
     // (trabajo fantasma y bateria en tablets que quedan encendidas).
     setInterval(() => { if (window.OCAuth && window.OCAuth.rolActual()) cajaGuardarPunto(true); }, CAJA_INTERVALO_MS);

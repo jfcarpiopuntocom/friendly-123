@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v41"; // bumped 2026-08-04: Guard G4 - import de respaldo ya no pierde el PIN en silencio si el storage esta lleno
+const CACHE = "f123-shell-v42"; // bumped 2026-08-04: Fase 1 blindaje de datos - storage-durabilidad.js (persistencia leida y recordada, ya no fire-and-forget)
 const SHELL = [
   "./",
   "./index.html",
@@ -21,6 +21,7 @@ const SHELL = [
   "./pocketbase-client.js",
   "./mock-backend.js",
   "./device-identity.js",
+  "./storage-durabilidad.js",
   "./sync-realtime.js",
   "./lista-dinamica.js",
   "./vendor/ufuzzy.min.js",
