@@ -1058,141 +1058,134 @@
     vista.appendChild(syncDevPanel);
     pintarSyncDev();
 
-    // === RIEL DE CATEGORIAS (JFC 2026-07-30, opcion B elegida: "para tener
-    // siempre de vista como volver o que otras opciones hay") =============
-    // Reemplaza el reorder simple anterior. Reagrupa TODO lo ya construido
-    // arriba en 4 categorias por modelo mental (Shneiderman overview->
-    // detalle + card-sorting), sin reconstruir NINGUN panel ni tocar sus
-    // listeners - solo reparenta nodos DOM ya vivos. El titulo + intro +
-    // "como funciona" quedan SIEMPRE visibles arriba del riel (encabezado
-    // fijo). Cualquier nodo no reconocido cae a "Mi tranquilidad" por
-    // seguridad (nunca se descarta nada silenciosamente) - ver
-    // feedback_aislar_fallos_ui_nunca_datos.
-    (function armarRielAvanzado() {
+    // === RIEL FLEX (JFC 2026-07-30, importado de su avance en otra sesion,
+    // "SOLO el menu de Avanzados en cascada/texto, be surgical") ===========
+    // Menu izquierdo fijo + columna de contenido a la derecha. TODO el
+    // contenido sigue visible (scroll), un click en el menu hace scrollIntoView
+    // a esa seccion — no hay display:none escondiendo nada. No reconstruye
+    // ningun panel, solo reparenta nodos DOM ya vivos y con sus listeners
+    // atados. "Como funciona?" nunca es su propia entrada del menu. Cada
+    // seccion reconocida se explica con un hint breve. Si el riel falla,
+    // los paneles ya armados quedan visibles tal cual estaban - cero riesgo
+    // (ver feedback_aislar_fallos_ui_nunca_datos).
+    (function () {
       try {
-        // JFC 2026-07-30 ("nada es 'mi tranquilidad', no te inventes
-        // tonterias, solo pon los elementos que YA HABIA... agrupados
-        // debidamente"): SIN categorias inventadas. Cada seccion que ya
-        // existia (cada bloque con su propio titulo real) es su propia
-        // entrada del riel, usando el titulo que YA tenia en pantalla.
-        const ETIQUETA_FIJA = { "oc-acct-lock": "Capa contable" };
-        function tituloPropio(nodo) {
-          if (ETIQUETA_FIJA[nodo.id]) return ETIQUETA_FIJA[nodo.id];
-          if (/^H[1-6]$/.test(nodo.tagName)) return nodo.textContent.trim();
-          const h = nodo.querySelector && nodo.querySelector("h3,h4");
-          if (h) return h.textContent.trim();
-          if (nodo.tagName === "DETAILS") {
-            const s = nodo.querySelector("summary");
-            if (s) return s.textContent.trim();
-          }
-          return null;
+        const HINTS = {
+          "Accounting layer": "T-accounts, P&L, balance sheet, valued inventory. Needs a passcode.",
+          "Recent activity": "Today's operational history.",
+          "Timezone": "Sets what counts as \"today\" for sales and closes.",
+          "Monthly expenses": "Rent, payroll, utilities… prorated into the P&L.",
+          "Access & recovery": "Email, WhatsApp, PINs and password.",
+          "Sync your team": "Live sync across every device on your team.",
+          "Equipo": "Team members, roles and PINs for this business.",
+          "Log de actividad": "Who did what, and when.",
+          "Fraud control": "Integrity of sensitive operations.",
+          "Transfers between locations": "Move stock between branches.",
+          "Remote sync (optional)": "Your own PocketBase, if you set one up.",
+          "Device-to-device sync": "Encrypted package for another device, no internet needed.",
+          "Where the team has been": "Location pings while a session is open.",
+        };
+        function esComo(t) { t = (t || "").trim(); return /^¿?Cómo funciona/i.test(t) || /^How does it work/i.test(t); }
+        function tituloDe(n) {
+          if (!n || n.nodeType !== 1) return null;
+          if (n.id === "oc-acct-lock") return "Accounting layer";
+          if (n.id === "oc-contable" || n.id === "oc-riel-fila" || n.id === "oc-riel-nav" || n.id === "oc-riel-contenido") return null;
+          if (/^H[1-6]$/.test(n.tagName)) { const t = n.textContent.trim(); return esComo(t) ? null : (t || null); }
+          if (n.tagName === "DETAILS") { const s = n.querySelector("summary"); if (!s) return null; const ts = s.textContent.trim(); return esComo(ts) ? null : (ts || null); }
+          let h = null; try { h = n.querySelector(":scope > h3, :scope > h4"); } catch (_) {}
+          if (!h) h = n.querySelector("h3,h4");
+          if (!h) return null;
+          const th = h.textContent.trim(); return esComo(th) ? null : (th || null);
         }
-        const encabezado = Array.from(vista.children).slice(0, 3); // titulo + intro + "como funciona"
-        const resto = Array.from(vista.children).slice(3);
-        // Arma secciones EN EL ORDEN ORIGINAL: cada nodo con titulo propio
-        // arranca una seccion nueva; lo que sigue sin titulo (ej. el select
-        // de huso horario debajo de su encabezado) se pega a la anterior.
-        // Nada se descarta nunca - ver feedback_aislar_fallos_ui_nunca_datos.
-        const secciones = [];
-        let actual = null;
-        resto.forEach((nodo) => {
-          const titulo = tituloPropio(nodo);
-          if (titulo) {
-            actual = { id: "s" + secciones.length, label: titulo, nodos: [nodo] };
-            secciones.push(actual);
-          } else if (actual) {
-            actual.nodos.push(nodo);
-          } else {
-            actual = { id: "s" + secciones.length, label: "General", nodos: [nodo] };
-            secciones.push(actual);
-          }
-        });
-        const CATEGORIAS = secciones.map((s) => ({ id: s.id, label: s.label }));
-        const panes = {};
-        secciones.forEach((s) => {
-          const p = document.createElement("div");
-          p.id = "oc-riel-" + s.id;
-          p.style.display = "none";
-          s.nodos.forEach((n) => p.appendChild(n));
-          panes[s.id] = p;
-        });
+        function idDe(n, i) { if (n.id === "oc-acct-lock" || n.id === "amg-geo-caja") return n.id; if (!n.id) n.id = "oc-riel-a" + i; return n.id; }
+        function hint(n, t) {
+          if (!HINTS[t] || n.querySelector(".oc-riel-hint")) return;
+          const p = document.createElement("p");
+          p.className = "oc-riel-hint";
+          p.style.cssText = "font-size:13px;color:var(--ink-soft,#5d5340);margin:0 0 10px;line-height:1.45;";
+          p.textContent = HINTS[t];
+          try { const h = n.querySelector("h3,h4"); if (h) h.insertAdjacentElement("afterend", p); else n.insertBefore(p, n.firstChild); } catch (_) {}
+        }
 
-        // JFC 2026-07-30 ("NOOOO, yo te aprobe B, el modelo de LISTA al lado
-        // izquierdo para siempre ver la navegacion en texto, no esas
-        // tarjetitas infantiles"): la primera version uso botones-pastilla
-        // horizontales arriba - eso es la opcion C (acordeon/tarjetas), no
-        // la B que el aprobo. Reconstruido como riel de TEXTO fijo a la
-        // izquierda + panel de contenido a la derecha, sin cajas ni pildoras.
-        const rielFila = document.createElement("div");
-        rielFila.id = "oc-riel-fila";
-        rielFila.style.cssText = "display:flex;gap:0;align-items:flex-start;margin:14px 0 18px;";
+        const prev = document.getElementById("oc-riel-fila");
+        if (prev) { const c0 = document.getElementById("oc-riel-contenido"); if (c0) { while (c0.firstChild) vista.appendChild(c0.firstChild); } prev.remove(); }
 
-        const rielNav = document.createElement("nav");
-        rielNav.id = "oc-riel-nav";
-        rielNav.style.cssText = "flex:0 0 auto;width:132px;display:flex;flex-direction:column;position:sticky;top:8px;border-right:2px solid var(--azul-suave,#dde5ec);padding-right:10px;margin-right:14px;";
-        rielNav.innerHTML = CATEGORIAS.map((c) =>
-          `<button type="button" data-riel-tab="${c.id}" style="display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:10px 8px;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">${c.label}</button>`
+        const fila = document.createElement("div"); fila.id = "oc-riel-fila";
+        fila.style.cssText = "display:flex;align-items:flex-start;gap:0;margin:8px 0 12px;width:100%;box-sizing:border-box;";
+        const rNav = document.createElement("div"); rNav.id = "oc-riel-nav"; rNav.setAttribute("role", "navigation"); rNav.setAttribute("aria-label", "Advanced sections");
+        rNav.style.cssText = "flex:0 0 148px;width:148px;position:sticky;top:8px;align-self:flex-start;padding:0 10px 0 0;margin:0 14px 0 0;border-right:2px solid var(--azul-suave,#dde5ec);display:flex;flex-direction:column;max-height:calc(100vh - 24px);overflow-y:auto;background:var(--blanco-calido,#F8F9FB);z-index:3;box-sizing:border-box;";
+        const contR = document.createElement("div"); contR.id = "oc-riel-contenido";
+        contR.style.cssText = "flex:1 1 0%;min-width:0;box-sizing:border-box;";
+
+        const kids = Array.prototype.slice.call(vista.children);
+        const mover = [], secciones = []; let idx = 0;
+        kids.forEach((n, i) => {
+          if (i < 3) return; // titulo + intro + "how does it work" quedan fuera del riel
+          if (n.id === "oc-riel-fila") return;
+          if (n.tagName === "DETAILS") { const sm = n.querySelector("summary"); if (sm && esComo(sm.textContent)) return; }
+          mover.push(n);
+        });
+        mover.forEach((n) => {
+          contR.appendChild(n);
+          if (n.id === "oc-contable") return;
+          const t = tituloDe(n); if (!t) return;
+          const id = idDe(n, idx++); hint(n, t); secciones.push({ id, label: t });
+        });
+        rNav.innerHTML = secciones.map((s) =>
+          `<button type="button" data-riel-go="${s.id}" style="display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:9px 8px;margin:0;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">${s.label}</button>`
         ).join("");
+        fila.appendChild(rNav); fila.appendChild(contR); vista.appendChild(fila);
 
-        const rielContenido = document.createElement("div");
-        rielContenido.id = "oc-riel-contenido";
-        rielContenido.style.cssText = "flex:1 1 0%;min-width:0;";
-        CATEGORIAS.forEach((c) => rielContenido.appendChild(panes[c.id]));
-
-        rielFila.appendChild(rielNav);
-        rielFila.appendChild(rielContenido);
-        vista.appendChild(rielFila);
-
-        function activarTab(id) {
-          CATEGORIAS.forEach((c) => { panes[c.id].style.display = c.id === id ? "" : "none"; });
-          rielNav.querySelectorAll("[data-riel-tab]").forEach((b) => {
-            const activo = b.dataset.rielTab === id;
-            b.style.borderLeftColor = activo ? "var(--azul-medio,#2c4a68)" : "transparent";
-            b.style.background = activo ? "var(--azul-suave,#dde5ec)" : "none";
-            b.style.color = activo ? "var(--azul-medio,#2c4a68)" : "var(--ink-soft,#5d5340)";
-            b.style.setProperty("-webkit-text-fill-color", activo ? "var(--azul-medio,#2c4a68)" : "var(--ink-soft,#5d5340)");
+        function activo(id) {
+          rNav.querySelectorAll("[data-riel-go]").forEach((b) => {
+            const a = b.getAttribute("data-riel-go") === id;
+            b.style.borderLeftColor = a ? "var(--azul-medio,#2c4a68)" : "transparent";
+            b.style.background = a ? "var(--azul-suave,#dde5ec)" : "none";
+            b.style.color = a ? "var(--azul-medio,#2c4a68)" : "var(--ink-soft,#5d5340)";
+            b.style.setProperty("-webkit-text-fill-color", a ? "var(--azul-medio,#2c4a68)" : "var(--ink-soft,#5d5340)");
           });
-          try { localStorage.setItem("f123_riel_tab", id); } catch (_) {}
         }
-        rielNav.addEventListener("click", (e) => {
-          const b = e.target.closest("[data-riel-tab]");
-          if (b) activarTab(b.dataset.rielTab);
+        rNav.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-riel-go]"); if (!b) return;
+          const id = b.getAttribute("data-riel-go"), el = document.getElementById(id);
+          if (el) { try { el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (_) { el.scrollIntoView(true); } activo(id); try { localStorage.setItem("f123_riel_tab", id); } catch (_) {} }
         });
-        const idDefault = secciones.length ? secciones[0].id : null;
-        let tabInicial = idDefault;
-        try { tabInicial = localStorage.getItem("f123_riel_tab") || idDefault; } catch (_) {}
-        if (!CATEGORIAS.some((c) => c.id === tabInicial)) tabInicial = idDefault;
-        if (tabInicial) activarTab(tabInicial);
+        try { const last = localStorage.getItem("f123_riel_tab"); if (last && document.getElementById(last)) activo(last); else if (secciones[0]) activo(secciones[0].id); } catch (_) { if (secciones[0]) activo(secciones[0].id); }
 
-        // Blindaje (JFC "pecado mortal"): geo-ping.js y novedades.js montan
-        // sus paneles DESPUES de este punto (async, en otro archivo). Sin
-        // esto, "amg-geo-caja" y "oc-nov-switch-card" quedarian huerfanos
-        // al fondo de vista, fuera de cualquier pestaña. Cada uno llega con
-        // su PROPIO titulo real (tituloPropio) y se agrega como una entrada
-        // MAS del riel - nunca se mete dentro de otra seccion inventada.
         const obs = new MutationObserver((muts) => {
           muts.forEach((m) => {
             m.addedNodes.forEach((n) => {
-              if (n.nodeType === 1 && n.parentNode === vista && n !== rielFila) {
-                const titulo = tituloPropio(n) || "Más";
-                const id = "s" + CATEGORIAS.length;
-                const p = document.createElement("div");
-                p.id = "oc-riel-" + id;
-                p.style.display = "none";
-                p.appendChild(n);
-                panes[id] = p;
-                CATEGORIAS.push({ id, label: titulo });
-                const b = document.createElement("button");
-                b.type = "button"; b.dataset.rielTab = id;
-                b.style.cssText = "display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:10px 8px;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;";
-                b.textContent = titulo;
-                rielNav.appendChild(b);
-                rielContenido.appendChild(p);
-              }
+              if (n.nodeType !== 1 || n === fila) return;
+              if (n.parentNode === vista) contR.appendChild(n);
+              if (n.parentNode !== contR && n.parentNode !== vista) return;
+              const t = tituloDe(n); if (!t) return;
+              const id = idDe(n, secciones.length);
+              if (secciones.some((s) => s.id === id)) return;
+              hint(n, t); secciones.push({ id, label: t });
+              const b = document.createElement("button"); b.type = "button"; b.setAttribute("data-riel-go", id);
+              b.style.cssText = "display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:9px 8px;margin:0;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;";
+              b.textContent = t; rNav.appendChild(b);
             });
           });
         });
         obs.observe(vista, { childList: true });
+        obs.observe(contR, { childList: true });
+
+        function resp() {
+          try {
+            const angosto = window.matchMedia && window.matchMedia("(max-width:720px)").matches;
+            if (angosto) {
+              fila.style.flexDirection = "column";
+              rNav.style.cssText = "flex:0 0 auto;width:100%;position:sticky;top:0;max-height:none;overflow:visible;flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:2px solid var(--azul-suave,#dde5ec);padding:6px 0;margin:0 0 12px 0;background:var(--blanco-calido,#F8F9FB);";
+              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "auto"; b.style.borderLeft = "none"; b.style.padding = "8px 10px"; });
+            } else {
+              fila.style.flexDirection = "row";
+              rNav.style.cssText = "flex:0 0 148px;width:148px;position:sticky;top:8px;align-self:flex-start;padding:0 10px 0 0;margin:0 14px 0 0;border-right:2px solid var(--azul-suave,#dde5ec);display:flex;flex-direction:column;max-height:calc(100vh - 24px);overflow-y:auto;background:var(--blanco-calido,#F8F9FB);z-index:3;box-sizing:border-box;";
+              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "100%"; b.style.padding = "9px 8px"; });
+            }
+          } catch (_) {}
+        }
+        resp(); try { window.addEventListener("resize", resp); } catch (_) {}
       } catch (_) { /* si el riel falla, los paneles ya armados arriba siguen visibles tal cual estaban - cero riesgo */ }
     })();
 
