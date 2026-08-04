@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v35"; // bumped 2026-07-30: riel scroll-to-section con hints, importado del avance de JFC
+const CACHE = "f123-shell-v36"; // bumped 2026-07-30: banner naranja de modo admin
 const SHELL = [
   "./",
   "./index.html",

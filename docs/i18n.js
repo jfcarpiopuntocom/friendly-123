@@ -490,6 +490,7 @@
       "auth.roleChip.admin": "Admin",
       "auth.roleChip.employee": "Employee",
       "auth.roleChip.accountant": "Accountant",
+      "auth.adminBanner": "You're in admin mode — not the license owner.",
     },
     es: {
       // Puntos de retorno + constancia del empleado + edutips
@@ -962,6 +963,7 @@
       "auth.roleChip.admin": "Admin",
       "auth.roleChip.employee": "Empleado/a",
       "auth.roleChip.accountant": "Contador/a",
+      "auth.adminBanner": "Estás en modo administrador — no eres el dueño de la licencia.",
     },
   };
 
