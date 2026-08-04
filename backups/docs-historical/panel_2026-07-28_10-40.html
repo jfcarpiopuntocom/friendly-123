@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<!-- panel.html — PANEL MAESTRO de friendly-123 (JFC, master admin)
+     Acceso: jfcarpiopuntocom.github.io/friendly-123/panel.html
+     PRIVADO: URL no publicada en ningún lugar de la app demo ni en la landing.
+     Protegido con PIN de 6 dígitos (WebCrypto SHA-256 en el navegador).
+     Acciones: liberar correo de un cliente (requiere segundo PIN).
+
+     v1.0 — 2026-07-15 — Clonado de docs/panel.html de AMIGABLE, adaptado a
+            friendly-123. PIN subido de 3 a 6 dígitos (mejora de seguridad,
+            decidida por JFC). AMIGABLE se migra a 6 dígitos en tarea aparte
+            (JFC hará /make-plan) — NO tocar ese archivo desde aquí.
+
+     NOTA DE DATOS: los números de versión/commit son un SNAPSHOT MANUAL al
+     2026-07-15. Una página estática no puede consultar git en vivo. Al pushear
+     cambios grandes, actualiza el bloque de "Instancias · detalle" y la tabla
+     de "Control de versiones" de abajo. -->
+<meta charset="UTF-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="dark">
+<title>Panel · f123</title>
+<style>
+  :root{
+    --bg:#0f1117;
+    --surface:#1a1e2a;
+    --surface2:#222736;
+    --border:#2e3448;
+    --gold:#c9953a;
+    --gold-dim:#b8862f;
+    --green:#28c98a;
+    --green-dim:#1a7a52;
+    --amber:#d4832a;
+    --red:#c94040;
+    --blue:#4a7fd4;      /* marca de proyectos relacionados/otros */
+    --ink:#e8e4dc;
+    --ink-soft:#b8b3bf;  /* secundario legible (>= #999, regla de legibilidad) */
+    --ink-dim:#9d9aa8;   /* terciario — nunca más oscuro que #999 */
+    --font:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+    --mono:"Cascadia Code","JetBrains Mono","Consolas",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;}
+
+  /* ── PIN GATE ── ocupa la pantalla completa hasta que autentique */
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;flex-direction:column;gap:0;}
+  #gate-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px 28px;width:min(380px,92vw);display:flex;flex-direction:column;align-items:center;gap:20px;}
+  #gate-brand{font-size:14px;font-family:var(--mono);color:var(--ink-dim);letter-spacing:0.08em;text-transform:uppercase;}
+  #gate-title{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:0.01em;}
+
+  /* Casillas de entrada (●●●●●●) — 6 dígitos */
+  .slots{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .slot{width:34px;height:34px;border:2px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ink);background:var(--surface2);transition:border-color .15s;}
+  .slot.lleno{border-color:var(--gold);}
+
+  /* Teclado numérico */
+  .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;}
+  .pad-key{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:12px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;user-select:none;transition:background .12s, transform .08s;-webkit-tap-highlight-color:transparent;}
+  .pad-key:active{background:var(--border);transform:scale(.95);}
+  .pad-key .emoji{font-size:18px;line-height:1;}
+  .pad-key .digit{font-size:17px;font-weight:700;font-family:var(--mono);color:var(--ink);line-height:1;}
+  .pad-key.borrar{grid-column:span 1;background:transparent;border-color:var(--border);color:var(--ink-soft);font-size:14px;font-weight:600;}
+  .pad-key.vacio{visibility:hidden;pointer-events:none;}
+
+  #gate-msg{font-size:14px;font-family:var(--mono);min-height:18px;color:var(--red);text-align:center;}
+
+  /* ── PANEL PRINCIPAL (oculto hasta auth) ── */
+  #panel{display:none;}
+  #panel.visible{display:block;}
+
+  /* Topbar */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:10;}
+  .topbar-brand{display:flex;align-items:center;gap:10px;}
+  .topbar-sello{width:34px;height:34px;border-radius:8px;background:var(--gold);color:#000;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .topbar-brand h1{font-size:16px;font-weight:700;}
+  .topbar-brand .role{font-size:13px;color:var(--ink-soft);font-family:var(--mono);margin-top:1px;}
+  .topbar-right{display:flex;align-items:center;gap:14px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2.5s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  #btn-cerrar{font-size:13px;font-family:var(--mono);color:var(--ink-dim);background:transparent;border:1px solid var(--border);border-radius:5px;padding:6px 11px;cursor:pointer;}
+  #btn-cerrar:hover{color:var(--ink);}
+
+  /* Layout */
+  main{max-width:1040px;margin:0 auto;padding:28px 20px 60px;}
+
+  /* Stats bar */
+  .stats-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:28px;}
+  .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+  .stat-value{font-size:26px;font-weight:700;font-family:var(--mono);line-height:1.1;}
+  .stat-label{font-size:13px;color:var(--ink-soft);margin-top:4px;text-transform:uppercase;letter-spacing:.06em;}
+
+  /* Sección heading */
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;margin-top:34px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+  .sec-head h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gold);}
+  .sec-head .hint{font-size:13px;font-family:var(--mono);color:var(--ink-dim);}
+
+  /* Callout de ROLES — evita confundir master con dueño y proyectos entre sí */
+  .roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:8px;}
+  .role-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;border-left:3px solid var(--gold);}
+  .role-card.dueno{border-left-color:var(--green);}
+  .role-card.aviso{border-left-color:var(--red);grid-column:1/-1;}
+  .role-card h3{font-size:14px;font-weight:700;margin-bottom:6px;color:var(--ink);}
+  .role-card p{font-size:14px;color:var(--ink-soft);line-height:1.55;}
+  .role-card strong{color:var(--ink);}
+
+  /* Grilla proyectos */
+  .proyectos{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+  .pcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px;}
+  .pcard.prod{border-top:3px solid var(--green);}
+  .pcard.demo{border-top:3px solid var(--amber);}
+  .pcard.main{border-top:3px solid var(--gold);}
+  .pcard.otro{border-top:3px solid var(--blue);}
+  .pcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+  .pcard-nombre{font-size:17px;font-weight:700;line-height:1.2;}
+  .pcard-sub{font-size:13px;color:var(--ink-soft);font-family:var(--mono);margin-top:2px;}
+  .badge{font-size:12px;font-family:var(--mono);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:4px;flex-shrink:0;}
+  .badge-prod{background:rgba(40,201,138,.16);color:var(--green);}
+  .badge-demo{background:rgba(212,131,42,.18);color:var(--amber);}
+  .badge-main{background:rgba(201,149,58,.18);color:var(--gold);}
+  .badge-otro{background:rgba(74,127,212,.18);color:var(--blue);}
+  .pcard-desc{font-size:14px;color:var(--ink-soft);line-height:1.5;}
+
+  /* Filas de datos técnicos dentro de cada card */
+  .datos{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13px;align-items:baseline;}
+  .datos dt{color:var(--ink-dim);font-family:var(--mono);white-space:nowrap;}
+  .datos dd{color:var(--ink);font-family:var(--mono);word-break:break-word;}
+  .datos dd.ok{color:var(--green);}
+  .datos dd.warn{color:var(--amber);}
+
+  .pcard-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px;}
+  .btn{display:inline-flex;align-items:center;gap:5px;padding:8px 13px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid transparent;transition:opacity .15s;}
+  .btn:hover{opacity:.82;}
+  .btn-primary{background:var(--gold);color:#000;}
+  .btn-outline{background:transparent;border-color:var(--border);color:var(--ink-soft);}
+  .btn-outline:hover{border-color:var(--gold-dim);color:var(--ink);}
+  .btn-danger{background:transparent;border-color:var(--red);color:var(--red);}
+  .btn-danger:hover{background:rgba(201,64,64,.12);}
+
+  /* Tabla comparativa de versiones */
+  .tabla-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
+  table.versiones{width:100%;border-collapse:collapse;font-size:13px;min-width:640px;}
+  table.versiones th,table.versiones td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);}
+  table.versiones th{background:var(--surface2);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-size:12px;font-weight:700;white-space:nowrap;}
+  table.versiones td{color:var(--ink);font-family:var(--mono);}
+  table.versiones tr:last-child td{border-bottom:none;}
+  table.versiones td.nom{font-family:var(--font);font-weight:700;}
+  .pill{display:inline-block;font-size:12px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:4px;}
+  .pill.green{background:rgba(40,201,138,.16);color:var(--green);}
+  .pill.amber{background:rgba(212,131,42,.18);color:var(--amber);}
+  .pill.gold{background:rgba(201,149,58,.18);color:var(--gold);}
+  .pill.blue{background:rgba(74,127,212,.18);color:var(--blue);}
+
+  /* ── LICENCIAS (patrón heredado del panel de AMIGABLE, JFC 2026-07-10) ──
+     Todo el monitoreo de instancias vive AQUÍ, en el panel maestro. Config del
+     Worker vacía por defecto — friendly-123 aún no tiene Worker propio desplegado. */
+  .lic-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.04em;font-family:var(--mono);}
+  .lic-badge.activa{background:rgba(40,201,138,.18);color:var(--green);}
+  .lic-badge.observada{background:rgba(74,127,212,.18);color:var(--blue);}
+  .lic-badge.limitada{background:rgba(212,131,42,.20);color:var(--amber);}
+  .lic-badge.bloqueada{background:rgba(201,64,64,.20);color:var(--red);}
+  .lic-input{padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:14px;font-family:var(--mono);}
+  .lic-input:focus{outline:none;border-color:var(--gold-dim);}
+  #lic-tabla td.date{font-size:12px;color:var(--ink-soft);font-family:var(--mono);}
+  #lic-tabla select{padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink);font-size:13px;cursor:pointer;}
+  #lic-tabla td .btn-ok{padding:5px 10px;border-radius:5px;border:none;background:var(--green-dim);color:#fff;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px;}
+
+  /* Notas operativas / roadmap */
+  .notas{display:grid;gap:10px;}
+  .nota{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 18px;}
+  .nota-head{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+  .nota-body{font-size:14px;color:var(--ink-soft);line-height:1.6;}
+  .nota-body strong{color:var(--ink);}
+  code{background:var(--surface2);padding:1px 6px;border-radius:3px;font-family:var(--mono);font-size:13px;color:var(--ink);}
+
+  /* Roadmap fases */
+  .fases{display:grid;gap:8px;}
+  .fase{display:flex;align-items:flex-start;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 16px;}
+  .fase-ico{font-size:16px;line-height:1.4;flex-shrink:0;}
+  .fase-txt{font-size:14px;color:var(--ink-soft);line-height:1.5;}
+  .fase-txt b{color:var(--ink);}
+  .fase.done{border-left:3px solid var(--green);}
+  .fase.next{border-left:3px solid var(--amber);}
+  .fase.todo{border-left:3px solid var(--border);}
+
+  /* Modal de confirmación (segundo PIN para acciones) */
+  #modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;}
+  #modal-overlay.visible{display:flex;}
+  #modal-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px 26px;width:min(360px,90vw);display:flex;flex-direction:column;align-items:center;gap:16px;}
+  #modal-titulo{font-size:16px;font-weight:700;text-align:center;}
+  #modal-desc{font-size:14px;color:var(--ink-soft);text-align:center;line-height:1.5;}
+  #modal-msg{font-size:13px;font-family:var(--mono);min-height:16px;color:var(--red);}
+  #modal-cancelar{font-size:13px;color:var(--ink-dim);background:transparent;border:none;cursor:pointer;padding:4px 8px;}
+
+  footer{text-align:center;font-size:13px;color:var(--ink-dim);font-family:var(--mono);padding:28px 20px 16px;border-top:1px solid var(--border);margin-top:20px;}
+  footer em{font-style:italic;color:var(--gold-dim);}
+
+  @media(max-width:520px){
+    .topbar{padding:12px 14px;}
+    main{padding:18px 12px 48px;}
+    #gate-box{padding:28px 20px 22px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     GATE — pantalla de PIN (visible hasta auth)
+     ══════════════════════════════════════════════ -->
+<div id="gate">
+  <div id="gate-box">
+    <div id="gate-brand">friendly-123 · Master Panel</div>
+    <div id="gate-title">Acceso privado</div>
+    <div class="slots" id="gate-slots">
+      <div class="slot" id="gs0"></div>
+      <div class="slot" id="gs1"></div>
+      <div class="slot" id="gs2"></div>
+      <div class="slot" id="gs3"></div>
+      <div class="slot" id="gs4"></div>
+      <div class="slot" id="gs5"></div>
+    </div>
+    <div class="pad" id="gate-pad"></div>
+    <div id="gate-msg"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PANEL PRINCIPAL
+     ══════════════════════════════════════════════ -->
+<div id="panel">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-sello">JFC</div>
+      <div>
+        <h1>friendly-123 · Master Panel</h1>
+        <div class="role">Master Admin — JFC · sesión activa</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--green);font-family:var(--mono);">
+        <div class="dot"></div><span id="status-label">En línea</span>
+      </div>
+      <button id="btn-cerrar">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <main>
+    <!-- HERRAMIENTAS DE MARKETING — compartibles con clientes/prospectos -->
+    <div class="sec-head" style="margin-top:0;"><h2>Herramientas de marketing</h2><span class="hint">click en “Copiar link” para compartir por WhatsApp</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:28px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">App</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Demo en vivo</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">La app completa funcionando en el celular del cliente, sin instalación.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Filosofía</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Manifiesto</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Para clientes que necesitan entender el por qué antes de ver el producto.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/manifiesto.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/manifiesto.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Pitch</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Informe Ejecutivo</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Capacidades y resultados. El más completo para prospectos.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/informe-ejecutivo.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/informe-ejecutivo.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Reporte</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Sistema operativo del mostrador</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Foco en el usuario: quién es, qué pierde, qué gana.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/reporte-usuario.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/reporte-usuario.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">ROI</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">ROI Tienda Pequeña ($2,500)</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Números duros: cuánto pierde y cuánto recupera un negocio con $2,500 de inventario.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/roi-tienda.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/roi-tienda.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Manual</div>
+        <div style="font-size:15px;font-weight:700;color:var(--ink);">Manual Maestro</div>
+        <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Guía completa de uso para el dueño.</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/manual-maestro.html" target="_blank" rel="noopener">Abrir →</a>
+          <button class="btn btn-outline" onclick="navigator.clipboard.writeText('https://jfcarpiopuntocom.github.io/friendly-123/manual-maestro.html').then(()=>mostrarConfirmacion('Enlace copiado'))">Copiar link</button>
+        </div>
+      </div>
+    </div>
+    <!-- STATS -->
+    <div class="sec-head"><h2>Resumen</h2><span class="hint" id="fecha-panel"></span></div>
+    <div class="stats-bar">
+      <div class="stat-box"><div class="stat-value">2</div><div class="stat-label">Apps</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--gold);">1</div><div class="stat-label">Main / demo pública</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--blue);">1</div><div class="stat-label">Relacionado</div></div>
+      <div class="stat-box"><div class="stat-value" style="color:var(--gold);">v1.2.0</div><div class="stat-label">Versión estable</div></div>
+    </div>
+
+    <!-- LICENCIAS — conectado a un Cloudflare Worker externo (config vacía por defecto) -->
+    <div class="sec-head"><h2>Licencias · instancias activas</h2><span class="hint" id="lic-meta">configura el Worker →</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn btn-outline" onclick="licToggleConfig()">⚙️ Config Worker</button>
+      <button class="btn btn-outline" onclick="licRecargar()">↻ Recargar</button>
+      <button class="btn btn-outline" onclick="licExportCSV()">Exportar CSV</button>
+    </div>
+    <div id="lic-config" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px;">
+      <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">URL del Cloudflare Worker</label>
+      <input class="lic-input" id="lic-worker-url" type="url" placeholder="https://friendly123-lic.tucuenta.workers.dev" style="width:100%;margin-bottom:10px;">
+      <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">Master Key del Worker (viaja como X-Master-Key)</label>
+      <input class="lic-input" id="lic-master-key" type="password" placeholder="tu-clave-secreta-larga" style="width:100%;margin-bottom:12px;">
+      <button class="btn btn-primary" onclick="licGuardarConfig()">Guardar</button>
+    </div>
+    <div class="stats-bar" id="lic-stats" style="margin-bottom:14px;"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input class="lic-input" id="lic-filtro" placeholder="Buscar nombre, email, cédula o código…" oninput="licFiltrar()" style="flex:1;min-width:200px;">
+      <select class="lic-input" id="lic-filtro-estado" onchange="licFiltrar()" style="cursor:pointer;">
+        <option value="">Todos los estados</option>
+        <option value="activa">Activa</option>
+        <option value="observada">Observada</option>
+        <option value="limitada">Limitada</option>
+        <option value="bloqueada">Bloqueada</option>
+      </select>
+    </div>
+    <div class="tabla-wrap">
+      <div id="lic-empty" style="padding:34px 20px;text-align:center;color:var(--ink-soft);font-size:14px;display:none;">Aún no hay instancias. Cuando tengas el Worker configurado, aparecerán aquí.</div>
+      <table class="versiones" id="lic-tabla" style="display:none;">
+        <thead><tr><th>Estado</th><th>Código f123</th><th>Nombre</th><th>Email</th><th>WhatsApp</th><th>Cédula</th><th>Activado</th><th>Última vez</th><th>Acción</th></tr></thead>
+        <tbody id="lic-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- INSTANCIAS — detalle por proyecto -->
+    <div class="sec-head"><h2>Instancias · detalle</h2><span class="hint">snapshot 2026-07-15</span></div>
+    <div class="proyectos">
+
+      <!-- ══ friendly-123 — MAIN / MASTER ══ -->
+      <div class="pcard main">
+        <div class="pcard-top">
+          <div>
+            <div class="pcard-nombre">friendly-123</div>
+            <div class="pcard-sub">Inventario · clientes · perchas</div>
+          </div>
+          <span class="badge badge-main">Main</span>
+        </div>
+        <div class="pcard-desc">Repo <strong style="color:var(--ink)">principal</strong> del control de inventario, clientes y perchas. GitHub Pages activo (branch master, path /docs), repo ahora público. Aloja este panel.</div>
+        <dl class="datos">
+          <dt>repo</dt><dd>friendly-123</dd>
+          <dt>rama</dt><dd>master</dd>
+          <dt>versión</dt><dd class="ok">v1.2.0</dd>
+          <dt>último</dt><dd>0bc3621 · 07-15 13:20</dd>
+          <dt>backend</dt><dd>estático · GitHub Pages</dd>
+          <dt>LS key</dt><dd>f123_secure</dd>
+          <dt>códigos</dt><dd class="warn">sin código maestro estático (reset por EmailJS)</dd>
+          <dt>backups</dt><dd class="warn">no trackeados aún</dd>
+        </dl>
+        <div class="pcard-actions">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/friendly-123/" target="_blank" rel="noopener">Abrir</a>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/friendly-123" target="_blank" rel="noopener">Repo</a>
+          <button class="btn btn-danger" data-action="liberar" data-key="f123_secure" data-nombre="friendly-123">🔓 Liberar correo</button>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/friendly-123/edit/master/docs/version.json" target="_blank" rel="noopener" title="Editar version.json: al commitear, cada instalación de friendly-123 detecta la versión nueva y muestra el aviso. No auto-reemplaza nada.">⬆️ Publicar update</a>
+        </div>
+      </div>
+
+      <!-- ══ AMIGABLE — proyecto relacionado (panel propio aparte) ══ -->
+      <div class="pcard otro">
+        <div class="pcard-top">
+          <div>
+            <div class="pcard-nombre">AMIGABLE</div>
+            <div class="pcard-sub">Proyecto relacionado · panel propio</div>
+          </div>
+          <span class="badge badge-otro">Related</span>
+        </div>
+        <div class="pcard-desc">Repo hermano de <strong style="color:var(--ink)">friendly-123</strong>. Tiene su propio panel maestro (aún con PIN de 3 dígitos — migración a 6 pendiente, JFC la hará en tarea aparte).</div>
+        <dl class="datos">
+          <dt>repo</dt><dd>AMIGABLE</dd>
+          <dt>rama</dt><dd>main</dd>
+          <dt>último</dt><dd>3b3d65c · 07-15 13:12</dd>
+        </dl>
+        <div class="pcard-actions">
+          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/panel.html" target="_blank" rel="noopener">Abrir su panel</a>
+          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/AMIGABLE" target="_blank" rel="noopener">Repo</a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TABLA COMPARATIVA DE VERSIONES -->
+    <div class="sec-head"><h2>Control de versiones</h2><span class="hint">para planear updates/parches</span></div>
+    <div class="tabla-wrap">
+      <table class="versiones">
+        <thead>
+          <tr>
+            <th>App</th><th>Repo</th><th>Rama</th><th>Ver.</th><th>Último commit</th><th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="nom">friendly-123</td><td>friendly-123</td><td>master</td><td>v1.2.0</td>
+            <td>0bc3621 · 07-15 13:20</td><td><span class="pill gold">Main</span></td>
+          </tr>
+          <tr>
+            <td class="nom">AMIGABLE</td><td>AMIGABLE</td><td>main</td><td>—</td>
+            <td>3b3d65c · 07-15 13:12</td><td><span class="pill blue">Related</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- CÓDIGOS MAESTROS — referencia -->
+    <div class="sec-head"><h2>Códigos maestros de recuperación</h2><span class="hint">solo master</span></div>
+    <div class="tabla-wrap">
+      <table class="versiones">
+        <thead><tr><th>App</th><th>Código(s)</th><th>Uso</th></tr></thead>
+        <tbody>
+          <tr><td class="nom">Panel Maestro</td><td>4-1-9-2-5-7</td><td>Acceso a este panel — 6 dígitos, solo tú lo sabes</td></tr>
+          <tr><td class="nom">friendly-123 (app)</td><td>N/A — sin código maestro estático</td><td>La recuperación de PIN del dueño usa reset por EmailJS (código temporal, expira en 15 min), no una lista de códigos fija en el código fuente.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ROADMAP — solo fases confirmadas en el código de friendly-123 -->
+    <div class="sec-head"><h2>Roadmap · distribución friendly-123</h2><span class="hint">soberanía digital</span></div>
+    <div class="fases">
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>version.json + chequeo de versión.</b> Entregada (v1.2.0, 2026-07-08): <code>docs/version.json</code> en vivo con changelog visible para la app.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Service worker / PWA.</b> Entregada: <code>docs/sw.js</code> + <code>docs/manifest.json</code> presentes en el repo.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>GitHub Pages público.</b> Entregada (2026-07-15): repo público, Pages activo en branch master /docs.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Panel de control de JFC.</b> Este panel, con "🔓 Liberar correo" y "⬆️ Publicar update" por app.</div></div>
+      <div class="fase todo"><div class="fase-ico">▫️</div><div class="fase-txt"><b>Cloudflare Worker de licencias.</b> Aún no desplegado para friendly-123 — la sección "Licencias" de arriba queda vacía hasta configurar URL + Master Key.</div></div>
+    </div>
+
+
+    <!-- DELICADO — solo para master -->
+    <div class="sec-head"><h2 style="color:var(--red);">⚠️ Solo para ti — no compartir</h2></div>
+    <!-- ROLES — bloque anti-confusión (master vs dueño; proyectos distintos) -->
+    <div class="sec-head"><h2>Roles y aclaraciones</h2></div>
+    <div class="roles">
+      <div class="role-card">
+        <h3>🕵️ Master (tú, JFC)</h3>
+        <p>Controlas <strong>versiones, parches, códigos maestros y despliegues</strong> de friendly-123. Este panel es tuyo. Accedes con tu PIN de 6 dígitos.</p>
+      </div>
+      <div class="role-card dueno">
+        <h3>🏪 Dueño / Admin de local</h3>
+        <p>Opera <strong>su</strong> negocio con sus propios PINs (dueño, empleado, contable) dentro de la app. NO es master. No ve este panel.</p>
+      </div>
+      <div class="role-card aviso">
+        <h3>⚠️ No confundir productos</h3>
+        <p><strong>friendly-123</strong> y <strong>AMIGABLE</strong> son repos hermanos con historia compartida, pero cada uno tiene su propio panel, su propio PIN y su propio Worker de licencias. Nunca tratar uno como copia exacta del otro.</p>
+      </div>
+    </div>
+
+    <!-- NOTAS OPERATIVAS -->
+    <div class="sec-head"><h2>Notas operativas</h2></div>
+    <div class="notas">
+      <div class="nota">
+        <div class="nota-head">Liberar correo — ¿qué hace exactamente?</div>
+        <div class="nota-body">
+          Borra el campo <code>email</code> dentro de <code>localStorage["oc_secure"]</code> del cliente
+          (misma origin github.io). El dueño vuelve a ver el formulario de correo en su sección Avanzado,
+          sin tocar sus PINs ni el resto de su configuración.<br><br>
+          <strong>Atención:</strong> esto afecta la demo en esta misma pestaña. Para producción (servidor propio),
+          ir físicamente al dispositivo del cliente o usar la entrada de código maestro en Avanzado.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">Recuperación de PIN — cómo funciona en friendly-123</div>
+        <div class="nota-body">
+          A diferencia de AMIGABLE (que tiene una lista fija <code>MASTER_CODES_AUTHORIZED</code>), friendly-123
+          usa un flujo de <strong>reset temporal vía EmailJS</strong>: se genera un código con expiración de 15
+          minutos guardado en <code>localStorage["oc_reset"]</code>. Configura <code>EMAILJS_CONFIG</code> en
+          <code>email-recovery.js</code>; hasta entonces, el código de reset aparece en pantalla.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">Mantener este panel al día</div>
+        <div class="nota-body">
+          Los números de versión/commit son un <strong>snapshot manual</strong> (una página estática no consulta git en vivo).
+          Al pushear cambios grandes, actualiza las cards y la tabla de arriba con el nuevo hash y fecha.
+        </div>
+      </div>
+      <div class="nota">
+        <div class="nota-head">PIN de 6 dígitos — por qué el cambio</div>
+        <div class="nota-body">
+          JFC decidió subir de 3 a 6 dígitos como mejora de seguridad para reducir el espacio de fuerza bruta
+          por shoulder-surfing/memorización. friendly-123 nace con 6 dígitos desde el día uno; AMIGABLE migrará
+          en una tarea aparte que JFC ejecutará con <code>/make-plan</code>.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    friendly-123 · Master Panel · private · noindex · 2026
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MODAL — segundo PIN para confirmar acción (6 dígitos)
+     ══════════════════════════════════════════════ -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <div id="modal-titulo">Confirmar acción</div>
+    <div id="modal-desc">Ingresa tu código para liberar el correo de <strong id="modal-cliente"></strong>.</div>
+    <div class="slots" id="modal-slots">
+      <div class="slot" id="ms0"></div>
+      <div class="slot" id="ms1"></div>
+      <div class="slot" id="ms2"></div>
+      <div class="slot" id="ms3"></div>
+      <div class="slot" id="ms4"></div>
+      <div class="slot" id="ms5"></div>
+    </div>
+    <div class="pad" id="modal-pad"></div>
+    <div id="modal-msg"></div>
+    <button id="modal-cancelar">Cancelar</button>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// panel.html — lógica principal. Clonada del panel de AMIGABLE, con el PIN
+// subido de 3 a 6 dígitos (gate y modal). Teclado con emojis barajados,
+// modal de segundo PIN para confirmar "liberar correo", licencias vía Worker.
+// ============================================================================
+
+// EMOJIS EXCLUSIVOS DEL PANEL — "just for me" (JFC). Temática espionaje/tech.
+const PANEL_EMOJIS = [
+  "🕵️", "🔐", "🗝️", "🔍", "🧩", "🎯", "🌐", "🛸", "💠", "⚡",
+  "🔮", "🌌", "⛓️", "🧬", "🪐", "⚗️", "🔭", "💡", "🌀", "🎱",
+  "🏹", "🧿", "🔬", "💫", "🌠", "🎰",
+];
+
+// HASH esperado del código de acceso. El código NO aparece como literal.
+// PIN de 6 dígitos — JFC puede cambiarlo editando este array (mismo orden = el PIN).
+// SEGURIDAD (2026-07-16): el PIN ya NO vive en el codigo fuente, solo su hash SHA-256.
+// Para cambiar el PIN: sha256 del nuevo PIN -> reemplazar _expectedHash. NO poner el PIN en claro.
+const _PIN_LEN = 6;
+const _expectedHash = "eaa98de6c2fe709ba90d71464e4bd004cbe5cc13f5400ed6f49efc2fb0308068";
+
+async function sha256hex(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
+
+function barajar(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function montarTeclado(padEl, slotsEl, onComplete) {
+  let entrada = [];
+  const pool = barajar(PANEL_EMOJIS);
+  padEl.innerHTML = "";
+  for (let d = 0; d <= 9; d++) {
+    if (d === 0) {
+      const vacio = document.createElement("div");
+      vacio.className = "pad-key vacio";
+      padEl.appendChild(vacio);
+    }
+    const key = document.createElement("div");
+    key.className = "pad-key";
+    key.innerHTML = `<span class="emoji">${pool[d]}</span><span class="digit">${d}</span>`;
+    key.addEventListener("click", () => {
+      if (entrada.length >= _PIN_LEN) return;
+      entrada.push(String(d));
+      actualizarSlots(slotsEl, entrada.length);
+      if (entrada.length === _PIN_LEN) onComplete(entrada.join(""), resetEntrada);
+    });
+    padEl.appendChild(key);
+    if (d === 0) {
+      const borrar = document.createElement("div");
+      borrar.className = "pad-key borrar";
+      borrar.textContent = "⌫";
+      borrar.addEventListener("click", () => {
+        if (!entrada.length) return;
+        entrada.pop();
+        actualizarSlots(slotsEl, entrada.length);
+      });
+      padEl.appendChild(borrar);
+    }
+  }
+  function actualizarSlots(slotsEl, n) {
+    const slots = slotsEl.querySelectorAll(".slot");
+    slots.forEach((s, i) => {
+      if (i < n) { s.textContent = "●"; s.classList.add("lleno"); }
+      else { s.textContent = ""; s.classList.remove("lleno"); }
+    });
+  }
+  function resetEntrada() {
+    entrada = [];
+    actualizarSlots(slotsEl, 0);
+  }
+  return resetEntrada;
+}
+
+// ── GATE ──
+async function initGate() {
+  
+  const padEl = document.getElementById("gate-pad");
+  const slotsEl = document.getElementById("gate-slots");
+  const msgEl = document.getElementById("gate-msg");
+  if (sessionStorage.getItem("panel_auth_f123") === "1") { mostrarPanel(); return; }
+  montarTeclado(padEl, slotsEl, async (codigo, reset) => {
+    const h = await sha256hex(codigo);
+    if (h === _expectedHash) {
+      sessionStorage.setItem("panel_auth_f123", "1");
+      mostrarPanel();
+    } else {
+      msgEl.textContent = "Código incorrecto.";
+      setTimeout(() => { msgEl.textContent = ""; reset(); }, 1400);
+    }
+  });
+}
+
+function mostrarPanel() {
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("panel").classList.add("visible");
+  initPanel();
+}
+
+// ── PANEL ──
+function initPanel() {
+  const d = new Date();
+  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  document.getElementById("fecha-panel").textContent =
+    d.getDate() + " " + meses[d.getMonth()] + " " + d.getFullYear();
+  document.getElementById("btn-cerrar").addEventListener("click", () => {
+    sessionStorage.removeItem("panel_auth_f123");
+    location.reload();
+  });
+  document.querySelectorAll("[data-action='liberar']").forEach(btn => {
+    btn.addEventListener("click", () => abrirModalLiberar(btn.dataset.nombre, btn.dataset.key));
+  });
+  licInit();
+}
+
+// ── LICENCIAS — config en localStorage, datos vía Cloudflare Worker ──
+function licGetCfg() {
+  try { return JSON.parse(localStorage.getItem("f123_master_cfg") || "{}"); } catch (_) { return {}; }
+}
+function licSetCfg(obj) {
+  const prev = licGetCfg();
+  localStorage.setItem("f123_master_cfg", JSON.stringify({ ...prev, ...obj }));
+}
+function licWorkerUrl() { return (licGetCfg().workerUrl || "").trim(); }
+function licMasterKey() { return (licGetCfg().masterKey || "").trim(); }
+
+function licInit() {
+  const cfg = licGetCfg();
+  const u = document.getElementById("lic-worker-url");
+  const k = document.getElementById("lic-master-key");
+  if (u) u.value = cfg.workerUrl || "";
+  if (k) k.value = cfg.masterKey || "";
+  if (cfg.workerUrl) licRecargar();
+  else { licMostrarVacio(); document.getElementById("lic-meta").textContent = "configura el Worker →"; }
+}
+function licToggleConfig() {
+  const p = document.getElementById("lic-config");
+  p.style.display = p.style.display === "none" ? "block" : "none";
+}
+function licGuardarConfig() {
+  const workerUrl = document.getElementById("lic-worker-url").value.trim();
+  const masterKey = document.getElementById("lic-master-key").value.trim();
+  if (workerUrl) {
+    let u;
+    try { u = new URL(workerUrl); } catch (_) { mostrarConfirmacion("URL inválida — revisa que esté completa"); return; }
+    if (u.protocol !== "https:") { mostrarConfirmacion("La URL del Worker debe empezar con https://"); return; }
+  }
+  licSetCfg({ workerUrl, masterKey });
+  mostrarConfirmacion("Configuración del Worker guardada");
+  licRecargar();
+}
+let _licData = [];
+async function licRecargar() {
+  const url = licWorkerUrl();
+  const meta = document.getElementById("lic-meta");
+  if (!url) { meta.textContent = "sin URL del Worker — abre Config"; licMostrarVacio(); return; }
+  if (!licMasterKey()) { meta.textContent = "falta la Master Key — abre Config"; mostrarConfirmacion("Configura la Master Key del Worker"); return; }
+  meta.textContent = "cargando…";
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias", { headers: { "X-Master-Key": licMasterKey() } });
+    if (res.status === 401) { meta.textContent = "Master Key incorrecta"; mostrarConfirmacion("Master Key incorrecta"); return; }
+    const data = await res.json();
+    _licData = Array.isArray(data) ? data : [];
+    licRenderTabla(_licData);
+    licRenderStats(_licData);
+    meta.textContent = _licData.length + " instancia(s) · " + (new Date()).toLocaleTimeString("es");
+  } catch (e) {
+    meta.textContent = "error al conectar con el Worker";
+    mostrarConfirmacion("No se pudo conectar: " + e.message);
+  }
+}
+function licEsc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function licFmtDate(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return d.toLocaleDateString("es") + " " + d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+}
+function licRenderStats(data) {
+  const c = { activa: 0, observada: 0, limitada: 0, bloqueada: 0 };
+  data.forEach(r => { if (c[r.estado] !== undefined) c[r.estado]++; });
+  document.getElementById("lic-stats").innerHTML =
+    `<div class="stat-box"><div class="stat-value">${data.length}</div><div class="stat-label">Total</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--green);">${c.activa}</div><div class="stat-label">Activas</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--blue);">${c.observada}</div><div class="stat-label">Observadas</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--amber);">${c.limitada}</div><div class="stat-label">Limitadas</div></div>` +
+    `<div class="stat-box"><div class="stat-value" style="color:var(--red);">${c.bloqueada}</div><div class="stat-label">Bloqueadas</div></div>`;
+}
+function licMostrarVacio() {
+  document.getElementById("lic-empty").style.display = "block";
+  document.getElementById("lic-tabla").style.display = "none";
+}
+// wa.me exige solo digitos (con codigo de pais, sin "+", espacios ni guiones).
+function licWaHref(tel) {
+  const digits = String(tel || "").replace(/\D/g, "");
+  return digits ? "https://wa.me/" + digits : "";
+}
+function licRenderTabla(data) {
+  if (!data.length) { licMostrarVacio(); return; }
+  document.getElementById("lic-empty").style.display = "none";
+  document.getElementById("lic-tabla").style.display = "table";
+  const tb = document.getElementById("lic-tbody");
+  tb.innerHTML = "";
+  data.forEach(r => {
+    const est = r.estado || "activa";
+    const id = licEsc(r.instanceId);
+    const waHref = licWaHref(r.whatsapp);
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      `<td><span class="lic-badge ${licEsc(est)}">${licEsc(est)}</span></td>` +
+      `<td class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}</td>` +
+      `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || "—")}</td>` +
+      `<td style="font-size:13px;">${licEsc(r.email || "—")}</td>` +
+      `<td style="font-size:13px;">${waHref ? `<a href="${waHref}" target="_blank" style="color:#25D366;">💬 ${licEsc(r.whatsapp)}</a>` : "—"}</td>` +
+      `<td style="font-size:13px;">${licEsc(r.cedula || "—")}</td>` +
+      `<td class="date">${licFmtDate(r.activatedAt)}</td>` +
+      `<td class="date">${licFmtDate(r.lastSeen)}</td>` +
+      `<td><select id="lic-sel-${id}">` +
+      `<option value="activa"${est === "activa" ? " selected" : ""}>Activa</option>` +
+      `<option value="observada"${est === "observada" ? " selected" : ""}>Observada</option>` +
+      `<option value="limitada"${est === "limitada" ? " selected" : ""}>Limitada</option>` +
+      `<option value="bloqueada"${est === "bloqueada" ? " selected" : ""}>Bloqueada</option>` +
+      `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function licFiltrar() {
+  const q = document.getElementById("lic-filtro").value.toLowerCase();
+  const est = document.getElementById("lic-filtro-estado").value;
+  licRenderTabla(_licData.filter(r => {
+    const okEst = !est || r.estado === est;
+    const okQ = !q || (r.licenseCode || "").toLowerCase().includes(q) || (r.email || "").toLowerCase().includes(q) ||
+      (r.cedula || "").toLowerCase().includes(q) || ((r.nombre || "") + " " + (r.apellido || "")).toLowerCase().includes(q);
+    return okEst && okQ;
+  }));
+}
+async function licCambiarEstado(instanceId) {
+  const sel = document.getElementById("lic-sel-" + instanceId);
+  if (!sel) return;
+  const estado = sel.value;
+  const url = licWorkerUrl();
+  if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/estado", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() },
+      body: JSON.stringify({ estado })
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    mostrarConfirmacion("Estado actualizado: " + estado);
+    const r = _licData.find(x => x.instanceId === instanceId);
+    if (r) r.estado = estado;
+    licRenderStats(_licData);
+  } catch (e) {
+    mostrarConfirmacion("Error al actualizar: " + e.message);
+  }
+}
+function licExportCSV() {
+  if (!_licData.length) { mostrarConfirmacion("No hay instancias que exportar todavía"); return; }
+  const cols = ["licenseCode", "nombre", "apellido", "email", "whatsapp", "cedula", "estado", "activatedAt", "lastSeen", "instanceId"];
+  const rows = _licData.map(r => cols.map(c => {
+    let v = r[c] != null ? String(r[c]) : "";
+    if (c.endsWith("At") && r[c]) v = licFmtDate(r[c]);
+    return '"' + v.replace(/"/g, '""') + '"';
+  }).join(","));
+  const csv = [cols.join(","), ...rows].join("\n");
+  const a = document.createElement("a");
+  a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+  a.download = "friendly123-licencias-" + (new Date()).toISOString().slice(0, 10) + ".csv";
+  a.click();
+}
+
+// ── MODAL — segundo PIN ──
+let _pendingAction = null;
+
+function abrirModalLiberar(nombre, lsKey) {
+  _pendingAction = { key: lsKey, nombre };
+  document.getElementById("modal-cliente").textContent = nombre;
+  document.getElementById("modal-msg").textContent = "";
+  document.getElementById("modal-overlay").classList.add("visible");
+  const padEl = document.getElementById("modal-pad");
+  const slotsEl = document.getElementById("modal-slots");
+  const msgEl = document.getElementById("modal-msg");
+  padEl.innerHTML = "";
+  montarTeclado(padEl, slotsEl, async (codigo, resetFn) => {
+    const h = await sha256hex(codigo);
+    if (h === _expectedHash) {
+      ejecutarLiberacion(_pendingAction.key, _pendingAction.nombre);
+      cerrarModal();
+    } else {
+      msgEl.textContent = "Código incorrecto — intenta de nuevo.";
+      setTimeout(() => { msgEl.textContent = ""; resetFn(); }, 1400);
+    }
+  });
+  document.getElementById("modal-cancelar").onclick = cerrarModal;
+}
+
+function cerrarModal() {
+  document.getElementById("modal-overlay").classList.remove("visible");
+  document.getElementById("modal-msg").textContent = "";
+  _pendingAction = null;
+}
+
+function ejecutarLiberacion(lsKey, nombre) {
+  try {
+    const raw = localStorage.getItem(lsKey);
+    if (!raw) {
+      alert(`No se encontró la clave "${lsKey}" en localStorage.\nEsta función solo aplica a demos de mismo origen.`);
+      return;
+    }
+    const obj = JSON.parse(raw);
+    obj.email = "";
+    localStorage.setItem(lsKey, JSON.stringify(obj));
+    mostrarConfirmacion(`Correo liberado en ${nombre}. El dueño verá el formulario de correo la próxima vez que abra Avanzado.`);
+  } catch (e) {
+    alert("Error al leer/escribir localStorage: " + e.message);
+  }
+}
+
+function mostrarConfirmacion(texto) {
+  const t = document.createElement("div");
+  t.style.cssText = `position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1a3a2a;border:1px solid var(--green);color:var(--green);padding:12px 20px;border-radius:8px;font-size:14px;font-family:var(--mono);z-index:300;max-width:90vw;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.5);`;
+  t.textContent = "✓ " + texto;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+// ── INIT ──
+initGate();
+</script>
+</body>
+</html>
