@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v44"; // bumped 2026-08-04: Fase 3 blindaje de datos - doble buffer A/B en guardarEstadoLocal/cargarEstadoLocal (escritura atomica)
+const CACHE = "f123-shell-v45"; // bumped 2026-08-04: Fase 7 blindaje de datos - orden de sacrificio de espacio (fotos ceden antes que ventas/stock) + aislamiento del archivo satelite
 const SHELL = [
   "./",
   "./index.html",

@@ -467,13 +467,29 @@
       ocultarAvisoRecorte();
       return;
     } catch (_) {}
-    // No cupo completo: recortar el log a los ultimos 300 y archivar el resto.
+    // Fase 7 (2026-08-04): orden explicito de sacrificio de espacio. Antes de
+    // tocar el log de ventas (irremplazable), ceder lo recuperable: fotos de
+    // percha que hayan quedado en localStorage (legado pre-idb-fotos.js, o un
+    // dispositivo sin soporte IndexedDB). Mismo criterio que
+    // guardarSecureResiliente en crypto-store.js.
+    try {
+      const rmFotos = [];
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rmFotos.push(k); }
+      if (rmFotos.length) {
+        rmFotos.forEach((k) => { try { localStorage.removeItem(k); } catch (_) {} });
+        localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
+        localStorage.setItem(OC_STATE_PTR, destino);
+        ocultarAvisoRecorte();
+        return;
+      }
+    } catch (_) {}
+    // No cupo completo (ni liberando fotos): recortar el log a los ultimos 300 y archivar el resto.
     const viejos = completo.movimientos.slice(0, -300);
     const recortado = { ...completo, movimientos: completo.movimientos.slice(-300) };
     try {
       localStorage.setItem(claveBuffer(destino), JSON.stringify(recortado));
       localStorage.setItem(OC_STATE_PTR, destino);
-      if (window.OCArchivo) window.OCArchivo.archivarLote(viejos); // fire-and-forget, idempotente
+      if (window.OCArchivo) window.OCArchivo.archivarLote(viejos).catch(() => {}); // fire-and-forget, idempotente, aislado del nucleo
       avisoArchivado(viejos.length);
       return;
     } catch (_) { avisoMemoriaLlena(); }
