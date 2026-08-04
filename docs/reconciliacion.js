@@ -298,6 +298,67 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Modo sombra (Fase C, arranque 2026-08-04) — comparar() en silencio
+  // ---------------------------------------------------------------------------
+  // Hasta ahora comparar() solo corria si el dueno tocaba "Revisar" a mano.
+  // Antes de que los hechos manden de verdad (reemplazar el stock guardado por
+  // el reconstruido), hace falta ACUMULAR semanas de comparaciones reales sin
+  // que nadie las mire — la prueba de que la reconstruccion funciona antes de
+  // apostarle el negocio de alguien. Este historial es esa prueba: nunca
+  // cambia una pantalla, nunca corrige nada, solo registra.
+  var HIST_KEY = "amg_reconciliacion_historial_v1";
+  var HIST_TOPE = 120; // ~4 meses a 1/dia, suficiente para ver tendencia sin crecer sin limite
+
+  function leerHistorialSombra() {
+    try { var h = JSON.parse(localStorage.getItem(HIST_KEY) || "[]"); return Array.isArray(h) ? h : []; }
+    catch (_) { return []; }
+  }
+
+  function compararEnSombra() {
+    return comparar().then(function (inf) {
+      try {
+        var hist = leerHistorialSombra();
+        // Resumen liviano, no el informe completo (que incluye detalle por
+        // producto) — el historial es para ver TENDENCIA en el tiempo, no para
+        // repetir lo que ultimoInforme() ya guarda entero.
+        hist.push({
+          ts: Date.now(),
+          hechosTotal: inf.hechos.total,
+          hechosDeStock: inf.hechos.deStock,
+          productos: inf.productos,
+          coinciden: inf.coinciden,
+          discrepanCantidad: inf.discrepan.length,
+          sinCobertura: inf.sinCobertura
+        });
+        localStorage.setItem(HIST_KEY, JSON.stringify(hist.slice(-HIST_TOPE)));
+      } catch (_) {}
+      return inf;
+    }).catch(function (e) {
+      // Modo sombra nunca puede afectar la app real si falla.
+      try { console.warn("[reconciliacion] comparacion en sombra fallo (silencioso):", e && e.message); } catch (_) {}
+      return null;
+    });
+  }
+
+  function historialSombra() { return leerHistorialSombra(); }
+
+  // Corre como maximo 1 vez cada 24h, mismo criterio que archivoDiario() de
+  // abajo, y solo en dispositivos activados (en demo no hay nada real que
+  // reconciliar). Silencioso: si falla, no se nota nada en la pantalla.
+  function sombraDiaria() {
+    try {
+      var K = "amg_reconciliacion_sombra_ultimo_v1";
+      var ultimo = parseInt(localStorage.getItem(K) || "0", 10) || 0;
+      if (Date.now() - ultimo < 86400000) return;
+      var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (!owned.instanceId) return;
+      compararEnSombra().then(function () {
+        try { localStorage.setItem(K, String(Date.now())); } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  // ---------------------------------------------------------------------------
   // Panel en Avanzado
   // ---------------------------------------------------------------------------
   // Lenguaje deliberadamente sin jerga: el dueno no tiene por que saber que es
@@ -434,7 +495,10 @@
     // Reconciliacion — solo mira
     reconstruir: reconstruir,
     comparar: comparar,
-    ultimoInforme: ultimoInforme
+    ultimoInforme: ultimoInforme,
+    // Modo sombra — acumula evidencia en silencio, ver comentario arriba
+    compararEnSombra: compararEnSombra,
+    historialSombra: historialSombra
   };
 
   // Copia automatica al arrancar, como maximo una por dia. Barata y silenciosa:
@@ -448,7 +512,7 @@
       if (Date.now() - ultimo < 86400000) return;
       // Solo si el dispositivo esta activado: en demo no hay nada real que
       // proteger y llenariamos IndexedDB con datos de juguete.
-      var owned = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {};
+      var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       if (!owned.instanceId) return;
       archivar("automatico-diario").then(function () {
         try { localStorage.setItem(K, String(Date.now())); } catch (_) {}
@@ -459,8 +523,9 @@
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { setTimeout(archivoDiario, 6000); }, { once: true });
+    document.addEventListener("DOMContentLoaded", function () { setTimeout(archivoDiario, 6000); setTimeout(sombraDiaria, 9000); }, { once: true });
   } else {
     setTimeout(archivoDiario, 6000);
+    setTimeout(sombraDiaria, 9000);
   }
 })(typeof window !== "undefined" ? window : this);
