@@ -1309,6 +1309,29 @@
         } else {
           archivoFinal = JSON.stringify({ ...paquete, checksum }, null, 2);
         }
+        // Fase 4 (2026-08-04): "un respaldo que no abre no es un respaldo" — en
+        // vez de solo CALCULAR el checksum y confiar, se vuelve a leer el
+        // archivo que se va a ofrecer para descarga y se confirma que abre y
+        // que su contenido cuadra con el checksum, ANTES de mostrarlo como
+        // exitoso. Si esto falla, es mejor decirlo ahora que dejar que el
+        // dueño descubra un respaldo roto el dia que de verdad lo necesita.
+        try {
+          const relectura = JSON.parse(archivoFinal);
+          let textoParaVerificar;
+          if (relectura.amigableRespaldoCifrado) {
+            if (!clave || !clave.trim()) throw new Error("falta la clave para reverificar");
+            textoParaVerificar = await window.OCSecure.descifrarTextoConClave(relectura, clave.trim());
+            if (!textoParaVerificar) throw new Error("no se pudo descifrar de vuelta con la misma clave");
+          } else {
+            const { checksum: _c, ...resto } = relectura;
+            textoParaVerificar = JSON.stringify(resto);
+          }
+          const checksumRelectura = await window.OCSecure.hashTexto(textoParaVerificar);
+          if (checksumRelectura !== checksum) throw new Error("el checksum no coincide tras releer el archivo");
+        } catch (eVerif) {
+          msg("oc-respaldo-msg", "El respaldo no pasó su propia verificación (" + eVerif.message + ") — no se descargó. Intenta de nuevo; si se repite, avisa a soporte.", "var(--rojo)");
+          return;
+        }
         const blob = new Blob([archivoFinal], { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -1316,7 +1339,8 @@
         a.click();
         URL.revokeObjectURL(a.href);
         localStorage.setItem("f123_ultimo_export_manual", String(Date.now()));
-        msg("oc-respaldo-msg", "Backup downloaded" + (clave ? " and encrypted" : "") + ". Save it somewhere safe.", "var(--verde)");
+        localStorage.setItem("f123_ultimo_export_verificado", String(Date.now())); // Fase 4: distingue "se hizo" de "se verifico que abre"
+        msg("oc-respaldo-msg", "Backup downloaded and verified" + (clave ? " and encrypted" : "") + ". Save it somewhere safe.", "var(--verde)");
       } catch (e) { msg("oc-respaldo-msg", "Export failed: " + e.message, "var(--rojo)"); }
     });
 
@@ -1785,6 +1809,25 @@
         let archivoFinal;
         if (clave && clave.trim()) { const cif = await window.OCSecure.cifrarTextoConClave(contenidoPlano, clave.trim()); archivoFinal = JSON.stringify({ amigableRespaldoCifrado: true, checksum, ...cif }, null, 2); }
         else archivoFinal = JSON.stringify({ ...paquete, checksum }, null, 2);
+        // Fase 4 (2026-08-04): mismo autoverificado que el export principal —
+        // ver comentario extenso en el handler de oc-exportar.
+        try {
+          const relectura = JSON.parse(archivoFinal);
+          let textoParaVerificar;
+          if (relectura.amigableRespaldoCifrado) {
+            if (!clave || !clave.trim()) throw new Error("falta la clave para reverificar");
+            textoParaVerificar = await window.OCSecure.descifrarTextoConClave(relectura, clave.trim());
+            if (!textoParaVerificar) throw new Error("no se pudo descifrar de vuelta con la misma clave");
+          } else {
+            const { checksum: _c, ...resto } = relectura;
+            textoParaVerificar = JSON.stringify(resto);
+          }
+          const checksumRelectura = await window.OCSecure.hashTexto(textoParaVerificar);
+          if (checksumRelectura !== checksum) throw new Error("el checksum no coincide tras releer el archivo");
+        } catch (eVerif) {
+          msg("oc-syncdev-msg", "El respaldo no pasó su propia verificación (" + eVerif.message + ") — no se envió. Intenta de nuevo.", "var(--rojo)");
+          return;
+        }
         const nombre = `respaldo-amigable-${new Date().toISOString().slice(0, 10)}.json`;
         const file = new File([archivoFinal], nombre, { type: "application/json" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
