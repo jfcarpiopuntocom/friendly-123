@@ -32,6 +32,71 @@
   const COLA_KEY = "amigable_sync_cola"; // ops pendientes de enviar (offline)
   const SALT_FIJO = "amigable-sync-v1"; // salt fijo: codigo de sala = "clave de cuarto", no defensa contra MITM
 
+  // ---------------------------------------------------------------------------
+  // CATCH-UP ENTRE PARES (2026-08-04) — sin tocar el manifiesto NO CLOUD
+  // ---------------------------------------------------------------------------
+  // El relay sigue "sordo y desmemoriado a proposito": no guarda nada, solo
+  // rebota blobs cifrados. El problema que esto resuelve es otro: si el
+  // equipo B estuvo CERRADO mientras A vendia, B nunca se enteraba de esas
+  // ventas al reconectar — el relay solo reenvia en vivo, no tiene memoria
+  // que consultar. Antes, la unica salida era un respaldo manual.
+  //
+  // La solucion NO es que el relay guarde nada. Es que cada dispositivo ya
+  // guarda un registro corto de las ULTIMAS operaciones que vio (propias y
+  // ajenas) en SU PROPIO localStorage — eso no es "cloud", es el mismo dato
+  // que el dispositivo ya genero. Al reconectarse, un dispositivo pregunta
+  // "cual es tu ultimo lamport de cada equipo que conoces" y CUALQUIER PAR
+  // que este conectado en ese momento y tenga ops mas nuevas se las manda
+  // DIRECTO — el relay solo las reenvia, igual que cualquier Op normal.
+  //
+  // Reutiliza el mismo canal cifrado E2E y el mismo dedup por opId que ya
+  // existe en mock-backend.js (_opsAplicadas, tope 500) — reenviar una op
+  // vieja nunca duplica una venta, aplicarOpRemota() ya la reconoce y la
+  // ignora si ya se aplico.
+  //
+  // Si nadie estuvo online mientras el otro vendia (caso raro: todo el
+  // equipo apagado a la vez), la brecha no se puede cerrar sola — ahi sigue
+  // el respaldo manual/WhatsApp como red de ultimo recurso (Fases 2 y 4).
+  const LOG_KEY = "amigable_sync_log"; // ultimas ops vistas (propias + ajenas), para poder RE-enviarlas a un par que las perdio
+  const LOG_TOPE = 500; // mismo tope que el dedup de mock-backend.js, mismo criterio
+  const TIPO_CATCHUP_PEDIDO = "__catchup_pedido__";
+
+  function leerLog() {
+    try { const a = JSON.parse(localStorage.getItem(LOG_KEY) || "[]"); return Array.isArray(a) ? a : []; }
+    catch (_) { return []; }
+  }
+  function registrarEnLog(op) {
+    if (!op || !op.opId) return;
+    try {
+      const log = leerLog();
+      if (log.some((o) => o.opId === op.opId)) return; // ya esta, no duplicar
+      log.push(op);
+      localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(-LOG_TOPE)));
+    } catch (_) {}
+  }
+  // Vector "lo mas nuevo que conozco de cada dispositivo" — se manda al
+  // reconectar para que los pares sepan que me falta.
+  function construirVectorConocido() {
+    const v = {};
+    leerLog().forEach((op) => {
+      if (!op.deviceId || typeof op.lamport !== "number") return;
+      if (!(op.deviceId in v) || op.lamport > v[op.deviceId]) v[op.deviceId] = op.lamport;
+    });
+    return v;
+  }
+  // Ops que YO tengo y que, segun el vector recibido, el que pregunta no
+  // tiene todavia. Nunca le devuelvo sus propias ops (el vector ya las
+  // incluye si las tiene; si no las tiene, tampoco soy yo quien deba
+  // reenviarselas — vinieron de el).
+  function buscarOpsFaltantes(vectorPedido, deviceIdPide) {
+    const conocido = vectorPedido || {};
+    return leerLog().filter((op) => {
+      if (op.deviceId === deviceIdPide) return false;
+      const max = typeof conocido[op.deviceId] === "number" ? conocido[op.deviceId] : 0;
+      return op.lamport > max;
+    }).slice(-200); // tope por respuesta: evitar un envio gigante de una sola vez
+  }
+
   function uuidCorto() {
     const c = globalThis.crypto;
     if (c && c.randomUUID) return c.randomUUID();
@@ -149,6 +214,7 @@
       intentosSeguidos = 0;
       notificarEstado("conectado");
       vaciarCola();
+      pedirCatchup();
     };
     ws.onmessage = async (ev) => {
       // Frame de presencia (2026-07-23): el relay los manda en TEXTO plano,
@@ -164,6 +230,15 @@
       }
       try {
         const op = await descifrar(claveActual, ev.data);
+        // Catch-up (2026-08-04): un par pregunto que ops le faltan. Le
+        // contesto directo (el relay solo reenvia, no interviene) con lo que
+        // yo tengo en mi log local que el todavia no vio. Nunca se aplica
+        // como si fuera una Op real de negocio.
+        if (op && op.tipo === TIPO_CATCHUP_PEDIDO) {
+          responderCatchup(op);
+          return;
+        }
+        registrarEnLog(op);
         if (window.OCSync && window.OCSync.aplicarOpRemota) window.OCSync.aplicarOpRemota(op);
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
       } catch (_) { /* mensaje ilegible (codigo distinto, ruido) — se ignora, sordo a proposito */ }
@@ -203,6 +278,34 @@
     guardarCola([]);
   }
 
+  // Al reconectar, preguntar que me perdi. Mensaje ephemero (no de negocio):
+  // no se guarda en el log ni en la cola de reintento — si falla, la proxima
+  // conexion vuelve a preguntar, no hace falta insistir con este en concreto.
+  async function pedirCatchup() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const pedido = {
+      opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATCHUP_PEDIDO,
+      payload: construirVectorConocido(), fecha: (new Date()).toISOString(),
+    };
+    try { ws.send(await cifrar(claveActual, pedido)); } catch (_) {}
+  }
+  // Alguien pregunto que le falta. Le contesto con mis ops mas nuevas que las
+  // que dice conocer — cada una viaja como una Op normal (mismo formato,
+  // mismo cifrado), asi que aplicarOpRemota() del que pregunta la procesa
+  // exactamente igual que si la hubiera recibido en vivo, con el mismo dedup
+  // por opId. Jitter chico: si varios pares contestan a la vez, no lo hacen
+  // todos en el mismo instante.
+  async function responderCatchup(pedido) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const faltantes = buscarOpsFaltantes(pedido.payload, pedido.deviceId);
+    if (!faltantes.length) return;
+    await new Promise((r) => setTimeout(r, Math.random() * 400));
+    for (const op of faltantes) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return; // se desconecto a mitad de camino, no insistir
+      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
+    }
+  }
+
   // --- Puente con mock-backend.js: emitirOpStock(tipo, payload) llama aqui ---
   window.OCSyncEmit = function (tipo, payload) {
     const sala = leerSala();
@@ -211,6 +314,7 @@
       opId: uuidCorto(), deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
       lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
     };
+    registrarEnLog(op); // guardo mi propia op para poder reenviarsela a un par que la haya perdido
     if (ws && ws.readyState === WebSocket.OPEN) {
       cifrar(claveActual, op).then((buf) => { try { ws.send(buf); } catch (_) { encolar(op); } });
     } else {
