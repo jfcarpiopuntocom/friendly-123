@@ -660,8 +660,6 @@
     // salir y en la sesión siguiente mostraba al operador equivocado. Se retira.
     const chipViejo = document.getElementById("oc-user-chip");
     if (chipViejo) chipViejo.remove();
-    const bannerViejo = document.getElementById("oc-admin-banner");
-    if (bannerViejo) bannerViejo.remove();
     window.dispatchEvent(new CustomEvent("oc-logout"));
   }
 
@@ -932,22 +930,6 @@
       header.appendChild(rc);
     }
     header.appendChild(b);
-    // Banner de admin (JFC 2026-07-30: "tiene que salirle en naranja arriba
-    // que esta en modo admin, no dueño. Para algo hay roles!"). El chip de
-    // arriba ya existia pero es chico y facil de no notar - esto es una
-    // barra ancha, imposible de pasar por alto, solo para admin (el dueño
-    // no necesita que le recuerden que es el dueño).
-    const bannerPrevio = document.getElementById("oc-admin-banner");
-    if (bannerPrevio) bannerPrevio.remove();
-    if (rol === "admin" && !demoSesion) {
-      const banner = document.createElement("div");
-      banner.id = "oc-admin-banner";
-      banner.setAttribute("role", "status");
-      banner.style.cssText = "background:var(--rust,#E86040);color:#fff !important;-webkit-text-fill-color:#fff !important;"
-        + "font-size:14px;font-weight:700;text-align:center;padding:8px 12px;";
-      banner.textContent = window.t("auth.adminBanner");
-      document.body.insertBefore(banner, document.body.firstChild);
-    }
   }
 
   // ---------- Utilidades ----------
