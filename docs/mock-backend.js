@@ -444,31 +444,104 @@
     } catch (_) {}
   }
   let _localRev = 0; // contador monotónico — impide que una pestaña vieja sobreescriba estado más fresco
+  // Fase 3 (2026-08-04): doble buffer A/B + puntero, en vez de una unica clave.
+  // Cada guardado escribe SIEMPRE en el buffer INACTIVO y recien al final mueve
+  // el puntero — asi una escritura interrumpida a medias (pestaña cerrada,
+  // navegador matado por el SO a mitad del setItem) nunca puede dañar la unica
+  // copia buena: el puntero sigue apuntando al buffer anterior, intacto.
+  // Al cargar, si el buffer activo no pasa validarRespaldo() (ya existente,
+  // detecta JSON truncado o con forma invalida), se prueba el otro buffer
+  // ANTES de caer al aviso de "datos corruptos" — con SHA-256 no habria hecho
+  // falta: JSON.parse() + validarRespaldo() ya detectan truncamiento igual de
+  // bien, sin el costo de un hash criptografico en cada venta.
+  const OC_STATE_PTR = OC_STATE_KEY + "_ptr";
+  function claveBuffer(letra) { return OC_STATE_KEY + "_" + letra; }
   function guardarEstadoLocal() {
     _localRev++;
     const completo = estadoActualExportable();
-    try { localStorage.setItem(OC_STATE_KEY, JSON.stringify(completo)); ocultarAvisoRecorte(); return; } catch (_) {}
+    const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
+    const destino = activo === "A" ? "B" : "A";
+    try {
+      localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
+      localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
+      ocultarAvisoRecorte();
+      return;
+    } catch (_) {}
     // No cupo completo: recortar el log a los ultimos 300 y archivar el resto.
     const viejos = completo.movimientos.slice(0, -300);
     const recortado = { ...completo, movimientos: completo.movimientos.slice(-300) };
     try {
-      localStorage.setItem(OC_STATE_KEY, JSON.stringify(recortado));
+      localStorage.setItem(claveBuffer(destino), JSON.stringify(recortado));
+      localStorage.setItem(OC_STATE_PTR, destino);
       if (window.OCArchivo) window.OCArchivo.archivarLote(viejos); // fire-and-forget, idempotente
       avisoArchivado(viejos.length);
       return;
     } catch (_) { avisoMemoriaLlena(); }
   }
   function ocultarAvisoRecorte() { try { const d = document.getElementById("oc-recorte-aviso"); if (d) d.remove(); } catch (_) {} }
+  function avisarBufferRecuperado() {
+    try {
+      if (document.getElementById("oc-buffer-recuperado-aviso")) return;
+      const d = document.createElement("div");
+      d.id = "oc-buffer-recuperado-aviso";
+      d.setAttribute("role", "status");
+      d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#1A7A4C;padding:10px 16px;text-align:center;cursor:pointer;";
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">Se detectó un guardado interrumpido y se recuperó automáticamente desde la copia anterior — no se perdió nada. Si algo no cuadra, exporta un respaldo en AVANZADO.</span>';
+      d.addEventListener("click", () => d.remove());
+      (document.body || document.documentElement).appendChild(d);
+    } catch (_) {}
+  }
   function cargarEstadoLocal() {
     try {
+      const activo = localStorage.getItem(OC_STATE_PTR);
+      const orden = activo ? [activo, activo === "A" ? "B" : "A"] : ["A", "B"];
+      for (const letra of orden) {
+        const raw = localStorage.getItem(claveBuffer(letra));
+        if (raw == null) continue;
+        let body;
+        try { body = JSON.parse(raw); } catch (_) { continue; } // corrupto: probar el otro buffer
+        // Rechazar estados escritos por una pestaña más antigua (_rev más bajo) — solo en eventos onstorage
+        if (typeof body._rev === "number" && body._rev < _localRev) return;
+        const error = validarRespaldo(body);
+        if (error) continue; // invalido: probar el otro buffer
+        // Sincroniza el contador local con el _rev cargado — si no, una pestaña que
+        // nunca guardó (_localRev=0) sobreescribe con un _rev más bajo el estado más
+        // fresco que ya dejó otra pestaña, perdiendo silenciosamente sus cambios.
+        if (typeof body._rev === "number" && body._rev > _localRev) _localRev = body._rev;
+        aplicarRespaldo(body);
+        if (letra !== activo) {
+          console.warn("[cargarEstadoLocal] el buffer activo estaba dañado, recuperado desde el buffer anterior");
+          try { localStorage.setItem(OC_STATE_PTR, letra); } catch (_) {} // corrige el puntero
+          setTimeout(avisarBufferRecuperado, 800);
+        }
+        return;
+      }
+      // Ningun buffer A/B valido: migracion desde la clave de un solo buffer
+      // (dispositivos que aun no corrieron esta version) o corrupcion total.
       const raw = localStorage.getItem(OC_STATE_KEY);
       if (!raw) return;
-      const body = JSON.parse(raw);
-      // Rechazar estados escritos por una pestaña más antigua (_rev más bajo) — solo en eventos onstorage
+      let body;
+      try { body = JSON.parse(raw); } catch (_) {
+        // JSON truncado (no solo "invalido pero parseable"): mismo rescate que
+        // la rama de abajo. Gap preexistente antes de Fase 3 — el parse vivia
+        // fuera de su propio try y un JSON cortado a la mitad se tragaba en
+        // silencio sin guardar el rescate ni avisar.
+        try { localStorage.setItem("f123_rescate_v4", raw); } catch (_) {}
+        setTimeout(() => {
+          try {
+            if (document.getElementById("oc-estado-corrupto-aviso")) return;
+            const d = document.createElement("div");
+            d.id = "oc-estado-corrupto-aviso";
+            d.setAttribute("role", "alert");
+            d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10003;background:#B0183E;padding:12px 16px;text-align:center;cursor:pointer;";
+            d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">⚠️ El inventario guardado no pudo cargarse (datos de ejemplo activos). Ve a AVANZADO para recuperar o importar tu respaldo.</span>';
+            d.addEventListener("click", () => d.remove());
+            (document.body || document.documentElement).appendChild(d);
+          } catch (_) {}
+        }, 800);
+        return;
+      }
       if (typeof body._rev === "number" && body._rev < _localRev) return;
-      // Sincroniza el contador local con el _rev cargado — si no, una pestaña que
-      // nunca guardó (_localRev=0) sobreescribe con un _rev más bajo el estado más
-      // fresco que ya dejó otra pestaña, perdiendo silenciosamente sus cambios.
       if (typeof body._rev === "number" && body._rev > _localRev) _localRev = body._rev;
       const error = validarRespaldo(body);
       if (!error) {
@@ -494,7 +567,7 @@
     } catch (_) {}
   }
   // Cuando otra pestaña guarda, recargar su estado si es más nuevo (evita last-writer-wins con estado viejo)
-  window.addEventListener("storage", (e) => { if (e.key === OC_STATE_KEY) cargarEstadoLocal(); });
+  window.addEventListener("storage", (e) => { if (e.key === OC_STATE_PTR) cargarEstadoLocal(); });
 
   function nombreUbic(id) { const u = ubicaciones.find((x) => x.id === id); return u ? u.nombre : "Ubicación desconocida"; }
 
@@ -883,6 +956,11 @@
       if (productos.length === 0 && ubicaciones.length === 0) {
         localStorage.removeItem("f123_owned");
         localStorage.removeItem(OC_STATE_KEY);
+        // Fase 3: el estado real vive en los buffers A/B, no en OC_STATE_KEY
+        // directo (esa clave ahora es solo fallback de migracion) — limpiar
+        // tambien los buffers y el puntero, o el reload de abajo recargaria
+        // el mismo estado vacio en vez de volver a los datos semilla.
+        try { localStorage.removeItem(OC_STATE_KEY + "_A"); localStorage.removeItem(OC_STATE_KEY + "_B"); localStorage.removeItem(OC_STATE_KEY + "_ptr"); } catch (_) {}
         location.reload();
       }
     }
