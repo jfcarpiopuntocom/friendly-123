@@ -528,7 +528,19 @@
       try {
         await fetch("/api/instancia/activar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vaciar: vaciar, instanceId: idInstancia }) });
       } catch (_) {}
-      try { await window.OCSecure.fijarOwnerPin("789"); } catch (_) {}
+      // Guard G1 (JFC 2026-08-04): antes esto ignoraba si fijarOwnerPin de
+      // verdad guardó el PIN 789 — si localStorage estaba lleno, la app
+      // seguía todo el flujo de activación (instancia, sync, "owned") y al
+      // final le decía al dueño "tu PIN es 789" aunque el PIN real guardado
+      // siguiera siendo el 888 de demo. Ahora, si falla, se detiene ANTES de
+      // dejar el dispositivo en un estado a medias y avisa honesto.
+      var pinGuardado = false;
+      try { pinGuardado = await window.OCSecure.fijarOwnerPin("789"); } catch (_) {}
+      if (!pinGuardado) {
+        btn.disabled = false;
+        setMsg("No se pudo activar (memoria del dispositivo llena). Libera espacio y toca \"Activar mi negocio\" de nuevo — nada quedó a medias.");
+        return;
+      }
       try { window.OCSecure.actualizarCorreo(email); } catch (_) {}
       if (vaciar) {
         try { var rm = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rm.push(k); } rm.forEach(function (kk) { localStorage.removeItem(kk); }); } catch (_) {}

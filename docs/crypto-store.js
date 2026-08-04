@@ -151,13 +151,38 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     }
   }
 
+  // Guardado resiliente (JFC 2026-08-04, Guard G1 — "no dañar lo que no debe
+  // dañar"): si localStorage está lleno (fotos de percha en base64 son lo que
+  // más pesa), un setItem normal lanza QuotaExceededError y el guardado de
+  // PINs se pierde EN SILENCIO — hasta ahora, guardarSecreto/fijarOwnerPin/etc
+  // ignoraban por completo si esto pasaba. Antes de rendirse, purga las fotos
+  // de percha (recuperables re-tomando la foto; un PIN perdido deja al dueño
+  // fuera de su propio negocio) y reintenta una vez. Devuelve boolean para
+  // que cada llamador pueda decidir qué decirle al usuario si falla.
+  function guardarSecureResiliente(s) {
+    const payload = JSON.stringify(s);
+    try { localStorage.setItem("f123_secure", payload); return true; }
+    catch (_) {
+      try {
+        const rm = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.indexOf("vp_foto_percha_") === 0) rm.push(k);
+        }
+        rm.forEach((kk) => { try { localStorage.removeItem(kk); } catch (_) {} });
+        localStorage.setItem("f123_secure", payload);
+        return true;
+      } catch (_) { return false; }
+    }
+  }
+
   async function guardarSecreto(ownerPin, empleadosPins, acctPin, email) {
     const salt = randSalt();
     const ownerHash = await hashPin(ownerPin, salt, "owner");
     const employeeHashes = [];
     for (const p of empleadosPins) employeeHashes.push(await hashPin(p, salt, "emp"));
     const acctHash = await hashPin(acctPin, salt, "acct");
-    localStorage.setItem("f123_secure", JSON.stringify({ v: 1, salt, ownerHash, employeeHashes, acctHash, email: email || "" }));
+    return guardarSecureResiliente({ v: 1, salt, ownerHash, employeeHashes, acctHash, email: email || "" });
   }
 
   function leerSecreto() {
@@ -212,9 +237,9 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // (avanzado-extra.js) es responsable de aplicar esa regla — esta función
   // en sí no lo impone, para no acoplar la capa de datos con la capa de UI.
   function actualizarCorreo(email) {
-    const s = leerSecreto(); if (!s) return;
+    const s = leerSecreto(); if (!s) return false;
     s.email = email || "";
-    localStorage.setItem("f123_secure", JSON.stringify(s));
+    return guardarSecureResiliente(s);
   }
 
   // WhatsApp del dueno (Mejora #5, JFC 2026-07-16) — a diferencia del correo,
@@ -227,8 +252,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   function actualizarWhatsapp(numero) {
     const s = leerSecreto(); if (!s) return false; // Fix-7: return false so caller can check
     s.whatsapp = numero || "";
-    localStorage.setItem("f123_secure", JSON.stringify(s));
-    return true;
+    return guardarSecureResiliente(s);
   }
   // Fix-2: recuperarPinDueno — lee ownerPinR (XOR+base64 opaco) si fue guardado.
   // Actualmente guardarSecreto no escribe ownerPinR, así que retorna null y el
@@ -268,18 +292,21 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   }
   // Permite fijar un código maestro propio por negocio (JFC, no el dueño).
   async function fijarCodigoMaestro(codigoNuevo) {
-    const s = leerSecreto(); if (!s) return;
+    const s = leerSecreto(); if (!s) return false;
     s.masterHash = await hashMaestro(codigoNuevo);
-    localStorage.setItem("f123_secure", JSON.stringify(s));
+    return guardarSecureResiliente(s);
   }
 
   // Cambia SOLO el PIN de dueño (re-hash bajo el salt existente) sin rotar
-  // empleado/contable/correo. Usado por la migración 159->888 de AMIGABLE.
+  // empleado/contable/correo. Usado por la migración 159->888 de AMIGABLE y
+  // por la activación 789. Devuelve boolean (Guard G1): el llamador debe
+  // saber si el PIN nuevo de verdad quedó guardado antes de decirle al
+  // usuario "ya puedes entrar con tu PIN nuevo".
   async function fijarOwnerPin(nuevoPin) {
-    const s = leerSecreto(); if (!s) return;
+    const s = leerSecreto(); if (!s) return false;
     s.ownerHash = await hashPin(nuevoPin, s.salt, "owner");
     s.ownerPinR = xorPin(nuevoPin);
-    localStorage.setItem("f123_secure", JSON.stringify(s));
+    return guardarSecureResiliente(s);
   }
 
   // ---- Reseteo de acceso por correo ("olvidé mi clave") ----
@@ -361,7 +388,16 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const correoActual = leerCorreo();
     const nuevoEmpleado = randDigits(3);
     const nuevoAcct = randDigits(3);
-    await guardarSecreto(nuevoOwnerPin, [nuevoEmpleado], nuevoAcct, correoActual);
+    const guardado = await guardarSecreto(nuevoOwnerPin, [nuevoEmpleado], nuevoAcct, correoActual);
+    // Guard G1 (JFC 2026-08-04): antes esto quemaba el código de reset y
+    // mostraba PINs nuevos AUNQUE el guardado hubiera fallado (localStorage
+    // lleno) — el dueño se quedaba con los PINs viejos que justo había
+    // olvidado, sin poder reintentar porque el código de reset ya no
+    // existía. Ahora el código de reset SOLO se consume si el guardado
+    // funcionó de verdad.
+    if (!guardado) {
+      return { error: "No se pudo guardar tu PIN nuevo (memoria del dispositivo llena). Tu PIN anterior sigue funcionando. Libera espacio (fotos, otras apps) y vuelve a intentar con el mismo código." };
+    }
     localStorage.removeItem("f123_reset");
     return { ok: true, empleado: nuevoEmpleado, acct: nuevoAcct };
   }
