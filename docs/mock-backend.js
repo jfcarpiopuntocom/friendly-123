@@ -425,11 +425,40 @@
       (document.body || document.documentElement).appendChild(d);
     } catch (_) {}
   }
+  // Fase 2 (2026-08-04): si no cabe el estado completo, antes de darse por
+  // vencido se archivan los movimientos mas viejos en IndexedDB (idb-archivo.js
+  // — sin techo practico de espacio) y se reintenta con el log recortado. Nada
+  // se BORRA, solo se muda de almacen. Si IndexedDB tampoco esta disponible o
+  // falla, se cae al aviso rojo de siempre (nada nuevo se pierde silenciosamente).
+  function avisoArchivado(n) {
+    try {
+      let d = document.getElementById("oc-recorte-aviso");
+      if (!d) {
+        d = document.createElement("div");
+        d.id = "oc-recorte-aviso";
+        d.setAttribute("role", "status");
+        d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#B8760A;padding:10px 16px;text-align:center;";
+        (document.body || document.documentElement).appendChild(d);
+      }
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">Memoria casi llena: TODO se guardó (ventas, clientes, stock) — el log de actividad viejo (' + n + ' registros) se movió a un archivo aparte en este dispositivo, no se borró. Exporta un respaldo en AVANZADO cuando puedas.</span>';
+    } catch (_) {}
+  }
   let _localRev = 0; // contador monotónico — impide que una pestaña vieja sobreescriba estado más fresco
   function guardarEstadoLocal() {
     _localRev++;
-    try { localStorage.setItem(OC_STATE_KEY, JSON.stringify(estadoActualExportable())); } catch (_) { avisoMemoriaLlena(); }
+    const completo = estadoActualExportable();
+    try { localStorage.setItem(OC_STATE_KEY, JSON.stringify(completo)); ocultarAvisoRecorte(); return; } catch (_) {}
+    // No cupo completo: recortar el log a los ultimos 300 y archivar el resto.
+    const viejos = completo.movimientos.slice(0, -300);
+    const recortado = { ...completo, movimientos: completo.movimientos.slice(-300) };
+    try {
+      localStorage.setItem(OC_STATE_KEY, JSON.stringify(recortado));
+      if (window.OCArchivo) window.OCArchivo.archivarLote(viejos); // fire-and-forget, idempotente
+      avisoArchivado(viejos.length);
+      return;
+    } catch (_) { avisoMemoriaLlena(); }
   }
+  function ocultarAvisoRecorte() { try { const d = document.getElementById("oc-recorte-aviso"); if (d) d.remove(); } catch (_) {} }
   function cargarEstadoLocal() {
     try {
       const raw = localStorage.getItem(OC_STATE_KEY);

@@ -1271,6 +1271,10 @@
         const respExp = await fetch(`${API}/respaldo/exportar`);
         const datos = await respExp.json();
         if (!respExp.ok) { msg("oc-respaldo-msg", datos.error || "Activate this device (PIN 789) to export.", "var(--rojo)"); return; }
+        // Fase 2 (2026-08-04): el respaldo debe incluir el historial archivado
+        // en IndexedDB (movido ahi cuando localStorage se llenaba), no solo la
+        // ventana caliente — un respaldo incompleto no es un respaldo.
+        try { if (window.OCArchivo) { const arch = await window.OCArchivo.leerTodos(); if (arch.length) datos.movimientos = [...arch, ...(datos.movimientos || [])]; } } catch (_) {}
         const fotosPerchas = {};
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
@@ -1764,6 +1768,7 @@
     if (btnWaResp) btnWaResp.addEventListener("click", async () => {
       try {
         const datos = await (await fetch(`${API}/respaldo/exportar`)).json();
+        try { if (window.OCArchivo) { const arch = await window.OCArchivo.leerTodos(); if (arch.length) datos.movimientos = [...arch, ...(datos.movimientos || [])]; } } catch (_) {}
         const fotosPerchas = {};
         for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k); }
         const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: (function () {
