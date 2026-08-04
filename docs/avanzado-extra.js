@@ -1339,10 +1339,29 @@
         const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
         const r = await res.json();
         if (!res.ok) { msg("oc-respaldo-msg", r.error, "var(--rojo)"); return; }
-        if (paquete.oc_secure) localStorage.setItem("f123_secure", paquete.oc_secure);
+        let secretoOk = true;
+        if (paquete.oc_secure) {
+          secretoOk = false;
+          try { localStorage.setItem("f123_secure", paquete.oc_secure); secretoOk = true; }
+          catch (_) {
+            // Guard G4 (2026-08-04): sin este purge-and-retry, un dispositivo con poco
+            // espacio importaba productos/ventas OK pero perdia el PIN en silencio.
+            try {
+              const rm = [];
+              for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("vp_foto_percha_") === 0) rm.push(k); }
+              rm.forEach((kk) => { try { localStorage.removeItem(kk); } catch (_) {} });
+              localStorage.setItem("f123_secure", paquete.oc_secure);
+              secretoOk = true;
+            } catch (_) { secretoOk = false; }
+          }
+        }
         if (paquete.fotosPerchas) Object.entries(paquete.fotosPerchas).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch (_) {} });
         window.dispatchEvent(new CustomEvent("oc-datos-importados")); // index re-sincroniza la UI solo
-        msg("oc-respaldo-msg", "Backup imported. Screen now shows restored data.", "var(--verde)");
+        if (secretoOk) {
+          msg("oc-respaldo-msg", "Backup imported. Screen now shows restored data.", "var(--verde)");
+        } else {
+          msg("oc-respaldo-msg", "Products and sales imported, but your PIN keys could NOT be saved (device storage full). You keep using this device's current PIN. Free up space and try importing again, or change the keys manually in Access codes.", "var(--rojo)");
+        }
       } catch (err) { msg("oc-respaldo-msg", "Import failed: " + err.message, "var(--rojo)"); }
       e.target.value = "";
     });
