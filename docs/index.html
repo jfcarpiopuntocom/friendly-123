@@ -1599,7 +1599,7 @@
 
 <footer>
   <em data-i18n="footer.tagline">friendly-123: shelf, customer, and commission control</em>
-  <br>Made in Cuenca &middot; apps y herramientas &mdash; powered by <a href="https://jfcarpio.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">avatiun.com</a> &mdash; 2026
+  <br>Made in Cuenca :apps y herramientas: &mdash; powered by <a href="https://jfcarpio.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">avatiun.com</a> &mdash; 2026
 </footer>
 
 <!-- MODAL ETIQUETA -->
@@ -2706,7 +2706,7 @@ function renderBloom(estado, nivel){
     }).join("");
   return `<div class="bloom-sinclair" title="Intensidad ${nivel}/3" style="display:flex;flex-direction:column;gap:3px;margin:6px 0 2px;">
     <div style="display:flex;gap:3px;align-items:flex-end;">${barras}</div>
-    ${caption ? `<span style="font-size:11px;opacity:.85;line-height:1.2;">${escHtml(caption)}</span>` : ""}
+    ${caption ? `<span style="font-size:13px;color:#3A4048;line-height:1.25;">${escHtml(caption)}</span>` : ""}
   </div>`;
 }
 
@@ -2985,7 +2985,7 @@ function renderPerchaCard(u, sucursalesDisp, promotorasDisp) {
   const optsS = sucursalesDisp.map(s =>
     `<option value="${s.id}"${u.sucursalId === s.id ? ' selected' : ''}>${escHtml(s.nombre)}</option>`
   ).join('');
-  return `<div class="tag-card" style="text-align:left;padding:14px;margin-bottom:8px;${inactiva ? 'opacity:.65;' : ''}">
+  return `<div class="tag-card" style="text-align:left;padding:14px;margin-bottom:8px;${inactiva ? 'background:#E7E9E5;border-color:#9DA29B;' : ''}">
     <strong style="font-size:16px;color:var(--ink);">${escHtml(u.nombre)}</strong>
     <div style="font-size:13px;color:var(--ink-soft);margin:4px 0 10px;">${tipoLabel}${comLabel}${u.esFeria ? ' · <strong style="color:var(--rust,#E86040);">FERIA</strong>' : ''}${inactiva ? ' · DESACTIVADA' : ''}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
