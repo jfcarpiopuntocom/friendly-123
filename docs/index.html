@@ -8,6 +8,12 @@
      navegador sirva el HTML fresco pero los sub-recursos (JS) desde cache
      vieja del SW. Al desregistrar el SW viejo y purgar caches, el siguiente
      reload carga todo fresco. Solo dispara UNA vez (flag en localStorage). -->
+<!-- AISLAMIENTO DE ALMACENAMIENTO — DEBE IR PRIMERO, ANTES QUE TODO.
+     Las 3 apps de la linea se sirven desde el mismo origen de GitHub Pages y
+     localStorage es por origen, no por carpeta: sin esto se pisan datos entre
+     si. Tambien coordina dos pestanas de la misma app. Si se mueve mas abajo,
+     otros scripts leen/escriben sin namespace y el aislamiento se rompe. -->
+<script src="./aislamiento.js"></script>
 <script>
 // SW nuke: flag va PRIMERO para no hacer loop si el reload falla (ej: Waterfox/Gecko).
 // El nuke solo dispara una vez por dispositivo. Si no hay SW, no hace nada.
