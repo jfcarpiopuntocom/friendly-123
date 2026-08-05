@@ -45,7 +45,7 @@
       },
       {
           "id": "bookshelf",
-          "nombre": "Ink & Pages — Local Author Shelf",
+          "nombre": "Ink & Pages",
           "activa": true,
           "tipo": "socio",
           "sucursalId": "suc02",

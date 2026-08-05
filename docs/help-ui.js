@@ -164,7 +164,7 @@
 
   // AYUDA_EMPLEADO: operational only — no mention of PINs, costs, or accounting.
   const AYUDA_EMPLEADO_EN = `
-    <span class="rolTag">Vendor / promoter guide</span>
+    <span class="rolTag">Employee guide</span>
     <h3>Colors tell you what's happening</h3>
     <ul>
       <li><b style="color:#00C87A;">Green</b>: good. <b style="color:#E8A020;">Gold</b>: money waiting. <b style="color:#F97316;">Orange</b>: alert the owner soon. <b style="color:#E8365D;">Red</b>: alert now.</li>
@@ -182,7 +182,7 @@
   `;
 
   const AYUDA_EMPLEADO_ES = `
-    <span class="rolTag">Guía de vendedor / promotora</span>
+    <span class="rolTag">Guía del empleado/a</span>
     <h3>Los colores te dicen qué está pasando</h3>
     <ul>
       <li><b style="color:#00C87A;">Verde</b>: bien. <b style="color:#E8A020;">Dorado</b>: plata esperando. <b style="color:#F97316;">Naranja</b>: avisa al dueño pronto. <b style="color:#E8365D;">Rojo</b>: avisa ya.</li>
