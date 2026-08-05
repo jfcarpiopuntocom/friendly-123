@@ -319,7 +319,7 @@
   })();
   // Severidad Simon (menor = mas grave). Usado para quedarse con la señal
   // mas urgente entre stock y vencimiento, y para ordenar alertas.
-  const ORDEN = { rojo: 0, naranja: 1, amarillo: 2, negro: 3, azul: 4, verde: 5 };
+  const ORDEN = { rojo: 0, naranja: 1, amarillo: 2, negro: 3, verde: 5 };
 
   // Item 23: IDs con Date.now()+Math.random() podían colisionar. UUID real
   // (crypto.randomUUID) con fallback para navegadores viejos.
@@ -815,8 +815,6 @@
         porStock = { estado: "negro", nivel: sinVenta >= 120 ? 3 : sinVenta >= 60 ? 2 : 1, mensaje: _t("alert.dormant", { n: sinVenta }) };
       } else if (margen >= 0.5) {
         porStock = { estado: "amarillo", nivel: margen >= 0.70 ? 3 : margen >= 0.55 ? 2 : 1, mensaje: _t("alert.goodMargin") };
-      } else if (margen > 0 && margen < 0.25) {
-        porStock = { estado: "azul", nivel: margen <= 0.10 ? 3 : margen <= 0.18 ? 2 : 1, mensaje: _t("alert.lowMargin", { pct: (margen * 100).toFixed(0) }) };
       } else {
         porStock = { estado: "verde", nivel: p.stockActual >= 15 ? 3 : p.stockActual >= 7 ? 2 : 1, mensaje: _t("alert.healthy") };
       }

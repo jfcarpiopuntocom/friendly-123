@@ -622,36 +622,28 @@
      Mismo color siempre; solo cambia que tan fuerte esta encendido.
      Sin clase n* cae al look n2 (retrocompatible). Negro es excepcion: sus
      3 niveles oscurecen hacia el negro absoluto, texto blanco siempre. */
-  .caja.verde{background:linear-gradient(135deg, var(--sim-verde) 0%, var(--sim-verde-dk) 100%); border-color:var(--sim-verde-dk);}
-  .caja.verde.n1{background:var(--sim-verde-bg); border-color:var(--sim-verde);}
-  .caja.verde.n3{background:linear-gradient(135deg, var(--sim-verde) 0%, var(--sim-verde-dk) 45%, var(--sim-verde-dk) 100%); box-shadow:0 0 16px -2px var(--sim-verde);}
-  .caja.amarillo{background:linear-gradient(135deg, var(--sim-amarillo) 0%, var(--sim-amarillo-dk) 100%); border-color:var(--sim-amarillo-dk);}
-  .caja.amarillo.n1{background:var(--sim-amarillo-bg); border-color:var(--sim-amarillo);}
-  .caja.amarillo.n2{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk); box-shadow:0 3px 0 0 var(--sim-amarillo-dk), 0 4px 8px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -1px 0 rgba(0,0,0,0.08);}
-  .caja.amarillo.n3{box-shadow:0 0 16px -2px var(--sim-amarillo);}
-  .caja.rojo{background:linear-gradient(135deg, var(--sim-rojo) 0%, var(--sim-rojo-dk) 100%); border-color:var(--sim-rojo-dk); animation:pulsoEmergencia 2.2s ease-in-out infinite;}
-  .caja.rojo.n1{background:var(--sim-rojo-bg); border-color:var(--sim-rojo); animation:none;}
-  .caja.rojo.n3{background:linear-gradient(135deg, var(--sim-rojo) 0%, var(--sim-rojo-dk) 45%, var(--sim-rojo-dk) 100%);}
-  .caja.naranja{background:linear-gradient(135deg, var(--sim-naranja) 0%, var(--sim-naranja-dk) 100%); border-color:var(--sim-naranja-dk);}
-  .caja.naranja.n1{background:var(--sim-naranja-bg); border-color:var(--sim-naranja);}
-  .caja.naranja.n3{background:linear-gradient(135deg, var(--sim-naranja) 0%, var(--sim-naranja-dk) 45%, var(--sim-naranja-dk) 100%); box-shadow:0 0 16px -2px var(--sim-naranja);}
-  .caja.azul{background:linear-gradient(135deg, var(--sim-azul) 0%, var(--sim-azul-dk) 100%); border-color:var(--sim-azul-dk);}
-  .caja.azul.n1{background:var(--sim-azul-bg); border-color:var(--sim-azul);}
-  .caja.azul.n3{background:linear-gradient(135deg, var(--sim-azul) 0%, var(--sim-azul-dk) 45%, var(--sim-azul-dk) 100%); box-shadow:0 0 16px -2px var(--sim-azul);}
+  /* === 1 TONO PLANO POR ESTADO (JFC 2026-08-05) ===
+     Se retiran los degradados y los overrides por nivel (.n1/.n2/.n3): daban
+     a cada tarjeta un tono distinto segun intensidad, que es exactamente el
+     Sinclair Bloom retirado. Ahora el estado es UN color plano y el -dk solo
+     pinta el borde/bisel. El pulso del rojo se queda: es movimiento, no un
+     tono extra. NO reintroducir degradados por nivel. */
+  .caja.verde{background:var(--sim-verde); border-color:var(--sim-verde-dk);}
+  .caja.amarillo{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk);}
+  .caja.rojo{background:var(--sim-rojo); border-color:var(--sim-rojo-dk); animation:pulsoEmergencia 2.2s ease-in-out infinite;}
+  .caja.naranja{background:var(--sim-naranja); border-color:var(--sim-naranja-dk);}
   .caja.negro{background:var(--sim-negro); border-color:var(--sim-negro-dk);}
-  .caja.negro.n1{background:var(--sim-negro-bg); border-color:var(--sim-negro);}
-  .caja.negro.n3{background:radial-gradient(circle at 30% 20%, #16161C 0%, var(--sim-negro) 55%, #000000 100%); border-color:var(--sim-negro-dk); box-shadow:inset 0 0 22px rgba(0,0,0,0.9);}
   @keyframes pulsoEmergencia{
     0%, 100%{box-shadow:0 0 0 0 rgba(232,54,93,0.55), 0 4px 8px rgba(0,0,0,0.18);}
     50%{box-shadow:0 0 0 8px rgba(232,54,93,0), 0 4px 8px rgba(0,0,0,0.18);}
   }
   /* Fondos oscuros: texto blanco */
-  .caja.verde .nombre,.caja.rojo .nombre,.caja.azul .nombre,.caja.naranja .nombre,.caja.negro .nombre{color:#FFFFFF !important;}
-  .caja.verde .detalle,.caja.rojo .detalle,.caja.azul .detalle,.caja.naranja .detalle,.caja.negro .detalle{color:rgba(255,255,255,1) !important;}
-  .caja.verde .stock,.caja.rojo .stock,.caja.azul .stock,.caja.naranja .stock,.caja.negro .stock{color:#FFFFFF !important;}
-  .caja.verde [data-ajuste-menos],.caja.rojo [data-ajuste-menos],.caja.azul [data-ajuste-menos],.caja.naranja [data-ajuste-menos],.caja.negro [data-ajuste-menos],
-  .caja.verde [data-ajuste-mas],.caja.rojo [data-ajuste-mas],.caja.azul [data-ajuste-mas],.caja.naranja [data-ajuste-mas],.caja.negro [data-ajuste-mas],
-  .caja.verde [data-estrella-toggle],.caja.rojo [data-estrella-toggle],.caja.azul [data-estrella-toggle],.caja.naranja [data-estrella-toggle],.caja.negro [data-estrella-toggle]
+  .caja.verde .nombre,.caja.rojo .nombre,.caja.naranja .nombre,.caja.negro .nombre{color:#FFFFFF !important;}
+  .caja.verde .detalle,.caja.rojo .detalle,.caja.naranja .detalle,.caja.negro .detalle{color:rgba(255,255,255,1) !important;}
+  .caja.verde .stock,.caja.rojo .stock,.caja.naranja .stock,.caja.negro .stock{color:#FFFFFF !important;}
+  .caja.verde [data-ajuste-menos],.caja.rojo [data-ajuste-menos],.caja.naranja [data-ajuste-menos],.caja.negro [data-ajuste-menos],
+  .caja.verde [data-ajuste-mas],.caja.rojo [data-ajuste-mas],.caja.naranja [data-ajuste-mas],.caja.negro [data-ajuste-mas],
+  .caja.verde [data-estrella-toggle],.caja.rojo [data-estrella-toggle],.caja.naranja [data-estrella-toggle],.caja.negro [data-estrella-toggle]
   {color:#FFFFFF !important; border-color:#FFFFFF !important;}
   /* Dorado=oportunidad: tinta oscura (el amarillo nunca soporta texto blanco) */
   .caja.amarillo .nombre{color:#0F1923 !important;}
@@ -716,7 +708,6 @@
   .filtros-estado button[data-estado="rojo"]::before{background:var(--sim-rojo);}
   .filtros-estado button[data-estado="amarillo"]::before{background:var(--sim-amarillo);}
   .filtros-estado button[data-estado="verde"]::before{background:var(--sim-verde);}
-  .filtros-estado button[data-estado="azul"]::before{background:var(--sim-azul);}
   .filtros-estado button[data-estado="naranja"]::before{background:var(--sim-naranja);}
   .filtros-estado button[data-estado="negro"]::before{background:var(--sim-negro);}
   .filtros-estado button[data-estado=""]{padding-left:14px;}
@@ -808,7 +799,6 @@
   .oc-ev-btn.activo-neg{ background:#FDECEA; border-color:#C0392B; }
   .oc-ev-btn.activo-neu{ background:#F0F4F8; border-color:#7A9BB5; font-size:13px; font-weight:700; color:#2E6278 !important; -webkit-text-fill-color:#2E6278 !important; }
   .oc-ev-btn.activo-pos{ background:#E8F8F0; border-color:#009A5A; }
-  .badge-estado.azul{background:var(--sim-azul); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
 
   .acciones-rapidas{
     display:flex;
@@ -1247,7 +1237,6 @@
       <button data-estado="naranja" data-i18n="filter.review">Review</button>
       <button data-estado="amarillo" data-i18n="filter.opportunity">Opportunity</button>
       <button data-estado="verde" data-i18n="filter.healthy">Healthy</button>
-      <button data-estado="azul" data-i18n="filter.data">Data</button>
       <button data-estado="negro" data-i18n="filter.dormant">Dormant</button>
     </div>
     <input id="inputBuscarInventario" type="search" data-i18n-attr="placeholder:inv.searchPlaceholder" placeholder="Search by name, SKU or category…" style="width:100%;padding:10px 12px;margin-bottom:10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:15px;">
@@ -2603,15 +2592,6 @@ function calcularNivelBloom(p){
     // marcar "azul" — aquí solo graduamos QUÉ TAN bueno es ese margen.
     // Si p.costo aún no llega del backend, cae al nivel 2 fijo de antes
     // (no rompe nada mientras se completa esa parte en mock-backend.js).
-    case "azul": {
-      const precio = Number(p.precio);
-      const costo = Number(p.costo);
-      if (Number.isFinite(costo) && costo >= 0 && precio > 0) {
-        const margen = (precio - costo) / precio;
-        return margen >= 0.70 ? 3 : margen >= 0.55 ? 2 : 1;
-      }
-      return 2;
-    }
     // Negro = producto dormido: mide DÍAS SIN VENTA de verdad, ya no un
     // gris fijo. Confirmado JFC 2026-07-04. p.diasSinVenta === null quiere
     // decir "nunca se ha vendido" — el estado más muerto que existe, más
@@ -2640,7 +2620,6 @@ function captionBloom(estado, nivel){
     amarillo: ["Start thinking about restocking", "Getting close to restock time", "Last unit — don't wait any longer"],
     naranja:  ["Keep an eye on it, still time", "Don't let it slip by", "Expiring soon — move it"],
     rojo:     ["Act today", "Act today", "Emergency: out of stock"],
-    azul:     ["Good margin", "Strong margin", "Your most profitable item"],
     negro:    ["Cooling down", "Has been dormant for a while", "Nobody has touched it in months"],
   };
   const arr = FRASES[estado];
@@ -2654,7 +2633,7 @@ function captionBloom(estado, nivel){
 // aplica como clase n1/n2/n3 de .caja (ver CSS de encendidos). Para
 // re-habilitar: volver a llamar renderBloom() en el template de tarjeta.
 function renderBloom(estado, nivel){
-  const estadosValidos = ["verde","amarillo","naranja","rojo","azul","negro"];
+  const estadosValidos = ["verde","amarillo","naranja","rojo","negro"];
   if (!estadosValidos.includes(estado)) return "";
   const stops = ["bg", "", "dk"];
   const caption = captionBloom(estado, nivel);
