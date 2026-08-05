@@ -165,15 +165,17 @@
   .metal-superficie{
     background-color:var(--metal);
     background-image:
-      repeating-linear-gradient(90deg, rgba(255,255,255,.30) 0 1px, rgba(0,0,0,.04) 1px 3px),
-      linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 55%, var(--metal-medio) 100%);
+      repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.018) 1px 2px),
+      linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 58%, var(--metal-medio) 100%);
     border-top:1px solid var(--bisel-luz);
     border-bottom:1px solid var(--bisel-sombra);
   }
   .metal-ranuras{
     height:14px;
+    /* Rejilla FISICA del tope de la 2068: es una banda decorativa corta y
+       aislada, nunca una textura detras de contenido (eso seria un CRT). */
     background-image:repeating-linear-gradient(180deg,
-      var(--metal-medio) 0 1px, var(--metal-claro) 1px 3px);
+      var(--metal-medio) 0 1px, var(--metal-claro) 1px 4px);
     border-top:1px solid var(--bisel-luz);
     border-bottom:1px solid var(--bisel-sombra);
   }
@@ -288,10 +290,8 @@
   header{
     /* Panel de teclado de la Timex Sinclair 2068: charcoal con veta y biseles. */
     background-color:var(--panel-charcoal);
-    background-image:
-      repeating-linear-gradient(180deg, rgba(255,255,255,.035) 0 1px, rgba(0,0,0,.05) 1px 4px),
-      linear-gradient(180deg, #43464C 0%, var(--panel-charcoal) 60%, var(--panel-charcoal-dk) 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.35);
+    background-image:linear-gradient(180deg, #464A50 0%, var(--panel-charcoal) 62%, var(--panel-charcoal-dk) 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(0,0,0,.40);
     color:var(--blanco-calido);
     padding:18px 20px;
     min-height:var(--header-h);
@@ -417,9 +417,12 @@
     gap:4px;
     /* Aluminio cepillado: microrayas verticales + gradiente vertical suave. */
     background-color:var(--metal);
+    /* Veta de aluminio: vertical, finisima y de contraste bajisimo. Debe
+       insinuarse, no verse como rayas. NUNCA usar rayas horizontales aqui:
+       eso lee como scanline de monitor viejo, que es justo lo contrario. */
     background-image:
-      repeating-linear-gradient(90deg, rgba(255,255,255,.28) 0 1px, rgba(0,0,0,.045) 1px 3px),
-      linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 55%, var(--metal-medio) 100%);
+      repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.018) 1px 2px),
+      linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 58%, var(--metal-medio) 100%);
     border-top:2px solid var(--bisel-sombra);
     box-shadow:inset 0 1px 0 var(--bisel-luz);
     position:fixed;
