@@ -29,6 +29,16 @@
   #oc-help-sheet h3{font-family:var(--font-display,sans-serif);color:var(--ink,#0F1923);font-size:16px;margin:18px 0 6px;}
   #oc-help-sheet p, #oc-help-sheet li{font-size:15px;color:var(--ink-soft,#2C3E50);line-height:1.5;}
   #oc-help-sheet ul{margin:0 0 4px;padding-left:20px;}
+  
+  #oc-help-sheet{position:relative;}
+  #oc-help-x{position:sticky; top:0; float:right; margin:-6px -4px 0 0;
+    width:44px; height:44px; min-width:44px; border-radius:50%; z-index:5;
+    border:2px solid var(--azul-medio,#2E6278); background:var(--blanco-calido,#F8F9FB);
+    color:var(--ink,#0F1923); font-size:22px; font-weight:800; line-height:1;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  #oc-help-x:active{background:var(--azul-medio,#2E6278); color:#FFFFFF;}
+  #oc-help-credito{margin-top:22px; padding-top:14px; border-top:1px solid var(--azul-suave,#dde5ec);
+    font-size:14px; line-height:1.5; text-align:center; color:var(--ink-soft,#2C3E50);}
   #oc-help-cerrar{margin-top:18px;width:100%;padding:12px;border-radius:8px;border:2px solid var(--azul-medio,#2E6278);
     background:var(--azul-medio,#2E6278);color:var(--blanco-calido,#F8F9FB);font-family:var(--font-display,sans-serif);
     font-size:15px;cursor:pointer;min-height:44px;}
@@ -209,10 +219,12 @@
   const modal = document.createElement("div");
   modal.id = "oc-help-modal";
   modal.innerHTML = `<div id="oc-help-sheet">
+    <button id="oc-help-x" aria-label="Cerrar" title="Cerrar">&times;</button>
     <h2 id="oc-help-titulo">How does friendly-123 work?</h2>
     <!-- Tagline (JFC 2026-07-15): "Manage your business, in color" — marketing promise, not description. -->
     <p id="oc-help-tagline" style="font-family:var(--font-display,sans-serif);color:#E8A020;font-size:15px;font-weight:700;margin:0 0 14px;">Manage your business, in color</p>
     <div id="oc-help-body"></div>
+    <div id="oc-help-credito">Made in Cuenca &middot; apps y herramientas &mdash; powered by <a href="https://jfcarpio.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">avatiun.com</a></div>
     <button id="oc-help-cerrar">Got it</button>
   </div>`;
   document.body.appendChild(modal);
@@ -231,6 +243,7 @@
     const tag = document.getElementById("oc-help-tagline");
     if (tag) tag.textContent = window.t("brand.slogan");
     const cerrar = document.getElementById("oc-help-cerrar");
+  try{const _x=document.getElementById("oc-help-x"); if(_x) _x.onclick=()=>document.getElementById("oc-help-modal").classList.remove("abierto");}catch(e){}
     if (cerrar) cerrar.textContent = window.t("help.gotIt");
   }
   window.addEventListener("oc-lang-change", pintarTextosFijos);
