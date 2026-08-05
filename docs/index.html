@@ -158,21 +158,34 @@
        Aluminio cepillado tibio, panel de teclado charcoal, ranuras finas,
        biseles duros. Precision japonesa, gusto britanico. Es CHROME: nunca
        compite con el color de estado de una tarjeta. */
-    --metal-claro:#DCDED9;
-    --metal:#C9CBC6;
-    --metal-medio:#B0B2AD;
-    --metal-oscuro:#8E918C;
-    --panel-charcoal:#3A3D42;
-    --panel-charcoal-dk:#2A2D32;
-    --bisel-luz:#F2F3F0;
-    --bisel-sombra:#7E817C;
+    /* PLATA LUMINOSA. La plata refleja: va de casi-blanco a gris medio en la
+       MISMA superficie. Un gris plano se ve muerto — JFC lo rechaza. Todos
+       estos son SOLIDOS: el brillo sale del gradiente, nunca de opacidad.
+       La opacidad solo se permite en sombras y cantos (relieve del case). */
+    --plata-brillo:#FCFDFC;   /* punto de luz alto */
+    --plata-claro:#EDEFEC;
+    --plata:#D8DBD6;
+    --plata-media:#BFC3BD;
+    --plata-honda:#9DA29B;    /* fondo de bisel */
+    --plata-canto:#7C817A;    /* canto oscuro del case */
+    /* Alias heredados: muchas reglas ya los referencian. */
+    --metal-claro:#EDEFEC;
+    --metal:#D8DBD6;
+    --metal-medio:#BFC3BD;
+    --metal-oscuro:#9DA29B;
+    /* El header YA NO es charcoal: es case plateado. Se conservan los nombres
+       para no romper reglas viejas, pero apuntan a plata. */
+    --panel-charcoal:#D8DBD6;
+    --panel-charcoal-dk:#BFC3BD;
+    --bisel-luz:#FCFDFC;
+    --bisel-sombra:#7C817A;
   }
 
   .metal-superficie{
     background-color:var(--metal);
     background-image:
-      repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.018) 1px 2px),
-      linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 58%, var(--metal-medio) 100%);
+      repeating-linear-gradient(90deg, var(--plata-claro) 0 1px, var(--plata) 1px 3px),
+      linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 22%, var(--plata) 60%, var(--plata-media) 100%);
     border-top:1px solid var(--bisel-luz);
     border-bottom:1px solid var(--bisel-sombra);
   }
@@ -186,11 +199,12 @@
     border-bottom:1px solid var(--bisel-sombra);
   }
   .metal-tecla{
-    background-image:linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 100%);
-    border:1px solid var(--metal-oscuro);
-    border-top-color:var(--bisel-luz);
+    /* Tecla 2.5D: luz arriba, cuerpo plata, canto oscuro abajo. */
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 40%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
     border-radius:6px;
-    box-shadow:0 2px 0 var(--bisel-sombra);
+    box-shadow:0 2px 0 var(--plata-canto), 0 3px 5px rgba(0,0,0,.18);
   }
   .metal-tecla:active{ transform:translateY(2px); box-shadow:0 0 0 var(--bisel-sombra); }
 
@@ -295,10 +309,21 @@
   /* ================= HEADER ================= */
   header{
     /* Panel de teclado de la Timex Sinclair 2068: charcoal con veta y biseles. */
-    background-color:var(--panel-charcoal);
-    background-image:linear-gradient(180deg, #464A50 0%, var(--panel-charcoal) 62%, var(--panel-charcoal-dk) 100%);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(0,0,0,.40);
-    color:var(--blanco-calido);
+    /* CASE PLATEADO 2.5D (JFC: "el header no puede ser negro sino parecer case
+       metalico plateado"). El brillo sale de un gradiente de solidos con un
+       punto de luz alto; el relieve, de cantos claros/oscuros. Sin opacidad
+       en la superficie: solo en la sombra inferior. */
+    background-color:var(--plata);
+    background-image:linear-gradient(180deg,
+      var(--plata-brillo) 0%,
+      var(--plata-claro) 18%,
+      var(--plata) 52%,
+      var(--plata-media) 82%,
+      var(--plata-honda) 100%);
+    border-bottom:1px solid var(--plata-canto);
+    box-shadow:inset 0 1px 0 var(--plata-brillo), 0 2px 6px rgba(0,0,0,.22);
+    color:var(--ink) !important;
+    -webkit-text-fill-color:var(--ink) !important;
     padding:18px 20px;
     min-height:var(--header-h);
     display:flex;
@@ -362,6 +387,33 @@
     background:transparent;
     border-color:transparent;
   }
+
+  /* === HEADER PLATEADO: tinta oscura obligatoria (JFC 2026-08-05) ===
+     El header dejo de ser oscuro y paso a case plateado claro. Todo lo que
+     escribe encima tiene que ser tinta solida, o queda ilegible. Colores
+     solidos y -webkit-text-fill-color por iOS. NO usar opacidad aqui. */
+  header, header h1, header .marca, header .slogan-app, header .sub,
+  header span, header small, header em, header strong, header label, header a{
+    color:#14181C !important;
+    -webkit-text-fill-color:#14181C !important;
+  }
+  header .slogan-app{ color:#3A4048 !important; -webkit-text-fill-color:#3A4048 !important; }
+  /* Botones del header como teclas del case: plata con relieve, tinta oscura. */
+  header button{
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 45%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
+    color:#14181C !important;
+    -webkit-text-fill-color:#14181C !important;
+    box-shadow:0 2px 0 var(--plata-canto);
+  }
+  header button:active{ transform:translateY(2px); box-shadow:0 0 0 var(--plata-canto); }
+  /* Tecla de idioma activa: se hunde y se oscurece, sin perder legibilidad. */
+  .oc-lang-btn.activo{
+    background-image:linear-gradient(180deg, var(--plata-media) 0%, var(--plata-honda) 100%) !important;
+    color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;
+    box-shadow:inset 0 2px 3px rgba(0,0,0,.35) !important;
+  }
   header h1{
     margin:0;
     font-family:var(--font-serif);
@@ -422,13 +474,13 @@
     display:flex;
     gap:4px;
     /* Aluminio cepillado: microrayas verticales + gradiente vertical suave. */
-    background-color:var(--metal);
-    /* Veta de aluminio: vertical, finisima y de contraste bajisimo. Debe
-       insinuarse, no verse como rayas. NUNCA usar rayas horizontales aqui:
-       eso lee como scanline de monitor viejo, que es justo lo contrario. */
+    background-color:var(--plata);
+    /* Veta vertical finisima hecha con SOLIDOS (sin opacidad) + gradiente de
+       rango amplio para que la plata refleje. Rayas horizontales aqui NUNCA:
+       eso lee como scanline de monitor viejo. */
     background-image:
-      repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 1px, rgba(0,0,0,.018) 1px 2px),
-      linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 58%, var(--metal-medio) 100%);
+      repeating-linear-gradient(90deg, var(--plata-claro) 0 1px, var(--plata) 1px 3px),
+      linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 22%, var(--plata) 60%, var(--plata-media) 100%);
     border-top:2px solid var(--bisel-sombra);
     box-shadow:inset 0 1px 0 var(--bisel-luz);
     position:fixed;

@@ -34,6 +34,18 @@
       "port": 8736
     },
     {
+      "name": "consultorio-123-docs",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8737",
+        "--directory",
+        "C:\\00 Projects\\Consultorio-123\\docs"
+      ],
+      "port": 8737
+    },
+    {
       "name": "f123-fresh",
       "runtimeExecutable": "python",
       "runtimeArgs": [
