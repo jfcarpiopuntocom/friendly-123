@@ -30,7 +30,7 @@
 <link rel="canonical" href="https://jfcarpiopuntocom.github.io/AMIGABLE/manual-maestro.html">
 <style>
   :root{
-    /* Paleta oficial AMIGABLE-123 (Sinclair Bloom x Kyoto Muted) — mismos valores del app, cero gris */
+    /* Paleta oficial AMIGABLE-123 (paleta oficial) — mismos valores del app, cero gris */
     --papel:#FFFFFF;
     --crema:#F8F9FB;
     --ink:#0F1923;
@@ -472,7 +472,7 @@
 
   <div class="stat-grid">
     <div class="stat"><div class="n" data-contar="6">0</div><div class="l">Colores de estado</div></div>
-    <div class="stat"><div class="n" data-contar="3">0</div><div class="l">Niveles Sinclair Bloom</div></div>
+    <div class="stat"><div class="n" data-contar="5">0</div><div class="l">Colores del semáforo</div></div>
     <div class="stat"><div class="n" data-contar="8">0</div><div class="l">Vistas principales</div></div>
     <div class="stat"><div class="n" data-contar="15">0</div><div class="l">% IVA Ecuador aplicado</div></div>
   </div>
@@ -566,37 +566,9 @@
     </div>
   </div>
 
-  <h3>La Escala Sinclair Bloom: 3 grados dentro de cada color</h3>
-  <p>Cada color tiene tres grados de intensidad — nunca cambia de color, solo se enciende más o menos fuerte. Es la diferencia entre "recién entrando en amarillo" y "amarillo a punto de pasar a rojo".</p>
-  <div class="grid3">
-    <div class="tarjeta">
-      <div class="escala-bloom">
-        <span class="barra" style="height:10px;background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);"></span>
-        <span class="barra" style="height:16px;background:var(--sim-plata-bg);"></span>
-        <span class="barra" style="height:22px;background:var(--sim-plata-bg);"></span>
-      </div>
-      <strong>Nivel 1 — Tenue</strong>
-      <p style="font-size:15px;margin:4px 0 0;">Recién cruzó la línea. Fondo claro, tinta oscura. "Empieza a pensar en reponer."</p>
-    </div>
-    <div class="tarjeta">
-      <div class="escala-bloom">
-        <span class="barra" style="height:10px;background:var(--sim-amarillo);border-color:var(--sim-amarillo-dk);"></span>
-        <span class="barra" style="height:16px;background:var(--sim-amarillo);border-color:var(--sim-amarillo-dk);"></span>
-        <span class="barra" style="height:22px;background:var(--sim-plata-bg);"></span>
-      </div>
-      <strong>Nivel 2 — Medio</strong>
-      <p style="font-size:15px;margin:4px 0 0;">El look clásico del color, a media fuerza. "Se acerca la hora de reponer."</p>
-    </div>
-    <div class="tarjeta">
-      <div class="escala-bloom">
-        <span class="barra" style="height:10px;background:var(--sim-amarillo-dk);"></span>
-        <span class="barra" style="height:16px;background:var(--sim-amarillo-dk);"></span>
-        <span class="barra" style="height:22px;background:var(--sim-amarillo-dk);"></span>
-      </div>
-      <strong>Nivel 3 — Encendido</strong>
-      <p style="font-size:15px;margin:4px 0 0;">Máxima urgencia dentro del color, con resplandor visual. "Última unidad — no esperes más."</p>
-    </div>
-  </div>
+  <h3>Un color, un significado</h3>
+  <p>Cada estado tiene <strong>un solo color plano</strong>. No hay grados ni intensidades: una tarjeta está en verde, en amarillo, en naranja, en rojo o en negro, y eso es todo lo que hay que leer. Antes existía una escala de tres niveles dentro de cada color; se retiró porque obligaba a interpretar matices en vez de reconocer un estado de un vistazo, que es justamente lo que este sistema viene a evitar.</p>
+  <p>El azul quedó fuera del semáforo a propósito: <strong>nunca</strong> es una señal de inventario. Si aparece, es parte de la interfaz, no un estado de tus productos.</p>
 
   <div class="alerta"><strong>El rojo es distinto:</strong> además del degradé, el rojo pulsa suavemente (una animación de urgencia) para que ningún producto en emergencia pase desapercibido, incluso si el dueño solo mira la pantalla de reojo.</div>
 
@@ -1202,7 +1174,7 @@ Carmen Ulloa,</pre>
     <dt>Percha</dt><dd>Unidad operativa real de venta: mostrador, stand, mesa de feria.</dd>
     <dt>Sucursal</dt><dd>Agrupador de perchas para reportes y organización.</dd>
     <dt>Sistema Simon</dt><dd>Los seis colores de estado (verde, amarillo, naranja, rojo, azul, negro) que clasifican cada producto.</dd>
-    <dt>Escala Sinclair Bloom</dt><dd>Los tres niveles de intensidad (tenue, medio, encendido) dentro de cada color.</dd>
+    <dt>Semáforo de colores</dt><dd>Los cinco estados del inventario: verde, amarillo, naranja, rojo y negro. Un color plano por estado, sin niveles ni matices.</dd>
     <dt>Umbral rojo / amarillo</dt><dd>Cantidades de stock que activan cada alerta de reposición.</dd>
     <dt>Producto estrella ⭐</dt><dd>Producto marcado por el dueño para impulsar activamente hoy.</dd>
     <dt>Matriz de estaciones (RFM)</dt><dd>Clasificación de clientes en primavera, verano, otoño e invierno según frecuencia y monto de compra.</dd>

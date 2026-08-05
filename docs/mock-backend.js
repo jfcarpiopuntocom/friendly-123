@@ -158,7 +158,7 @@
 
     /* ---- VITRINA GRADOS DE ENCENDIDO (JFC 2026-07-07): completa los niveles
        1-3 de cada color que faltaban, para que el visitante VEA la Escala
-       Sinclair Bloom en acción sin tener que operar nada. ---- */
+       semaforo de colores en acción sin tener que operar nada. ---- */
     /* VERDE encendido 1 — sano pero con poco fondo (stock < 7) */
     {"id":"p40","nombre":"Keychain — Bottle Opener","categoria":"Gifts & Souvenirs","sku":"ACC-LLA-001","barcode":"7861000030323","ubicacionId":"smokeshop","precio":12,"costo":8,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Coastal Wholesale Co."},
     /* VERDE encendido 2 — sano, fondo medio (7-14) */
@@ -792,7 +792,7 @@
   //   Negro    = capital dormido (45+ días sin venta con stock sano)
   // Antes este mock usaba amarillo="revisar pronto" y azul="buen margen":
   // contradecía el manual y la Ayuda. NO volver a ese mapeo.
-  // Cada estado sale con su NIVEL de encendido 1-3 (Escala Sinclair Bloom:
+  // Cada estado sale con su NIVEL de encendido 1-3 (semaforo de colores:
   // tenue · medio · encendido); index.html lo prefiere sobre su heurística.
   // =========================================================================
   // Mensajes bilingues via window.t/tf (i18n.js carga antes que este script).

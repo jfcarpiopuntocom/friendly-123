@@ -19,7 +19,7 @@
   const FLAG_CONFIRMADO = 'f123_bienvenida_confirmada'; // 2do login: exige confirmar, no solo cerrar
 
   const css = document.createElement('style');
-  // Paleta: SOLO el chasis Sinclair Bloom oficial de index.html (plata
+  // Paleta: SOLO el chasis semaforo de colores oficial de index.html (plata
   // #C4CDD8, tinta azul #0F1923, brass #5294AC, rust #E86040, fondo frio
   // #F8F9FB). PROHIBIDO beige/ocre/castano aqui — regla JFC 2026-07-07:
   // "respeta el color scheme del index". Se usan var() con fallback al hex
