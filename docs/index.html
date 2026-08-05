@@ -131,18 +131,60 @@
        un color nuevo, solo más o menos profundo. */
 
     /* — Inventario Simon core — */
-    --sim-verde:#00C87A;   --sim-verde-bg:#C0F5E0;  --sim-verde-dk:#009A5A;
-    --sim-amarillo:#FFC700; --sim-amarillo-bg:#FFF3C2; --sim-amarillo-dk:#B8860B;
-    --sim-plata:#C4CDD8;  --sim-plata-bg:#E8ECF2;  --sim-plata-dk:#8A9AAA;
-    --sim-naranja:#F97316; --sim-naranja-bg:#FDD9BE;--sim-naranja-dk:#C05000;
-    --sim-rojo:#E8365D;    --sim-rojo-bg:#FAD5DE;   --sim-rojo-dk:#B0183E;
-    --sim-azul:#5294AC;    --sim-azul-mid:#7BB5C8;  --sim-azul-bg:#D4ECF5;   --sim-azul-dk:#2E6278;
-    --sim-negro:#0A0A0F;   --sim-negro-bg:#17171D;  --sim-negro-dk:#000000;
+    /* === 1 TONO POR ESTADO (JFC 2026-08-05) — Sinclair Bloom retirado ===
+       -X y -X-bg son EL MISMO tono plano: la tarjeta esta prendida o no, ya
+       no hay 3 grados de encendido. -X-dk es sombra del mismo matiz y sirve
+       SOLO para bordes/biseles/sombras: nunca relleno, nunca texto sobre ese
+       mismo color. Los hues propios de esta app se conservan. */
+    --sim-verde:#00C87A;    --sim-verde-bg:#00C87A;    --sim-verde-dk:#00794A;
+    --sim-amarillo:#FFC700; --sim-amarillo-bg:#FFC700; --sim-amarillo-dk:#9E7B00;
+    --sim-plata:#C4CDD8;    --sim-plata-bg:#E8ECF2;    --sim-plata-dk:#8A9AAA;
+    --sim-naranja:#F97316;  --sim-naranja-bg:#F97316;  --sim-naranja-dk:#A24608;
+    --sim-rojo:#E8365D;     --sim-rojo-bg:#E8365D;     --sim-rojo-dk:#94152F;
+    --sim-azul:#5294AC;     --sim-azul-mid:#5294AC;    --sim-azul-bg:#5294AC;   --sim-azul-dk:#2E6278;
+    --sim-negro:#0A0A0F;    --sim-negro-bg:#0A0A0F;    --sim-negro-dk:#000000;
 
-    /* — Sinclair accents (contable / secundario) — */
-    --sim-cyan:#00D4FF;    --sim-cyan-bg:#C5F7FF;   --sim-cyan-dk:#007A99;
-    --sim-magenta:#D946A8; --sim-magenta-bg:#FAE4F4;--sim-magenta-dk:#A01880;
+    /* — accents (contable / secundario) — mismo criterio, 1 tono */
+    --sim-cyan:#00D4FF;     --sim-cyan-bg:#00D4FF;     --sim-cyan-dk:#00697F;
+    --sim-magenta:#D946A8;  --sim-magenta-bg:#D946A8;  --sim-magenta-dk:#8C1E68;
+
+    /* === CHASIS METALICO — Timex Sinclair 2068 (JFC 2026-08-05) ===
+       Aluminio cepillado tibio, panel de teclado charcoal, ranuras finas,
+       biseles duros. Precision japonesa, gusto britanico. Es CHROME: nunca
+       compite con el color de estado de una tarjeta. */
+    --metal-claro:#DCDED9;
+    --metal:#C9CBC6;
+    --metal-medio:#B0B2AD;
+    --metal-oscuro:#8E918C;
+    --panel-charcoal:#3A3D42;
+    --panel-charcoal-dk:#2A2D32;
+    --bisel-luz:#F2F3F0;
+    --bisel-sombra:#7E817C;
   }
+
+  .metal-superficie{
+    background-color:var(--metal);
+    background-image:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.30) 0 1px, rgba(0,0,0,.04) 1px 3px),
+      linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 55%, var(--metal-medio) 100%);
+    border-top:1px solid var(--bisel-luz);
+    border-bottom:1px solid var(--bisel-sombra);
+  }
+  .metal-ranuras{
+    height:14px;
+    background-image:repeating-linear-gradient(180deg,
+      var(--metal-medio) 0 1px, var(--metal-claro) 1px 3px);
+    border-top:1px solid var(--bisel-luz);
+    border-bottom:1px solid var(--bisel-sombra);
+  }
+  .metal-tecla{
+    background-image:linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 100%);
+    border:1px solid var(--metal-oscuro);
+    border-top-color:var(--bisel-luz);
+    border-radius:6px;
+    box-shadow:0 2px 0 var(--bisel-sombra);
+  }
+  .metal-tecla:active{ transform:translateY(2px); box-shadow:0 0 0 var(--bisel-sombra); }
 
   /* === FAILSAFE COLORES — navegadores sin CSS variables (Chrome <49, IE, Opera Mini)
      JFC 2026-07-03. Colores literales como base; el bloque :root los sobreescribe
@@ -244,7 +286,12 @@
 
   /* ================= HEADER ================= */
   header{
-    background:var(--azul-oscuro);
+    /* Panel de teclado de la Timex Sinclair 2068: charcoal con veta y biseles. */
+    background-color:var(--panel-charcoal);
+    background-image:
+      repeating-linear-gradient(180deg, rgba(255,255,255,.035) 0 1px, rgba(0,0,0,.05) 1px 4px),
+      linear-gradient(180deg, #43464C 0%, var(--panel-charcoal) 60%, var(--panel-charcoal-dk) 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10), inset 0 -1px 0 rgba(0,0,0,.35);
     color:var(--blanco-calido);
     padding:18px 20px;
     min-height:var(--header-h);
@@ -368,8 +415,13 @@
   nav{
     display:flex;
     gap:4px;
-    background:var(--paper-deep);
-    border-top:2px solid var(--ink);
+    /* Aluminio cepillado: microrayas verticales + gradiente vertical suave. */
+    background-color:var(--metal);
+    background-image:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.28) 0 1px, rgba(0,0,0,.045) 1px 3px),
+      linear-gradient(180deg, var(--metal-claro) 0%, var(--metal) 55%, var(--metal-medio) 100%);
+    border-top:2px solid var(--bisel-sombra);
+    box-shadow:inset 0 1px 0 var(--bisel-luz);
     position:fixed;
     left:0; right:0; bottom:0;
     /* ALTURA FIJA + content-box (homologado de AMIGABLE, 2026-07-28).
@@ -521,10 +573,10 @@
     display:flex;
     align-items:center;
   }
-  .lista-alertas li.verde{background:var(--sim-verde-bg); color:var(--sim-verde-dk); border:2px solid var(--sim-verde);}
-  .lista-alertas li.amarillo{background:var(--sim-amarillo-bg); color:var(--sim-amarillo-dk); border:2px solid var(--sim-amarillo);}
-  .lista-alertas li.naranja{background:var(--sim-naranja-bg); color:var(--sim-naranja-dk); border:2px solid var(--sim-naranja);}
-  .lista-alertas li.rojo{background:var(--sim-rojo-bg); color:var(--sim-rojo-dk); border:2px solid var(--sim-rojo);}
+  .lista-alertas li.verde{background:var(--sim-verde); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-verde-dk);}
+  .lista-alertas li.amarillo{background:var(--sim-amarillo); color:#1A1A1A !important; -webkit-text-fill-color:#1A1A1A !important; border:2px solid var(--sim-amarillo-dk);}
+  .lista-alertas li.naranja{background:var(--sim-naranja); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-naranja-dk);}
+  .lista-alertas li.rojo{background:var(--sim-rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-rojo-dk);}
   .lista-alertas li.negro{background:var(--sim-negro-bg); color:#E0E0E2; border:2px solid var(--sim-negro);}
 
   /* ================= INVENTARIO ================= */
@@ -609,10 +661,8 @@
   /* Nivel 1 (fondo tenue -bg, claro): tinta oscura para legibilidad — regla
      absoluta de contraste. Negro queda fuera: su n1 sigue siendo oscuro.
      3 clases (>2) para ganarle a las reglas blancas de arriba. */
-  .caja.n1:not(.negro) .nombre{color:#0F1923 !important;}
-  .caja.n1:not(.negro) .stock{color:#0F1923 !important;}
-  .caja.n1:not(.negro) .detalle{color:#2C3E50 !important;}
-  .caja.n1:not(.negro) [data-ajuste-menos],.caja.n1:not(.negro) [data-ajuste-mas],.caja.n1:not(.negro) [data-estrella-toggle]{color:#0F1923 !important; border-color:#0F1923 !important;}
+  /* 1 TONO (2026-08-05): n1 ya no es un tinte claro, es el color solido,
+     asi que forzar tinta oscura aqui dejaba el texto ilegible. Se anula. */
   .caja .estrella-badge{
     position:absolute; top:8px; right:8px;
     font-size:20px; line-height:1;
@@ -746,9 +796,9 @@
     border-radius:20px;
     margin-top:10px;
   }
-  .badge-estado.verde{background:var(--sim-verde-bg); color:var(--sim-verde-dk);}
-  .badge-estado.amarillo{background:var(--sim-amarillo-bg); color:var(--sim-amarillo-dk);}
-  .badge-estado.rojo{background:var(--sim-rojo-bg); color:var(--sim-rojo-dk);}
+  .badge-estado.verde{background:var(--sim-verde); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
+  .badge-estado.amarillo{background:var(--sim-amarillo); color:#1A1A1A !important; -webkit-text-fill-color:#1A1A1A !important;}
+  .badge-estado.rojo{background:var(--sim-rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
   /* Botones de evaluación de clientes (2026-07-08) */
   .oc-ev-btn{
     background:transparent; border:1.5px solid #D7E0E8; border-radius:6px;
@@ -758,7 +808,7 @@
   .oc-ev-btn.activo-neg{ background:#FDECEA; border-color:#C0392B; }
   .oc-ev-btn.activo-neu{ background:#F0F4F8; border-color:#7A9BB5; font-size:13px; font-weight:700; color:#2E6278 !important; -webkit-text-fill-color:#2E6278 !important; }
   .oc-ev-btn.activo-pos{ background:#E8F8F0; border-color:#009A5A; }
-  .badge-estado.azul{background:var(--sim-azul-bg); color:var(--sim-azul-dk);}
+  .badge-estado.azul{background:var(--sim-azul); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
 
   .acciones-rapidas{
     display:flex;
@@ -2477,7 +2527,7 @@ async function cargarHoy(){
   const puntito = (color) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:currentColor;margin-right:9px;flex-shrink:0;"></span>`;
   const lista = document.getElementById("listaAlertas");
   if (data.alertas.length === 0){
-    lista.innerHTML = `<li class="verde" style="background:var(--sim-verde-bg); color:var(--sim-verde-dk); border:2px solid var(--sim-verde);">${puntito()}${t("hoy.noAlerts")}</li>`;
+    lista.innerHTML = `<li class="verde" style="background:var(--sim-verde); color:#FFFFFF; -webkit-text-fill-color:#FFFFFF; border:2px solid var(--sim-verde-dk);">${puntito()}${t("hoy.noAlerts")}</li>`;
   } else {
     lista.innerHTML = data.alertas.map(a =>
       `<li class="${a.estado}">${puntito()}${a.mensaje}</li>`
@@ -4348,16 +4398,16 @@ async function cargarAvanzado(){
     <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
     <tr><td>${t("adv.pl.revenue")}</td><td>${fmtMoney(pl.ingresos)}</td></tr>
     <tr><td>${t("adv.pl.cogs")}</td><td>${fmtMoney(pl.costoVentas)}</td></tr>
-    <tr style="color:var(--sim-verde-dk);"><td>${t("adv.pl.grossProfit")}</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>
+    <tr style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;"><td>${t("adv.pl.grossProfit")}</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>
     <tr><td>${t("adv.pl.opex")}</td><td>${fmtMoney(pl.gastosOperativos)}</td></tr>
-    <tr style="background:var(--sim-verde-bg);"><td><strong style="color:var(--sim-verde-dk);">${t("adv.pl.netProfit")}</strong></td><td><strong style="color:var(--sim-verde-dk);">${fmtMoney(pl.utilidadNeta)}</strong></td></tr>
+    <tr style="background:var(--sim-verde);"><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${t("adv.pl.netProfit")}</strong></td><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoney(pl.utilidadNeta)}</strong></td></tr>
   `;
 
   document.getElementById("tablaBalance").innerHTML = `
     <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
     <tr><td>${t("adv.bal.estCash")}</td><td>${fmtMoney(balance.activos.efectivoEstimado)}</td></tr>
     <tr><td>${t("adv.bal.valuedInv")}</td><td>${fmtMoney(balance.activos.inventarioValorizado)}</td></tr>
-    <tr style="background:var(--sim-azul-bg);"><td><strong style="color:var(--sim-azul-dk);">${t("adv.bal.totalAssets")}</strong></td><td><strong style="color:var(--sim-azul-dk);">${fmtMoney(balance.activos.total)}</strong></td></tr>
+    <tr style="background:var(--sim-azul);"><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${t("adv.bal.totalAssets")}</strong></td><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoney(balance.activos.total)}</strong></td></tr>
   `;
 
   document.getElementById("tablaValorizado").innerHTML = `
@@ -4377,12 +4427,12 @@ async function cargarAvanzado(){
         <td style="color:var(--sim-verde-dk);font-weight:600;">${fmtMoney(p.utilidadPotencial)}</td>
       </tr>
     `).join("")}
-    <tr style="background:var(--sim-azul-bg);">
-      <td><strong style="color:var(--sim-azul-dk);">${t("adv.val.total")}</strong></td>
+    <tr style="background:var(--sim-azul);">
+      <td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${t("adv.val.total")}</strong></td>
       <td></td>
-      <td><strong style="color:var(--sim-azul-dk);">${fmtMoney(valorizado.totales.valorCosto)}</strong></td>
-      <td><strong style="color:var(--sim-azul-dk);">${fmtMoney(valorizado.totales.valorVenta)}</strong></td>
-      <td><strong style="color:var(--sim-verde-dk);">${fmtMoney(valorizado.totales.utilidadPotencial)}</strong></td>
+      <td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoney(valorizado.totales.valorCosto)}</strong></td>
+      <td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoney(valorizado.totales.valorVenta)}</strong></td>
+      <td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoney(valorizado.totales.utilidadPotencial)}</strong></td>
     </tr>
   `;
 }
