@@ -1555,7 +1555,10 @@
         clientes.forEach((c) => {
           const f = fichaCliente(c, med);
           if (c.despedido) { grupos.despedidos.push(f); return; }
-          const t = f.evaluacion.trato, cv = f.evaluacion.confiabilidad;
+          // JFC 2026-08-06: evaluacion.trato/confiabilidad son 1-5 (no -1/0/1);
+          // nivel() los normaliza igual que en amigable-123 (4-5=positivo, 1-2=negativo).
+          const nivel = (v) => (v >= 4 ? 1 : (v > 0 && v <= 2) ? -1 : 0);
+          const t = nivel(f.evaluacion.trato), cv = nivel(f.evaluacion.confiabilidad);
           if (t === 1 && cv === 1)  grupos.estrella.push(f);
           else if (t === -1 && cv === 1) grupos.tolerable.push(f);
           else if (t === 1 && cv === -1) grupos.ojo.push(f);
@@ -1571,9 +1574,12 @@
       if (mCliEv && opts && opts.method === "PATCH") {
         const c = clientes.find((x) => x.id === mCliEv[1]);
         if (!c) return J({ error: "Cliente no encontrado." }, 404);
+        // JFC 2026-08-06: unico sistema de calificar en TODAS las apps es el de
+        // amigable-123 -- escala 1-5 (0=sin calificar), NO el tri-estado -1/0/1
+        // que se habia introducido aqui por error.
         if (!c.evaluacion) c.evaluacion = { trato: 0, confiabilidad: 0, historial: [] };
-        if (body.trato !== undefined) c.evaluacion.trato = Math.max(-1, Math.min(1, Number(body.trato)||0));
-        if (body.confiabilidad !== undefined) c.evaluacion.confiabilidad = Math.max(-1, Math.min(1, Number(body.confiabilidad)||0));
+        if (body.trato !== undefined) c.evaluacion.trato = Math.max(0, Math.min(5, Number(body.trato)||0));
+        if (body.confiabilidad !== undefined) c.evaluacion.confiabilidad = Math.max(0, Math.min(5, Number(body.confiabilidad)||0));
         c.evaluacion.historial = c.evaluacion.historial || [];
         // horaIncidente: hora local del evento según el empleado (HH:MM), para conciliación con cámaras/audios.
         c.evaluacion.historial.push({ trato: c.evaluacion.trato, confiabilidad: c.evaluacion.confiabilidad, quien: body.quien || "Sistema", fecha: new Date().toISOString(), horaIncidente: body.horaIncidente || null });

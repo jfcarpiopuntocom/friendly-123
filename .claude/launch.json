@@ -46,6 +46,18 @@
       "port": 8737
     },
     {
+      "name": "amigable-real-docs",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8740",
+        "--directory",
+        "C:\\00 Projects\\AMIGABLE\\docs"
+      ],
+      "port": 8740
+    },
+    {
       "name": "f123-fresh",
       "runtimeExecutable": "python",
       "runtimeArgs": [
@@ -56,6 +68,18 @@
         "C:\\00 Projects\\friendly-123\\docs"
       ],
       "port": 8961
+    },
+    {
+      "name": "f123-worktree-docs",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8962",
+        "--directory",
+        "C:\\00 Projects\\friendly-123\\.claude\\worktrees\\manual-maestro-repo-content-f52f7e\\docs"
+      ],
+      "port": 8962
     }
   ]
 }

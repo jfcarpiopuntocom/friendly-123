@@ -856,15 +856,16 @@
   .badge-estado.verde{background:var(--sim-verde); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
   .badge-estado.amarillo{background:var(--sim-amarillo); color:#1A1A1A !important; -webkit-text-fill-color:#1A1A1A !important;}
   .badge-estado.rojo{background:var(--sim-rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
-  /* Botones de evaluación de clientes (2026-07-08) */
-  .oc-ev-btn{
-    background:transparent; border:1.5px solid #D7E0E8; border-radius:6px;
-    padding:3px 7px; font-size:16px; cursor:pointer; line-height:1.2;
-    transition:background 0.1s, border-color 0.1s;
+  /* Calificador de clientes 1-5 (JFC 2026-08-06, portado de amigable-123):
+     estrella=confiabilidad, corazon=trato. Tap acumulativo: tocar el valor N
+     enciende 1..N. Tocar el mismo N otra vez limpia (0). */
+  .oc-rate-btn{
+    background:transparent; border:none; padding:2px; cursor:pointer; line-height:1;
+    min-width:32px; min-height:32px;
+    display:inline-flex; align-items:center; justify-content:center;
   }
-  .oc-ev-btn.activo-neg{ background:#FDECEA; border-color:#C0392B; }
-  .oc-ev-btn.activo-neu{ background:#F0F4F8; border-color:#7A9BB5; font-size:13px; font-weight:700; color:#2E6278 !important; -webkit-text-fill-color:#2E6278 !important; }
-  .oc-ev-btn.activo-pos{ background:#E8F8F0; border-color:#009A5A; }
+  .oc-rate-btn svg{ transition:transform 0.12s ease; }
+  @media (prefers-reduced-motion: reduce){ .oc-rate-btn svg{ transition:none; } }
 
   .acciones-rapidas{
     display:flex;
@@ -2056,33 +2057,37 @@ const ESTACIONES = {
 // Etiqueta de comportamiento según trato × confiabilidad.
 // Badges de comportamiento como chips HTML — sin emojis, legibles y serios.
 // Cada cuadrante tiene color semántico Simon: verde=saludable, rojo=emergencia, naranja=urgente, azul=contable.
+// svgStarR/svgHeartR (JFC 2026-08-06, unico sistema de calificar en TODAS las
+// apps, portado tal cual de amigable-123): estrella=confiabilidad,
+// corazon=trato, escala 1-5, llena u con contorno gris segun este "on".
+function svgStarR(on, size) {
+  size = size || 22;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 14 14" fill="${on ? "#E8A020" : "none"}" stroke="${on ? "#B8760A" : "#B9C4CE"}" stroke-width="1.1"><polygon points="7,1 8.8,5.3 13.4,5.7 10.1,8.6 11.1,13.1 7,10.6 2.9,13.1 3.9,8.6 0.6,5.7 5.2,5.3"/></svg>`;
+}
+function svgHeartR(on, size) {
+  size = size || 22;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 14 14" fill="${on ? "#E0245E" : "none"}" stroke="${on ? "#A81745" : "#B9C4CE"}" stroke-width="1.1"><path d="M7 12.5 C3 9.5 1 7.3 1 4.8 C1 3 2.4 1.6 4.1 1.6 C5.3 1.6 6.4 2.3 7 3.4 C7.6 2.3 8.7 1.6 9.9 1.6 C11.6 1.6 13 3 13 4.8 C13 7.3 11 9.5 7 12.5 Z"/></svg>`;
+}
+// nivelEv: normaliza escala 1-5 -> -1/0/+1 para los badges. 4-5=positivo, 1-2=negativo.
+function nivelEv(v) { return v >= 4 ? 1 : (v > 0 && v <= 2) ? -1 : 0; }
 function badgeComportamiento(ev) {
   if (!ev) return "";
-  const t = ev.trato, cv = ev.confiabilidad;
+  const t = nivelEv(ev.trato), cv = nivelEv(ev.confiabilidad);
   if (t === 0 && cv === 0) return "";
-  // Icono estrella SVG reutilizable (relleno dorado)
   const svgStar = `<svg width="14" height="14" viewBox="0 0 14 14" fill="#E8A020" style="vertical-align:middle;"><polygon points="7,1 8.8,5.3 13.4,5.7 10.1,8.6 11.1,13.1 7,10.6 2.9,13.1 3.9,8.6 0.6,5.7 5.2,5.3"/></svg>`;
-  // Icono bandera SVG (relleno rojo)
   const svgFlag = `<svg width="13" height="14" viewBox="0 0 13 14" fill="#C0392B" style="vertical-align:middle;"><rect x="1" y="0" width="1.5" height="14"/><polygon points="2.5,0 12,3 2.5,7"/></svg>`;
-  // Icono ojo SVG (trazo naranja)
   const svgEye = `<svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="#E86040" stroke-width="1.4" style="vertical-align:middle;"><ellipse cx="8" cy="5.5" rx="7" ry="4.5"/><circle cx="8" cy="5.5" r="2" fill="#E86040" stroke="none"/></svg>`;
-  // Icono maletín SVG (trazo azul contable)
   const svgCase = `<svg width="14" height="13" viewBox="0 0 14 13" fill="none" stroke="#2E6278" stroke-width="1.4" style="vertical-align:middle;"><rect x="1" y="4" width="12" height="8" rx="2"/><path d="M5 4V2.5A1.5 1.5 0 0 1 9 2.5V4"/></svg>`;
-  // Iconos simples de medio eje
-  const svgThumbUp = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#009A5A" stroke-width="1.5" style="vertical-align:middle;"><path d="M4 13V7L7 1l1 .5V5h4l-1 6H4z"/><path d="M4 7H1v6h3"/></svg>`;
-  const svgThumbDn = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#C0392B" stroke-width="1.5" style="vertical-align:middle;"><path d="M10 1v6L7 13l-1-.5V9H2l1-6h7z"/><path d="M10 7h3V1h-3"/></svg>`;
-  const svgShield  = `<svg width="13" height="14" viewBox="0 0 13 14" fill="none" stroke="#009A5A" stroke-width="1.4" style="vertical-align:middle;"><path d="M6.5 1 L12 3.5 V7 C12 10.5 6.5 13 6.5 13 C6.5 13 1 10.5 1 7 V3.5 Z"/><polyline points="4,7 6,9 9.5,5" stroke-width="1.6"/></svg>`;
-  const svgWarn    = `<svg width="14" height="13" viewBox="0 0 14 13" fill="none" style="vertical-align:middle;"><polygon points="7,1 13.5,12.5 0.5,12.5" fill="#E8A020"/><text x="7" y="11.2" text-anchor="middle" font-size="8" font-weight="700" fill="#0F1923">!</text></svg>`;
   const chip = (icon, txt, bg, color) =>
     `<span title="${txt}" style="display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:2px 7px;border-radius:20px;font-size:12px;font-weight:700;background:${bg};color:${color} !important;-webkit-text-fill-color:${color} !important;">${icon}${txt}</span>`;
   if (t === 1 && cv === 1)   return chip(svgStar,  "VIP",      "#FEF6E0", "#8A5A00");
   if (t === -1 && cv === -1) return chip(svgFlag,  "Alert",   "#FDECEA", "#C0392B");
   if (t === 1 && cv === -1)  return chip(svgEye,   "Watch",   "#FFF3EE", "#E86040");
   if (t === -1 && cv === 1)  return chip(svgCase,  "Difficult",  "#EBF4F9", "#2E6278");
-  if (t === 1)   return chip(svgThumbUp, "Good manner",  "#EDFAF4", "#006B3C");
-  if (t === -1)  return chip(svgThumbDn, "Difficult manner","#FDECEA","#C0392B");
-  if (cv === 1)  return chip(svgShield,  "Reliable",   "#EDFAF4", "#006B3C");
-  if (cv === -1) return chip(svgWarn,    "Caution",  "#FEF6E0", "#8A5A00");
+  if (t === 1)   return chip(svgHeartR(true, 14),  "Good manner",  "#EDFAF4", "#006B3C");
+  if (t === -1)  return chip(svgHeartR(false, 14), "Difficult manner","#FDECEA","#C0392B");
+  if (cv === 1)  return chip(svgStarR(true, 14),   "Reliable",   "#EDFAF4", "#006B3C");
+  if (cv === -1) return chip(svgStarR(false, 14),  "Caution",  "#FEF6E0", "#8A5A00");
   return "";
 }
 
@@ -2093,29 +2098,28 @@ function tarjetaCliente(c, esDueno){
     : "";
   // Controles de evaluación: visibles a dueño y empleados (no en demo si no hay sesión).
   const puedeEvaluar = window.OCAuth && window.OCAuth.rolActual && (window.OCAuth.rolActual() === "dueno" || window.OCAuth.rolActual() === "empleado");
-  // Botones de evaluación con SVG inline — sin emojis, aspecto profesional.
-  // val=-1 rojo, val=0 gris, val=1 verde. Campo puede ser "trato" o "confiabilidad".
-  const icoTrato = {
-    "-1": `<svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 1v6L7 13l-1-.5V9H2l1-6h7z"/><path d="M10 7h3V1h-3"/></svg>`,
-    "0":  `<svg width="15" height="3" viewBox="0 0 15 3"><rect x="0" y="1" width="15" height="1.5" rx="0.75" fill="currentColor"/></svg>`,
-    "1":  `<svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 13V7L7 1l1 .5V5h4l-1 6H4z"/><path d="M4 7H1v6h3"/></svg>`
+  // CALIFICADOR 1-5 (JFC 2026-08-06, portado tal cual de amigable-123 — es el
+  // UNICO sistema de calificar en todas las apps, fin de manitos/upvotes/tri-
+  // estado). Tap acumulativo: tocar N enciende 1..N; tocar el mismo N otra vez
+  // limpia a 0. confiabilidad=estrella, trato=corazon.
+  const filaRate = (campo, valor, iconoFn, titulo) => {
+    let btns = "";
+    for (let n = 1; n <= 5; n++) {
+      btns += `<button class="oc-rate-btn" title="${titulo} ${n} of 5"
+        onclick="evaluarCliente('${c.id}','${campo}',${n},this)">${iconoFn(n <= valor, 20)}</button>`;
+    }
+    return `<span class="oc-rate-row" data-valor="${valor}">${btns}</span>`;
   };
-  const icoConf = {
-    "-1": `<svg width="15" height="14" viewBox="0 0 14 13" fill="none"><polygon points="7,1 13.5,12.5 0.5,12.5" fill="currentColor"/><text x="7" y="11" text-anchor="middle" font-size="7.5" font-weight="700" fill="#0F1923">!</text></svg>`,
-    "0":  `<svg width="15" height="3" viewBox="0 0 15 3"><rect x="0" y="1" width="15" height="1.5" rx="0.75" fill="currentColor"/></svg>`,
-    "1":  `<svg width="14" height="14" viewBox="0 0 13 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6.5 1 L12 3.5 V7 C12 10.5 6.5 13 6.5 13 C6.5 13 1 10.5 1 7 V3.5 Z"/><polyline points="4,7 6,9 9.5,5" stroke-width="1.7"/></svg>`
-  };
-  const icoMap = { trato: icoTrato, confiabilidad: icoConf };
-  const btnEv = (campo, val, titulo) => {
-    const esteActivo = ev[campo] === val;
-    const cls = esteActivo ? (val < 0 ? "activo-neg" : val > 0 ? "activo-pos" : "activo-neu") : "";
-    return `<button class="oc-ev-btn ${cls}" title="${titulo}"
-      onclick="evaluarCliente('${c.id}','${campo}',${val})" style="margin:0 2px;">${icoMap[campo][String(val)]}</button>`;
+  const promEje = (campo) => {
+    const vals = (ev.historial || []).map(h => Number(h[campo]) || 0).filter(v => v >= 1 && v <= 5);
+    if (vals.length) return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+    const actual = Number(ev[campo]) || 0;
+    return actual >= 1 ? actual.toFixed(1) : null;
   };
   // Campo hora del incidente — auto-rellena con la hora actual; va en el historial
   // para que el empleado pueda conciliar con cámaras/audios si hay un alegato.
   const ahoraHora = new Date().toTimeString().slice(0,5);
-  const hayNegativo = ev.trato === -1 || ev.confiabilidad === -1;
+  const hayNegativo = nivelEv(ev.trato) === -1 || nivelEv(ev.confiabilidad) === -1;
   const campoHora = puedeEvaluar ? `
     <div id="oc-inc-wrap-${c.id}" style="display:${hayNegativo ? "flex" : "none"};align-items:center;gap:8px;margin-top:6px;padding:6px 10px;background:#FFF8F8;border:1px solid #FDDBD8;border-radius:7px;flex-wrap:wrap;">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#C0392B" stroke-width="1.4" style="flex-shrink:0;"><circle cx="7" cy="7" r="6"/><path d="M7 4v3l2 1.5"/></svg>
@@ -2125,13 +2129,17 @@ function tarjetaCliente(c, esDueno){
       <span style="font-size:12px;color:#999999 !important;-webkit-text-fill-color:#999999 !important;">(for cross-reference with cameras / audio)</span>
     </div>` : "";
   const controles = puedeEvaluar ? `
-    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;align-items:center;">
-      <span style="font-size:13px;font-weight:700;color:#2E6278;">Manner:</span>
-      ${btnEv("trato",-1,"Difficult")}${btnEv("trato",0,"Neutral")}${btnEv("trato",1,"Pleasant")}
-      <span style="font-size:13px;font-weight:700;color:#2E6278;margin-left:6px;">Reliability:</span>
-      ${btnEv("confiabilidad",-1,"Caution")}${btnEv("confiabilidad",0,"Neutral")}${btnEv("confiabilidad",1,"Reliable")}
+    <div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;align-items:center;">
+      <span style="display:inline-flex;align-items:center;white-space:nowrap;">
+        <span style="font-size:13px;font-weight:700;color:#2E6278;margin-right:4px;">Reliability:</span>
+        ${filaRate("confiabilidad", ev.confiabilidad, svgStarR, "Reliability")}
+      </span>
+      <span style="display:inline-flex;align-items:center;white-space:nowrap;">
+        <span style="font-size:13px;font-weight:700;color:#2E6278;margin-right:4px;">Manner:</span>
+        ${filaRate("trato", ev.trato, svgHeartR, "Manner")}
+      </span>
     </div>${campoHora}` : "";
-  const btnDespedir = (esDueno && ev.trato === -1 && ev.confiabilidad === -1)
+  const btnDespedir = (esDueno && nivelEv(ev.trato) === -1 && nivelEv(ev.confiabilidad) === -1)
     ? `<button style="margin-top:8px;font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;"
         data-despedir-id="${c.id}" data-despedir-nombre="${escHtml(c.nombre)}"
         onclick="despedirCliente(this.dataset.despedirId, this.dataset.despedirNombre)">Fire client 🚪</button>` : "";
@@ -2158,6 +2166,7 @@ function tarjetaCliente(c, esDueno){
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
       <span style="font-family:var(--font-mono);font-size:14px;color:#2E6278;margin-left:6px;">${escHtml(c.codigo)}</span>
+      ${(promEje("confiabilidad") || promEje("trato")) ? `<span title="Average rating" style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:700;background:#F4F7FA;color:#1E4258;">${promEje("confiabilidad") ? `${svgStarR(true, 13)}${promEje("confiabilidad")}` : ""}${promEje("trato") ? `${svgHeartR(true, 13)}${promEje("trato")}` : ""}</span>` : ""}
       ${esDueno ? badgeComportamiento(ev) : ""}
     </div>
     ${dato}${controles}${btnDespedir}${carteraHtml}
@@ -4266,32 +4275,67 @@ window.addEventListener("oc-login", () => setTimeout(ofrecerResumenSemanalSiToca
 // El negocio evalúa en 2 ejes: Trato y Confiabilidad (-1/0/+1).
 // Dueño y empleados pueden evaluar; la atribución va en el historial.
 // ============================================================================
-async function evaluarCliente(clienteId, campo, valor) {
+// EVALUACIÓN DE CLIENTES (JFC 2026-08-06, portado de amigable-123) — escala
+// 1-5: estrella=confiabilidad, corazon=trato. Tap acumulativo: tocar el mismo
+// valor N ya encendido -> limpia (0 = sin calificar). Actualizacion optimista
+// del icono en pantalla; cargarClientes() refresca a los 300ms.
+async function evaluarCliente(clienteId, campo, valor, btn) {
+  if (btn) btn.disabled = true;
+  const _lockKey = clienteId + ":" + campo;
+  evaluarCliente._locks = evaluarCliente._locks || new Set;
+  if (evaluarCliente._locks.has(_lockKey)) { if (btn) btn.disabled = false; return; }
+  evaluarCliente._locks.add(_lockKey);
+  let _row = null, _valorAnterior = 0;
   try {
+    if (btn && btn.parentElement) {
+      const row = btn.closest(".oc-rate-row") || btn.parentElement;
+      _row = row;
+      const currentVal = parseInt(row.dataset.valor || "0", 10);
+      _valorAnterior = currentVal;
+      if (currentVal === valor) valor = 0;
+      row.dataset.valor = String(valor);
+      try {
+        const iconoFn = campo === "trato" ? svgHeartR : svgStarR;
+        row.querySelectorAll(".oc-rate-btn").forEach((b, i) => { b.innerHTML = iconoFn(i + 1 <= valor, 20); });
+      } catch(_) {}
+    }
     const quien = (window.OCAuth && window.OCAuth.usuarioActual && window.OCAuth.usuarioActual().nombre) || "Sistema";
-    // Lee la hora del incidente del campo oculto/visible en la tarjeta.
-    // Solo se envía si hay un valor negativo (trato=-1 o confiabilidad=-1).
     const horaInput = document.getElementById(`oc-inc-${clienteId}`);
-    const horaIncidente = horaInput ? horaInput.value || null : null;
+    const horaIncidente = (valor >= 1 && valor <= 2 && horaInput) ? horaInput.value || null : null;
     const body = { quien, horaIncidente };
     body[campo] = valor;
     const res = await fetch(`${API}/clientes/${clienteId}/evaluacion`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
     });
     if (res.ok) {
-      // Mostrar/ocultar campo hora según si hay algún negativo activo.
-      // cargarClientes() reconstruye el DOM completo, pero actualizamos
-      // el wrap ANTES para feedback inmediato sin esperar el fetch de lista.
       const wrap = document.getElementById(`oc-inc-wrap-${clienteId}`);
-      if (wrap) {
-        // Estimamos el nuevo estado: si el campo que acaba de cambiar es negativo
-        // o el otro eje ya era negativo, mostramos; de lo contrario ocultamos.
-        // cargarClientes() reemplazará esto con el estado real del servidor.
-        wrap.style.display = valor === -1 ? "flex" : "none";
+      if (wrap) wrap.style.display = (valor >= 1 && valor <= 2) ? "flex" : "none";
+      setTimeout(cargarClientes, 300);
+    } else {
+      console.warn("[evaluarCliente] PATCH no-ok:", res.status, clienteId, campo, valor);
+      if (_row) {
+        _row.dataset.valor = String(_valorAnterior);
+        try {
+          const iconoFn = campo === "trato" ? svgHeartR : svgStarR;
+          _row.querySelectorAll(".oc-rate-btn").forEach((b, i) => { b.innerHTML = iconoFn(i + 1 <= _valorAnterior, 20); });
+        } catch(_) {}
       }
-      cargarClientes();
+      setTimeout(cargarClientes, 50);
     }
-  } catch(e) { console.error("Error evaluando cliente:", e); }
+  } catch(e) {
+    console.error("Error evaluando cliente:", e);
+    if (_row) {
+      _row.dataset.valor = String(_valorAnterior);
+      try {
+        const iconoFn = campo === "trato" ? svgHeartR : svgStarR;
+        _row.querySelectorAll(".oc-rate-btn").forEach((b, i) => { b.innerHTML = iconoFn(i + 1 <= _valorAnterior, 20); });
+      } catch(_) {}
+    }
+    setTimeout(cargarClientes, 400);
+  } finally {
+    evaluarCliente._locks.delete(_lockKey);
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function despedirCliente(clienteId, nombre) {
