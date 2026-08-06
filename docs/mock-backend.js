@@ -282,7 +282,13 @@
   // Apropiación 789 (2026-07-08): ID único de esta instancia. null en la demo;
   // se fija al activar con 789. Viaja en respaldos/sync para que los datos
   // queden atados a un negocio y no se confundan entre compradores.
-  let instanceId = null;
+  // instanceId se HIDRATA desde f123_owned en el arranque (JFC 2026-08-06):
+  // antes arrancaba null y solo se seteaba al llamar al endpoint de activacion,
+  // asi que tras CUALQUIER recarga de un dispositivo YA apropiado quedaba null y
+  // el gate del plan gratuito (!instanceId) volvia a capar a 25 productos a
+  // alguien que ya activo. (licenciaLimitada solo dispara con "limitada"
+  // deliberada desde el panel, no con el default del worker.)
+  let instanceId = (function () { try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId || null; } catch (_) { return null; } })();
   // Mejora #2 (JFC 2026-07-16): "limitada" = JFC bajo el estado desde el panel
   // (ej. cliente moroso) sin bloquear del todo. Se comporta como si el
   // dispositivo NUNCA se hubiera activado: vuelve a los topes free (25/100/1).
