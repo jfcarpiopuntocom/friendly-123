@@ -185,6 +185,39 @@
   }
 
   // -------------------------------------------------------------------------
+  // AUTO-VERIFICACION (JFC 2026-08-05, H2 del review). El aislamiento entre las
+  // 3 apps del mismo origen depende de que el shim de arriba se instale. Si
+  // Object.defineProperty NO pudo redefinir window.localStorage (navegador
+  // raro/viejo), la app corria SIN aislamiento EN SILENCIO y podia pisar los
+  // datos de una app hermana (c123 / amigable) en el mismo navegador. Aqui se
+  // comprueba con un canario: si al escribir por window.localStorage el valor
+  // NO aparece con el prefijo en el store nativo, el shim no tomo. En ese caso
+  // se avisa FUERTE (consola + banner) en vez de callar. No cambia ni una sola
+  // clave guardada — solo detecta y avisa.
+  var instalado = false;
+  try {
+    window.localStorage.setItem("__aisl_canario__", "1");
+    instalado = (nativo.getItem(PREFIJO + "__aisl_canario__") === "1");
+    window.localStorage.removeItem("__aisl_canario__");
+  } catch (_) { instalado = false; }
+  if (!instalado) {
+    try { console.error("[aislamiento] SIN AISLAMIENTO en este navegador: las apps hermanas del mismo origen podrian pisarse datos. Abre esta app en un Chrome/Safari actualizado."); } catch (_) {}
+    try {
+      var avisar = function () {
+        if (document.getElementById("aisl-sin-aislamiento")) return;
+        var b = document.createElement("div");
+        b.id = "aisl-sin-aislamiento";
+        b.setAttribute("role", "alert");
+        b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:100001;background:#B0183E;color:#fff;font-family:Georgia,serif;font-size:13px;line-height:1.4;padding:8px 12px;text-align:center;";
+        b.textContent = "Este navegador no aisla el almacenamiento de la app. Abrela en Chrome o Safari actualizado para proteger tus datos.";
+        (document.body || document.documentElement).appendChild(b);
+      };
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", avisar);
+      else avisar();
+    } catch (_) {}
+  }
+
+  // -------------------------------------------------------------------------
   // IndexedDB: mismo criterio. hechos.js abre "amg_hechos_db", nombre que las
   // tres apps comparten. Se le antepone el namespace de forma transparente.
   // -------------------------------------------------------------------------
@@ -210,8 +243,9 @@
   // -------------------------------------------------------------------------
   window.AMG = window.AMG || {};
   window.AMG.Aislamiento = {
-    VERSION: "1.0.0",
+    VERSION: "1.1.0",
     namespace: NS,
+    instalado: instalado, // H2 review: false = el shim no tomo, apps hermanas sin aislar
     onCambio: function (fn) { if (typeof fn === "function") oyentes.push(fn); },
     epoca: function () { return miEpoca; }
   };
