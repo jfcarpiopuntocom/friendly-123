@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v55"; // bumped 2026-08-04: Fase 5 nueva - catch-up peer-to-peer en sync-realtime.js (relay sigue sin guardar nada, los dispositivos se pasan lo que se perdieron)
+const CACHE = "f123-shell-v56"; // bumped 2026-08-05: menu metalico (fuera zebra) + fix "se tapa el HOY" + guardia de doble pestana (VITAL)
 const SHELL = [
   "./",
   "./index.html",
