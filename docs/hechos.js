@@ -327,12 +327,27 @@
     return false;
   }
 
+  // cartera.js y caja-chica.js ya llaman a Hechos.registrar() directo (para poder
+  // esperar a que el hecho quede en disco) ademas de emitir el evento (para quien
+  // escuche en vivo). Si este listener comodin tambien registrara esos eventos,
+  // cada cargo/abono/ingreso/retiro quedaria duplicado. Se filtran aqui.
+  var PREFIJOS_YA_REGISTRADOS_DIRECTO = ["cartera_", "caja_chica_"];
+
+  function yaRegistradoDirecto(nombreSinSufijo) {
+    for (var i = 0; i < PREFIJOS_YA_REGISTRADOS_DIRECTO.length; i++) {
+      if (String(nombreSinSufijo).slice(0, PREFIJOS_YA_REGISTRADOS_DIRECTO[i].length) === PREFIJOS_YA_REGISTRADOS_DIRECTO[i]) return true;
+    }
+    return false;
+  }
+
   function manejar(evt) {
     try {
       if (!evt) return;
       var nombre = evt.type || evt.nombre || evt.name;
       if (!esHecho(nombre)) return;
-      registrar(String(nombre).replace(/:completado$/, ""), evt.payload || evt.detail || {});
+      var nombreLimpio = String(nombre).replace(/:completado$/, "");
+      if (yaRegistradoDirecto(nombreLimpio)) return;
+      registrar(nombreLimpio, evt.payload || evt.detail || {});
     } catch (_) {}
   }
 

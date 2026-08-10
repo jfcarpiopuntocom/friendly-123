@@ -94,7 +94,7 @@
       ts: Date.now(),
       isoTs: new Date().toISOString(),
       motivo: String(motivo || "sin motivo"),
-      app: "amigable-123",
+      app: "friendly-123",
       // Se copia el schemaVersion que trae el propio estado, no uno fijo: si
       // se escribe a mano y el formato cambia, la copia mentiria sobre su
       // propio formato y una restauracion futura la leeria mal.

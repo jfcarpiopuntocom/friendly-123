@@ -43,6 +43,27 @@ function activarInstancia({ instanceId, email } = {}) {
   return a;
 }
 
+// --- Zona horaria de la tienda (fix 2026-08-10) ---
+// Antes esto estaba hardcodeado a "America/Guayaquil" en data.js Y en server.js
+// por separado — friendly-123 es el gemelo EN/USA de amigable-123, asi que una
+// tienda en, digamos, hora del Pacifico, tenia sus meses de comision, su tope de
+// 100 ventas/mes y sus alertas de vencimiento calculados en la zona equivocada.
+// Fuente de verdad unica: configuracion.zonaHoraria en la BD (mismo valor que
+// lee el navegador via localStorage "f123_timezone" en docs/mock-backend.js).
+// Si el dueño nunca la configuro, cae a America/Guayaquil como ultimo recurso
+// (no hay "zona del dispositivo" confiable del lado servidor).
+function getZonaHoraria() {
+  const tz = db.get("configuracion.zonaHoraria").value();
+  if (!tz) return "America/Guayaquil";
+  try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; }
+  catch (_) { return "America/Guayaquil"; }
+}
+function setZonaHoraria(tz) {
+  try { Intl.DateTimeFormat(undefined, { timeZone: tz }); } catch (_) { return { error: "Zona horaria inválida." }; }
+  db.set("configuracion.zonaHoraria", tz).write();
+  return { ok: true, zonaHoraria: tz };
+}
+
 if (MODO_LOYVERSE) {
   // ====================== MODO LOYVERSE (real) ======================
   module.exports = {
@@ -170,6 +191,8 @@ if (MODO_LOYVERSE) {
     setGastosMensuales,
     getActivacion,
     activarInstancia,
+    getZonaHoraria,
+    setZonaHoraria,
     ventasCountMesGlobal,
     exportarTodo,
     importarTodo,
@@ -192,13 +215,12 @@ if (MODO_LOYVERSE) {
 // cada venta (no se recalcula después con supuestos distintos) y sube solo
 // si el socio va superando su meta del mes — motor de incentivos, no una
 // hoja de cálculo escondida.
-const ZONA_MX = "America/Guayaquil";
 function mesActualISO() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA_MX, year: "numeric", month: "2-digit" }).format(new Date());
+  return new Intl.DateTimeFormat("en-CA", { timeZone: getZonaHoraria(), year: "numeric", month: "2-digit" }).format(new Date());
 }
 function esDelMesActual(fechaISO) {
   if (!fechaISO) return false;
-  return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA_MX, year: "numeric", month: "2-digit" }).format(new Date(fechaISO)) === mesActualISO();
+  return new Intl.DateTimeFormat("en-CA", { timeZone: getZonaHoraria(), year: "numeric", month: "2-digit" }).format(new Date(fechaISO)) === mesActualISO();
 }
 // Total bruto vendido este mes en una ubicación, ANTES de la venta en curso
 // (se usa para saber en qué escala de comisión cae la venta que se está
@@ -740,10 +762,9 @@ function importarTodo(datos) {
     },
 
     async getVentasHoy(ubicacionId, fechaISO) {
-      const ZONA = "America/Guayaquil";
       const esDeHoy = (fechaISOVenta) => {
         if (!fechaISOVenta) return false;
-        const f = new Intl.DateTimeFormat("en-CA", { timeZone: ZONA }).format(new Date(fechaISOVenta));
+        const f = new Intl.DateTimeFormat("en-CA", { timeZone: getZonaHoraria() }).format(new Date(fechaISOVenta));
         return f === fechaISO;
       };
       return db
@@ -757,6 +778,8 @@ function importarTodo(datos) {
     setGastosMensuales,
     getActivacion,
     activarInstancia,
+    getZonaHoraria,
+    setZonaHoraria,
     ventasCountMesGlobal,
     exportarTodo,
     importarTodo,

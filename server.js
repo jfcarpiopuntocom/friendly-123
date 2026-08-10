@@ -18,12 +18,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const ZONA = "America/Guayaquil"; // Ecuador, UTC-5, sin horario de verano
-
 // ---------- Helpers de fecha ----------
+// Zona horaria de la tienda (fix 2026-08-10): antes hardcodeada a Ecuador aqui
+// Y por separado en data.js — ver data.getZonaHoraria() para el detalle. Este
+// archivo delega en data.js para tener una unica fuente de verdad.
 function hoyISO() {
   const f = new Intl.DateTimeFormat("en-CA", {
-    timeZone: ZONA,
+    timeZone: data.getZonaHoraria(),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
