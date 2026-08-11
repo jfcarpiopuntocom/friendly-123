@@ -14,8 +14,9 @@
 
 ## 1. Principios (no negociables)
 
-1. **Sin suscripción.** Se paga una vez (o nada, en demo). La app sigue
-   funcionando aunque el proveedor desaparezca.
+1. **Sin suscripción.** Se paga una vez (o nada, en demo) por una **licencia
+   de 5 años** (decisión JFC 2026-08-10, mismo modelo en los 3 productos
+   hermanos). La app sigue funcionando aunque el proveedor desaparezca.
 2. **Sin nube de datos.** Los datos del negocio viven **cifrados en el
    dispositivo** del dueño (tablet o PC). Él exporta a su gusto (respaldo
    JSON ya existe). Nadie más los ve.

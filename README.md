@@ -58,7 +58,7 @@ If you're a developer who's ever watched a small business owner struggle with a 
 
 ## Pricing
 
-**$399 USD — one time, global price.** No subscription. No per-seat fees. Pay once, use forever. Buyers in developing countries qualify for a localized discount.
+**$399 USD — one time, global price.** No subscription. No per-seat fees. Pay once for a **5-year license**, support and updates included the whole time. Buyers in developing countries qualify for a localized discount.
 
 ---
 
@@ -115,3 +115,5 @@ See [PRIVACY.md](./PRIVACY.md) — short version: your business data never leave
 ## License
 
 Proprietary. See `LICENSE`.
+
+**Commercial use license:** 5 years from activation, support and updates included the whole time. No subscription.
