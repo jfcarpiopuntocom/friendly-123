@@ -162,8 +162,8 @@
     <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
       Tus datos viven en este dispositivo — ningún servidor los tiene, ninguna
       suscripción te los puede quitar. La activación desbloquea productos y
-      exportaciones ilimitadas. Incluye <b>2 años de parches y actualizaciones</b>
-      (el estándar de la industria es 1).
+      exportaciones ilimitadas, con parches y actualizaciones incluidos durante
+      toda la <b>licencia de 5 años</b>.
     </p>
     <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
       border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
