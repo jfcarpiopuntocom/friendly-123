@@ -218,6 +218,70 @@
   }
 
   // -------------------------------------------------------------------------
+  // sessionStorage: mismo criterio que localStorage.
+  // -------------------------------------------------------------------------
+  // BUG REAL (JFC 2026-08-11, "chocaron un poco en mi Opera Air"): auth-ui.js
+  // guarda el contador de intentos fallidos de PIN en sessionStorage bajo la
+  // clave "oc_intentos", SIN namespace, y las tres apps usan esa misma clave.
+  // Con dos apps hermanas abiertas en el mismo navegador, los intentos se
+  // sumaban entre ellas: 8 fallos repartidos entre amigable y friendly
+  // bloqueaban las DOS a la vez, aunque en cada una hubieras fallado poco.
+  //
+  // Se arregla aqui y no renombrando la clave, para que cualquier clave futura
+  // de sessionStorage quede cubierta sola, sin que nadie tenga que acordarse.
+  // sessionStorage es efimero (muere con la pestana), asi que aislarlo no
+  // arriesga ningun dato guardado: lo peor que puede pasar es que un contador
+  // de intentos arranque de cero, que es justamente lo que se busca.
+  try {
+    var nativoSes = window.sessionStorage;
+    var shimSes = {
+      get length() {
+        var n = 0;
+        try {
+          for (var i = 0; i < nativoSes.length; i++) if (esNuestra(nativoSes.key(i))) n++;
+        } catch (_) {}
+        return n;
+      },
+      key: function (n) {
+        try {
+          var vistas = 0;
+          for (var i = 0; i < nativoSes.length; i++) {
+            var k = nativoSes.key(i);
+            if (esNuestra(k)) {
+              if (vistas === n) return sinPrefijo(k);
+              vistas++;
+            }
+          }
+        } catch (_) {}
+        return null;
+      },
+      getItem: function (k) {
+        try { return nativoSes.getItem(PREFIJO + k); } catch (_) { return null; }
+      },
+      setItem: function (k, v) { nativoSes.setItem(PREFIJO + k, v); },
+      removeItem: function (k) {
+        try { nativoSes.removeItem(PREFIJO + k); } catch (_) {}
+      },
+      clear: function () {
+        try {
+          var mias = [];
+          for (var i = 0; i < nativoSes.length; i++) {
+            var k = nativoSes.key(i);
+            if (esNuestra(k)) mias.push(k);
+          }
+          mias.forEach(function (k) { try { nativoSes.removeItem(k); } catch (_) {} });
+        } catch (_) {}
+      }
+    };
+    Object.defineProperty(window, "sessionStorage", {
+      configurable: true,
+      get: function () { return shimSes; }
+    });
+  } catch (_) {
+    try { console.warn("[aislamiento] no se pudo aislar sessionStorage en este navegador"); } catch (_) {}
+  }
+
+  // -------------------------------------------------------------------------
   // IndexedDB: mismo criterio. hechos.js abre "amg_hechos_db", nombre que las
   // tres apps comparten. Se le antepone el namespace de forma transparente.
   // -------------------------------------------------------------------------
