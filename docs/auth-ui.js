@@ -358,6 +358,15 @@
     // dispositivo YA apropiado, este codigo no reactiva nada (no se puede
     // redundar) — cae al flujo normal y solo entra si es el PIN de dueno.
     if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); return iniciarActivacion(); }
+    /* DEMO 888 (JFC, 2026-08-13, mismo fix que en amigable-123): el 888 es el
+       codigo que anunciamos en el gate y en checklist.html, asi que tiene que
+       abrir el DEMO de verdad y no la app como dueno real. Antes caia en
+       verificarOwnerOEmpleado, que lo aceptaba como PIN de dueno por defecto:
+       el visitante probaba la app entera sin rol-demo y sin ninguna via de
+       conversion. El guard !dispositivoApropiado() protege a los duenos reales:
+       al activar con 789 el PIN pasa a 789 y esta rama deja de correr. NO
+       quitar sin mover tambien el copy de los codigos demo. */
+    if (code === "888" && !dispositivoApropiado()) { registrarExito(); return entrar("demo"); }
     // Bloqueo anti fuerza bruta de crypto-store (capa de datos): si está
     // activo, verificarOwner/Empleado devuelven false AUNQUE el PIN sea
     // correcto. Sin este chequeo previo, la UI diría "Clave incorrecta" a un
