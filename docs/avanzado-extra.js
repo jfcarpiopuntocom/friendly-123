@@ -318,7 +318,7 @@
         <button id="oc-caja-ver" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">🗂️ View saved checkpoints</button>
       </div>
       <div id="oc-caja-lista" style="display:none;margin-top:10px;"></div>
-      <p id="oc-storage-info" style="font-size:12px;color:var(--ink-soft);margin:10px 0 0;font-family:monospace;"></p>
+      <p id="oc-storage-info" style="font-size:13px;color:var(--ink-soft);margin:10px 0 0;font-family:monospace;"></p>
     `;
     cont.appendChild(respaldo);
 
@@ -573,7 +573,7 @@
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
           <label style="font-size:13px;">PIN (3 dígitos)<!-- Microcirugia 7 (2026-07-08): aviso de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el miembro queda bloqueado silenciosamente. -->
-            <span style="display:block;font-size:12px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;">
+            <span style="display:block;font-size:13px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;">
               No uses el mismo PIN del dueño, empleado general ni contador.
             </span>
             <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="•••"
@@ -588,7 +588,7 @@
               <option value="empleado">Empleado — acceso operativo (ventas, inventario, perchas)</option>
               <option value="admin">Administrador — acceso completo excepto credenciales del dueño</option>
             </select>
-            <span style="display:block;font-size:12px;color:var(--ink-soft);margin-top:3px;">
+            <span style="display:block;font-size:13px;color:var(--ink-soft);margin-top:3px;">
               Solo el dueño puede crear administradores.
             </span>
           </label>
@@ -658,8 +658,8 @@
         const btnEstLabel  = u.activo ? "Desactivar" : "Activar";
         const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
         const rolBadge     = u.rol === "admin"
-          ? `<span style="font-size:11px;font-weight:700;background:#E8A020;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
-          : `<span style="font-size:11px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Empleado</span>`;
+          ? `<span style="font-size:13px;font-weight:700;background:#E8A020;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
+          : `<span style="font-size:13px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Empleado</span>`;
         // Admin solo puede editar empleados, no a otros admins (seguridad por capas)
         const puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado");
         // Promover/degradar (JFC 2026-07-30: "hazlo una lista dinamica y permite
@@ -668,7 +668,7 @@
         const ping = ultimasUbic["u:" + u.id];
         const ubicHtml = (isDueno() || isAdmin())
           ? (ping
-              ? `<div style="font-size:12px;color:var(--ink-soft);">📍 ${window.tf("geo.emp.lastSeen", { when: hacetiempo(ping.ts) })}${
+              ? `<div style="font-size:13px;color:var(--ink-soft);">📍 ${window.tf("geo.emp.lastSeen", { when: hacetiempo(ping.ts) })}${
                   (ping.lat != null && ping.lon != null)
                     ? ` · <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">${window.t("geo.panel.viewMap")}</a>` +
                       (ping.precision != null && ping.precision > 300
@@ -676,12 +676,12 @@
                         : ping.precision != null ? ` (±${ping.precision}m)` : "")
                     : " · " + window.t("geo.emp.noLocationThatTime")
                 }</div>`
-              : `<div style="font-size:12px;color:var(--ink-soft);">📍 ${window.t("geo.emp.none")}</div>`)
+              : `<div style="font-size:13px;color:var(--ink-soft);">📍 ${window.t("geo.emp.none")}</div>`)
           : "";
         tr.innerHTML = `
           <td style="padding:8px;">
             <div style="font-weight:700;">${escHtml(u.nombre)}</div>
-            ${u.email ? `<div style="font-size:12px;color:var(--ink-soft);">${escHtml(u.email)}</div>` : ""}
+            ${u.email ? `<div style="font-size:13px;color:var(--ink-soft);">${escHtml(u.email)}</div>` : ""}
             ${ubicHtml}
           </td>
           <td style="padding:8px;text-align:center;">${rolBadge}</td>
@@ -689,23 +689,23 @@
           <td style="padding:8px;text-align:right;white-space:nowrap;">
             ${puedeEditar ? `
               <button data-toggle-id="${escHtml(u.id)}" data-activo="${u.activo}"
-                style="font-size:12px;padding:5px 10px;border:2px solid ${btnEstColor};
+                style="font-size:13px;padding:5px 10px;border:2px solid ${btnEstColor};
                        border-radius:5px;background:transparent;color:${btnEstColor};cursor:pointer;">
                 ${btnEstLabel}
               </button>
               <button data-cambiar-pin="${escHtml(u.id)}"
-                style="font-size:12px;padding:5px 10px;border:2px solid var(--azul-medio);
+                style="font-size:13px;padding:5px 10px;border:2px solid var(--azul-medio);
                        border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;margin-left:4px;">
                 PIN
               </button>
               ${puedePromover ? `
                 <button data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}"
-                  style="font-size:12px;padding:5px 10px;border:2px solid #E8A020;
+                  style="font-size:13px;padding:5px 10px;border:2px solid #E8A020;
                          border-radius:5px;background:transparent;color:#E8A020;cursor:pointer;margin-left:4px;">
                   ${u.rol === "admin" ? "Degradar a empleado" : "Promover a admin"}
                 </button>
               ` : ""}
-            ` : `<span style="font-size:12px;color:var(--ink-soft);">Solo dueño</span>`}
+            ` : `<span style="font-size:13px;color:var(--ink-soft);">Solo dueño</span>`}
           </td>`;
         tbody.appendChild(tr);
 
@@ -1572,7 +1572,7 @@
       return `<div class="tag-card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;flex-wrap:wrap;">
         <div style="flex:1;min-width:180px;">
           <strong>${escHtml(t.nombre)}</strong> · ${t.cantidad} un.
-          <div style="font-size:12px;color:var(--ink-soft);">${escHtml(t.desdeNombre)} → ${escHtml(t.haciaNombre)}</div>
+          <div style="font-size:13px;color:var(--ink-soft);">${escHtml(t.desdeNombre)} → ${escHtml(t.haciaNombre)}</div>
         </div>
         <span class="badge-estado ${colorEstado}">${t.estado.replace("_", " ")}</span>
         ${acciones}
@@ -1737,7 +1737,7 @@
         </div>
         <div id="oc-syncdev-qr-zona" style="display:none;margin:10px 0;text-align:center;"></div>
         <details><summary style="font-size:14px;cursor:pointer;color:var(--azul-medio);">Paste changes received from another device</summary>
-          <textarea id="oc-syncdev-pegar" rows="3" placeholder="Paste the text starting with OCSYNC1: here..." style="width:100%;margin-top:8px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);font-size:12px;"></textarea>
+          <textarea id="oc-syncdev-pegar" rows="3" placeholder="Paste the text starting with OCSYNC1: here..." style="width:100%;margin-top:8px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);font-size:13px;"></textarea>
           <button id="oc-syncdev-importar" class="ir" style="margin-top:8px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Import</button>
         </details>
       `}`;
@@ -2037,7 +2037,7 @@
         <div style="background:var(--sim-azul-bg,#D4ECF5);border-radius:6px;overflow:hidden;height:22px;position:relative;">
           <div style="background:${(f.cumplimientoMeta || 0) >= 100 ? "var(--sim-verde,#00C87A)" : "var(--sim-azul,#5294AC)"};height:100%;width:${anchoMeta}%;transition:width .3s;"></div>
         </div>
-        <div style="font-size:12px;color:var(--ink-soft);margin-top:3px;">Effective commission paid: ${comisionEfectivaPct.toFixed(1)}% (${money(f.comisionSocio)})</div>
+        <div style="font-size:13px;color:var(--ink-soft);margin-top:3px;">Effective commission paid: ${comisionEfectivaPct.toFixed(1)}% (${money(f.comisionSocio)})</div>
       </div>`;
     }).join("");
   }
@@ -2059,8 +2059,8 @@
       <div style="font-family:var(--font-display);font-weight:700;font-size:14px;text-align:center;color:var(--sim-azul-dk);border-bottom:2px solid var(--sim-azul);padding-bottom:6px;margin-bottom:4px;">${escHtml(c.nombre)}</div>
       <table style="width:100%;border-collapse:collapse;">
         <tr>
-          <th style="font-size:11px;color:var(--sim-azul);border-right:1.5px solid var(--sim-azul);border-bottom:1px solid var(--sim-azul);">DEBIT</th>
-          <th style="font-size:11px;color:var(--sim-azul);border-bottom:1px solid var(--sim-azul);">CREDIT</th>
+          <th style="font-size:13px;color:var(--sim-azul);border-right:1.5px solid var(--sim-azul);border-bottom:1px solid var(--sim-azul);">DEBIT</th>
+          <th style="font-size:13px;color:var(--sim-azul);border-bottom:1px solid var(--sim-azul);">CREDIT</th>
         </tr>
         ${rows}
       </table></div>`;

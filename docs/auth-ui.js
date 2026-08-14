@@ -953,7 +953,7 @@
       const rc = document.createElement("span");
       rc.id = "oc-rol-chip";
       rc.textContent = window.t(_rolChipKey);
-      rc.style.cssText = "font-size:12px;font-weight:700;color:#fff !important;-webkit-text-fill-color:#fff !important;"
+      rc.style.cssText = "font-size:13px;font-weight:700;color:#fff !important;-webkit-text-fill-color:#fff !important;"
         + "margin-right:6px;padding:4px 10px;background:var(--rust,#E86040);border-radius:20px;";
       header.appendChild(rc);
     }

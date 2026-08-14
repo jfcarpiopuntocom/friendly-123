@@ -115,7 +115,7 @@
   .pcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
   .pcard-nombre{font-size:17px;font-weight:700;line-height:1.2;}
   .pcard-sub{font-size:13px;color:var(--ink-soft);font-family:var(--mono);margin-top:2px;}
-  .badge{font-size:12px;font-family:var(--mono);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:4px;flex-shrink:0;}
+  .badge{font-size:13px;font-family:var(--mono);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:4px;flex-shrink:0;}
   .badge-prod{background:rgba(40,201,138,.16);color:var(--green);}
   .badge-demo{background:rgba(212,131,42,.18);color:var(--amber);}
   .badge-main{background:rgba(201,149,58,.18);color:var(--gold);}
@@ -142,11 +142,11 @@
   .tabla-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
   table.versiones{width:100%;border-collapse:collapse;font-size:13px;min-width:640px;}
   table.versiones th,table.versiones td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);}
-  table.versiones th{background:var(--surface2);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-size:12px;font-weight:700;white-space:nowrap;}
+  table.versiones th{background:var(--surface2);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;font-size:13px;font-weight:700;white-space:nowrap;}
   table.versiones td{color:var(--ink);font-family:var(--mono);}
   table.versiones tr:last-child td{border-bottom:none;}
   table.versiones td.nom{font-family:var(--font);font-weight:700;}
-  .pill{display:inline-block;font-size:12px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:4px;}
+  .pill{display:inline-block;font-size:13px;font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:4px;}
   .pill.green{background:rgba(40,201,138,.16);color:var(--green);}
   .pill.amber{background:rgba(212,131,42,.18);color:var(--amber);}
   .pill.gold{background:rgba(201,149,58,.18);color:var(--gold);}
@@ -155,7 +155,7 @@
   /* ── LICENCIAS (patrón heredado del panel de AMIGABLE, JFC 2026-07-10) ──
      Todo el monitoreo de instancias vive AQUÍ, en el panel maestro. Config del
      Worker vacía por defecto — friendly-123 aún no tiene Worker propio desplegado. */
-  .lic-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.04em;font-family:var(--mono);}
+  .lic-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:13px;font-weight:700;letter-spacing:.04em;font-family:var(--mono);}
   /* Model (JFC 2026-07-28): minima = free forever for anyone,
      full = paid and uncapped, bloqueada = abuse or non-payment.
      "observada" was removed; old records read as minima from the worker. */
@@ -167,9 +167,9 @@
   .lic-badge.limitada,.lic-badge.observada{background:rgba(212,131,42,.20);color:var(--amber);}
   .lic-input{padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--ink);font-size:14px;font-family:var(--mono);}
   .lic-input:focus{outline:none;border-color:var(--gold-dim);}
-  #lic-tabla td.date{font-size:12px;color:var(--ink-soft);font-family:var(--mono);}
+  #lic-tabla td.date{font-size:13px;color:var(--ink-soft);font-family:var(--mono);}
   #lic-tabla select{padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;background:var(--surface2);color:var(--ink);font-size:13px;cursor:pointer;}
-  #lic-tabla td .btn-ok{padding:5px 10px;border-radius:5px;border:none;background:var(--green-dim);color:#fff;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px;}
+  #lic-tabla td .btn-ok{padding:5px 10px;border-radius:5px;border:none;background:var(--green-dim);color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-left:4px;}
 
   /* Notas operativas / roadmap */
   .notas{display:grid;gap:10px;}
@@ -255,7 +255,7 @@
     <div class="sec-head" style="margin-top:0;"><h2>Herramientas de marketing</h2><span class="hint">click en “Copiar link” para compartir por WhatsApp</span></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px;margin-bottom:28px;">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
-        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">App</div>
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">App</div>
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Demo en vivo</div>
         <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">La app completa funcionando en el celular del cliente, sin instalación.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
@@ -264,7 +264,7 @@
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
-        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Filosofía</div>
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Filosofía</div>
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Manifiesto</div>
         <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Para clientes que necesitan entender el por qué antes de ver el producto.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
@@ -273,7 +273,7 @@
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
-        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Pitch</div>
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Pitch</div>
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Informe Ejecutivo</div>
         <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Capacidades y resultados. El más completo para prospectos.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
@@ -282,7 +282,7 @@
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
-        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Reporte</div>
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Reporte</div>
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Sistema operativo del mostrador</div>
         <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Foco en el usuario: quién es, qué pierde, qué gana.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
@@ -291,7 +291,7 @@
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
-        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">ROI</div>
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">ROI</div>
         <div style="font-size:15px;font-weight:700;color:var(--ink);">ROI Tienda Pequeña ($2,500)</div>
         <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Números duros: cuánto pierde y cuánto recupera un negocio con $2,500 de inventario.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
@@ -300,7 +300,7 @@
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;">
-        <div style="font-size:12px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Manual</div>
+        <div style="font-size:13px;color:var(--ink-dim);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;">Manual</div>
         <div style="font-size:15px;font-weight:700;color:var(--ink);">Manual Maestro</div>
         <div style="font-size:13px;color:var(--ink-soft);line-height:1.5;flex:1;">Guía completa de uso para el dueño.</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">

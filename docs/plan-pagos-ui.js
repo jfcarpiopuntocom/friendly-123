@@ -67,7 +67,10 @@
     ".pp-btn{width:100%;min-height:48px;padding:12px;border:none;border-radius:12px;background:#E86040;" +
       "color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;}" +
     ".pp-btn.gris{background:#FFFFFF;border:2px solid #E2E8ED;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;margin-top:10px;}" +
-    ".pp-msg{font-size:15px;font-weight:700;margin:10px 0 0;}";
+    ".pp-msg{font-size:15px;font-weight:700;margin:10px 0 0;}" +
+    ".pp-anular{display:block;margin-top:8px;min-height:44px;padding:8px 14px;border:2px solid #E2E8ED;" +
+      "border-radius:10px;background:#FFFFFF;font-size:14px;font-weight:700;" +
+      "color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;}";
   document.head.appendChild(css);
 
   /* Formateador PLANO, a proposito. El fmtMoney() de index.html devuelve un
@@ -124,6 +127,19 @@
         p.textContent = "Next payment: " + fmt(e.montoCuota) + " on " +
           global.AMG.PlanPagos.fechaEnPalabras(e.proximoVencimiento);
         el.appendChild(p);
+      }
+      /* Cancel the agreement. Owner only, same as recording credit: an employee
+         does not renegotiate. The engine does NOT delete the old plan, it emits
+         plan_pago_anulado, so the history shows there was a renegotiation
+         instead of hiding it. And the balance is untouched: cancelling an
+         agreement does not forgive a debt. */
+      if (esDueno()) {
+        var b = document.createElement("button");
+        b.className = "pp-anular";
+        b.type = "button";
+        b.textContent = "Change the plan";
+        b.addEventListener("click", function () { modalAnular(clienteId); });
+        el.appendChild(b);
       }
     }).catch(function () {});
   }
@@ -314,6 +330,52 @@
     q("pp-ab-monto").focus();
   }
   global.abonarCliente = modalAbonar;
+
+  /* Cancel the installment agreement. Nothing is deleted and the balance is
+     untouched: it emits a plan_pago_anulado fact, and from then on the engine
+     stops seeing an active plan. If a new one is agreed later, it is created
+     fresh and the history shows both. */
+  function modalAnular(clienteId) {
+    if (document.getElementById("pp-modal-anular")) return;
+    var m = document.createElement("div");
+    m.className = "pp-modal";
+    m.id = "pp-modal-anular";
+    m.innerHTML =
+      '<div class="pp-caja">' +
+        '<h3>Change the installment agreement</h3>' +
+        '<p class="pp-resumen">The debt is NOT forgiven: the balance stays the same. What gets cancelled is the agreed schedule. You can set up new installments later from Record credit.</p>' +
+        '<div class="pp-fg"><label for="pp-an-motivo">Why it is changing (optional)</label>' +
+          '<input id="pp-an-motivo" type="text" autocomplete="off"></div>' +
+        '<button type="button" class="pp-btn" id="pp-an-ok">Cancel the agreement</button>' +
+        '<button type="button" class="pp-btn gris" id="pp-an-cancel">Leave it as is</button>' +
+        '<p class="pp-msg" id="pp-an-msg"></p>' +
+      '</div>';
+    document.body.appendChild(m);
+    function cerrar() { try { m.remove(); } catch (_) {} document.removeEventListener("keydown", onKey, true); }
+    function onKey(ev) { if (ev.key === "Escape" || ev.key === "Esc") { ev.stopPropagation(); cerrar(); } }
+    document.addEventListener("keydown", onKey, true);
+    m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
+    m.querySelector("#pp-an-cancel").addEventListener("click", cerrar);
+    m.querySelector("#pp-an-ok").addEventListener("click", function (ev) {
+      var btn = ev.currentTarget;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      global.AMG.PlanPagos.anularPlan(clienteId, m.querySelector("#pp-an-motivo").value || "")
+        .then(function () {
+          cerrar();
+          var chip = document.getElementById("pp-chip-" + clienteId);
+          if (chip) chip.remove();
+          if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
+          refrescarHoy();
+        })
+        .catch(function (e) {
+          btn.disabled = false;
+          var msg = m.querySelector("#pp-an-msg");
+          msg.style.color = "#B0183E";
+          msg.textContent = (e && e.message) || "Could not cancel it.";
+        });
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // B3 · la alerta en Hoy, y el filtro en Clientes

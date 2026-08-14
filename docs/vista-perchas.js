@@ -131,13 +131,13 @@
 
     const datos = esDueno ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:12px 14px;background:var(--blanco-calido,#fbf5e8);">
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.monthlySales')}</span>
+        <div><span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.monthlySales')}</span>
           <strong style="font-size:16px;color:var(--ink);">${money(p.ventasMes)}</strong></div>
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.target')}</span>
+        <div><span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.target')}</span>
           <strong style="font-size:16px;color:var(--ink);">${p.meta ? money(p.meta) : '—'}</strong></div>
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.commission')}</span>
+        <div><span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.commission')}</span>
           <strong style="font-size:16px;color:var(--ink);">${money(p.comision)}</strong></div>
-        <div><span style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.promoter')}</span>
+        <div><span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;display:block;">${window.t('shelves.promoter')}</span>
           <strong style="font-size:16px;color:var(--ink);">${p.promotor ? esc(p.promotor) : '—'}</strong></div>
       </div>` : '';
 
@@ -153,15 +153,15 @@
             background:${c.bg};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
           <span style="position:absolute;bottom:10px;left:10px;font-family:var(--font-mono);font-size:13px;
             font-weight:700;background:rgba(0,0,0,.65);color:#fff;padding:4px 10px;border-radius:20px;">${badgeMeta}</span>
-          ${(p.diasSinVenta != null && p.diasSinVenta >= 7) ? `<span style="position:absolute;top:10px;left:10px;font-family:var(--font-mono);font-size:12px;font-weight:700;background:#E53935;color:#fff;padding:3px 9px;border-radius:20px;">dormida ${p.diasSinVenta}d</span>` : ''}
+          ${(p.diasSinVenta != null && p.diasSinVenta >= 7) ? `<span style="position:absolute;top:10px;left:10px;font-family:var(--font-mono);font-size:13px;font-weight:700;background:#E53935;color:#fff;padding:3px 9px;border-radius:20px;">dormida ${p.diasSinVenta}d</span>` : ''}
           <!-- Abrir carpeta: pista visual -->
-          <span style="position:absolute;bottom:10px;right:${esDueno ? '52px' : '10px'};font-family:var(--font-mono);font-size:12px;font-weight:700;background:#152840;color:#fff;padding:4px 9px;border-radius:20px;">${window.t('shelves.open')} ▸</span>
+          <span style="position:absolute;bottom:10px;right:${esDueno ? '52px' : '10px'};font-family:var(--font-mono);font-size:13px;font-weight:700;background:#152840;color:#fff;padding:4px 9px;border-radius:20px;">${window.t('shelves.open')} ▸</span>
           ${esDueno ? `<button data-vp-foto="${esc(p.id)}" title="Cambiar foto" style="position:absolute;bottom:10px;right:10px;font-size:16px;line-height:1;
             background:rgba(0,0,0,.55);border:none;padding:6px 8px;border-radius:8px;color:#fff;cursor:pointer;">📷</button>` : ''}
         </div>
         <div style="padding:10px 14px ${esDueno ? '0' : '12px'};background:var(--blanco-calido,#fbf5e8);display:flex;align-items:center;gap:8px;">
           <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">${esc(p.nombre)}</strong>
-          ${p.activa === false ? '<span style="font-size:11px;font-family:var(--font-mono);color:var(--rojo,#a3392a);">INACTIVA</span>' : ''}
+          ${p.activa === false ? '<span style="font-size:13px;font-family:var(--font-mono);color:var(--rojo,#a3392a);">INACTIVA</span>' : ''}
           ${esDueno ? `<button data-vp-rename="${esc(p.id)}" title="Editar o borrar esta percha" style="font-size:15px;line-height:1;background:transparent;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;padding:2px 4px;">✎</button>` : ''}
         </div>
         ${datos}
