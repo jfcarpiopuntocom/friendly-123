@@ -27,6 +27,34 @@
 (function (global) {
   "use strict";
 
+  /* ---------------------------------------------------------------------------
+     Normalizacion y dedupe. Ver el comentario del fix de doble escritura
+     (2026-08-13). NO simplificar esto a h.datos: hay hechos reales guardados
+     con las dos formas y ninguna se puede dejar de leer.
+     --------------------------------------------------------------------------- */
+  function _d(h) { return (h && h.datos && h.datos.payload) ? h.datos.payload : ((h && h.datos) || {}); }
+  function _anidado(h) { return !!(h && h.datos && h.datos.payload); }
+  function _sinDuplicados(hs, campoDueno) {
+    var grupos = {};
+    hs.forEach(function (h) {
+      var d = _d(h);
+      var k = [h.tipo, d[campoDueno], d.monto, d.motivo || "", Math.floor((Number(h.ts) || 0) / 2000)].join("|");
+      (grupos[k] = grupos[k] || []).push(h);
+    });
+    var out = [];
+    Object.keys(grupos).forEach(function (k) {
+      var g = grupos[k];
+      var an = g.filter(_anidado);
+      var pl = g.filter(function (h) { return !_anidado(h); });
+      /* Un anidado + un plano en la misma ventana = el par que dejo el bug.
+         Se cuenta una sola vez. Si son todos de la misma forma, son
+         movimientos distintos de verdad y van todos. */
+      if (an.length && pl.length) out = out.concat(an.length >= pl.length ? an : pl);
+      else out = out.concat(g);
+    });
+    return out;
+  }
+
   var TIPOS = { cargo: "cartera_cargo", abono: "cartera_abono" };
 
   function bus() {
@@ -55,20 +83,18 @@
       })()
     };
 
-    var eventBus = bus();
-    if (eventBus) {
-      // hechos.js escucha "*" y filtra por sufijo ":completado" — este es el
-      // MISMO mecanismo que ya usa mock-backend.js para inventario. Reusar
-      // el mecanismo (en vez de llamar AMG.Hechos.registrar directo) evita
-      // dos caminos distintos para lo mismo.
-      eventBus.emit("cartera_" + tipo + ":completado", { payload: payload });
-    }
-    // Ademas de emitir (para quien escuche en vivo), registramos el hecho de
-    // forma directa y esperamos a que quede en disco: quien llama a esta
-    // funcion necesita saber que el movimiento YA se guardo, no solo que se
-    // emitio un evento al aire.
+    /* UN SOLO CAMINO DE ESCRITURA (fix 2026-08-13). Antes esto emitia
+       ":completado" ANTES de registrar, y hechos.js lo persistia por su cuenta:
+       dos hechos por un solo movimiento. Ahora se registra primero, se espera a
+       que quede en disco, y recien entonces se avisa. El sufijo es
+       ":registrado" a proposito: hechos.js solo persiste ":completado", asi que
+       este aviso no puede volver a duplicar nada. */
     if (global.AMG && global.AMG.Hechos && global.AMG.Hechos.registrar) {
-      return global.AMG.Hechos.registrar(TIPOS[tipo], payload);
+      return global.AMG.Hechos.registrar(TIPOS[tipo], payload).then(function (r) {
+        var eb = bus();
+        if (eb) eb.emit(TIPOS[tipo] + ":registrado", { payload: payload });
+        return r;
+      });
     }
     return Promise.reject(new Error("cartera: AMG.Hechos no disponible"));
   }
@@ -80,20 +106,20 @@
       return Promise.resolve({ saldo: 0, movimientos: [] });
     }
     return global.AMG.Hechos.todos().then(function (todos) {
-      var mios = todos.filter(function (h) {
+      var mios = _sinDuplicados(todos.filter(function (h) {
         return (h.tipo === TIPOS.cargo || h.tipo === TIPOS.abono) &&
-          h.datos && h.datos.payload && String(h.datos.payload.clienteId) === String(clienteId);
-      });
+          String(_d(h).clienteId || "") === String(clienteId);
+      }), "clienteId");
       var saldo = 0;
       var movimientos = mios.map(function (h) {
         var signo = h.tipo === TIPOS.cargo ? -1 : 1;
-        var monto = Number(h.datos.payload.monto) || 0;
+        var monto = Number(_d(h).monto) || 0;
         saldo += signo * monto;
         return {
           tipo: h.tipo === TIPOS.cargo ? "cargo" : "abono",
           monto: monto,
-          motivo: h.datos.payload.motivo || "",
-          quien: h.datos.payload.quien || "",
+          motivo: _d(h).motivo || "",
+          quien: _d(h).quien || "",
           fecha: h.ts
         };
       });
