@@ -2162,7 +2162,7 @@ function tarjetaCliente(c, esDueno){
       <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;"
         onclick="abonarCliente('${c.id}','${escHtml(c.nombre)}')">Record payment (abono)</button>
     </div>${toggleAlerta}`;
-  return `<div style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
+  return `<div class="cliente-card" style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
       <span style="font-family:var(--font-mono);font-size:14px;color:#2E6278;margin-left:6px;">${escHtml(c.codigo)}</span>
@@ -4642,6 +4642,8 @@ setTimeout(() => {
 <script src="./hechos.js"></script>
 <script src="./reconciliacion.js"></script>
 <script src="./cartera.js"></script>
+<script src="./plan-pagos.js"></script>
+<script src="./plan-pagos-ui.js"></script>
 <script src="./caja-chica.js"></script>
 <!-- uFuzzy (JFC 2026-07-30): busqueda tolerante a errores de tipeo para
      Clientes (via lista-dinamica.js). Vendorizado localmente, MIT, sin
