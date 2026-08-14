@@ -313,6 +313,15 @@
       </div>
       <button type="button" id="oc-unirse-equipo" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;font-size:13px;text-decoration:underline;cursor:pointer;margin-top:10px;padding:6px;display:block;width:100%;text-align:center;">${window.t("auth.gate.joinTeam")}</button>
       <div class="oc-msg" id="oc-msg"></div>
+      <!-- CODIGOS DEMO (2026-08-14). Sin esto el visitante ve un teclado y no
+           sabe que teclear. Los mismos codigos que anuncia checklist.html: si
+           se cambian aqui, cambiarlos alli tambien. -->
+      <div id="oc-gate-demo-pins" style="margin:14px 0 0;padding:12px;border:1px dashed var(--azul-medio,#2c4a68);border-radius:6px;text-align:center;">
+        <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;">First time? Try these codes</p>
+        <p style="margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;"><strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">888</strong> owner &middot; <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">260</strong> employee &middot; <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">357</strong> bookkeeper &mdash; or <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">789</strong> to activate your own instance, free.</p>
+        <p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">Each code shows the app the way that person sees it. The employee does not see the profits.</p>
+      </div>
+      <p id="oc-gate-landing" style="margin:12px 0 0;font-size:13px;line-height:1.5;text-align:center;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">Not sure what this is? <a href="./save.html" style="color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;font-weight:700;">See what it does in 10 seconds</a>.</p>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;">v1.0 &mdash; friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
     </div>`;
   document.body.appendChild(gate);
