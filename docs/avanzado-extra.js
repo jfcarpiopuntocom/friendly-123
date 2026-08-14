@@ -283,7 +283,7 @@
     descargaBox.innerHTML = `
       <h3 class="seccion" style="margin-top:0;">Accounting report</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">P&amp;L, balance sheet, and valued inventory in one file, ready for Excel. Not a tax declaration — it's the input your accountant needs.</p>
-      <button id="oc-descargar-csv" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">📄 Download accounting report (.csv)</button>
+      <button id="oc-descargar-csv" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Download accounting report (.csv)</button>
     `;
     cont.appendChild(descargaBox);
 
@@ -307,15 +307,15 @@
       <p id="oc-respaldo-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></p>
       <p id="oc-respaldo-free" style="font-size:13px;margin-top:6px;display:none;"></p>
       <hr style="border:none;border-top:1px solid var(--azul-suave,#dde5ec);margin:16px 0;">
-      <h4 style="margin:0 0 6px;font-size:14px;">🔐 Local safe (automatic)</h4>
+      <h4 style="margin:0 0 6px;font-size:14px;">Local safe (automatic)</h4>
       <p style="font-size:13px;color:var(--ink-soft);margin-top:0;">
         In addition to the manual backup above, friendly-123 saves a snapshot of your data here (in this browser) periodically,
         in case you delete something by accident. This does NOT replace the manual backup — if the browser cache is cleared, these checkpoints are lost too.
         <em>Coming soon: automatic replication of these checkpoints across your devices. In the meantime, you can copy your data to another device via Advanced → QR Sync.</em></p>
       <p id="oc-caja-alerta" style="font-size:13px;font-weight:700;"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">📸 Save checkpoint now</button>
-        <button id="oc-caja-ver" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">🗂️ View saved checkpoints</button>
+        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Save checkpoint now</button>
+        <button id="oc-caja-ver" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">View saved checkpoints</button>
       </div>
       <div id="oc-caja-lista" style="display:none;margin-top:10px;"></div>
       <p id="oc-storage-info" style="font-size:13px;color:var(--ink-soft);margin:10px 0 0;font-family:monospace;"></p>
@@ -340,7 +340,7 @@
     const lock = document.createElement("div");
     lock.id = "oc-acct-lock";
     lock.className = "tag-card";
-    lock.innerHTML = `<button id="oc-acct-open">🔒 View accounting layer</button>`;
+    lock.innerHTML = `<button id="oc-acct-open">View accounting layer</button>`;
     // Boton al inicio, justo bajo el blurb de "Modo avanzado" (JFC 2026-07-04:
     // "no moviste el boton mismo de 'ver capa contable' al inicio, animal").
     const aviso = vista.querySelector(".avanzado-aviso");
@@ -948,7 +948,7 @@
               const det = d.ruptura
                 ? `at position ${d.ruptura.index} (${escHtml(d.ruptura.tipo)} · ${escHtml(d.ruptura.usuarioNombre)} · ${escHtml(new Date(d.ruptura.fecha).toLocaleString())}) — ${escHtml(d.ruptura.motivo)}`
                 : (d.colaOk === false ? "end of history was trimmed" : "inconsistency detected");
-              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#fdecea;border:2px solid #a3392a;"><strong style="color:#a3392a;">⚠ History has been altered</strong> <span style="color:#0F1923;font-size:14px;">— ${det}.</span></div>`;
+              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#fdecea;border:2px solid #a3392a;"><strong style="color:#a3392a;">History has been altered</strong> <span style="color:#0F1923;font-size:14px;">— ${det}.</span></div>`;
             }
           } catch (_) { cont.innerHTML = ""; }
         }
@@ -1022,7 +1022,7 @@
         your PocketBase URL on Fly.io here.
       </p>
       <p style="font-size:14px;font-weight:700;margin:8px 0;color:${conectado ? "var(--sim-verde-dk)" : "var(--ink)"};">
-        Estado: ${conectado ? "🟢 Connected" : "⚪ Local (no sync)"}
+        Estado: ${conectado ? "Connected" : "Local (no sync)"}
       </p>
       <input id="oc-pb-url" type="text" placeholder="https://tu-negocio.fly.dev" value="${escHtml(pbUrlActual)}" style="width:100%;max-width:340px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;">
       <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
@@ -1458,10 +1458,10 @@
       const ultimo = Number(localStorage.getItem("f123_ultimo_export_manual") || 0);
       const el = $("oc-caja-alerta");
       if (!el) return;
-      if (!ultimo) { el.textContent = "⚠️ You have not made a manual backup yet (the one above) — do it at least once."; el.style.color = "var(--rust)"; return; }
+      if (!ultimo) { el.textContent = "You have not made a manual backup yet (the one above) — do it at least once."; el.style.color = "var(--rust)"; return; }
       const dias = Math.floor((Date.now() - ultimo) / 86400000);
-      if (dias >= CAJA_ALERTA_DIAS) { el.textContent = `⚠️ Your last manual backup is ${dias} days old — consider making a new one.`; el.style.color = "var(--rust)"; }
-      else { el.textContent = `✅ Last manual backup: ${dias} day(s) ago.`; el.style.color = "var(--verde)"; }
+      if (dias >= CAJA_ALERTA_DIAS) { el.textContent = `Your last manual backup is ${dias} days old — consider making a new one.`; el.style.color = "var(--rust)"; }
+      else { el.textContent = `Last manual backup: ${dias} day(s) ago.`; el.style.color = "var(--verde)"; }
     }
     cajaPintarAlerta();
 
@@ -1719,7 +1719,7 @@
         sync server can read them.
       </p>
       <p style="font-size:14px;font-weight:700;margin:8px 0;color:${activo && !necesitaPin ? "var(--sim-verde-dk)" : "var(--ink)"};">
-        Estado: ${!activo ? "⚪ Disabled" : necesitaPin ? "🟡 Enabled, but needs your PIN again in this browser" : "🟢 Enabled"}
+        Estado: ${!activo ? "Disabled" : necesitaPin ? "Enabled, but needs your PIN again in this browser" : "Enabled"}
         ${activo && !necesitaPin && pend ? ` · ${pend} change(s) pending` : ""}
       </p>
       <p id="oc-syncdev-msg" style="font-size:14px;font-weight:700;margin-bottom:10px;"></p>
@@ -1732,7 +1732,7 @@
           <button id="oc-syncdev-wa-cambios" class="ir" style="background:#25D366;color:#0a3d20;border-color:#1da851;">📲 Recent changes → WhatsApp</button>
           <button id="oc-syncdev-wa-respaldo" class="ir" style="background:#128C7E;color:#e8fff7;border-color:#0c6b60;">📲 Full backup → WhatsApp</button>
           <button id="oc-syncdev-qr-mostrar" class="ir" style="background:var(--azul-oscuro);color:var(--blanco-calido);border-color:var(--brass);">📱 Show changes QR</button>
-          <button id="oc-syncdev-qr-escanear" class="ir" style="background:var(--azul-oscuro);color:var(--blanco-calido);border-color:var(--brass);">📷 Scan QR from other device</button>
+          <button id="oc-syncdev-qr-escanear" class="ir" style="background:var(--azul-oscuro);color:var(--blanco-calido);border-color:var(--brass);">Scan QR from other device</button>
           <button id="oc-syncdev-off" style="font-size:13px;padding:8px 12px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Disable</button>
         </div>
         <div id="oc-syncdev-qr-zona" style="display:none;margin:10px 0;text-align:center;"></div>

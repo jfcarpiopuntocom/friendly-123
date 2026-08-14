@@ -8,7 +8,7 @@
 // se puede vender/editar ahí). El dueño puede RENOMBRAR, BORRAR y AGREGAR
 // perchas desde el ícono ✎ (abre modal) y desde el botón "Agregar +" arriba.
 //
-//   - FOTO REAL por percha: dueño toca 📷 → cámara → resize 640px → localStorage.
+//   - FOTO REAL por percha: dueño toca → cámara → resize 640px → localStorage.
 //   - semáforo por CUMPLIMIENTO DE META: verde ≥100% · amarillo 70-99% ·
 //     rojo <70% · azul sin meta.
 //   - badge inferior izquierdo: "% meta cumplida"; badge "dormida Xd" si aplica.
@@ -142,7 +142,7 @@
       </div>` : '';
 
     // La tarjeta ENTERA abre la carpeta (data-vp-abrir). Los controles internos
-    // (📷 foto, ✎ gestión) llevan su propio data-* y frenan la propagación.
+    // (foto, ✎ gestión) llevan su propio data-* y frenan la propagación.
     return `
       <div class="tag-card vp-carpeta" data-vp-abrir="${esc(p.id)}" role="button" tabindex="0"
         title="Toca para ver sus productos"
