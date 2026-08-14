@@ -274,11 +274,38 @@
     return null; // todas vencidas
   }
 
+  /* HUECO PACO (2026-08-13): un plan es una expectativa SOBRE UNA DEUDA. Si la
+     deuda ya se salso, la expectativa se cumplio y no quedan cuotas que
+     anunciar. Sin esto, alguien que pago todo seguia viendo "Proxima cuota".
+     La consulta al saldo es blanda a proposito: si el modulo de saldos no esta
+     cargado, el motor sigue funcionando como antes. */
+  function saldoActual(duenoId) {
+    try {
+      if (global.AMG && global.AMG.Cartera && global.AMG.Cartera.saldoDeCliente) {
+        return global.AMG.Cartera.saldoDeCliente(duenoId).then(function (s) { return s.saldo; });
+      }
+      /* SOLO Cartera. Ver el comentario gemelo en consultorio-123: cada app
+         consulta su propio modulo de saldo, nunca el primero que exista. */
+    } catch (_) {}
+    return Promise.resolve(null);
+  }
+
   function estadoDelPlan(clienteId, ahora) {
     var hoy = aDia(ahora || Date.now());
     return planActivo(clienteId).then(function (plan) {
       if (!plan) return { hayPlan: false, estado: "sin_plan" };
-      return hechosDe(clienteId).then(function (hs) {
+      return saldoActual(clienteId).then(function (saldo) {
+        /* saldo >= 0 significa que no debe nada: el plan esta cumplido.
+           null = no se pudo consultar, y entonces se sigue de largo. */
+        if (saldo !== null && saldo >= 0) {
+          return { hayPlan: true, estado: "cumplido", montoCuota: plan.montoCuota,
+                   numCuotas: plan.numCuotas, montoTotal: plan.montoTotal,
+                   frecuencia: plan.frecuencia, cuotasVencidas: plan.numCuotas,
+                   esperadoAHoy: plan.montoTotal, abonadoDesdeElPlan: plan.montoTotal,
+                   diferencia: 0, proximoVencimiento: null,
+                   avisarDesdeDias: plan.avisarDesdeDias };
+        }
+        return hechosDe(clienteId).then(function (hs) {
         var abonado = hs.filter(function (h) {
           return h.tipo === "cartera_abono" && fechaDe(h) >= plan.creadoEn;
         }).reduce(function (a, h) { return a + (Number(_d(h).monto) || 0); }, 0);
@@ -314,6 +341,7 @@
           proximoVencimiento: proximoVencimiento(plan, hoy),
           avisarDesdeDias: plan.avisarDesdeDias
         };
+        });
       });
     }).catch(function (e) {
       try { console.error("plan-pagos: no se pudo derivar el estado", e); } catch (_) {}

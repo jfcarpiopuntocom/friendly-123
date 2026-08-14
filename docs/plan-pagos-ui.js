@@ -33,7 +33,9 @@
   var COLORES = {
     al_dia:     { bg: "#00C87A", txt: "on track" },
     adelantado: { bg: "#00C87A", txt: "ahead" },
-    atrasado:   { bg: "#E86040", txt: "behind" }
+    atrasado:   { bg: "#E86040", txt: "behind" },
+    /* The plan is done: nothing is owed. No more payments get announced. */
+    cumplido:   { bg: "#00C87A", txt: "paid off" }
   };
 
   var css = document.createElement("style");
@@ -229,6 +231,26 @@
       var conPlan = $("pp-conplan").checked;
       var motivo = $("pp-motivo").value || "";
 
+      /* HUECO LUIS (2026-08-13): validar el plan ANTES de tocar el dinero.
+         Antes se cobraba primero y se validaba despues, asi que un campo vacio
+         dejaba el cargo hecho, un error tecnico en pantalla, y cada reintento
+         volvia a fiar. Aca no se toca un centavo hasta que el plan cierre. */
+      var nCuotas = 0, fechaPlan = null;
+      if (conPlan) {
+        nCuotas = Math.floor(Number($("pp-cuotas").value));
+        if (!(nCuotas >= 1)) {
+          msg.style.color = "#B0183E";
+          msg.textContent = "Enter how many payments, at least one.";
+          return;
+        }
+        fechaPlan = new Date(($("pp-desde").value || "") + "T00:00:00");
+        if (isNaN(fechaPlan.getTime())) {
+          msg.style.color = "#B0183E";
+          msg.textContent = "Pick the date of the first payment.";
+          return;
+        }
+      }
+
       /* El cargo va PRIMERO y el plan despues, a proposito: si el plan falla,
          la deuda igual quedo registrada. Al reves se perderia el dinero. */
       fetch(API + "/clientes/" + clienteId + "/fiar", {
@@ -239,9 +261,9 @@
         if (!conPlan) return null;
         return global.AMG.PlanPagos.crearPlan(clienteId, {
           montoTotal: monto,
-          numCuotas: Math.max(1, Math.floor(Number($("pp-cuotas").value) || 1)),
+          numCuotas: nCuotas,
           frecuencia: $("pp-frec").value,
-          primerVencimiento: new Date($("pp-desde").value + "T00:00:00"),
+          primerVencimiento: fechaPlan,
           avisarDesdeDias: Math.max(0, Number($("pp-gracia").value) || 0),
           motivo: motivo
         });
@@ -250,8 +272,13 @@
         if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
         refrescarHoy();
       }).catch(function (e) {
-        msg.style.color = "#B0183E";
-        msg.textContent = (e && e.message) || "Could not record it.";
+        /* If we got here after the charge already went through, retrying would
+           record the credit twice. Close the modal and tell the whole truth. */
+        cerrar();
+        if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
+        refrescarHoy();
+        global.alert("The credit was recorded, but the payment plan could not be saved. " +
+          "You can set it up later. (" + ((e && e.message) || "error") + ")");
       });
     });
 
