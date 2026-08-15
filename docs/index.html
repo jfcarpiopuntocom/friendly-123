@@ -211,12 +211,52 @@
   /* === FAILSAFE COLORES — navegadores sin CSS variables (Chrome <49, IE, Opera Mini)
      JFC 2026-07-03. Colores literales como base; el bloque :root los sobreescribe
      en cualquier browser moderno. Nunca borrar este bloque — es la capa "forever". === */
-  .caja.verde   {background:#0FA46A;border-color:#086944;color:#fff;}
-  .caja.amarillo{background:#F5C518;border-color:#9E7C00;color:#1e1a12;}
-  .caja.naranja {background:#F97316;border-color:#C05000;color:#fff;}
-  .caja.rojo    {background:#C41E3A;border-color:#7C1024;color:#fff;}
-  .caja.azul    {background:#5294AC;border-color:#2E6278;color:#fff;}
-  .caja.negro   {background:#0A0A0F;border-color:#000000;color:#fff;}
+  /* M3 (JFC 2026-08-14): LA FOTO MANDA, EL BORDE ES EL SEMAFORO.
+     Antes cada .caja era un rectangulo de color solido con el nombre encima.
+     Con dos variantes del mismo producto ese bloque no distinguia nada. Ahora
+     el fondo es blanco, la foto ocupa el primer golpe de vista y el color
+     Simon vive en el borde, donde se lee igual de rapido sin tapar nada.
+     El mismo patron que ya usaba la cuadricula de Vender.
+     Si se vuelve al relleno solido, hay que devolver tambien los colores de
+     texto en blanco que estaban aca. */
+  .caja{background:#FFFFFF !important;border-width:4px !important;}
+  .caja .nombre,.caja .detalle,.caja .stock{
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+  .caja .detalle{color:var(--ink-soft) !important;-webkit-text-fill-color:var(--ink-soft) !important;}
+  /* Los botones de ajuste rapido usaban currentColor, que antes era el blanco
+     del relleno. Con fondo blanco hay que fijarlos a tinta. */
+  .caja .ajuste-rapido button{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+
+  /* LIQUID: proporcion fija, ancho libre. Nada de alturas en px. */
+  .caja .fotowrap{
+    position:relative;width:100%;aspect-ratio:4/3;border-radius:8px;overflow:hidden;
+    background:linear-gradient(135deg,#DCE4EC 0%,#C4CDD8 100%);margin-bottom:9px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  /* Eslabon 3 de la cadena: SIEMPRE pintado, debajo de la imagen. */
+  .caja .fotowrap .iniciales{
+    font-family:var(--font-display);font-weight:700;
+    font-size:clamp(24px,7vw,38px);letter-spacing:.02em;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;
+  }
+  .caja .fotowrap img{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+  }
+  /* Marca discreta cuando la foto es prestada de otra variante de la familia:
+     el dueno tiene que poder saber que esa no es la foto de ESTE producto. */
+  .caja .fotowrap .heredada{
+    position:absolute;left:0;bottom:0;right:0;
+    font-size:13px;font-weight:700;padding:3px 7px;text-align:center;
+    background:#0F1923;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;
+  }
+  @media (max-width:360px){ .caja .fotowrap{aspect-ratio:3/2;} }
+
+  .caja.verde   {border-color:#00805A;}
+  .caja.amarillo{border-color:#B8860B;}
+  .caja.naranja {border-color:#C05000;}
+  .caja.rojo    {border-color:#A8123A;}
+  .caja.azul    {border-color:#2E6278;}
+  .caja.negro   {border-color:#14181C;}
 
   .lista-alertas li.verde   {background:#C0F5E0;color:#009A5A;border:2px solid #00C87A;}
   .lista-alertas li.amarillo{background:#FFF3C2;color:#8A6800;border:2px solid #FFC700;}
@@ -694,23 +734,26 @@
      semaforo de colores retirado. Ahora el estado es UN color plano y el -dk solo
      pinta el borde/bisel. El pulso del rojo se queda: es movimiento, no un
      tono extra. NO reintroducir degradados por nivel. */
-  .caja.verde{background:var(--sim-verde); border-color:var(--sim-verde-dk);}
-  .caja.amarillo{background:var(--sim-amarillo); border-color:var(--sim-amarillo-dk);}
-  .caja.rojo{background:var(--sim-rojo); border-color:var(--sim-rojo-dk); animation:pulsoEmergencia 2.2s ease-in-out infinite;}
-  .caja.naranja{background:var(--sim-naranja); border-color:var(--sim-naranja-dk);}
-  .caja.negro{background:var(--sim-negro); border-color:var(--sim-negro-dk);}
+  .caja.verde{border-color:var(--sim-verde-dk);border-width:4px;}
+  .caja.amarillo{border-color:var(--sim-amarillo-dk);border-width:4px;}
+  .caja.rojo{border-color:var(--sim-rojo-dk); animation:pulsoEmergencia 2.2s ease-in-out infinite;}
+  .caja.naranja{border-color:var(--sim-naranja-dk);border-width:4px;}
+  .caja.negro{border-color:var(--sim-negro-dk);border-width:4px;}
   @keyframes pulsoEmergencia{
     0%, 100%{box-shadow:0 0 0 0 rgba(232,54,93,0.55), 0 4px 8px rgba(0,0,0,0.18);}
     50%{box-shadow:0 0 0 8px rgba(232,54,93,0), 0 4px 8px rgba(0,0,0,0.18);}
   }
   /* Fondos oscuros: texto blanco */
-  .caja.verde .nombre,.caja.rojo .nombre,.caja.naranja .nombre,.caja.negro .nombre{color:#FFFFFF !important;}
-  .caja.verde .detalle,.caja.rojo .detalle,.caja.naranja .detalle,.caja.negro .detalle{color:rgba(255,255,255,1) !important;}
-  .caja.verde .stock,.caja.rojo .stock,.caja.naranja .stock,.caja.negro .stock{color:#FFFFFF !important;}
+  .caja.verde .nombre,.caja.rojo .nombre,.caja.naranja .nombre,.caja.negro .nombre{color:var(--ink) !important;}
+  .caja.verde .detalle,.caja.rojo .detalle,.caja.naranja .detalle,.caja.negro .detalle{color:var(--ink-soft) !important;}
+  .caja.verde .stock,.caja.rojo .stock,.caja.naranja .stock,.caja.negro .stock{color:var(--ink) !important;}/* M3 (2026-08-14): esta regla forzaba BLANCO en los botones de ajuste
+     porque la tarjeta era un rectangulo de color oscuro. Ahora el fondo es
+     blanco y la foto manda, asi que el blanco los volvia invisibles.
+     Pasan a tinta. Si algun dia vuelve el relleno solido, esto vuelve a blanco. */
   .caja.verde [data-ajuste-menos],.caja.rojo [data-ajuste-menos],.caja.naranja [data-ajuste-menos],.caja.negro [data-ajuste-menos],
   .caja.verde [data-ajuste-mas],.caja.rojo [data-ajuste-mas],.caja.naranja [data-ajuste-mas],.caja.negro [data-ajuste-mas],
   .caja.verde [data-estrella-toggle],.caja.rojo [data-estrella-toggle],.caja.naranja [data-estrella-toggle],.caja.negro [data-estrella-toggle]
-  {color:#FFFFFF !important; border-color:#FFFFFF !important;}
+  {color:var(--ink) !important; border-color:var(--ink) !important;}
   /* Dorado=oportunidad: tinta oscura (el amarillo nunca soporta texto blanco) */
   .caja.amarillo .nombre{color:#0F1923 !important;}
   .caja.amarillo .detalle{color:#2C3E50 !important;}
@@ -2853,6 +2896,110 @@ function actualizarBotonesOrdenInventario(cont) {
     b.textContent = c.label + (activo ? (_ordenInv.asc ? " ↑" : " ↓") : "");
   });
 }
+
+/* ============================================================================
+   M1 y M4 del plan de variantes (2026-08-14).
+   familiaDe() es una FUNCION PURA sobre el SKU: no lee ni escribe nada. La
+   familia de ALM5-V2 es ALM5. No hay tabla de familias que pueda quedar
+   huerfana, desincronizarse entre dispositivos o apuntar a productos borrados:
+   el prefijo vive DENTRO del producto que describe.
+   Un SKU sin guion simplemente no tiene familia, y su producto funciona igual.
+   ============================================================================ */
+function familiaDe(sku) {
+  var s = String(sku || "").trim();
+  var i = s.indexOf("-");
+  return i > 0 ? s.slice(0, i).toUpperCase() : "";
+}
+
+/* Eslabon 2 de la cadena de respaldo: la foto de otra variante de la misma
+   familia. Solo mira el array que la cuadricula YA tiene cargado, no pide nada
+   a la red ni a IndexedDB. Devuelve null si no hay, y ahi entra el eslabon 3. */
+function fotoDeLaFamilia(p, todos) {
+  var fam = familiaDe(p && p.sku);
+  if (!fam || !Array.isArray(todos)) return null;
+  for (var i = 0; i < todos.length; i++) {
+    var o = todos[i];
+    if (o && o.foto && o.id !== p.id && familiaDe(o.sku) === fam) return o.foto;
+  }
+  return null;
+}
+
+/* Iniciales para el eslabon 3. Dos letras cuando el nombre tiene dos palabras
+   utiles, para que dos variantes no queden con la misma letra sola. */
+function inicialesDe(nombre) {
+  var partes = String(nombre || "?").trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[1][0]).toUpperCase();
+}
+
+/* Arma el bloque visual completo. Las iniciales van SIEMPRE debajo; la imagen
+   encima, y si falla se borra a si misma con onerror. Sin estado, sin timers y
+   sin ninguna rama que pueda dejar la tarjeta en blanco. */
+function bloqueFoto(p, todos) {
+  var propia = p && p.foto ? p.foto : null;
+  var heredada = propia ? null : fotoDeLaFamilia(p, todos);
+  var src = propia || heredada;
+  var html = '<div class="fotowrap"><span class="iniciales">' + escHtml(inicialesDe(p && p.nombre)) + "</span>";
+  if (src) {
+    html += '<img src="' + src + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
+    if (heredada) html += '<span class="heredada">foto de la familia</span>';
+  }
+  return html + "</div>";
+}
+
+
+/* ============================================================================
+   M1 y M4 del plan de variantes (2026-08-14).
+   familiaDe() es una FUNCION PURA sobre el SKU: no lee ni escribe nada. La
+   familia de ALM5-V2 es ALM5. No hay tabla de familias que pueda quedar
+   huerfana, desincronizarse entre dispositivos o apuntar a productos borrados:
+   el prefijo vive DENTRO del producto que describe.
+   Un SKU sin guion simplemente no tiene familia, y su producto funciona igual.
+   ============================================================================ */
+function familiaDe(sku) {
+  var s = String(sku || "").trim();
+  var i = s.indexOf("-");
+  return i > 0 ? s.slice(0, i).toUpperCase() : "";
+}
+
+/* Eslabon 2 de la cadena de respaldo: la foto de otra variante de la misma
+   familia. Solo mira el array que la cuadricula YA tiene cargado, no pide nada
+   a la red ni a IndexedDB. Devuelve null si no hay, y ahi entra el eslabon 3. */
+function fotoDeLaFamilia(p, todos) {
+  var fam = familiaDe(p && p.sku);
+  if (!fam || !Array.isArray(todos)) return null;
+  for (var i = 0; i < todos.length; i++) {
+    var o = todos[i];
+    if (o && o.foto && o.id !== p.id && familiaDe(o.sku) === fam) return o.foto;
+  }
+  return null;
+}
+
+/* Iniciales para el eslabon 3. Dos letras cuando el nombre tiene dos palabras
+   utiles, para que dos variantes no queden con la misma letra sola. */
+function inicialesDe(nombre) {
+  var partes = String(nombre || "?").trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[1][0]).toUpperCase();
+}
+
+/* Arma el bloque visual completo. Las iniciales van SIEMPRE debajo; la imagen
+   encima, y si falla se borra a si misma con onerror. Sin estado, sin timers y
+   sin ninguna rama que pueda dejar la tarjeta en blanco. */
+function bloqueFoto(p, todos) {
+  var propia = p && p.foto ? p.foto : null;
+  var heredada = propia ? null : fotoDeLaFamilia(p, todos);
+  var src = propia || heredada;
+  var html = '<div class="fotowrap"><span class="iniciales">' + escHtml(inicialesDe(p && p.nombre)) + "</span>";
+  if (src) {
+    html += '<img src="' + src + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
+    if (heredada) html += '<span class="heredada">foto de la familia</span>';
+  }
+  return html + "</div>";
+}
+
 async function cargarInventario(){
   // El "+" de alta libre es del dueno; el empleado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
@@ -2883,6 +3030,7 @@ async function cargarInventario(){
     <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}" data-buscar="${escHtml(`${p.nombre} ${p.sku} ${p.categoria}`.toLowerCase())}">
       ${p.estrella ? '<span class="estrella-badge">⭐</span>' : ''}
       <div onclick="abrirFichaDesdeInventario('${p.id}')" style="cursor:pointer;">
+        ${bloqueFoto(p, productos)}
         <div class="nombre">${escHtml(p.nombre)}${p.perecible ? ' 🕓' : ''}</div>
         <div class="detalle">${escHtml(p.categoria)} · ${escHtml(p.sku)}</div>
         <div class="stock">${p.stockActual}</div>
