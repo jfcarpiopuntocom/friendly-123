@@ -228,6 +228,23 @@
   .caja .ajuste-rapido button{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
 
   /* LIQUID: proporcion fija, ancho libre. Nada de alturas en px. */
+  /* M5: la etiqueta de variante. Mono para que se lea como un codigo y no
+     se confunda con el nombre del producto. 13px es el piso de JFC. */
+  .fam-chip{
+    font-family:var(--font-mono,monospace);font-size:14px;font-weight:700;min-height:44px;
+    padding:9px 14px;border:2px solid var(--linea,#D7E0E8);border-radius:10px;background:#FFFFFF;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;cursor:pointer;
+  }
+  .fam-chip{
+    font-family:var(--font-mono,monospace);font-size:14px;font-weight:700;min-height:44px;
+    padding:9px 14px;border:2px solid var(--linea,#D7E0E8);border-radius:10px;background:#FFFFFF;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;cursor:pointer;
+  }
+  .chip-var{
+    display:inline-block;font-family:var(--font-mono,monospace);font-size:13px;font-weight:700;
+    padding:2px 8px;border-radius:6px;margin-top:5px;background:#EEF2F6;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;
+  }
   .caja .fotowrap{
     position:relative;width:100%;aspect-ratio:4/3;border-radius:8px;overflow:hidden;
     background:linear-gradient(135deg,#DCE4EC 0%,#C4CDD8 100%);margin-bottom:9px;
@@ -1356,6 +1373,12 @@
     <div id="ordenInventario" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 10px;">
       <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;">Sort by:</span>
     </div>
+    <!-- M6: resumen por familia. Vive ARRIBA del grid y no lo altera: si
+         esta seccion fallara, la cuadricula sigue igual. -->
+    <label id="invAgruparWrap" style="display:none;align-items:center;gap:9px;min-height:44px;font-size:15px;font-weight:700;cursor:pointer;margin:2px 0 6px;">
+      <input type="checkbox" id="invAgrupar" style="width:22px;height:22px;"> Agrupar por familia
+    </label>
+    <div id="invFamilias" style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;"></div>
     <div class="grid-cajas" id="gridInventario"></div>
     <!-- Log de movimientos: SOLO dueño, anti-descuadre -->
     <div id="seccionLogAjustes" style="display:none;">
@@ -2897,56 +2920,6 @@ function actualizarBotonesOrdenInventario(cont) {
   });
 }
 
-/* ============================================================================
-   M1 y M4 del plan de variantes (2026-08-14).
-   familiaDe() es una FUNCION PURA sobre el SKU: no lee ni escribe nada. La
-   familia de ALM5-V2 es ALM5. No hay tabla de familias que pueda quedar
-   huerfana, desincronizarse entre dispositivos o apuntar a productos borrados:
-   el prefijo vive DENTRO del producto que describe.
-   Un SKU sin guion simplemente no tiene familia, y su producto funciona igual.
-   ============================================================================ */
-function familiaDe(sku) {
-  var s = String(sku || "").trim();
-  var i = s.indexOf("-");
-  return i > 0 ? s.slice(0, i).toUpperCase() : "";
-}
-
-/* Eslabon 2 de la cadena de respaldo: la foto de otra variante de la misma
-   familia. Solo mira el array que la cuadricula YA tiene cargado, no pide nada
-   a la red ni a IndexedDB. Devuelve null si no hay, y ahi entra el eslabon 3. */
-function fotoDeLaFamilia(p, todos) {
-  var fam = familiaDe(p && p.sku);
-  if (!fam || !Array.isArray(todos)) return null;
-  for (var i = 0; i < todos.length; i++) {
-    var o = todos[i];
-    if (o && o.foto && o.id !== p.id && familiaDe(o.sku) === fam) return o.foto;
-  }
-  return null;
-}
-
-/* Iniciales para el eslabon 3. Dos letras cuando el nombre tiene dos palabras
-   utiles, para que dos variantes no queden con la misma letra sola. */
-function inicialesDe(nombre) {
-  var partes = String(nombre || "?").trim().split(/\s+/).filter(Boolean);
-  if (!partes.length) return "?";
-  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
-  return (partes[0][0] + partes[1][0]).toUpperCase();
-}
-
-/* Arma el bloque visual completo. Las iniciales van SIEMPRE debajo; la imagen
-   encima, y si falla se borra a si misma con onerror. Sin estado, sin timers y
-   sin ninguna rama que pueda dejar la tarjeta en blanco. */
-function bloqueFoto(p, todos) {
-  var propia = p && p.foto ? p.foto : null;
-  var heredada = propia ? null : fotoDeLaFamilia(p, todos);
-  var src = propia || heredada;
-  var html = '<div class="fotowrap"><span class="iniciales">' + escHtml(inicialesDe(p && p.nombre)) + "</span>";
-  if (src) {
-    html += '<img src="' + src + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
-    if (heredada) html += '<span class="heredada">foto de la familia</span>';
-  }
-  return html + "</div>";
-}
 
 
 /* ============================================================================
@@ -2998,6 +2971,90 @@ function bloqueFoto(p, todos) {
     if (heredada) html += '<span class="heredada">foto de la familia</span>';
   }
   return html + "</div>";
+}
+
+/* ============================================================================
+   M6 y M7 del plan de variantes (2026-08-14).
+
+   M6, AGRUPAR SIN FUSIONAR. El total por familia es SIEMPRE derivado: se suma
+   al pintar y no se guarda en ningun lado. Misma regla que rige saldos y planes
+   de pago en esta app: un total guardado es un total que puede mentir.
+   El agrupamiento es una PREFERENCIA DE VISTA y vive en localStorage, aparte
+   del inventario. Si se corrompe, la lista vuelve a plana y no se pierde un
+   solo dato de negocio.
+
+   M7, ALTA DE VARIANTE. Duplica lo que se repite y deja en cero lo que no.
+   Stock en cero es el valor seguro: si el duplicado sale mal, lo peor que pasa
+   es que aparece un producto vacio que se borra. Nunca aparece stock que nadie
+   compro.
+   ============================================================================ */
+var PP_AGRUPAR_KEY = "amg_inv_agrupar_familias";
+
+function agruparFamiliasActivo() {
+  try { return localStorage.getItem(PP_AGRUPAR_KEY) === "1"; } catch (_) { return false; }
+}
+function fijarAgruparFamilias(v) {
+  try { localStorage.setItem(PP_AGRUPAR_KEY, v ? "1" : "0"); } catch (_) {}
+}
+
+/* Devuelve las familias con mas de un miembro y su total DERIVADO. Los
+   productos sueltos no forman familia: agrupar de a uno solo agrega ruido. */
+function resumenFamilias(productos) {
+  var mapa = {};
+  (productos || []).forEach(function (p) {
+    var f = familiaDe(p.sku);
+    if (!f) return;
+    (mapa[f] = mapa[f] || []).push(p);
+  });
+  var out = [];
+  Object.keys(mapa).sort().forEach(function (f) {
+    if (mapa[f].length < 2) return;
+    out.push({
+      familia: f,
+      variantes: mapa[f].length,
+      unidades: mapa[f].reduce(function (a, p) { return a + (Number(p.stockActual) || 0); }, 0)
+    });
+  });
+  return out;
+}
+
+/* Encabezado con el resumen. Se pinta ARRIBA del grid y no lo altera: si esta
+   funcion fallara, la cuadricula sigue exactamente igual. */
+function pintarResumenFamilias(productos) {
+  var cont = document.getElementById("invFamilias");
+  if (!cont) return;
+  if (!agruparFamiliasActivo()) { cont.innerHTML = ""; return; }
+  var fams = resumenFamilias(productos);
+  if (!fams.length) { cont.innerHTML = ""; return; }
+  cont.innerHTML = fams.map(function (f) {
+    return '<button type="button" class="fam-chip" data-fam="' + escHtml(f.familia) + '">' +
+      escHtml(f.familia) + " · " + f.variantes + " variantes · " + f.unidades + " u.</button>";
+  }).join("");
+}
+
+/* M7: abre el alta con los campos ya copiados del producto de origen. */
+async function duplicarComoVariante(id) {
+  try {
+    var p = await (await fetch(API + "/productos/" + id)).json();
+    if (!p || p.error) throw new Error((p && p.error) || "no se pudo leer el producto");
+    await abrirAltaProducto();
+    var scope = document.getElementById(fichaTargetActual) || document;
+    var set = function (sel, v) { var e = scope.querySelector(sel); if (e) e.value = v; };
+    set("#np-nombre", p.nombre || "");
+    set("#np-categoria", p.categoria || "");
+    set("#np-precio", p.precio != null ? p.precio : "");
+    set("#np-costo", p.costo != null ? p.costo : "");
+    set("#np-proveedor", p.proveedor || "");
+    set("#np-stock", 0);              // el valor seguro, siempre
+    set("#np-barcode", "");           // el codigo NO se duplica: es unico
+    set("#np-chip", "");
+    var chip = scope.querySelector("#np-chip");
+    if (chip) { chip.focus(); }
+  } catch (e) {
+    try { console.error("duplicar variante:", e); } catch (_) {}
+    if (typeof ocAlert === "function") ocAlert("No se pudo preparar la variante.");
+    else alert("No se pudo preparar la variante.");
+  }
 }
 
 async function cargarInventario(){
@@ -3033,6 +3090,7 @@ async function cargarInventario(){
         ${bloqueFoto(p, productos)}
         <div class="nombre">${escHtml(p.nombre)}${p.perecible ? ' 🕓' : ''}</div>
         <div class="detalle">${escHtml(p.categoria)} · ${escHtml(p.sku)}</div>
+        ${p.chip ? `<span class="chip-var">${escHtml(p.chip)}</span>` : ""}
         <div class="stock">${p.stockActual}</div>
         <div class="detalle">${escHtml(p.mensaje)}</div>
       </div>
@@ -3041,15 +3099,40 @@ async function cargarInventario(){
         <button data-ajuste-menos="${p.id}" title="${t('inv.removeOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
         <button data-ajuste-mas="${p.id}" title="${t('inv.addOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
         ${esDuenoInv ? `<button data-estrella-toggle="${p.id}" title="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
+        ${esDuenoInv ? `<button data-variante="${p.id}" title="Agregar variante de este producto" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:17px;font-weight:700;cursor:pointer;">&#43;&#43;</button>` : ''}
         ${esDuenoInv ? `<button data-editar-directo="${p.id}" title="${t('inv.editTooltip')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:15px;cursor:pointer;">✏️</button>` : ''}
       </div>
     </div>
   `).join("");
+  /* M6: el interruptor solo aparece si de verdad HAY familias que agrupar.
+     Un negocio sin variantes no ve nada nuevo, que es la prueba M9. */
+  try {
+    var _wrap = document.getElementById("invAgruparWrap");
+    var _chk = document.getElementById("invAgrupar");
+    var _hayFam = resumenFamilias(productos).length > 0;
+    if (_wrap) _wrap.style.display = _hayFam ? "flex" : "none";
+    if (_chk && !_chk.dataset.listo) {
+      _chk.dataset.listo = "1";
+      _chk.checked = agruparFamiliasActivo();
+      _chk.addEventListener("change", function () { fijarAgruparFamilias(_chk.checked); cargarInventario(); });
+    }
+    pintarResumenFamilias(productos);
+  } catch (_) { /* el resumen es decoracion: nunca puede tumbar el grid */ }
   filtrarBusquedaInventario();
   grid.querySelectorAll("[data-editar-directo]").forEach(btn => {
     btn.addEventListener("click", (ev) => { ev.stopPropagation(); abrirEdicionDesdeInventario(btn.dataset.editarDirecto); });
   });
 
+  /* M7: un solo listener delegado, marcado con dataset para no re-atarlo. */
+  if (!grid.dataset.varianteListo) {
+    grid.dataset.varianteListo = "1";
+    grid.addEventListener("click", function (ev) {
+      var b = ev.target.closest("[data-variante]");
+      if (!b) return;
+      ev.stopPropagation();
+      duplicarComoVariante(b.dataset.variante);
+    });
+  }
   // Ajuste rápido +/- stock sin escanear. Pide motivo, deja log para el dueño.
   grid.querySelectorAll("[data-ajuste-menos],[data-ajuste-mas]").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -3555,6 +3638,7 @@ async function crearProductoNuevo(codigoEscaneado){
   const perecible = document.getElementById("np-perecible").checked;
   const body = {
     nombre: val("np-nombre"), categoria: val("np-categoria"), barcode: codigoEscaneado || val("np-barcode"),
+    chip: el("np-chip") ? val("np-chip").slice(0, 12) : "",
     precio: val("np-precio"), costo: val("np-costo"), stockInicial: val("np-stock"), proveedor: val("np-proveedor"),
     ubicacionId: document.getElementById("np-ubicacion") ? val("np-ubicacion") : (ubicacionActual === "todas" ? "todas" : ubicacionActual),
     tipoProveedor: document.getElementById("np-tipo-proveedor") ? document.getElementById("np-tipo-proveedor").value : "compra",
