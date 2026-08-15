@@ -914,11 +914,15 @@
     inp.setAttribute("autocapitalize", "characters");
     inp.setAttribute("autocorrect", "off");
     inp.setAttribute("spellcheck", "false");
-    inp.setAttribute("maxlength", "14");        // F123- + 4 + 1 + 4 = 14
+    /* 25 = prefijo + 4 grupos + el simbolo de verificacion de Crockford, que
+       puede ser * ~ $ = o U. Con 14 la mascara truncaba el codigo nuevo y el
+       dueno no podia teclear su propia licencia. */
+    inp.setAttribute("maxlength", "25");        // F123- + 4 + 1 + 4 = 14
     function formatear(raw) {
-      var v = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      /* Los simbolos de Crockford son parte del codigo: no se filtran. */
+      var v = String(raw || "").toUpperCase().replace(/[^A-Z0-9*~$=]/g, "");
       if (v.indexOf("F123") === 0) v = v.slice(4);
-      v = v.slice(0, 8);                        // 2 grupos de 4
+      v = v.slice(0, 17);                       // 4 grupos + simbolo de verificacion
       var out = "F123";
       for (var i = 0; i < v.length; i += 4) out += "-" + v.slice(i, i + 4);
       return out;
@@ -1055,6 +1059,8 @@
 
   // Expuesto para la vista Avanzado (capa contable).
   window.OCAuth = {
+    generarCodigo: generarCodigoSync,
+    heartbeat: enviarHeartbeat,
     rolActual: () => rol,
     esDemo: () => demoSesion,
     enmascarar,

@@ -452,7 +452,8 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
             <button id="oc-sync-compartir" class="ir" style="background:#25D366;border-color:#1da851;">${window.t("sync.panel.share")}</button>
             <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
-            <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
+            <button id="oc-sync-rotar" style="border-color:#E86040;color:#E86040;">Change the code</button>
+        <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
           </div>
         </div>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
@@ -530,7 +531,7 @@
         msg.textContent = window.t("sync.panel.resyncing");
         setTimeout(() => { if (msg.textContent === window.t("sync.panel.resyncing")) msg.textContent = ""; }, 3000);
       });
-      document.getElementById("oc-sync-desactivar").addEventListener("click", () => {
+      (function(){var _r=document.getElementById("oc-sync-rotar");if(_r&&!_r.dataset.listo){_r.dataset.listo="1";_r.addEventListener("click",ocRotarCodigoSala);}})(),document.getElementById("oc-sync-desactivar").addEventListener("click", () => {
         window.OCSyncControl.desactivar();
         document.getElementById("oc-sync-apagado").style.display = "flex";
         document.getElementById("oc-sync-activo").style.display = "none";
@@ -2116,4 +2117,76 @@
   window.addEventListener("oc-login", (e) => {
     if (e.detail && e.detail.rol === "contador") activarVistaContable();
   });
+
+  /* ==========================================================================
+     B3 (JFC, 2026-08-14): cambiar el codigo de la sala. CASO EXTREMO.
+     Ver el comentario largo del parche: dar de baja a un ex empleado resuelve
+     el 95% y es mucho menos molesto. Esto es para cuando el codigo SE FILTRO.
+     El panel de control BLOQUEA instancias; el dueno ROTA el codigo. No al
+     reves: rotar desde el panel dejaria al dueno fuera de su propia sala.
+     ========================================================================== */
+  function ocRotarCodigoSala() {
+    if (document.getElementById("oc-rot-modal")) return;
+    var m = document.createElement("div");
+    m.className = "oc-subgate";
+    m.id = "oc-rot-modal";
+    m.innerHTML =
+      '<div class="caja" style="background:#FFFFFF;border:2px solid #E86040;border-radius:16px;padding:24px 20px;max-width:460px;width:100%;text-align:left;margin:auto;">' +
+      '<h2 style="font-size:21px;font-weight:800;margin:0 0 12px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">Change your business code</h2>' +
+      '<p style="font-size:16px;line-height:1.5;margin:0 0 12px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">A new code is generated and the current one stops working. Every phone on your team will have to join again with the new one, including yours if you use more than one device.</p>' +
+      '<p style="font-size:15px;line-height:1.5;margin:0 0 12px;padding:11px 13px;background:#F8F9FB;border-left:4px solid #2C3E50;border-radius:0 8px 8px 0;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Only do this if the code leaked: someone posted it, dropped it in a group chat, or left the company with it written down. For a regular ex-employee it is enough to deactivate them under Users, which is far less disruptive for everyone else.</p>' +
+      '<p style="font-size:15px;line-height:1.5;margin:0 0 18px;padding:11px 13px;background:#FFF6F2;border-left:4px solid #E86040;border-radius:0 8px 8px 0;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">This cuts off access from here on. Whatever that person already saw or copied cannot be taken back.</p>' +
+      '<button type="button" id="oc-rot-ok" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:12px;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">Yes, change the code</button>' +
+      '<button type="button" id="oc-rot-no" style="width:100%;min-height:44px;margin-top:10px;background:none;border:none;font-size:15px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;">Never mind</button>' +
+      '<p id="oc-rot-msg" style="font-size:15px;font-weight:700;margin:12px 0 0;"></p>' +
+      "</div>";
+    document.body.appendChild(m);
+    function cerrar() { try { m.remove(); } catch (_) {} document.removeEventListener("keydown", onKey, true); }
+    function onKey(e) { if (e.key === "Escape" || e.key === "Esc") { e.stopPropagation(); cerrar(); } }
+    document.addEventListener("keydown", onKey, true);
+    m.addEventListener("click", function (e) { if (e.target === m) cerrar(); });
+    m.querySelector("#oc-rot-no").addEventListener("click", cerrar);
+    m.querySelector("#oc-rot-ok").addEventListener("click", function (ev) {
+      var btn = ev.currentTarget;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      var msg = m.querySelector("#oc-rot-msg");
+      try {
+        /* El generador vive en auth-ui.js, que ya usa crypto.getRandomValues y
+           el simbolo de verificacion de Crockford. No se duplica aqui. */
+        var nuevo = (window.OCAuth && window.OCAuth.generarCodigo) ? window.OCAuth.generarCodigo() : null;
+        if (!nuevo) throw new Error("generador no disponible");
+
+        /* ORDEN A PROPOSITO: primero se guarda en el registro local, despues se
+           mueve la sala. Si el navegador muriera en medio, el dueno conserva el
+           codigo nuevo escrito y puede volver a unirse a mano. Al reves quedaria
+           en una sala cuyo codigo no sabe. */
+        var owned = {};
+        try { owned = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {}; } catch (_) {}
+        owned.licenseCode = nuevo;
+        owned.licenseRotadaEn = Date.now();
+        localStorage.setItem("amigable_owned", JSON.stringify(owned));
+
+        if (window.OCSyncControl) {
+          try { window.OCSyncControl.desactivar(); } catch (_) {}
+          window.OCSyncControl.activar(nuevo);
+        }
+        try {
+          if (window.OCAuth && window.OCAuth.heartbeat) {
+            window.OCAuth.heartbeat({ instanceId: owned.instanceId, licenseCode: nuevo, accion: "rotacion" });
+          }
+        } catch (_) { /* el heartbeat es informativo: si falla, la rotacion vale igual */ }
+
+        msg.style.color = "#00805A";
+        msg.innerHTML = "New code. Share it with your team one to one:<br><code style=\'font-family:monospace;font-size:17px;letter-spacing:.08em;\'>" +
+          String(nuevo).replace(/[&<>]/g, "") + "</code>";
+        btn.style.display = "none";
+      } catch (e) {
+        btn.disabled = false;
+        msg.style.color = "#B0183E";
+        msg.textContent = (e && e.message) || "No se pudo cambiar el codigo.";
+      }
+    });
+  }
+
 })();
