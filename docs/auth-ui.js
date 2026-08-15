@@ -669,7 +669,7 @@
            "<br><br>Your license code: <strong style='font-family:monospace;letter-spacing:.1em;font-size:18px;color:#E86040;'>" + String(syncCode).replace(/[&<>]/g, "") + "</strong>" +
            "<p style='margin:10px 0 0;font-size:15px;line-height:1.5;color:#0F1923;background:#FFF6F2;border-left:4px solid #E86040;border-radius:0 8px 8px 0;padding:10px 12px;'>" +
            "<strong>This code is private to your team.</strong> Whoever has it gets into your data. " +
-           "Do not post it or drop it in a group chat: share it one to one, only with people who work with you.</p>";
+           "Write it down somewhere safe and share it only inside your team, one to one. That way you never have to change it.</p>";
       wrap.querySelector("#oc-act-form").style.display = "none";
       wrap.querySelector("#oc-act-exito").style.display = "block";
     });
