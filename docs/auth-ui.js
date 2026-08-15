@@ -118,10 +118,82 @@
   // Independiente del licenseCode del Worker de licencias (ese es server-side
   // y hoy no se genera localmente en friendly-123) — este codigo es SOLO la
   // semilla del cifrado E2E de sync-realtime.js, generado 100% local.
+
+  /* ==========================================================================
+     CODIGO DE LICENCIA = CASI UNA LLAVE PRIVADA (JFC, 2026-08-14).
+     Este valor ES la sala de sincronizacion del equipo. Quien lo tiene, entra.
+     Por eso se genera como un secreto y no como un identificador bonito.
+
+     ALFABETO: Crockford Base32. Sin I, L, O ni U, que son las que la gente
+     confunde al teclear o al dictar por telefono. Es un estandar, no un
+     invento local, y la IETF lo esta publicando como referencia.
+
+     ENTROPIA: 16 caracteres = 80 bits. Con 8 caracteres eran 40 bits, que se
+     rompen offline en horas con una GPU de presupuesto. 80 bits es el piso
+     recomendado para un secreto de consumo.
+
+     ALEATORIEDAD: crypto.getRandomValues, el CSPRNG del navegador. Math.random
+     es PREDECIBLE: con unos pocos codigos emitidos se reconstruye su estado y
+     se predicen los siguientes. Ese era el fallo real, no la longitud.
+
+     VERIFICACION: simbolo de chequeo mod-37 de Crockford al final. Atrapa el
+     error de un caracter y casi toda transposicion, ANTES de que alguien
+     termine en una sala vacia sin entender por que no se sincroniza.
+
+     NO cambiar a Math.random ni acortar. Si hace falta mas, se suben grupos.
+     ========================================================================== */
+  var OC_B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+  var OC_CHK = OC_B32 + "*~$=U";   /* 37 simbolos, como manda Crockford */
+
+  function _ocAzar(n) {
+    var out = new Uint8Array(n);
+    try {
+      (self.crypto || self.msCrypto).getRandomValues(out);
+      return out;
+    } catch (_) {
+      /* Ultimo recurso, solo si el navegador no expone WebCrypto. Se marca en
+         consola a proposito: si esto aparece, el codigo NO es un secreto. */
+      try { console.warn("licencia: sin WebCrypto, calidad de aleatoriedad degradada"); } catch (__) {}
+      for (var i = 0; i < n; i++) out[i] = Math.floor(Math.random() * 256);
+      return out;
+    }
+  }
+
+  /* Simbolo de verificacion mod 37 sobre el valor numerico del cuerpo. */
+  function _ocCheck(cuerpo) {
+    var acc = 0;
+    for (var i = 0; i < cuerpo.length; i++) {
+      var v = OC_B32.indexOf(cuerpo.charAt(i));
+      if (v < 0) return "";
+      acc = (acc * 32 + v) % 37;
+    }
+    return OC_CHK.charAt(acc);
+  }
+
+  /* Normaliza lo que el usuario tecleo: mayusculas, sin guiones, y con las
+     sustituciones que define Crockford (I y L valen 1, O vale 0). */
+  function _ocNormalizar(txt) {
+    return String(txt || "").toUpperCase().replace(/[^0-9A-Z*~$=]/g, "")
+      .replace(/[IL]/g, "1").replace(/O/g, "0");
+  }
+
+  /* Valida el simbolo de verificacion. Devuelve true si NO se puede juzgar
+     (codigo viejo sin simbolo): nunca rechaza una licencia legitima ya emitida.
+     Esto es un guard, no una puerta. */
+  function ocLicenciaVerificada(txt) {
+    var s = _ocNormalizar(txt);
+    var pre = s.replace(/^(AMG|F123|C123)/, "");
+    if (pre.length !== 17) return true;      /* longitud vieja: sin juicio */
+    return _ocCheck(pre.slice(0, 16)) === pre.charAt(16);
+  }
   function generarCodigoSync() {
-    var chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    var seg = function () { return Array.from({ length: 4 }, function () { return chars[Math.floor(Math.random() * chars.length)]; }).join(""); };
-    return "F123-" + seg() + "-" + seg();
+    var bytes = _ocAzar(16);
+    var cuerpo = "";
+    for (var i = 0; i < 16; i++) cuerpo += OC_B32.charAt(bytes[i] % 32);
+    var completo = cuerpo + _ocCheck(cuerpo);
+    /* 4 grupos de 4 mas el simbolo de verificacion al final. */
+    return "F123-" + completo.slice(0, 4) + "-" + completo.slice(4, 8) +
+           "-" + completo.slice(8, 12) + "-" + completo.slice(12, 17);
   }
   let demoSesion = false;
   let listo = window.OCSecure.migrarSiHaceFalta(); // promesa: migra oc_auth viejo (si existe) sin perder lo que el propietario ya configuró
@@ -593,7 +665,11 @@
       wrap.querySelector("#oc-act-exito-txt").innerHTML =
         "Your owner PIN is <strong>789</strong> — change it anytime in Advanced &rarr; Keys. " +
         "We saved <strong>" + seguro + "</strong> to recover your access. " +
-        "To use your system on another phone or tablet, go to Advanced &rarr; Sync.";
+        "To use your system on another phone or tablet, go to Advanced &rarr; Sync." +
+           "<br><br>Your license code: <strong style='font-family:monospace;letter-spacing:.1em;font-size:18px;color:#E86040;'>" + String(syncCode).replace(/[&<>]/g, "") + "</strong>" +
+           "<p style='margin:10px 0 0;font-size:15px;line-height:1.5;color:#0F1923;background:#FFF6F2;border-left:4px solid #E86040;border-radius:0 8px 8px 0;padding:10px 12px;'>" +
+           "<strong>This code is private to your team.</strong> Whoever has it gets into your data. " +
+           "Do not post it or drop it in a group chat: share it one to one, only with people who work with you.</p>";
       wrap.querySelector("#oc-act-form").style.display = "none";
       wrap.querySelector("#oc-act-exito").style.display = "block";
     });
