@@ -62,6 +62,21 @@
   // -------------------------------------------------------------------------
   // Migracion unica: copia al namespace lo que ya existia suelto en el origen.
   // -------------------------------------------------------------------------
+  /* Prefijo de licencia de ESTA app. Cambiar junto con NS. */
+  var LIC_PREFIJO = "F123-";
+
+  /* true si el JSON no trae licencia ajena. Ante la duda devuelve true: este es
+     un guard contra el cruce entre apps, no una puerta que pueda dejar al
+     duenio sin sus propios datos. */
+  function licenciaPropia(txt) {
+    try {
+      var o = JSON.parse(txt);
+      var c = o && o.licenseCode;
+      if (!c || typeof c !== "string") return true;
+      return c.toUpperCase().indexOf(LIC_PREFIJO) === 0;
+    } catch (_) { return true; }
+  }
+
   function migrarUnaVez() {
     try {
       if (nativo.getItem(CLAVE_MIGRADO)) return;
@@ -75,9 +90,16 @@
       }
       aCopiar.forEach(function (k) {
         try {
-          if (nativo.getItem(PREFIJO + k) === null) {
-            nativo.setItem(PREFIJO + k, nativo.getItem(k));
-          }
+          if (nativo.getItem(PREFIJO + k) !== null) return;
+          var v = nativo.getItem(k);
+          /* NO IMPORTAR LA LICENCIA DE OTRA APP (bug en vivo, 2026-08-15).
+             Las tres apps son forks y comparten nombres de clave, asi que en un
+             telefono donde se abrieron dos, la licencia de una se colaba en la
+             otra y el duenio veia un codigo que no era el suyo. Aqui se mira el
+             contenido, no el nombre: si trae un licenseCode de otra familia, no
+             se copia. Todo lo demas se rescata igual que siempre. */
+          if (v && v.indexOf("licenseCode") >= 0 && !licenciaPropia(v)) return;
+          nativo.setItem(PREFIJO + k, v);
         } catch (_) {}
       });
       nativo.setItem(CLAVE_MIGRADO, String(Date.now()));

@@ -2162,10 +2162,10 @@
            codigo nuevo escrito y puede volver a unirse a mano. Al reves quedaria
            en una sala cuyo codigo no sabe. */
         var owned = {};
-        try { owned = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {}; } catch (_) {}
+        try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
         owned.licenseCode = nuevo;
         owned.licenseRotadaEn = Date.now();
-        localStorage.setItem("amigable_owned", JSON.stringify(owned));
+        localStorage.setItem("f123_owned", JSON.stringify(owned));
 
         if (window.OCSyncControl) {
           try { window.OCSyncControl.desactivar(); } catch (_) {}
