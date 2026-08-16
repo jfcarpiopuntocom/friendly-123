@@ -53,7 +53,10 @@
   // Prefijos heredados que hay que rescatar UNA vez desde el espacio comun.
   // Se COPIAN, nunca se mueven: friendly-123 puede estar en uso en el mismo
   // navegador y borrarselas lo dejaria sin acceso.
-  var PREFIJOS_LEGADO = ["f123_", "c123_", "amigable_", "oc_", "amg_"];
+  /* CADA APP RESCATA SOLO LO SUYO (JFC 2026-08-15). Antes las tres tenian la
+  // misma lista y una podia importar las claves historicas de otra al abrirlas
+  // en el mismo navegador. Compartimentar de verdad empieza aqui. */
+  var PREFIJOS_LEGADO = ["f123_"];
 
   var nativo = null;
   try { nativo = window.localStorage; } catch (_) { nativo = null; }
@@ -109,6 +112,31 @@
     } catch (_) {}
   }
   migrarUnaVez();
+
+  /* -------------------------------------------------------------------------
+     LIMPIEZA DE LICENCIA AJENA (JFC 2026-08-15). Corre SIEMPRE, no una vez: si
+     una licencia de otra app ya se colo en ESTE namespace antes del guard de
+     arriba, aqui se saca. Borrarla no le quita nada a la otra app, que vive en
+     su propio namespace y conserva la suya intacta.
+
+     Solo se toca el campo licenseCode. El resto del registro (correo, nombre,
+     fecha de activacion) se conserva: puede ser legitimo aunque la licencia no.
+     ------------------------------------------------------------------------- */
+  function limpiarLicenciaAjena() {
+    try {
+      for (var i = 0; i < nativo.length; i++) {
+        var k = nativo.key(i);
+        if (!k || k.indexOf(PREFIJO) !== 0 || k.indexOf("_owned") < 0) continue;
+        var v = nativo.getItem(k);
+        if (!v || licenciaPropia(v)) continue;
+        var o = JSON.parse(v);
+        delete o.licenseCode;
+        nativo.setItem(k, JSON.stringify(o));
+        try { console.warn("[aislamiento] se quito una licencia de otra app en " + k); } catch (_) {}
+      }
+    } catch (_) {}
+  }
+  limpiarLicenciaAjena();
 
   // -------------------------------------------------------------------------
   // Aviso entre pestanas: cada escritura sube la epoca y se difunde.
