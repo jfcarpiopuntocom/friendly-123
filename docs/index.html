@@ -64,6 +64,7 @@
      OC_PB_URL). Por defecto todo corre local: mock-backend.js en la demo
      estática, o server.js real en el servidor local del negocio. -->
 <script src="./pocketbase-client.js"></script>
+<script src="./estado-idb.js"></script>
 <script src="./mock-backend.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -1333,10 +1334,10 @@
     <h3 class="seccion" data-i18n="hoy.alertsHeading">Today's alerts</h3>
     <ul class="lista-alertas" id="listaAlertas"></ul>
     <!-- Para impulsar hoy: productos estrella (el dueño los marca en Inventario).
-         Visible para TODOS, sobre todo para el empleado. Debajo de Alertas. -->
+         Visible para TODOS, sobre todo para el encargado. Debajo de Alertas. -->
     <div id="estrellaHoy"></div>
     <!-- Mood/flavor del día (12 posibles), SOLO dueño (clase fin-dueno la oculta
-         al empleado en cargarHoy). Va al fondo, debajo de todo. -->
+         al encargado en cargarHoy). Va al fondo, debajo de todo. -->
     <div id="moodHoy" class="fin-dueno"></div>
   </section>
 
@@ -1569,7 +1570,7 @@
 
   <!-- VISTA: COMISIONES (solo dueño) -->
   <!-- VISTA: CLIENTES (JFC 2026-07-07) — codigo unico + estaciones RFM.
-       El empleado ve la lista y puede registrar clientes; los montos y la
+       El encargado ve la lista y puede registrar clientes; los montos y la
        matriz de estaciones son SOLO del dueno (cargarClientes aplica el rol). -->
   <section id="vista-clientes" class="vista">
     <h3 class="seccion" style="margin-top:0;" data-i18n="cust.heading">Your customers</h3>
@@ -1593,8 +1594,8 @@
     <div id="matrizClientes" style="margin-top:26px;"></div>
 
     <!-- Importar CSV de clientes (JFC 2026-07-07): SOLO dueno, al fondo fondo.
-         cargarClientes() lo muestra/oculta segun rol. El empleado JAMAS lo ve:
-         para el empleado solo existe el alta manual de arriba. -->
+         cargarClientes() lo muestra/oculta segun rol. El encargado JAMAS lo ve:
+         para el encargado solo existe el alta manual de arriba. -->
     <div id="cliImportarBloque" style="display:none;margin-top:34px;padding-top:20px;border-top:2px solid var(--linea,#D7E0E8);">
       <h3 class="seccion" style="margin-top:0;" data-i18n="cust.importHeading">Import your customer list from a file</h3>
       <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n-html="cust.importIntro">If you already have your customers in Excel or on your phone, save the file as <strong>CSV</strong> with two columns, <strong>name</strong> and <strong>phone</strong>, and upload it here. Each one gets their unique code automatically; duplicates (same name) are skipped.</p>
@@ -1882,6 +1883,9 @@ async function cargarGridVender(){
   if (!Array.isArray(productos)) return;
   window._productosVenderCache = productos;
   productos.sort((a, b) => (b.estrella - a.estrella) || a.nombre.localeCompare(b.nombre));
+  /* Las categorias del pulldown salen de los productos REALES del negocio, no
+     de una lista fija: las suyas van primero porque son las que va a repetir. */
+  try { if (window.OCCategorias) window.OCCategorias.refrescar(productos); } catch (_) {}
   grid.innerHTML = productos.map(p => {
     const sinStock = p.stockActual <= 0;
     const visual = p.foto
@@ -2162,7 +2166,7 @@ function tarjetaCliente(c, esDueno){
   const dato = esDueno
     ? `<div style="font-size:15px;color:#2C3E50;margin-top:3px;">${c.frecuencia} purchase(s) in 90 days · ${fmtMoney(c.monto)}${c.recencia != null ? ` · last ${c.recencia} day(s) ago` : " · no purchases yet"}</div>`
     : "";
-  // Controles de evaluación: visibles a dueño y empleados (no en demo si no hay sesión).
+  // Controles de evaluación: visibles a dueño y encargados (no en demo si no hay sesión).
   const puedeEvaluar = window.OCAuth && window.OCAuth.rolActual && (window.OCAuth.rolActual() === "dueno" || window.OCAuth.rolActual() === "empleado");
   // CALIFICADOR 1-5 (JFC 2026-08-06, portado tal cual de amigable-123 — es el
   // UNICO sistema de calificar en todas las apps, fin de manitos/upvotes/tri-
@@ -2183,7 +2187,7 @@ function tarjetaCliente(c, esDueno){
     return actual >= 1 ? actual.toFixed(1) : null;
   };
   // Campo hora del incidente — auto-rellena con la hora actual; va en el historial
-  // para que el empleado pueda conciliar con cámaras/audios si hay un alegato.
+  // para que el encargado pueda conciliar con cámaras/audios si hay un alegato.
   const ahoraHora = new Date().toTimeString().slice(0,5);
   const hayNegativo = nivelEv(ev.trato) === -1 || nivelEv(ev.confiabilidad) === -1;
   const campoHora = puedeEvaluar ? `
@@ -2284,7 +2288,7 @@ async function abonarCliente(clienteId, nombre) {
 }
 async function cargarClientes(){
   // dueño Y admin ven todo ("plenamente visibles", JFC 2026-07-29) — solo
-  // empleado/contador quedan en modo restringido mas abajo.
+  // encargado/contador quedan en modo restringido mas abajo.
   const rolAhora = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : "";
   const esDueno = rolAhora === "dueno" || rolAhora === "admin";
   let grupos;
@@ -2388,7 +2392,7 @@ async function cargarClientes(){
       mc.innerHTML = (typeof htmlComportamiento === "string" ? htmlComportamiento : "") + htmlEstaciones;
   }
   poblarSelectClientes(grupos);
-  // Importar CSV: solo el dueno lo ve (regla JFC). El empleado se queda con el
+  // Importar CSV: solo el dueno lo ve (regla JFC). El encargado se queda con el
   // alta manual de arriba.
   const importBloque = document.getElementById("cliImportarBloque");
   if (importBloque) {
@@ -2451,7 +2455,7 @@ function parsearCSV(texto){
   return filas;
 }
 // Importacion de clientes por CSV — SOLO dueno (el bloque ni se muestra al
-// empleado). Toda la validacion pesada ocurre tambien en el mock; aqui se
+// encargado). Toda la validacion pesada ocurre tambien en el mock; aqui se
 // filtra lo obvio para dar feedback rapido y no mandar basura.
 function inicializarImportCSV(){
   const inp = document.getElementById("cliCsvFile");
@@ -2696,7 +2700,7 @@ async function cargarHoy(){
   const tKey = { verde: "hoy.titulo.verde", amarillo: "hoy.titulo.amarillo", rojo: "hoy.titulo.rojo" }[data.semaforoGeneral];
   document.getElementById("heroTitulo").textContent = tKey ? t(tKey) : t("hoy.titulo.default");
   // Plata del negocio (ganancia/entra/sale/inventario): SOLO dueño. El titular
-  // tampoco le revela la ganancia al empleado — solo el conteo de ventas.
+  // tampoco le revela la ganancia al encargado — solo el conteo de ventas.
   const esDuenoHoy = window.OCAuth && window.OCAuth.rolActual() === "dueno";
   document.getElementById("heroSubtitulo").textContent = esDuenoHoy
     ? tf("hoy.subOwner", { monto: fmtMoney(data.resumenDia.gananciaHoy), n: data.resumenDia.ventasCount })
@@ -2721,7 +2725,7 @@ async function cargarHoy(){
     ).join("");
   }
 
-  // Para impulsar hoy: productos estrella de la percha actual (empleado los ve).
+  // Para impulsar hoy: productos estrella de la percha actual (encargado los ve).
   try {
     const prods = await fetch(`${API}/productos?ubicacionId=${ubicacionActual}`).then(r => r.json());
     const estrellas = (Array.isArray(prods) ? prods : []).filter(p => p.estrella);
@@ -2736,7 +2740,7 @@ async function cargarHoy(){
   } catch (_) { /* sin estrellas: el bloque queda vacío */ }
 
   // Mood/flavor del día, SOLO dueño (moodHoy tiene clase fin-dueno, ya oculta al
-  // empleado arriba). Estable por día del año.
+  // encargado arriba). Estable por día del año.
   const mood = document.getElementById("moodHoy");
   if (mood && esDuenoHoy) {
     const ahora = new Date();
@@ -3058,7 +3062,7 @@ async function duplicarComoVariante(id) {
 }
 
 async function cargarInventario(){
-  // El "+" de alta libre es del dueno; el empleado ni lo ve (dos capas).
+  // El "+" de alta libre es del dueno; el encargado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
   if (btnAlta) btnAlta.style.display = (window.OCAuth && window.OCAuth.rolActual() === "dueno") ? "" : "none";
   let url = `${API}/productos?ubicacionId=${ubicacionActual}`;
@@ -3156,7 +3160,7 @@ async function cargarInventario(){
     });
   });
 
-  // Estrella: dueño marca/desmarca productos para que el empleado los promueva
+  // Estrella: dueño marca/desmarca productos para que el encargado los promueva
   grid.querySelectorAll("[data-estrella-toggle]").forEach(btn => {
     btn.addEventListener("click", async () => {
       const id = btn.dataset.estrellaToggle;
@@ -3183,7 +3187,7 @@ async function cargarInventario(){
   }
 }
 
-// Escapa HTML — el log muestra "motivo" tecleado por el empleado (via prompt),
+// Escapa HTML — el log muestra "motivo" tecleado por el encargado (via prompt),
 // nunca debe insertarse crudo en innerHTML (riesgo de XSS almacenado).
 function escHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -3192,7 +3196,7 @@ function escHtml(s){
 // ============================================================================
 // MOTIVOS ESTANDARIZADOS DEL AJUSTE +/- (idea Omar 2026-07-12)
 // Reemplaza el prompt() de open-text por un dropdown de opciones fijas: labels
-// consistentes en el log del dueño en vez de texto libre que cada empleado
+// consistentes en el log del dueño en vez de texto libre que cada encargado
 // teclea distinto. "Otro…" revela un campo de texto para el caso no previsto.
 // Para cambiar/agregar opciones: editar MOTIVOS_AJUSTE. No borrar "Otro".
 // ============================================================================
@@ -3247,7 +3251,7 @@ function pedirMotivoAjuste(delta){
   });
 }
 
-// Log de movimientos recientes — el dueño vigila ajustes del empleado
+// Log de movimientos recientes — el dueño vigila ajustes del encargado
 async function cargarLogAjustes(){
   // Microcirugia 5 (2026-07-08): fetch sin guard dejaba el log de ajustes en
   // blanco sin ningun aviso si /actividad fallaba.
@@ -3269,7 +3273,7 @@ async function cargarLogAjustes(){
     const extra = m.tipo === 'ajuste' ? ` (${m.detalle.delta > 0 ? '+' : ''}${m.detalle.delta}) — ${escHtml(m.detalle.motivo)}` : m.tipo === 'venta' ? ` × ${m.detalle.cantidad} = $${m.detalle.total}` : m.tipo === 'estrella' ? ` ${escHtml(m.detalle.accion)}` : '';
     // Atribución multi-usuario (2026-07-08): mostrar QUIÉN hizo el movimiento.
     // El dato ya viajaba en cada movimiento (mov() lo guarda); antes no se pintaba.
-    // "Sistema" (dueño por PIN clásico, sin empleado nombrado) no se muestra.
+    // "Sistema" (dueño por PIN clásico, sin encargado nombrado) no se muestra.
     const quien = (m.usuarioNombre && m.usuarioNombre !== 'Sistema')
       ? ` <span style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);">· ${escHtml(m.usuarioNombre)}</span>` : '';
     return `<div style="padding:6px 0;border-bottom:1px solid var(--linea,#e0d6c0);font-size:13px;color:var(--ink);"><span>${icono}</span> <strong>${detalle}</strong>${extra}${quien} <span style="color:var(--ink-soft);margin-left:8px;">${fecha}</span></div>`;
@@ -3416,7 +3420,7 @@ async function cargarPerchas(){
     const res = await fetch(`${API}/ubicaciones/${sel.dataset.perchaMover}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sucursalId }) });
     if (res.ok) cargarPerchas();
   }));
-  // Asignar promotor/a a la percha (alimenta el panel de fotos y comisiones)
+  // Asignar asociado/a a la percha (alimenta el panel de fotos y comisiones)
   grid.querySelectorAll('[data-percha-promotor]').forEach(sel => sel.addEventListener('change', async () => {
     const promotoraId = sel.value || null;
     const res = await fetch(`${API}/ubicaciones/${sel.dataset.perchaPromotor}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ promotoraId }) });
@@ -3631,6 +3635,16 @@ function mostrarFormNuevoProducto(codigoEscaneado){
   document.getElementById("np-perecible").addEventListener("change", (e) => {
     document.getElementById("np-fecha-wrap").style.display = e.target.checked ? "block" : "none";
   });
+  /* Categoria como combo mixto: se elige de la lista o se escribe otra. */
+  try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
+  /* Nada tecleado se pierde: si se va la luz, se toca "atras" o el telefono
+     manda la app al fondo, lo escrito sigue aqui al volver. Ver borradores.js. */
+  try {
+    if (window.OCBorradores) {
+      const _c = document.getElementById("np-nombre");
+      if (_c) window.OCBorradores.enganchar(_c.closest(".ficha-producto"), "alta-producto", { msgId: "np-msg" });
+    }
+  } catch (_) {}
 }
 
 async function crearProductoNuevo(codigoEscaneado){
@@ -3663,13 +3677,15 @@ async function crearProductoNuevo(codigoEscaneado){
     return;
   }
   if (!res.ok){ msg.style.color = "var(--rojo)"; msg.textContent = data.error; return; }
+  // Guardado de verdad: el borrador ya cumplio y estorbaria en el proximo alta.
+  try { if (window.OCBorradores) window.OCBorradores.limpiar("alta-producto"); } catch (_) {}
   pintarFicha(data);
 }
 
 // ============================================================================
 // EDICION LIBRE DE LA FICHA (solo dueno). Todo editable: nombre, foto, precio,
 // proveedor, categoria y el CODIGO INTERNO — que NO cambia al renombrar: solo
-// cambia si el dueno lo digita de nuevo en su campo propio. El empleado NUNCA
+// cambia si el dueno lo digita de nuevo en su campo propio. El encargado NUNCA
 // ve estos botones (dos capas de management).
 // ============================================================================
 async function mostrarFormEditarProducto(id){
@@ -3741,6 +3757,7 @@ async function mostrarFormEditarProducto(id){
         <button onclick="abrirFichaDesdeInventario('${p.id}')">${t("motivo.cancel")}</button>
       </div>
     </div>`;
+  try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("ed-categoria")); } catch (_) {}
   document.getElementById("ed-tipo-proveedor").addEventListener("change", (e) => {
     document.getElementById("ed-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
   });
@@ -3887,6 +3904,16 @@ async function abrirAltaProducto(){
   document.getElementById("np-tipo-proveedor").addEventListener("change", (e) => {
     document.getElementById("np-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
   });
+  try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
+  /* Mismo borrador que el formulario de Escanear: son el MISMO alta con dos
+     puertas de entrada, asi que comparten clave y lo empezado en una se
+     recupera en la otra. */
+  try {
+    if (window.OCBorradores) {
+      const _c = document.getElementById("np-nombre");
+      if (_c) window.OCBorradores.enganchar(_c.closest(".ficha-producto"), "alta-producto", { msgId: "np-msg" });
+    }
+  } catch (_) {}
   modal.classList.add("activo");
 }
 
@@ -3919,7 +3946,7 @@ function pintarFicha(p){
         <button onclick="ajustar('${p.id}', -1)">-1 stock</button>
         <button class="etiqueta" onclick="abrirEtiqueta('${p.id}')">${t("ficha.viewLabel")}</button>
       </div>
-      <!-- "Mostrar al cliente": visible para cualquier rol autenticado (empleado o dueño) —
+      <!-- "Mostrar al cliente": visible para cualquier rol autenticado (encargado o dueño) —
            ambos están detrás del mostrador y pueden girar el teléfono hacia el cliente. -->
       <div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="abrirVistaCliente('${p.id}')" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
@@ -4297,7 +4324,7 @@ async function cargarActividad(){
   }).join("");
 }
 
-// --- VISTA COMISIONES (reparto de comisiones a promotores/as) ---
+// --- VISTA COMISIONES (reparto de comisiones a asociados/as) ---
 async function cargarComisiones(){
   // Microcirugia 11 (2026-07-08): Promise.all sin guard dejaba Comisiones en blanco.
   const cont = document.getElementById("listaComisiones");
@@ -4319,7 +4346,7 @@ async function cargarComisiones(){
     return;
   }
 
-  // Rec 04 + 09: ranking de promotores/as con su mejor SKU y alerta de dormido.
+  // Rec 04 + 09: ranking de asociados/as con su mejor SKU y alerta de dormido.
   const rankHtml = (Array.isArray(ranking) && ranking.length) ? `
     <h3 class="seccion" style="font-size:15px;margin-top:0;">${t("comm.rankingHeading")}</h3>
     <div style="margin-bottom:20px;">${ranking.map((r, i) => {
@@ -4506,11 +4533,11 @@ window.addEventListener("oc-login", () => setTimeout(ofrecerResumenSemanalSiToca
 
 // MEJORA 3 — Recibo instantáneo al pagar comisión.
 // Después de marcar como pagado, la app arma un mini-recibo en WhatsApp listo
-// para enviarle a la promotora/socio. Un toque cierra el ciclo sin salir de la app.
+// para enviarle a la asociada/socio. Un toque cierra el ciclo sin salir de la app.
 // ============================================================================
 // EVALUACIÓN DE CLIENTES (2026-07-08)
 // El negocio evalúa en 2 ejes: Trato y Confiabilidad (-1/0/+1).
-// Dueño y empleados pueden evaluar; la atribución va en el historial.
+// Dueño y encargados pueden evaluar; la atribución va en el historial.
 // ============================================================================
 // EVALUACIÓN DE CLIENTES (JFC 2026-08-06, portado de amigable-123) — escala
 // 1-5: estrella=confiabilidad, corazon=trato. Tap acumulativo: tocar el mismo
@@ -4610,7 +4637,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   }
   if (!res.ok) { await ocAlert(r.error || "Could not mark the payment."); return; }
   cargarComisiones();
-  // Recibo para WhatsApp: solo se ofrece si hay nombre de promotora y monto > 0.
+  // Recibo para WhatsApp: solo se ofrece si hay nombre de asociado/a y monto > 0.
   if (promotorNombre && monto > 0) {
     const neg = (function(){ try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch(_){ return ""; } })();
     const mes = new Date().toLocaleDateString("es", { month: "long", year: "numeric" });
@@ -4621,7 +4648,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
     );
     const recibo = [
       `*Commission payment confirmed*`,
-      `Promotor/a: ${promotorNombre}`,
+      `Asociado/a: ${promotorNombre}`,
       `Monto: ${fmtMoney(monto)}`,
       `Mes: ${mes}`,
       neg ? `Negocio: ${neg}` : "",
@@ -4870,6 +4897,11 @@ setTimeout(() => {
      percha en IndexedDB en vez de localStorage. -->
 <script src="./idb-fotos.js"></script>
 <script src="./idb-archivo.js"></script>
+<script src="./simon-config.js"></script>
+<script src="./percha-reposicion.js"></script>
+<script src="./micelio-vivo.js"></script>
+<script src="./micelio-ui.js"></script>
+<script src="./borradores.js"></script>
 <script src="./vista-perchas.js"></script>
 <script src="./welcome-ui.js"></script>
 <script src="./tutorial-ui.js"></script>
@@ -5064,6 +5096,21 @@ function _ocModalMostrar(mensaje, botonesConfig) {
   });
 }
 // Reemplazo de confirm(): resuelve true (aceptar) / false (cancelar).
+/* El rescate desde IndexedDB (mock-backend.js) puede llegar despues de que la
+   app ya pinto la primera vista con un estado viejo. Se repinta lo que hay en
+   pantalla para que el dueno no vea datos que ya no son. */
+window.addEventListener("oc-estado-rescatado", function () {
+  /* SE REPINTA LA VISTA QUE SE ESTA MIRANDO (caza de bugs 2026-08-18).
+     Antes solo repintaba Inventario, Perchas y Ubicaciones — pero la vista
+     donde el encargado esta TODO EL DIA es Hoy, y esa se quedaba con las
+     cifras viejas sin decirlo. Un rescate silencioso que deja numeros
+     equivocados en pantalla es peor que no rescatar. */
+  ["cargarHoy", "cargarInventario", "cargarPerchas", "cargarUbicaciones",
+   "cargarClientes", "cargarComisiones"].forEach(function (fn) {
+    try { if (typeof window[fn] === "function") window[fn](); } catch (_) {}
+  });
+  try { if (window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
+});
 function ocConfirm(mensaje, opts) {
   opts = opts || {};
   return _ocModalMostrar(mensaje, [
@@ -5112,7 +5159,7 @@ function ocPrompt(mensaje, valorInicial) {
      FEATURE: "Mostrar al cliente" — vista de mostrador fullscreen.
      Muestra solo nombre, foto y precio al cliente. Sin stock exacto,
      sin costo, sin proveedor, sin botones internos.
-     El empleado entra con el botón 👁 en la ficha y sale con el botón
+     El encargado entra con el botón 👁 en la ficha y sale con el botón
      "← Volver a mi vista" o con el auto-retorno de 60s por inactividad.
      ===================================================================== -->
 <div id="oc-customer-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--azul-oscuro,#1c3049);color:#fff;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;touch-action:none;">
@@ -5144,7 +5191,7 @@ let _occoProduct = null;    // producto actualmente en pantalla
 const _occoProductCache = new Map(); // id → product object, actualizado por pintarFicha()
 
 // Abre el overlay con los datos del producto p.
-// Llamado desde pintarFicha() cuando el empleado toca "👁 Mostrar al cliente".
+// Llamado desde pintarFicha() cuando el encargado toca "👁 Mostrar al cliente".
 function abrirVistaCliente(idOrObj) {
   const p = typeof idOrObj === "string" ? _occoProductCache.get(idOrObj) : idOrObj;
   if (!p) return; // producto no en caché aún — no debería ocurrir
@@ -5188,7 +5235,7 @@ function abrirVistaCliente(idOrObj) {
   // Arrancar countdown de 60s
   _iniciarCountdown();
 
-  // Cualquier toque reinicia el countdown (el empleado sigue mirando junto al cliente)
+  // Cualquier toque reinicia el countdown (el encargado sigue mirando junto al cliente)
   ol.addEventListener("touchstart", _resetCountdown, { passive: true });
   ol.addEventListener("click", _resetCountdown);
 }

@@ -28,6 +28,31 @@
   function hoyISO() {
     return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   }
+  /* BUG DE DINERO (arreglado en amigable-123 el 2026-08-06, portado aqui el
+     2026-08-18 en la caza Hugo/Paco/Luis).
+
+     Las ventas se guardan con `new Date().toISOString()`, que es UTC. Comparar
+     ese texto crudo contra el dia o el mes LOCAL —con .slice(0,10) o
+     .slice(0,7)— es correcto solo en UTC+0. En Ecuador (UTC-5) toda venta
+     hecha despues de las 19:00 ya tiene la fecha del dia siguiente en UTC:
+
+       - desaparecia del "hoy" y reaparecia manana (el cierre de caja no cuadra)
+       - la del ultimo dia del mes caia en la liquidacion del mes SIGUIENTE,
+         o sea la comision se le pagaba a alguien un mes tarde
+
+     Esta funcion traduce un ISO cualquiera al dia LOCAL del negocio. Toda
+     comparacion de fechas tiene que pasar por aqui; ver el guard
+     .claude/guards.sh, que falla si vuelve a aparecer un .slice() sobre una
+     fecha cruda. */
+  function fechaLocalDe(fechaISO) {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(fechaISO));
+    } catch (_) {
+      /* Fecha ilegible: se devuelve el prefijo crudo. Peor que exacto, pero
+         mucho mejor que romper el filtro entero por un dato malo. */
+      return String(fechaISO || "").slice(0, 10);
+    }
+  }
   // Días reales del mes actual (28/29/30/31) — espejo de diasEnMesActual() en server.js.
   function diasEnMesActual() {
     const [anio, mes] = hoyISO().split("-").map(Number);
@@ -85,7 +110,7 @@
   ];
   // Sucursales: agrupadores backend de perchas. En la UI el usuario ve PERCHAS;
   // la sucursal es el encabezado de sección en el gestor de perchas (Inventario).
-  // Promotores/as: personas que traen gente (turistas, recomendados,
+  // Asociados/as: personas que traen gente (turistas, recomendados,
   // familiares) y llevan comision. Se asignan por percha (promotoraId).
   const promotoras = [
     { id: "pr01", nombre: "Jamie Ortiz", comision: 10 },
@@ -273,7 +298,7 @@
   // siembra falla, se arranca sin historial; el error queda en consola.
   try { sembrarVentasDemo(); } catch (e) { console.error("Seed de ventas fallo (la app arranca sin historial):", e); }
   const gastosMensuales = {"smokeshop":0,"bookshelf":0,"fairbooth":0};
-  // Usuarios nombrados (empleados): hasta 49.
+  // Usuarios nombrados (encargados): hasta 49.
   // El dueno NO aparece aqui — su acceso es por PIN en crypto-store.
   // Cada entrada: { id, nombre, pin, rol:"empleado", activo, creadoEn }
   // NOTA DE SEGURIDAD: en la demo el PIN se almacena en texto porque no hay
@@ -462,11 +487,26 @@
   // bien, sin el costo de un hash criptografico en cada venta.
   const OC_STATE_PTR = OC_STATE_KEY + "_ptr";
   function claveBuffer(letra) { return OC_STATE_KEY + "_" + letra; }
+  /* Espejo en IndexedDB. Se dispara SIEMPRE, sin esperarlo: es la red que hace
+     que "localStorage lleno" deje de significar "tus cambios se pierden".
+     Ver estado-idb.js (JFC 2026-08-17, portado desde amigable-123).
+
+     NO reemplaza el orden de sacrificio de abajo (Fase 7): son dos capas
+     distintas. El sacrificio decide QUE se cede cuando no cabe; el espejo hace
+     que aunque no quepa NADA en localStorage, el estado completo quede a salvo
+     igual en un almacen que si crece con el disco. */
+  function _espejarEnIDB(completo) {
+    try {
+      if (!window.OCEstadoIDB) return Promise.resolve(false);
+      return window.OCEstadoIDB.guardar(completo).catch(() => false);
+    } catch (_) { return Promise.resolve(false); }
+  }
   function guardarEstadoLocal() {
     _localRev++;
     const completo = estadoActualExportable();
     const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
     const destino = activo === "A" ? "B" : "A";
+    const _idb = _espejarEnIDB(completo);
     try {
       localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
       localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
@@ -498,7 +538,44 @@
       if (window.OCArchivo) window.OCArchivo.archivarLote(viejos).catch(() => {}); // fire-and-forget, idempotente, aislado del nucleo
       avisoArchivado(viejos.length);
       return;
-    } catch (_) { avisoMemoriaLlena(); }
+    } catch (_) {
+      /* NO MENTIR (JFC 2026-08-17). Que localStorage se llene no quiere decir
+         que el dispositivo este lleno: localStorage tiene un techo fijo de
+         ~5 MB por origen, aunque al disco le sobren 900 GB. Si el espejo de
+         IndexedDB —que si escala con el disco— acepto el estado, los cambios
+         SI se guardaron y el cartel rojo seria falso. Solo se avisa cuando de
+         verdad no entro en ningun lado. */
+      _idb.then((ok) => {
+        if (ok) { ocultarAvisoRecorte(); avisoEspacioJusto(); }
+        else avisoMemoriaLlena();
+      }).catch(() => avisoMemoriaLlena());
+    }
+  }
+  /* Aviso naranja, no rojo: todo esta guardado, pero conviene respaldar. */
+  function avisoEspacioJusto() {
+    try {
+      if (document.getElementById("oc-espacio-justo")) return;
+      const d = document.createElement("div");
+      d.id = "oc-espacio-justo";
+      d.setAttribute("role", "status");
+      d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#B8760A;padding:10px 16px;text-align:center;cursor:pointer;";
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
+        + escHtmlSeguro(tSeguro("storage.tightButSaved",
+            "Everything was saved. This browser's fast storage filled up, so this device's larger storage is now in use — nothing was lost. Export a backup in ADVANCED when you can."))
+        + "</span>";
+      d.addEventListener("click", () => d.remove());
+      (document.body || document.documentElement).appendChild(d);
+    } catch (_) {}
+  }
+  /* Atajos defensivos: si i18n.js no cargo, se usa el texto de reserva en vez
+     de dejar el cartel vacio justo cuando hace falta leerlo. */
+  function tSeguro(clave, reserva) {
+    try { return (window.OCI18n && window.OCI18n.t) ? (window.OCI18n.t(clave) || reserva) : reserva; }
+    catch (_) { return reserva; }
+  }
+  function escHtmlSeguro(x) {
+    return String(x == null ? "" : x).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
   function ocultarAvisoRecorte() { try { const d = document.getElementById("oc-recorte-aviso"); if (d) d.remove(); } catch (_) {} }
   function avisarBufferRecuperado() {
@@ -595,7 +672,7 @@
 
   // ---- Reparto de comisiones (espejo de data.js) ----
   function mesActualISO() { return hoyISO().slice(0, 7); }
-  function esDelMesActual(fechaISO) { return fechaISO && fechaISO.slice(0, 7) === mesActualISO(); }
+  function esDelMesActual(fechaISO) { return !!fechaISO && fechaLocalDe(fechaISO).slice(0, 7) === mesActualISO(); }
   // Conteo global de ventas del mes actual, TODAS las ubicaciones (free-tier
   // gating, 2026-07-15) — distinto de ventasMesAcumuladas (suma montos por
   // una sola ubicacion, para comisiones). Usado para el tope de 100/mes.
@@ -642,7 +719,7 @@
       // un recibo itemizado (producto, unidades, bruto, comision). Sin esto el pago
       // es un numero suelto y genera desconfianza. Ver marcarComisionPagada() en index.html.
       const detallePendientes = agruparPendientesPorProducto(pendientes);
-      // Dias desde la ultima venta de esta percha (rec 05: promotor/a dormida).
+      // Dias desde la ultima venta de esta percha (rec 05: asociado/a dormida).
       const ultima = ventas.filter((v) => v.ubicacionId === u.id).reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
       const diasSinVenta = ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000) : null;
       const prom = u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
@@ -653,10 +730,170 @@
         estado: ventasMes.length === 0 ? "sin ventas" : pendientes.length === 0 ? "pagado" : "pendiente",
         ventasPendientes: pendientes.length, detallePendientes,
         diasSinVenta, promotorNombre: prom ? prom.nombre : null,
+        promotoraId: u.promotoraId || null,
+        asociadoNombre: prom ? prom.nombre : null,
+        /* LAS DOS LECTURAS DEL MISMO REPARTO (JFC 2026-08-18). El asociado
+           piensa "me llevo el 85"; la casa piensa "retengo el 15". Es el mismo
+           numero y las dos frases son correctas, asi que se mandan las dos y
+           nadie tiene que restar de cabeza.
+
+           pctBase es lo CONFIGURADO; pctEfectivo es lo que de verdad se
+           aplico, derivado de la plata repartida. Pueden diferir por las
+           escalas por meta o porque alguien corrigio una comision en
+           retrospectiva — mostrar solo el configurado hacia que la liquidacion
+           dijera 10% al lado de una plata repartida al 85%. */
+        pctBase: Number(u.comisionSocio) || 0,
+        pctQuedaEnCasa: +(100 - (Number(u.comisionSocio) || 0)).toFixed(2),
+        pctEfectivo: ventasBrutas > 0 ? +((comisionSocio / ventasBrutas) * 100).toFixed(2) : (Number(u.comisionSocio) || 0),
+        modalidad: (Number(u.comisionSocio) || 0) >= 50 ? "artista" : "vendedor",
+        contribFija: 0,
+        /* Ventas de este mes cuyo % se corrigio despues: quien liquida tiene que
+           verlo, porque el papel que imprimio la semana pasada decia otra cosa. */
+        ventasCorregidas: ventasMes.filter((v) => v.split && v.split.corregida).length,
       };
     });
   }
   // ---- Inventario compartido (espejo de data.js) ----
+  /* =========================================================================
+     CORREGIR UNA COMISION YA REGISTRADA (portado de amigable-123, 2026-08-18)
+     =========================================================================
+     El % se congelaba al vender. Si estaba mal configurado —que pasa: es un
+     numero que se teclea una vez y se usa cien— la unica salida era anular
+     ventas reales para rehacerlas, o sea ensuciar el historial para arreglar un
+     dato. Aqui se recalcula el reparto y queda constancia de lo que decia
+     antes: ese historial es justo lo que evita las discusiones de fin de mes,
+     asi que una correccion se SUMA, no reemplaza.
+
+     Solo se toca el reparto. El monto, el producto, el stock y la fecha no se
+     mueven: eso seria otra cosa y tiene su propio camino (anular).
+     ========================================================================= */
+  function corregirComisionVenta(ventaId, pctNuevo, quien, motivo) {
+    const v = ventas.find((x) => x.id === ventaId);
+    if (!v) return { error: "That sale no longer exists.", status: 404 };
+    if (!v.split) return { error: "This sale doesn't split a commission with anyone: it was made on an owned shelf.", status: 400 };
+    /* null, undefined o "" NO son 0%: son "no mandaste el dato", y Number() los
+       convierte en 0 alegremente. Dejar pasar eso pondria la comision de
+       alguien en cero por un campo vacio. El 0% escrito a proposito si vale. */
+    if (pctNuevo === null || pctNuevo === undefined || pctNuevo === "") return { error: "The new percentage is missing.", status: 400 };
+    const pct = Number(pctNuevo);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return { error: "The percentage must be between 0 and 100.", status: 400 };
+
+    const bruto = Number(v.split.montoBruto) || 0;
+    const antes = { comisionPct: v.split.comisionPct, montoComisionSocio: v.split.montoComisionSocio, montoNetoDueno: v.split.montoNetoDueno };
+    const comision = +(bruto * (pct / 100)).toFixed(2);
+
+    v.split.comisionPct = pct;
+    v.split.montoComisionSocio = comision;
+    v.split.montoNetoDueno = +(bruto - comision).toFixed(2);
+    /* Marca permanente: esta venta ya no dice lo que dijo el dia que se hizo, y
+       quien la mire dentro de seis meses tiene derecho a saberlo. */
+    v.split.corregida = true;
+    v.split.correcciones = Array.isArray(v.split.correcciones) ? v.split.correcciones : [];
+    v.split.correcciones.push({
+      fecha: new Date().toISOString(),
+      quien: String(quien || "").trim().slice(0, 80) || "unidentified",
+      motivo: String(motivo || "").trim().slice(0, 200),
+      antes: antes,
+      despues: { comisionPct: pct, montoComisionSocio: comision, montoNetoDueno: v.split.montoNetoDueno },
+    });
+
+    mov("comision-corregida", { ventaId: v.id, ubicacion: nombreUbic(v.ubicacionId), pctAntes: antes.comisionPct, pctAhora: pct, diferencia: +(comision - antes.montoComisionSocio).toFixed(2), motivo: String(motivo || "").slice(0, 200) });
+    guardarEstadoLocal();
+    return { ok: true, venta: { id: v.id, fecha: v.fecha, split: v.split } };
+  }
+
+  /* Corregir de golpe TODAS las del mes en una percha. Cuando el % se configuro
+     mal, casi nunca esta mal una venta: estan mal las treinta del mes. */
+  function corregirComisionesDelMes(ubicacionId, pctNuevo, quien, motivo, soloPendientes) {
+    const objetivo = ventas.filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha) && v.split && (!soloPendientes || !v.liquidada));
+    if (!objetivo.length) return { error: "No commissioned sales this month on that shelf.", status: 400 };
+    const res = objetivo.map((v) => corregirComisionVenta(v.id, pctNuevo, quien, motivo));
+    const malas = res.filter((r) => r.error);
+    if (malas.length === res.length) return malas[0];
+    return { ok: true, corregidas: res.length - malas.length, fallidas: malas.length };
+  }
+
+  /* =========================================================================
+     PANORAMA DE UNA PERCHA — todo lo que cuelga de ella, en una llamada
+     =========================================================================
+     JFC: "somos la app cuya unidad basica es la percha a diferencia de otras
+     que solo permiten manejar locales". Abrir una percha mostraba su lista de
+     productos y poco mas: para saber cuanto vale lo que hay, cuanto vendio, a
+     quien se le debe o que viene en camino habia que recorrer cuatro pantallas
+     y sumar de cabeza.
+
+     Se arma aqui y no en la UI a proposito: es la misma cuenta que ya hacen
+     getLiquidaciones() y el dashboard, y tenerla en un solo lugar es lo que
+     evita que tres pantallas muestren tres numeros distintos del mismo negocio.
+     ========================================================================= */
+  function getPanoramaPercha(ubicacionId) {
+    const u = ubicaciones.find((x) => x.id === ubicacionId);
+    if (!u) return null;
+    const prods = productos.filter((p) => p.ubicacionId === ubicacionId);
+
+    let valorCosto = 0, valorVenta = 0, unidades = 0;
+    const porEstado = { rojo: 0, naranja: 0, amarillo: 0, verde: 0, negro: 0, azul: 0 };
+    prods.forEach((p) => {
+      const st = Number(p.stockActual) || 0;
+      unidades += st;
+      valorCosto += (Number(p.costo) || 0) * st;
+      valorVenta += (Number(p.precio) || 0) * st;
+      const e = estadoDe(p).estado;
+      if (porEstado[e] === undefined) porEstado[e] = 0;
+      porEstado[e]++;
+    });
+
+    const vMes = ventas.filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha));
+    const vTodas = ventas.filter((v) => v.ubicacionId === ubicacionId);
+    const sumar = (arr) => arr.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1), 0);
+    const costoDe = (arr) => arr.reduce((a, v) => a + (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 1), 0);
+    const ventaMes = +sumar(vMes).toFixed(2);
+    const ultima = vTodas.reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
+
+    const porProducto = {};
+    vMes.forEach((v) => {
+      const k = v.productoId;
+      if (!porProducto[k]) porProducto[k] = { productoId: k, unidades: 0, monto: 0 };
+      porProducto[k].unidades += Number(v.cantidad) || 1;
+      porProducto[k].monto += (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
+    });
+    const masVendidos = Object.values(porProducto).map((g) => {
+      const p = productos.find((x) => x.id === g.productoId);
+      return { nombre: p ? p.nombre : "(deleted product)", unidades: g.unidades, monto: +g.monto.toFixed(2) };
+    }).sort((a, b) => b.monto - a.monto).slice(0, 5);
+    /* Dormidos: hay stock y NO se vendio nada este mes. Es plata quieta, y es el
+       numero por el que se abre una percha mas veces que por ningun otro. */
+    const dormidos = prods.filter((p) => (Number(p.stockActual) || 0) > 0 && !porProducto[p.id])
+      .map((p) => ({ nombre: p.nombre, stock: p.stockActual, inmovilizado: +((Number(p.costo) || 0) * (Number(p.stockActual) || 0)).toFixed(2) }))
+      .sort((a, b) => b.inmovilizado - a.inmovilizado).slice(0, 5);
+
+    const liq = getLiquidaciones().find((l) => l.ubicacionId === ubicacionId) || null;
+    const prom = u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
+
+    const enCamino = transferencias.filter((t) => (t.estado === "en_transito" || t.estado === "solicitada") && (t.ubicacionOrigenId === ubicacionId || t.ubicacionDestinoId === ubicacionId))
+      .map((t) => ({
+        id: t.id, estado: t.estado, cantidad: t.cantidad,
+        producto: (productos.find((p) => p.id === t.productoOrigenId) || productos.find((p) => p.id === t.productoDestinoId) || {}).nombre || "(product)",
+        sentido: t.ubicacionDestinoId === ubicacionId ? "entra" : "sale",
+        contraparte: nombreUbic(t.ubicacionDestinoId === ubicacionId ? t.ubicacionOrigenId : t.ubicacionDestinoId),
+      }));
+
+    return {
+      id: u.id, nombre: u.nombre, tipo: u.tipo || "propio", activa: u.activa !== false,
+      esEvento: !!u.esEvento, esFeria: !!u.esFeria,
+      sucursalId: u.sucursalId || null,
+      sucursalNombre: (sucursales.find((x) => x.id === u.sucursalId) || {}).nombre || null,
+      inventario: { productos: prods.length, unidades: unidades, valorCosto: +valorCosto.toFixed(2), valorVenta: +valorVenta.toFixed(2), gananciaLatente: +(valorVenta - valorCosto).toFixed(2), porEstado: porEstado },
+      mes: { venta: ventaMes, ganancia: +(ventaMes - costoDe(vMes)).toFixed(2), transacciones: vMes.length, meta: liq ? liq.metaMensual : (Number(u.metaMensual) || 0), cumplimiento: liq ? liq.cumplimientoMeta : null },
+      historico: { venta: +sumar(vTodas).toFixed(2), transacciones: vTodas.length, ultimaVenta: ultima || null, diasSinVender: ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 864e5) : null },
+      masVendidos: masVendidos, dormidos: dormidos,
+      comision: liq ? { pct: liq.pctBase, origen: liq.origenComision, seLlevaElAsociado: liq.comisionSocio, quedaEnCasa: liq.netoDueno, estado: liq.estado, ventasPendientes: liq.ventasPendientes } : null,
+      asociado: prom ? { id: prom.id, nombre: prom.nombre } : null,
+      gastoMensual: Number(gastosMensuales[u.id]) || 0,
+      enCamino: enCamino, reservasEvento: 0,
+    };
+  }
+
   function estadoSimple(p) { if (p.stockActual <= 0) return "rojo"; if (p.stockActual <= p.umbralRojo) return "rojo"; if (p.stockActual <= p.umbralAmarillo) return "amarillo"; return "verde"; }
   // Multi-percha real (homologado de AMIGABLE, 2026-07-23): el mismo SKU
   // vive como filas separadas por percha; esto las hace visibles y da una
@@ -837,12 +1074,12 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", comisionProveedorPct: p.comisionProveedorPct || 0, otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", comisionProveedorPct: p.comisionProveedorPct || 0, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
   }
   function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
   // ubicacion; con historial de dias anteriores el resumen del dia mentia.
-  function ventasHoyDe(uid) { const hoy = hoyISO(); return ventas.filter((v) => String(v.fecha).slice(0, 10) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
+  function ventasHoyDe(uid) { const hoy = hoyISO(); return ventas.filter((v) => fechaLocalDe(v.fecha) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
   // Multi-usuario (2026-07-07): cada movimiento captura automaticamente
   // quien estaba logueado (window.OCCurrentUser). Si no hay usuario nombrado
   // (dueno por PIN clasico, sistema) aparece como "Sistema".
@@ -965,6 +1202,28 @@
   // Al arrancar: si hay un estado persistido válido, reemplaza los datos
   // semilla (item 1 — persistencia local real).
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
+  /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).
+     Si en la sesion anterior localStorage estaba lleno, los ultimos guardados
+     solo entraron en el espejo de IndexedDB. Aqui se comparan las revisiones y
+     gana la MAS NUEVA: sin esto la app arrancaria con el estado viejo y el
+     dueno veria desaparecer trabajo que la app le dijo que estaba guardado.
+     Asincrono a proposito: la app arranca ya con lo que haya en localStorage y
+     esto solo la corrige si de verdad hace falta. */
+  (async () => {
+    try {
+      if (!window.OCEstadoIDB) return;
+      const espejo = await window.OCEstadoIDB.leer();
+      if (!espejo || typeof espejo._rev !== "number") return;
+      if (espejo._rev <= _localRev) return;
+      if (validarRespaldo(espejo)) return;
+      _localRev = espejo._rev;
+      aplicarRespaldo(espejo);
+      try { localStorage.setItem("f123_rescate_idb", String(Date.now())); } catch (_) {}
+      console.warn("[estado-idb] se recuperaron cambios que no cabian en localStorage (rev " + espejo._rev + ")");
+      /* La UI ya se pinto con el estado viejo: se le avisa para que se repinte. */
+      try { window.dispatchEvent(new CustomEvent("oc-estado-rescatado")); } catch (_) {}
+    } catch (_) {}
+  })();
   // AUTO-HEAL (paridad AMIGABLE, 2026-07-17): si el catalogo quedo VACIO por un
   // 789 disparado sin querer en un dispositivo que debia seguir en demo, se
   // repara UNA sola vez en la vida del dispositivo (guardia en localStorage,
@@ -1020,12 +1279,18 @@
 
       let m;
       // Edicion libre de la ficha (nombre, foto, precios, codigo interno).
-      // El gating por rol (empleado NO edita) vive en la UI; aca solo se aplica.
+      // El gating por rol (encargado NO edita) vive en la UI; aca solo se aplica.
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "La fecha de caducidad no es válida (usa AAAA-MM-DD)." }, 400);
-        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
-        CAMPOS.forEach((k) => { if (body[k] !== undefined) p[k] = (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") ? Number(body[k]) || 0 : body[k]; });
+        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
+        CAMPOS.forEach((k) => {
+      if (body[k] === undefined) return;
+      if (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
+      if (k === "chip") { p[k] = String(body[k] || "").trim().slice(0, 12); return; }
+      if (k === "perecible") { p[k] = !!body[k]; return; }
+      p[k] = body[k];
+    });
         mov("edicion", { producto: p.nombre, sku: p.sku, ubicacion: nombreUbic(p.ubicacionId) });
         return J(ficha(p));
       }
@@ -1064,6 +1329,20 @@
         if (body.tipo) u.tipo = body.tipo;
         if ("sucursalId" in body) u.sucursalId = body.sucursalId || null;
         if ("promotoraId" in body) u.promotoraId = body.promotoraId || null;
+        /* El % del trato y la meta no se podian cambiar NUNCA desde aqui: una
+           percha nacia con su comision y quedaba asi para siempre, y la unica
+           salida era borrarla y rehacerla — perdiendo su historial. Sin esto
+           la modalidad de artista (se lleva 85, la casa retiene 15) era
+           inalcanzable. (JFC 2026-08-18) */
+        if ("comisionSocio" in body) {
+          const pc = Number(body.comisionSocio);
+          if (!Number.isFinite(pc) || pc < 0 || pc > 100) return J({ error: "The commission must be between 0 and 100." }, 400);
+          u.comisionSocio = pc;
+        }
+        if ("metaMensual" in body) u.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
+        if ("esEvento" in body) u.esEvento = !!body.esEvento;
+        if ("esFeria" in body) u.esFeria = !!body.esFeria;
+        guardarEstadoLocal();
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
@@ -1112,7 +1391,7 @@
         return J(await window.AMG.CajaChica.saldoDePercha(u.id));
       }
 
-      // ---- Promotores/as (comision por traer gente) ----
+      // ---- Asociados/as (comision por traer gente) ----
       if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras);
       if (path === "/api/promotoras" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "El nombre es obligatorio." }, 400);
@@ -1124,7 +1403,7 @@
       const mProm = path.match(/^\/api\/promotoras\/([^/]+)$/);
       if (mProm && opts && opts.method === "DELETE") {
         const idxP = promotoras.findIndex((x) => x.id === mProm[1]);
-        if (idxP < 0) return J({ error: "Promotor/a no encontrada." }, 404);
+        if (idxP < 0) return J({ error: "Asociado/a no encontrada." }, 404);
         const prb = promotoras.splice(idxP, 1)[0];
         // Desasignar de las perchas que lo tenian
         ubicaciones.forEach((u) => { if (u.promotoraId === prb.id) u.promotoraId = null; });
@@ -1156,7 +1435,7 @@
         return J({ ok: true });
       }
 
-      // Desempeno por promotor/a: agrega las perchas que tiene asignadas,
+      // Desempeno por asociado/a: agrega las perchas que tiene asignadas,
       // suma comision y ventas del mes, y saca su mejor SKU (rec 04 + 09).
       if (path === "/api/promotores/desempeno") {
         const byId = {};
@@ -1251,7 +1530,19 @@
         if ((!instanceId || licenciaLimitada()) && ventasCountMesGlobal() >= 100) {
           return J({ error: "You've reached the 100-sales/month limit on the free plan. Activate this device (PIN 789) to unlock unlimited sales.", codigo: "LIMITE_VENTAS" }, 403);
         }
-        const montoBruto = p.precio * cant;
+        /* BUG CRITICO reportado en vivo por una clienta (Idiomarte, 2026-07-29),
+           arreglado en amigable-123 y portado aqui: "puse que la clase es de
+           $150 pero me hace la comision sobre $20". Para un producto tipo
+           ticket/evento el precio REAL de cada venta es el que la persona
+           escribe en "cuanto pago" — el del catalogo es solo una referencia,
+           porque cada funcion, cada cupo y cada paquete valen distinto. Cobrar
+           la comision sobre el precio de catalogo le quita plata real a quien
+           vende. */
+        const _infoPago = (body && typeof body.info === "object" && body.info) ? body.info : {};
+        const _esTicket = (p.tipoProducto || "normal") === "ticket";
+        const _pagado = Number(_infoPago.montoPagado);
+        const precioEfectivo = (_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : p.precio;
+        const montoBruto = precioEfectivo * cant;
         const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
         const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null;
         p.stockActual -= cant;
@@ -1262,8 +1553,24 @@
           if (clienteVenta.despedido) return J({ error: `"${clienteVenta.nombre}" is fired — no new sales allowed. Reactivate them from Customers if this was a mistake.` }, 400);
         }
         const ventaId = uuid("v");
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null });
-        mov("venta", { producto: p.nombre, cantidad: cant, total: +(p.precio * cant).toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
+        /* DATOS DEL EVENTO (portado de amigable-123, JFC 2026-08-18). Sin
+           guardarlos, las ventas de una funcion o una clase quedan
+           desperdigadas en la lista general y no hay forma de saber como fue
+           "el concierto del sabado" sin filtrar por fecha a ojo. El tablero
+           agrupa por el NOMBRE que se escribe aqui. */
+        const infoBody = (body && typeof body.info === "object" && body.info) || {};
+        const infoVenta = {
+          nombreEvento: String(infoBody.nombreEvento || "").trim().slice(0, 120),
+          fechaEvento: String(infoBody.fechaEvento || "").trim().slice(0, 20),
+          numPersonas: (infoBody.numPersonas !== undefined && infoBody.numPersonas !== "") ? Math.max(0, Number(infoBody.numPersonas) || 0) : null,
+          nombrePagador: String(infoBody.nombrePagador || "").trim().slice(0, 120),
+          email: String(infoBody.email || "").trim().slice(0, 120),
+          whatsapp: String(infoBody.whatsapp || "").trim().slice(0, 40),
+          montoPagado: (infoBody.montoPagado !== undefined && infoBody.montoPagado !== "") ? Math.max(0, Number(infoBody.montoPagado) || 0) : null,
+        };
+        const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
+        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null });
+        mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
         emitirOpStock("venta", { productoId: p.id, delta: -cant });
         return J({ producto: ficha(p), ventaId });
       }
@@ -1331,7 +1638,7 @@
 
       if (path === "/api/actividad") return J(movimientos.slice().reverse().slice(0, 100));
 
-      // Estrella: dueño marca/desmarca productos para que el empleado promueva
+      // Estrella: dueño marca/desmarca productos para que el encargado promueva
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/estrella$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
         p.estrella = !p.estrella;
@@ -1359,6 +1666,21 @@
       }
 
       if (path === "/api/liquidaciones") return J(getLiquidaciones());
+    if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/panorama$/))) {
+      const pan = getPanoramaPercha(m[1]);
+      if (!pan) return J({ error: "Shelf not found." }, 404);
+      return J(pan);
+    }
+    if ((m = path.match(/^\/api\/ventas\/([^/]+)\/comision$/)) && opts && opts.method === "PATCH") {
+      const r = corregirComisionVenta(m[1], body.comisionPct, body.quien, body.motivo);
+      if (r.error) return J({ error: r.error }, r.status || 400);
+      return J(r);
+    }
+    if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/comisiones-del-mes$/)) && opts && opts.method === "PATCH") {
+      const r = corregirComisionesDelMes(m[1], body.comisionPct, body.quien, body.motivo, body.soloPendientes !== false);
+      if (r.error) return J({ error: r.error }, r.status || 400);
+      return J(r);
+    }
       if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/))) {
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Ubicación no encontrada." }, 404);
         const pend = ventas.filter((v) => v.ubicacionId === m[1] && esDelMesActual(v.fecha) && !v.liquidada);
@@ -1476,7 +1798,38 @@
       // Unidades vendidas HOY por producto (el cierre del dia las muestra
       // como referencia: lo tecleado ahi es ADICIONAL, jamas se pre-carga
       // como cantidad — eso duplicaria ventas al aplicar).
-      if (path === "/api/ventas/hoy") {
+      if (path === "/api/ventas/todas") {
+      /* Solo lectura, ya enriquecida con nombres: la arma el backend para que
+         el tablero no tenga que cruzar tablas por su cuenta (que es como dos
+         pantallas terminan mostrando dos numeros distintos del mismo negocio).
+         Portado desde amigable-123 (JFC 2026-08-18). */
+      return J(ventas.filter((v) => !uid || uid === "todas" || v.ubicacionId === uid).map((v) => {
+        const p = productos.find((x) => x.id === v.productoId);
+        const c = clientes.find((x) => x.id === v.clienteId);
+        const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+        const pr = u && u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
+        return {
+          id: v.id, fecha: v.fecha,
+          productoNombre: p ? p.nombre : "(deleted product)",
+          sku: p ? p.sku : "", categoria: p ? p.categoria : "",
+          cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit || 0,
+          clienteNombre: c ? c.nombre : "",
+          ubicacionId: v.ubicacionId, ubicacionNombre: nombreUbic(v.ubicacionId),
+          tipoProducto: p ? (p.tipoProducto || "normal") : "normal",
+          eventoNombre: (v.info && v.info.nombreEvento) || "",
+          eventoFecha: (v.info && v.info.fechaEvento) || "",
+          eventoPersonas: (v.info && v.info.numPersonas) || null,
+          pagador: (v.info && v.info.nombrePagador) || "",
+          comisionPct: v.split ? v.split.comisionPct : null,
+          comisionAsociado: v.split ? v.split.montoComisionSocio : 0,
+          netoCasa: v.split ? v.split.montoNetoDueno : null,
+          comisionCorregida: !!(v.split && v.split.corregida),
+          liquidada: !!v.liquidada,
+          asociadoNombre: pr ? pr.nombre : "",
+        };
+      }));
+    }
+    if (path === "/api/ventas/hoy") {
         const agregado = {};
         ventasHoyDe(uid).forEach((v) => { agregado[v.productoId] = (agregado[v.productoId] || 0) + v.cantidad; });
         return J(agregado);
@@ -1584,7 +1937,7 @@
         if (body.trato !== undefined) c.evaluacion.trato = Math.max(0, Math.min(5, Number(body.trato)||0));
         if (body.confiabilidad !== undefined) c.evaluacion.confiabilidad = Math.max(0, Math.min(5, Number(body.confiabilidad)||0));
         c.evaluacion.historial = c.evaluacion.historial || [];
-        // horaIncidente: hora local del evento según el empleado (HH:MM), para conciliación con cámaras/audios.
+        // horaIncidente: hora local del evento según el encargado (HH:MM), para conciliación con cámaras/audios.
         c.evaluacion.historial.push({ trato: c.evaluacion.trato, confiabilidad: c.evaluacion.confiabilidad, quien: body.quien || "Sistema", fecha: new Date().toISOString(), horaIncidente: body.horaIncidente || null });
         mov("cliente-evaluado", { cliente: c.nombre, trato: c.evaluacion.trato, confiabilidad: c.evaluacion.confiabilidad, horaIncidente: body.horaIncidente || null });
         guardarEstadoLocal();
@@ -1637,8 +1990,8 @@
       if (path === "/api/inventario/bcg") return J(matrizBCG(uid));
 
       // === USUARIOS NOMBRADOS — multi-usuario 2026-07-07 ========================
-      // El dueno crea empleados desde Avanzado -> Empleados.
-      // Cada empleado tiene un PIN propio de 3 digitos distinto a los demas.
+      // El dueno crea encargados desde Avanzado -> Encargados.
+      // Cada encargado tiene un PIN propio de 3 digitos distinto a los demas.
       // NO se puede verificar aqui si colisiona con el PIN del dueno/contador
       // (esos hashes viven en crypto-store, no en este mock). Se pide al dueno
       // que elija PINs que no coincidan con los suyos.
@@ -1647,8 +2000,8 @@
       if (path === "/api/usuarios" && (!opts || !opts.method || opts.method === "GET")) {
         return J(usuarios.map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn })));
       }
-      // POST /api/usuarios — crear miembro del equipo (empleado o admin); desde Avanzado = solo dueno.
-      // Los admins NO cuentan contra el limite de empleados del plan free — son co-responsables,
+      // POST /api/usuarios — crear miembro del equipo (encargado o admin); desde Avanzado = solo dueno.
+      // Los admins NO cuentan contra el limite de encargados del plan free — son co-responsables,
       // no personal adicional, y el dueno debe poder agregar al menos uno sin activar.
       if (path === "/api/usuarios" && opts && opts.method === "POST") {
         const nombre = String(body.nombre || "").trim().slice(0, 60);
@@ -1657,7 +2010,7 @@
         const rolNuevo = (body.rol === "admin") ? "admin" : "empleado";
         if (!nombre)                     return J({ error: "El nombre es obligatorio." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "El PIN debe tener exactamente 3 digitos." }, 400);
-        // Limite free: 1 empleado (admins exentos — son co-duenos, no personal)
+        // Limite free: 1 encargado (admins exentos — son co-duenos, no personal)
         const empleadosActuales = usuarios.filter((u) => u.rol === "empleado").length;
         if (rolNuevo === "empleado" && empleadosActuales >= 1 && (!instanceId || licenciaLimitada()))
           return J({ error: "The free plan includes 1 employee. Activate this device (PIN 789) for unlimited employees.", codigo: "LIMITE_EMPLEADOS" }, 403);
@@ -1668,7 +2021,7 @@
         return J({ id: nuevo.id, nombre: nuevo.nombre, rol: nuevo.rol, email: nuevo.email, activo: nuevo.activo, creadoEn: nuevo.creadoEn });
       }
       // PATCH /api/usuarios/:id — editar nombre, activar/desactivar, cambiar PIN, actualizar email
-      // El admin puede editar empleados pero NO a otros admins (ese control vive en la UI).
+      // El admin puede editar encargados pero NO a otros admins (ese control vive en la UI).
       if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "PATCH") {
         const uid2 = path.split("/").pop();
         const u = usuarios.find((x) => x.id === uid2);
@@ -1682,8 +2035,8 @@
           if (usuarios.some((x) => x.id !== uid2 && x.pin === np)) return J({ error: "Ese PIN ya lo usa otro miembro del equipo." }, 400);
           u.pin = np;
         }
-        // Promover/degradar rol (JFC 2026-07-30): admin<->empleado. Los admins no
-        // cuentan contra el limite de empleados del plan free (ver POST arriba),
+        // Promover/degradar rol (JFC 2026-07-30): admin<->encargado. Los admins no
+        // cuentan contra el limite de encargados del plan free (ver POST arriba),
         // asi que promover a alguien puede liberar un cupo y degradarlo puede
         // volver a topar el limite en el proximo alta — eso ya lo valida el POST.
         if (body.rol !== undefined && (body.rol === "admin" || body.rol === "empleado")) u.rol = body.rol;
@@ -1702,7 +2055,7 @@
         return J({ ok: true });
       }
       // POST /api/usuarios/verificar — recibe { pin }, devuelve { id, nombre, rol } o 401
-      // Llamado por auth-ui.js durante el login para identificar empleados y admins nombrados.
+      // Llamado por auth-ui.js durante el login para identificar encargados y admins nombrados.
       if (path === "/api/usuarios/verificar" && opts && opts.method === "POST") {
         const pin = String(body.pin || "").trim();
         const u = usuarios.find((x) => x.activo && x.pin === pin);

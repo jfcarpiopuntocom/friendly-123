@@ -290,7 +290,7 @@
     // --- Respaldo exportable/importable (tronco 3, JFC 2026-07-01) ---
     // Vive DENTRO de "cont" (detrás de la subclave contable): exportar/
     // importar el negocio completo es una acción sensible, no debe estar al
-    // alcance de un empleado ni de cualquiera que abra Avanzado.
+    // alcance de un encargado ni de cualquiera que abra Avanzado.
     const respaldo = document.createElement("div");
     respaldo.className = "tag-card";
     respaldo.style.cssText = "text-align:left;margin-top:22px;";
@@ -340,7 +340,7 @@
     const lock = document.createElement("div");
     lock.id = "oc-acct-lock";
     lock.className = "tag-card";
-    lock.innerHTML = `<button id="oc-acct-open">View accounting layer</button>`;
+    lock.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><button id="oc-acct-open">View accounting layer</button><button id="oc-sync-tablero" class="ir" style="background:#0F1923;border-color:#0F1923;color:#FFFFFF;">Open my control board</button></div>`;
     // Boton al inicio, justo bajo el blurb de "Modo avanzado" (JFC 2026-07-04:
     // "no moviste el boton mismo de 'ver capa contable' al inicio, animal").
     const aviso = vista.querySelector(".avanzado-aviso");
@@ -385,6 +385,26 @@
     vista.appendChild(edMount);
     if (window.OCEdutips) window.OCEdutips.montar();
 
+    /* TABLERO DE CONTROL (portado de amigable-123, 2026-08-18).
+       Solo dueno y admin. El boton oculto NO es la seguridad: la seguridad es
+       que el tablero exige la licencia Y el PIN, que un encargado no tiene.
+       Son dos capas independientes, como el resto de la app. */
+    (function () {
+      try {
+        var b = document.getElementById("oc-sync-tablero");
+        if (!b) return;
+        var rol = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+        if (rol !== "dueno" && rol !== "admin") { b.style.display = "none"; return; }
+        b.addEventListener("click", function () {
+          /* La licencia viaja en el hash para no reteclearla en el telefono.
+             tablero.html la limpia de la barra apenas la lee. */
+          var cod = "";
+          try { cod = (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseCode || ""; } catch (_) {}
+          var url = "./tablero.html" + (/^F123-/i.test(cod) ? "#c=" + encodeURIComponent(cod) : "");
+          window.open(url, "_blank");
+        });
+      } catch (_) {}
+    })();
     $("oc-acct-open").addEventListener("click", async () => {
       if (!desbloqueadaSesion) {
         const ok = await window.OCAuth.pedirSubclaveContable();
@@ -539,11 +559,11 @@
     })();
     // === FIN SINCRONIZAR EQUIPO ==================================================
 
-    // === EQUIPO (multi-usuario, admins + empleados, 2026-07-22) ===========
-    // Panel de gestión del Equipo: admins + empleados con PINs y correos.
-    // - Dueño: crea admins y empleados, cambia cualquier PIN, desactiva cualquiera.
-    // - Admin: crea y gestiona empleados (NO puede crear otros admins ni editar el PIN de admins).
-    // - Límite free: 1 empleado (admins exentos — son co-dueños, no personal).
+    // === EQUIPO (multi-usuario, admins + encargados, 2026-07-22) ===========
+    // Panel de gestión del Equipo: admins + encargados con PINs y correos.
+    // - Dueño: crea admins y encargados, cambia cualquier PIN, desactiva cualquiera.
+    // - Admin: crea y gestiona encargados (NO puede crear otros admins ni editar el PIN de admins).
+    // - Límite free: 1 encargado (admins exentos — son co-dueños, no personal).
     const isDueno = () => window.OCAuth && window.OCAuth.rolActual() === "dueno";
     const isAdmin = () => window.OCAuth && window.OCAuth.rolActual() === "admin";
 
@@ -575,7 +595,7 @@
           </label>
           <label style="font-size:13px;">PIN (3 dígitos)<!-- Microcirugia 7 (2026-07-08): aviso de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el miembro queda bloqueado silenciosamente. -->
             <span style="display:block;font-size:13px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;">
-              No uses el mismo PIN del dueño, empleado general ni contador.
+              No uses el mismo PIN del dueño, encargado general ni contador.
             </span>
             <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="•••"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
@@ -586,7 +606,7 @@
             <select id="oc-emp-rol"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;background:var(--blanco-calido,#fbf5e8);">
-              <option value="empleado">Empleado — acceso operativo (ventas, inventario, perchas)</option>
+              <option value="empleado">Encargado — acceso operativo (ventas, inventario, perchas)</option>
               <option value="admin">Administrador — acceso completo excepto credenciales del dueño</option>
             </select>
             <span style="display:block;font-size:13px;color:var(--ink-soft);margin-top:3px;">
@@ -625,7 +645,7 @@
       // y opcional (ver ese archivo) — si no cargó, o no hay AMG.GeoPing, o
       // falla la lectura de IndexedDB, esto se degrada a un mapa vacío sin
       // romper el resto de Mi Equipo. Solo dueño/admin ven esto — un
-      // empleado viendo a sus compañeros no necesita saber dónde estuvieron.
+      // encargado viendo a sus compañeros no necesita saber dónde estuvieron.
       let ultimasUbic = {};
       if ((isDueno() || isAdmin()) && window.AMG && window.AMG.GeoPing && window.AMG.GeoPing.ultimosPorPin) {
         try { ultimasUbic = await window.AMG.GeoPing.ultimosPorPin(); } catch (_) { ultimasUbic = {}; }
@@ -660,8 +680,8 @@
         const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
         const rolBadge     = u.rol === "admin"
           ? `<span style="font-size:13px;font-weight:700;background:#E8A020;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
-          : `<span style="font-size:13px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Empleado</span>`;
-        // Admin solo puede editar empleados, no a otros admins (seguridad por capas)
+          : `<span style="font-size:13px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Encargado</span>`;
+        // Admin solo puede editar encargados, no a otros admins (seguridad por capas)
         const puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado");
         // Promover/degradar (JFC 2026-07-30: "hazlo una lista dinamica y permite
         // editar y promote y demote") — solo el dueño decide quién es admin.
@@ -703,7 +723,7 @@
                 <button data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}"
                   style="font-size:13px;padding:5px 10px;border:2px solid #E8A020;
                          border-radius:5px;background:transparent;color:#E8A020;cursor:pointer;margin-left:4px;">
-                  ${u.rol === "admin" ? "Degradar a empleado" : "Promover a admin"}
+                  ${u.rol === "admin" ? "Degradar a encargado" : "Promover a admin"}
                 </button>
               ` : ""}
             ` : `<span style="font-size:13px;color:var(--ink-soft);">Solo dueño</span>`}
@@ -819,7 +839,7 @@
       const email  = (document.getElementById("oc-emp-email").value  || "").trim();
       const pin    = (document.getElementById("oc-emp-pin").value    || "").trim();
       const rolSel = document.getElementById("oc-emp-rol");
-      // Admin que llega aquí solo puede crear empleados; dueño puede elegir admin
+      // Admin que llega aquí solo puede crear encargados; dueño puede elegir admin
       const rol = (isDueno() && rolSel) ? (rolSel.value || "empleado") : "empleado";
       const msgEl = document.getElementById("oc-emp-msg");
       msgEl.style.color = "var(--rojo,#a3392a)";
@@ -833,7 +853,7 @@
         const data = await r.json();
         if (!r.ok) { msgEl.textContent = data.error || "Error al agregar miembro."; return; }
         msgEl.style.color = "var(--sim-verde-dk,#1a6e3c)";
-        msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Empleado"} "${data.nombre}" agregado.`;
+        msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Encargado"} "${data.nombre}" agregado.`;
         if (email) {
           const asunto = encodeURIComponent(`Tu PIN de acceso — ${data.nombre}`);
           const cuerpo = encodeURIComponent(`Hola ${data.nombre},\n\nTu PIN de acceso es: ${pin}\n\nGuárdalo en un lugar seguro.`);
@@ -2120,7 +2140,7 @@
 
   /* ==========================================================================
      B3 (JFC, 2026-08-14): cambiar el codigo de la sala. CASO EXTREMO.
-     Ver el comentario largo del parche: dar de baja a un ex empleado resuelve
+     Ver el comentario largo del parche: dar de baja a un ex encargado resuelve
      el 95% y es mucho menos molesto. Esto es para cuando el codigo SE FILTRO.
      El panel de control BLOQUEA instancias; el dueno ROTA el codigo. No al
      reves: rotar desde el panel dejaria al dueno fuera de su propia sala.

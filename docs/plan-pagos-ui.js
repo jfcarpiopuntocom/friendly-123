@@ -498,7 +498,7 @@
   }
 
   global.addEventListener("oc-login", function () { setTimeout(montar, 600); });
-  /* Al cerrar sesion la alerta desaparece: un empleado no debe ver la lista
+  /* Al cerrar sesion la alerta desaparece: un encargado no debe ver la lista
      global de quien debe, ni siquiera de refilon. */
   global.addEventListener("oc-logout", function () {
     var c = document.getElementById("pp-hoy");

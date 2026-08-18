@@ -186,7 +186,7 @@
   // aparecer antes de digitar el PIN, ni saltárselo. Doble candado: si por
   // cualquier razón #oc-gate sigue visible, no se muestra nada.
   window.addEventListener('oc-login', (e) => {
-    // Solo mostrar al dueño — no empleado, contador, ni demo
+    // Solo mostrar al dueño — no encargado, contador, ni demo
     if (!e.detail || e.detail.rol !== 'dueno' || e.detail.demo) return;
     const gate = document.getElementById('oc-gate');
     if (gate && gate.style.display !== 'none') return; // candado visible: ni hablar

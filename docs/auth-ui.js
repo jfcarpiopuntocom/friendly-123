@@ -23,7 +23,7 @@
 // se ingresa por dígito (lo pidió explícitamente: "agrega dígitos").
 //
 // SEGURIDAD DE LOS PINS (crypto-store.js, cargar ANTES que este archivo):
-//   Los 3 PINs (dueño, empleado(s), subclave contable) ya NO viven en texto
+//   Los 3 PINs (dueño, encargado(s), subclave contable) ya NO viven en texto
 //   plano en localStorage. Se validan contra hashes PBKDF2 vía window.OCSecure
 //   — ver crypto-store.js para el detalle. Este archivo solo orquesta la UI y
 //   llama a OCSecure para verificar/guardar; nunca compara strings de PIN
@@ -459,7 +459,7 @@
        quitar sin mover tambien el copy de los codigos demo. */
     if (code === "888" && !dispositivoApropiado()) { registrarExito(); return entrar("demo"); }
     // Bloqueo anti fuerza bruta de crypto-store (capa de datos): si está
-    // activo, verificarOwner/Empleado devuelven false AUNQUE el PIN sea
+    // activo, verificarOwner/Encargado devuelven false AUNQUE el PIN sea
     // correcto. Sin este chequeo previo, la UI diría "Clave incorrecta" a un
     // dueño con la clave buena — mensaje falso y desesperante. Se avisa
     // honesto, con segundos, y NO se registra otro fallo encima.
@@ -473,7 +473,7 @@
     // defecto, crypto-store.js) ahora TAMBIEN funciona directo en el candado
     // principal, sin pasar por dueno -> Avanzado -> "Ver capa contable".
     // Reusa verificarAcct tal cual (no se duplica la verificacion). Va DESPUES
-    // de owner/empleado a proposito: si el dueno usara 357 como su propio PIN,
+    // de owner/encargado a proposito: si el dueno usara 357 como su propio PIN,
     // verificarOwner ya lo habria resuelto arriba — sin ambiguedad.
     if (await window.OCSecure.verificarAcct(code)) { registrarExito(); return entrar("contador"); }
     // El acceso demo (456) SOLO existe en la copia pública de demostración.
@@ -482,10 +482,10 @@
     // Fix de seguridad 2026-07-08.
     if (code === DEMO_PIN && !dispositivoApropiado()) { registrarExito(); return entrar("demo"); }
     // Multi-usuario (2026-07-07): si el PIN no coincidio con dueno/empleado-gen/demo,
-    // pregunta al backend si es un empleado nombrado por el dueno en Avanzado.
+    // pregunta al backend si es un encargado nombrado por el dueno en Avanzado.
     const uNombrado = await verificarUsuarioNombrado(code);
     // Los admins nombrados entran como "admin" (acceso nivel dueño con restricciones);
-    // los empleados nombrados siguen entrando como "empleado".
+    // los encargados nombrados siguen entrando como "empleado".
     if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); return entrar(uNombrado.rol === "admin" ? "admin" : "empleado"); }
     registrarFallo();
     const restante = msRestantesBloqueo();
@@ -544,7 +544,7 @@
       setTimeout(cerrar, 10000);
     } catch (_) {}
   }
-  // Consulta al backend si el PIN corresponde a un empleado nombrado.
+  // Consulta al backend si el PIN corresponde a un encargado nombrado.
   // Retorna { id, nombre, rol } o null. Si la red o el endpoint fallan,
   // retorna null silenciosamente (no bloquea el flujo normal).
   async function verificarUsuarioNombrado(pin) {
@@ -729,7 +729,7 @@
     window.scrollTo(0, 0);
     montarLogout();
     reiniciarInactividad();
-    // Empleados y admins aterrizan en Hoy (vista operativa del turno).
+    // Encargados y admins aterrizan en Hoy (vista operativa del turno).
     if (rol === "empleado" || rol === "admin") { const n = document.querySelector('nav button[data-vista="hoy"]'); if (n) n.click(); }
 
         // Ping: heartbeat on each login
@@ -748,7 +748,7 @@
   // ---------------------------------------------------------------------------
   // TIMEOUT DE INACTIVIDAD (tronco 1, JFC 2026-06-30): 30 min sin ningún click
   // ni tecla en toda la página cierran la sesión solos. Crítico porque el POS
-  // corre en una tablet compartida de percha — el empleado del turno
+  // corre en una tablet compartida de percha — el encargado del turno
   // siguiente no debe encontrarse la sesión del dueño abierta con acceso a
   // liquidaciones y claves. Se reinicia con CUALQUIER click o keydown en el
   // documento (no solo dentro de la app), mientras haya alguien logueado.
@@ -771,7 +771,7 @@
     clearTimeout(temporizadorInactividad);
     rol = null;
     demoSesion = false;
-    window.OCCurrentUser = null; // borrar sesion de empleado nombrado
+    window.OCCurrentUser = null; // borrar sesion de encargado nombrado
     document.body.classList.remove("rol-empleado", "rol-dueno", "rol-demo", "rol-contador", "rol-admin");
     nuevoTeclado();
     gate.style.display = "flex";
@@ -780,7 +780,7 @@
     $("oc-msg").textContent = mensaje || "";
     const b = document.getElementById("oc-logout");
     if (b) b.remove();
-    // Fix 2026-07-08: el chip con el nombre del empleado quedaba pegado tras
+    // Fix 2026-07-08: el chip con el nombre del encargado quedaba pegado tras
     // salir y en la sesión siguiente mostraba al operador equivocado. Se retira.
     const chipViejo = document.getElementById("oc-user-chip");
     if (chipViejo) chipViejo.remove();
@@ -809,7 +809,7 @@
   // Sin modales, sin pasos: solo el mensaje en pantalla.
   // ---------------------------------------------------------------------------
   // Unirme a mi equipo (homologado de AMIGABLE, 2026-07-23): flujo liviano
-  // para dispositivos de empleados/admins — solo pide el codigo de sala del
+  // para dispositivos de encargados/admins — solo pide el codigo de sala del
   // negocio, no activa modo dueno ni toca f123_owned. Una vez, para siempre.
   /* =====================================================================
      BLINDAJE DE MODALES .oc-subgate  (homologado de AMIGABLE, 2026-07-28)
@@ -1033,7 +1033,7 @@
     const b = document.createElement("button");
     b.id = "oc-logout"; b.textContent = window.t("auth.gate.logout");
     b.addEventListener("click", () => cerrarSesion());
-    // Si hay un empleado nombrado activo, mostrar su nombre junto al boton Salir
+    // Si hay un encargado nombrado activo, mostrar su nombre junto al boton Salir
     // para que siempre sea claro quien esta operando el sistema.
     if (window.OCCurrentUser && window.OCCurrentUser.nombre) {
       const chip = document.createElement("span");

@@ -130,14 +130,14 @@
 
   // Capa de proyeccion por rol (pedido explicito de JFC, ver roadmap Fase 1
   // "Guard de privacidad"). Se llama en el UNICO lugar donde se renderiza
-  // cartera, para que sea imposible que la UI de empleado reciba mas de lo
+  // cartera, para que sea imposible que la UI de encargado reciba mas de lo
   // que debe — no depende de que cada pantalla nueva se acuerde de ocultarlo.
   function vistaCarteraSegunRol(saldoInfo, rol) {
     var esEmpleado = rol === "empleado";
     return {
       saldo: saldoInfo.saldo,
       tienePendiente: saldoInfo.saldo < 0,
-      // El empleado ve el saldo de ESTE cliente (case by case), pero nunca el
+      // El encargado ve el saldo de ESTE cliente (case by case), pero nunca el
       // historial completo de movimientos ni la posibilidad de exportar.
       historial: esEmpleado ? [] : saldoInfo.movimientos,
       puedeExportar: !esEmpleado,
