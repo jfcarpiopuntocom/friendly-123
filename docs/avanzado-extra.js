@@ -340,7 +340,7 @@
     const lock = document.createElement("div");
     lock.id = "oc-acct-lock";
     lock.className = "tag-card";
-    lock.innerHTML = `<button id="oc-acct-open">View accounting layer</button>`;
+    lock.innerHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><button id="oc-acct-open">View accounting layer</button><button id="oc-sync-tablero" class="ir" style="background:#0F1923;border-color:#0F1923;color:#FFFFFF;">Open my control board</button></div>`;
     // Boton al inicio, justo bajo el blurb de "Modo avanzado" (JFC 2026-07-04:
     // "no moviste el boton mismo de 'ver capa contable' al inicio, animal").
     const aviso = vista.querySelector(".avanzado-aviso");
@@ -385,6 +385,26 @@
     vista.appendChild(edMount);
     if (window.OCEdutips) window.OCEdutips.montar();
 
+    /* TABLERO DE CONTROL (portado de amigable-123, 2026-08-18).
+       Solo dueno y admin. El boton oculto NO es la seguridad: la seguridad es
+       que el tablero exige la licencia Y el PIN, que un encargado no tiene.
+       Son dos capas independientes, como el resto de la app. */
+    (function () {
+      try {
+        var b = document.getElementById("oc-sync-tablero");
+        if (!b) return;
+        var rol = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+        if (rol !== "dueno" && rol !== "admin") { b.style.display = "none"; return; }
+        b.addEventListener("click", function () {
+          /* La licencia viaja en el hash para no reteclearla en el telefono.
+             tablero.html la limpia de la barra apenas la lee. */
+          var cod = "";
+          try { cod = (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseCode || ""; } catch (_) {}
+          var url = "./tablero.html" + (/^F123-/i.test(cod) ? "#c=" + encodeURIComponent(cod) : "");
+          window.open(url, "_blank");
+        });
+      } catch (_) {}
+    })();
     $("oc-acct-open").addEventListener("click", async () => {
       if (!desbloqueadaSesion) {
         const ok = await window.OCAuth.pedirSubclaveContable();

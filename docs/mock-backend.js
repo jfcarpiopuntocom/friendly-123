@@ -1049,7 +1049,7 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", comisionProveedorPct: p.comisionProveedorPct || 0, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", comisionProveedorPct: p.comisionProveedorPct || 0, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
   }
   function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
@@ -1258,7 +1258,7 @@
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "La fecha de caducidad no es válida (usa AAAA-MM-DD)." }, 400);
-        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
+        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
       if (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
@@ -1304,6 +1304,20 @@
         if (body.tipo) u.tipo = body.tipo;
         if ("sucursalId" in body) u.sucursalId = body.sucursalId || null;
         if ("promotoraId" in body) u.promotoraId = body.promotoraId || null;
+        /* El % del trato y la meta no se podian cambiar NUNCA desde aqui: una
+           percha nacia con su comision y quedaba asi para siempre, y la unica
+           salida era borrarla y rehacerla — perdiendo su historial. Sin esto
+           la modalidad de artista (se lleva 85, la casa retiene 15) era
+           inalcanzable. (JFC 2026-08-18) */
+        if ("comisionSocio" in body) {
+          const pc = Number(body.comisionSocio);
+          if (!Number.isFinite(pc) || pc < 0 || pc > 100) return J({ error: "The commission must be between 0 and 100." }, 400);
+          u.comisionSocio = pc;
+        }
+        if ("metaMensual" in body) u.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
+        if ("esEvento" in body) u.esEvento = !!body.esEvento;
+        if ("esFeria" in body) u.esFeria = !!body.esFeria;
+        guardarEstadoLocal();
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
@@ -1491,7 +1505,19 @@
         if ((!instanceId || licenciaLimitada()) && ventasCountMesGlobal() >= 100) {
           return J({ error: "You've reached the 100-sales/month limit on the free plan. Activate this device (PIN 789) to unlock unlimited sales.", codigo: "LIMITE_VENTAS" }, 403);
         }
-        const montoBruto = p.precio * cant;
+        /* BUG CRITICO reportado en vivo por una clienta (Idiomarte, 2026-07-29),
+           arreglado en amigable-123 y portado aqui: "puse que la clase es de
+           $150 pero me hace la comision sobre $20". Para un producto tipo
+           ticket/evento el precio REAL de cada venta es el que la persona
+           escribe en "cuanto pago" — el del catalogo es solo una referencia,
+           porque cada funcion, cada cupo y cada paquete valen distinto. Cobrar
+           la comision sobre el precio de catalogo le quita plata real a quien
+           vende. */
+        const _infoPago = (body && typeof body.info === "object" && body.info) ? body.info : {};
+        const _esTicket = (p.tipoProducto || "normal") === "ticket";
+        const _pagado = Number(_infoPago.montoPagado);
+        const precioEfectivo = (_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : p.precio;
+        const montoBruto = precioEfectivo * cant;
         const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
         const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null;
         p.stockActual -= cant;
@@ -1502,8 +1528,24 @@
           if (clienteVenta.despedido) return J({ error: `"${clienteVenta.nombre}" is fired — no new sales allowed. Reactivate them from Customers if this was a mistake.` }, 400);
         }
         const ventaId = uuid("v");
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null });
-        mov("venta", { producto: p.nombre, cantidad: cant, total: +(p.precio * cant).toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
+        /* DATOS DEL EVENTO (portado de amigable-123, JFC 2026-08-18). Sin
+           guardarlos, las ventas de una funcion o una clase quedan
+           desperdigadas en la lista general y no hay forma de saber como fue
+           "el concierto del sabado" sin filtrar por fecha a ojo. El tablero
+           agrupa por el NOMBRE que se escribe aqui. */
+        const infoBody = (body && typeof body.info === "object" && body.info) || {};
+        const infoVenta = {
+          nombreEvento: String(infoBody.nombreEvento || "").trim().slice(0, 120),
+          fechaEvento: String(infoBody.fechaEvento || "").trim().slice(0, 20),
+          numPersonas: (infoBody.numPersonas !== undefined && infoBody.numPersonas !== "") ? Math.max(0, Number(infoBody.numPersonas) || 0) : null,
+          nombrePagador: String(infoBody.nombrePagador || "").trim().slice(0, 120),
+          email: String(infoBody.email || "").trim().slice(0, 120),
+          whatsapp: String(infoBody.whatsapp || "").trim().slice(0, 40),
+          montoPagado: (infoBody.montoPagado !== undefined && infoBody.montoPagado !== "") ? Math.max(0, Number(infoBody.montoPagado) || 0) : null,
+        };
+        const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
+        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null });
+        mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
         emitirOpStock("venta", { productoId: p.id, delta: -cant });
         return J({ producto: ficha(p), ventaId });
       }

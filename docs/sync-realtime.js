@@ -60,6 +60,17 @@
   const LOG_KEY = "amigable_sync_log"; // ultimas ops vistas (propias + ajenas), para poder RE-enviarlas a un par que las perdio
   const LOG_TOPE = 500; // mismo tope que el dedup de mock-backend.js, mismo criterio
   const TIPO_CATCHUP_PEDIDO = "__catchup_pedido__";
+  /* Tipos que alimentan el TABLERO DE CONTROL (portado de amigable-123,
+     2026-08-18). El tablero es un lienzo que no guarda nada: pide una foto del
+     negocio, la pinta y la olvida al cerrarse. Estos mensajes viajan cifrados
+     por el mismo relay, que solo rebota bytes que no puede leer. */
+  const TIPO_LATIDO = "__latido__";
+  const TIPO_PIN = "__pin__";
+  const TIPO_ORDEN = "__orden__";
+  const TIPO_RESPUESTA = "__respuesta__";
+  const TIPO_FOTO_PEDIDA = "__foto_pedida__";
+  const TIPO_FOTO_TROZO = "__foto_trozo__";
+  const FOTO_FILAS_POR_TROZO = 200;
 
   function leerLog() {
     try { const a = JSON.parse(localStorage.getItem(LOG_KEY) || "[]"); return Array.isArray(a) ? a : []; }
@@ -238,6 +249,14 @@
           responderCatchup(op);
           return;
         }
+        /* Mensajes del tablero. Ninguno es una Op de negocio: no se registran
+           en el log ni se aplican al estado. Solo se contestan. */
+        if (op && op.tipo === TIPO_FOTO_PEDIDA) { responderFoto(op); return; }
+        if (op && op.tipo === TIPO_PIN) { responderPin(op); return; }
+        if (op && op.tipo === TIPO_ORDEN) { responderOrden(op); return; }
+        /* Y los que emite el propio tablero: se ignoran aqui para no
+           reprocesarlos ni meterlos al log de ops. */
+        if (op && (op.tipo === TIPO_FOTO_TROZO || op.tipo === TIPO_RESPUESTA || op.tipo === TIPO_LATIDO)) return;
         registrarEnLog(op);
         if (window.OCSync && window.OCSync.aplicarOpRemota) window.OCSync.aplicarOpRemota(op);
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
@@ -245,6 +264,258 @@
     };
     ws.onclose = () => { notificarEstado("reconectando"); programarReintento(); };
     ws.onerror = () => { try { ws.close(); } catch (_) {} };
+  }
+
+/* ==========================================================================
+     LA FOTO DEL NEGOCIO (M2, M3, M4 del PLAN-tablero-2026-08-15).
+
+     Quien pide (el tablero) manda TIPO_FOTO_PEDIDA. Quien tiene la app junta
+     su estado y lo devuelve EN TROZOS numerados. Si un trozo se pierde, se
+     pide solo ese: un negocio con miles de ventas no puede depender de que un
+     unico mensaje gigante llegue entero.
+
+     NADA DE ESTO TOCA UN SERVIDOR. Los datos permanecen en los dispositivos
+     del equipo; el relay solo rebota bytes cifrados que no puede leer, y el
+     tablero los pinta y los olvida al cerrarse.
+     ========================================================================== */
+  async function armarFoto() {
+    /* Se lee del backend local por su propia API, no del storage crudo: si
+       manana cambia como se guarda, esto sigue funcionando. */
+    async function get(ruta) {
+      try {
+        const r = await fetch("/api" + ruta);
+        const j = await r.json();
+        return Array.isArray(j) ? j : (j && typeof j === "object" ? j : null);
+      } catch (_) { return null; }
+    }
+    /* Rutas verificadas contra mock-backend.js: el resumen se llama
+       /api/dashboard, y /api/ventas/todas se agrego para el tablero (solo
+       lectura, ya enriquecida con nombres). */
+    /* liquidaciones y perchas se suman para las pestanias de Comisiones y
+       Eventos del tablero (JFC 2026-08-18). Son las dos tablas mas chicas de
+       todas y evitan que el tablero tenga que rehacer la cuenta del reparto por
+       su cuenta — que es como dos pantallas terminan mostrando dos numeros
+       distintos del mismo negocio. */
+    const [productos, clientes, ventas, resumen, liquidaciones, perchas] = await Promise.all([
+      get("/productos?ubicacionId=todas"),
+      get("/clientes"),
+      get("/ventas/todas?ubicacionId=todas"),
+      get("/dashboard?ubicacionId=todas"),
+      get("/liquidaciones"),
+      get("/ubicaciones?todas=1"),
+    ]);
+    return {
+      productos: productos || [],
+      clientes: Array.isArray(clientes) ? clientes : [],
+      ventas: ventas || [],
+      resumen: resumen || null,
+      liquidaciones: Array.isArray(liquidaciones) ? liquidaciones : [],
+      perchas: Array.isArray(perchas) ? perchas : [],
+      negocio: (function () {
+        try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || ""; }
+        catch (_) { return ""; }
+      })(),
+      generadaEn: (new Date()).toISOString(),
+    };
+  }
+
+  /* Corta una tabla larga en trozos parejos. Devuelve [] si no hay filas, para
+     que el tablero pueda distinguir "sin datos" de "no llego nada". */
+  function trocear(nombre, filas) {
+    const out = [];
+    const arr = Array.isArray(filas) ? filas : [];
+    if (!arr.length) { out.push({ tabla: nombre, i: 0, total: 1, filas: [] }); return out; }
+    const total = Math.ceil(arr.length / FOTO_FILAS_POR_TROZO);
+    for (let i = 0; i < total; i++) {
+      out.push({ tabla: nombre, i: i, total: total, filas: arr.slice(i * FOTO_FILAS_POR_TROZO, (i + 1) * FOTO_FILAS_POR_TROZO) });
+    }
+    return out;
+  }
+
+  async function responderFoto(pedido) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    /* Un tablero no contesta a otro tablero: solo responde quien tiene backend. */
+    if (!window.OCSync && !window.fetch) return;
+    /* Jitter: si hay dos telefonos del mismo negocio conectados, no mandan la
+       foto entera los dos a la vez. */
+    await new Promise((r) => setTimeout(r, Math.random() * 500));
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    let foto;
+    try { foto = await armarFoto(); } catch (_) { return; }
+    const trozos = []
+      .concat(trocear("productos", foto.productos))
+      .concat(trocear("clientes", foto.clientes))
+      .concat(trocear("ventas", foto.ventas))
+      .concat(trocear("liquidaciones", foto.liquidaciones))
+      .concat(trocear("perchas", foto.perchas))
+      .concat([{ tabla: "resumen", i: 0, total: 1, filas: [foto.resumen || {}] }]);
+    for (let k = 0; k < trozos.length; k++) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const op = {
+        opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_FOTO_TROZO,
+        para: pedido.deviceId || null,
+        payload: Object.assign({ negocio: foto.negocio, generadaEn: foto.generadaEn, k: k, deTotal: trozos.length }, trozos[k]),
+        fecha: (new Date()).toISOString(),
+      };
+      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
+    }
+  }
+
+  /* ==========================================================================
+     EL MANDO A DISTANCIA. Este dispositivo hace de manos del tablero.
+
+     Por que asi y no reimplementando Avanzado dentro de tablero.html: la
+     logica de negocio vive en un solo sitio. Si manana cambia como se agrega
+     un encargado, cambia en mock-backend.js y el tablero se entera solo. Dos
+     implementaciones de la misma regla es como se rompen los negocios.
+     ========================================================================== */
+  /* Verifica el PIN que llego del tablero y contesta SOLO el rol, nunca nada
+     mas. Un PIN de encargado o de contador no abre el tablero: ese es el punto.
+     El PIN viaja cifrado con la clave de sala, igual que todo lo demas. */
+  async function responderPin(op) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const pin = String((op.payload && op.payload.pin) || "");
+    if (!pin) return;
+
+    /* BUG 1: el PIN de un ADMIN nunca abria el tablero. verificarOwnerOEmpleado
+       solo devuelve "dueno" o "empleado"; los admins se dan de alta como
+       usuarios nombrados y se verifican por /api/usuarios/verificar. Faltaba
+       ese segundo camino, asi que el guard "dueno o admin" era en realidad
+       "solo dueno". */
+    let rol = "";
+    try {
+      /* El secreto puede estar todavia migrando cuando llega el pedido: sin
+         esperar, un PIN valido se rechazaba por pura carrera de arranque. */
+      if (window.OCSecure && window.OCSecure.migrarSiHaceFalta) {
+        try { await window.OCSecure.migrarSiHaceFalta(); } catch (_) {}
+      }
+      if (window.OCSecure && window.OCSecure.verificarOwnerOEmpleado) {
+        rol = (await window.OCSecure.verificarOwnerOEmpleado(pin)) || "";
+      }
+      if (rol !== "dueno") {
+        const res = await fetch("/api/usuarios/verificar", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin: pin }),
+        });
+        if (res.ok) {
+          const u = await res.json();
+          if (u && u.rol && u.activo !== false) rol = u.rol;
+        }
+      }
+    } catch (_) {}
+
+    const ok = rol === "dueno" || rol === "admin";
+
+    /* BUG 2, y es el que rompia el caso real: en una sala con MAS DE UN
+       dispositivo, todos contestaban, y el tablero se quedaba con la PRIMERA
+       respuesta. Un telefono que no conoce ese PIN contestaba "no" antes que
+       el que si lo conoce, y un PIN valido quedaba rechazado.
+
+       Ahora el "no" NO se manda: quien no puede autorizar se calla, y el
+       tablero cae en su propio timeout si de verdad nadie lo reconocio. Un
+       silencio de 12 s es mejor que un rechazo falso e inmediato.
+
+       Solo se contesta el "no" cuando este dispositivo es el UNICO en la sala:
+       ahi el rechazo es informacion cierta y ahorra la espera. */
+    if (!ok && presenciaN > 2) return;
+
+    const r = {
+      opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_RESPUESTA,
+      payload: { pedido: (op.payload && op.payload.pedidoId) || op.opId, ok: ok,
+                 datos: ok ? { rol: rol } : { error: "Ese PIN no abre el tablero." } },
+      fecha: (new Date()).toISOString(),
+    };
+    try { ws.send(await cifrar(claveActual, r)); } catch (_) {}
+  }
+
+  function ordenPermitida(metodo, ruta) {
+    return ORDENES_PERMITIDAS.some(function (p) { return p.m === metodo && p.re.test(ruta); });
+  }
+
+  async function responderOrden(op) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const p = op.payload || {};
+    const metodo = String(p.metodo || "GET").toUpperCase();
+    const ruta = String(p.ruta || "");
+    const responder = async (cuerpo, ok) => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const r = {
+        opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_RESPUESTA,
+        payload: { pedido: p.pedidoId || op.opId, ok: !!ok, datos: cuerpo },
+        fecha: (new Date()).toISOString(),
+      };
+      try { ws.send(await cifrar(claveActual, r)); } catch (_) {}
+    };
+    if (!ordenPermitida(metodo, ruta)) {
+      /* Se dice que no se permite, no se ignora: un tablero esperando en
+         silencio una respuesta que nunca llega es peor que un no claro. */
+      return responder({ error: "Esa acción no se puede hacer desde el tablero." }, false);
+    }
+    /* Jitter, igual que en el catch-up: si hay dos telefonos del negocio
+       conectados, no ejecutan la misma orden a la vez. Solo el primero que
+       conteste importa; el tablero descarta las respuestas repetidas. */
+    await new Promise((r) => setTimeout(r, Math.random() * 350));
+    try {
+      const opts = { method: metodo };
+      let cuerpo = p.cuerpo || {};
+      /* CASO ESPECIAL, y el unico: dar de alta a alguien. El backend exige el
+         PIN, pero el PIN NO puede viajar al tablero ni teclearse alli: el
+         tablero puede estar abierto en una pantalla que ve medio local. Asi
+         que lo genera ESTE dispositivo, se lo manda al backend, y al tablero
+         solo le contesta que ya esta. El PIN se muestra aqui, en la mano del
+         duenio, que es donde tiene que verse. */
+      let pinGenerado = "";
+      if (metodo === "POST" && ruta === "/api/usuarios" && !cuerpo.pin) {
+        const b = new Uint8Array(2);
+        crypto.getRandomValues(b);
+        pinGenerado = String(100 + ((b[0] << 8 | b[1]) % 900));   /* 100..999 */
+        cuerpo = Object.assign({}, cuerpo, { pin: pinGenerado });
+      }
+      if (metodo !== "GET") {
+        opts.headers = { "Content-Type": "application/json" };
+        opts.body = JSON.stringify(cuerpo);
+      }
+      const res = await fetch(ruta, opts);
+      const datos = await res.json();
+      if (pinGenerado && res.ok !== false && !datos.error) {
+        /* El aviso con el PIN sale en ESTE dispositivo. Nunca en la respuesta. */
+        try {
+          window.dispatchEvent(new CustomEvent("oc-alta-remota", {
+            detail: { nombre: datos.nombre || cuerpo.nombre, rol: datos.rol || cuerpo.rol, pin: pinGenerado },
+          }));
+        } catch (_) {}
+      }
+      /* Por si acaso: nunca devolver un pin, venga de donde venga. */
+      if (datos && typeof datos === "object" && "pin" in datos) { try { delete datos.pin; } catch (_) {} }
+      await responder(datos, res.ok !== false);
+    } catch (e) {
+      await responder({ error: "No se pudo completar." }, false);
+    }
+  }
+
+  /* Lo llama micelio-vivo.js cada minuto. Si el socket no esta abierto no se
+     encola ni se reintenta: un latido viejo no informa de nada, y el silencio
+     ES la senal que el otro lado necesita leer. */
+  async function emitirLatido(quien) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const op = {
+      opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_LATIDO,
+      payload: { id: quien.id, apodo: quien.apodo || "", rol: quien.rol || "" },
+      fecha: (new Date()).toISOString(),
+    };
+    try { ws.send(await cifrar(claveActual, op)); return true; } catch (_) { return false; }
+  }
+
+  /* Lo usa el tablero. En la app no se llama nunca, pero se expone desde el
+     mismo modulo para que las dos puntas hablen exactamente el mismo dialecto
+     y no puedan desincronizarse por copia y pega. */
+  async function pedirFoto() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const op = {
+      opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_FOTO_PEDIDA,
+      payload: {}, fecha: (new Date()).toISOString(),
+    };
+    try { ws.send(await cifrar(claveActual, op)); return true; } catch (_) { return false; }
   }
 
   function normalizarCodigo(codigo) {
@@ -392,6 +663,11 @@
     problemaPersistente() { return intentosSeguidos >= 6; },
     salaActiva() { const s = leerSala(); return s ? s.codigo : null; },
     onEstado(fn) { listenersEstado.push(fn); },
+    /* Para el TABLERO DE CONTROL. Se exponen desde el mismo modulo que las
+       contesta para que las dos puntas hablen exactamente el mismo dialecto y
+       no puedan desincronizarse por copia y pega. */
+    pedirFoto,
+    emitirLatido,
   };
 
   // Reconexion automatica al volver a tener foco/red (celular que se bloqueo, wifi que parpadeo)
