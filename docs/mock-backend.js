@@ -462,11 +462,26 @@
   // bien, sin el costo de un hash criptografico en cada venta.
   const OC_STATE_PTR = OC_STATE_KEY + "_ptr";
   function claveBuffer(letra) { return OC_STATE_KEY + "_" + letra; }
+  /* Espejo en IndexedDB. Se dispara SIEMPRE, sin esperarlo: es la red que hace
+     que "localStorage lleno" deje de significar "tus cambios se pierden".
+     Ver estado-idb.js (JFC 2026-08-17, portado desde amigable-123).
+
+     NO reemplaza el orden de sacrificio de abajo (Fase 7): son dos capas
+     distintas. El sacrificio decide QUE se cede cuando no cabe; el espejo hace
+     que aunque no quepa NADA en localStorage, el estado completo quede a salvo
+     igual en un almacen que si crece con el disco. */
+  function _espejarEnIDB(completo) {
+    try {
+      if (!window.OCEstadoIDB) return Promise.resolve(false);
+      return window.OCEstadoIDB.guardar(completo).catch(() => false);
+    } catch (_) { return Promise.resolve(false); }
+  }
   function guardarEstadoLocal() {
     _localRev++;
     const completo = estadoActualExportable();
     const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
     const destino = activo === "A" ? "B" : "A";
+    const _idb = _espejarEnIDB(completo);
     try {
       localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
       localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
@@ -498,7 +513,44 @@
       if (window.OCArchivo) window.OCArchivo.archivarLote(viejos).catch(() => {}); // fire-and-forget, idempotente, aislado del nucleo
       avisoArchivado(viejos.length);
       return;
-    } catch (_) { avisoMemoriaLlena(); }
+    } catch (_) {
+      /* NO MENTIR (JFC 2026-08-17). Que localStorage se llene no quiere decir
+         que el dispositivo este lleno: localStorage tiene un techo fijo de
+         ~5 MB por origen, aunque al disco le sobren 900 GB. Si el espejo de
+         IndexedDB —que si escala con el disco— acepto el estado, los cambios
+         SI se guardaron y el cartel rojo seria falso. Solo se avisa cuando de
+         verdad no entro en ningun lado. */
+      _idb.then((ok) => {
+        if (ok) { ocultarAvisoRecorte(); avisoEspacioJusto(); }
+        else avisoMemoriaLlena();
+      }).catch(() => avisoMemoriaLlena());
+    }
+  }
+  /* Aviso naranja, no rojo: todo esta guardado, pero conviene respaldar. */
+  function avisoEspacioJusto() {
+    try {
+      if (document.getElementById("oc-espacio-justo")) return;
+      const d = document.createElement("div");
+      d.id = "oc-espacio-justo";
+      d.setAttribute("role", "status");
+      d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#B8760A;padding:10px 16px;text-align:center;cursor:pointer;";
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
+        + escHtmlSeguro(tSeguro("storage.tightButSaved",
+            "Everything was saved. This browser's fast storage filled up, so this device's larger storage is now in use — nothing was lost. Export a backup in ADVANCED when you can."))
+        + "</span>";
+      d.addEventListener("click", () => d.remove());
+      (document.body || document.documentElement).appendChild(d);
+    } catch (_) {}
+  }
+  /* Atajos defensivos: si i18n.js no cargo, se usa el texto de reserva en vez
+     de dejar el cartel vacio justo cuando hace falta leerlo. */
+  function tSeguro(clave, reserva) {
+    try { return (window.OCI18n && window.OCI18n.t) ? (window.OCI18n.t(clave) || reserva) : reserva; }
+    catch (_) { return reserva; }
+  }
+  function escHtmlSeguro(x) {
+    return String(x == null ? "" : x).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
   function ocultarAvisoRecorte() { try { const d = document.getElementById("oc-recorte-aviso"); if (d) d.remove(); } catch (_) {} }
   function avisarBufferRecuperado() {
@@ -965,6 +1017,28 @@
   // Al arrancar: si hay un estado persistido válido, reemplaza los datos
   // semilla (item 1 — persistencia local real).
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
+  /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).
+     Si en la sesion anterior localStorage estaba lleno, los ultimos guardados
+     solo entraron en el espejo de IndexedDB. Aqui se comparan las revisiones y
+     gana la MAS NUEVA: sin esto la app arrancaria con el estado viejo y el
+     dueno veria desaparecer trabajo que la app le dijo que estaba guardado.
+     Asincrono a proposito: la app arranca ya con lo que haya en localStorage y
+     esto solo la corrige si de verdad hace falta. */
+  (async () => {
+    try {
+      if (!window.OCEstadoIDB) return;
+      const espejo = await window.OCEstadoIDB.leer();
+      if (!espejo || typeof espejo._rev !== "number") return;
+      if (espejo._rev <= _localRev) return;
+      if (validarRespaldo(espejo)) return;
+      _localRev = espejo._rev;
+      aplicarRespaldo(espejo);
+      try { localStorage.setItem("f123_rescate_idb", String(Date.now())); } catch (_) {}
+      console.warn("[estado-idb] se recuperaron cambios que no cabian en localStorage (rev " + espejo._rev + ")");
+      /* La UI ya se pinto con el estado viejo: se le avisa para que se repinte. */
+      try { window.dispatchEvent(new CustomEvent("oc-estado-rescatado")); } catch (_) {}
+    } catch (_) {}
+  })();
   // AUTO-HEAL (paridad AMIGABLE, 2026-07-17): si el catalogo quedo VACIO por un
   // 789 disparado sin querer en un dispositivo que debia seguir en demo, se
   // repara UNA sola vez en la vida del dispositivo (guardia en localStorage,

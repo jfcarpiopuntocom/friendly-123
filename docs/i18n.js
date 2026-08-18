@@ -227,6 +227,9 @@
       "auth.join.unavailable": "Sync is not available on this device.",
       "auth.join.success": "Done! Your phone is now synced with the team.",
       "sync.panel.title": "Sync your team",
+      // Espacio: localStorage se lleno pero el espejo en IndexedDB si guardo.
+      // Naranja y no rojo — no se perdio nada, solo conviene respaldar.
+      "storage.tightButSaved": "Everything was saved. This browser's fast storage filled up, so this device's larger storage is now in use — nothing was lost. Export a backup in ADVANCED when you can.",
       "sync.panel.body": "Every device on your team (owner, admins, employees) that has your business code stays synced within seconds, always — not just at events. Sales, adjustments and stock transfers are announced to everyone instantly, so nobody sells the same last units without knowing.",
       "sync.panel.privacy": "Your data only travels encrypted between your own team's devices. It never reaches AMIGABLE-123 or anyone else — not even us can read it.",
       "sync.panel.codePlaceholder": "Your business code (F123-XXXX-XXXX)",
@@ -700,6 +703,7 @@
       "auth.join.unavailable": "Sincronización no disponible en este dispositivo.",
       "auth.join.success": "¡Listo! Tu celular ya está sincronizado con el equipo.",
       "sync.panel.title": "Sincronizar equipo",
+      "storage.tightButSaved": "Todo se guardó. El almacenamiento rápido del navegador se llenó y ahora se está usando el grande de este dispositivo — no se perdió nada. Exporta un respaldo en AVANZADO cuando puedas.",
       "sync.panel.body": "Todos los dispositivos de tu equipo (dueño, admins, encargados) que tengan el código de tu negocio quedan sincronizados en segundos, siempre — no solo en ferias. Ventas, ajustes y transferencias de stock se avisan entre todos al instante, para que nadie venda las mismas últimas unidades sin saberlo.",
       "sync.panel.privacy": "Tus datos solo viajan cifrados entre los dispositivos de tu propio equipo. Nunca llegan a AMIGABLE-123 ni a nadie más — ni siquiera nosotros podemos leerlos.",
       "sync.panel.codePlaceholder": "Código de tu negocio (F123-XXXX-XXXX)",

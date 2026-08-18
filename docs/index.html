@@ -64,6 +64,7 @@
      OC_PB_URL). Por defecto todo corre local: mock-backend.js en la demo
      estática, o server.js real en el servidor local del negocio. -->
 <script src="./pocketbase-client.js"></script>
+<script src="./estado-idb.js"></script>
 <script src="./mock-backend.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -5064,6 +5065,14 @@ function _ocModalMostrar(mensaje, botonesConfig) {
   });
 }
 // Reemplazo de confirm(): resuelve true (aceptar) / false (cancelar).
+/* El rescate desde IndexedDB (mock-backend.js) puede llegar despues de que la
+   app ya pinto la primera vista con un estado viejo. Se repinta lo que hay en
+   pantalla para que el dueno no vea datos que ya no son. */
+window.addEventListener("oc-estado-rescatado", function () {
+  try { if (window.cargarInventario) window.cargarInventario(); } catch (_) {}
+  try { if (window.cargarPerchas) window.cargarPerchas(); } catch (_) {}
+  try { if (window.cargarUbicaciones) window.cargarUbicaciones(); } catch (_) {}
+});
 function ocConfirm(mensaje, opts) {
   opts = opts || {};
   return _ocModalMostrar(mensaje, [
