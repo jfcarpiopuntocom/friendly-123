@@ -82,6 +82,16 @@ fi
 if [ -f docs/mock-backend.js ] && command -v node >/dev/null; then
   node "$RAIZ/.claude/guard-dinero.mjs" "$RAIZ" 2>/dev/null && ok "dinero: reparto e invariantes cuadran" \
     || mal "dinero: los invariantes NO cuadran (corre .claude/guard-dinero.mjs para el detalle)"
+  # Los 8 casos de negocio reales del motor de tratos: las dos lecturas, aporte
+  # fijo, minimo garantizado, escalas, y la misma persona con dos tratos.
+  # consultorio-123 no tiene comisiones a proposito —un consultorio no le paga
+  # comision a un artista— asi que ahi no aplica y no es rojo.
+  if grep -q "function resolverTrato" docs/mock-backend.js; then
+    node "$RAIZ/.claude/guard-tratos.mjs" "$RAIZ" >/dev/null 2>&1 && ok "tratos: las 8 formas de repartir dan lo esperado" \
+      || mal "tratos: algun caso de reparto no da lo esperado (corre .claude/guard-tratos.mjs)"
+  else
+    printf "  nota %s\n" "tratos: esta app no reparte comisiones (a proposito), no aplica"
+  fi
 fi
 
 echo

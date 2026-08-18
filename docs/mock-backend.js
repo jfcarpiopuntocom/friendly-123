@@ -680,19 +680,154 @@
   function ventasMesAcumuladas(ubicacionId) {
     return ventas.filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
   }
+    /* ==========================================================================
+     MOTOR DE TRATOS — una sola cuenta para todas las formas de repartir
+     ==========================================================================
+     JFC, 2026-08-18: "lo de a quien se le cobra es lo que quiero que sea ductil
+     y flexible en cada negocio, une ambas formas".
+
+     EL PROBLEMA QUE RESUELVE. Habia dos maneras de decir lo mismo y cada app
+     entendia una: la promotora piensa "me llevo el 10", la galeria piensa
+     "retengo el 15 y el artista se lleva 85". Es el MISMO reparto leido al
+     reves, pero como cada negocio lo dice a su manera, forzar una sola forma
+     obliga a la mitad de la gente a restar de cabeza cada vez.
+
+     LA DECISION. Se guarda SIEMPRE un solo numero canonico —`comisionSocio`,
+     lo que se lleva el asociado— y la lectura preferida se guarda aparte, como
+     preferencia de presentacion. Asi:
+
+       - Ningun trato existente cambia de valor. Cero migracion, y nadie cobra
+         distinto maniana por este cambio.
+       - Cada negocio escribe y lee en su idioma: `lecturaPreferida` decide si
+         la UI muestra "se lleva" o "la casa retiene".
+       - Las dos lecturas son siempre coherentes porque una se deriva de la
+         otra: es imposible guardar un reparto que no sume 100.
+
+     DE DONDE SALE EL PORCENTAJE, en orden de prioridad:
+       1. El trato propio de la persona (promotora.comisionBase), salvo que la
+          percha diga explicitamente que manda el suyo (usarComisionPropia).
+       2. El de la percha (ubicacion.comisionSocio).
+     Esto es lo que permite que LA MISMA PERSONA sea vendedora al 10% en una
+     percha y artista al 85% en otra: el trato no vive en la persona ni en la
+     percha, vive en el cruce de las dos.
+
+     Y ENCIMA, opcionales y combinables:
+       - `contribFija`: aporte fijo que el asociado pone al evento ANTES del %.
+         Se descuenta del bruto y el % se aplica a lo que queda.
+       - `escalasComision`: el % sube al acercarse a la meta del mes.
+       - `minimoGarantizado`: piso en dinero para el asociado. Si el % da menos,
+         se le paga el piso — util para "te aseguro $50 por la feria, o el 20%,
+         lo que sea mayor".
+
+     GUARD: escalas y aporte fijo no se combinan. El modelo escalonado calcula
+     el % venta por venta con el acumulado del mes, y restar un fijo ahi
+     obligaria a recalcular retroactivamente cada venta ya registrada. Si estan
+     los dos, manda la escala y el fijo se ignora — se dice en `avisos`, no en
+     silencio.
+     ========================================================================== */
+  function resolverTrato(u, opciones) {
+    opciones = opciones || {};
+    var avisos = [];
+    if (!u) return null;
+
+    /* Percha propia: no reparte con nadie. Devolver null y no un trato al 0%
+       es la diferencia entre "no aplica" y "le toca cero", que no es lo mismo
+       ni en la pantalla ni en un reporte. */
+    if (!u.tipo || u.tipo === "propio") return null;
+
+    /* 1. De donde sale el porcentaje */
+    var fuente = u, origen = "percha";
+    try {
+      if (u.promotoraId && !u.usarComisionPropia && typeof promotoras !== "undefined") {
+        var pr = promotoras.find(function (x) { return x.id === u.promotoraId; });
+        /* Solo se usa el trato de la persona si de verdad tiene uno definido.
+           Un comisionista recien creado sin % no puede dejar la percha en cero. */
+        if (pr && (Number(pr.comisionBase) > 0 || Number(pr.comisionSocio) > 0)) {
+          fuente = pr; origen = "comisionista";
+        }
+      }
+    } catch (_) {}
+
+    var pctBase = Number(fuente.comisionBase !== undefined ? fuente.comisionBase : fuente.comisionSocio) || 0;
+    if (pctBase < 0) pctBase = 0;
+    if (pctBase > 100) pctBase = 100;
+
+    /* 2. Escalas por meta, si las hay */
+    var escalas = Array.isArray(fuente.escalasComision) ? fuente.escalasComision : [];
+    var meta = Number(fuente.metaMensual) || 0;
+    var contrib = Math.max(0, Number(u.contribFija) || 0);
+    var tieneEscalas = escalas.length > 0 && meta > 0;
+
+    if (tieneEscalas && contrib > 0) {
+      avisos.push("El aporte fijo se ignora: esta percha usa escalas por meta, y las dos cosas juntas obligarian a recalcular cada venta ya registrada.");
+      contrib = 0;
+    }
+
+    return {
+      /* CANONICO: lo que se lleva el asociado. Todo lo demas se deriva. */
+      pct: pctBase,
+      pctCasa: +(100 - pctBase).toFixed(2),
+      /* Como lo dice ESTE negocio. Solo afecta la presentacion. */
+      lectura: (u.lecturaPreferida === "casa") ? "casa" : "asociado",
+      modalidad: pctBase >= 50 ? "artista" : "vendedor",
+      origen: origen,
+      fuenteId: origen === "comisionista" ? (u.promotoraId || null) : u.id,
+      contribFija: contrib,
+      escalas: tieneEscalas ? escalas.slice() : [],
+      metaMensual: meta,
+      minimoGarantizado: Math.max(0, Number(u.minimoGarantizado) || 0),
+      avisos: avisos
+    };
+  }
+
+  /* El % que toca a ESTA venta, ya con las escalas aplicadas si las hay. */
+  function pctDeLaVenta(trato, acumuladoConEsta) {
+    if (!trato) return 0;
+    if (!trato.escalas.length || !trato.metaMensual) return trato.pct;
+    var pctMeta = (acumuladoConEsta / trato.metaMensual) * 100;
+    var ordenadas = trato.escalas.slice().sort(function (a, b) { return a.hasta - b.hasta; });
+    var tramo = ordenadas.find(function (e) { return pctMeta <= e.hasta; }) || ordenadas[ordenadas.length - 1];
+    var p = Number(tramo.comision);
+    return Number.isFinite(p) ? Math.max(0, Math.min(100, p)) : trato.pct;
+  }
+
+  /* El reparto de UNA venta. Invariante que nunca se rompe:
+     comision + neto == bruto, siempre, hasta el centavo. */
+  function repartir(trato, montoBruto, acumuladoPrevio) {
+    if (!trato) return null;
+    var bruto = Math.max(0, Number(montoBruto) || 0);
+    var pct = pctDeLaVenta(trato, (Number(acumuladoPrevio) || 0) + bruto);
+
+    /* El aporte fijo sale ANTES del %: es lo que el asociado pone para estar
+       ahi, no parte de lo que vendio. Si el aporte supera la venta, la base es
+       cero y no negativa — nadie le debe plata a la casa por vender poco. */
+    var base = trato.contribFija > 0 ? Math.max(0, bruto - trato.contribFija) : bruto;
+    var comision = +(base * (pct / 100)).toFixed(2);
+
+    if (trato.minimoGarantizado > 0 && comision < trato.minimoGarantizado) {
+      comision = Math.min(trato.minimoGarantizado, bruto);   /* nunca mas que lo vendido */
+    }
+    if (comision > bruto) comision = bruto;
+
+    return {
+      comisionPct: pct,
+      origenComision: trato.origen,
+      montoBruto: +bruto.toFixed(2),
+      contribFijaAplicada: trato.contribFija > 0 ? +Math.min(trato.contribFija, bruto).toFixed(2) : 0,
+      montoComisionSocio: comision,
+      montoNetoDueno: +(bruto - comision).toFixed(2)
+    };
+  }
+
+  /* Se conservan los nombres viejos como puerta de entrada: todo el resto del
+     archivo los llama, y cambiarlos seria tocar decenas de sitios sin ganar
+     nada. Por dentro ya es el motor unico. */
   function comisionVigente(u, acumuladoConEsta) {
-    const escalas = Array.isArray(u.escalasComision) ? u.escalasComision : [];
-    if (!u.metaMensual || escalas.length === 0) return Number(u.comisionSocio) || 0;
-    const pctMeta = (acumuladoConEsta / u.metaMensual) * 100;
-    const ordenadas = [...escalas].sort((a, b) => a.hasta - b.hasta);
-    const tier = ordenadas.find((e) => pctMeta <= e.hasta) || ordenadas[ordenadas.length - 1];
-    return Number(tier.comision) || 0;
+    const t = resolverTrato(u);
+    return t ? pctDeLaVenta(t, acumuladoConEsta) : 0;
   }
   function calcularSplitVenta(u, montoBruto, acumuladoPrevio) {
-    if (!u || u.tipo === "propio" || !u.tipo) return null;
-    const comisionPct = comisionVigente(u, acumuladoPrevio + montoBruto);
-    const montoComisionSocio = +(montoBruto * (comisionPct / 100)).toFixed(2);
-    return { comisionPct, montoBruto: +montoBruto.toFixed(2), montoComisionSocio, montoNetoDueno: +(montoBruto - montoComisionSocio).toFixed(2) };
+    return repartir(resolverTrato(u), montoBruto, acumuladoPrevio);
   }
   // #19: agrupa ventas pendientes por producto -> lineas del recibo de liquidacion.
   function agruparPendientesPorProducto(pend) {
@@ -742,8 +877,21 @@
            escalas por meta o porque alguien corrigio una comision en
            retrospectiva — mostrar solo el configurado hacia que la liquidacion
            dijera 10% al lado de una plata repartida al 85%. */
-        pctBase: Number(u.comisionSocio) || 0,
-        pctQuedaEnCasa: +(100 - (Number(u.comisionSocio) || 0)).toFixed(2),
+        /* El trato resuelto por el motor unico, no recalculado a mano aqui:
+           asi la app, el tablero y el recibo dicen exactamente lo mismo. */
+        ...(function () {
+          const t = resolverTrato(u) || {};
+          return {
+            pctBase: t.pct || 0,
+            pctQuedaEnCasa: t.pctCasa != null ? t.pctCasa : 100,
+            lecturaPreferida: t.lectura || "asociado",
+            origenComision: t.origen || "percha",
+            contribFija: t.contribFija || 0,
+            minimoGarantizado: t.minimoGarantizado || 0,
+            tieneEscalas: !!(t.escalas && t.escalas.length),
+            avisosTrato: t.avisos || [],
+          };
+        })(),
         pctEfectivo: ventasBrutas > 0 ? +((comisionSocio / ventasBrutas) * 100).toFixed(2) : (Number(u.comisionSocio) || 0),
         modalidad: (Number(u.comisionSocio) || 0) >= 50 ? "artista" : "vendedor",
         contribFija: 0,
@@ -1314,7 +1462,7 @@
       }
       if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "El nombre de la ubicación es obligatorio." }, 400);
-        const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria };
+        const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria, lecturaPreferida: body.lecturaPreferida === "casa" ? "casa" : "asociado", minimoGarantizado: Math.max(0, Number(body.minimoGarantizado) || 0), contribFija: Math.max(0, Number(body.contribFija) || 0) };
         ubicaciones.push(nueva);
         // BUG FIX (2026-07-03): las perchas creadas en runtime no existian en
         // gastosMensuales, por lo que la suma "todas" las excluia hasta que se
@@ -1342,6 +1490,41 @@
         if ("metaMensual" in body) u.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
         if ("esEvento" in body) u.esEvento = !!body.esEvento;
         if ("esFeria" in body) u.esFeria = !!body.esFeria;
+        /* LAS DOS FORMAS DE DECIR EL MISMO TRATO (JFC 2026-08-18). Se guarda
+           SIEMPRE un solo numero canonico —lo que se lleva el asociado— y
+           aparte como lo dice este negocio. Si el duenio escribe "la casa
+           retiene 15", aqui se convierte a 85 y se recuerda que el prefiere
+           leerlo al reves. Nadie tiene que restar de cabeza, y es imposible
+           guardar un reparto que no sume 100. */
+        /* LO EXPLICITO Y MAS RECIENTE MANDA (JFC 2026-08-18). Escribir un
+           porcentaje EN ESTA PERCHA quiere decir "este trato, aqui", aunque la
+           persona asignada tenga otro trato propio en otras perchas. Se puede
+           desactivar mandando usarComisionPropia:false en la misma peticion. */
+        if (("comisionSocio" in body || "pctQuedaEnCasa" in body) && !("usarComisionPropia" in body)) u.usarComisionPropia = true;
+        if ("pctQuedaEnCasa" in body) {
+          const pc = Number(body.pctQuedaEnCasa);
+          if (!Number.isFinite(pc) || pc < 0 || pc > 100) return J({ error: "The house share must be between 0 and 100." }, 400);
+          u.comisionSocio = +(100 - pc).toFixed(2);
+          u.lecturaPreferida = "casa";
+        }
+        if ("lecturaPreferida" in body) u.lecturaPreferida = body.lecturaPreferida === "casa" ? "casa" : "asociado";
+        /* Se BLOQUEA al escribir, no se corrige al leer (mismo criterio que
+           amigable-123): el aporte fijo y las escalas por meta no pueden
+           coexistir, porque el modelo escalonado calcula el % venta por venta
+           con el acumulado del mes y restar un fijo ahi obligaria a recalcular
+           cada venta ya registrada. Decirlo aqui, cuando se configura, evita
+           que el duenio descubra el conflicto en la liquidacion de fin de mes. */
+        if ("contribFija" in body) {
+          const cf = Math.max(0, Number(body.contribFija) || 0);
+          const habraEscalas = "escalasComision" in body
+            ? (Array.isArray(body.escalasComision) && body.escalasComision.length > 0)
+            : (Array.isArray(u.escalasComision) && u.escalasComision.length > 0);
+          if (cf > 0 && habraEscalas) return J({ error: "A fixed contribution can't be combined with goal-based tiers: pick one. The tiered model recalculates the rate sale by sale, so subtracting a fixed amount would change every sale already recorded." }, 400);
+          u.contribFija = cf;
+        }
+        if ("minimoGarantizado" in body) u.minimoGarantizado = Math.max(0, Number(body.minimoGarantizado) || 0);
+        if ("usarComisionPropia" in body) u.usarComisionPropia = !!body.usarComisionPropia;
+        if ("escalasComision" in body) u.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision : [];
         guardarEstadoLocal();
         return J(u);
       }

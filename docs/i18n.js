@@ -230,6 +230,9 @@
       // Espacio: localStorage se lleno pero el espejo en IndexedDB si guardo.
       // Naranja y no rojo — no se perdio nada, solo conviene respaldar.
       // Borradores: nada tecleado se pierde por un back o un cierre.
+      // Las dos lecturas del mismo reparto: se escribe en la que uno piense.
+      "common.takesPct": "Associate takes %",
+      "common.houseKeepsPct": "House keeps %",
       "draft.unsaved": "You had unsaved data ",
       "draft.atTime": "at ",
       "draft.onDate": "on ",
@@ -710,6 +713,8 @@
       "auth.join.unavailable": "Sincronización no disponible en este dispositivo.",
       "auth.join.success": "¡Listo! Tu celular ya está sincronizado con el equipo.",
       "sync.panel.title": "Sincronizar equipo",
+      "common.takesPct": "Se lleva el/la asociado/a %",
+      "common.houseKeepsPct": "Queda en la casa %",
       "draft.unsaved": "Tenías datos sin guardar ",
       "draft.atTime": "de las ",
       "draft.onDate": "del ",
