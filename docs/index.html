@@ -5100,9 +5100,16 @@ function _ocModalMostrar(mensaje, botonesConfig) {
    app ya pinto la primera vista con un estado viejo. Se repinta lo que hay en
    pantalla para que el dueno no vea datos que ya no son. */
 window.addEventListener("oc-estado-rescatado", function () {
-  try { if (window.cargarInventario) window.cargarInventario(); } catch (_) {}
-  try { if (window.cargarPerchas) window.cargarPerchas(); } catch (_) {}
-  try { if (window.cargarUbicaciones) window.cargarUbicaciones(); } catch (_) {}
+  /* SE REPINTA LA VISTA QUE SE ESTA MIRANDO (caza de bugs 2026-08-18).
+     Antes solo repintaba Inventario, Perchas y Ubicaciones — pero la vista
+     donde el encargado esta TODO EL DIA es Hoy, y esa se quedaba con las
+     cifras viejas sin decirlo. Un rescate silencioso que deja numeros
+     equivocados en pantalla es peor que no rescatar. */
+  ["cargarHoy", "cargarInventario", "cargarPerchas", "cargarUbicaciones",
+   "cargarClientes", "cargarComisiones"].forEach(function (fn) {
+    try { if (typeof window[fn] === "function") window[fn](); } catch (_) {}
+  });
+  try { if (window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
 });
 function ocConfirm(mensaje, opts) {
   opts = opts || {};

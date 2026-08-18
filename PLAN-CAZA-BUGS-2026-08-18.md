@@ -2,7 +2,7 @@
 **Fecha:** 2026-08-18 · **Pedido:** JFC — "de 11 a 22 bugs o daños que hayas
 hecho TÚ en los últimos 2 días, luego otros culpa de nadie, luego guards"
 
-**18 hallazgos**, todos medidos con `git`, `grep` y comparación entre apps. No se
+**21 hallazgos** (18 planeados + 3 que destaparon los propios guards), todos medidos con `git`, `grep` y comparación entre apps. No se
 leyó ningún archivo grande entero.
 
 ---
@@ -61,3 +61,34 @@ leyó ningún archivo grande entero.
 - Unificar el modelo de comisiones de F123 con el de amigable (#14). Es una decisión de producto, no un bug, y forzarlo cambiaría a quién se le cobra.
 - Tocar consultorio-123 más allá de las fechas (#9-#11): está en focus groups.
 - Refactorizar `borradores.js` o el tablero. Se arreglan los defectos, no se rediseña.
+
+
+---
+
+# RESULTADO — 2026-08-18, todo arreglado y comprobado
+
+Los guards, al correrlos por primera vez, destaparon tres bugs más que el
+barrido a mano no vio. Van aquí porque son la prueba de que valían la pena:
+
+| # | Dónde | Qué era |
+|---|---|---|
+| 19 | `index.html` (C) | El rescate desde IndexedDB **no tenía quien lo escuchara** en consultorio-123: recuperaba el estado en memoria y la pantalla seguía mostrando lo viejo. Abonos y pagos que el médico no ve. |
+| 20 | `sw.js` (F y C) | friendly-123 no precacheaba **16** scripts y consultorio-123 **24**. Es el mismo bug que ya pasó en amigable ("el SW no conocía 8 scripts"): dispositivos instalados sirviendo versión vieja. |
+| 21 | `aislamiento.js` (C) | 71 claves con prefijo `f123_` heredado. **No se renombraron**: la migración ya las rescata y renombrarlas dejaría huérfanos los datos que el usuario tiene guardados. Es deuda de nombres, no de datos — el guard lo dice como nota, no como rojo. |
+
+## Comprobación final
+
+```
+guards.sh          3/3 repos TODO VERDE
+fechas             venta 23:00 ECU del último día -> cae en el mes correcto, en las 3
+sintaxis           146 .js + todos los bloques inline, limpios
+panorama/comisiones  reparto suma el bruto, % suman 100, dos lecturas = mismo total
+estado-idb         con QuotaExceededError la venta sigue en 200 y el espejo recibe
+tablero            eventos agrupados; vendedora 25% + artista 85% = combinado 61%
+```
+
+## Lo que quedó fuera, a propósito
+
+- **#14** unificar el modelo de comisiones de F123 con el de amigable: es decisión
+  de producto y cambiaría a quién se le cobra.
+- **#21** renombrar las claves `f123_` de consultorio: se perderían datos reales.

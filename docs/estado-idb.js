@@ -52,6 +52,37 @@
     return dbPromise;
   }
 
+  /* ESCRITURAS AGRUPADAS (caza de bugs 2026-08-18). El espejo se dispara en
+     CADA guardado, o sea en cada venta. En una feria con ventas seguidas eran
+     decenas de escrituras del estado entero por minuto, cada una serializando
+     todo el negocio.
+
+     Se agrupan: la primera escribe ya —para no perder nada si el navegador se
+     cierra en el acto— y las siguientes se juntan en una sola al final de la
+     rafaga. Nunca se pierde la ULTIMA, que es la que importa.
+
+     `guardar()` sigue devolviendo la promesa del resultado REAL de escritura,
+     porque mock-backend decide con eso si sale el cartel rojo: prometer un
+     true optimista seria justo la mentira que este modulo vino a quitar. */
+  var _pend = null, _reloj = null, _ultimoOk = Promise.resolve(true);
+  var AGRUPAR_MS = 400;
+
+  function guardarAgrupado(estado) {
+    if (!SOPORTADO || !estado) return Promise.resolve(false);
+    /* Primera de la rafaga: va directo, sin esperar. */
+    if (!_reloj) {
+      _ultimoOk = guardar(estado);
+      _reloj = setTimeout(function () {
+        _reloj = null;
+        if (_pend) { var e = _pend; _pend = null; _ultimoOk = guardar(e); }
+      }, AGRUPAR_MS);
+      return _ultimoOk;
+    }
+    /* Dentro de la rafaga: se queda solo la mas nueva. */
+    _pend = estado;
+    return _ultimoOk;
+  }
+
   /* Guarda el estado completo. Devuelve true SOLO si de verdad quedo escrito:
      mock-backend decide con esto si el aviso rojo sale o no, asi que aqui no se
      puede ser optimista. */
@@ -103,5 +134,5 @@
     } catch (_) { return null; }
   }
 
-  window.OCEstadoIDB = { guardar: guardar, leer: leer, espacio: espacio, soportado: SOPORTADO };
+  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardar, leer: leer, espacio: espacio, soportado: SOPORTADO };
 })();

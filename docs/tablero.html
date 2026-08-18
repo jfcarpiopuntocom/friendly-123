@@ -1551,7 +1551,12 @@
         if (o.nombreNegocio) $("neg-nombre").textContent = o.nombreNegocio;
       } catch (_) {}
       ultimoDato = Date.now();
-      modoLocal = true;
+      /* SOLO es modo local si de verdad no hay sala escuchando. Antes esto se
+         quedaba en true para siempre: si el WebSocket se caia despues, el pulso
+         seguia diciendo "desde este dispositivo" aunque los datos hubieran
+         llegado del equipo. Un indicador que miente es peor que no tenerlo
+         (caza de bugs 2026-08-18). */
+      modoLocal = !ws;
       pulso("from this device", "vivo");
       mostrar();
       return true;

@@ -58,6 +58,10 @@
     return vals;
   }
 
+  /* Restaurar dispara input/change por campo para despertar a quien escuchaba.
+     Pero ESTE modulo tambien los escucha, asi que cada restauracion provocaba
+     una tormenta de guardados del borrador recien restaurado. La bandera
+     `restaurando` corta ese lazo (caza de bugs 2026-08-18). */
   function aplicar(cont, vals) {
     Object.keys(vals || {}).forEach(function (id) {
       var el = cont.querySelector("#" + (window.CSS && CSS.escape ? CSS.escape(id) : id));
@@ -129,7 +133,9 @@
     cont.dataset.borradorListo = nombre;
 
     var reloj = null;
+    var restaurando = false;   /* ver aplicar(): no re-guardar lo que se acaba de restaurar */
     var alTeclear = function () {
+      if (restaurando) return;
       clearTimeout(reloj);
       reloj = setTimeout(function () { guardar(nombre, cont); }, RETARDO);
     };
@@ -142,6 +148,38 @@
     document.addEventListener("visibilitychange", alIrse);
     window.addEventListener("pagehide", alIrse);
     window.addEventListener("beforeunload", alIrse);
+
+    /* FUGA DE OYENTES (caza de bugs 2026-08-18). Los tres de arriba son
+       GLOBALES y antes no se soltaban nunca: cada vez que se abria un
+       formulario quedaban tres mas escuchando sobre un contenedor ya muerto.
+       En una jornada de cien altas eran trescientos oyentes guardando el mismo
+       borrador en cada cambio de pestania del telefono.
+
+       No hay un evento de "este nodo se fue", asi que se vigila con
+       MutationObserver: en cuanto el contenedor sale del documento, se sueltan
+       los tres y el observador se desconecta a si mismo. Si el navegador no
+       tiene MutationObserver, se cae a una revision perezosa dentro de los
+       propios listeners, que es peor pero no fuga. */
+    var soltar = function () {
+      try {
+        document.removeEventListener("visibilitychange", alIrse);
+        window.removeEventListener("pagehide", alIrse);
+        window.removeEventListener("beforeunload", alIrse);
+        clearTimeout(reloj);
+        delete cont.dataset.borradorListo;
+      } catch (_) {}
+    };
+    if (typeof MutationObserver === "function") {
+      var vigia = new MutationObserver(function () {
+        if (cont.isConnected) return;
+        soltar();
+        vigia.disconnect();
+      });
+      try { vigia.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
+    } else {
+      var alIrseOriginal = alIrse;
+      alIrse = function () { if (!cont.isConnected) { soltar(); return; } alIrseOriginal(); };
+    }
 
     if (opciones.restaurar === false) return;
     var previo = leer(nombre);
@@ -166,7 +204,13 @@
       '<button type="button" data-borrador-no style="font-size:13px;padding:4px 10px;background:transparent;">' + t("draft.discard", "Start over") + "</button>";
     var si = msg.querySelector("[data-borrador-si]");
     var no = msg.querySelector("[data-borrador-no]");
-    if (si) si.addEventListener("click", function () { aplicar(cont, previo.vals); msg.innerHTML = ""; });
+    if (si) si.addEventListener("click", function () {
+      restaurando = true;
+      try { aplicar(cont, previo.vals); } finally {
+        setTimeout(function () { restaurando = false; }, 0);
+      }
+      msg.innerHTML = "";
+    });
     if (no) no.addEventListener("click", function () { limpiar(nombre); msg.innerHTML = ""; });
   }
 

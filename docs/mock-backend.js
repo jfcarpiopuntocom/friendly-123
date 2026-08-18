@@ -28,6 +28,31 @@
   function hoyISO() {
     return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   }
+  /* BUG DE DINERO (arreglado en amigable-123 el 2026-08-06, portado aqui el
+     2026-08-18 en la caza Hugo/Paco/Luis).
+
+     Las ventas se guardan con `new Date().toISOString()`, que es UTC. Comparar
+     ese texto crudo contra el dia o el mes LOCAL —con .slice(0,10) o
+     .slice(0,7)— es correcto solo en UTC+0. En Ecuador (UTC-5) toda venta
+     hecha despues de las 19:00 ya tiene la fecha del dia siguiente en UTC:
+
+       - desaparecia del "hoy" y reaparecia manana (el cierre de caja no cuadra)
+       - la del ultimo dia del mes caia en la liquidacion del mes SIGUIENTE,
+         o sea la comision se le pagaba a alguien un mes tarde
+
+     Esta funcion traduce un ISO cualquiera al dia LOCAL del negocio. Toda
+     comparacion de fechas tiene que pasar por aqui; ver el guard
+     .claude/guards.sh, que falla si vuelve a aparecer un .slice() sobre una
+     fecha cruda. */
+  function fechaLocalDe(fechaISO) {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(fechaISO));
+    } catch (_) {
+      /* Fecha ilegible: se devuelve el prefijo crudo. Peor que exacto, pero
+         mucho mejor que romper el filtro entero por un dato malo. */
+      return String(fechaISO || "").slice(0, 10);
+    }
+  }
   // Días reales del mes actual (28/29/30/31) — espejo de diasEnMesActual() en server.js.
   function diasEnMesActual() {
     const [anio, mes] = hoyISO().split("-").map(Number);
@@ -647,7 +672,7 @@
 
   // ---- Reparto de comisiones (espejo de data.js) ----
   function mesActualISO() { return hoyISO().slice(0, 7); }
-  function esDelMesActual(fechaISO) { return fechaISO && fechaISO.slice(0, 7) === mesActualISO(); }
+  function esDelMesActual(fechaISO) { return !!fechaISO && fechaLocalDe(fechaISO).slice(0, 7) === mesActualISO(); }
   // Conteo global de ventas del mes actual, TODAS las ubicaciones (free-tier
   // gating, 2026-07-15) — distinto de ventasMesAcumuladas (suma montos por
   // una sola ubicacion, para comisiones). Usado para el tope de 100/mes.
@@ -862,7 +887,7 @@
       mes: { venta: ventaMes, ganancia: +(ventaMes - costoDe(vMes)).toFixed(2), transacciones: vMes.length, meta: liq ? liq.metaMensual : (Number(u.metaMensual) || 0), cumplimiento: liq ? liq.cumplimientoMeta : null },
       historico: { venta: +sumar(vTodas).toFixed(2), transacciones: vTodas.length, ultimaVenta: ultima || null, diasSinVender: ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 864e5) : null },
       masVendidos: masVendidos, dormidos: dormidos,
-      comision: liq ? { pct: liq.pctBase, origen: liq.origenComision, seLlevaElAsociado: liq.comisionSocio, quedaEnCasa: liq.netoDueno, contribFija: liq.contribFija || 0, estado: liq.estado, ventasPendientes: liq.ventasPendientes } : null,
+      comision: liq ? { pct: liq.pctBase, origen: liq.origenComision, seLlevaElAsociado: liq.comisionSocio, quedaEnCasa: liq.netoDueno, estado: liq.estado, ventasPendientes: liq.ventasPendientes } : null,
       asociado: prom ? { id: prom.id, nombre: prom.nombre } : null,
       gastoMensual: Number(gastosMensuales[u.id]) || 0,
       enCamino: enCamino, reservasEvento: 0,
@@ -1054,7 +1079,7 @@
   function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
   // ubicacion; con historial de dias anteriores el resumen del dia mentia.
-  function ventasHoyDe(uid) { const hoy = hoyISO(); return ventas.filter((v) => String(v.fecha).slice(0, 10) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
+  function ventasHoyDe(uid) { const hoy = hoyISO(); return ventas.filter((v) => fechaLocalDe(v.fecha) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
   // Multi-usuario (2026-07-07): cada movimiento captura automaticamente
   // quien estaba logueado (window.OCCurrentUser). Si no hay usuario nombrado
   // (dueno por PIN clasico, sistema) aparece como "Sistema".
