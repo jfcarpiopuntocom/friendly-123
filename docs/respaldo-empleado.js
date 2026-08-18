@@ -13,7 +13,7 @@
  * ----------------------------------------------------------------------------
  * El respaldo del dueno (backup-scheduler.js) protege al NEGOCIO. Este protege
  * a la PERSONA. Si manana hay una discusion sobre cuanto vendio, cuanta
- * comision le toca o que dia trabajo, el empleado tiene su propia copia con
+ * comision le toca o que dia trabajo, el encargado tiene su propia copia con
  * fecha, sellada con el mismo hash encadenado que usa el resto de la app. No
  * depende de que el dueno se la de, ni de tener acceso al dispositivo despues.
  *
@@ -22,10 +22,10 @@
  * INCLUYE   sus ventas (producto, cantidad, precio de venta, fecha), su
  *           comision calculada, sus perchas, y su rastro de actividad.
  * NO INCLUYE costos, margenes, utilidad, gastos del negocio, datos de otros
- *           empleados, claves, ni la lista de clientes completa.
+ *           encargados, claves, ni la lista de clientes completa.
  *
  * Esa linea NO es un detalle de privacidad menor: el costo de compra es la
- * informacion mas sensible de un negocio pequeno. Un empleado que se lleva la
+ * informacion mas sensible de un negocio pequeno. Un encargado que se lleva la
  * lista de costos se lleva el negocio. Al mismo tiempo, negarle su propia
  * constancia de ventas seria abusivo. El corte esta puesto exactamente ahi.
  * Si alguien pide "incluir tambien el costo para que cuadre", la respuesta es
@@ -71,10 +71,10 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Preferencias propias del empleado
+  // Preferencias propias del encargado
   // ---------------------------------------------------------------------------
   // A proposito NO se reutiliza oc_backup_prefs_v1: ese es el correo del DUENO.
-  // Mandar el respaldo del empleado al correo del dueno seria justo lo contrario
+  // Mandar el respaldo del encargado al correo del dueno seria justo lo contrario
   // de lo que este archivo existe para lograr.
   function getPrefs() {
     var base = { email: "", whatsapp: "", canalEmail: true, canalWhatsapp: false };
@@ -131,7 +131,7 @@
     }
 
     // Ventas del periodo. Nota honesta sobre el alcance: hoy una venta no
-    // guarda el id del empleado que la registro, asi que el paquete cubre las
+    // guarda el id del encargado que la registro, asi que el paquete cubre las
     // ventas del periodo en las perchas donde trabajo. Cuando las ventas lleven
     // vendedorId (viene con el micelio), este filtro se vuelve exacto: cambiar
     // la condicion de abajo por v.vendedorId === quien.id y actualizar el aviso
@@ -256,7 +256,7 @@
     );
     if (resultado === "cancelado") return;
 
-    // Queda registrado como hecho: que un empleado se lleve su constancia es
+    // Queda registrado como hecho: que un encargado se lleve su constancia es
     // parte de la historia del negocio y el dueno debe poder verlo en el log.
     // Se registra el ACTO, nunca el contenido del paquete.
     try {
@@ -273,7 +273,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // UI — se monta en Avanzado cuando quien mira es empleado
+  // UI — se monta en Avanzado cuando quien mira es encargado
   // ---------------------------------------------------------------------------
   var PERIODOS = [
     { key: "mes", label: T("emp.periodMonth"), dias: 30 },

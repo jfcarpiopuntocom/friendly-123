@@ -176,7 +176,7 @@
     const seccion = document.getElementById('vista-perchas');
     const grid = document.getElementById('vp-grid');
     const existente = document.getElementById('vp-btn-agregar');
-    if (!esDueno) { if (existente) existente.remove(); return; } // empleado/demo: sin botón
+    if (!esDueno) { if (existente) existente.remove(); return; } // encargado/demo: sin botón
     if (existente || !seccion || !grid) return;
     const btnAgregar = document.createElement('button');
     btnAgregar.id = 'vp-btn-agregar';

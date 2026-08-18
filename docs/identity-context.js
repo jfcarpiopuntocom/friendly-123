@@ -7,7 +7,7 @@
  *
  *   - localStorage["amigable_owned"]  → { instanceId, licenseCode, licenseEstado }
  *     (fuente: mock-backend.js y avanzado-extra.js la leen así)
- *   - window.OCCurrentUser            → { id, nombre } del empleado logueado
+ *   - window.OCCurrentUser            → { id, nombre } del encargado logueado
  *     con su PIN (fuente: mock-backend.js mov() la usa como usuarioId)
  *   - window.OCAuth.rolActual()       → rol activo (fuente: avanzado-extra.js)
  *   - localStorage["oc_device_id"]    → id de dispositivo (avanzado-extra.js)
@@ -109,6 +109,6 @@
   };
 
   if (global.console && global.console.info) {
-    global.console.info("[AMG.IdentityContext] activo — logs y auditoría atados a licencia/empleado/dispositivo.");
+    global.console.info("[AMG.IdentityContext] activo — logs y auditoría atados a licencia/encargado/dispositivo.");
   }
 })(typeof window !== "undefined" ? window : this);

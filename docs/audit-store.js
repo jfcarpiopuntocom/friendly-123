@@ -6,7 +6,7 @@
  * con buffer acotado). Este store no se poda automáticamente: existe para
  * poder reconstruir "quién hizo qué, cuándo, dónde y con qué resultado" a
  * largo plazo. Responde en el futuro (sin tocar este archivo, solo
- * consultando lo ya guardado): qué empleados ajustan más stock, qué
+ * consultando lo ya guardado): qué encargados ajustan más stock, qué
  * sucursales tienen más errores, qué funciones nunca se usan, cuánto tarda
  * una venta, qué productos requieren correcciones frecuentes, etc.
  *

@@ -1,8 +1,8 @@
 // help-ui.js — Enlace de ayuda "Ayuda(?)" bajo el botón Salir del header (NO
 // es un botón flotante estilo chat/WhatsApp — JFC lo pidió explícitamente
 // discreto, parte del header, no una burbuja llamativa). Contenido DISTINTO
-// según el rol activo (dueño vs empleado): el dueño necesita entender todo
-// el sistema (capa contable, claves, gastos); el empleado solo necesita lo
+// según el rol activo (dueño vs encargado): el dueño necesita entender todo
+// el sistema (capa contable, claves, gastos); el encargado solo necesita lo
 // operativo del día a día (escanear, vender, leer el semáforo). Depende de
 // auth-ui.js (escucha el evento "oc-login" para saber qué rol mostrar y para
 // encontrar el botón #oc-logout, debajo del cual se inserta este enlace).
@@ -192,7 +192,7 @@
   `;
 
   const AYUDA_EMPLEADO_ES = `
-    <span class="rolTag">Guía del empleado/a</span>
+    <span class="rolTag">Guía del encargado/a</span>
     <h3>Los colores te dicen qué está pasando</h3>
     <ul>
       <li><b style="color:#00C87A;">Verde</b>: bien. <b style="color:#E8A020;">Dorado</b>: plata esperando. <b style="color:#F97316;">Naranja</b>: avisa al dueño pronto. <b style="color:#E8365D;">Rojo</b>: avisa ya.</li>

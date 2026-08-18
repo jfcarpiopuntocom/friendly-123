@@ -1,6 +1,6 @@
 // AMIGABLE — Cliente de sincronizacion en tiempo real (2026-07-23)
 // ============================================================================
-// QUE HACE: en cuanto el dueño se licencia (automatico) o un empleado escribe
+// QUE HACE: en cuanto el dueño se licencia (automatico) o un encargado escribe
 // UNA vez el codigo del negocio ("Unirme a mi equipo"), este dispositivo
 // queda sincronizado 24/7 PARA SIEMPRE — no es un modo evento que se prende
 // y apaga. Las VENTAS, AJUSTES, ANULACIONES y TRANSFERENCIAS de stock hechas

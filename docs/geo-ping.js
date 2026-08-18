@@ -3,7 +3,7 @@
  * ============================================================================
  * QUE ES ESTO
  * ----------------------------------------------------------------------------
- * Mientras un empleado/dueño/admin tiene sesión abierta, este archivo guarda
+ * Mientras un encargado/dueño/admin tiene sesión abierta, este archivo guarda
  * un "ping" cada 15 minutos: {pin, deviceId, ts, lat, lon, precision, fuente}.
  * Sirve para coordinar equipos y verificar cumplimiento — saber si alguien
  * estuvo donde debía estar, sin ser invasivo: 15 minutos da margen humano
@@ -58,7 +58,7 @@
 
   // ---------------------------------------------------------------------------
   // Identidad de quien esta en sesion ("pin" del spec de JFC — en la practica
-  // usamos el id del empleado logueado, o el rol para dueño/admin/contador,
+  // usamos el id del encargado logueado, o el rol para dueño/admin/contador,
   // que no tienen un id de usuario nombrado).
   // ---------------------------------------------------------------------------
   function identidadActual() {
@@ -356,7 +356,7 @@
   // de avanzado-extra.js (ese archivo queda sin tocar, checksum intacto).
   // Sin mapa embebido a proposito: un link a Google Maps por ping evita
   // sumar una libreria de mapas nueva solo para esto. Solo dueño/admin ven
-  // el panel — es informacion del equipo, no de un empleado sobre si mismo.
+  // el panel — es informacion del equipo, no de un encargado sobre si mismo.
   // ---------------------------------------------------------------------------
   function escHtmlGeo(s) {
     try { if (global.escHtml) return global.escHtml(s); } catch (_) {}
@@ -425,8 +425,8 @@
   // Blindaje (misma sesion de bugs, JFC 2026-07-28): el panel debe
   // MONTARSE una sola vez pero su VISIBILIDAD se re-evalua en cada cambio
   // de sesion — si no, un dueño que cierra sesion y le pasa el mismo
-  // dispositivo a un empleado dejaria el panel del equipo completo visible
-  // para ese empleado, que es exactamente el tipo de fuga de datos entre
+  // dispositivo a un encargado dejaria el panel del equipo completo visible
+  // para ese encargado, que es exactamente el tipo de fuga de datos entre
   // roles que este proyecto blinda en todos lados (ver body.rol-empleado
   // en auth-ui.js). Se re-chequea el rol, nunca se asume que "montado"
   // significa "debe seguir visible".

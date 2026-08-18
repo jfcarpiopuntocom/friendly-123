@@ -11,7 +11,7 @@
  * cero llamadas externas y la PWA debe funcionar offline. No hay CDN aquí.
  *
  * MODO RESTRINGIDO (privacidad por rol, pedido de JFC el mismo día): esta es
- * la capa de proyección genérica para "el empleado ve búsquedas parciales,
+ * la capa de proyección genérica para "el encargado ve búsquedas parciales,
  * nunca la lista completa". La política de QUIÉN entra en modo restringido
  * la decide cada pantalla que llama a este componente (igual que ya decide
  * `esDueno` hoy) — este archivo solo IMPLEMENTA la restricción, no decide
@@ -90,7 +90,7 @@
    *           decide si cachea o refetch; este componente NO guarda copia
    *           propia de los datos entre pintadas, evita datos viejos).
    *  renderFila(item): (item) => string HTML de una fila/tarjeta.
-   *  restringido: bool — modo empleado (busqueda obligatoria + tope).
+   *  restringido: bool — modo encargado (busqueda obligatoria + tope).
    *  minCaracteres: minimo de caracteres para mostrar algo en modo restringido (default 2).
    *  limite: tope de resultados en modo restringido (default 8).
    *  placeholderBusqueda, mensajeVacio, mensajeRestringido: copy opcional.

@@ -20,7 +20,7 @@
     en: {
       // Ojito ver/no ver en campos de password + aviso de modulo cargando
       // (homologado de AMIGABLE, 2026-07-28).
-      // Puntos de retorno + constancia del empleado + edutips
+      // Puntos de retorno + constancia del encargado + edutips
       // (micelio Fase B, homologado de AMIGABLE 2026-07-28).
       "rec.title": "Restore points",
       "rec.intro": "The app saves a full copy of your business every day, here on your device. If something gets deleted or stops adding up, you can go back to how it was. No copy replaces another: they add up.",
@@ -493,7 +493,7 @@
       "auth.roleChip.accountant": "accountant",
     },
     es: {
-      // Puntos de retorno + constancia del empleado + edutips
+      // Puntos de retorno + constancia del encargado + edutips
       // (micelio Fase B, homologado de AMIGABLE 2026-07-28).
       "rec.title": "Puntos de retorno",
       "rec.intro": "La app guarda sola una copia completa de tu negocio cada d\u00eda, aqu\u00ed en tu dispositivo. Si algo se borra o se descuadra, puedes volver a como estaba. Ninguna copia reemplaza a otra: se suman.",
@@ -652,7 +652,7 @@
       "cust.importHeading": "Importar tu cartera desde un archivo",
       "cust.importIntro": "Si ya tienes tus clientes en Excel o en el telefono, guarda el archivo como <strong>CSV</strong> con dos columnas, <strong>nombre</strong> y <strong>telefono</strong>, y subelo aqui. Cada uno recibe su codigo unico automaticamente; los repetidos (mismo nombre) se saltan.",
       "comm.heading": "Comisiones",
-      "comm.intro": "Lo que le debes a cada promotor/a este mes, calculado venta por venta — sin Excel, sin sorpresas.",
+      "comm.intro": "Lo que le debes a cada asociado/a este mes, calculado venta por venta — sin Excel, sin sorpresas.",
       "adv.heading": "Modo avanzado",
       "adv.notice": "Aquí vive el detalle técnico del negocio: actividad, gastos, y la capa contable (cuentas T, P&amp;G, balance e inventario valorizado). No es para el día a día — es para el contador, el administrador o quien quiera ver los números a fondo. Por eso la parte contable pide una subclave aparte.",
       "adv.recentActivity": "Actividad reciente",
@@ -700,7 +700,7 @@
       "auth.join.unavailable": "Sincronización no disponible en este dispositivo.",
       "auth.join.success": "¡Listo! Tu celular ya está sincronizado con el equipo.",
       "sync.panel.title": "Sincronizar equipo",
-      "sync.panel.body": "Todos los dispositivos de tu equipo (dueño, admins, empleados) que tengan el código de tu negocio quedan sincronizados en segundos, siempre — no solo en ferias. Ventas, ajustes y transferencias de stock se avisan entre todos al instante, para que nadie venda las mismas últimas unidades sin saberlo.",
+      "sync.panel.body": "Todos los dispositivos de tu equipo (dueño, admins, encargados) que tengan el código de tu negocio quedan sincronizados en segundos, siempre — no solo en ferias. Ventas, ajustes y transferencias de stock se avisan entre todos al instante, para que nadie venda las mismas últimas unidades sin saberlo.",
       "sync.panel.privacy": "Tus datos solo viajan cifrados entre los dispositivos de tu propio equipo. Nunca llegan a AMIGABLE-123 ni a nadie más — ni siquiera nosotros podemos leerlos.",
       "sync.panel.codePlaceholder": "Código de tu negocio (F123-XXXX-XXXX)",
       "sync.panel.activate": "Activar",
@@ -812,7 +812,7 @@
       "customer.lastUnits": "Últimas unidades",
       "customer.soldOut": "Agotado",
       "customer.backTitle": "← Volver a mi vista",
-      "customer.autoReturn": "Volviendo a la vista del empleado en {n}s…",
+      "customer.autoReturn": "Volviendo a la vista del encargado en {n}s…",
       "ficha.code": "Código:",
       "ficha.supplier": "Proveedor:",
       "ficha.currentStock": "Stock actual:",
@@ -824,7 +824,7 @@
       "form.barcodeLabel": "Código de barras / interno",
       "form.barcodePlaceholder": "Escanea o escribe el código",
       "form.category": "Categoría",
-      "form.categoryPlaceholder": "Ej: Licores",
+      "form.categoryPlaceholder": "Ej: Bar",
       "form.salePrice": "Precio venta",
       "form.cost": "Costo",
       "form.initialStock": "Stock inicial",
@@ -888,7 +888,7 @@
       "shelves.couldNotCreate": "No se pudo crear la percha.",
       "bcg.heading": "Matriz BCG de tu inventario",
       "bcg.intro": "Ventas de los últimos 60 días. Derecha: venden más que el promedio. Arriba: van creciendo.",
-      "comm.rankingHeading": "Ranking de promotores/as",
+      "comm.rankingHeading": "Ranking de asociados/as",
       "comm.sendWhatsappDaily": "Enviar resumen de hoy por WhatsApp",
       "weekly.sendWhatsapp": "Enviar resumen de la semana por WhatsApp",
       "weekly.nudgeTitle": "¿Enviarte el resumen de esta semana por WhatsApp?",
