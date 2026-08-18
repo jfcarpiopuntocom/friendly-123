@@ -76,6 +76,26 @@ destruir datos; en ese caso se muestra y se sigue con todo lo demás.
 
 Pushear siempre. Nunca dejar commits sin subir.
 
+## REGLA 2d — YO CIERRO EL CICLO. NADA QUEDA A MEDIAS
+
+> "no entiendo por qué he tenido que pedirte unas 80 veces que no hagas esto
+> 'los 3 PR siguen en borrador esperando tu decisión' (...) yo no si quiera sé
+> lo que es un PR ni debo necesitar saber" — JFC, 2026-08-18
+
+**Nunca** dejar trabajo terminado esperando una decisión suya sobre mecánica de
+git. JFC no tiene que saber qué es un PR, una rama o un merge, y no se le
+pregunta. El ciclo completo es responsabilidad mía:
+
+1. Respaldo local abundante (`snapshot.sh`: rama fechada + tar + sha256).
+2. Commit y push.
+3. Sacar el PR de borrador y **mergearlo** a la rama principal.
+4. Verificar que quedó mergeado y que no rompió nada.
+
+Se merge cuando está **verde y comprobado**, no antes: mergear código sin
+verificar sería lo contrario de profesional. Pero el merge no espera su permiso,
+espera la comprobación. Si algo no se puede mergear, se dice POR QUÉ en una
+línea y se arregla — no se deja en el limbo.
+
 ## REGLA 3 — BITÁCORA
 
 Registrar los prompts de JFC en `PROMPTS-Y-BITACORA.md`: textuales, fechados, y
