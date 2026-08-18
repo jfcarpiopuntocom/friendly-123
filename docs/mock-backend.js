@@ -705,10 +705,170 @@
         estado: ventasMes.length === 0 ? "sin ventas" : pendientes.length === 0 ? "pagado" : "pendiente",
         ventasPendientes: pendientes.length, detallePendientes,
         diasSinVenta, promotorNombre: prom ? prom.nombre : null,
+        promotoraId: u.promotoraId || null,
+        asociadoNombre: prom ? prom.nombre : null,
+        /* LAS DOS LECTURAS DEL MISMO REPARTO (JFC 2026-08-18). El asociado
+           piensa "me llevo el 85"; la casa piensa "retengo el 15". Es el mismo
+           numero y las dos frases son correctas, asi que se mandan las dos y
+           nadie tiene que restar de cabeza.
+
+           pctBase es lo CONFIGURADO; pctEfectivo es lo que de verdad se
+           aplico, derivado de la plata repartida. Pueden diferir por las
+           escalas por meta o porque alguien corrigio una comision en
+           retrospectiva — mostrar solo el configurado hacia que la liquidacion
+           dijera 10% al lado de una plata repartida al 85%. */
+        pctBase: Number(u.comisionSocio) || 0,
+        pctQuedaEnCasa: +(100 - (Number(u.comisionSocio) || 0)).toFixed(2),
+        pctEfectivo: ventasBrutas > 0 ? +((comisionSocio / ventasBrutas) * 100).toFixed(2) : (Number(u.comisionSocio) || 0),
+        modalidad: (Number(u.comisionSocio) || 0) >= 50 ? "artista" : "vendedor",
+        contribFija: 0,
+        /* Ventas de este mes cuyo % se corrigio despues: quien liquida tiene que
+           verlo, porque el papel que imprimio la semana pasada decia otra cosa. */
+        ventasCorregidas: ventasMes.filter((v) => v.split && v.split.corregida).length,
       };
     });
   }
   // ---- Inventario compartido (espejo de data.js) ----
+  /* =========================================================================
+     CORREGIR UNA COMISION YA REGISTRADA (portado de amigable-123, 2026-08-18)
+     =========================================================================
+     El % se congelaba al vender. Si estaba mal configurado —que pasa: es un
+     numero que se teclea una vez y se usa cien— la unica salida era anular
+     ventas reales para rehacerlas, o sea ensuciar el historial para arreglar un
+     dato. Aqui se recalcula el reparto y queda constancia de lo que decia
+     antes: ese historial es justo lo que evita las discusiones de fin de mes,
+     asi que una correccion se SUMA, no reemplaza.
+
+     Solo se toca el reparto. El monto, el producto, el stock y la fecha no se
+     mueven: eso seria otra cosa y tiene su propio camino (anular).
+     ========================================================================= */
+  function corregirComisionVenta(ventaId, pctNuevo, quien, motivo) {
+    const v = ventas.find((x) => x.id === ventaId);
+    if (!v) return { error: "That sale no longer exists.", status: 404 };
+    if (!v.split) return { error: "This sale doesn't split a commission with anyone: it was made on an owned shelf.", status: 400 };
+    /* null, undefined o "" NO son 0%: son "no mandaste el dato", y Number() los
+       convierte en 0 alegremente. Dejar pasar eso pondria la comision de
+       alguien en cero por un campo vacio. El 0% escrito a proposito si vale. */
+    if (pctNuevo === null || pctNuevo === undefined || pctNuevo === "") return { error: "The new percentage is missing.", status: 400 };
+    const pct = Number(pctNuevo);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return { error: "The percentage must be between 0 and 100.", status: 400 };
+
+    const bruto = Number(v.split.montoBruto) || 0;
+    const antes = { comisionPct: v.split.comisionPct, montoComisionSocio: v.split.montoComisionSocio, montoNetoDueno: v.split.montoNetoDueno };
+    const comision = +(bruto * (pct / 100)).toFixed(2);
+
+    v.split.comisionPct = pct;
+    v.split.montoComisionSocio = comision;
+    v.split.montoNetoDueno = +(bruto - comision).toFixed(2);
+    /* Marca permanente: esta venta ya no dice lo que dijo el dia que se hizo, y
+       quien la mire dentro de seis meses tiene derecho a saberlo. */
+    v.split.corregida = true;
+    v.split.correcciones = Array.isArray(v.split.correcciones) ? v.split.correcciones : [];
+    v.split.correcciones.push({
+      fecha: new Date().toISOString(),
+      quien: String(quien || "").trim().slice(0, 80) || "unidentified",
+      motivo: String(motivo || "").trim().slice(0, 200),
+      antes: antes,
+      despues: { comisionPct: pct, montoComisionSocio: comision, montoNetoDueno: v.split.montoNetoDueno },
+    });
+
+    mov("comision-corregida", { ventaId: v.id, ubicacion: nombreUbic(v.ubicacionId), pctAntes: antes.comisionPct, pctAhora: pct, diferencia: +(comision - antes.montoComisionSocio).toFixed(2), motivo: String(motivo || "").slice(0, 200) });
+    guardarEstadoLocal();
+    return { ok: true, venta: { id: v.id, fecha: v.fecha, split: v.split } };
+  }
+
+  /* Corregir de golpe TODAS las del mes en una percha. Cuando el % se configuro
+     mal, casi nunca esta mal una venta: estan mal las treinta del mes. */
+  function corregirComisionesDelMes(ubicacionId, pctNuevo, quien, motivo, soloPendientes) {
+    const objetivo = ventas.filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha) && v.split && (!soloPendientes || !v.liquidada));
+    if (!objetivo.length) return { error: "No commissioned sales this month on that shelf.", status: 400 };
+    const res = objetivo.map((v) => corregirComisionVenta(v.id, pctNuevo, quien, motivo));
+    const malas = res.filter((r) => r.error);
+    if (malas.length === res.length) return malas[0];
+    return { ok: true, corregidas: res.length - malas.length, fallidas: malas.length };
+  }
+
+  /* =========================================================================
+     PANORAMA DE UNA PERCHA — todo lo que cuelga de ella, en una llamada
+     =========================================================================
+     JFC: "somos la app cuya unidad basica es la percha a diferencia de otras
+     que solo permiten manejar locales". Abrir una percha mostraba su lista de
+     productos y poco mas: para saber cuanto vale lo que hay, cuanto vendio, a
+     quien se le debe o que viene en camino habia que recorrer cuatro pantallas
+     y sumar de cabeza.
+
+     Se arma aqui y no en la UI a proposito: es la misma cuenta que ya hacen
+     getLiquidaciones() y el dashboard, y tenerla en un solo lugar es lo que
+     evita que tres pantallas muestren tres numeros distintos del mismo negocio.
+     ========================================================================= */
+  function getPanoramaPercha(ubicacionId) {
+    const u = ubicaciones.find((x) => x.id === ubicacionId);
+    if (!u) return null;
+    const prods = productos.filter((p) => p.ubicacionId === ubicacionId);
+
+    let valorCosto = 0, valorVenta = 0, unidades = 0;
+    const porEstado = { rojo: 0, naranja: 0, amarillo: 0, verde: 0, negro: 0, azul: 0 };
+    prods.forEach((p) => {
+      const st = Number(p.stockActual) || 0;
+      unidades += st;
+      valorCosto += (Number(p.costo) || 0) * st;
+      valorVenta += (Number(p.precio) || 0) * st;
+      const e = estadoDe(p).estado;
+      if (porEstado[e] === undefined) porEstado[e] = 0;
+      porEstado[e]++;
+    });
+
+    const vMes = ventas.filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha));
+    const vTodas = ventas.filter((v) => v.ubicacionId === ubicacionId);
+    const sumar = (arr) => arr.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1), 0);
+    const costoDe = (arr) => arr.reduce((a, v) => a + (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 1), 0);
+    const ventaMes = +sumar(vMes).toFixed(2);
+    const ultima = vTodas.reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
+
+    const porProducto = {};
+    vMes.forEach((v) => {
+      const k = v.productoId;
+      if (!porProducto[k]) porProducto[k] = { productoId: k, unidades: 0, monto: 0 };
+      porProducto[k].unidades += Number(v.cantidad) || 1;
+      porProducto[k].monto += (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
+    });
+    const masVendidos = Object.values(porProducto).map((g) => {
+      const p = productos.find((x) => x.id === g.productoId);
+      return { nombre: p ? p.nombre : "(deleted product)", unidades: g.unidades, monto: +g.monto.toFixed(2) };
+    }).sort((a, b) => b.monto - a.monto).slice(0, 5);
+    /* Dormidos: hay stock y NO se vendio nada este mes. Es plata quieta, y es el
+       numero por el que se abre una percha mas veces que por ningun otro. */
+    const dormidos = prods.filter((p) => (Number(p.stockActual) || 0) > 0 && !porProducto[p.id])
+      .map((p) => ({ nombre: p.nombre, stock: p.stockActual, inmovilizado: +((Number(p.costo) || 0) * (Number(p.stockActual) || 0)).toFixed(2) }))
+      .sort((a, b) => b.inmovilizado - a.inmovilizado).slice(0, 5);
+
+    const liq = getLiquidaciones().find((l) => l.ubicacionId === ubicacionId) || null;
+    const prom = u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
+
+    const enCamino = transferencias.filter((t) => (t.estado === "en_transito" || t.estado === "solicitada") && (t.ubicacionOrigenId === ubicacionId || t.ubicacionDestinoId === ubicacionId))
+      .map((t) => ({
+        id: t.id, estado: t.estado, cantidad: t.cantidad,
+        producto: (productos.find((p) => p.id === t.productoOrigenId) || productos.find((p) => p.id === t.productoDestinoId) || {}).nombre || "(product)",
+        sentido: t.ubicacionDestinoId === ubicacionId ? "entra" : "sale",
+        contraparte: nombreUbic(t.ubicacionDestinoId === ubicacionId ? t.ubicacionOrigenId : t.ubicacionDestinoId),
+      }));
+
+    return {
+      id: u.id, nombre: u.nombre, tipo: u.tipo || "propio", activa: u.activa !== false,
+      esEvento: !!u.esEvento, esFeria: !!u.esFeria,
+      sucursalId: u.sucursalId || null,
+      sucursalNombre: (sucursales.find((x) => x.id === u.sucursalId) || {}).nombre || null,
+      inventario: { productos: prods.length, unidades: unidades, valorCosto: +valorCosto.toFixed(2), valorVenta: +valorVenta.toFixed(2), gananciaLatente: +(valorVenta - valorCosto).toFixed(2), porEstado: porEstado },
+      mes: { venta: ventaMes, ganancia: +(ventaMes - costoDe(vMes)).toFixed(2), transacciones: vMes.length, meta: liq ? liq.metaMensual : (Number(u.metaMensual) || 0), cumplimiento: liq ? liq.cumplimientoMeta : null },
+      historico: { venta: +sumar(vTodas).toFixed(2), transacciones: vTodas.length, ultimaVenta: ultima || null, diasSinVender: ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 864e5) : null },
+      masVendidos: masVendidos, dormidos: dormidos,
+      comision: liq ? { pct: liq.pctBase, origen: liq.origenComision, seLlevaElAsociado: liq.comisionSocio, quedaEnCasa: liq.netoDueno, contribFija: liq.contribFija || 0, estado: liq.estado, ventasPendientes: liq.ventasPendientes } : null,
+      asociado: prom ? { id: prom.id, nombre: prom.nombre } : null,
+      gastoMensual: Number(gastosMensuales[u.id]) || 0,
+      enCamino: enCamino, reservasEvento: 0,
+    };
+  }
+
   function estadoSimple(p) { if (p.stockActual <= 0) return "rojo"; if (p.stockActual <= p.umbralRojo) return "rojo"; if (p.stockActual <= p.umbralAmarillo) return "amarillo"; return "verde"; }
   // Multi-percha real (homologado de AMIGABLE, 2026-07-23): el mismo SKU
   // vive como filas separadas por percha; esto las hace visibles y da una
@@ -889,7 +1049,7 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", comisionProveedorPct: p.comisionProveedorPct || 0, otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", comisionProveedorPct: p.comisionProveedorPct || 0, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
   }
   function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
@@ -1098,8 +1258,14 @@
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "La fecha de caducidad no es válida (usa AAAA-MM-DD)." }, 400);
-        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
-        CAMPOS.forEach((k) => { if (body[k] !== undefined) p[k] = (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") ? Number(body[k]) || 0 : body[k]; });
+        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
+        CAMPOS.forEach((k) => {
+      if (body[k] === undefined) return;
+      if (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
+      if (k === "chip") { p[k] = String(body[k] || "").trim().slice(0, 12); return; }
+      if (k === "perecible") { p[k] = !!body[k]; return; }
+      p[k] = body[k];
+    });
         mov("edicion", { producto: p.nombre, sku: p.sku, ubicacion: nombreUbic(p.ubicacionId) });
         return J(ficha(p));
       }
@@ -1433,6 +1599,21 @@
       }
 
       if (path === "/api/liquidaciones") return J(getLiquidaciones());
+    if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/panorama$/))) {
+      const pan = getPanoramaPercha(m[1]);
+      if (!pan) return J({ error: "Shelf not found." }, 404);
+      return J(pan);
+    }
+    if ((m = path.match(/^\/api\/ventas\/([^/]+)\/comision$/)) && opts && opts.method === "PATCH") {
+      const r = corregirComisionVenta(m[1], body.comisionPct, body.quien, body.motivo);
+      if (r.error) return J({ error: r.error }, r.status || 400);
+      return J(r);
+    }
+    if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/comisiones-del-mes$/)) && opts && opts.method === "PATCH") {
+      const r = corregirComisionesDelMes(m[1], body.comisionPct, body.quien, body.motivo, body.soloPendientes !== false);
+      if (r.error) return J({ error: r.error }, r.status || 400);
+      return J(r);
+    }
       if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/))) {
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Ubicación no encontrada." }, 404);
         const pend = ventas.filter((v) => v.ubicacionId === m[1] && esDelMesActual(v.fecha) && !v.liquidada);
@@ -1550,7 +1731,38 @@
       // Unidades vendidas HOY por producto (el cierre del dia las muestra
       // como referencia: lo tecleado ahi es ADICIONAL, jamas se pre-carga
       // como cantidad — eso duplicaria ventas al aplicar).
-      if (path === "/api/ventas/hoy") {
+      if (path === "/api/ventas/todas") {
+      /* Solo lectura, ya enriquecida con nombres: la arma el backend para que
+         el tablero no tenga que cruzar tablas por su cuenta (que es como dos
+         pantallas terminan mostrando dos numeros distintos del mismo negocio).
+         Portado desde amigable-123 (JFC 2026-08-18). */
+      return J(ventas.filter((v) => !uid || uid === "todas" || v.ubicacionId === uid).map((v) => {
+        const p = productos.find((x) => x.id === v.productoId);
+        const c = clientes.find((x) => x.id === v.clienteId);
+        const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+        const pr = u && u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
+        return {
+          id: v.id, fecha: v.fecha,
+          productoNombre: p ? p.nombre : "(deleted product)",
+          sku: p ? p.sku : "", categoria: p ? p.categoria : "",
+          cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit || 0,
+          clienteNombre: c ? c.nombre : "",
+          ubicacionId: v.ubicacionId, ubicacionNombre: nombreUbic(v.ubicacionId),
+          tipoProducto: p ? (p.tipoProducto || "normal") : "normal",
+          eventoNombre: (v.info && v.info.nombreEvento) || "",
+          eventoFecha: (v.info && v.info.fechaEvento) || "",
+          eventoPersonas: (v.info && v.info.numPersonas) || null,
+          pagador: (v.info && v.info.nombrePagador) || "",
+          comisionPct: v.split ? v.split.comisionPct : null,
+          comisionAsociado: v.split ? v.split.montoComisionSocio : 0,
+          netoCasa: v.split ? v.split.montoNetoDueno : null,
+          comisionCorregida: !!(v.split && v.split.corregida),
+          liquidada: !!v.liquidada,
+          asociadoNombre: pr ? pr.nombre : "",
+        };
+      }));
+    }
+    if (path === "/api/ventas/hoy") {
         const agregado = {};
         ventasHoyDe(uid).forEach((v) => { agregado[v.productoId] = (agregado[v.productoId] || 0) + v.cantidad; });
         return J(agregado);
