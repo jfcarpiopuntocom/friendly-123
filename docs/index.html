@@ -1883,6 +1883,9 @@ async function cargarGridVender(){
   if (!Array.isArray(productos)) return;
   window._productosVenderCache = productos;
   productos.sort((a, b) => (b.estrella - a.estrella) || a.nombre.localeCompare(b.nombre));
+  /* Las categorias del pulldown salen de los productos REALES del negocio, no
+     de una lista fija: las suyas van primero porque son las que va a repetir. */
+  try { if (window.OCCategorias) window.OCCategorias.refrescar(productos); } catch (_) {}
   grid.innerHTML = productos.map(p => {
     const sinStock = p.stockActual <= 0;
     const visual = p.foto
@@ -3632,6 +3635,16 @@ function mostrarFormNuevoProducto(codigoEscaneado){
   document.getElementById("np-perecible").addEventListener("change", (e) => {
     document.getElementById("np-fecha-wrap").style.display = e.target.checked ? "block" : "none";
   });
+  /* Categoria como combo mixto: se elige de la lista o se escribe otra. */
+  try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
+  /* Nada tecleado se pierde: si se va la luz, se toca "atras" o el telefono
+     manda la app al fondo, lo escrito sigue aqui al volver. Ver borradores.js. */
+  try {
+    if (window.OCBorradores) {
+      const _c = document.getElementById("np-nombre");
+      if (_c) window.OCBorradores.enganchar(_c.closest(".ficha-producto"), "alta-producto", { msgId: "np-msg" });
+    }
+  } catch (_) {}
 }
 
 async function crearProductoNuevo(codigoEscaneado){
@@ -3664,6 +3677,8 @@ async function crearProductoNuevo(codigoEscaneado){
     return;
   }
   if (!res.ok){ msg.style.color = "var(--rojo)"; msg.textContent = data.error; return; }
+  // Guardado de verdad: el borrador ya cumplio y estorbaria en el proximo alta.
+  try { if (window.OCBorradores) window.OCBorradores.limpiar("alta-producto"); } catch (_) {}
   pintarFicha(data);
 }
 
@@ -3742,6 +3757,7 @@ async function mostrarFormEditarProducto(id){
         <button onclick="abrirFichaDesdeInventario('${p.id}')">${t("motivo.cancel")}</button>
       </div>
     </div>`;
+  try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("ed-categoria")); } catch (_) {}
   document.getElementById("ed-tipo-proveedor").addEventListener("change", (e) => {
     document.getElementById("ed-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
   });
@@ -3888,6 +3904,16 @@ async function abrirAltaProducto(){
   document.getElementById("np-tipo-proveedor").addEventListener("change", (e) => {
     document.getElementById("np-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
   });
+  try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
+  /* Mismo borrador que el formulario de Escanear: son el MISMO alta con dos
+     puertas de entrada, asi que comparten clave y lo empezado en una se
+     recupera en la otra. */
+  try {
+    if (window.OCBorradores) {
+      const _c = document.getElementById("np-nombre");
+      if (_c) window.OCBorradores.enganchar(_c.closest(".ficha-producto"), "alta-producto", { msgId: "np-msg" });
+    }
+  } catch (_) {}
   modal.classList.add("activo");
 }
 
@@ -4871,6 +4897,7 @@ setTimeout(() => {
      percha en IndexedDB en vez de localStorage. -->
 <script src="./idb-fotos.js"></script>
 <script src="./idb-archivo.js"></script>
+<script src="./borradores.js"></script>
 <script src="./vista-perchas.js"></script>
 <script src="./welcome-ui.js"></script>
 <script src="./tutorial-ui.js"></script>

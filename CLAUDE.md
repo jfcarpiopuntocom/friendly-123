@@ -51,7 +51,24 @@ El trabajo es local. Se commitea y se pushea seguido — no un commit gigante al
 final. Cada paso que queda verde se pushea. Nada se queda sólo en el disco de
 un contenedor que se recicla.
 
-## REGLA 2b — NO PARAR
+## REGLA 2b — NO PARAR (texto de JFC, 2026-08-18)
+
+> "no tengo permitido ser estupido, y debo ser util, no alucinar, no asumir, no
+> parar y arruinarle su dia a JFC, no dejar sin pushear idiotamente, no dejar de
+> poner el plan de trabajo siempre en el chat antes de hacer para que JFC retome
+> en otra sesion o PC o incluso cuenta de Claude"
+
+Desglosado, porque cada parte tiene su forma de fallar:
+
+- **No parar.** En modo auto, con el plan aprobado, se sigue hasta terminar. NO
+  se corta a mitad para resumir avances ni para pedir permiso otra vez. JFC deja
+  esto corriendo justo para no estar pendiente de la PC.
+- **El plan SIEMPRE en el chat antes de hacer.** No sólo en un `.md`. Tiene que
+  poder retomar desde otra sesión, otra PC u otra cuenta de Claude leyendo el
+  chat.
+- **Nunca dejar sin pushear.** Cada paso que queda verde se pushea.
+- **No asumir, no alucinar.** Si un dato se puede medir, se mide. Lo que no se
+  comprobó se dice que no se comprobó.
 
 JFC deja trabajo corriendo de noche. No detenerse a pedir permiso a mitad de
 una tarea aprobada. Se para sólo si hay una contradicción real que puede
