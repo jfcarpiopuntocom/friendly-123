@@ -60,8 +60,13 @@ if [ -f docs/aislamiento.js ]; then
       # No es rojo si la migracion YA rescata ese prefijo: la clave queda dentro
       # del namespace propio igual, y renombrarla dejaria huerfanos los datos
       # que el usuario ya tiene guardados. Es deuda de nombres, no de datos.
+      # Excepciones marcadas a proposito en el codigo con NO-RENOMBRAR: nombres
+      # de base de IndexedDB (renombrarlos deja los registros vivos pero
+      # invisibles) y prefijos heredados que hay que seguir leyendo durante la
+      # transicion. Se cuentan aparte, no son deuda.
+      MARCADAS=$(grep -rc "NO renombrar\|NO-RENOMBRAR\|heredado" docs/*.js 2>/dev/null | awk -F: '{t+=$2} END{print t+0}')
       if grep -q "PREFIJOS_LEGADO.*\"${o}_\"" docs/aislamiento.js; then
-        printf "  nota %s\n" "claves: ${N} con prefijo ${o}_ heredado, PERO la migracion las rescata — no se renombran: se perderian datos ya guardados"
+        printf "  nota %s\n" "claves: ${N} referencia(s) a ${o}_ que la migracion rescata o que estan marcadas como intencionales (nombres de base IndexedDB y lectura de lo heredado)"
       else
         AJENOS="$AJENOS ${o}_(${N})"
       fi

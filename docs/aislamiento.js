@@ -42,6 +42,20 @@
 (function () {
   "use strict";
 
+  /* GUARD DE REENTRADA (JFC 2026-08-18). Este modulo REEMPLAZA
+     window.localStorage por un shim que antepone el prefijo de la app. Si por
+     un descuido el <script> quedara dos veces en la pagina, la segunda pasada
+     veria el shim de la primera como si fuera el almacenamiento nativo y
+     prefijaria TODO otra vez: "c123::c123::owned". Cada clave del negocio
+     quedaria inalcanzable de golpe.
+
+     Se detecta con una marca en window y se sale sin tocar nada. */
+  if (window.__OC_AISLAMIENTO_INSTALADO__) {
+    try { console.warn("[aislamiento] ya estaba instalado; la segunda carga se ignora"); } catch (_) {}
+    return;
+  }
+  window.__OC_AISLAMIENTO_INSTALADO__ = true;
+
   // Namespace de ESTA app. Cambiarlo aisla todo de golpe; no debe coincidir
   // con el de las apps hermanas (f123 / amigable).
   var NS = "f123";
