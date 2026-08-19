@@ -646,48 +646,48 @@
     equipoPanel.innerHTML = `
       <h3 class="seccion" style="margin-top:0;">Team</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Cada miembro tiene su propio PIN de 3 dígitos. Sus ventas, ajustes y movimientos
-        quedan registrados con su nombre en el historial. El PIN del dueño no aparece aquí.
+        Each member has their own 3-digit PIN. Their sales, adjustments and movements are
+        recorded under their name in the history. The owner's PIN does not appear here.
       </p>
       <div id="oc-emp-lista" style="margin-bottom:18px;"></div>
       <details id="oc-emp-form-wrap" style="margin-bottom:6px;">
         <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--azul-medio);margin-bottom:10px;">
-          + Agregar miembro del equipo
+          + Add a team member
         </summary>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;margin-top:10px;">
-          <label style="font-size:13px;">Nombre
-            <input id="oc-emp-nombre" maxlength="60" placeholder="Ej: María Auquilla"
+          <label style="font-size:13px;">Name
+            <input id="oc-emp-nombre" maxlength="60" placeholder="e.g. Maria Auquilla"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
-          <label style="font-size:13px;">Correo (opcional — para notificaciones)
-            <input id="oc-emp-email" type="email" maxlength="160" placeholder="correo@ejemplo.com"
+          <label style="font-size:13px;">Email (optional — for notifications)
+            <input id="oc-emp-email" type="email" maxlength="160" placeholder="name@example.com"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
-          <label style="font-size:13px;">PIN (3 dígitos)<!-- Microcirugia 7 (2026-07-08): aviso de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el miembro queda bloqueado silenciosamente. -->
+          <label style="font-size:13px;">PIN (3 digits)<!-- Microcirugia 7 (2026-07-08): aviso de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el miembro queda bloqueado silenciosamente. -->
             <span style="display:block;font-size:13px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;">
-              No uses el mismo PIN del dueño, encargado general ni contador.
+              Do not reuse the PIN of the owner, the general staff login or the bookkeeper.
             </span>
             <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="•••"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;text-align:center;font-family:var(--font-mono);
                      box-sizing:border-box;letter-spacing:.2em;">
           </label>
-          <label id="oc-emp-rol-label" style="font-size:13px;">Rol
+          <label id="oc-emp-rol-label" style="font-size:13px;">Role
             <select id="oc-emp-rol"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;background:var(--blanco-calido,#fbf5e8);">
-              <option value="empleado">Encargado — acceso operativo (ventas, inventario, perchas)</option>
-              <option value="admin">Administrador — acceso completo excepto credenciales del dueño</option>
+              <option value="empleado">Staff — day-to-day access (sales, inventory, shelves)</option>
+              <option value="admin">Admin — full access except the owner's credentials</option>
             </select>
             <span style="display:block;font-size:13px;color:var(--ink-soft);margin-top:3px;">
-              Solo el dueño puede crear administradores.
+              Only the owner can create admins.
             </span>
           </label>
           <button id="oc-emp-agregar" class="ir"
             style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">
-            Agregar al equipo
+            Add to the team
           </button>
           <p id="oc-emp-msg" style="font-size:14px;margin:0;font-weight:700;"></p>
         </div>
@@ -734,10 +734,10 @@
       lista.innerHTML = `
         <table style="width:100%;border-collapse:collapse;font-size:14px;">
           <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
-            <th style="text-align:left;padding:6px 8px;font-weight:700;">Miembro</th>
-            <th style="text-align:center;padding:6px 8px;font-weight:700;">Rol</th>
-            <th style="text-align:center;padding:6px 8px;font-weight:700;">Estado</th>
-            <th style="text-align:right;padding:6px 8px;font-weight:700;">Acciones</th>
+            <th style="text-align:left;padding:6px 8px;font-weight:700;">Member</th>
+            <th style="text-align:center;padding:6px 8px;font-weight:700;">Role</th>
+            <th style="text-align:center;padding:6px 8px;font-weight:700;">Status</th>
+            <th style="text-align:right;padding:6px 8px;font-weight:700;">Actions</th>
           </tr></thead>
           <tbody id="oc-emp-tbody"></tbody>
         </table>`;
@@ -747,12 +747,12 @@
         const tr = document.createElement("tr");
         tr.style.borderBottom = "1px solid var(--azul-suave,#dde5ec)";
         const estadoColor  = u.activo ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)";
-        const estadoTxt    = u.activo ? "Activo" : "Inactivo";
-        const btnEstLabel  = u.activo ? "Desactivar" : "Activar";
+        const estadoTxt    = u.activo ? "Active" : "Inactive";
+        const btnEstLabel  = u.activo ? "Deactivate" : "Activate";
         const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
         const rolBadge     = u.rol === "admin"
           ? `<span style="font-size:13px;font-weight:700;background:#E8A020;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
-          : `<span style="font-size:13px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Encargado</span>`;
+          : `<span style="font-size:13px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Staff</span>`;
         // Admin solo puede editar encargados, no a otros admins (seguridad por capas)
         const puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado");
         // Promover/degradar (JFC 2026-07-30: "hazlo una lista dinamica y permite
@@ -795,10 +795,10 @@
                 <button data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}"
                   style="font-size:13px;padding:5px 10px;border:2px solid #E8A020;
                          border-radius:5px;background:transparent;color:#E8A020;cursor:pointer;margin-left:4px;">
-                  ${u.rol === "admin" ? "Degradar a encargado" : "Promover a admin"}
+                  ${u.rol === "admin" ? "Demote to staff" : "Promote to admin"}
                 </button>
               ` : ""}
-            ` : `<span style="font-size:13px;color:var(--ink-soft);">Solo dueño</span>`}
+            ` : `<span style="font-size:13px;color:var(--ink-soft);">Owner only</span>`}
           </td>`;
         tbody.appendChild(tr);
 
@@ -836,7 +836,7 @@
               method: "PATCH", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ activo: !activo }),
             });
-            if (!r.ok) { const e = await r.json(); alert(e.error || "Error al actualizar."); return; }
+            if (!r.ok) { const e = await r.json(); alert(e.error || "Could not update."); return; }
             await renderEmpleados();
           } catch (_) { alert("Error de red."); }
         });
@@ -852,7 +852,7 @@
               method: "PATCH", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ rol: rolNuevo }),
             });
-            if (!r.ok) { const e = await r.json(); alert(e.error || "Error al cambiar rol."); return; }
+            if (!r.ok) { const e = await r.json(); alert(e.error || "Could not change the role."); return; }
             await renderEmpleados();
           } catch (_) { alert("Error de red."); }
         });
@@ -881,7 +881,7 @@
               body: JSON.stringify({ pin }),
             });
             const data = await r.json();
-            if (!r.ok) { msg.textContent = data.error || "Error al guardar PIN."; return; }
+            if (!r.ok) { msg.textContent = data.error || "Could not save the PIN."; return; }
             msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
             msg.textContent = "PIN actualizado.";
             // Entrega por correo (JFC 2026-07-30): mailto abre EL PROPIO cliente
@@ -923,12 +923,16 @@
           body: JSON.stringify({ nombre, pin, email: email || undefined, rol }),
         });
         const data = await r.json();
-        if (!r.ok) { msgEl.textContent = data.error || "Error al agregar miembro."; return; }
+        if (!r.ok) { msgEl.textContent = data.error || "Could not add the team member."; return; }
         msgEl.style.color = "var(--sim-verde-dk,#1a6e3c)";
-        msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Encargado"} "${data.nombre}" agregado.`;
+        msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Staff member"} "${data.nombre}" added.`;
         if (email) {
-          const asunto = encodeURIComponent(`Tu PIN de acceso — ${data.nombre}`);
-          const cuerpo = encodeURIComponent(`Hola ${data.nombre},\n\nTu PIN de acceso es: ${pin}\n\nGuárdalo en un lugar seguro.`);
+          const asunto = encodeURIComponent(`Your access PIN — ${data.nombre}`);
+          const cuerpo = encodeURIComponent(`Hi ${data.nombre},
+
+Your access PIN is: ${pin}
+
+Keep it somewhere safe.`);
           const linkMail = document.createElement("a");
           linkMail.href = `mailto:${email}?subject=${asunto}&body=${cuerpo}`;
           linkMail.textContent = " Enviar por correo";

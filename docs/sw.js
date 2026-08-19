@@ -9,7 +9,7 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v66"  /* bumped 2026-08-19: nav de Avanzado, QR de sync, FAB solo en PC, menu sin colores de Simon, tratos mixtos */  /* bumped 2026-08-18: tablero de control */  /* bumped 2026-08-18: estado-idb.js */; // bumped 2026-08-06: calificador de clientes portado 1-1 de amigable-123 (1-5 estrellas/corazones), fuera el tri-estado -1/0/1
+const CACHE = "f123-shell-v67"  /* bumped 2026-08-19: un admin cuenta contra el tope del plan gratis, y panel de Equipo en ingles */  /* bumped 2026-08-19: nav de Avanzado, QR de sync, FAB solo en PC, menu sin colores de Simon, tratos mixtos */  /* bumped 2026-08-18: tablero de control */  /* bumped 2026-08-18: estado-idb.js */; // bumped 2026-08-06: calificador de clientes portado 1-1 de amigable-123 (1-5 estrellas/corazones), fuera el tri-estado -1/0/1
 const SHELL = [
   "./",
   "./index.html",

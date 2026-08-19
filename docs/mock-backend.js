@@ -2197,8 +2197,14 @@
         return J(usuarios.map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn })));
       }
       // POST /api/usuarios — crear miembro del equipo (encargado o admin); desde Avanzado = solo dueno.
-      // Los admins NO cuentan contra el limite de encargados del plan free — son co-responsables,
-      // no personal adicional, y el dueno debe poder agregar al menos uno sin activar.
+      //
+      // UN ADMIN SI CUENTA CONTRA EL TOPE DEL PLAN GRATIS (JFC, 2026-08-19).
+      // Antes estaban exentos, con el argumento de que un admin es "co-
+      // responsable y no personal adicional". Esa distincion no existe: un
+      // admin ES personal, solo que de alto nivel. Con la exencion, el plan
+      // "1 encargado" se convertia en la practica en 1 encargado + infinitos
+      // admins, que es regalar el producto entero. El tope es de PERSONAS en
+      // el equipo, no de un rol concreto.
       if (path === "/api/usuarios" && opts && opts.method === "POST") {
         const nombre = String(body.nombre || "").trim().slice(0, 60);
         const pin    = String(body.pin    || "").trim();
@@ -2206,10 +2212,14 @@
         const rolNuevo = (body.rol === "admin") ? "admin" : "empleado";
         if (!nombre)                     return J({ error: "A name is required." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "The PIN must be exactly 3 digits." }, 400);
-        // Limite free: 1 encargado (admins exentos — son co-duenos, no personal)
-        const empleadosActuales = usuarios.filter((u) => u.rol === "empleado").length;
-        if (rolNuevo === "empleado" && empleadosActuales >= 1 && (!instanceId || licenciaLimitada()))
-          return J({ error: "The free plan includes 1 employee. Activate this device (PIN 789) for unlimited employees.", codigo: "LIMITE_EMPLEADOS" }, 403);
+        /* Limite free: 1 persona en el equipo ademas del dueno, sea encargado
+           o admin. Se cuentan los dos roles y se bloquea la creacion de
+           cualquiera de los dos. Esto SOLO afecta altas nuevas: a quien ya
+           esta creado no se le toca ni se le desactiva nada, asi que ningun
+           equipo existente se rompe con este cambio. */
+        const staffActual = usuarios.filter((u) => u.rol === "empleado" || u.rol === "admin").length;
+        if (staffActual >= 1 && (!instanceId || licenciaLimitada()))
+          return J({ error: "The free plan includes 1 team member besides you, and that counts admins too. Activate this device (PIN 789) for an unlimited team.", codigo: "LIMITE_EMPLEADOS" }, 403);
         if (usuarios.some((u) => u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
         const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: new Date().toISOString() };
         usuarios.push(nuevo);
@@ -2231,10 +2241,10 @@
           if (usuarios.some((x) => x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
           u.pin = np;
         }
-        // Promover/degradar rol (JFC 2026-07-30): admin<->encargado. Los admins no
-        // cuentan contra el limite de encargados del plan free (ver POST arriba),
-        // asi que promover a alguien puede liberar un cupo y degradarlo puede
-        // volver a topar el limite en el proximo alta — eso ya lo valida el POST.
+        // Promover/degradar rol (JFC 2026-07-30): admin<->encargado. Desde el
+        // 2026-08-19 los dos roles cuentan igual contra el tope del plan gratis
+        // (ver POST arriba), asi que promover o degradar NO cambia el cupo: es
+        // la misma persona en el equipo, con otro nivel de permisos.
         if (body.rol !== undefined && (body.rol === "admin" || body.rol === "empleado")) u.rol = body.rol;
         mov("usuario-editar", { id: uid2, nombre: u.nombre, rol: u.rol });
         return J({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn });
