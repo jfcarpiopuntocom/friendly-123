@@ -16,8 +16,20 @@ falta=0
 for s in $(grep -oE '<script[^>]+src="\./[^"]+"' docs/index.html | grep -oE '"\./[^"]+"' | tr -d '"'); do
   if ! grep -q "\"$s\"" docs/sw.js; then echo "FALTA en sw.js: $s"; falta=1; fi
 done
+# El campo "shell" de version.json tiene que ir SIEMPRE junto al CACHE de sw.js:
+# el autodiagnostico de version (salud-app.js) compara esos dos valores, y si se
+# desincronizan avisaria a TODOS los usuarios de una version vieja que no existe.
+sw_ver=$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)
+vj_ver=$(grep -oE 'f123-shell-v[0-9]+' docs/version.json | head -1)
+if [ "$sw_ver" != "$vj_ver" ]; then
+  echo "DESINCRONIZADO: sw.js dice $sw_ver y version.json dice $vj_ver"
+  echo "  Los dos tienen que decir lo mismo (ver A4 en salud-app.js)."
+  falta=1
+fi
+
 if [ "$falta" = "0" ]; then
   echo "OK — todos los scripts de index.html estan en el SHELL del service worker."
+  echo "OK — sw.js y version.json coinciden en $sw_ver."
   grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1 | sed 's/^/CACHE actual: /'
   echo "Recuerda: si cambiaste el shell, el CACHE tiene que subir de numero o el"
   echo "telefono del cliente se queda con la version vieja para siempre."

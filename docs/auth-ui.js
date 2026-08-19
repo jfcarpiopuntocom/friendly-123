@@ -806,7 +806,49 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
 
     return wrap;
   }
+  /* BIFURCACION ANTES DE ACTIVAR (JFC 2026-08-19, caso propio en vivo).
+     ESTO ES LO QUE LE CREO DOS LICENCIAS A JFC: puso 789 en su celular
+     pensando que asi entraba a su negocio, y 789 no entra a ningun negocio:
+     CREA UNO NUEVO, con instancia y licencia nuevas. El camino correcto
+     ("New to this team?") existia desde siempre, pero estaba abajo y en letra
+     chica mientras 789 salia anunciado en la pantalla del PIN.
+
+     Un dispositivo nuevo casi nunca es un negocio nuevo: casi siempre es el
+     segundo telefono de alguien que YA tiene su negocio. Preguntar una vez
+     cuesta un toque; no preguntar cuesta una licencia duplicada y un dueno
+     que no entiende por que su inventario esta vacio.
+
+     No se pregunta si el dispositivo ya esta apropiado: ahi 789 ya no es el
+     codigo de activacion (ver ACTIVATION_PIN). */
   function iniciarActivacion() {
+    if (document.getElementById("oc-act-bifurcacion")) return;
+    var b = document.createElement("div");
+    b.id = "oc-act-bifurcacion";
+    b.style.cssText = "position:fixed;inset:0;z-index:10005;background:#0F1923EE;display:flex;align-items:center;justify-content:center;padding:20px;";
+    b.innerHTML =
+      '<div style="background:#FFFFFF;border-radius:16px;padding:26px 22px;max-width:440px;width:100%;text-align:left;">' +
+      '<h2 style="font-size:21px;font-weight:800;margin:0 0 10px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">Before we set this up</h2>' +
+      '<p style="font-size:16px;line-height:1.5;margin:0 0 18px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Is this the first device for a brand new business, or another device for a business you already run?</p>' +
+      '<button type="button" id="oc-act-nuevo" style="width:100%;min-height:52px;padding:14px;border:none;border-radius:12px;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">A brand new business</button>' +
+      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Creates a new business with its own license. Starts empty.</p>' +
+      '<button type="button" id="oc-act-unirme" style="width:100%;min-height:52px;padding:14px;border:2px solid #2C3E50;border-radius:12px;background:transparent;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-weight:800;font-size:16px;cursor:pointer;">Another device for my business</button>' +
+      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Joins the business you already have, with all its products and sales. You will need its team code.</p>' +
+      '<button type="button" id="oc-act-nada" style="width:100%;min-height:44px;background:none;border:none;font-size:15px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;">Never mind</button>' +
+      "</div>";
+    document.body.appendChild(b);
+    var cerrar = function () { try { b.remove(); } catch (_) {} };
+    document.getElementById("oc-act-nada").addEventListener("click", cerrar);
+    document.getElementById("oc-act-unirme").addEventListener("click", function () {
+      cerrar();
+      try { abrirUnirseEquipo(); } catch (_) {}
+    });
+    document.getElementById("oc-act-nuevo").addEventListener("click", function () {
+      cerrar();
+      _activacionRealmente();
+    });
+  }
+
+  function _activacionRealmente() {
     var w = construirModalActivacion();
     w.querySelector("#oc-act-form").style.display = "block";
     w.querySelector("#oc-act-exito").style.display = "none";
@@ -1065,13 +1107,28 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
        puede ser * ~ $ = o U. Con 14 la mascara truncaba el codigo nuevo y el
        dueno no podia teclear su propia licencia. */
     inp.setAttribute("maxlength", "25");        // F123- + 4 + 1 + 4 = 14
+    /* El prefijo que se le muestra al usuario. El codigo de EQUIPO se teclea
+       como TEAM-...; la licencia sigue siendo F123-... Se aceptan los dos al
+       escribir (quien tenga el viejo anotado no se queda afuera) y se pinta el
+       que corresponda al campo. */
+    var PRE = inp.dataset.ocPrefijo || "TEAM";
     function formatear(raw) {
       /* Los simbolos de Crockford son parte del codigo: no se filtran. */
       var v = String(raw || "").toUpperCase().replace(/[^A-Z0-9*~$=]/g, "");
-      if (v.indexOf("F123") === 0) v = v.slice(4);
-      v = v.slice(0, 17);                       // 4 grupos + simbolo de verificacion
-      var out = "F123";
-      for (var i = 0; i < v.length; i += 4) out += "-" + v.slice(i, i + 4);
+      if (v.indexOf("TEAM") === 0) v = v.slice(4);
+      else if (v.indexOf("F123") === 0) v = v.slice(4);
+      v = v.slice(0, 17);
+      /* La forma tiene que ser la MISMA que genera generarCodigoSync():
+         4-4-4-5, donde el ultimo grupo son 4 del cuerpo + el simbolo de
+         verificacion de Crockford. Agrupar de 4 en 4 a secas dejaba el codigo
+         completo como ...-P3W1-D, con una letra suelta al final, que no se
+         parece a lo que el dueno tiene anotado. */
+      var out = PRE, i = 0;
+      while (i < v.length) {
+        var corte = (i === 12) ? 5 : 4;          // el 4o grupo lleva 5
+        out += "-" + v.slice(i, i + corte);
+        i += corte;
+      }
       return out;
     }
     function alEscribir() {
@@ -1085,10 +1142,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     inp.addEventListener("input", alEscribir);
     inp.addEventListener("paste", function () { setTimeout(alEscribir, 0); });
     inp.addEventListener("focus", function () {
-      if (!inp.value) { inp.value = "F123-"; try { inp.setSelectionRange(5, 5); } catch (_) {} }
+      if (!inp.value) { inp.value = PRE + "-"; try { inp.setSelectionRange(PRE.length + 1, PRE.length + 1); } catch (_) {} }
     });
     inp.addEventListener("blur", function () {
-      if (inp.value === "F123-" || inp.value === "F123") inp.value = "";
+      if (inp.value === PRE + "-" || inp.value === PRE) inp.value = "";
     });
   }
 
@@ -1207,6 +1264,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // Expuesto para la vista Avanzado (capa contable).
   window.OCAuth = {
     generarCodigo: generarCodigoSync,
+    /* La caja que se formatea sola: mayusculas y guiones puestos al escribir o
+       al pegar. JFC, 2026-08-19: "es penoso tener que poner las - manualmente o
+       las mayusculas manualmente". Se exporta para que TODOS los campos de
+       codigo de la app usen la MISMA, en vez de cada pantalla la suya. */
+    mascaraCodigo: _ocMascaraCodigo,
     heartbeat: enviarHeartbeat,
     rolActual: () => rol,
     esDemo: () => demoSesion,

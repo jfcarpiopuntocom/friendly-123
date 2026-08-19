@@ -518,8 +518,27 @@
     try { ws.send(await cifrar(claveActual, op)); return true; } catch (_) { return false; }
   }
 
+  /* TEAM- Y F123- SON EL MISMO VALOR (JFC 2026-08-19).
+     El codigo de equipo y la licencia se mostraban IGUAL, los dos con F123-, y
+     la gente los confundia: JFC mismo puso 789 en su celular creyendo que asi
+     entraba a su negocio y termino con dos licencias.
+
+     La separacion es de PRESENTACION: de aqui para adentro la sala vale
+     exactamente lo mismo que siempre, asi que ningun equipo ya sincronizado se
+     cae. Lo unico que cambia es que el codigo de equipo se MUESTRA y se ACEPTA
+     con prefijo TEAM-, y aqui se traduce a la forma interna.
+
+     Se siguen aceptando los dos prefijos al teclear: quien tenga el codigo
+     viejo anotado en un papel no se queda afuera. */
   function normalizarCodigo(codigo) {
-    return String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
+    var v = String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
+    if (v.indexOf("TEAM-") === 0) v = "F123-" + v.slice(5);
+    return v;
+  }
+  /* Como se le muestra al dueno. Nunca se guarda asi. */
+  function codigoParaMostrar(codigo) {
+    var v = String(codigo || "").trim().toUpperCase();
+    return v.indexOf("F123-") === 0 ? "TEAM-" + v.slice(5) : v;
   }
 
   function programarReintento() {
@@ -619,7 +638,7 @@
       var _cuerpo = codigoNorm.replace(new RegExp("^(" + _pre.join("|") + ")-"), "").replace(/-/g, "");
       var _prefijoOk = _pre.some(function (p) { return codigoNorm.indexOf(p + "-") === 0; });
       if (!_prefijoOk || (_cuerpo.length !== 8 && _cuerpo.length !== 12 && _cuerpo.length !== 17)) {
-        return { ok: false, error: "Invalid code — check that it is complete, in the format F123-XXXX-XXXX-XXXX-XXXXX." };
+        return { ok: false, error: "Invalid team code — check that it is complete, in the format TEAM-XXXX-XXXX-XXXX-XXXXX." };
       }
       if (_cuerpo.length === 17) {
         var _B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ", _CHK = _B32 + "*~$=U", _acc = 0, _mal = false;
@@ -662,6 +681,10 @@
     // que la UI pueda avisar ("revisa el código") en vez de reintentar mudo.
     problemaPersistente() { return intentosSeguidos >= 6; },
     salaActiva() { const s = leerSala(); return s ? s.codigo : null; },
+    /* Version presentable del codigo de sala (TEAM-...). El valor interno no
+       cambia: esto es solo para pintar y para compartir. */
+    salaParaMostrar() { const s = leerSala(); return s ? codigoParaMostrar(s.codigo) : null; },
+    paraMostrar: codigoParaMostrar,
     onEstado(fn) { listenersEstado.push(fn); },
     /* Para el TABLERO DE CONTROL. Se exponen desde el mismo modulo que las
        contesta para que las dos puntas hablen exactamente el mismo dialecto y
