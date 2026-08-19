@@ -603,14 +603,22 @@
     nav button:not(.activo):hover{ background-image:linear-gradient(180deg, #FFFFFF 0%, var(--plata-brillo) 45%, var(--plata-claro) 100%); color:var(--ink); }
   }
   nav button svg{ width:20px; height:20px; }
-  nav button[data-vista="hoy"].activo{background:var(--sim-verde);color:#fff;}
-  nav button[data-vista="inventario"].activo{background:var(--sim-verde);color:#fff;}
-  nav button[data-vista="escanear"].activo{background:#374151;color:#fff;}
-  nav button[data-vista="etiquetas"].activo{background:#374151;color:#fff;}
-  nav button[data-vista="perchas"].activo{background:var(--sim-azul);color:#fff;}
-  nav button[data-vista="comisiones"].activo{background:var(--sim-azul);color:#fff;}
-  nav button[data-vista="clientes"].activo{background:var(--sim-azul);color:#fff;}
-  nav button[data-vista="avanzado"].activo{background:var(--sim-azul);color:#fff;}
+  /* Tecla presionada, sin color (portado de amigable-123, JFC 2026-08-11;
+     aplicado aqui 2026-08-19). Antes cada boton se pintaba de un color al
+     estar activo, y eran los colores del Simon: var(--sim-verde) y
+     var(--sim-azul). Eso competia con el Simon real — el color de los
+     PRODUCTOS, que es la unica paleta que debe significar algo en la app.
+     El estado activo ahora es la MISMA tecla plata, pero hundida: gradiente
+     invertido + sombra interior, como si el dedo la mantuviera presionada.
+     Ningun matiz nuevo, solo profundidad 2.5D.
+     NO volver a meter color aqui: se rompe la lectura del semaforo. */
+  nav button.activo{
+    background-image:linear-gradient(180deg, var(--plata-honda) 0%, var(--plata-media) 55%, var(--plata-claro) 100%);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.28), inset 0 -1px 0 rgba(255,255,255,.5);
+    border-color:var(--plata-canto);
+    border-top-color:var(--plata-honda);
+    color:var(--ink);
+  }
   nav button.activo svg{ transform:scale(1.05); }
   nav button:active{ transform:scale(0.94); }
 
@@ -3482,7 +3490,7 @@ async function cargarPerchas(){
 
   // ---- Eventos perchas ----
   grid.querySelectorAll('[data-percha-renombrar]').forEach(btn => btn.addEventListener('click', async () => {
-    const nuevo = (await ocPrompt('Nuevo nombre de la percha:', '') || '').trim();
+    const nuevo = (await ocPrompt(t('shelves.renamePrompt','New shelf name:'), '') || '').trim();
     if (!nuevo) return;
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaRenombrar}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre: nuevo }) });
     const r = await res.json(); if (!res.ok){ await ocAlert(r.error); return; }
@@ -4580,7 +4588,7 @@ async function cargarComisiones(){
       </details>` : ""}
       ${termometroMeta(f.cumplimientoMeta, f.metaMensual)}
       ${simuladorHtml(f)}
-      ${f.estado === "pendiente" ? `<button class="ir" style="margin-top:12px;background:var(--sim-verde,#00C87A);color:#fff;border-color:var(--sim-verde-dk,#009A5A);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Marcar como pagado (${f.ventasPendientes} ventas)</button>` : ""}
+      ${f.estado === "pendiente" ? `<button class="ir" style="margin-top:12px;background:var(--sim-verde,#00C87A);color:#fff;border-color:var(--sim-verde-dk,#009A5A);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
     </div>`;
   }).join("");
 

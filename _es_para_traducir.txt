@@ -1,0 +1,155 @@
+1	Este navegador no aisla el almacenamiento de la app. Abrela en Chrome o Safari actualizado para proteger tus datos.
+2	No se pudo escribir auditoría
+3	Ese PIN no se reconoció — estás viendo el modo demo. 
+4	No se pudo activar (memoria del dispositivo llena). Libera espacio y toca \"Activar mi negocio\" de nuevo — nada quedó a medias.
+5	no se pudo descifrar de vuelta con la misma clave
+6	El respaldo no pasó su propia verificación (
+7	) — no se descargó. Intenta de nuevo; si se repite, avisa a soporte.
+8	o hacer un respaldo desde Checkpoints y luego liberar espacio en tu dispositivo.
+9	Tus datos viven solo en este navegador y el sistema operativo puede 
+10	borrarlos si no usas la app por varios dias — instala amigable-123 en tu pantalla de 
+11	inicio (menu del navegador → \"Agregar a inicio\" / \"Instalar app\") y haz un respaldo 
+12	No hay cambios pendientes en este dispositivo.
+13	) — no se envió. Intenta de nuevo.
+14	No hay ningún reseteo pendiente. Pide un código nuevo.
+15	El código venció (15 min). Pide uno nuevo.
+16	Código incorrecto.
+17	No se pudo guardar tu PIN nuevo (memoria del dispositivo llena). Tu PIN anterior sigue funcionando. Libera espacio (fotos, otras apps) y vuelve a intentar con el mismo código.
+18	La clave del respaldo debe tener al menos 8 caracteres.
+19	El margen es lo que queda del precio despues del costo del producto. La ganancia es lo que queda despues de TODO: arriendo, luz, sueldos. Un producto con buen margen puede seguir dejandote en cero si vendes pocas unidades.
+20	Un producto parado en la percha es dinero tuyo dormido. Aunque no se dane, te esta costando: ese mismo dinero podria estar comprando algo que si sale.
+21	Vender mas no siempre es ganar mas
+22	Si subes ventas bajando precios y el margen queda muy delgado, trabajas mas para ganar lo mismo. Mira la columna de margen antes de celebrar un dia de muchas ventas.
+23	El arriendo y los sueldos corren los dias que vendes y los que no. Por eso el P&G reparte tu gasto mensual entre todos los dias: para que sepas cuanto necesitas vender un dia cualquiera solo para empatar.
+24	El inventario valorizado te dice cuanto dinero tuyo esta ahora mismo convertido en producto. Si esa cifra crece mes a mes pero las ventas no, el dinero se te esta quedando quieto en la percha.
+25	La comision de un socio o comisionista sale de tu margen, no de un bolsillo aparte. Registrala siempre: un negocio que la olvida cree que gana mas de lo que gana.
+26	El cliente que llega solo por precio se va con el primero que baje mas. Los datos de clientes que ya tienes sirven para saber quien vuelve — esos son los que sostienen el negocio.
+27	Tu clave de dueño en friendly-123 es: 
+28	\n\nGuárdala en un lugar seguro. Este correo va de ti hacia ti: nunca pasa por ningún servidor.
+29	\nSi no la pediste tú, cámbiala en Avanzado → Claves.
+30	AMG.EventBus.on: handler debe ser una función
+31	AMG.EventBus.emit: 'type' debe ser un string no vacío
+32	IndexedDB bloqueado (otra pestaña con una version vieja abierta)
+33	 resultados — afina la búsqueda para ver otros.
+34	Estás fuera del loop
+35	Poniéndose al día
+36	 sin hablar con tu equipo. Mientras siga así, puede que vendas algo que otro ya vendió.
+37	Este dispositivo dejó de hablar con tu equipo. Mientras siga así, puede que vendas algo que otro ya vendió.
+38	 sin sincronizar. Casi siempre es la señal.
+39	Dejó de sincronizar hace un momento. Casi siempre es la señal.
+40	<p>Se arregla solo en cuanto haya internet: no hay que hacer nada más que acercarse a donde haya señal.</p>
+41	Este dispositivo está fuera del loop
+42	 rato sin sincronizar. Mientras estén así, pueden vender algo que aquí ya se vendió.
+43	Todos los dispositivos del equipo están hablando entre sí.
+44	Los valores de fábrica sirven para casi todos. Muévelos si tu negocio trabaja donde la señal es mala, o si al revés necesitas enterarte al minuto.</p>
+45	Puedes recibir un aviso del navegador cuando este dispositivo quede fuera del loop, aunque tengas la app en segundo plano.</p>
+46	Guardado. Tu equipo verá "
+47	Sin apodo: tu equipo verá tu rol.
+48	Los dos valores tienen que ser minutos mayores que cero.
+49	"A ciegas" tiene que ser mayor que "rezagado", si no nadie sería nunca rezagado.
+50	Este navegador no puede mostrar avisos. El aviso en pantalla sigue funcionando.
+51	Los avisos ya están activos en este dispositivo.
+52	Los avisos están bloqueados para este sitio. Se activan desde los ajustes del navegador, no desde aquí.
+53	Listo. Te avisaremos si este dispositivo queda fuera del loop.
+54	Listo. Te avisaremos si este dispositivo queda fuera del loop, y el navegador ya no borrará tus datos por falta de espacio.
+55	 ya está en tu equipo</h3>
+56	la última vez que te oí
+57	Al día
+58	Tu dispositivo lleva un rato sin sincronizar con el equipo. Cuidado con vender algo que otro ya vendió.
+59	Ya estás al día
+60	Tu dispositivo volvió a sincronizar con el equipo.
+61	Un dispositivo está a ciegas
+62	El archivo no parece un respaldo válido.
+63	Hay un producto corrupto en el respaldo.
+64	Hay valores numéricos inválidos en productos.
+65	Hay precios, costos o stock negativos en productos.
+66	Hay una percha corrupta en el respaldo.
+67	La sección de ventas está corrupta.
+68	La sección de movimientos está corrupta.
+69	La sección de transferencias está corrupta.
+70	La sección de clientes está corrupta.
+71	La memoria de este navegador está llena: los cambios nuevos NO se están guardando. Ve a AVANZADO y descarga un respaldo AHORA.
+72	Memoria casi llena: TODO se guardó (ventas, clientes, stock) — el log de actividad viejo (
+73	 registros) se movió a un archivo aparte en este dispositivo, no se borró. Exporta un respaldo en AVANZADO cuando puedas.
+74	Se detectó un guardado interrumpido y se recuperó automáticamente desde la copia anterior — no se perdió nada. Si algo no cuadra, exporta un respaldo en AVANZADO.
+75	El aporte fijo se ignora: esta percha usa escalas por meta, y las dos cosas juntas obligarian a recalcular cada venta ya registrada.
+76	Producto no existe en este dispositivo (sincroniza el catalogo primero)
+77	El nombre de la ubicación es obligatorio.
+78	Debe quedar al menos una percha.
+79	Mueve las perchas a otra sucursal antes de borrar esta.
+80	Falta el nombre o el código de barras.
+81	Si el producto expira, indica su fecha de caducidad.
+82	Esta venta ya no se puede anular (pasó el tiempo o ya se anuló).
+83	Código vacío.
+84	No se encontró ningún producto con ese código.
+85	Esa percha no existe o esta desactivada.
+86	Los productos de origen y destino no son el mismo artículo (SKU distinto).
+87	Ya no hay suficiente stock en origen para aprobar esta transferencia.
+88	El monto debe ser un número igual o mayor a 0.
+89	Hay un ítem inválido en el cierre.
+90	El nombre del cliente es obligatorio.
+91	El PIN debe tener exactamente 3 digitos.
+92	Ese PIN ya lo usa otro miembro del equipo. Elige uno diferente.
+93	El nuevo PIN debe tener 3 digitos.
+94	Ese PIN ya lo usa otro miembro del equipo.
+95	PIN no corresponde a ningun miembro activo del equipo.
+96	✓ Nada por reponer en esta percha — todo el stock está sobre sus umbrales.
+97	Avísale al dueño para reponer lo de arriba.
+98	Prioridad: se vende y se acaba (estrella/vaca) primero; rojo antes que amarillo.
+99	No se pudo calcular la reposición: 
+100	plan-pagos: debe haber al menos una cuota
+101	Esta venta ya fue anulada.
+102	Esta percha tiene productos asignados. Muevelos primero.
+103	El registro de hechos no está cargado.
+104	ventas del periodo, comisiones, perchas y actividad del periodo
+105	Constancia personal del trabajo realizado. No es un estado financiero del negocio.
+106	Buen margen — hay dinero esperándote
+107	 — véndelo ya
+108	Días sin venta antes de marcarlo NEGRO (dormido)
+109	ej. 180 para galería
+110	Días antes de caducar para ROJO
+111	Días antes de caducar para NARANJA
+112	Sin id de producto para guardar override
+113	setTransport requiere una función
+114	Transporte real registrado — a partir de ahora, si syncQueueDryRun=false, se harán envíos reales.
+115	telemetry.js no disponible — no hay de dónde leer la cola.
+116	Falló el envío del batch — queda pendiente para reintento
+117	Esa acción no se puede hacer desde el tablero.
+118	El código debe tener al menos 6 caracteres.
+119	Código inválido — revisa que esté completo, con el formato F123-XXXX-XXXX-XXXX-XXXXX.
+120	Ese código tiene un error de tipeo. Revísalo carácter por carácter.
+121	Sync no está activo en este dispositivo.
+122	Cada persona entra con su propio PIN. Los PIN no se muestran aquí.
+123	Su PIN aparece en tu dispositivo, no aquí.</p>
+124	Pidiendo a tu dispositivo que lo agregue…
+125	, el más reciente arriba. Cada uno queda con quién lo hizo y a qué hora.</p>
+126	Todavía no hay movimientos registrados.
+127	El historial está intacto.
+128	Cada movimiento se sella y se encadena con el anterior: si alguien edita o borra uno, se nota. 
+129	se borró o se cambió de orden
+130	Movimientos de producto entre tus perchas. Las pendientes las acepta quien recibe.</p>
+131	Todavía no se ha movido producto entre perchas.
+132	Efectivo estimado del día
+133	Insumo para tu contador. No es una declaración válida ante el SRI. 
+134	El PDF del mes cerrado está más arriba, en Reporte del mes.</p>
+135	No se pudo guardar en IndexedDB
+136	Tu barra de navegación
+137	Desde aquí te mueves por toda la app. Este tutorial te lleva de la mano por cada sección — usa Siguiente para avanzar.
+138	Hoy: tu día de un vistazo
+139	Semáforo general, ventas de hoy y alertas de stock. Si algo necesita tu atención, aparece aquí primero, en rojo.
+140	Crea tus productos aquí
+141	Con este botón das de alta un producto: nombre, precio, costo y stock. Es el corazón de tu negocio — al final del tutorial vuelves aquí a crear el tuyo.
+142	Tus productos hablan en colores
+143	Rojo: reponer urgente. Amarillo: revisar pronto. Azul: buen margen, impúlsalo. Verde: todo en orden. No hay que interpretar números — el color te lo dice.
+144	Escanea el código de barras (o escribe el SKU) y la venta queda registrada con stock descontado. Sin cajas registradoras ni pasos extra.
+145	Una percha es un punto de venta: tu local, un stand de socio, una feria. Aquí las creas y les asignas productos, con comisión por socio si aplica.
+146	Registra clientes, evalúa trato y confiabilidad, y mira su historial. Tú decides a quién fiar y a quién no, con datos.
+147	La app calcula sola cuánto le toca a cada socio o promotora según lo vendido. Liquidas con un toque y puedes mandar el recibo por WhatsApp.
+148	Respaldos, claves, correo de recuperación, reportes contables y gastos. Todo vive en TU dispositivo — sin nube, sin suscripciones.
+149	 | no encontradas (ok si no existen en esta versión): 
+150	Toca para ver sus productos
+151	Editar o borrar esta percha
+152	Ya hay una sesión de friendly-123 abierta en otra pestaña. Para no pisar los datos, usa una sola a la vez.
+153	Usar aquí de todos modos
+154	Nuevo nombre de la percha:
+155	No hay sesion — solo el dueno o admin ven este boton.
