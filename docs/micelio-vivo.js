@@ -16,7 +16,7 @@
 
    POR QUÉ ESO BASTA: un dispositivo desconectado no puede avisar que está
    desconectado. Por eso no se pregunta "¿estás ahí?" sino que se recuerda
-   "la última vez que te oí". El silencio ES la señal.
+   "la ultima vez que se le oyo". El silencio ES la señal.
 
    EL RELAY NO GUARDA NADA, tampoco esto. La lista del equipo se arma y se
    guarda en cada aparato por separado. Si todos se apagan, se pierde, y no
@@ -274,10 +274,10 @@
     var mio = miEstado().estado;
     if (mio !== previo.yo) {
       if (mio === "ciegas") {
-        avisar("Estás fuera del loop",
-          "Tu dispositivo lleva un rato sin sincronizar con el equipo. Cuidado con vender algo que otro ya vendió.");
+        avisar("You are out of the loop",
+          "Your device has not synced with the team in a while. Careful about selling something someone else already sold.");
       } else if (previo.yo === "ciegas" && mio === "al_dia") {
-        avisar("Ya estás al día", "Tu dispositivo volvió a sincronizar con el equipo.");
+        avisar("You are up to date", "Your device is syncing with the team again.");
       }
       previo.yo = mio;
     }
@@ -289,8 +289,8 @@
       equipo().forEach(function (m) {
         if (m.soyYo) return;
         if (m.estado === "ciegas" && previo.otros[m.id] !== "ciegas") {
-          avisar("Un dispositivo está a ciegas",
-            (m.apodo || m.rol || "Un dispositivo") + " lleva " + m.cuando.replace("hace ", "") + " sin sincronizar.");
+          avisar("A device is flying blind",
+            (m.apodo || m.rol || "A device") + " has gone " + m.cuando.replace(" ago", "") + " without syncing.");
         }
         previo.otros[m.id] = m.estado;
       });

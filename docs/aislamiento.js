@@ -277,7 +277,7 @@
         b.id = "aisl-sin-aislamiento";
         b.setAttribute("role", "alert");
         b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:100001;background:#B0183E;color:#fff;font-family:Georgia,serif;font-size:13px;line-height:1.4;padding:8px 12px;text-align:center;";
-        b.textContent = "Este navegador no aisla el almacenamiento de la app. Abrela en Chrome o Safari actualizado para proteger tus datos.";
+        b.textContent = "This browser does not isolate the app storage. Open it in an up-to-date Chrome or Safari to protect your data.";
         (document.body || document.documentElement).appendChild(b);
       };
       if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", avisar);

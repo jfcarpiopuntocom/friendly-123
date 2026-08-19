@@ -1,7 +1,127 @@
 [
  {
-  "file": "docs/avanzado-extra.js",
-  "line": 1150,
-  "text": "quien esta en el loop y quien anda a ciegas"
+  "file": "docs/micelio-ui.js",
+  "line": 101,
+  "text": "Estás fuera del loop"
+ },
+ {
+  "file": "docs/micelio-ui.js",
+  "line": 101,
+  "text": "Poniéndose al día"
+ },
+ {
+  "file": "docs/micelio-ui.js",
+  "line": 108,
+  "text": " sin hablar con tu equipo. Mientras siga así, puede que vendas algo que otro ya vendió."
+ },
+ {
+  "file": "docs/micelio-ui.js",
+  "line": 109,
+  "text": "Este dispositivo dejó de hablar con tu equipo. Mientras siga así, puede que vendas algo que otro ya vendió."
+ },
+ {
+  "file": "docs/micelio-ui.js",
+  "line": 112,
+  "text": " sin sincronizar. Casi siempre es la señal."
+ },
+ {
+  "file": "docs/micelio-ui.js",
+  "line": 113,
+  "text": "Dejó de sincronizar hace un momento. Casi siempre es la señal."
+ },
+ {
+  "file": "docs/micelio-ui.js",
+  "line": 116,
+  "text": "<p>Se arregla solo en cuanto haya internet: no hay que hacer nada más que acercarse a donde haya señal.</p>"
+ },
+ {
+  "file": "docs/micelio-ui.js",
+  "line": 175,
+  "text": "Este dispositivo está fuera del loop"
+ },
+ {
+  "file": "docs/micelio-vivo.js",
+  "line": 19,
+  "text": "la última vez que te oí"
+ },
+ {
+  "file": "docs/micelio-vivo.js",
+  "line": 277,
+  "text": "Estás fuera del loop"
+ },
+ {
+  "file": "docs/micelio-vivo.js",
+  "line": 278,
+  "text": "Tu dispositivo lleva un rato sin sincronizar con el equipo. Cuidado con vender algo que otro ya vendió."
+ },
+ {
+  "file": "docs/micelio-vivo.js",
+  "line": 280,
+  "text": "Ya estás al día"
+ },
+ {
+  "file": "docs/micelio-vivo.js",
+  "line": 280,
+  "text": "Tu dispositivo volvió a sincronizar con el equipo."
+ },
+ {
+  "file": "docs/micelio-vivo.js",
+  "line": 292,
+  "text": "Un dispositivo está a ciegas"
+ },
+ {
+  "file": "docs/mock-backend.js",
+  "line": 459,
+  "text": "La memoria de este navegador está llena: los cambios nuevos NO se están guardando. Ve a AVANZADO y descarga un respaldo AHORA."
+ },
+ {
+  "file": "docs/mock-backend.js",
+  "line": 482,
+  "text": "Memoria casi llena: TODO se guardó (ventas, clientes, stock) — el log de actividad viejo ("
+ },
+ {
+  "file": "docs/mock-backend.js",
+  "line": 482,
+  "text": " registros) se movió a un archivo aparte en este dispositivo, no se borró. Exporta un respaldo en AVANZADO cuando puedas."
+ },
+ {
+  "file": "docs/mock-backend.js",
+  "line": 600,
+  "text": "Se detectó un guardado interrumpido y se recuperó automáticamente desde la copia anterior — no se perdió nada. Si algo no cuadra, exporta un respaldo en AVANZADO."
+ },
+ {
+  "file": "docs/mock-backend.js",
+  "line": 626,
+  "text": "[cargarEstadoLocal] el buffer activo estaba dañado, recuperado desde el buffer anterior"
+ },
+ {
+  "file": "docs/mock-backend.js",
+  "line": 1383,
+  "text": "[estado-idb] se recuperaron cambios que no cabian en localStorage (rev "
+ },
+ {
+  "file": "docs/aislamiento.js",
+  "line": 153,
+  "text": "[aislamiento] se quito una licencia de otra app en "
+ },
+ {
+  "file": "docs/aislamiento.js",
+  "line": 252,
+  "text": "[aislamiento] no se pudo aislar localStorage en este navegador"
+ },
+ {
+  "file": "docs/aislamiento.js",
+  "line": 272,
+  "text": "[aislamiento] SIN AISLAMIENTO en este navegador: las apps hermanas del mismo origen podrian pisarse datos. Abre esta app en un Chrome/Safari actualizado."
+ },
+ {
+  "file": "docs/aislamiento.js",
+  "line": 280,
+  "text": "Este navegador no aisla el almacenamiento de la app. Abrela en Chrome o Safari actualizado para proteger tus datos."
+ },
+ {
+  "file": "docs/aislamiento.js",
+  "line": 349,
+  "text": "[aislamiento] no se pudo aislar sessionStorage en este navegador"
  }
 ]

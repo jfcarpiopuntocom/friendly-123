@@ -91,7 +91,7 @@
     var TL = {
       title:    _es() ? "Lista de reposición" : "Restock list",
       loading:  _es() ? "(cargando…)"          : "(loading…)",
-      nothing:  _es() ? "✓ Nada por reponer en esta percha — todo el stock está sobre sus umbrales."
+      nothing:  _es() ? "✓ Nothing to restock on this shelf — all stock is above its thresholds."
                      : "✓ Nothing to restock on this shelf — all stock is above its thresholds.",
       urgent:   _es() ? "URGENTE"               : "URGENT",
       soon:     _es() ? "pronto"                : "soon",
@@ -99,11 +99,11 @@
       leftV:    _es() ? "quedan"                : "left",
       cost:     _es() ? "Costo estimado de la orden:"
                      : "Estimated order cost:",
-      notify:   _es() ? "Avísale al dueño para reponer lo de arriba."
+      notify:   _es() ? "Tell the owner to restock what is listed above."
                      : "Let the owner know to restock the items above.",
-      priority: _es() ? "Prioridad: se vende y se acaba (estrella/vaca) primero; rojo antes que amarillo."
+      priority: _es() ? "Priority: sells fast and runs out (star/cash cow) first; red before yellow."
                      : "Priority: what sells and runs out (star/cash cow) first; red before yellow.",
-      failed:   _es() ? "No se pudo calcular la reposición: "
+      failed:   _es() ? "Could not work out the restock: "
                      : "Could not calculate restock: "
     };
     cont.innerHTML = '<p style="font-size:17px;font-weight:700;color:#0F1923;margin:18px 0 8px;">' + TL.title + ' <span style="font-weight:400;font-size:15px;">' + TL.loading + '</span></p>';
