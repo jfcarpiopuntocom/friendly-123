@@ -1,7 +1,137 @@
 [
  {
-  "file": "docs/avanzado-extra.js",
-  "line": 1150,
-  "text": "quien esta en el loop y quien anda a ciegas"
+  "file": "docs/tablero-avanzado.js",
+  "line": 139,
+  "text": "Cada persona entra con su propio PIN. Los PIN no se muestran aquí."
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 153,
+  "text": "Su PIN aparece en tu dispositivo, no aquí.</p>"
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 173,
+  "text": "Pidiendo a tu dispositivo que lo agregue…"
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 192,
+  "text": ", el más reciente arriba. Cada uno queda con quién lo hizo y a qué hora.</p>"
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 198,
+  "text": "Todavía no hay movimientos registrados."
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 214,
+  "text": "El historial está intacto."
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 217,
+  "text": "Cada movimiento se sella y se encadena con el anterior: si alguien edita o borra uno, se nota. "
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 226,
+  "text": "se borró o se cambió de orden"
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 241,
+  "text": "Movimientos de producto entre tus perchas. Las pendientes las acepta quien recibe.</p>"
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 249,
+  "text": "Todavía no se ha movido producto entre perchas."
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 282,
+  "text": "Efectivo estimado del día"
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 286,
+  "text": "Insumo para tu contador. No es una declaración válida ante el SRI. "
+ },
+ {
+  "file": "docs/tablero-avanzado.js",
+  "line": 287,
+  "text": "El PDF del mes cerrado está más arriba, en Reporte del mes.</p>"
+ },
+ {
+  "file": "docs/percha-reposicion.js",
+  "line": 94,
+  "text": "✓ Nada por reponer en esta percha — todo el stock está sobre sus umbrales."
+ },
+ {
+  "file": "docs/percha-reposicion.js",
+  "line": 102,
+  "text": "Avísale al dueño para reponer lo de arriba."
+ },
+ {
+  "file": "docs/percha-reposicion.js",
+  "line": 104,
+  "text": "Prioridad: se vende y se acaba (estrella/vaca) primero; rojo antes que amarillo."
+ },
+ {
+  "file": "docs/percha-reposicion.js",
+  "line": 106,
+  "text": "No se pudo calcular la reposición: "
+ },
+ {
+  "file": "docs/crypto-store.js",
+  "line": 416,
+  "text": "No hay ningún reseteo pendiente. Pide un código nuevo."
+ },
+ {
+  "file": "docs/crypto-store.js",
+  "line": 420,
+  "text": "El código venció (15 min). Pide uno nuevo."
+ },
+ {
+  "file": "docs/crypto-store.js",
+  "line": 426,
+  "text": "Código incorrecto."
+ },
+ {
+  "file": "docs/crypto-store.js",
+  "line": 440,
+  "text": "No se pudo guardar tu PIN nuevo (memoria del dispositivo llena). Tu PIN anterior sigue funcionando. Libera espacio (fotos, otras apps) y vuelve a intentar con el mismo código."
+ },
+ {
+  "file": "docs/crypto-store.js",
+  "line": 523,
+  "text": "La clave del respaldo debe tener al menos 8 caracteres."
+ },
+ {
+  "file": "docs/sync-realtime.js",
+  "line": 452,
+  "text": "Esa acción no se puede hacer desde el tablero."
+ },
+ {
+  "file": "docs/sync-realtime.js",
+  "line": 610,
+  "text": "El código debe tener al menos 6 caracteres."
+ },
+ {
+  "file": "docs/sync-realtime.js",
+  "line": 622,
+  "text": "Código inválido — revisa que esté completo, con el formato F123-XXXX-XXXX-XXXX-XXXXX."
+ },
+ {
+  "file": "docs/sync-realtime.js",
+  "line": 632,
+  "text": "Ese código tiene un error de tipeo. Revísalo carácter por carácter."
+ },
+ {
+  "file": "docs/sync-realtime.js",
+  "line": 653,
+  "text": "Sync no está activo en este dispositivo."
  }
 ]
