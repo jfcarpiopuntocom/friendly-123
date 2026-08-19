@@ -186,7 +186,7 @@
       '<span style="display:inline-block;min-width:96px;padding:4px 11px;border-radius:20px;font-size:13px;' +
       'font-weight:700;text-align:center;background:' + et.color + ';color:' + et.tinta + ';">' + et.texto + "</span>" +
       '<span style="font-size:16px;font-weight:700;color:#0F1923;">' + esc(comoSeLlama(m)) +
-      (m.soyYo ? ' <span style="font-size:13px;font-weight:700;color:#B54E0A;">(este dispositivo)</span>' : "") + "</span>" +
+      (m.soyYo ? ' <span style="font-size:13px;font-weight:700;color:#B54E0A;">(this device)</span>' : "") + "</span>" +
       '<span style="font-size:14px;color:#2C3E50;margin-left:auto;">' + esc(m.cuando) + "</span>" +
       "</div>";
   }
@@ -202,42 +202,42 @@
     cont.innerHTML =
       '<p style="font-size:14px;line-height:1.55;margin:0 0 12px;color:#2C3E50;">' +
       (ciegos
-        ? "Hay " + ciegos + (ciegos === 1 ? " dispositivo que lleva" : " dispositivos que llevan") +
-          " rato sin sincronizar. Mientras estén así, pueden vender algo que aquí ya se vendió."
-        : "Todos los dispositivos del equipo están hablando entre sí.") +
+        ? (ciegos === 1 ? "1 device has not" : ciegos + " devices have not") +
+          " synced in a while. Until they do, they can sell something that was already sold here."
+        : "Every device on your team is talking to the others.") +
       "</p>" +
       '<div>' + eq.map(filaEquipo).join("") + "</div>" +
 
       /* --- el apodo --- */
       '<div style="margin-top:16px;">' +
-      '<label for="oc-mic-apodo" style="display:block;font-size:14px;font-weight:700;color:#0F1923;margin:0 0 5px;">Cómo llamar a este dispositivo</label>' +
-      '<p style="font-size:14px;line-height:1.5;margin:0 0 7px;color:#2C3E50;">Puede ser la persona o el aparato: "Rosa", "el celular del mostrador", "Tablet feria". Lo verá tu equipo.</p>' +
+      '<label for="oc-mic-apodo" style="display:block;font-size:14px;font-weight:700;color:#0F1923;margin:0 0 5px;">What to call this device</label>' +
+      '<p style="font-size:14px;line-height:1.5;margin:0 0 7px;color:#2C3E50;">It can be the person or the device: "Rosa", "front counter phone", "fair tablet". Your team sees it.</p>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-      '<input id="oc-mic-apodo" type="text" maxlength="28" value="' + esc(yo.apodo) + '" placeholder="Rosa, o el celular del mostrador" ' +
+      '<input id="oc-mic-apodo" type="text" maxlength="28" value="' + esc(yo.apodo) + '" placeholder="Rosa, or the front counter phone" ' +
       'style="flex:1;min-width:min(100%,200px);min-height:44px;padding:10px 13px;border:2px solid var(--azul-medio,#2E6278);' +
       'border-radius:8px;font-size:16px;color:#0F1923;background:#FFFFFF;">' +
       '<button type="button" id="oc-mic-apodo-ok" style="min-height:44px;padding:11px 18px;border-radius:8px;border:2px solid #0F1923;' +
-      'background:#0F1923;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;">Guardar</button>' +
+      'background:#0F1923;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;">Save</button>' +
       "</div>" +
       '<p id="oc-mic-apodo-msg" style="font-size:14px;margin:7px 0 0;min-height:19px;color:#00975C;"></p>' +
       "</div>" +
 
       /* --- la perilla --- */
       '<details style="margin-top:14px;">' +
-      '<summary style="font-size:15px;font-weight:700;color:#0F1923;cursor:pointer;padding:8px 0;min-height:44px;display:flex;align-items:center;">Ajustar cuándo avisar</summary>' +
+      '<summary style="font-size:15px;font-weight:700;color:#0F1923;cursor:pointer;padding:8px 0;min-height:44px;display:flex;align-items:center;">Adjust when to warn</summary>' +
       '<p style="font-size:14px;line-height:1.5;margin:6px 0 10px;color:#2C3E50;">' +
-      'Los valores de fábrica sirven para casi todos. Muévelos si tu negocio trabaja donde la señal es mala, o si al revés necesitas enterarte al minuto.</p>' +
+      'The factory values work for almost everyone. Move them if your business runs where the signal is bad, or if you need to know within the minute.</p>' +
       '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">' +
-      '<div><label for="oc-mic-rez" style="display:block;font-size:14px;font-weight:700;color:#0F1923;margin:0 0 4px;">Rezagado tras</label>' +
+      '<div><label for="oc-mic-rez" style="display:block;font-size:14px;font-weight:700;color:#0F1923;margin:0 0 4px;">Behind after</label>' +
       '<input id="oc-mic-rez" type="number" min="1" max="600" value="' + u.rezagado + '" style="width:110px;min-height:44px;padding:10px;' +
       'border:2px solid var(--azul-medio,#2E6278);border-radius:8px;font-size:16px;color:#0F1923;background:#FFFFFF;"> ' +
-      '<span style="font-size:14px;color:#2C3E50;">minutos</span></div>' +
-      '<div><label for="oc-mic-cie" style="display:block;font-size:14px;font-weight:700;color:#0F1923;margin:0 0 4px;">A ciegas tras</label>' +
+      '<span style="font-size:14px;color:#2C3E50;">minutes</span></div>' +
+      '<div><label for="oc-mic-cie" style="display:block;font-size:14px;font-weight:700;color:#0F1923;margin:0 0 4px;">Flying blind after</label>' +
       '<input id="oc-mic-cie" type="number" min="2" max="2880" value="' + u.ciegas + '" style="width:110px;min-height:44px;padding:10px;' +
       'border:2px solid var(--azul-medio,#2E6278);border-radius:8px;font-size:16px;color:#0F1923;background:#FFFFFF;"> ' +
-      '<span style="font-size:14px;color:#2C3E50;">minutos</span></div>' +
+      '<span style="font-size:14px;color:#2C3E50;">minutes</span></div>' +
       '<button type="button" id="oc-mic-umb-ok" style="min-height:44px;padding:11px 18px;border-radius:8px;border:2px solid #0F1923;' +
-      'background:#FFFFFF;color:#0F1923;font-size:15px;font-weight:700;cursor:pointer;">Guardar</button>' +
+      'background:#FFFFFF;color:#0F1923;font-size:15px;font-weight:700;cursor:pointer;">Save</button>' +
       "</div>" +
       '<p id="oc-mic-umb-msg" style="font-size:14px;margin:7px 0 0;min-height:19px;color:#00975C;"></p>' +
       "</details>" +
@@ -245,9 +245,9 @@
       /* --- avisos del navegador --- */
       '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--azul-suave,#dde5ec);">' +
       '<p style="font-size:14px;line-height:1.55;margin:0 0 8px;color:#2C3E50;">' +
-      'Puedes recibir un aviso del navegador cuando este dispositivo quede fuera del loop, aunque tengas la app en segundo plano.</p>' +
+      'Your browser can warn you when this device drops out of the loop, even with the app in the background.</p>' +
       '<button type="button" id="oc-mic-avisos" style="min-height:44px;padding:11px 18px;border-radius:8px;border:2px solid #0F1923;' +
-      'background:#FFFFFF;color:#0F1923;font-size:15px;font-weight:700;cursor:pointer;">Activar avisos en este dispositivo</button>' +
+      'background:#FFFFFF;color:#0F1923;font-size:15px;font-weight:700;cursor:pointer;">Turn on alerts on this device</button>' +
       '<p id="oc-mic-avisos-msg" style="font-size:14px;line-height:1.5;margin:8px 0 0;min-height:19px;color:#2C3E50;"></p>' +
       "</div>";
 
@@ -266,17 +266,17 @@
     var bA = document.getElementById("oc-mic-apodo-ok");
     if (bA) bA.addEventListener("click", function () {
       var v = M.ponerApodo(document.getElementById("oc-mic-apodo").value);
-      msg("oc-mic-apodo-msg", v ? 'Guardado. Tu equipo verá "' + v + '".' : "Sin apodo: tu equipo verá tu rol.");
+      msg("oc-mic-apodo-msg", v ? 'Saved. Your team will see "' + v + '".' : "No nickname: your team sees your role.");
     });
 
     var bU = document.getElementById("oc-mic-umb-ok");
     if (bU) bU.addEventListener("click", function () {
       var r = Number(document.getElementById("oc-mic-rez").value);
       var c = Number(document.getElementById("oc-mic-cie").value);
-      if (!(r > 0) || !(c > 0)) { msg("oc-mic-umb-msg", "Los dos valores tienen que ser minutos mayores que cero.", "#A8123A"); return; }
-      if (c <= r) { msg("oc-mic-umb-msg", '"A ciegas" tiene que ser mayor que "rezagado", si no nadie sería nunca rezagado.', "#A8123A"); return; }
+      if (!(r > 0) || !(c > 0)) { msg("oc-mic-umb-msg", "Both values have to be minutes greater than zero.", "#A8123A"); return; }
+      if (c <= r) { msg("oc-mic-umb-msg", '"Flying blind" has to be greater than "behind", otherwise nobody is ever just behind.', "#A8123A"); return; }
       M.ponerUmbrales(r, c);
-      msg("oc-mic-umb-msg", "Guardado. Rezagado a los " + r + " min, a ciegas a los " + c + " min.");
+      msg("oc-mic-umb-msg", "Saved. Behind at " + r + " min, flying blind at " + c + " min.");
     });
 
     var bN = document.getElementById("oc-mic-avisos");
@@ -284,25 +284,25 @@
       /* Estado actual, dicho antes de tocar nada: si el navegador ya los tiene
          bloqueados, el botón no los va a desbloquear y hay que decirlo. */
       try {
-        if (!("Notification" in window)) msg("oc-mic-avisos-msg", "Este navegador no puede mostrar avisos. El aviso en pantalla sigue funcionando.", "#2C3E50");
-        else if (Notification.permission === "granted") msg("oc-mic-avisos-msg", "Los avisos ya están activos en este dispositivo.");
-        else if (Notification.permission === "denied") msg("oc-mic-avisos-msg", "Los avisos están bloqueados para este sitio. Se activan desde los ajustes del navegador, no desde aquí.", "#B54E0A");
+        if (!("Notification" in window)) msg("oc-mic-avisos-msg", "This browser cannot show alerts. The on-screen warning still works.", "#2C3E50");
+        else if (Notification.permission === "granted") msg("oc-mic-avisos-msg", "Alerts are already on for this device.");
+        else if (Notification.permission === "denied") msg("oc-mic-avisos-msg", "Alerts are blocked for this site. You turn them on in your browser settings, not here.", "#B54E0A");
       } catch (_) {}
 
       bN.addEventListener("click", function () {
         M.pedirPermisoAviso().then(function (r) {
           if (r === "granted") {
-            msg("oc-mic-avisos-msg", "Listo. Te avisaremos si este dispositivo queda fuera del loop.");
+            msg("oc-mic-avisos-msg", "Done. We will warn you if this device drops out of the loop.");
             /* Ya que el dueño dijo que sí a esto, se pide también que el
                navegador no borre los datos del negocio por falta de espacio.
                Va junto porque es el mismo gesto: "esto lo quiero en serio". */
             M.pedirPersistencia().then(function (ok) {
-              if (ok) msg("oc-mic-avisos-msg", "Listo. Te avisaremos si este dispositivo queda fuera del loop, y el navegador ya no borrará tus datos por falta de espacio.");
+              if (ok) msg("oc-mic-avisos-msg", "Done. We will warn you if this device drops out of the loop, and the browser will no longer delete your data to free space.");
             });
           } else if (r === "denied") {
-            msg("oc-mic-avisos-msg", "Los dejaste bloqueados. El aviso en pantalla sigue funcionando igual.", "#B54E0A");
+            msg("oc-mic-avisos-msg", "You left them blocked. The on-screen warning still works.", "#B54E0A");
           } else {
-            msg("oc-mic-avisos-msg", "Este navegador no puede mostrar avisos. El aviso en pantalla sigue funcionando.", "#2C3E50");
+            msg("oc-mic-avisos-msg", "This browser cannot show alerts. The on-screen warning still works.", "#2C3E50");
           }
         });
       });
@@ -343,14 +343,14 @@
       "align-items:center;justify-content:center;padding:20px;";
     m.innerHTML =
       '<div style="background:#FFFFFF;border-radius:15px;padding:22px;max-width:400px;width:100%;">' +
-      '<h3 style="font-size:19px;margin:0 0 8px;color:#0F1923;">' + esc(d.nombre || "Nuevo miembro") + " ya está en tu equipo</h3>" +
-      '<p style="font-size:15px;line-height:1.55;margin:0 0 12px;color:#2C3E50;">Lo agregaste desde tu tablero. Este es su PIN, y solo se muestra ahora:</p>' +
+      '<h3 style="font-size:19px;margin:0 0 8px;color:#0F1923;">' + esc(d.nombre || "New member") + " is on your team</h3>" +
+      '<p style="font-size:15px;line-height:1.55;margin:0 0 12px;color:#2C3E50;">You added them from your dashboard. This is their PIN, and it is only shown now:</p>' +
       '<div style="text-align:center;font-family:var(--font-mono,monospace);font-size:38px;font-weight:700;' +
       'letter-spacing:.14em;color:#0F1923;background:#F8F9FB;border-radius:11px;padding:15px;margin:0 0 12px;">' +
       esc(d.pin) + "</div>" +
-      '<p style="font-size:15px;line-height:1.55;margin:0 0 14px;color:#2C3E50;">Dáselo en persona. No aparece en el tablero ni vuelve a aparecer aquí: si se pierde, se le pone uno nuevo desde Avanzado.</p>' +
+      '<p style="font-size:15px;line-height:1.55;margin:0 0 14px;color:#2C3E50;">Give it to them in person. It does not appear on the dashboard and will not appear here again: if it is lost, set a new one from Advanced.</p>' +
       '<button type="button" id="oc-alta-x" style="width:100%;min-height:48px;padding:12px;border-radius:10px;' +
-      'border:none;background:#E86040;color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;font-size:16px;font-weight:700;cursor:pointer;">Ya lo anoté</button>' +
+      'border:none;background:#E86040;color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;font-size:16px;font-weight:700;cursor:pointer;">Got it written down</button>' +
       "</div>";
     document.body.appendChild(m);
     var cerrar = function () { try { m.remove(); } catch (_) {} };

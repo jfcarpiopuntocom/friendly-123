@@ -644,7 +644,7 @@
     equipoPanel.id = "oc-emp-panel";
     equipoPanel.style.cssText = "text-align:left;margin-top:22px;";
     equipoPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Equipo</h3>
+      <h3 class="seccion" style="margin-top:0;">Team</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
         Cada miembro tiene su propio PIN de 3 dígitos. Sus ventas, ajustes y movimientos
         quedan registrados con su nombre en el historial. El PIN del dueño no aparece aquí.
@@ -958,7 +958,7 @@
     logPanel.id = "oc-log-panel";
     logPanel.style.cssText = "text-align:left;margin-top:22px;";
     logPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Log de actividad</h3>
+      <h3 class="seccion" style="margin-top:0;">Activity log</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
         Últimos 100 movimientos registrados en este dispositivo. Cada entrada incluye
         quién lo hizo y cuándo. El historial es de solo lectura — no se puede editar.
@@ -1144,6 +1144,26 @@
     // desde EL PANEL CENTRAL de JFC (PocketBase); este es para que DOS
     // DISPOSITIVOS DEL MISMO NEGOCIO (ej. caja + bodega) se pongan al día
     // entre ellos, cifrado de punta a punta con el PIN del dueño.
+    /* MICELIO VIVO — portado de amigable-123 (595bc18), 2026-08-19.
+       En friendly-123 este panel NO SE DIBUJABA NUNCA: micelio-ui.js hace
+       pintarPanel() buscando #oc-micelio-panel y aqui no habia contenedor
+       ninguno, asi que "quien esta en el loop y quien anda a ciegas" existia
+       en el codigo pero era invisible para el usuario.
+
+       Va como TARJETA PROPIA, no anidada dentro del panel de sync: el riel de
+       navegacion de Avanzado arma su menu con los hijos DIRECTOS de la vista,
+       y meterla dentro de otro panel lo descoloca (ese fue el bug de amigable).
+       NO volver a anidarla. Si micelio-ui.js no carga, el try deja el hueco
+       vacio y Avanzado sigue entero. */
+    try {
+      const micPanel = document.createElement("div");
+      micPanel.className = "tag-card";
+      micPanel.style.cssText = "text-align:left;margin-top:22px;";
+      micPanel.innerHTML = '<h3 class="seccion" style="margin-top:0;">Your team right now</h3><div id="oc-micelio-panel"></div>';
+      vista.appendChild(micPanel);
+      if (window.OCMicelioUI) window.OCMicelioUI.pintarPanel();
+    } catch (e) { console.error("Panel micelio no cargo (aislado, no rompe Avanzado):", e); }
+
     const syncDevPanel = document.createElement("div");
     syncDevPanel.id = "oc-syncdev-panel";
     syncDevPanel.className = "tag-card";
@@ -1170,8 +1190,9 @@
           "Monthly expenses": "Rent, payroll, utilities… prorated into the P&L.",
           "Access & recovery": "Email, WhatsApp, PINs and password.",
           "Sync your team": "Live sync across every device on your team.",
-          "Equipo": "Team members, roles and PINs for this business.",
-          "Log de actividad": "Who did what, and when.",
+          "Team": "Team members, roles and PINs for this business.",
+          "Activity log": "Who did what, and when.",
+          "Your team right now": "Who is synced and who is not.",
           "Fraud control": "Integrity of sensitive operations.",
           "Transfers between locations": "Move stock between branches.",
           "Remote sync (optional)": "Your own PocketBase, if you set one up.",
