@@ -32,7 +32,13 @@
   if (!global.AMG_FLAGS.perchaReposicionEnabled) return;
 
   var API = "/api";
-  function money(n) { return "$" + Number(n || 0).toFixed(2); }
+  function money(n) {
+    const v = Number(n || 0);
+    try {
+      const loc = (window.OCI18n && window.OCI18n.locale && window.OCI18n.locale()) || "en-US";
+      return new Intl.NumberFormat(loc, { style: "currency", currency: "USD" }).format(v);
+    } catch (_) { return "$" + v.toFixed(2); }
+  }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function esDueno() {
     try { var r = global.OCAuth && global.OCAuth.rolActual ? global.OCAuth.rolActual() : null; return r === "dueno" || r === "dueño" || r === "owner" || r === "admin"; } catch (_) { return false; }
@@ -104,8 +110,19 @@
     body.appendChild(cont);
 
     Promise.all([
-      fetch(API + "/productos?ubicacionId=" + encodeURIComponent(perchaId)).then(function (r) { return r.json(); }),
-      fetch(API + "/inventario/bcg?ubicacionId=" + encodeURIComponent(perchaId)).then(function (r) { return r.json(); }).catch(function () { return {}; })
+      // 2026-08-19, aprobado JFC: red-segura envuelve fetch y devuelve una
+      // Response 503 en vez de rechazar cuando la red esta caida. Sin este
+      // check r.json() sobre una 503 producia {error:...} y el .catch de
+      // abajo mostraba "Could not calculate restock: undefined". Ahora se
+      // convierte en un throw claro.
+      fetch(API + "/productos?ubicacionId=" + encodeURIComponent(perchaId)).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }),
+      fetch(API + "/inventario/bcg?ubicacionId=" + encodeURIComponent(perchaId)).then(function (r) {
+        if (!r.ok) return {};
+        return r.json();
+      }).catch(function () { return {}; })
     ]).then(function (res) {
       var lista = construirLista(res[0], pesosBcg(res[1] || {}));
       var dueno = esDueno();

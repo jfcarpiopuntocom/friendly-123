@@ -33,11 +33,20 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
-  var ROL = { dueno: "Dueño", admin: "Admin", empleado: "Encargado", contador: "Contador" };
+  // 2026-08-19, aprobado JFC: ROL respeta el idioma activo. Las claves
+  // "auth.roleChip.*" ya existen en i18n.js/DICT.en/DICT.es — reutilizadas.
+  function _t(k, fb) { try { return (window.OCI18n && window.OCI18n.t(k)) || fb; } catch (_) { return fb; } }
+  function rolNombre(rol) {
+    if (rol === "dueno")    return _t("auth.roleChip.owner", "Owner");
+    if (rol === "admin")    return _t("auth.roleChip.admin", "Admin");
+    if (rol === "empleado") return _t("auth.roleChip.employee", "Encargado");
+    if (rol === "contador") return _t("auth.roleChip.accountant", "Accountant");
+    return rol || "";
+  }
   function comoSeLlama(m) {
     /* El apodo manda; si no hay, el rol; si tampoco, el id corto. Nunca el
        PIN: el PIN no se enseña, se teclea. */
-    return m.apodo || ROL[m.rol] || ("Dispositivo " + String(m.id).slice(1, 5));
+    return m.apodo || rolNombre(m.rol) || ("Dispositivo " + String(m.id).slice(1, 5));
   }
 
   /* ====================================================== 1. EL PULSAR ===

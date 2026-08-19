@@ -23,7 +23,13 @@
 
   const API = '/api';
   const $ = (id) => document.getElementById(id);
-  const money = (n) => '$' + Number(n || 0).toFixed(2);
+  const money = (n) => {
+    const v = Number(n || 0);
+    try {
+      const loc = (window.OCI18n && window.OCI18n.locale && window.OCI18n.locale()) || "en-US";
+      return new Intl.NumberFormat(loc, { style: "currency", currency: "USD" }).format(v);
+    } catch (_) { return "$" + v.toFixed(2); }
+  };
   const esc = (s) => String(s == null ? '' : s)
     .replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
