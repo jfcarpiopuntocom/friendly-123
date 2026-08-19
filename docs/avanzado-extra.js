@@ -458,7 +458,18 @@
       panel.className = "tag-card";
       panel.id = "oc-sync-panel";
       panel.style.cssText = "text-align:left;margin-top:22px;";
-      const salaActiva = window.OCSyncControl.salaActiva();
+      /* LICENCIA != CODIGO DE SALA (JFC 2026-08-19).
+         El codigo de sala se DERIVA de la licencia del negocio, pero no es lo
+         mismo: la licencia identifica al negocio para siempre; la sala es la
+         llave de cuarto con la que los telefonos del equipo se hablan. Aqui se
+         muestra la sala, asi que una sala de OTRA app (AMG-, las tres apps
+         comparten origen en Pages) se leia como si fuera la licencia propia.
+         Se filtra: si no empieza con F123-, se trata como si no hubiera sala. */
+      const _salaCruda = window.OCSyncControl.salaActiva();
+      const salaActiva = /^F123-/i.test(String(_salaCruda || "")) ? _salaCruda : "";
+      if (_salaCruda && !salaActiva) {
+        try { console.warn("[sync] sala de otra app, se ignora:", _salaCruda); } catch (_) {}
+      }
       const codigoPrecargado = (function () {
         try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).syncCode || ""; } catch (_) { return ""; }
       })();
@@ -483,6 +494,14 @@
             <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
             <button id="oc-sync-rotar" style="border-color:#E86040;color:#E86040;">Change the code</button>
         <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
+          </div>
+        </div>
+        <div id="oc-sync-unirse" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">
+          <p style="font-size:14px;color:var(--ink-soft);margin:0 0 8px;">Joining from another device? Paste the team code here.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="oc-sync-codigo2" type="text" placeholder="F123-XXXX-XXXX" maxlength="40"
+              style="flex:1;min-width:220px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-size:15px;">
+            <button id="oc-sync-unirme" class="ir" style="min-height:44px;">Join this team</button>
           </div>
         </div>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
@@ -520,10 +539,16 @@
         const cont = document.getElementById("oc-sync-qr");
         if (!cont || !window.qrcode) return;
         try {
+          /* BUG EN VIVO (JFC 2026-08-19): el QR llevaba el texto suelto
+             "AMIGABLE123-SYNC:<codigo>". La camara de cualquier telefono lo lee
+             pero no sabe que hacer con el y responde "No usable data found".
+             Ahora lleva una URL de verdad: la camara abre friendly-123 y la app
+             ve ?join=<codigo> y ofrece unirse. Un solo escaneo, sin teclear. */
+          const url = "https://jfcarpiopuntocom.github.io/friendly-123/?join=" + encodeURIComponent(codigo);
           const q = window.qrcode(0, "M");
-          q.addData("AMIGABLE123-SYNC:" + codigo);
+          q.addData(url);
           q.make();
-          cont.innerHTML = `<img src="${q.createDataURL(4, 4)}" width="120" height="120" alt="QR" style="border-radius:6px;">`;
+          cont.innerHTML = `<img src="${q.createDataURL(4, 4)}" width="140" height="140" alt="QR" style="border-radius:6px;">`;
         } catch (_) { /* QR es un extra visual */ }
       }
       if (salaActiva) pintarQR(salaActiva);
@@ -534,6 +559,15 @@
         btn.disabled = true;
         setTimeout(() => { btn.disabled = false; }, 1200);
         const codigo = document.getElementById("oc-sync-codigo").value;
+        /* Guard (portado de amigable-123, 23ce907): pegar por error el codigo
+           de la app hermana metia este negocio en la sala de otro. */
+        if (codigo.trim() && !/^F123-/i.test(codigo.trim())) {
+          const m0 = document.getElementById("oc-sync-msg");
+          m0.style.color = "var(--rojo,#a3392a)";
+          m0.textContent = "That code is not from friendly-123. Yours starts with F123-.";
+          btn.disabled = false;
+          return;
+        }
         const r = window.OCSyncControl.activar(codigo);
         const msg = document.getElementById("oc-sync-msg");
         if (!r.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error; return; }
@@ -545,7 +579,8 @@
       });
       const btnCompartir = document.getElementById("oc-sync-compartir");
       if (btnCompartir) btnCompartir.addEventListener("click", () => {
-        const codigo = (window.OCSyncControl.salaActiva() || "").trim();
+        const _c = (window.OCSyncControl.salaActiva() || "").trim();
+        const codigo = /^F123-/i.test(_c) ? _c : "";   // mismo filtro que arriba
         const negocio = (function () { try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch (_) { return ""; } })();
         const texto = window.t("sync.panel.shareText")
           .replace("{business}", negocio ? " (" + negocio + ")" : "")
@@ -560,6 +595,34 @@
         msg.textContent = window.t("sync.panel.resyncing");
         setTimeout(() => { if (msg.textContent === window.t("sync.panel.resyncing")) msg.textContent = ""; }, 3000);
       });
+      /* UNIRSE DESDE ESTE MISMO SUBSEGMENTO (JFC 2026-08-19): antes no habia
+         donde pegar el codigo si la sala ya estaba activa, y el unico boton a
+         mano ("Change the code") ROTABA el codigo — que es lo contrario de lo
+         que quiere quien llega a unirse. Este input une sin rotar nada. */
+      (function () {
+        const bu = document.getElementById("oc-sync-unirme");
+        if (!bu) return;
+        bu.addEventListener("click", () => {
+          const m2 = document.getElementById("oc-sync-msg");
+          const cod = (document.getElementById("oc-sync-codigo2").value || "").trim();
+          if (!cod) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = "Paste the team code first."; return; }
+          if (!/^F123-/i.test(cod)) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = "That code is not from friendly-123. It starts with F123-."; return; }
+          const r2 = window.OCSyncControl.activar(cod);
+          if (!r2.ok) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = r2.error; return; }
+          m2.style.color = "var(--sim-verde-dk,#1a6e3c)";
+          m2.textContent = "Joined. This device is now syncing with the team.";
+          document.getElementById("oc-sync-apagado").style.display = "none";
+          document.getElementById("oc-sync-activo").style.display = "block";
+          document.getElementById("oc-sync-codigo-actual").textContent = cod;
+          pintarQR(cod);
+        });
+        /* Si llego por el QR (?join=CODIGO), el campo viene ya lleno: solo toca
+           el boton. Lo pone el bloque de index.html que lee el parametro. */
+        try {
+          const pre = sessionStorage.getItem("f123_join_pendiente");
+          if (pre) { document.getElementById("oc-sync-codigo2").value = pre; }
+        } catch (_) {}
+      })(),
       (function(){var _r=document.getElementById("oc-sync-rotar");if(_r&&!_r.dataset.listo){_r.dataset.listo="1";_r.addEventListener("click",ocRotarCodigoSala);}})(),document.getElementById("oc-sync-desactivar").addEventListener("click", () => {
         window.OCSyncControl.desactivar();
         document.getElementById("oc-sync-apagado").style.display = "flex";
@@ -1206,8 +1269,20 @@
             const angosto = window.matchMedia && window.matchMedia("(max-width:720px)").matches;
             if (angosto) {
               fila.style.flexDirection = "column";
-              rNav.style.cssText = "flex:0 0 auto;width:100%;position:sticky;top:0;max-height:none;overflow:visible;flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:2px solid var(--azul-suave,#dde5ec);padding:6px 0;margin:0 0 12px 0;background:var(--blanco-calido,#F8F9FB);";
-              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "auto"; b.style.borderLeft = "none"; b.style.padding = "8px 10px"; });
+              /* DOS BUGS que hacian "retazos encima de retazos" en el telefono.
+                 Portado de amigable-123 (23ce907, 2026-08-16), reproducido
+                 igual en friendly-123 el 2026-08-19:
+
+                 1. Faltaba display:flex. cssText REEMPLAZA todo el estilo, y el
+                    modo ancho si lo pone: al pasar a angosto el nav perdia el
+                    flex y los chips se desbordaban unos sobre otros.
+                 2. position:sticky con overflow:visible dejaba el nav FLOTANDO
+                    sobre el contenido al hacer scroll. En angosto va estatico.
+
+                 Y con tope de alto: 18 chips sin limite empujaban el contenido
+                 tan abajo que parecia que la seccion estaba vacia. */
+              rNav.style.cssText = "display:flex;flex:0 0 auto;width:100%;box-sizing:border-box;position:static;top:auto;max-height:34vh;overflow-y:auto;-webkit-overflow-scrolling:touch;flex-direction:row;flex-wrap:wrap;gap:6px;align-content:flex-start;border-right:none;border-bottom:2px solid var(--azul-suave,#dde5ec);padding:8px 0;margin:0 0 14px 0;background:var(--blanco-calido,#F8F9FB);";
+              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "auto"; b.style.flex = "0 0 auto"; b.style.borderLeft = "none"; b.style.margin = "0"; b.style.padding = "9px 12px"; b.style.whiteSpace = "nowrap"; });
             } else {
               fila.style.flexDirection = "row";
               rNav.style.cssText = "flex:0 0 148px;width:148px;position:sticky;top:8px;align-self:flex-start;padding:0 10px 0 0;margin:0 14px 0 0;border-right:2px solid var(--azul-suave,#dde5ec);display:flex;flex-direction:column;max-height:calc(100vh - 24px);overflow-y:auto;background:var(--blanco-calido,#F8F9FB);z-index:3;box-sizing:border-box;";
@@ -1215,7 +1290,19 @@
             }
           } catch (_) {}
         }
-        resp(); try { window.addEventListener("resize", resp); } catch (_) {}
+        /* GUARDS (portado de amigable-123, 23ce907): el layout se recalcula en
+           cada evento que puede cambiarlo. Antes se calculaba SOLO al arrancar,
+           asi que girar el telefono, o que el MutationObserver agregara una
+           entrada nueva al riel, lo dejaba con las medidas viejas. */
+        resp();
+        try { window.addEventListener("resize", resp); } catch (_) {}
+        try { window.addEventListener("orientationchange", resp); } catch (_) {}
+        try {
+          const mq = window.matchMedia && window.matchMedia("(max-width:720px)");
+          if (mq && mq.addEventListener) mq.addEventListener("change", resp);
+          else if (mq && mq.addListener) mq.addListener(resp);
+        } catch (_) {}
+        try { obs.observe(rNav, { childList: true }); new MutationObserver(resp).observe(rNav, { childList: true }); } catch (_) {}
       } catch (_) { /* si el riel falla, los paneles ya armados arriba siguen visibles tal cual estaban - cero riesgo */ }
     })();
 

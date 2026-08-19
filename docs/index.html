@@ -1548,6 +1548,14 @@
       <button class="ir" id="btnAplicarCierre" style="margin-top:12px;" data-i18n="sold.applyClose">Apply day close</button>
       <p id="cierreMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
     </details>
+    <!-- CIERRE DEL DIA EN MOVIL (JFC 2026-08-19): el FAB flotante tapaba el
+         menu inferior, asi que en telefono la misma pantalla de cierre se abre
+         desde aqui, dentro de SOLD, que es su sitio logico. Es EL MISMO modal
+         (#eod-modal) y el mismo handler: cero logica duplicada. Se muestra
+         solo si el rol puede verla (lo decide actualizarFAB()). -->
+    <div id="eod-inline-wrap">
+      <button type="button" id="eod-inline">Close the day</button>
+    </div>
   </section>
 
   <!-- VISTA: ETIQUETAS -->
@@ -5504,6 +5512,32 @@ document.addEventListener("oc-lang-change", () => {
 });
 </script>
 
+<!-- ═════════ 2026-08-19, JFC: llegar por el QR del equipo ═════════════
+     El QR del panel de sync lleva una URL con ?join=F123-XXXX-XXXX. Antes
+     llevaba texto suelto y la camara del telefono contestaba "No usable data
+     found". Aqui solo se GUARDA el codigo y se avisa: NO se activa nada solo.
+     Unirse a una sala es una decision del dueno, no algo que pase por escanear.
+     El codigo queda en sessionStorage y Avanzado -> Sync lo encuentra ya
+     escrito en el campo "Join this team". Se limpia la URL para que no quede
+     el codigo en la barra ni en el historial. -->
+<script>
+(function(){
+  try{
+    var q=new URLSearchParams(window.location.search);
+    var j=(q.get("join")||"").trim();
+    if(!j) return;
+    // Guard: solo codigos de esta app. Uno de la app hermana no abre sala aqui.
+    if(!/^F123-/i.test(j)) return;
+    sessionStorage.setItem("f123_join_pendiente", j);
+    // Sacar el codigo de la barra de direcciones (no debe quedar en historial).
+    try{ q.delete("join");
+      var rest=q.toString();
+      history.replaceState(null,"",window.location.pathname+(rest?"?"+rest:"")+window.location.hash);
+    }catch(_){}
+  }catch(_){}
+})();
+</script>
+
 <!-- ═════════ 2026-08-19, aprobado JFC: FAB "Close the day" ═════════════
      Boton flotante abajo a la derecha (el hueco que dejo el pulsar).
      Un solo click: (1) trae /api/dashboard con el resumen de hoy;
@@ -5517,6 +5551,18 @@ document.addEventListener("oc-lang-change", () => {
     box-shadow:0 6px 20px rgba(232,96,64,.35);cursor:pointer;display:none;font-family:inherit;
     -webkit-tap-highlight-color:transparent;}
   #fab-eod:hover{background:#C05000;}
+  /* JFC 2026-08-19: en el navegador movil el FAB flotante tapaba el menu de
+     abajo. Queda SOLO en pantalla ancha (>=900px), flotando como a JFC le
+     gusta. En movil la misma accion vive dentro de SOLD (#eod-inline-wrap),
+     que es donde el usuario ya esta cerrando el dia. El !important es
+     necesario porque actualizarFAB() escribe display inline. */
+  @media (max-width:899px){ #fab-eod{display:none !important;} }
+  /* Y al reves: el boton en linea es solo de movil. */
+  #eod-inline-wrap{display:none;margin-top:14px;}
+  @media (max-width:899px){ #eod-inline-wrap.puede{display:block;} }
+  #eod-inline{width:100%;min-height:48px;border-radius:10px;background:#E86040;color:#fff;
+    border:none;padding:13px 18px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;}
+  #eod-inline:active{transform:scale(.99);}
   #fab-eod:active{transform:scale(.97);}
   #eod-modal{position:fixed;inset:0;background:rgba(15,25,35,.55);z-index:900;
     display:none;align-items:center;justify-content:center;padding:16px;}
@@ -5579,8 +5625,14 @@ document.addEventListener("oc-lang-change", () => {
   }
   function actualizarFAB(){
     var f=document.getElementById("fab-eod"); if(!f) return;
+    var puede=visible();
     f.textContent=TX().fabLabel;
-    f.style.display=visible()?"block":"none";
+    /* Ancho: el FAB flota. Angosto: se apaga y manda el boton en linea de SOLD
+       (la media query de arriba lo refuerza aunque este display quede en block). */
+    var ancho = !(window.matchMedia && window.matchMedia("(max-width:899px)").matches);
+    f.style.display=(puede && ancho)?"block":"none";
+    var w=document.getElementById("eod-inline-wrap");
+    if(w){ w.classList.toggle("puede", puede); var ib=document.getElementById("eod-inline"); if(ib) ib.textContent=TX().fabLabel; }
   }
   function abrir(){
     var m=document.getElementById("eod-modal"),
@@ -5628,6 +5680,9 @@ document.addEventListener("oc-lang-change", () => {
   document.addEventListener("DOMContentLoaded", function(){
     actualizarFAB();
     var f=document.getElementById("fab-eod"); if(f) f.addEventListener("click", abrir);
+    var fi=document.getElementById("eod-inline"); if(fi) fi.addEventListener("click", abrir);
+    /* Girar el telefono cambia cual de los dos manda. */
+    try{ window.addEventListener("resize", actualizarFAB); window.addEventListener("orientationchange", actualizarFAB); }catch(_){}
     var x=document.getElementById("eod-close"); if(x) x.addEventListener("click", cerrar);
     var b=document.getElementById("eod-backup"); if(b) b.addEventListener("click", bajarRespaldo);
     var m=document.getElementById("eod-modal");
