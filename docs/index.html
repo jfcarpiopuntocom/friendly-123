@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<html lang="es"><head>
+<html lang="en"><head>
+<!-- BUG FIJADO (JFC 2026-08-19, caza produccion): lang="es" era herencia del
+     fork de amigable; el default aqui es ingles. i18n.js reasigna
+     document.documentElement.lang al cambiar de idioma, pero el primer paint
+     y los crawlers/social previews leian "es" antes de eso. -->
+
 <!-- SAFEGUARD NUCLEAR (2026-07-17): repara dispositivos atrapados con un SW
      viejo que no tiene el kill-switch de version. Corre ANTES que todo.
      Si el SW viejo sirve este HTML cacheado, este script no estara ahi y no
