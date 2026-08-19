@@ -114,8 +114,26 @@ async function handleCheckin(req, env) {
   const existenteRaw = await env.LICENCIAS.get(`inst:${instanceId}`);
   const existente = existenteRaw ? JSON.parse(existenteRaw) : {};
 
-  // Determine product
-  const producto = body.producto === "amigable" ? "amigable-123" : "friendly-123";
+  /* QUE APP ES (arreglado 2026-08-19). Antes: body.producto === "amigable",
+     comparado contra un valor que NINGUNA app manda — las apps mandan
+     "amigable-123" / "friendly-123". Todo caia al else y los 29 registros de
+     la KV de amigable quedaron etiquetados como friendly-123, incluidos los de
+     clientes con licencia AMG-. El campo era ruido: no se podia filtrar por el.
+
+     Ahora manda el PREFIJO DE LA LICENCIA, que es el unico dato que de verdad
+     dice de que app es. Si no hay licencia todavia (alta a medias), se cae al
+     campo producto ya normalizado, y en ultimo caso al valor previo guardado
+     para no degradar un registro que ya estaba bien clasificado. */
+  const _lic = String(body.licenseCode || existente.licenseCode || "").toUpperCase();
+  const _prod = String(body.producto || "").toLowerCase();
+  let producto;
+  if (_lic.startsWith("AMG-")) producto = "amigable-123";
+  else if (_lic.startsWith("F123-")) producto = "friendly-123";
+  else if (_lic.startsWith("C123-")) producto = "consultorio-123";
+  else if (_prod.indexOf("amigable") === 0) producto = "amigable-123";
+  else if (_prod.indexOf("consultorio") === 0) producto = "consultorio-123";
+  else if (_prod.indexOf("friendly") === 0) producto = "friendly-123";
+  else producto = existente.producto || "friendly-123";
 
   const registro = {
     instanceId,

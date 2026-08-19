@@ -73,7 +73,7 @@
   // ---------------------------------------------------------------------------
   // Identidad del dispositivo
   // ---------------------------------------------------------------------------
-  // El instanceId ya lo asigna auth-ui.js al activar (amigable_owned). Si
+  // El instanceId ya lo asigna auth-ui.js al activar (f123_owned). Si
   // todavia no existe (demo sin activar), se genera uno local y estable para
   // que los hechos de este dispositivo tengan autor desde el primer minuto.
   // Cuando el dispositivo se active de verdad, auth-ui.js escribira el suyo;
@@ -81,7 +81,13 @@
   // fueron generados por este aparato antes de tener licencia.
   function instanceId() {
     try {
-      var owned = JSON.parse(localStorage.getItem("amigable_owned") || "null") || {};
+      /* BUG (JFC 2026-08-19): esto leia "amigable_owned", la clave de la app
+         HERMANA. friendly-123 guarda en "f123_owned", asi que el instanceId
+         NUNCA se encontraba y toda la cadena de hechos caia al id local
+         anonimo "loc-...". El sello antifraude quedaba sin autor real en cada
+         dispositivo activado. Clase de bug ya conocida: "codigo correcto pero
+         no cambia nada" casi siempre es una clave vieja de localStorage. */
+      var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       if (owned.instanceId) return owned.instanceId;
     } catch (_) {}
     try {

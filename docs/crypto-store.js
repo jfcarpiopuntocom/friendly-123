@@ -520,7 +520,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   }
 
   async function cifrarTextoConClave(texto, passphrase) {
-    if (!passphrase || String(passphrase).length < 8) throw new Error("La clave del respaldo debe tener al menos 8 caracteres.");
+    if (!passphrase || String(passphrase).length < 8) throw new Error("The backup passphrase must be at least 8 characters.");
     const salt = randSalt();
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const key = await derivarLlaveBackup(passphrase, salt);

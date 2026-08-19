@@ -449,7 +449,7 @@
     if (!ordenPermitida(metodo, ruta)) {
       /* Se dice que no se permite, no se ignora: un tablero esperando en
          silencio una respuesta que nunca llega es peor que un no claro. */
-      return responder({ error: "Esa acción no se puede hacer desde el tablero." }, false);
+      return responder({ error: "That action cannot be done from the dashboard." }, false);
     }
     /* Jitter, igual que en el catch-up: si hay dos telefonos del negocio
        conectados, no ejecutan la misma orden a la vez. Solo el primero que
@@ -607,7 +607,7 @@
       // y "AMG-X" deben caer en la MISMA sala. Antes se guardaba tal cual lo
       // tecleara el usuario, silencioso y confuso si alguien no usaba mayus.
       const codigoNorm = normalizarCodigo(codigo);
-      if (codigoNorm.length < 6) return { ok: false, error: "El código debe tener al menos 6 caracteres." };
+      if (codigoNorm.length < 6) return { ok: false, error: "The code must be at least 6 characters." };
       /* FORMATO DE SALA (2026-08-14). Acepta el formato nuevo de 4 grupos con
          simbolo de verificacion y TAMBIEN el viejo, para no dejar afuera a
          ninguna licencia ya emitida. consultorio-123 acepta ademas el prefijo
@@ -619,7 +619,7 @@
       var _cuerpo = codigoNorm.replace(new RegExp("^(" + _pre.join("|") + ")-"), "").replace(/-/g, "");
       var _prefijoOk = _pre.some(function (p) { return codigoNorm.indexOf(p + "-") === 0; });
       if (!_prefijoOk || (_cuerpo.length !== 8 && _cuerpo.length !== 12 && _cuerpo.length !== 17)) {
-        return { ok: false, error: "Código inválido — revisa que esté completo, con el formato F123-XXXX-XXXX-XXXX-XXXXX." };
+        return { ok: false, error: "Invalid code — check that it is complete, in the format F123-XXXX-XXXX-XXXX-XXXXX." };
       }
       if (_cuerpo.length === 17) {
         var _B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ", _CHK = _B32 + "*~$=U", _acc = 0, _mal = false;
@@ -629,7 +629,7 @@
           _acc = (_acc * 32 + _v) % 37;
         }
         if (_mal || _CHK.charAt(_acc) !== _cuerpo.charAt(16)) {
-          return { ok: false, error: "Ese código tiene un error de tipeo. Revísalo carácter por carácter." };
+          return { ok: false, error: "That code has a typo. Check it character by character." };
         }
       }
       try { localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm })); } catch (_) {}
@@ -650,7 +650,7 @@
     // raro para cuando alguien duda si esta sincronizado de verdad en plena
     // feria. Reconecta ya mismo, sin esperar el backoff normal.
     resincronizar() {
-      if (!leerSala()) return { ok: false, error: "Sync no está activo en este dispositivo." };
+      if (!leerSala()) return { ok: false, error: "Sync is not active on this device." };
       reintentoMs = 1000;
       intentosSeguidos = 0;
       conectar();
