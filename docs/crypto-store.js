@@ -405,12 +405,26 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     try { return JSON.parse(localStorage.getItem("f123_reset")); } catch { return null; }
   }
   async function resetearConCodigo(codigoIngresado, nuevoOwnerPin) {
-    if (segundosBloqueo("reset") > 0) return { error: `Demasiados intentos. Espera ${segundosBloqueo("reset")}s.` };
+    // BUG FIJADO (JFC 2026-08-19, caza produccion): mensajes de error de
+    // reset en espanol para app cuyo default es ingles.
+    const _es = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+    if (segundosBloqueo("reset") > 0) {
+      return { error: _es ? `Demasiados intentos. Espera ${segundosBloqueo("reset")}s.`
+                          : `Too many attempts. Wait ${segundosBloqueo("reset")}s.` };
+    }
     const r = leerReset();
-    if (!r) return { error: "No hay ningún reseteo pendiente. Pide un código nuevo." };
-    if (Date.now() > r.expiresAt) { localStorage.removeItem("f123_reset"); return { error: "El código venció (15 min). Pide uno nuevo." }; }
+    if (!r) return { error: _es ? "No hay ningún reseteo pendiente. Pide un código nuevo."
+                                : "No pending reset. Request a new code." };
+    if (Date.now() > r.expiresAt) {
+      localStorage.removeItem("f123_reset");
+      return { error: _es ? "El código venció (15 min). Pide uno nuevo."
+                          : "The code expired (15 min). Request a new one." };
+    }
     const hashIngresado = await hashPin(codigoIngresado, r.salt, "reset");
-    if (hashIngresado !== r.codeHash) { registrarFallo("reset"); return { error: "Código incorrecto." }; }
+    if (hashIngresado !== r.codeHash) {
+      registrarFallo("reset");
+      return { error: _es ? "Código incorrecto." : "Incorrect code." };
+    }
     registrarExito("reset");
     const correoActual = leerCorreo();
     const nuevoEmpleado = randDigits(3);
@@ -423,7 +437,8 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     // existía. Ahora el código de reset SOLO se consume si el guardado
     // funcionó de verdad.
     if (!guardado) {
-      return { error: "No se pudo guardar tu PIN nuevo (memoria del dispositivo llena). Tu PIN anterior sigue funcionando. Libera espacio (fotos, otras apps) y vuelve a intentar con el mismo código." };
+      return { error: _es ? "No se pudo guardar tu PIN nuevo (memoria del dispositivo llena). Tu PIN anterior sigue funcionando. Libera espacio (fotos, otras apps) y vuelve a intentar con el mismo código."
+                          : "Could not save your new PIN (device storage full). Your previous PIN still works. Free up space (photos, other apps) and try again with the same code." };
     }
     localStorage.removeItem("f123_reset");
     return { ok: true, empleado: nuevoEmpleado, acct: nuevoAcct };

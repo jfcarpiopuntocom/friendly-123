@@ -173,13 +173,18 @@
 
       if (!filtrados.length) {
         lista.innerHTML = "";
-        mensaje.textContent = opts.mensajeVacio || "Sin resultados.";
+        // BUG FIJADO (JFC 2026-08-19, caza produccion): fallbacks en espanol
+        // en app cuyo default es ingles.
+        var _es_l = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+        mensaje.textContent = opts.mensajeVacio || (_es_l ? "Sin resultados." : "No results.");
         return;
       }
 
       lista.innerHTML = filtrados.map(opts.renderFila).join("");
+      var _es_l2 = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
       mensaje.textContent = truncado
-        ? "Mostrando los primeros " + limite + " resultados — afina la búsqueda para ver otros."
+        ? (_es_l2 ? "Mostrando los primeros " + limite + " resultados — afina la búsqueda para ver otros."
+                  : "Showing the first " + limite + " results — refine your search to see others.")
         : "";
     }
 

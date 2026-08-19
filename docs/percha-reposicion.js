@@ -79,7 +79,28 @@
     if (prev) prev.remove();
     var cont = document.createElement("div");
     cont.id = "amg-repo-lista";
-    cont.innerHTML = '<p style="font-size:17px;font-weight:700;color:#0F1923;margin:18px 0 8px;">Lista de reposición <span style="font-weight:400;font-size:15px;">(cargando…)</span></p>';
+    // BUG FIJADO (JFC 2026-08-19, caza produccion): textos hardcoded en
+    // espanol en app cuyo default es ingles.
+    var _es = function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}};
+    var TL = {
+      title:    _es() ? "Lista de reposición" : "Restock list",
+      loading:  _es() ? "(cargando…)"          : "(loading…)",
+      nothing:  _es() ? "✓ Nada por reponer en esta percha — todo el stock está sobre sus umbrales."
+                     : "✓ Nothing to restock on this shelf — all stock is above its thresholds.",
+      urgent:   _es() ? "URGENTE"               : "URGENT",
+      soon:     _es() ? "pronto"                : "soon",
+      restockV: _es() ? "reponer"               : "restock",
+      leftV:    _es() ? "quedan"                : "left",
+      cost:     _es() ? "Costo estimado de la orden:"
+                     : "Estimated order cost:",
+      notify:   _es() ? "Avísale al dueño para reponer lo de arriba."
+                     : "Let the owner know to restock the items above.",
+      priority: _es() ? "Prioridad: se vende y se acaba (estrella/vaca) primero; rojo antes que amarillo."
+                     : "Priority: what sells and runs out (star/cash cow) first; red before yellow.",
+      failed:   _es() ? "No se pudo calcular la reposición: "
+                     : "Could not calculate restock: "
+    };
+    cont.innerHTML = '<p style="font-size:17px;font-weight:700;color:#0F1923;margin:18px 0 8px;">' + TL.title + ' <span style="font-weight:400;font-size:15px;">' + TL.loading + '</span></p>';
     body.appendChild(cont);
 
     Promise.all([
@@ -89,8 +110,8 @@
       var lista = construirLista(res[0], pesosBcg(res[1] || {}));
       var dueno = esDueno();
       if (!lista.length) {
-        cont.innerHTML = '<p style="font-size:17px;font-weight:700;color:#0F1923;margin:18px 0 4px;">Lista de reposición</p>' +
-          '<p style="font-size:16px;color:#0F1923;background:#E7F7EE;border:2px solid #1a6e3c;border-radius:8px;padding:10px 12px;margin:0;">✓ Nada por reponer en esta percha — todo el stock está sobre sus umbrales.</p>';
+        cont.innerHTML = '<p style="font-size:17px;font-weight:700;color:#0F1923;margin:18px 0 4px;">' + TL.title + '</p>' +
+          '<p style="font-size:16px;color:#0F1923;background:#E7F7EE;border:2px solid #1a6e3c;border-radius:8px;padding:10px 12px;margin:0;">' + TL.nothing + '</p>';
         return;
       }
       var totalCosto = 0;
@@ -98,25 +119,25 @@
         var costoLinea = p.__sugerido * Number(p.costo || 0);
         totalCosto += costoLinea;
         var chip = p.__urgente
-          ? '<span style="font-size:13px;font-weight:700;background:#E53935;color:#FFFFFF;padding:3px 9px;border-radius:12px;">URGENTE</span>'
-          : '<span style="font-size:13px;font-weight:700;background:#FFB300;color:#1e1a12;padding:3px 9px;border-radius:12px;">pronto</span>';
+          ? '<span style="font-size:13px;font-weight:700;background:#E53935;color:#FFFFFF;padding:3px 9px;border-radius:12px;">' + TL.urgent + '</span>'
+          : '<span style="font-size:13px;font-weight:700;background:#FFB300;color:#1e1a12;padding:3px 9px;border-radius:12px;">' + TL.soon + '</span>';
         var bcgTxt = ETIQUETA_BCG[p.__peso] ? '<span style="font-size:13px;font-weight:700;color:#0F1923;">' + ETIQUETA_BCG[p.__peso] + "</span>" : "";
         var derecha = dueno
-          ? '<span style="font-size:15px;color:#0F1923;">reponer <strong>' + p.__sugerido + "</strong> · " + money(costoLinea) + "</span>"
-          : '<span style="font-size:15px;color:#0F1923;">quedan <strong>' + p.stockActual + "</strong></span>";
+          ? '<span style="font-size:15px;color:#0F1923;">' + TL.restockV + ' <strong>' + p.__sugerido + "</strong> · " + money(costoLinea) + "</span>"
+          : '<span style="font-size:15px;color:#0F1923;">' + TL.leftV + ' <strong>' + p.stockActual + "</strong></span>";
         return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid #C4CDD8;">' +
           chip + '<strong style="font-size:16px;color:#0F1923;flex:1;min-width:120px;">' + esc(p.nombre) + "</strong>" + bcgTxt + derecha + "</div>";
       }).join("");
       var pie = dueno
-        ? '<p style="font-size:16px;font-weight:700;color:#0F1923;margin:10px 0 0;">Costo estimado de la orden: ' + money(totalCosto) + "</p>"
-        : '<p style="font-size:15px;color:#0F1923;margin:10px 0 0;">Avísale al dueño para reponer lo de arriba.</p>';
+        ? '<p style="font-size:16px;font-weight:700;color:#0F1923;margin:10px 0 0;">' + TL.cost + ' ' + money(totalCosto) + "</p>"
+        : '<p style="font-size:15px;color:#0F1923;margin:10px 0 0;">' + TL.notify + '</p>';
       cont.innerHTML =
-        '<p style="font-size:17px;font-weight:700;color:#0F1923;margin:18px 0 4px;">Lista de reposición</p>' +
-        '<p style="font-size:14px;color:#0F1923;margin:0 0 6px;">Prioridad: se vende y se acaba (estrella/vaca) primero; rojo antes que amarillo.</p>' +
+        '<p style="font-size:17px;font-weight:700;color:#0F1923;margin:18px 0 4px;">' + TL.title + '</p>' +
+        '<p style="font-size:14px;color:#0F1923;margin:0 0 6px;">' + TL.priority + '</p>' +
         '<div style="background:#F8F9FB;border:2px solid #2E6278;border-radius:10px;padding:6px 12px;">' + filas + pie + "</div>";
       logAmg("INFO", "Lista de reposición pintada", { perchaId: perchaId, items: lista.length });
     }).catch(function (err) {
-      cont.innerHTML = '<p style="font-size:15px;color:#a3392a;font-weight:700;">No se pudo calcular la reposición: ' + esc(err && err.message) + "</p>";
+      cont.innerHTML = '<p style="font-size:15px;color:#a3392a;font-weight:700;">' + TL.failed + esc(err && err.message) + "</p>";
     });
   }
 

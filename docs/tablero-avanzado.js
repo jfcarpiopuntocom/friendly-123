@@ -28,6 +28,20 @@
 (function () {
   "use strict";
 
+  // BUG FIJADO (JFC 2026-08-19, caza produccion): las etiquetas de
+  // secciones estaban solo en espanol. Al menos las cabeceras (que son lo
+  // primero que se ve al entrar a Avanzado) ahora respetan el idioma
+  // activo. El cuerpo de cada seccion queda como TODO — se prioriza para
+  // un pase de i18n mas amplio.
+  function _es_ta(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}}
+  var TA = {
+    equipo:      _es_ta() ? "Mi equipo"                  : "My team",
+    actividad:   _es_ta() ? "Log de actividad"           : "Activity log",
+    integridad:  _es_ta() ? "Control anti fraude"        : "Anti-fraud check",
+    transf:      _es_ta() ? "Transferencias"             : "Transfers",
+    reporte:     _es_ta() ? "Reporte para el contador"   : "Report for the accountant"
+  };
+
   /* El puente lo expone tablero.html. Sin él, esta sección simplemente no
      aparece: nada de errores en pantalla por algo que el usuario no pidió. */
   var L = window.__lienzo;
@@ -100,7 +114,7 @@
   var AVZ = {
 
     equipo: {
-      nombre: "Mi equipo",
+      nombre: TA.equipo,
       pintar: async function (c) {
         cargando(c, "Pidiendo la lista a tu dispositivo…");
         var r = await ordenar("GET", "/api/usuarios");
@@ -167,7 +181,7 @@
     },
 
     actividad: {
-      nombre: "Log de actividad",
+      nombre: TA.actividad,
       pintar: async function (c) {
         cargando(c, "Pidiendo el registro…");
         var r = await ordenar("GET", "/api/actividad");
@@ -186,7 +200,7 @@
     },
 
     integridad: {
-      nombre: "Control anti fraude",
+      nombre: TA.integridad,
       pintar: async function (c) {
         cargando(c, "Revisando el historial…");
         var r = await ordenar("GET", "/api/integridad");
@@ -216,7 +230,7 @@
     },
 
     transferencias: {
-      nombre: "Transferencias",
+      nombre: TA.transf,
       pintar: async function (c) {
         cargando(c, "Pidiendo las transferencias…");
         var r = await ordenar("GET", "/api/transferencias");
@@ -237,7 +251,7 @@
     },
 
     contable: {
-      nombre: "Reporte para el contador",
+      nombre: TA.reporte,
       pintar: async function (c) {
         cargando(c, "Armando el reporte…");
         var res = await Promise.all([

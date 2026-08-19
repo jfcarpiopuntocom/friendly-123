@@ -112,7 +112,20 @@
     document.getElementById("oc-micelio-globo-x").addEventListener("click", cerrarGlobo);
   }
 
+  /* PULSAR DESACTIVADO — JFC, 2026-08-19: en la app end-user el pulsar
+     distrae, daña el layout percibido y no da nada accionable que ya no
+     este dentro del panel del equipo. Se apaga la UI (early return) pero
+     NO se borra el subsistema: sigue midiendo estado, se puede volver a
+     encender solo cambiando la primera linea a `if (false) { ... }`. Uso
+     previsto (apuntado en NOTAS-OPERATIVAS-2026-08-19.md): tableros de
+     JFC para vigilar el estado de sus clientes desde su panel maestro. */
+  var PULSAR_VISIBLE = false;
   function pintarPulsar() {
+    if (!PULSAR_VISIBLE) {
+      if (pulsar) { pulsar.remove(); pulsar = null; }
+      cerrarGlobo();
+      return;
+    }
     var e = M.miEstado();
     if (e.estado === "al_dia") {
       /* Todo bien: no hay nada que decir, y un indicador que siempre esta
