@@ -39,14 +39,14 @@
   function rolNombre(rol) {
     if (rol === "dueno")    return _t("auth.roleChip.owner", "Owner");
     if (rol === "admin")    return _t("auth.roleChip.admin", "Admin");
-    if (rol === "empleado") return _t("auth.roleChip.employee", "Encargado");
+    if (rol === "empleado") return _t("auth.roleChip.employee", "Staff member");
     if (rol === "contador") return _t("auth.roleChip.accountant", "Accountant");
     return rol || "";
   }
   function comoSeLlama(m) {
     /* El apodo manda; si no hay, el rol; si tampoco, el id corto. Nunca el
        PIN: el PIN no se enseña, se teclea. */
-    return m.apodo || rolNombre(m.rol) || ("Dispositivo " + String(m.id).slice(1, 5));
+    return m.apodo || rolNombre(m.rol) || ("Device " + String(m.id).slice(1, 5));
   }
 
   /* ====================================================== 1. EL PULSAR ===
