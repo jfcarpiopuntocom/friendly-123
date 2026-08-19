@@ -193,3 +193,98 @@
    ordenada por erroresAt. Ahi se ve que se esta rompiendo y en que version,
    antes de que nadie llame.
    ============================================================================ */
+
+/* ============================================================================
+   A4 — AUTODIAGNOSTICO DE VERSION (JFC 2026-08-19)
+
+   EL BUG QUE ESTO ATRAPA, y que ya nos costo un dia: se cambia un archivo del
+   shell y no se sube el CACHE de sw.js. El service worker sigue sirviendo el
+   shell viejo cacheado, la pagina carga una MEZCLA de version vieja y nueva, y
+   Avanzado se ve roto sin que haya un solo error en el codigo de Avanzado. En
+   localhost es invisible: ahi no hay service worker. Solo aparece en un
+   telefono que YA tiene la app instalada, o sea el del cliente.
+
+   COMO SE DETECTA: el service worker es el unico que sabe de verdad que shell
+   esta sirviendo. Se le pregunta, y se compara con el shell que declara
+   version.json, que el propio SW tiene prohibido cachear. Si no coinciden, el
+   dispositivo quedo a medias y se le ofrece recargar.
+
+   POR QUE NO RECARGA SOLO: una recarga automatica en medio de una venta le
+   borra al usuario lo que estaba tecleando. Se avisa y decide el.
+
+   PARA QUE SIGA FUNCIONANDO: el campo "shell" de docs/version.json tiene que
+   moverse junto con el CACHE de docs/sw.js. Lo comprueba check-sw.sh.
+   ============================================================================ */
+(function autodiagnosticoDeVersion() {
+  "use strict";
+  try {
+    if (!("serviceWorker" in navigator)) return;
+
+    function ofrecerRecarga(esperado, sirviendo) {
+      try {
+        if (document.getElementById("oc-version-vieja")) return;
+        var esES = false;
+        try { esES = !!(window.OCI18n && window.OCI18n.getLang() === "es"); } catch (_) {}
+        var d = document.createElement("div");
+        d.id = "oc-version-vieja";
+        d.setAttribute("role", "status");
+        d.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:10002;background:#0F1923;border-top:3px solid #E8A020;padding:12px 16px;text-align:center;";
+        d.innerHTML =
+          '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">' +
+          (esES ? "Hay una version mas nueva de la app. Recarga para tenerla completa."
+                : "A newer version of the app is available. Reload to get all of it.") +
+          '</span> <button type="button" id="oc-version-recargar" style="margin-left:10px;min-height:44px;padding:9px 18px;border-radius:8px;border:2px solid #E8A020;background:#E8A020;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-size:15px;font-weight:700;cursor:pointer;">' +
+          (esES ? "Recargar" : "Reload") + "</button>";
+        (document.body || document.documentElement).appendChild(d);
+        document.getElementById("oc-version-recargar").addEventListener("click", function () {
+          /* Se limpian las caches del shell ANTES de recargar: si no, el mismo
+             service worker vuelve a servir lo viejo y el boton no hace nada. */
+          var fin = function () { try { location.reload(); } catch (_) {} };
+          try {
+            caches.keys().then(function (ns) {
+              return Promise.all(ns.filter(function (n) { return n.indexOf("f123-shell-") === 0; })
+                                   .map(function (n) { return caches.delete(n); }));
+            }).then(fin, fin);
+          } catch (_) { fin(); }
+        });
+        try {
+          if (window.AMG && window.AMG.Salud && window.AMG.Salud.registrar) {
+            window.AMG.Salud.registrar("shell desincronizado: sirviendo " + sirviendo + ", esperado " + esperado, "sw.js", 0);
+          }
+        } catch (_) {}
+      } catch (_) {}
+    }
+
+    function comprobar() {
+      var ctrl = navigator.serviceWorker.controller;
+      if (!ctrl) return;   // sin SW controlando no hay nada que comparar
+      fetch("version.json", { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (v) {
+          if (!v || !v.shell) return;   // version.json viejo, sin el campo: no se opina
+          var respondio = false;
+          var canal = new MessageChannel();
+          canal.port1.onmessage = function (e) {
+            respondio = true;
+            var sirviendo = e.data && e.data.shell;
+            if (sirviendo && sirviendo !== v.shell) ofrecerRecarga(v.shell, sirviendo);
+          };
+          try { ctrl.postMessage({ tipo: "que-shell" }, [canal.port2]); } catch (_) {}
+          /* Respaldo: un SW viejo no conoce el mensaje y no contesta nunca.
+             Ese silencio ya es la respuesta —esta desactualizado— pero no se
+             avisa por las dudas: sin saber que shell sirve, un aviso podria ser
+             falso. Se deja anotado en consola para el proximo que investigue. */
+          setTimeout(function () {
+            if (!respondio) { try { console.warn("[version] el service worker no contesto que shell sirve; probablemente sea anterior a v72"); } catch (_) {} }
+          }, 3000);
+        })
+        .catch(function () { /* sin red: no se opina de versiones */ });
+    }
+
+    /* Se comprueba una vez, ya cargada la pagina, para no competir con el
+       arranque. No se repite en bucle: el shell no cambia mientras la pestana
+       vive. */
+    if (document.readyState === "complete") setTimeout(comprobar, 2500);
+    else window.addEventListener("load", function () { setTimeout(comprobar, 2500); });
+  } catch (_) { /* el autodiagnostico es un extra: jamas puede tumbar la app */ }
+})();

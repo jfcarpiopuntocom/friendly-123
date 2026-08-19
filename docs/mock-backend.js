@@ -384,25 +384,25 @@
   function validarRespaldo(body) {
     if (!body || typeof body !== "object") return "That file does not look like a valid backup.";
     if (!Array.isArray(body.productos) || !Array.isArray(body.ubicaciones)) return "That file does not look like a valid backup.";
-    if (body.productos.length > 20000 || body.ubicaciones.length > 2000) return "El respaldo es demasiado grande para este modo local.";
+    if (body.productos.length > 20000 || body.ubicaciones.length > 2000) return "The backup is too large for this local mode.";
     const idsProd = new Set();
     for (const p of body.productos) {
       if (!p || typeof p !== "object") return "There is a corrupt product in the backup.";
-      if (!esTextoCorto(String(p.id || ""), 120) || idsProd.has(String(p.id))) return "Hay IDs de producto vacíos o repetidos.";
+      if (!esTextoCorto(String(p.id || ""), 120) || idsProd.has(String(p.id))) return "There are empty or duplicated product IDs.";
       idsProd.add(String(p.id));
-      if (!esTextoCorto(String(p.nombre || ""), 240)) return "Hay un producto sin nombre válido.";
+      if (!esTextoCorto(String(p.nombre || ""), 240)) return "There is a product without a valid name.";
       if (!Number.isFinite(Number(p.precio)) || !Number.isFinite(Number(p.costo)) || !Number.isFinite(Number(p.stockActual))) return "There are invalid numeric values in products.";
       if (Number(p.precio) < 0 || Number(p.costo) < 0 || Number(p.stockActual) < 0) return "There are negative prices, costs or stock in products.";
     }
     const idsUbic = new Set();
     for (const u of body.ubicaciones) {
       if (!u || typeof u !== "object") return "There is a corrupt shelf in the backup.";
-      if (!esTextoCorto(String(u.id || ""), 120) || idsUbic.has(String(u.id))) return "Hay IDs de percha vacíos o repetidos.";
+      if (!esTextoCorto(String(u.id || ""), 120) || idsUbic.has(String(u.id))) return "There are empty or duplicated shelf IDs.";
       idsUbic.add(String(u.id));
-      if (!esTextoCorto(String(u.nombre || ""), 240)) return "Hay una percha sin nombre válido.";
+      if (!esTextoCorto(String(u.nombre || ""), 240)) return "There is a shelf without a valid name.";
     }
     for (const p of body.productos) {
-      if (p.ubicacionId && p.ubicacionId !== "todas" && !idsUbic.has(String(p.ubicacionId))) return `El producto "${p.nombre}" apunta a una percha inexistente.`;
+      if (p.ubicacionId && p.ubicacionId !== "todas" && !idsUbic.has(String(p.ubicacionId))) return `The product "${p.nombre}" points to a shelf that does not exist.`;
     }
     if (body.ventas && !Array.isArray(body.ventas)) return "The sales section is corrupt.";
     if (body.movimientos && !Array.isArray(body.movimientos)) return "The activity section is corrupt.";
@@ -604,6 +604,76 @@
       (document.body || document.documentElement).appendChild(d);
     } catch (_) {}
   }
+  /* A2 — REPARADOR DE ESTADO (JFC 2026-08-19).
+     Patron de las librerias de validacion en runtime tipo Valibot: en vez de
+     un si/no, se poda lo que no cumple y se conserva el resto. Escrito a mano
+     porque el manifiesto de la app es sin dependencias.
+
+     Hoy hay doble buffer A/B con validarRespaldo(): si uno esta corrupto se usa
+     el otro, que ya salva casi todos los casos. El hueco es cuando fallan LOS
+     DOS: ahi el estado entero se descarta y el negocio arranca en blanco. Un
+     solo producto con el precio en NaN podia costar el inventario completo.
+
+     Este reparador es el ULTIMO RECURSO, solo cuando ningun buffer valida:
+     tira los registros rotos, se queda con los sanos, y devuelve cuantos se
+     perdieron para poder decirlo en pantalla. Nunca inventa datos: lo que no se
+     puede leer se descarta, no se rellena.
+
+     NO se usa en la restauracion de un respaldo del usuario: ahi un archivo
+     invalido tiene que ser rechazado de frente, porque el usuario puede ir a
+     buscar el archivo bueno. Aqui no hay archivo bueno al que ir. */
+  function repararRespaldo(body) {
+    if (!body || typeof body !== "object") return null;
+    if (!Array.isArray(body.productos) || !Array.isArray(body.ubicaciones)) return null;
+    const podados = { productos: 0, ubicaciones: 0, listas: 0 };
+
+    const ubicVistas = new Set();
+    const ubicOk = body.ubicaciones.filter((u) => {
+      const id = u && typeof u === "object" ? String(u.id || "") : "";
+      const ok = !!id && !ubicVistas.has(id) && esTextoCorto(id, 120) && esTextoCorto(String(u.nombre || ""), 240);
+      if (ok) ubicVistas.add(id); else podados.ubicaciones++;
+      return ok;
+    });
+    if (!ubicOk.length) return null;   // sin una sola percha no hay negocio que salvar
+
+    const prodVistos = new Set();
+    const prodOk = body.productos.filter((p) => {
+      if (!p || typeof p !== "object") { podados.productos++; return false; }
+      const id = String(p.id || "");
+      const numsOk = Number.isFinite(Number(p.precio)) && Number.isFinite(Number(p.costo)) && Number.isFinite(Number(p.stockActual))
+        && Number(p.precio) >= 0 && Number(p.costo) >= 0 && Number(p.stockActual) >= 0;
+      const ubicOkRef = !p.ubicacionId || p.ubicacionId === "todas" || ubicVistas.has(String(p.ubicacionId));
+      const ok = !!id && !prodVistos.has(id) && esTextoCorto(id, 120)
+        && esTextoCorto(String(p.nombre || ""), 240) && numsOk && ubicOkRef;
+      if (ok) prodVistos.add(id); else podados.productos++;
+      return ok;
+    });
+
+    const limpio = Object.assign({}, body, { productos: prodOk, ubicaciones: ubicOk });
+    ["ventas", "movimientos", "transferencias", "clientes"].forEach((k) => {
+      if (limpio[k] && !Array.isArray(limpio[k])) { limpio[k] = []; podados.listas++; }
+    });
+    if (validarRespaldo(limpio)) return null;   // ni reparado cuadra: no se fuerza
+    return { limpio, podados };
+  }
+
+  function avisarEstadoReparado(podados) {
+    try {
+      const d = document.createElement("div");
+      d.setAttribute("role", "status");
+      d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#B54E0A;padding:10px 16px;text-align:center;cursor:pointer;";
+      const _es_r = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+      const n = (podados.productos || 0) + (podados.ubicaciones || 0);
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
+        + (_es_r
+            ? "Se recupero tu negocio de una copia danada. " + n + " registro(s) ilegibles no se pudieron leer y quedaron fuera. Revisa tu inventario y exporta un respaldo en AVANZADO."
+            : "Your business was recovered from a damaged copy. " + n + " unreadable record(s) could not be read and were left out. Check your inventory and export a backup in ADVANCED.")
+        + "</span>";
+      d.addEventListener("click", () => d.remove());
+      (document.body || document.documentElement).appendChild(d);
+    } catch (_) {}
+  }
+
   function cargarEstadoLocal() {
     try {
       const activo = localStorage.getItem(OC_STATE_PTR);
@@ -629,6 +699,25 @@
         }
         return;
       }
+      /* A2: ningun buffer valido. ANTES de darse por vencido y arrancar en
+         blanco, se intenta reparar el mas fresco podando lo ilegible. */
+      try {
+        const _act = localStorage.getItem(OC_STATE_PTR);
+        const _orden = _act ? [_act, _act === "A" ? "B" : "A"] : ["A", "B"];
+        for (const _l of _orden) {
+          const _raw = localStorage.getItem(claveBuffer(_l));
+          if (_raw == null) continue;
+          let _b; try { _b = JSON.parse(_raw); } catch (_) { continue; }
+          const _rep = repararRespaldo(_b);
+          if (!_rep) continue;
+          aplicarRespaldo(_rep.limpio);
+          try { localStorage.setItem(OC_STATE_PTR, _l); } catch (_) {}
+          console.warn("[cargarEstadoLocal] estado reparado; registros podados:", _rep.podados);
+          setTimeout(function () { avisarEstadoReparado(_rep.podados); }, 800);
+          return;
+        }
+      } catch (_) { /* si el reparador falla, se sigue al camino de siempre */ }
+
       // Ningun buffer A/B valido: migracion desde la clave de un solo buffer
       // (dispositivos que aun no corrieron esta version) o corrupcion total.
       const raw = localStorage.getItem(OC_STATE_KEY);

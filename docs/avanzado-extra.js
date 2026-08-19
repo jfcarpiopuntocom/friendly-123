@@ -486,7 +486,7 @@
         <div id="oc-sync-activo" style="display:${salaActiva ? "block" : "none"};">
           <p style="font-size:13px;color:var(--ink-soft);">${window.t("sync.panel.shareHint")}</p>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <code id="oc-sync-codigo-actual" style="font-size:16px;font-weight:700;background:var(--paper-deep,#E2E8ED);padding:6px 12px;border-radius:6px;">${escHtml(salaActiva || "")}</code>
+            <code id="oc-sync-codigo-actual" style="font-size:16px;font-weight:700;background:var(--paper-deep,#E2E8ED);padding:6px 12px;border-radius:6px;">${escHtml((window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(salaActiva) : salaActiva) || "")}</code>
             <div id="oc-sync-qr" style="margin-top:8px;"></div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
@@ -497,15 +497,28 @@
           </div>
         </div>
         <div id="oc-sync-unirse" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">
-          <p style="font-size:14px;color:var(--ink-soft);margin:0 0 8px;">Joining from another device? Paste the team code here.</p>
+          <p style="font-size:14px;color:var(--ink-soft);margin:0 0 8px;">Joining from another device? Paste the team code here. It starts with TEAM- and is not your license.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input id="oc-sync-codigo2" type="text" placeholder="F123-XXXX-XXXX" maxlength="40"
+            <input id="oc-sync-codigo2" type="text" placeholder="TEAM-XXXX-XXXX-XXXX-XXXXX" maxlength="40"
               style="flex:1;min-width:220px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-size:15px;">
             <button id="oc-sync-unirme" class="ir" style="min-height:44px;">Join this team</button>
           </div>
         </div>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
+
+      /* CAJA AUTOFORMATEADA en los DOS campos de codigo (JFC 2026-08-19:
+         "es penoso tener que poner las - manualmente o las mayusculas
+         manualmente"). Es la MISMA mascara del modal de unirse, exportada
+         desde auth-ui.js: mayusculas y guiones al escribir Y al pegar. */
+      try {
+        if (window.OCAuth && window.OCAuth.mascaraCodigo) {
+          ["oc-sync-codigo", "oc-sync-codigo2"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.dataset.ocPrefijo = "TEAM"; window.OCAuth.mascaraCodigo(el); }
+          });
+        }
+      } catch (_) {}
 
       const pillTexto = (estado, n) => {
         if (estado === "conectado") return window.t("sync.panel.statusOn") + (n != null ? ` · ${n}` : "");
@@ -544,7 +557,9 @@
              pero no sabe que hacer con el y responde "No usable data found".
              Ahora lleva una URL de verdad: la camara abre friendly-123 y la app
              ve ?join=<codigo> y ofrece unirse. Un solo escaneo, sin teclear. */
-          const url = "https://jfcarpiopuntocom.github.io/friendly-123/?join=" + encodeURIComponent(codigo);
+          /* El QR lleva el codigo de EQUIPO (TEAM-...), no la licencia. Un QR no puede
+             emitir licencias: solo mete a este telefono en el equipo que ya existe. */
+          const url = "https://jfcarpiopuntocom.github.io/friendly-123/?join=" + encodeURIComponent(window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(codigo) : codigo);
           const q = window.qrcode(0, "M");
           q.addData(url);
           q.make();
@@ -561,10 +576,10 @@
         const codigo = document.getElementById("oc-sync-codigo").value;
         /* Guard (portado de amigable-123, 23ce907): pegar por error el codigo
            de la app hermana metia este negocio en la sala de otro. */
-        if (codigo.trim() && !/^F123-/i.test(codigo.trim())) {
+        if (codigo.trim() && !/^(TEAM|F123)-/i.test(codigo.trim())) {
           const m0 = document.getElementById("oc-sync-msg");
           m0.style.color = "var(--rojo,#a3392a)";
-          m0.textContent = "That code is not from friendly-123. Yours starts with F123-.";
+          m0.textContent = "That is not a friendly-123 team code. Yours starts with TEAM-.";
           btn.disabled = false;
           return;
         }
@@ -574,7 +589,7 @@
         msg.textContent = "";
         document.getElementById("oc-sync-apagado").style.display = "none";
         document.getElementById("oc-sync-activo").style.display = "block";
-        document.getElementById("oc-sync-codigo-actual").textContent = codigo.trim();
+        document.getElementById("oc-sync-codigo-actual").textContent = (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(codigo.trim()) : codigo.trim());
         pintarQR(codigo.trim());
       });
       const btnCompartir = document.getElementById("oc-sync-compartir");
@@ -606,14 +621,14 @@
           const m2 = document.getElementById("oc-sync-msg");
           const cod = (document.getElementById("oc-sync-codigo2").value || "").trim();
           if (!cod) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = "Paste the team code first."; return; }
-          if (!/^F123-/i.test(cod)) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = "That code is not from friendly-123. It starts with F123-."; return; }
+          if (!/^(TEAM|F123)-/i.test(cod)) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = "That is not a friendly-123 team code. It starts with TEAM-."; return; }
           const r2 = window.OCSyncControl.activar(cod);
           if (!r2.ok) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = r2.error; return; }
           m2.style.color = "var(--sim-verde-dk,#1a6e3c)";
           m2.textContent = "Joined. This device is now syncing with the team.";
           document.getElementById("oc-sync-apagado").style.display = "none";
           document.getElementById("oc-sync-activo").style.display = "block";
-          document.getElementById("oc-sync-codigo-actual").textContent = cod;
+          document.getElementById("oc-sync-codigo-actual").textContent = (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(cod) : cod);
           pintarQR(cod);
         });
         /* Si llego por el QR (?join=CODIGO), el campo viene ya lleno: solo toca

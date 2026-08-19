@@ -3759,7 +3759,38 @@ document.getElementById("inputEscaner").addEventListener("blur", () => {
   }, 2000);
 });
 
+/* UN SOLO FORMULARIO np-* A LA VEZ (JFC 2026-08-19).
+   El formulario de producto nuevo se pinta en DOS sitios: en #fichaResultado
+   (cuando el buscador/escaner no encuentra el codigo) y en el cuerpo de
+   #modalFicha (boton "+ producto"). Los dos usan los MISMOS ids: np-nombre,
+   np-precio, np-costo, np-stock...
+
+   Si los dos estaban montados a la vez —escanear un codigo desconocido y
+   despues abrir el modal— document.getElementById("np-nombre") devolvia el
+   PRIMERO, o sea el del panel de atras. El usuario escribia en el modal y la
+   app guardaba lo que hubiera en el formulario escondido: precios, costos y
+   stock de otro producto, sin ningun error a la vista.
+
+   Se resuelve en el origen en vez de andar cambiando cada lectura: antes de
+   pintar uno, se vacia el otro. Asi todo el codigo que ya lee por id sigue
+   siendo correcto, porque solo hay un candidato. */
+function ocLimpiarOtroFormProducto(destino) {
+  try {
+    ["fichaResultado", "modalFichaBody"].forEach(function (id) {
+      if (id === destino) return;
+      var c = document.getElementById(id);
+      if (c && c.querySelector("#np-nombre")) c.innerHTML = "";
+    });
+    var m = document.getElementById("modalFicha");
+    if (destino !== "modalFichaBody" && m) {
+      var b = m.querySelector(".cuerpo, .body, [data-modal-body]");
+      if (b && b.querySelector("#np-nombre")) b.innerHTML = "";
+    }
+  } catch (_) {}
+}
+
 function mostrarFormNuevoProducto(codigoEscaneado){
+  ocLimpiarOtroFormProducto("fichaResultado");
   const contenedor = document.getElementById("fichaResultado");
   contenedor.innerHTML = `
     <div class="ficha-producto tag-card" style="text-align:left;">
@@ -4014,6 +4045,11 @@ async function abrirAltaProducto(){
   try { perchasAlta = await (await fetch(`${API}/ubicaciones`)).json(); if (!Array.isArray(perchasAlta)) perchasAlta = []; } catch(_){}
   // Reutilizar mostrarFormNuevoProducto pero apuntando al modal body
   const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"';
+  /* Mismo motivo que en mostrarFormNuevoProducto: si el panel de atras dejo un
+     formulario np-* montado, se vacia ANTES de pintar este. Sin esto los ids
+     quedan duplicados y las lecturas por id agarran el formulario equivocado. */
+  ocLimpiarOtroFormProducto("modalFichaBody");
+  try { if (document.getElementById("fichaResultado") && document.getElementById("fichaResultado").querySelector("#np-nombre")) document.getElementById("fichaResultado").innerHTML = ""; } catch (_) {}
   body.innerHTML = `
     <div class="ficha-producto tag-card" style="text-align:left;">
       <div class="titulo">${t("form.newProduct")}</div>
@@ -5589,7 +5625,7 @@ document.addEventListener("oc-lang-change", () => {
     var j=(q.get("join")||"").trim();
     if(!j) return;
     // Guard: solo codigos de esta app. Uno de la app hermana no abre sala aqui.
-    if(!/^F123-/i.test(j)) return;
+    if(!/^(TEAM|F123)-/i.test(j)) return;   // TEAM- es lo que lleva el QR desde 2026-08-19
     sessionStorage.setItem("f123_join_pendiente", j);
     // Sacar el codigo de la barra de direcciones (no debe quedar en historial).
     try{ q.delete("join");

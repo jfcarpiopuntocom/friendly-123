@@ -9,7 +9,12 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v71"  /* bumped 2026-08-19: Web Locks entre pestanas, cortacircuitos del heartbeat, ultimo espanol fuera */  /* bumped 2026-08-19: caza — clave de auditoria, zona horaria del panel antifraude, sync en ingles */  /* bumped 2026-08-19: rescate de licencias — la licencia por fin se guarda y se registra */  /* bumped 2026-08-19: la app reportaba al Worker de amigable, no al suyo */  /* bumped 2026-08-19: un admin cuenta contra el tope del plan gratis, y panel de Equipo en ingles */  /* bumped 2026-08-19: nav de Avanzado, QR de sync, FAB solo en PC, menu sin colores de Simon, tratos mixtos */  /* bumped 2026-08-18: tablero de control */  /* bumped 2026-08-18: estado-idb.js */; // bumped 2026-08-06: calificador de clientes portado 1-1 de amigable-123 (1-5 estrellas/corazones), fuera el tri-estado -1/0/1
+/* SUBIR ESTE NUMERO cada vez que cambie cualquier archivo del SHELL. Si no se
+   sube, el telefono que ya tiene la app instalada se queda con la version vieja
+   PARA SIEMPRE. Hay un chequeo: bash check-sw.sh.
+   El historial de que trajo cada version esta en git, no aqui: la lista de
+   comentarios pegados a esta linea crecio hasta ser ilegible. */
+const CACHE = "f123-shell-v73";
 const SHELL = [
   "./",
   "./index.html",
@@ -112,4 +117,18 @@ self.addEventListener("fetch", (evento) => {
       caches.match(evento.request).then((cacheada) => cacheada || fetch(evento.request).then(guardar))
     );
   }
+});
+
+/* A4 — AUTODIAGNOSTICO DE VERSION (JFC 2026-08-19).
+   El service worker es el unico que sabe DE VERDAD que shell esta sirviendo.
+   La pagina se lo pregunta y lo compara con el shell que declara version.json
+   (que nunca se cachea, ver el fetch de arriba). Si no coinciden, el
+   dispositivo quedo con media version vieja —el bug que rompio Avanzado en el
+   iPhone de JFC— y se le ofrece recargar en vez de dejarlo roto en silencio. */
+self.addEventListener("message", (ev) => {
+  try {
+    if (ev.data && ev.data.tipo === "que-shell" && ev.source && ev.source.postMessage) {
+      ev.source.postMessage({ tipo: "shell-actual", shell: CACHE });
+    }
+  } catch (_) {}
 });
