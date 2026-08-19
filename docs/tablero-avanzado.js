@@ -136,7 +136,7 @@
 
         c.innerHTML =
           '<p style="font-size:15px;line-height:1.55;margin:0 0 12px;">' +
-          "Cada persona entra con su propio PIN. Los PIN no se muestran aquí." + "</p>" +
+          "Each person signs in with their own PIN. PINs are not shown here." + "</p>" +
           tabla(["Nombre", "Rol", "Correo", "Estado", ""], filas, "Todavía no hay nadie más en el equipo.") +
 
           '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--hairline);">' +
@@ -150,7 +150,7 @@
           '<button type="button" id="avz-add" class="btn" style="width:auto;margin:0;padding:13px 22px;">Agregar</button>' +
           "</div>" +
           '<p style="font-size:14px;line-height:1.5;margin:9px 0 0;">' +
-          "Su PIN aparece en tu dispositivo, no aquí.</p>" +
+          "Their PIN appears on your device, not here.</p>" +
           "</div>";
 
         c.querySelectorAll("[data-u]").forEach(function (b) {
@@ -170,7 +170,7 @@
           var nombre = document.getElementById("avz-nom").value.trim();
           if (!nombre) { msg("Escribe el nombre.", true); return; }
           add.disabled = true;
-          msg("Pidiendo a tu dispositivo que lo agregue…");
+          msg("Asking your device to add them…");
           var r2 = await ordenar("POST", "/api/usuarios", { nombre: nombre, rol: document.getElementById("avz-rol").value });
           add.disabled = false;
           if (!r2.ok) { msg((r2.datos && r2.datos.error) || "No se pudo agregar.", true); return; }
@@ -189,13 +189,13 @@
         c.innerHTML =
           '<p style="font-size:15px;line-height:1.55;margin:0 0 12px;">Los últimos ' +
           plural(r.datos.length, "movimiento", "movimientos") +
-          ", el más reciente arriba. Cada uno queda con quién lo hizo y a qué hora.</p>" +
+          ", newest first. Each one records who did it and when.</p>" +
           tabla(["Cuándo", "Quién", "Qué", "Detalle"], r.datos.map(function (m) {
             return ['<span class="num">' + esc(fecha(m.fecha)) + "</span>",
                     esc(m.usuarioNombre || "—"),
                     "<strong>" + esc(m.tipo || "") + "</strong>",
                     esc(detalleLegible(m.detalle))];
-          }), "Todavía no hay movimientos registrados.");
+          }), "No activity recorded yet.");
       },
     },
 
@@ -211,10 +211,10 @@
           '<div style="padding:15px 17px;border-radius:12px;font-size:17px;font-weight:700;background:' +
           (bien ? "#00C87A" : "#E8365D") + ";color:" + (bien ? "#0A2E1E" : "#FFFFFF") +
           " !important;-webkit-text-fill-color:" + (bien ? "#0A2E1E" : "#FFFFFF") + ' !important;">' +
-          (bien ? "El historial está intacto." : "El historial fue alterado.") + "</div>" +
+          (bien ? "History is intact." : "History was altered.") + "</div>" +
 
           '<p style="font-size:15px;line-height:1.55;margin:13px 0 0;">' +
-          "Cada movimiento se sella y se encadena con el anterior: si alguien edita o borra uno, se nota. " +
+          "Every movement is sealed and chained to the previous one: if anyone edits or deletes one, it shows. " +
           "Sellados: " + (d.sellados || 0) + " de " + (d.total || 0) + "." +
           (d.historico ? " Hay " + d.historico + " movimientos anteriores al sellado, que no se pueden verificar." : "") +
           "</p>" +
@@ -223,7 +223,7 @@
             ? '<div class="cierre" style="margin-top:13px;"><strong>Dónde se rompió</strong>' +
               esc(fecha(d.ruptura.fecha)) + " · " + esc(d.ruptura.usuarioNombre || "?") + " · " +
               esc(d.ruptura.tipo || "") + " · " +
-              (d.ruptura.motivo === "editado" ? "el movimiento fue editado" : "se borró o se cambió de orden") +
+              (d.ruptura.motivo === "editado" ? "the movement was edited" : "it was deleted or reordered") +
               "</div>"
             : "");
       },
@@ -238,7 +238,7 @@
         var COL = { pendiente: ["#FFC700", "#3D2E00"], aceptada: ["#00C87A", "#0A2E1E"], rechazada: ["#E8365D", "#FFFFFF"] };
         c.innerHTML =
           '<p style="font-size:15px;line-height:1.55;margin:0 0 12px;">' +
-          "Movimientos de producto entre tus perchas. Las pendientes las acepta quien recibe.</p>" +
+          "Product moves between your shelves. Pending ones are accepted by whoever receives them.</p>" +
           tabla(["Cuándo", "Producto", "De", "A", "Cant.", "Estado"], r.datos.map(function (t) {
             var col = COL[t.estado] || ["#FFFFFF", "#2C3E50"];
             return ['<span class="num">' + esc(fecha(t.fecha)) + "</span>",
@@ -246,7 +246,7 @@
                     esc(t.origenNombre || ""), esc(t.destinoNombre || ""),
                     '<span class="num">' + esc(String(t.cantidad || 0)) + "</span>",
                     chip(t.estado || "", col[0], col[1])];
-          }), "Todavía no se ha movido producto entre perchas.");
+          }), "No product has moved between shelves yet.");
       },
     },
 
@@ -279,12 +279,12 @@
           linea("Utilidad neta", pl.utilidadNeta, true) +
           (bal && !bal.error
             ? '<h3 style="font-size:16px;margin:19px 0 8px;">Balance simplificado</h3>' +
-              linea("Efectivo estimado del día", bal.activos && bal.activos.efectivoEstimado) +
+              linea("Estimated cash for the day", bal.activos && bal.activos.efectivoEstimado) +
               linea("Inventario a costo", bal.activos && bal.activos.inventarioCosto)
             : "") +
           '<p style="font-size:15px;line-height:1.55;margin:15px 0 0;">' +
-          "Insumo para tu contador. No es una declaración válida ante el SRI. " +
-          "El PDF del mes cerrado está más arriba, en Reporte del mes.</p>";
+          "Input for your bookkeeper. It is not a filing-ready tax return. " +
+          "The closed-month PDF is further up, under Monthly report.</p>";
       },
     },
   };

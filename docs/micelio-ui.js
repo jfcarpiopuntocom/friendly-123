@@ -98,23 +98,23 @@
     globo.id = "oc-micelio-globo";
     globo.setAttribute("role", "status");
     globo.innerHTML =
-      "<p><strong>" + (ciego ? "Estás fuera del loop" : "Poniéndose al día") + "</strong>" +
-      /* "hace un momento" no se puede meter en "lleva ___ sin hablar": queda
-         mal escrito. Se dice de otra forma en vez de forzar la plantilla. */
+      "<p><strong>" + (ciego ? "You are out of the loop" : "Catching up") + "</strong>" +
+      /* "just now" no encaja en la plantilla "has gone ___ without talking":
+         queda mal escrito. Se dice de otra forma en vez de forzarla. */
       (function () {
-        var t = e.cuando === "hace un momento" ? "" : esc(e.cuando.replace("hace ", ""));
+        var t = e.cuando === "just now" ? "" : esc(e.cuando.replace(" ago", ""));
         if (ciego) {
           return t
-            ? "Este dispositivo lleva " + t + " sin hablar con tu equipo. Mientras siga así, puede que vendas algo que otro ya vendió."
-            : "Este dispositivo dejó de hablar con tu equipo. Mientras siga así, puede que vendas algo que otro ya vendió.";
+            ? "This device has gone " + t + " without talking to your team. While that lasts, you could sell something someone else already sold."
+            : "This device stopped talking to your team. While that lasts, you could sell something someone else already sold.";
         }
         return t
-          ? "Lleva " + t + " sin sincronizar. Casi siempre es la señal."
-          : "Dejó de sincronizar hace un momento. Casi siempre es la señal.";
+          ? "It has gone " + t + " without syncing. It is almost always the signal."
+          : "It stopped syncing a moment ago. It is almost always the signal.";
       })() +
       "</p>" +
-      "<p>Se arregla solo en cuanto haya internet: no hay que hacer nada más que acercarse a donde haya señal.</p>" +
-      '<button type="button" id="oc-micelio-globo-x">Entendido</button>';
+      "<p>It fixes itself as soon as there is internet: nothing to do but move somewhere with signal.</p>" +
+      '<button type="button" id="oc-micelio-globo-x">Got it</button>';
     document.body.appendChild(globo);
     /* El globo sale justo encima del pulsar, este donde este. */
     if (pulsar) globo.style.bottom = (parseInt(pulsar.style.bottom || 14, 10) + 50) + "px";
@@ -172,7 +172,7 @@
     pulsar.style.bottom = (14 + estorbo) + "px";
     if (globo) globo.style.bottom = (64 + estorbo) + "px";
 
-    pulsar.title = ciego ? "Este dispositivo está fuera del loop" : "Este dispositivo va rezagado";
+    pulsar.title = ciego ? "This device is out of the loop" : "This device is behind";
     pulsar.setAttribute("aria-label", pulsar.title);
     pulsar.querySelector(".pt").style.background = color;
     pulsar.querySelector(".halo").style.background = color;

@@ -52,8 +52,37 @@
    meter este bug. */
 var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RHa";
   var OC_WORKER_URL = (function () { try { return atob(_ocEp.split("").reverse().join("")); } catch (_) { return ""; } })();
+  /* A3 — CORTACIRCUITOS DEL HEARTBEAT (JFC 2026-08-19).
+     Patron tomado de cockatiel (github.com/connor4312/cockatiel), escrito a
+     mano en 20 lineas: el manifiesto de la app es sin dependencias y el bundle
+     ya pesa de mas.
+
+     Sin esto, con el wifi caido o el Worker abajo, cada login volvia a intentar
+     y a esperar los 8 segundos del timeout. En una feria con mala senal eso es
+     la app entera trabada 8s por entrada, bateria quemada, y el panel de fallas
+     llenandose de la MISMA falla.
+
+     Tras 5 fallos seguidos el circuito se abre 5 minutos: durante ese rato
+     enviarHeartbeat() sale de inmediato sin tocar la red. Un solo exito lo
+     cierra y resetea la cuenta. El estado vive en memoria a proposito: recargar
+     la pagina da otra oportunidad, que es lo que un usuario espera al recargar
+     porque "no funcionaba". */
+  var _cbFallos = 0, _cbAbiertoHasta = 0;
+  var CB_TOPE = 5, CB_PAUSA_MS = 5 * 60 * 1000;
+  function _cbBloqueado() { return Date.now() < _cbAbiertoHasta; }
+  function _cbFallo() {
+    _cbFallos++;
+    if (_cbFallos >= CB_TOPE) {
+      _cbAbiertoHasta = Date.now() + CB_PAUSA_MS;
+      _cbFallos = 0;
+      try { console.warn("[heartbeat] " + CB_TOPE + " fallos seguidos: se pausa 5 min"); } catch (_) {}
+    }
+  }
+  function _cbExito() { _cbFallos = 0; _cbAbiertoHasta = 0; }
+
   async function enviarHeartbeat(datos) {
     try {
+      if (_cbBloqueado()) return;   // circuito abierto: ni se toca la red
       var url = (localStorage.getItem("f123_cf_worker_url") || "").trim() || OC_WORKER_URL;
       if (!url) return;
       var trim = function (v, n) { if (v == null) return v; var s = String(v); return s.length > n ? s.slice(0, n) : s; };
@@ -84,6 +113,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           body: JSON.stringify(payload),
           signal: ctrl.signal,
         });
+        if (res && res.ok) { _cbExito(); } else { _cbFallo(); }
         if (res && res.ok) {
           /* Se limpian SOLO si el Worker confirmo: con wifi caido los errores
              se quedan y viajan en el proximo heartbeat. */
@@ -110,6 +140,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             localStorage.setItem("f123_owned", JSON.stringify(owned));
           }
         }
+      } catch (eRed) {
+        _cbFallo();          // timeout, DNS caido, offline: cuenta como fallo
+        throw eRed;
       } finally { clearTimeout(t); }
     } catch (_) { /* never block UI */ }
   }

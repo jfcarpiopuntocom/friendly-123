@@ -2750,27 +2750,73 @@ document.querySelectorAll("nav button").forEach(btn => {
 // permitir dos pestañas activas a la vez. Detecta la 2ª por BroadcastChannel y
 // la tapa (con escape para la pestaña zombie legitima). NO borrar sin reemplazo.
 (function guardiaDoblePestana() {
-  if (typeof BroadcastChannel === "undefined") return;
   var esES = true;
   try { esES = !window.OCI18n || window.OCI18n.getLang() !== "en"; } catch (_) {}
+
+  /* A1 — CANDADO REAL ENTRE PESTANAS (JFC 2026-08-19).
+     El guard viejo era un apreton de manos por BroadcastChannel: la 2a pestana
+     avisaba "hola", la 1a contestaba "ocupado". Funciona casi siempre, pero es
+     una carrera: si las dos arrancan en el mismo instante, las dos pueden
+     creerse principales, que es exactamente el caso que hay que evitar porque
+     aqui las dos pestanas se pisan los datos (el listener "storage" quedo
+     neutralizado por el prefijo de aislamiento.js).
+
+     navigator.locks da un mutex de verdad, resuelto por el navegador via IPC,
+     sin carrera posible. La 1a pestana toma el candado y lo retiene mientras
+     viva; cualquier otra pide el mismo nombre con ifAvailable y recibe null al
+     instante, y ahi sabe que es secundaria.
+
+     El BroadcastChannel se queda de RESPALDO para navegadores sin Web Locks
+     (Safari < 15.4). No se borra: degradar al comportamiento anterior es mejor
+     que quedarse sin guardia. */
+  function taparPestana() {
+    if (document.getElementById("oc-doble-tab")) return;
+    _pintarAvisoDoble();
+  }
+  var _hayLocks = false;
+  try { _hayLocks = !!(navigator.locks && navigator.locks.request); } catch (_) {}
+  if (_hayLocks) {
+    navigator.locks.request("f123-sesion-unica", { ifAvailable: true }, function (lock) {
+      if (!lock) { taparPestana(); return Promise.resolve(); }
+      /* Se retiene mientras la pestana viva: la promesa no se resuelve nunca.
+         Al cerrarla, el navegador suelta el candado solo y la siguiente
+         pestana pasa a ser la principal sin que nadie tenga que limpiar nada. */
+      return new Promise(function () {});
+    }).catch(function () { /* si Web Locks falla, manda el respaldo de abajo */ });
+  }
+
+  if (typeof BroadcastChannel === "undefined") return;
   var canal = new BroadcastChannel("friendly-123-sesion-unica");
   var soyPrincipal = true;
   canal.onmessage = function (e) {
     if (e.data === "hola" && soyPrincipal) canal.postMessage("ocupado");
+    /* Con Web Locks disponible, el candado ya decidio: este respaldo no vuelve
+       a opinar y se evita que dos mecanismos peleen por la misma pantalla. */
+    if (_hayLocks) return;
     if (e.data === "ocupado" && !document.getElementById("oc-doble-tab")) {
       soyPrincipal = false;
-      var d = document.createElement("div");
-      d.id = "oc-doble-tab";
-      d.style.cssText = "position:fixed;inset:0;z-index:10003;background:#0F1923;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;";
-      d.innerHTML = '<p style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:18px;font-weight:700;max-width:440px;">'
-        + (esES ? 'Ya hay una sesión de friendly-123 abierta en otra pestaña. Para no pisar los datos, usa una sola a la vez.' : 'friendly-123 is already open in another tab. To avoid overwriting your data, use just one at a time.')
-        + '</p><button id="oc-doble-usar" style="min-height:48px;padding:12px 22px;border-radius:8px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;">'
-        + (esES ? 'Usar aquí de todos modos' : 'Use here anyway') + '</button>';
-      document.body.appendChild(d);
-      document.getElementById("oc-doble-usar").addEventListener("click", function () { soyPrincipal = true; d.remove(); });
+      _pintarAvisoDoble(function () { soyPrincipal = true; });
     }
   };
   canal.postMessage("hola");
+
+  /* Una sola definicion del aviso, para las dos vias. Antes cada guardia tenia
+     su copia y las dos usaban el id #oc-doble-tab. */
+  function _pintarAvisoDoble(alUsarIgual) {
+    if (document.getElementById("oc-doble-tab")) return;
+    var d = document.createElement("div");
+    d.id = "oc-doble-tab";
+    d.style.cssText = "position:fixed;inset:0;z-index:10003;background:#0F1923;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;";
+    d.innerHTML = '<p style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:18px;font-weight:700;max-width:440px;">'
+      + (esES ? 'Ya hay una sesión de friendly-123 abierta en otra pestaña. Para no pisar los datos, usa una sola a la vez.' : 'friendly-123 is already open in another tab. To avoid overwriting your data, use just one at a time.')
+      + '</p><button id="oc-doble-usar" style="min-height:48px;padding:12px 22px;border-radius:8px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;">'
+      + (esES ? 'Usar aquí de todos modos' : 'Use here anyway') + '</button>';
+    document.body.appendChild(d);
+    document.getElementById("oc-doble-usar").addEventListener("click", function () {
+      if (typeof alUsarIgual === "function") { try { alUsarIgual(); } catch (_) {} }
+      d.remove();
+    });
+  }
 })();
 
 // Mood/flavor del día para el dueño (12, voz JFC). Estable por día.
@@ -5248,25 +5294,15 @@ window.dialogosBloqueados = function () {
   } catch (_) { return true; }
 };
 
-(function guardiaDobleCaja() {
-  if (typeof BroadcastChannel === "undefined") return; // navegador viejo: sin guardia, igual que antes
-  const canal = new BroadcastChannel("amigable-caja-unica");
-  let soyPrincipal = true;
-  canal.onmessage = (e) => {
-    if (e.data === "hola" && soyPrincipal) canal.postMessage("ocupado");
-    if (e.data === "ocupado" && !document.getElementById("oc-doble-tab")) {
-      soyPrincipal = false;
-      const d = document.createElement("div");
-      d.id = "oc-doble-tab";
-      d.style.cssText = "position:fixed;inset:0;z-index:10003;background:#0F1923;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;";
-      d.innerHTML = '<p style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:18px;font-weight:700;max-width:420px;">A friendly-123 session is already open in another tab. To avoid data conflicts, use only one at a time.</p>' +
-        '<button id="oc-doble-usar" style="min-height:48px;padding:12px 22px;border-radius:8px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;">Use here anyway</button>';
-      document.body.appendChild(d);
-      document.getElementById("oc-doble-usar").addEventListener("click", () => { soyPrincipal = true; d.remove(); });
-    }
-  };
-  canal.postMessage("hola");
-})();
+/* GUARDIA DE DOBLE PESTANA — BORRADA DE AQUI (JFC 2026-08-19).
+   Habia DOS guardias haciendo lo mismo, cada una con su propio soyPrincipal:
+   desbloquear una NO desbloqueaba la otra, y las dos creaban el mismo id
+   #oc-doble-tab, asi que el boton "Use here anyway" podia quedar enganchado a
+   la copia equivocada. Encima esta escuchaba el canal "amigable-caja-unica",
+   el de la app HERMANA: abrir amigable-123 en otra pestana disparaba el
+   bloqueo de friendly-123.
+   Queda UNA sola, mas arriba en este archivo (guardiaDoblePestana), ahora
+   sobre Web Locks. NO volver a agregar una segunda. */
 
 </script>
 
