@@ -326,11 +326,30 @@
       <button class="btn btn-outline" onclick="licExportCSV()">Exportar CSV</button>
     </div>
     <div id="lic-config" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px;">
+      <!-- La URL viene PUESTA (JFC 2026-08-19). Antes el campo salia vacio con
+           un placeholder de ejemplo (…tucuenta.workers.dev) que no era la URL
+           real, asi que habia que saberla de memoria o copiarla de un .toml.
+           Ahora el unico dato que hay que escribir es el seed del secret value. -->
       <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">URL del Cloudflare Worker</label>
-      <input class="lic-input" id="lic-worker-url" type="url" placeholder="https://friendly123-lic.tucuenta.workers.dev" style="width:100%;margin-bottom:10px;">
-      <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">Master Key del Worker (viaja como X-Master-Key)</label>
-      <input class="lic-input" id="lic-master-key" type="password" placeholder="tu-clave-secreta-larga" style="width:100%;margin-bottom:12px;">
-      <button class="btn btn-primary" onclick="licGuardarConfig()">Guardar</button>
+      <input class="lic-input" id="lic-worker-url" type="url" value="https://friendly123-licencias.jfcarpio.workers.dev" placeholder="https://friendly123-licencias.jfcarpio.workers.dev" style="width:100%;margin-bottom:10px;">
+      <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">Seed del secret value (el que escribiste en CMD)</label>
+      <input class="lic-input" id="lic-master-key" type="password" placeholder="el seed del secret value que escribiste en CMD" style="width:100%;margin-bottom:8px;">
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">
+        Es lo que escribiste en CMD cuando
+        <code>npx wrangler secret put MASTER_KEY</code> te pidio
+        <em>Enter a secret value</em>. Se llama asi — <b>seed del secret
+        value</b> — para que puedas recordar cuando y donde lo generaste: fue
+        en la terminal, no aqui.
+        Cloudflare no lo puede devolver ni mostrar a nadie, asi que hay que
+        pegarlo aqui una vez por navegador. Se guarda solo en ESTE navegador,
+        nunca en el repo. Si lo perdiste, corre el comando otra vez en CMD con
+        un seed nuevo.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="licGuardarConfig()">Guardar y conectar</button>
+        <button class="btn btn-outline" onclick="licProbar()">Probar conexion</button>
+      </div>
+      <p id="lic-diag" style="font-size:13px;font-family:var(--mono);margin:10px 0 0;min-height:18px;line-height:1.5;"></p>
     </div>
     <div class="stats-bar" id="lic-stats" style="margin-bottom:14px;"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
@@ -446,7 +465,7 @@
       <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Service worker / PWA.</b> Entregada: <code>docs/sw.js</code> + <code>docs/manifest.json</code> presentes en el repo.</div></div>
       <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>GitHub Pages público.</b> Entregada (2026-07-15): repo público, Pages activo en branch master /docs.</div></div>
       <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Panel de control de JFC.</b> Este panel, con "🔓 Liberar correo" y "⬆️ Publicar update" por app.</div></div>
-      <div class="fase todo"><div class="fase-ico">▫️</div><div class="fase-txt"><b>Cloudflare Worker de licencias.</b> Aún no desplegado para friendly-123 — la sección "Licencias" de arriba queda vacía hasta configurar URL + Master Key.</div></div>
+      <div class="fase done"><div class="fase-ico">✅</div><div class="fase-txt"><b>Cloudflare Worker de licencias.</b> Desplegado y funcionando en friendly123-licencias.jfcarpio.workers.dev (2026-08-19), con su seed del secret value puesto desde CMD. La sección "Licencias" de arriba solo pide pegar ese seed una vez por navegador.</div></div>
     </div>
 
 
@@ -668,14 +687,51 @@ function licSetCfg(obj) {
 function licWorkerUrl() { return (licGetCfg().workerUrl || "").trim(); }
 function licMasterKey() { return (licGetCfg().masterKey || "").trim(); }
 
+/* URL de fabrica del Worker de friendly-123. Esta aqui y no solo en
+   wrangler.toml para que el panel funcione en cualquier navegador sin que
+   nadie tenga que recordarla. NO es un secreto: sin el seed del secret value este
+   endpoint devuelve 401 a todo el mundo. */
+const LIC_WORKER_POR_DEFECTO = "https://friendly123-licencias.jfcarpio.workers.dev";
+
 function licInit() {
   const cfg = licGetCfg();
   const u = document.getElementById("lic-worker-url");
   const k = document.getElementById("lic-master-key");
-  if (u) u.value = cfg.workerUrl || "";
+  if (u) u.value = cfg.workerUrl || LIC_WORKER_POR_DEFECTO;
   if (k) k.value = cfg.masterKey || "";
-  if (cfg.workerUrl) licRecargar();
-  else { licMostrarVacio(); document.getElementById("lic-meta").textContent = "configura el Worker →"; }
+  /* Si nunca se guardo nada, se deja escrita la URL de fabrica para que el
+     unico paso pendiente sea el seed del secret value. Antes quedaba todo vacio y el panel
+     solo decia "configura el Worker", sin decir QUE configurar. */
+  if (!cfg.workerUrl) licSetCfg({ workerUrl: LIC_WORKER_POR_DEFECTO });
+  if (!licMasterKey()) {
+    licMostrarVacio();
+    document.getElementById("lic-meta").textContent = "falta el seed del secret value — abre Config Worker";
+    const c = document.getElementById("lic-config");
+    if (c) c.style.display = "block";   // se abre solo: es lo unico que falta
+    return;
+  }
+  licRecargar();
+}
+
+/* Diagnostico explicito: dice CUAL de las cuatro cosas fallo, en vez de un
+   "no se pudo conectar" que obliga a adivinar. */
+async function licProbar() {
+  const d = document.getElementById("lic-diag");
+  const url = (document.getElementById("lic-worker-url").value || "").trim().replace(/\/+$/, "");
+  const key = (document.getElementById("lic-master-key").value || "").trim();
+  const pinta = (txt, color) => { d.style.color = color; d.textContent = txt; };
+  if (!url) { pinta("Falta la URL del Worker.", "var(--red)"); return; }
+  if (!key) { pinta("Falta el seed del secret value: el que escribiste en CMD, en wrangler secret put MASTER_KEY.", "var(--red)"); return; }
+  pinta("Probando…", "var(--ink-soft)");
+  try {
+    const res = await fetch(url + "/licencias", { headers: { "X-Master-Key": key } });
+    if (res.status === 401) { pinta("El Worker responde, pero rechaza ese seed del secret value (401). No coincide con el que tiene desplegado.", "var(--red)"); return; }
+    if (!res.ok) { pinta("El Worker respondio " + res.status + ".", "var(--red)"); return; }
+    const data = await res.json();
+    pinta("OK — conectado. " + (Array.isArray(data) ? data.length : 0) + " instancia(s) en la KV.", "var(--green)");
+  } catch (e) {
+    pinta("No se llego al Worker: " + e.message + " (revisa la URL o tu conexion).", "var(--red)");
+  }
 }
 function licToggleConfig() {
   const p = document.getElementById("lic-config");
@@ -689,8 +745,10 @@ function licGuardarConfig() {
     try { u = new URL(workerUrl); } catch (_) { mostrarConfirmacion("URL inválida — revisa que esté completa"); return; }
     if (u.protocol !== "https:") { mostrarConfirmacion("La URL del Worker debe empezar con https://"); return; }
   }
+  if (!masterKey) { mostrarConfirmacion("Falta el seed del secret value — sin el, el Worker rechaza todo con 401"); return; }
   licSetCfg({ workerUrl, masterKey });
   mostrarConfirmacion("Configuración del Worker guardada");
+  licProbar();
   licRecargar();
 }
 let _licData = [];
@@ -698,11 +756,11 @@ async function licRecargar() {
   const url = licWorkerUrl();
   const meta = document.getElementById("lic-meta");
   if (!url) { meta.textContent = "sin URL del Worker — abre Config"; licMostrarVacio(); return; }
-  if (!licMasterKey()) { meta.textContent = "falta la Master Key — abre Config"; mostrarConfirmacion("Configura la Master Key del Worker"); return; }
+  if (!licMasterKey()) { meta.textContent = "falta el seed del secret value — abre Config"; mostrarConfirmacion("Configura el seed del secret value del Worker"); return; }
   meta.textContent = "cargando…";
   try {
     const res = await fetch(url.replace(/\/+$/, "") + "/licencias", { headers: { "X-Master-Key": licMasterKey() } });
-    if (res.status === 401) { meta.textContent = "Master Key incorrecta"; mostrarConfirmacion("Master Key incorrecta"); return; }
+    if (res.status === 401) { meta.textContent = "Seed del secret value incorrecto"; mostrarConfirmacion("Seed del secret value incorrecto"); return; }
     const data = await res.json();
     _licData = (Array.isArray(data) ? data : []).filter(Boolean); // guard: nunca dejar pasar un null (ver worker.js)
     licRenderTabla(_licData);
