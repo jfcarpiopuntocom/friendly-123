@@ -627,13 +627,31 @@
     if (!Array.isArray(body.productos) || !Array.isArray(body.ubicaciones)) return null;
     const podados = { productos: 0, ubicaciones: 0, listas: 0 };
 
+    /* REPARAR, NO BORRAR (corregido el 2026-08-19 tras medirlo).
+       La primera version PODABA la percha con el nombre corrupto. Medido con
+       61 productos y 3 perchas: se perdian 2 perchas y 26 productos, porque
+       todo producto que apunta a una percha borrada se cae con ella. El
+       reparador estaba causando mas dano que el dano.
+
+       Una percha solo se descarta si le falta la IDENTIDAD (el id): sin id no
+       hay a que atar los productos. Un NOMBRE ilegible no es motivo para tirar
+       nada: se reemplaza por uno provisional y el dueno lo renombra en dos
+       toques, con su inventario intacto. */
     const ubicVistas = new Set();
-    const ubicOk = body.ubicaciones.filter((u) => {
+    let ubicRenombradas = 0;
+    const ubicOk = [];
+    body.ubicaciones.forEach((u) => {
       const id = u && typeof u === "object" ? String(u.id || "") : "";
-      const ok = !!id && !ubicVistas.has(id) && esTextoCorto(id, 120) && esTextoCorto(String(u.nombre || ""), 240);
-      if (ok) ubicVistas.add(id); else podados.ubicaciones++;
-      return ok;
+      if (!id || ubicVistas.has(id) || !esTextoCorto(id, 120)) { podados.ubicaciones++; return; }
+      ubicVistas.add(id);
+      const copia = Object.assign({}, u);
+      if (!esTextoCorto(String(copia.nombre || ""), 240)) {
+        copia.nombre = "Shelf " + (ubicOk.length + 1);   // provisional, renombrable
+        ubicRenombradas++;
+      }
+      ubicOk.push(copia);
     });
+    podados.renombradas = ubicRenombradas;
     if (!ubicOk.length) return null;   // sin una sola percha no hay negocio que salvar
 
     const prodVistos = new Set();
@@ -664,10 +682,11 @@
       d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#B54E0A;padding:10px 16px;text-align:center;cursor:pointer;";
       const _es_r = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
       const n = (podados.productos || 0) + (podados.ubicaciones || 0);
+      const ren = podados.renombradas || 0;
       d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
         + (_es_r
-            ? "Se recupero tu negocio de una copia danada. " + n + " registro(s) ilegibles no se pudieron leer y quedaron fuera. Revisa tu inventario y exporta un respaldo en AVANZADO."
-            : "Your business was recovered from a damaged copy. " + n + " unreadable record(s) could not be read and were left out. Check your inventory and export a backup in ADVANCED.")
+            ? "Se recupero tu negocio de una copia danada. " + n + " registro(s) ilegibles quedaron fuera" + (ren ? " y " + ren + " percha(s) perdieron su nombre; renombralas en Perchas" : "") + ". Revisa tu inventario y exporta un respaldo en AVANZADO."
+            : "Your business was recovered from a damaged copy. " + n + " unreadable record(s) were left out" + (ren ? ", and " + ren + " shelf(s) lost their name — rename them under Shelves" : "") + ". Check your inventory and export a backup in ADVANCED.")
         + "</span>";
       d.addEventListener("click", () => d.remove());
       (document.body || document.documentElement).appendChild(d);
