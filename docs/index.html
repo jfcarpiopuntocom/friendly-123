@@ -2045,6 +2045,15 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
   if (!btn) return;
 
   // Crear el modal una sola vez y adjuntarlo al body.
+  // Ajuste minimo para que intl-tel-input (ver abajo) ocupe el ancho completo
+  // del label y no rompa el box-sizing del formulario. Sin esto, la
+  // libreria pone su .iti como inline-block y desborda a la derecha.
+  if (!document.getElementById("oc-iti-fix")) {
+    var s = document.createElement("style");
+    s.id = "oc-iti-fix";
+    s.textContent = "#oc-nuevo-cli-modal .iti{display:block;width:100%;} #oc-nuevo-cli-modal .iti input[type=tel]{width:100%;box-sizing:border-box;}";
+    document.head.appendChild(s);
+  }
   const overlay = document.createElement("div");
   overlay.id = "oc-nuevo-cli-modal";
   overlay.style.cssText = "position:fixed;inset:0;z-index:9995;background:rgba(21,40,64,.82);display:none;align-items:flex-end;justify-content:center;";
@@ -2059,7 +2068,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
       <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;">Phone (optional)
-        <input id="oc-ncli-tel" type="tel" maxlength="20" autocomplete="off"
+        <input id="oc-ncli-tel" type="tel" maxlength="24" autocomplete="tel" inputmode="tel"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
       <button id="oc-ncli-crear" style="width:100%;padding:11px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;font-size:15px;font-weight:700;cursor:pointer;">
@@ -2069,12 +2078,61 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
     </div>`;
   document.body.appendChild(overlay);
 
+  // ────────────────────────────────────────────────────────────────
+  // WhatsApp/telefono world-class (JFC 2026-08-19): intl-tel-input,
+  // libreria estandar MIT (jackocnr) para que un cliente de cualquier
+  // pais entre su numero con bandera, prefijo y validacion propios de
+  // ese pais. Cargada bajo demanda desde jsDelivr; si no carga (offline),
+  // el input queda como <input type="tel"> plano y todo sigue funcionando.
+  // La app no depende de la libreria: la usa si existe, no se rompe si no.
+  var _iti = null;
+  var _itiCargado = false;
+  function cargarITIUnaVez() {
+    if (_itiCargado) return Promise.resolve(!!window.intlTelInput);
+    _itiCargado = true;
+    return new Promise(function (resolve) {
+      try {
+        var css = document.createElement("link");
+        css.rel = "stylesheet";
+        css.href = "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.7/build/css/intlTelInput.min.css";
+        document.head.appendChild(css);
+        var js = document.createElement("script");
+        js.src = "https://cdn.jsdelivr.net/npm/intl-tel-input@23.0.7/build/js/intlTelInputWithUtils.min.js";
+        js.async = true;
+        js.onload = function () { resolve(!!window.intlTelInput); };
+        js.onerror = function () { resolve(false); };
+        document.head.appendChild(js);
+      } catch (_) { resolve(false); }
+    });
+  }
   function abrir() {
     document.getElementById("oc-ncli-nombre").value = "";
-    document.getElementById("oc-ncli-tel").value = "";
+    var telEl = document.getElementById("oc-ncli-tel");
+    if (_iti && _iti.setNumber) _iti.setNumber(""); else telEl.value = "";
     document.getElementById("oc-ncli-msg").textContent = "";
     overlay.style.display = "flex";
-    setTimeout(() => document.getElementById("oc-ncli-nombre").focus(), 60);
+    setTimeout(function () { document.getElementById("oc-ncli-nombre").focus(); }, 60);
+    // Inicializar el picker al primer abrir. Si el CDN no responde en 3s,
+    // continuamos sin el (el input queda como tel plano).
+    if (!_iti) {
+      cargarITIUnaVez().then(function (ok) {
+        if (!ok || !window.intlTelInput || _iti) return;
+        try {
+          _iti = window.intlTelInput(telEl, {
+            initialCountry: "auto",
+            geoIpLookup: function (cb) {
+              // No pedimos IP externa: fallback silencioso a US (mercado
+              // primario de friendly-123). La lista completa de paises esta
+              // disponible en el dropdown, el usuario escoge el suyo.
+              cb("us");
+            },
+            preferredCountries: ["us", "ec", "mx", "co", "pe", "cl", "ar", "es"],
+            separateDialCode: true,
+            utilsScript: "" // ya viene en intlTelInputWithUtils.min.js
+          });
+        } catch (_) { _iti = null; }
+      });
+    }
   }
   function cerrar() { overlay.style.display = "none"; }
 
@@ -2088,7 +2146,19 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
 
   document.getElementById("oc-ncli-crear").addEventListener("click", async () => {
     const nombre = (document.getElementById("oc-ncli-nombre").value || "").trim();
-    const telefono = (document.getElementById("oc-ncli-tel").value || "").trim();
+    // Con intl-tel-input activo, tomamos el numero en formato E.164 (+593999...).
+    // Sin la libreria, cae al valor crudo del input. Ambos casos son validos.
+    let telefono = "";
+    try {
+      if (_iti && _iti.getNumber) {
+        const raw = (document.getElementById("oc-ncli-tel").value || "").trim();
+        telefono = raw ? (_iti.getNumber() || raw) : "";
+      } else {
+        telefono = (document.getElementById("oc-ncli-tel").value || "").trim();
+      }
+    } catch (_) {
+      telefono = (document.getElementById("oc-ncli-tel").value || "").trim();
+    }
     const msg = document.getElementById("oc-ncli-msg");
     if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "El nombre es obligatorio."; return; }
     const btn2 = document.getElementById("oc-ncli-crear");
