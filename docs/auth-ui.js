@@ -38,7 +38,19 @@
   // (todos opcionales, solo si el dueno los ingreso), y el estado de accion
   // (register/login/update). JAMAS productos, ventas, clientes, inventario,
   // ni nada de negocio. Ver worker.js para el lado servidor de esta regla.
-  var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1SZsJWYnlWbh9yL6MHc0RHa";
+  /* BUG EN PRODUCCION, encontrado el 2026-08-19 con un cliente real ya activado.
+   Esta cadena apuntaba a amigable-licencias.jfcarpio.workers.dev — el Worker
+   de la app HERMANA. friendly-123 llevaba reportando TODAS sus activaciones a
+   la KV de amigable, asi que el panel de friendly-123 salia vacio y no habia
+   forma de aprobarle la licencia a nadie: los datos existian, pero en la otra
+   caja. Los registros afectados se migraron a mano a la KV de friendly-123
+   ese mismo dia.
+   Ahora apunta a friendly123-licencias.jfcarpio.workers.dev, que es el Worker
+   propio declarado en cloudflare-worker/wrangler.toml.
+   AL PORTAR ESTE ARCHIVO ENTRE LAS TRES APPS: esta linea es lo PRIMERO que hay
+   que revisar. Cada app tiene su Worker y su KV, y copiarla tal cual vuelve a
+   meter este bug. */
+var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RHa";
   var OC_WORKER_URL = (function () { try { return atob(_ocEp.split("").reverse().join("")); } catch (_) { return ""; } })();
   async function enviarHeartbeat(datos) {
     try {
