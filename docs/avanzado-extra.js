@@ -487,6 +487,7 @@
           <p style="font-size:13px;color:var(--ink-soft);">${window.t("sync.panel.shareHint")}</p>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <code id="oc-sync-codigo-actual" style="font-size:16px;font-weight:700;background:var(--paper-deep,#E2E8ED);padding:6px 12px;border-radius:6px;">${escHtml((window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(salaActiva) : salaActiva) || "")}</code>
+            <span id="oc-sync-huella" style="font-family:var(--font-mono,monospace);font-size:15px;font-weight:700;color:#0F1923;"></span>
             <div id="oc-sync-qr" style="margin-top:8px;"></div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
@@ -566,6 +567,22 @@
           cont.innerHTML = `<img src="${q.createDataURL(4, 4)}" width="140" height="140" alt="QR" style="border-radius:6px;">`;
         } catch (_) { /* QR es un extra visual */ }
       }
+      /* PASO 3 (JFC 2026-08-19): el codigo de equipo se comparte CON su huella.
+         Quien se une, al terminar de mergear, recalcula la suya: si le da la
+         misma, el merge quedo verificado y se le puede decir en pantalla. Es
+         un recibo que una persona puede comprobar, sin tener que confiar en
+         que "seguro se sincronizo". */
+      function pintarHuella() {
+        try {
+          const el = document.getElementById("oc-sync-huella");
+          if (!el) return;
+          const h = window.OCSync && window.OCSync.huella ? window.OCSync.huella() : null;
+          el.textContent = h && h.corta ? " · " + h.corta : "";
+          el.title = h ? h.perchas + " shelves, " + h.productos + " products" : "";
+        } catch (_) {}
+      }
+      pintarHuella();
+      try { window.addEventListener("oc-micelio-cambio", pintarHuella); } catch (_) {}
       if (salaActiva) pintarQR(salaActiva);
 
       document.getElementById("oc-sync-activar").addEventListener("click", (ev) => {
@@ -595,11 +612,16 @@
       const btnCompartir = document.getElementById("oc-sync-compartir");
       if (btnCompartir) btnCompartir.addEventListener("click", () => {
         const _c = (window.OCSyncControl.salaActiva() || "").trim();
-        const codigo = /^F123-/i.test(_c) ? _c : "";   // mismo filtro que arriba
+        /* Se comparte en la forma que el otro va a TECLEAR: TEAM-. Mandarle el
+           F123- interno era lo que lo hacia parecer una licencia. */
+        const codigo = /^F123-/i.test(_c)
+          ? (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(_c) : _c)
+          : "";
         const negocio = (function () { try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch (_) { return ""; } })();
+        const _h = (function () { try { const x = window.OCSync && window.OCSync.huella ? window.OCSync.huella() : null; return x && x.corta ? x.corta : ""; } catch (_) { return ""; } })();
         const texto = window.t("sync.panel.shareText")
           .replace("{business}", negocio ? " (" + negocio + ")" : "")
-          .replace("{code}", codigo);
+          .replace("{code}", codigo + (_h ? " · " + _h : ""));
         window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
       });
       const btnResync = document.getElementById("oc-sync-resincronizar");

@@ -187,6 +187,22 @@
       'font-weight:700;text-align:center;background:' + et.color + ';color:' + et.tinta + ';">' + et.texto + "</span>" +
       '<span style="font-size:16px;font-weight:700;color:#0F1923;">' + esc(comoSeLlama(m)) +
       (m.soyYo ? ' <span style="font-size:13px;font-weight:700;color:#B54E0A;">(this device)</span>' : "") + "</span>" +
+      /* "Up to date" mide el RELOJ: cuando hablo por ultima vez. Un
+         dispositivo puede estar hablando hace un segundo y aun asi mostrar
+         OTRO inventario, que es justo el caso que confundio a JFC. Cuando eso
+         pasa, se marca en la propia fila: leer "Up to date" al lado de un
+         aviso de inventario distinto es peor que no marcar nada. */
+      (function () {
+        try {
+          var mia = M.miHuella ? M.miHuella() : "";
+          if (!m.soyYo && mia && m.huella && m.huella !== mia) {
+            return '<span style="font-size:13px;font-weight:700;color:#B54E0A;background:#FFF6F2;'
+              + 'border:1px solid #E86040;border-radius:10px;padding:3px 9px;">different inventory ('
+              + esc(m.huella) + ")</span>";
+          }
+        } catch (_) {}
+        return "";
+      })() +
       '<span style="font-size:14px;color:#2C3E50;margin-left:auto;">' + esc(m.cuando) + "</span>" +
       "</div>";
   }
@@ -199,7 +215,30 @@
     var ciegos = eq.filter(function (m) { return m.estado === "ciegas"; }).length;
     var yo = M.yo();
 
+    /* PASO 2 (JFC 2026-08-19): DECIR LA VERDAD SOBRE EL INVENTARIO.
+       Antes este panel solo miraba el RELOJ: si un dispositivo habia latido
+       hace poco decia "Up to date", aunque estuviera mostrando otro
+       inventario. Fue exactamente lo que le paso a JFC: su PC y su celular
+       decian "sincronizado" con perchas distintas ("Rack1" y "001").
+       Ahora se compara la HUELLA del catalogo. Un dispositivo que no manda
+       huella (version vieja) no cuenta como discrepancia: no se sabe, y
+       afirmar sin saber es el error que este paso corrige. */
+    var _desal = [];
+    try { _desal = M.desalineados ? M.desalineados() : []; } catch (_) {}
+    var avisoHuella = _desal.length
+      ? '<div style="margin:0 0 12px;padding:11px 13px;background:#FFF6F2;border-left:4px solid #E86040;border-radius:0 8px 8px 0;">' +
+        '<p style="font-size:15px;font-weight:700;line-height:1.5;margin:0 0 4px;color:#0F1923;">' +
+        (_desal.length === 1 ? "1 device is showing a different inventory" : _desal.length + " devices are showing a different inventory") +
+        "</p>" +
+        '<p style="font-size:14px;line-height:1.5;margin:0;color:#2C3E50;">' +
+        "They are connected, but they do not have the same products and shelves as this device: " +
+        _desal.map(function (x) { return esc(comoSeLlama(x)) + " (" + esc(x.huella) + ")"; }).join(", ") +
+        ". This device is " + esc(M.miHuella ? M.miHuella() : "?") + "." +
+        "</p></div>"
+      : "";
+
     cont.innerHTML =
+      avisoHuella +
       '<p style="font-size:14px;line-height:1.55;margin:0 0 12px;color:#2C3E50;">' +
       (ciegos
         ? (ciegos === 1 ? "1 device has not" : ciegos + " devices have not") +
@@ -207,6 +246,12 @@
         : "Every device on your team is talking to the others.") +
       "</p>" +
       '<div>' + eq.map(filaEquipo).join("") + "</div>" +
+      /* La huella propia, siempre a la vista: es lo que dos duenos comparan
+         por telefono para saber si estan viendo lo mismo, sin entender nada
+         de hashes. */
+      '<p style="font-size:14px;line-height:1.5;margin:10px 0 0;color:#2C3E50;">' +
+      "This device's inventory fingerprint: <strong style=\"font-family:var(--font-mono,monospace);color:#0F1923;\">" +
+      esc(M.miHuella ? (M.miHuella() || "?") : "?") + "</strong>. Two devices showing the same products and shelves have the same fingerprint.</p>" +
 
       /* --- el apodo --- */
       '<div style="margin-top:16px;">' +

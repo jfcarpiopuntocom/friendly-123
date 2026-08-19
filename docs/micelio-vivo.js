@@ -162,6 +162,7 @@
         soyYo: id === yoId,
         apodo: e.apodo || "",
         rol: e.rol || "",
+        huella: e.huella || "",
         visto: visto,
         silencioMs: silencio,
         cuando: haceCuanto(silencio),
@@ -196,10 +197,33 @@
     m[payload.id] = {
       apodo: String(payload.apodo || "").slice(0, 28),
       rol: String(payload.rol || "").slice(0, 12),
+      huella: String(payload.huella || "").slice(0, 12),
       visto: Date.now(),
     };
     escribir(K_EQUIPO, m);
     try { window.dispatchEvent(new CustomEvent("oc-micelio-cambio")); } catch (_) {}
+  }
+
+  /* La huella del catalogo de ESTE dispositivo, para mandarla en el latido.
+     Si mock-backend no esta cargado todavia, se manda vacia: un latido sin
+     huella se trata como "no se sabe", nunca como "coincide". */
+  function miHuella() {
+    try {
+      var h = window.OCSync && window.OCSync.huella ? window.OCSync.huella() : null;
+      return h && h.corta ? h.corta : "";
+    } catch (_) { return ""; }
+  }
+
+  /* Compara la huella de cada miembro con la mia. Devuelve los que estan
+     mostrando OTRO inventario. Los que no mandaron huella (version vieja de la
+     app) no cuentan como discrepancia: no se sabe, y afirmar sin saber es
+     exactamente el error que este paso viene a corregir. */
+  function desalineados() {
+    try {
+      var mia = miHuella();
+      if (!mia) return [];
+      return equipo().filter(function (x) { return x.huella && x.huella !== mia; });
+    } catch (_) { return []; }
   }
 
   /* Se llama desde sync-realtime.js al recibir un latido ajeno. */
@@ -216,9 +240,10 @@
       var canal = window.OCSyncControl;
       if (!canal || !canal.emitirLatido) return;
       var m = yo();
-      canal.emitirLatido({ id: m.id, apodo: m.apodo, rol: rolActual() });
+      var hu = miHuella();
+      canal.emitirLatido({ id: m.id, apodo: m.apodo, rol: rolActual(), huella: hu });
       /* Mi propio latido no vuelve a mí por el relay, así que me anoto solo. */
-      anotar({ id: m.id, apodo: m.apodo, rol: rolActual() });
+      anotar({ id: m.id, apodo: m.apodo, rol: rolActual(), huella: hu });
     } catch (_) {}
   }
 
@@ -321,6 +346,7 @@
     etiquetas: ETIQUETAS, miEstado: miEstado, marcarConectado: marcarConectado,
     pedirPermisoAviso: pedirPermisoAviso, pedirPersistencia: pedirPersistencia,
     arrancar: arrancar, TIPO_LATIDO: TIPO_LATIDO,
+    miHuella: miHuella, desalineados: desalineados,
     /* El tablero arma su lista con los latidos que descifra, sin storage. */
     desdeLatidos: function (mapa) {
       var u = umbrales(), ahora = Date.now(), out = [];
