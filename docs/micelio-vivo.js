@@ -129,20 +129,20 @@
   }
 
   var ETIQUETAS = {
-    al_dia:   { texto: "Al día",    color: "#00C87A", tinta: "#0A2E1E" },
-    rezagado: { texto: "Rezagado",  color: "#FFC700", tinta: "#3D2E00" },
-    ciegas:   { texto: "A ciegas",  color: "#E8365D", tinta: "#FFFFFF" },
+    al_dia:   { texto: "Up to date",   color: "#00C87A", tinta: "#0A2E1E" },
+    rezagado: { texto: "Behind",       color: "#FFC700", tinta: "#3D2E00" },
+    ciegas:   { texto: "Flying blind", color: "#E8365D", tinta: "#FFFFFF" },
   };
 
   /* "hace 3 minutos", no un timestamp. El dueño no lee ISO. */
   function haceCuanto(ms) {
-    if (ms < 45000) return "hace un momento";
+    if (ms < 45000) return "just now";
     var min = Math.round(ms / 60000);
-    if (min < 60) return "hace " + min + (min === 1 ? " minuto" : " minutos");
+    if (min < 60) return min + (min === 1 ? " minute ago" : " minutes ago");
     var h = Math.round(min / 60);
-    if (h < 24) return "hace " + h + (h === 1 ? " hora" : " horas");
+    if (h < 24) return h + (h === 1 ? " hour ago" : " hours ago");
     var d = Math.round(h / 24);
-    return "hace " + d + (d === 1 ? " día" : " días");
+    return d + (d === 1 ? " day ago" : " days ago");
   }
 
   /* ------------------------------------------------------------- equipo --- */

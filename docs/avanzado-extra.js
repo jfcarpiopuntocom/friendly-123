@@ -458,7 +458,18 @@
       panel.className = "tag-card";
       panel.id = "oc-sync-panel";
       panel.style.cssText = "text-align:left;margin-top:22px;";
-      const salaActiva = window.OCSyncControl.salaActiva();
+      /* LICENCIA != CODIGO DE SALA (JFC 2026-08-19).
+         El codigo de sala se DERIVA de la licencia del negocio, pero no es lo
+         mismo: la licencia identifica al negocio para siempre; la sala es la
+         llave de cuarto con la que los telefonos del equipo se hablan. Aqui se
+         muestra la sala, asi que una sala de OTRA app (AMG-, las tres apps
+         comparten origen en Pages) se leia como si fuera la licencia propia.
+         Se filtra: si no empieza con F123-, se trata como si no hubiera sala. */
+      const _salaCruda = window.OCSyncControl.salaActiva();
+      const salaActiva = /^F123-/i.test(String(_salaCruda || "")) ? _salaCruda : "";
+      if (_salaCruda && !salaActiva) {
+        try { console.warn("[sync] sala de otra app, se ignora:", _salaCruda); } catch (_) {}
+      }
       const codigoPrecargado = (function () {
         try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).syncCode || ""; } catch (_) { return ""; }
       })();
@@ -483,6 +494,14 @@
             <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
             <button id="oc-sync-rotar" style="border-color:#E86040;color:#E86040;">Change the code</button>
         <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
+          </div>
+        </div>
+        <div id="oc-sync-unirse" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">
+          <p style="font-size:14px;color:var(--ink-soft);margin:0 0 8px;">Joining from another device? Paste the team code here.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="oc-sync-codigo2" type="text" placeholder="F123-XXXX-XXXX" maxlength="40"
+              style="flex:1;min-width:220px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-size:15px;">
+            <button id="oc-sync-unirme" class="ir" style="min-height:44px;">Join this team</button>
           </div>
         </div>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
@@ -520,10 +539,16 @@
         const cont = document.getElementById("oc-sync-qr");
         if (!cont || !window.qrcode) return;
         try {
+          /* BUG EN VIVO (JFC 2026-08-19): el QR llevaba el texto suelto
+             "AMIGABLE123-SYNC:<codigo>". La camara de cualquier telefono lo lee
+             pero no sabe que hacer con el y responde "No usable data found".
+             Ahora lleva una URL de verdad: la camara abre friendly-123 y la app
+             ve ?join=<codigo> y ofrece unirse. Un solo escaneo, sin teclear. */
+          const url = "https://jfcarpiopuntocom.github.io/friendly-123/?join=" + encodeURIComponent(codigo);
           const q = window.qrcode(0, "M");
-          q.addData("AMIGABLE123-SYNC:" + codigo);
+          q.addData(url);
           q.make();
-          cont.innerHTML = `<img src="${q.createDataURL(4, 4)}" width="120" height="120" alt="QR" style="border-radius:6px;">`;
+          cont.innerHTML = `<img src="${q.createDataURL(4, 4)}" width="140" height="140" alt="QR" style="border-radius:6px;">`;
         } catch (_) { /* QR es un extra visual */ }
       }
       if (salaActiva) pintarQR(salaActiva);
@@ -534,6 +559,15 @@
         btn.disabled = true;
         setTimeout(() => { btn.disabled = false; }, 1200);
         const codigo = document.getElementById("oc-sync-codigo").value;
+        /* Guard (portado de amigable-123, 23ce907): pegar por error el codigo
+           de la app hermana metia este negocio en la sala de otro. */
+        if (codigo.trim() && !/^F123-/i.test(codigo.trim())) {
+          const m0 = document.getElementById("oc-sync-msg");
+          m0.style.color = "var(--rojo,#a3392a)";
+          m0.textContent = "That code is not from friendly-123. Yours starts with F123-.";
+          btn.disabled = false;
+          return;
+        }
         const r = window.OCSyncControl.activar(codigo);
         const msg = document.getElementById("oc-sync-msg");
         if (!r.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error; return; }
@@ -545,7 +579,8 @@
       });
       const btnCompartir = document.getElementById("oc-sync-compartir");
       if (btnCompartir) btnCompartir.addEventListener("click", () => {
-        const codigo = (window.OCSyncControl.salaActiva() || "").trim();
+        const _c = (window.OCSyncControl.salaActiva() || "").trim();
+        const codigo = /^F123-/i.test(_c) ? _c : "";   // mismo filtro que arriba
         const negocio = (function () { try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch (_) { return ""; } })();
         const texto = window.t("sync.panel.shareText")
           .replace("{business}", negocio ? " (" + negocio + ")" : "")
@@ -560,6 +595,34 @@
         msg.textContent = window.t("sync.panel.resyncing");
         setTimeout(() => { if (msg.textContent === window.t("sync.panel.resyncing")) msg.textContent = ""; }, 3000);
       });
+      /* UNIRSE DESDE ESTE MISMO SUBSEGMENTO (JFC 2026-08-19): antes no habia
+         donde pegar el codigo si la sala ya estaba activa, y el unico boton a
+         mano ("Change the code") ROTABA el codigo — que es lo contrario de lo
+         que quiere quien llega a unirse. Este input une sin rotar nada. */
+      (function () {
+        const bu = document.getElementById("oc-sync-unirme");
+        if (!bu) return;
+        bu.addEventListener("click", () => {
+          const m2 = document.getElementById("oc-sync-msg");
+          const cod = (document.getElementById("oc-sync-codigo2").value || "").trim();
+          if (!cod) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = "Paste the team code first."; return; }
+          if (!/^F123-/i.test(cod)) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = "That code is not from friendly-123. It starts with F123-."; return; }
+          const r2 = window.OCSyncControl.activar(cod);
+          if (!r2.ok) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = r2.error; return; }
+          m2.style.color = "var(--sim-verde-dk,#1a6e3c)";
+          m2.textContent = "Joined. This device is now syncing with the team.";
+          document.getElementById("oc-sync-apagado").style.display = "none";
+          document.getElementById("oc-sync-activo").style.display = "block";
+          document.getElementById("oc-sync-codigo-actual").textContent = cod;
+          pintarQR(cod);
+        });
+        /* Si llego por el QR (?join=CODIGO), el campo viene ya lleno: solo toca
+           el boton. Lo pone el bloque de index.html que lee el parametro. */
+        try {
+          const pre = sessionStorage.getItem("f123_join_pendiente");
+          if (pre) { document.getElementById("oc-sync-codigo2").value = pre; }
+        } catch (_) {}
+      })(),
       (function(){var _r=document.getElementById("oc-sync-rotar");if(_r&&!_r.dataset.listo){_r.dataset.listo="1";_r.addEventListener("click",ocRotarCodigoSala);}})(),document.getElementById("oc-sync-desactivar").addEventListener("click", () => {
         window.OCSyncControl.desactivar();
         document.getElementById("oc-sync-apagado").style.display = "flex";
@@ -581,7 +644,7 @@
     equipoPanel.id = "oc-emp-panel";
     equipoPanel.style.cssText = "text-align:left;margin-top:22px;";
     equipoPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Equipo</h3>
+      <h3 class="seccion" style="margin-top:0;">Team</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
         Cada miembro tiene su propio PIN de 3 dígitos. Sus ventas, ajustes y movimientos
         quedan registrados con su nombre en el historial. El PIN del dueño no aparece aquí.
@@ -895,7 +958,7 @@
     logPanel.id = "oc-log-panel";
     logPanel.style.cssText = "text-align:left;margin-top:22px;";
     logPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Log de actividad</h3>
+      <h3 class="seccion" style="margin-top:0;">Activity log</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
         Últimos 100 movimientos registrados en este dispositivo. Cada entrada incluye
         quién lo hizo y cuándo. El historial es de solo lectura — no se puede editar.
@@ -1081,6 +1144,26 @@
     // desde EL PANEL CENTRAL de JFC (PocketBase); este es para que DOS
     // DISPOSITIVOS DEL MISMO NEGOCIO (ej. caja + bodega) se pongan al día
     // entre ellos, cifrado de punta a punta con el PIN del dueño.
+    /* MICELIO VIVO — portado de amigable-123 (595bc18), 2026-08-19.
+       En friendly-123 este panel NO SE DIBUJABA NUNCA: micelio-ui.js hace
+       pintarPanel() buscando #oc-micelio-panel y aqui no habia contenedor
+       ninguno, asi que "quien esta en el loop y quien anda a ciegas" existia
+       en el codigo pero era invisible para el usuario.
+
+       Va como TARJETA PROPIA, no anidada dentro del panel de sync: el riel de
+       navegacion de Avanzado arma su menu con los hijos DIRECTOS de la vista,
+       y meterla dentro de otro panel lo descoloca (ese fue el bug de amigable).
+       NO volver a anidarla. Si micelio-ui.js no carga, el try deja el hueco
+       vacio y Avanzado sigue entero. */
+    try {
+      const micPanel = document.createElement("div");
+      micPanel.className = "tag-card";
+      micPanel.style.cssText = "text-align:left;margin-top:22px;";
+      micPanel.innerHTML = '<h3 class="seccion" style="margin-top:0;">Your team right now</h3><div id="oc-micelio-panel"></div>';
+      vista.appendChild(micPanel);
+      if (window.OCMicelioUI) window.OCMicelioUI.pintarPanel();
+    } catch (e) { console.error("Panel micelio no cargo (aislado, no rompe Avanzado):", e); }
+
     const syncDevPanel = document.createElement("div");
     syncDevPanel.id = "oc-syncdev-panel";
     syncDevPanel.className = "tag-card";
@@ -1107,8 +1190,9 @@
           "Monthly expenses": "Rent, payroll, utilities… prorated into the P&L.",
           "Access & recovery": "Email, WhatsApp, PINs and password.",
           "Sync your team": "Live sync across every device on your team.",
-          "Equipo": "Team members, roles and PINs for this business.",
-          "Log de actividad": "Who did what, and when.",
+          "Team": "Team members, roles and PINs for this business.",
+          "Activity log": "Who did what, and when.",
+          "Your team right now": "Who is synced and who is not.",
           "Fraud control": "Integrity of sensitive operations.",
           "Transfers between locations": "Move stock between branches.",
           "Remote sync (optional)": "Your own PocketBase, if you set one up.",
@@ -1206,8 +1290,20 @@
             const angosto = window.matchMedia && window.matchMedia("(max-width:720px)").matches;
             if (angosto) {
               fila.style.flexDirection = "column";
-              rNav.style.cssText = "flex:0 0 auto;width:100%;position:sticky;top:0;max-height:none;overflow:visible;flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:2px solid var(--azul-suave,#dde5ec);padding:6px 0;margin:0 0 12px 0;background:var(--blanco-calido,#F8F9FB);";
-              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "auto"; b.style.borderLeft = "none"; b.style.padding = "8px 10px"; });
+              /* DOS BUGS que hacian "retazos encima de retazos" en el telefono.
+                 Portado de amigable-123 (23ce907, 2026-08-16), reproducido
+                 igual en friendly-123 el 2026-08-19:
+
+                 1. Faltaba display:flex. cssText REEMPLAZA todo el estilo, y el
+                    modo ancho si lo pone: al pasar a angosto el nav perdia el
+                    flex y los chips se desbordaban unos sobre otros.
+                 2. position:sticky con overflow:visible dejaba el nav FLOTANDO
+                    sobre el contenido al hacer scroll. En angosto va estatico.
+
+                 Y con tope de alto: 18 chips sin limite empujaban el contenido
+                 tan abajo que parecia que la seccion estaba vacia. */
+              rNav.style.cssText = "display:flex;flex:0 0 auto;width:100%;box-sizing:border-box;position:static;top:auto;max-height:34vh;overflow-y:auto;-webkit-overflow-scrolling:touch;flex-direction:row;flex-wrap:wrap;gap:6px;align-content:flex-start;border-right:none;border-bottom:2px solid var(--azul-suave,#dde5ec);padding:8px 0;margin:0 0 14px 0;background:var(--blanco-calido,#F8F9FB);";
+              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "auto"; b.style.flex = "0 0 auto"; b.style.borderLeft = "none"; b.style.margin = "0"; b.style.padding = "9px 12px"; b.style.whiteSpace = "nowrap"; });
             } else {
               fila.style.flexDirection = "row";
               rNav.style.cssText = "flex:0 0 148px;width:148px;position:sticky;top:8px;align-self:flex-start;padding:0 10px 0 0;margin:0 14px 0 0;border-right:2px solid var(--azul-suave,#dde5ec);display:flex;flex-direction:column;max-height:calc(100vh - 24px);overflow-y:auto;background:var(--blanco-calido,#F8F9FB);z-index:3;box-sizing:border-box;";
@@ -1215,7 +1311,19 @@
             }
           } catch (_) {}
         }
-        resp(); try { window.addEventListener("resize", resp); } catch (_) {}
+        /* GUARDS (portado de amigable-123, 23ce907): el layout se recalcula en
+           cada evento que puede cambiarlo. Antes se calculaba SOLO al arrancar,
+           asi que girar el telefono, o que el MutationObserver agregara una
+           entrada nueva al riel, lo dejaba con las medidas viejas. */
+        resp();
+        try { window.addEventListener("resize", resp); } catch (_) {}
+        try { window.addEventListener("orientationchange", resp); } catch (_) {}
+        try {
+          const mq = window.matchMedia && window.matchMedia("(max-width:720px)");
+          if (mq && mq.addEventListener) mq.addEventListener("change", resp);
+          else if (mq && mq.addListener) mq.addListener(resp);
+        } catch (_) {}
+        try { obs.observe(rNav, { childList: true }); new MutationObserver(resp).observe(rNav, { childList: true }); } catch (_) {}
       } catch (_) { /* si el riel falla, los paneles ya armados arriba siguen visibles tal cual estaban - cero riesgo */ }
     })();
 
@@ -1349,17 +1457,17 @@
           const relectura = JSON.parse(archivoFinal);
           let textoParaVerificar;
           if (relectura.amigableRespaldoCifrado) {
-            if (!clave || !clave.trim()) throw new Error("falta la clave para reverificar");
+            if (!clave || !clave.trim()) throw new Error("the passphrase to re-verify is missing");
             textoParaVerificar = await window.OCSecure.descifrarTextoConClave(relectura, clave.trim());
-            if (!textoParaVerificar) throw new Error("no se pudo descifrar de vuelta con la misma clave");
+            if (!textoParaVerificar) throw new Error("could not be decrypted back with the same passphrase");
           } else {
             const { checksum: _c, ...resto } = relectura;
             textoParaVerificar = JSON.stringify(resto);
           }
           const checksumRelectura = await window.OCSecure.hashTexto(textoParaVerificar);
-          if (checksumRelectura !== checksum) throw new Error("el checksum no coincide tras releer el archivo");
+          if (checksumRelectura !== checksum) throw new Error("the checksum does not match after re-reading the file");
         } catch (eVerif) {
-          msg("oc-respaldo-msg", "El respaldo no pasó su propia verificación (" + eVerif.message + ") — no se descargó. Intenta de nuevo; si se repite, avisa a soporte.", "var(--rojo)");
+          msg("oc-respaldo-msg", "The backup did not pass its own check (" + eVerif.message + ") — it was not downloaded. Try again; if it keeps happening, contact support.", "var(--rojo)");
           return;
         }
         const blob = new Blob([archivoFinal], { type: "application/json" });
@@ -1511,8 +1619,8 @@
         aviso.style.cssText = "font-size:14px;font-weight:700;color:var(--rojo,#a3392a);"
           + "background:#fff5f5;border:2px solid var(--rojo,#a3392a);border-radius:8px;"
           + "padding:10px 14px;margin:0 0 14px;";
-        aviso.textContent = "Espacio al " + pct + "% — considera borrar fotos viejas de perchas "
-          + "o hacer un respaldo desde Checkpoints y luego liberar espacio en tu dispositivo.";
+        aviso.textContent = "Storage at " + pct + "% — consider deleting old shelf photos, "
+          + "or making a backup from Checkpoints and then freeing space on your device.";
         const vista = document.getElementById("vista-avanzado");
         if (vista && !document.getElementById("oc-storage-aviso")) vista.insertBefore(aviso, vista.firstChild);
       } catch (_) {}
@@ -1536,10 +1644,10 @@
         aviso.style.cssText = "font-size:14px;font-weight:700;color:var(--rojo,#a3392a);"
           + "background:#fff5f5;border:2px solid var(--rojo,#a3392a);border-radius:8px;"
           + "padding:10px 14px;margin:0 0 14px;";
-        aviso.textContent = "Tus datos viven solo en este navegador y el sistema operativo puede "
-          + "borrarlos si no usas la app por varios dias — instala amigable-123 en tu pantalla de "
-          + "inicio (menu del navegador → \"Agregar a inicio\" / \"Instalar app\") y haz un respaldo "
-          + "seguido en Checkpoints.";
+        aviso.textContent = "Your data is only in this browser, and the operating system can "
+          + "delete it if you do not use the app for several days — install friendly-123 on your home "
+          + "screen (browser menu → \"Add to Home Screen\" / \"Install app\") and back up "
+          + "often from Checkpoints.";
         const vista = document.getElementById("vista-avanzado");
         if (vista && !document.getElementById("oc-persist-aviso")) vista.insertBefore(aviso, vista.firstChild);
       } catch (_) {}
@@ -1804,7 +1912,7 @@
     const btnWaCambios = $("oc-syncdev-wa-cambios");
     if (btnWaCambios) btnWaCambios.addEventListener("click", async () => {
       const texto = await OCSync.generarPaqueteManual();
-      if (!texto) { msg("oc-syncdev-msg", "No hay cambios pendientes en este dispositivo.", "var(--ink)"); return; }
+      if (!texto) { msg("oc-syncdev-msg", "There are no pending changes on this device.", "var(--ink)"); return; }
       const mensaje = "friendly-123 — changes to sync. Paste this on the other device (Advanced → Paste changes):\n\n" + texto;
       if (navigator.share) {
         try { await navigator.share({ text: mensaje }); msg("oc-syncdev-msg", "Shared. On the other device: Advanced → Paste changes.", "var(--verde)"); return; } catch (_) {}
@@ -1845,17 +1953,17 @@
           const relectura = JSON.parse(archivoFinal);
           let textoParaVerificar;
           if (relectura.amigableRespaldoCifrado) {
-            if (!clave || !clave.trim()) throw new Error("falta la clave para reverificar");
+            if (!clave || !clave.trim()) throw new Error("the passphrase to re-verify is missing");
             textoParaVerificar = await window.OCSecure.descifrarTextoConClave(relectura, clave.trim());
-            if (!textoParaVerificar) throw new Error("no se pudo descifrar de vuelta con la misma clave");
+            if (!textoParaVerificar) throw new Error("could not be decrypted back with the same passphrase");
           } else {
             const { checksum: _c, ...resto } = relectura;
             textoParaVerificar = JSON.stringify(resto);
           }
           const checksumRelectura = await window.OCSecure.hashTexto(textoParaVerificar);
-          if (checksumRelectura !== checksum) throw new Error("el checksum no coincide tras releer el archivo");
+          if (checksumRelectura !== checksum) throw new Error("the checksum does not match after re-reading the file");
         } catch (eVerif) {
-          msg("oc-syncdev-msg", "El respaldo no pasó su propia verificación (" + eVerif.message + ") — no se envió. Intenta de nuevo.", "var(--rojo)");
+          msg("oc-syncdev-msg", "The backup did not pass its own check (" + eVerif.message + ") — it was not sent. Try again.", "var(--rojo)");
           return;
         }
         const nombre = `respaldo-amigable-${new Date().toISOString().slice(0, 10)}.json`;
@@ -1911,7 +2019,7 @@
       if (zona.style.display !== "none") { zona.style.display = "none"; zona.innerHTML = ""; return; }
       if (!qrLib()) { msg("oc-syncdev-msg", "The local QR generator did not load (qrcode-local.js).", "var(--rojo)"); return; }
       const texto = await OCSync.generarPaqueteManual();
-      if (!texto) { msg("oc-syncdev-msg", "No hay cambios pendientes en este dispositivo.", "var(--ink)"); return; }
+      if (!texto) { msg("oc-syncdev-msg", "There are no pending changes on this device.", "var(--ink)"); return; }
       const sesion = Math.random().toString(36).slice(2, 6);
       const total = Math.ceil(texto.length / QR_CHUNK);
       // FIX preventivo 2026-07-07: con una cola enorme (semanas sin sincronizar)

@@ -603,14 +603,22 @@
     nav button:not(.activo):hover{ background-image:linear-gradient(180deg, #FFFFFF 0%, var(--plata-brillo) 45%, var(--plata-claro) 100%); color:var(--ink); }
   }
   nav button svg{ width:20px; height:20px; }
-  nav button[data-vista="hoy"].activo{background:var(--sim-verde);color:#fff;}
-  nav button[data-vista="inventario"].activo{background:var(--sim-verde);color:#fff;}
-  nav button[data-vista="escanear"].activo{background:#374151;color:#fff;}
-  nav button[data-vista="etiquetas"].activo{background:#374151;color:#fff;}
-  nav button[data-vista="perchas"].activo{background:var(--sim-azul);color:#fff;}
-  nav button[data-vista="comisiones"].activo{background:var(--sim-azul);color:#fff;}
-  nav button[data-vista="clientes"].activo{background:var(--sim-azul);color:#fff;}
-  nav button[data-vista="avanzado"].activo{background:var(--sim-azul);color:#fff;}
+  /* Tecla presionada, sin color (portado de amigable-123, JFC 2026-08-11;
+     aplicado aqui 2026-08-19). Antes cada boton se pintaba de un color al
+     estar activo, y eran los colores del Simon: var(--sim-verde) y
+     var(--sim-azul). Eso competia con el Simon real — el color de los
+     PRODUCTOS, que es la unica paleta que debe significar algo en la app.
+     El estado activo ahora es la MISMA tecla plata, pero hundida: gradiente
+     invertido + sombra interior, como si el dedo la mantuviera presionada.
+     Ningun matiz nuevo, solo profundidad 2.5D.
+     NO volver a meter color aqui: se rompe la lectura del semaforo. */
+  nav button.activo{
+    background-image:linear-gradient(180deg, var(--plata-honda) 0%, var(--plata-media) 55%, var(--plata-claro) 100%);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.28), inset 0 -1px 0 rgba(255,255,255,.5);
+    border-color:var(--plata-canto);
+    border-top-color:var(--plata-honda);
+    color:var(--ink);
+  }
   nav button.activo svg{ transform:scale(1.05); }
   nav button:active{ transform:scale(0.94); }
 
@@ -1437,6 +1445,20 @@
             <input id="perchaCasa" type="number" min="0" max="100" step="0.5" placeholder="e.g. 75" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
           <label style="font-size:13px;"><span data-i18n="shelves.monthlyTarget">Monthly target $</span><br>
             <input id="perchaMeta" type="number" min="0" placeholder="e.g. 300" data-i18n-attr="placeholder:common.phTarget300" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <!-- TRATOS MIXTOS (JFC 2026-08-19). El motor de reparto en
+               mock-backend.js YA soportaba minimoGarantizado y contribFija
+               (ver repartir(): el minimo levanta la comision cuando el % da
+               menos, y la contribucion fija se descuenta ANTES del %), pero el
+               formulario nunca los mandaba, asi que todo trato salia como %
+               puro. Estos dos campos son lo unico que faltaba para armar las
+               tres formas: % puro (dejar ambos vacios), minimo + % (llenar el
+               minimo), y aporte fijo antes del % (llenar la contribucion).
+               Vacio = 0 = se comporta exactamente como antes: cero migracion,
+               ningun trato existente cambia de valor. -->
+          <label style="font-size:13px;"><span data-i18n="shelves.guaranteedMin">Guaranteed minimum $</span><br>
+            <input id="perchaMinimo" type="number" min="0" step="0.01" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <label style="font-size:13px;"><span data-i18n="shelves.fixedContrib">Fixed contribution $</span><br>
+            <input id="perchaContrib" type="number" min="0" step="0.01" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
           <button id="perchaCrear" class="ir" style="padding:10px 16px;" data-i18n="shelves.addShelfBtn">+ Add shelf</button>
         </div>
         <p id="perchaMsg" style="font-size:14px;margin-top:8px;"></p>
@@ -1548,6 +1570,14 @@
       <button class="ir" id="btnAplicarCierre" style="margin-top:12px;" data-i18n="sold.applyClose">Apply day close</button>
       <p id="cierreMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
     </details>
+    <!-- CIERRE DEL DIA EN MOVIL (JFC 2026-08-19): el FAB flotante tapaba el
+         menu inferior, asi que en telefono la misma pantalla de cierre se abre
+         desde aqui, dentro de SOLD, que es su sitio logico. Es EL MISMO modal
+         (#eod-modal) y el mismo handler: cero logica duplicada. Se muestra
+         solo si el rol puede verla (lo decide actualizarFAB()). -->
+    <div id="eod-inline-wrap">
+      <button type="button" id="eod-inline">Close the day</button>
+    </div>
   </section>
 
   <!-- VISTA: ETIQUETAS -->
@@ -3474,7 +3504,7 @@ async function cargarPerchas(){
 
   // ---- Eventos perchas ----
   grid.querySelectorAll('[data-percha-renombrar]').forEach(btn => btn.addEventListener('click', async () => {
-    const nuevo = (await ocPrompt('Nuevo nombre de la percha:', '') || '').trim();
+    const nuevo = (await ocPrompt(t('shelves.renamePrompt','New shelf name:'), '') || '').trim();
     if (!nuevo) return;
     const res = await fetch(`${API}/ubicaciones/${btn.dataset.perchaRenombrar}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre: nuevo }) });
     const r = await res.json(); if (!res.ok){ await ocAlert(r.error); return; }
@@ -3545,12 +3575,16 @@ document.addEventListener('click', async (e) => {
     const tipo = document.getElementById('perchaTipo').value;
     const comisionSocio = document.getElementById('perchaComision').value;
     const metaMensual = document.getElementById('perchaMeta').value;
+    /* Vacio se manda como 0: el motor trata 0 como "no aplica" y el reparto
+       queda identico al de siempre. Ver repartir() en mock-backend.js. */
+    const minimoGarantizado = document.getElementById('perchaMinimo').value || 0;
+    const contribFija = document.getElementById('perchaContrib').value || 0;
     const sucursalId = document.getElementById('perchaSucursal').value || null;
     const msg = document.getElementById('perchaMsg');
     if (!nombre){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent='Name is required.'; return; }
-    const res = await fetch(`${API}/ubicaciones`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre, tipo, comisionSocio, metaMensual, sucursalId, lecturaPreferida: _f123Lectura }) });
+    const res = await fetch(`${API}/ubicaciones`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre, tipo, comisionSocio, metaMensual, sucursalId, lecturaPreferida: _f123Lectura, minimoGarantizado, contribFija }) });
     const r = await res.json(); if (!res.ok){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent=r.error; return; }
-    document.getElementById('perchaNombre').value=''; document.getElementById('perchaComision').value=''; document.getElementById('perchaMeta').value='';
+    document.getElementById('perchaNombre').value=''; document.getElementById('perchaComision').value=''; document.getElementById('perchaMeta').value=''; document.getElementById('perchaMinimo').value=''; document.getElementById('perchaContrib').value='';
     { const _c = document.getElementById('perchaCasa'); if (_c) _c.value=''; }
     msg.style.color='var(--verde,#2f7a4f)'; msg.textContent=`"${r.nombre}" creada.`;
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones();
@@ -4572,7 +4606,7 @@ async function cargarComisiones(){
       </details>` : ""}
       ${termometroMeta(f.cumplimientoMeta, f.metaMensual)}
       ${simuladorHtml(f)}
-      ${f.estado === "pendiente" ? `<button class="ir" style="margin-top:12px;background:var(--sim-verde,#00C87A);color:#fff;border-color:var(--sim-verde-dk,#009A5A);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Marcar como pagado (${f.ventasPendientes} ventas)</button>` : ""}
+      ${f.estado === "pendiente" ? `<button class="ir" style="margin-top:12px;background:var(--sim-verde,#00C87A);color:#fff;border-color:var(--sim-verde-dk,#009A5A);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
     </div>`;
   }).join("");
 
@@ -5504,6 +5538,32 @@ document.addEventListener("oc-lang-change", () => {
 });
 </script>
 
+<!-- ═════════ 2026-08-19, JFC: llegar por el QR del equipo ═════════════
+     El QR del panel de sync lleva una URL con ?join=F123-XXXX-XXXX. Antes
+     llevaba texto suelto y la camara del telefono contestaba "No usable data
+     found". Aqui solo se GUARDA el codigo y se avisa: NO se activa nada solo.
+     Unirse a una sala es una decision del dueno, no algo que pase por escanear.
+     El codigo queda en sessionStorage y Avanzado -> Sync lo encuentra ya
+     escrito en el campo "Join this team". Se limpia la URL para que no quede
+     el codigo en la barra ni en el historial. -->
+<script>
+(function(){
+  try{
+    var q=new URLSearchParams(window.location.search);
+    var j=(q.get("join")||"").trim();
+    if(!j) return;
+    // Guard: solo codigos de esta app. Uno de la app hermana no abre sala aqui.
+    if(!/^F123-/i.test(j)) return;
+    sessionStorage.setItem("f123_join_pendiente", j);
+    // Sacar el codigo de la barra de direcciones (no debe quedar en historial).
+    try{ q.delete("join");
+      var rest=q.toString();
+      history.replaceState(null,"",window.location.pathname+(rest?"?"+rest:"")+window.location.hash);
+    }catch(_){}
+  }catch(_){}
+})();
+</script>
+
 <!-- ═════════ 2026-08-19, aprobado JFC: FAB "Close the day" ═════════════
      Boton flotante abajo a la derecha (el hueco que dejo el pulsar).
      Un solo click: (1) trae /api/dashboard con el resumen de hoy;
@@ -5517,6 +5577,18 @@ document.addEventListener("oc-lang-change", () => {
     box-shadow:0 6px 20px rgba(232,96,64,.35);cursor:pointer;display:none;font-family:inherit;
     -webkit-tap-highlight-color:transparent;}
   #fab-eod:hover{background:#C05000;}
+  /* JFC 2026-08-19: en el navegador movil el FAB flotante tapaba el menu de
+     abajo. Queda SOLO en pantalla ancha (>=900px), flotando como a JFC le
+     gusta. En movil la misma accion vive dentro de SOLD (#eod-inline-wrap),
+     que es donde el usuario ya esta cerrando el dia. El !important es
+     necesario porque actualizarFAB() escribe display inline. */
+  @media (max-width:899px){ #fab-eod{display:none !important;} }
+  /* Y al reves: el boton en linea es solo de movil. */
+  #eod-inline-wrap{display:none;margin-top:14px;}
+  @media (max-width:899px){ #eod-inline-wrap.puede{display:block;} }
+  #eod-inline{width:100%;min-height:48px;border-radius:10px;background:#E86040;color:#fff;
+    border:none;padding:13px 18px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;}
+  #eod-inline:active{transform:scale(.99);}
   #fab-eod:active{transform:scale(.97);}
   #eod-modal{position:fixed;inset:0;background:rgba(15,25,35,.55);z-index:900;
     display:none;align-items:center;justify-content:center;padding:16px;}
@@ -5579,8 +5651,14 @@ document.addEventListener("oc-lang-change", () => {
   }
   function actualizarFAB(){
     var f=document.getElementById("fab-eod"); if(!f) return;
+    var puede=visible();
     f.textContent=TX().fabLabel;
-    f.style.display=visible()?"block":"none";
+    /* Ancho: el FAB flota. Angosto: se apaga y manda el boton en linea de SOLD
+       (la media query de arriba lo refuerza aunque este display quede en block). */
+    var ancho = !(window.matchMedia && window.matchMedia("(max-width:899px)").matches);
+    f.style.display=(puede && ancho)?"block":"none";
+    var w=document.getElementById("eod-inline-wrap");
+    if(w){ w.classList.toggle("puede", puede); var ib=document.getElementById("eod-inline"); if(ib) ib.textContent=TX().fabLabel; }
   }
   function abrir(){
     var m=document.getElementById("eod-modal"),
@@ -5628,6 +5706,9 @@ document.addEventListener("oc-lang-change", () => {
   document.addEventListener("DOMContentLoaded", function(){
     actualizarFAB();
     var f=document.getElementById("fab-eod"); if(f) f.addEventListener("click", abrir);
+    var fi=document.getElementById("eod-inline"); if(fi) fi.addEventListener("click", abrir);
+    /* Girar el telefono cambia cual de los dos manda. */
+    try{ window.addEventListener("resize", actualizarFAB); window.addEventListener("orientationchange", actualizarFAB); }catch(_){}
     var x=document.getElementById("eod-close"); if(x) x.addEventListener("click", cerrar);
     var b=document.getElementById("eod-backup"); if(b) b.addEventListener("click", bajarRespaldo);
     var m=document.getElementById("eod-modal");

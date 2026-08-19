@@ -90,3 +90,65 @@ constaba que friendly-123 recibe los avances primero. JFC lo corrigió.
 `vista-perchas.js`, y 7 archivos que a F123 le faltan (`tablero.html`,
 `tablero-avanzado.js`, `estado-idb.js`, `borradores.js`, `micelio-vivo.js`,
 `micelio-ui.js`, `percha-reposicion.js`, `simon-config.js`).
+
+---
+
+## 2026-08-19 — los 9 puntos, con friendly-123 YA EN PRODUCCION
+
+**Dato nuevo y permanente:** friendly-123 tiene usuarios reales. idiomARTE
+(Sarah, dueña estadounidense) se pasa de amigable-123 a friendly-123 porque le
+sirve mejor una version bilingüe English-first. **A partir de aqui todo cambio
+es marginal y cauteloso: no se destruye nada.**
+
+### Prompt de JFC (textual, resumido en sus 9 puntos)
+
+1. Confusion entre **licencia** (unica por negocio, solo se cambia por
+   ciberseguridad si alguien la descubrio) y el **codigo de sync** de
+   Avanzados. Ademas no deja ingresar el codigo por ningun lado en ese mismo
+   subsegmento, genera una licencia F123 nueva cuando se le pide un codigo
+   temporal, y al escanear el QR desde otro dispositivo sale "No usable data
+   found".
+2. Configurar YA el worker del panel de control, para poder aprobar licencias.
+3. Aun hay partes de la UI en español con el switch en ingles, y es doblemente
+   tonto porque friendly-123 debe ser **English-first conceptualmente**.
+4. El boton "close the day" tapa el menu en movil. Debe quedar flotando solo
+   en PC; en movil va dentro de VENDIDO.
+5. Revisar que el menu de botones no tenga highlights que se confundan con el
+   sistema Simon.
+6. La clave 555 que intento poner Sarah no sirvio (aclarado despues: era para
+   **crear un admin**, no cambiar un PIN).
+7. El sistema de comisiones debe ser mixto: minimo + comision, comision pura,
+   etc.
+8. La navegacion de Advanced esta rota, igual que estaba en amigable-123 hace
+   2-3 dias. "Cuando te digo que portees todo lo mejorado y avanzado, es
+   porque quiero que lo hagas."
+9. Revisar los ultimos 15 dias de commits de amigable-123 y portear todas las
+   mejoras, avances y correcciones — todo el debugging y los guards.
+
+### Decisiones que tomo JFC en el chat
+
+- **Comision mixta = modo PISO**, el mayor entre el % y el minimo, nunca la
+  suma. Se pidieron apuntes del modo aditivo por si se necesita urgente:
+  quedan en `NOTA-COMISIONES-MIXTAS-2026-08-19.md`.
+- **La licencia de Sarah no se toca.** JFC la aprueba el cuando decida el
+  plazo, que sigue sin definirse para friendly-123.
+
+### Bugs reales encontrados (no cosmeticos)
+
+- `simon-config.js` sacaba los "dias sin venta" **parseando la prosa** del
+  mensaje con una regex en español. En ingles no hacia match nunca, asi que el
+  override de colores por producto **no funcionaba**. Leccion para las tres
+  apps: si el dato existe, se pasa como dato, no se parsea texto de UI.
+- El panel del micelio ("Your team right now") **nunca se dibujo** en
+  friendly-123: faltaba el contenedor `#oc-micelio-panel`.
+- El secreto `MASTER_KEY` del worker **nunca se creo**, asi que el panel de
+  licencias da 401 haga lo que haga. Ver `RUNBOOK-WORKER-PANEL-2026-08-19.md`.
+- Tres fugas de marca "AMIGABLE-123"/"amigable-123" en textos que ve el
+  usuario de friendly-123, una de ellas en el WhatsApp que se manda al equipo.
+
+### Error propio, registrado
+
+Se cambio `index.html` sin bumpear el service worker. Eso deja a los usuarios
+que YA tienen la app instalada con el shell viejo — que es exactamente el bug
+que rompio Avanzado en el iPhone de JFC en amigable-123. Corregido (v65 -> v66)
+y convertido en un chequeo automatico: `check-sw.sh`.
