@@ -1054,8 +1054,35 @@ Keep it somewhere safe.`);
         if (sen) {
           try {
             const movs = await (await fetch("/api/actividad")).json();
-            const hoy = new Date().toISOString().slice(0, 10);
-            const delHoy = (Array.isArray(movs) ? movs : []).filter((m) => (m.fecha || "").slice(0, 10) === hoy);
+            /* BUG DE ATRIBUCION (JFC 2026-08-19). Habia DOS errores de zona
+               horaria encadenados, y juntos dejaban este panel en blanco cada
+               noche:
+                 1. "hoy" salia de toISOString(), que es UTC. En Guayaquil
+                    (UTC-5), a partir de las 19:00 locales el UTC ya es el dia
+                    siguiente, asi que "hoy" apuntaba a manana.
+                 2. m.fecha es un ISO en UTC, y cortarlo con slice(0,10) da el
+                    dia UTC, no el dia del negocio.
+               Resultado: despues de las 19:00 el panel antifraude decia "sin
+               actividad hoy" con el local lleno de ventas. Justo la hora en que
+               un dueno revisa anulaciones y mermas.
+               Se usa la MISMA zona que el resto de la app (f123_timezone, la
+               que el dueno fija en Avanzado), igual que hoyISO() en
+               mock-backend.js. Misma zona en los dos lados de la comparacion. */
+            const _zona = (function () {
+              try {
+                const tz = localStorage.getItem("f123_timezone");
+                if (!tz) return Intl.DateTimeFormat().resolvedOptions().timeZone;
+                Intl.DateTimeFormat(undefined, { timeZone: tz });
+                return tz;
+              } catch (_) { return Intl.DateTimeFormat().resolvedOptions().timeZone; }
+            })();
+            const _diaLocal = (d) => {
+              try {
+                return new Intl.DateTimeFormat("en-CA", { timeZone: _zona, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+              } catch (_) { return ""; }
+            };
+            const hoy = _diaLocal(new Date());
+            const delHoy = (Array.isArray(movs) ? movs : []).filter((m) => m && m.fecha && _diaLocal(new Date(m.fecha)) === hoy);
             const anul = {}, merma = {};
             delHoy.forEach((m) => {
               const q = m.usuarioNombre || "Sistema";
@@ -1385,7 +1412,7 @@ Keep it somewhere safe.`);
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `reporte-contable-amigable-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `reporte-contable-friendly-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(a.href);
     });
@@ -1477,7 +1504,7 @@ Keep it somewhere safe.`);
         const blob = new Blob([archivoFinal], { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `respaldo-amigable-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `respaldo-friendly-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
         localStorage.setItem("f123_ultimo_export_manual", String(Date.now()));
@@ -1970,7 +1997,7 @@ Keep it somewhere safe.`);
           msg("oc-syncdev-msg", "The backup did not pass its own check (" + eVerif.message + ") — it was not sent. Try again.", "var(--rojo)");
           return;
         }
-        const nombre = `respaldo-amigable-${new Date().toISOString().slice(0, 10)}.json`;
+        const nombre = `respaldo-friendly-${new Date().toISOString().slice(0, 10)}.json`;
         const file = new File([archivoFinal], nombre, { type: "application/json" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: "friendly-123 backup", text: "My business backup (friendly-123)." });
@@ -2305,6 +2332,12 @@ Keep it somewhere safe.`);
         var owned = {};
         try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
         owned.licenseCode = nuevo;
+        /* BUG (JFC 2026-08-19): se actualizaba licenseCode pero NO syncCode, y
+           el panel de sync precarga su campo desde owned.syncCode. Despues de
+           rotar, el panel seguia mostrando el codigo VIEJO —ya muerto— como si
+           fuera el bueno. Los dos campos describen la misma sala: se mueven
+           juntos o no se mueven. */
+        owned.syncCode = nuevo;
         owned.licenseRotadaEn = Date.now();
         localStorage.setItem("f123_owned", JSON.stringify(owned));
 
