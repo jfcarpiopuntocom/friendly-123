@@ -500,7 +500,11 @@
     if (!ws || ws.readyState !== WebSocket.OPEN) return false;
     const op = {
       opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_LATIDO,
-      payload: { id: quien.id, apodo: quien.apodo || "", rol: quien.rol || "" },
+      /* PASO 2 (JFC 2026-08-19): el latido lleva la HUELLA del catalogo. Sin
+         esto el panel del equipo solo sabe CUANDO se hablo el otro, no SI
+         estan mostrando el mismo inventario, y decia "al dia" sin comparar un
+         solo dato. La huella no revela nada: es un hash de 32 bits. */
+      payload: { id: quien.id, apodo: quien.apodo || "", rol: quien.rol || "", huella: quien.huella || "" },
       fecha: (new Date()).toISOString(),
     };
     try { ws.send(await cifrar(claveActual, op)); return true; } catch (_) { return false; }

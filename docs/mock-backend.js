@@ -1419,7 +1419,66 @@
       }
     } catch (_) {}
   }
+  /* ==========================================================================
+     PASO 1 — HUELLA DEL CATALOGO (JFC 2026-08-19)
+
+     POR QUE EXISTE: hasta hoy el panel del equipo decia "Up to date" mirando
+     SOLO EL RELOJ — cuando llego el ultimo latido. Nunca comparaba un dato.
+     Por eso JFC vio "sincronizado" en su PC y en su celular mientras uno tenia
+     la percha "Rack1" y el otro "001". Decir "al dia" sin haber comparado nada
+     es peor que no decir nada.
+
+     La huella es un hash barato y DETERMINISTA del catalogo: dos dispositivos
+     con el mismo catalogo dan la misma huella siempre, sin importar en que
+     orden lo tengan guardado (por eso se ordena por id antes de sumar).
+
+     Entra SOLO lo que define el catalogo: perchas (id + nombre) y productos
+     (id + nombre + precio + costo). NO entra el stock: dos dispositivos del
+     mismo negocio pueden tener stock distinto por un instante y eso es normal,
+     no es estar desincronizado. Tampoco entran ventas ni clientes: se comparan
+     aparte, cuando toque.
+
+     Se muestra corta (#A7F3) para que una persona la pueda dictar por telefono
+     o pegar en WhatsApp sin entender una palabra de hashes.
+
+     NO viaja a ningun lado fuera del equipo. El nodo de licencias no la ve.
+     ========================================================================== */
+  function _huellaTexto() {
+    const u = ubicaciones.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .map((x) => String(x.id) + "|" + String(x.nombre || "")).join(";");
+    const p = productos.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .map((x) => String(x.id) + "|" + String(x.nombre || "") + "|" + Number(x.precio || 0) + "|" + Number(x.costo || 0)).join(";");
+    return "U:" + u + "#P:" + p;
+  }
+  /* FNV-1a de 32 bits. No es criptografico y no pretende serlo: aqui solo hace
+     falta que dos catalogos distintos den huellas distintas con altisima
+     probabilidad, y que sea instantaneo en un telefono viejo con 5000
+     productos. Un SHA-256 seria mas lento y no compraria nada. */
+  function _fnv1a(txt) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < txt.length; i++) {
+      h ^= txt.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return h >>> 0;
+  }
+  function huellaCatalogo() {
+    try {
+      const h = _fnv1a(_huellaTexto());
+      return {
+        /* 4 caracteres en mayuscula: dictable por telefono sin ambiguedad. */
+        corta: "#" + h.toString(36).toUpperCase().slice(-4).padStart(4, "0"),
+        completa: h.toString(36).toUpperCase(),
+        productos: productos.length,
+        perchas: ubicaciones.length,
+      };
+    } catch (_) { return null; }
+  }
+
   window.OCSync = {
+    /* La huella de ESTE dispositivo. La usan el latido del micelio, el panel
+       del equipo y el codigo TEAM- al compartirse. */
+    huella: huellaCatalogo,
     // Llamado por sync-realtime.js al recibir un Op de otro dispositivo. Si
     // el resultado queda negativo, se deja ver (mov "alerta-descuadre") en
     // vez de esconderlo: eso es un sobrante real que ocurrio en el mundo
