@@ -146,7 +146,18 @@ async function handleCheckin(req, env) {
     lastAccion: body.accion || "checkin",
   };
   await guardarConHistorial(env, instanceId, registro);
-  return json({ ok: true, estado: registro.estado });
+  /* RESCATE DE LICENCIA (JFC 2026-08-19). La respuesta devuelve el licenseCode
+     que el servidor tiene para esta instancia. Sirve para tres cosas con un
+     solo mecanismo:
+       1. alta normal: confirma lo que el dispositivo acaba de registrar;
+       2. rescate individual: un dispositivo que perdio su codigo (o que nunca
+          lo guardo, como paso con el bug de licenseCode vacio) lo recupera
+          solo en el siguiente login;
+       3. rescate masivo: se escribe el codigo en la KV de N instancias y cada
+          una lo adopta sola cuando su dueno entra. Cero soporte uno a uno.
+     Es SEGURO devolverlo: para llegar aqui hay que traer el instanceId, que es
+     un uuid que solo tiene ese dispositivo. No se devuelve nada mas. */
+  return json({ ok: true, estado: registro.estado, licenseCode: registro.licenseCode || "" });
 }
 
 // /recover-pin — envía el PIN del dueño a su correo vía Resend.
