@@ -1,3 +1,4 @@
+// COMPARTIDO: portado y mantenido identico entre apps hermanas a proposito.
 /* ============================================================================
    tablero-avanzado.js — Avanzado, con sitio para leerlo.
    AMIGABLE-123 · 2026-08-15 · JFC

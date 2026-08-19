@@ -1,3 +1,4 @@
+// COMPARTIDO: portado y mantenido identico entre apps hermanas a proposito.
 // crypto-store.js — Almacenamiento local cifrado, sin servidor, sin librerías.
 // Usa WebCrypto (nativo del navegador, gratis y estándar) para que las claves
 // de acceso y el correo de recuperación NUNCA se guarden en texto plano en

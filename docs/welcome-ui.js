@@ -1,3 +1,4 @@
+// COMPARTIDO: portado y mantenido identico entre apps hermanas a proposito.
 // welcome-ui.js — Mensaje de bienvenida para first-timers (JFC 2026-07-02).
 // AMIGABLE (demo de Amigable). Aparece UNA sola vez, tras el primer login
 // exitoso (escucha "oc-login"), y marca un flag en localStorage para no

@@ -1,3 +1,4 @@
+// COMPARTIDO: portado y mantenido identico entre apps hermanas a proposito.
 // vista-perchas.js — Panel de perchas tipo CARPETA con semáforo de META.
 // AMIGABLE (demo de Amigable: punto de venta y control de inventario)
 // JFC 2026-07-02. Gestion completa (renombrar, borrar, agregar) 2026-07-08.

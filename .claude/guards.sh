@@ -7,6 +7,7 @@
 # Uso:  bash .claude/guards.sh            (en la raiz de cualquiera de los 3 repos)
 # Sale 0 si todo bien, 1 si algo fallo. Imprime QUE fallo y DONDE.
 set -u
+FIX=""; [ "${1:-}" = "--fix" ] && FIX=1
 RAIZ="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$RAIZ" || exit 1
 FALLOS=0
@@ -14,6 +15,34 @@ ok(){ printf "  ok   %s\n" "$1"; }
 mal(){ printf "  MAL  %s\n" "$1"; FALLOS=$((FALLOS+1)); }
 
 echo "== guards de $(basename "$RAIZ") =="
+
+# C1: JAMAS sobrescribir un archivo completo entre apps hermanas. Si un .js del
+# repo actual es byte-identico al de una hermana, o casi (mismo sha256 en los
+# primeros 5 KB), es sospechoso: el port se hizo copiando en vez de injertando y
+# se perdio el trabajo propio del repo destino. Regla de CLAUDE.md, ahora
+# verificada.
+HERMANAS="/home/user/AMIGABLE /home/user/friendly-123 /home/user/consultorio-123"
+SOSPECHOSOS=""
+for f in docs/*.js; do
+  [ -f "$f" ] || continue
+  b=$(basename "$f")
+  # index.html y tablero.html son enormes: no aplica; solo modulos
+  case "$b" in aislamiento.js|hechos.js|reconciliacion.js) continue ;; # divergen por diseno
+  esac
+  # Utilidades genericas marcadas como COMPARTIDO en la primera linea: esta
+  # bien que sean identicas, no son un port en curso.
+  head -n 1 "$f" | grep -q "COMPARTIDO" && continue
+  mia=$(head -c 5120 "$f" | sha256sum | cut -c1-16)
+      for h in $HERMANAS; do
+        [ "$h" = "$RAIZ" ] && continue
+        [ -f "$h/docs/$b" ] || continue
+        suya=$(head -c 5120 "$h/docs/$b" | sha256sum | cut -c1-16)
+        [ "$mia" = "$suya" ] && SOSPECHOSOS="$SOSPECHOSOS $b(=$(basename "$h"))"
+      done
+done
+if [ -z "$SOSPECHOSOS" ]; then ok "port: ningun modulo es copia byte-identica de una hermana"
+else mal "port: modulos identicos a una hermana ->$SOSPECHOSOS"; fi
+
 
 # ---------------------------------------------------------------- GUARD 16
 # FECHAS. Comparar un ISO crudo contra el dia/mes LOCAL solo funciona en UTC+0.
@@ -38,11 +67,27 @@ fi
 # la app ya cargaba", asi que los dispositivos instalados servian version vieja.
 if [ -f docs/sw.js ] && [ -f docs/index.html ]; then
   FALTAN=""
-  for js in $(grep -o 'src="\./[a-z0-9.-]*\.js"' docs/index.html | sed 's/src="\.\///; s/"//' | sort -u); do
+  # G3: aceptar mayusculas y subdirectorios (ej. vendor/x.js) — antes se colaban.
+  for js in $(grep -oE 'src="\./[A-Za-z0-9./_-]+\.js"' docs/index.html | sed 's/src="\.\///; s/"//' | sort -u); do
     grep -q "\"\./$js\"" docs/sw.js || FALTAN="$FALTAN $js"
   done
   if [ -z "$FALTAN" ]; then ok "sw: conoce todos los scripts de index.html"
-  else mal "sw: NO precachea ->$FALTAN"; fi
+  elif [ -n "$FIX" ]; then
+    # M5: auto-registro. Cada vez que agrego un script nuevo tengo que acordarme
+    # de dos sitios (index.html y sw.js). El guard ya lo detecta; con --fix ya
+    # tampoco hay que pegarlo a mano.
+    for j in $FALTAN; do
+      python3 -c "
+import io,re
+p='docs/sw.js'; s=io.open(p,encoding='utf-8').read()
+if '\"./manifest.json\"' in s: s=s.replace('\"./manifest.json\"','\"./$j\", \"./manifest.json\"',1)
+else: s=re.sub(r'(SHELL\s*=\s*\[)', r'\\1\"./$j\", ', s, count=1)
+m=re.search(r'CACHE\s*=\s*\"([a-z0-9-]+?)(\d+)\"', s)
+if m: s=s.replace(m.group(0), 'CACHE = \"'+m.group(1)+str(int(m.group(2))+1)+'\"',1)
+io.open(p,'w',encoding='utf-8').write(s)"
+    done
+    ok "sw: --fix registro los que faltaban ($FALTAN)"
+  else mal "sw: NO precachea ->$FALTAN (corre '''bash .claude/guards.sh --fix''' para arreglar)"; fi
 fi
 
 # ---------------------------------------------------------------- GUARD 18
@@ -91,6 +136,24 @@ if [ -f docs/mock-backend.js ] && command -v node >/dev/null; then
       || mal "tratos: algun caso de reparto no da lo esperado (corre .claude/guard-tratos.mjs)"
   else
     printf "  nota %s\n" "tratos: esta app no reparte comisiones (a proposito), no aplica"
+  fi
+fi
+
+
+# C2: marca de "lei los apuntes". Cuando escribo un plan (PLAN-*.md) tengo que
+# tocar TODOS los PORT-NOTES-*.md, LAS-TRES-APPS-*.md y DIRECCION-PRODUCTO-*.md
+# antes; sin esto se me olvida y el plan sale mal (como paso hoy con el motor
+# de tratos). El guard mira: si hay un PLAN-*.md editado en los ultimos 60 min
+# pero NINGUN apunte se leyo (touch) en ese mismo rato, es sospechoso.
+if ls PLAN-*.md 2>/dev/null | head -1 >/dev/null; then
+  PLAN_RECIENTE=$(find PLAN-*.md -mmin -60 2>/dev/null | head -1)
+  if [ -n "$PLAN_RECIENTE" ]; then
+    APUNTES_LEIDOS=$(find PORT-NOTES-*.md LAS-TRES-APPS-*.md DIRECCION-PRODUCTO-*.md -amin -60 2>/dev/null | wc -l)
+    if [ "$APUNTES_LEIDOS" -eq 0 ]; then
+      printf "  nota %s\n" "planes: hay PLAN reciente pero ningun apunte se leyo — releelos antes de ejecutar"
+    else
+      ok "planes: $APUNTES_LEIDOS apunte(s) leidos junto al PLAN reciente"
+    fi
   fi
 fi
 

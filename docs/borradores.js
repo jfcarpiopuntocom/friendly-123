@@ -175,7 +175,14 @@
         soltar();
         vigia.disconnect();
       });
-      try { vigia.observe(document.body, { childList: true, subtree: true }); } catch (_) {}
+      /* M1: observar solo el PADRE del contenedor, no el body entero. subtree
+         en el body dispara con CADA mutacion del DOM — cientos por segundo en
+         una app viva. El contenedor solo puede desaparecer si su padre lo
+         quita, asi que ahi es donde hay que mirar. */
+      try {
+        const objetivo = cont.parentNode || document.body;
+        vigia.observe(objetivo, { childList: true });
+      } catch (_) {}
     } else {
       var alIrseOriginal = alIrse;
       alIrse = function () { if (!cont.isConnected) { soltar(); return; } alIrseOriginal(); };

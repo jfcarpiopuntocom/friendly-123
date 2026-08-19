@@ -52,6 +52,7 @@ const conCom=liq.find(l=>l.ventasBrutas>0);
 if(conCom){
   const vt=(await api("/api/ventas/todas?ubicacionId=todas")).b;
   const conSplit=Array.isArray(vt)?vt.find(v=>v.comisionPct!=null):null;
+  if(!conSplit)di("no encontre una venta con split para probar el corrector");
   if(conSplit){
     for(const malo of [null,"",-5,101,"abc"]){
       const r=await api(`/api/ventas/${conSplit.id}/comision`,{method:"PATCH",headers:{},body:JSON.stringify({comisionPct:malo})});

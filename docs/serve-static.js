@@ -1,3 +1,4 @@
+// COMPARTIDO: utilidad generica identica en las 3 apps a proposito.
 // serve-static.js — Servidor estático mínimo SOLO para previsualizar docs/
 // (la demo de GitHub Pages) en local. No es parte del producto.
 const http = require("http");

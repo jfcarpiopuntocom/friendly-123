@@ -1,3 +1,4 @@
+// COMPARTIDO: utilidad generica identica en las 3 apps a proposito.
 // barcode128.js — Espejo en el navegador de barcode.js (servidor). Mismo
 // algoritmo Code128B, sin dependencias, para que la demo estática (GitHub
 // Pages, sin backend Node) también pueda dibujar barcode real y no solo QR.

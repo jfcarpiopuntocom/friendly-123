@@ -1,3 +1,4 @@
+// COMPARTIDO: utilidad generica identica en las 3 apps a proposito.
 /*!
  * event-bus.js — Amigable-123
  * FASE 1, punto 1.1

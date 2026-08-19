@@ -71,10 +71,13 @@
     if (!SOPORTADO || !estado) return Promise.resolve(false);
     /* Primera de la rafaga: va directo, sin esperar. */
     if (!_reloj) {
-      _ultimoOk = guardar(estado);
+      /* M3: si guardar rechaza, el next-turn NO deja el reloj colgado. Antes,
+         al fallar el guardado en el fin de la rafaga, el reloj se limpiaba
+         pero podia haber una escritura pospuesta sin nadie que la disparara. */
+      _ultimoOk = guardar(estado).catch(function () { return false; });
       _reloj = setTimeout(function () {
         _reloj = null;
-        if (_pend) { var e = _pend; _pend = null; _ultimoOk = guardar(e); }
+        if (_pend) { var e = _pend; _pend = null; _ultimoOk = guardar(e).catch(function () { return false; }); }
       }, AGRUPAR_MS);
       return _ultimoOk;
     }

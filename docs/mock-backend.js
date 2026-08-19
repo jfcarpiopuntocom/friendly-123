@@ -890,11 +890,10 @@
             minimoGarantizado: t.minimoGarantizado || 0,
             tieneEscalas: !!(t.escalas && t.escalas.length),
             avisosTrato: t.avisos || [],
+            modalidad: (t.pct || 0) >= 50 ? "artista" : "vendedor",
           };
         })(),
         pctEfectivo: ventasBrutas > 0 ? +((comisionSocio / ventasBrutas) * 100).toFixed(2) : (Number(u.comisionSocio) || 0),
-        modalidad: (Number(u.comisionSocio) || 0) >= 50 ? "artista" : "vendedor",
-        contribFija: 0,
         /* Ventas de este mes cuyo % se corrigio despues: quien liquida tiene que
            verlo, porque el papel que imprimio la semana pasada decia otra cosa. */
         ventasCorregidas: ventasMes.filter((v) => v.split && v.split.corregida).length,

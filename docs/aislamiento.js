@@ -54,7 +54,11 @@
     try { console.warn("[aislamiento] ya estaba instalado; la segunda carga se ignora"); } catch (_) {}
     return;
   }
-  window.__OC_AISLAMIENTO_INSTALADO__ = true;
+  /* M2: la marca NO se puede sobrescribir. Antes era una propiedad normal y
+     cualquier codigo podia borrarla — la proxima carga de aislamiento
+     duplicaria los prefijos. Ahora es una constante. */
+  try { Object.defineProperty(window, "__OC_AISLAMIENTO_INSTALADO__", { value: true, writable: false, configurable: false }); }
+  catch (_) { window.__OC_AISLAMIENTO_INSTALADO__ = true; }
 
   // Namespace de ESTA app. Cambiarlo aisla todo de golpe; no debe coincidir
   // con el de las apps hermanas (f123 / amigable).

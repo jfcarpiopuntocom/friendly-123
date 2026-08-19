@@ -4434,6 +4434,42 @@ async function cargarComisiones(){
   window._ocLiqDet = {};
   filas.forEach(f => { window._ocLiqDet[f.ubicacionId] = f.detallePendientes || []; });
 
+  /* CORREGIR EL PORCENTAJE EN RETROSPECTIVA (P1: portado de amigable-123).
+     El % se congelaba al vender; corregirlo obligaba a anular ventas reales,
+     o sea ensuciar el historial para arreglar un dato. Ahora se recalcula el
+     reparto del mes y queda constancia: una correccion SE SUMA, no reemplaza.
+     Los dos campos se espejan; imposible dejar un reparto que no suma 100. */
+  function editorComisionHtml(f){
+    if (!f.ventasBrutas) return "";
+    const uid = f.ubicacionId.replace(/[^a-z0-9]/gi, "");
+    const actual = f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0);
+    return `
+      <details style="margin-top:10px;">
+        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--rust,#E86040);user-select:none;">Was the percentage wrong? Fix it →</summary>
+        <div style="padding:10px 0 4px;">
+          <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">Recalculates the split for this month's sales on this shelf. The sale, the product and the stock stay the same — only the split changes. There's a record of what it said before.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <label style="font-size:13px;flex:1;min-width:120px;">Associate takes (%)<br>
+              <input type="number" id="cor-aso-${uid}" min="0" max="100" step="0.5" value="${actual}" data-no-borrador="1"
+                style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+            <label style="font-size:13px;flex:1;min-width:120px;">House keeps (%)<br>
+              <input type="number" id="cor-casa-${uid}" min="0" max="100" step="0.5" value="${(100 - actual).toFixed(2).replace(/\.?0+$/, "")}" data-no-borrador="1"
+                style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+          </div>
+          <label style="display:block;font-size:13px;margin-top:8px;">Why the correction (saved for the record)<br>
+            <input type="text" id="cor-mot-${uid}" maxlength="200" placeholder="e.g. deal was 85/15, typed backwards" data-no-borrador="1"
+              style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;">
+            <input type="checkbox" id="cor-todas-${uid}" style="width:18px;height:18px;">
+            Also fix the ones I already marked as paid this month</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            <button type="button" data-corregir="${escHtml(f.ubicacionId)}" data-uid="${uid}" data-nombre="${escHtml(f.ubicacion)}"
+              style="font-size:14px;padding:8px 14px;border-color:var(--rust,#E86040);color:var(--rust,#E86040);">Apply fix</button>
+          </div>
+          <p id="cor-msg-${uid}" style="font-size:13px;font-weight:700;margin:8px 0 0;"></p>
+        </div>
+      </details>`;
+  }
   const cardsHtml = filas.map(f => {
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
       ? `<span class="badge-estado rojo" style="font-size:13px;">dormant ${f.diasSinVenta}d</span>` : "";
@@ -4446,9 +4482,11 @@ async function cargarComisiones(){
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promoter: <strong>${escHtml(f.promotorNombre)}</strong></div>` : ""}
       <table style="width:100%;margin-top:10px;font-size:14px;">
         <tr><td>Monthly sales</td><td style="text-align:right;">${fmtMoney(f.ventasBrutas)}</td></tr>
-        <tr><td><strong>Promoter commission</strong></td><td style="text-align:right;"><strong>${fmtMoney(f.comisionSocio)}</strong></td></tr>
-        <tr><td>Owner net</td><td style="text-align:right;">${fmtMoney(f.netoDueno)}</td></tr>
+        <tr><td><strong>Associate takes</strong> <span style="color:var(--ink-soft);font-weight:400;">(${f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0)}%)</span></td><td style="text-align:right;"><strong>${fmtMoney(f.comisionSocio)}</strong></td></tr>
+        <tr><td>House keeps <span style="color:var(--ink-soft);">(${f.pctEfectivo != null ? (100 - f.pctEfectivo).toFixed(2).replace(/\.00$/,"") : (f.pctQuedaEnCasa || 0)}%)</span></td><td style="text-align:right;">${fmtMoney(f.netoDueno)}</td></tr>
       </table>
+      ${f.ventasCorregidas ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ventasCorregidas} sale(s) this month have the percentage manually corrected.</p>` : ""}
+      ${editorComisionHtml(f)}
       ${(f.detallePendientes && f.detallePendientes.length) ? `
       <details style="margin-top:8px;">
         <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);user-select:none;">Which sales does this payment cover? →</summary>
@@ -4463,6 +4501,68 @@ async function cargarComisiones(){
   }).join("");
 
   cont.innerHTML = btnWA + rankHtml + cardsHtml;
+
+  /* Los dos campos son el mismo numero visto al reves. Se espejan mientras se
+     escribe: imposible dejar un reparto que no suma 100. */
+  cont.querySelectorAll("[data-corregir]").forEach(btn => {
+    const uid = btn.dataset.uid;
+    const inAso = document.getElementById(`cor-aso-${uid}`);
+    const inCasa = document.getElementById(`cor-casa-${uid}`);
+    const msg = document.getElementById(`cor-msg-${uid}`);
+    const limpio = (n) => Math.round(Math.max(0, Math.min(100, n)) * 100) / 100;
+    if (inAso && inCasa) {
+      let espejando = false;
+      const espejo = (origen, destino) => origen.addEventListener("input", () => {
+        if (espejando) return;
+        const n = Number(origen.value);
+        if (!Number.isFinite(n)) return;
+        espejando = true;
+        destino.value = String(limpio(100 - limpio(n)));
+        espejando = false;
+      });
+      espejo(inAso, inCasa);
+      espejo(inCasa, inAso);
+    }
+    btn.addEventListener("click", async () => {
+      const pct = Number(inAso ? inAso.value : NaN);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+        msg.style.color = "var(--rojo)"; msg.textContent = "The percentage must be between 0 and 100.";
+        return;
+      }
+      const motivo = (document.getElementById(`cor-mot-${uid}`) || {}).value || "";
+      const incluirPagadas = !!(document.getElementById(`cor-todas-${uid}`) || {}).checked;
+      if (!(await ocConfirm(
+        `This month's sales at "${btn.dataset.nombre}" will be split ` +
+        `${pct}% for the associate and ${(100 - pct).toFixed(2).replace(/\.?0+$/, "")}% for the house.` +
+        (incluirPagadas ? "\n\nIncluding the ones you already marked as paid." : "\n\nOnly the unpaid ones.") +
+        "\n\nThere's a record of what they said before."))) return;
+      btn.disabled = true;
+      msg.style.color = "var(--ink-soft)"; msg.textContent = "Applying…";
+      let res, data;
+      try {
+        res = await fetch(`${API}/ubicaciones/${btn.dataset.corregir}/comisiones-del-mes`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comisionPct: pct, motivo: motivo,
+            quien: (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "",
+            soloPendientes: !incluirPagadas }),
+        });
+        data = await res.json();
+      } catch (err) {
+        console.error("[corregirComision]", err);
+        btn.disabled = false;
+        msg.style.color = "var(--rojo)"; msg.textContent = "Could not reach the server. NOTHING was changed.";
+        return;
+      }
+      if (!res.ok) {
+        btn.disabled = false;
+        msg.style.color = "var(--rojo)"; msg.textContent = data.error || "Could not apply the fix.";
+        return;
+      }
+      msg.style.color = "var(--verde,#2f7a4f)";
+      msg.textContent = `Done: ${data.corregidas} sale(s) fixed.`;
+      setTimeout(() => cargarComisiones(), 900);
+    });
+  });
 
   // Animar termómetros después de que el HTML esté en el DOM.
   requestAnimationFrame(() => {

@@ -1,3 +1,4 @@
+// COMPARTIDO: utilidad generica identica en las 3 apps a proposito.
 //---------------------------------------------------------------------
 //
 // QR Code Generator for JavaScript

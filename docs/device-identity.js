@@ -1,3 +1,4 @@
+// COMPARTIDO: utilidad generica identica en las 3 apps a proposito.
 // device-identity.js — unified device ID (JFC 2026-07-28)
 //
 // Today there are 2 separate device-identity spaces that never talk to each

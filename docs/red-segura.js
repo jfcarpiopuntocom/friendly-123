@@ -41,7 +41,7 @@
   if (typeof anterior !== "function") return;
   anterior = anterior.bind(global);
 
-  var fallos = 0, ultimo = null;
+  var fallos = 0, ultimo = null, _ultimoLog = 0;
 
   /* Una Response real, no un objeto que se le parece: asi funcionan .json(),
      .text(), .ok y .status sin que nadie tenga que saber que paso por aqui.
@@ -78,7 +78,13 @@
       if (err && (err.name === "AbortError" || err.name === "TimeoutError")) throw err;
       fallos++;
       ultimo = { url: url.slice(0, 120), cuando: new Date().toISOString(), msg: String((err && err.message) || err).slice(0, 120) };
-      try { console.warn("[red] no connection while requesting " + ultimo.url + " — the app keeps going"); } catch (_) {}
+      /* M4: solo la primera falla y despues una cada 20 seg. En un dispositivo
+         sin senial habia 200 warnings por minuto ahogando la consola. El
+         contador (AMG.Red.fallos) sigue subiendo con todos. */
+      if (fallos === 1 || (Date.now() - _ultimoLog) > 20000) {
+        try { console.warn("[red] " + ultimo.url + " — " + fallos + " fallos acumulados"); } catch (_) {}
+        _ultimoLog = Date.now();
+      }
       return respuestaSinRed(url, err);
     });
   };
