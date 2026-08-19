@@ -452,7 +452,13 @@
       d.id = "oc-quota-aviso";
       d.setAttribute("role", "alert");
       d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10002;background:#B0183E;padding:12px 16px;text-align:center;";
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;">La memoria de este navegador está llena: los cambios nuevos NO se están guardando. Ve a AVANZADO y descarga un respaldo AHORA.</span>';
+      // BUG FIJADO (JFC 2026-08-19, caza produccion): aviso hardcoded en
+      // espanol en app cuyo default es ingles.
+      var _es_q = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;">'
+        + (_es_q ? 'La memoria de este navegador está llena: los cambios nuevos NO se están guardando. Ve a AVANZADO y descarga un respaldo AHORA.'
+                 : 'This browser storage is full: new changes are NOT being saved. Go to ADVANCED and download a backup NOW.')
+        + '</span>';
       (document.body || document.documentElement).appendChild(d);
     } catch (_) {}
   }
@@ -471,7 +477,11 @@
         d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#B8760A;padding:10px 16px;text-align:center;";
         (document.body || document.documentElement).appendChild(d);
       }
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">Memoria casi llena: TODO se guardó (ventas, clientes, stock) — el log de actividad viejo (' + n + ' registros) se movió a un archivo aparte en este dispositivo, no se borró. Exporta un respaldo en AVANZADO cuando puedas.</span>';
+      var _es_a = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
+        + (_es_a ? 'Memoria casi llena: TODO se guardó (ventas, clientes, stock) — el log de actividad viejo (' + n + ' registros) se movió a un archivo aparte en este dispositivo, no se borró. Exporta un respaldo en AVANZADO cuando puedas.'
+                 : 'Storage almost full: EVERYTHING was saved (sales, customers, stock) — the old activity log (' + n + ' records) was moved to a separate archive on this device, nothing was deleted. Export a backup in ADVANCED when you can.')
+        + '</span>';
     } catch (_) {}
   }
   let _localRev = 0; // contador monotónico — impide que una pestaña vieja sobreescriba estado más fresco
@@ -585,7 +595,11 @@
       d.id = "oc-buffer-recuperado-aviso";
       d.setAttribute("role", "status");
       d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#1A7A4C;padding:10px 16px;text-align:center;cursor:pointer;";
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">Se detectó un guardado interrumpido y se recuperó automáticamente desde la copia anterior — no se perdió nada. Si algo no cuadra, exporta un respaldo en AVANZADO.</span>';
+      var _es_b = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
+        + (_es_b ? 'Se detectó un guardado interrumpido y se recuperó automáticamente desde la copia anterior — no se perdió nada. Si algo no cuadra, exporta un respaldo en AVANZADO.'
+                 : 'An interrupted save was detected and automatically recovered from the previous copy — nothing was lost. If something does not add up, export a backup in ADVANCED.')
+        + '</span>';
       d.addEventListener("click", () => d.remove());
       (document.body || document.documentElement).appendChild(d);
     } catch (_) {}
