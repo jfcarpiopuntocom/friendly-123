@@ -93,6 +93,20 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
             owned.licenseEstado = r.estado;
             owned.licenseEstadoAt = Date.now();
+            /* RESCATE DE LICENCIA (JFC 2026-08-19) — ver RESCATE-LICENCIAS.md.
+               Si el servidor tiene una licencia para esta instancia y el
+               dispositivo no la tiene, se adopta y se le avisa al dueno con el
+               mismo aviso de siempre. Solo RELLENA un hueco: si el dispositivo
+               ya tiene su codigo, no se toca (el servidor nunca pisa al
+               cliente). Whitelist de formato para que una respuesta corrupta
+               no pueda escribir basura donde va la licencia.
+               ESTO NO TOCA syncCode: la sala del equipo se queda como esta.
+               Cambiarla sacaria de la sala a los telefonos ya sincronizados. */
+            var lic = r.licenseCode;
+            if (!owned.licenseCode && typeof lic === "string" && /^F123-[0-9A-Z*~$=-]{8,34}$/.test(lic)) {
+              owned.licenseCode = lic;
+              try { setTimeout(function () { mostrarAvisoLicencia(lic, true); }, 900); } catch (_) {}
+            }
             localStorage.setItem("f123_owned", JSON.stringify(owned));
           }
         }
@@ -217,6 +231,44 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     return "F123-" + completo.slice(0, 4) + "-" + completo.slice(4, 8) +
            "-" + completo.slice(8, 12) + "-" + completo.slice(12, 17);
   }
+  /* AVISO DE LICENCIA — uno solo para los dos casos (JFC 2026-08-19).
+     Se usa en el alta normal y en el rescate. Es el mismo mensaje que el dueno
+     ya conoce de la pantalla de activacion, para que un rescate no se sienta
+     como un incidente sino como la app diciendole su codigo.
+     No se cierra tocando afuera ni con Escape: cerrarlo sin querer es perder
+     el codigo de vista. Solo el boton lo cierra. */
+  function mostrarAvisoLicencia(codigo, esRescate) {
+    try {
+      if (!codigo) return;
+      var viejo = document.getElementById("oc-lic-aviso");
+      if (viejo) viejo.remove();
+      var m = document.createElement("div");
+      m.id = "oc-lic-aviso";
+      m.style.cssText = "position:fixed;inset:0;z-index:10050;background:#0F1923CC;display:flex;" +
+        "align-items:center;justify-content:center;padding:20px;";
+      var seguro = String(codigo).replace(/[&<>"']/g, "");
+      m.innerHTML =
+        '<div style="background:#FFFFFF;border-radius:15px;padding:24px 22px;max-width:430px;width:100%;">' +
+        '<h3 style="font-size:20px;margin:0 0 10px;color:#0F1923;">' +
+        (esRescate ? "Your license code" : "Your license code") + "</h3>" +
+        (esRescate
+          ? '<p style="font-size:15px;line-height:1.55;margin:0 0 12px;color:#2C3E50;">This is the license code for your business. Write it down somewhere safe — you will not be asked for it every day, but it is what identifies your business.</p>'
+          : '<p style="font-size:15px;line-height:1.55;margin:0 0 12px;color:#2C3E50;">This is the license code for your business. Write it down somewhere safe.</p>') +
+        '<div style="text-align:center;font-family:var(--font-mono,monospace);font-size:22px;font-weight:700;' +
+        'letter-spacing:.08em;color:#E86040;background:#FFF6F2;border-left:4px solid #E86040;' +
+        'border-radius:0 10px 10px 0;padding:14px;margin:0 0 12px;word-break:break-all;">' + seguro + "</div>" +
+        '<p style="font-size:15px;line-height:1.55;margin:0 0 14px;color:#2C3E50;">' +
+        "<strong>This code is private to your team.</strong> Keep it safe and share it only inside your team.</p>" +
+        '<button type="button" id="oc-lic-x" style="width:100%;min-height:48px;padding:12px;border-radius:10px;' +
+        'border:none;background:#E86040;color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;font-size:16px;' +
+        'font-weight:700;cursor:pointer;">Got it written down</button>' +
+        "</div>";
+      document.body.appendChild(m);
+      document.getElementById("oc-lic-x").addEventListener("click", function () { try { m.remove(); } catch (_) {} });
+    } catch (_) { /* el aviso es un extra: si falla, no rompe el login */ }
+  }
+  try { window.OCMostrarLicencia = mostrarAvisoLicencia; } catch (_) {}
+
   let demoSesion = false;
   let listo = window.OCSecure.migrarSiHaceFalta(); // promesa: migra oc_auth viejo (si existe) sin perder lo que el propietario ya configuró
 
@@ -677,7 +729,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       // queda encendido 24/7 desde ahora, no es un "modo evento".
       var syncCode = generarCodigoSync();
       try { if (window.OCSyncControl) window.OCSyncControl.activar(syncCode); } catch (_) {}
-      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now(), syncCode: syncCode })); } catch (_) {}
+      /* BUG DE RAIZ, arreglado el 2026-08-19: aqui se guardaba SOLO syncCode.
+         licenseCode nunca se escribia, asi que el heartbeat de mas abajo
+         mandaba licenseCode:"" siempre y NINGUNA instancia de friendly-123
+         llegaba a registrar su licencia en el panel. Encima la pantalla de
+         exito mostraba el syncCode rotulado "Your license code", que es la
+         confusion licencia/sala que JFC venia senalando.
+         Ahora se guardan los dos, y por ahora son el MISMO valor: la licencia
+         identifica al negocio y de ella se deriva la sala del equipo. Se
+         guardan en campos separados a proposito, para poder rotar la sala en
+         el futuro sin tocar la licencia. */
+      var licenseCode = syncCode;
+      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now(), syncCode: syncCode, licenseCode: licenseCode })); } catch (_) {}
       // NO marcar f123_bienvenida_v3 aqui — el wizard debe mostrarse de verdad
       // tras el primer login post-activacion (ver welcome-ui.js). Bug anterior:
       // se marcaba "vista" en este punto sin que el usuario la viera nunca.
@@ -754,6 +817,23 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         // Ping: heartbeat on each login
         try {
           var ow3 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          /* AUTOCURACION PARA LOS YA INSTALADOS (JFC 2026-08-19). Un dispositivo
+             activado ANTES del fix tiene syncCode pero no licenseCode. En vez
+             de dejarlo sin licencia para siempre, adopta su propia sala como
+             licencia: es el mismo valor que la app ya le mostro en pantalla al
+             activarse, asi que el dueno reconoce el codigo y nada cambia para
+             el. Si el Worker ya tiene otra licencia para esta instancia, la de
+             el gana en la respuesta del heartbeat (ver enviarHeartbeat). */
+          if (ow3.instanceId && !ow3.licenseCode && ow3.syncCode) {
+            ow3.licenseCode = ow3.syncCode;
+            try { localStorage.setItem("f123_owned", JSON.stringify(ow3)); } catch (_) {}
+            /* Se genera en silencio, pero al dueno SI se le avisa: la proxima
+               vez que entre ve su codigo en pantalla. Un rescate callado del
+               todo es peor que el problema — el dueno tiene que poder anotarlo.
+               Solo se muestra una vez: al segundo login ya hay licenseCode y
+               esta rama no vuelve a correr. */
+            try { setTimeout(function () { mostrarAvisoLicencia(ow3.licenseCode, true); }, 900); } catch (_) {}
+          }
           if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", accion: "login" });
         } catch (_) {}
             window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol, demo: esDemo } }));
