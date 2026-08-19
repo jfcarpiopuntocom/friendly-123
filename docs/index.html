@@ -1445,6 +1445,20 @@
             <input id="perchaCasa" type="number" min="0" max="100" step="0.5" placeholder="e.g. 75" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
           <label style="font-size:13px;"><span data-i18n="shelves.monthlyTarget">Monthly target $</span><br>
             <input id="perchaMeta" type="number" min="0" placeholder="e.g. 300" data-i18n-attr="placeholder:common.phTarget300" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <!-- TRATOS MIXTOS (JFC 2026-08-19). El motor de reparto en
+               mock-backend.js YA soportaba minimoGarantizado y contribFija
+               (ver repartir(): el minimo levanta la comision cuando el % da
+               menos, y la contribucion fija se descuenta ANTES del %), pero el
+               formulario nunca los mandaba, asi que todo trato salia como %
+               puro. Estos dos campos son lo unico que faltaba para armar las
+               tres formas: % puro (dejar ambos vacios), minimo + % (llenar el
+               minimo), y aporte fijo antes del % (llenar la contribucion).
+               Vacio = 0 = se comporta exactamente como antes: cero migracion,
+               ningun trato existente cambia de valor. -->
+          <label style="font-size:13px;"><span data-i18n="shelves.guaranteedMin">Guaranteed minimum $</span><br>
+            <input id="perchaMinimo" type="number" min="0" step="0.01" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+          <label style="font-size:13px;"><span data-i18n="shelves.fixedContrib">Fixed contribution $</span><br>
+            <input id="perchaContrib" type="number" min="0" step="0.01" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
           <button id="perchaCrear" class="ir" style="padding:10px 16px;" data-i18n="shelves.addShelfBtn">+ Add shelf</button>
         </div>
         <p id="perchaMsg" style="font-size:14px;margin-top:8px;"></p>
@@ -3561,12 +3575,16 @@ document.addEventListener('click', async (e) => {
     const tipo = document.getElementById('perchaTipo').value;
     const comisionSocio = document.getElementById('perchaComision').value;
     const metaMensual = document.getElementById('perchaMeta').value;
+    /* Vacio se manda como 0: el motor trata 0 como "no aplica" y el reparto
+       queda identico al de siempre. Ver repartir() en mock-backend.js. */
+    const minimoGarantizado = document.getElementById('perchaMinimo').value || 0;
+    const contribFija = document.getElementById('perchaContrib').value || 0;
     const sucursalId = document.getElementById('perchaSucursal').value || null;
     const msg = document.getElementById('perchaMsg');
     if (!nombre){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent='Name is required.'; return; }
-    const res = await fetch(`${API}/ubicaciones`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre, tipo, comisionSocio, metaMensual, sucursalId, lecturaPreferida: _f123Lectura }) });
+    const res = await fetch(`${API}/ubicaciones`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre, tipo, comisionSocio, metaMensual, sucursalId, lecturaPreferida: _f123Lectura, minimoGarantizado, contribFija }) });
     const r = await res.json(); if (!res.ok){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent=r.error; return; }
-    document.getElementById('perchaNombre').value=''; document.getElementById('perchaComision').value=''; document.getElementById('perchaMeta').value='';
+    document.getElementById('perchaNombre').value=''; document.getElementById('perchaComision').value=''; document.getElementById('perchaMeta').value=''; document.getElementById('perchaMinimo').value=''; document.getElementById('perchaContrib').value='';
     { const _c = document.getElementById('perchaCasa'); if (_c) _c.value=''; }
     msg.style.color='var(--verde,#2f7a4f)'; msg.textContent=`"${r.nombre}" creada.`;
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones();
