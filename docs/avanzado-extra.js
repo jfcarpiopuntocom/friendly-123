@@ -1457,17 +1457,17 @@
           const relectura = JSON.parse(archivoFinal);
           let textoParaVerificar;
           if (relectura.amigableRespaldoCifrado) {
-            if (!clave || !clave.trim()) throw new Error("falta la clave para reverificar");
+            if (!clave || !clave.trim()) throw new Error("the passphrase to re-verify is missing");
             textoParaVerificar = await window.OCSecure.descifrarTextoConClave(relectura, clave.trim());
-            if (!textoParaVerificar) throw new Error("no se pudo descifrar de vuelta con la misma clave");
+            if (!textoParaVerificar) throw new Error("could not be decrypted back with the same passphrase");
           } else {
             const { checksum: _c, ...resto } = relectura;
             textoParaVerificar = JSON.stringify(resto);
           }
           const checksumRelectura = await window.OCSecure.hashTexto(textoParaVerificar);
-          if (checksumRelectura !== checksum) throw new Error("el checksum no coincide tras releer el archivo");
+          if (checksumRelectura !== checksum) throw new Error("the checksum does not match after re-reading the file");
         } catch (eVerif) {
-          msg("oc-respaldo-msg", "El respaldo no pasó su propia verificación (" + eVerif.message + ") — no se descargó. Intenta de nuevo; si se repite, avisa a soporte.", "var(--rojo)");
+          msg("oc-respaldo-msg", "The backup did not pass its own check (" + eVerif.message + ") — it was not downloaded. Try again; if it keeps happening, contact support.", "var(--rojo)");
           return;
         }
         const blob = new Blob([archivoFinal], { type: "application/json" });
@@ -1619,8 +1619,8 @@
         aviso.style.cssText = "font-size:14px;font-weight:700;color:var(--rojo,#a3392a);"
           + "background:#fff5f5;border:2px solid var(--rojo,#a3392a);border-radius:8px;"
           + "padding:10px 14px;margin:0 0 14px;";
-        aviso.textContent = "Espacio al " + pct + "% — considera borrar fotos viejas de perchas "
-          + "o hacer un respaldo desde Checkpoints y luego liberar espacio en tu dispositivo.";
+        aviso.textContent = "Storage at " + pct + "% — consider deleting old shelf photos, "
+          + "or making a backup from Checkpoints and then freeing space on your device.";
         const vista = document.getElementById("vista-avanzado");
         if (vista && !document.getElementById("oc-storage-aviso")) vista.insertBefore(aviso, vista.firstChild);
       } catch (_) {}
@@ -1644,10 +1644,10 @@
         aviso.style.cssText = "font-size:14px;font-weight:700;color:var(--rojo,#a3392a);"
           + "background:#fff5f5;border:2px solid var(--rojo,#a3392a);border-radius:8px;"
           + "padding:10px 14px;margin:0 0 14px;";
-        aviso.textContent = "Tus datos viven solo en este navegador y el sistema operativo puede "
-          + "borrarlos si no usas la app por varios dias — instala amigable-123 en tu pantalla de "
-          + "inicio (menu del navegador → \"Agregar a inicio\" / \"Instalar app\") y haz un respaldo "
-          + "seguido en Checkpoints.";
+        aviso.textContent = "Your data is only in this browser, and the operating system can "
+          + "delete it if you do not use the app for several days — install friendly-123 on your home "
+          + "screen (browser menu → \"Add to Home Screen\" / \"Install app\") and back up "
+          + "often from Checkpoints.";
         const vista = document.getElementById("vista-avanzado");
         if (vista && !document.getElementById("oc-persist-aviso")) vista.insertBefore(aviso, vista.firstChild);
       } catch (_) {}
@@ -1912,7 +1912,7 @@
     const btnWaCambios = $("oc-syncdev-wa-cambios");
     if (btnWaCambios) btnWaCambios.addEventListener("click", async () => {
       const texto = await OCSync.generarPaqueteManual();
-      if (!texto) { msg("oc-syncdev-msg", "No hay cambios pendientes en este dispositivo.", "var(--ink)"); return; }
+      if (!texto) { msg("oc-syncdev-msg", "There are no pending changes on this device.", "var(--ink)"); return; }
       const mensaje = "friendly-123 — changes to sync. Paste this on the other device (Advanced → Paste changes):\n\n" + texto;
       if (navigator.share) {
         try { await navigator.share({ text: mensaje }); msg("oc-syncdev-msg", "Shared. On the other device: Advanced → Paste changes.", "var(--verde)"); return; } catch (_) {}
@@ -1953,17 +1953,17 @@
           const relectura = JSON.parse(archivoFinal);
           let textoParaVerificar;
           if (relectura.amigableRespaldoCifrado) {
-            if (!clave || !clave.trim()) throw new Error("falta la clave para reverificar");
+            if (!clave || !clave.trim()) throw new Error("the passphrase to re-verify is missing");
             textoParaVerificar = await window.OCSecure.descifrarTextoConClave(relectura, clave.trim());
-            if (!textoParaVerificar) throw new Error("no se pudo descifrar de vuelta con la misma clave");
+            if (!textoParaVerificar) throw new Error("could not be decrypted back with the same passphrase");
           } else {
             const { checksum: _c, ...resto } = relectura;
             textoParaVerificar = JSON.stringify(resto);
           }
           const checksumRelectura = await window.OCSecure.hashTexto(textoParaVerificar);
-          if (checksumRelectura !== checksum) throw new Error("el checksum no coincide tras releer el archivo");
+          if (checksumRelectura !== checksum) throw new Error("the checksum does not match after re-reading the file");
         } catch (eVerif) {
-          msg("oc-syncdev-msg", "El respaldo no pasó su propia verificación (" + eVerif.message + ") — no se envió. Intenta de nuevo.", "var(--rojo)");
+          msg("oc-syncdev-msg", "The backup did not pass its own check (" + eVerif.message + ") — it was not sent. Try again.", "var(--rojo)");
           return;
         }
         const nombre = `respaldo-amigable-${new Date().toISOString().slice(0, 10)}.json`;
@@ -2019,7 +2019,7 @@
       if (zona.style.display !== "none") { zona.style.display = "none"; zona.innerHTML = ""; return; }
       if (!qrLib()) { msg("oc-syncdev-msg", "The local QR generator did not load (qrcode-local.js).", "var(--rojo)"); return; }
       const texto = await OCSync.generarPaqueteManual();
-      if (!texto) { msg("oc-syncdev-msg", "No hay cambios pendientes en este dispositivo.", "var(--ink)"); return; }
+      if (!texto) { msg("oc-syncdev-msg", "There are no pending changes on this device.", "var(--ink)"); return; }
       const sesion = Math.random().toString(36).slice(2, 6);
       const total = Math.ceil(texto.length / QR_CHUNK);
       // FIX preventivo 2026-07-07: con una cola enorme (semanas sin sincronizar)

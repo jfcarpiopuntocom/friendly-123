@@ -86,13 +86,30 @@
 
       // 1) DORMIDO/NEGRO: solo si hoy está negro y el mensaje trae los días reales.
       if (o.diasDormido != null && p.estado === "negro") {
-        var m = /hace\s+(\d+)\s+d/i.exec(p.mensaje || "");
-        var sinVenta = m ? Number(m[1]) : null;
+        /* BUG (JFC 2026-08-19): esto leia los dias sin venta parseando el
+           TEXTO del mensaje con /hace\s+(\d+)\s+d/i. En friendly-123 el
+           mensaje sale en ingles ("No sales in 47 days — ..."), asi que la
+           regex no hacia match NUNCA, sinVenta quedaba null y el override de
+           "dias dormido" por producto no hacia absolutamente nada. El dueno
+           configuraba 180 dias para su galeria y no pasaba nada.
+
+           Ahora se calcula del campo estructurado dormidoDesde, que ficha()
+           expone. La regex queda de respaldo y acepta los dos idiomas, para
+           un payload viejo cacheado que todavia no traiga el campo. */
+        var sinVenta = null;
+        if (p.dormidoDesde) {
+          var t0 = new Date(p.dormidoDesde + "T00:00:00").getTime();
+          if (isFinite(t0)) sinVenta = Math.floor((Date.now() - t0) / 86400000);
+        }
+        if (sinVenta == null) {
+          var m = /(?:hace|in)\s+(\d+)\s+(?:d|day)/i.exec(p.mensaje || "");
+          sinVenta = m ? Number(m[1]) : null;
+        }
         if (sinVenta != null && sinVenta < Number(o.diasDormido)) {
           // Mismas reglas de estadoDe() para el caso no-dormido con stock sano:
-          if (margen >= 0.5) { p.estado = "amarillo"; p.nivelBloom = margen >= 0.7 ? 3 : margen >= 0.55 ? 2 : 1; p.mensaje = "Buen margen — hay dinero esperándote"; }
-          else if (margen > 0 && margen < 0.25) { p.estado = "azul"; p.nivelBloom = margen <= 0.1 ? 3 : margen <= 0.18 ? 2 : 1; p.mensaje = "Margen " + (margen * 100).toFixed(0) + "% — revisa el precio o el costo"; }
-          else { p.estado = "verde"; p.nivelBloom = p.stockActual >= 15 ? 3 : p.stockActual >= 7 ? 2 : 1; p.mensaje = "Stock saludable"; }
+          if (margen >= 0.5) { p.estado = "amarillo"; p.nivelBloom = margen >= 0.7 ? 3 : margen >= 0.55 ? 2 : 1; p.mensaje = "Good margin — there is money waiting for you"; }
+          else if (margen > 0 && margen < 0.25) { p.estado = "azul"; p.nivelBloom = margen <= 0.1 ? 3 : margen <= 0.18 ? 2 : 1; p.mensaje = "Margin " + (margen * 100).toFixed(0) + "% — check the price or the cost"; }
+          else { p.estado = "verde"; p.nivelBloom = p.stockActual >= 15 ? 3 : p.stockActual >= 7 ? 2 : 1; p.mensaje = "Healthy stock"; }
           p.__simonOverride = "dormido:" + o.diasDormido;
           cambiado = true;
         } else if (sinVenta != null) {
@@ -109,18 +126,22 @@
         var vN = o.vencNaranja != null ? Number(o.vencNaranja) : 7;
         var porVenc = null;
         if (dias != null) {
-          if (dias < 0) porVenc = { estado: "rojo", nivel: 3, mensaje: "Venció hace " + Math.abs(dias) + " día" + (Math.abs(dias) === 1 ? "" : "s") + " — retíralo" };
-          else if (dias <= vR) porVenc = { estado: "rojo", nivel: dias <= 1 ? 3 : 2, mensaje: "Vence en " + dias + " día" + (dias === 1 ? "" : "s") + " — véndelo ya" };
-          else if (dias <= vN) porVenc = { estado: "naranja", nivel: dias <= Math.ceil(vN * 0.7) ? 2 : 1, mensaje: "Vence en " + dias + " días — véndelo primero" };
+          if (dias < 0) porVenc = { estado: "rojo", nivel: 3, mensaje: "Expired " + Math.abs(dias) + " day" + (Math.abs(dias) === 1 ? "" : "s") + " ago — pull it" };
+          else if (dias <= vR) porVenc = { estado: "rojo", nivel: dias <= 1 ? 3 : 2, mensaje: "Expires in " + dias + " day" + (dias === 1 ? "" : "s") + " — sell it now" };
+          else if (dias <= vN) porVenc = { estado: "naranja", nivel: dias <= Math.ceil(vN * 0.7) ? 2 : 1, mensaje: "Expires in " + dias + " days — sell it first" };
         }
         if (porVenc && ORDEN[porVenc.estado] <= ORDEN[p.estado]) {
           p.estado = porVenc.estado; p.nivelBloom = porVenc.nivel; p.mensaje = porVenc.mensaje;
           p.__simonOverride = (p.__simonOverride ? p.__simonOverride + " " : "") + "venc:" + vR + "/" + vN;
           cambiado = true;
-        } else if (porVenc === null && (p.estado === "rojo" || p.estado === "naranja") && /vence|venció/i.test(p.mensaje || "")) {
+        /* Mismo bug que arriba: se detectaba "lo marco el global por
+           vencimiento" buscando las palabras "vence|vencio" en el mensaje, que
+           en ingles no aparecen. Ahora se usa el dato: el producto es
+           perecible y trae dias para vencer. */
+        } else if (porVenc === null && (p.estado === "rojo" || p.estado === "naranja") && p.perecible && p.diasParaVencer != null) {
           // El global lo marcó por vencimiento pero con TUS umbrales aún falta:
-          if (margen >= 0.5) { p.estado = "amarillo"; p.nivelBloom = 1; p.mensaje = "Buen margen — hay dinero esperándote"; }
-          else { p.estado = "verde"; p.nivelBloom = p.stockActual >= 15 ? 3 : p.stockActual >= 7 ? 2 : 1; p.mensaje = "Stock saludable"; }
+          if (margen >= 0.5) { p.estado = "amarillo"; p.nivelBloom = 1; p.mensaje = "Good margin — there is money waiting for you"; }
+          else { p.estado = "verde"; p.nivelBloom = p.stockActual >= 15 ? 3 : p.stockActual >= 7 ? 2 : 1; p.mensaje = "Healthy stock"; }
           p.__simonOverride = (p.__simonOverride ? p.__simonOverride + " " : "") + "venc:" + vR + "/" + vN;
           cambiado = true;
         }
@@ -169,11 +190,11 @@
     var ov = leer();
     var cur = prodId ? (ov.productos[prodId] || {}) : {};
     cont.innerHTML =
-      '<p style="font-size:16px;font-weight:700;color:#0F1923;margin:16px 0 0;border-top:2px solid #C4CDD8;padding-top:12px;">Colores a tu medida (este producto)</p>' +
-      '<p style="font-size:14px;color:#0F1923;margin:2px 0 0;">Vacío = usar el estándar de la app. Se guarda solo al cambiar.</p>' +
-      campo("amg-sc-dormido", "Días sin venta antes de marcarlo NEGRO (dormido)", cur.diasDormido, "ej. 180 para galería") +
-      campo("amg-sc-vrojo", "Días antes de caducar para ROJO", cur.vencRojo, "estándar: 3") +
-      campo("amg-sc-vnaranja", "Días antes de caducar para NARANJA", cur.vencNaranja, "estándar: 7");
+      '<p style="font-size:16px;font-weight:700;color:#0F1923;margin:16px 0 0;border-top:2px solid #C4CDD8;padding-top:12px;">Colors your way (this product)</p>' +
+      '<p style="font-size:14px;color:#0F1923;margin:2px 0 0;">Blank = use the app default. Saves as soon as you change it.</p>' +
+      campo("amg-sc-dormido", "Days with no sale before marking it BLACK (dormant)", cur.diasDormido, "e.g. 180 for a gallery") +
+      campo("amg-sc-vrojo", "Days before expiry to turn RED", cur.vencRojo, "default: 3") +
+      campo("amg-sc-vnaranja", "Days before expiry to turn ORANGE", cur.vencNaranja, "default: 7");
     var celda = ancla.closest("label") || ancla.parentElement;
     (celda.parentElement || celda).appendChild(cont);
     ["amg-sc-dormido", "amg-sc-vrojo", "amg-sc-vnaranja"].forEach(function (id, i) {
@@ -202,7 +223,7 @@
     cont.innerHTML =
       '<p style="font-size:15px;font-weight:700;color:#0F1923;margin:14px 0 0;">Días para "dormido" en esta percha (default de sus productos)</p>' +
       '<p style="font-size:14px;color:#0F1923;margin:2px 0 8px;">Déjalo vacío para usar el número de días estándar de la app.</p>' +
-      campo("amg-sc-percha-dormido", "", cur.diasDormido, "ej. 180 para galería");
+      campo("amg-sc-percha-dormido", "", cur.diasDormido, "e.g. 180 for a gallery");
     ancla.closest("label").insertAdjacentElement("afterend", cont);
     document.getElementById("amg-sc-percha-dormido").addEventListener("change", function (e) {
       if (!perchaId) return;

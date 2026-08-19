@@ -382,21 +382,21 @@
   // solo se comprobaba que productos/ubicaciones fueran arrays.
   function esTextoCorto(v, max) { return typeof v === "string" && v.trim().length > 0 && v.length <= max; }
   function validarRespaldo(body) {
-    if (!body || typeof body !== "object") return "El archivo no parece un respaldo válido.";
-    if (!Array.isArray(body.productos) || !Array.isArray(body.ubicaciones)) return "El archivo no parece un respaldo válido.";
+    if (!body || typeof body !== "object") return "That file does not look like a valid backup.";
+    if (!Array.isArray(body.productos) || !Array.isArray(body.ubicaciones)) return "That file does not look like a valid backup.";
     if (body.productos.length > 20000 || body.ubicaciones.length > 2000) return "El respaldo es demasiado grande para este modo local.";
     const idsProd = new Set();
     for (const p of body.productos) {
-      if (!p || typeof p !== "object") return "Hay un producto corrupto en el respaldo.";
+      if (!p || typeof p !== "object") return "There is a corrupt product in the backup.";
       if (!esTextoCorto(String(p.id || ""), 120) || idsProd.has(String(p.id))) return "Hay IDs de producto vacíos o repetidos.";
       idsProd.add(String(p.id));
       if (!esTextoCorto(String(p.nombre || ""), 240)) return "Hay un producto sin nombre válido.";
-      if (!Number.isFinite(Number(p.precio)) || !Number.isFinite(Number(p.costo)) || !Number.isFinite(Number(p.stockActual))) return "Hay valores numéricos inválidos en productos.";
-      if (Number(p.precio) < 0 || Number(p.costo) < 0 || Number(p.stockActual) < 0) return "Hay precios, costos o stock negativos en productos.";
+      if (!Number.isFinite(Number(p.precio)) || !Number.isFinite(Number(p.costo)) || !Number.isFinite(Number(p.stockActual))) return "There are invalid numeric values in products.";
+      if (Number(p.precio) < 0 || Number(p.costo) < 0 || Number(p.stockActual) < 0) return "There are negative prices, costs or stock in products.";
     }
     const idsUbic = new Set();
     for (const u of body.ubicaciones) {
-      if (!u || typeof u !== "object") return "Hay una percha corrupta en el respaldo.";
+      if (!u || typeof u !== "object") return "There is a corrupt shelf in the backup.";
       if (!esTextoCorto(String(u.id || ""), 120) || idsUbic.has(String(u.id))) return "Hay IDs de percha vacíos o repetidos.";
       idsUbic.add(String(u.id));
       if (!esTextoCorto(String(u.nombre || ""), 240)) return "Hay una percha sin nombre válido.";
@@ -404,10 +404,10 @@
     for (const p of body.productos) {
       if (p.ubicacionId && p.ubicacionId !== "todas" && !idsUbic.has(String(p.ubicacionId))) return `El producto "${p.nombre}" apunta a una percha inexistente.`;
     }
-    if (body.ventas && !Array.isArray(body.ventas)) return "La sección de ventas está corrupta.";
-    if (body.movimientos && !Array.isArray(body.movimientos)) return "La sección de movimientos está corrupta.";
-    if (body.transferencias && !Array.isArray(body.transferencias)) return "La sección de transferencias está corrupta.";
-    if (body.clientes && !Array.isArray(body.clientes)) return "La sección de clientes está corrupta.";
+    if (body.ventas && !Array.isArray(body.ventas)) return "The sales section is corrupt.";
+    if (body.movimientos && !Array.isArray(body.movimientos)) return "The activity section is corrupt.";
+    if (body.transferencias && !Array.isArray(body.transferencias)) return "The transfers section is corrupt.";
+    if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
   function aplicarRespaldo(body) {
@@ -773,7 +773,7 @@
     var tieneEscalas = escalas.length > 0 && meta > 0;
 
     if (tieneEscalas && contrib > 0) {
-      avisos.push("El aporte fijo se ignora: esta percha usa escalas por meta, y las dos cosas juntas obligarian a recalcular cada venta ya registrada.");
+      avisos.push("The fixed contribution is ignored: this shelf uses goal-based tiers, and combining the two would force a recalculation of every sale already recorded.");
       contrib = 0;
     }
 
@@ -1235,7 +1235,7 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", comisionProveedorPct: p.comisionProveedorPct || 0, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", comisionProveedorPct: p.comisionProveedorPct || 0, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
   }
   function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
@@ -1319,13 +1319,13 @@
     // `ventas` con su split de comision — sin esto, la comision de percha
     // quedaba invisible en cualquier dispositivo que no fuera el vendedor.
     aplicarOpRemota(op) {
-      if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Op invalida" };
+      if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
       const vistos = _cargarOpsAplicadas();
       if (vistos.has(op.opId)) return { ok: true, repetida: true };
       const pl = op.payload;
       try {
         const p = productos.find((x) => x.id === pl.productoId);
-        if (!p) return { ok: false, error: "Producto no existe en este dispositivo (sincroniza el catalogo primero)" };
+        if (!p) return { ok: false, error: "That product does not exist on this device (sync the catalog first)" };
         p.stockActual += pl.delta;
         if (op.tipo === "venta" && pl.delta < 0) {
           const cant = -pl.delta;
@@ -1442,8 +1442,8 @@
       // Edicion libre de la ficha (nombre, foto, precios, codigo interno).
       // El gating por rol (encargado NO edita) vive en la UI; aca solo se aplica.
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
-        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
-        if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "La fecha de caducidad no es válida (usa AAAA-MM-DD)." }, 400);
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
         const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
@@ -1457,7 +1457,7 @@
       }
       // Borrado definitivo (dueno, doble confirmacion en la UI).
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "DELETE") {
-        const i = productos.findIndex((x) => x.id === m[1]); if (i === -1) return J({ error: "Producto no encontrado." }, 404);
+        const i = productos.findIndex((x) => x.id === m[1]); if (i === -1) return J({ error: "Product not found." }, 404);
         // BUG FIJADO 2026-07-03: una transferencia "en_transito" ya restó el
         // stock del origen esperando que el destino lo reciba. Borrar el
         // producto origen o destino en ese estado perdía esas unidades para
@@ -1474,7 +1474,7 @@
         return J(soloActivas ? ubicaciones.filter((u) => u.activa !== false) : ubicaciones);
       }
       if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
-        if (!body.nombre || !body.nombre.trim()) return J({ error: "El nombre de la ubicación es obligatorio." }, 400);
+        if (!body.nombre || !body.nombre.trim()) return J({ error: "The location name is required." }, 400);
         const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria, lecturaPreferida: body.lecturaPreferida === "casa" ? "casa" : "asociado", minimoGarantizado: Math.max(0, Number(body.minimoGarantizado) || 0), contribFija: Math.max(0, Number(body.contribFija) || 0) };
         ubicaciones.push(nueva);
         // BUG FIX (2026-07-03): las perchas creadas en runtime no existian en
@@ -1485,7 +1485,7 @@
         return J(nueva);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "PUT") {
-        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Ubicación no encontrada." }, 404);
+        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
         if (body.nombre && body.nombre.trim()) u.nombre = body.nombre.trim();
         if (body.tipo) u.tipo = body.tipo;
         if ("sucursalId" in body) u.sucursalId = body.sucursalId || null;
@@ -1542,14 +1542,14 @@
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
-        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Ubicación no encontrada." }, 404);
+        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
         u.activa = m[2] === "activar";
         mov(u.activa ? "ubicacion-reactivada" : "ubicacion-desactivada", { ubicacion: u.nombre });
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "DELETE") {
-        const idx = ubicaciones.findIndex((x) => x.id === m[1]); if (idx < 0) return J({ error: "Percha no encontrada." }, 404);
-        if (ubicaciones.length <= 1) return J({ error: "Debe quedar al menos una percha." }, 400);
+        const idx = ubicaciones.findIndex((x) => x.id === m[1]); if (idx < 0) return J({ error: "Shelf not found." }, 404);
+        if (ubicaciones.length <= 1) return J({ error: "At least one shelf has to remain." }, 400);
         const u = ubicaciones[idx];
         // Borrado en cascada: la percha y TODOS sus productos. La UI ya lo advirtio.
         const productosBorrados = productos.filter((p) => p.ubicacionId === u.id).length;
@@ -1565,18 +1565,18 @@
       const mPerchaCaja = path.match(/^\/api\/ubicaciones\/([^/]+)\/caja-chica$/);
       if (mPerchaCaja && (!opts || !opts.method || opts.method === "GET")) {
         const u = ubicaciones.find((x) => x.id === mPerchaCaja[1]);
-        if (!u) return J({ error: "Percha no encontrada." }, 404);
+        if (!u) return J({ error: "Shelf not found." }, 404);
         if (!window.AMG || !window.AMG.CajaChica) return J({ saldo: 0, movimientos: [] });
         return J(await window.AMG.CajaChica.saldoDePercha(u.id));
       }
       const mPerchaCajaMov = path.match(/^\/api\/ubicaciones\/([^/]+)\/caja-chica\/(ingreso|retiro)$/);
       if (mPerchaCajaMov && opts && opts.method === "POST") {
         const u = ubicaciones.find((x) => x.id === mPerchaCajaMov[1]);
-        if (!u) return J({ error: "Percha no encontrada." }, 404);
+        if (!u) return J({ error: "Shelf not found." }, 404);
         const monto = Number(body.monto);
-        if (!(monto > 0)) return J({ error: "El monto debe ser mayor a cero." }, 400);
-        if (!body.motivo || !String(body.motivo).trim()) return J({ error: "El motivo es obligatorio." }, 400);
-        if (!window.AMG || !window.AMG.CajaChica) return J({ error: "Caja chica no disponible." }, 500);
+        if (!(monto > 0)) return J({ error: "The amount must be greater than zero." }, 400);
+        if (!body.motivo || !String(body.motivo).trim()) return J({ error: "A reason is required." }, 400);
+        if (!window.AMG || !window.AMG.CajaChica) return J({ error: "Petty cash is not available." }, 500);
         const tipo = mPerchaCajaMov[2];
         try {
           await window.AMG.CajaChica.registrarMovimiento(u.id, tipo, monto, body.motivo);
@@ -1590,7 +1590,7 @@
       // ---- Asociados/as (comision por traer gente) ----
       if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras);
       if (path === "/api/promotoras" && opts && opts.method === "POST") {
-        if (!body.nombre || !body.nombre.trim()) return J({ error: "El nombre es obligatorio." }, 400);
+        if (!body.nombre || !body.nombre.trim()) return J({ error: "A name is required." }, 400);
         const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim(), comision: Number(body.comision) || 0 };
         promotoras.push(nuevaProm);
         mov("promotora-alta", { promotora: nuevaProm.nombre });
@@ -1599,7 +1599,7 @@
       const mProm = path.match(/^\/api\/promotoras\/([^/]+)$/);
       if (mProm && opts && opts.method === "DELETE") {
         const idxP = promotoras.findIndex((x) => x.id === mProm[1]);
-        if (idxP < 0) return J({ error: "Asociado/a no encontrada." }, 404);
+        if (idxP < 0) return J({ error: "Associate not found." }, 404);
         const prb = promotoras.splice(idxP, 1)[0];
         // Desasignar de las perchas que lo tenian
         ubicaciones.forEach((u) => { if (u.promotoraId === prb.id) u.promotoraId = null; });
@@ -1609,7 +1609,7 @@
       // ---- Sucursales (agrupadores backend de perchas) ----
       if (path === "/api/sucursales" && (!opts || opts.method !== "POST")) return J(sucursales);
       if (path === "/api/sucursales" && opts && opts.method === "POST") {
-        if (!body.nombre || !body.nombre.trim()) return J({ error: "El nombre de la sucursal es obligatorio." }, 400);
+        if (!body.nombre || !body.nombre.trim()) return J({ error: "The branch name is required." }, 400);
         const nuevaSuc = { id: uuid("suc"), nombre: body.nombre.trim(), activa: true };
         sucursales.push(nuevaSuc);
         mov("sucursal-alta", { sucursal: nuevaSuc.nombre });
@@ -1617,15 +1617,15 @@
       }
       const mSuc = path.match(/^\/api\/sucursales\/([^/]+)$/);
       if (mSuc && opts && opts.method === "PUT") {
-        const s = sucursales.find((x) => x.id === mSuc[1]); if (!s) return J({ error: "Sucursal no encontrada." }, 404);
+        const s = sucursales.find((x) => x.id === mSuc[1]); if (!s) return J({ error: "Branch not found." }, 404);
         if (body.nombre && body.nombre.trim()) s.nombre = body.nombre.trim();
         return J(s);
       }
       if (mSuc && opts && opts.method === "DELETE") {
         const tienePerchas = ubicaciones.some((u) => u.sucursalId === mSuc[1]);
-        if (tienePerchas) return J({ error: "Mueve las perchas a otra sucursal antes de borrar esta." }, 400);
+        if (tienePerchas) return J({ error: "Move the shelves to another branch before deleting this one." }, 400);
         const idxS = sucursales.findIndex((x) => x.id === mSuc[1]);
-        if (idxS < 0) return J({ error: "Sucursal no encontrada." }, 404);
+        if (idxS < 0) return J({ error: "Branch not found." }, 404);
         const s = sucursales.splice(idxS, 1)[0];
         mov("sucursal-baja", { sucursal: s.nombre });
         return J({ ok: true });
@@ -1683,12 +1683,12 @@
       }
 
       if (path === "/api/productos" && opts && opts.method === "POST") {
-        if (!body.nombre || !body.barcode) return J({ error: "Falta el nombre o el código de barras." }, 400);
+        if (!body.nombre || !body.barcode) return J({ error: "The name or the barcode is missing." }, 400);
         // BUG FIX (2026-07-03): sin esta guarda, umbralRojo >= umbralAmarillo hace
         // el estado "amarillo" inalcanzable: el producto salta directo de verde a rojo.
-        if (Number(body.umbralRojo) >= Number(body.umbralAmarillo)) return J({ error: "El umbral rojo debe ser menor que el umbral amarillo." }, 400);
-        if (body.perecible && !body.fechaCaducidad) return J({ error: "Si el producto expira, indica su fecha de caducidad." }, 400);
-        if (body.perecible && !fechaValida(body.fechaCaducidad)) return J({ error: "La fecha de caducidad no es válida (usa AAAA-MM-DD)." }, 400);
+        if (Number(body.umbralRojo) >= Number(body.umbralAmarillo)) return J({ error: "The red threshold must be lower than the yellow one." }, 400);
+        if (body.perecible && !body.fechaCaducidad) return J({ error: "If the product expires, enter its expiry date." }, 400);
+        if (body.perecible && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
         const ubicNueva = body.ubicacionId && body.ubicacionId !== "todas" ? ubicaciones.find((x) => x.id === body.ubicacionId) : null;
         if (ubicNueva && ubicNueva.activa === false) return J({ error: `"${ubicNueva.nombre}" está desactivada — reactívala en Avanzado antes de agregar productos ahí.` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 25 productos.
@@ -1717,7 +1717,7 @@
       }
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/venta$/))) {
-        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
         if (ubicP && ubicP.activa === false) return J({ error: `"${ubicP.nombre}" está desactivada — no admite ventas nuevas.` }, 400);
         const cant = Number.isInteger(body.cantidad) && body.cantidad > 0 ? body.cantidad : 1;
@@ -1745,7 +1745,7 @@
         let clienteVenta = null;
         if (body.clienteId) {
           clienteVenta = clientes.find((c) => c.id === body.clienteId);
-          if (!clienteVenta) return J({ error: "Cliente no encontrado." }, 404);
+          if (!clienteVenta) return J({ error: "Customer not found." }, 404);
           if (clienteVenta.despedido) return J({ error: `"${clienteVenta.nombre}" is fired — no new sales allowed. Reactivate them from Customers if this was a mistake.` }, 400);
         }
         const ventaId = uuid("v");
@@ -1772,7 +1772,7 @@
       }
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/anular$/))) {
         const idx = ventas.findIndex((v) => v.id === m[1]);
-        if (idx === -1) return J({ error: "Esta venta ya no se puede anular (pasó el tiempo o ya se anuló)." }, 400);
+        if (idx === -1) return J({ error: "This sale can no longer be voided (the window passed, or it was already voided)." }, 400);
         const venta = ventas[idx];
         // BUG FIJADO 2026-07-03: la UI muestra 5s de cuenta regresiva para
         // anular y luego oculta el botón, pero este endpoint aceptaba anular
@@ -1784,10 +1784,10 @@
         // CERRADO (rechaza) en vez de abierto.
         const antiguedadMs = Date.now() - new Date(venta.fecha).getTime();
         if (!Number.isFinite(antiguedadMs) || antiguedadMs > VENTANA_ANULACION_MS) {
-          return J({ error: "Esta venta ya no se puede anular (pasó el tiempo o ya se anuló)." }, 400);
+          return J({ error: "This sale can no longer be voided (the window passed, or it was already voided)." }, 400);
         }
         const p = productos.find((x) => x.id === venta.productoId);
-        if (!p) return J({ error: "Producto no encontrado." }, 404);
+        if (!p) return J({ error: "Product not found." }, 404);
         p.stockActual += venta.cantidad;
         ventas.splice(idx, 1);
         mov("anulacion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId) });
@@ -1795,20 +1795,20 @@
         return J({ producto: ficha(p) });
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/ajustar$/))) {
-        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         const d = Number.isInteger(body.delta) ? body.delta : 0;
         // BUG FIX (2026-07-03): delta=0 es un entero valido, pasa la guarda de
         // arriba, no cambia el stock pero registra un movimiento en el log. Silencioso
         // y contaminante. Se rechaza explicitamente.
-        if (d === 0) return J({ error: "El ajuste debe ser distinto de cero." }, 400);
-        if (p.stockActual + d < 0) return J({ error: `Ese ajuste dejaría el stock en negativo (actual: ${p.stockActual}).` }, 400);
+        if (d === 0) return J({ error: "The adjustment cannot be zero." }, 400);
+        if (p.stockActual + d < 0) return J({ error: `That adjustment would push stock negative (currently: ${p.stockActual}).` }, 400);
         p.stockActual += d;
         mov("ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || "Ajuste manual", stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) });
         emitirOpStock("ajuste", { productoId: p.id, delta: d });
         return J(ficha(p));
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/etiqueta$/))) {
-        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         // Barcode y QR: ambos generados 100% locales (barcode128.js y
         // qrcode-local.js) — cero llamadas externas, funciona sin internet.
         const barcodeSvg = window.OCBarcode ? window.OCBarcode.code128SVG(p.barcode, { width: 300, height: 80 }) : "";
@@ -1820,15 +1820,15 @@
         return J({ producto: ficha(p), qrDataUrl: qrDataUrl(qrPayload), barcodeSvg });
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/))) {
-        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         return J(ficha(p));
       }
 
       if (path === "/api/escanear") {
         const c = String(body.codigo || "").trim().toLowerCase();
-        if (!c) return J({ error: "Código vacío." }, 400);
+        if (!c) return J({ error: "Empty code." }, 400);
         const p = productos.find((x) => String(x.barcode).toLowerCase() === c || String(x.sku).toLowerCase() === c);
-        if (!p) return J({ error: "No se encontró ningún producto con ese código." }, 404);
+        if (!p) return J({ error: "No product found with that code." }, 404);
         return J(ficha(p));
       }
 
@@ -1836,7 +1836,7 @@
 
       // Estrella: dueño marca/desmarca productos para que el encargado promueva
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/estrella$/))) {
-        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
+        const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         p.estrella = !p.estrella;
         mov("estrella", { producto: p.nombre, accion: p.estrella ? "marcado" : "desmarcado" });
         return J({ estrella: p.estrella });
@@ -1858,7 +1858,7 @@
           aplicarRespaldo(body);
           guardarEstadoLocal();
           return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
-        } catch (e) { return J({ error: "No se pudo importar: " + String(e) }, 400); }
+        } catch (e) { return J({ error: "Could not import: " + String(e) }, 400); }
       }
 
       if (path === "/api/liquidaciones") return J(getLiquidaciones());
@@ -1878,7 +1878,7 @@
       return J(r);
     }
       if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/))) {
-        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Ubicación no encontrada." }, 404);
+        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
         const pend = ventas.filter((v) => v.ubicacionId === m[1] && esDelMesActual(v.fecha) && !v.liquidada);
         pend.forEach((v) => { v.liquidada = true; });
         mov("liquidacion", { ubicacion: u.nombre, ventasLiquidadas: pend.length });
@@ -1890,9 +1890,9 @@
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/clonar-percha$/)) && opts && opts.method === "POST") {
         const origen = productos.find((x) => x.id === m[1]);
-        if (!origen) return J({ error: "Producto no encontrado." }, 404);
+        if (!origen) return J({ error: "Product not found." }, 404);
         const destUbic = ubicaciones.find((u) => u.id === body.ubicacionId && u.activa !== false);
-        if (!destUbic) return J({ error: "Esa percha no existe o esta desactivada." }, 400);
+        if (!destUbic) return J({ error: "That shelf does not exist or is switched off." }, 400);
         if (productos.some((x) => x.sku === origen.sku && x.ubicacionId === destUbic.id)) return J({ error: `Este producto ya tiene una fila en "${destUbic.nombre}". Usa Transferir en vez de Agregar percha.` }, 400);
         const clon = { id: uuid("p"), nombre: origen.nombre, categoria: origen.categoria, sku: origen.sku, barcode: origen.barcode, ubicacionId: destUbic.id, precio: origen.precio, costo: origen.costo || 0, stockActual: 0, umbralRojo: origen.umbralRojo, umbralAmarillo: origen.umbralAmarillo, proveedor: origen.proveedor || "", tipoProveedor: origen.tipoProveedor || "compra", comisionProveedorPct: origen.comisionProveedorPct || 0, perecible: !!origen.perecible, fechaCaducidad: origen.perecible ? (origen.fechaCaducidad || null) : null, metodoCosteo: origen.metodoCosteo || "FIFO", foto: origen.foto || null, creadoEn: new Date().toISOString() };
         productos.push(clon);
@@ -1908,10 +1908,10 @@
       if (path === "/api/transferencias" && opts && opts.method === "POST") {
         const origen = productos.find((x) => x.id === body.productoOrigenId);
         const destino = productos.find((x) => x.id === body.productoDestinoId);
-        if (!origen || !destino) return J({ error: "Producto no encontrado." }, 404);
-        if (origen.sku !== destino.sku) return J({ error: "Los productos de origen y destino no son el mismo artículo (SKU distinto)." }, 400);
+        if (!origen || !destino) return J({ error: "Product not found." }, 404);
+        if (origen.sku !== destino.sku) return J({ error: "The source and destination products are not the same item (different SKU)." }, 400);
         const cant = Number(body.cantidad);
-        if (!Number.isInteger(cant) || cant <= 0) return J({ error: "La cantidad debe ser un entero mayor a 0." }, 400);
+        if (!Number.isInteger(cant) || cant <= 0) return J({ error: "The quantity must be a whole number greater than 0." }, 400);
         if (origen.stockActual < cant) return J({ error: `"${origen.nombre}" solo tiene ${origen.stockActual} unidades en origen.` }, 400);
         const t = { id: uuid("t"), productoOrigenId: origen.id, productoDestinoId: destino.id, sku: origen.sku, nombre: origen.nombre, desde: origen.ubicacionId, desdeNombre: nombreUbic(origen.ubicacionId), hacia: destino.ubicacionId, haciaNombre: nombreUbic(destino.ubicacionId), cantidad: cant, estado: "solicitada", fecha: new Date().toISOString() };
         transferencias.push(t);
@@ -1919,10 +1919,10 @@
         return J(t);
       }
       if ((m = path.match(/^\/api\/transferencias\/([^/]+)\/aprobar$/))) {
-        const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transferencia no encontrada." }, 404);
+        const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transfer not found." }, 404);
         if (t.estado !== "solicitada") return J({ error: `Esta transferencia ya está en estado "${t.estado}".` }, 400);
         const origen = productos.find((x) => x.id === t.productoOrigenId);
-        if (!origen || origen.stockActual < t.cantidad) return J({ error: "Ya no hay suficiente stock en origen para aprobar esta transferencia." }, 400);
+        if (!origen || origen.stockActual < t.cantidad) return J({ error: "There is no longer enough stock at the source to approve this transfer." }, 400);
         origen.stockActual -= t.cantidad;
         t.estado = "en_transito";
         mov("transferencia-aprobada", { producto: t.nombre, cantidad: t.cantidad, desde: t.desdeNombre, hacia: t.haciaNombre });
@@ -1930,10 +1930,10 @@
         return J(t);
       }
       if ((m = path.match(/^\/api\/transferencias\/([^/]+)\/confirmar-recepcion$/))) {
-        const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transferencia no encontrada." }, 404);
+        const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transfer not found." }, 404);
         if (t.estado !== "en_transito") return J({ error: `Esta transferencia está "${t.estado}", no se puede confirmar recepción.` }, 400);
         const destino = productos.find((x) => x.id === t.productoDestinoId);
-        if (!destino) return J({ error: "Producto destino no encontrado." }, 404);
+        if (!destino) return J({ error: "Destination product not found." }, 404);
         destino.stockActual += t.cantidad;
         t.estado = "recibida";
         mov("transferencia-recibida", { producto: t.nombre, cantidad: t.cantidad, desde: t.desdeNombre, hacia: t.haciaNombre });
@@ -1941,7 +1941,7 @@
         return J(t);
       }
       if ((m = path.match(/^\/api\/transferencias\/([^/]+)\/rechazar$/))) {
-        const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transferencia no encontrada." }, 404);
+        const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transfer not found." }, 404);
         if (t.estado !== "solicitada") return J({ error: `Esta transferencia ya está en estado "${t.estado}".` }, 400);
         t.estado = "rechazada";
         return J(t);
@@ -1959,8 +1959,8 @@
         // Guardar bajo "todas" aquí crearía una clave fantasma que se suma
         // aparte de los locales reales, inflando el total. AMIGABLE exige
         // una ubicación específica, como siempre debió ser.
-        if (!ubicacionId || ubicacionId === "todas") return J({ error: "Elige una ubicación específica para guardar sus gastos mensuales." }, 400);
-        if (!isFinite(monto) || monto < 0) return J({ error: "El monto debe ser un número igual o mayor a 0." }, 400);
+        if (!ubicacionId || ubicacionId === "todas") return J({ error: "Pick a specific location to save its monthly expenses." }, 400);
+        if (!isFinite(monto) || monto < 0) return J({ error: "The amount must be a number equal to or greater than 0." }, 400);
         gastosMensuales[ubicacionId] = +monto.toFixed(2);
         return J({ ubicacionId, gastosMensuales: gastosMensuales[ubicacionId] });
       }
@@ -2039,13 +2039,13 @@
       if (path === "/api/ventas/cierre" && opts && opts.method === "POST") {
         if (!instanceId || licenciaLimitada()) return J({ error: "Activate this device (PIN 789) to use day close." }, 403);
         const items = Array.isArray(body.items) ? body.items : [];
-        if (!items.length) return J({ error: "No hay cantidades que aplicar." }, 400);
+        if (!items.length) return J({ error: "There are no quantities to apply." }, 400);
         const errores = [];
         let aplicadas = 0;
         for (const it of items) {
           const p = productos.find((x) => x.id === it.productoId);
           const cant = Number(it.cantidad);
-          if (!p || !Number.isInteger(cant) || cant <= 0) { errores.push("Hay un ítem inválido en el cierre."); continue; }
+          if (!p || !Number.isInteger(cant) || cant <= 0) { errores.push("There is an invalid item in the day close."); continue; }
           if (p.stockActual < cant) { errores.push(`${p.nombre}: solo hay ${p.stockActual} en stock.`); continue; }
           const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
           const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
@@ -2065,7 +2065,7 @@
         return J(clientes.filter(c => !c.despedido).map((c) => fichaCliente(c, med)));
       }
       if (path === "/api/clientes" && opts && opts.method === "POST") {
-        if (!body.nombre || !String(body.nombre).trim()) return J({ error: "El nombre del cliente es obligatorio." }, 400);
+        if (!body.nombre || !String(body.nombre).trim()) return J({ error: "The customer name is required." }, 400);
         const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim() };
         clientes.push(nuevoCli);
         mov("cliente-alta", { cliente: nuevoCli.nombre, codigo: nuevoCli.codigo });
@@ -2073,8 +2073,8 @@
       }
       if (path === "/api/clientes/importar" && opts && opts.method === "POST") {
         const entrantes = Array.isArray(body.clientes) ? body.clientes : [];
-        if (!entrantes.length) return J({ error: "No hay clientes que importar." }, 400);
-        if (entrantes.length > 5000) return J({ error: "Demasiados clientes de una vez (maximo 5000)." }, 400);
+        if (!entrantes.length) return J({ error: "There are no customers to import." }, 400);
+        if (entrantes.length > 5000) return J({ error: "Too many customers at once (5000 max)." }, 400);
         // Dedup por nombre (insensible a mayusculas) contra los existentes Y
         // dentro del mismo archivo — un CSV con repetidos no crea gemelos.
         const existentes = new Set(clientes.map((c) => String(c.nombre).trim().toLowerCase()));
@@ -2125,7 +2125,7 @@
       const mCliEv = path.match(/^\/api\/clientes\/([^/]+)\/evaluacion$/);
       if (mCliEv && opts && opts.method === "PATCH") {
         const c = clientes.find((x) => x.id === mCliEv[1]);
-        if (!c) return J({ error: "Cliente no encontrado." }, 404);
+        if (!c) return J({ error: "Customer not found." }, 404);
         // JFC 2026-08-06: unico sistema de calificar en TODAS las apps es el de
         // amigable-123 -- escala 1-5 (0=sin calificar), NO el tri-estado -1/0/1
         // que se habia introducido aqui por error.
@@ -2146,7 +2146,7 @@
       const mCliCartera = path.match(/^\/api\/clientes\/([^/]+)\/cartera$/);
       if (mCliCartera && (!opts || !opts.method || opts.method === "GET")) {
         const c = clientes.find((x) => x.id === mCliCartera[1]);
-        if (!c) return J({ error: "Cliente no encontrado." }, 404);
+        if (!c) return J({ error: "Customer not found." }, 404);
         if (!window.AMG || !window.AMG.Cartera) return J({ saldo: 0, movimientos: [] });
         const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
         const info = await window.AMG.Cartera.saldoDeCliente(c.id);
@@ -2155,10 +2155,10 @@
       const mCliFiar = path.match(/^\/api\/clientes\/([^/]+)\/(fiar|abonar)$/);
       if (mCliFiar && opts && opts.method === "POST") {
         const c = clientes.find((x) => x.id === mCliFiar[1]);
-        if (!c) return J({ error: "Cliente no encontrado." }, 404);
+        if (!c) return J({ error: "Customer not found." }, 404);
         const monto = Number(body.monto);
-        if (!(monto > 0)) return J({ error: "El monto debe ser mayor a cero." }, 400);
-        if (!window.AMG || !window.AMG.Cartera) return J({ error: "Cartera no disponible." }, 500);
+        if (!(monto > 0)) return J({ error: "The amount must be greater than zero." }, 400);
+        if (!window.AMG || !window.AMG.Cartera) return J({ error: "Customer credit is not available." }, 500);
         const tipo = mCliFiar[2] === "fiar" ? "cargo" : "abono";
         try {
           await window.AMG.Cartera.registrarMovimiento(c.id, tipo, monto, body.motivo || "");
@@ -2176,7 +2176,7 @@
       const mCliAct = path.match(/^\/api\/clientes\/([^/]+)\/(despedir|reactivar)$/);
       if (mCliAct && opts && opts.method === "POST") {
         const c = clientes.find((x) => x.id === mCliAct[1]);
-        if (!c) return J({ error: "Cliente no encontrado." }, 404);
+        if (!c) return J({ error: "Customer not found." }, 404);
         const accion = mCliAct[2];
         c.despedido = accion === "despedir";
         mov(accion === "despedir" ? "cliente-despedido" : "cliente-reactivado", { cliente: c.nombre, quien: body.quien || "Sistema" });
@@ -2204,13 +2204,13 @@
         const pin    = String(body.pin    || "").trim();
         const email  = String(body.email  || "").trim().slice(0, 160) || null;
         const rolNuevo = (body.rol === "admin") ? "admin" : "empleado";
-        if (!nombre)                     return J({ error: "El nombre es obligatorio." }, 400);
-        if (!/^\d{3}$/.test(pin))        return J({ error: "El PIN debe tener exactamente 3 digitos." }, 400);
+        if (!nombre)                     return J({ error: "A name is required." }, 400);
+        if (!/^\d{3}$/.test(pin))        return J({ error: "The PIN must be exactly 3 digits." }, 400);
         // Limite free: 1 encargado (admins exentos — son co-duenos, no personal)
         const empleadosActuales = usuarios.filter((u) => u.rol === "empleado").length;
         if (rolNuevo === "empleado" && empleadosActuales >= 1 && (!instanceId || licenciaLimitada()))
           return J({ error: "The free plan includes 1 employee. Activate this device (PIN 789) for unlimited employees.", codigo: "LIMITE_EMPLEADOS" }, 403);
-        if (usuarios.some((u) => u.pin === pin)) return J({ error: "Ese PIN ya lo usa otro miembro del equipo. Elige uno diferente." }, 400);
+        if (usuarios.some((u) => u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
         const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: new Date().toISOString() };
         usuarios.push(nuevo);
         mov("usuario-alta", { nombre, rol: rolNuevo });
@@ -2221,14 +2221,14 @@
       if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "PATCH") {
         const uid2 = path.split("/").pop();
         const u = usuarios.find((x) => x.id === uid2);
-        if (!u) return J({ error: "Miembro no encontrado." }, 404);
+        if (!u) return J({ error: "Team member not found." }, 404);
         if (body.nombre !== undefined) u.nombre = String(body.nombre).trim().slice(0, 60) || u.nombre;
         if (body.activo !== undefined) u.activo = !!body.activo;
         if (body.email  !== undefined) u.email  = String(body.email || "").trim().slice(0, 160) || null;
         if (body.pin !== undefined) {
           const np = String(body.pin).trim();
-          if (!/^\d{3}$/.test(np)) return J({ error: "El nuevo PIN debe tener 3 digitos." }, 400);
-          if (usuarios.some((x) => x.id !== uid2 && x.pin === np)) return J({ error: "Ese PIN ya lo usa otro miembro del equipo." }, 400);
+          if (!/^\d{3}$/.test(np)) return J({ error: "The new PIN must be 3 digits." }, 400);
+          if (usuarios.some((x) => x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
           u.pin = np;
         }
         // Promover/degradar rol (JFC 2026-07-30): admin<->encargado. Los admins no
@@ -2245,7 +2245,7 @@
       if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "DELETE") {
         const uid3 = path.split("/").pop();
         const i3 = usuarios.findIndex((x) => x.id === uid3);
-        if (i3 === -1) return J({ error: "Miembro no encontrado." }, 404);
+        if (i3 === -1) return J({ error: "Team member not found." }, 404);
         const [borrado] = usuarios.splice(i3, 1);
         mov("usuario-borrar", { nombre: borrado.nombre, rol: borrado.rol });
         return J({ ok: true });
@@ -2255,7 +2255,7 @@
       if (path === "/api/usuarios/verificar" && opts && opts.method === "POST") {
         const pin = String(body.pin || "").trim();
         const u = usuarios.find((x) => x.activo && x.pin === pin);
-        if (!u) return J({ error: "PIN no corresponde a ningun miembro activo del equipo." }, 401);
+        if (!u) return J({ error: "That PIN does not match any active team member." }, 401);
         return J({ id: u.id, nombre: u.nombre, rol: u.rol });
       }
       // =========================================================================
@@ -2268,7 +2268,7 @@
       if (path === "/api/instancia/activar" && opts && opts.method === "POST") {
         // Guard: safeParse puede devolver {} — sin instanceId el dispositivo
         // queda "activado a medias" (owned con instanceId:null). Rechazar.
-        if (!body.instanceId || typeof body.instanceId !== "string") return J({ error: "instanceId requerido" }, { status: 400 });
+        if (!body.instanceId || typeof body.instanceId !== "string") return J({ error: "instanceId required" }, { status: 400 });
         instanceId = body.instanceId;
         if (body.vaciar === true) {
           productos.length = 0; ubicaciones.length = 0; ventas.length = 0;
@@ -2313,7 +2313,7 @@
       }
       // =========================================================================
 
-      return J({ error: "Ruta no encontrada en la demo." }, 404);
+      return J({ error: "Route not found in the demo." }, 404);
     } catch (e) {
       return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json" } });
     } finally {
