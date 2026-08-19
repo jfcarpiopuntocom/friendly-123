@@ -90,6 +90,9 @@
       "log.type.edicion": "Product edit", "log.type.baja": "Product removed",
       "log.type.usuarioAlta": "New member", "log.type.usuarioEditar": "Member edit",
       "log.type.transferencia": "Transfer", "log.type.liquidacion": "Settlement", "log.type.estrella": "Star",
+      // Titulos por pagina — para actualizar el tab del navegador al cambiar de idioma.
+      "meta.title.app": "friendly-123",
+      "meta.title.dashboard": "Dashboard · friendly-123",
       "lang.label": "Language",
       "nav.today": "Today",
       "nav.inventory": "Inventory",
@@ -576,6 +579,8 @@
       "log.type.edicion": "Edición producto", "log.type.baja": "Baja producto",
       "log.type.usuarioAlta": "Nuevo miembro", "log.type.usuarioEditar": "Edición miembro",
       "log.type.transferencia": "Transferencia", "log.type.liquidacion": "Liquidación", "log.type.estrella": "Estrella",
+      "meta.title.app": "friendly-123",
+      "meta.title.dashboard": "Tablero de control · friendly-123",
       "lang.label": "Idioma",
       "nav.today": "Hoy",
       "nav.inventory": "Inventario",
@@ -1033,6 +1038,16 @@
     scope.querySelectorAll("[data-i18n]").forEach((el) => {
       el.textContent = t(el.getAttribute("data-i18n"));
     });
+    // 2026-08-19, aprobado JFC: si el <title> lleva data-i18n el textContent
+    // ya se actualiza arriba, pero el tab del navegador solo se refresca
+    // confiablemente si tambien reasignamos document.title. Sin esto, cambiar
+    // el idioma dejaba el tab con el nombre viejo hasta el proximo evento.
+    if (!root) {
+      const titleEl = document.querySelector("title[data-i18n]");
+      if (titleEl && titleEl.textContent && document.title !== titleEl.textContent) {
+        document.title = titleEl.textContent;
+      }
+    }
     scope.querySelectorAll("[data-i18n-html]").forEach((el) => {
       el.innerHTML = t(el.getAttribute("data-i18n-html"));
     });

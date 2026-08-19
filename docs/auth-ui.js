@@ -776,6 +776,11 @@
   // que duplicar esa lógica (con el riesgo de que se desincronizaran).
   function cerrarSesion(mensaje) {
     clearTimeout(temporizadorInactividad);
+    // 2026-08-19, aprobado JFC: al cerrar sesion del app owner tambien se
+    // limpia la sesion del panel maestro. Antes, cerrar la app dejaba
+    // panel.html abierto y logueado si estaba en otra pestana — riesgo si
+    // alguien mas usa el dispositivo despues.
+    try { sessionStorage.removeItem("panel_auth_f123"); } catch (_) {}
     rol = null;
     demoSesion = false;
     window.OCCurrentUser = null; // borrar sesion de encargado nombrado

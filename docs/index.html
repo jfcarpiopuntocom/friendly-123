@@ -73,8 +73,9 @@
 <script src="./mock-backend.js"></script>
 <script src="./red-segura.js"></script>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Language" content="en">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>friendly-123</title>
+<title data-i18n="meta.title.app">friendly-123</title>
 <!-- iOS Safari + WhatsApp legibility stack: light-only, prevents auto-dark repaint -->
 <meta name="color-scheme" content="light only">
 <meta name="supported-color-schemes" content="light">
@@ -5431,6 +5432,143 @@ function _actualizarCountdown() {
 document.addEventListener("oc-lang-change", () => {
   if (_occoProduct) abrirVistaCliente(_occoProduct);
 });
+</script>
+
+<!-- ═════════ 2026-08-19, aprobado JFC: FAB "Close the day" ═════════════
+     Boton flotante abajo a la derecha (el hueco que dejo el pulsar).
+     Un solo click: (1) trae /api/dashboard con el resumen de hoy;
+     (2) muestra el resumen y ofrece descargar respaldo. No reimplementa
+     ninguna logica de negocio — solo llama endpoints existentes y usa el
+     mismo Blob-download que Avanzado. Si /api/dashboard falla, dice por
+     que. Solo se muestra si hay sesion de dueno o admin. -->
+<style>
+  #fab-eod{position:fixed;right:16px;bottom:16px;z-index:850;border-radius:999px;
+    background:#E86040;color:#fff;border:none;padding:14px 20px;font-size:15px;font-weight:700;
+    box-shadow:0 6px 20px rgba(232,96,64,.35);cursor:pointer;display:none;font-family:inherit;
+    -webkit-tap-highlight-color:transparent;}
+  #fab-eod:hover{background:#C05000;}
+  #fab-eod:active{transform:scale(.97);}
+  #eod-modal{position:fixed;inset:0;background:rgba(15,25,35,.55);z-index:900;
+    display:none;align-items:center;justify-content:center;padding:16px;}
+  #eod-modal.visible{display:flex;}
+  #eod-modal .card{background:#fff;border-radius:14px;padding:24px 22px;max-width:440px;width:100%;
+    box-shadow:0 10px 40px rgba(0,0,0,.3);}
+  #eod-modal h3{margin:0 0 10px;font-size:20px;color:#0F1923;}
+  #eod-modal .k{display:flex;justify-content:space-between;font-size:15px;padding:8px 0;
+    border-bottom:1px solid #e5e7eb;color:#2C3E50;}
+  #eod-modal .k:last-of-type{border-bottom:none;}
+  #eod-modal .k .v{font-family:"JetBrains Mono",monospace;font-weight:700;color:#0F1923;}
+  #eod-modal .row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+  #eod-modal .btn{flex:1;min-width:130px;padding:12px;border-radius:8px;border:1.5px solid transparent;
+    font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+  #eod-modal .btn-p{background:#E86040;color:#fff;}
+  #eod-modal .btn-p:hover{background:#C05000;}
+  #eod-modal .btn-o{background:#fff;border-color:#e5e7eb;color:#0F1923;}
+  #eod-msg{font-size:13px;color:#6b7280;margin-top:10px;min-height:16px;}
+</style>
+<button type="button" id="fab-eod" aria-label="Close the day">Close the day</button>
+<div id="eod-modal" role="dialog" aria-modal="true" aria-labelledby="eod-t">
+  <div class="card">
+    <h3 id="eod-t">Close the day</h3>
+    <div id="eod-body">Loading today's summary…</div>
+    <div class="row">
+      <button type="button" class="btn btn-p" id="eod-backup">Download backup</button>
+      <button type="button" class="btn btn-o" id="eod-close">Close</button>
+    </div>
+    <p id="eod-msg"></p>
+  </div>
+</div>
+<script>
+(function(){
+  var _EOD_ES = function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}};
+  var TX = function(){ return _EOD_ES() ? {
+    title:"Cerrar el dia", loading:"Cargando resumen de hoy...",
+    revenue:"Ingresos de hoy", sales:"Ventas", profit:"Ganancia estimada", inv:"Inventario valorizado",
+    week:"Ingresos de la semana", backup:"Descargar respaldo", close:"Cerrar",
+    fabLabel:"Cerrar el dia", noHint:"No hay sesion — solo el dueno o admin ven este boton.",
+    backupOk:"Respaldo descargado.", backupFail:"No se pudo descargar el respaldo: ",
+    fetchFail:"No se pudo cargar el resumen: "
+  } : {
+    title:"Close the day", loading:"Loading today's summary...",
+    revenue:"Revenue today", sales:"Sales", profit:"Estimated profit", inv:"Inventory value",
+    week:"Revenue this week", backup:"Download backup", close:"Close",
+    fabLabel:"Close the day", noHint:"No session — only owner or admin see this button.",
+    backupOk:"Backup downloaded.", backupFail:"Could not download backup: ",
+    fetchFail:"Could not load summary: "
+  };};
+  function money(v){
+    try {
+      var loc=(window.OCI18n&&window.OCI18n.locale())||"en-US";
+      return new Intl.NumberFormat(loc,{style:"currency",currency:"USD"}).format(v||0);
+    } catch(_) { return "$"+Number(v||0).toFixed(2); }
+  }
+  function visible(){
+    // Solo owner/admin. Se apoya en las clases que auth-ui pone en body.
+    var b=document.body;
+    return b.classList.contains("rol-dueno")||b.classList.contains("rol-admin");
+  }
+  function actualizarFAB(){
+    var f=document.getElementById("fab-eod"); if(!f) return;
+    f.textContent=TX().fabLabel;
+    f.style.display=visible()?"block":"none";
+  }
+  function abrir(){
+    var m=document.getElementById("eod-modal"),
+        body=document.getElementById("eod-body"),
+        t=TX();
+    document.getElementById("eod-t").textContent=t.title;
+    document.getElementById("eod-backup").textContent=t.backup;
+    document.getElementById("eod-close").textContent=t.close;
+    document.getElementById("eod-msg").textContent="";
+    body.innerHTML='<p style="color:#6b7280;">'+t.loading+'</p>';
+    m.classList.add("visible");
+    fetch("/api/dashboard").then(function(r){
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    }).then(function(d){
+      var rd=(d&&d.resumenDia)||{}, rw=(d&&d.resumenSemana)||{};
+      body.innerHTML=
+        '<div class="k"><span>'+t.revenue+'</span><span class="v">'+money(rd.entra)+'</span></div>'+
+        '<div class="k"><span>'+t.sales+'</span><span class="v">'+(rd.ventasCount||0)+'</span></div>'+
+        '<div class="k"><span>'+t.profit+'</span><span class="v">'+money(rd.gananciaHoy)+'</span></div>'+
+        '<div class="k"><span>'+t.inv+'</span><span class="v">'+money(rd.inventarioValorizado)+'</span></div>'+
+        '<div class="k"><span>'+t.week+'</span><span class="v">'+money(rw.entra)+'</span></div>';
+    }).catch(function(err){
+      body.innerHTML='<p style="color:#B91C1C;">'+t.fetchFail+(err&&err.message||"")+'</p>';
+    });
+  }
+  function cerrar(){ document.getElementById("eod-modal").classList.remove("visible"); }
+  async function bajarRespaldo(){
+    var t=TX(), msg=document.getElementById("eod-msg");
+    msg.textContent="…";
+    try {
+      var r=await fetch("/api/respaldo/exportar");
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      var datos=await r.json();
+      var blob=new Blob([JSON.stringify(datos,null,2)],{type:"application/json"});
+      var url=URL.createObjectURL(blob), a=document.createElement("a");
+      var d=new Date(); var stamp=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      a.href=url; a.download="friendly-123-backup-"+stamp+".json"; a.click();
+      setTimeout(function(){URL.revokeObjectURL(url);},1500);
+      msg.textContent=t.backupOk; msg.style.color="#00A968";
+    } catch(err){
+      msg.textContent=t.backupFail+(err&&err.message||""); msg.style.color="#B91C1C";
+    }
+  }
+  document.addEventListener("DOMContentLoaded", function(){
+    actualizarFAB();
+    var f=document.getElementById("fab-eod"); if(f) f.addEventListener("click", abrir);
+    var x=document.getElementById("eod-close"); if(x) x.addEventListener("click", cerrar);
+    var b=document.getElementById("eod-backup"); if(b) b.addEventListener("click", bajarRespaldo);
+    var m=document.getElementById("eod-modal");
+    if(m) m.addEventListener("click", function(e){ if(e.target===m) cerrar(); });
+  });
+  // Cuando auth-ui cambia el rol (login/logout), se dispara el resize del body classList.
+  // No hay evento nativo, pero cerrarSesion/entrar ya llaman a codigo local. Como
+  // fallback: polling ligero cada 3s (solo mira classList, no hace IO).
+  setInterval(actualizarFAB, 3000);
+  window.addEventListener("oc-lang-change", actualizarFAB);
+})();
 </script>
 
 </body></html>

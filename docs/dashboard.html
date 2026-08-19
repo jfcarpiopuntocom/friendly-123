@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Dashboard · friendly-123</title>
+<title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
 <!-- iOS and the WhatsApp in-app browser reinterpret colors in dark mode.
      Without this block the text becomes invisible. -->
@@ -201,11 +201,39 @@
 <body>
 
 <!-- ══════════════════════════ PUERTA ══════════════════════════ -->
+<style>
+  /* 2026-08-19, JFC: aviso "necesitas la app abierta" muy visible. La gente
+     es atolondrada; sin esto entran, no ven nada y creen que la app esta
+     rota. Se dice de tres formas: banner amarillo arriba, linea corta antes
+     del boton, y modal explicito cuando el intento falla por app cerrada. */
+  #aviso-app-abierta{background:#FFF4C2;border:2px solid #B8860B;color:#4a3410;
+    border-radius:10px;padding:12px 14px;margin:0 0 14px;font-size:14px;line-height:1.5;
+    display:flex;align-items:flex-start;gap:10px;}
+  #aviso-app-abierta .icon{font-size:20px;line-height:1;flex-shrink:0;margin-top:2px;font-weight:800;}
+  #aviso-app-abierta strong{color:#2a1d0a;}
+  #aviso-app-abierta .paso{display:block;font-size:13px;color:#4a3410;margin-top:4px;}
+  .hint-boton{font-size:13px;color:#5b5b5b;text-align:center;margin:6px 0 10px;}
+</style>
 <div id="puerta">
   <div class="card">
     <img id="logo-puerta" alt="friendly-123">
     <h1>Control Board</h1>
     <p class="sub">Your whole business, on one big screen.</p>
+
+    <!-- AVISO INELUDIBLE (JFC 2026-08-19): el tablero NO tiene datos propios.
+         Los pide en vivo al telefono/dispositivo del duenio (o del encargado)
+         y ese dispositivo tiene que estar con la app abierta y en linea.
+         Sin esto, el usuario ve un tablero vacio y no sabe por que. -->
+    <div id="aviso-app-abierta" role="note">
+      <span class="icon">!</span>
+      <span>
+        <strong>Open the friendly-123 app on your phone or tablet BEFORE you sign in here.</strong>
+        <span class="paso">1. On your phone, open the app and log in with your PIN.</span>
+        <span class="paso">2. Keep that tab open (do not close it).</span>
+        <span class="paso">3. Then come back here and enter your code + PIN below.</span>
+        <span class="paso" style="color:#7a5510;">This board has no data of its own — it reads live from your device.</span>
+      </span>
+    </div>
 
     <input id="codigo" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
            placeholder="F123-XXXX-XXXX-XXXX" aria-label="Your business code">
@@ -215,13 +243,14 @@
          si un PIN existe, solo recibe un si o un no. -->
     <input id="pin" type="password" inputmode="numeric" autocomplete="off"
            maxlength="6" placeholder="Your PIN" aria-label="Your owner or admin PIN">
+    <p class="hint-boton">The app must be open on another device for this to show anything.</p>
     <button type="button" class="btn" id="entrar">See my business</button>
     <p class="msg" id="msg"></p>
 
     <p class="nota">
-      Este tablero es un lienzo: no guarda nada. Lo que ves llega cifrado desde los
-      dispositivos de tu equipo y desaparece al cerrar esta pesta&ntilde;a.
-      <button type="button" class="enlace" id="ver-politica-2">C&oacute;mo tratamos tus datos</button>
+      This board is a canvas: it stores nothing. What you see arrives encrypted from
+      your team's devices and disappears when you close this tab.
+      <button type="button" class="enlace" id="ver-politica-2">How we handle your data</button>
     </p>
   </div>
 </div>
@@ -230,17 +259,17 @@
      para explicar que no guardamos nada, algo se esta guardando. -->
 <div id="pol" role="dialog" aria-modal="true" aria-labelledby="pol-t">
   <div class="card">
-    <h2 id="pol-t">C&oacute;mo tratamos tus datos</h2>
-    <p><strong>No los tratamos. No los tenemos.</strong></p>
+    <h2 id="pol-t">How we handle your data</h2>
+    <p><strong>We do not handle them. We do not have them.</strong></p>
     <ul>
-      <li>Tus productos, ventas y clientes se guardan en los dispositivos de tu equipo. En ningún servidor nuestro.</li>
-      <li>Para que se vean aquí, viajan cifrados con una clave que sale de tu código de licencia y que nunca sale de tus dispositivos.</li>
-      <li>El servidor por el que pasan solo rebota bytes que no puede leer, y no los guarda.</li>
-      <li>Este tablero no escribe nada en tu navegador. Al cerrar la pestaña no queda rastro.</li>
-      <li>No hay analítica, ni rastreadores, ni publicidad.</li>
+      <li>Your products, sales and customers are stored on your team's devices. On no server of ours.</li>
+      <li>For them to appear here, they travel encrypted with a key derived from your license code — the key never leaves your devices.</li>
+      <li>The server they pass through only bounces bytes it cannot read, and does not store them.</li>
+      <li>This board writes nothing to your browser. When you close the tab, no trace remains.</li>
+      <li>No analytics, no trackers, no ads.</li>
     </ul>
-    <p>Lo único que sí guardamos, en nuestro panel de licencias: tu código, tu nombre y correo de contacto, y las fallas técnicas que la app reporta sola para poder arreglarlas. Nada de tu negocio.</p>
-    <button type="button" class="btn" id="pol-x">Entendido</button>
+    <p>The only things we do keep, in our license panel: your code, your name and contact email, and the technical failures the app self-reports so we can fix them. Nothing about your business.</p>
+    <button type="button" class="btn" id="pol-x">Got it</button>
   </div>
 </div>
 
@@ -1237,8 +1266,14 @@
 
   /* --------------------------------------------------------------- M10 --- */
   function reporte(cual) {
+    // 2026-08-19, aprobado JFC: bilingual y con nombre del CDN caido para
+    // que el owner sepa que no es la app — es la red o un CDN. Antes decia
+    // solo "Recarga y prueba" y le quitaba pista al usuario.
     if (!window.jspdf || !window.jspdf.jsPDF) {
-      $("cierre").innerHTML = "<strong>No se pudo armar el reporte.</strong>No cargó la herramienta de PDF. Recarga la página e inténtalo de nuevo.";
+      var _es_p = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+      $("cierre").innerHTML = _es_p
+        ? "<strong>No se pudo armar el reporte.</strong> No cargó la herramienta de PDF (cdnjs). Recarga la página e inténtalo; si sigue fallando, el reporte tambien se puede exportar desde la tabla de arriba como XLSX o CSV."
+        : "<strong>Could not build the report.</strong> The PDF tool did not load (cdnjs). Reload the page and try again; if it still fails, the report can also be exported from the table above as XLSX or CSV.";
       return;
     }
     var neg = $("neg-nombre").textContent || "Mi negocio";

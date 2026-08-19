@@ -45,10 +45,20 @@
     // from them to them: it never passes through any server.
     try {
       if (email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-        var asunto = "Your access key — friendly-123";
-        var cuerpo = "Your owner key in friendly-123 is: " + pin
-          + "\n\nKeep it somewhere safe. This email goes from you to you: it never passes through any server."
-          + "\nIf you didn't request it, change it in Advanced → Keys.";
+        // 2026-08-19, aprobado JFC: asunto y cuerpo bilingues. Antes venia
+        // solo en ingles aunque el dueno usara la app en espanol — primer
+        // contacto en su inbox tenia que respetar su idioma.
+        var _es_m = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+        var asunto = _es_m
+          ? "Tu clave de acceso — friendly-123"
+          : "Your access key — friendly-123";
+        var cuerpo = _es_m
+          ? "Tu clave de dueño en friendly-123 es: " + pin
+            + "\n\nGuárdala en un lugar seguro. Este correo va de ti hacia ti: nunca pasa por ningún servidor."
+            + "\nSi no la pediste tú, cámbiala en Avanzado → Claves."
+          : "Your owner key in friendly-123 is: " + pin
+            + "\n\nKeep it somewhere safe. This email goes from you to you: it never passes through any server."
+            + "\nIf you didn't request it, change it in Advanced → Keys.";
         window.location.href = "mailto:" + encodeURIComponent(email)
           + "?subject=" + encodeURIComponent(asunto)
           + "&body=" + encodeURIComponent(cuerpo);

@@ -13,7 +13,16 @@
   let desbloqueadaSesion = false;
 
   function ubic() { const s = $("selectUbicacion"); return s ? s.value : "todas"; }
-  const money = (n) => "$" + Number(n || 0).toFixed(2);
+  // 2026-08-19, aprobado JFC: money() localizado. Antes "$1234.56" siempre;
+  // ahora "$1,234.56" en EN y "$ 1.234,56" en ES (o lo que el navegador use
+  // para es-US). Cae al formato viejo si Intl no esta o el locale no existe.
+  const money = (n) => {
+    const v = Number(n || 0);
+    try {
+      const loc = (window.OCI18n && window.OCI18n.locale && window.OCI18n.locale()) || "en-US";
+      return new Intl.NumberFormat(loc, { style: "currency", currency: "USD" }).format(v);
+    } catch (_) { return "$" + v.toFixed(2); }
+  };
   // Distingue "primer registro libre de correo" de "re-registro tras código
   // maestro" (SÍ debe encadenar directo a poner un PIN nuevo). Ver mismo
   // patrón en Olimpo Control.
