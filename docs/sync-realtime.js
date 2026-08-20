@@ -68,6 +68,12 @@
   const TIPO_PIN = "__pin__";
   const TIPO_ORDEN = "__orden__";
   const TIPO_RESPUESTA = "__respuesta__";
+  /* PASO 4 (JFC 2026-08-19): pedir/responder el CATALOGO entre dispositivos del
+     mismo equipo. Es distinto de la foto: la foto es para el tablero (lectura,
+     incluye ventas y clientes, se olvida al cerrar) y esto es solo lo que
+     DEFINE el catalogo (perchas y productos), para poder juntarlos. */
+  const TIPO_CATALOGO_PEDIDO = "__catalogo_pedido__";
+  const TIPO_CATALOGO_TROZO  = "__catalogo_trozo__";
   const TIPO_FOTO_PEDIDA = "__foto_pedida__";
   const TIPO_FOTO_TROZO = "__foto_trozo__";
   const FOTO_FILAS_POR_TROZO = 200;
@@ -251,6 +257,14 @@
         }
         /* Mensajes del tablero. Ninguno es una Op de negocio: no se registran
            en el log ni se aplican al estado. Solo se contestan. */
+        if (op && op.tipo === TIPO_CATALOGO_PEDIDO) { responderCatalogo(op); return; }
+        if (op && op.tipo === TIPO_CATALOGO_TROZO) {
+          /* Solo lo escucha quien lo pidio. No se aplica NADA aqui: se junta y
+             se avisa, y una persona decide en pantalla. */
+          if (op.para && op.para !== deviceId()) return;
+          try { window.dispatchEvent(new CustomEvent("oc-catalogo-trozo", { detail: op })); } catch (_) {}
+          return;
+        }
         if (op && op.tipo === TIPO_FOTO_PEDIDA) { responderFoto(op); return; }
         if (op && op.tipo === TIPO_PIN) { responderPin(op); return; }
         if (op && op.tipo === TIPO_ORDEN) { responderOrden(op); return; }
@@ -330,6 +344,44 @@
       out.push({ tabla: nombre, i: i, total: total, filas: arr.slice(i * FOTO_FILAS_POR_TROZO, (i + 1) * FOTO_FILAS_POR_TROZO) });
     }
     return out;
+  }
+
+  /* Pide el catalogo a los companeros de equipo. Efimero: si no contesta
+     nadie, no pasa nada y se puede volver a pedir. */
+  async function pedirCatalogo() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const op = {
+      opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_PEDIDO,
+      payload: { rol: rolActual() }, fecha: (new Date()).toISOString(),
+    };
+    try { await new Promise((r) => setTimeout(r, 0)); ws.send(await cifrar(claveActual, op)); return true; } catch (_) { return false; }
+  }
+
+  function rolActual() {
+    try { return (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; } catch (_) { return ""; }
+  }
+
+  /* Contesta con MI catalogo. Va en trozos por lo mismo que la foto: un
+     negocio con miles de productos no puede depender de que un unico mensaje
+     gigante llegue entero. */
+  async function responderCatalogo(pedido) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!window.OCSync || !window.OCSync.catalogoPropio) return;   // un tablero no contesta
+    await new Promise((r) => setTimeout(r, Math.random() * 400));  // jitter, como la foto
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    let cat;
+    try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+    const trozos = [].concat(trocear("ubicaciones", cat.ubicaciones)).concat(trocear("productos", cat.productos));
+    for (let k = 0; k < trozos.length; k++) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const op = {
+        opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
+        para: pedido.deviceId || null,
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length }, trozos[k]),
+        fecha: (new Date()).toISOString(),
+      };
+      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
+    }
   }
 
   async function responderFoto(pedido) {
@@ -687,6 +739,7 @@
     salaActiva() { const s = leerSala(); return s ? s.codigo : null; },
     /* Version presentable del codigo de sala (TEAM-...). El valor interno no
        cambia: esto es solo para pintar y para compartir. */
+    pedirCatalogo: pedirCatalogo,
     salaParaMostrar() { const s = leerSala(); return s ? codigoParaMostrar(s.codigo) : null; },
     paraMostrar: codigoParaMostrar,
     onEstado(fn) { listenersEstado.push(fn); },

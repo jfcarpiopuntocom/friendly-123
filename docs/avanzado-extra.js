@@ -493,6 +493,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
             <button id="oc-sync-compartir" class="ir" style="background:#25D366;border-color:#1da851;">${window.t("sync.panel.share")}</button>
             <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
+            <button id="oc-sync-mergear" class="ir" style="background:#2C3E50;border-color:#0F1923;color:#FFFFFF;">Merge inventory with my team</button>
             <button id="oc-sync-rotar" style="border-color:#E86040;color:#E86040;">Change the code</button>
         <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
           </div>
@@ -624,6 +625,106 @@
           .replace("{code}", codigo + (_h ? " · " + _h : ""));
         window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
       });
+      /* PASO 5 — JUNTAR LOS CATALOGOS, mostrando el cambio ANTES de aplicarlo.
+         Este es el boton que le faltaba a JFC: sus dos dispositivos estaban
+         conectados y hablando, pero no habia forma de decirles "y ahora junten
+         sus perchas". Nada se aplica solo: se pide, se junta lo que llega, se
+         ensena el conteo exacto, y recien ahi decide una persona. */
+      (function () {
+        const btnM = document.getElementById("oc-sync-mergear");
+        if (!btnM) return;
+        let piezas = null, temporizador = null;
+
+        function cerrarModal() { const m = document.getElementById("oc-merge-modal"); if (m) m.remove(); }
+
+        function pintarPrevio(cat, rolRemoto) {
+          const dif = window.OCSync.compararCatalogo(cat, rolRemoto);
+          cerrarModal();
+          const m = document.createElement("div");
+          m.id = "oc-merge-modal";
+          m.style.cssText = "position:fixed;inset:0;z-index:10006;background:#0F1923EE;display:flex;align-items:center;justify-content:center;padding:20px;";
+          if (!dif) {
+            m.innerHTML = '<div style="background:#FFF;border-radius:14px;padding:22px;max-width:420px;"><p style="font-size:16px;color:#0F1923;margin:0 0 14px;">The catalog received is not readable. Nothing was changed.</p><button type="button" id="oc-merge-x" style="width:100%;min-height:48px;border:none;border-radius:10px;background:#2C3E50;color:#FFF;font-size:16px;font-weight:700;cursor:pointer;">Close</button></div>';
+          } else {
+            const nada = !dif.nuevasPerchas.length && !dif.nuevosProductos.length && !dif.conflictos.length;
+            const nota = "New products arrive with <strong>stock 0</strong> on purpose. Stock is a physical fact of each shelf: copying it from another device would invent units that are not here. Count them yourself.";
+            m.innerHTML =
+              '<div style="background:#FFF;border-radius:14px;padding:24px 22px;max-width:470px;width:100%;text-align:left;max-height:86vh;overflow-y:auto;">' +
+              '<h3 style="font-size:20px;font-weight:800;margin:0 0 12px;color:#0F1923;">Merge inventory</h3>' +
+              (nada
+                ? '<p style="font-size:16px;line-height:1.5;color:#2C3E50;margin:0 0 16px;">Nothing to merge: this device already has the same products and shelves as your team.</p>'
+                : '<p style="font-size:15px;line-height:1.55;color:#2C3E50;margin:0 0 14px;">This is exactly what will change on THIS device:</p>' +
+                  '<ul style="font-size:16px;line-height:1.7;color:#0F1923;margin:0 0 14px;padding-left:20px;">' +
+                  (dif.nuevasPerchas.length ? "<li><strong>+ " + dif.nuevasPerchas.length + "</strong> shelf(s): " + dif.nuevasPerchas.map(function (x) { return escHtml(x.nombre); }).join(", ") + "</li>" : "") +
+                  (dif.nuevosProductos.length ? "<li><strong>+ " + dif.nuevosProductos.length + "</strong> product(s), each arriving with stock 0</li>" : "") +
+                  (dif.conflictos.length ? "<li><strong>" + dif.conflictos.length + "</strong> item(s) differ in name or price" + (dif.ganaElOtro ? " — theirs wins (higher role)" : " — yours is kept") + "</li>" : "") +
+                  '<li style="color:#1a6e3c;"><strong>Nothing will be deleted.</strong>' + (dif.soloMios ? " Your " + dif.soloMios + " own product(s) stay." : "") + "</li>" +
+                  "</ul>" +
+                  '<p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:0 0 16px;padding:10px 12px;background:#F8F9FB;border-left:4px solid #2C3E50;border-radius:0 8px 8px 0;">' + nota + "</p>") +
+              '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+              (nada ? "" : '<button type="button" id="oc-merge-ok" style="flex:1;min-width:150px;min-height:48px;border:none;border-radius:10px;background:#E86040;color:#FFF;font-size:16px;font-weight:700;cursor:pointer;">Merge now</button>') +
+              '<button type="button" id="oc-merge-x" style="flex:1;min-width:110px;min-height:48px;border:2px solid #2C3E50;border-radius:10px;background:transparent;color:#0F1923;font-size:16px;font-weight:700;cursor:pointer;">' + (nada ? "Close" : "Cancel") + "</button>" +
+              '</div><p id="oc-merge-msg" style="font-size:14px;font-weight:700;margin:12px 0 0;"></p></div>';
+          }
+          document.body.appendChild(m);
+          document.getElementById("oc-merge-x").addEventListener("click", cerrarModal);
+          const ok = document.getElementById("oc-merge-ok");
+          if (ok) ok.addEventListener("click", function () {
+            ok.disabled = true;
+            const r = window.OCSync.aplicarCatalogo(cat, rolRemoto);
+            const msg = document.getElementById("oc-merge-msg");
+            if (!r.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error; ok.disabled = false; return; }
+            msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
+            /* El recibo del paso 3: si la huella quedo igual a la del que
+               mando, el merge esta verificado y se puede decir. */
+            const igual = r.huella && cat.huella && r.huella.corta === cat.huella;
+            msg.textContent = "Merged: +" + r.agregadasU + " shelf(s), +" + r.agregadosP + " product(s)."
+              + (igual ? " Fingerprints now match (" + r.huella.corta + "): verified." : " This device is now " + (r.huella ? r.huella.corta : "?") + ".");
+            setTimeout(function () { location.reload(); }, 2600);
+          });
+        }
+
+        btnM.addEventListener("click", function () {
+          const msg = document.getElementById("oc-sync-msg");
+          if (!window.OCSyncControl.pedirCatalogo || !window.OCSync || !window.OCSync.compararCatalogo) {
+            msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "This device cannot merge catalogs yet."; return;
+          }
+          piezas = { ubicaciones: [], productos: [], rol: "", huella: "", esperados: 0, vistos: 0 };
+          msg.style.color = "var(--ink-soft)";
+          msg.textContent = "Asking your team for their inventory…";
+          window.OCSyncControl.pedirCatalogo();
+          clearTimeout(temporizador);
+          temporizador = setTimeout(function () {
+            if (!piezas || !piezas.vistos) {
+              msg.style.color = "var(--rojo,#a3392a)";
+              msg.textContent = "No other device answered. Open the app on the other device, on the same team code, and try again.";
+            }
+          }, 9000);
+        });
+
+        window.addEventListener("oc-catalogo-trozo", function (ev) {
+          try {
+            if (!piezas) return;
+            const pl = ev.detail && ev.detail.payload; if (!pl) return;
+            piezas.rol = pl.rol || piezas.rol;
+            piezas.huella = pl.huella || piezas.huella;
+            piezas.esperados = pl.deTotal || piezas.esperados;
+            if (Array.isArray(pl.filas)) {
+              if (pl.tabla === "ubicaciones") piezas.ubicaciones = piezas.ubicaciones.concat(pl.filas);
+              if (pl.tabla === "productos") piezas.productos = piezas.productos.concat(pl.filas);
+            }
+            piezas.vistos++;
+            if (piezas.esperados && piezas.vistos >= piezas.esperados) {
+              clearTimeout(temporizador);
+              const cat = { ubicaciones: piezas.ubicaciones, productos: piezas.productos, huella: piezas.huella };
+              const rol = piezas.rol; piezas = null;
+              document.getElementById("oc-sync-msg").textContent = "";
+              pintarPrevio(cat, rol);
+            }
+          } catch (_) {}
+        });
+      })();
+
       const btnResync = document.getElementById("oc-sync-resincronizar");
       if (btnResync) btnResync.addEventListener("click", () => {
         const msg = document.getElementById("oc-sync-msg");
