@@ -152,3 +152,51 @@ Se cambio `index.html` sin bumpear el service worker. Eso deja a los usuarios
 que YA tienen la app instalada con el shell viejo — que es exactamente el bug
 que rompio Avanzado en el iPhone de JFC en amigable-123. Corregido (v65 -> v66)
 y convertido en un chequeo automatico: `check-sw.sh`.
+
+## 2026-08-20 — cierre de sesion: 22 microbugs (11+13), guards, v1.0 en las 3 apps
+
+JFC: "halla hasta 22 microbugs y microdefectos en las 3 apps y /make-plan para
+mas guards, autocuraciones, verificaciones y ve que los sync de equipo/
+dispositivo funcionen!!!!!!!!!" → luego "ultima pasada de 10 bugs en todas las
+apps, inconsistencias de idiomas, de keys, de traducciones de code, de
+traducir code innecesariamente tambien, etc / v1.0 EN SERIO, en produccion,
+las 3, be in excellence!" → "finish that! and lets call it a day! v1.0 for
+all 3 apps!"
+
+Hecho: `PLAN-13-BUGS-Y-GUARDS-2026-08-20.md` (ronda 2, sumada a los 8 bugs +
+7 mecanismos de la ronda 1 del mismo dia): 13 microbugs reales verificados
+(5 AMIGABLE, 3 friendly-123, 5 Consultorio-123), todos corregidos y
+pusheados. Hallazgo mas grave: `vista-perchas.js` en Consultorio-123 decia en
+su propio comentario "ya no carga" pero seguia activo en index.html y en el
+SHELL del SW — codigo muerto ejecutandose sobre un DOM sin ruta de nav.
+
+Guards nuevos instalados en las 3 apps: G1 (autocuracion — aislamiento.js
+verifica que su propio parche de `indexedDB.open` siga activo, mismo criterio
+que el canario de localStorage), G2 (check-sw.sh ahora falla si aparece una
+clave de otra app hermana — este gate, al correr por primera vez, encontro
+que el fix de bases IndexedDB compartidas hecho hoy en Consultorio-123
+**nunca se habia portado a friendly-123**, que esta en produccion; se porto
+en el momento, mismo patron de migracion segura), G4 (check-sw.sh falla si
+un boton de nav/tab no tiene su seccion/panel correspondiente).
+
+Sync de equipo/dispositivo: verificado funcionando de punta a punta en
+Consultorio-123 (el mas reorganizado hoy) — relay cifrado, codigo+PIN,
+`OCSync.clientesActivos()`, `AMG.Cartera.saldoDeCliente()`, todo cableado
+correcto.
+
+Ultima pasada (idioma/i18n): 3 agentes en paralelo fallaron por limite
+semanal de la cuenta (no error de codigo). Se completo a mano con grep/node
+directo: paridad EN/ES 100% en friendly-123 (497/497 claves) y Consultorio-123
+(485/485) — el bug historico de 68 claves ES-sin-EN ya no existe (resuelto en
+ronda anterior). Sin bugs nuevos reales en esta pasada.
+
+Feedback de JFC, guardado en memoria: prohibido usar subagentes (Agent tool)
+u otro trabajo caro en tokens salvo que garanticen calidad muy superior — es
+lo opuesto a la filosofia de delegar a OmniRoute. Ver
+`feedback_no_subagentes_costosos_usar_omniroute.md` en la memoria del
+proyecto.
+
+**Estado final: las 3 apps en `main`/`master`, sincronizadas con `origin`,
+`check-sw.sh` verde en las 3 (SHELL completo, sin claves cruzadas, sin nav
+huerfano), sin commits pendientes. JFC declaro v1.0 para AMIGABLE,
+friendly-123 y Consultorio-123.**

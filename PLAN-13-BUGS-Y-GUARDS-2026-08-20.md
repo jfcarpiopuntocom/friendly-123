@@ -2,6 +2,15 @@
 
 **Para:** JFC · **Alcance:** AMIGABLE, friendly-123, Consultorio-123
 
+**ESTADO: CERRADO 2026-08-20.** Los 13 bugs corregidos y pusheados. G1/G2/G4
+instalados en las 3 apps (G3 y G5 quedaron implementados dentro de A1/A2). G2,
+al correr por primera vez, encontró que el fix de bases IndexedDB compartidas
+nunca se había portado a friendly-123 (producción) — se portó en el momento,
+mismo patrón de migración segura. Sync de equipo verificado funcionando.
+Pasada final de i18n (497/497 y 485/485 claves EN/ES) sin hallazgos nuevos.
+JFC declaró v1.0 para las 3 apps el mismo día. Detalle completo en
+`PROMPTS-Y-BITACORA.md`, entrada "2026-08-20 — cierre de sesion".
+
 Investigación hecha por 3 agentes en paralelo (uno por app), con grep/git/node —
 sin leer ningún `index.html` completo (pasan de 1MB los 3). Cada hallazgo tiene
 el comando que lo prueba.
