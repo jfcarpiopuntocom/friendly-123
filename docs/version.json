@@ -3,5 +3,6 @@
   "fecha": "2026-07-18",
   "changelog": "friendly-123 turns the chore of running a store into something alive: your products speak in colors that light up on their own when action is needed. Works offline, your data stays yours, no subscriptions, no ads. Your store, in color.",
   "requerida": false,
-  "shell": "f123-shell-v77"
+  "shell": "f123-shell-v78",
+  "apagar": []
 }

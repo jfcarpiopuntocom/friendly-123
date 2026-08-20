@@ -2184,6 +2184,9 @@ Keep it somewhere safe.`);
     function qrLib() { return window.qrcode || null; }
 
     async function mostrarQRCambios() {
+      // R4 (JFC 2026-08-20): kill-switch remoto -- si version.json trae
+      // "syncPorQR" en apagar[], se corta aqui sin tocar camara ni datos.
+      if (window.OCApagado && window.OCApagado("syncPorQR")) { msg("oc-syncdev-msg", "Sync por QR temporalmente desactivado. Usa Copiar cambios mientras tanto.", "var(--rojo)"); return; }
       const zona = $("oc-syncdev-qr-zona");
       if (zona.style.display !== "none") { zona.style.display = "none"; zona.innerHTML = ""; return; }
       if (!qrLib()) { msg("oc-syncdev-msg", "The local QR generator did not load (qrcode-local.js).", "var(--rojo)"); return; }
@@ -2224,6 +2227,7 @@ Keep it somewhere safe.`);
     document.addEventListener("visibilitychange", () => { if (document.hidden) detenerEscaneo(); });
 
     async function escanearQRCambios() {
+      if (window.OCApagado && window.OCApagado("syncPorQR")) { msg("oc-syncdev-msg", "Sync por QR temporalmente desactivado. Usa Copiar cambios mientras tanto.", "var(--rojo)"); return; }
       if (!("BarcodeDetector" in window)) {
         msg("oc-syncdev-msg", "This browser cannot scan QR codes (common on iPhone). Use \"Copy changes\" and paste on the other device — same security.", "var(--rojo)");
         return;

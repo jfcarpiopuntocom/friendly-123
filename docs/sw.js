@@ -14,7 +14,7 @@
    PARA SIEMPRE. Hay un chequeo: bash check-sw.sh.
    El historial de que trajo cada version esta en git, no aqui: la lista de
    comentarios pegados a esta linea crecio hasta ser ilegible. */
-const CACHE = "f123-shell-v77"; // bumped 2026-08-20: fix ReferenceError en crearProductoNuevo (el() no existia), scope de campos duplicados np-*, precache con cache:reload
+const CACHE = "f123-shell-v78"; // bumped 2026-08-20: R4 kill-switch remoto (feature-gate.js) via version.json apagar[]
 const SHELL = [
   "./",
   "./index.html",
@@ -46,7 +46,7 @@ const SHELL = [
   "./simon-config.js", "./percha-reposicion.js", "./micelio-vivo.js", "./micelio-ui.js", "./tablero.html", "./tablero-avanzado.js", "./borradores.js", "./vista-perchas.js",
   "./welcome-ui.js",
   "./tutorial-ui.js",
-  "./event-bus.js", "./logger.js", "./telemetry.js", "./identity-context.js", "./audit-store.js", "./sync-queue.js", "./ui-actions.js", "./salud-app.js", "./hechos.js", "./reconciliacion.js", "./cartera.js", "./plan-pagos.js", "./plan-pagos-ui.js", "./caja-chica.js", "./respaldo-empleado.js", "./edutips.js", "./manifest.json",
+  "./event-bus.js", "./logger.js", "./telemetry.js", "./identity-context.js", "./feature-gate.js", "./audit-store.js", "./sync-queue.js", "./ui-actions.js", "./salud-app.js", "./hechos.js", "./reconciliacion.js", "./cartera.js", "./plan-pagos.js", "./plan-pagos-ui.js", "./caja-chica.js", "./respaldo-empleado.js", "./edutips.js", "./manifest.json",
 ];
 
 // Solo se cachean respuestas de estos orígenes — el propio y las fuentes.
