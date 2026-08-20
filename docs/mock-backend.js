@@ -1387,7 +1387,7 @@
   // Idempotente por opId — un opId repetido (reintento de red, reconexion) es
   // un no-op seguro. Solo DELTAS, nunca valores absolutos — dos ventas
   // simultaneas de las mismas ultimas unidades se SUMAN, nunca se pisan.
-  const OPS_APLICADAS_KEY = "amigable_sync_ops_aplicadas";
+  const OPS_APLICADAS_KEY = "f123_sync_ops_aplicadas";
   let _opsAplicadas = null;
   function _cargarOpsAplicadas() {
     if (_opsAplicadas) return _opsAplicadas;
