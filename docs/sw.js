@@ -14,7 +14,7 @@
    PARA SIEMPRE. Hay un chequeo: bash check-sw.sh.
    El historial de que trajo cada version esta en git, no aqui: la lista de
    comentarios pegados a esta linea crecio hasta ser ilegible. */
-const CACHE = "f123-shell-v81"; // bumped 2026-08-20: R5 verificacion de integridad de assets cacheados (muestreo por tamano)
+const CACHE = "f123-shell-v82"; // bumped 2026-08-20: 33 tips de aprovechamiento (portados de AMIGABLE, nunca habian llegado aqui)
 const SHELL = [
   "./",
   "./index.html",
