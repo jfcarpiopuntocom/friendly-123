@@ -91,6 +91,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         instanceId: trim(datos.instanceId, 100),
         licenseCode: trim(datos.licenseCode, 40),
         email: trim(datos.email, 160),
+        whatsapp: trim(datos.whatsapp, 20),
         nombre: trim(datos.nombre, 120),
         apellido: trim(datos.apellido, 120),
         cedula: trim(datos.cedula, 40),
@@ -708,6 +709,19 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       +     '<label class="op"><input type="radio" name="oc-act-datos" value="conservar"><strong>' + window.t("auth.act.keepTitle") + '</strong><span>' + window.t("auth.act.keepDesc") + '</span></label>'
       +     '<label class="lbl" for="oc-act-email">' + window.t("auth.act.emailLabel") + '</label>'
       +     '<input id="oc-act-email" type="email" inputmode="email" autocomplete="email" placeholder="' + window.t("auth.act.emailPlaceholder") + '">'
+      /* TELEFONO OBLIGATORIO (JFC 2026-08-19, regla para TODAS sus apps).
+         Antes el telefono se pedia despues, en Avanzado, y era opcional: JFC
+         se quedaba sin forma de contactar a un dueno con problemas. Un correo
+         se rebota, se va a spam o no se lee en semanas; un WhatsApp llega.
+         El telefono es MAS importante que la cedula. Se pide aqui, en la
+         activacion, y sin el no se activa.
+         Se valida a mano y NO se depende de intl-tel-input: esa libreria viene
+         de un CDN, y un campo obligatorio de la activacion no puede quedar
+         atado a que un CDN responda. Si carga, mejora el campo; si no, el
+         campo funciona igual. */
+      +     '<label class="lbl" for="oc-act-tel">' + window.t("auth.act.phoneLabel") + '</label>'
+      +     '<input id="oc-act-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="' + window.t("auth.act.phonePlaceholder") + '">'
+      +     '<p style="font-size:13px;line-height:1.45;margin:4px 0 0;color:var(--ink-soft,#5d5340);">' + window.t("auth.act.phoneHint") + '</p>'
       +     '<button id="oc-act-confirmar" class="primario">' + window.t("auth.act.confirmBtn") + '</button>'
       +     '<button id="oc-act-cancelar" class="secundario">' + window.t("auth.act.cancelBtn") + '</button>'
       +     '<p id="oc-act-msg" class="msg"></p>'
@@ -731,6 +745,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     wrap.querySelector("#oc-act-confirmar").addEventListener("click", async function () {
       var email = (emailIn.value || "").trim();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setMsg(window.t("auth.act.invalidEmail")); emailIn.focus(); return; }
+      var telIn = wrap.querySelector("#oc-act-tel");
+      var telCrudo = (telIn && telIn.value || "").trim();
+      var telDigitos = telCrudo.replace(/\D/g, "");
+      /* 7 digitos es el minimo de un numero local corto en cualquier pais; 15
+         es el maximo del estandar E.164. Entre esos dos se acepta, con o sin
+         codigo de pais: exigir un formato exacto rebota numeros legitimos y el
+         objetivo es poder escribirle a la persona, no auditar su numero. */
+      if (telDigitos.length < 7 || telDigitos.length > 15) {
+        setMsg(window.t("auth.act.invalidPhone"));
+        if (telIn) telIn.focus();
+        return;
+      }
       var vaciar = (wrap.querySelector('input[name="oc-act-datos"]:checked') || {}).value !== "conservar";
       var btn = wrap.querySelector("#oc-act-confirmar");
       btn.disabled = true; setMsg(window.t("auth.act.activating"), true);
@@ -750,7 +776,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try { pinGuardado = await window.OCSecure.fijarOwnerPin("789"); } catch (_) {}
       if (!pinGuardado) {
         btn.disabled = false;
-        setMsg("No se pudo activar (memoria del dispositivo llena). Libera espacio y toca \"Activar mi negocio\" de nuevo — nada quedó a medias.");
+        setMsg("Could not activate (device storage is full). Free up space and tap \"Activate my business\" again — nothing was left half done.");
         return;
       }
       try { window.OCSecure.actualizarCorreo(email); } catch (_) {}
@@ -773,7 +799,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          guardan en campos separados a proposito, para poder rotar la sala en
          el futuro sin tocar la licencia. */
       var licenseCode = syncCode;
-      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, activatedAt: Date.now(), syncCode: syncCode, licenseCode: licenseCode })); } catch (_) {}
+      try { window.OCSecure.actualizarWhatsapp && window.OCSecure.actualizarWhatsapp(telDigitos); } catch (_) {}
+      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, whatsapp: telDigitos, activatedAt: Date.now(), syncCode: syncCode, licenseCode: licenseCode })); } catch (_) {}
       // NO marcar f123_bienvenida_v3 aqui — el wizard debe mostrarse de verdad
       // tras el primer login post-activacion (ver welcome-ui.js). Bug anterior:
       // se marcaba "vista" en este punto sin que el usuario la viera nunca.
@@ -785,7 +812,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try { if (window.OCStorageDurable) window.OCStorageDurable.verificarYSolicitar(); } catch (_) {}
       // Ping: record new activation in license panel
       var ow2 = {}; try { ow2 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
-      enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, activatedAt: ow2.activatedAt, accion: "register" });
+      enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, whatsapp: telDigitos, activatedAt: ow2.activatedAt, accion: "register" });
       var seguro = email.replace(/[&<>"']/g, "");
       wrap.querySelector("#oc-act-exito-txt").innerHTML =
         "Your owner PIN is <strong>789</strong> — change it anytime in Advanced &rarr; Keys. " +
@@ -909,7 +936,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
                esta rama no vuelve a correr. */
             try { setTimeout(function () { mostrarAvisoLicencia(ow3.licenseCode, true); }, 900); } catch (_) {}
           }
-          if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", accion: "login" });
+          if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", whatsapp: ow3.whatsapp || "", accion: "login" });
         } catch (_) {}
             window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol, demo: esDemo } }));
     // El rol contador aterriza directo en su vista propia (creada al vuelo
