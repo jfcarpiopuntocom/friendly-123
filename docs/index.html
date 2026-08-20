@@ -3846,24 +3846,35 @@ function mostrarFormNuevoProducto(codigoEscaneado){
 }
 
 async function crearProductoNuevo(codigoEscaneado){
-  const val = (id) => document.getElementById(id).value.trim();
-  const perecible = document.getElementById("np-perecible").checked;
+  // FIX (JFC 2026-08-20, caza microbugs): dos bugs reales, homologado del
+  // mismo fix ya aplicado en AMIGABLE y consultorio-123.
+  // 1) el("np-chip") llamaba a una funcion que NO existe en ningun archivo
+  //    -- tiraba ReferenceError y crearProductoNuevo fallaba SIEMPRE.
+  // 2) np-nombre/np-precio/etc. estan DUPLICADOS en el HTML (una copia por
+  //    contenedor: fichaResultado y fichaModalBody). document.getElementById
+  //    sin scope siempre agarra la PRIMERA copia -- si el usuario llenaba el
+  //    modal, el guardado podia leer campos viejos/vacios del otro
+  //    contenedor sin avisar.
+  const scope = document.getElementById(fichaTargetActual) || document;
+  const val = (id) => { const e = scope.querySelector("#" + id); return e ? e.value.trim() : ""; };
+  const el = (id) => scope.querySelector("#" + id);
+  const perecible = el("np-perecible").checked;
   const body = {
     nombre: val("np-nombre"), categoria: val("np-categoria"), barcode: codigoEscaneado || val("np-barcode"),
     chip: el("np-chip") ? val("np-chip").slice(0, 12) : "",
     precio: val("np-precio"), costo: val("np-costo"), stockInicial: val("np-stock"), proveedor: val("np-proveedor"),
-    ubicacionId: document.getElementById("np-ubicacion") ? val("np-ubicacion") : (ubicacionActual === "todas" ? "todas" : ubicacionActual),
-    tipoProveedor: document.getElementById("np-tipo-proveedor") ? document.getElementById("np-tipo-proveedor").value : "compra",
-    comisionProveedorPct: document.getElementById("np-tipo-proveedor") && document.getElementById("np-tipo-proveedor").value === "consignacion" ? Number(val("np-comision-pct")) || 0 : 0,
+    ubicacionId: el("np-ubicacion") ? val("np-ubicacion") : (ubicacionActual === "todas" ? "todas" : ubicacionActual),
+    tipoProveedor: el("np-tipo-proveedor") ? el("np-tipo-proveedor").value : "compra",
+    comisionProveedorPct: el("np-tipo-proveedor") && el("np-tipo-proveedor").value === "consignacion" ? Number(val("np-comision-pct")) || 0 : 0,
     perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
-    metodoCosteo: perecible ? document.getElementById("np-metodo").value : "FIFO",
+    metodoCosteo: perecible ? el("np-metodo").value : "FIFO",
   };
-  const msg = document.getElementById("np-msg");
+  const msg = el("np-msg");
   if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
   if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.codeRequired"); return; }
   if (Number(body.precio) === 0){ if (!(await ocConfirm(t("form.zeroPriceConfirm")))) return; }
   // Foto por producto en alta (homologado de AMIGABLE, 2026-07-22)
-  const fotoNp = document.getElementById("np-foto");
+  const fotoNp = el("np-foto");
   if (fotoNp) { const fotoNueva = await leerFotoRedimensionada(fotoNp); if (fotoNueva) body.foto = fotoNueva; }
   let res, data;
   try {

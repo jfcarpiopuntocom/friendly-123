@@ -5,7 +5,7 @@
  * employeeId, employeeNombre, rol, appVersion) leyendo las fuentes REALES
  * de identidad que la app ya expone — verificadas en el código, no adivinadas:
  *
- *   - localStorage["amigable_owned"]  → { instanceId, licenseCode, licenseEstado }
+ *   - localStorage["f123_owned"]  → { instanceId, licenseCode, licenseEstado }
  *     (fuente: mock-backend.js y avanzado-extra.js la leen así)
  *   - window.OCCurrentUser            → { id, nombre } del encargado logueado
  *     con su PIN (fuente: mock-backend.js mov() la usa como usuarioId)
