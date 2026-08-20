@@ -288,3 +288,75 @@
     else window.addEventListener("load", function () { setTimeout(comprobar, 2500); });
   } catch (_) { /* el autodiagnostico es un extra: jamas puede tumbar la app */ }
 })();
+
+/* ============================================================================
+   R5 — INTEGRIDAD DE ASSETS CACHEADOS (JFC 2026-08-20, complemento de A4)
+
+   QUE ATRAPA: A4 ya compara que shell esta sirviendo el service worker
+   contra version.json. Le falta un nivel: un archivo INDIVIDUAL puede
+   quedar truncado o corrupto dentro de CacheStorage (ej. la conexion se
+   corto a mitad de un cache.add() durante la instalacion) sin que el
+   numero de CACHE cambie ni A4 detecte nada -- el shell "coincide", pero
+   uno de sus archivos esta roto.
+
+   COMO SE DETECTA, barato: cada carga compara el Content-Length de UNA
+   muestra chica de archivos cacheados (no todos: eso pesaria en cada
+   carga) contra el tamano real que reporta una peticion de red fresca
+   (cache:"reload", igual que hace el propio precache). Si difieren, se
+   borra esa entrada de la cache y se vuelve a pedir con reload -- el
+   proximo load ya sirve el archivo integro. Sin aviso al usuario: esto es
+   autocuracion silenciosa, no un error que necesite su atencion.
+
+   MUESTREO, no barrido completo: 3 archivos al azar por carga. Con uso
+   normal, todo el shell queda cubierto en pocas cargas sin que ninguna
+   carga individual pague el costo de verificar decenas de archivos. */
+(function verificarIntegridadCacheada() {
+  "use strict";
+  try {
+    if (!("caches" in window) || !("serviceWorker" in navigator)) return;
+
+    function candidatos() {
+      // Mismo SHELL logico que sw.js, pero solo scripts .js (los .html/.png
+      // cambian de forma que no vale la pena verificar por tamano: png tiene
+      // su propio checksum de formato, html rara vez se trunca sin que A4 ya
+      // lo note por el numero de shell).
+      var scripts = Array.prototype.slice.call(document.querySelectorAll('script[src$=".js"]'));
+      return scripts.map(function (s) { try { return new URL(s.src, location.href).pathname.split("/").pop(); } catch (_) { return null; } }).filter(Boolean);
+    }
+
+    function elegirMuestra(lista, n) {
+      var copia = lista.slice(), out = [];
+      while (copia.length && out.length < n) {
+        var i = Math.floor(Math.random() * copia.length);
+        out.push(copia.splice(i, 1)[0]);
+      }
+      return out;
+    }
+
+    async function verificarUno(nombre) {
+      try {
+        var cache = await caches.open(/* misma CACHE activa */ (await caches.keys()).filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
+        var cacheada = await cache.match("./" + nombre);
+        if (!cacheada) return; // no esta cacheado todavia, nada que verificar
+        var tamCacheado = Number(cacheada.headers.get("content-length")) || (await cacheada.clone().blob()).size;
+        var fresca = await fetch("./" + nombre, { cache: "reload" });
+        if (!fresca.ok) return; // sin red util ahora mismo: no se opina
+        var tamFresco = Number(fresca.headers.get("content-length")) || (await fresca.clone().blob()).size;
+        if (tamCacheado > 0 && tamFresco > 0 && tamCacheado !== tamFresco) {
+          try { console.warn("[integridad] " + nombre + " estaba truncado en cache (" + tamCacheado + " vs " + tamFresco + " bytes) -- reparado."); } catch (_) {}
+          await cache.put("./" + nombre, fresca.clone());
+        }
+      } catch (_) { /* verificacion best-effort: cualquier fallo se ignora */ }
+    }
+
+    async function correr() {
+      var lista = candidatos();
+      if (!lista.length) return;
+      var muestra = elegirMuestra(lista, 3);
+      for (var i = 0; i < muestra.length; i++) await verificarUno(muestra[i]);
+    }
+
+    if (document.readyState === "complete") setTimeout(correr, 4000);
+    else window.addEventListener("load", function () { setTimeout(correr, 4000); });
+  } catch (_) { /* la verificacion de integridad es un extra: jamas puede tumbar la app */ }
+})();

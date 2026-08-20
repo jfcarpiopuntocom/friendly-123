@@ -14,7 +14,7 @@
    PARA SIEMPRE. Hay un chequeo: bash check-sw.sh.
    El historial de que trajo cada version esta en git, no aqui: la lista de
    comentarios pegados a esta linea crecio hasta ser ilegible. */
-const CACHE = "f123-shell-v80"; // bumped 2026-08-20: R2 outbox en IndexedDB (sync-outbox.js) para la cola cifrada pendiente
+const CACHE = "f123-shell-v81"; // bumped 2026-08-20: R5 verificacion de integridad de assets cacheados (muestreo por tamano)
 const SHELL = [
   "./",
   "./index.html",
