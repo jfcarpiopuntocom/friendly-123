@@ -14,7 +14,7 @@
    PARA SIEMPRE. Hay un chequeo: bash check-sw.sh.
    El historial de que trajo cada version esta en git, no aqui: la lista de
    comentarios pegados a esta linea crecio hasta ser ilegible. */
-const CACHE = "f123-shell-v78"; // bumped 2026-08-20: R4 kill-switch remoto (feature-gate.js) via version.json apagar[]
+const CACHE = "f123-shell-v79"; // bumped 2026-08-20: R3 bulkhead -- panel de sync entre dispositivos y traslados aislados en try/catch propio
 const SHELL = [
   "./",
   "./index.html",

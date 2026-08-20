@@ -1255,15 +1255,17 @@ Keep it somewhere safe.`);
 
     // --- Transferencias (brote 2) — panel operativo, fuera del candado
     // contable: el dueño necesita aprobar/rechazar rápido, no es info financiera.
-    const transfPanel = document.createElement("div");
-    transfPanel.className = "tag-card";
-    transfPanel.style.cssText = "text-align:left;margin-top:22px;";
-    transfPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Transfers between locations</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Stock transfer requests between your locations.</p>
-      <div id="oc-transf-lista"></div>`;
-    vista.appendChild(transfPanel);
-    renderTransferencias();
+    try {
+      const transfPanel = document.createElement("div");
+      transfPanel.className = "tag-card";
+      transfPanel.style.cssText = "text-align:left;margin-top:22px;";
+      transfPanel.innerHTML = `
+        <h3 class="seccion" style="margin-top:0;">Transfers between locations</h3>
+        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Stock transfer requests between your locations.</p>
+        <div id="oc-transf-lista"></div>`;
+      vista.appendChild(transfPanel);
+      renderTransferencias();
+    } catch (e) { console.error("Panel de traslados no cargo (aislado, no rompe Avanzado):", e); }
 
     // --- Sync remoto (opcional, JFC 2026-07-04) — LOCAL-FIRST por diseño:
     // sin URL guardada, el negocio corre 100% local (server.js + db.json o
@@ -1333,12 +1335,17 @@ Keep it somewhere safe.`);
       if (window.OCMicelioUI) window.OCMicelioUI.pintarPanel();
     } catch (e) { console.error("Panel micelio no cargo (aislado, no rompe Avanzado):", e); }
 
-    const syncDevPanel = document.createElement("div");
-    syncDevPanel.id = "oc-syncdev-panel";
-    syncDevPanel.className = "tag-card";
-    syncDevPanel.style.cssText = "text-align:left;margin-top:22px;";
-    vista.appendChild(syncDevPanel);
-    pintarSyncDev();
+    // R3 (JFC 2026-08-20, bulkhead): mismo patron ya usado en antifraude y
+    // micelio -- si este panel falla al montar, el resto de Avanzado sigue
+    // en pie en vez de tumbarse entero.
+    try {
+      const syncDevPanel = document.createElement("div");
+      syncDevPanel.id = "oc-syncdev-panel";
+      syncDevPanel.className = "tag-card";
+      syncDevPanel.style.cssText = "text-align:left;margin-top:22px;";
+      vista.appendChild(syncDevPanel);
+      pintarSyncDev();
+    } catch (e) { console.error("Panel de sync entre dispositivos no cargo (aislado, no rompe Avanzado):", e); }
 
     // === RIEL FLEX (JFC 2026-07-30, importado de su avance en otra sesion,
     // "SOLO el menu de Avanzados en cascada/texto, be surgical") ===========
