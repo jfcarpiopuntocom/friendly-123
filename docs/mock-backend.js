@@ -1475,7 +1475,127 @@
     } catch (_) { return null; }
   }
 
+  /* ==========================================================================
+     PASOS 4 y 5 — MERGE DE CATALOGO ENTRE DISPOSITIVOS DEL EQUIPO
+     (JFC 2026-08-19)
+
+     POR QUE HACIA FALTA: aplicarOpRemota() solo sabia aplicar deltas de stock
+     sobre productos que YA existian en los dos lados. El catalogo —productos,
+     perchas— nunca viajaba. Su propio mensaje de error lo decia ("sync the
+     catalog first") y ese paso no existia. Por eso la PC de JFC quedo con
+     "Rack1" y su celular con "001", conectados y sin juntarse nunca.
+
+     LAS DOS REGLAS DURAS, y no se negocian:
+
+     1. EL MERGE SUMA, NUNCA BORRA. Lo que existe solo de un lado se conserva.
+        Perder inventario por unirse a un equipo seria peor que no sincronizar
+        nunca. Por eso no hay ninguna rama que haga splice/delete.
+
+     2. NADA SE APLICA SIN MOSTRARLO ANTES. compararCatalogo() calcula el
+        cambio y la UI lo enseña; aplicarCatalogo() solo corre si una persona
+        dijo que si. Sobre datos de dinero no se adivina.
+
+     JERARQUIA para los choques (mismo id, datos distintos): dueño > admin >
+     encargado. Si el otro tiene un rol MAS ALTO, gana el suyo. Si es igual o
+     mas bajo, se conserva lo propio y el choque se REPORTA para que una
+     persona lo mire. El stock NUNCA se pisa por jerarquia: es un hecho fisico
+     de cada percha, no una opinion.
+     ========================================================================== */
+  const _RANGO = { dueno: 3, admin: 2, empleado: 1, contador: 1 };
+  function _rango(rol) { return _RANGO[String(rol || "").toLowerCase()] || 0; }
+
+  function compararCatalogo(remoto, rolRemoto) {
+      /* BUG DE MI PROPIA PRIMERA VERSION, encontrado al probarlo (2026-08-19):
+       era `_rango(rolRemoto) > _rango(_rolLocal())`, y cuando el rol local no
+       se puede leer (demo, sesion recien abierta, contador) el rango local
+       daba 0 y CUALQUIERA le ganaba. Un encargado le pisaba los precios al
+       dueno. Medido: precio 22 pisado a 999 por un merge de un encargado.
+
+       La regla segura es al reves: solo se pisa cuando se conocen LOS DOS
+       roles y el de enfrente es estrictamente mayor. Ante la duda manda quien
+       tiene el dispositivo en la mano, porque es quien va a vivir con el dato.
+       Igual nada de esto se aplica sin que una persona lo confirme en
+       pantalla; esto solo decide que se le PROPONE. */
+  const _rl = _rango(_rolLocal()), _rr = _rango(rolRemoto);
+  const out = { nuevasPerchas: [], nuevosProductos: [], conflictos: [], soloMios: 0, ganaElOtro: _rr > 0 && _rl > 0 && _rr > _rl };
+    if (!remoto || !Array.isArray(remoto.ubicaciones) || !Array.isArray(remoto.productos)) return null;
+    const misU = new Map(ubicaciones.map((u) => [String(u.id), u]));
+    const misP = new Map(productos.map((p) => [String(p.id), p]));
+
+    remoto.ubicaciones.forEach((u) => {
+      if (!u || !u.id) return;
+      const mia = misU.get(String(u.id));
+      if (!mia) { out.nuevasPerchas.push({ id: u.id, nombre: u.nombre || "" }); return; }
+      if (String(mia.nombre || "") !== String(u.nombre || "")) {
+        out.conflictos.push({ que: "shelf", id: u.id, mio: mia.nombre, suyo: u.nombre });
+      }
+    });
+    remoto.productos.forEach((p) => {
+      if (!p || !p.id) return;
+      const mio = misP.get(String(p.id));
+      if (!mio) { out.nuevosProductos.push({ id: p.id, nombre: p.nombre || "", precio: Number(p.precio) || 0 }); return; }
+      if (Number(mio.precio) !== Number(p.precio) || String(mio.nombre || "") !== String(p.nombre || "")) {
+        out.conflictos.push({ que: "product", id: p.id, mio: { nombre: mio.nombre, precio: mio.precio }, suyo: { nombre: p.nombre, precio: p.precio } });
+      }
+    });
+    const idsRemotos = new Set(remoto.productos.map((x) => String(x && x.id)));
+    out.soloMios = productos.filter((x) => !idsRemotos.has(String(x.id))).length;
+    return out;
+  }
+
+  function _rolLocal() {
+    try { return (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; } catch (_) { return ""; }
+  }
+
+  function aplicarCatalogo(remoto, rolRemoto) {
+    const dif = compararCatalogo(remoto, rolRemoto);
+    if (!dif) return { ok: false, error: "The catalog received is not readable." };
+    const mandaElOtro = dif.ganaElOtro;
+    let agregadasU = 0, agregadosP = 0, actualizados = 0;
+
+    remoto.ubicaciones.forEach((u) => {
+      if (!u || !u.id) return;
+      const mia = ubicaciones.find((x) => String(x.id) === String(u.id));
+      if (!mia) {
+        ubicaciones.push(Object.assign({}, u, { activa: u.activa !== false }));
+        agregadasU++;
+      } else if (mandaElOtro && String(mia.nombre || "") !== String(u.nombre || "") && esTextoCorto(String(u.nombre || ""), 240)) {
+        mia.nombre = u.nombre; actualizados++;
+      }
+    });
+    remoto.productos.forEach((p) => {
+      if (!p || !p.id) return;
+      const mio = productos.find((x) => String(x.id) === String(p.id));
+      if (!mio) {
+        /* El producto llega con stock 0 A PROPOSITO. El stock es un hecho
+           fisico de CADA percha: copiar el del otro dispositivo inventaria
+           unidades que no estan aqui. Entra el articulo; las unidades las
+           cuenta quien las tiene delante. */
+        productos.push(Object.assign({}, p, { stockActual: 0 }));
+        agregadosP++;
+      } else if (mandaElOtro) {
+        if (esTextoCorto(String(p.nombre || ""), 240) && String(mio.nombre) !== String(p.nombre)) { mio.nombre = p.nombre; actualizados++; }
+        if (Number.isFinite(Number(p.precio)) && Number(p.precio) >= 0 && Number(mio.precio) !== Number(p.precio)) { mio.precio = Number(p.precio); actualizados++; }
+      }
+    });
+
+    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, desde: remoto.deviceNombre || "another device" });
+    guardarEstadoLocal();
+    return { ok: true, agregadasU, agregadosP, actualizados, huella: huellaCatalogo() };
+  }
+
   window.OCSync = {
+    /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
+       DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
+    catalogoPropio() {
+      return {
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija })),
+        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad })),
+        huella: huellaCatalogo(),
+      };
+    },
+    compararCatalogo,
+    aplicarCatalogo,
     /* La huella de ESTE dispositivo. La usan el latido del micelio, el panel
        del equipo y el codigo TEAM- al compartirse. */
     huella: huellaCatalogo,
