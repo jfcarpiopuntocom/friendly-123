@@ -2490,13 +2490,19 @@ Keep it somewhere safe.`);
         } catch (_) { /* el heartbeat es informativo: si falla, la rotacion vale igual */ }
 
         msg.style.color = "#00805A";
+        /* BUG (caza 2026-08-19): aqui se mostraba "nuevo" crudo, el codigo
+           interno F123-..., justo despues de construir toda la separacion
+           TEAM-/F123- para que el usuario NUNCA vea el interno como si fuera
+           su codigo de equipo. Se muestra con paraMostrar(), igual que en todo
+           el resto del panel. */
+        var nuevoMostrado = (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(nuevo) : nuevo);
         msg.innerHTML = "New code. Share it with your team one to one:<br><code style=\'font-family:monospace;font-size:17px;letter-spacing:.08em;\'>" +
-          String(nuevo).replace(/[&<>]/g, "") + "</code>";
+          String(nuevoMostrado).replace(/[&<>]/g, "") + "</code>";
         btn.style.display = "none";
       } catch (e) {
         btn.disabled = false;
         msg.style.color = "#B0183E";
-        msg.textContent = (e && e.message) || "No se pudo cambiar el codigo.";
+        msg.textContent = (e && e.message) || "Could not change the code.";
       }
     });
   }
