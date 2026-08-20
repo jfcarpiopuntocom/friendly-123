@@ -350,9 +350,11 @@
   }
 
   // -------------------------------------------------------------------------
-  // IndexedDB: mismo criterio. hechos.js abre "amg_hechos_db", nombre que las
-  // tres apps comparten. Se le antepone el namespace de forma transparente.
+  // IndexedDB: mismo criterio. Cualquier base que se abra aqui (aunque su
+  // nombre sea literal compartido entre apps, ej. el viejo "amg_hechos_db")
+  // recibe el namespace por delante de forma transparente.
   // -------------------------------------------------------------------------
+  var abrirNativoOriginal = null;
   try {
     if (window.indexedDB && typeof window.indexedDB.open === "function") {
       var abrirNativo = window.indexedDB.open.bind(window.indexedDB);
@@ -360,6 +362,7 @@
         var n = (typeof nombre === "string" && nombre.indexOf(PREFIJO) !== 0) ? PREFIJO + nombre : nombre;
         return (version === undefined) ? abrirNativo(n) : abrirNativo(n, version);
       };
+      abrirNativoOriginal = window.indexedDB.open;
       if (typeof window.indexedDB.deleteDatabase === "function") {
         var borrarNativo = window.indexedDB.deleteDatabase.bind(window.indexedDB);
         window.indexedDB.deleteDatabase = function (nombre) {
@@ -370,6 +373,19 @@
     }
   } catch (_) {}
 
+  // AUTOCURACION (JFC 2026-08-20, G1 del plan de guards): mismo criterio que
+  // el canario de localStorage de arriba, pero para IndexedDB. Si algun
+  // script futuro pisa window.indexedDB.open DESPUES de este archivo, el
+  // aislamiento se cae en silencio y las apps hermanas vuelven a compartir
+  // bases de datos. Se avisa FUERTE en vez de callar.
+  var idbInstalado = true;
+  try {
+    idbInstalado = !!(window.indexedDB && window.indexedDB.open !== abrirNativoOriginal);
+  } catch (_) { idbInstalado = false; }
+  if (!idbInstalado && window.indexedDB) {
+    try { console.error("[aislamiento] SIN AISLAMIENTO DE IndexedDB: algo pisó window.indexedDB.open despues de aislamiento.js. Las apps hermanas podrian compartir bases de datos."); } catch (_) {}
+  }
+
   // -------------------------------------------------------------------------
   // API publica minima, por si algun modulo quiere reaccionar a otra pestana.
   // -------------------------------------------------------------------------
@@ -378,6 +394,7 @@
     VERSION: "1.1.0",
     namespace: NS,
     instalado: instalado, // H2 review: false = el shim no tomo, apps hermanas sin aislar
+    idbInstalado: idbInstalado, // autocuracion 2026-08-20: false = IndexedDB sin aislar
     onCambio: function (fn) { if (typeof fn === "function") oyentes.push(fn); },
     epoca: function () { return miEpoca; }
   };

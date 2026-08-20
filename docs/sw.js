@@ -14,7 +14,7 @@
    PARA SIEMPRE. Hay un chequeo: bash check-sw.sh.
    El historial de que trajo cada version esta en git, no aqui: la lista de
    comentarios pegados a esta linea crecio hasta ser ilegible. */
-const CACHE = "f123-shell-v84"; // bumped 2026-08-20: F1/F2 mensajes de Team Sync y "duplicar variante" ya pasan por t(), no hardcodeados
+const CACHE = "f123-shell-v85"; // bumped 2026-08-20: G1 -- autocuracion IndexedDB en aislamiento.js
 const SHELL = [
   "./",
   "./index.html",
