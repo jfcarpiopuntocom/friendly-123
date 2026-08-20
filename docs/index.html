@@ -3218,8 +3218,9 @@ async function duplicarComoVariante(id) {
     if (chip) { chip.focus(); }
   } catch (e) {
     try { console.error("duplicar variante:", e); } catch (_) {}
-    if (typeof ocAlert === "function") ocAlert("No se pudo preparar la variante.");
-    else alert("No se pudo preparar la variante.");
+    const _msgVarFail = (typeof window.t === "function") ? window.t("inv.variantPrepFailed") : "Could not prepare the variant.";
+    if (typeof ocAlert === "function") ocAlert(_msgVarFail);
+    else alert(_msgVarFail);
   }
 }
 

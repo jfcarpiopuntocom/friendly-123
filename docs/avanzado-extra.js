@@ -602,7 +602,7 @@
         if (codigo.trim() && !/^(TEAM|F123)-/i.test(codigo.trim())) {
           const m0 = document.getElementById("oc-sync-msg");
           m0.style.color = "var(--rojo,#a3392a)";
-          m0.textContent = "That is not a friendly-123 team code. Yours starts with TEAM-.";
+          m0.textContent = window.t("sync.panel.badCode");
           btn.disabled = false;
           return;
         }
@@ -748,12 +748,12 @@
         bu.addEventListener("click", () => {
           const m2 = document.getElementById("oc-sync-msg");
           const cod = (document.getElementById("oc-sync-codigo2").value || "").trim();
-          if (!cod) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = "Paste the team code first."; return; }
-          if (!/^(TEAM|F123)-/i.test(cod)) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = "That is not a friendly-123 team code. It starts with TEAM-."; return; }
+          if (!cod) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = window.t("sync.panel.pasteCodeFirst"); return; }
+          if (!/^(TEAM|F123)-/i.test(cod)) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = window.t("sync.panel.badCode"); return; }
           const r2 = window.OCSyncControl.activar(cod);
           if (!r2.ok) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = r2.error; return; }
           m2.style.color = "var(--sim-verde-dk,#1a6e3c)";
-          m2.textContent = "Joined. This device is now syncing with the team.";
+          m2.textContent = window.t("sync.panel.joined");
           document.getElementById("oc-sync-apagado").style.display = "none";
           document.getElementById("oc-sync-activo").style.display = "block";
           document.getElementById("oc-sync-codigo-actual").textContent = (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(cod) : cod);
