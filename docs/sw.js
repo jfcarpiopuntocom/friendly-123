@@ -14,7 +14,7 @@
    PARA SIEMPRE. Hay un chequeo: bash check-sw.sh.
    El historial de que trajo cada version esta en git, no aqui: la lista de
    comentarios pegados a esta linea crecio hasta ser ilegible. */
-const CACHE = "f123-shell-v76";
+const CACHE = "f123-shell-v77"; // bumped 2026-08-20: fix ReferenceError en crearProductoNuevo (el() no existia), scope de campos duplicados np-*, precache con cache:reload
 const SHELL = [
   "./",
   "./index.html",
@@ -62,7 +62,7 @@ self.addEventListener("install", (evento) => {
   // resto queda cacheado: la app sigue abriendo offline en teléfonos/tablets.
   evento.waitUntil(
     caches.open(CACHE).then((cache) => Promise.allSettled(
-      SHELL.map((u) => cache.add(u).catch((e) => { try { console.warn("[SW] no se pudo precachear", u, e && e.message); } catch (_) {} }))
+      SHELL.map((u) => cache.add(new Request(u, { cache: "reload" })).catch((e) => { try { console.warn("[SW] no se pudo precachear", u, e && e.message); } catch (_) {} }))
     )).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} })
   );
   self.skipWaiting();
