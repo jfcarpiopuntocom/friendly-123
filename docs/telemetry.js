@@ -35,10 +35,10 @@
   if (typeof F.telemetryLogLevel === "undefined") F.telemetryLogLevel = "INFO";
   if (typeof F.telemetrySampleRate === "undefined") F.telemetrySampleRate = 1;
 
-  var DB_NAME = "amg_telemetry_db";
+  var DB_NAME = "f123_telemetry_db"; // FIX (JFC 2026-08-20, G2): compartido literal con AMIGABLE/Consultorio-123
   var DB_VERSION = 1;
   var STORE_NAME = "queue";
-  var SESSION_KEY = "amg_session_id_v1";
+  var SESSION_KEY = "f123_session_id_v1"; // FIX (JFC 2026-08-20, G2): sessionStorage se comparte por origen entre las 3 apps
 
   // --- sessionId: uno por pestaña/sesión de navegador --------------------
   function getSessionId() {

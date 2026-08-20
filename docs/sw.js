@@ -14,7 +14,7 @@
    PARA SIEMPRE. Hay un chequeo: bash check-sw.sh.
    El historial de que trajo cada version esta en git, no aqui: la lista de
    comentarios pegados a esta linea crecio hasta ser ilegible. */
-const CACHE = "f123-shell-v85"; // bumped 2026-08-20: G1 -- autocuracion IndexedDB en aislamiento.js
+const CACHE = "f123-shell-v86"; // bumped 2026-08-20: G2 -- hechos/reconciliacion/audit/telemetry/geo ya no comparten DB con AMIGABLE/Consultorio-123
 const SHELL = [
   "./",
   "./index.html",

@@ -2,7 +2,7 @@
  * sync-queue.js — friendly-123
  * FASE 2, punto 2.2
  *
- * Drena telemetría (amg_telemetry_db, vía AMG.Telemetry.getPending) hacia un
+ * Drena telemetría (f123_telemetry_db, vía AMG.Telemetry.getPending) hacia un
  * backend futuro. HOY NO HAY BACKEND, así que por defecto corre en
  * "dry run": simula el envío, marca como sincronizado localmente, pero
  * JAMÁS hace una petición de red real hasta que:
@@ -42,7 +42,7 @@
   if (typeof F.syncQueueIntervalMs === "undefined") F.syncQueueIntervalMs = 300000;
   if (typeof F.syncQueueMaxRetries === "undefined") F.syncQueueMaxRetries = 5;
 
-  var DB_NAME = "amg_telemetry_db"; // mismo store que telemetry.js
+  var DB_NAME = "f123_telemetry_db"; // mismo store que telemetry.js (FIX 2026-08-20, G2: debe coincidir con el rename de telemetry.js)
   var STORE_NAME = "queue";
 
   function openDB() {

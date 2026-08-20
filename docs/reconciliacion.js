@@ -44,9 +44,57 @@
 (function (global) {
   "use strict";
 
-  var DB_NAME = "amg_archivo_db";
+  // FIX (JFC 2026-08-20, bug G2): literal compartido sin querer con
+  // AMIGABLE/Consultorio-123 (mismo bug corregido hoy en consultorio-123).
+  // Guarda copias de restauracion -- rename CON migracion, nunca se borra la
+  // base vieja.
+  var DB_NAME = "f123_archivo_db";
+  var DB_NAME_VIEJA = "amg_archivo_db";
+  var MIGRACION_KEY = "f123_reconciliacion_migrado_v1";
   var DB_VERSION = 1;
   var STORE = "copias";
+
+  function _abrirCruda(nombre) {
+    return new Promise(function (resolve, reject) {
+      if (!global.indexedDB) { reject(new Error("IndexedDB no disponible")); return; }
+      var req = global.indexedDB.open(nombre, DB_VERSION);
+      req.onupgradeneeded = function (e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          var st = db.createObjectStore(STORE, { keyPath: "id" });
+          st.createIndex("ts", "ts", { unique: false });
+          st.createIndex("motivo", "motivo", { unique: false });
+        }
+      };
+      req.onsuccess = function (e) { resolve(e.target.result); };
+      req.onerror = function () { reject(req.error || new Error("no se pudo abrir " + nombre)); };
+    });
+  }
+
+  function _migrarDesdeBaseVieja(dbNueva) {
+    try { if (localStorage.getItem(MIGRACION_KEY) === "1") return Promise.resolve(); } catch (_) {}
+    return _abrirCruda(DB_NAME_VIEJA).then(function (dbVieja) {
+      return new Promise(function (resolve) {
+        try {
+          var txLeer = dbVieja.transaction(STORE, "readonly");
+          var reqTodos = txLeer.objectStore(STORE).getAll();
+          reqTodos.onsuccess = function () {
+            var registros = reqTodos.result || [];
+            if (!registros.length) { try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {} resolve(); return; }
+            var txEscribir = dbNueva.transaction(STORE, "readwrite");
+            registros.forEach(function (r) { try { txEscribir.objectStore(STORE).put(r); } catch (_) {} });
+            txEscribir.oncomplete = function () {
+              try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {}
+              try { console.warn("[reconciliacion] migradas " + registros.length + " copia(s) desde la base compartida vieja"); } catch (_) {}
+              resolve();
+            };
+            txEscribir.onerror = function () { resolve(); };
+          };
+          reqTodos.onerror = function () { resolve(); };
+        } catch (_) { resolve(); }
+      });
+    }).catch(function () { try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {} });
+  }
 
   // ---------------------------------------------------------------------------
   // Archivo de copias completas (IndexedDB)
@@ -58,19 +106,8 @@
   var _db = null;
   function abrirDB() {
     if (_db) return Promise.resolve(_db);
-    return new Promise(function (resolve, reject) {
-      if (!global.indexedDB) { reject(new Error("IndexedDB no disponible")); return; }
-      var req = global.indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = function (e) {
-        var db = e.target.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          var st = db.createObjectStore(STORE, { keyPath: "id" });
-          st.createIndex("ts", "ts", { unique: false });
-          st.createIndex("motivo", "motivo", { unique: false });
-        }
-      };
-      req.onsuccess = function (e) { _db = e.target.result; resolve(_db); };
-      req.onerror = function () { reject(req.error || new Error("no se pudo abrir amg_archivo_db")); };
+    return _abrirCruda(DB_NAME).then(function (db) {
+      return _migrarDesdeBaseVieja(db).then(function () { _db = db; return db; });
     });
   }
 

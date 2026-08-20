@@ -65,10 +65,18 @@
 (function (global) {
   "use strict";
 
-  var DB_NAME = "amg_hechos_db";
+  // FIX (JFC 2026-08-20, bug G2): DB_NAME/META_KEY eran literales compartidos
+  // sin querer con AMIGABLE/Consultorio-123 (mismo bug ya corregido hoy en
+  // consultorio-123). aislamiento.js ya aisla IndexedDB por app a nivel de
+  // transporte, asi que esto no era un hoyo activo -- pero se corrige igual,
+  // como segunda capa de defensa y por consistencia entre las 3 apps. Rename
+  // CON migracion: nunca se borra la base vieja (es el ledger de ventas).
+  var DB_NAME = "f123_hechos_db";
+  var DB_NAME_VIEJA = "amg_hechos_db";
+  var MIGRACION_KEY = "f123_hechos_migrado_v1";
   var DB_VERSION = 1;
   var STORE = "hechos";
-  var META_KEY = "amg_hechos_meta_v1";   // contador local + reloj + ultimo hash
+  var META_KEY = "f123_hechos_meta_v1";   // contador local + reloj + ultimo hash
 
   // ---------------------------------------------------------------------------
   // Identidad del dispositivo
@@ -91,10 +99,10 @@
       if (owned.instanceId) return owned.instanceId;
     } catch (_) {}
     try {
-      var local = localStorage.getItem("amg_hechos_instancia");
+      var local = localStorage.getItem("f123_hechos_instancia");
       if (local) return local;
       var nuevo = "loc-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
-      localStorage.setItem("amg_hechos_instancia", nuevo);
+      localStorage.setItem("f123_hechos_instancia", nuevo);
       return nuevo;
     } catch (_) {
       return "loc-efimero";
@@ -173,12 +181,10 @@
   // ---------------------------------------------------------------------------
   // IndexedDB
   // ---------------------------------------------------------------------------
-  var _db = null;
-  function abrirDB() {
-    if (_db) return Promise.resolve(_db);
+  function _abrirCruda(nombre) {
     return new Promise(function (resolve, reject) {
       if (!global.indexedDB) { reject(new Error("IndexedDB no disponible")); return; }
-      var req = global.indexedDB.open(DB_NAME, DB_VERSION);
+      var req = global.indexedDB.open(nombre, DB_VERSION);
       req.onupgradeneeded = function (e) {
         var db = e.target.result;
         if (!db.objectStoreNames.contains(STORE)) {
@@ -192,8 +198,41 @@
           st.createIndex("instanceId", "instanceId", { unique: false });
         }
       };
-      req.onsuccess = function (e) { _db = e.target.result; resolve(_db); };
-      req.onerror = function () { reject(req.error || new Error("no se pudo abrir amg_hechos_db")); };
+      req.onsuccess = function (e) { resolve(e.target.result); };
+      req.onerror = function () { reject(req.error || new Error("no se pudo abrir " + nombre)); };
+    });
+  }
+
+  function _migrarDesdeBaseVieja(dbNueva) {
+    try { if (localStorage.getItem(MIGRACION_KEY) === "1") return Promise.resolve(); } catch (_) {}
+    return _abrirCruda(DB_NAME_VIEJA).then(function (dbVieja) {
+      return new Promise(function (resolve) {
+        try {
+          var txLeer = dbVieja.transaction(STORE, "readonly");
+          var reqTodos = txLeer.objectStore(STORE).getAll();
+          reqTodos.onsuccess = function () {
+            var registros = reqTodos.result || [];
+            if (!registros.length) { try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {} resolve(); return; }
+            var txEscribir = dbNueva.transaction(STORE, "readwrite");
+            registros.forEach(function (r) { try { txEscribir.objectStore(STORE).put(r); } catch (_) {} });
+            txEscribir.oncomplete = function () {
+              try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {}
+              try { console.warn("[hechos] migrados " + registros.length + " hecho(s) desde la base compartida vieja"); } catch (_) {}
+              resolve();
+            };
+            txEscribir.onerror = function () { resolve(); };
+          };
+          reqTodos.onerror = function () { resolve(); };
+        } catch (_) { resolve(); }
+      });
+    }).catch(function () { try { localStorage.setItem(MIGRACION_KEY, "1"); } catch (_) {} });
+  }
+
+  var _db = null;
+  function abrirDB() {
+    if (_db) return Promise.resolve(_db);
+    return _abrirCruda(DB_NAME).then(function (db) {
+      return _migrarDesdeBaseVieja(db).then(function () { _db = db; return db; });
     });
   }
 

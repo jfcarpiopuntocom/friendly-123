@@ -44,8 +44,8 @@
   var INTERVALO_MS = 15 * 60 * 1000; // 15 minutos
   var TIMEOUT_GPS_MS = 12000; // mas tiempo: alta precision tarda mas en cerrar el primer fix
   var TIMEOUT_IP_MS = 6000;
-  var CONSENT_KEY = "amg_geo_consentidos_v1"; // set de identidades que ya vieron el aviso
-  var DB_NAME = "amg_geo_db";
+  var CONSENT_KEY = "f123_geo_consentidos_v1"; // FIX (JFC 2026-08-20, G2): compartido literal con AMIGABLE/Consultorio-123
+  var DB_NAME = "f123_geo_db"; // FIX (JFC 2026-08-20, G2): compartido literal con AMIGABLE/Consultorio-123
   var DB_VERSION = 1;
   var STORE = "pings";
 
