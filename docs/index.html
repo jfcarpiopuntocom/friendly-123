@@ -2608,7 +2608,7 @@ function inicializarImportCSV(){
 async function cargarBCG(){
   const cont = document.getElementById("matrizBCG");
   if (!cont) return;
-  if (!window.OCAuth || window.OCAuth.rolActual() !== "dueno") { cont.innerHTML = ""; return; }
+  if (!window.OCAuth || !window.OCAuth.puedeGestionar()) { cont.innerHTML = ""; return; }
   let q;
   // Microcirugia 10 (2026-07-08): catch silencioso dejaba la matriz BCG en blanco.
   try { q = await (await fetch(`${API}/inventario/bcg?ubicacionId=${ubicacionActual}`)).json(); }
@@ -2863,7 +2863,7 @@ async function cargarHoy(){
   document.getElementById("heroTitulo").textContent = tKey ? t(tKey) : t("hoy.titulo.default");
   // Plata del negocio (ganancia/entra/sale/inventario): SOLO dueño. El titular
   // tampoco le revela la ganancia al encargado — solo el conteo de ventas.
-  const esDuenoHoy = window.OCAuth && window.OCAuth.rolActual() === "dueno";
+  const esDuenoHoy = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
   document.getElementById("heroSubtitulo").textContent = esDuenoHoy
     ? tf("hoy.subOwner", { monto: fmtMoney(data.resumenDia.gananciaHoy), n: data.resumenDia.ventasCount })
     : tf("hoy.subStaff", { n: data.resumenDia.ventasCount });
@@ -3227,7 +3227,7 @@ async function duplicarComoVariante(id) {
 async function cargarInventario(){
   // El "+" de alta libre es del dueno; el encargado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
-  if (btnAlta) btnAlta.style.display = (window.OCAuth && window.OCAuth.rolActual() === "dueno") ? "" : "none";
+  if (btnAlta) btnAlta.style.display = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? "" : "none";
   let url = `${API}/productos?ubicacionId=${ubicacionActual}`;
   if (filtroEstadoActual) url += `&estado=${filtroEstadoActual}`;
   const grid = document.getElementById("gridInventario");
@@ -3247,7 +3247,7 @@ async function cargarInventario(){
     grid.innerHTML = `<p>${t("inv.emptyFilter")}</p>`;
     return;
   }
-  const esDuenoInv = window.OCAuth && window.OCAuth.rolActual() === "dueno";
+  const esDuenoInv = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
   productos = ordenarInventario(productos);
   pintarBotonesOrdenInventario();
   grid.innerHTML = productos.map(p => `
@@ -3713,7 +3713,7 @@ async function ejecutarEscaneo(){
   }
   if (!res.ok){
     const err = await res.json();
-    const puedeCrear = window.OCAuth && window.OCAuth.rolActual() === "dueno";
+    const puedeCrear = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
     contenedor.innerHTML = `<p style="color:var(--rojo); font-weight:bold;">${err.error}</p>` +
       (puedeCrear ? `<button class="ir" style="margin-top:10px;" onclick="mostrarFormNuevoProducto('${escHtml(codigo).replace(/'/g, "\\'")}')">+ Dar de alta este producto</button>` : "");
     return;
@@ -4166,7 +4166,7 @@ function pintarFicha(p){
       <div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="abrirVistaCliente('${p.id}')" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
       </div>
-      ${(window.OCAuth && window.OCAuth.rolActual() === "dueno") ? `<div class="acciones-rapidas" style="margin-top:8px;">
+      ${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
         <button style="border-color:var(--rojo);color:var(--rojo);" onclick="eliminarProductoUI('${p.id}', this)">${t("ficha.deleteBtn")}</button>
       </div>` : ""}

@@ -1714,7 +1714,20 @@
       try {
         const p = productos.find((x) => x.id === pl.productoId);
         if (!p) return { ok: false, error: "That product does not exist on this device (sync the catalog first)" };
-        p.stockActual += pl.delta;
+        /* EL STOCK NO BAJA DE CERO (JFC 2026-08-21, reportado en produccion:
+           "probe a sobrevender un item y quedo en -1 desde el celular").
+           Antes se aplicaba el delta crudo y el negativo se dejaba ver a
+           proposito, como senal de descuadre. En pantalla eso es un producto
+           con -1 unidades, que no significa nada para quien lo lee y hace
+           dudar de todo lo demas.
+           No se pierde informacion: lo que no se pudo descontar queda en el
+           movimiento "alerta-descuadre" de mas abajo, con la cantidad exacta.
+           Vender mas de lo que hay solo tendra sentido cuando existan los
+           pedidos por anticipado (ver APUNTE-PEDIDOS-ANTICIPADOS-2026-08-21.md);
+           hasta entonces, cero es el piso. */
+        const _antes = p.stockActual;
+        p.stockActual = Math.max(0, p.stockActual + pl.delta);
+        const _noDescontado = Math.max(0, -(_antes + pl.delta));
         if (op.tipo === "venta" && pl.delta < 0) {
           const cant = -pl.delta;
           const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
@@ -1724,7 +1737,7 @@
           ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, liquidada: false, clienteId: null, origenRemoto: true });
         }
         mov(op.tipo + "-remoto", { producto: p.nombre, delta: pl.delta, dispositivo: op.deviceNombre || op.deviceId || "otro dispositivo" });
-        if (p.stockActual < 0) mov("alerta-descuadre", { producto: p.nombre, stockActual: p.stockActual, motivo: "Dos dispositivos vendieron las mismas ultimas unidades casi a la vez." });
+        if (_noDescontado > 0) mov("alerta-descuadre", { producto: p.nombre, stockActual: p.stockActual, faltaron: _noDescontado, motivo: "Dos dispositivos vendieron las mismas ultimas unidades casi a la vez. El stock quedo en 0: " + _noDescontado + " unidad(es) se vendieron sin existencia. Cuenta la percha." });
         _marcarOpAplicada(op.opId);
         guardarEstadoLocal();
         return { ok: true };

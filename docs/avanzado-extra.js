@@ -820,6 +820,26 @@
         Each member has their own 3-digit PIN. Their sales, adjustments and movements are
         recorded under their name in the history. The owner's PIN does not appear here.
       </p>
+      <!-- JERARQUIA VISIBLE (JFC 2026-08-21): "pon una jerarquia o se va a
+           hacer mierda todo, y ponla visible en la lista donde sale el team,
+           ellos necesitan saber quien tiene mas peso sobre los apuntes
+           conjuntos". Cuando dos dispositivos editan lo mismo, el merge
+           propone lo del rol mas alto: si eso no se ve en pantalla, el equipo
+           no entiende por que gano un dato y no el otro. -->
+      <div style="background:var(--paper-deep,#E2E8ED);border-left:4px solid var(--azul-medio,#2c4a68);border-radius:0 8px 8px 0;padding:12px 14px;margin:0 0 16px;">
+        <p style="font-size:14px;font-weight:700;color:#0F1923;margin:0 0 6px;">Who carries more weight on the shared notebook</p>
+        <p style="font-size:14px;line-height:1.6;color:#2C3E50;margin:0;">
+          <strong>Owner</strong> &rarr; <strong>Admin</strong> &rarr; <strong>Staff</strong>.
+          Everyone writes in the same notebook. When two devices change the same thing,
+          the higher role's version is the one proposed. Stock is never overwritten by
+          rank: it is a physical fact of each shelf, counted by whoever has it in front of them.
+        </p>
+        <p style="font-size:14px;line-height:1.6;color:#2C3E50;margin:6px 0 0;">
+          <strong>Admin</strong> does everything day to day: products, shelves, sales, customers.
+          Only the <strong>owner</strong> handles the license, the recovery email, who is promoted
+          or removed, and the commission splits.
+        </p>
+      </div>
       <div id="oc-emp-lista" style="margin-bottom:18px;"></div>
       <details id="oc-emp-form-wrap" style="margin-bottom:6px;">
         <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--azul-medio);margin-bottom:10px;">
@@ -913,6 +933,23 @@
           <tbody id="oc-emp-tbody"></tbody>
         </table>`;
       const tbody = document.getElementById("oc-emp-tbody");
+
+      /* EL DUEÑO ENCABEZA LA LISTA (JFC 2026-08-21). Antes la tabla empezaba
+         en los admins, asi que la jerarquia se leia descabezada y parecia que
+         el admin era lo mas alto que hay. Es una fila informativa: el PIN del
+         dueño no se guarda aqui (vive cifrado en crypto-store) y por eso no
+         tiene botones — no hay nada que editar desde esta tabla. */
+      (function () {
+        const trD = document.createElement("tr");
+        trD.style.borderBottom = "1px solid var(--azul-suave,#dde5ec)";
+        trD.style.background = "var(--paper-deep,#E2E8ED)";
+        trD.innerHTML = `
+          <td style="padding:8px;"><div style="font-weight:700;">${isDueno() ? "You" : "The owner"}</div></td>
+          <td style="padding:8px;text-align:center;"><span style="font-size:13px;font-weight:700;background:#0F1923;color:#fff;padding:2px 7px;border-radius:10px;">Owner</span></td>
+          <td style="padding:8px;text-align:center;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">Active</td>
+          <td style="padding:8px;text-align:right;"><span style="font-size:13px;color:#4A5A6A;">Highest authority</span></td>`;
+        tbody.appendChild(trD);
+      })();
 
       equipo.forEach((u) => {
         const tr = document.createElement("tr");

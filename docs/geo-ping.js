@@ -305,6 +305,18 @@
   }
   function arrancarParaSesion() {
     detener();
+    /* GEOTAGGING APAGADO POR DEFECTO (JFC 2026-08-21): "el anuncio del geo
+       tagging pasemoslo a dentro de ayuda, me parece innecesario un popup en
+       el flujo".
+       La causa del popup era que esto se encendia para TODO el mundo al
+       entrar, asi que a todos les tocaba el aviso de consentimiento aunque el
+       negocio no usara la funcion. Ahora la enciende el dueño en Avanzado, y
+       el aviso solo aparece si de verdad se va a registrar la ubicacion de
+       alguien. El consentimiento NO se quita: pedir permiso antes de guardar
+       donde estuvo una persona no es un tramite que se pueda saltar, es el
+       motivo por el que la funcion se puede ofrecer.
+       Que hace la funcion y como se enciende: explicado en Ayuda. */
+    if (!global.OCGeo || !global.OCGeo.activo()) return;
     var identidad = identidadActual();
     if (!identidad) return;
     var seguir = function () {
@@ -441,9 +453,24 @@
         caja.className = "tag-card";
         caja.style.cssText = "text-align:left;margin-top:22px;";
         caja.innerHTML = '<h3 class="seccion" style="margin-top:0;">' + T("geo.panel.title") + '</h3>' +
-          '<p style="font-size:13px;color:var(--ink-soft,#6b7785);margin-top:0;">' + T("geo.panel.body") + '</p>' +
+          '<p style="font-size:14px;color:var(--ink-soft,#6b7785);margin-top:0;">' + T("geo.panel.body") + '</p>' +
+          /* El interruptor (JFC 2026-08-21). Antes esto se encendia solo para
+             todo el mundo y por eso a cada persona le salia el aviso de
+             consentimiento al entrar. Ahora es una decision del dueño. */
+          '<label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;cursor:pointer;min-height:44px;color:#2C3E50;">' +
+            '<input type="checkbox" id="amg-geo-toggle" style="width:20px;height:20px;">' +
+            'Record where the team was during their shift' +
+          '</label>' +
+          '<p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:0 0 12px;">Off by default. When you turn it on, each person is asked for permission once on their own device, and nothing is recorded until they accept.</p>' +
           '<div id="amg-geo-panel"></div>';
         vista.appendChild(caja);
+        try {
+          var _chk = caja.querySelector("#amg-geo-toggle");
+          _chk.checked = !!(global.OCGeo && global.OCGeo.activo());
+          _chk.addEventListener("change", function () {
+            if (global.OCGeo) global.OCGeo.encender(_chk.checked);
+          });
+        } catch (_) {}
       }
       var visible = esDuenoOAdmin();
       caja.style.display = visible ? "" : "none";
@@ -473,6 +500,21 @@
       if (esDuenoOAdmin()) renderPanel();
     });
   } catch (_) {}
+
+  /* Interruptor del geotagging (JFC 2026-08-21). Apagado por defecto: la
+     ausencia de la clave significa APAGADO, asi que ningun negocio que ya
+     estaba usando la app empieza a registrar ubicaciones de golpe por una
+     actualizacion. Solo el dueño lo enciende, desde Avanzado. */
+  var GEO_ON_KEY = "f123_geo_activo_v1";
+  global.OCGeo = {
+    activo: function () {
+      try { return global.localStorage.getItem(GEO_ON_KEY) === "1"; } catch (_) { return false; }
+    },
+    encender: function (on) {
+      try { global.localStorage.setItem(GEO_ON_KEY, on ? "1" : "0"); } catch (_) {}
+      if (on) { try { arrancarParaSesion(); } catch (_) {} } else { detener(); }
+    },
+  };
 
   global.AMG = global.AMG || {};
   global.AMG.GeoPing = {

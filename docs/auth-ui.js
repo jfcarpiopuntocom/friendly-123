@@ -968,6 +968,34 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // limpien exactamente el mismo estado — antes solo existía inline dentro
   // del botón Salir, y un logout automático por inactividad habría tenido
   // que duplicar esa lógica (con el riesgo de que se desincronizaran).
+  /* EL DEGRADAR SURTE EFECTO AUNQUE LA SESION YA ESTE ABIERTA
+     (JFC 2026-08-21). Sin esto quedaba un hueco feo: el dueño degrada a
+     alguien desde su celular, el cambio llega por sync al dispositivo de esa
+     persona... y ahi sigue con la pantalla de admin abierta hasta que se le
+     ocurra salir. Degradar a alguien que esta usando la app en ese momento es
+     precisamente cuando mas urge que surta efecto.
+     Se cierra la sesion en vez de recalcular permisos en caliente: media
+     pantalla ya pintada con permisos viejos es justo donde se cuelan los
+     bugs. Volver a entrar con su PIN toma dos segundos y deja el estado
+     limpio. */
+  try {
+    window.addEventListener("oc-equipo-sync", function () {
+      try {
+        var yo = window.OCCurrentUser;
+        if (!yo || !yo.id) return;                       // dueño/demo: no aplica
+        if (rol !== "admin" && rol !== "empleado") return;
+        fetch("/api/usuarios").then(function (r) { return r.json(); }).then(function (lista) {
+          if (!Array.isArray(lista)) return;
+          var ahora = lista.find(function (x) { return x.id === yo.id; });
+          if (!ahora) return;                            // el merge nunca borra; si no esta, no se toca nada
+          var rolAhora = ahora.rol === "admin" ? "admin" : "empleado";
+          if (ahora.activo === false) { cerrarSesion("Your access was deactivated. Ask the owner."); return; }
+          if (rolAhora !== rol) cerrarSesion("Your role changed. Sign in again with your PIN.");
+        }).catch(function () {});
+      } catch (_) {}
+    });
+  } catch (_) {}
+
   function cerrarSesion(mensaje) {
     clearTimeout(temporizadorInactividad);
     // 2026-08-19, aprobado JFC: al cerrar sesion del app owner tambien se
@@ -1300,6 +1328,16 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     mascaraCodigo: _ocMascaraCodigo,
     heartbeat: enviarHeartbeat,
     rolActual: () => rol,
+    /* JERARQUIA: dueño > admin > encargado (JFC 2026-08-21).
+       El admin habia quedado como un encargado con otra insignia: no podia
+       crear productos ni perchas, que es justo el trabajo del dia. Debe poder
+       hacer TODO lo operativo, y quedarse afuera solo de lo que es del dueño:
+       licencia y activacion, correo de recuperacion, promover/degradar, borrar
+       miembros del equipo, los porcentajes de los tratos y borrar el negocio.
+       Regla para el futuro: si lo que se decide es de OPERACION (inventario,
+       ventas, clientes, perchas), va con puedeGestionar(). Si define QUIEN
+       manda o cuanta plata se reparte, va con rolActual() === "dueno". */
+    puedeGestionar: () => rol === "dueno" || rol === "admin",
     esDemo: () => demoSesion,
     enmascarar,
     listo: () => listo,
