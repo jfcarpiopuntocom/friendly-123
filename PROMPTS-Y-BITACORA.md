@@ -200,3 +200,59 @@ proyecto.
 `check-sw.sh` verde en las 3 (SHELL completo, sin claves cruzadas, sin nav
 huerfano), sin commits pendientes. JFC declaro v1.0 para AMIGABLE,
 friendly-123 y Consultorio-123.**
+
+## 2026-08-21 — v1.0: el cuaderno compartido de verdad
+
+**Prompt de JFC (textual, resumido en lo operativo):** "admin no puede crear
+productos ni perchas / el admin quedó como empleado cuando debe ser casi como
+dueño salvo modificar cosas del dueño (...) pon una jerarquia (...) y ponla
+visible en la lista donde sale el team, ellos necesitan saber quién tiene 'más
+peso sobre los apuntes conjuntos' / no sirve el demote!!! / probé a sobrevender
+un item y quedo en -1 (...) no puede pasar eso a menos que tomemos pedidos por
+anticipado / no me deja actualizar con el PIN de admin desde otro dispositivo /
+el PIN debe traer toda la información / hacer sync con el codigo TEAM no lo
+arregla / lo confunde aun lo de TEAM... lo pide antes de ofrecerlo / el QR no
+tiene sentido (...) eliminemos el QR / quita el aviso de Gamification de la UI
+del empleado / el anuncio del geo tagging pasemoslo a dentro de ayuda".
+
+Y despues: **"creo que el codigo TEAM- es redundante y confunde, si total la
+licencia es el tronco al que todo se conecta"**. Tenia razon y el codigo lo
+confirmaba: `normalizarCodigo()` traducia TEAM- a F123-, o sea que eran EL
+MISMO VALOR con dos mascaras.
+
+**El hallazgo:** casi todas las quejas eran UN bug. `usuarios` (nombre, PIN,
+rol) era estado local de cada dispositivo y el merge solo llevaba perchas y
+productos. De ahi salian el PIN de admin que no entraba en el segundo
+dispositivo, el demote que "no servia" y el sync que "no lo arreglaba".
+
+**Lo que se hizo:**
+- El equipo viaja por sync (catalogo, trozos y huella) y se aplica SOLO al
+  conectar. Es la excepcion a "nada se aplica sin confirmar": son credenciales
+  de acceso, y pedir un dialogo no sirve cuando el problema es no poder entrar.
+  Suma y nunca borra; gana la edicion mas reciente (`actualizadoEn`).
+- Muere el codigo TEAM- de cara al usuario. La licencia es el tronco. Se sigue
+  aceptando TEAM- al teclear para quien lo tenga anotado.
+- Jerarquia real: el admin crea productos y perchas y ve la plata del dia.
+  Nivel dueño intacto (licencia, correo, promover/degradar, comisiones).
+  Owner > Admin > Staff visible en la lista del equipo, con el dueño arriba.
+- Degradar surte efecto con la sesion abierta: se cierra y se vuelve a entrar.
+- Stock con piso en 0; lo no descontado queda en la alerta de descuadre.
+- QR de unirse y sync por QR: DORMANT con comentario, no borrados.
+- Geotagging apagado por defecto, lo enciende el dueño. Se acabo el popup en el
+  flujo; la explicacion vive en Ayuda.
+- Gamification: portado el texto de amigable-123, sin "(experimental)".
+
+**Verificado en la app corriendo** (no solo por lectura de codigo): PIN de admin
+remoto entra; demote remoto degrada; una edicion vieja no revierte el demote;
+nadie se borra; 4 unidades menos 7 da 0 y la alerta guarda las 3 faltantes; el
+admin ve el boton de alta de producto; "TEAM-" ya no aparece en la app.
+
+**Pendiente a proposito:** pedidos por anticipado (apunte + recordatorio para el
+martes 2026-08-25). Y un aviso previo que sigue ahi: el autodiagnostico de
+aislamiento reporta que algo pisa `indexedDB.open` despues de aislamiento.js
+(no lo introdujo esta tanda; ninguna de estas ediciones toca IndexedDB).
+
+**v1.0 declarada.** `version.json` sube a 1.7.0 con `releaseName: "v1.0"`: el
+numero interno lo usa el chequeo de actualizacion y bajarlo a 1.0.0 haria que
+un telefono en 1.6.0 creyera que lo nuevo es mas viejo. SW cache a
+`f123-shell-v87`.
