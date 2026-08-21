@@ -1448,7 +1448,15 @@
       .map((x) => String(x.id) + "|" + String(x.nombre || "")).join(";");
     const p = productos.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))
       .map((x) => String(x.id) + "|" + String(x.nombre || "") + "|" + Number(x.precio || 0) + "|" + Number(x.costo || 0)).join(";");
-    return "U:" + u + "#P:" + p;
+    /* El equipo entra en la huella (2026-08-21): sin esto el panel decia "al
+       dia" cuando lo unico distinto entre dos dispositivos era quien es admin
+       o el PIN de alguien — justo el caso que dejo gente sin poder entrar.
+       El PIN NO se mezcla en claro: se usa su largo, que cambia la huella
+       cuando cambia el PIN sin exponerlo en un valor que se dicta por
+       telefono. */
+    const e = usuarios.slice().sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .map((x) => String(x.id) + "|" + String(x.nombre || "") + "|" + String(x.rol || "") + "|" + (x.activo !== false ? "1" : "0") + "|" + String(x.pin || "").length).join(";");
+    return "U:" + u + "#P:" + p + "#E:" + e;
   }
   /* FNV-1a de 32 bits. No es criptografico y no pretende serlo: aqui solo hace
      falta que dos catalogos distintos den huellas distintas con altisima
@@ -1517,7 +1525,7 @@
        Igual nada de esto se aplica sin que una persona lo confirme en
        pantalla; esto solo decide que se le PROPONE. */
   const _rl = _rango(_rolLocal()), _rr = _rango(rolRemoto);
-  const out = { nuevasPerchas: [], nuevosProductos: [], conflictos: [], soloMios: 0, ganaElOtro: _rr > 0 && _rl > 0 && _rr > _rl };
+  const out = { nuevasPerchas: [], nuevosProductos: [], conflictos: [], nuevosMiembros: [], miembrosActualizados: [], soloMios: 0, ganaElOtro: _rr > 0 && _rl > 0 && _rr > _rl };
     if (!remoto || !Array.isArray(remoto.ubicaciones) || !Array.isArray(remoto.productos)) return null;
     const misU = new Map(ubicaciones.map((u) => [String(u.id), u]));
     const misP = new Map(productos.map((p) => [String(p.id), p]));
@@ -1538,6 +1546,28 @@
         out.conflictos.push({ que: "product", id: p.id, mio: { nombre: mio.nombre, precio: mio.precio }, suyo: { nombre: p.nombre, precio: p.precio } });
       }
     });
+    /* EQUIPO (2026-08-21). Se cuenta aparte de productos y perchas porque en
+       pantalla se explica aparte: a nadie le sirve leer "3 cambios" sin saber
+       que uno de ellos le cambia el rol a una persona. */
+    if (Array.isArray(remoto.usuarios)) {
+      const misUsr = new Map(usuarios.map((u) => [String(u.id), u]));
+      remoto.usuarios.forEach((u) => {
+        if (!u || !u.id) return;
+        const mio = misUsr.get(String(u.id));
+        if (!mio) { out.nuevosMiembros.push({ id: u.id, nombre: u.nombre || "", rol: u.rol || "empleado" }); return; }
+        /* Gana la edicion mas reciente, NO la jerarquia: si el dueno degrada a
+           alguien en su celular, esa es la ultima palabra aunque el merge lo
+           traiga un encargado. Sin `actualizadoEn` (registro viejo, de antes
+           de este cambio) se conserva lo propio y no se toca nada. */
+        const tMio = Date.parse(mio.actualizadoEn || mio.creadoEn || 0) || 0;
+        const tSuyo = Date.parse(u.actualizadoEn || u.creadoEn || 0) || 0;
+        const distinto = String(mio.rol) !== String(u.rol) || String(mio.pin) !== String(u.pin) ||
+                         String(mio.nombre || "") !== String(u.nombre || "") || (mio.activo !== false) !== (u.activo !== false);
+        if (distinto && tSuyo > tMio) {
+          out.miembrosActualizados.push({ id: u.id, nombre: u.nombre || mio.nombre, rolAntes: mio.rol, rolDespues: u.rol });
+        }
+      });
+    }
     const idsRemotos = new Set(remoto.productos.map((x) => String(x && x.id)));
     out.soloMios = productos.filter((x) => !idsRemotos.has(String(x.id))).length;
     return out;
@@ -1579,9 +1609,45 @@
       }
     });
 
-    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, desde: remoto.deviceNombre || "another device" });
+    /* EL EQUIPO (2026-08-21). Misma regla dura que el catalogo: SUMA, NUNCA
+       BORRA. Un miembro que solo existe aqui se queda; nunca se elimina a
+       nadie por un merge, porque quedarse sin acceso al cuaderno por
+       sincronizar seria peor que no sincronizar nunca. Para sacar a alguien
+       de verdad esta el boton de borrar, que es una decision de una persona.
+       El PIN duplicado se resuelve conservando el propio: dos personas con el
+       mismo PIN dejaria entrar a la equivocada. */
+    let miembrosAgregados = 0, miembrosActualizados = 0;
+    if (Array.isArray(remoto.usuarios)) {
+      remoto.usuarios.forEach((u) => {
+        if (!u || !u.id || !u.nombre) return;
+        if (!/^\d{3}$/.test(String(u.pin || ""))) return; // PIN ilegible: no se importa a medias
+        const rolU = (u.rol === "admin" || u.rol === "empleado") ? u.rol : "empleado";
+        const mio = usuarios.find((x) => String(x.id) === String(u.id));
+        if (!mio) {
+          if (usuarios.some((x) => x.pin === u.pin)) return; // choque de PIN: manda el de casa
+          usuarios.push({ id: u.id, nombre: String(u.nombre).slice(0, 60), pin: u.pin, rol: rolU,
+                          email: u.email || null, activo: u.activo !== false,
+                          creadoEn: u.creadoEn || new Date().toISOString(), actualizadoEn: u.actualizadoEn || null });
+          miembrosAgregados++;
+          return;
+        }
+        const tMio = Date.parse(mio.actualizadoEn || mio.creadoEn || 0) || 0;
+        const tSuyo = Date.parse(u.actualizadoEn || u.creadoEn || 0) || 0;
+        if (tSuyo <= tMio) return; // lo de aqui es igual de nuevo o mas: no se pisa
+        if (usuarios.some((x) => x.id !== mio.id && x.pin === u.pin)) return; // el PIN nuevo choca con otro
+        mio.nombre = String(u.nombre).slice(0, 60);
+        mio.pin = u.pin;
+        mio.rol = rolU;
+        mio.activo = u.activo !== false;
+        if (u.email !== undefined) mio.email = u.email || null;
+        mio.actualizadoEn = u.actualizadoEn;
+        miembrosActualizados++;
+      });
+    }
+
+    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
-    return { ok: true, agregadasU, agregadosP, actualizados, huella: huellaCatalogo() };
+    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, huella: huellaCatalogo() };
   }
 
   window.OCSync = {
@@ -1591,11 +1657,46 @@
       return {
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija })),
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad })),
+        /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
+           BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
+           `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada
+           dispositivo y NUNCA se propagaba. Consecuencias medidas:
+             - el PIN de admin creado en la PC no existia en el celular
+               ("no me deja actualizar con el PIN de admin desde otro
+               dispositivo");
+             - degradar a alguien parecia no funcionar: el PATCH si cambiaba
+               el rol, pero solo en el aparato donde se hacia;
+             - sincronizar con el codigo del negocio no lo arreglaba, porque
+               el merge solo llevaba perchas y productos.
+           El PIN viaja porque ES la credencial de acceso del equipo: sin el,
+           la persona no puede entrar en el segundo dispositivo, que es
+           justamente lo que se rompio. Va por el mismo canal cifrado que
+           todo lo demas y nunca sale de los dispositivos del negocio. */
+        usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null })),
         huella: huellaCatalogo(),
       };
     },
     compararCatalogo,
     aplicarCatalogo,
+    /* EL EQUIPO SE SINCRONIZA SOLO (JFC 2026-08-21).
+       Por que ESTO si se aplica sin preguntar, cuando el catalogo NO:
+       el catalogo son precios y costos —plata— y sobre plata no se adivina.
+       El equipo son las CREDENCIALES DE ACCESO, y el bug que llego de
+       produccion es que la gente quedaba FUERA de su propio cuaderno: el
+       admin creado en la PC no podia entrar desde el celular. Pedirle a
+       alguien que confirme un dialogo para poder entrar no sirve cuando el
+       problema es justamente que no puede entrar.
+       Es seguro porque este aplicador NUNCA borra ni degrada por su cuenta:
+       suma miembros y aplica ediciones mas recientes, con el mismo criterio
+       que el merge manual, y todo queda anotado en movimientos. */
+    aplicarEquipoRemoto(lista) {
+      if (!Array.isArray(lista) || !lista.length) return { ok: false };
+      const r = aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: lista }, null);
+      if (r.ok && (r.miembrosAgregados || r.miembrosActualizados)) {
+        try { window.dispatchEvent(new CustomEvent("oc-equipo-sync", { detail: r })); } catch (_) {}
+      }
+      return r;
+    },
     /* La huella de ESTE dispositivo. La usan el latido del micelio, el panel
        del equipo y el codigo TEAM- al compartirse. */
     huella: huellaCatalogo,
@@ -2508,7 +2609,8 @@
         if (staffActual >= 1 && (!instanceId || licenciaLimitada()))
           return J({ error: "The free plan includes 1 team member besides you, and that counts admins too. Activate this device (PIN 789) for an unlimited team.", codigo: "LIMITE_EMPLEADOS" }, 403);
         if (usuarios.some((u) => u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
-        const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: new Date().toISOString() };
+        const _ahoraU = new Date().toISOString();
+        const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU };
         usuarios.push(nuevo);
         mov("usuario-alta", { nombre, rol: rolNuevo });
         return J({ id: nuevo.id, nombre: nuevo.nombre, rol: nuevo.rol, email: nuevo.email, activo: nuevo.activo, creadoEn: nuevo.creadoEn });
@@ -2533,6 +2635,10 @@
         // (ver POST arriba), asi que promover o degradar NO cambia el cupo: es
         // la misma persona en el equipo, con otro nivel de permisos.
         if (body.rol !== undefined && (body.rol === "admin" || body.rol === "empleado")) u.rol = body.rol;
+        /* Sello de edicion (2026-08-21): es lo que decide quien gana cuando dos
+           dispositivos editaron a la misma persona. Sin esto el merge no puede
+           distinguir el dato nuevo del viejo y tendria que adivinar. */
+        u.actualizadoEn = new Date().toISOString();
         mov("usuario-editar", { id: uid2, nombre: u.nombre, rol: u.rol });
         return J({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn });
       }

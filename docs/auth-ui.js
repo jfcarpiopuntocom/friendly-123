@@ -1134,11 +1134,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
        puede ser * ~ $ = o U. Con 14 la mascara truncaba el codigo nuevo y el
        dueno no podia teclear su propia licencia. */
     inp.setAttribute("maxlength", "25");        // F123- + 4 + 1 + 4 = 14
-    /* El prefijo que se le muestra al usuario. El codigo de EQUIPO se teclea
-       como TEAM-...; la licencia sigue siendo F123-... Se aceptan los dos al
-       escribir (quien tenga el viejo anotado no se queda afuera) y se pinta el
-       que corresponda al campo. */
-    var PRE = inp.dataset.ocPrefijo || "TEAM";
+    /* UN SOLO CODIGO: LA LICENCIA (JFC 2026-08-21). Antes el campo de equipo
+       se pintaba "TEAM-" y el de licencia "F123-", como si fueran dos cosas
+       distintas que hubiera que conseguir por separado. Nunca lo fueron: es el
+       mismo valor. Se sigue ACEPTANDO al teclear quien tenga TEAM- anotado en
+       un papel (ver formatear() abajo), pero ya no se pinta asi en ningun
+       campo. */
+    var PRE = inp.dataset.ocPrefijo || "F123";
     function formatear(raw) {
       /* Los simbolos de Crockford son parte del codigo: no se filtran. */
       var v = String(raw || "").toUpperCase().replace(/[^A-Z0-9*~$=]/g, "");

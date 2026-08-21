@@ -232,6 +232,14 @@
       notificarEstado("conectado");
       vaciarCola();
       pedirCatchup();
+      /* Al conectar se pide tambien el catalogo (JFC 2026-08-21). De lo que
+         llegue, el EQUIPO se aplica solo y el resto espera a que una persona
+         lo confirme en Avanzado. Asi el segundo dispositivo tiene los PINs y
+         los roles al dia sin que nadie tenga que acordarse de pulsar nada:
+         el cuaderno esta compartido de verdad, no "compartible si alguien
+         hace el tramite". Jitter para no pedirlo todos en el mismo instante
+         cuando el wifi del local vuelve y reconectan varios a la vez. */
+      setTimeout(function () { try { pedirCatalogo(); } catch (_) {} }, 800 + Math.random() * 1200);
     };
     ws.onmessage = async (ev) => {
       // Frame de presencia (2026-07-23): el relay los manda en TEXTO plano,
@@ -259,9 +267,21 @@
            en el log ni se aplican al estado. Solo se contestan. */
         if (op && op.tipo === TIPO_CATALOGO_PEDIDO) { responderCatalogo(op); return; }
         if (op && op.tipo === TIPO_CATALOGO_TROZO) {
-          /* Solo lo escucha quien lo pidio. No se aplica NADA aqui: se junta y
-             se avisa, y una persona decide en pantalla. */
+          /* Solo lo escucha quien lo pidio. Del catalogo no se aplica NADA
+             aqui: se junta y se avisa, y una persona decide en pantalla.
+             EXCEPCION, JFC 2026-08-21: el trozo de EQUIPO si se aplica solo.
+             Son las credenciales de acceso, y el bug de produccion era que la
+             gente no podia entrar a su propio cuaderno desde el segundo
+             dispositivo. Ver el comentario largo en OCSync.aplicarEquipoRemoto.
+             Nunca borra a nadie ni degrada por su cuenta. */
           if (op.para && op.para !== deviceId()) return;
+          try {
+            const _pl = op.payload;
+            if (_pl && _pl.tabla === "usuarios" && Array.isArray(_pl.filas) &&
+                window.OCSync && window.OCSync.aplicarEquipoRemoto) {
+              window.OCSync.aplicarEquipoRemoto(_pl.filas);
+            }
+          } catch (_) {}
           try { window.dispatchEvent(new CustomEvent("oc-catalogo-trozo", { detail: op })); } catch (_) {}
           return;
         }
@@ -371,7 +391,14 @@
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     let cat;
     try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
-    const trozos = [].concat(trocear("ubicaciones", cat.ubicaciones)).concat(trocear("productos", cat.productos));
+    /* El EQUIPO viaja igual que las perchas y los productos (JFC 2026-08-21).
+       Antes solo iban `ubicaciones` y `productos`, y por eso el PIN de un
+       admin creado en un dispositivo no existia en el otro: el dato nunca
+       cruzaba. Va por el mismo canal cifrado y solo entre dispositivos que
+       comparten la misma licencia. */
+    const trozos = [].concat(trocear("ubicaciones", cat.ubicaciones))
+                     .concat(trocear("productos", cat.productos))
+                     .concat(trocear("usuarios", cat.usuarios || []));
     for (let k = 0; k < trozos.length; k++) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       const op = {
@@ -591,10 +618,19 @@
     if (v.indexOf("TEAM-") === 0) v = "F123-" + v.slice(5);
     return v;
   }
-  /* Como se le muestra al dueno. Nunca se guarda asi. */
+  /* SE ACABO EL CODIGO "TEAM-" (JFC 2026-08-21).
+     Nunca fue otra cosa que la licencia con otra mascara: normalizarCodigo()
+     traduce TEAM- a F123- y adentro vale exactamente lo mismo. Tener dos
+     nombres para UN valor solo confundia: la gente creia que ademas de la
+     licencia habia que conseguir y teclear un "codigo de equipo", y el panel
+     lo PEDIA antes de ofrecerlo.
+     La licencia es el tronco: todos los dispositivos con la misma licencia son
+     el mismo cuaderno, y se sincronizan solos. Esta funcion queda como
+     identidad para no tocar las decenas de llamadas que la usan, y
+     normalizarCodigo() SIGUE aceptando TEAM- por si alguien lo tiene anotado
+     en un papel de las semanas en que se mostro asi. */
   function codigoParaMostrar(codigo) {
-    var v = String(codigo || "").trim().toUpperCase();
-    return v.indexOf("F123-") === 0 ? "TEAM-" + v.slice(5) : v;
+    return String(codigo || "").trim().toUpperCase();
   }
 
   function programarReintento() {
@@ -694,7 +730,7 @@
       var _cuerpo = codigoNorm.replace(new RegExp("^(" + _pre.join("|") + ")-"), "").replace(/-/g, "");
       var _prefijoOk = _pre.some(function (p) { return codigoNorm.indexOf(p + "-") === 0; });
       if (!_prefijoOk || (_cuerpo.length !== 8 && _cuerpo.length !== 12 && _cuerpo.length !== 17)) {
-        return { ok: false, error: "Invalid team code — check that it is complete, in the format TEAM-XXXX-XXXX-XXXX-XXXXX." };
+        return { ok: false, error: "Invalid license — check that it is complete, in the format F123-XXXX-XXXX-XXXX-XXXXX." };
       }
       if (_cuerpo.length === 17) {
         var _B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ", _CHK = _B32 + "*~$=U", _acc = 0, _mal = false;
