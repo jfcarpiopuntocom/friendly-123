@@ -87,7 +87,21 @@
       <li><b>Fixed costs</b>: rent, utilities, payroll — divided across 30 days so you know the real cost of opening tomorrow.</li>
       <li><b>Accounting layer</b>: T-accounts, P&amp;L, balance sheet. Separate PIN — your accountant or partner can access it directly without seeing the full system.</li>
       <li><b>Keys and recovery</b>: save your email before changing any PIN. No email on file = no recovery possible.</li>
+      <li><b>Your team and who outranks whom</b>: Owner &rarr; Admin &rarr; Staff. An admin does everything day to day (products, shelves, sales, customers); only you handle the license, the recovery email, promotions and the commission splits. When two devices change the same thing, the higher role's version is the one proposed &mdash; except stock, which is never overwritten by rank.</li>
+      <!-- El geotagging vive AQUI y no en un popup del flujo (JFC 2026-08-21):
+           "me parece innecesario un popup en el flujo". Va apagado por
+           defecto; el aviso de permiso solo le sale a cada persona si el dueño
+           lo enciende de verdad. -->
+      <li><b>Where the team was</b>: off by default. If you turn it on in Advanced, the app notes where each person was during their shift. Each person is asked for permission once on their own device, and nothing is recorded until they accept.</li>
     </ul>
+    <h3>One license, one shared notebook</h3>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 10px;">
+      There is no separate "team code" to hand out. Your <b>license</b> is the trunk:
+      every device you activate with it is the same notebook, and they keep each other
+      up to date on their own &mdash; PINs, roles, and who is on the team included.
+      Add someone on one device and they can sign in on any other with the same PIN.
+      To bring a new device in, share your license from <b>Advanced &rarr; Sync</b>.
+    </p>
     <h3>What data leaves this device?</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
       Short answer: your business data never does. Products, sales, customers, inventory,

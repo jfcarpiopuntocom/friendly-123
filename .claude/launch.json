@@ -70,6 +70,18 @@
       "port": 8961
     },
     {
+      "name": "f123-v1-verificacion",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8971",
+        "--directory",
+        "C:\\00 Projects\\friendly-123\\.claude\\worktrees\\busy-meitner-1d44d3\\docs"
+      ],
+      "port": 8971
+    },
+    {
       "name": "f123-worktree-docs",
       "runtimeExecutable": "python",
       "runtimeArgs": [

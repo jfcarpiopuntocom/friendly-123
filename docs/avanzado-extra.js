@@ -493,8 +493,16 @@
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <code id="oc-sync-codigo-actual" style="font-size:16px;font-weight:700;background:var(--paper-deep,#E2E8ED);padding:6px 12px;border-radius:6px;">${escHtml((window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(salaActiva) : salaActiva) || "")}</code>
             <span id="oc-sync-huella" style="font-family:var(--font-mono,monospace);font-size:15px;font-weight:700;color:#0F1923;"></span>
-            <div id="oc-sync-qr" style="margin-top:8px;"></div>
+            <!-- QR DE UNIRSE — DORMANT (JFC 2026-08-21). NO BORRAR.
+                 Se retiro porque no cerraba el circulo: la app no tiene lector,
+                 y al escanearlo con la camara del telefono abria la web pero
+                 igual habia que pasar por el PIN, asi que no ahorraba ningun
+                 paso y hacia creer que existia un canal aparte. La licencia se
+                 comparte por WhatsApp con el boton de abajo, que si funciona.
+                 Para re-encenderlo: SYNC_QR_VISIBLE = true mas abajo y
+                 devolver este div. -->
           </div>
+          <p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:10px 0 0;">Every device that activates with this license is the same shared notebook. They keep each other up to date on their own: there is no separate team code to hand out.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
             <button id="oc-sync-compartir" class="ir" style="background:#25D366;border-color:#1da851;">${window.t("sync.panel.share")}</button>
             <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
@@ -503,14 +511,20 @@
         <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
           </div>
         </div>
-        <div id="oc-sync-unirse" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">
-          <p style="font-size:14px;color:var(--ink-soft);margin:0 0 8px;">Joining from another device? Paste the team code here. It starts with TEAM- and is not your license.</p>
+        <!-- UNIRSE — plegado a proposito (JFC 2026-08-21). Antes esto estaba
+             ABIERTO y arriba, asi que el panel PEDIA un codigo antes de
+             ofrecer el propio, y la gente creia que le faltaba conseguir algo.
+             Ahora primero se ve la licencia propia; esto es para el caso menos
+             comun: un dispositivo que llega a un negocio que ya existe. -->
+        <details id="oc-sync-unirse" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">
+          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">This device belongs to another business — enter its license</summary>
+          <p style="font-size:14px;color:var(--ink-soft);margin:8px 0;">Paste the license of the notebook you want to join. It is the same code the owner sees on their device.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input id="oc-sync-codigo2" type="text" placeholder="TEAM-XXXX-XXXX-XXXX-XXXXX" maxlength="40"
+            <input id="oc-sync-codigo2" type="text" placeholder="F123-XXXX-XXXX-XXXX-XXXXX" maxlength="40"
               style="flex:1;min-width:220px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-size:15px;">
-            <button id="oc-sync-unirme" class="ir" style="min-height:44px;">Join this team</button>
+            <button id="oc-sync-unirme" class="ir" style="min-height:44px;">Join this notebook</button>
           </div>
-        </div>
+        </details>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
 
@@ -522,7 +536,7 @@
         if (window.OCAuth && window.OCAuth.mascaraCodigo) {
           ["oc-sync-codigo", "oc-sync-codigo2"].forEach(function (id) {
             var el = document.getElementById(id);
-            if (el) { el.dataset.ocPrefijo = "TEAM"; window.OCAuth.mascaraCodigo(el); }
+            if (el) { el.dataset.ocPrefijo = "F123"; window.OCAuth.mascaraCodigo(el); }
           });
         }
       } catch (_) {}
@@ -555,7 +569,13 @@
       pintarEstado();
       window.OCSyncControl.onEstado(pintarEstado);
 
+      /* QR DE UNIRSE — DORMANT (JFC 2026-08-21). NO BORRAR: ver el comentario
+         en el HTML de arriba. Poner en true para re-encenderlo (y devolver el
+         div #oc-sync-qr). El generador qrcode-local.js SE QUEDA: lo usan las
+         etiquetas de producto, que no tienen nada que ver con esto. */
+      var SYNC_QR_VISIBLE = false;
       function pintarQR(codigo) {
+        if (!SYNC_QR_VISIBLE) return;
         const cont = document.getElementById("oc-sync-qr");
         if (!cont || !window.qrcode) return;
         try {
@@ -618,11 +638,11 @@
       const btnCompartir = document.getElementById("oc-sync-compartir");
       if (btnCompartir) btnCompartir.addEventListener("click", () => {
         const _c = (window.OCSyncControl.salaActiva() || "").trim();
-        /* Se comparte en la forma que el otro va a TECLEAR: TEAM-. Mandarle el
-           F123- interno era lo que lo hacia parecer una licencia. */
-        const codigo = /^F123-/i.test(_c)
-          ? (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(_c) : _c)
-          : "";
+        /* Se comparte la licencia tal cual (JFC 2026-08-21): ES lo que el otro
+           va a teclear. Antes se traducia a TEAM- para que "no pareciera una
+           licencia" — y era exactamente eso, asi que el disfraz solo hacia
+           dudar a quien lo recibia. */
+        const codigo = /^F123-/i.test(_c) ? _c : "";
         const negocio = (function () { try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch (_) { return ""; } })();
         const _h = (function () { try { const x = window.OCSync && window.OCSync.huella ? window.OCSync.huella() : null; return x && x.corta ? x.corta : ""; } catch (_) { return ""; } })();
         const texto = window.t("sync.panel.shareText")
@@ -651,7 +671,8 @@
           if (!dif) {
             m.innerHTML = '<div style="background:#FFF;border-radius:14px;padding:22px;max-width:420px;"><p style="font-size:16px;color:#0F1923;margin:0 0 14px;">The catalog received is not readable. Nothing was changed.</p><button type="button" id="oc-merge-x" style="width:100%;min-height:48px;border:none;border-radius:10px;background:#2C3E50;color:#FFF;font-size:16px;font-weight:700;cursor:pointer;">Close</button></div>';
           } else {
-            const nada = !dif.nuevasPerchas.length && !dif.nuevosProductos.length && !dif.conflictos.length;
+            const nada = !dif.nuevasPerchas.length && !dif.nuevosProductos.length && !dif.conflictos.length &&
+                         !dif.nuevosMiembros.length && !dif.miembrosActualizados.length;
             const nota = "New products arrive with <strong>stock 0</strong> on purpose. Stock is a physical fact of each shelf: copying it from another device would invent units that are not here. Count them yourself.";
             m.innerHTML =
               '<div style="background:#FFF;border-radius:14px;padding:24px 22px;max-width:470px;width:100%;text-align:left;max-height:86vh;overflow-y:auto;">' +
@@ -663,6 +684,11 @@
                   (dif.nuevasPerchas.length ? "<li><strong>+ " + dif.nuevasPerchas.length + "</strong> shelf(s): " + dif.nuevasPerchas.map(function (x) { return escHtml(x.nombre); }).join(", ") + "</li>" : "") +
                   (dif.nuevosProductos.length ? "<li><strong>+ " + dif.nuevosProductos.length + "</strong> product(s), each arriving with stock 0</li>" : "") +
                   (dif.conflictos.length ? "<li><strong>" + dif.conflictos.length + "</strong> item(s) differ in name or price" + (dif.ganaElOtro ? " — theirs wins (higher role)" : " — yours is kept") + "</li>" : "") +
+                  /* El equipo se lista aparte y con nombres: un cambio de rol o
+                     de PIN decide quien entra y con cuanto peso, y eso no puede
+                     ir escondido dentro de un conteo generico. */
+                  (dif.nuevosMiembros.length ? "<li><strong>+ " + dif.nuevosMiembros.length + "</strong> team member(s): " + dif.nuevosMiembros.map(function (x) { return escHtml(x.nombre) + " (" + (x.rol === "admin" ? "Admin" : "Staff") + ")"; }).join(", ") + "</li>" : "") +
+                  (dif.miembrosActualizados.length ? "<li><strong>" + dif.miembrosActualizados.length + "</strong> team member(s) updated: " + dif.miembrosActualizados.map(function (x) { return escHtml(x.nombre) + (x.rolAntes !== x.rolDespues ? " (" + (x.rolAntes === "admin" ? "Admin" : "Staff") + " &rarr; " + (x.rolDespues === "admin" ? "Admin" : "Staff") + ")" : " (PIN/details)"); }).join(", ") + "</li>" : "") +
                   '<li style="color:#1a6e3c;"><strong>Nothing will be deleted.</strong>' + (dif.soloMios ? " Your " + dif.soloMios + " own product(s) stay." : "") + "</li>" +
                   "</ul>" +
                   '<p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:0 0 16px;padding:10px 12px;background:#F8F9FB;border-left:4px solid #2C3E50;border-radius:0 8px 8px 0;">' + nota + "</p>") +
@@ -683,7 +709,8 @@
             /* El recibo del paso 3: si la huella quedo igual a la del que
                mando, el merge esta verificado y se puede decir. */
             const igual = r.huella && cat.huella && r.huella.corta === cat.huella;
-            msg.textContent = "Merged: +" + r.agregadasU + " shelf(s), +" + r.agregadosP + " product(s)."
+            msg.textContent = "Merged: +" + r.agregadasU + " shelf(s), +" + r.agregadosP + " product(s), "
+              + "+" + (r.miembrosAgregados || 0) + " member(s), " + (r.miembrosActualizados || 0) + " member(s) updated."
               + (igual ? " Fingerprints now match (" + r.huella.corta + "): verified." : " This device is now " + (r.huella ? r.huella.corta : "?") + ".");
             setTimeout(function () { location.reload(); }, 2600);
           });
@@ -694,7 +721,7 @@
           if (!window.OCSyncControl.pedirCatalogo || !window.OCSync || !window.OCSync.compararCatalogo) {
             msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "This device cannot merge catalogs yet."; return;
           }
-          piezas = { ubicaciones: [], productos: [], rol: "", huella: "", esperados: 0, vistos: 0 };
+          piezas = { ubicaciones: [], productos: [], usuarios: [], rol: "", huella: "", esperados: 0, vistos: 0 };
           msg.style.color = "var(--ink-soft)";
           msg.textContent = "Asking your team for their inventory…";
           window.OCSyncControl.pedirCatalogo();
@@ -702,7 +729,7 @@
           temporizador = setTimeout(function () {
             if (!piezas || !piezas.vistos) {
               msg.style.color = "var(--rojo,#a3392a)";
-              msg.textContent = "No other device answered. Open the app on the other device, on the same team code, and try again.";
+              msg.textContent = "No other device answered. Open the app on the other device, activated with this same license, and try again.";
             }
           }, 9000);
         });
@@ -717,11 +744,12 @@
             if (Array.isArray(pl.filas)) {
               if (pl.tabla === "ubicaciones") piezas.ubicaciones = piezas.ubicaciones.concat(pl.filas);
               if (pl.tabla === "productos") piezas.productos = piezas.productos.concat(pl.filas);
+              if (pl.tabla === "usuarios") piezas.usuarios = piezas.usuarios.concat(pl.filas);
             }
             piezas.vistos++;
             if (piezas.esperados && piezas.vistos >= piezas.esperados) {
               clearTimeout(temporizador);
-              const cat = { ubicaciones: piezas.ubicaciones, productos: piezas.productos, huella: piezas.huella };
+              const cat = { ubicaciones: piezas.ubicaciones, productos: piezas.productos, usuarios: piezas.usuarios, huella: piezas.huella };
               const rol = piezas.rol; piezas = null;
               document.getElementById("oc-sync-msg").textContent = "";
               pintarPrevio(cat, rol);
@@ -792,6 +820,26 @@
         Each member has their own 3-digit PIN. Their sales, adjustments and movements are
         recorded under their name in the history. The owner's PIN does not appear here.
       </p>
+      <!-- JERARQUIA VISIBLE (JFC 2026-08-21): "pon una jerarquia o se va a
+           hacer mierda todo, y ponla visible en la lista donde sale el team,
+           ellos necesitan saber quien tiene mas peso sobre los apuntes
+           conjuntos". Cuando dos dispositivos editan lo mismo, el merge
+           propone lo del rol mas alto: si eso no se ve en pantalla, el equipo
+           no entiende por que gano un dato y no el otro. -->
+      <div style="background:var(--paper-deep,#E2E8ED);border-left:4px solid var(--azul-medio,#2c4a68);border-radius:0 8px 8px 0;padding:12px 14px;margin:0 0 16px;">
+        <p style="font-size:14px;font-weight:700;color:#0F1923;margin:0 0 6px;">Who carries more weight on the shared notebook</p>
+        <p style="font-size:14px;line-height:1.6;color:#2C3E50;margin:0;">
+          <strong>Owner</strong> &rarr; <strong>Admin</strong> &rarr; <strong>Staff</strong>.
+          Everyone writes in the same notebook. When two devices change the same thing,
+          the higher role's version is the one proposed. Stock is never overwritten by
+          rank: it is a physical fact of each shelf, counted by whoever has it in front of them.
+        </p>
+        <p style="font-size:14px;line-height:1.6;color:#2C3E50;margin:6px 0 0;">
+          <strong>Admin</strong> does everything day to day: products, shelves, sales, customers.
+          Only the <strong>owner</strong> handles the license, the recovery email, who is promoted
+          or removed, and the commission splits.
+        </p>
+      </div>
       <div id="oc-emp-lista" style="margin-bottom:18px;"></div>
       <details id="oc-emp-form-wrap" style="margin-bottom:6px;">
         <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--azul-medio);margin-bottom:10px;">
@@ -885,6 +933,23 @@
           <tbody id="oc-emp-tbody"></tbody>
         </table>`;
       const tbody = document.getElementById("oc-emp-tbody");
+
+      /* EL DUEÑO ENCABEZA LA LISTA (JFC 2026-08-21). Antes la tabla empezaba
+         en los admins, asi que la jerarquia se leia descabezada y parecia que
+         el admin era lo mas alto que hay. Es una fila informativa: el PIN del
+         dueño no se guarda aqui (vive cifrado en crypto-store) y por eso no
+         tiene botones — no hay nada que editar desde esta tabla. */
+      (function () {
+        const trD = document.createElement("tr");
+        trD.style.borderBottom = "1px solid var(--azul-suave,#dde5ec)";
+        trD.style.background = "var(--paper-deep,#E2E8ED)";
+        trD.innerHTML = `
+          <td style="padding:8px;"><div style="font-weight:700;">${isDueno() ? "You" : "The owner"}</div></td>
+          <td style="padding:8px;text-align:center;"><span style="font-size:13px;font-weight:700;background:#0F1923;color:#fff;padding:2px 7px;border-radius:10px;">Owner</span></td>
+          <td style="padding:8px;text-align:center;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">Active</td>
+          <td style="padding:8px;text-align:right;"><span style="font-size:13px;color:#4A5A6A;">Highest authority</span></td>`;
+        tbody.appendChild(trD);
+      })();
 
       equipo.forEach((u) => {
         const tr = document.createElement("tr");
@@ -2050,8 +2115,15 @@ Keep it somewhere safe.`);
           <button id="oc-syncdev-copiar" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">📋 Copy changes to send</button>
           <button id="oc-syncdev-wa-cambios" class="ir" style="background:#25D366;color:#0a3d20;border-color:#1da851;">📲 Recent changes → WhatsApp</button>
           <button id="oc-syncdev-wa-respaldo" class="ir" style="background:#128C7E;color:#e8fff7;border-color:#0c6b60;">📲 Full backup → WhatsApp</button>
-          <button id="oc-syncdev-qr-mostrar" class="ir" style="background:var(--azul-oscuro);color:var(--blanco-calido);border-color:var(--brass);">📱 Show changes QR</button>
-          <button id="oc-syncdev-qr-escanear" class="ir" style="background:var(--azul-oscuro);color:var(--blanco-calido);border-color:var(--brass);">Scan QR from other device</button>
+          <!-- SYNC POR QR — DORMANT (JFC 2026-08-21). NO BORRAR el codigo de
+               mostrarQRCambios()/escanearQRCambios() mas abajo.
+               Por que se retiro: pedia escanear con la app, y la app no tiene
+               lector propio en la mayoria de telefonos (en iPhone fallaba
+               siempre). Quien lo intentaba se quedaba a medio camino sin
+               entender por que. "Copy changes" hace lo mismo, funciona en todo
+               telefono y tiene la misma seguridad.
+               Para re-encenderlo: devolver estos dos botones. -->
+          <span></span>
           <button id="oc-syncdev-off" style="font-size:13px;padding:8px 12px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Disable</button>
         </div>
         <div id="oc-syncdev-qr-zona" style="display:none;margin:10px 0;text-align:center;"></div>

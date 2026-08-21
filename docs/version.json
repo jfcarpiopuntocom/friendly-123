@@ -1,8 +1,9 @@
 {
-  "version": "1.6.0",
-  "fecha": "2026-07-18",
-  "changelog": "friendly-123 turns the chore of running a store into something alive: your products speak in colors that light up on their own when action is needed. Works offline, your data stays yours, no subscriptions, no ads. Your store, in color.",
+  "version": "1.7.0",
+  "fecha": "2026-08-21",
+  "changelog": "v1.0 — one license, one shared notebook. Every device you activate with your license is the same notebook and they keep each other up to date on their own: products, shelves, and now your team too, with their PINs and roles. Clear hierarchy: Owner, Admin, Staff. Works offline, your data stays yours, no subscriptions, no ads.",
   "requerida": false,
-  "shell": "f123-shell-v86",
-  "apagar": []
+  "shell": "f123-shell-v87",
+  "apagar": [],
+  "releaseName": "v1.0"
 }
