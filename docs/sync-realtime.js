@@ -183,6 +183,50 @@
     return JSON.parse(new TextDecoder().decode(claro));
   }
 
+  /* AUTO-CARGA DEL INVENTARIO EN UN DISPOSITIVO NUEVO (JFC 2026-08-25).
+     El caso central de todo esto: entro con la licencia del negocio + un PIN
+     del equipo y quiero VER su tienda. Los usuarios (PINs) ya se aplican solos
+     al unirse; el catalogo (perchas/productos) esperaba un "Merge" manual en
+     Avanzado. En un dispositivo que TODAVIA NO tiene inventario propio no hay
+     nada que proteger: se junta el catalogo que manda un companero y se aplica
+     solo. Es AGREGAR, nunca borra (los productos entran con stock 0). Si el
+     dispositivo ya tiene inventario propio, NO se toca: ahi manda el merge
+     manual, que muestra el cambio antes de aplicarlo. */
+  var _bufCat = null;
+  function _resetBufCat() { _bufCat = null; }
+  function _acumularCatalogo(pl) {
+    try {
+      if (!pl || !pl.tabla) return;
+      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], esperados: 0, vistos: 0, huella: "", rol: "" };
+      _bufCat.esperados = pl.deTotal || _bufCat.esperados;
+      _bufCat.huella = pl.huella || _bufCat.huella;
+      _bufCat.rol = pl.rol || _bufCat.rol;
+      if (Array.isArray(pl.filas)) {
+        if (pl.tabla === "ubicaciones") _bufCat.ubicaciones = _bufCat.ubicaciones.concat(pl.filas);
+        else if (pl.tabla === "productos") _bufCat.productos = _bufCat.productos.concat(pl.filas);
+        else if (pl.tabla === "usuarios") _bufCat.usuarios = _bufCat.usuarios.concat(pl.filas);
+      }
+      _bufCat.vistos++;
+      if (_bufCat.esperados && _bufCat.vistos >= _bufCat.esperados) {
+        var cat = { ubicaciones: _bufCat.ubicaciones, productos: _bufCat.productos, usuarios: _bufCat.usuarios, huella: _bufCat.huella };
+        var rol = _bufCat.rol; _bufCat = null;
+        _autoAplicarSiVacio(cat, rol);
+      }
+    } catch (_) { _bufCat = null; }
+  }
+  function _autoAplicarSiVacio(cat, rol) {
+    try {
+      if (!window.OCSync || !window.OCSync.aplicarCatalogo || !window.OCSync.huella) return;
+      var h = window.OCSync.huella();
+      var vacio = h && (Number(h.productos) || 0) === 0; // sin inventario propio
+      if (!vacio) return; // ya tiene lo suyo: no se toca, decide el merge manual
+      window.OCSync.aplicarCatalogo(cat, rol);
+      // Refresca la vista de inventario si esta a la vista (si no, se ve al abrirla).
+      try { if (typeof window.cargarInventario === "function") window.cargarInventario(); } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent("oc-catalogo-autoaplicado", { detail: { productos: (cat.productos || []).length } })); } catch (_) {}
+    } catch (_) {}
+  }
+
   // --- Estado de conexion ---
   let ws = null, claveActual = null, salaIdActual = null, reintentoMs = 1000;
   let estadoActual = "apagado"; // apagado | conectando | conectado | reconectando
@@ -237,6 +281,7 @@
       reintentoMs = 1000;
       intentosSeguidos = 0;
       notificarEstado("conectado");
+      _resetBufCat(); // empezar limpio: el catalogo de esta sesion se junta de cero
       vaciarCola();
       pedirCatchup();
       /* Al conectar se pide tambien el catalogo (JFC 2026-08-21). De lo que
@@ -288,6 +333,10 @@
                 window.OCSync && window.OCSync.aplicarEquipoRemoto) {
               window.OCSync.aplicarEquipoRemoto(_pl.filas);
             }
+            /* Se junta el catalogo aqui tambien (pasivamente) para que un
+               dispositivo NUEVO vea el inventario sin abrir Avanzado ni tocar
+               nada. Solo se aplica solo si esta vacio (ver _autoAplicarSiVacio). */
+            _acumularCatalogo(_pl);
           } catch (_) {}
           try { window.dispatchEvent(new CustomEvent("oc-catalogo-trozo", { detail: op })); } catch (_) {}
           return;
