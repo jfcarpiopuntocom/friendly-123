@@ -2090,19 +2090,19 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
   overlay.innerHTML = `
     <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:20px 18px 28px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">Nuevo cliente</strong>
-        <button id="oc-ncli-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Cerrar</button>
+        <strong id="oc-ncli-titulo" style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">${t("newcust.title")}</strong>
+        <button id="oc-ncli-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${t("newcust.close")}</button>
       </div>
-      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px;">Nombre
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px;"><span id="oc-ncli-lbl-nombre">${t("newcust.name")}</span>
         <input id="oc-ncli-nombre" type="text" maxlength="80" autocomplete="off"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
-      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;">Phone (optional)
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;"><span id="oc-ncli-lbl-tel">${t("newcust.phone")}</span>
         <input id="oc-ncli-tel" type="tel" maxlength="24" autocomplete="tel" inputmode="tel"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
       <button id="oc-ncli-crear" style="width:100%;padding:11px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;font-size:15px;font-weight:700;cursor:pointer;">
-        Save and select
+        ${t("newcust.save")}
       </button>
       <p id="oc-ncli-msg" style="font-size:13px;margin:8px 0 0;font-weight:700;"></p>
     </div>`;
@@ -2190,13 +2190,13 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
       telefono = (document.getElementById("oc-ncli-tel").value || "").trim();
     }
     const msg = document.getElementById("oc-ncli-msg");
-    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "El nombre es obligatorio."; return; }
+    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("newcust.nameRequired"); return; }
     const btn2 = document.getElementById("oc-ncli-crear");
     btn2.disabled = true;
     try {
       const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono }) });
       const r = await res.json();
-      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Error creating client."; btn2.disabled = false; return; }
+      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || t("newcust.createError"); btn2.disabled = false; return; }
       // Agregar al selector y seleccionarlo automáticamente
       const sel = document.getElementById("ventaCliente");
       if (sel) {
@@ -2207,7 +2207,20 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
         sel.value = r.id;
       }
       cerrar();
-    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Network error. Try again."; btn2.disabled = false; }
+    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("newcust.networkError"); btn2.disabled = false; }
+  });
+
+  // Ambos idiomas (JFC 2026-08-25): el modal se arma una vez, asi que si el
+  // usuario cambia de idioma despues hay que repintar sus textos fijos.
+  window.addEventListener("oc-lang-change", function () {
+    try {
+      var set = function (id, k) { var el = document.getElementById(id); if (el) el.textContent = t(k); };
+      set("oc-ncli-titulo", "newcust.title");
+      set("oc-ncli-cerrar", "newcust.close");
+      set("oc-ncli-lbl-nombre", "newcust.name");
+      set("oc-ncli-lbl-tel", "newcust.phone");
+      set("oc-ncli-crear", "newcust.save");
+    } catch (_) {}
   });
 })();
 
