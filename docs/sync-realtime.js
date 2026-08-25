@@ -880,7 +880,16 @@
           _acc = (_acc * 32 + _v) % 37;
         }
         if (_mal || _CHK.charAt(_acc) !== _cuerpo.charAt(16)) {
-          return { ok: false, error: "That code has a typo. Check it character by character." };
+          /* GUARD, NO PUERTA (JFC 2026-08-25). El simbolo de verificacion NO
+             debe RECHAZAR una licencia legitima ya emitida — muchas no llevan
+             el checksum del cliente (las emitio el Worker, o son mas viejas).
+             Bloqueaba a una usuaria real (idiomARTE) con su licencia correcta
+             en tablet/celular. Se degrada a AVISO: se acepta y se conecta. Si
+             de verdad estaba mal tecleada, cae en una sala vacia y el indicador
+             lo muestra (offline) — recuperable, a diferencia de dejar fuera a
+             quien SI tiene su licencia. Misma filosofia que
+             ocLicenciaVerificada() en auth-ui.js ("guard, no puerta"). */
+          try { console.warn("[sync] licencia sin simbolo de verificacion valido; se acepta igual (guard, no puerta)"); } catch (_) {}
         }
       }
       try { localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm })); } catch (_) {}
