@@ -12,13 +12,34 @@ atajo WebRTC (los SDP/ICE viajan como cualquier otro frame).
 - No tiene almacenamiento de negocio (sin KV, sin disco). Las salas viven en
   memoria (Durable Object).
 
-## Deploy
-```bash
-cd cloudflare-sync-relay
-npx wrangler deploy
+## Deploy (Windows — lo más fácil)
+En PowerShell **no** uses `cd … && npx …` (el `&&` da error en PowerShell 5.1).
+Usa el script:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy.ps1
 ```
+o en macOS/Linux/Git Bash:
+```bash
+bash deploy.sh
+```
+La **primera vez** te abre el navegador para iniciar sesión en Cloudflare
+(`wrangler login`); después solo despliega. Necesitas Node.js LTS instalado
+(https://nodejs.org) para que exista `npx`.
+
+Si prefieres a mano, son DOS comandos separados (no encadenados):
+```powershell
+npx --yes wrangler@latest login
+npx --yes wrangler@latest deploy
+```
+
 Queda en `wss://friendly123-sync-relay.<subdominio>.workers.dev/sala/<idSala>`.
-El cliente (`docs/sync-realtime.js`, `RELAY_URL`) ya apunta ahí.
+El cliente (`docs/sync-realtime.js`, `RELAY_URL`) ya apunta ahí. Verifica con
+`https://friendly123-sync-relay.<subdominio>.workers.dev/health` →
+`friendly123-sync-relay ok`.
+
+> Plan gratis: la migración usa `new_sqlite_classes`, así que el Durable Object
+> despliega sin plan pago (la sala no usa almacenamiento; el backend SQLite no
+> cuesta nada aquí).
 
 ## Límites
 - `MAX_CLIENTES_SALA = 12` por sala.
