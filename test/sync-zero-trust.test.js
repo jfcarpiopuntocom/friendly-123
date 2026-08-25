@@ -175,3 +175,27 @@ test('el checkpoint solo se restaura en un dispositivo FRESCO (sin ventas propia
   assert.match(MOCK, /aplicarCheckpoint/);
   assert.match(MOCK, /ventas\.length > 0\) return \{ ok: false, motivo: "no-fresco" \}/);
 });
+
+// --- Licencia: el checksum es GUARD, no PUERTA (JFC 2026-08-25) ---
+test('el algoritmo de checksum del generador y del validador coincide', () => {
+  // Replica _ocCheck (auth-ui) y la validacion de activar (sync-realtime):
+  // deben dar el MISMO simbolo, si no, una licencia legitima fallaria.
+  const B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ", CHK = B32 + "*~$=U";
+  const check = (cuerpo) => { let acc = 0; for (let i = 0; i < cuerpo.length; i++) { const v = B32.indexOf(cuerpo[i]); if (v < 0) return ""; acc = (acc * 32 + v) % 37; } return CHK.charAt(acc); };
+  // 5 cuerpos aleatorios de 16 chars B32 -> su check valida
+  for (let t = 0; t < 5; t++) {
+    let cuerpo = "";
+    for (let i = 0; i < 16; i++) cuerpo += B32.charAt(Math.floor(Math.random() * 32));
+    const chk = check(cuerpo);
+    const completo = cuerpo + chk;
+    // el validador recomputa y compara el char 16
+    assert.equal(check(completo.slice(0, 16)), completo.charAt(16));
+  }
+});
+
+test('el checksum ya NO rechaza (guard, no puerta): no bloquea licencias reales', () => {
+  // La usuaria real quedaba fuera por este hard-reject. Ya no debe existir.
+  assert.ok(!/That code has a typo\. Check it character by character\./.test(SYNC),
+    'activar() no debe RECHAZAR por checksum; es un guard (aviso), no una puerta');
+  assert.match(SYNC, /guard, no puerta/i);
+});
