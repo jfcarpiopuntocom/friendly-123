@@ -101,3 +101,41 @@ test('el stock viaja como operaciones con dedup, no como ultima escritura', () =
   // Existe el aplicador de op remota (delta de stock), no un "set stock = N".
   assert.match(MOCK, /aplicarOpRemota/);
 });
+
+// --- Red de seguridad "JAMAS quedemos mal": local-first + cola + catch-up ---
+// (JFC 2026-08-25). Estos tests son guardarrailes: si alguien quita la cola o
+// el catch-up, la garantia de "nunca se pierde una venta" se rompe en silencio.
+
+test('una venta sin conexion se encola y nunca se pierde', () => {
+  // Sin WebSocket abierto, la op se encola.
+  assert.match(SYNC, /else\s*\{\s*\n\s*encolar\(op\);/);
+  // Y si cifrar() falla con el socket abierto, tambien cae a la cola (no se pierde).
+  assert.match(SYNC, /\.catch\(\(\)\s*=>\s*encolar\(op\)\)/);
+});
+
+test('al reconectar se vacia la cola y se pide lo que falto (catch-up)', () => {
+  // onopen dispara el vaciado de la cola y el catch-up.
+  assert.match(SYNC, /ws\.onopen\s*=/);
+  assert.match(SYNC, /vaciarCola\(\)/);
+  assert.match(SYNC, /pedirCatchup\(\)/);
+  // El que responde el catch-up manda cada op como una Op normal (mismo dedup).
+  assert.match(SYNC, /function responderCatchup/);
+});
+
+test('la reconexion usa backoff con tope (no martillea al relay)', () => {
+  assert.match(SYNC, /Math\.min\(reintentoMs \* 2, 30000\)/);
+});
+
+test('idempotencia: aplicar la misma op dos veces = una sola (contrato de dedup)', () => {
+  // Modelo del contrato que hace seguras la cola, el catch-up y cualquier
+  // transporte redundante: se deduplica por opId. Replica la idea de
+  // _opsAplicadas en mock-backend.js.
+  const vistos = new Set();
+  let stock = 5;
+  const aplicar = (op) => { if (vistos.has(op.opId)) return; vistos.add(op.opId); stock += op.delta; };
+  const venta = { opId: 'v1', delta: -1 };
+  aplicar(venta); aplicar(venta); // llega dos veces (WS + catch-up)
+  assert.equal(stock, 4, 'una op repetida no debe descontar dos veces');
+  aplicar({ opId: 'v2', delta: -1 }); // otra venta distinta
+  assert.equal(stock, 3, 'dos ventas distintas si descuentan las dos');
+});

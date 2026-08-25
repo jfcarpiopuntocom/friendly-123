@@ -86,3 +86,40 @@ Gana la versión más nueva. Si empatan, gana el rol más alto: dueño > admin >
   antes de desplegar el relay**: el cliente ya apunta a
   `friendly123-sync-relay…` y sin el Worker vivo el sync no conecta (la caja
   local sigue; el sync muestra reconectando).
+
+---
+
+## APÉNDICE — Diseño de WebRTC (NO implementado; decisión de JFC 2026-08-25)
+JFC decidió **no** meter WebRTC al camino crítico ahora (no se puede verificar
+P2P sin dos navegadores reales y su valor es velocidad/descarga del relay, no
+resiliencia: la señalización igual necesita el relay). La red que evita perder
+ventas —local-first + cola offline + catch-up— ya existe y quedó con pruebas.
+Se deja el diseño listo para retomarlo cuando haya cómo probarlo con 2 equipos.
+
+### Cómo se haría, sin romper nada
+1. **Transporte adicional, no reemplazo.** El WebSocket sigue siendo el camino
+   primario y siempre corre. El DataChannel es un carril extra.
+2. **Señalización por el relay.** Los SDP (offer/answer) e ICE candidates viajan
+   como frames cifrados normales por la sala (tipos nuevos `TIPO_RTC_OFFER`,
+   `TIPO_RTC_ANSWER`, `TIPO_RTC_ICE`, dirigidos con `para: deviceId`). El relay
+   no cambia: sigue siendo una tubería que reparte bytes.
+3. **Malla por deviceId.** Cada par mantiene una `RTCPeerConnection` por otro
+   deviceId de la sala (tope 12). El de deviceId menor inicia el offer (regla
+   determinista para no chocar dos offers).
+4. **Envío redundante, seguro por dedup.** `OCSyncEmit` mandaría la MISMA trama
+   cifrada por el WS y por los DataChannels abiertos. Como el receptor deduplica
+   por `opId` (`_opsAplicadas`), recibir la op dos veces es inofensivo.
+5. **Recepción por el mismo camino.** `datachannel.onmessage` → la misma función
+   que `ws.onmessage` (descifrar + rutear + dedup). Un solo lugar, un solo dedup.
+6. **Aislamiento total.** Todo el módulo RTC envuelto en try/catch; cualquier
+   error apaga SOLO el carril RTC (kill-switch `localStorage f123_rtc_off`), el
+   WebSocket nunca se toca. Falla cerrado.
+7. **Sin TURN de pago al inicio.** Solo STUN público; si no hay P2P, no pasa
+   nada: queda el WebSocket.
+
+### Qué probar antes de encenderlo (2 perfiles reales)
+- Con canal directo abierto: una venta en A llega a B por el DataChannel.
+- Cortando el DataChannel: la misma venta llega por el WebSocket (failover).
+- La op que llega por ambos caminos se aplica UNA sola vez (dedup por opId).
+- Si el relay está caído: no se abre P2P nuevo, y las ventas se encolan y se
+  ponen al día al volver (el carril RTC no cambia esa garantía).

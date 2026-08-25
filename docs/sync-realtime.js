@@ -705,7 +705,14 @@
     };
     registrarEnLog(op); // guardo mi propia op para poder reenviarsela a un par que la haya perdido
     if (ws && ws.readyState === WebSocket.OPEN) {
-      cifrar(claveActual, op).then((buf) => { try { ws.send(buf); } catch (_) { encolar(op); } });
+      /* BLINDAJE (JFC 2026-08-25, "JAMAS quedemos mal"): si cifrar() rechaza
+         (rarisimo, pero posible), sin el .catch la op no se mandaba NI se
+         encolaba: se perdia en silencio. Ahora, cualquier fallo de cifrado o
+         de envio cae a la cola, que se vacia al reconectar. Una op nunca se
+         pierde por un tropiezo del cifrado. */
+      cifrar(claveActual, op)
+        .then((buf) => { try { ws.send(buf); } catch (_) { encolar(op); } })
+        .catch(() => encolar(op));
     } else {
       encolar(op);
     }
