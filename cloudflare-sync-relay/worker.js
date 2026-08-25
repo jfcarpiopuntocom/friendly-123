@@ -43,8 +43,13 @@ export class SalaSync {
 
     servidor.addEventListener("message", (evt) => {
       const data = evt.data;
-      // Tope de tamano SIN mirar el contenido: solo el largo en bytes/caracteres.
-      const tam = typeof data === "string" ? data.length : (data && data.byteLength) || 0;
+      // Tope de tamano SIN mirar el contenido: bytes reales. En un string,
+      // .length son CARACTERES, no bytes — un texto multibyte podia colarse por
+      // encima del tope; se mide en UTF-8. (Importa para los frames base64 de la
+      // bitacora cifrada.) El relay sigue sin leer el contenido.
+      const tam = typeof data === "string"
+        ? new TextEncoder().encode(data).length
+        : (data && data.byteLength) || 0;
       if (tam > MAX_FRAME_BYTES) {
         try { servidor.close(1009, "frame too big"); } catch (_) {}
         return;

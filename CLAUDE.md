@@ -96,6 +96,18 @@ verificar sería lo contrario de profesional. Pero el merge no espera su permiso
 espera la comprobación. Si algo no se puede mergear, se dice POR QUÉ en una
 línea y se arregla — no se deja en el limbo.
 
+## REGLA 2e — TERMINAR LA MISIÓN, NO FRENAR EN LO YA PEDIDO (JFC, 2026-08-25)
+
+> "ya te he pedido 80 veces que dejes de detenerte en cambio en las cosas que YO
+> MISMO ya pedí o aprobé. Acostúmbrate a terminar tus misiones."
+
+Si JFC ya lo pidió o lo aprobó (incluye elegir una opción en una pregunta), **se
+hace completo hasta terminar** — no se vuelve a preguntar "¿lo hago?", no se
+para a mitad a pedir permiso, no se deja a medias esperando su decisión. Preguntar
+es SOLO para una duda real que él no haya resuelto y que pueda destruir datos o
+cambiar el modelo del producto. Lo que él NO pidió, no se implementa por
+iniciativa propia (no auto-aprobarse features); lo que SÍ pidió, se termina.
+
 ## REGLA 3 — BITÁCORA
 
 Registrar los prompts de JFC en `PROMPTS-Y-BITACORA.md`: textuales, fechados, y
