@@ -2123,6 +2123,11 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
     if (!_iti) {
       cargarITIUnaVez().then(function (ok) {
         if (!ok || !window.intlTelInput || _iti) return;
+        /* B12 (JFC 2026-08-19): intl-tel-input reconstruye el DOM alrededor
+           del input al inicializarse. Si el CDN tardaba y el usuario ya habia
+           empezado a teclear el telefono, el numero se le borraba en la cara.
+           Se guarda lo tecleado y se devuelve despues de inicializar. */
+        var _tecleado = telEl.value || "";
         try {
           _iti = window.intlTelInput(telEl, {
             initialCountry: "auto",
@@ -2133,10 +2138,15 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
               cb("us");
             },
             preferredCountries: ["us", "ec", "mx", "co", "pe", "cl", "ar", "es"],
-            separateDialCode: true,
-            utilsScript: "" // ya viene en intlTelInputWithUtils.min.js
+            separateDialCode: true
+            /* B13: antes iba utilsScript:"". El bundle intlTelInputWithUtils
+               ya trae utils dentro, y pasarle una ruta vacia hace que la
+               libreria intente cargar la pagina actual como si fuera el
+               script de utilidades. Se omite la opcion, que es la forma
+               documentada de usar ese bundle. */
           });
-        } catch (_) { _iti = null; }
+          if (_tecleado) { try { _iti.setNumber(_tecleado); } catch (_) { telEl.value = _tecleado; } }
+        } catch (_) { _iti = null; telEl.value = _tecleado; }
       });
     }
   }
@@ -5582,8 +5592,19 @@ document.addEventListener("oc-lang-change", () => {
     } catch(_) { return "$"+Number(v||0).toFixed(2); }
   }
   function visible(){
-    // Solo owner/admin. Se apoya en las clases que auth-ui pone en body.
     var b=document.body;
+    /* B10 (JFC 2026-08-19): auth-ui hace rol = esDemo ? "dueno" : nuevoRol, asi
+       que un visitante de la DEMO tambien lleva la clase rol-dueno. El boton
+       aparecia en la demo y le ofrecia "descargar respaldo" de un negocio que
+       no es suyo. Se excluye rol-demo explicitamente.
+       B11: al cerrar sesion las clases se quitan, pero el sondeo tarda hasta
+       3 s en enterarse y el boton quedaba flotando encima del teclado del PIN.
+       Se comprueba tambien que el candado no este visible. */
+    if (b.classList.contains("rol-demo")) return false;
+    try {
+      var gate=document.getElementById("oc-gate")||document.querySelector("#gate");
+      if (gate && gate.style.display!=="none" && gate.offsetParent!==null) return false;
+    } catch (_) {}
     return b.classList.contains("rol-dueno")||b.classList.contains("rol-admin");
   }
   function actualizarFAB(){
