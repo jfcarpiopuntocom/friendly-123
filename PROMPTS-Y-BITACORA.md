@@ -286,3 +286,19 @@ un telefono en 1.6.0 creyera que lo nuevo es mas viejo. SW cache a
 - A4-A7 evento activo (pulldown), invitados y exportar CSV (index.html, i18n.js).
 - B (motor de sync) y bloque 6 (seguridad/integridad): en curso / por definir
   alcance con JFC.
+
+---
+
+## 2026-08-25 — PENDIENTES para la fase de SOLO debug + tests (pedido de JFC)
+1. **Claridad de a qué tienda entras**: antes de entrar (licencia + PIN), la UI
+   debe decir claramente a QUÉ negocio/tienda estás entrando. Hoy es confuso.
+   Buscar el patrón world-class (confirmar "Entrando a: <negocio>" antes del
+   acceso). UX racional, claridad, no confusión.
+2. **BUG a cazar**: al poner 789 (apropiación), tras unos minutos el dispositivo
+   REVIRTIÓ a la licencia propia de JFC. Sospechas: la autocuración del heartbeat
+   (adopta syncCode como licenseCode) y/o el pull/checkpoint nuevo re-adoptando
+   la sala anterior. Reproducir con 2 licencias y arreglar sin romper el sync.
+3. Indicador de sync: DONE hoy (blanco=sincronizado, negro=offline, 4 tonos,
+   etiqueta explicativa + tooltip, separación de Help). El de junto a Help es el
+   "recently synced pill"; hay OTRO en el panel de Avanzado (mismo criterio).
+   Evaluar si dejar solo uno para no duplicar.

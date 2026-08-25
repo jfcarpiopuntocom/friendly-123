@@ -293,11 +293,13 @@
      Avanzado; a JFC no le gustaban los colores y la queria junto a Ayuda,
      visible pero discreta, en escala de negro a blanco: offline/synced. Aqui
      va debajo de "Help (?)", en el mismo rincon del header. No impone color a
-     la interfaz — solo un punto que va de blanco (offline) a negro (synced). */
+     la interfaz — solo un punto en escala de grises. SEMANTICA (JFC 2026-08-25,
+     "es lo logico"): BLANCO BRILLOSO = synced/al dia (vivo, encendido); NEGRO =
+     offline / lleva rato sin conectar (apagado); gris = sincronizando. */
   const mini = document.createElement("div");
   mini.id = "oc-sync-mini";
   mini.setAttribute("aria-live", "polite");
-  mini.style.cssText = "display:flex;align-items:center;gap:5px;font-size:11px;line-height:1;font-weight:700;letter-spacing:.02em;color:#8a8a8a;margin-top:1px;cursor:default;";
+  mini.style.cssText = "display:flex;align-items:center;gap:5px;font-size:11px;line-height:1;font-weight:700;letter-spacing:.02em;color:#8a8a8a;margin-top:4px;cursor:default;";
   const miniDot = document.createElement("span");
   miniDot.style.cssText = "width:8px;height:8px;border-radius:50%;box-sizing:border-box;background:#ffffff;border:1.5px solid #b7b7b7;";
   const miniTxt = document.createElement("span");
@@ -311,23 +313,31 @@
       const C = window.OCSyncControl;
       const e = estado || (C && C.estado ? C.estado() : "apagado");
       const problema = !!(C && C.problemaPersistente && C.problemaPersistente());
-      let dotBg, dotBorder, txtColor, etiqueta;
+      /* ESCALA DE NEGRO A BLANCO = grado de "encendido/al dia" (JFC 2026-08-25).
+         4 tonos: NEGRO=offline (apagado) < gris oscuro=reconectando <
+         gris claro=sincronizando < BLANCO BRILLOSO=sincronizado (vivo, al dia).
+         La etiqueta dice la palabra completa (explica, no solo "Synced") y el
+         tooltip explica la escala para quien no sepa que es. */
+      let dotBg, dotBorder, dotGlow, txtColor, etiqueta;
       if (e === "conectado") {
-        // Extremo NEGRO de la escala = al dia.
-        dotBg = "#141414"; dotBorder = "#141414"; txtColor = "#3a3a3a"; etiqueta = _miniT("sync.mini.synced", "Synced");
+        dotBg = "#ffffff"; dotBorder = "#7f93a4"; dotGlow = "0 0 5px 1px rgba(255,255,255,.95), 0 0 0 2px rgba(127,147,164,.30)";
+        txtColor = "#3a3a3a"; etiqueta = _miniT("sync.mini.synced", "Synchronized");
         const n = C && C.presencia ? C.presencia() : null;
         if (n != null && n > 1) etiqueta += " · " + n;
-      } else if ((e === "conectando" || e === "reconectando") && !problema) {
-        // Gris intermedio = trabajando.
-        dotBg = "#9a9a9a"; dotBorder = "#9a9a9a"; txtColor = "#7a7a7a"; etiqueta = _miniT("sync.mini.syncing", "Syncing…");
+      } else if (e === "conectando" && !problema) {
+        dotBg = "#c8c8c8"; dotBorder = "#b0b0b0"; dotGlow = "none"; txtColor = "#7a7a7a"; etiqueta = _miniT("sync.mini.syncing", "Syncing…");
+      } else if (e === "reconectando" && !problema) {
+        dotBg = "#6a6a6a"; dotBorder = "#5a5a5a"; dotGlow = "none"; txtColor = "#7a7a7a"; etiqueta = _miniT("sync.mini.reconnecting", "Reconnecting…");
       } else {
-        // Extremo BLANCO de la escala = offline / sin sala / no alcanza.
-        dotBg = "#ffffff"; dotBorder = "#b7b7b7"; txtColor = "#9a9a9a"; etiqueta = _miniT("sync.mini.offline", "Offline");
+        // NEGRO = offline / apagado / lleva rato sin conectar.
+        dotBg = "#141414"; dotBorder = "#141414"; dotGlow = "none"; txtColor = "#8a8a8a"; etiqueta = _miniT("sync.mini.offline", "Offline");
       }
       miniDot.style.background = dotBg;
       miniDot.style.borderColor = dotBorder;
+      miniDot.style.boxShadow = dotGlow;
       miniTxt.textContent = etiqueta;
       mini.style.color = txtColor;
+      try { mini.title = _miniT("sync.mini.legend", "Sync status — black: offline · white: up to date"); } catch (_) {}
     } catch (_) {}
   }
   pintarMini();
