@@ -705,6 +705,19 @@
     wrap.querySelector("#oc-act-entrar").addEventListener("click", function () {
       wrap.style.display = "none";
       entrar("dueno");
+      /* BUG REAL (JFC 2026-08-19): "puse 7-8-9 y dije que prefiero la tienda
+         vacia PERO SIGUEN CARGADAS LAS CAMISETAS DE METALLICA".
+
+         El backend SI se vaciaba. Lo que no pasaba era el repintado: entrar()
+         solo fuerza un click de navegacion para los roles empleado y admin, y
+         al activar tu negocio entras como dueno. Las vistas conservaban el
+         dibujo anterior — el catalogo de demo — aunque los datos detras ya
+         estuvieran en cero. El dueno veia su tienda "llena" de productos que
+         ya no existian.
+
+         Se reutiliza el evento que ya existe para repintar todo despues de un
+         rescate de estado: mismo camino probado, cero logica nueva. */
+      try { window.dispatchEvent(new CustomEvent("oc-estado-rescatado")); } catch (_) {}
     });
 
     return wrap;
