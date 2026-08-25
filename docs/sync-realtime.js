@@ -72,6 +72,7 @@
      negocio, la pinta y la olvida al cerrarse. Estos mensajes viajan cifrados
      por el mismo relay, que solo rebota bytes que no puede leer. */
   const TIPO_LATIDO = "__latido__";
+  const TIPO_CHECKPOINT = "__checkpoint__"; // foto cifrada del catalogo (bitacora)
   const TIPO_PIN = "__pin__";
   const TIPO_ORDEN = "__orden__";
   const TIPO_RESPUESTA = "__respuesta__";
@@ -136,6 +137,17 @@
     return id;
   }
 
+  function lamportActual() { return Number(localStorage.getItem(LAMPORT_KEY) || 0); }
+  function mergeLamport(lam) {
+    try { var n = Number(lam) || 0; if (n > lamportActual()) localStorage.setItem(LAMPORT_KEY, String(n)); } catch (_) {}
+  }
+  // ArrayBuffer -> base64 (para meter el sobre cifrado en el frame de texto de
+  // la bitacora). Solo se usa con paquetes chicos (ops) y el checkpoint.
+  function ab2b64(buf) {
+    var b = new Uint8Array(buf), s = "";
+    for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return btoa(s);
+  }
   function siguienteLamport() {
     let n = Number(localStorage.getItem(LAMPORT_KEY) || 0) + 1;
     try { localStorage.setItem(LAMPORT_KEY, String(n)); } catch (_) {}
@@ -229,6 +241,7 @@
 
   // --- Estado de conexion ---
   let ws = null, claveActual = null, salaIdActual = null, reintentoMs = 1000;
+  let _ckptTimer = null; // sube checkpoints periodicos mientras hay conexion
   let estadoActual = "apagado"; // apagado | conectando | conectado | reconectando
   let presenciaN = null; // cuantos dispositivos conectados ahora (null = desconocido)
   let intentosSeguidos = 0; // reintentos consecutivos sin exito (refuerzo 2026-07-23)
@@ -247,6 +260,7 @@
   // conectar() SIEMPRE cierra lo que hubiera antes de abrir uno nuevo.
   function cerrarWsExistente() {
     if (timeoutConexion) { clearTimeout(timeoutConexion); timeoutConexion = null; }
+    if (_ckptTimer) { clearInterval(_ckptTimer); _ckptTimer = null; }
     if (ws) {
       try { ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null; ws.close(); } catch (_) {}
       ws = null;
@@ -284,6 +298,11 @@
       _resetBufCat(); // empezar limpio: el catalogo de esta sesion se junta de cero
       vaciarCola();
       pedirCatchup();
+      pullDelRelay(); // ponerse al dia contra la bitacora del relay (aunque no haya peers)
+      // Subir nuestro checkpoint poco despues de conectar, y luego cada tanto,
+      // asi el relay siempre tiene una foto reciente para el que llegue nuevo.
+      setTimeout(function () { try { subirCheckpoint(true); } catch (_) {} }, 1500 + Math.random() * 1500);
+      try { if (_ckptTimer) clearInterval(_ckptTimer); _ckptTimer = setInterval(function () { try { subirCheckpoint(false); } catch (_) {} }, 180000); } catch (_) {}
       /* Al conectar se pide tambien el catalogo (JFC 2026-08-21). De lo que
          llegue, el EQUIPO se aplica solo y el resto espera a que una persona
          lo confirme en Avanzado. Asi el segundo dispositivo tiene los PINs y
@@ -307,6 +326,11 @@
       }
       try {
         const op = await descifrar(claveActual, ev.data);
+        /* Reloj de Lamport: al recibir, mi reloj sube a max(mio, ajeno). Sin
+           esto, un checkpoint que yo suba podria llevar un lamport MENOR que
+           una op ajena que ya esta reflejada en su stock, y un dispositivo
+           nuevo volveria a aplicar esa op (doble conteo). Merge estandar. */
+        if (op && typeof op.lamport === "number") mergeLamport(op.lamport);
         // Catch-up (2026-08-04): un par pregunto que ops le faltan. Le
         // contesto directo (el relay solo reenvia, no interviene) con lo que
         // yo tengo en mi log local que el todavia no vio. Nunca se aplica
@@ -344,6 +368,22 @@
         if (op && op.tipo === TIPO_FOTO_PEDIDA) { responderFoto(op); return; }
         if (op && op.tipo === TIPO_PIN) { responderPin(op); return; }
         if (op && op.tipo === TIPO_ORDEN) { responderOrden(op); return; }
+        /* CHECKPOINT (bitacora): la foto cifrada con el catalogo+stock. Solo se
+           aplica en un dispositivo FRESCO (aplicarCheckpoint se auto-protege:
+           si ya hubo ventas aqui, se ignora). Asi un dispositivo nuevo ve la
+           tienda con su stock real sin depender de que haya alguien en linea. */
+        if (op && op.tipo === TIPO_CHECKPOINT) {
+          try {
+            if (op.payload && window.OCSync && window.OCSync.aplicarCheckpoint) {
+              var _rc = window.OCSync.aplicarCheckpoint(op.payload);
+              if (_rc && _rc.ok) {
+                try { if (typeof window.cargarInventario === "function") window.cargarInventario(); } catch (_) {}
+                try { window.dispatchEvent(new CustomEvent("oc-checkpoint-restaurado", { detail: _rc })); } catch (_) {}
+              }
+            }
+          } catch (_) {}
+          return;
+        }
         /* Y los que emite el propio tablero: se ignoran aqui para no
            reprocesarlos ni meterlos al log de ops. */
         if (op && (op.tipo === TIPO_FOTO_TROZO || op.tipo === TIPO_RESPUESTA || op.tipo === TIPO_LATIDO)) return;
@@ -352,7 +392,7 @@
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
       } catch (_) { /* mensaje ilegible (codigo distinto, ruido) — se ignora, sordo a proposito */ }
     };
-    ws.onclose = () => { notificarEstado("reconectando"); programarReintento(); };
+    ws.onclose = () => { if (_ckptTimer) { clearInterval(_ckptTimer); _ckptTimer = null; } notificarEstado("reconectando"); programarReintento(); };
     ws.onerror = () => { try { ws.close(); } catch (_) {} };
   }
 
@@ -711,7 +751,7 @@
     const cola = leerCola();
     if (!cola.length) return;
     for (const op of cola) {
-      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; } // corta si algo falla, reintenta despues
+      try { const buf = await cifrar(claveActual, op); ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { return; } // corta si algo falla, reintenta despues
     }
     guardarCola([]);
   }
@@ -744,6 +784,43 @@
     }
   }
 
+  /* ==========================================================================
+     BITACORA CIFRADA EN EL RELAY (JFC 2026-08-25)
+     Para que un dispositivo NUEVO vea la tienda aunque no haya nadie en linea:
+     el relay guarda sobres CERRADOS (no puede leerlos). Todo esto es ADITIVO y
+     compatible hacia atras — el envio en vivo sigue igual; un relay viejo
+     ignora estos frames de texto.
+       - cada op de negocio se manda tambien como {k:"op",...} para la bitacora;
+       - cada tanto se sube un {k:"ckpt",...} (foto cifrada del catalogo+stock);
+       - al conectar se pide {k:"pull",...} para ponerse al dia contra el relay.
+     ======================================================================== */
+  function _persistirOpBuf(op, buf) {
+    try {
+      if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ k: "op", id: op.opId, lam: op.lamport || 0, c: ab2b64(buf) }));
+    } catch (_) {}
+  }
+  var _ultimaHuellaCkpt = "";
+  async function subirCheckpoint(forzar) {
+    try {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (!window.OCSync || !window.OCSync.estadoParaCheckpoint) return; // un tablero no sube nada
+      var snap = window.OCSync.estadoParaCheckpoint();
+      var hu = (snap && snap.huella && snap.huella.completa) ? snap.huella.completa : "";
+      if (!forzar && hu && hu === _ultimaHuellaCkpt) return; // sin cambios: no repetir
+      var sobre = { tipo: TIPO_CHECKPOINT, deviceId: deviceId(), lamport: lamportActual(), payload: snap };
+      var buf = await cifrar(claveActual, sobre);
+      ws.send(JSON.stringify({ k: "ckpt", lam: sobre.lamport, c: ab2b64(buf) }));
+      _ultimaHuellaCkpt = hu;
+    } catch (_) {}
+  }
+  function pullDelRelay() {
+    try {
+      if (ws && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ k: "pull", lam: lamportActual() }));
+    } catch (_) {}
+  }
+
   // --- Puente con mock-backend.js: emitirOpStock(tipo, payload) llama aqui ---
   window.OCSyncEmit = function (tipo, payload) {
     const sala = leerSala();
@@ -760,7 +837,7 @@
          de envio cae a la cola, que se vacia al reconectar. Una op nunca se
          pierde por un tropiezo del cifrado. */
       cifrar(claveActual, op)
-        .then((buf) => { try { ws.send(buf); } catch (_) { encolar(op); } })
+        .then((buf) => { try { ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { encolar(op); } })
         .catch(() => encolar(op));
     } else {
       encolar(op);

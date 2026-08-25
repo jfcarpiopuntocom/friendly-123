@@ -1676,6 +1676,52 @@
         huella: huellaCatalogo(),
       };
     },
+    /* CHECKPOINT PARA LA BITACORA CIFRADA (JFC 2026-08-25). A diferencia de
+       catalogoPropio(), el checkpoint SI lleva el stock absoluto: es la foto que
+       deja a un dispositivo NUEVO ver la tienda —con sus cantidades reales—
+       aunque no haya nadie en linea. Viaja cifrado; el relay solo guarda el
+       sobre cerrado. */
+    estadoParaCheckpoint() {
+      return {
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia })),
+        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
+        usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null })),
+        huella: huellaCatalogo(),
+      };
+    },
+    /* Restaura un checkpoint — SOLO en un dispositivo FRESCO, definido como uno
+       que NUNCA registro una venta propia (ventas.length === 0). Asi es
+       imposible que pise el stock real de una caja activa: si ya hubo ventas
+       aqui, este dato manda y el checkpoint se ignora. En un dispositivo fresco
+       AGREGA perchas y productos CON su stock, y mergea el equipo (add-only).
+       Los productos que ya existan (p. ej. llegados con stock 0 por el catalogo
+       en vivo) reciben su stock real del checkpoint. */
+    aplicarCheckpoint(snap) {
+      try {
+        if (!snap || !Array.isArray(snap.productos) || !Array.isArray(snap.ubicaciones)) return { ok: false, motivo: "ilegible" };
+        if (ventas.length > 0) return { ok: false, motivo: "no-fresco" }; // caja con historial: no se toca
+        snap.ubicaciones.forEach((u) => {
+          if (!u || !u.id) return;
+          if (!ubicaciones.some((x) => String(x.id) === String(u.id))) {
+            ubicaciones.push(Object.assign({}, u, { activa: u.activa !== false }));
+            if (!(u.id in gastosMensuales)) gastosMensuales[u.id] = 0;
+          }
+        });
+        snap.productos.forEach((p) => {
+          if (!p || !p.id) return;
+          const stk = Math.max(0, Number(p.stockActual) || 0);
+          const mio = productos.find((x) => String(x.id) === String(p.id));
+          if (!mio) { productos.push(Object.assign({}, p, { stockActual: stk })); }
+          else if ((Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; } // vino con 0 por el vivo: se corrige
+        });
+        if (Array.isArray(snap.usuarios)) {
+          try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios }, null); } catch (_) {}
+        }
+        guardarEstadoLocal();
+        mov("checkpoint-restaurado", { perchas: snap.ubicaciones.length, productos: snap.productos.length });
+        return { ok: true, productos: snap.productos.length };
+      } catch (_) { return { ok: false, motivo: "error" }; }
+    },
     compararCatalogo,
     aplicarCatalogo,
     /* EL EQUIPO SE SINCRONIZA SOLO (JFC 2026-08-21).
