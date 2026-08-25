@@ -1430,7 +1430,7 @@ Keep it somewhere safe.`);
     (function () {
       try {
         const HINTS = {
-          "Accounting layer": "T-accounts, P&L, balance sheet, valued inventory. Needs a passcode.",
+          "Accounting": "T-accounts, P&L, balance sheet, valued inventory. Needs a passcode.",
           "Recent activity": "Today's operational history.",
           "Timezone": "Sets what counts as \"today\" for sales and closes.",
           "Monthly expenses": "Rent, payroll, utilities… prorated into the P&L.",
@@ -1448,7 +1448,7 @@ Keep it somewhere safe.`);
         function esComo(t) { t = (t || "").trim(); return /^¿?Cómo funciona/i.test(t) || /^How does it work/i.test(t); }
         function tituloDe(n) {
           if (!n || n.nodeType !== 1) return null;
-          if (n.id === "oc-acct-lock") return "Accounting layer";
+          if (n.id === "oc-acct-lock") return (window.t ? window.t("adv.acct.tab", "Accounting") : "Accounting");
           if (n.id === "oc-contable" || n.id === "oc-riel-fila" || n.id === "oc-riel-nav" || n.id === "oc-riel-contenido") return null;
           if (/^H[1-6]$/.test(n.tagName)) { const t = n.textContent.trim(); return esComo(t) ? null : (t || null); }
           if (n.tagName === "DETAILS") { const s = n.querySelector("summary"); if (!s) return null; const ts = s.textContent.trim(); return esComo(ts) ? null : (ts || null); }
@@ -1481,10 +1481,85 @@ Keep it somewhere safe.`);
         const mover = [], secciones = []; let idx = 0;
         kids.forEach((n, i) => {
           if (i < 3) return; // titulo + intro + "how does it work" quedan fuera del riel
-          if (n.id === "oc-riel-fila") return;
+          if (n.id === "oc-riel-fila" || n.id === "oc-firststeps") return;
           if (n.tagName === "DETAILS") { const sm = n.querySelector("summary"); if (sm && esComo(sm.textContent)) return; }
           mover.push(n);
         });
+
+        /* PRIMEROS PASOS + ORDEN DEL RIEL (JFC 2026-08-25).
+           1) Se inyecta una seccion "First Steps / Primeros Pasos" que va SIEMPRE
+              primera: es lo que orienta a quien recien entra.
+           2) Las demas se ordenan de lo mas indispensable (Team) a lo mas arcano
+              (sync entre dispositivos, PocketBase). El orden NO se puede basar en
+              el texto del titulo porque "Sync your team" viaja traducido; se
+              detecta por id o por un hijo estable, asi funciona en EN y ES.
+           Lo que no reconozcamos conserva su orden original (sort estable). */
+        (function () {
+          try {
+            {
+              /* Siempre se reconstruye: asi el riel lo vuelve a tomar en cada
+                 render (cambio de idioma, re-abrir Avanzado) y el texto queda en
+                 el idioma actual. El skip en kids.forEach evita duplicarlo. */
+              const viejo = document.getElementById("oc-firststeps");
+              if (viejo && viejo.parentNode) viejo.parentNode.removeChild(viejo);
+              const T = (k, f) => (window.t ? window.t(k, f) : f);
+              const fs = document.createElement("div");
+              fs.id = "oc-firststeps"; fs.className = "tag-card"; fs.style.cssText = "text-align:left;";
+              const pasos = [1, 2, 3, 4, 5].map((i) =>
+                `<li style="margin:0 0 12px;line-height:1.5;">` +
+                  `<strong style="color:var(--ink,#211c14);">${T("firststeps.s" + i + "t", "")}</strong><br>` +
+                  `<span style="color:var(--ink-soft,#5d5340);">${T("firststeps.s" + i, "")}</span></li>`
+              ).join("");
+              /* La guia paso a paso es un EXTRA, no el camino. Va en una caja aparte
+                 con borde punteado y marcada "optional / opcional": quien sabe leer
+                 sigue la lista; quien prefiere que le muestren, toca el tour. El
+                 tour reusa el OCTutorial bilingue que ya existe (no se porto el de
+                 amigable, que es solo-ES y va por detras — regla 1b). */
+              fs.innerHTML =
+                `<h3 class="seccion" style="margin-top:0;">${T("firststeps.title", "First Steps")}</h3>` +
+                `<p style="font-size:14px;color:var(--ink-soft,#5d5340);margin-top:0;">${T("firststeps.intro", "")}</p>` +
+                `<ol style="font-size:14px;color:var(--ink,#211c14);padding-left:20px;margin:0 0 4px;">${pasos}</ol>` +
+                `<div style="margin-top:14px;padding:12px 14px;border:1px dashed var(--azul-suave,#c9d6e2);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">` +
+                  `<span style="font-size:13px;color:var(--ink-soft,#5d5340);">${T("firststeps.tourNote", "")}</span>` +
+                  `<button type="button" id="oc-fs-tour" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;">${T("firststeps.tourBtn", "Take the guided tour")} <span style="opacity:.7;font-weight:400;">· ${T("firststeps.tourOptional", "optional")}</span></button>` +
+                `</div>`;
+              try {
+                const bTour = fs.querySelector("#oc-fs-tour");
+                if (bTour) bTour.addEventListener("click", function () {
+                  try { if (window.OCTutorial && window.OCTutorial.iniciar) window.OCTutorial.iniciar(); } catch (_) {}
+                });
+              } catch (_) {}
+              mover.unshift(fs);
+            }
+          } catch (_) {}
+        })();
+
+        function rangoRiel(n) {
+          try {
+            if (n.id === "oc-firststeps") return 0;
+            const q = (sel) => { try { return !!n.querySelector(sel); } catch (_) { return false; } };
+            const th = (function () { const h = (n.querySelector && n.querySelector("h3,h4")); return h ? h.textContent.trim() : ""; })();
+            if (/^Team$/i.test(th)) return 10;                      // equipo: lo primero util
+            if (q("#oc-sync-codigo") || q("#oc-sync-activar")) return 20; // Sync your team (traducido)
+            if (/Access & recovery/i.test(th)) return 25;
+            if (n.id === "oc-acct-lock" || n.id === "oc-contable") return 30; // Accounting
+            if (/Recent activity/i.test(th)) return 40;
+            if (/Activity log/i.test(th)) return 45;
+            if (q("#oc-micelio-panel")) return 50;                  // Your team right now
+            if (/Timezone/i.test(th)) return 60;
+            if (/Monthly expenses/i.test(th)) return 65;
+            if (/Transfers between/i.test(th)) return 70;
+            if (/Fraud control/i.test(th)) return 75;
+            if (n.id === "amg-geo-caja") return 80;                 // Where the team has been
+            if (/Remote sync/i.test(th)) return 85;
+            if (q("#oc-syncdev-activar")) return 90;                // Device-to-device
+          } catch (_) {}
+          return 500; // desconocido: se queda donde estaba (sort estable)
+        }
+        mover.map((n, i) => ({ n, i, r: rangoRiel(n) }))
+             .sort((a, b) => (a.r - b.r) || (a.i - b.i))
+             .forEach((o, j) => { mover[j] = o.n; });
+
         mover.forEach((n) => {
           contR.appendChild(n);
           if (n.id === "oc-contable") return;
