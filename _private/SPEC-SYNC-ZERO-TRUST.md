@@ -123,3 +123,56 @@ Se deja el diseño listo para retomarlo cuando haya cómo probarlo con 2 equipos
 - La op que llega por ambos caminos se aplica UNA sola vez (dedup por opId).
 - Si el relay está caído: no se abre P2P nuevo, y las ventas se encolan y se
   ponen al día al volver (el carril RTC no cambia esa garantía).
+
+---
+
+## APÉNDICE 2 — Disponibilidad sin peers: bitácora + checkpoint cifrados (JFC 2026-08-25)
+**Decisión de JFC:** un dispositivo nuevo debe ver la tienda AUNQUE nadie del
+equipo esté en línea, SIN que Cloudflare pueda leer nada. Se resuelve guardando
+en el relay sobres CIFRADOS (zero-knowledge del contenido; Cloudflare ve solo
+metadatos: id de sala, tamaño, hora).
+
+### Modelo: checkpoint + bitácora (base backup + WAL)
+- **Checkpoint**: foto cifrada de `catalogoPropio()` (perchas+productos+usuarios)
+  con su lamport. La sube el cliente cada tanto / al conectar / al cambiar el
+  catálogo. Es lo que deja ver el inventario a un dispositivo nuevo.
+- **Bitácora (ops)**: cada op de negocio (venta/ajuste/anulación, PIN/rol)
+  cifrada, con `id` (opId) y `lam` (lamport). Dedup por `id`. Nunca se pierde
+  una escritura, ni con edición simultánea.
+
+### Protocolo (frames cliente→relay), ADITIVO y compatible hacia atrás
+- Vivo (sin cambio): el cliente sigue transmitiendo la op como binario cifrado
+  → el relay la retransmite a los peers. NO se rompe el sync actual.
+- `{"k":"op","id","lam","c":<base64 ciphertext>}` (texto): el relay lo GUARDA
+  (INSERT OR IGNORE por id). No lo retransmite (los peers ya lo recibieron
+  binario). Un relay viejo lo retransmitiría como texto y los peers lo ignoran.
+- `{"k":"ckpt","lam","c":<base64 ciphertext(catalogoPropio con tipo)>}`: el relay
+  guarda el ÚLTIMO checkpoint. Puede podar ops con lam ≤ ckpt.lam.
+- `{"k":"pull","lam":<miLamMax>}`: el relay responde SOLO a ese socket con: el
+  checkpoint (si el cliente está por detrás) como frame binario, y luego las ops
+  con lam > cursor, cada una como frame binario. El cliente las descifra y
+  aplica por su camino normal (aplicarCatalogo / aplicarOpRemota, con dedup).
+
+### Cliente
+- `OCSyncEmit`: además del envío vivo, manda `{"k":"op",...}` para la bitácora.
+- Sube `{"k":"ckpt",...}` al conectar y cuando cambia el catálogo (con throttle).
+- Al conectar: manda `{"k":"pull","lam":miLamMax}` (además del catch-up entre
+  peers). Así se pone al día contra el relay aunque no haya peers.
+- Recibe el checkpoint como op con `tipo: TIPO_CHECKPOINT`; lo aplica como
+  catálogo (auto-aplica si el dispositivo está vacío; si no, al merge manual).
+
+### Relay (Durable Object + SQLite)
+- `ops(id TEXT PRIMARY KEY, lam INTEGER, c TEXT)` — INSERT OR IGNORE.
+- `ckpt(k TEXT PRIMARY KEY DEFAULT 'latest', lam INTEGER, c TEXT)`.
+- Límites: podar ops ≤ ckpt.lam; tope de filas/bytes por sala.
+- Sigue sin poder leer: `c` es ciphertext; `id`/`lam` son aleatorio/contador.
+
+### Qué NO cambia
+- La llave sale de la licencia (PBKDF2). Sin licencia, nadie abre el sobre — ni
+  Cloudflare ni JFC. La integridad (huella/Merkle) se ancla sobre estos blobs
+  (linterna y pipes).
+
+### Verificación (necesita 2 dispositivos + relay desplegado)
+- A crea catálogo y vende; cierra A. B entra con la licencia (sin A en línea) y
+  ve el catálogo (del checkpoint) y el stock al día (de la bitácora).
+- Dos ops simultáneas: ambas quedan (dedup por id, ninguna se pisa).
