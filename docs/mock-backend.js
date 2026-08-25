@@ -1777,7 +1777,35 @@
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Producto no encontrado." }, 404);
         const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
         if (ubicP && ubicP.activa === false) return J({ error: `"${ubicP.nombre}" está desactivada — no admite ventas nuevas.` }, 400);
-        const cant = Number.isInteger(body.cantidad) && body.cantidad > 0 ? body.cantidad : 1;
+        /* B19 (JFC 2026-08-19, medido con un harness contra este endpoint).
+           Antes: `Number.isInteger(body.cantidad) && body.cantidad > 0 ?
+           body.cantidad : 1`. Cualquier cantidad invalida se convertia en 1
+           EN SILENCIO. Pedir vender -5, o 0, o "dos" devolvia 200 y grababa
+           una venta real de 1 unidad: movimiento de stock y de dinero que
+           nadie pidio, sin un solo aviso.
+
+           Es la misma enfermedad que JFC ya hizo corregir en el PUT de
+           ubicacion ("clampeaba silenciosamente"): ante un dato invalido se
+           rechaza y se explica, nunca se adivina.
+
+           Se conserva el contrato viejo para el caso legitimo: si no viene
+           cantidad, es una venta de 1 (asi la manda el toque de producto, la
+           accion mas frecuente de la app). Solo se rechaza lo que VINO y
+           esta mal. Se acepta "3" como texto porque un input HTML devuelve
+           texto, pero no 0, ni negativos, ni fracciones, ni letras.
+
+           NOTA: amigable-123 tiene exactamente el mismo defecto en su
+           propio mock-backend. No se toca desde aqui (regla 1b: se injerta
+           por repo, nunca se sobreescribe entre hermanas). */
+        var cant;
+        if (body.cantidad === undefined || body.cantidad === null || body.cantidad === "") {
+          cant = 1;
+        } else {
+          cant = Number(body.cantidad);
+          if (!Number.isFinite(cant) || !Number.isInteger(cant) || cant <= 0) {
+            return J({ error: "The quantity must be a whole number greater than zero." }, 400);
+          }
+        }
         if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
         if ((!instanceId || licenciaLimitada()) && ventasCountMesGlobal() >= 100) {
