@@ -256,3 +256,33 @@ aislamiento reporta que algo pisa `indexedDB.open` despues de aislamiento.js
 numero interno lo usa el chequeo de actualizacion y bajarlo a 1.0.0 haria que
 un telefono en 1.6.0 creyera que lo nuevo es mas viejo. SW cache a
 `f123-shell-v87`.
+
+---
+
+## 2026-08-25 — Tanda "Hybrid Sync + tweaks UI" (rama claude/hybrid-proxy-tunnel-sync-ymq8d6)
+
+**Prompts de JFC (textuales, resumidos por bloque):**
+
+1. "como admin deben poder agregarse perchas! (ya pueden agregarse productos)".
+2. Pestaña **First Steps / Primeros Pasos** primera en Advanced; reordenar de lo
+   mas indispensable a lo mas arcano; "Accounting Layer" -> "Accounting".
+   Ampliado: First Steps con instrucciones reales + tutorial de amigable como
+   opcion OPCIONAL al lado; onboarding "award-winning".
+3. En Sold/Vendido, captura de clientes portada de amigable, que funque en EN/ES.
+4. Venta por evento o item; no volver a pedir el nombre del evento al vender;
+   pulldown primero y luego escribir; boton exportar + lista de invitados en
+   eventos, con iconos, sin reordenar lo existente.
+5. **Hybrid Proxy Tunnel Synchronization Engine** (plan por fases, relay propio
+   zero-trust; ver _private/SPEC-SYNC-ZERO-TRUST.md).
+6. (mid-turn) Ideas de seguridad/integridad y un aviso de acceso. Detalle en
+   nota interna FUERA del repo (el repo es publico). Prioridad fijada por JFC:
+   el **sync es mision #1AAA**, va primero; el aviso y la integridad van despues.
+
+**Hecho en esta rama (commits por paso verde):**
+- A1 admin agrega perchas (vista-perchas.js).
+- A2 First Steps + riel reordenado + "Accounting" (avanzado-extra.js, i18n.js) +
+  fix calco "vive en" (tutorial-ui.js).
+- A3 captura de clientes bilingue en Vender (index.html, i18n.js).
+- A4-A7 evento activo (pulldown), invitados y exportar CSV (index.html, i18n.js).
+- B (motor de sync) y bloque 6 (seguridad/integridad): en curso / por definir
+  alcance con JFC.

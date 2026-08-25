@@ -39,7 +39,7 @@
         { titulo: "Crea tus perchas", texto: "Una percha es un punto de venta: tu local, un stand de socio, una feria. Aquí las creas y les asignas productos, con comisión por socio si aplica." },
         { titulo: "Tus clientes", texto: "Registra clientes, evalúa trato y confiabilidad, y mira su historial. Tú decides a quién fiar y a quién no, con datos." },
         { titulo: "Comisiones sin peleas", texto: "La app calcula sola cuánto le toca a cada socio o promotora según lo vendido. Liquidas con un toque y puedes mandar el recibo por WhatsApp." },
-        { titulo: "Avanzado: tu caja fuerte", texto: "Respaldos, claves, correo de recuperación, reportes contables y gastos. Todo vive en TU dispositivo — sin nube, sin suscripciones." },
+        { titulo: "Avanzado: tu caja fuerte", texto: "Respaldos, claves, correo de recuperación, reportes contables y gastos. Todo queda en TU dispositivo — sin nube, sin suscripciones." },
       ],
     },
   };

@@ -1,0 +1,21 @@
+# friendly123-sync-relay — relay del motor de sync. Worker SEPARADO del de
+# licencias. NUNCA poner aqui "friendly123-licencias" ni su KV: mismo name =
+# mismo Worker en Cloudflare y un deploy pisaria al otro (ya paso entre
+# amigable y friendly, 2026-07-28).
+name = "friendly123-sync-relay"
+main = "worker.js"
+compatibility_date = "2026-07-10"
+preview_urls = false
+
+# Salas en memoria: Durable Object, sin KV de negocio, sin disco.
+[[durable_objects.bindings]]
+name = "SALAS"
+class_name = "SalaSync"
+
+# new_sqlite_classes (no new_classes): el backend SQLite de Durable Objects es
+# elegible en el plan GRATIS de Cloudflare. Esta sala no usa almacenamiento
+# (vive en memoria), asi que el backend SQLite no cuesta nada y ademas permite
+# desplegar sin plan pago. El classic new_classes exige Workers Paid.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SalaSync"]

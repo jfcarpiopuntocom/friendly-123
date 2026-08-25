@@ -637,12 +637,16 @@
   }
 
   /* ================= HERO SEMÁFORO ================= */
+  /* Aligerado (JFC 2026-08-25): "se traga mucho espacio". Se le baja el peso
+     visual —sombra grande fuera, padding y margen mas justos— para dar amplitud
+     y holgura (estilo Airtable) sin quitar el semaforo, que es el corazon de
+     Hoy. Es puro CSS y reversible: subir de nuevo padding/sombra lo restaura. */
   .hero-semaforo{
-    padding:14px 24px;
-    margin-bottom:10px;
+    padding:11px 20px;
+    margin-bottom:8px;
     color:var(--blanco-calido);
     border-color:rgba(255,255,255,0.35);
-    box-shadow:0 1px 2px rgba(0,0,0,0.1), 0 14px 30px -14px rgba(33,28,20,0.5);
+    box-shadow:0 1px 2px rgba(0,0,0,0.08);
     background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,0.09) 1px, transparent 0);
     background-size:14px 14px, auto;
   }
@@ -1558,6 +1562,35 @@
                    cursor:pointer;vertical-align:middle;margin-left:6px;" data-i18n="sold.newCustomer">+ New customer</button>
         </p>
       </div>
+      <!-- EVENTO ACTIVO (JFC 2026-08-25): mismo patron que el selector de cliente.
+           Se elige el evento UNA vez del pulldown (o se crea con "+ Nuevo evento")
+           y cada venta se le suma sola — nunca se vuelve a pedir el nombre. Al lado,
+           dos botones que SUMAN sin reordenar nada: ver invitados y exportar CSV. -->
+      <div style="margin-top:12px;" id="oc-evento-wrap">
+        <label style="font-size:16px;font-weight:700;color:var(--ink);"><span data-i18n="sold.eventLabel">Event:</span>
+          <select id="ventaEvento" style="padding:9px;border:2px solid var(--azul-medio);border-radius:6px;max-width:100%;margin-left:6px;">
+            <option value="" data-i18n="sold.noEvent">No event (regular sale)</option>
+          </select>
+        </label>
+        <button id="btnNuevoEvento" type="button"
+          style="font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;vertical-align:middle;margin-left:6px;" data-i18n="sold.newEvent">+ New event</button>
+        <button id="btnEventoInvitados" type="button" title="Guests"
+          style="display:none;font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;vertical-align:middle;margin-left:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17 14c2.5.4 4 2.3 4 5"/></svg>
+          <span data-i18n="sold.eventGuests" style="margin-left:4px;">Guests</span></button>
+        <button id="btnEventoExport" type="button" title="Export CSV"
+          style="display:none;font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;vertical-align:middle;margin-left:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
+          <span data-i18n="sold.eventExport" style="margin-left:4px;">Export</span></button>
+        <div id="oc-evento-nuevo" style="display:none;margin-top:8px;">
+          <input id="oc-evento-nombre" type="text" maxlength="120" autocomplete="off" placeholder="Event or class name" data-i18n-attr="placeholder:sold.eventNamePh"
+            style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;max-width:220px;">
+          <input id="oc-evento-fecha" type="date" data-i18n-attr="placeholder:sold.eventDatePh"
+            style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;margin-left:6px;">
+          <button id="oc-evento-fijar" type="button" class="ir" style="padding:8px 14px;margin-left:6px;" data-i18n="sold.eventSet">Set</button>
+        </div>
+        <p id="oc-evento-hint" style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin:6px 0 0;display:none;" data-i18n="sold.eventActiveHint">Every product you tap is added to this event until you set it back to “No event”. You won't be asked for the name again.</p>
+      </div>
       <div class="ficha-resultado" id="fichaResultado"></div>
     </div>
 
@@ -1895,7 +1928,7 @@ async function sellarVenta() {
     try {
       const res = await fetch(`${API}/productos/${l.productoId}/venta`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cantidad: l.cantidad, clienteId: (sel && sel.value) || undefined })
+        body: JSON.stringify({ cantidad: l.cantidad, clienteId: (sel && sel.value) || undefined, info: infoEventoActivo() })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unknown error");
@@ -2090,19 +2123,19 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
   overlay.innerHTML = `
     <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:20px 18px 28px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">Nuevo cliente</strong>
-        <button id="oc-ncli-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Cerrar</button>
+        <strong id="oc-ncli-titulo" style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">${t("newcust.title")}</strong>
+        <button id="oc-ncli-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${t("newcust.close")}</button>
       </div>
-      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px;">Nombre
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px;"><span id="oc-ncli-lbl-nombre">${t("newcust.name")}</span>
         <input id="oc-ncli-nombre" type="text" maxlength="80" autocomplete="off"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
-      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;">Phone (optional)
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;"><span id="oc-ncli-lbl-tel">${t("newcust.phone")}</span>
         <input id="oc-ncli-tel" type="tel" maxlength="24" autocomplete="tel" inputmode="tel"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
       <button id="oc-ncli-crear" style="width:100%;padding:11px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;font-size:15px;font-weight:700;cursor:pointer;">
-        Save and select
+        ${t("newcust.save")}
       </button>
       <p id="oc-ncli-msg" style="font-size:13px;margin:8px 0 0;font-weight:700;"></p>
     </div>`;
@@ -2190,13 +2223,13 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
       telefono = (document.getElementById("oc-ncli-tel").value || "").trim();
     }
     const msg = document.getElementById("oc-ncli-msg");
-    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "El nombre es obligatorio."; return; }
+    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("newcust.nameRequired"); return; }
     const btn2 = document.getElementById("oc-ncli-crear");
     btn2.disabled = true;
     try {
       const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono }) });
       const r = await res.json();
-      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Error creating client."; btn2.disabled = false; return; }
+      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || t("newcust.createError"); btn2.disabled = false; return; }
       // Agregar al selector y seleccionarlo automáticamente
       const sel = document.getElementById("ventaCliente");
       if (sel) {
@@ -2207,8 +2240,156 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
         sel.value = r.id;
       }
       cerrar();
-    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Network error. Try again."; btn2.disabled = false; }
+    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("newcust.networkError"); btn2.disabled = false; }
   });
+
+  // Ambos idiomas (JFC 2026-08-25): el modal se arma una vez, asi que si el
+  // usuario cambia de idioma despues hay que repintar sus textos fijos.
+  window.addEventListener("oc-lang-change", function () {
+    try {
+      var set = function (id, k) { var el = document.getElementById(id); if (el) el.textContent = t(k); };
+      set("oc-ncli-titulo", "newcust.title");
+      set("oc-ncli-cerrar", "newcust.close");
+      set("oc-ncli-lbl-nombre", "newcust.name");
+      set("oc-ncli-lbl-tel", "newcust.phone");
+      set("oc-ncli-crear", "newcust.save");
+    } catch (_) {}
+  });
+})();
+
+// ============================================================================
+// EVENTO ACTIVO EN VENDER (JFC 2026-08-25)
+// Un evento se ELIGE una vez (pulldown de eventos ya vistos, o "+ Nuevo evento"
+// y se escribe una sola vez). Queda como evento activo y cada venta se le suma
+// sola: nunca se vuelve a pedir el nombre. Al lado, ver invitados y exportar
+// CSV. Todo aditivo — mismo patron que el selector de cliente, sin reordenar
+// nada. El backend ya acepta body.info.{nombreEvento,fechaEvento}.
+// ============================================================================
+let _eventoActivo = null;
+try { const _rawEv = localStorage.getItem("f123_evento_activo"); if (_rawEv) _eventoActivo = JSON.parse(_rawEv); } catch (_) {}
+function infoEventoActivo() {
+  if (_eventoActivo && _eventoActivo.nombre) return { nombreEvento: _eventoActivo.nombre, fechaEvento: _eventoActivo.fecha || "" };
+  return undefined;
+}
+function _guardarEventoActivo() {
+  try { if (_eventoActivo && _eventoActivo.nombre) localStorage.setItem("f123_evento_activo", JSON.stringify(_eventoActivo)); else localStorage.removeItem("f123_evento_activo"); } catch (_) {}
+}
+function _refrescarEventoUI() {
+  const activo = !!(_eventoActivo && _eventoActivo.nombre);
+  const inv = document.getElementById("btnEventoInvitados");
+  const exp = document.getElementById("btnEventoExport");
+  const hint = document.getElementById("oc-evento-hint");
+  if (inv) inv.style.display = activo ? "" : "none";
+  if (exp) exp.style.display = activo ? "" : "none";
+  if (hint) hint.style.display = activo ? "" : "none";
+}
+async function poblarSelectEventos() {
+  const sel = document.getElementById("ventaEvento");
+  if (!sel) return;
+  let rows = [];
+  try { rows = await (await fetch(`${API}/ventas/todas`)).json(); } catch (_) { rows = []; }
+  const mapa = new Map();
+  (rows || []).forEach((r) => { const n = (r.eventoNombre || "").trim(); if (n && !mapa.has(n)) mapa.set(n, r.eventoFecha || ""); });
+  // Un evento recien creado sin ventas aun no aparece en /ventas/todas: se agrega.
+  if (_eventoActivo && _eventoActivo.nombre && !mapa.has(_eventoActivo.nombre)) mapa.set(_eventoActivo.nombre, _eventoActivo.fecha || "");
+  const nombres = Array.from(mapa.keys()).sort((a, b) => a.localeCompare(b));
+  sel.innerHTML = `<option value="">${escHtml(t("sold.noEvent"))}</option>` +
+    nombres.map((n) => { const f = mapa.get(n) || ""; return `<option value="${escHtml(n)}" data-fecha="${escHtml(f)}">${escHtml(n)}${f ? ` · ${escHtml(String(f).slice(0, 10))}` : ""}</option>`; }).join("");
+  sel.value = (_eventoActivo && _eventoActivo.nombre) || "";
+  _refrescarEventoUI();
+}
+async function _ventasDelEventoActivo() {
+  if (!(_eventoActivo && _eventoActivo.nombre)) return [];
+  let rows = [];
+  try { rows = await (await fetch(`${API}/ventas/todas`)).json(); } catch (_) { rows = []; }
+  const n = _eventoActivo.nombre;
+  return (rows || []).filter((r) => (r.eventoNombre || "").trim() === n);
+}
+async function mostrarInvitados() {
+  const rows = await _ventasDelEventoActivo();
+  const g = new Map();
+  rows.forEach((r) => {
+    const nombre = ((r.clienteNombre || r.pagador || "").trim()) || t("guests.counter");
+    const cur = g.get(nombre) || { qty: 0, spent: 0 };
+    cur.qty += Number(r.cantidad) || 0;
+    cur.spent += (Number(r.precioUnit) || 0) * (Number(r.cantidad) || 0);
+    g.set(nombre, cur);
+  });
+  const filas = Array.from(g.entries()).sort((a, b) => b[1].spent - a[1].spent);
+  const totQty = filas.reduce((a, f) => a + f[1].qty, 0);
+  const totSpent = filas.reduce((a, f) => a + f[1].spent, 0);
+  const cuerpo = filas.length
+    ? `<table style="width:100%;border-collapse:collapse;font-size:14px;">
+         <thead><tr style="text-align:left;border-bottom:2px solid var(--azul-suave,#dde5ec);">
+           <th style="padding:6px 4px;">${escHtml(t("guests.colName"))}</th>
+           <th style="padding:6px 4px;text-align:right;">${escHtml(t("guests.colQty"))}</th>
+           <th style="padding:6px 4px;text-align:right;">${escHtml(t("guests.colSpent"))}</th></tr></thead>
+         <tbody>${filas.map((f) => `<tr style="border-bottom:1px solid var(--azul-suave,#eef2f6);"><td style="padding:6px 4px;">${escHtml(f[0])}</td><td style="padding:6px 4px;text-align:right;">${f[1].qty}</td><td style="padding:6px 4px;text-align:right;">${fmtMoney(f[1].spent)}</td></tr>`).join("")}</tbody>
+         <tfoot><tr style="border-top:2px solid var(--azul-suave,#dde5ec);font-weight:700;"><td style="padding:6px 4px;">${escHtml(t("guests.total"))}</td><td style="padding:6px 4px;text-align:right;">${totQty}</td><td style="padding:6px 4px;text-align:right;">${fmtMoney(totSpent)}</td></tr></tfoot>
+       </table>`
+    : `<p style="font-size:14px;color:var(--ink-soft);">${escHtml(t("guests.none"))}</p>`;
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;z-index:9996;background:rgba(21,40,64,.82);display:flex;align-items:flex-end;justify-content:center;";
+  const titulo = `${t("guests.titlePrefix")} — ${_eventoActivo.nombre}`;
+  overlay.innerHTML = `<div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:20px 18px 28px;max-height:80vh;overflow:auto;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">${escHtml(titulo)}</strong>
+      <button id="oc-inv-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${escHtml(t("newcust.close"))}</button>
+    </div>${cuerpo}</div>`;
+  document.body.appendChild(overlay);
+  const cerrar = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+  overlay.querySelector("#oc-inv-cerrar").addEventListener("click", cerrar);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
+}
+async function exportarEventoCSV() {
+  const rows = await _ventasDelEventoActivo();
+  if (!rows.length) { await ocAlert(t("guests.export.nothing")); return; }
+  const head = ["Date", "Product", "SKU", "Qty", "Unit", "Total", "Customer", "Event", "EventDate"];
+  const q = (s) => `"${String(s == null ? "" : s).replace(/"/g, '""')}"`;
+  const lineas = [head.map(q).join(",")].concat(rows.map((r) => [
+    (r.fecha || "").slice(0, 10), r.productoNombre, r.sku, r.cantidad, r.precioUnit,
+    ((Number(r.precioUnit) || 0) * (Number(r.cantidad) || 0)).toFixed(2),
+    (r.clienteNombre || r.pagador || ""), r.eventoNombre, (r.eventoFecha || ""),
+  ].map(q).join(",")));
+  const csv = "﻿" + lineas.join("\r\n"); // BOM: Excel abre UTF-8 bien
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "event-" + String(_eventoActivo.nombre).replace(/[^\w.-]+/g, "_").slice(0, 60) + ".csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+(function () {
+  const sel = document.getElementById("ventaEvento");
+  const btnNuevo = document.getElementById("btnNuevoEvento");
+  const wrapNuevo = document.getElementById("oc-evento-nuevo");
+  const inpNombre = document.getElementById("oc-evento-nombre");
+  const inpFecha = document.getElementById("oc-evento-fecha");
+  const btnFijar = document.getElementById("oc-evento-fijar");
+  const btnInv = document.getElementById("btnEventoInvitados");
+  const btnExp = document.getElementById("btnEventoExport");
+  if (sel) sel.addEventListener("change", () => {
+    const o = sel.selectedOptions[0];
+    _eventoActivo = sel.value ? { nombre: sel.value, fecha: (o && o.dataset.fecha) || "" } : null;
+    _guardarEventoActivo(); _refrescarEventoUI();
+    if (wrapNuevo) wrapNuevo.style.display = "none";
+  });
+  if (btnNuevo) btnNuevo.addEventListener("click", () => {
+    if (!wrapNuevo) return;
+    wrapNuevo.style.display = wrapNuevo.style.display === "none" ? "" : "none";
+    if (wrapNuevo.style.display !== "none" && inpNombre) setTimeout(() => inpNombre.focus(), 40);
+  });
+  if (btnFijar) btnFijar.addEventListener("click", async () => {
+    const nombre = (inpNombre.value || "").trim();
+    if (!nombre) { if (inpNombre) inpNombre.focus(); await ocAlert(t("sold.eventNameRequired")); return; }
+    _eventoActivo = { nombre: nombre, fecha: (inpFecha.value || "") };
+    _guardarEventoActivo();
+    inpNombre.value = ""; inpFecha.value = "";
+    if (wrapNuevo) wrapNuevo.style.display = "none";
+    await poblarSelectEventos();
+  });
+  if (btnInv) btnInv.addEventListener("click", mostrarInvitados);
+  if (btnExp) btnExp.addEventListener("click", exportarEventoCSV);
 })();
 
 const elBtnCierre = document.getElementById("btnAplicarCierre");
@@ -2637,7 +2818,7 @@ async function cargarBCG(){
 
 function refrescarVistaActiva(){
   const v = vistaActivaId();
-  const cargadores = { hoy: cargarHoy, inventario: () => { cargarInventario(); cargarBCG(); }, etiquetas: cargarEtiquetas, avanzado: cargarAvanzado, comisiones: cargarComisiones, clientes: cargarClientes, escanear: () => { poblarSelectClientes(); cargarGridVender(); }, perchas: () => window.VPerchas && window.VPerchas.cargar() };
+  const cargadores = { hoy: cargarHoy, inventario: () => { cargarInventario(); cargarBCG(); }, etiquetas: cargarEtiquetas, avanzado: cargarAvanzado, comisiones: cargarComisiones, clientes: cargarClientes, escanear: () => { poblarSelectClientes(); poblarSelectEventos(); cargarGridVender(); }, perchas: () => window.VPerchas && window.VPerchas.cargar() };
   const fn = cargadores[v];
   if (fn) Promise.resolve(fn()).catch(err => console.error(`Error cargando vista "${v}":`, err));
 }
@@ -4231,7 +4412,7 @@ async function venderUno(id){
     try {
       res = await fetch(`${API}/productos/${id}/venta`, {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({cantidad:1, clienteId: (sel && sel.value) || undefined})
+        body: JSON.stringify({cantidad:1, clienteId: (sel && sel.value) || undefined, info: infoEventoActivo()})
       });
     } catch (err) {
       // Reforzado (JFC 2026-07-18): esta es LA accion de venta mas frecuente

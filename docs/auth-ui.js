@@ -566,7 +566,24 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       : 0;
     if (sb > 0) { error(window.tf("auth.gate.tooManyAttemptsRetry", {s: sb})); return; }
     if (await window.OCSecure.verificarOwner(code)) { registrarExito(); return entrar("dueno"); }
-    if (await window.OCSecure.verificarEmpleado(code)) { registrarExito(); return entrar("empleado"); }
+    if (await window.OCSecure.verificarEmpleado(code)) {
+      registrarExito();
+      /* El PIN calzo con el hash GENERICO de encargado. Pero la fuente de
+         verdad del ROL es el registro nombrado: si ademas es un ADMIN nombrado,
+         debe entrar como admin, no como empleado (JFC 2026-08-25: "al admin le
+         dice employee en la pastillita naranja"). Sin esto, un admin cuyo PIN
+         tambien esta en el hash generico caia como empleado antes de llegar al
+         chequeo nombrado de abajo. Si el nombrado es encargado, ademas dejamos
+         su nombre en el chip. */
+      try {
+        const uNom = await verificarUsuarioNombrado(code);
+        if (uNom) {
+          window.OCCurrentUser = uNom;
+          return entrar(uNom.rol === "admin" ? "admin" : "empleado");
+        }
+      } catch (_) {}
+      return entrar("empleado");
+    }
     // Rol CONTADOR/socio (JFC 2026-07-15): la subclave contable (357 por
     // defecto, crypto-store.js) ahora TAMBIEN funciona directo en el candado
     // principal, sin pasar por dueno -> Avanzado -> "Ver capa contable".
