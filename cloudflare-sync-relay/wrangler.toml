@@ -12,6 +12,10 @@ preview_urls = false
 name = "SALAS"
 class_name = "SalaSync"
 
+# new_sqlite_classes (no new_classes): el backend SQLite de Durable Objects es
+# elegible en el plan GRATIS de Cloudflare. Esta sala no usa almacenamiento
+# (vive en memoria), asi que el backend SQLite no cuesta nada y ademas permite
+# desplegar sin plan pago. El classic new_classes exige Workers Paid.
 [[migrations]]
 tag = "v1"
-new_classes = ["SalaSync"]
+new_sqlite_classes = ["SalaSync"]
