@@ -63,3 +63,26 @@ Túnel híbrido entre dispositivos del mismo negocio (misma licencia):
 
 ## Catálogo / textos en conflicto
 Gana la versión más nueva. Si empatan, gana el rol más alto: dueño > admin > staff.
+
+---
+
+## ESTADO (2026-08-25, rama claude/hybrid-proxy-tunnel-sync-ymq8d6)
+- **F0** hecho. **F1** hecho (`cloudflare-sync-relay/`). **F2** hecho (RELAY_URL).
+- **F4** (merge de usuarios) YA estaba en el código (2026-08-21): huella incluye
+  usuarios, el PATCH sella `actualizadoEn`, y la sala transporta `usuarios`
+  (`trocear("usuarios", …)` + `aplicarEquipoRemoto`). Verificado, sin cambio.
+- **F5** (píldora de estado) YA estaba: `#oc-sync-estado` + `pillTexto/pillColor`
+  cableados a `onEstado` (gris/ámbar/verde/rojo). Verificado, sin cambio.
+- **F6** hecho: `test/sync-zero-trust.test.js`.
+- **F3 (WebRTC) DIFERIDO a propósito.** El atajo P2P es opcional y el propio
+  plan lo dice ("si no hay P2P, no pasa nada: queda el WebSocket"). El núcleo
+  zero-trust (relay + merge de equipo) ya funciona y está probado. Meter una
+  capa WebRTC sin poder verificarla con dos navegadores reales arriesga
+  duplicar ops en la ruta de venta en vivo. Se hace en una fase dedicada con
+  dos perfiles reales y tests de dedup entre transportes.
+- **F7 (deploy) PENDIENTE de JFC.** El relay NO se puede desplegar desde aquí
+  (requiere las credenciales de Cloudflare de JFC). Comando único:
+  `cd cloudflare-sync-relay && npx wrangler deploy`. **No mergear a producción
+  antes de desplegar el relay**: el cliente ya apunta a
+  `friendly123-sync-relay…` y sin el Worker vivo el sync no conecta (la caja
+  local sigue; el sync muestra reconectando).
