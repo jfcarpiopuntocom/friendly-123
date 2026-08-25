@@ -552,22 +552,29 @@
           reconectando: window.t("sync.panel.statusReconnecting"),
         }[estado] || estado);
       };
-      /* Escala de grises, sin colores (JFC 2026-08-25): negro = al dia,
-         blanco/gris claro = offline. Igual que el indicador discreto junto a
+      /* Escala de grises, sin colores (JFC 2026-08-25). SEMANTICA en un PUNTO
+         (el color no va en el texto, que en blanco seria invisible sobre el
+         panel claro): BLANCO BRILLOSO = al dia (vivo); NEGRO = offline / sin
+         conectar hace rato; gris = sincronizando. Igual que el punto junto a
          Ayuda. Nada de verde/ambar/rojo. */
-      const pillColor = (estado) => {
-        if (estado === "conectado") return "#141414";
-        if (estado === "apagado") return "#9a9a9a";
-        if (window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente()) return "#5a5a5a";
-        return "#7a7a7a";
+      const dotSpec = (estado) => {
+        if (estado === "conectado") return { bg: "#ffffff", bd: "#7f93a4", glow: "0 0 5px 1px rgba(255,255,255,.95), 0 0 0 2px rgba(127,147,164,.30)" };
+        if ((estado === "conectando" || estado === "reconectando") &&
+            !(window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente())) return { bg: "#9a9a9a", bd: "#9a9a9a", glow: "none" };
+        return { bg: "#141414", bd: "#141414", glow: "none" }; // offline / problema
       };
 
       function pintarEstado(estado, n) {
         const el = document.getElementById("oc-sync-estado");
         if (!el) return;
         const e = estado || window.OCSyncControl.estado();
-        el.textContent = pillTexto(e, n != null ? n : window.OCSyncControl.presencia());
-        el.style.color = pillColor(e);
+        const d = dotSpec(e);
+        const txt = pillTexto(e, n != null ? n : window.OCSyncControl.presencia());
+        el.style.color = "#3a3a3a"; // texto siempre legible
+        el.innerHTML = '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;box-sizing:border-box;vertical-align:middle;margin-right:6px;background:' +
+          d.bg + ';border:1.5px solid ' + d.bd + ';box-shadow:' + d.glow + ';"></span>' +
+          '<span style="vertical-align:middle;"></span>';
+        el.lastChild.textContent = txt;
       }
       pintarEstado();
       window.OCSyncControl.onEstado(pintarEstado);
