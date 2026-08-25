@@ -2156,8 +2156,17 @@
            "el concierto del sabado" sin filtrar por fecha a ojo. El tablero
            agrupa por el NOMBRE que se escribe aqui. */
         const infoBody = (body && typeof body.info === "object" && body.info) || {};
+        /* SI EL PRODUCTO YA ES UN EVENTO, EL EVENTO ES EL PRODUCTO (JFC 2026-08-25).
+           Un producto tipo "ticket" YA es un evento y tiene nombre: pedir (o
+           elegir) el nombre del evento otra vez al vender es absurdo. Cuando se
+           vende un ticket, el evento se toma del NOMBRE del propio producto,
+           automaticamente, sin cajas ni selectores. Para productos normales
+           sigue mandando el evento activo que venga en info (vender bebidas
+           "en" un evento, por ejemplo). */
         const infoVenta = {
-          nombreEvento: String(infoBody.nombreEvento || "").trim().slice(0, 120),
+          nombreEvento: _esTicket
+            ? String(p.nombre || "").trim().slice(0, 120)
+            : String(infoBody.nombreEvento || "").trim().slice(0, 120),
           fechaEvento: String(infoBody.fechaEvento || "").trim().slice(0, 20),
           numPersonas: (infoBody.numPersonas !== undefined && infoBody.numPersonas !== "") ? Math.max(0, Number(infoBody.numPersonas) || 0) : null,
           nombrePagador: String(infoBody.nombrePagador || "").trim().slice(0, 120),
