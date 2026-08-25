@@ -659,6 +659,17 @@
       try { window.OCSecure.actualizarCorreo(email); } catch (_) {}
       if (vaciar) {
         try { var rm = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rm.push(k); } rm.forEach(function (kk) { localStorage.removeItem(kk); }); } catch (_) {}
+        /* BUG REAL (JFC 2026-08-19): el dueno elegia "empezar vacio" y al
+           siguiente arranque volvian los datos de demo. El auto-heal de
+           mock-backend.js veia el catalogo en cero y lo trataba como una
+           averia. Esta marca le dice que el vacio fue una DECISION, no un
+           accidente. Se deja permanente a proposito: el dispositivo nunca
+           debe volver a reseedear la demo por su cuenta. */
+        try { localStorage.setItem("f123_vaciado_deliberado", String(Date.now())); } catch (_) {}
+        /* El espejo de IndexedDB tambien guarda estado. Si conserva una
+           revision con el catalogo de demo, el rescate asincrono del arranque
+           puede repintarla encima del negocio vacio. Se borra aqui. */
+        try { if (window.OCEstadoIDB && window.OCEstadoIDB.borrar) window.OCEstadoIDB.borrar(); } catch (_) {}
       }
       // Sincro-equipos (homologado de AMIGABLE, 2026-07-23): generar el codigo
       // de sala y activar sync en el mismo instante — sin pantalla extra. Sync

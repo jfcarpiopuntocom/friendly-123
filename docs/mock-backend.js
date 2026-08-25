@@ -1393,14 +1393,59 @@
   try {
     if (!localStorage.getItem("f123_autoheal_888_v1")) {
       localStorage.setItem("f123_autoheal_888_v1", "1");
-      if (productos.length === 0 && ubicaciones.length === 0) {
-        localStorage.removeItem("f123_owned");
+      /* BUG REAL (JFC 2026-08-19): "puse 7-8-9 y dije que prefiero la tienda
+         vacia PERO SIGUEN CARGADAS LAS CAMISETAS DE METALLICA".
+
+         Este auto-heal existe para un caso concreto y unico: alguien teclea
+         789 SIN QUERER en un dispositivo de demo y se queda sin catalogo. En
+         ese caso el dispositivo NO esta activado (no hay f123_owned) y
+         devolverle la demo es un favor.
+
+         Lo que hacia mal: no distinguia ese accidente de una activacion
+         DELIBERADA con "empezar vacio". El dueno activaba su negocio, elegia
+         tienda vacia, y al siguiente arranque este bloque veia el catalogo en
+         cero, borraba f123_owned (desactivando el dispositivo del dueno) y
+         recargaba con los datos semilla. Las camisetas volvian y la
+         activacion se perdia.
+
+         Ahora: si el dispositivo esta ACTIVADO (f123_owned existe) o el dueno
+         marco explicitamente que vacio a proposito, no se toca nada. Un
+         catalogo vacio en un negocio activado es una decision, no una averia.
+
+         Ademas, homologado con amigable-123: (a) se exige que TODAS las
+         colecciones esten vacias, no solo productos/ubicaciones — un negocio
+         con ventas o clientes cargados nunca fue una demo rota; (b) antes de
+         borrar nada se guarda una copia de rescate fechada, para no destruir
+         un estado que resulte ser real. */
+      var _activado = false;
+      try {
+        _activado = !!localStorage.getItem("f123_owned")
+                 || !!localStorage.getItem("f123_vaciado_deliberado");
+      } catch (_) {}
+      var _realmenteVacio = productos.length === 0 && ubicaciones.length === 0
+        && ventas.length === 0 && clientes.length === 0
+        && movimientos.length === 0 && sucursales.length === 0
+        && promotoras.length === 0;
+      if (!_activado && _realmenteVacio) {
+        try {
+          var _raw = localStorage.getItem(OC_STATE_KEY);
+          if (_raw) localStorage.setItem(OC_STATE_KEY + "_rescate_" + Date.now(), _raw);
+          var _ptr = localStorage.getItem(OC_STATE_PTR);
+          if (_ptr) {
+            var _buf = localStorage.getItem(OC_STATE_KEY + "_" + _ptr);
+            if (_buf) localStorage.setItem(OC_STATE_KEY + "_rescate_" + Date.now(), _buf);
+          }
+        } catch (_) {}
         localStorage.removeItem(OC_STATE_KEY);
         // Fase 3: el estado real vive en los buffers A/B, no en OC_STATE_KEY
         // directo (esa clave ahora es solo fallback de migracion) — limpiar
         // tambien los buffers y el puntero, o el reload de abajo recargaria
         // el mismo estado vacio en vez de volver a los datos semilla.
-        try { localStorage.removeItem(OC_STATE_KEY + "_A"); localStorage.removeItem(OC_STATE_KEY + "_B"); localStorage.removeItem(OC_STATE_KEY + "_ptr"); } catch (_) {}
+        try {
+          localStorage.removeItem(OC_STATE_KEY + "_A");
+          localStorage.removeItem(OC_STATE_KEY + "_B");
+          localStorage.removeItem(OC_STATE_PTR);
+        } catch (_) {}
         location.reload();
       }
     }
