@@ -1189,8 +1189,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     function formatear(raw) {
       /* Los simbolos de Crockford son parte del codigo: no se filtran. */
       var v = String(raw || "").toUpperCase().replace(/[^A-Z0-9*~$=]/g, "");
-      if (v.indexOf("TEAM") === 0) v = v.slice(4);
-      else if (v.indexOf("F123") === 0) v = v.slice(4);
+      /* Quita TODAS las repeticiones del prefijo al inicio, no solo una
+         (JFC 2026-08-25). Al pegar "F123-..." en un campo que ya mostraba
+         "F123-", quedaba "F123F123..." y con un solo strip sobrevivia un
+         "F123" de mas -> el codigo salia con "F123-F123-...". Ahora se pela
+         cuantas veces haga falta, y tambien "TEAM" (papeles viejos). */
+      var cambio = true;
+      while (cambio) {
+        cambio = false;
+        if (v.indexOf("TEAM") === 0) { v = v.slice(4); cambio = true; }
+        else if (v.indexOf(PRE) === 0) { v = v.slice(PRE.length); cambio = true; }
+      }
       v = v.slice(0, 17);
       /* La forma tiene que ser la MISMA que genera generarCodigoSync():
          4-4-4-5, donde el ultimo grupo son 4 del cuerpo + el simbolo de
@@ -1214,7 +1223,23 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       }
     }
     inp.addEventListener("input", alEscribir);
-    inp.addEventListener("paste", function () { setTimeout(alEscribir, 0); });
+    /* PEGAR REEMPLAZA (best practice para campos de codigo/OTP, JFC 2026-08-25).
+       Se toma el texto del portapapeles, se formatea SOLO ese texto y se pone
+       como valor completo — sin importar lo que hubiera antes en el campo (por
+       ej. el "F123-" que pinta el focus). Asi pegar tu licencia completa nunca
+       duplica el prefijo ni los guiones. Con preventDefault evitamos que el
+       navegador inserte el texto crudo antes de formatear. */
+    inp.addEventListener("paste", function (e) {
+      try {
+        var cb = (e.clipboardData || window.clipboardData);
+        if (!cb) { setTimeout(alEscribir, 0); return; }
+        e.preventDefault();
+        var pegado = cb.getData("text");
+        inp.value = formatear(pegado);
+        try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {}
+        try { inp.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}
+      } catch (_) { setTimeout(alEscribir, 0); }
+    });
     inp.addEventListener("focus", function () {
       if (!inp.value) { inp.value = PRE + "-"; try { inp.setSelectionRange(PRE.length + 1, PRE.length + 1); } catch (_) {} }
     });

@@ -614,6 +614,14 @@
       try { window.addEventListener("oc-micelio-cambio", pintarHuella); } catch (_) {}
       if (salaActiva) pintarQR(salaActiva);
 
+      /* ENTER activa (JFC 2026-08-25): en un campo unico, Enter dispara la
+         accion principal — es lo estandar y da el "sense of completion". */
+      (function () {
+        var _campo = document.getElementById("oc-sync-codigo");
+        if (_campo) _campo.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { e.preventDefault(); var b = document.getElementById("oc-sync-activar"); if (b) b.click(); }
+        });
+      })();
       document.getElementById("oc-sync-activar").addEventListener("click", (ev) => {
         const btn = ev.currentTarget;
         if (btn.disabled) return;
