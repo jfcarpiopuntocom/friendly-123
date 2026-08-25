@@ -1695,6 +1695,7 @@
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.4">4. The ranking shows who's selling the most — and flags anyone who's gone quiet.</p>
       </div>
     </details>
+    <div id="listaComisionistas"></div>
     <div id="listaComisiones"></div>
   </section>
 
@@ -4721,7 +4722,90 @@ async function cargarActividad(){
 }
 
 // --- VISTA COMISIONES (reparto de comisiones a asociados/as) ---
+// GESTION DE COMISIONISTAS / ASOCIADOS (portado y simplificado de amigable-123,
+// JFC 2026-08-25). friendly NO tenia forma de AGREGAR comisionistas ni de ver su
+// lista — solo mostraba el ranking y las liquidaciones. Sale para dueno Y admin
+// (puedeGestionar). Es aditivo y autocontenido: no toca el reparto ni las
+// liquidaciones existentes.
+let _comisionistasCache = [];
+async function renderComisionistas(){
+  const cont = document.getElementById("listaComisionistas");
+  if (!cont) return;
+  const puede = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
+  if (!puede) { cont.innerHTML = ""; return; } // staff: no gestiona comisionistas
+  let lista = [];
+  try { lista = await (await fetch(`${API}/promotoras`)).json(); } catch (_) { lista = []; }
+  _comisionistasCache = (Array.isArray(lista) ? lista : []).slice().sort((a,b) => String(a.nombre||"").localeCompare(String(b.nombre||"")));
+  const inp = (id, ph, extra) => `<input id="${id}" type="text" autocomplete="off" placeholder="${escHtml(ph)}" style="flex:1;min-width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;${extra||''}">`;
+  cont.innerHTML = `
+    <div class="tag-card" style="text-align:left;margin-bottom:16px;">
+      <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="comm.assoc.heading">${t("comm.assoc.heading")}</h3>
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 10px;" data-i18n="comm.assoc.intro">${t("comm.assoc.intro")}</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <label style="font-size:13px;flex:2;min-width:160px;"><span data-i18n="common.name">${t("common.name")}</span><br>${inp("cmNombre", t("comm.assoc.namePh"),"width:100%;")}</label>
+        <label style="font-size:13px;"><span data-i18n="comm.assoc.pct">${t("comm.assoc.pct")}</span><br><input id="cmComision" type="number" min="0" max="100" step="0.5" placeholder="e.g. 15" style="width:110px;padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
+      </div>
+      <details style="margin-top:8px;">
+        <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="comm.assoc.more">${t("comm.assoc.more")}</summary>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+          ${inp("cmTelefono", t("comm.assoc.phone"))}
+          ${inp("cmCedula", t("comm.assoc.id"))}
+          ${inp("cmBanco", t("comm.assoc.bank"))}
+          ${inp("cmCuenta", t("comm.assoc.account"))}
+          ${inp("cmDireccion", t("comm.assoc.address"),"flex:2;min-width:160px;")}
+        </div>
+      </details>
+      <div style="margin-top:10px;"><button class="ir" id="btnAltaComisionista" style="padding:10px 16px;" data-i18n="comm.assoc.addBtn">${t("comm.assoc.addBtn")}</button></div>
+      <p id="cmMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
+      <div class="tag-card" style="padding:8px 12px;display:flex;align-items:center;gap:10px;margin-top:14px;">
+        <input id="cmBuscar" type="search" autocomplete="off" placeholder="${escHtml(t("comm.assoc.searchPh"))}" style="flex:1;min-width:0;padding:9px 11px;font-size:14px;border:2px solid var(--azul-medio);border-radius:5px;">
+      </div>
+      <div id="cmLista" style="margin-top:10px;"></div>
+    </div>`;
+  const pintarLista = (q) => {
+    const ql = String(q||"").trim().toLowerCase();
+    const fil = _comisionistasCache.filter(p => !ql || String(p.nombre||"").toLowerCase().includes(ql) || String(p.telefono||"").toLowerCase().includes(ql) || String(p.cedula||"").toLowerCase().includes(ql));
+    const el = document.getElementById("cmLista");
+    if (!el) return;
+    el.innerHTML = fil.length ? fil.map(p => `
+      <div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;">
+        <div style="flex:1;"><strong>${escHtml(p.nombre)}</strong>
+          <div style="font-size:13px;color:var(--ink-soft);">${(Number(p.comision)||0)}%${p.telefono?` · ${escHtml(p.telefono)}`:''}</div></div>
+        <button data-cm-borrar="${escHtml(p.id)}" data-nombre="${escHtml(p.nombre)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo,#E8365D);border-radius:5px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">${t("common.delete")}</button>
+      </div>`).join("") : `<p style="font-size:14px;color:var(--ink-soft);">${t("comm.assoc.empty")}</p>`;
+  };
+  pintarLista("");
+  const buscar = document.getElementById("cmBuscar");
+  if (buscar) buscar.addEventListener("input", () => pintarLista(buscar.value));
+  const btn = document.getElementById("btnAltaComisionista");
+  if (btn) btn.addEventListener("click", async () => {
+    const nombre = (document.getElementById("cmNombre").value||"").trim();
+    const msg = document.getElementById("cmMsg");
+    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("comm.assoc.nameReq"); return; }
+    const body = { nombre, comision: document.getElementById("cmComision").value,
+      telefono: document.getElementById("cmTelefono").value, cedula: document.getElementById("cmCedula").value,
+      banco: document.getElementById("cmBanco").value, cuenta: document.getElementById("cmCuenta").value,
+      direccion: document.getElementById("cmDireccion").value };
+    btn.disabled = true;
+    try {
+      const res = await fetch(`${API}/promotoras`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+      const r = await res.json();
+      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || t("comm.assoc.addFail"); btn.disabled = false; return; }
+      msg.style.color = "var(--verde,#2f7a4f)"; msg.textContent = t("comm.assoc.added");
+      await renderComisionistas();
+    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("comm.assoc.addFail"); btn.disabled = false; }
+  });
+  const elLista = document.getElementById("cmLista");
+  if (elLista) elLista.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-cm-borrar]"); if (!b) return;
+    if (!(await ocConfirm(tf("comm.assoc.delConfirm", {nombre: b.dataset.nombre})))) return;
+    try { await fetch(`${API}/promotoras/${b.dataset.cmBorrar}`, { method:"DELETE" }); } catch (_) {}
+    await renderComisionistas();
+  });
+}
+
 async function cargarComisiones(){
+  try { renderComisionistas(); } catch (_) {}
   // Microcirugia 11 (2026-07-08): Promise.all sin guard dejaba Comisiones en blanco.
   const cont = document.getElementById("listaComisiones");
   let filas, ranking;

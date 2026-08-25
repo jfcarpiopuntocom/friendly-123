@@ -2038,7 +2038,13 @@
       if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras);
       if (path === "/api/promotoras" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "A name is required." }, 400);
-        const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim(), comision: Number(body.comision) || 0 };
+        /* Datos de contacto/pago opcionales (paridad con amigable-123, JFC
+           2026-08-25): antes solo se guardaba nombre + %, muy por detras de lo
+           que ya se pide para clientes. Todo opcional salvo el nombre. */
+        const _s = (x) => String(x || "").trim().slice(0, 160);
+        const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim().slice(0, 80), comision: Number(body.comision) || 0,
+          telefono: _s(body.telefono), cedula: _s(body.cedula), banco: _s(body.banco), cuenta: _s(body.cuenta),
+          direccion: _s(body.direccion), notas: _s(body.notas), activa: true, creadoEn: new Date().toISOString() };
         promotoras.push(nuevaProm);
         mov("promotora-alta", { promotora: nuevaProm.nombre });
         return J(nuevaProm);
