@@ -18,11 +18,77 @@
 const MAX_CLIENTES_SALA = 12;      // tope por sala (coincide con el cliente)
 const MAX_FRAME_BYTES = 256 * 1024; // 256 KB por frame; el catalogo va a trozos
 
+const MAX_OPS_SALA = 8000; // tope duro de operaciones guardadas por sala
+
+// Base64 -> ArrayBuffer (para reenviar lo guardado como frame binario, tal
+// cual lo espera el cliente). El relay NO descifra: solo mueve bytes.
+function b64aBuf(b64) {
+  const bin = atob(b64);
+  const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u.buffer;
+}
+
 export class SalaSync {
   constructor(state, env) {
     this.state = state;
     this.env = env;
     this.sockets = new Set();
+    /* BITACORA CIFRADA (JFC 2026-08-25). El relay guarda sobres CERRADOS para
+       que un dispositivo nuevo se ponga al dia aunque no haya nadie en linea.
+       No puede leer nada: `c` es ciphertext; `id` es aleatorio; `lam` un
+       contador. Zero-knowledge del contenido. Durable Object + SQLite. */
+    this.sql = state.storage && state.storage.sql ? state.storage.sql : null;
+    if (this.sql) {
+      try {
+        this.sql.exec("CREATE TABLE IF NOT EXISTS ops(id TEXT PRIMARY KEY, lam INTEGER, c TEXT)");
+        this.sql.exec("CREATE TABLE IF NOT EXISTS ckpt(k TEXT PRIMARY KEY, lam INTEGER, c TEXT)");
+      } catch (_) { this.sql = null; }
+    }
+  }
+
+  _guardarOp(id, lam, c) {
+    if (!this.sql || !id || typeof c !== "string") return;
+    try {
+      this.sql.exec("INSERT OR IGNORE INTO ops(id, lam, c) VALUES (?, ?, ?)", String(id), Number(lam) || 0, c);
+      // Tope duro: si crece de mas, se borran las mas viejas (el checkpoint ya
+      // las resume). Barato y evita que una sala infle sin fin.
+      const n = this.sql.exec("SELECT COUNT(*) AS n FROM ops").one().n;
+      if (n > MAX_OPS_SALA) {
+        this.sql.exec("DELETE FROM ops WHERE id IN (SELECT id FROM ops ORDER BY lam ASC LIMIT ?)", n - MAX_OPS_SALA);
+      }
+    } catch (_) {}
+  }
+
+  _guardarCkpt(lam, c) {
+    if (!this.sql || typeof c !== "string") return;
+    try {
+      this.sql.exec(
+        "INSERT INTO ckpt(k, lam, c) VALUES ('latest', ?, ?) ON CONFLICT(k) DO UPDATE SET lam = excluded.lam, c = excluded.c",
+        Number(lam) || 0, c
+      );
+      // El checkpoint resume todo lo <= su lam: esas ops ya no hacen falta.
+      this.sql.exec("DELETE FROM ops WHERE lam <= ?", Number(lam) || 0);
+    } catch (_) {}
+  }
+
+  _responderPull(sock, desdeLam) {
+    if (!this.sql) return;
+    try {
+      let cursor = Number(desdeLam) || 0;
+      // 1) Si hay checkpoint mas nuevo que lo que el cliente tiene, se lo mando
+      //    primero (como frame binario, lo descifra y lo aplica como catalogo).
+      const ck = this.sql.exec("SELECT lam, c FROM ckpt WHERE k = 'latest'").toArray();
+      if (ck.length && (Number(ck[0].lam) || 0) > cursor) {
+        try { if (sock.readyState === 1) sock.send(b64aBuf(ck[0].c)); } catch (_) {}
+        cursor = Number(ck[0].lam) || 0;
+      }
+      // 2) Las operaciones posteriores al cursor, en orden.
+      const filas = this.sql.exec("SELECT c FROM ops WHERE lam > ? ORDER BY lam ASC", cursor).toArray();
+      for (const f of filas) {
+        try { if (sock.readyState === 1) sock.send(b64aBuf(f.c)); } catch (_) {}
+      }
+    } catch (_) {}
   }
 
   async fetch(request) {
@@ -43,13 +109,36 @@ export class SalaSync {
 
     servidor.addEventListener("message", (evt) => {
       const data = evt.data;
-      // Tope de tamano SIN mirar el contenido: solo el largo en bytes/caracteres.
-      const tam = typeof data === "string" ? data.length : (data && data.byteLength) || 0;
+      // Tope de tamano SIN mirar el contenido: bytes reales. En un string,
+      // .length son CARACTERES, no bytes — un texto multibyte podia colarse por
+      // encima del tope; se mide en UTF-8. (Importa para los frames base64 de la
+      // bitacora cifrada.) El relay sigue sin leer el contenido.
+      const tam = typeof data === "string"
+        ? new TextEncoder().encode(data).length
+        : (data && data.byteLength) || 0;
       if (tam > MAX_FRAME_BYTES) {
         try { servidor.close(1009, "frame too big"); } catch (_) {}
         return;
       }
-      // Reenvio a los DEMAS de la sala. El relay no descifra ni inspecciona.
+
+      /* Frames de CONTROL de la bitacora: viajan como texto JSON con una clave
+         `k`. El relay los CONSUME (no los retransmite): el envio en vivo va por
+         separado como frame binario. Cualquier otra cosa (binario en vivo, o un
+         texto que no reconozco) se retransmite tal cual a los demas, como antes
+         — asi un relay/cliente viejo sigue funcionando. */
+      if (typeof data === "string") {
+        let msg = null;
+        try { msg = JSON.parse(data); } catch (_) { msg = null; }
+        if (msg && typeof msg === "object" && msg.k) {
+          if (msg.k === "op") { this._guardarOp(msg.id, msg.lam, msg.c); return; }
+          if (msg.k === "ckpt") { this._guardarCkpt(msg.lam, msg.c); return; }
+          if (msg.k === "pull") { this._responderPull(servidor, msg.lam); return; }
+          // k desconocida: no se retransmite ni se guarda (evita amplificar).
+          return;
+        }
+      }
+
+      // Reenvio EN VIVO a los DEMAS de la sala. El relay no descifra ni inspecciona.
       for (const s of this.sockets) {
         if (s === servidor) continue;
         try { if (s.readyState === 1 /* OPEN */) s.send(data); } catch (_) {}

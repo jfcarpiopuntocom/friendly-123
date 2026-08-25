@@ -73,16 +73,20 @@ test('el id de sala depende del codigo (mismo codigo = misma sala)', async () =>
   assert.match(a1, /^[0-9a-f]{40}$/);
 });
 
-test('el relay no lee ni interpreta los cuerpos', () => {
-  // No parsea el contenido del frame: no hay JSON.parse sobre el mensaje.
-  assert.ok(!/JSON\.parse\s*\(\s*evt\.data/.test(RELAY), 'el relay no debe parsear evt.data');
-  assert.ok(!/JSON\.parse/.test(RELAY), 'el relay no debe parsear ningun cuerpo');
+test('el relay es zero-knowledge: guarda/mueve sobres pero NUNCA descifra', () => {
+  // El relay puede parsear el SOBRE de metadatos (k/id/lam/c opaco) para saber
+  // que hacer, pero NUNCA descifra ni lee el contenido de negocio.
+  assert.ok(!/subtle|decrypt|descifrar/i.test(RELAY), 'el relay no debe descifrar nada');
+  // El ciphertext `c` se guarda/reenvia tal cual (opaco): nunca se interpreta.
+  assert.match(RELAY, /INSERT OR IGNORE INTO ops/); // se guarda cifrado
+  assert.match(RELAY, /b64aBuf/);                    // se reenvia como bytes, sin abrir
   // Reenvia al RESTO de la sala, nunca al propio emisor (no eco).
   assert.ok(/s\s*===\s*servidor/.test(RELAY) && /continue/.test(RELAY), 'debe excluir al emisor');
-  // Tiene topes de clientes y de tamano de frame.
+  // Tiene topes de clientes, de tamano de frame y de operaciones por sala.
   assert.match(RELAY, /MAX_CLIENTES_SALA/);
   assert.match(RELAY, /MAX_FRAME_BYTES/);
-  // Es zero-trust por almacenamiento: sin KV, sin disco de negocio.
+  assert.match(RELAY, /MAX_OPS_SALA/);
+  // Sin KV de negocio: solo SQLite del Durable Object para los sobres cifrados.
   assert.ok(!/env\.\w*KV/i.test(RELAY), 'el relay no debe usar KV de negocio');
 });
 
@@ -138,4 +142,36 @@ test('idempotencia: aplicar la misma op dos veces = una sola (contrato de dedup)
   assert.equal(stock, 4, 'una op repetida no debe descontar dos veces');
   aplicar({ opId: 'v2', delta: -1 }); // otra venta distinta
   assert.equal(stock, 3, 'dos ventas distintas si descuentan las dos');
+});
+
+// --- Bitacora cifrada en el relay (checkpoint + oplog), JFC 2026-08-25 ---
+
+test('el sobre de la bitacora (base64) va y vuelve, y solo la sala correcta lo abre', async () => {
+  // Replica: el cliente cifra -> base64 (ab2b64) -> el relay guarda `c` -> al
+  // hacer pull lo decodifica a bytes y lo reenvia -> el cliente lo descifra.
+  const ab2b64 = (buf) => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return Buffer.from(s, 'binary').toString('base64'); };
+  const b64ab = (b64) => { const bin = Buffer.from(b64, 'base64'); return bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength); };
+  const claveA = await derivarClave('F123-CCCC-CCCC-CCCC-CCCCC');
+  const claveB = await derivarClave('F123-DDDD-DDDD-DDDD-DDDDD');
+  const buf = await cifrar(claveA, { tipo: '__checkpoint__', payload: { productos: [{ id: 'p1', stockActual: 7 }] } });
+  const c = ab2b64(buf);                 // lo que guarda el relay (opaco)
+  const reconstruido = b64ab(c);         // lo que reenvia el relay al hacer pull
+  const claro = await descifrar(claveA, reconstruido);
+  assert.equal(claro.tipo, '__checkpoint__');
+  assert.equal(claro.payload.productos[0].stockActual, 7);
+  await assert.rejects(descifrar(claveB, reconstruido)); // otra sala no lo abre
+});
+
+test('el cliente persiste ops, sube checkpoint y jala del relay al conectar', () => {
+  assert.match(SYNC, /k:\s*"op"/);     // cada op tambien va a la bitacora
+  assert.match(SYNC, /k:\s*"ckpt"/);   // sube checkpoints
+  assert.match(SYNC, /k:\s*"pull"/);   // pide lo que le falta al conectar
+  assert.match(SYNC, /subirCheckpoint\(true\)/);
+  assert.match(SYNC, /pullDelRelay\(\)/);
+});
+
+test('el checkpoint solo se restaura en un dispositivo FRESCO (sin ventas propias)', () => {
+  // La proteccion clave: nunca pisa el stock de una caja activa.
+  assert.match(MOCK, /aplicarCheckpoint/);
+  assert.match(MOCK, /ventas\.length > 0\) return \{ ok: false, motivo: "no-fresco" \}/);
 });
