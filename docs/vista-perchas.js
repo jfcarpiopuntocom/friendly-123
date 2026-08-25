@@ -177,13 +177,17 @@
 
   // ── carga y render del grid de portadas ────────────────────────────────────
   // Inyecta el botón general "Agregar +" al inicio de la sección Mis perchas.
-  // Se llama desde cargar() (post-login), es idempotente y solo lo ve el dueño.
+  // Se llama desde cargar() (post-login), es idempotente.
+  // JFC 2026-08-25: el admin TAMBIEN puede agregar perchas (igual que ya podia
+  // en Inventario → seccionPerchas, que usa puedeGestionar). Antes este boton
+  // era solo-dueno y el admin quedaba capado en la vista de fotos. Crear percha
+  // es gestion de catalogo, no reparto de plata (eso sigue solo-dueno).
   function inyectarBotonAgregar() {
-    const esDueno = window.OCAuth && window.OCAuth.rolActual() === 'dueno';
+    const puede = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
     const seccion = document.getElementById('vista-perchas');
     const grid = document.getElementById('vp-grid');
     const existente = document.getElementById('vp-btn-agregar');
-    if (!esDueno) { if (existente) existente.remove(); return; } // encargado/demo: sin botón
+    if (!puede) { if (existente) existente.remove(); return; } // staff/demo: sin botón
     if (existente || !seccion || !grid) return;
     const btnAgregar = document.createElement('button');
     btnAgregar.id = 'vp-btn-agregar';
