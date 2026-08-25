@@ -32,8 +32,11 @@
    error interno deja un evento sin resolver, y el fetch nunca devuelve
    undefined a respondWith (bug real de la v87: el fallback sin cache y sin
    navegacion devolvia undefined, y eso el navegador lo mostraba como "network
-   error" en vez de una respuesta controlada). */
-const CACHE = "f123-shell-v88"; // bumped 2026-08-25: hardening (install/activate/fetch a prueba de fallos) + aviso de version a pestañas abiertas + fix del undefined en el fallback offline
+   error" en vez de una respuesta controlada).
+   2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
+   numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
+   ambos cambios del mismo dia. */
+const CACHE = "f123-shell-v88";
 const SHELL = [
   "./",
   "./index.html",
