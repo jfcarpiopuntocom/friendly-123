@@ -552,11 +552,14 @@
           reconectando: window.t("sync.panel.statusReconnecting"),
         }[estado] || estado);
       };
+      /* Escala de grises, sin colores (JFC 2026-08-25): negro = al dia,
+         blanco/gris claro = offline. Igual que el indicador discreto junto a
+         Ayuda. Nada de verde/ambar/rojo. */
       const pillColor = (estado) => {
-        if (estado === "conectado") return "var(--sim-verde-dk,#1a6e3c)";
-        if (estado === "apagado") return "var(--ink-soft)";
-        if (window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente()) return "var(--rojo,#a3392a)";
-        return "#B8760A";
+        if (estado === "conectado") return "#141414";
+        if (estado === "apagado") return "#9a9a9a";
+        if (window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente()) return "#5a5a5a";
+        return "#7a7a7a";
       };
 
       function pintarEstado(estado, n) {

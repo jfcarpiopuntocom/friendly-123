@@ -288,6 +288,52 @@
   brandWrap.appendChild(brandLogo);
   brandWrap.appendChild(btn);
 
+  /* INDICADOR DE SYNC, DISCRETO Y EN ESCALA DE GRISES (JFC 2026-08-25).
+     Antes era una pildora de colores (gris/ambar/verde/rojo) enterrada en
+     Avanzado; a JFC no le gustaban los colores y la queria junto a Ayuda,
+     visible pero discreta, en escala de negro a blanco: offline/synced. Aqui
+     va debajo de "Help (?)", en el mismo rincon del header. No impone color a
+     la interfaz — solo un punto que va de blanco (offline) a negro (synced). */
+  const mini = document.createElement("div");
+  mini.id = "oc-sync-mini";
+  mini.setAttribute("aria-live", "polite");
+  mini.style.cssText = "display:flex;align-items:center;gap:5px;font-size:11px;line-height:1;font-weight:700;letter-spacing:.02em;color:#8a8a8a;margin-top:1px;cursor:default;";
+  const miniDot = document.createElement("span");
+  miniDot.style.cssText = "width:8px;height:8px;border-radius:50%;box-sizing:border-box;background:#ffffff;border:1.5px solid #b7b7b7;";
+  const miniTxt = document.createElement("span");
+  mini.appendChild(miniDot);
+  mini.appendChild(miniTxt);
+  brandWrap.appendChild(mini);
+
+  function _miniT(k, f) { try { return (window.t ? window.t(k, f) : f); } catch (_) { return f; } }
+  function pintarMini(estado) {
+    try {
+      const C = window.OCSyncControl;
+      const e = estado || (C && C.estado ? C.estado() : "apagado");
+      const problema = !!(C && C.problemaPersistente && C.problemaPersistente());
+      let dotBg, dotBorder, txtColor, etiqueta;
+      if (e === "conectado") {
+        // Extremo NEGRO de la escala = al dia.
+        dotBg = "#141414"; dotBorder = "#141414"; txtColor = "#3a3a3a"; etiqueta = _miniT("sync.mini.synced", "Synced");
+        const n = C && C.presencia ? C.presencia() : null;
+        if (n != null && n > 1) etiqueta += " · " + n;
+      } else if ((e === "conectando" || e === "reconectando") && !problema) {
+        // Gris intermedio = trabajando.
+        dotBg = "#9a9a9a"; dotBorder = "#9a9a9a"; txtColor = "#7a7a7a"; etiqueta = _miniT("sync.mini.syncing", "Syncing…");
+      } else {
+        // Extremo BLANCO de la escala = offline / sin sala / no alcanza.
+        dotBg = "#ffffff"; dotBorder = "#b7b7b7"; txtColor = "#9a9a9a"; etiqueta = _miniT("sync.mini.offline", "Offline");
+      }
+      miniDot.style.background = dotBg;
+      miniDot.style.borderColor = dotBorder;
+      miniTxt.textContent = etiqueta;
+      mini.style.color = txtColor;
+    } catch (_) {}
+  }
+  pintarMini();
+  try { if (window.OCSyncControl && window.OCSyncControl.onEstado) window.OCSyncControl.onEstado(pintarMini); } catch (_) {}
+  window.addEventListener("oc-lang-change", function () { pintarMini(); });
+
   function abrir() {
     const rol = window.OCAuth ? window.OCAuth.rolActual() : null;
     pintarTextosFijos();
