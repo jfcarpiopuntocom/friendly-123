@@ -2026,7 +2026,7 @@ async function cargarCierreLista(){
   // se teclea aquí es ADICIONAL — por eso nunca se pre-carga en el input.
   cont.innerHTML = `<p style="font-size:15px;font-weight:700;color:var(--sim-verde-dk);margin:8px 0 4px;">${tf("sold.alreadyToday", {n: totalHoy})}</p>` + conStock.map(p => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--linea,#D7E0E8);">
-      <span style="font-size:15px;color:#0F1923;flex:1;">${escHtml(p.nombre)} <span style="color:#2C3E50;">(hay ${p.stockActual})</span>${hoyMap[p.id] ? ` <span style="font-size:14px;font-weight:700;color:var(--sim-verde-dk);">· hoy: ${hoyMap[p.id]}</span>` : ""}</span>
+      <span style="font-size:15px;color:#0F1923;flex:1;">${escHtml(p.nombre)} <span style="color:#2C3E50;">(${tf("sold.inStock", {n: p.stockActual})})</span>${hoyMap[p.id] ? ` <span style="font-size:14px;font-weight:700;color:var(--sim-verde-dk);">· ${tf("sold.todayCount", {n: hoyMap[p.id]})}</span>` : ""}</span>
       <input type="number" min="0" max="${p.stockActual}" value="${previos[p.id] || 0}" data-cierre-prod="${p.id}" inputmode="numeric" style="width:76px;padding:8px;border:2px solid var(--azul-medio);border-radius:6px;text-align:center;">
     </div>`).join("");
   // Anti-dummy: si teclean mas que el stock, se recorta al maximo al salir
@@ -2166,7 +2166,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
       telefono = (document.getElementById("oc-ncli-tel").value || "").trim();
     }
     const msg = document.getElementById("oc-ncli-msg");
-    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "El nombre es obligatorio."; return; }
+    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("client.nameRequired"); return; }
     const btn2 = document.getElementById("oc-ncli-crear");
     btn2.disabled = true;
     try {
@@ -2557,11 +2557,11 @@ function inicializarImportCSV(){
     const f = e.target.files && e.target.files[0];
     const msg = document.getElementById("cliCsvMsg");
     if (!f) return;
-    if (f.size > 1024 * 1024){ msg.textContent = "El archivo es muy grande (maximo 1 MB)."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
+    if (f.size > 1024 * 1024){ msg.textContent = t("import.tooBig"); msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
     let texto;
     try { texto = await f.text(); } catch (_){ msg.textContent = "Could not read the file."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
     let filas = parsearCSV(texto);
-    if (!filas.length){ msg.textContent = "El archivo esta vacio."; msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
+    if (!filas.length){ msg.textContent = t("import.emptyFile"); msg.style.color = "var(--sim-rojo-dk)"; inp.value = ""; return; }
     // Descartar una cabecera si la primera fila parece titulos.
     const c0 = (filas[0][0] || "").toLowerCase(), c1 = (filas[0][1] || "").toLowerCase();
     if (c0.includes("nombre") || c1.includes("tel")) filas = filas.slice(1);
@@ -2590,7 +2590,10 @@ async function cargarBCG(){
   try { q = await (await fetch(`${API}/inventario/bcg?ubicacionId=${ubicacionActual}`)).json(); }
   catch (_) { cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">Could not load BCG analysis. Reload the view.</p>'; return; }
   const CUAD = {
-    estrellas:    { icono: "⭐", titulo: "Estrellas",      sub: "Sell a lot and trending up. Protect their stock.",         bg: "var(--sim-verde-bg)",    borde: "var(--sim-verde)",    tinta: "#009A5A" },
+    /* B4 (JFC 2026-08-19): "Estrellas" era el unico cuadrante de la matriz BCG
+       en espanol — los otros tres ya estaban en ingles. En la app inglesa se
+       leia una sola palabra suelta en castellano. */
+    estrellas:    { icono: "⭐", titulo: "Stars",          sub: "Sell a lot and trending up. Protect their stock.",         bg: "var(--sim-verde-bg)",    borde: "var(--sim-verde)",    tinta: "#009A5A" },
     vacas:        { icono: "", titulo: "Cash cows", sub: "Sell a lot, stable. They fund everything else.",       bg: "var(--sim-amarillo-bg)", borde: "var(--sim-amarillo)", tinta: "#B8860B" },
     promesas:     { icono: "❓", titulo: "Rising stars",       sub: "Sell little but trending up. Give them shelf space.",          bg: "var(--sim-azul-bg)",     borde: "var(--sim-azul)",     tinta: "#2E6278" },
     pesosMuertos: { icono: "💤", titulo: "Dead weight",  sub: "No movement in 60 days. Free up that capital.",         bg: "var(--sim-plata-bg)",    borde: "var(--sim-plata-dk)", tinta: "#2C3E50" },
@@ -4961,7 +4964,7 @@ document.getElementById("btnGuardarGastos").addEventListener("click", async () =
     return;
   }
   msg.style.color = "var(--verde)";
-  msg.textContent = "Guardado. Actualizando el P&G...";
+  msg.textContent = t("adv.savedUpdatingPL");
   cargarAvanzado();
 });
 
@@ -5053,7 +5056,7 @@ async function cargarDashboardInicial(intento){
     const hero = document.getElementById("heroSemaforo");
     hero.className = "hero-semaforo tag-card amarillo";
     if (window.OC_DEMO) {
-      document.getElementById("heroTitulo").textContent = "Cargando la demo…";
+      document.getElementById("heroTitulo").textContent = t("hero.loadingDemo");
       document.getElementById("heroSubtitulo").textContent = "If this doesn't change in a few seconds, reload the page.";
     } else {
       document.getElementById("heroTitulo").textContent = "Could not connect to the server.";
