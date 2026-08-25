@@ -485,6 +485,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       </div>
       <p id="oc-gate-tagline" style="margin:6px 0 10px;font-size:13px;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">${window.t("auth.gate.tagline")}</p>
       <div class="sub">${window.t("auth.gate.subtitle")}</div>
+      <!-- CLARIDAD DE NEGOCIO (JFC 2026-08-25): "antes de entrar debiera decirme
+           a que negocio/tienda estoy entrando". Se llena abajo desde
+           f123_owned.nombreNegocio (queda guardado local tras el primer login,
+           asi que sale aun sin conexion). Si no hay nombre aun, no se muestra. -->
+      <div id="oc-gate-negocio" style="display:none;margin:0 0 14px;text-align:center;font-size:14px;line-height:1.35;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;"></div>
       <div class="oc-slots" id="oc-slots"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
       <div class="oc-pad" id="oc-pad"></div>
       <div class="oc-acciones">
@@ -505,6 +510,28 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;">v1.0 &mdash; friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
     </div>`;
   document.body.appendChild(gate);
+
+  /* Rotula el negocio al que se entra ANTES de teclear el PIN. Solo en un
+     dispositivo ya activado/unido (dispositivoApropiado): en un dispositivo de
+     muestra no hay negocio real y saldrian los PINs demo, no esto. El nombre
+     sale de f123_owned.nombreNegocio, que queda guardado local tras el primer
+     login (por eso funciona sin conexion). Fail-safe: cualquier fallo deja el
+     banner oculto, nunca rompe el candado. */
+  function pintarNegocioGate() {
+    try {
+      const el = document.getElementById("oc-gate-negocio");
+      if (!el) return;
+      const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      const nombre = (owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "";
+      if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
+      const _esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      el.innerHTML = '<span style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft,#5d5340);">'
+        + _esc(window.t("auth.gate.enteringBiz")) + '</span><br><strong style="font-family:var(--font-display,serif);font-size:18px;">'
+        + _esc(nombre) + '</strong>';
+      el.style.display = "block";
+    } catch (_) { try { const el = document.getElementById("oc-gate-negocio"); if (el) el.style.display = "none"; } catch (__) {} }
+  }
+  pintarNegocioGate();
 
   let teclado = null;
   let intervaloCountdown = null;
