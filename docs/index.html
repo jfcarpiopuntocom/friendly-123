@@ -2865,7 +2865,15 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   async function cargarNombre() {
     try {
       const inst = await (await fetch(`${API}/instancia`)).json();
-      if (inst && inst.nombreNegocio) span.textContent = inst.nombreNegocio;
+      if (inst && inst.nombreNegocio) {
+        span.textContent = inst.nombreNegocio;
+        /* Persistir el nombre en f123_owned para que el candado pueda rotular
+           "Entrando a: <negocio>" ANTES del login la proxima vez, aun offline
+           (JFC 2026-08-25). Antes solo se guardaba al EDITAR el nombre, asi que
+           un dispositivo que nunca lo edito nunca mostraba el negocio en el
+           candado. */
+        try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o && o.nombreNegocio !== inst.nombreNegocio) { o.nombreNegocio = inst.nombreNegocio; localStorage.setItem("f123_owned", JSON.stringify(o)); } } catch (_) {}
+      }
     } catch (_) {}
   }
   function actualizarLapiz() {

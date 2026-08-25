@@ -1,9 +1,9 @@
 {
-  "version": "1.7.1",
+  "version": "1.7.2",
   "fecha": "2026-08-25",
   "changelog": "v1.0 — one license, one shared notebook. Every device you activate with your license is the same notebook and they keep each other up to date on their own: products, shelves, and now your team too, with their PINs and roles. Clear hierarchy: Owner, Admin, Staff. Works offline, your data stays yours, no subscriptions, no ads. Now you can add and manage your associates (the people who sell for you) right from Commissions.",
   "requerida": false,
-  "shell": "f123-shell-v88",
+  "shell": "f123-shell-v89",
   "apagar": [],
   "releaseName": "v1.0"
 }
