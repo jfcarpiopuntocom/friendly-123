@@ -68,7 +68,13 @@ const SHELL = [
   "./help-ui.js",
   "./idb-fotos.js",
   "./idb-archivo.js",
-  "./simon-config.js", "./percha-reposicion.js", "./micelio-vivo.js", "./micelio-ui.js", "./tablero.html", "./tablero-avanzado.js", "./borradores.js", "./vista-perchas.js",
+  /* B16 (JFC 2026-08-19): el shell cacheaba tablero.html pero NO
+     dashboard.html. Desde que tablero.html es solo un redirect a
+     dashboard.html, un dispositivo sin conexion seguia el redirect y se
+     quedaba en blanco: el destino no estaba en cache. Se cachean los dos —
+     tablero.html pesa unos cientos de bytes ahora y hay enlaces viejos
+     (WhatsApp, redes) que todavia apuntan ahi. */
+  "./simon-config.js", "./percha-reposicion.js", "./micelio-vivo.js", "./micelio-ui.js", "./tablero.html", "./dashboard.html", "./tablero-avanzado.js", "./borradores.js", "./vista-perchas.js",
   "./welcome-ui.js",
   "./tutorial-ui.js",
   "./event-bus.js", "./logger.js", "./telemetry.js", "./identity-context.js", "./feature-gate.js", "./audit-store.js", "./sync-queue.js", "./sync-outbox.js", "./ui-actions.js", "./salud-app.js", "./hechos.js", "./reconciliacion.js", "./cartera.js", "./plan-pagos.js", "./plan-pagos-ui.js", "./caja-chica.js", "./respaldo-empleado.js", "./edutips.js", "./workshop-brand.js", "./inspector.js", "./inspector-ui.js", "./manifest.json",
