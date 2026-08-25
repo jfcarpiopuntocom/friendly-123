@@ -557,10 +557,12 @@
          panel claro): BLANCO BRILLOSO = al dia (vivo); NEGRO = offline / sin
          conectar hace rato; gris = sincronizando. Igual que el punto junto a
          Ayuda. Nada de verde/ambar/rojo. */
+      const _prob = () => !!(window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente());
       const dotSpec = (estado) => {
+        // Misma escala negro->blanco que el punto junto a Help (4 tonos).
         if (estado === "conectado") return { bg: "#ffffff", bd: "#7f93a4", glow: "0 0 5px 1px rgba(255,255,255,.95), 0 0 0 2px rgba(127,147,164,.30)" };
-        if ((estado === "conectando" || estado === "reconectando") &&
-            !(window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente())) return { bg: "#9a9a9a", bd: "#9a9a9a", glow: "none" };
+        if (estado === "conectando" && !_prob()) return { bg: "#c8c8c8", bd: "#b0b0b0", glow: "none" };
+        if (estado === "reconectando" && !_prob()) return { bg: "#6a6a6a", bd: "#5a5a5a", glow: "none" };
         return { bg: "#141414", bd: "#141414", glow: "none" }; // offline / problema
       };
 
