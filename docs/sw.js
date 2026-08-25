@@ -9,7 +9,12 @@
 // (fonts.googleapis.com / fonts.gstatic.com) tras la primera visita, así la
 // tipografía sobrevive sin conexión. Los font stacks del CSS ya traen
 // fallbacks del sistema por si nunca llegaron a cachearse.
-const CACHE = "f123-shell-v65"  /* bumped 2026-08-18: tablero de control */  /* bumped 2026-08-18: estado-idb.js */; // bumped 2026-08-06: calificador de clientes portado 1-1 de amigable-123 (1-5 estrellas/corazones), fuera el tri-estado -1/0/1
+/* B17 (JFC 2026-08-19): quedo en v65 mientras se cambiaban index.html,
+   mock-backend.js, auth-ui.js, estado-idb.js, i18n.js y este mismo archivo.
+   Sin subir la version, un dispositivo con la app ya instalada sigue
+   sirviendo los archivos viejos desde cache y NINGUNO de los arreglos le
+   llega — incluido el de las camisetas que no se iban. Se sube a v66. */
+const CACHE = "f123-shell-v66"  /* bumped 2026-08-19: caza 33 — repintado tras activar, teclas sin color Simon, dashboard.html en el shell */; // bumped 2026-08-06: calificador de clientes portado 1-1 de amigable-123 (1-5 estrellas/corazones), fuera el tri-estado -1/0/1
 const SHELL = [
   "./",
   "./index.html",
@@ -38,7 +43,13 @@ const SHELL = [
   "./help-ui.js",
   "./idb-fotos.js",
   "./idb-archivo.js",
-  "./simon-config.js", "./percha-reposicion.js", "./micelio-vivo.js", "./micelio-ui.js", "./tablero.html", "./tablero-avanzado.js", "./borradores.js", "./vista-perchas.js",
+  /* B16 (JFC 2026-08-19): el shell cacheaba tablero.html pero NO
+     dashboard.html. Desde que tablero.html es solo un redirect a
+     dashboard.html, un dispositivo sin conexion seguia el redirect y se
+     quedaba en blanco: el destino no estaba en cache. Se cachean los dos —
+     tablero.html pesa unos cientos de bytes ahora y hay enlaces viejos
+     (WhatsApp, redes) que todavia apuntan ahi. */
+  "./simon-config.js", "./percha-reposicion.js", "./micelio-vivo.js", "./micelio-ui.js", "./tablero.html", "./dashboard.html", "./tablero-avanzado.js", "./borradores.js", "./vista-perchas.js",
   "./welcome-ui.js",
   "./tutorial-ui.js",
   "./event-bus.js", "./logger.js", "./telemetry.js", "./identity-context.js", "./audit-store.js", "./sync-queue.js", "./ui-actions.js", "./salud-app.js", "./hechos.js", "./reconciliacion.js", "./cartera.js", "./plan-pagos.js", "./plan-pagos-ui.js", "./caja-chica.js", "./respaldo-empleado.js", "./edutips.js", "./manifest.json",
