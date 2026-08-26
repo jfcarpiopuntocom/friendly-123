@@ -495,8 +495,25 @@
   // ANTES de caer al aviso de "datos corruptos" — con SHA-256 no habria hecho
   // falta: JSON.parse() + validarRespaldo() ya detectan truncamiento igual de
   // bien, sin el costo de un hash criptografico en cada venta.
-  const OC_STATE_PTR = OC_STATE_KEY + "_ptr";
-  function claveBuffer(letra) { return OC_STATE_KEY + "_" + letra; }
+  /* MULTI-TIENDA LOCAL (JFC 2026-08-26). Cada licencia = una tienda aislada
+     en localStorage. La tienda activa se marca en f123_tienda_activa (vacío =
+     tienda propia, que sigue usando las claves legacy SIN sufijo → cero
+     migración y cero riesgo para quien ya venía usando la app). Cambiar de
+     licencia flushea la tienda actual, cambia este marcador y recarga; en el
+     boot se cargan los buffers de la tienda correcta.
+     El sufijo se calcula UNA sola vez al cargar el módulo: como cambiar de
+     tienda siempre dispara location.reload(), no hay caso donde cambie en
+     caliente. Propiedad de seguridad: si nadie escribió f123_tienda_activa,
+     el sufijo es "" y TODAS las claves quedan byte-idénticas a antes. */
+  function _sufijoTiendaActiva() {
+    try {
+      const lic = localStorage.getItem("f123_tienda_activa");
+      return (lic && lic.trim()) ? "::" + lic.trim() : "";
+    } catch (_) { return ""; }
+  }
+  const OC_STATE_SUFIJO = _sufijoTiendaActiva();
+  const OC_STATE_PTR = OC_STATE_KEY + OC_STATE_SUFIJO + "_ptr";
+  function claveBuffer(letra) { return OC_STATE_KEY + OC_STATE_SUFIJO + "_" + letra; }
   /* Espejo en IndexedDB. Se dispara SIEMPRE, sin esperarlo: es la red que hace
      que "localStorage lleno" deje de significar "tus cambios se pierden".
      Ver estado-idb.js (JFC 2026-08-17, portado desde amigable-123).
@@ -739,6 +756,12 @@
 
       // Ningun buffer A/B valido: migracion desde la clave de un solo buffer
       // (dispositivos que aun no corrieron esta version) o corrupcion total.
+      // MULTI-TIENDA (2026-08-26): esta migracion legacy SOLO aplica a la tienda
+      // propia (sufijo vacio). Una tienda unida (sufijo con licencia) que aun no
+      // tiene buffers propios NO debe caer aqui, o cargaria los datos de la
+      // tienda propia (James Bond) dentro de la tienda ajena. Se queda con datos
+      // semilla hasta que sincronice o el dueno la configure.
+      if (OC_STATE_SUFIJO) return;
       const raw = localStorage.getItem(OC_STATE_KEY);
       if (!raw) return;
       let body;
