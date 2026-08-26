@@ -712,6 +712,20 @@
     } catch (_) {}
   }
 
+  /* Vacía las colecciones DEMO semilla cuando se entra a una tienda unida que
+     todavía no tiene datos propios. Así arranca limpia y solo se llena con lo
+     que llegue por sync — sin mezclar el catálogo real del equipo con los
+     productos/perchas de ejemplo. Muta en sitio porque son const.
+     NO toca instanceId (identidad de este aparato). (JFC 2026-08-26) */
+  function _vaciarTiendaFresca() {
+    try {
+      ubicaciones.length = 0; productos.length = 0; sucursales.length = 0;
+      promotoras.length = 0; clientes.length = 0; usuarios.length = 0;
+      ventas.length = 0; movimientos.length = 0; transferencias.length = 0;
+      Object.keys(gastosMensuales).forEach((k) => { delete gastosMensuales[k]; });
+      nombreNegocio = "";
+    } catch (_) {}
+  }
   function cargarEstadoLocal() {
     try {
       const activo = localStorage.getItem(OC_STATE_PTR);
@@ -761,9 +775,13 @@
       // MULTI-TIENDA (2026-08-26): esta migracion legacy SOLO aplica a la tienda
       // propia (sufijo vacio). Una tienda unida (sufijo con licencia) que aun no
       // tiene buffers propios NO debe caer aqui, o cargaria los datos de la
-      // tienda propia (James Bond) dentro de la tienda ajena. Se queda con datos
-      // semilla hasta que sincronice o el dueno la configure.
-      if (OC_STATE_SUFIJO) return;
+      // tienda propia (James Bond) dentro de la tienda ajena.
+      // Ademas: una tienda unida recien creada NO debe arrancar con los datos
+      // DEMO semilla — si lo hiciera, cuando el equipo sincronice (merge
+      // add-only) su catalogo real quedaria MEZCLADO con productos/perchas de
+      // ejemplo. Se vacia para que la tienda arranque limpia y solo se llene con
+      // lo que llegue por sync. (bug hallado en la revision pre-live 2026-08-26)
+      if (OC_STATE_SUFIJO) { _vaciarTiendaFresca(); return; }
       const raw = localStorage.getItem(OC_STATE_KEY);
       if (!raw) return;
       let body;
