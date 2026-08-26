@@ -151,7 +151,7 @@
        SOLO para bordes/biseles/sombras: nunca relleno, nunca texto sobre ese
        mismo color. Los hues propios de esta app se conservan. */
     --sim-verde:#0FA46A;    --sim-verde-bg:#0FA46A;    --sim-verde-dk:#086944;
-    --sim-amarillo:#F5C518; --sim-amarillo-bg:#F5C518; --sim-amarillo-dk:#9E7C00;
+    --sim-amarillo:#FFC400; --sim-amarillo-bg:#FFC400; --sim-amarillo-dk:#C77E00; /* JFC 2026-08-26: oro vivo, no el olivo "caca" del borde (#9E7C00) */
     --sim-plata:#C4CDD8;    --sim-plata-bg:#E8ECF2;    --sim-plata-dk:#8A9AAA;
     --sim-naranja:#F97316;  --sim-naranja-bg:#F97316;  --sim-naranja-dk:#A24608;
     --sim-rojo:#C41E3A;     --sim-rojo-bg:#C41E3A;     --sim-rojo-dk:#7C1024;
@@ -801,10 +801,15 @@
      3 clases (>2) para ganarle a las reglas blancas de arriba. */
   /* 1 TONO (2026-08-05): n1 ya no es un tinte claro, es el color solido,
      asi que forzar tinta oscura aqui dejaba el texto ilegible. Se anula. */
+  /* La estrella de "promover" va JUNTO al doblez de la esquina rota — es lo que
+     justifica esa esquina (JFC 2026-08-26). El clip-path de .tag-card recorta la
+     esquina superior derecha (18px), así que la estrella se coloca a la IZQUIERDA
+     del doblez, arriba, donde es 100% visible y no la recorta el clip. z-index
+     sobre la foto. */
   .caja .estrella-badge{
-    position:absolute; top:8px; right:8px;
+    position:absolute; top:4px; right:22px; z-index:3;
     font-size:20px; line-height:1;
-    filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35));
   }
   .caja .nombre{
     font-family:var(--font-display);
@@ -5543,8 +5548,14 @@ if ("serviceWorker" in navigator) {
   try {
     const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
     if (!r.ok) { try { const eb = JSON.parse(localStorage.getItem("f123_errores") || "[]"); eb.push({ ts: Date.now(), tipo: "version-check", msg: "version.json " + r.status }); if (eb.length > 50) eb.splice(0, eb.length - 50); localStorage.setItem("f123_errores", JSON.stringify(eb)); } catch (_) {} return; }
-    const v = String(((await r.json()) || {}).version || "");
-    if (!v) return;
+    const _vj = (await r.json()) || {};
+    // BUG RAIZ (JFC 2026-08-26, "3 semanas viendo codigo viejo"): antes esto
+    // comparaba SOLO `version` ("1.7.5"), que casi nunca se subia. Cada build
+    // sube el `shell` (f123-shell-vNN) pero `version` se quedaba igual, asi que
+    // este reload forzado NUNCA se disparaba y el dispositivo seguia con el
+    // shell viejo. Ahora la huella incluye AMBOS: si cambia cualquiera, refresca.
+    const v = String(_vj.version || "") + "|" + String(_vj.shell || "");
+    if (v === "|") return;
     const K = "f123_version_vista";
     const prev = localStorage.getItem(K);
     if (prev === v) return;

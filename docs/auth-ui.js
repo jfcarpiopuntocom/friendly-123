@@ -508,6 +508,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       </div>
       <p id="oc-gate-landing" style="margin:12px 0 0;font-size:13px;line-height:1.5;text-align:center;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">Not sure what this is? <a href="./save.html" style="color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;font-weight:700;">See what it does in 10 seconds</a>.</p>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;">v1.0 &mdash; friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
+      <p id="oc-gate-build" style="margin:8px 0 0;font-size:11px;letter-spacing:.06em;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;opacity:.75;">&nbsp;</p>
     </div>`;
   document.body.appendChild(gate);
 
@@ -549,13 +550,32 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         _pintar(nom);
         return;
       }
-      // RAMA TIENDA PROPIA — idéntica a antes.
-      const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      const nombre = (owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "";
-      if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
-      _pintar(nombre);
+      // RAMA TIENDA PROPIA (JFC 2026-08-26): NO mostrar el nombre del negocio
+      // propio en el candado. El dueño ya sabe cuál es su tienda; ponerlo en la
+      // pantalla pública de PIN solo filtra el nombre del negocio a quien vea el
+      // teléfono. Para ver datos del negocio está el panel privado (Avanzado).
+      // El rótulo solo tiene sentido en una tienda UNIDA (rama de arriba), para
+      // saber a qué equipo AJENO entraste.
+      el.style.display = "none";
     } catch (_) { try { const el = document.getElementById("oc-gate-negocio"); if (el) el.style.display = "none"; } catch (__) {} }
   }
+  /* Pinta la versión REAL del build en el candado (JFC 2026-08-26: "solo dice
+     v1.0, no sirve para controlar cambios"). Lee version.json (que el SW nunca
+     cachea) y muestra el shell real, ej. "build v100". Fail-safe: si falla,
+     deja el placeholder. */
+  function pintarBuildGate() {
+    try {
+      fetch("./version.json?ts=" + Date.now(), { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((vj) => {
+        if (!vj) return;
+        const el = document.getElementById("oc-gate-build");
+        if (!el) return;
+        const shell = String(vj.shell || "").replace("f123-shell-", "");
+        const ver = String(vj.version || "");
+        el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  build " + shell) : "");
+      }).catch(() => {});
+    } catch (_) {}
+  }
+  pintarBuildGate();
   pintarNegocioGate();
 
   let teclado = null;

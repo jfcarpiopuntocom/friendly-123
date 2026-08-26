@@ -269,20 +269,10 @@
     window.localStorage.removeItem("__aisl_canario__");
   } catch (_) { instalado = false; }
   if (!instalado) {
+    // AVISO SOLO EN CONSOLA (JFC 2026-08-26): el banner rojo visible NO fue
+    // autorizado y no debe alterar la experiencia de usuario. Se conserva el
+    // diagnóstico en consola para depurar, pero NUNCA se pinta nada en pantalla.
     try { console.error("[aislamiento] SIN AISLAMIENTO en este navegador: las apps hermanas del mismo origen podrian pisarse datos. Abre esta app en un Chrome/Safari actualizado."); } catch (_) {}
-    try {
-      var avisar = function () {
-        if (document.getElementById("aisl-sin-aislamiento")) return;
-        var b = document.createElement("div");
-        b.id = "aisl-sin-aislamiento";
-        b.setAttribute("role", "alert");
-        b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:100001;background:#B0183E;color:#fff;font-family:Georgia,serif;font-size:13px;line-height:1.4;padding:8px 12px;text-align:center;";
-        b.textContent = "This browser does not isolate the app storage. Open it in an up-to-date Chrome or Safari to protect your data.";
-        (document.body || document.documentElement).appendChild(b);
-      };
-      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", avisar);
-      else avisar();
-    } catch (_) {}
   }
 
   // -------------------------------------------------------------------------

@@ -2088,22 +2088,17 @@ Keep it somewhere safe.`);
     // Solo corre una vez al abrir Avanzado, silencioso si la API no existe o falla.
     // El elemento se inyecta ANTES del primer hijo de #vista-avanzado para que sea
     // lo primero visible — si hay problema de espacio, el dueno lo ve de inmediato.
+    // AVISO DE CUOTA: SOLO CONSOLA (JFC 2026-08-26). El banner café/rojo de
+    // "Storage at X%" NO fue autorizado y no debe alterar la experiencia. Se
+    // conserva el dato en consola para diagnóstico remoto, pero NUNCA se pinta.
     (async () => {
       try {
         if (!navigator.storage || !navigator.storage.estimate) return;
         const { usage, quota } = await navigator.storage.estimate();
         if (!quota) return;
         const pct = Math.round((usage / quota) * 100);
-        if (pct < 80) return; // sin problema, no molestamos
-        const aviso = document.createElement("p");
-        aviso.id = "oc-storage-aviso";
-        aviso.style.cssText = "font-size:14px;font-weight:700;color:var(--rojo,#a3392a);"
-          + "background:#fff5f5;border:2px solid var(--rojo,#a3392a);border-radius:8px;"
-          + "padding:10px 14px;margin:0 0 14px;";
-        aviso.textContent = "Storage at " + pct + "% — consider deleting old shelf photos, "
-          + "or making a backup from Checkpoints and then freeing space on your device.";
-        const vista = document.getElementById("vista-avanzado");
-        if (vista && !document.getElementById("oc-storage-aviso")) vista.insertBefore(aviso, vista.firstChild);
+        if (pct < 80) return;
+        try { console.warn("[storage] uso al " + pct + "% (aviso solo en consola, sin banner)"); } catch (_) {}
       } catch (_) {}
     })();
 
@@ -2114,23 +2109,14 @@ Keep it somewhere safe.`);
     // riesgo mas serio de perdida total de datos y el mas barato de evitar:
     // instalar la app en la pantalla de inicio sube mucho la probabilidad de
     // que el navegador conceda persistencia.
+    // PERSISTENCIA: se SIGUE solicitando (verificarYSolicitar sube la
+    // probabilidad de que el navegador NO borre los datos — es beneficioso y
+    // silencioso), pero el banner rojo NO fue autorizado y no se pinta.
+    // (JFC 2026-08-26: "no alteres la experiencia esencial de usuario").
     (async () => {
       try {
         if (!window.OCStorageDurable) return;
-        const persistido = await window.OCStorageDurable.verificarYSolicitar();
-        if (persistido !== false) return; // true = protegido, null = API no existe (nada que avisar)
-        if (document.getElementById("oc-persist-aviso")) return;
-        const aviso = document.createElement("p");
-        aviso.id = "oc-persist-aviso";
-        aviso.style.cssText = "font-size:14px;font-weight:700;color:var(--rojo,#a3392a);"
-          + "background:#fff5f5;border:2px solid var(--rojo,#a3392a);border-radius:8px;"
-          + "padding:10px 14px;margin:0 0 14px;";
-        aviso.textContent = "Your data is only in this browser, and the operating system can "
-          + "delete it if you do not use the app for several days — install friendly-123 on your home "
-          + "screen (browser menu → \"Add to Home Screen\" / \"Install app\") and back up "
-          + "often from Checkpoints.";
-        const vista = document.getElementById("vista-avanzado");
-        if (vista && !document.getElementById("oc-persist-aviso")) vista.insertBefore(aviso, vista.firstChild);
+        await window.OCStorageDurable.verificarYSolicitar();
       } catch (_) {}
     })();
 
