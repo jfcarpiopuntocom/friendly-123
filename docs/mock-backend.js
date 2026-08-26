@@ -1839,12 +1839,20 @@
          que depende de f123_owned.licenseCode — un dato frágil que puede no
          reflejar el namespace real. Resultado: aceptaba la licencia pero NO
          cambiaba de tienda. Ahora:
-           - si la licencia ya está registrada, se usa su sufijo;
-           - si es la licencia de la tienda PROPIA, sufijo "" (la propia);
+           - si es la licencia de la tienda PROPIA, sufijo "" (la propia) SIEMPRE;
+           - si no, y ya está registrada, se usa su sufijo;
            - si no, una tienda nueva namespaceada "::<lic>".
          Y "misma tienda" = el sufijo DESTINO es el MISMO que el ACTIVO. Así una
-         licencia distinta SIEMPRE cambia de tienda. */
-      let sufDest = (norm in reg) ? reg[norm] : (norm === _licenciaPropia() ? "" : ("::" + norm));
+         licencia distinta SIEMPRE cambia de tienda.
+
+         PRECEDENCIA DE LA LICENCIA PROPIA (JFC 2026-08-26, hallazgo del arnés de
+         dos aparatos). ANTES el registro se consultaba PRIMERO: si tu propia
+         licencia tenía una entrada vieja en f123_tiendas apuntando a una tienda
+         unida ("::L") —basura de un join anterior—, esa entrada GANABA y te
+         mandaba a la tienda namespaceada en vez de a TU CASA. Tu tienda propia
+         debe ser siempre alcanzable como propia, pase lo que pase con el registro.
+         Por eso "¿es mi licencia propia?" se evalúa ANTES que el registro. */
+      let sufDest = (norm === _licenciaPropia()) ? "" : ((norm in reg) ? reg[norm] : ("::" + norm));
       reg[norm] = sufDest;
       try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
       if (sufDest === OC_STATE_SUFIJO) {

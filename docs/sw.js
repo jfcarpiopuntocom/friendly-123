@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v112"; // bumped 2026-08-26: roster con reloj lógico + tombstones (baja propaga entre aparatos, promover/degradar/PIN por causalidad)
+const CACHE = "f123-shell-v113"; // bumped 2026-08-26: OCTienda.cambiar — la licencia propia SIEMPRE resuelve a la tienda propia (arnés de 2 aparatos cazó precedencia del registro)
 const SHELL = [
   "./",
   "./index.html",
