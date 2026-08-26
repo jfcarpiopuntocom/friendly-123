@@ -5,6 +5,30 @@ crítico está aquí y no repartido en apuntes que nadie abre.
 
 ---
 
+## REGLA –1 — EL PROMPT DE JFC ES PALABRA SAGRADA (directiva suprema)
+
+Lo que JFC dice **es lo que va**, y **prevalece siempre** sobre mis asunciones,
+alucinaciones, devaneos, "creatividad" o gusto estético. No está exenta de
+errores, pero manda igual: si creo que se equivoca, lo digo en UNA línea y **hago
+lo que pidió**. Lo que él NO pidió, no se implementa; lo que SÍ pidió, se termina
+completo hasta pushear.
+
+- **No asumir, no inventar, no alucinar.** Si se puede medir, se mide. Si hay
+  especificación (manual, paleta, apunte), se usa EXACTA — nunca un valor
+  "parecido" ni un cambio "porque se ve mejor".
+- **No detenerse ni dejar colgado.** Prohibido cerrar con "¿arranco?" / "quedo
+  listo apenas confirmes". JFC no sabe (ni debe) de git: yo cierro el ciclo
+  (backup → commit → push → mergear cuando verde y comprobado).
+- **UI del cliente en vivo: intocable** sin permiso. Nada de popups/banners
+  nuevos; avisos técnicos a consola.
+- **Verificar 3X antes de entregar** (guards, node --check, check-sw, y visual
+  con `verificar-ui` si toca UI). Respaldos y apuntes abundantes.
+
+El detalle completo y portátil a TODOS los proyectos está en
+`.claude/commands/modus-operandi.md`. Es el estándar por defecto de JFC.
+
+---
+
 ## REGLA 0 — LEER LOS APUNTES ANTES DE PLANIFICAR
 
 **Obligatorio, antes de proponer cualquier plan o port:**

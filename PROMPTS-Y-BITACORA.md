@@ -347,3 +347,32 @@ restaurar aviso tras re-render, B-03 async catch, B-04 toast en vez de alert,
 B-05 i18n PIN strings, B-06 debounce render, B-07 audit log de demote silencioso,
 B-08 texto modal rotación, B-09 ↺ fallback Android, B-10 scroll en contenedor,
 B-11 estado activo en chips tardíos, B-12 comentario i18n PATCH.
+
+---
+
+## 2026-08-26 — modus operandi fijado
+
+**Prompt (textual):** "toma mis prompts como palabra sagrada aunque no exenta de
+errores pero prevalece por sobre tus asunciones o alucinaciones o devaneos o
+'creatividad', lo que yo digo es lo que va y ya... fijemos esto para todos mis
+proyectos como modus operandi, igual que lo de muchos backups, muchos apuntes."
+
+Contexto: 3 semanas repitiendo lo mismo (no inventar colores/valores, no meter
+popups a la UI del cliente en vivo, no dejar nada colgado esperando decisiones de
+git, terminar lo ya pedido sin re-preguntar, verificar antes de entregar).
+
+**Qué se hizo:**
+- `REGLA –1` (directiva suprema) al inicio de `CLAUDE.md`: el prompt de JFC es
+  palabra sagrada y prevalece sobre asunciones/alucinaciones/creatividad.
+- `.claude/commands/modus-operandi.md`: constitución portátil a todos sus
+  proyectos (palabra sagrada, no detenerse, cerrar el ciclo de git yo, UI
+  intocable, respaldos+apuntes abundantes, verificar 3X, pushes frecuentes,
+  release checklist).
+- Skills previas del día: `reglas-friendly` (paleta exacta del semáforo, no
+  popups, checklist de release) y `verificar-ui` (verificación visual con
+  Playwright/Chromium antes de pushear, de uso racionado).
+
+Todo en producción durante el día: multi-tienda por namespace, fix del rótulo de
+tienda en el PIN, quita de banners no autorizados, bordes de tarjeta al semáforo
+exacto, refresh forzado por shell+version, y clientes que ya viajan con el
+catálogo (v103).
