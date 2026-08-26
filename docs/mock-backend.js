@@ -468,21 +468,9 @@
   // se BORRA, solo se muda de almacen. Si IndexedDB tampoco esta disponible o
   // falla, se cae al aviso rojo de siempre (nada nuevo se pierde silenciosamente).
   function avisoArchivado(n) {
-    try {
-      let d = document.getElementById("oc-recorte-aviso");
-      if (!d) {
-        d = document.createElement("div");
-        d.id = "oc-recorte-aviso";
-        d.setAttribute("role", "status");
-        d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#B8760A;padding:10px 16px;text-align:center;";
-        (document.body || document.documentElement).appendChild(d);
-      }
-      var _es_a = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
-        + (_es_a ? 'Memoria casi llena: TODO se guardó (ventas, clientes, stock) — el log de actividad viejo (' + n + ' registros) se movió a un archivo aparte en este dispositivo, no se borró. Exporta un respaldo en AVANZADO cuando puedas.'
-                 : 'Storage almost full: EVERYTHING was saved (sales, customers, stock) — the old activity log (' + n + ' records) was moved to a separate archive on this device, nothing was deleted. Export a backup in ADVANCED when you can.')
-        + '</span>';
-    } catch (_) {}
+    // SOLO CONSOLA (JFC 2026-08-26): banner no autorizado; todo se guardó, solo
+    // se archivó el log viejo. Sin romper la UI.
+    try { console.warn("[storage] log de actividad viejo (" + n + " registros) movido a archivo local; nada se borró (aviso solo en consola)"); } catch (_) {}
   }
   let _localRev = 0; // contador monotónico — impide que una pestaña vieja sobreescriba estado más fresco
   // Fase 3 (2026-08-04): doble buffer A/B + puntero, en vez de una unica clave.
@@ -580,21 +568,13 @@
       }).catch(() => avisoMemoriaLlena());
     }
   }
-  /* Aviso naranja, no rojo: todo esta guardado, pero conviene respaldar. */
+  /* SOLO CONSOLA (JFC 2026-08-26): este aviso ("todo se guardó, la memoria
+     rápida se llenó, ahora se usa la grande — no se perdió nada") NO fue
+     autorizado y rompe la UI sin necesidad — el guardado ya ocurrió igual. Se
+     conserva el dato en consola para diagnóstico; NUNCA se pinta un banner.
+     (El fallo REAL de guardado sí avisa: avisoMemoriaLlena, intacto.) */
   function avisoEspacioJusto() {
-    try {
-      if (document.getElementById("oc-espacio-justo")) return;
-      const d = document.createElement("div");
-      d.id = "oc-espacio-justo";
-      d.setAttribute("role", "status");
-      d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#B8760A;padding:10px 16px;text-align:center;cursor:pointer;";
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
-        + escHtmlSeguro(tSeguro("storage.tightButSaved",
-            "Everything was saved. This browser's fast storage filled up, so this device's larger storage is now in use — nothing was lost. Export a backup in ADVANCED when you can."))
-        + "</span>";
-      d.addEventListener("click", () => d.remove());
-      (document.body || document.documentElement).appendChild(d);
-    } catch (_) {}
+    try { console.warn("[storage] memoria rápida llena; se usó el almacén grande, nada se perdió (aviso solo en consola)"); } catch (_) {}
   }
   /* Atajos defensivos: si i18n.js no cargo, se usa el texto de reserva en vez
      de dejar el cartel vacio justo cuando hace falta leerlo. */
@@ -608,20 +588,10 @@
   }
   function ocultarAvisoRecorte() { try { const d = document.getElementById("oc-recorte-aviso"); if (d) d.remove(); } catch (_) {} }
   function avisarBufferRecuperado() {
-    try {
-      if (document.getElementById("oc-buffer-recuperado-aviso")) return;
-      const d = document.createElement("div");
-      d.id = "oc-buffer-recuperado-aviso";
-      d.setAttribute("role", "status");
-      d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10001;background:#1A7A4C;padding:10px 16px;text-align:center;cursor:pointer;";
-      var _es_b = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;">'
-        + (_es_b ? 'Se detectó un guardado interrumpido y se recuperó automáticamente desde la copia anterior — no se perdió nada. Si algo no cuadra, exporta un respaldo en AVANZADO.'
-                 : 'An interrupted save was detected and automatically recovered from the previous copy — nothing was lost. If something does not add up, export a backup in ADVANCED.')
-        + '</span>';
-      d.addEventListener("click", () => d.remove());
-      (document.body || document.documentElement).appendChild(d);
-    } catch (_) {}
+    // SOLO CONSOLA (JFC 2026-08-26): banner no autorizado; el guardado ya se
+    // recuperó solo. Diagnóstico en consola, sin romper la UI.
+    try { console.warn("[storage] guardado interrumpido recuperado desde la copia anterior; nada se perdió (aviso solo en consola)"); } catch (_) {}
+    return;
   }
   /* A2 — REPARADOR DE ESTADO (JFC 2026-08-19).
      Patron de las librerias de validacion en runtime tipo Valibot: en vez de
@@ -1760,14 +1730,22 @@
       // Asegurar que la tienda ACTUAL esté registrada (para poder volver a ella).
       const licAct = _licenciaActual();
       if (licAct && !(licAct in reg)) reg[licAct] = OC_STATE_SUFIJO;
-      if (norm === licAct) {
-        try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
-        return { ok: true, cambiado: false, mismo: true };
-      }
-      // Sufijo destino: reutiliza el registrado o crea uno nuevo.
-      let sufDest = (norm in reg) ? reg[norm] : ("::" + norm);
+      /* SUFIJO DESTINO por NAMESPACE, no por comparación de licencias (JFC
+         2026-08-26). El bug: "misma tienda" se decidía con norm===_licenciaActual(),
+         que depende de f123_owned.licenseCode — un dato frágil que puede no
+         reflejar el namespace real. Resultado: aceptaba la licencia pero NO
+         cambiaba de tienda. Ahora:
+           - si la licencia ya está registrada, se usa su sufijo;
+           - si es la licencia de la tienda PROPIA, sufijo "" (la propia);
+           - si no, una tienda nueva namespaceada "::<lic>".
+         Y "misma tienda" = el sufijo DESTINO es el MISMO que el ACTIVO. Así una
+         licencia distinta SIEMPRE cambia de tienda. */
+      let sufDest = (norm in reg) ? reg[norm] : (norm === _licenciaPropia() ? "" : ("::" + norm));
       reg[norm] = sufDest;
       try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
+      if (sufDest === OC_STATE_SUFIJO) {
+        return { ok: true, cambiado: false, mismo: true };
+      }
       // Flush de la tienda actual bajo SUS claves antes de cambiar el marcador.
       try { guardarEstadoLocal(); } catch (_) {}
       try { localStorage.setItem("f123_tienda_activa", sufDest); } catch (_) {}
