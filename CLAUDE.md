@@ -203,3 +203,33 @@ Leer código sólo cuando el plan dependa de un detalle que nada de esto contest
 - Español natural. **No usar "vive en"** (calco del inglés, JFC lo detesta).
 - Sin emojis en la UI.
 - Comentarios en el código que expliquen POR QUÉ, con la fecha y el bug real.
+
+---
+
+## NO DEJAR NADA COLGADO ESPERANDO PERMISO (JFC, 2026-08-26)
+
+Prohibido cerrar un turno con "quedo listo para X apenas me confirmes / dime si
+arranco". Si es trabajo que él ya pidió o aprobó, **se hace hasta terminar** y se
+pushea; no se le devuelve la decisión. Preguntar es solo para una duda real que
+pueda destruir datos o cambiar el modelo del producto (REGLA 2e). Él tiene
+apuntes, prompts, .md y regaños de sobra: usarlos, no re-preguntar.
+
+## SKILLS EXTERNAS APROBADAS (JFC, 2026-08-26) — pero de uso RACIONADO
+
+JFC aprobó traer dos skills de `anthropics/skills`, PERO **queman tokens**, así
+que la regla es: **sugerir su uso cada vez y esperar su OK**, o usarlas con
+mucha mesura. Nunca dispararlas de oficio.
+
+- **`verificar-ui`** (basada en `webapp-testing`, Playwright/Chromium ya
+  preinstalado): abre la app y saca screenshots de las pantallas críticas
+  (candado de PIN, tarjetas de Inventory, flujo "Join my team") ANTES de pushear,
+  para no entregar UI rota. Es la defensa contra editar a ciegas. **Costosa en
+  tokens → pedir OK antes de correrla.**
+- **`reglas-friendly`** (via `skill-creator`): invariantes que toda sesión debe
+  respetar — paleta EXACTA del semáforo (#00C87A/#FFC700/#F97316/#E8365D/#0A0A0F,
+  base de la UX, solo sin azul); **prohibido** meter popups/banners nuevos a la UI
+  del cliente en vivo; checklist de release (snapshot → guards → check-sw → bump
+  de shell **Y** version → push); no sobrescribir entre apps hermanas.
+
+Los archivos de estas skills viven en `.claude/commands/`. Crearlos no cuesta;
+CORRERLOS (sobre todo verificar-ui) sí → avisar y esperar aprobación.
