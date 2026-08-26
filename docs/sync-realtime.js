@@ -209,7 +209,18 @@
   function _acumularCatalogo(pl, forzar) {
     try {
       if (!pl || !pl.tabla) return;
-      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], esperados: 0, vistos: 0, huella: "", rol: "", forzar: false };
+      /* DETECCIÓN DE EMPUJE CONCURRENT (2026-08-26, code-review finding #2):
+         Si ya hay un buffer activo para un pushId distinto, el empuje anterior
+         nunca va a completarse (sus trozos restantes no llegarán). Lo descartamos
+         y empezamos fresco con el pushId nuevo. Sin esto, los trozos de dos empujes
+         en paralelo se mezclan y el catálogo resultante es basura (ubicaciones de
+         uno + productos del otro). El pushId lo genera el emisor en difundirEquipo/
+         difundirCatalogo; si el emisor es viejo (antes del fix) no manda pushId —
+         en ese caso pl.pushId === undefined y nos comportamos igual que antes. */
+      if (_bufCat && pl.pushId && _bufCat.pushId && _bufCat.pushId !== pl.pushId) {
+        _bufCat = null; // empuje viejo incompleto; empezar desde cero con el nuevo
+      }
+      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], esperados: 0, vistos: 0, huella: "", rol: "", forzar: false, pushId: pl.pushId || null };
       _bufCat.esperados = pl.deTotal || _bufCat.esperados;
       _bufCat.huella = pl.huella || _bufCat.huella;
       _bufCat.rol = pl.rol || _bufCat.rol;
@@ -329,6 +340,18 @@
          el cuaderno esta compartido de verdad, no "compartible si alguien
          hace el tramite". Jitter para no pedirlo todos en el mismo instante
          cuando el wifi del local vuelve y reconectan varios a la vez. */
+      /* pedirCatalogo() en CADA reconexion (2026-08-26, code-review finding #3):
+         El mecanismo catch-up (pedirCatchup/pullDelRelay) solo replaya OPS de stock.
+         Los cambios de equipo (alta, baja, cambio de rol, desactivación) NO quedan
+         en ese log — solo existen como el estado actual de los usuarios del peer.
+         Un dispositivo offline que vuelve a conectarse no sabría que alguien fue dado
+         de baja si dependiera solo del catch-up de stock.
+         La solución: pedirCatalogo() en TODA reconexión, no solo en dispositivos vacíos.
+         La respuesta llega unicast (op.para = mi deviceId), aplicarEquipoRemoto la
+         aplica siempre (add-only + último-en-editar-gana por actualizadoEn).
+         Para dispositivos con inventario: el catálogo completo va a _autoAplicarSiVacio
+         que lo descarta (correcto), pero el equipo ya se aplicó vía aplicarEquipoRemoto.
+         Jitter para no saturar cuando muchos dispositivos reconectan a la vez (wifi del local). */
       setTimeout(function () { try { pedirCatalogo(); } catch (_) {} }, 800 + Math.random() * 1200);
     };
     ws.onmessage = async (ev) => {
@@ -372,7 +395,18 @@
           if (op.para && op.para !== deviceId()) return;
           try {
             const _pl = op.payload;
+            /* UNICAST SOLO para aplicarEquipoRemoto (2026-08-26, code-review finding #5):
+               El empuje en vivo (para==null, broadcast) llega a _acumularCatalogo con
+               forzar=true, que al completarse llama aplicarCatalogo → aplicarEquipoRemoto.
+               Si TAMBIÉN llamamos aplicarEquipoRemoto aquí (inmediato), el mismo lote de
+               usuarios se aplica DOS veces. El segundo pase es un no-op en términos de
+               datos (add-only, timestamp gana), pero dispara un evento oc-equipo-sync
+               spurio y un movimiento de auditoría duplicado.
+               Solución: aplicarEquipoRemoto inmediato SOLO para respuestas a MI pedido
+               (op.para === mi deviceId). Para broadcasts, _acumularCatalogo lo maneja
+               cuando acumula todos los trozos y llama aplicarCatalogo. */
             if (_pl && _pl.tabla === "usuarios" && Array.isArray(_pl.filas) &&
+                op.para != null &&
                 window.OCSync && window.OCSync.aplicarEquipoRemoto) {
               window.OCSync.aplicarEquipoRemoto(_pl.filas);
             }
@@ -543,12 +577,19 @@
     let cat;
     try { cat = window.OCSync.catalogoPropio(); } catch (_) { return false; }
     const trozos = trocear("usuarios", cat.usuarios || []);
+    /* pushId (2026-08-26, code-review finding #2): identificador único para ESTE empuje.
+       _acumularCatalogo usa un solo buffer _bufCat. Si dos dispositivos empujan en
+       paralelo, los trozos de ambos se mezclan en el mismo buffer y el resultado es
+       basura. Con pushId, _acumularCatalogo puede detectar que llegó un trozo de un
+       empuje distinto y limpiar el buffer antes de aceptarlo.
+       uuidCorto() produce un ID de 8 chars suficientemente aleatorio para este propósito. */
+    const pushId = uuidCorto();
     for (let k = 0; k < trozos.length; k++) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return false;
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
         para: null, // a todo el equipo, no a un solo pedido
-        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length }, trozos[k]),
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, pushId: pushId }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
       try { ws.send(await cifrar(claveActual, op)); } catch (_) { return false; }
@@ -581,12 +622,16 @@
     const trozos = [].concat(trocear("ubicaciones", cat.ubicaciones || []))
                      .concat(trocear("productos", cat.productos || []))
                      .concat(trocear("usuarios", cat.usuarios || []));
+    /* pushId (2026-08-26, code-review finding #2): mismo patrón que difundirEquipo.
+       Todos los trozos de este empuje comparten el mismo pushId para que el receptor
+       pueda detectar interleaving con otro empuje concurrente y limpiar el buffer. */
+    const pushId = uuidCorto();
     for (let k = 0; k < trozos.length; k++) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return false;
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
         para: null,
-        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length }, trozos[k]),
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, pushId: pushId }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
       try { ws.send(await cifrar(claveActual, op)); } catch (_) { return false; }

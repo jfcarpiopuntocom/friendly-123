@@ -1643,7 +1643,18 @@
         const rolU = (u.rol === "admin" || u.rol === "empleado") ? u.rol : "empleado";
         const mio = usuarios.find((x) => String(x.id) === String(u.id));
         if (!mio) {
-          if (usuarios.some((x) => x.pin === u.pin)) return; // choque de PIN: manda el de casa
+          if (usuarios.some((x) => x.pin === u.pin)) {
+            /* AVISO DE COLISIÓN DE PIN (2026-08-26, code-review finding #4):
+               Antes, esta colisión se descartaba silenciosamente. El resultado era
+               que el operador no sabía por qué el miembro del equipo no llegó —
+               desde su punto de vista el sync "funcionó" pero la persona no aparecía.
+               Con el evento oc-pin-colision, la UI puede avisarle al dueño:
+               "El PIN de [nombre] choca con uno que ya tienes — cámbiaselo antes de sincronizar."
+               La política sigue siendo la misma: gana el PIN de casa (no se importa el remoto).
+               El evento es informativo, no bloquea nada. */
+            try { window.dispatchEvent(new CustomEvent("oc-pin-colision", { detail: { nombre: u.nombre, pin: u.pin, id: u.id } })); } catch (_) {}
+            return;
+          }
           usuarios.push({ id: u.id, nombre: String(u.nombre).slice(0, 60), pin: u.pin, rol: rolU,
                           email: u.email || null, activo: u.activo !== false,
                           creadoEn: u.creadoEn || new Date().toISOString(), actualizadoEn: u.actualizadoEn || null });
@@ -2732,7 +2743,23 @@
         // 2026-08-19 los dos roles cuentan igual contra el tope del plan gratis
         // (ver POST arriba), asi que promover o degradar NO cambia el cupo: es
         // la misma persona en el equipo, con otro nivel de permisos.
-        if (body.rol !== undefined && (body.rol === "admin" || body.rol === "empleado")) u.rol = body.rol;
+        /* GUARD: SOLO EL DUEÑO PUEDE CAMBIAR ROLES (2026-08-26, code-review finding #1).
+           La UI ya bloquea esto: el botón promote/demote solo aparece con
+           puedePromover = isDueno() en avanzado-extra.js.
+           PERO sin este guard, un encargado que conozca el ID de su propio usuario
+           puede hacer desde DevTools:
+             fetch('/api/usuarios/ID', {method:'PATCH', body:JSON.stringify({rol:'admin'})})
+           Su mock-backend local lo aceptaría, actualizadoEn se actualizaría, difundirEquipo()
+           mandaría el registro, y en el dispositivo del dueño el merge timestamp gana
+           porque es más nuevo → el encargado se auto-promovió sin que el dueño lo apruebe.
+           Este guard es defensa en profundidad (defense-in-depth): la UI ya lo previene,
+           pero el backend ES la última línea independientemente de quién llame el fetch.
+           _rolLocal() viene de window.OCAuth.rolActual() — mismo que usa la UI. */
+        if (body.rol !== undefined) {
+          const callerRol = _rolLocal();
+          if (callerRol !== "dueno") return J({ error: "Only the owner can change roles." }, 403);
+          if (body.rol === "admin" || body.rol === "empleado") u.rol = body.rol;
+        }
         /* Sello de edicion (2026-08-21): es lo que decide quien gana cuando dos
            dispositivos editaron a la misma persona. Sin esto el merge no puede
            distinguir el dato nuevo del viejo y tendria que adivinar. */

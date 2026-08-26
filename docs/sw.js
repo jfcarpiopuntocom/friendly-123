@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v93"; // bumped 2026-08-26: role label Staff→Employee in Advanced Team; mobile overflow fix (table caused browser zoom-out on phone)
+const CACHE = "f123-shell-v94"; // bumped 2026-08-26: sync security hardening — role-change guard, pushId race fix, PIN collision event, double-apply fix
 const SHELL = [
   "./",
   "./index.html",
