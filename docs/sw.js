@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v95"; // bumped 2026-08-26: UX sweep — nav icons, orange badges, section renames, mobile chip active, transfer touch targets, misc polish
+const CACHE = "f123-shell-v96"; // bumped 2026-08-26: team sync hardening — backend guards, pin-collision alert, live panel refresh, input polish
 const SHELL = [
   "./",
   "./index.html",
