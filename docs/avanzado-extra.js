@@ -913,6 +913,10 @@
       if (rolLabel) rolLabel.style.display = isDueno() ? "" : "none";
       const lista = document.getElementById("oc-emp-lista");
       if (!lista) return;
+      // B-02 (2026-08-26): rescatar aviso de colisión antes de que innerHTML lo borre.
+      // Si aplicarCatalogo disparó oc-pin-colision, el mensaje lleva dataset.colisionPendiente.
+      const msgElPre = document.getElementById("oc-emp-msg");
+      const colisionPendiente = msgElPre && msgElPre.dataset.colisionPendiente ? msgElPre.dataset.colisionPendiente : null;
       let equipo = [];
       try {
         const r = await fetch("/api/usuarios");
@@ -1136,6 +1140,20 @@
           } catch (_) { msg.textContent = "Error de red."; }
         });
       });
+
+      // B-02 (2026-08-26): restaurar aviso de colisión si se perdió durante el render.
+      // renderEmpleados solo toca #oc-emp-lista, pero una segunda llamada concurrente
+      // puede haber limpiado #oc-emp-msg; al terminar, si había colisión pendiente, se vuelve a poner.
+      if (colisionPendiente) {
+        try {
+          const msgElPost = document.getElementById("oc-emp-msg");
+          if (msgElPost && !msgElPost.textContent) {
+            msgElPost.style.color = "var(--rojo,#a3392a)";
+            msgElPost.textContent = colisionPendiente;
+            msgElPost.dataset.colisionPendiente = colisionPendiente;
+          }
+        } catch (_) {}
+      }
     }
 
     // Bind form: agregar miembro del equipo
@@ -1190,7 +1208,9 @@ Keep it somewhere safe.`);
        mock-backend.js dispara oc-equipo-sync. Sin este listener la tabla
        queda estancada hasta que el usuario navega fuera y vuelve. Con él,
        cualquier cambio remoto actualiza la pantalla al instante. */
-    window.addEventListener("oc-equipo-sync", renderEmpleados);
+    // B-03 (2026-08-26): renderEmpleados es async; pasarla directa como callback
+    // silencia cualquier error interno. El wrapper atrapa la Promise.
+    window.addEventListener("oc-equipo-sync", () => renderEmpleados().catch(() => {}));
 
     /* AVISO DE COLISIÓN DE PIN EN SYNC (2026-08-26, code-review finding #3b).
        aplicarCatalogo dispara oc-pin-colision cuando un miembro que llega
@@ -1202,13 +1222,26 @@ Keep it somewhere safe.`);
     window.addEventListener("oc-pin-colision", function (ev) {
       try {
         const d = ev.detail || {};
-        const msg = `PIN conflict: ${d.nombre || "A team member"} uses PIN ${d.pin || "???"} — that PIN is already taken here. Change their PIN before syncing.`;
+        /* B-01 (2026-08-26): nunca mostrar el PIN real — es una credencial.
+           B-04: si el panel de equipo no está visible, usar un toast en vez de
+           alert() bloqueante (que cortaría una venta en curso). */
+        const msg = `PIN conflict: ${d.nombre || "A team member"} uses a PIN that is already taken here. Change their PIN before syncing.`;
         const msgEl = document.getElementById("oc-emp-msg");
         if (msgEl) {
           msgEl.style.color = "var(--rojo,#a3392a)";
           msgEl.textContent = msg;
+          // B-02: marcar el aviso con atributo para que renderEmpleados lo restaure.
+          msgEl.dataset.colisionPendiente = msg;
         } else {
-          alert(msg);
+          // Toast no bloqueante: crear un banner temporal sobre la UI.
+          try {
+            const toast = document.createElement("div");
+            toast.setAttribute("role", "alert");
+            toast.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#a3392a;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.35);max-width:90vw;text-align:center;";
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => { try { document.body.removeChild(toast); } catch (_) {} }, 6000);
+          } catch (_) {}
         }
       } catch (_) {}
     });
