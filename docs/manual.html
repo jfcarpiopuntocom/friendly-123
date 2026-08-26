@@ -32,8 +32,10 @@
   /* ==========================================================================
      Manual de friendly-123 — hereda EXACTAMENTE la identidad visual de la app
      (index.html): chasis semáforo de colores (azul tinta + brass) para toda la
-     interfaz/chrome, y el sistema Simon (Verde·Amarillo·Naranja·Rojo·Azul·
-     Negro) reservado ÚNICA y EXCLUSIVAMENTE para el semáforo de inventario.
+     interfaz/chrome, y el sistema Simon (Verde·Amarillo·Naranja·Rojo·Negro)
+     reservado para el semáforo de inventario. El AZUL NO es color de tarjeta
+     de inventario: vive solo en "Under watch" (margen flaco) y la cajita de
+     tips de aprovechamiento (ver edutips.js, regla de color 2026-07-28).
      No mezclar ambos sistemas — misma regla que rige la app. Tema claro fijo
      para que iOS/WhatsApp no lo oscurezcan.
      ========================================================================== */
@@ -428,7 +430,6 @@
 <li><span class="chip c-amarillo"></span><span><b>Amarillo — Oportunidad.</b><small>Hay dinero esperándote. Este producto deja buen margen — empújalo esta semana.</small></span></li>
 <li><span class="chip c-naranja"></span><span><b>Naranja — Revisar pronto.</b><small>Se está acabando. Todavía no es una emergencia, pero conviene reponerlo antes de que lo sea.</small></span></li>
 <li><span class="chip c-rojo"></span><span><b>Rojo — Urgente.</b><small>Casi sin stock, o algo por vencer. Actúa hoy.</small></span></li>
-<li><span class="chip c-azul"></span><span><b>Azul — Dato.</b><small>Un consejo financiero o contable sobre este producto: su margen real, su rotación, un costo oculto. Es la sabiduría del dinero, hablándote.</small></span></li>
 <li class="fila-negro"><span class="chip c-negro"></span><span><b>Negro — Capital dormido.</b><small>Tu dinero está descansando ahí. Haz que vuelva a trabajar.</small></span></li>
 </ul>
 <p class="bloom-nota">Cada color puede encenderse en hasta 3 niveles de intensidad — nunca cambia de color, solo se hace más fuerte o más suave según qué tan real sea la urgencia.</p>
