@@ -283,7 +283,7 @@
       "auth.join.confirm": "Join",
       "auth.join.cancel": "Cancel",
       "auth.join.unavailable": "Sync is not available on this device.",
-      "auth.join.success": "Done! Your phone is now synced with the team.",
+      "auth.join.success": "Done! This device is now synced with the team.",
       "sync.panel.title": "Sync your team",
       // Espacio: localStorage se lleno pero el espejo en IndexedDB si guardo.
       // Naranja y no rojo — no se perdio nada, solo conviene respaldar.
@@ -336,7 +336,7 @@
       "sync.panel.statusReconnecting": "Reconnecting…",
       "sync.panel.statusFailed": "Could not connect — check the license or your connection",
       "sync.panel.resyncing": "Resyncing…",
-      "sync.panel.shareText": "Join our team on FRIENDLY-123{business}. Open the app and tap \"New to this team?\" on the PIN screen, paste this license ONCE: {code}\n\nNo need to repeat it — your phone stays synced with the team forever.",
+      "sync.panel.shareText": "Join our team on FRIENDLY-123{business}. Open the app and tap \"New to this team?\" on the PIN screen, paste this license ONCE: {code}\n\nNo need to repeat it — your device stays synced with the team forever.",
       "auth.gate.tooManyAttempts": "Too many attempts. Wait {s}s.",
       "auth.gate.tooManyAttemptsRetry": "Too many attempts. Wait {s}s and try again.",
       "auth.gate.wrongPin": "Incorrect PIN. Try again.",
@@ -851,7 +851,7 @@
       "auth.join.confirm": "Unirme",
       "auth.join.cancel": "Cancelar",
       "auth.join.unavailable": "Sincronización no disponible en este dispositivo.",
-      "auth.join.success": "¡Listo! Tu celular ya está sincronizado con el equipo.",
+      "auth.join.success": "¡Listo! Este dispositivo ya está sincronizado con el equipo.",
       "sync.panel.title": "Sincronizar equipo",
       "common.takesPct": "Se lleva el/la asociado/a %",
       "common.houseKeepsPct": "Queda en la casa %",
