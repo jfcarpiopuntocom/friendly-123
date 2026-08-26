@@ -1681,6 +1681,7 @@
     <div class="tag-card" style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <input id="cliNombre" type="text" placeholder="Customer name" data-i18n-attr="placeholder:cust.namePlaceholder" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <input id="cliTelefono" type="text" placeholder="Phone (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <input id="cliEmail" type="email" inputmode="email" autocomplete="off" placeholder="Email (optional)" data-i18n-attr="placeholder:cust.emailPlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <button class="ir" id="btnAltaCliente" style="padding:10px 18px;" data-i18n="cust.addBtn">+ Add customer</button>
     </div>
     <p id="cliMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
@@ -2718,13 +2719,15 @@ async function cargarClientes(){
     btn.addEventListener("click", async () => {
       const nombre = document.getElementById("cliNombre").value;
       const telefono = document.getElementById("cliTelefono").value;
-      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono }) });
+      const email = (document.getElementById("cliEmail") || {}).value || "";
+      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono, email }) });
       const r = await res.json();
       const msgEl = document.getElementById("cliMsg");
       if (!res.ok) { msgEl.textContent = r.error; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
       msgEl.textContent = `Client registered with code ${r.codigo}.`;
       msgEl.style.color = "var(--sim-verde-dk)";
       document.getElementById("cliNombre").value = ""; document.getElementById("cliTelefono").value = "";
+      { const _e = document.getElementById("cliEmail"); if (_e) _e.value = ""; }
       cargarClientes();
     });
   }

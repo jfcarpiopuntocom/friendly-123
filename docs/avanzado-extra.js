@@ -1821,6 +1821,10 @@ Keep it somewhere safe.`);
       const o = $("oc-c-owner").value.trim(), e = $("oc-c-emp").value.trim(), a = $("oc-c-acct").value.trim();
       const valido = (s) => /^[0-9]{3}$/.test(s);
       if (![o, e, a].every(valido)) { msg("oc-codes-msg", "Each PIN must be 3 digits (0-9).", "var(--rojo)"); return; }
+      /* 888 ES EL CÓDIGO DE DUEÑO DE MUESTRA (JFC 2026-08-26): fijarlo como PIN
+         real atrapa el dispositivo en DEMO permanente (fue justo lo que le pasó a
+         Sarah). Se rechaza con aviso de texto, sin romper la UI. Solo 888. */
+      if ([o, e, a].indexOf("888") !== -1) { msg("oc-codes-msg", "888 can't be used as a PIN — it's the app's demo code and would trap this device in demo. Pick another one.", "var(--rojo)"); return; }
       const correoActual = window.OCSecure.leerCorreo();
       if (!correoActual) { msg("oc-codes-msg", "Before changing PINs, register your recovery email above (if you forget the new PIN, without an email there is no way to recover it).", "var(--rojo)"); return; }
       await window.OCSecure.guardarSecreto(o, [e], a, correoActual);

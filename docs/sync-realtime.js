@@ -1058,6 +1058,25 @@
     },
     unirse(codigo) {
       const r = this.activar(codigo);
+      /* APROPIAR EL DISPOSITIVO AL UNIRSE (JFC 2026-08-26). Un aparato que se une
+         a un equipo con licencia válida deja de ser DEMO: es un dispositivo REAL
+         de esa tienda. Sin esto se quedaba en modo demo y por eso Belén veía los
+         clientes semilla, NO tenía la pastilla de rol ni el lápiz de dueño, y "no
+         podía agregar" — todo eran síntomas de sesión demo. Solo se marca
+         instanceId (identidad de aparato); NO se fija PIN de dueño: la persona
+         entra con su PIN de equipo (sincronizado). Se hace ANTES del reload de
+         cambiar() para que ya arranque apropiado. Idempotente: si ya tenía
+         instanceId, no se toca. */
+      try {
+        if (r && r.ok) {
+          var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          if (!_ow.instanceId) {
+            _ow.instanceId = (self.crypto && self.crypto.randomUUID) ? self.crypto.randomUUID() : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
+            _ow.activatedAt = _ow.activatedAt || Date.now();
+            localStorage.setItem("f123_owned", JSON.stringify(_ow));
+          }
+        }
+      } catch (_) {}
       /* CAMBIO DE TIENDA AL UNIRSE (JFC 2026-08-26 — reemplaza el "adoptar la
          licencia" de 2026-08-25, que hacía merge y por eso el aparato SEGUÍA
          mostrando su tienda local con otro nombre y los PINs del equipo no

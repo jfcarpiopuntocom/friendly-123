@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v104"; // bumped 2026-08-26: amarillo de la app alineado al MANUAL (manda el manual); manual sin azul como estado de inventario
+const CACHE = "f123-shell-v105"; // bumped 2026-08-26: unirse apropia el dispositivo (fin del demo), email de cliente, bloqueo de PIN 888
 const SHELL = [
   "./",
   "./index.html",
