@@ -1742,6 +1742,13 @@
   }
   window.OCTienda = {
     licenciaActual: _licenciaActual,
+    /* ¿La tienda activa es una UNIDA (sufijo con licencia) o la propia (sufijo "")?
+       Lo usa la pantalla de PIN para rotular a QUÉ tienda estás entrando sin
+       tocar el camino de la tienda propia (cliente en vivo). (JFC 2026-08-26) */
+    esUnida() { return !!OC_STATE_SUFIJO; },
+    /* Nombre de la tienda ACTIVA (namespaceado, en memoria). "" si aún no tiene
+       nombre (tienda unida recién creada que todavía no sincronizó). */
+    nombreActivo() { try { return nombreNegocio || ""; } catch (_) { return ""; } },
     /* Cambia la app a la tienda de la licencia dada. Devuelve
        { ok, cambiado, mismo } sin recargar si ya estás en esa tienda. */
     cambiar(licencia) {
