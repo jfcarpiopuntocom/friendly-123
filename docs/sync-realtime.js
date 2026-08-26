@@ -898,7 +898,33 @@
       conectar();
       return { ok: true };
     },
-    unirse(codigo) { return this.activar(codigo); },
+    unirse(codigo) {
+      const r = this.activar(codigo);
+      /* ADOPTAR LA LICENCIA DEL EQUIPO AL UNIRSE (JFC 2026-08-25).
+         Decision de producto: la licencia que ya tiene el negocio (la de Sarah)
+         es LA licencia; nadie genera otra. Al unirse, este dispositivo pasa a
+         ser parte de ESE negocio, asi que su identidad guardada (syncCode y
+         licenseCode en f123_owned) debe quedar igual a la sala a la que se une.
+         Antes solo se cambiaba la sala (ROOM_KEY) y f123_owned se quedaba con el
+         codigo viejo que este aparato hubiera inventado con 789 — y por eso
+         Avanzado seguia mostrando "otra licencia" y el heartbeat/autocuracion
+         podian resucitarla. Alinear los tres mata esa clase de bug de raiz.
+         NO se toca instanceId (los datos de ESTE aparato siguen siendo suyos
+         hasta que sincronice) ni activar() (que la usa el alta de dueno). */
+      try {
+        if (r && r.ok) {
+          const sala = leerSala();
+          const cod = sala && sala.codigo ? sala.codigo : null;
+          if (cod && /^F123-/i.test(cod)) {
+            const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+            owned.syncCode = cod;
+            owned.licenseCode = cod;
+            localStorage.setItem("f123_owned", JSON.stringify(owned));
+          }
+        }
+      } catch (_) {}
+      return r;
+    },
     desactivar() {
       try { localStorage.removeItem(ROOM_KEY); } catch (_) {}
       cerrarWsExistente();

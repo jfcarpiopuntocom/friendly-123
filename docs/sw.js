@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v89"; // bumped 2026-08-25: candado rotula "Entrando a: <negocio>" antes del PIN
+const CACHE = "f123-shell-v90"; // bumped 2026-08-25: al unirse a un equipo, el dispositivo adopta esa licencia como suya (no muestra "otra licencia")
 const SHELL = [
   "./",
   "./index.html",
