@@ -2011,10 +2011,11 @@ async function cargarGridVender(){
         if (p) agregarAlCarrito(p);
         return;
       }
-      b.disabled = true;
-      await venderUno(b.dataset.venderTile);
-      cargarGridVender();
-      if (document.getElementById("cierreDia").open) cargarCierreLista(); // el "hoy: N" de abajo se actualiza al instante
+      /* Portado de amigable-123 (JFC 2026-08-26): en vez de vender directo, se abre
+         la PANTALLA DE DATOS DE VENTA (captura cliente/pago; obligatoria en tickets).
+         El modal hace el refresh (gridVender/cierre) al confirmar. */
+      const _pv = (window._productosVenderCache || []).find(x => x.id === b.dataset.venderTile);
+      abrirPanelVentaInfo(b.dataset.venderTile, !!(_pv && _pv.tipoProducto === "ticket"));
     });
   }
   montarBuscadorVender(productos);
@@ -4364,7 +4365,7 @@ function pintarFicha(p){
       ${p.perecible ? `<div class="linea"><strong>${t("ficha.expires")}</strong> ${escHtml(p.fechaCaducidad || t("ficha.noDate"))}${p.metodoCosteo ? ` · ${escHtml(p.metodoCosteo)}` : ""}</div>` : ""}
       <span class="badge-estado ${escHtml(p.estado)}">${escHtml(p.mensaje)}</span>
       <div class="acciones-rapidas">
-        <button class="vender" onclick="venderUno('${p.id}')" ${p.stockActual === 0 ? "disabled" : ""}>${t("ficha.sellOne")}</button>
+        <button class="vender" onclick="abrirPanelVentaInfo('${p.id}', ${p.tipoProducto === "ticket" ? "true" : "false"})" ${p.stockActual === 0 ? "disabled" : ""}>${p.tipoProducto === "ticket" ? "Sell ticket/event" : t("ficha.sellOne")}</button>
         <button onclick="ajustar('${p.id}', 1)">+1 stock</button>
         <button onclick="ajustar('${p.id}', -1)">-1 stock</button>
         <button class="etiqueta" onclick="abrirEtiqueta('${p.id}')">${t("ficha.viewLabel")}</button>
@@ -4454,6 +4455,108 @@ async function venderUno(id){
     const data = await res.json();
     if (!res.ok){ await ocAlert(data.error); return; }
     pintarFicha(data.producto);
+    if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+  } finally {
+    _ventasEnCurso.delete(id);
+  }
+}
+
+/* PANTALLA DE DATOS DE VENTA (portado de amigable-123, JFC 2026-08-26 —
+   "homologa a lo mejor y más avanzado"). Al vender, se abre un modal que captura
+   quién compró, cómo pagó y cuánto — opcional en productos normales, OBLIGATORIO
+   en tipo ticket/evento (así cobra el negocio las reservaciones). El backend de
+   friendly ya aceptaba `info`; solo faltaba esta captura en la UI. Injertado a
+   mano (REGLA 1b), traducido a inglés (friendly es la app en inglés), reusando
+   los helpers propios de friendly (pintarFicha/mostrarToastAnular/cargarGridVender). */
+let _ventaInfoProductoCache = null;
+async function abrirPanelVentaInfo(id, esTicket){
+  let p, clientes = [];
+  try { p = await (await fetch(`${API}/productos/${id}`)).json(); }
+  catch (err) { console.error("[abrirPanelVentaInfo]", err); await ocAlert("Could not reach the server."); return; }
+  try { clientes = await (await fetch(`${API}/clientes`)).json(); } catch (_) { clientes = []; }
+  _ventaInfoProductoCache = p;
+  const overlay = document.getElementById("oc-ventainfo-overlay");
+  const caja = document.getElementById("oc-ventainfo-caja");
+  const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"';
+  const req = esTicket ? ' <span style="color:var(--rojo,#a3392a);">*</span>' : '';
+  caja.innerHTML = `
+    <div class="ficha-producto tag-card" style="text-align:left;background:var(--blanco-calido,#fbf5e8);">
+      <div class="titulo" style="font-family:var(--font-display);font-size:17px;font-weight:700;">${esTicket ? "Sell ticket / event" : "Sale details"} — ${escHtml(p.nombre)}</div>
+      <p style="font-size:14px;color:var(--ink-soft);">${esTicket ? "This is a Ticket/Event product: these details are required." : "Optional — only if you want to record who bought and how they paid."}</p>
+      <label style="display:block;margin-top:10px;font-size:14px;">Customer (search by name, or leave blank)<br>
+        <input id="vi-cliente-buscar" type="text" placeholder="Type to filter…" ${inp}></label>
+      <select id="vi-cliente" size="1" style="width:100%;padding:8px;margin-top:6px;border:2px solid var(--azul-medio);border-radius:4px;">
+        <option value="">Counter sale (no customer)</option>
+        ${clientes.map(c => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("")}
+      </select>
+      ${esTicket ? `
+      <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br><input id="vi-personas" type="number" min="0" step="1" ${inp}></label>` : ""}
+      <label style="display:block;margin-top:10px;font-size:14px;">Payer's name${req}<br><input id="vi-pagador" type="text" ${inp}></label>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <label style="flex:1;font-size:14px;">Email<br><input id="vi-email" type="email" ${inp}></label>
+        <label style="flex:1;font-size:14px;">WhatsApp<br><input id="vi-whatsapp" type="text" ${inp}></label>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <label style="flex:1;font-size:14px;">Payment method<br>
+          <select id="vi-forma-pago" ${inp}><option value="">—</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="card">Card</option><option value="other">Other</option></select></label>
+        <label style="flex:1;font-size:14px;">Amount paid${req}<br><input id="vi-monto" type="number" min="0" step="0.01" ${inp}></label>
+      </div>
+      <div id="vi-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
+      <div class="acciones-rapidas" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="vender" onclick="confirmarVentaConInfo('${p.id}', ${esTicket ? "true" : "false"})">Confirm sale</button>
+        <button onclick="cancelarPanelVentaInfo()">Cancel</button>
+      </div>
+    </div>`;
+  overlay.style.display = "flex";
+  const buscar = document.getElementById("vi-cliente-buscar");
+  const selCli = document.getElementById("vi-cliente");
+  buscar.addEventListener("input", () => {
+    const q = buscar.value.trim().toLowerCase();
+    [...selCli.options].forEach(o => { o.hidden = !!(q && o.value && !o.textContent.toLowerCase().includes(q)); });
+  });
+  buscar.focus();
+}
+function cancelarPanelVentaInfo(){
+  const overlay = document.getElementById("oc-ventainfo-overlay");
+  if (overlay) overlay.style.display = "none";
+  const caja = document.getElementById("oc-ventainfo-caja");
+  if (caja) caja.innerHTML = "";
+  _ventaInfoProductoCache = null;
+}
+async function confirmarVentaConInfo(id, esTicket){
+  if (_ventasEnCurso.has(id)) return;
+  const g = (x) => { const el = document.getElementById(x); return el ? el.value.trim() : ""; };
+  const info = {
+    fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
+    email: g("vi-email"), whatsapp: g("vi-whatsapp"), formaPago: g("vi-forma-pago"), montoPagado: g("vi-monto")
+  };
+  const msg = document.getElementById("vi-msg");
+  if (esTicket && (!info.fechaEvento || !info.nombrePagador || !info.montoPagado)){
+    msg.style.color = "var(--rojo,#a3392a)";
+    msg.textContent = "For tickets/events you need: date, who's paying, and the amount paid.";
+    return;
+  }
+  const clienteId = document.getElementById("vi-cliente").value || undefined;
+  _ventasEnCurso.add(id);
+  try {
+    let res, data;
+    try {
+      res = await fetch(`${API}/productos/${id}/venta`, {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ cantidad: 1, clienteId, info })
+      });
+      data = await res.json();
+    } catch (err) {
+      console.error("[confirmarVentaConInfo]", err);
+      msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not reach the server. The sale was NOT recorded.";
+      return;
+    }
+    if (!res.ok){ msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = data.error; return; }
+    cancelarPanelVentaInfo();
+    if (document.getElementById(fichaTargetActual)) pintarFicha(data.producto);
+    if (document.getElementById("gridVender")) cargarGridVender();
+    if (document.getElementById("cierreDia") && document.getElementById("cierreDia").open) cargarCierreLista();
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
   } finally {
     _ventasEnCurso.delete(id);
@@ -5657,6 +5760,12 @@ window.dialogosBloqueados = function () {
      El toast usa position:fixed pero un padre con display:none lo oculta igual.
      Fix 2026-07-07: mover fuera de pintarFicha() y de cualquier vista. -->
 <div id="oc-toast-venta"></div>
+
+<!-- PANTALLA DE DATOS DE VENTA (portado de amigable-123, JFC 2026-08-26). Overlay
+     a nivel de body: aparece centrado al vender, sin importar desde dónde. -->
+<div id="oc-ventainfo-overlay" style="display:none;position:fixed;inset:0;z-index:10001;background:#0F141E;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">
+  <div id="oc-ventainfo-caja" style="max-width:460px;width:100%;margin:16px auto;"></div>
+</div>
 
 <!-- =====================================================================
      FEATURE: ocConfirm()/ocAlert() — reemplazo de confirm()/alert() nativos.
