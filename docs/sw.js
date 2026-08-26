@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v102"; // bumped 2026-08-26: switch por namespace (no por licencia fragil) + quita 3 popups de storage no autorizados
+const CACHE = "f123-shell-v103"; // bumped 2026-08-26: clientes viajan con el catalogo (sync add-only) — Belen ve clientes reales, no la semilla
 const SHELL = [
   "./",
   "./index.html",
