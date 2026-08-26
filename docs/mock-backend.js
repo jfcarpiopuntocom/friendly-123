@@ -505,11 +505,13 @@
      tienda siempre dispara location.reload(), no hay caso donde cambie en
      caliente. Propiedad de seguridad: si nadie escribió f123_tienda_activa,
      el sufijo es "" y TODAS las claves quedan byte-idénticas a antes. */
+  /* f123_tienda_activa guarda el SUFIJO literal de la tienda activa:
+     "" para la tienda propia (claves legacy), o "::<licencia>" para una unida.
+     Se guarda el sufijo entero (no solo la licencia) para que el registro de
+     tiendas pueda mapear licencia->sufijo sin ambigüedad, incluyendo el caso
+     de la tienda propia cuyo sufijo es "". */
   function _sufijoTiendaActiva() {
-    try {
-      const lic = localStorage.getItem("f123_tienda_activa");
-      return (lic && lic.trim()) ? "::" + lic.trim() : "";
-    } catch (_) { return ""; }
+    try { return localStorage.getItem("f123_tienda_activa") || ""; } catch (_) { return ""; }
   }
   const OC_STATE_SUFIJO = _sufijoTiendaActiva();
   const OC_STATE_PTR = OC_STATE_KEY + OC_STATE_SUFIJO + "_ptr";
@@ -1702,6 +1704,53 @@
     guardarEstadoLocal();
     return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, huella: huellaCatalogo() };
   }
+
+  /* ===================================================================
+     CAMBIO DE TIENDA — multi-tienda local (JFC 2026-08-26).
+     Poner una licencia = volverse ESA tienda y quedarse ahí. Cada tienda
+     guarda su estado aparte (namespace por sufijo). Cambiar de tienda
+     flushea la actual, apunta el marcador a la otra y recarga. Nada se
+     borra: volver a una tienda anterior restaura sus datos intactos.
+     El registro f123_tiendas mapea licencia -> sufijo para poder regresar
+     a cualquiera con solo volver a poner su licencia (incluida la propia,
+     cuyo sufijo es ""). =============================================== */
+  function _normLic(c) { return String(c || "").trim().toUpperCase().replace(/\s+/g, ""); }
+  function _licenciaPropia() {
+    try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); return o && o.licenseCode ? _normLic(o.licenseCode) : ""; } catch (_) { return ""; }
+  }
+  function _licenciaActual() {
+    // La licencia de la tienda activa: si hay sufijo "::L", es L; si no, la propia.
+    return OC_STATE_SUFIJO ? OC_STATE_SUFIJO.slice(2) : _licenciaPropia();
+  }
+  window.OCTienda = {
+    licenciaActual: _licenciaActual,
+    /* Cambia la app a la tienda de la licencia dada. Devuelve
+       { ok, cambiado, mismo } sin recargar si ya estás en esa tienda. */
+    cambiar(licencia) {
+      const norm = _normLic(licencia);
+      if (!norm) return { ok: false, error: "Empty license." };
+      // Registro licencia -> sufijo.
+      let reg = {};
+      try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
+      // Asegurar que la tienda ACTUAL esté registrada (para poder volver a ella).
+      const licAct = _licenciaActual();
+      if (licAct && !(licAct in reg)) reg[licAct] = OC_STATE_SUFIJO;
+      if (norm === licAct) {
+        try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
+        return { ok: true, cambiado: false, mismo: true };
+      }
+      // Sufijo destino: reutiliza el registrado o crea uno nuevo.
+      let sufDest = (norm in reg) ? reg[norm] : ("::" + norm);
+      reg[norm] = sufDest;
+      try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
+      // Flush de la tienda actual bajo SUS claves antes de cambiar el marcador.
+      try { guardarEstadoLocal(); } catch (_) {}
+      try { localStorage.setItem("f123_tienda_activa", sufDest); } catch (_) {}
+      // Recargar: en el boot el sufijo ya será el de la tienda destino.
+      try { location.reload(); } catch (_) {}
+      return { ok: true, cambiado: true };
+    },
+  };
 
   window.OCSync = {
     /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que

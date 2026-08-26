@@ -1039,27 +1039,23 @@
     },
     unirse(codigo) {
       const r = this.activar(codigo);
-      /* ADOPTAR LA LICENCIA DEL EQUIPO AL UNIRSE (JFC 2026-08-25).
-         Decision de producto: la licencia que ya tiene el negocio (la de Sarah)
-         es LA licencia; nadie genera otra. Al unirse, este dispositivo pasa a
-         ser parte de ESE negocio, asi que su identidad guardada (syncCode y
-         licenseCode en f123_owned) debe quedar igual a la sala a la que se une.
-         Antes solo se cambiaba la sala (ROOM_KEY) y f123_owned se quedaba con el
-         codigo viejo que este aparato hubiera inventado con 789 — y por eso
-         Avanzado seguia mostrando "otra licencia" y el heartbeat/autocuracion
-         podian resucitarla. Alinear los tres mata esa clase de bug de raiz.
-         NO se toca instanceId (los datos de ESTE aparato siguen siendo suyos
-         hasta que sincronice) ni activar() (que la usa el alta de dueno). */
+      /* CAMBIO DE TIENDA AL UNIRSE (JFC 2026-08-26 — reemplaza el "adoptar la
+         licencia" de 2026-08-25, que hacía merge y por eso el aparato SEGUÍA
+         mostrando su tienda local con otro nombre y los PINs del equipo no
+         entraban).
+         Modelo nuevo (multi-tienda): poner una licencia = VOLVERSE esa tienda.
+         La tienda propia queda guardada aparte; se vuelve a ella poniendo su
+         licencia otra vez. OCTienda.cambiar() flushea la tienda actual, apunta
+         el estado a la tienda de esta licencia y RECARGA — por eso esto va al
+         final y todo lo de abajo ya no se ejecuta tras el reload.
+         La sala (ROOM_KEY) ya quedó guardada por activar() y sobrevive el
+         reload, así que al reconectar los datos del equipo (PINs incluidos)
+         sincronizan hacia el namespace de ESTA tienda, no hacia la propia. */
       try {
-        if (r && r.ok) {
+        if (r && r.ok && window.OCTienda && window.OCTienda.cambiar) {
           const sala = leerSala();
-          const cod = sala && sala.codigo ? sala.codigo : null;
-          if (cod && /^F123-/i.test(cod)) {
-            const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-            owned.syncCode = cod;
-            owned.licenseCode = cod;
-            localStorage.setItem("f123_owned", JSON.stringify(owned));
-          }
+          const cod = sala && sala.codigo ? sala.codigo : codigo;
+          window.OCTienda.cambiar(cod); // recarga la página
         }
       } catch (_) {}
       return r;
