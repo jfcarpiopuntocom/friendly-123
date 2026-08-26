@@ -115,6 +115,31 @@ qué se hizo con cada uno. Sirve para retroceder cuando él quiera.
 
 ---
 
+## MODELO MULTI-TIENDA (2026-08-26 — cambio de modelo aprobado por JFC)
+
+Poner una licencia = **VOLVERSE esa tienda** (switch), NO fusionar (merge). Antes
+`unirse()` hacía merge y sobrescribía `f123_owned` — la app seguía mostrando la
+tienda local con otro nombre y los PINs del equipo no entraban. Ahora:
+
+- Cada licencia = una tienda aislada en localStorage. El estado se namespacea con
+  un sufijo `::<licencia>` en los buffers A/B (`claveBuffer`/puntero en
+  `mock-backend.js`). La tienda propia usa sufijo `""` (claves legacy → cero
+  migración). **Propiedad de seguridad: sin `f123_tienda_activa`, todo es
+  byte-idéntico a antes.**
+- `window.OCTienda.cambiar(lic)`: flush de la tienda actual → marcador
+  `f123_tienda_activa` → `location.reload()`. Registro `f123_tiendas` mapea
+  licencia→sufijo para volver a cualquiera (la propia = `""`).
+- `unirse()` (sync-realtime.js) llama `OCTienda.cambiar()`. El sync aterriza en
+  el namespace de la tienda activa automáticamente.
+
+**LÍMITE SIN NUBE:** el relay es zero-knowledge; no guarda el estado de ninguna
+tienda. Los PINs/datos de otra tienda solo llegan si el aparato de esa tienda
+está ENCENDIDO empujando su catálogo. Unirse con el otro aparato apagado = tienda
+vacía (seed) hasta que sincronice. NO agregar un servidor que guarde estado —
+rompería la regla sin-nube.
+
+---
+
 ## LAS TRES APPS — qué es cada una
 
 | | **amigable-123** | **friendly-123** | **consultorio-123** |

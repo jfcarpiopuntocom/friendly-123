@@ -302,3 +302,48 @@ un telefono en 1.6.0 creyera que lo nuevo es mas viejo. SW cache a
    etiqueta explicativa + tooltip, separación de Help). El de junto a Help es el
    "recently synced pill"; hay OTRO en el panel de Avanzado (mismo criterio).
    Evaluar si dejar solo uno para no duplicar.
+
+---
+
+## 2026-08-26 — Multi-tienda local (switch por licencia) + 12 microbugs + phone→device
+
+**Prompt JFC (textual):** "no sirve, pongo la licencia de mi hermana en la pagina
+de entrada donde van los PIN, y me dice que funcionó PERO sigue diciendo
+'entering James Bond Store' que es la MIA local (...) cuando pongo una licencia
+debe cambiarme a esa tienda la app y dejarme ahi hasta que me venga en gana
+poner otra y pasarme a otra tienda!!!!!!"
+
+**Diagnóstico:** el sistema hacía MERGE (fusión), no SWITCH. unirse() solo
+cambiaba la sala de sync y sobrescribía f123_owned.licenseCode (hack del
+2026-08-25) — por eso la app seguía mostrando la tienda local con otro nombre y
+los PINs del equipo no entraban. Ese overwrite era además la fuente del bug #2
+del apunte 2026-08-25 (revertir licencia por autocuración).
+
+**Decisión de producto (aprobada por JFC vía pregunta):** multi-tienda local,
+cada tienda guardada aparte. Poner una licencia = volverse esa tienda y quedarse
+ahí; volver a cualquiera poniendo su licencia. NADA se borra.
+
+**Implementado:**
+- Namespace de estado por licencia en mock-backend.js (sufijo "::<lic>" en los
+  buffers A/B y el puntero). Inerte hasta que exista f123_tienda_activa → cero
+  riesgo para tiendas de un solo dueño.
+- window.OCTienda.cambiar(licencia): flush + marcador + reload. Registro
+  f123_tiendas mapea licencia->sufijo para poder regresar (la propia = "").
+- unirse() ahora llama OCTienda.cambiar() en vez del merge/overwrite.
+- Sync aterriza automáticamente en el namespace activo (claveBuffer con sufijo).
+- Fix texto: "your phone"/"tu celular" → "device"/"dispositivo" (salió en la PC
+  de JFC; no todo device es celular).
+- SW v96→v97.
+
+**LÍMITE HONESTO (dicho a JFC):** el relay es sin nube (zero-knowledge). Los PINs
+de otra tienda (ej. Belén=222) solo llegan si el aparato de esa tienda está
+ENCENDIDO y conectado empujando su catálogo. Con el otro aparato apagado, al
+unirse la tienda entra vacía (seed) hasta que sincronice. No hay servidor que
+guarde el estado de cada tienda para descargarlo — sería romper la regla sin-nube.
+
+**Microbugs de trabajo propio (12, plan en PLAN-microbugs-2026-08-26.md):** todos
+implementados y pusheados. B-01 PIN no visible en aviso de colisión, B-02
+restaurar aviso tras re-render, B-03 async catch, B-04 toast en vez de alert,
+B-05 i18n PIN strings, B-06 debounce render, B-07 audit log de demote silencioso,
+B-08 texto modal rotación, B-09 ↺ fallback Android, B-10 scroll en contenedor,
+B-11 estado activo en chips tardíos, B-12 comentario i18n PATCH.
