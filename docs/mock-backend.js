@@ -1271,7 +1271,7 @@
     const rfm = datosRFM(c);
     // evaluacion: retrocompat con backups sin el campo (default neutro 0,0)
     const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
-    return { id: c.id, codigo: c.codigo, nombre: c.nombre, telefono: c.telefono || "",
+    return { id: c.id, codigo: c.codigo, nombre: c.nombre, telefono: c.telefono || "", email: c.email || "",
       ...rfm, estacion: estacionDe(rfm, mediana == null ? medianaMontos() : mediana),
       evaluacion: { trato: Number(ev.trato)||0, confiabilidad: Number(ev.confiabilidad)||0, historial: ev.historial||[] },
       despedido: !!c.despedido };
@@ -1608,6 +1608,13 @@
   function _rolLocal() {
     try { return (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; } catch (_) { return ""; }
   }
+  /* PIN RESERVADO (JFC 2026-08-26). Belén eligió 888 para Sarah y cayó en DEMO
+     PERMANENTE: 888 es el código de DUEÑO DE MUESTRA — quien lo fija como PIN
+     real queda atrapado en demo (datos semilla, sin rol, sin poder editar).
+     SOLO 888 se bloquea; los demás (789/456/260/357) son defaults del sistema y
+     se dejan tal cual, según JFC. */
+  const PINS_RESERVADOS = ["888"];
+  function _pinReservado(pin) { return PINS_RESERVADOS.indexOf(String(pin || "")) !== -1; }
 
   function aplicarCatalogo(remoto, rolRemoto) {
     const dif = compararCatalogo(remoto, rolRemoto);
@@ -1702,6 +1709,7 @@
           codigo: c.codigo || "",
           nombre: String(c.nombre).slice(0, 80),
           telefono: c.telefono || "",
+          email: c.email || "",
           evaluacion: (c.evaluacion && typeof c.evaluacion === "object") ? c.evaluacion : { trato: 0, confiabilidad: 0, historial: [] },
         });
         clientesAgregados++;
@@ -1815,7 +1823,7 @@
         /* CLIENTES (JFC 2026-08-26). Bug de Belén: "clientes default, no los reales".
            Eran estado local que nunca se propagaba. Viajan por el mismo canal
            cifrado device-to-device, merge add-only en aplicarCatalogo. */
-        clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", evaluacion: c.evaluacion || null })),
+        clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })),
         huella: huellaCatalogo(),
       };
     },
@@ -1829,7 +1837,7 @@
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia })),
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null })),
-        clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
+        clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
         huella: huellaCatalogo(),
       };
     },
@@ -2676,7 +2684,12 @@
       }
       if (path === "/api/clientes" && opts && opts.method === "POST") {
         if (!body.nombre || !String(body.nombre).trim()) return J({ error: "The customer name is required." }, 400);
-        const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim() };
+        /* EMAIL DEL CLIENTE (JFC 2026-08-26): captura opcional. Validación ligera
+           "guard, no puerta": si trae algo que no parece email, se guarda vacío en
+           vez de rechazar el alta (no queremos frenar el registro por un typo). */
+        const _emailCli = String(body.email || "").trim().slice(0, 160);
+        const _emailOk = _emailCli && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(_emailCli) ? _emailCli : "";
+        const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim(), email: _emailOk };
         clientes.push(nuevoCli);
         mov("cliente-alta", { cliente: nuevoCli.nombre, codigo: nuevoCli.codigo });
         return J(fichaCliente(nuevoCli));
@@ -2832,6 +2845,7 @@
         const rolNuevo = (body.rol === "admin" && _callerRolPost === "dueno") ? "admin" : "empleado";
         if (!nombre)                     return J({ error: "A name is required." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "The PIN must be exactly 3 digits." }, 400);
+        if (_pinReservado(pin))          return J({ error: "888 can't be used as a PIN — it's the app's demo code and would trap this device in demo. Pick another one.", codigo: "PIN_RESERVADO" }, 400);
         /* Limite free: 1 persona en el equipo ademas del dueno, sea encargado
            o admin. Se cuentan los dos roles y se bloquea la creacion de
            cualquiera de los dos. Esto SOLO afecta altas nuevas: a quien ya
@@ -2884,6 +2898,7 @@
         if (body.pin !== undefined) {
           const np = String(body.pin).trim();
           if (!/^\d{3}$/.test(np)) return J({ error: "The new PIN must be 3 digits." }, 400);
+          if (_pinReservado(np)) return J({ error: "888 can't be used as a PIN — it's the app's demo code and would trap this device in demo. Pick another one.", codigo: "PIN_RESERVADO" }, 400);
           if (usuarios.some((x) => x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
           u.pin = np;
         }
