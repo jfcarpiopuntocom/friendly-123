@@ -2705,7 +2705,17 @@
         const nombre = String(body.nombre || "").trim().slice(0, 60);
         const pin    = String(body.pin    || "").trim();
         const email  = String(body.email  || "").trim().slice(0, 160) || null;
-        const rolNuevo = (body.rol === "admin") ? "admin" : "empleado";
+        /* GUARD: SOLO EL DUEÑO PUEDE CREAR ADMINS (2026-08-26, code-review finding #1b).
+           Mismo patrón que el guard de PATCH /rol (finding #1 de la corrida anterior).
+           La UI ya fuerza rol="empleado" si el caller es admin (ver isDueno() en el form).
+           PERO un admin podría hacer desde DevTools:
+             fetch('/api/usuarios', {method:'POST', body:JSON.stringify({nombre:'x',pin:'111',rol:'admin'})})
+           y crear un admin sin que el dueño lo sepa.
+           Política: si el caller no es dueno y pide rol='admin', se acepta la creación
+           pero se degrada a 'empleado' silenciosamente (no bloqueamos porque un admin
+           SÍ tiene permiso de crear encargados; solo el rol admin queda vedado). */
+        const _callerRolPost = _rolLocal();
+        const rolNuevo = (body.rol === "admin" && _callerRolPost === "dueno") ? "admin" : "empleado";
         if (!nombre)                     return J({ error: "A name is required." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "The PIN must be exactly 3 digits." }, 400);
         /* Limite free: 1 persona en el equipo ademas del dueno, sea encargado
@@ -2730,6 +2740,22 @@
         const uid2 = path.split("/").pop();
         const u = usuarios.find((x) => x.id === uid2);
         if (!u) return J({ error: "Team member not found." }, 404);
+        /* GUARD: ADMIN NO PUEDE EDITAR OTRO ADMIN (2026-08-26, code-review finding #2b).
+           La UI ya muestra "Owner only" para filas de admin cuando el caller es admin
+           (puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado")).
+           PERO un admin podría editar el PIN/nombre/activo de otro admin vía DevTools.
+           Impacto real: un admin malicioso podría desactivar a su compañero admin, o
+           cambiarle el PIN y dejarlo sin acceso — operaciones que solo el dueño debería
+           poder hacer sobre alguien de su mismo nivel.
+           El guard mira dos cosas: (1) quién es el objeto (u.rol) y (2) quién llama
+           (_rolLocal). Si el objeto es admin y el caller NO es dueno → 403 en todos los
+           campos excepto email (email es cosmético, no es credencial de acceso). */
+        const _callerRolPatch = _rolLocal();
+        const _editandoAdmin = u.rol === "admin";
+        if (_editandoAdmin && _callerRolPatch !== "dueno" &&
+            (body.nombre !== undefined || body.pin !== undefined || body.activo !== undefined)) {
+          return J({ error: "Only the owner can edit an admin's name, PIN or active status." }, 403);
+        }
         if (body.nombre !== undefined) u.nombre = String(body.nombre).trim().slice(0, 60) || u.nombre;
         if (body.activo !== undefined) u.activo = !!body.activo;
         if (body.email  !== undefined) u.email  = String(body.email || "").trim().slice(0, 160) || null;

@@ -1044,7 +1044,7 @@
             <td colspan="4" style="padding:10px 12px;">
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                 <span style="font-size:13px;font-weight:700;">Nuevo PIN para ${escHtml(u.nombre)}:</span>
-                <input data-pin-input="${escHtml(u.id)}" maxlength="3" inputmode="numeric" placeholder="•••"
+                <input data-pin-input="${escHtml(u.id)}" maxlength="3" inputmode="numeric" placeholder="3 digits"
                   style="width:80px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:5px;
                          font-size:14px;text-align:center;font-family:var(--font-mono);letter-spacing:.15em;">
                 <button data-guardar-pin="${escHtml(u.id)}"
@@ -1184,6 +1184,34 @@ Keep it somewhere safe.`);
     // Cargar equipo al montar la vista Avanzado + refrescar en cada login
     renderEmpleados();
     window.addEventListener("oc-login", renderEmpleados);
+
+    /* REFRESH EN VIVO (2026-08-26, code-review finding #4b): cuando llega un
+       cambio de equipo por sync (promote, nuevo miembro, edición de rol/PIN),
+       mock-backend.js dispara oc-equipo-sync. Sin este listener la tabla
+       queda estancada hasta que el usuario navega fuera y vuelve. Con él,
+       cualquier cambio remoto actualiza la pantalla al instante. */
+    window.addEventListener("oc-equipo-sync", renderEmpleados);
+
+    /* AVISO DE COLISIÓN DE PIN EN SYNC (2026-08-26, code-review finding #3b).
+       aplicarCatalogo dispara oc-pin-colision cuando un miembro que llega
+       por sync tiene el mismo PIN que uno ya registrado en este dispositivo.
+       El merge descarta al miembro remoto (política: gana el PIN de casa),
+       pero sin este aviso el dueño no sabe por qué no apareció.
+       Se muestra el mensaje en el panel de equipo si está visible, o como
+       alert de último recurso para que nunca pase desapercibido. */
+    window.addEventListener("oc-pin-colision", function (ev) {
+      try {
+        const d = ev.detail || {};
+        const msg = `PIN conflict: ${d.nombre || "A team member"} uses PIN ${d.pin || "???"} — that PIN is already taken here. Change their PIN before syncing.`;
+        const msgEl = document.getElementById("oc-emp-msg");
+        if (msgEl) {
+          msgEl.style.color = "var(--rojo,#a3392a)";
+          msgEl.textContent = msg;
+        } else {
+          alert(msg);
+        }
+      } catch (_) {}
+    });
     // === FIN EQUIPO ========================================================
 
     // === LOG DE ACTIVIDAD (2026-07-22) =====================================
