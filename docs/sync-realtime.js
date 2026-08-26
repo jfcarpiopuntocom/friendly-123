@@ -206,13 +206,14 @@
      manual, que muestra el cambio antes de aplicarlo. */
   var _bufCat = null;
   function _resetBufCat() { _bufCat = null; }
-  function _acumularCatalogo(pl) {
+  function _acumularCatalogo(pl, forzar) {
     try {
       if (!pl || !pl.tabla) return;
-      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], esperados: 0, vistos: 0, huella: "", rol: "" };
+      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], esperados: 0, vistos: 0, huella: "", rol: "", forzar: false };
       _bufCat.esperados = pl.deTotal || _bufCat.esperados;
       _bufCat.huella = pl.huella || _bufCat.huella;
       _bufCat.rol = pl.rol || _bufCat.rol;
+      if (forzar) _bufCat.forzar = true; // un EMPUJE (para:null) por un cambio real, no una respuesta a mi pedido
       if (Array.isArray(pl.filas)) {
         if (pl.tabla === "ubicaciones") _bufCat.ubicaciones = _bufCat.ubicaciones.concat(pl.filas);
         else if (pl.tabla === "productos") _bufCat.productos = _bufCat.productos.concat(pl.filas);
@@ -221,8 +222,26 @@
       _bufCat.vistos++;
       if (_bufCat.esperados && _bufCat.vistos >= _bufCat.esperados) {
         var cat = { ubicaciones: _bufCat.ubicaciones, productos: _bufCat.productos, usuarios: _bufCat.usuarios, huella: _bufCat.huella };
-        var rol = _bufCat.rol; _bufCat = null;
-        _autoAplicarSiVacio(cat, rol);
+        var rol = _bufCat.rol; var forz = _bufCat.forzar; _bufCat = null;
+        if (forz) {
+          /* EMPUJE EN VIVO (JFC 2026-08-25): otro dispositivo del equipo cambio
+             su catalogo (p.ej. creo una percha nueva) y lo manda. Se aplica
+             add-only SIEMPRE, tenga o no inventario propio este aparato: es la
+             union de perchas/productos del equipo (nunca borra, los productos
+             nuevos entran con stock 0 — cada percha cuenta su stock fisico).
+             Asi la percha nueva del PC aparece en el celular sin merge manual.
+             Una respuesta a MI pedido (para != null) NO entra aqui: esa sigue
+             respetando el candado de "solo si estoy vacio". */
+          try {
+            if (window.OCSync && window.OCSync.aplicarCatalogo) {
+              window.OCSync.aplicarCatalogo(cat, rol);
+              try { if (typeof window.cargarInventario === "function") window.cargarInventario(); } catch (_) {}
+              try { window.dispatchEvent(new CustomEvent("oc-catalogo-autoaplicado", { detail: { productos: (cat.productos || []).length, empuje: true } })); } catch (_) {}
+            }
+          } catch (_) {}
+        } else {
+          _autoAplicarSiVacio(cat, rol);
+        }
       }
     } catch (_) { _bufCat = null; }
   }
@@ -360,7 +379,7 @@
             /* Se junta el catalogo aqui tambien (pasivamente) para que un
                dispositivo NUEVO vea el inventario sin abrir Avanzado ni tocar
                nada. Solo se aplica solo si esta vacio (ver _autoAplicarSiVacio). */
-            _acumularCatalogo(_pl);
+            _acumularCatalogo(_pl, op.para == null);
           } catch (_) {}
           try { window.dispatchEvent(new CustomEvent("oc-catalogo-trozo", { detail: op })); } catch (_) {}
           return;
@@ -506,6 +525,81 @@
       try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
     }
   }
+
+  /* DIFUNDIR EL EQUIPO EN CUANTO CAMBIA (JFC 2026-08-25).
+     Bug real: degradar/promover a alguien, o cambiar un PIN, "no servia" en el
+     otro dispositivo. La causa: el equipo solo viajaba cuando un aparato PEDIA
+     el catalogo (al reconectar). Si los dos ya estaban conectados, el cambio de
+     rol/PIN se quedaba en el aparato donde se hizo. Ahora, apenas se toca el
+     equipo (alta, edicion, rol, PIN, baja), se EMPUJA la lista de usuarios a
+     todos los compañeros (para:null). Cada uno la aplica por el MISMO camino
+     seguro que ya existia (aplicarEquipoRemoto = add-only + ultimo-en-editar
+     gana por actualizadoEn); no se inventa merge nuevo. Solo empuja el equipo,
+     no toca stock ni ventas. Una baja (DELETE) no se propaga sola porque el
+     merge es add-only —eso es a proposito: nadie borra a nadie por la red. */
+  async function difundirEquipo() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    if (!window.OCSync || !window.OCSync.catalogoPropio) return false; // un tablero no difunde
+    let cat;
+    try { cat = window.OCSync.catalogoPropio(); } catch (_) { return false; }
+    const trozos = trocear("usuarios", cat.usuarios || []);
+    for (let k = 0; k < trozos.length; k++) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      const op = {
+        opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
+        para: null, // a todo el equipo, no a un solo pedido
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length }, trozos[k]),
+        fecha: (new Date()).toISOString(),
+      };
+      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return false; }
+    }
+    return true;
+  }
+  /* La capa de datos (mock-backend) avisa con este evento cada vez que el
+     equipo cambia. Se difunde con un pequeño respiro para no mandar diez veces
+     si hubo varios cambios seguidos (coalescing simple). */
+  var _difEquipoT = null;
+  try {
+    window.addEventListener("oc-equipo-cambiado", function () {
+      try { clearTimeout(_difEquipoT); } catch (_) {}
+      _difEquipoT = setTimeout(function () { try { difundirEquipo(); } catch (_) {} }, 400);
+    });
+  } catch (_) {}
+
+  /* DIFUNDIR EL CATALOGO (perchas/productos) AL CAMBIAR — mismo patron que el
+     equipo (JFC 2026-08-25: "no se sincronizaron las racks, en mi cel sale 1 y
+     en mi PC salen 2"). Antes una percha nueva solo llegaba con el merge manual
+     o a un aparato vacio. Ahora, al crear/editar una percha o producto, se
+     empuja el catalogo a todo el equipo (para:null) y cada aparato lo mergea
+     add-only por el mismo camino que el boton "Merge inventory with my team".
+     Va con el equipo incluido para que un solo empuje deje todo al dia. */
+  async function difundirCatalogo() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    if (!window.OCSync || !window.OCSync.catalogoPropio) return false;
+    let cat;
+    try { cat = window.OCSync.catalogoPropio(); } catch (_) { return false; }
+    const trozos = [].concat(trocear("ubicaciones", cat.ubicaciones || []))
+                     .concat(trocear("productos", cat.productos || []))
+                     .concat(trocear("usuarios", cat.usuarios || []));
+    for (let k = 0; k < trozos.length; k++) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      const op = {
+        opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
+        para: null,
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length }, trozos[k]),
+        fecha: (new Date()).toISOString(),
+      };
+      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return false; }
+    }
+    return true;
+  }
+  var _difCatT = null;
+  try {
+    window.addEventListener("oc-catalogo-cambiado", function () {
+      try { clearTimeout(_difCatT); } catch (_) {}
+      _difCatT = setTimeout(function () { try { difundirCatalogo(); } catch (_) {} }, 500);
+    });
+  } catch (_) {}
 
   async function responderFoto(pedido) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -898,7 +992,33 @@
       conectar();
       return { ok: true };
     },
-    unirse(codigo) { return this.activar(codigo); },
+    unirse(codigo) {
+      const r = this.activar(codigo);
+      /* ADOPTAR LA LICENCIA DEL EQUIPO AL UNIRSE (JFC 2026-08-25).
+         Decision de producto: la licencia que ya tiene el negocio (la de Sarah)
+         es LA licencia; nadie genera otra. Al unirse, este dispositivo pasa a
+         ser parte de ESE negocio, asi que su identidad guardada (syncCode y
+         licenseCode en f123_owned) debe quedar igual a la sala a la que se une.
+         Antes solo se cambiaba la sala (ROOM_KEY) y f123_owned se quedaba con el
+         codigo viejo que este aparato hubiera inventado con 789 — y por eso
+         Avanzado seguia mostrando "otra licencia" y el heartbeat/autocuracion
+         podian resucitarla. Alinear los tres mata esa clase de bug de raiz.
+         NO se toca instanceId (los datos de ESTE aparato siguen siendo suyos
+         hasta que sincronice) ni activar() (que la usa el alta de dueno). */
+      try {
+        if (r && r.ok) {
+          const sala = leerSala();
+          const cod = sala && sala.codigo ? sala.codigo : null;
+          if (cod && /^F123-/i.test(cod)) {
+            const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+            owned.syncCode = cod;
+            owned.licenseCode = cod;
+            localStorage.setItem("f123_owned", JSON.stringify(owned));
+          }
+        }
+      } catch (_) {}
+      return r;
+    },
     desactivar() {
       try { localStorage.removeItem(ROOM_KEY); } catch (_) {}
       cerrarWsExistente();
@@ -925,6 +1045,8 @@
     /* Version presentable del codigo de sala (TEAM-...). El valor interno no
        cambia: esto es solo para pintar y para compartir. */
     pedirCatalogo: pedirCatalogo,
+    difundirEquipo: difundirEquipo,
+    difundirCatalogo: difundirCatalogo,
     salaParaMostrar() { const s = leerSala(); return s ? codigoParaMostrar(s.codigo) : null; },
     paraMostrar: codigoParaMostrar,
     onEstado(fn) { listenersEstado.push(fn); },
