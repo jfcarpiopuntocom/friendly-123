@@ -1,4 +1,4 @@
-/*!
+/*! COMPARTIDO — utilidad genérica idéntica en las 3 apps a propósito (JFC 2026-08-26).
  * feature-gate.js — R4: kill-switch remoto por feature (JFC 2026-08-20)
  *
  * QUE RESUELVE: hoy, apagar una feature rota en produccion exige subir el
