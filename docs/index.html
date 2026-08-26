@@ -4961,12 +4961,12 @@ async function cargarComisiones(){
     <div style="margin-bottom:20px;">${ranking.map((r, i) => {
       const med = ["🥇","🥈","🥉"][i] || `${i + 1}.`;
       const dormido = (r.diasSinVenta != null && r.diasSinVenta >= 7)
-        ? `<span class="badge-estado rojo" style="margin-left:8px;font-size:13px;">dormido ${r.diasSinVenta}d</span>` : "";
-      const top = r.topSku ? ` · mejor SKU: ${escHtml(r.topSku.sku)} (${r.topSku.unidades}u)` : "";
+        ? `<span class="badge-estado rojo" style="margin-left:8px;font-size:13px;">dormant ${r.diasSinVenta}d</span>` : "";
+      const top = r.topSku ? ` · top SKU: ${escHtml(r.topSku.sku)} (${r.topSku.unidades}u)` : "";
       return `<div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;">
         <span style="font-size:20px;line-height:1;">${med}</span>
         <div style="flex:1;"><strong>${escHtml(r.nombre)}</strong>${dormido}
-          <div style="font-size:13px;color:var(--ink-soft);">${r.ventasCount} u vendidas · bruto ${fmtMoney(r.ventasBrutas)}${top}</div></div>
+          <div style="font-size:13px;color:var(--ink-soft);">${r.ventasCount} sold · gross ${fmtMoney(r.ventasBrutas)}${top}</div></div>
         <strong style="color:var(--verde,#2f7a4f);font-size:17px;">${fmtMoney(r.comision)}</strong>
       </div>`;
     }).join("")}</div>` : "";
@@ -5075,7 +5075,7 @@ async function cargarComisiones(){
     <div class="tag-card" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}</strong>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "no sales" ? "amarillo" : "rojo"}">${f.estado}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado}</span></div>
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promoter: <strong>${escHtml(f.promotorNombre)}</strong></div>` : ""}
       <table style="width:100%;margin-top:10px;font-size:14px;">
