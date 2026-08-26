@@ -990,8 +990,11 @@
         const rolBadge     = u.rol === "admin"
           ? `<span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
           : `<span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Employee</span>`;
-        // Admin solo puede editar encargados, no a otros admins (seguridad por capas)
-        const puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado");
+        // Admin puede editar encargados Y SU PROPIA FILA (su nombre/PIN), pero no
+        // a OTROS admins (seguridad por capas). El dueño edita a todos. (JFC 2026-08-26:
+        // "el admin también... y el de ellos" — que el admin pueda cambiar su propio PIN.)
+        const esMiFila = window.OCCurrentUser && String(window.OCCurrentUser.id) === String(u.id);
+        const puedeEditar = isDueno() || (isAdmin() && (u.rol === "empleado" || esMiFila));
         // Promover/degradar (JFC 2026-07-30: "hazlo una lista dinamica y permite
         // editar y promote y demote") — solo el dueño decide quién es admin.
         const puedePromover = isDueno();
