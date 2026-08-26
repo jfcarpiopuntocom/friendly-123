@@ -1771,6 +1771,20 @@
       // Flush de la tienda actual bajo SUS claves antes de cambiar el marcador.
       try { guardarEstadoLocal(); } catch (_) {}
       try { localStorage.setItem("f123_tienda_activa", sufDest); } catch (_) {}
+      /* FIJAR LA SALA DE LA TIENDA DESTINO (JFC 2026-08-26, NB-1). CRÍTICO:
+         cada tienda sincroniza en SU PROPIA sala (= su licencia). ROOM_KEY es
+         global; si no la re-apuntamos al cambiar, la tienda destino heredaría la
+         sala de la tienda anterior y sincronizaría en la sala equivocada
+         (contaminación cruzada entre negocios). fijarSala normaliza igual que
+         activar y NO conecta (el reload de abajo reconecta a la sala correcta).
+         Se hace SIEMPRE (también al volver a la tienda propia) para que ROOM_KEY
+         siga siempre a la tienda activa. Fail-safe: si el módulo de sync no está,
+         se deja ROOM_KEY como estaba (comportamiento previo). */
+      try {
+        if (window.OCSyncControl && window.OCSyncControl.fijarSala) {
+          window.OCSyncControl.fijarSala(norm);
+        }
+      } catch (_) {}
       // Recargar: en el boot el sufijo ya será el de la tienda destino.
       try { location.reload(); } catch (_) {}
       return { ok: true, cambiado: true };
