@@ -1688,9 +1688,29 @@
       });
     }
 
-    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, desde: remoto.deviceNombre || "another device" });
+    /* CLIENTES — SUMA, NUNCA BORRA (JFC 2026-08-26). Add-only por id: si el
+       cliente ya existe aquí, NO se pisa (se respeta la evaluación local trato/
+       confiabilidad, que es criterio de cada operador). Solo se agregan los que
+       faltan. Así Belén ve los clientes REALES del negocio y no la semilla demo. */
+    let clientesAgregados = 0;
+    if (Array.isArray(remoto.clientes)) {
+      remoto.clientes.forEach((c) => {
+        if (!c || !c.id || !c.nombre) return;
+        if (clientes.some((x) => String(x.id) === String(c.id))) return; // ya está: no se pisa
+        clientes.push({
+          id: c.id,
+          codigo: c.codigo || "",
+          nombre: String(c.nombre).slice(0, 80),
+          telefono: c.telefono || "",
+          evaluacion: (c.evaluacion && typeof c.evaluacion === "object") ? c.evaluacion : { trato: 0, confiabilidad: 0, historial: [] },
+        });
+        clientesAgregados++;
+      });
+    }
+
+    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
-    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, huella: huellaCatalogo() };
+    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, clientesAgregados, huella: huellaCatalogo() };
   }
 
   /* ===================================================================
@@ -1792,6 +1812,10 @@
            justamente lo que se rompio. Va por el mismo canal cifrado que
            todo lo demas y nunca sale de los dispositivos del negocio. */
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null })),
+        /* CLIENTES (JFC 2026-08-26). Bug de Belén: "clientes default, no los reales".
+           Eran estado local que nunca se propagaba. Viajan por el mismo canal
+           cifrado device-to-device, merge add-only en aplicarCatalogo. */
+        clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", evaluacion: c.evaluacion || null })),
         huella: huellaCatalogo(),
       };
     },
@@ -1805,6 +1829,7 @@
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia })),
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null })),
+        clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
         huella: huellaCatalogo(),
       };
     },

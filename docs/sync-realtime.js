@@ -220,7 +220,7 @@
       if (_bufCat && pl.pushId && _bufCat.pushId && _bufCat.pushId !== pl.pushId) {
         _bufCat = null; // empuje viejo incompleto; empezar desde cero con el nuevo
       }
-      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], esperados: 0, vistos: 0, huella: "", rol: "", forzar: false, pushId: pl.pushId || null };
+      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], clientes: [], esperados: 0, vistos: 0, huella: "", rol: "", forzar: false, pushId: pl.pushId || null };
       _bufCat.esperados = pl.deTotal || _bufCat.esperados;
       _bufCat.huella = pl.huella || _bufCat.huella;
       _bufCat.rol = pl.rol || _bufCat.rol;
@@ -229,10 +229,11 @@
         if (pl.tabla === "ubicaciones") _bufCat.ubicaciones = _bufCat.ubicaciones.concat(pl.filas);
         else if (pl.tabla === "productos") _bufCat.productos = _bufCat.productos.concat(pl.filas);
         else if (pl.tabla === "usuarios") _bufCat.usuarios = _bufCat.usuarios.concat(pl.filas);
+        else if (pl.tabla === "clientes") _bufCat.clientes = (_bufCat.clientes || []).concat(pl.filas); // JFC 2026-08-26: los clientes viajan con el catálogo
       }
       _bufCat.vistos++;
       if (_bufCat.esperados && _bufCat.vistos >= _bufCat.esperados) {
-        var cat = { ubicaciones: _bufCat.ubicaciones, productos: _bufCat.productos, usuarios: _bufCat.usuarios, huella: _bufCat.huella };
+        var cat = { ubicaciones: _bufCat.ubicaciones, productos: _bufCat.productos, usuarios: _bufCat.usuarios, clientes: _bufCat.clientes || [], huella: _bufCat.huella };
         var rol = _bufCat.rol; var forz = _bufCat.forzar; _bufCat = null;
         if (forz) {
           /* EMPUJE EN VIVO (JFC 2026-08-25): otro dispositivo del equipo cambio
@@ -547,7 +548,8 @@
        comparten la misma licencia. */
     const trozos = [].concat(trocear("ubicaciones", cat.ubicaciones))
                      .concat(trocear("productos", cat.productos))
-                     .concat(trocear("usuarios", cat.usuarios || []));
+                     .concat(trocear("usuarios", cat.usuarios || []))
+                     .concat(trocear("clientes", cat.clientes || [])); // JFC 2026-08-26: los clientes viajan con el catálogo (add-only), como el equipo
     for (let k = 0; k < trozos.length; k++) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       const op = {
