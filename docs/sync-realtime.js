@@ -1095,10 +1095,15 @@
           const cod = sala && sala.codigo ? sala.codigo : codigo;
           const c = window.OCTienda.cambiar(cod); // recarga la página si cambia de tienda
           /* MISMA TIENDA (JFC 2026-08-26): si la licencia tecleada es la de la
-             tienda en la que YA estás, cambiar() no recarga (mismo:true). Antes
-             esto mostraba "¡Listo!" en falso y el usuario no entendía por qué
-             seguía viendo su inventario. Ahora se avisa claro. */
-          if (c && c.mismo) return { ok: false, mismo: true, error: "You're already in this store — this is your own license. To switch to another team, use that team's license." };
+             tienda en la que YA estás, cambiar() no recarga (mismo:true). NO es
+             callejón sin salida: se FUERZA una re-sincronización (reconecta +
+             re-pide catálogo + jala el checkpoint del relay). Así, si estabas en
+             el namespace correcto pero el sync no había traído nada, este segundo
+             intento vuelve a jalar todo. */
+          if (c && c.mismo) {
+            try { reintentoMs = 1000; intentosSeguidos = 0; conectar(); } catch (_) {}
+            return { ok: true, mismo: true, error: "You're already in this store — re-syncing with the team now. If a teammate's device is on, their shelves and customers will land in a moment." };
+          }
         }
       } catch (_) {}
       return r;

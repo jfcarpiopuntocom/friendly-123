@@ -550,13 +550,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         _pintar(nom);
         return;
       }
-      // RAMA TIENDA PROPIA (JFC 2026-08-26): NO mostrar el nombre del negocio
-      // propio en el candado. El dueño ya sabe cuál es su tienda; ponerlo en la
-      // pantalla pública de PIN solo filtra el nombre del negocio a quien vea el
-      // teléfono. Para ver datos del negocio está el panel privado (Avanzado).
-      // El rótulo solo tiene sentido en una tienda UNIDA (rama de arriba), para
-      // saber a qué equipo AJENO entraste.
-      el.style.display = "none";
+      /* RAMA TIENDA PROPIA (JFC 2026-08-26): SÍ mostrar el nombre de la tienda —
+         uno debe saber siempre a qué cuaderno está entrando (best practice:
+         "you are entering: X"). JFC lo pidió de vuelta explícitamente. */
+      const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      const nombre = (owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "";
+      if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
+      _pintar(nombre);
     } catch (_) { try { const el = document.getElementById("oc-gate-negocio"); if (el) el.style.display = "none"; } catch (__) {} }
   }
   /* Pinta la versión REAL del build en el candado (JFC 2026-08-26: "solo dice
@@ -1342,6 +1342,20 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     </div>`;
     document.body.appendChild(cont);
     _ocMascaraCodigo(cont.querySelector("#oc-ue-codigo"));
+    /* CONFIRMACIÓN DE A QUÉ EQUIPO TE UNES (JFC 2026-08-26): uno debe SABER a
+       dónde se une. Mientras teclea, se confirma la cola de la licencia; tras
+       unirte, el candado ya muestra el nombre de la tienda. Best practice. */
+    (function () {
+      const _cod = cont.querySelector("#oc-ue-codigo");
+      const _hint = document.createElement("p");
+      _hint.id = "oc-ue-hint";
+      _hint.style.cssText = "min-height:16px;font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);margin:0 0 6px;";
+      _cod.insertAdjacentElement("afterend", _hint);
+      _cod.addEventListener("input", function () {
+        const cuerpo = String(_cod.value || "").toUpperCase().replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "").replace(/^F123/, "");
+        _hint.textContent = (cuerpo.length >= 8) ? ("Joining team · …" + cuerpo.slice(-6)) : "";
+      });
+    })();
     const msgEl = cont.querySelector("#oc-ue-msg");
     cont.querySelector("#oc-ue-cancelar").addEventListener("click", () => cont.cerrar());
     cont.querySelector("#oc-ue-confirmar").addEventListener("click", (ev) => {
@@ -1351,7 +1365,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const codigo = cont.querySelector("#oc-ue-codigo").value.trim();
       if (!window.OCSyncControl) { msgEl.textContent = window.t("auth.join.unavailable"); return; }
       const r = window.OCSyncControl.unirse(codigo);
-      if (!r.ok) { msgEl.textContent = r.error; return; }
+      if (!r.ok) { msgEl.style.color = "var(--rojo,#a3392a)"; msgEl.textContent = r.error; return; }
+      /* Caso "misma tienda": ok:true pero con mensaje de re-sync — se muestra en
+         azul (informativo), no en verde de éxito, y se deja el diálogo abierto un
+         poco más para que se lea. */
+      if (r.mismo) { msgEl.style.color = "var(--azul-medio,#2c4a68)"; msgEl.textContent = r.error; cont.luego(() => cont.cerrar(), 2600); return; }
       msgEl.style.color = "var(--verde-suave,#2f7a4f)";
       msgEl.textContent = window.t("auth.join.success");
       cont.luego(() => cont.cerrar(), 1800);
