@@ -1047,7 +1047,7 @@
           trPin.innerHTML = `
             <td colspan="4" style="padding:10px 12px;">
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <span style="font-size:13px;font-weight:700;">Nuevo PIN para ${escHtml(u.nombre)}:</span>
+                <span style="font-size:13px;font-weight:700;">${window.t ? window.t("team.newPinFor") : "New PIN for"} ${escHtml(u.nombre)}:</span>
                 <input data-pin-input="${escHtml(u.id)}" maxlength="3" inputmode="numeric" placeholder="3 digits"
                   style="width:80px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:5px;
                          font-size:14px;text-align:center;font-family:var(--font-mono);letter-spacing:.15em;">
@@ -1120,7 +1120,7 @@
             const data = await r.json();
             if (!r.ok) { msg.textContent = data.error || "Could not save the PIN."; return; }
             msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
-            msg.textContent = "PIN actualizado.";
+            msg.textContent = window.t ? window.t("team.pinUpdated") : "PIN updated.";
             // Entrega por correo (JFC 2026-07-30): mailto abre EL PROPIO cliente
             // de correo del dueño con el mensaje listo — sin backend, sin nube,
             // cumple la regla dura NUNCA CLOUD. El PIN nunca se guarda en claro
@@ -1208,9 +1208,14 @@ Keep it somewhere safe.`);
        mock-backend.js dispara oc-equipo-sync. Sin este listener la tabla
        queda estancada hasta que el usuario navega fuera y vuelve. Con él,
        cualquier cambio remoto actualiza la pantalla al instante. */
-    // B-03 (2026-08-26): renderEmpleados es async; pasarla directa como callback
-    // silencia cualquier error interno. El wrapper atrapa la Promise.
-    window.addEventListener("oc-equipo-sync", () => renderEmpleados().catch(() => {}));
+    // B-03 + B-06 (2026-08-26): renderEmpleados es async — el wrapper atrapa la Promise.
+    // Debounce de 300 ms: un sync de catálogo con varios chunks puede disparar
+    // oc-equipo-sync varias veces seguidas; solo re-renderizar una vez al final.
+    let _renderEmpDebTimer = null;
+    window.addEventListener("oc-equipo-sync", () => {
+      clearTimeout(_renderEmpDebTimer);
+      _renderEmpDebTimer = setTimeout(() => renderEmpleados().catch(() => {}), 300);
+    });
 
     /* AVISO DE COLISIÓN DE PIN EN SYNC (2026-08-26, code-review finding #3b).
        aplicarCatalogo dispara oc-pin-colision cuando un miembro que llega
