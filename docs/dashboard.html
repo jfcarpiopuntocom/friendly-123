@@ -1804,8 +1804,12 @@
     inp.setAttribute("autocorrect", "off");
     inp.setAttribute("maxlength", "24");
 
+    /* Alfabeto EXACTO de Crockford base32 (sin I/L/O/U, que se confunden con
+       1/0/V) mas los simbolos de verificacion * ~ $ =. Antes se dejaba pasar
+       I/L/O/U y una licencia pegada quedaba con caracteres que el backend nunca
+       emite. Mismo alfabeto que la cajita de Join del app principal. */
     function formatear(raw) {
-      var v = String(raw || "").toUpperCase().replace(/[^A-Z0-9*~$=]/g, "");
+      var v = String(raw || "").toUpperCase().replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "");
       var out = v.slice(0, 3);
       for (var i = 3; i < v.length; i += 4) out += "-" + v.slice(i, i + 4);
       return out;
@@ -1825,6 +1829,22 @@
       while (pos < nuevo.length && vistos < antes) { if (nuevo[pos] !== "-") vistos++; pos++; }
       while (pos < nuevo.length && nuevo[pos] === "-") pos++;
       try { inp.setSelectionRange(pos, pos); } catch (_) {}
+    });
+    /* PEGADO (JFC 2026-08-26 — "la cajita arruina el pasteado"): al pegar una
+       licencia completa el navegador la inserta sin pasar por el mismo camino,
+       y si el campo tenia guiones o restos, el codigo quedaba mezclado. Se toma
+       el texto del portapapeles, se formatea limpio y se REEMPLAZA todo el valor
+       (no se anexa) — comportamiento estandar de un campo de codigo/OTP. */
+    inp.addEventListener("paste", function (e) {
+      try {
+        var cb = (e.clipboardData || window.clipboardData);
+        if (!cb) return;
+        var texto = cb.getData("text");
+        if (texto == null) return;
+        e.preventDefault();
+        inp.value = formatear(texto);
+        try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {}
+      } catch (_) {}
     });
   })();
 

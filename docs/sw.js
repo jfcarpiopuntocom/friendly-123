@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v110"; // bumped 2026-08-26: checkpoint merge add-only (sync PC-cel), nombre de tienda restaurado, re-sync en "misma tienda"
+const CACHE = "f123-shell-v111"; // bumped 2026-08-26: panel de diagnóstico de sync (hechos crudos, sin adivinar) en Avanzado
 const SHELL = [
   "./",
   "./index.html",
