@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v99"; // bumped 2026-08-26: ROOM_KEY sigue a la tienda activa (fijarSala) — evita contaminación de sala entre tiendas (NB-1)
+const CACHE = "f123-shell-v100"; // bumped 2026-08-26: quita banners no autorizados (aislamiento, cuota, persistencia), estrella al doblez, oro vivo, version real en gate, refresh forzado por shell
 const SHELL = [
   "./",
   "./index.html",
