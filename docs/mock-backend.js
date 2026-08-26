@@ -1367,6 +1367,16 @@
   function movHuella(m) {
     return (m.prevSello || "") + "|" + m.tipo + "|" + JSON.stringify(m.detalle) + "|" + m.fecha + "|" + (m.usuarioId || "sistema");
   }
+  /* Aviso de "el equipo cambio" (JFC 2026-08-25). Lo escucha sync-realtime.js
+     para EMPUJAR la lista de usuarios (roles/PINs) al resto del negocio en el
+     acto, sin esperar a que el otro aparato reconecte y pida el catalogo. Por
+     que aqui y no en la UI: TODA alta/edicion/baja pasa por estos endpoints, asi
+     que un solo punto cubre botones, tablero y cualquier via futura. Es solo un
+     evento del navegador; si nadie escucha (o no hay sync), no hace nada. */
+  function avisarEquipoCambiado() {
+    try { window.dispatchEvent(new CustomEvent("oc-equipo-cambiado")); } catch (_) {}
+  }
+
   function mov(tipo, detalle) {
     const usr = window.OCCurrentUser;
     const m = {
@@ -2687,6 +2697,7 @@
         const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU };
         usuarios.push(nuevo);
         mov("usuario-alta", { nombre, rol: rolNuevo });
+        avisarEquipoCambiado(); // empuja el equipo al resto del negocio (sync en vivo)
         return J({ id: nuevo.id, nombre: nuevo.nombre, rol: nuevo.rol, email: nuevo.email, activo: nuevo.activo, creadoEn: nuevo.creadoEn });
       }
       // PATCH /api/usuarios/:id — editar nombre, activar/desactivar, cambiar PIN, actualizar email
@@ -2714,6 +2725,7 @@
            distinguir el dato nuevo del viejo y tendria que adivinar. */
         u.actualizadoEn = new Date().toISOString();
         mov("usuario-editar", { id: uid2, nombre: u.nombre, rol: u.rol });
+        avisarEquipoCambiado(); // rol/PIN/nombre nuevos viajan al resto del negocio
         return J({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn });
       }
       // DELETE /api/usuarios/:id — quitar por completo (distinto de desactivar:
@@ -2725,6 +2737,7 @@
         if (i3 === -1) return J({ error: "Team member not found." }, 404);
         const [borrado] = usuarios.splice(i3, 1);
         mov("usuario-borrar", { nombre: borrado.nombre, rol: borrado.rol });
+        avisarEquipoCambiado(); // (la baja no borra por la red, pero refresca al resto)
         return J({ ok: true });
       }
       // POST /api/usuarios/verificar — recibe { pin }, devuelve { id, nombre, rol } o 401

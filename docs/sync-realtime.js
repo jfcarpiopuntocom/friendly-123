@@ -507,6 +507,46 @@
     }
   }
 
+  /* DIFUNDIR EL EQUIPO EN CUANTO CAMBIA (JFC 2026-08-25).
+     Bug real: degradar/promover a alguien, o cambiar un PIN, "no servia" en el
+     otro dispositivo. La causa: el equipo solo viajaba cuando un aparato PEDIA
+     el catalogo (al reconectar). Si los dos ya estaban conectados, el cambio de
+     rol/PIN se quedaba en el aparato donde se hizo. Ahora, apenas se toca el
+     equipo (alta, edicion, rol, PIN, baja), se EMPUJA la lista de usuarios a
+     todos los compañeros (para:null). Cada uno la aplica por el MISMO camino
+     seguro que ya existia (aplicarEquipoRemoto = add-only + ultimo-en-editar
+     gana por actualizadoEn); no se inventa merge nuevo. Solo empuja el equipo,
+     no toca stock ni ventas. Una baja (DELETE) no se propaga sola porque el
+     merge es add-only —eso es a proposito: nadie borra a nadie por la red. */
+  async function difundirEquipo() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    if (!window.OCSync || !window.OCSync.catalogoPropio) return false; // un tablero no difunde
+    let cat;
+    try { cat = window.OCSync.catalogoPropio(); } catch (_) { return false; }
+    const trozos = trocear("usuarios", cat.usuarios || []);
+    for (let k = 0; k < trozos.length; k++) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      const op = {
+        opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
+        para: null, // a todo el equipo, no a un solo pedido
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length }, trozos[k]),
+        fecha: (new Date()).toISOString(),
+      };
+      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return false; }
+    }
+    return true;
+  }
+  /* La capa de datos (mock-backend) avisa con este evento cada vez que el
+     equipo cambia. Se difunde con un pequeño respiro para no mandar diez veces
+     si hubo varios cambios seguidos (coalescing simple). */
+  var _difEquipoT = null;
+  try {
+    window.addEventListener("oc-equipo-cambiado", function () {
+      try { clearTimeout(_difEquipoT); } catch (_) {}
+      _difEquipoT = setTimeout(function () { try { difundirEquipo(); } catch (_) {} }, 400);
+    });
+  } catch (_) {}
+
   async function responderFoto(pedido) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     /* Un tablero no contesta a otro tablero: solo responde quien tiene backend. */
@@ -951,6 +991,7 @@
     /* Version presentable del codigo de sala (TEAM-...). El valor interno no
        cambia: esto es solo para pintar y para compartir. */
     pedirCatalogo: pedirCatalogo,
+    difundirEquipo: difundirEquipo,
     salaParaMostrar() { const s = leerSala(); return s ? codigoParaMostrar(s.codigo) : null; },
     paraMostrar: codigoParaMostrar,
     onEstado(fn) { listenersEstado.push(fn); },
