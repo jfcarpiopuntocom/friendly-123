@@ -1037,6 +1037,23 @@
       conectar();
       return { ok: true };
     },
+    /* Fija la sala de sync a un código SIN conectar (JFC 2026-08-26, NB-1).
+       La usa OCTienda.cambiar() al cambiar de tienda: cada tienda debe
+       sincronizar en SU PROPIA sala (= su licencia). Sin esto, cambiar de
+       tienda por un selector directo dejaría ROOM_KEY apuntando a la sala
+       anterior → una tienda sincronizaría en la sala equivocada (contaminación
+       cruzada). No conecta porque cambiar() recarga la página justo después, y
+       al arrancar `if (leerSala()) conectar()` reconecta a la sala correcta.
+       Usa la MISMA normalización que activar() para no crear salas gemelas por
+       mayúsculas/formato. Devuelve {ok} y nunca lanza. */
+    fijarSala(codigo) {
+      try {
+        const codigoNorm = normalizarCodigo(codigo);
+        if (!codigoNorm || codigoNorm.length < 6) return { ok: false };
+        localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm }));
+        return { ok: true, codigo: codigoNorm };
+      } catch (_) { return { ok: false }; }
+    },
     unirse(codigo) {
       const r = this.activar(codigo);
       /* CAMBIO DE TIENDA AL UNIRSE (JFC 2026-08-26 — reemplaza el "adoptar la
@@ -1055,7 +1072,12 @@
         if (r && r.ok && window.OCTienda && window.OCTienda.cambiar) {
           const sala = leerSala();
           const cod = sala && sala.codigo ? sala.codigo : codigo;
-          window.OCTienda.cambiar(cod); // recarga la página
+          const c = window.OCTienda.cambiar(cod); // recarga la página si cambia de tienda
+          /* MISMA TIENDA (JFC 2026-08-26): si la licencia tecleada es la de la
+             tienda en la que YA estás, cambiar() no recarga (mismo:true). Antes
+             esto mostraba "¡Listo!" en falso y el usuario no entendía por qué
+             seguía viendo su inventario. Ahora se avisa claro. */
+          if (c && c.mismo) return { ok: false, mismo: true, error: "You're already in this store — this is your own license. To switch to another team, use that team's license." };
         }
       } catch (_) {}
       return r;
