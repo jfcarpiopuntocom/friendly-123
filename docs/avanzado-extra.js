@@ -328,7 +328,7 @@
         <em>Coming soon: automatic replication of these checkpoints across your devices. In the meantime, you can copy your data to another device via Advanced → QR Sync.</em></p>
       <p id="oc-caja-alerta" style="font-size:13px;font-weight:700;"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">↺ Save checkpoint now</button>
+        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">⟳ Save checkpoint now</button>
         <button id="oc-caja-ver" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">View saved checkpoints</button>
       </div>
       <div id="oc-caja-lista" style="display:none;margin-top:10px;"></div>
@@ -913,6 +913,10 @@
       if (rolLabel) rolLabel.style.display = isDueno() ? "" : "none";
       const lista = document.getElementById("oc-emp-lista");
       if (!lista) return;
+      // B-02 (2026-08-26): rescatar aviso de colisión antes de que innerHTML lo borre.
+      // Si aplicarCatalogo disparó oc-pin-colision, el mensaje lleva dataset.colisionPendiente.
+      const msgElPre = document.getElementById("oc-emp-msg");
+      const colisionPendiente = msgElPre && msgElPre.dataset.colisionPendiente ? msgElPre.dataset.colisionPendiente : null;
       let equipo = [];
       try {
         const r = await fetch("/api/usuarios");
@@ -1043,7 +1047,7 @@
           trPin.innerHTML = `
             <td colspan="4" style="padding:10px 12px;">
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <span style="font-size:13px;font-weight:700;">Nuevo PIN para ${escHtml(u.nombre)}:</span>
+                <span style="font-size:13px;font-weight:700;">${window.t ? window.t("team.newPinFor") : "New PIN for"} ${escHtml(u.nombre)}:</span>
                 <input data-pin-input="${escHtml(u.id)}" maxlength="3" inputmode="numeric" placeholder="3 digits"
                   style="width:80px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:5px;
                          font-size:14px;text-align:center;font-family:var(--font-mono);letter-spacing:.15em;">
@@ -1116,7 +1120,7 @@
             const data = await r.json();
             if (!r.ok) { msg.textContent = data.error || "Could not save the PIN."; return; }
             msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
-            msg.textContent = "PIN actualizado.";
+            msg.textContent = window.t ? window.t("team.pinUpdated") : "PIN updated.";
             // Entrega por correo (JFC 2026-07-30): mailto abre EL PROPIO cliente
             // de correo del dueño con el mensaje listo — sin backend, sin nube,
             // cumple la regla dura NUNCA CLOUD. El PIN nunca se guarda en claro
@@ -1136,6 +1140,20 @@
           } catch (_) { msg.textContent = "Error de red."; }
         });
       });
+
+      // B-02 (2026-08-26): restaurar aviso de colisión si se perdió durante el render.
+      // renderEmpleados solo toca #oc-emp-lista, pero una segunda llamada concurrente
+      // puede haber limpiado #oc-emp-msg; al terminar, si había colisión pendiente, se vuelve a poner.
+      if (colisionPendiente) {
+        try {
+          const msgElPost = document.getElementById("oc-emp-msg");
+          if (msgElPost && !msgElPost.textContent) {
+            msgElPost.style.color = "var(--rojo,#a3392a)";
+            msgElPost.textContent = colisionPendiente;
+            msgElPost.dataset.colisionPendiente = colisionPendiente;
+          }
+        } catch (_) {}
+      }
     }
 
     // Bind form: agregar miembro del equipo
@@ -1190,7 +1208,14 @@ Keep it somewhere safe.`);
        mock-backend.js dispara oc-equipo-sync. Sin este listener la tabla
        queda estancada hasta que el usuario navega fuera y vuelve. Con él,
        cualquier cambio remoto actualiza la pantalla al instante. */
-    window.addEventListener("oc-equipo-sync", renderEmpleados);
+    // B-03 + B-06 (2026-08-26): renderEmpleados es async — el wrapper atrapa la Promise.
+    // Debounce de 300 ms: un sync de catálogo con varios chunks puede disparar
+    // oc-equipo-sync varias veces seguidas; solo re-renderizar una vez al final.
+    let _renderEmpDebTimer = null;
+    window.addEventListener("oc-equipo-sync", () => {
+      clearTimeout(_renderEmpDebTimer);
+      _renderEmpDebTimer = setTimeout(() => renderEmpleados().catch(() => {}), 300);
+    });
 
     /* AVISO DE COLISIÓN DE PIN EN SYNC (2026-08-26, code-review finding #3b).
        aplicarCatalogo dispara oc-pin-colision cuando un miembro que llega
@@ -1202,13 +1227,26 @@ Keep it somewhere safe.`);
     window.addEventListener("oc-pin-colision", function (ev) {
       try {
         const d = ev.detail || {};
-        const msg = `PIN conflict: ${d.nombre || "A team member"} uses PIN ${d.pin || "???"} — that PIN is already taken here. Change their PIN before syncing.`;
+        /* B-01 (2026-08-26): nunca mostrar el PIN real — es una credencial.
+           B-04: si el panel de equipo no está visible, usar un toast en vez de
+           alert() bloqueante (que cortaría una venta en curso). */
+        const msg = `PIN conflict: ${d.nombre || "A team member"} uses a PIN that is already taken here. Change their PIN before syncing.`;
         const msgEl = document.getElementById("oc-emp-msg");
         if (msgEl) {
           msgEl.style.color = "var(--rojo,#a3392a)";
           msgEl.textContent = msg;
+          // B-02: marcar el aviso con atributo para que renderEmpleados lo restaure.
+          msgEl.dataset.colisionPendiente = msg;
         } else {
-          alert(msg);
+          // Toast no bloqueante: crear un banner temporal sobre la UI.
+          try {
+            const toast = document.createElement("div");
+            toast.setAttribute("role", "alert");
+            toast.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#a3392a;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.35);max-width:90vw;text-align:center;";
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => { try { document.body.removeChild(toast); } catch (_) {} }, 6000);
+          } catch (_) {}
         }
       } catch (_) {}
     });
@@ -1253,9 +1291,22 @@ Keep it somewhere safe.`);
           };
           return m[t] || t;
         };
-        /* Scroll al resultado (2026-08-26, UX sweep L5): sin esto el usuario
-           tiene que bajar manualmente para ver la tabla recién cargada. */
-        setTimeout(function () { try { logBody.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (_) {} }, 80);
+        /* Scroll al resultado (2026-08-26, UX sweep L5 / B-10 fix): usar el
+           contenedor scroll del riel flex si existe, y caer a scrollIntoView
+           solo si no hay un panel con overflow-y:auto más cercano. */
+        setTimeout(function () {
+          try {
+            // El riel flex pone el contenido en #oc-riel-cont (o similar); buscar
+            // el primer ancestro scrolleable para hacer scrollTop en vez de scrollIntoView.
+            let scrollEl = logBody.parentElement;
+            while (scrollEl && scrollEl !== document.body) {
+              const ov = getComputedStyle(scrollEl).overflowY;
+              if (ov === "auto" || ov === "scroll") { scrollEl.scrollTop = logBody.offsetTop; return; }
+              scrollEl = scrollEl.parentElement;
+            }
+            logBody.scrollIntoView({ behavior: "smooth", block: "start" });
+          } catch (_) {}
+        }, 80);
         logBody.innerHTML = `<div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
@@ -1703,6 +1754,10 @@ Keep it somewhere safe.`);
               /* Inyectar icono del mapa ICONS al botón agregado tardíamente (MutationObserver) */
               const ico2 = ICONS[t] ? `<span aria-hidden="true" style="display:inline-block;width:1.4em;text-align:center;opacity:.75;">${ICONS[t]}</span>` : "";
               b.innerHTML = ico2 + escHtml(t); rNav.appendChild(b);
+              // B-11 (2026-08-26): re-aplicar estado activo después de agregar el
+              // chip; de lo contrario el chip tardío aparece sin resaltar aunque
+              // su sección sea la activa en este momento.
+              try { const cur = localStorage.getItem("f123_riel_tab"); if (cur) activo(cur); } catch (_) {}
             });
           });
         });
@@ -2713,7 +2768,7 @@ Keep it somewhere safe.`);
       '<p style="font-size:16px;line-height:1.5;margin:0 0 12px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">A new code is generated and the current one stops working. Every phone on your team will have to join again with the new one, including yours if you use more than one device.</p>' +
       '<p style="font-size:15px;line-height:1.5;margin:0 0 12px;padding:11px 13px;background:#F8F9FB;border-left:4px solid #2C3E50;border-radius:0 8px 8px 0;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Only do this if the code leaked: someone posted it, dropped it in a group chat, or left the company with it written down. For a regular ex-employee it is enough to deactivate them under Users, which is far less disruptive for everyone else.</p>' +
       '<p style="font-size:15px;line-height:1.5;margin:0 0 18px;padding:11px 13px;background:#FFF6F2;border-left:4px solid #E86040;border-radius:0 8px 8px 0;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">This cuts off access from here on. Whatever that person already saw or copied cannot be taken back.</p>' +
-      '<button type="button" id="oc-rot-ok" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:12px;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">Yes, change the code</button>' +
+      '<button type="button" id="oc-rot-ok" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:12px;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">Yes, rotate the team license</button>' +
       '<button type="button" id="oc-rot-no" style="width:100%;min-height:44px;margin-top:10px;background:none;border:none;font-size:15px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;">Never mind</button>' +
       '<p id="oc-rot-msg" style="font-size:15px;font-weight:700;margin:12px 0 0;"></p>' +
       "</div>";

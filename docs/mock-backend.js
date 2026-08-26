@@ -495,8 +495,27 @@
   // ANTES de caer al aviso de "datos corruptos" — con SHA-256 no habria hecho
   // falta: JSON.parse() + validarRespaldo() ya detectan truncamiento igual de
   // bien, sin el costo de un hash criptografico en cada venta.
-  const OC_STATE_PTR = OC_STATE_KEY + "_ptr";
-  function claveBuffer(letra) { return OC_STATE_KEY + "_" + letra; }
+  /* MULTI-TIENDA LOCAL (JFC 2026-08-26). Cada licencia = una tienda aislada
+     en localStorage. La tienda activa se marca en f123_tienda_activa (vacío =
+     tienda propia, que sigue usando las claves legacy SIN sufijo → cero
+     migración y cero riesgo para quien ya venía usando la app). Cambiar de
+     licencia flushea la tienda actual, cambia este marcador y recarga; en el
+     boot se cargan los buffers de la tienda correcta.
+     El sufijo se calcula UNA sola vez al cargar el módulo: como cambiar de
+     tienda siempre dispara location.reload(), no hay caso donde cambie en
+     caliente. Propiedad de seguridad: si nadie escribió f123_tienda_activa,
+     el sufijo es "" y TODAS las claves quedan byte-idénticas a antes. */
+  /* f123_tienda_activa guarda el SUFIJO literal de la tienda activa:
+     "" para la tienda propia (claves legacy), o "::<licencia>" para una unida.
+     Se guarda el sufijo entero (no solo la licencia) para que el registro de
+     tiendas pueda mapear licencia->sufijo sin ambigüedad, incluyendo el caso
+     de la tienda propia cuyo sufijo es "". */
+  function _sufijoTiendaActiva() {
+    try { return localStorage.getItem("f123_tienda_activa") || ""; } catch (_) { return ""; }
+  }
+  const OC_STATE_SUFIJO = _sufijoTiendaActiva();
+  const OC_STATE_PTR = OC_STATE_KEY + OC_STATE_SUFIJO + "_ptr";
+  function claveBuffer(letra) { return OC_STATE_KEY + OC_STATE_SUFIJO + "_" + letra; }
   /* Espejo en IndexedDB. Se dispara SIEMPRE, sin esperarlo: es la red que hace
      que "localStorage lleno" deje de significar "tus cambios se pierden".
      Ver estado-idb.js (JFC 2026-08-17, portado desde amigable-123).
@@ -693,6 +712,20 @@
     } catch (_) {}
   }
 
+  /* Vacía las colecciones DEMO semilla cuando se entra a una tienda unida que
+     todavía no tiene datos propios. Así arranca limpia y solo se llena con lo
+     que llegue por sync — sin mezclar el catálogo real del equipo con los
+     productos/perchas de ejemplo. Muta en sitio porque son const.
+     NO toca instanceId (identidad de este aparato). (JFC 2026-08-26) */
+  function _vaciarTiendaFresca() {
+    try {
+      ubicaciones.length = 0; productos.length = 0; sucursales.length = 0;
+      promotoras.length = 0; clientes.length = 0; usuarios.length = 0;
+      ventas.length = 0; movimientos.length = 0; transferencias.length = 0;
+      Object.keys(gastosMensuales).forEach((k) => { delete gastosMensuales[k]; });
+      nombreNegocio = "";
+    } catch (_) {}
+  }
   function cargarEstadoLocal() {
     try {
       const activo = localStorage.getItem(OC_STATE_PTR);
@@ -739,6 +772,16 @@
 
       // Ningun buffer A/B valido: migracion desde la clave de un solo buffer
       // (dispositivos que aun no corrieron esta version) o corrupcion total.
+      // MULTI-TIENDA (2026-08-26): esta migracion legacy SOLO aplica a la tienda
+      // propia (sufijo vacio). Una tienda unida (sufijo con licencia) que aun no
+      // tiene buffers propios NO debe caer aqui, o cargaria los datos de la
+      // tienda propia (James Bond) dentro de la tienda ajena.
+      // Ademas: una tienda unida recien creada NO debe arrancar con los datos
+      // DEMO semilla — si lo hiciera, cuando el equipo sincronice (merge
+      // add-only) su catalogo real quedaria MEZCLADO con productos/perchas de
+      // ejemplo. Se vacia para que la tienda arranque limpia y solo se llene con
+      // lo que llegue por sync. (bug hallado en la revision pre-live 2026-08-26)
+      if (OC_STATE_SUFIJO) { _vaciarTiendaFresca(); return; }
       const raw = localStorage.getItem(OC_STATE_KEY);
       if (!raw) return;
       let body;
@@ -1679,6 +1722,53 @@
     guardarEstadoLocal();
     return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, huella: huellaCatalogo() };
   }
+
+  /* ===================================================================
+     CAMBIO DE TIENDA — multi-tienda local (JFC 2026-08-26).
+     Poner una licencia = volverse ESA tienda y quedarse ahí. Cada tienda
+     guarda su estado aparte (namespace por sufijo). Cambiar de tienda
+     flushea la actual, apunta el marcador a la otra y recarga. Nada se
+     borra: volver a una tienda anterior restaura sus datos intactos.
+     El registro f123_tiendas mapea licencia -> sufijo para poder regresar
+     a cualquiera con solo volver a poner su licencia (incluida la propia,
+     cuyo sufijo es ""). =============================================== */
+  function _normLic(c) { return String(c || "").trim().toUpperCase().replace(/\s+/g, ""); }
+  function _licenciaPropia() {
+    try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); return o && o.licenseCode ? _normLic(o.licenseCode) : ""; } catch (_) { return ""; }
+  }
+  function _licenciaActual() {
+    // La licencia de la tienda activa: si hay sufijo "::L", es L; si no, la propia.
+    return OC_STATE_SUFIJO ? OC_STATE_SUFIJO.slice(2) : _licenciaPropia();
+  }
+  window.OCTienda = {
+    licenciaActual: _licenciaActual,
+    /* Cambia la app a la tienda de la licencia dada. Devuelve
+       { ok, cambiado, mismo } sin recargar si ya estás en esa tienda. */
+    cambiar(licencia) {
+      const norm = _normLic(licencia);
+      if (!norm) return { ok: false, error: "Empty license." };
+      // Registro licencia -> sufijo.
+      let reg = {};
+      try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
+      // Asegurar que la tienda ACTUAL esté registrada (para poder volver a ella).
+      const licAct = _licenciaActual();
+      if (licAct && !(licAct in reg)) reg[licAct] = OC_STATE_SUFIJO;
+      if (norm === licAct) {
+        try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
+        return { ok: true, cambiado: false, mismo: true };
+      }
+      // Sufijo destino: reutiliza el registrado o crea uno nuevo.
+      let sufDest = (norm in reg) ? reg[norm] : ("::" + norm);
+      reg[norm] = sufDest;
+      try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
+      // Flush de la tienda actual bajo SUS claves antes de cambiar el marcador.
+      try { guardarEstadoLocal(); } catch (_) {}
+      try { localStorage.setItem("f123_tienda_activa", sufDest); } catch (_) {}
+      // Recargar: en el boot el sufijo ya será el de la tienda destino.
+      try { location.reload(); } catch (_) {}
+      return { ok: true, cambiado: true };
+    },
+  };
 
   window.OCSync = {
     /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
@@ -2730,6 +2820,11 @@
         const _ahoraU = new Date().toISOString();
         const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU };
         usuarios.push(nuevo);
+        // B-07 (2026-08-26): si se demotó silenciosamente, dejar rastro en el log
+        // para que el dueño pueda auditar intentos de escalada de privilegios.
+        if (body.rol === "admin" && rolNuevo === "empleado") {
+          mov("intento-crear-admin-sin-permiso", { nombre, callerRol: _callerRolPost, rolAsignado: "empleado" });
+        }
         mov("usuario-alta", { nombre, rol: rolNuevo });
         avisarEquipoCambiado(); // empuja el equipo al resto del negocio (sync en vivo)
         return J({ id: nuevo.id, nombre: nuevo.nombre, rol: nuevo.rol, email: nuevo.email, activo: nuevo.activo, creadoEn: nuevo.creadoEn });
@@ -2754,6 +2849,9 @@
         const _editandoAdmin = u.rol === "admin";
         if (_editandoAdmin && _callerRolPatch !== "dueno" &&
             (body.nombre !== undefined || body.pin !== undefined || body.activo !== undefined)) {
+          // B-12 (2026-08-26): i18n pendiente — este error solo aparece en DevTools
+          // (la UI ya bloquea el caso antes de llegar aquí), pero mantenerlo en inglés
+          // es inconsistente con el resto. Mensaje neutro cuando se traduzca la capa API.
           return J({ error: "Only the owner can edit an admin's name, PIN or active status." }, 403);
         }
         if (body.nombre !== undefined) u.nombre = String(body.nombre).trim().slice(0, 60) || u.nombre;
