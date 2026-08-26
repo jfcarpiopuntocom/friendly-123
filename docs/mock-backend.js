@@ -1851,27 +1851,49 @@
     aplicarCheckpoint(snap) {
       try {
         if (!snap || !Array.isArray(snap.productos) || !Array.isArray(snap.ubicaciones)) return { ok: false, motivo: "ilegible" };
-        if (ventas.length > 0) return { ok: false, motivo: "no-fresco" }; // caja con historial: no se toca
+        /* MERGE ADD-ONLY EN CUALQUIER APARATO (JFC 2026-08-26). BUG RAÍZ del
+           "no sincroniza ni entre mi PC y mi cel": antes, si el aparato tenía UNA
+           sola venta propia, el checkpoint ENTERO se ignoraba (return no-fresco) —
+           así dos aparatos que ya tenían datos jamás se pasaban perchas/productos/
+           clientes. Ahora SIEMPRE se agrega lo que falta (add-only, nunca pisa lo
+           existente). Lo ÚNICO que se cuida por frescura es el STOCK: un aparato
+           con ventas propias NO adopta el stock del checkpoint (podría estar viejo);
+           su stock lo manda su propia caja. Add-only es seguro: nunca borra ni
+           sobrescribe un ítem que ya existe aquí. */
+        const fresco = ventas.length === 0;
+        let agP = 0, agPr = 0, agC = 0;
         snap.ubicaciones.forEach((u) => {
           if (!u || !u.id) return;
           if (!ubicaciones.some((x) => String(x.id) === String(u.id))) {
             ubicaciones.push(Object.assign({}, u, { activa: u.activa !== false }));
             if (!(u.id in gastosMensuales)) gastosMensuales[u.id] = 0;
+            agP++;
           }
         });
         snap.productos.forEach((p) => {
           if (!p || !p.id) return;
           const stk = Math.max(0, Number(p.stockActual) || 0);
           const mio = productos.find((x) => String(x.id) === String(p.id));
-          if (!mio) { productos.push(Object.assign({}, p, { stockActual: stk })); }
-          else if ((Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; } // vino con 0 por el vivo: se corrige
+          if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); agPr++; } // producto del equipo; el stock solo si soy fresco
+          else if (fresco && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; }
         });
+        /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
+           aparato fresco. Por eso los clientes reales no llegaban al segundo aparato. */
+        if (Array.isArray(snap.clientes)) {
+          snap.clientes.forEach((c) => {
+            if (!c || !c.id || !c.nombre) return;
+            if (!clientes.some((x) => String(x.id) === String(c.id))) {
+              clientes.push({ id: c.id, codigo: c.codigo || "", nombre: String(c.nombre).slice(0, 80), telefono: c.telefono || "", email: c.email || "", evaluacion: (c.evaluacion && typeof c.evaluacion === "object") ? c.evaluacion : { trato: 0, confiabilidad: 0, historial: [] } });
+              agC++;
+            }
+          });
+        }
         if (Array.isArray(snap.usuarios)) {
           try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios }, null); } catch (_) {}
         }
         guardarEstadoLocal();
-        mov("checkpoint-restaurado", { perchas: snap.ubicaciones.length, productos: snap.productos.length });
-        return { ok: true, productos: snap.productos.length };
+        mov("checkpoint-mergeado", { perchas: agP, productos: agPr, clientes: agC, fresco });
+        return { ok: true, productos: agPr, perchas: agP, clientes: agC };
       } catch (_) { return { ok: false, motivo: "error" }; }
     },
     compararCatalogo,
