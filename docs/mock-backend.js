@@ -1585,8 +1585,9 @@
       const misUsr = new Map(usuarios.map((u) => [String(u.id), u]));
       remoto.usuarios.forEach((u) => {
         if (!u || !u.id) return;
+        if (u.borrado) return; // un tombstone es una BAJA, no se anuncia como cambio en el preview
         const mio = misUsr.get(String(u.id));
-        if (!mio) { out.nuevosMiembros.push({ id: u.id, nombre: u.nombre || "", rol: u.rol || "empleado" }); return; }
+        if (!mio || mio.borrado) { out.nuevosMiembros.push({ id: u.id, nombre: u.nombre || "", rol: u.rol || "empleado" }); return; }
         /* Gana la edicion mas reciente, NO la jerarquia: si el dueno degrada a
            alguien en su celular, esa es la ultima palabra aunque el merge lo
            traiga un encargado. Sin `actualizadoEn` (registro viejo, de antes
@@ -1615,6 +1616,42 @@
      se dejan tal cual, según JFC. */
   const PINS_RESERVADOS = ["888"];
   function _pinReservado(pin) { return PINS_RESERVADOS.indexOf(String(pin || "")) !== -1; }
+
+  /* RELOJ LÓGICO DEL ROSTER (JFC 2026-08-26, Camino A "terminar bien lo nuestro").
+     Cada edición del equipo se sella con rev = { c: contador Lamport, d: deviceId }.
+     El contador viene del MISMO Lamport que ya sincroniza sync-realtime (version
+     vectors), así el orden es causal y global, no del reloj de pared del aparato
+     (dos celulares con la hora mal puesta se pisaban al promover/degradar/PIN).
+     Si sync-realtime no está cargado (tablero, pruebas), cae a un contador local
+     monótono + un deviceId estable: nunca lanza y nunca deja sin sellar. */
+  let _revLocalFallback = 0;
+  function _revNueva() {
+    let c = 0, d = "";
+    try {
+      if (window.OCSyncControl && typeof window.OCSyncControl.revTick === "function") {
+        c = Number(window.OCSyncControl.revTick()) || 0;
+        d = String(window.OCSyncControl.deviceIdActual() || "");
+      }
+    } catch (_) {}
+    if (!c) { c = (++_revLocalFallback); }
+    if (!d) { try { d = String(localStorage.getItem("f123_device_id") || ""); } catch (_) {} }
+    return { c: c, d: d };
+  }
+  /* ¿El rev A (remoto) le gana al rev B (local)? Gana el contador mayor; empate
+     de contador se rompe por deviceId (orden lexicográfico estable, determinista
+     en los dos aparatos). Un registro SIN rev (dato viejo, pre-upgrade) se trata
+     como rev {c:0} para no perder ante él por accidente: el que ya tiene rev es
+     el que pasó por el camino nuevo. Devuelve null si NINGUNO tiene rev, para que
+     el llamador caiga al reloj de pared (comportamiento idéntico a antes). */
+  function _revDomina(a, b) {
+    const tieneA = a && typeof a.c === "number";
+    const tieneB = b && typeof b.c === "number";
+    if (!tieneA && !tieneB) return null; // sin reloj lógico en ninguno: decide el llamador
+    const ca = tieneA ? a.c : 0, cb = tieneB ? b.c : 0;
+    if (ca !== cb) return ca > cb;
+    const da = tieneA ? String(a.d || "") : "", db = tieneB ? String(b.d || "") : "";
+    return da > db;
+  }
 
   function aplicarCatalogo(remoto, rolRemoto) {
     const dif = compararCatalogo(remoto, rolRemoto);
@@ -1655,15 +1692,39 @@
        de verdad esta el boton de borrar, que es una decision de una persona.
        El PIN duplicado se resuelve conservando el propio: dos personas con el
        mismo PIN dejaria entrar a la equivocada. */
-    let miembrosAgregados = 0, miembrosActualizados = 0;
+    /* LWW-Element-Set con reloj LÓGICO + tombstones (JFC 2026-08-26, Camino A).
+       ANTES esto era add-only y decidía por reloj de PARED (actualizadoEn):
+         - no podía sacar a nadie del equipo entre aparatos (add-only nunca borra
+           y el otro re-propagaba al borrado);
+         - dos celulares con la hora mal puesta se pisaban al promover/degradar/PIN.
+       AHORA cada registro trae rev = { c: Lamport, d: deviceId } y la baja es un
+       tombstone (borrado:true). El ganador se decide por rev (causal, global); si
+       NINGUNO de los dos tiene rev (dato viejo pre-upgrade) se cae al reloj de
+       pared, idéntico a como era. La baja gana al re-add rancio y propaga. */
+    let miembrosAgregados = 0, miembrosActualizados = 0, miembrosQuitados = 0;
     if (Array.isArray(remoto.usuarios)) {
       remoto.usuarios.forEach((u) => {
-        if (!u || !u.id || !u.nombre) return;
-        if (!/^\d{3}$/.test(String(u.pin || ""))) return; // PIN ilegible: no se importa a medias
+        if (!u || !u.id) return;
+        const esTomb = !!u.borrado;
+        // Un registro vivo necesita nombre y PIN legible; un tombstone puede llegar
+        // sin ellos y aun así hay que respetarlo (es una BAJA, no un alta a medias).
+        if (!esTomb) {
+          if (!u.nombre) return;
+          if (!/^\d{3}$/.test(String(u.pin || ""))) return; // PIN ilegible: no se importa a medias
+        }
         const rolU = (u.rol === "admin" || u.rol === "empleado") ? u.rol : "empleado";
         const mio = usuarios.find((x) => String(x.id) === String(u.id));
         if (!mio) {
-          if (usuarios.some((x) => x.pin === u.pin)) {
+          if (esTomb) {
+            // Baja de alguien que aquí nunca existió: se registra el tombstone para
+            // que, si un tercer aparato lo re-agrega con rev menor, la baja gane.
+            usuarios.push({ id: u.id, nombre: String(u.nombre || "").slice(0, 60), pin: u.pin || "",
+                            rol: rolU, email: u.email || null, activo: false, borrado: true,
+                            creadoEn: u.creadoEn || new Date().toISOString(),
+                            actualizadoEn: u.actualizadoEn || null, rev: u.rev || null });
+            return;
+          }
+          if (usuarios.some((x) => !x.borrado && x.pin === u.pin)) {
             /* AVISO DE COLISIÓN DE PIN (2026-08-26, code-review finding #4):
                Antes, esta colisión se descartaba silenciosamente. El resultado era
                que el operador no sabía por qué el miembro del equipo no llegó —
@@ -1676,22 +1737,37 @@
             return;
           }
           usuarios.push({ id: u.id, nombre: String(u.nombre).slice(0, 60), pin: u.pin, rol: rolU,
-                          email: u.email || null, activo: u.activo !== false,
-                          creadoEn: u.creadoEn || new Date().toISOString(), actualizadoEn: u.actualizadoEn || null });
+                          email: u.email || null, activo: u.activo !== false, borrado: false,
+                          creadoEn: u.creadoEn || new Date().toISOString(),
+                          actualizadoEn: u.actualizadoEn || null, rev: u.rev || null });
           miembrosAgregados++;
           return;
         }
-        const tMio = Date.parse(mio.actualizadoEn || mio.creadoEn || 0) || 0;
-        const tSuyo = Date.parse(u.actualizadoEn || u.creadoEn || 0) || 0;
-        if (tSuyo <= tMio) return; // lo de aqui es igual de nuevo o mas: no se pisa
-        if (usuarios.some((x) => x.id !== mio.id && x.pin === u.pin)) return; // el PIN nuevo choca con otro
-        mio.nombre = String(u.nombre).slice(0, 60);
-        mio.pin = u.pin;
+        // Ya existe aquí: decide el reloj lógico; si ninguno tiene rev, el de pared.
+        const dom = _revDomina(u.rev, mio.rev);
+        let ganaSuyo;
+        if (dom === null) {
+          const tMio = Date.parse(mio.actualizadoEn || mio.creadoEn || 0) || 0;
+          const tSuyo = Date.parse(u.actualizadoEn || u.creadoEn || 0) || 0;
+          ganaSuyo = tSuyo > tMio;
+        } else {
+          ganaSuyo = dom;
+        }
+        if (!ganaSuyo) return; // lo de aquí gana o empata: no se pisa
+        // El PIN entrante no debe chocar con OTRO miembro vivo (dejaría entrar a la
+        // persona equivocada). Un tombstone no trae PIN activo, así que no aplica.
+        if (!esTomb && usuarios.some((x) => x.id !== mio.id && !x.borrado && x.pin === u.pin)) return;
+        const estabaVivo = !mio.borrado;
+        mio.nombre = String(u.nombre || mio.nombre).slice(0, 60);
+        if (u.pin) mio.pin = u.pin;
         mio.rol = rolU;
-        mio.activo = u.activo !== false;
+        mio.borrado = esTomb;
+        mio.activo = esTomb ? false : (u.activo !== false);
         if (u.email !== undefined) mio.email = u.email || null;
-        mio.actualizadoEn = u.actualizadoEn;
-        miembrosActualizados++;
+        mio.actualizadoEn = u.actualizadoEn || mio.actualizadoEn;
+        mio.rev = u.rev || mio.rev;
+        if (esTomb && estabaVivo) miembrosQuitados++;
+        else miembrosActualizados++;
       });
     }
 
@@ -1716,9 +1792,9 @@
       });
     }
 
-    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
+    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
-    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, clientesAgregados, huella: huellaCatalogo() };
+    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, huella: huellaCatalogo() };
   }
 
   /* ===================================================================
@@ -1819,7 +1895,7 @@
            la persona no puede entrar en el segundo dispositivo, que es
            justamente lo que se rompio. Va por el mismo canal cifrado que
            todo lo demas y nunca sale de los dispositivos del negocio. */
-        usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null })),
+        usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         /* CLIENTES (JFC 2026-08-26). Bug de Belén: "clientes default, no los reales".
            Eran estado local que nunca se propagaba. Viajan por el mismo canal
            cifrado device-to-device, merge add-only en aplicarCatalogo. */
@@ -1836,7 +1912,7 @@
       return {
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia })),
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
-        usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null })),
+        usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
         huella: huellaCatalogo(),
       };
@@ -2840,7 +2916,7 @@
 
       // GET /api/usuarios — lista usuarios del equipo (sin PIN; id/nombre/rol/email/activo)
       if (path === "/api/usuarios" && (!opts || !opts.method || opts.method === "GET")) {
-        return J(usuarios.map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn })));
+        return J(usuarios.filter((u) => !u.borrado).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn })));
       }
       // POST /api/usuarios — crear miembro del equipo (encargado o admin); desde Avanzado = solo dueno.
       //
@@ -2874,12 +2950,12 @@
            cualquiera de los dos. Esto SOLO afecta altas nuevas: a quien ya
            esta creado no se le toca ni se le desactiva nada, asi que ningun
            equipo existente se rompe con este cambio. */
-        const staffActual = usuarios.filter((u) => u.rol === "empleado" || u.rol === "admin").length;
+        const staffActual = usuarios.filter((u) => !u.borrado && (u.rol === "empleado" || u.rol === "admin")).length;
         if (staffActual >= 1 && (!instanceId || licenciaLimitada()))
           return J({ error: "The free plan includes 1 team member besides you, and that counts admins too. Activate this device (PIN 789) for an unlimited team.", codigo: "LIMITE_EMPLEADOS" }, 403);
-        if (usuarios.some((u) => u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
+        if (usuarios.some((u) => !u.borrado && u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
         const _ahoraU = new Date().toISOString();
-        const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU };
+        const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU, rev: _revNueva() };
         usuarios.push(nuevo);
         // B-07 (2026-08-26): si se demotó silenciosamente, dejar rastro en el log
         // para que el dueño pueda auditar intentos de escalada de privilegios.
@@ -2894,7 +2970,7 @@
       // El admin puede editar encargados pero NO a otros admins (ese control vive en la UI).
       if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "PATCH") {
         const uid2 = path.split("/").pop();
-        const u = usuarios.find((x) => x.id === uid2);
+        const u = usuarios.find((x) => x.id === uid2 && !x.borrado);
         if (!u) return J({ error: "Team member not found." }, 404);
         /* GUARD: ADMIN NO PUEDE EDITAR OTRO ADMIN (2026-08-26, code-review finding #2b).
            La UI ya muestra "Owner only" para filas de admin cuando el caller es admin
@@ -2929,7 +3005,7 @@
           const np = String(body.pin).trim();
           if (!/^\d{3}$/.test(np)) return J({ error: "The new PIN must be 3 digits." }, 400);
           if (_pinReservado(np)) return J({ error: "888 can't be used as a PIN — it's the app's demo code and would trap this device in demo. Pick another one.", codigo: "PIN_RESERVADO" }, 400);
-          if (usuarios.some((x) => x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
+          if (usuarios.some((x) => !x.borrado && x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
           u.pin = np;
         }
         // Promover/degradar rol (JFC 2026-07-30): admin<->encargado. Desde el
@@ -2957,6 +3033,7 @@
            dispositivos editaron a la misma persona. Sin esto el merge no puede
            distinguir el dato nuevo del viejo y tendria que adivinar. */
         u.actualizadoEn = new Date().toISOString();
+        u.rev = _revNueva(); // sello lógico: decide el merge por causalidad, no por reloj de pared
         mov("usuario-editar", { id: uid2, nombre: u.nombre, rol: u.rol });
         avisarEquipoCambiado(); // rol/PIN/nombre nuevos viajan al resto del negocio
         return J({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn });
@@ -2964,20 +3041,32 @@
       // DELETE /api/usuarios/:id — quitar por completo (distinto de desactivar:
       // desactivar conserva el registro para reactivarlo despues; borrar es
       // definitivo, para cuando alguien deja el negocio de verdad).
+      //
+      // TOMBSTONE (JFC 2026-08-26, Camino A). ANTES esto hacía splice: el registro
+      // desaparecía SOLO de este aparato, y como el merge es add-only, el OTRO
+      // aparato lo conservaba y lo re-propagaba de vuelta — el miembro borrado era
+      // inmortal y no se podía sacar a nadie del equipo entre dispositivos. Ahora
+      // el registro NO se elimina: se marca borrado:true con un rev nuevo. Así la
+      // baja viaja (difundirEquipo manda también los tombstones) y GANA al re-add
+      // rancio de un tercer aparato por el reloj lógico. Se filtra de todas las
+      // lecturas (GET/verificar/conteos/UI), así que para el usuario ES una baja.
       if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "DELETE") {
         const uid3 = path.split("/").pop();
-        const i3 = usuarios.findIndex((x) => x.id === uid3);
-        if (i3 === -1) return J({ error: "Team member not found." }, 404);
-        const [borrado] = usuarios.splice(i3, 1);
-        mov("usuario-borrar", { nombre: borrado.nombre, rol: borrado.rol });
-        avisarEquipoCambiado(); // (la baja no borra por la red, pero refresca al resto)
+        const u3 = usuarios.find((x) => x.id === uid3 && !x.borrado);
+        if (!u3) return J({ error: "Team member not found." }, 404);
+        u3.borrado = true;
+        u3.activo = false;
+        u3.actualizadoEn = new Date().toISOString();
+        u3.rev = _revNueva();
+        mov("usuario-borrar", { nombre: u3.nombre, rol: u3.rol });
+        avisarEquipoCambiado(); // la baja (tombstone) viaja al resto del equipo y propaga
         return J({ ok: true });
       }
       // POST /api/usuarios/verificar — recibe { pin }, devuelve { id, nombre, rol } o 401
       // Llamado por auth-ui.js durante el login para identificar encargados y admins nombrados.
       if (path === "/api/usuarios/verificar" && opts && opts.method === "POST") {
         const pin = String(body.pin || "").trim();
-        const u = usuarios.find((x) => x.activo && x.pin === pin);
+        const u = usuarios.find((x) => !x.borrado && x.activo && x.pin === pin);
         if (!u) return J({ error: "That PIN does not match any active team member." }, 401);
         return J({ id: u.id, nombre: u.nombre, rol: u.rol });
       }

@@ -1133,6 +1133,13 @@
     salaActiva() { const s = leerSala(); return s ? s.codigo : null; },
     /* Version presentable del codigo de sala (TEAM-...). El valor interno no
        cambia: esto es solo para pintar y para compartir. */
+    /* RELOJ LÓGICO PARA EL ROSTER (JFC 2026-08-26). mock-backend sella cada
+       edición del equipo con { c: revTick(), d: deviceIdActual() } para que el
+       merge decida quién gana por CAUSALIDAD (Lamport), no por reloj de pared
+       (dos celulares con la hora mal puesta se pisaban). Es el mismo contador
+       que ya sincronizan los version vectors, así que no hace falta nada nuevo. */
+    revTick() { return siguienteLamport(); },
+    deviceIdActual() { return deviceId(); },
     pedirCatalogo: pedirCatalogo,
     difundirEquipo: difundirEquipo,
     difundirCatalogo: difundirCatalogo,
