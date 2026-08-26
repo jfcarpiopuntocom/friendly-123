@@ -707,8 +707,8 @@
                   /* El equipo se lista aparte y con nombres: un cambio de rol o
                      de PIN decide quien entra y con cuanto peso, y eso no puede
                      ir escondido dentro de un conteo generico. */
-                  (dif.nuevosMiembros.length ? "<li><strong>+ " + dif.nuevosMiembros.length + "</strong> team member(s): " + dif.nuevosMiembros.map(function (x) { return escHtml(x.nombre) + " (" + (x.rol === "admin" ? "Admin" : "Staff") + ")"; }).join(", ") + "</li>" : "") +
-                  (dif.miembrosActualizados.length ? "<li><strong>" + dif.miembrosActualizados.length + "</strong> team member(s) updated: " + dif.miembrosActualizados.map(function (x) { return escHtml(x.nombre) + (x.rolAntes !== x.rolDespues ? " (" + (x.rolAntes === "admin" ? "Admin" : "Staff") + " &rarr; " + (x.rolDespues === "admin" ? "Admin" : "Staff") + ")" : " (PIN/details)"); }).join(", ") + "</li>" : "") +
+                  (dif.nuevosMiembros.length ? "<li><strong>+ " + dif.nuevosMiembros.length + "</strong> team member(s): " + dif.nuevosMiembros.map(function (x) { return escHtml(x.nombre) + " (" + (x.rol === "admin" ? "Admin" : "Employee") + ")"; }).join(", ") + "</li>" : "") +
+                  (dif.miembrosActualizados.length ? "<li><strong>" + dif.miembrosActualizados.length + "</strong> team member(s) updated: " + dif.miembrosActualizados.map(function (x) { return escHtml(x.nombre) + (x.rolAntes !== x.rolDespues ? " (" + (x.rolAntes === "admin" ? "Admin" : "Employee") + " &rarr; " + (x.rolDespues === "admin" ? "Admin" : "Employee") + ")" : " (PIN/details)"); }).join(", ") + "</li>" : "") +
                   '<li style="color:#1a6e3c;"><strong>Nothing will be deleted.</strong>' + (dif.soloMios ? " Your " + dif.soloMios + " own product(s) stay." : "") + "</li>" +
                   "</ul>" +
                   '<p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:0 0 16px;padding:10px 12px;background:#F8F9FB;border-left:4px solid #2C3E50;border-radius:0 8px 8px 0;">' + nota + "</p>") +
@@ -849,7 +849,7 @@
       <div style="background:var(--paper-deep,#E2E8ED);border-left:4px solid var(--azul-medio,#2c4a68);border-radius:0 8px 8px 0;padding:12px 14px;margin:0 0 16px;">
         <p style="font-size:14px;font-weight:700;color:#0F1923;margin:0 0 6px;">Who carries more weight on the shared notebook</p>
         <p style="font-size:14px;line-height:1.6;color:#2C3E50;margin:0;">
-          <strong>Owner</strong> &rarr; <strong>Admin</strong> &rarr; <strong>Staff</strong>.
+          <strong>Owner</strong> &rarr; <strong>Admin</strong> &rarr; <strong>Employee</strong>.
           Everyone writes in the same notebook. When two devices change the same thing,
           the higher role's version is the one proposed. Stock is never overwritten by
           rank: it is a physical fact of each shelf, counted by whoever has it in front of them.
@@ -860,7 +860,7 @@
           or removed, and the commission splits.
         </p>
       </div>
-      <div id="oc-emp-lista" style="margin-bottom:18px;"></div>
+      <div id="oc-emp-lista" style="margin-bottom:18px;overflow-x:auto;-webkit-overflow-scrolling:touch;"></div>
       <details id="oc-emp-form-wrap" style="margin-bottom:6px;">
         <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--azul-medio);margin-bottom:10px;">
           + Add a team member
@@ -889,7 +889,7 @@
             <select id="oc-emp-rol"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;background:var(--blanco-calido,#fbf5e8);">
-              <option value="empleado">Staff — day-to-day access (sales, inventory, shelves)</option>
+              <option value="empleado">Employee — day-to-day access (sales, inventory, shelves)</option>
               <option value="admin">Admin — full access except the owner's credentials</option>
             </select>
             <span style="display:block;font-size:13px;color:var(--ink-soft);margin-top:3px;">
@@ -980,7 +980,7 @@
         const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
         const rolBadge     = u.rol === "admin"
           ? `<span style="font-size:13px;font-weight:700;background:#E8A020;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
-          : `<span style="font-size:13px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Staff</span>`;
+          : `<span style="font-size:13px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Employee</span>`;
         // Admin solo puede editar encargados, no a otros admins (seguridad por capas)
         const puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado");
         // Promover/degradar (JFC 2026-07-30: "hazlo una lista dinamica y permite
@@ -1023,7 +1023,7 @@
                 <button data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}"
                   style="font-size:13px;padding:5px 10px;border:2px solid #E8A020;
                          border-radius:5px;background:transparent;color:#E8A020;cursor:pointer;margin-left:4px;">
-                  ${u.rol === "admin" ? "Demote to staff" : "Promote to admin"}
+                  ${u.rol === "admin" ? "Demote to employee" : "Promote to admin"}
                 </button>
               ` : ""}
             ` : `<span style="font-size:13px;color:var(--ink-soft);">Owner only</span>`}
@@ -1153,7 +1153,7 @@
         const data = await r.json();
         if (!r.ok) { msgEl.textContent = data.error || "Could not add the team member."; return; }
         msgEl.style.color = "var(--sim-verde-dk,#1a6e3c)";
-        msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Staff member"} "${data.nombre}" added.`;
+        msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Employee"} "${data.nombre}" added.`;
         if (email) {
           const asunto = encodeURIComponent(`Your access PIN — ${data.nombre}`);
           const cuerpo = encodeURIComponent(`Hi ${data.nombre},
@@ -1631,6 +1631,7 @@ Keep it somewhere safe.`);
             const angosto = window.matchMedia && window.matchMedia("(max-width:720px)").matches;
             if (angosto) {
               fila.style.flexDirection = "column";
+              fila.style.overflow = "hidden";
               /* DOS BUGS que hacian "retazos encima de retazos" en el telefono.
                  Portado de amigable-123 (23ce907, 2026-08-16), reproducido
                  igual en friendly-123 el 2026-08-19:
@@ -1647,6 +1648,7 @@ Keep it somewhere safe.`);
               rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "auto"; b.style.flex = "0 0 auto"; b.style.borderLeft = "none"; b.style.margin = "0"; b.style.padding = "9px 12px"; b.style.whiteSpace = "nowrap"; });
             } else {
               fila.style.flexDirection = "row";
+              fila.style.overflow = "";
               rNav.style.cssText = "flex:0 0 148px;width:148px;position:sticky;top:8px;align-self:flex-start;padding:0 10px 0 0;margin:0 14px 0 0;border-right:2px solid var(--azul-suave,#dde5ec);display:flex;flex-direction:column;max-height:calc(100vh - 24px);overflow-y:auto;background:var(--blanco-calido,#F8F9FB);z-index:3;box-sizing:border-box;";
               rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "100%"; b.style.padding = "9px 8px"; });
             }
