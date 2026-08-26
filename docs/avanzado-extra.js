@@ -483,6 +483,13 @@
         <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">${window.t("sync.panel.body")}</p>
         <p style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:0;">${window.t("sync.panel.privacy")}</p>
         <div id="oc-sync-estado" style="font-size:13px;font-weight:700;margin-bottom:10px;"></div>
+        <!-- DIAGNÓSTICO REAL (JFC 2026-08-26): hechos crudos del estado de sync,
+             para no adivinar. Solo el dueño lo ve (panel Avanzado). No es un popup
+             ni toca la UI del cliente. -->
+        <details id="oc-sync-diag-wrap" style="margin-bottom:12px;">
+          <summary style="font-size:13px;font-weight:700;color:var(--azul-medio);cursor:pointer;">Sync diagnostics (show the real state)</summary>
+          <pre id="oc-sync-diag" style="font-size:12px;line-height:1.5;background:var(--paper-deep,#E2E8ED);color:#0F1923;padding:10px 12px;border-radius:6px;margin:8px 0 0;white-space:pre-wrap;word-break:break-word;">loading…</pre>
+        </details>
         <div id="oc-sync-apagado" style="display:${salaActiva ? "none" : "flex"};gap:8px;flex-wrap:wrap;align-items:center;">
           <input id="oc-sync-codigo" type="text" value="${escHtml(codigoPrecargado)}" placeholder="${window.t("sync.panel.codePlaceholder")}" maxlength="40"
             style="flex:1;min-width:220px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;">
@@ -580,6 +587,37 @@
       }
       pintarEstado();
       window.OCSyncControl.onEstado(pintarEstado);
+
+      /* DIAGNÓSTICO REAL DE SYNC (JFC 2026-08-26). Muestra los HECHOS crudos para
+         no adivinar: con qué licencia está activado ESTE aparato, en qué tienda
+         estás, a qué sala apunta el sync, si hay conexión y cuántos peers, y
+         cuántos datos hay. Así se ve al instante si "poner la licencia" cambió de
+         tienda o no, y si el relay está entregando algo. */
+      async function pintarDiag() {
+        const pre = document.getElementById("oc-sync-diag");
+        if (!pre) return;
+        const S = window.OCSyncControl || {};
+        const T = window.OCTienda || {};
+        let owned = {}; try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
+        let marcador = ""; try { marcador = localStorage.getItem("f123_tienda_activa") || "(propia \"\")"; } catch (_) {}
+        const cnt = async (u) => { try { const r = await fetch(u); const a = await r.json(); return Array.isArray(a) ? a.length : "?"; } catch (_) { return "err"; } };
+        const [nProd, nUbic, nCli, nUsu] = await Promise.all([cnt("/api/productos?todas=1"), cnt("/api/ubicaciones?todas=1"), cnt("/api/clientes"), cnt("/api/usuarios")]);
+        const lineas = [
+          "Connection:   " + (S.estado ? S.estado() : "?") + "   (peers online: " + (S.presencia ? S.presencia() : "?") + ")",
+          "Sync room:    " + ((S.salaActiva && S.salaActiva()) || "(off)"),
+          "This device's own license: " + (owned.licenseCode || "(none)"),
+          "Business name (this device): " + (owned.nombreNegocio || "(none)"),
+          "Active store:  " + (T.esUnida && T.esUnida() ? ("JOINED  " + ((T.licenciaActual && T.licenciaActual()) || "?")) : "OWN (\"\")") ,
+          "Store marker:  " + marcador,
+          "Data here:     products " + nProd + " · shelves " + nUbic + " · customers " + nCli + " · team " + nUsu,
+          "",
+          "Reading this: if you paste another business's license and 'Active store' still says OWN and the counts are YOUR numbers, the switch did NOT happen (that license is being treated as this device's own). If it says JOINED but counts are 0, you switched but their data has not synced in yet (needs their device to have pushed to the relay).",
+        ];
+        pre.textContent = lineas.join("\n");
+      }
+      try { pintarDiag(); } catch (_) {}
+      // refrescar el diagnóstico cada 4s mientras el panel esté montado
+      try { if (window._ocSyncDiagTimer) clearInterval(window._ocSyncDiagTimer); window._ocSyncDiagTimer = setInterval(() => { if (document.getElementById("oc-sync-diag")) pintarDiag(); else { clearInterval(window._ocSyncDiagTimer); } }, 4000); } catch (_) {}
 
       /* QR DE UNIRSE — DORMANT (JFC 2026-08-21). NO BORRAR: ver el comentario
          en el HTML de arriba. Poner en true para re-encenderlo (y devolver el
