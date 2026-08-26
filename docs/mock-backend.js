@@ -2380,6 +2380,7 @@
           nombrePagador: String(infoBody.nombrePagador || "").trim().slice(0, 120),
           email: String(infoBody.email || "").trim().slice(0, 120),
           whatsapp: String(infoBody.whatsapp || "").trim().slice(0, 40),
+          formaPago: String(infoBody.formaPago || "").trim().slice(0, 20), // JFC 2026-08-26: forma de pago (portado de amigable)
           montoPagado: (infoBody.montoPagado !== undefined && infoBody.montoPagado !== "") ? Math.max(0, Number(infoBody.montoPagado) || 0) : null,
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
