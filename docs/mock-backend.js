@@ -1376,6 +1376,15 @@
   function avisarEquipoCambiado() {
     try { window.dispatchEvent(new CustomEvent("oc-equipo-cambiado")); } catch (_) {}
   }
+  /* Aviso de "el catalogo cambio" (perchas/productos) — hermano del de equipo.
+     sync-realtime.js lo escucha y EMPUJA el catalogo al resto del negocio, para
+     que una percha nueva creada en un aparato aparezca en los demas sin merge
+     manual (JFC 2026-08-25: "no se sincronizaron las racks"). Solo estructura
+     (alta/edicion/baja de perchas y productos); el STOCK sigue viajando por sus
+     propias ops, no por aqui. */
+  function avisarCatalogoCambiado() {
+    try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
+  }
 
   function mov(tipo, detalle) {
     const usr = window.OCCurrentUser;
@@ -1910,6 +1919,7 @@
       p[k] = body[k];
     });
         mov("edicion", { producto: p.nombre, sku: p.sku, ubicacion: nombreUbic(p.ubicacionId) });
+        avisarCatalogoCambiado(); // nombre/precio/percha del producto viajan al equipo (el stock no)
         return J(ficha(p));
       }
       // Borrado definitivo (dueno, doble confirmacion en la UI).
@@ -1939,6 +1949,7 @@
         // guardara algun gasto para ellas. Se inicializa en 0 al crearlas.
         gastosMensuales[nueva.id] = 0;
         mov("ubicacion-alta", { ubicacion: nueva.nombre });
+        avisarCatalogoCambiado(); // la percha nueva viaja al resto del negocio
         return J(nueva);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "PUT") {
@@ -1996,6 +2007,7 @@
         if ("usarComisionPropia" in body) u.usarComisionPropia = !!body.usarComisionPropia;
         if ("escalasComision" in body) u.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision : [];
         guardarEstadoLocal();
+        avisarCatalogoCambiado(); // cambios de la percha (nombre, trato) viajan al equipo
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
@@ -2176,6 +2188,7 @@
         };
         productos.push(nuevo);
         mov("alta", { producto: nuevo.nombre, sku: nuevo.sku, ubicacion: nombreUbic(nuevo.ubicacionId) });
+        avisarCatalogoCambiado(); // el producto nuevo viaja al resto del negocio (con stock 0; cada percha cuenta el suyo)
         return J(ficha(nuevo));
       }
 
