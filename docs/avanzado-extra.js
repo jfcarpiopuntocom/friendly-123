@@ -328,7 +328,7 @@
         <em>Coming soon: automatic replication of these checkpoints across your devices. In the meantime, you can copy your data to another device via Advanced → QR Sync.</em></p>
       <p id="oc-caja-alerta" style="font-size:13px;font-weight:700;"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Save checkpoint now</button>
+        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">↺ Save checkpoint now</button>
         <button id="oc-caja-ver" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">View saved checkpoints</button>
       </div>
       <div id="oc-caja-lista" style="display:none;margin-top:10px;"></div>
@@ -443,9 +443,9 @@
       <div id="oc-clave-block" style="margin-top:18px;">
         <p style="font-size:14px;color:var(--ink-soft);">PINs (3 digits). For security, current codes are NOT shown here (stored encrypted) — enter NEW ones only if you want to change them.</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;">
-          <label style="font-size:13px;">Owner <input id="oc-c-owner" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">Employee <input id="oc-c-emp" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">Accounting <input id="oc-c-acct" maxlength="3" inputmode="numeric" placeholder="•••" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">Owner <input id="oc-c-owner" maxlength="3" inputmode="numeric" placeholder="3 digits" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">Employee <input id="oc-c-emp" maxlength="3" inputmode="numeric" placeholder="3 digits" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">Accounting <input id="oc-c-acct" maxlength="3" inputmode="numeric" placeholder="3 digits" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
         </div>
         <button id="oc-save-codes" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Save new PINs</button>
         <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
@@ -506,8 +506,8 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
             <button id="oc-sync-compartir" class="ir" style="background:#25D366;border-color:#1da851;">${window.t("sync.panel.share")}</button>
             <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
-            <button id="oc-sync-mergear" class="ir" style="background:#2C3E50;border-color:#0F1923;color:#FFFFFF;">Merge inventory with my team</button>
-            <button id="oc-sync-rotar" style="border-color:#E86040;color:#E86040;">Change the code</button>
+            <button id="oc-sync-mergear" class="ir" style="background:#2C3E50;border-color:#0F1923;color:#FFFFFF;border-left:5px solid var(--azul-medio,#2c4a68);">Merge inventory with my team</button>
+            <button id="oc-sync-rotar" style="border-color:#E86040;color:#E86040;">Rotate team license</button>
         <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
           </div>
         </div>
@@ -948,7 +948,7 @@
             <th style="text-align:left;padding:6px 8px;font-weight:700;">Member</th>
             <th style="text-align:center;padding:6px 8px;font-weight:700;">Role</th>
             <th style="text-align:center;padding:6px 8px;font-weight:700;">Status</th>
-            <th style="text-align:right;padding:6px 8px;font-weight:700;">Actions</th>
+            <th aria-hidden="true" style="text-align:right;padding:6px 8px;font-weight:700;">Actions</th>
           </tr></thead>
           <tbody id="oc-emp-tbody"></tbody>
         </table>`;
@@ -965,7 +965,7 @@
         trD.style.background = "var(--paper-deep,#E2E8ED)";
         trD.innerHTML = `
           <td style="padding:8px;"><div style="font-weight:700;">${isDueno() ? "You" : "The owner"}</div></td>
-          <td style="padding:8px;text-align:center;"><span style="font-size:13px;font-weight:700;background:#0F1923;color:#fff;padding:2px 7px;border-radius:10px;">Owner</span></td>
+          <td style="padding:8px;text-align:center;"><span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Owner</span></td>
           <td style="padding:8px;text-align:center;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">Active</td>
           <td style="padding:8px;text-align:right;"><span style="font-size:13px;color:#4A5A6A;">Highest authority</span></td>`;
         tbody.appendChild(trD);
@@ -978,9 +978,14 @@
         const estadoTxt    = u.activo ? "Active" : "Inactive";
         const btnEstLabel  = u.activo ? "Deactivate" : "Activate";
         const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
+        /* BADGES NARANJA UNIFICADOS (2026-08-26, UX sweep H3): antes Owner era negro,
+           Admin era ámbar y Employee era azul — tres colores distintos que complicaban
+           la paleta sin añadir información útil (el texto del badge ya dice el rol).
+           Ahora todos usan el mismo naranja #E87A10: limpio, vivo, coherente con el
+           chip activo del riel en mobile. El texto sigue siendo el diferenciador real. */
         const rolBadge     = u.rol === "admin"
-          ? `<span style="font-size:13px;font-weight:700;background:#E8A020;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
-          : `<span style="font-size:13px;font-weight:700;background:var(--azul-medio,#2c4a68);color:#fff;padding:2px 7px;border-radius:10px;">Employee</span>`;
+          ? `<span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
+          : `<span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Employee</span>`;
         // Admin solo puede editar encargados, no a otros admins (seguridad por capas)
         const puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado");
         // Promover/degradar (JFC 2026-07-30: "hazlo una lista dinamica y permite
@@ -1021,8 +1026,8 @@
               </button>
               ${puedePromover ? `
                 <button data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}"
-                  style="font-size:13px;padding:5px 10px;border:2px solid #E8A020;
-                         border-radius:5px;background:transparent;color:#E8A020;cursor:pointer;margin-left:4px;">
+                  style="font-size:13px;padding:5px 10px;border:2px solid #E87A10;
+                         border-radius:5px;background:transparent;color:#E87A10;cursor:pointer;margin-left:4px;">
                   ${u.rol === "admin" ? "Demote to employee" : "Promote to admin"}
                 </button>
               ` : ""}
@@ -1220,6 +1225,9 @@ Keep it somewhere safe.`);
           };
           return m[t] || t;
         };
+        /* Scroll al resultado (2026-08-26, UX sweep L5): sin esto el usuario
+           tiene que bajar manualmente para ver la tabla recién cargada. */
+        setTimeout(function () { try { logBody.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (_) {} }, 80);
         logBody.innerHTML = `<div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
@@ -1369,7 +1377,7 @@ Keep it somewhere safe.`);
     const pbUrlActual = localStorage.getItem("F123_PB_URL") || "";
     const conectado = !!(window.OC_PB_CONNECTED);
     syncPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Remote sync (optional)</h3>
+      <h3 class="seccion" style="margin-top:0;">Remote sync</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
         By default this system runs 100% locally, without depending on the internet.
         Only if you want to receive updates from the central panel, paste
@@ -1423,6 +1431,18 @@ Keep it somewhere safe.`);
       micPanel.innerHTML = '<h3 class="seccion" style="margin-top:0;">Your team right now</h3><div id="oc-micelio-panel"></div>';
       vista.appendChild(micPanel);
       if (window.OCMicelioUI) window.OCMicelioUI.pintarPanel();
+      /* ESTADO VACÍO (2026-08-26, UX sweep P6): pintarPanel() puede poblar el div de
+         forma asíncrona (datos de red), así que esperamos 2s antes de verificar.
+         Si el div sigue vacío, mostramos un texto en vez de dejar el panel en blanco —
+         un panel vacío parece roto; el texto deja claro que es el estado normal. */
+      setTimeout(function () {
+        try {
+          const mp = document.getElementById("oc-micelio-panel");
+          if (mp && !mp.children.length && !mp.textContent.trim()) {
+            mp.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No other devices connected right now.</p>';
+          }
+        } catch (_) {}
+      }, 2000);
     } catch (e) { console.error("Panel micelio no cargo (aislado, no rompe Avanzado):", e); }
 
     // R3 (JFC 2026-08-20, bulkhead): mismo patron ya usado en antifraude y
@@ -1462,8 +1482,32 @@ Keep it somewhere safe.`);
           "Fraud control": "Integrity of sensitive operations.",
           "Transfers between locations": "Move stock between branches.",
           "Remote sync (optional)": "Your own PocketBase, if you set one up.",
+          "Remote sync": "Your own PocketBase, if you set one up.",
           "Device-to-device sync": "Encrypted package for another device, no internet needed.",
+          "Device sync": "Encrypted package for another device, no internet needed.",
           "Where the team has been": "Location pings while a session is open.",
+        };
+        /* ICONOS DEL RIEL (2026-08-26, UX sweep H1): un carácter Unicode geométrico
+           antes de cada label mejora el escaneado vertical en desktop y horizontal
+           en mobile. Solo aquí en Advanced — no afecta al nav principal de la app.
+           Claves en inglés Y español para que funcione en ambos idiomas.
+           Unicode geométrico básico (BMP): renderiza igual en iOS, Android, Chrome y Safari. */
+        const ICONS = {
+          "First Steps": "◎", "Primeros Pasos": "◎",
+          "Sync your team": "⇄", "Sincronizar equipo": "⇄",
+          "Team": "⊕", "Equipo": "⊕",
+          "Activity log": "≡", "Actividad reciente": "≡", "Recent activity": "≡",
+          "Fraud control": "⊙", "Control antifraude": "⊙",
+          "Transfers between locations": "⇌", "Traslados entre perchas": "⇌",
+          "Remote sync": "○", "Remote sync (optional)": "○", "Sync remoto (opcional)": "○",
+          "Your team right now": "●", "Tu equipo ahora": "●",
+          "Access & recovery": "◈", "Acceso y recuperación": "◈",
+          "Accounting": "▤", "Contabilidad": "▤",
+          "Backup": "◉", "Respaldo": "◉",
+          "Accounting report": "▦", "Reporte contable": "▦",
+          "Location comparison (this month)": "▧", "Comparación de perchas": "▧",
+          "Device sync": "⊟", "Device-to-device sync": "⊟", "Sync entre dispositivos": "⊟",
+          "Where the team has been": "⊛",
         };
         function esComo(t) { t = (t || "").trim(); return /^¿?Cómo funciona/i.test(t) || /^How does it work/i.test(t); }
         function tituloDe(n) {
@@ -1586,18 +1630,27 @@ Keep it somewhere safe.`);
           const t = tituloDe(n); if (!t) return;
           const id = idDe(n, idx++); hint(n, t); secciones.push({ id, label: t });
         });
-        rNav.innerHTML = secciones.map((s) =>
-          `<button type="button" data-riel-go="${s.id}" style="display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:9px 8px;margin:0;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">${s.label}</button>`
-        ).join("");
+        rNav.innerHTML = secciones.map((s) => {
+          const ico = ICONS[s.label] ? `<span aria-hidden="true" style="display:inline-block;width:1.4em;text-align:center;opacity:.75;">${ICONS[s.label]}</span>` : "";
+          return `<button type="button" data-riel-go="${s.id}" style="display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:9px 8px;margin:0;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">${ico}${s.label}</button>`;
+        }).join("");
         fila.appendChild(rNav); fila.appendChild(contR); vista.appendChild(fila);
 
         function activo(id) {
+          /* ESTADO ACTIVO (2026-08-26, UX sweep L1): en desktop el indicador
+             es la barra izquierda (border-left) + fondo azul suave. En mobile
+             los chips son horizontales y border-left no es visible, así que el
+             chip activo toma fondo naranja (#E87A10) con texto blanco — mismo
+             naranja que los badges del equipo (coherencia de paleta). */
+          const angosto = window.matchMedia && window.matchMedia("(max-width:720px)").matches;
           rNav.querySelectorAll("[data-riel-go]").forEach((b) => {
             const a = b.getAttribute("data-riel-go") === id;
-            b.style.borderLeftColor = a ? "var(--azul-medio,#2c4a68)" : "transparent";
-            b.style.background = a ? "var(--azul-suave,#dde5ec)" : "none";
-            b.style.color = a ? "var(--azul-medio,#2c4a68)" : "var(--ink-soft,#5d5340)";
-            b.style.setProperty("-webkit-text-fill-color", a ? "var(--azul-medio,#2c4a68)" : "var(--ink-soft,#5d5340)");
+            b.style.borderLeftColor = (!angosto && a) ? "var(--azul-medio,#2c4a68)" : "transparent";
+            b.style.background = a ? (angosto ? "#E87A10" : "var(--azul-suave,#dde5ec)") : "none";
+            b.style.color = a ? (angosto ? "#fff" : "var(--azul-medio,#2c4a68)") : "var(--ink-soft,#5d5340)";
+            b.style.setProperty("-webkit-text-fill-color", a ? (angosto ? "#fff" : "var(--azul-medio,#2c4a68)") : "var(--ink-soft,#5d5340)");
+            if (angosto && a) b.style.borderRadius = "20px";
+            else if (angosto) b.style.borderRadius = "";
           });
         }
         rNav.addEventListener("click", (e) => {
@@ -1619,7 +1672,9 @@ Keep it somewhere safe.`);
               hint(n, t); secciones.push({ id, label: t });
               const b = document.createElement("button"); b.type = "button"; b.setAttribute("data-riel-go", id);
               b.style.cssText = "display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:9px 8px;margin:0;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;";
-              b.textContent = t; rNav.appendChild(b);
+              /* Inyectar icono del mapa ICONS al botón agregado tardíamente (MutationObserver) */
+              const ico2 = ICONS[t] ? `<span aria-hidden="true" style="display:inline-block;width:1.4em;text-align:center;opacity:.75;">${ICONS[t]}</span>` : "";
+              b.innerHTML = ico2 + escHtml(t); rNav.appendChild(b);
             });
           });
         });
@@ -2045,10 +2100,13 @@ Keep it somewhere safe.`);
       const colorEstado = t.estado === "recibida" ? "verde" : t.estado === "rechazada" ? "rojo" : t.estado === "en_transito" ? "azul" : "amarillo";
       let acciones = "";
       if (t.estado === "solicitada") {
-        acciones = `<button data-transf-aprobar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--verde);border-radius:5px;background:transparent;color:var(--verde);cursor:pointer;">Approve</button>
-          <button data-transf-rechazar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Reject</button>`;
+        /* min-height:44px (2026-08-26, UX sweep L4): Apple HIG touch-target mínimo.
+           Estos botones son la acción primaria en mobile; el padding de 6px los
+           dejaba demasiado chicos para dedos. */
+        acciones = `<button data-transf-aprobar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--verde);border-radius:5px;background:transparent;color:var(--verde);cursor:pointer;">Approve</button>
+          <button data-transf-rechazar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Reject</button>`;
       } else if (t.estado === "en_transito") {
-        acciones = `<button data-transf-confirmar="${t.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Confirm receipt</button>`;
+        acciones = `<button data-transf-confirmar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Confirm receipt</button>`;
       }
       return `<div class="tag-card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;flex-wrap:wrap;">
         <div style="flex:1;min-width:180px;">
@@ -2193,7 +2251,7 @@ Keep it somewhere safe.`);
     const necesitaPin = OCSync.requiereReactivar();
     const pend = OCSync.pendientes();
     box.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Device-to-device sync</h3>
+      <h3 class="seccion" style="margin-top:0;">Device sync</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
         For when the same business runs on more than one phone/tablet (e.g. register and stockroom).
         Each device encrypts its own changes with your owner PIN — not even the
