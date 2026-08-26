@@ -2759,6 +2759,9 @@
         const _editandoAdmin = u.rol === "admin";
         if (_editandoAdmin && _callerRolPatch !== "dueno" &&
             (body.nombre !== undefined || body.pin !== undefined || body.activo !== undefined)) {
+          // B-12 (2026-08-26): i18n pendiente — este error solo aparece en DevTools
+          // (la UI ya bloquea el caso antes de llegar aquí), pero mantenerlo en inglés
+          // es inconsistente con el resto. Mensaje neutro cuando se traduzca la capa API.
           return J({ error: "Only the owner can edit an admin's name, PIN or active status." }, 403);
         }
         if (body.nombre !== undefined) u.nombre = String(body.nombre).trim().slice(0, 60) || u.nombre;

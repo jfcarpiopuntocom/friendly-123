@@ -1291,9 +1291,22 @@ Keep it somewhere safe.`);
           };
           return m[t] || t;
         };
-        /* Scroll al resultado (2026-08-26, UX sweep L5): sin esto el usuario
-           tiene que bajar manualmente para ver la tabla recién cargada. */
-        setTimeout(function () { try { logBody.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (_) {} }, 80);
+        /* Scroll al resultado (2026-08-26, UX sweep L5 / B-10 fix): usar el
+           contenedor scroll del riel flex si existe, y caer a scrollIntoView
+           solo si no hay un panel con overflow-y:auto más cercano. */
+        setTimeout(function () {
+          try {
+            // El riel flex pone el contenido en #oc-riel-cont (o similar); buscar
+            // el primer ancestro scrolleable para hacer scrollTop en vez de scrollIntoView.
+            let scrollEl = logBody.parentElement;
+            while (scrollEl && scrollEl !== document.body) {
+              const ov = getComputedStyle(scrollEl).overflowY;
+              if (ov === "auto" || ov === "scroll") { scrollEl.scrollTop = logBody.offsetTop; return; }
+              scrollEl = scrollEl.parentElement;
+            }
+            logBody.scrollIntoView({ behavior: "smooth", block: "start" });
+          } catch (_) {}
+        }, 80);
         logBody.innerHTML = `<div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
@@ -1741,6 +1754,10 @@ Keep it somewhere safe.`);
               /* Inyectar icono del mapa ICONS al botón agregado tardíamente (MutationObserver) */
               const ico2 = ICONS[t] ? `<span aria-hidden="true" style="display:inline-block;width:1.4em;text-align:center;opacity:.75;">${ICONS[t]}</span>` : "";
               b.innerHTML = ico2 + escHtml(t); rNav.appendChild(b);
+              // B-11 (2026-08-26): re-aplicar estado activo después de agregar el
+              // chip; de lo contrario el chip tardío aparece sin resaltar aunque
+              // su sección sea la activa en este momento.
+              try { const cur = localStorage.getItem("f123_riel_tab"); if (cur) activo(cur); } catch (_) {}
             });
           });
         });
