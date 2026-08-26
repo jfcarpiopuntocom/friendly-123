@@ -2730,6 +2730,11 @@
         const _ahoraU = new Date().toISOString();
         const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU };
         usuarios.push(nuevo);
+        // B-07 (2026-08-26): si se demotó silenciosamente, dejar rastro en el log
+        // para que el dueño pueda auditar intentos de escalada de privilegios.
+        if (body.rol === "admin" && rolNuevo === "empleado") {
+          mov("intento-crear-admin-sin-permiso", { nombre, callerRol: _callerRolPost, rolAsignado: "empleado" });
+        }
         mov("usuario-alta", { nombre, rol: rolNuevo });
         avisarEquipoCambiado(); // empuja el equipo al resto del negocio (sync en vivo)
         return J({ id: nuevo.id, nombre: nuevo.nombre, rol: nuevo.rol, email: nuevo.email, activo: nuevo.activo, creadoEn: nuevo.creadoEn });
