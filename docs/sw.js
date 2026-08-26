@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v106"; // bumped 2026-08-26: admin puede cambiar su propio PIN (no otros admins) + feature-gate marcado COMPARTIDO
+const CACHE = "f123-shell-v107"; // bumped 2026-08-26: máscara de join usa el alfabeto EXACTO de licencia (no fabrica licencia falsa con basura)
 const SHELL = [
   "./",
   "./index.html",
