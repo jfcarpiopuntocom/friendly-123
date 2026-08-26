@@ -1259,8 +1259,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
        campo. */
     var PRE = inp.dataset.ocPrefijo || "F123";
     function formatear(raw) {
-      /* Los simbolos de Crockford son parte del codigo: no se filtran. */
-      var v = String(raw || "").toUpperCase().replace(/[^A-Z0-9*~$=]/g, "");
+      /* Alfabeto EXACTO de la licencia: Crockford base32 (0-9 A-Z SIN I,L,O,U)
+         + los simbolos de verificacion. Filtrar al alfabeto real (y no solo
+         [A-Z0-9]) evita que texto que NO es licencia —"pizza con piña"— se
+         disfrace de F123-... : las letras I,L,O,U jamas aparecen en una licencia
+         de verdad, asi que quitarlas es 100% seguro para licencias legitimas y
+         hace obvio que la basura no es un codigo. (JFC 2026-08-26, QA Paco) */
+      var v = String(raw || "").toUpperCase().replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "");
       /* Quita TODAS las repeticiones del prefijo al inicio, no solo una
          (JFC 2026-08-25). Al pegar "F123-..." en un campo que ya mostraba
          "F123-", quedaba "F123F123..." y con un solo strip sobrevivia un
@@ -1273,6 +1278,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         else if (v.indexOf(PRE) === 0) { v = v.slice(PRE.length); cambio = true; }
       }
       v = v.slice(0, 17);
+      /* Sin cuerpo, no se pinta un "F123-" solo colgando (JFC 2026-08-26): un
+         campo vacío o con basura que quedó en nada se muestra vacío, no como si
+         ya hubiera media licencia. El focus vuelve a poner el prefijo guía. */
+      if (!v) return "";
       /* La forma tiene que ser la MISMA que genera generarCodigoSync():
          4-4-4-5, donde el ultimo grupo son 4 del cuerpo + el simbolo de
          verificacion de Crockford. Agrupar de 4 en 4 a secas dejaba el codigo
