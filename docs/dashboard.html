@@ -236,7 +236,7 @@
     </div>
 
     <input id="codigo" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
-           placeholder="F123-XXXX-XXXX-XXXX" aria-label="Your business code">
+           placeholder="F123-XXXX-XXXX-XXXX-XXXXX" aria-label="Your business code">
     <!-- EL PIN NO ES OPCIONAL (JFC, 2026-08-15). El codigo abre la sala; el PIN
          dice quien eres. Un enlace reenviado sin PIN no muestra nada. Se
          verifica en el dispositivo del duenio, no aqui: este lienzo nunca sabe
@@ -1688,7 +1688,7 @@
        el layout, nunca quien puede entrar. */
     if (c.indexOf("F123-") !== 0 || (cuerpo.length !== 12 && cuerpo.length !== 17)) {
       $("msg").style.color = "#A8123A";
-      $("msg").textContent = "Revisa el código: va completo, como F123-XXXX-XXXX-XXXX.";
+      $("msg").textContent = "Revisa el código: va completo, como F123-XXXX-XXXX-XXXX-XXXXX.";
       return;
     }
     var pin = String($("pin").value || "").trim();
@@ -1790,61 +1790,65 @@
   $("codigo").addEventListener("keydown", function (e) { if (e.key === "Enter") $("entrar").click(); });
 
   /* ------------------------------------------------ LOS GUIONES LOS PONE LA APP
-     A nadie se le hace teclear "-" despues de AMG (JFC 2026-08-18). Los guiones
-     y los bloques de cuatro son ADEMAS lo unico que delata la forma de la
-     licencia, y eso es bueno: ayuda a reconocerla en una nota, un chat o una
-     captura de pantalla. Asi que se muestran siempre, y se ponen solos.
-
-     Solo mecanica de formato: no inventa el "AMG" ni cambia lo que la persona
-     escribio, solo mete los guiones en las posiciones 3, 8 y 13 y respeta los
-     simbolos de verificacion de Crockford (* ~ $ =), que son parte del codigo. */
+     MISMA MÁSCARA QUE LA CAJITA DE "JOIN" DEL APP PRINCIPAL (JFC 2026-08-26).
+     Antes esta versión agrupaba 3 + 4-4-4 (herencia de AMG, prefijo de 3), que
+     para una licencia F123- (prefijo de 4, forma 4-4-4-5) partía mal el código y
+     arruinaba el pegado. Se porta TAL CUAL la lógica ya aprobada de auth-ui.js
+     (_ocMascaraCodigo): alfabeto Crockford exacto, pela el prefijo repetido,
+     agrupa 4-4-4-5 (el último grupo lleva 5 = 4 del cuerpo + símbolo de
+     verificación) y el pegado REEMPLAZA el valor entero. Sin inventar nada. */
   (function () {
     var inp = $("codigo");
+    var PRE = "F123";
     inp.setAttribute("autocapitalize", "characters");
     inp.setAttribute("autocorrect", "off");
-    inp.setAttribute("maxlength", "24");
+    inp.setAttribute("spellcheck", "false");
+    inp.setAttribute("maxlength", "25"); // F123- + 4 + 4 + 4 + 5 = 22, con holgura
 
-    /* Alfabeto EXACTO de Crockford base32 (sin I/L/O/U, que se confunden con
-       1/0/V) mas los simbolos de verificacion * ~ $ =. Antes se dejaba pasar
-       I/L/O/U y una licencia pegada quedaba con caracteres que el backend nunca
-       emite. Mismo alfabeto que la cajita de Join del app principal. */
     function formatear(raw) {
       var v = String(raw || "").toUpperCase().replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "");
-      var out = v.slice(0, 3);
-      for (var i = 3; i < v.length; i += 4) out += "-" + v.slice(i, i + 4);
+      // Pela TODAS las repeticiones del prefijo (y "TEAM" de papeles viejos): al
+      // pegar "F123-..." sobre un campo que ya mostraba "F123-", no queda "F123F123".
+      var cambio = true;
+      while (cambio) {
+        cambio = false;
+        if (v.indexOf("TEAM") === 0) { v = v.slice(4); cambio = true; }
+        else if (v.indexOf(PRE) === 0) { v = v.slice(PRE.length); cambio = true; }
+      }
+      v = v.slice(0, 17);
+      if (!v) return "";
+      var out = PRE, i = 0;
+      while (i < v.length) {
+        var corte = (i === 12) ? 5 : 4; // 4-4-4-5, el 4o grupo lleva 5
+        out += "-" + v.slice(i, i + corte);
+        i += corte;
+      }
       return out;
     }
-    /* Se cuentan los caracteres UTILES a la izquierda del cursor y se reponen
-       despues de formatear: sin esto, editar en medio del codigo tira el cursor
-       al final en cada tecla y es imposible corregir un caracter. */
-    function utilesHasta(txt, pos) {
-      return String(txt || "").slice(0, pos).replace(/[^A-Za-z0-9*~$=]/g, "").length;
+    function alEscribir() {
+      var antes = inp.value;
+      var despues = formatear(antes);
+      if (antes !== despues) {
+        inp.value = despues;
+        try { inp.setSelectionRange(despues.length, despues.length); } catch (_) {}
+      }
     }
-    inp.addEventListener("input", function () {
-      var antes = utilesHasta(inp.value, inp.selectionStart == null ? inp.value.length : inp.selectionStart);
-      var nuevo = formatear(inp.value);
-      if (nuevo === inp.value) return;
-      inp.value = nuevo;
-      var pos = 0, vistos = 0;
-      while (pos < nuevo.length && vistos < antes) { if (nuevo[pos] !== "-") vistos++; pos++; }
-      while (pos < nuevo.length && nuevo[pos] === "-") pos++;
-      try { inp.setSelectionRange(pos, pos); } catch (_) {}
-    });
-    /* PEGADO (JFC 2026-08-26 — "la cajita arruina el pasteado"): al pegar una
-       licencia completa el navegador la inserta sin pasar por el mismo camino,
-       y si el campo tenia guiones o restos, el codigo quedaba mezclado. Se toma
-       el texto del portapapeles, se formatea limpio y se REEMPLAZA todo el valor
-       (no se anexa) — comportamiento estandar de un campo de codigo/OTP. */
+    inp.addEventListener("input", alEscribir);
     inp.addEventListener("paste", function (e) {
       try {
         var cb = (e.clipboardData || window.clipboardData);
-        if (!cb) return;
-        var texto = cb.getData("text");
-        if (texto == null) return;
+        if (!cb) { setTimeout(alEscribir, 0); return; }
         e.preventDefault();
-        inp.value = formatear(texto);
+        var pegado = cb.getData("text");
+        inp.value = formatear(pegado);
         try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {}
-      } catch (_) {}
+      } catch (_) { setTimeout(alEscribir, 0); }
+    });
+    inp.addEventListener("focus", function () {
+      if (!inp.value) { inp.value = PRE + "-"; try { inp.setSelectionRange(PRE.length + 1, PRE.length + 1); } catch (_) {} }
+    });
+    inp.addEventListener("blur", function () {
+      if (inp.value === PRE + "-" || inp.value === PRE) inp.value = "";
     });
   })();
 
