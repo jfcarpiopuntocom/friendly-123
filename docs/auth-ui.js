@@ -521,14 +521,39 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     try {
       const el = document.getElementById("oc-gate-negocio");
       if (!el) return;
+      const _esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      const _pintar = (texto) => {
+        el.innerHTML = '<span style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft,#5d5340);">'
+          + _esc(window.t("auth.gate.enteringBiz")) + '</span><br><strong style="font-family:var(--font-display,serif);font-size:18px;">'
+          + _esc(texto) + '</strong>';
+        el.style.display = "block";
+      };
+      /* RAMA TIENDA UNIDA (multi-tienda, JFC 2026-08-26). CRÍTICO: rotular la
+         tienda ACTIVA, no la propia. Antes esta función leía SIEMPRE
+         f123_owned.nombreNegocio (la tienda propia), así que al entrar a la
+         tienda de otro equipo la pantalla seguía diciendo el nombre de la
+         tienda propia — el bug exacto que reportó JFC ("sigue diciendo entering
+         James Bond Store"). Ahora, si la tienda activa es una UNIDA, se muestra
+         su nombre namespaceado; y si todavía no sincronizó (sin nombre), la cola
+         de la licencia, para que igual sepas a qué equipo entras.
+         El camino de la tienda PROPIA (abajo) queda idéntico a antes: cero
+         cambio para el cliente en producción. */
+      const T = window.OCTienda;
+      if (T && T.esUnida && T.esUnida()) {
+        let nom = (T.nombreActivo && T.nombreActivo().trim()) || "";
+        if (!nom) {
+          const lic = (T.licenciaActual && T.licenciaActual()) || "";
+          nom = lic ? ("Team · …" + String(lic).slice(-6)) : "";
+        }
+        if (!nom) { el.style.display = "none"; return; }
+        _pintar(nom);
+        return;
+      }
+      // RAMA TIENDA PROPIA — idéntica a antes.
       const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       const nombre = (owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "";
       if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
-      const _esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-      el.innerHTML = '<span style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft,#5d5340);">'
-        + _esc(window.t("auth.gate.enteringBiz")) + '</span><br><strong style="font-family:var(--font-display,serif);font-size:18px;">'
-        + _esc(nombre) + '</strong>';
-      el.style.display = "block";
+      _pintar(nombre);
     } catch (_) { try { const el = document.getElementById("oc-gate-negocio"); if (el) el.style.display = "none"; } catch (__) {} }
   }
   pintarNegocioGate();
