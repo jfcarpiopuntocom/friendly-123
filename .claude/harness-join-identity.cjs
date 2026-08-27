@@ -6,7 +6,12 @@
        (adopta licenseCode) → el panel lo cuenta, no forja una licencia aparte;
      - el LORD (super-admin) NO adopta la licencia ajena y REGISTRA el acceso
        (auditoría), quedando como invitado/observador. */
-const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+/* Playwright portable: primero el node_modules local del repo (Windows/macOS),
+   luego el path Linux del contenedor original. */
+const path = require("path");
+let chromium;
+try { ({ chromium } = require(path.join(__dirname, "..", "node_modules", "playwright"))); }
+catch (_) { ({ chromium } = require("/opt/node22/lib/node_modules/playwright")); }
 const BASE = "http://localhost:8127/index.html";
 const OWN = "F123-JMES-BOND-0007-XXXXX";
 const IDIOMARTE = "F123-K7M2-9QRT-4XVB-P3W1D";

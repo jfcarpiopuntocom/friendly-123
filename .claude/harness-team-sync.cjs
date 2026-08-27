@@ -10,7 +10,12 @@
    bugs. El relay no se toca: el "cable" entre aparatos lo simula el arnés pasando
    catalogoPropio() de uno a aplicarCatalogo() del otro, que es exactamente lo que
    el relay reenvía cifrado. Nada de probar funciones sueltas: esto es el camino real. */
-const { chromium } = require("/opt/node22/lib/node_modules/playwright");
+/* Playwright portable: primero el node_modules local del repo (Windows/macOS),
+   luego el path Linux del contenedor original. */
+const path = require("path");
+let chromium;
+try { ({ chromium } = require(path.join(__dirname, "..", "node_modules", "playwright"))); }
+catch (_) { ({ chromium } = require("/opt/node22/lib/node_modules/playwright")); }
 const BASE = "http://localhost:8127/index.html";
 
 let fallos = [];
