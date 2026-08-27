@@ -829,6 +829,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       +     '<p style="font-weight:700;">' + window.t("auth.act.dataPromise") + '</p>'
       +     '<label class="op"><input type="radio" name="oc-act-datos" value="vaciar" checked><strong>' + window.t("auth.act.startEmptyTitle") + '</strong><span>' + window.t("auth.act.startEmptyDesc") + '</span></label>'
       +     '<label class="op"><input type="radio" name="oc-act-datos" value="conservar"><strong>' + window.t("auth.act.keepTitle") + '</strong><span>' + window.t("auth.act.keepDesc") + '</span></label>'
+      /* NOMBRE COMPLETO (JFC 2026-08-27). Se pide en la activación para saber
+         QUIÉN es el dueño de cada licencia en el panel — hasta ahora solo había
+         correo y WhatsApp, y la columna Nombre salía vacía. Va primero porque es
+         lo más natural de responder. */
+      +     '<label class="lbl" for="oc-act-nombre">Your full name</label>'
+      +     '<input id="oc-act-nombre" type="text" autocomplete="name" placeholder="First and last name">'
       +     '<label class="lbl" for="oc-act-email">' + window.t("auth.act.emailLabel") + '</label>'
       +     '<input id="oc-act-email" type="email" inputmode="email" autocomplete="email" placeholder="' + window.t("auth.act.emailPlaceholder") + '">'
       /* TELEFONO OBLIGATORIO (JFC 2026-08-19, regla para TODAS sus apps).
@@ -865,6 +871,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     wrap.querySelector("#oc-act-cancelar").addEventListener("click", function () { wrap.style.display = "none"; });
 
     wrap.querySelector("#oc-act-confirmar").addEventListener("click", async function () {
+      var nombreIn = wrap.querySelector("#oc-act-nombre");
+      var nombreCompleto = (nombreIn && nombreIn.value || "").trim().slice(0, 120);
+      if (nombreCompleto.length < 2) { setMsg("Please enter your full name."); if (nombreIn) nombreIn.focus(); return; }
       var email = (emailIn.value || "").trim();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setMsg(window.t("auth.act.invalidEmail")); emailIn.focus(); return; }
       var telIn = wrap.querySelector("#oc-act-tel");
@@ -922,7 +931,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          el futuro sin tocar la licencia. */
       var licenseCode = syncCode;
       try { window.OCSecure.actualizarWhatsapp && window.OCSecure.actualizarWhatsapp(telDigitos); } catch (_) {}
-      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, email: email, whatsapp: telDigitos, activatedAt: Date.now(), syncCode: syncCode, licenseCode: licenseCode })); } catch (_) {}
+      try { localStorage.setItem("f123_owned", JSON.stringify({ instanceId: idInstancia, nombre: nombreCompleto, email: email, whatsapp: telDigitos, activatedAt: Date.now(), syncCode: syncCode, licenseCode: licenseCode })); } catch (_) {}
       // NO marcar f123_bienvenida_v3 aqui — el wizard debe mostrarse de verdad
       // tras el primer login post-activacion (ver welcome-ui.js). Bug anterior:
       // se marcaba "vista" en este punto sin que el usuario la viera nunca.
@@ -934,7 +943,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try { if (window.OCStorageDurable) window.OCStorageDurable.verificarYSolicitar(); } catch (_) {}
       // Ping: record new activation in license panel
       var ow2 = {}; try { ow2 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
-      enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, whatsapp: telDigitos, activatedAt: ow2.activatedAt, nombreNegocio: ow2.nombreNegocio || "", accion: "register" });
+      enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, whatsapp: telDigitos, nombre: nombreCompleto, activatedAt: ow2.activatedAt, nombreNegocio: ow2.nombreNegocio || "", accion: "register" });
       var seguro = email.replace(/[&<>"']/g, "");
       wrap.querySelector("#oc-act-exito-txt").innerHTML =
         "Your owner PIN is <strong>789</strong> — change it anytime in Advanced &rarr; Keys. " +
@@ -1058,7 +1067,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
                esta rama no vuelve a correr. */
             try { setTimeout(function () { mostrarAvisoLicencia(ow3.licenseCode, true); }, 900); } catch (_) {}
           }
-          if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", whatsapp: ow3.whatsapp || "", nombreNegocio: ow3.nombreNegocio || "", accion: "login" });
+          if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", whatsapp: ow3.whatsapp || "", nombre: ow3.nombre || "", nombreNegocio: ow3.nombreNegocio || "", accion: "login" });
         } catch (_) {}
             window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol, demo: esDemo } }));
     // El rol contador aterriza directo en su vista propia (creada al vuelo

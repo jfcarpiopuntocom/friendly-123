@@ -605,11 +605,23 @@
         const cnt = async (u) => { try { const r = await fetch(u); const a = await r.json(); return Array.isArray(a) ? a.length : "?"; } catch (_) { return "err"; } };
         const [nProd, nUbic, nCli, nUsu] = await Promise.all([cnt("/api/productos?todas=1"), cnt("/api/ubicaciones?todas=1"), cnt("/api/clientes"), cnt("/api/usuarios")]);
         const ultAcceso = accesos.length ? accesos[accesos.length - 1] : null;
+        const _sala = (S.salaActiva && S.salaActiva()) || "";
+        const _lic = owned.licenseCode || "";
+        const _syncCode = owned.syncCode || "";
+        // Los tres deberían ser el MISMO código. Si divergen, el estado quedó
+        // enredado (típico tras probar/cambiar de tienda) y la UI muestra cosas
+        // incoherentes — se marca aquí para que se vea el porqué (JFC 2026-08-27).
+        const _norm = (x) => String(x || "").toUpperCase().replace(/\s+/g, "");
+        const _presentes = [_lic, _syncCode, _sala].filter(Boolean).map(_norm);
+        const _coherente = _presentes.length <= 1 || _presentes.every((x) => x === _presentes[0]);
         const lineas = [
           "Role of this device: " + (esLord ? "LORD (super-admin) — joins are GUEST / under observation, license not adopted" : "normal — joining a license makes this a device of that business"),
           "Connection:   " + (S.estado ? S.estado() : "?") + "   (peers online: " + (S.presencia ? S.presencia() : "?") + ")",
-          "Sync room:    " + ((S.salaActiva && S.salaActiva()) || "(off)"),
-          "This device's own license: " + (owned.licenseCode || "(none)"),
+          "Sync room (where data actually syncs): " + (_sala || "(off)"),
+          "This device's own license (identity):  " + (_lic || "(none)"),
+          "Share-box code (syncCode):             " + (_syncCode || "(none)"),
+          (_coherente ? "→ COHERENT: identity, share code and sync room match." :
+            "→ ⚠ MISMATCH: these three should be the SAME code but they differ. This device's identity/sync got split (usually from testing or switching stores). It's why the screen shows two different licenses. Fix: on your REAL store's device, use 'Resync', or re-enter your true license once so all three line up."),
           "Business name (this device): " + (owned.nombreNegocio || "(none)"),
           "Active store:  " + (T.esUnida && T.esUnida() ? ("JOINED  " + ((T.licenciaActual && T.licenciaActual()) || "?")) : "OWN (\"\")") ,
           "Store marker:  " + marcador,
