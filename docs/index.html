@@ -2347,7 +2347,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
   function opcionesFiltro() {
     const prods = new Map(), evts = new Map();
     for (const v of _ventas) {
-      if (v.productoNombre) prods.set(v.productoId || v.productoNombre, v.productoNombre);
+      if (v.productoNombre) prods.set(v.productoId, v.productoNombre);
       if (v.eventoNombre) evts.set(v.eventoNombre, v.eventoNombre);
     }
     const opts = [{ k: "__all__", label: t("sold.showCustomersAll") }];
@@ -2364,7 +2364,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
     for (const v of _ventas) {
       if (!v.clienteNombre) continue;
       if (sel !== "__all__") {
-        if (sel.indexOf("p:") === 0 && v.productoId !== sel.slice(2) && v.productoNombre !== sel.slice(2)) continue;
+        if (sel.indexOf("p:") === 0 && v.productoId !== sel.slice(2)) continue;
         if (sel.indexOf("e:") === 0 && v.eventoNombre !== sel.slice(2)) continue;
       }
       const k = v.clienteNombre;
@@ -2406,7 +2406,11 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
   function pintarTitulo() {
     const sel = filtro.value;
     if (sel === "__all__") tituloEl.textContent = t("sold.showCustomersTitle");
-    else if (sel.indexOf("p:") === 0) tituloEl.textContent = t("sold.showCustomersForProduct").replace("{name}", sel.slice(2));
+    else if (sel.indexOf("p:") === 0) {
+      const pid = sel.slice(2);
+      const v = _ventas.find((x) => x.productoId === pid);
+      tituloEl.textContent = t("sold.showCustomersForProduct").replace("{name}", (v && v.productoNombre) || pid);
+    }
     else if (sel.indexOf("e:") === 0) tituloEl.textContent = t("sold.showCustomersForEvent").replace("{name}", sel.slice(2));
   }
 
@@ -4430,6 +4434,19 @@ async function mostrarFormEditarProducto(id){
       </div>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
         <input id="ed-categoria" type="text" value="${q(p.categoria)}" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
+        <select id="ed-tipo-producto" ${inp}>
+          <option value="normal"${p.tipoProducto !== "ticket" && p.tipoProducto !== "bar" ? " selected" : ""}>Normal</option>
+          <option value="ticket"${p.tipoProducto === "ticket" ? " selected" : ""}>Ticket / Event</option>
+          <option value="bar"${p.tipoProducto === "bar" ? " selected" : ""}>Bar (count by serving)</option>
+        </select></label>
+      <div id="ed-bar-wrap" style="margin-top:10px;display:${p.tipoProducto === "bar" ? "block" : "none"};">
+        <div style="display:flex;gap:10px;">
+          <label style="flex:1;font-size:14px;">Serving size (ml)<br><input id="ed-serving-ml" type="number" min="1" step="1" value="${p.servingMl || 50}" ${inp}></label>
+          <label style="flex:1;font-size:14px;">Bottle size (ml)<br><input id="ed-botella-ml" type="number" min="1" step="1" value="${p.botellaMl || 750}" ${inp}></label>
+        </div>
+        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">Stock is counted in servings. 1 bottle (750 ml) ≈ 15 servings at 50 ml.</p>
+      </div>
       <label style="display:block;margin-top:14px;font-size:14px;color:var(--rust,#E86040);font-weight:700;">${t("form.internalCode")}<br>
         <input id="ed-barcode" type="text" value="${q(p.barcode)}" ${inp}></label>
       <div id="ed-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
@@ -4438,6 +4455,11 @@ async function mostrarFormEditarProducto(id){
         <button onclick="abrirFichaDesdeInventario('${p.id}')">${t("motivo.cancel")}</button>
       </div>
     </div>`;
+  const _edTipo = document.getElementById("ed-tipo-producto");
+  if (_edTipo) _edTipo.addEventListener("change", (e) => {
+    const w = document.getElementById("ed-bar-wrap");
+    if (w) w.style.display = e.target.value === "bar" ? "block" : "none";
+  });
   try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("ed-categoria")); } catch (_) {}
   document.getElementById("ed-tipo-proveedor").addEventListener("change", (e) => {
     document.getElementById("ed-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
@@ -4471,7 +4493,7 @@ async function guardarEdicionProducto(id){
   // campo no existe en el DOM, se OMITE del PATCH en vez de reventar todo.
   const v = (x) => { const el = document.getElementById(x); return el ? el.value.trim() : undefined; };
   // OJO: el SKU no se toca aqui — solo el barcode si el dueno lo digito.
-  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct") };
+  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml") };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   const foto = await leerFotoRedimensionada(document.getElementById("ed-foto"));
   if (foto) body.foto = foto;
@@ -4643,7 +4665,7 @@ function pintarFicha(p){
       <div class="linea"><strong>${t("ficha.code")}</strong> ${escHtml(p.barcode)}</div>
       <div class="linea"><strong>${t("ficha.supplier")}</strong> ${escHtml(p.proveedor)}</div>
       <div class="linea"><strong>${t("ficha.currentStock")}</strong> ${p.stockActual} ${t("ficha.units")}</div>
-      ${p.tipoProducto === "bar" ? `<div class="linea"><strong>Servings per bottle:</strong> ≈ ${Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50)))} (${escHtml(p.servingMl)} ml each)</div>` : ""}
+      ${p.tipoProducto === "bar" ? `<div class="linea" id="bar-servings-line"><strong>Servings per bottle:</strong> ≈ ${Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50)))} (${escHtml(p.servingMl)} ml each)${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<button onclick="editarServings('${p.id}')" title="Adjust servings per bottle" style="font-size:12px;padding:2px 8px;margin-left:6px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}</div>` : ""}
       ${p.perecible ? `<div class="linea"><strong>${t("ficha.expires")}</strong> ${escHtml(p.fechaCaducidad || t("ficha.noDate"))}${p.metodoCosteo ? ` · ${escHtml(p.metodoCosteo)}` : ""}</div>` : ""}
       <span class="badge-estado ${escHtml(p.estado)}">${escHtml(p.mensaje)}</span>
       <div class="acciones-rapidas">
@@ -5282,7 +5304,7 @@ async function cargarGastos(){
       </div>
       <strong style="color:#C0392B;font-size:16px;">-${fmtMoney(g.monto)}</strong>
       ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" style="font-size:13px;padding:3px 8px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}
-      <button onclick="anularGasto('${g.id}')" title="Delete this expense" style="font-size:13px;padding:3px 8px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">✕</button>
+      ${_puedeEditarGasto ? `<button onclick="anularGasto('${g.id}')" title="Delete this expense" style="font-size:13px;padding:3px 8px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">✕</button>` : ""}
     </div>`).join("");
 }
 async function registrarGasto(){
@@ -5304,6 +5326,39 @@ async function anularGasto(id){
   if (!(await ocConfirm("Delete this expense? It stays in the activity log."))) return;
   await fetch(`${API}/gastos/${id}`, { method: "DELETE" });
   cargarGastos();
+}
+/* Edición inline de servings por botella (JFC 2026-08-27): cada negocio define
+   su propia medida de trago. El lapicito de la ficha de un producto bar convierte
+   la línea en inputs de servingMl/botellaMl con Guardar/Cancelar. Solo dueño/admin
+   (el encargado no ve el botón: el gating de rol está en el render de la ficha). */
+async function editarServings(id){
+  const fila = document.getElementById("bar-servings-line");
+  if (!fila) return;
+  let p;
+  try { p = await (await fetch(`${API}/productos/${id}`)).json(); } catch (_) {}
+  if (!p || !p.id) return;
+  const serv = Number(p.servingMl) || 50, bot = Number(p.botellaMl) || 750;
+  fila.innerHTML = `
+    <strong>Servings per bottle:</strong>
+    <span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <input id="bs-serving" type="number" min="1" step="1" value="${serv}" title="Serving size (ml)" style="width:70px;font-size:13px;padding:4px 6px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <span style="font-size:12px;color:var(--ink-soft);">ml each</span>
+      <input id="bs-botella" type="number" min="1" step="1" value="${bot}" title="Bottle size (ml)" style="width:70px;font-size:13px;padding:4px 6px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <span style="font-size:12px;color:var(--ink-soft);">ml bottle</span>
+      <button id="bs-guardar" style="font-size:12px;font-weight:700;padding:4px 10px;background:#006B3C;border:1.5px solid #006B3C;border-radius:6px;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">Save</button>
+      <button id="bs-cancelar" style="font-size:12px;padding:4px 10px;background:#fff;border:1.5px solid var(--linea,#D7E0E8);border-radius:6px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;cursor:pointer;">Cancel</button>
+    </span>`;
+  document.getElementById("bs-cancelar").addEventListener("click", () => pintarFicha(p));
+  document.getElementById("bs-guardar").addEventListener("click", async () => {
+    const servingMl = Math.max(1, Number(document.getElementById("bs-serving").value) || 50);
+    const botellaMl = Math.max(1, Number(document.getElementById("bs-botella").value) || 750);
+    try {
+      const res = await fetch(`${API}/productos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ servingMl, botellaMl }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Could not save."); return; }
+      pintarFicha(data);
+    } catch (_) { alert("Could not reach the server. Check your connection and try again."); }
+  });
 }
 /* Edición inline de un gasto (JFC 2026-08-27): el lapicito convierte la fila en
    inputs de concepto/monto/fecha con Guardar/Cancelar. Solo dueño/admin/contador

@@ -2223,6 +2223,7 @@
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
       if (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
+      if (k === "servingMl" || k === "botellaMl") { p[k] = Math.max(1, Number(body[k]) || (k === "servingMl" ? 50 : 750)); return; }
       if (k === "chip") { p[k] = String(body[k] || "").trim().slice(0, 12); return; }
       if (k === "perecible") { p[k] = !!body[k]; return; }
       p[k] = body[k];
@@ -2662,9 +2663,11 @@
         guardarEstadoLocal();
         return J(g);
       }
-      // DELETE /api/gastos/:id — anula un gasto (solo dueño). Deja constancia.
+      // DELETE /api/gastos/:id — anula un gasto (solo dueño/admin/contador). Deja constancia.
       const mGastoDel = path.match(/^\/api\/gastos\/([^/]+)$/);
       if (mGastoDel && opts && opts.method === "DELETE") {
+        const _rDel = _rolLocal();
+        if (_rDel !== "dueno" && _rDel !== "admin" && _rDel !== "contador") return J({ error: "Only the owner, an admin or the bookkeeper can delete expenses." }, 403);
         const idx = gastos.findIndex((x) => x.id === mGastoDel[1]);
         if (idx < 0) return J({ error: "Expense not found." }, 404);
         const [g] = gastos.splice(idx, 1);
@@ -2674,6 +2677,8 @@
       }
       // PATCH /api/gastos/:id — edita concepto/monto/fecha de un gasto (JFC 2026-08-27).
       if (mGastoDel && opts && opts.method === "PATCH") {
+        const _rPat = _rolLocal();
+        if (_rPat !== "dueno" && _rPat !== "admin" && _rPat !== "contador") return J({ error: "Only the owner, an admin or the bookkeeper can edit expenses." }, 403);
         const g = gastos.find((x) => x.id === mGastoDel[1]);
         if (!g) return J({ error: "Expense not found." }, 404);
         if (body.concepto !== undefined) {
@@ -2871,6 +2876,7 @@
         const pr = u && u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
         return {
           id: v.id, fecha: v.fecha,
+          productoId: v.productoId,
           productoNombre: p ? p.nombre : "(deleted product)",
           sku: p ? p.sku : "", categoria: p ? p.categoria : "",
           cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit || 0,
