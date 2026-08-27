@@ -834,19 +834,45 @@ function licRenderTabla(data) {
     grupos[idx[cod]].filas.push(r);
   });
 
+  /* QUIÉN ENCABEZA LA FILA (JFC 2026-08-27: "sigue sin salir Sarah"). El teléfono
+     de pruebas de JFC (jfcarpio@gmail.com) adoptó la licencia K7M2 de idiomARTE y,
+     por checar más reciente, encabezaba la fila con el correo de JFC — el cliente
+     quedaba plegado e invisible. En ESTE panel maestro, un aparato con el correo
+     del propio JFC es SUYO, no del cliente: se manda al fondo del grupo para que
+     encabece el CLIENTE. No cambia ningún dato; es solo orden de presentación.
+     (De aquí en adelante el modo lord evita que el aparato de pruebas adopte la
+     licencia del cliente; esto ordena lo que ya quedó mezclado.) */
+  const MI_CORREO = "jfcarpio@gmail.com";
+  const esMio = (r) => String(r && r.email || "").trim().toLowerCase() === MI_CORREO;
+  grupos.forEach(g => {
+    if (g.filas.length > 1) {
+      const cliente = g.filas.filter(x => !esMio(x));
+      const mios = g.filas.filter(x => esMio(x));
+      if (cliente.length) g.filas = cliente.concat(mios); // el cliente encabeza
+    }
+  });
+
   grupos.forEach(g => {
     const r = g.filas[0];
     const est = r.estado || "minima";
     const id = licEsc(r.instanceId);
     const waHref = licWaHref(r.whatsapp);
     const n = g.filas.length;
+    /* CONTADOR DE DEVICES (JFC 2026-08-27: "es un counter de cuántos devices/PINs
+       activos tiene la licencia, realmente"). Se cuentan por separado los del
+       CLIENTE y los TUYOS de pruebas, para que el número refleje los aparatos
+       reales del negocio y no se infle con tu teléfono. El botón sigue abriendo el
+       detalle por si quieres ver cada aparato. */
+    const nCliente = g.filas.filter(x => !esMio(x)).length;
+    const nMios = n - nCliente;
+    const etiquetaDisp = nCliente + " device" + (nCliente === 1 ? "" : "s") + (nMios > 0 ? ` · +${nMios} tuyo${nMios === 1 ? "" : "s"}` : "");
     const tr = document.createElement("tr");
     tr.innerHTML =
       `<td><span class="lic-badge ${licEsc(licNormEstado(est))}">${licEsc(licNormEstado(est))}</span></td>` +
       `<td class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}` +
-      (n > 1 ? `<br><button onclick="licToggleDisp('${id}')" style="margin-top:4px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-size:13px;cursor:pointer;">${n} devices</button>` : "") + `</td>` +
+      (n > 1 ? `<br><button onclick="licToggleDisp('${id}')" title="Ver cada aparato con esta licencia" style="margin-top:4px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-size:13px;cursor:pointer;">${etiquetaDisp}</button>` : "") + `</td>` +
       `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || "—")}</td>` +
-      `<td style="font-size:13px;">${licEsc(r.email || "—")}</td>` +
+      `<td style="font-size:13px;">${licEsc(r.email || "—")}${esMio(r) ? ` <span style="font-size:11px;color:#F97316;">(tu aparato)</span>` : ""}</td>` +
       `<td style="font-size:13px;">${waHref ? `<a href="${waHref}" target="_blank" style="color:#25D366;">${licEsc(r.whatsapp)}</a>` : "—"}</td>` +
       `<td style="font-size:13px;">${licEsc(r.cedula || "—")}</td>` +
       `<td class="date">${licFmtDate(r.activatedAt)}</td>` +
@@ -868,9 +894,18 @@ function licRenderTabla(data) {
       trh.className = "lic-disp lic-disp-" + id;
       trh.style.display = "none";
       trh.style.background = "rgba(255,255,255,.03)";
+      // Se muestra la MISMA identidad que la fila principal (correo, nombre,
+      // WhatsApp) — no un instanceId críptico (JFC 2026-08-27: "sigue sin salir
+      // Sarah"). idiomARTE compartía la licencia K7M2 con el teléfono de pruebas
+      // de JFC; plegada solo salía el id y parecía que el cliente no estaba.
+      const hWa = licWaHref(h.whatsapp);
       trh.innerHTML =
-        `<td></td><td class="mono" style="font-size:13px;color:#CCCCCC;">same business, another device</td>` +
-        `<td colspan="4" style="font-size:13px;color:#CCCCCC;">${licEsc(h.instanceId)}</td>` +
+        `<td style="font-size:12px;color:#8a94a6;">↳ device</td>` +
+        `<td class="mono" style="font-size:12px;color:#8a94a6;">${licEsc(h.licenseCode || "—")}</td>` +
+        `<td>${licEsc(((h.nombre || "") + " " + (h.apellido || "")).trim() || "—")}</td>` +
+        `<td style="font-size:13px;">${licEsc(h.email || "—")}${esMio(h) ? ` <span style="font-size:11px;color:#F97316;">(tu aparato)</span>` : ""}</td>` +
+        `<td style="font-size:13px;">${hWa ? `<a href="${hWa}" target="_blank" style="color:#25D366;">${licEsc(h.whatsapp)}</a>` : "—"}</td>` +
+        `<td style="font-size:13px;">${licEsc(h.cedula || "—")}</td>` +
         `<td class="date">${licFmtDate(h.activatedAt)}</td><td class="date">${licFmtDate(h.lastSeen)}</td>` +
         `<td><button class="btn-ok" onclick="licBorrar('${hid}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);">Delete</button></td>`;
       tb.appendChild(trh);
