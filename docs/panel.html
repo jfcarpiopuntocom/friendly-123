@@ -878,12 +878,42 @@ function licToggleDisp(id) {
 
 // Delete archives the record in the Worker first (key borrado:<id>), so it is
 // recoverable. It still asks: this panel is one click away from everything.
+//
+// GUARD ANTI-BORRÓN DE CLIENTE (JFC 2026-08-26 — "ya no sale la licencia de
+// Sarah en el panel"). Borrar una fila de "pruebas" nunca puede llevarse por
+// delante a un cliente real. Por eso, si el registro tiene una licencia de
+// verdad, para confirmar hay que TECLEAR LA LICENCIA COMPLETA (no un "DELETE"
+// genérico que se teclea en piloto automático), y si es el ÚLTIMO dispositivo de
+// esa licencia se avisa en grande: borrarlo saca al negocio del panel.
 async function licBorrar(instanceId) {
   const url = licWorkerUrl();
   if (!url) { mostrarConfirmacion("Set the Worker URL first"); return; }
-  if (!confirm("Delete this record from the list?\n\nIt is archived in the Worker before being deleted, so it can be recovered. To cut someone's service off use Blocked, not this.")) return;
-  const _conf = prompt("This is IRREVERSIBLE from this panel (though it stays archived in the Worker).\n\nType DELETE in capitals to confirm:");
-  if (_conf !== "DELETE") { if (_conf !== null) alert("You did not type DELETE exactly. Cancelled, nothing was deleted."); return; }
+  // Buscar el registro y su licencia; contar cuántos DEVICES comparten esa licencia.
+  const reg = (Array.isArray(_licData) ? _licData : []).find(r => String(r.instanceId) === String(instanceId)) || {};
+  const licencia = String(reg.licenseCode || "").trim();
+  const mismaLic = licencia
+    ? (Array.isArray(_licData) ? _licData : []).filter(r => String(r.licenseCode || "").trim().toUpperCase() === licencia.toUpperCase())
+    : [reg];
+  const esUltimo = licencia && mismaLic.length <= 1;
+  if (licencia) {
+    // Registro CON licencia real: confirmación fuerte tecleando la licencia entera.
+    let aviso = "You are about to delete a device of license:\n\n    " + licencia + "\n\n";
+    aviso += esUltimo
+      ? "⚠️ THIS IS THE LAST DEVICE OF THIS LICENSE. Deleting it removes this business from the panel entirely. To cut off service use Blocked, never Delete.\n\n"
+      : ("This license has " + mismaLic.length + " devices; this removes ONLY this one device, not the license.\n\n");
+    aviso += "It stays archived in the Worker (recoverable), but to confirm, type the FULL license exactly as shown above:";
+    const _conf = prompt(aviso);
+    if (_conf === null) return; // cancelado
+    if (_conf.trim().toUpperCase() !== licencia.toUpperCase()) {
+      alert("What you typed does not match the license. Cancelled, nothing was deleted.");
+      return;
+    }
+  } else {
+    // Registro SIN licencia (demo suelta): confirmación estándar.
+    if (!confirm("Delete this record from the list?\n\nIt is archived in the Worker before being deleted, so it can be recovered. To cut someone's service off use Blocked, not this.")) return;
+    const _conf = prompt("This is IRREVERSIBLE from this panel (though it stays archived in the Worker).\n\nType DELETE in capitals to confirm:");
+    if (_conf !== "DELETE") { if (_conf !== null) alert("You did not type DELETE exactly. Cancelled, nothing was deleted."); return; }
+  }
   try {
     const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId),
       { method: "DELETE", headers: { "X-Master-Key": licMasterKey() } });
