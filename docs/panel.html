@@ -760,6 +760,12 @@ function licGuardarConfig() {
   licRecargar();
 }
 let _licData = [];
+/* Índice de TODOS los dispositivos (principales + hermanos plegados). Los
+   hermanos (g.filas.slice(1)) tienen todos los campos pero NO están en
+   _licData (que solo guarda una fila por licencia). Sin esto, el botón
+   Re-enganchar de una fila plegada no encontraba el registro y mostraba
+   "Dispositivo: <id>" sin info. (JFC 2026-08-27, refuerzo P2.) */
+let _licTodos = [];
 async function licRecargar() {
   const url = licWorkerUrl();
   const meta = document.getElementById("lic-meta");
@@ -861,6 +867,8 @@ function licRenderTabla(data) {
      licencia del cliente; esto ordena lo que ya quedó mezclado.) */
   const MI_CORREO = "jfcarpio@gmail.com";
   const esMio = (r) => String(r && r.email || "").trim().toLowerCase() === MI_CORREO;
+  _licTodos = [];
+  grupos.forEach(g => { g.filas.forEach(f => _licTodos.push(f)); });
   grupos.forEach(g => {
     if (g.filas.length > 1) {
       const cliente = g.filas.filter(x => !esMio(x));
@@ -949,7 +957,7 @@ async function licReenganchar(instanceId) {
   const url = licWorkerUrl();
   const key = licMasterKey();
   if (!url || !key) { alert("Configura primero la URL del Worker y la Master Key."); return; }
-  const reg = (Array.isArray(_licData) ? _licData : []).find(r => r.instanceId === instanceId);
+  const reg = (Array.isArray(_licTodos) ? _licTodos : []).find(r => String(r.instanceId) === String(instanceId));
   const actual = reg ? String(reg.licenseCode || "").trim() : "";
   const nueva = prompt(
     "Re-enganchar esta oveja perdida.\n\nDispositivo: " + (reg ? (reg.nombreNegocio || reg.nombre || reg.instanceId) : instanceId) +
@@ -969,7 +977,7 @@ async function licReenganchar(instanceId) {
     });
     const r = await res.json();
     if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
-    alert("Re-enganchado. Ahora en el dispositivo entra esa licencia por Avanzado → claim & merge para unir sus datos.");
+    alert("Re-enganchado. Ahora en el dispositivo entra esa licencia por Avanzado → Sync your team (o 'Unirme con el código de mi negocio') para que la adopte y se una a sus hermanos.");
     licRecargar();
   } catch (e) { alert("Fallo de red: " + (e && e.message)); }
 }

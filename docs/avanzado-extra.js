@@ -798,7 +798,10 @@
         const r = window.OCSyncControl.activar(codigo);
         const msg = document.getElementById("oc-sync-msg");
         if (!r.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error; return; }
-        msg.textContent = "";
+        /* AVISO, NO BLOQUEO (JFC 2026-08-27, refuerzo P1): si la licencia es
+           corta o no pasa el checksum, se acepta igual pero se informa. */
+        if (r.warning) { msg.style.color = "var(--gold,#9c7a35)"; msg.textContent = r.warning; }
+        else msg.textContent = "";
         document.getElementById("oc-sync-apagado").style.display = "none";
         document.getElementById("oc-sync-activo").style.display = "block";
         document.getElementById("oc-sync-codigo-actual").textContent = (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(codigo.trim()) : codigo.trim());

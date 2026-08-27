@@ -922,6 +922,12 @@
   function normalizarCodigo(codigo) {
     var v = String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
     if (v.indexOf("TEAM-") === 0) v = "F123-" + v.slice(5);
+    /* Sustituciones Crockford (JFC 2026-08-27, refuerzo P0). I/L→1, O→0, igual
+       que _ocNormalizar() en auth-ui.js y que la máscara formatear(). Antes NO
+       se hacían aquí: el mismo código tecleado con "I"/"O" (copiado de un papel
+       o captura) caía en una sala DISTINTA a la de quien lo tecleó bien, y la
+       desincronización era silenciosa. Ahora ambos caminos normalizan igual. */
+    v = v.replace(/[IL]/g, "1").replace(/O/g, "0");
     return v;
   }
   /* SE ACABO EL CODIGO "TEAM-" (JFC 2026-08-21).
@@ -1082,6 +1088,15 @@
       if (!_prefijoOk || (_cuerpo.length !== 8 && _cuerpo.length !== 12 && _cuerpo.length !== 17)) {
         return { ok: false, error: "Invalid license — check that it is complete, in the format F123-XXXX-XXXX-XXXX-XXXXX." };
       }
+      /* AVISO, NO BLOQUEO (JFC 2026-08-27, refuerzo P1). Una licencia corta
+         (8/12 = formato viejo) o con checksum que no cuadra se ACEPTA igual
+         (guard, no puerta: no dejar fuera a quien tiene su licencia legítima),
+         pero se informa al dueño para que no entre a una sala vacía sin saber
+         por qué. El caller muestra r.warning si viene. */
+      var _aviso = "";
+      if (_cuerpo.length === 8 || _cuerpo.length === 12) {
+        _aviso = "Esta licencia parece corta (formato viejo). Revisa que esté completa: F123-XXXX-XXXX-XXXX-XXXXX.";
+      }
       if (_cuerpo.length === 17) {
         var _B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ", _CHK = _B32 + "*~$=U", _acc = 0, _mal = false;
         for (var _i = 0; _i < 16; _i++) {
@@ -1100,6 +1115,7 @@
              quien SI tiene su licencia. Misma filosofia que
              ocLicenciaVerificada() en auth-ui.js ("guard, no puerta"). */
           try { console.warn("[sync] licencia sin simbolo de verificacion valido; se acepta igual (guard, no puerta)"); } catch (_) {}
+          if (!_aviso) _aviso = "El código no pasa la verificación. Revisa que esté bien tecleado (I/L valen 1, O vale 0).";
         }
       }
       try { localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm })); } catch (_) {}
@@ -1119,7 +1135,12 @@
           if (_esLord()) {
             _registrarAcceso(codigoNorm);
           } else {
+            /* Se actualizan AMBOS (JFC 2026-08-27, refuerzo P1): licenseCode y
+               syncCode. Al entrar una licencia, la sala ES esa licencia, así
+               que syncCode debe seguirla. Antes solo se tocaba licenseCode y
+               quedaban divergentes (syncCode viejo). */
             _ow.licenseCode = codigoNorm;
+            _ow.syncCode = codigoNorm;
             localStorage.setItem("f123_owned", JSON.stringify(_ow));
           }
         }
@@ -1127,7 +1148,7 @@
       reintentoMs = 1000;
       intentosSeguidos = 0;
       conectar();
-      return { ok: true };
+      return _aviso ? { ok: true, warning: _aviso } : { ok: true };
     },
     /* Fija la sala de sync a un código SIN conectar (JFC 2026-08-26, NB-1).
        La usa OCTienda.cambiar() al cambiar de tienda: cada tienda debe

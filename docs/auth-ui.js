@@ -1300,7 +1300,15 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          disfrace de F123-... : las letras I,L,O,U jamas aparecen en una licencia
          de verdad, asi que quitarlas es 100% seguro para licencias legitimas y
          hace obvio que la basura no es un codigo. (JFC 2026-08-26, QA Paco) */
-      var v = String(raw || "").toUpperCase().replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "");
+      /* Sustituciones Crockford ANTES de filtrar (JFC 2026-08-27, refuerzo P0).
+         Antes se ELIMINABAN I/L/O/U del alfabeto: si el dueño pegaba una
+         licencia con "I" o "O" ambiguas (muy común al copiar de un papel o de
+         una captura), la máscara las borraba y la licencia salía rota. Crockford
+         define I/L→1 y O→0: convertirlas (no borrarlas) hace que el mismo código
+         tecleado de dos formas caiga en la MISMA sala. Consistente con
+         _ocNormalizar() y con normalizarCodigo() en sync-realtime.js. */
+      var v = String(raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0")
+        .replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "");
       /* Quita TODAS las repeticiones del prefijo al inicio, no solo una
          (JFC 2026-08-25). Al pegar "F123-..." en un campo que ya mostraba
          "F123-", quedaba "F123F123..." y con un solo strip sobrevivia un
