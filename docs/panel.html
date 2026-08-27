@@ -858,11 +858,19 @@ function licRenderTabla(data) {
     const id = licEsc(r.instanceId);
     const waHref = licWaHref(r.whatsapp);
     const n = g.filas.length;
+    /* CONTADOR DE DEVICES (JFC 2026-08-27: "es un counter de cuántos devices/PINs
+       activos tiene la licencia, realmente"). Se cuentan por separado los del
+       CLIENTE y los TUYOS de pruebas, para que el número refleje los aparatos
+       reales del negocio y no se infle con tu teléfono. El botón sigue abriendo el
+       detalle por si quieres ver cada aparato. */
+    const nCliente = g.filas.filter(x => !esMio(x)).length;
+    const nMios = n - nCliente;
+    const etiquetaDisp = nCliente + " device" + (nCliente === 1 ? "" : "s") + (nMios > 0 ? ` · +${nMios} tuyo${nMios === 1 ? "" : "s"}` : "");
     const tr = document.createElement("tr");
     tr.innerHTML =
       `<td><span class="lic-badge ${licEsc(licNormEstado(est))}">${licEsc(licNormEstado(est))}</span></td>` +
       `<td class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}` +
-      (n > 1 ? `<br><button onclick="licToggleDisp('${id}')" style="margin-top:4px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-size:13px;cursor:pointer;">${n} devices</button>` : "") + `</td>` +
+      (n > 1 ? `<br><button onclick="licToggleDisp('${id}')" title="Ver cada aparato con esta licencia" style="margin-top:4px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-size:13px;cursor:pointer;">${etiquetaDisp}</button>` : "") + `</td>` +
       `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || "—")}</td>` +
       `<td style="font-size:13px;">${licEsc(r.email || "—")}${esMio(r) ? ` <span style="font-size:11px;color:#F97316;">(tu aparato)</span>` : ""}</td>` +
       `<td style="font-size:13px;">${waHref ? `<a href="${waHref}" target="_blank" style="color:#25D366;">${licEsc(r.whatsapp)}</a>` : "—"}</td>` +
