@@ -13,6 +13,7 @@
 #   5) harness-team-sync.cjs   (navegador, 2 aparatos)   (baja propaga, tombstone, rev, PIN, switch)
 #   6) harness-join-identity.cjs (navegador, 2 aparatos) (normal=device, lord=observador)
 #   7) harness-claim-merge.cjs  (navegador, 1 aparato)   (claim/merge NO borra datos locales)
+#   8) harness-watchdog.cjs     (navegador, 2 aparatos)  (redundancia de sync: snapshot local, consistencia, snapshot entre pares)
 #
 # Uso:  bash .claude/test-todo.sh
 # Sale 0 si TODO VERDE; !=0 si algo falla (y dice qué).
@@ -44,7 +45,7 @@ if node .claude/test-roster-merge.js >/tmp/tt_roster.log 2>&1; then
 
 # Los arneses de navegador necesitan el server estático levantado.
 PORT=8127
-paso "5-7  levantando server estático en :$PORT para los arneses de navegador"
+paso "5-8  levantando server estático en :$PORT para los arneses de navegador"
 if ! curl -s -o /dev/null "http://localhost:$PORT/index.html" 2>/dev/null; then
   ( cd docs && python3 -m http.server "$PORT" >/tmp/tt_srv.log 2>&1 & )
   for _ in $(seq 1 20); do curl -s -o /dev/null "http://localhost:$PORT/index.html" 2>/dev/null && break; sleep 0.5; done
@@ -66,6 +67,11 @@ paso "7/7  harness-claim-merge.cjs (claim/merge re-apunta identidad SIN borrar d
 if node .claude/harness-claim-merge.cjs >/tmp/tt_claim.log 2>&1; then
   grep -q "TODO VERDE" /tmp/tt_claim.log && echo "  ok  $(grep -c '^  ok ' /tmp/tt_claim.log) comprobaciones verdes" || { tail -5 /tmp/tt_claim.log; fallo "harness-claim-merge"; }
 else tail -8 /tmp/tt_claim.log; fallo "harness-claim-merge (exit!=0)"; fi
+
+paso "8/8  harness-watchdog.cjs (redundancia de sync: snapshot local, consistencia, snapshot entre pares)"
+if node .claude/harness-watchdog.cjs >/tmp/tt_wd.log 2>&1; then
+  grep -q "TODO VERDE" /tmp/tt_wd.log && echo "  ok  $(grep -c '^  ok ' /tmp/tt_wd.log) comprobaciones verdes" || { tail -5 /tmp/tt_wd.log; fallo "harness-watchdog"; }
+else tail -8 /tmp/tt_wd.log; fallo "harness-watchdog (exit!=0)"; fi
 
 # Apagar el server solo si lo levantó este script.
 if [ "${SRV_LEVANTADO:-0}" = "1" ]; then pkill -f "http.server $PORT" 2>/dev/null || true; fi

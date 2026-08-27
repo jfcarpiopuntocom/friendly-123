@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v121"; // bumped 2026-08-27: i18n wiring pase 2 (toasts de respaldo, errores de index)
+const CACHE = "f123-shell-v122"; // bumped 2026-08-27: capa de redundancia de sync (sync-watchdog.js)
 const SHELL = [
   "./",
   "./index.html",
@@ -51,6 +51,7 @@ const SHELL = [
   "./device-identity.js",
   "./storage-durabilidad.js",
   "./sync-realtime.js",
+  "./sync-watchdog.js",
   "./lista-dinamica.js",
   "./vendor/ufuzzy.min.js",
   "./vendor/minisearch.min.js",

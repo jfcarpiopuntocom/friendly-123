@@ -85,6 +85,11 @@
   const TIPO_FOTO_PEDIDA = "__foto_pedida__";
   const TIPO_FOTO_TROZO = "__foto_trozo__";
   const FOTO_FILAS_POR_TROZO = 200;
+  /* REDUNDANCIA (JFC 2026-08-27): mensajes efímeros del sync-watchdog para el
+     snapshot entre pares. No son ops de negocio: no se loguean ni se deduplican
+     (igual que catchup/foto). Se quitan junto con sync-watchdog.js. */
+  const TIPO_SNAPSHOT_PEDIDO = "__snapshot_pedido__";
+  const TIPO_SNAPSHOT_TROZO  = "__snapshot_trozo__";
 
   function leerLog() {
     try { const a = JSON.parse(localStorage.getItem(LOG_KEY) || "[]"); return Array.isArray(a) ? a : []; }
@@ -463,6 +468,10 @@
         /* Y los que emite el propio tablero: se ignoran aqui para no
            reprocesarlos ni meterlos al log de ops. */
         if (op && (op.tipo === TIPO_FOTO_TROZO || op.tipo === TIPO_RESPUESTA || op.tipo === TIPO_LATIDO)) return;
+        /* REDUNDANCIA (JFC 2026-08-27): snapshot entre pares del sync-watchdog.
+           Se delega al watchdog; si no está cargado, se ignoran. */
+        if (op && op.tipo === TIPO_SNAPSHOT_PEDIDO) { if (window.OCSyncWatchdog) window.OCSyncWatchdog.responderSnapshot(op); return; }
+        if (op && op.tipo === TIPO_SNAPSHOT_TROZO)  { if (window.OCSyncWatchdog) window.OCSyncWatchdog.acumularSnapshot(op); return; }
         registrarEnLog(op);
         if (window.OCSync && window.OCSync.aplicarOpRemota) window.OCSync.aplicarOpRemota(op);
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
@@ -1183,6 +1192,14 @@
     revTick() { return siguienteLamport(); },
     deviceIdActual() { return deviceId(); },
     pedirCatalogo: pedirCatalogo,
+    /* REDUNDANCIA (JFC 2026-08-27): envío genérico de un mensaje efímero
+       cifrado (para el sync-watchdog). No se loguea ni se deduplica. Se quita
+       junto con sync-watchdog.js. */
+    enviarMensaje(tipo, payload, para) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      const op = { opId: uuidCorto(), deviceId: deviceId(), tipo: tipo, para: para || null, payload: payload, fecha: (new Date()).toISOString() };
+      try { cifrar(claveActual, op).then(function (buf) { try { ws.send(buf); } catch (_) {} }); return true; } catch (_) { return false; }
+    },
     difundirEquipo: difundirEquipo,
     difundirCatalogo: difundirCatalogo,
     salaParaMostrar() { const s = leerSala(); return s ? codigoParaMostrar(s.codigo) : null; },
