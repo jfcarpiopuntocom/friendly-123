@@ -372,7 +372,7 @@
     <div class="tabla-wrap">
       <div id="lic-empty" style="padding:34px 20px;text-align:center;color:var(--ink-soft);font-size:14px;display:none;">Aún no hay instancias. Cuando tengas el Worker configurado, aparecerán aquí.</div>
       <table class="versiones" id="lic-tabla" style="display:none;">
-        <thead><tr><th>Estado</th><th>Código f123</th><th>Nombre</th><th>Email</th><th>WhatsApp</th><th>Cédula</th><th>Activado</th><th>Última vez</th><th>Acción</th></tr></thead>
+        <thead><tr><th>Estado</th><th>Código f123</th><th>Negocio</th><th>Nombre</th><th>Email</th><th>WhatsApp</th><th>Cédula</th><th>Activado</th><th>Última vez</th><th>Acción</th></tr></thead>
         <tbody id="lic-tbody"></tbody>
       </table>
     </div>
@@ -871,7 +871,8 @@ function licRenderTabla(data) {
       `<td><span class="lic-badge ${licEsc(licNormEstado(est))}">${licEsc(licNormEstado(est))}</span></td>` +
       `<td class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}` +
       (n > 1 ? `<br><button onclick="licToggleDisp('${id}')" title="Ver cada aparato con esta licencia" style="margin-top:4px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-size:13px;cursor:pointer;">${etiquetaDisp}</button>` : "") + `</td>` +
-      `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || "—")}</td>` +
+      `<td>${r.nombreNegocio ? `<strong>${licEsc(r.nombreNegocio)}</strong>` : `<span style="color:var(--ink-soft);">—</span>`} <button onclick="licEditarCampo('${id}','negocio')" title="Editar el nombre del negocio" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;padding:0 2px;">✎</button></td>` +
+      `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || `—`)} <button onclick="licEditarCampo('${id}','nombre')" title="Editar el nombre del dueño/a" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;padding:0 2px;">✎</button></td>` +
       `<td style="font-size:13px;">${licEsc(r.email || "—")}${esMio(r) ? ` <span style="font-size:11px;color:#F97316;">(tu aparato)</span>` : ""}</td>` +
       `<td style="font-size:13px;">${waHref ? `<a href="${waHref}" target="_blank" style="color:#25D366;">${licEsc(r.whatsapp)}</a>` : "—"}</td>` +
       `<td style="font-size:13px;">${licEsc(r.cedula || "—")}</td>` +
@@ -902,6 +903,7 @@ function licRenderTabla(data) {
       trh.innerHTML =
         `<td style="font-size:12px;color:#8a94a6;">↳ device</td>` +
         `<td class="mono" style="font-size:12px;color:#8a94a6;">${licEsc(h.licenseCode || "—")}</td>` +
+        `<td style="font-size:12px;color:#8a94a6;">${licEsc(h.nombreNegocio || "—")}</td>` +
         `<td>${licEsc(((h.nombre || "") + " " + (h.apellido || "")).trim() || "—")}</td>` +
         `<td style="font-size:13px;">${licEsc(h.email || "—")}${esMio(h) ? ` <span style="font-size:11px;color:#F97316;">(tu aparato)</span>` : ""}</td>` +
         `<td style="font-size:13px;">${hWa ? `<a href="${hWa}" target="_blank" style="color:#25D366;">${licEsc(h.whatsapp)}</a>` : "—"}</td>` +
@@ -963,6 +965,37 @@ async function licBorrar(instanceId) {
     const j = await res.json().catch(() => ({}));
     if (!res.ok) { alert("Error: " + (j.error || res.status)); return; }
     mostrarConfirmacion("Record deleted and archived");
+    licRecargar();
+  } catch (e) { alert("Network error: " + e.message); }
+}
+
+// EDITAR NOMBRE / NEGOCIO desde el panel (JFC 2026-08-27, "con lapicito en todo").
+// Usa /editar-correo del Worker, que ya sabe editar nombre/apellido/nombreNegocio
+// y NUNCA vacía un campo (un valor vacío se ignora). El master puede etiquetar una
+// licencia con el negocio ("idiomARTE") y el dueño ("Sarah HB") para reconocerla.
+async function licEditarCampo(instanceId, campo) {
+  const url = licWorkerUrl();
+  if (!url) { mostrarConfirmacion("Set the Worker URL first"); return; }
+  const reg = (Array.isArray(_licData) ? _licData : []).find(r => String(r.instanceId) === String(instanceId)) || {};
+  let body = { instanceId: instanceId };
+  if (campo === "negocio") {
+    const v = prompt("Nombre del negocio (tienda):", reg.nombreNegocio || "");
+    if (v === null) return;
+    if (!v.trim()) { alert("El nombre del negocio no puede quedar vacío."); return; }
+    body.nombreNegocio = v.trim();
+  } else {
+    const actual = ((reg.nombre || "") + (reg.apellido ? " " + reg.apellido : "")).trim();
+    const v = prompt("Nombre del dueño/a:", actual);
+    if (v === null) return;
+    if (!v.trim()) { alert("El nombre no puede quedar vacío."); return; }
+    body.nombre = v.trim();
+  }
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/editar-correo",
+      { method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify(body) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Error: " + (j.error || res.status)); return; }
+    mostrarConfirmacion("Guardado");
     licRecargar();
   } catch (e) { alert("Network error: " + e.message); }
 }

@@ -2322,7 +2322,7 @@ Keep it somewhere safe.`);
         if (url && owned.instanceId) {
           fetch(url.replace(/\/+$/, "") + "/checkin", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ instanceId: owned.instanceId, licenseCode: owned.licenseCode || "", email: window.OCSecure.leerCorreo() || "", whatsapp: v, accion: "update" }),
+            body: JSON.stringify({ instanceId: owned.instanceId, licenseCode: owned.licenseCode || "", email: window.OCSecure.leerCorreo() || "", whatsapp: v, nombreNegocio: owned.nombreNegocio || "", accion: "update" }),
           }).catch(() => {});
         }
       } catch (_) {}

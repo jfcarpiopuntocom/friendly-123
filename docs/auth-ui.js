@@ -113,6 +113,15 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         activatedAt: datos.activatedAt,
         accion: trim(datos.accion, 30),
       };
+      /* NOMBRE DEL NEGOCIO AL PANEL (JFC 2026-08-27). El dueño escribe el nombre
+         de su tienda con el lapicito en la app (f123_owned.nombreNegocio); ese dato
+         nunca viajaba al Worker, así que la columna "Negocio" del panel salía vacía
+         y JFC no sabía a qué negocio pertenece cada licencia. Ahora se adjunta —
+         solo si NO está vacío, para no pisar con "" un nombre ya guardado (el
+         Worker también protege, cinturón y tirantes). */
+      if (datos.nombreNegocio && String(datos.nombreNegocio).trim()) {
+        payload.nombreNegocio = trim(String(datos.nombreNegocio).trim(), 120);
+      }
       // Solo se adjunta la licencia si es una F123 válida: jamás un "" que borre
       // la fila de un cliente real en el Worker (ver guard de arriba).
       if (/^F123-/i.test(_licSegura)) payload.licenseCode = trim(_licSegura, 40);
@@ -595,6 +604,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
   pintarBuildGate();
   pintarNegocioGate();
+  /* REPINTAR EL CANDADO CUANDO EL NOMBRE DE LA TIENDA LLEGA POR SYNC (JFC
+     2026-08-27: "tampoco viajaba a la página del PIN, no sabes a dónde te unes").
+     Al unirse a un equipo, el nombre del negocio llega DESPUÉS (cuando sincroniza);
+     mock-backend emite oc-negocio-actualizado y aquí el candado pasa de "Team ·
+     …licencia" a mostrar el nombre real ("idiomARTE") sin recargar. */
+  try { window.addEventListener("oc-negocio-actualizado", function () { try { pintarNegocioGate(); } catch (_) {} }); } catch (_) {}
 
   let teclado = null;
   let intervaloCountdown = null;
@@ -919,7 +934,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try { if (window.OCStorageDurable) window.OCStorageDurable.verificarYSolicitar(); } catch (_) {}
       // Ping: record new activation in license panel
       var ow2 = {}; try { ow2 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
-      enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, whatsapp: telDigitos, activatedAt: ow2.activatedAt, accion: "register" });
+      enviarHeartbeat({ instanceId: idInstancia, licenseCode: ow2.licenseCode || "", email: email, whatsapp: telDigitos, activatedAt: ow2.activatedAt, nombreNegocio: ow2.nombreNegocio || "", accion: "register" });
       var seguro = email.replace(/[&<>"']/g, "");
       wrap.querySelector("#oc-act-exito-txt").innerHTML =
         "Your owner PIN is <strong>789</strong> — change it anytime in Advanced &rarr; Keys. " +
@@ -1043,7 +1058,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
                esta rama no vuelve a correr. */
             try { setTimeout(function () { mostrarAvisoLicencia(ow3.licenseCode, true); }, 900); } catch (_) {}
           }
-          if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", whatsapp: ow3.whatsapp || "", accion: "login" });
+          if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", whatsapp: ow3.whatsapp || "", nombreNegocio: ow3.nombreNegocio || "", accion: "login" });
         } catch (_) {}
             window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol, demo: esDemo } }));
     // El rol contador aterriza directo en su vista propia (creada al vuelo
