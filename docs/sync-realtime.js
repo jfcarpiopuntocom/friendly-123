@@ -1103,6 +1103,27 @@
         }
       }
       try { localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm })); } catch (_) {}
+      /* ADOPTAR LA LICENCIA AL ACTIVAR (JFC 2026-08-27). Bug de entrada real:
+         "Sync your team" llamaba a activar(), que guardaba la sala de sync pero
+         NO actualizaba f123_owned.licenseCode. Así el aparato sincronizaba a la
+         sala correcta pero seguía reportando al panel una licencia vieja/trunca
+         (ej. F123-5HSG-JENF) y quedaba "rogue": no se unía a su licencia ni a
+         sus hermanos. Ahora la licencia que el dueño entra deliberadamente se
+         vuelve la del dispositivo — mismo criterio que ya tenía unirse().
+         Es una acción DELIBERADA del dueño, no autocuración: solo se escribe
+         cuando él teclea/pega un código. Se preserva la excepción del lord
+         (no adopta licencia ajena, registra el acceso). */
+      try {
+        if (/^F123-/i.test(codigoNorm)) {
+          var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          if (_esLord()) {
+            _registrarAcceso(codigoNorm);
+          } else {
+            _ow.licenseCode = codigoNorm;
+            localStorage.setItem("f123_owned", JSON.stringify(_ow));
+          }
+        }
+      } catch (_) {}
       reintentoMs = 1000;
       intentosSeguidos = 0;
       conectar();
