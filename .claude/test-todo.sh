@@ -12,6 +12,7 @@
 #   4) test-roster-merge.js                               (reloj lógico del roster, función real)
 #   5) harness-team-sync.cjs   (navegador, 2 aparatos)   (baja propaga, tombstone, rev, PIN, switch)
 #   6) harness-join-identity.cjs (navegador, 2 aparatos) (normal=device, lord=observador)
+#   7) harness-claim-merge.cjs  (navegador, 1 aparato)   (claim/merge NO borra datos locales)
 #
 # Uso:  bash .claude/test-todo.sh
 # Sale 0 si TODO VERDE; !=0 si algo falla (y dice qué).
@@ -43,7 +44,7 @@ if node .claude/test-roster-merge.js >/tmp/tt_roster.log 2>&1; then
 
 # Los arneses de navegador necesitan el server estático levantado.
 PORT=8127
-paso "5-6  levantando server estático en :$PORT para los arneses de navegador"
+paso "5-7  levantando server estático en :$PORT para los arneses de navegador"
 if ! curl -s -o /dev/null "http://localhost:$PORT/index.html" 2>/dev/null; then
   ( cd docs && python3 -m http.server "$PORT" >/tmp/tt_srv.log 2>&1 & )
   for _ in $(seq 1 20); do curl -s -o /dev/null "http://localhost:$PORT/index.html" 2>/dev/null && break; sleep 0.5; done
@@ -60,6 +61,11 @@ paso "6/6  harness-join-identity.cjs (normal=device, lord=observador con auditor
 if node .claude/harness-join-identity.cjs >/tmp/tt_join.log 2>&1; then
   grep -q "TODO VERDE" /tmp/tt_join.log && echo "  ok  $(grep -c '^  ok ' /tmp/tt_join.log) comprobaciones verdes" || { tail -5 /tmp/tt_join.log; fallo "harness-join-identity"; }
 else tail -8 /tmp/tt_join.log; fallo "harness-join-identity (exit!=0)"; fi
+
+paso "7/7  harness-claim-merge.cjs (claim/merge re-apunta identidad SIN borrar datos)"
+if node .claude/harness-claim-merge.cjs >/tmp/tt_claim.log 2>&1; then
+  grep -q "TODO VERDE" /tmp/tt_claim.log && echo "  ok  $(grep -c '^  ok ' /tmp/tt_claim.log) comprobaciones verdes" || { tail -5 /tmp/tt_claim.log; fallo "harness-claim-merge"; }
+else tail -8 /tmp/tt_claim.log; fallo "harness-claim-merge (exit!=0)"; fi
 
 # Apagar el server solo si lo levantó este script.
 if [ "${SRV_LEVANTADO:-0}" = "1" ]; then pkill -f "http.server $PORT" 2>/dev/null || true; fi
