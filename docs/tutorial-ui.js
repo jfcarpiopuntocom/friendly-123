@@ -5,7 +5,7 @@
 // its own, and ends by taking the owner to create their first product.
 // Launch with window.OCTutorial.iniciar() — the "See the tutorial now" button
 // on the welcome card (welcome-ui.js) invokes it.
-// With 888 the tour runs over the demo stock; with 789 (freshly activated real
+// With 456 the tour runs over the demo stock; with 789 (freshly activated real
 // store) it runs over the empty store — same steps, same tour.
 // Bilingual EN/ES: self-contained dictionary keyed by OCI18n.getLang() so this
 // file needs no i18n.js changes and repaints correctly if launched after a

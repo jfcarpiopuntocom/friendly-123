@@ -2,8 +2,39 @@
 
 Bitácora de lo hecho en esta tanda y de lo que queda pendiente del transcript
 original (prompt `codellm-prompt-ac1lwC`, cuyas 10 imágenes se decodificaron a
-`C:\00 Projects\sandbox\_backups\img_1.jpg`…`img_10.jpg` pero son miniaturas de
+`C:\00 Projects\sandbox\_backups\img_1.jpg`...`img_10.jpg` pero son miniaturas de
 ~100 px y no se pudieron leer en esta sesión).
+
+## Tanda v130 (2026-08-27, segunda tanda del día)
+
+- **Esquema de PINs** (friendly-123 y AMIGABLE): `456` demo · `789` activador ·
+  `888` dueño inicial libre (ya NO abre demo) · `260` empleado · `357` contable.
+  Reservados pasan a `{456,789,260,357}` en `mock-backend.js` y `avanzado-extra.js`;
+  se quitó la rama `888→demo` de `auth-ui.js`; copy del gate, `checklist.html`,
+  `save.html`/`ahorra.html`, `manual-maestro.html`, `tutorial-ui.js` y
+  `AMG-AUDITORIA-MANUAL.md` actualizados. **Consultorio-123 NO se tocó**: usa PINs
+  de 4 dígitos (8888/7895/2605/3570) — migrarlo a 3 dígitos es un cambio grande
+  (crypto-store, dispositivos activados, manual). PENDIENTE de decisión.
+- **Compradores por ítem/evento** (`index.html`): el botón negro "Show customers"
+  y el 👁 de la ficha abren un modal unificado `abrirCompradores()` con filtro por
+  producto/evento y botón de imprimir. El 👁 reemplaza a la antigua vista de
+  mostrador fullscreen (se eliminó el overlay `oc-customer-overlay` y su script).
+- **Dashboard** (`dashboard.html`): encabezado "Control Board"→"Dashboard";
+  columna "Compró" en la tabla de Clientes (derivada de `datos.ventas`); aviso de
+  demo (PIN 456, aislada) antes de la cajita de pegado.
+- **Gastos por rol** (`index.html`): dueño/admin/contador ven ingresos+gastos+neto;
+  el encargado/clerk ve SOLO gastos. Botón ✏️ de edición inline por gasto
+  (PATCH `/api/gastos/:id`), visible solo para dueño/admin/contador.
+- **Bar por servings** (`index.html` + `mock-backend.js`): tipo de producto "Bar"
+  (pulldown en el alta), campos `servingMl` (default 50) y `botellaMl` (default 750);
+  la ficha muestra "≈ N servings per bottle"; el panel de venta de un bar pide
+  servings y muestra el equivalente en botellas en vivo; `cantidad`=servings y se
+  registra `info.servings`/`info.botellas`. Stock de bar se cuenta en servings.
+- **Shell v130**: `sw.js` CACHE y `version.json` subidos a `f123-shell-v130`.
+- **Tests**: node --check ✅, check-sw ✅, roster ✅, harnesses join-identity/claim-
+  merge/watchdog/failsafe/team-sync ✅ (team-sync actualizado a PINs libres 111/222
+  porque 456/260 ahora son reservados). guards.sh sigue con 1 rojo preexistente
+  (`c123_`, documentado en NOTA-fix-C1C2-relay, no causado por esta tanda).
 
 ## Hecho y empujado en esta tanda
 

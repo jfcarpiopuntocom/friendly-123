@@ -197,9 +197,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
 
   let rol = null; // "dueno" | "empleado"
-  // Rol DEMO oculto (JFC, 2026-07-02): la clave 456 entra con acceso de dueño
-  // pero SIN poder cambiar claves ni correo. Para que un cliente pruebe todo
-  // sin bloquear al dueño ni secuestrar la recuperación. NO se anuncia en la UI.
+  // Rol DEMO (JFC, 2026-07-02): la clave 456 entra con acceso de dueño pero SIN
+  // poder cambiar claves ni correo. Para que un cliente pruebe todo sin bloquear
+  // al dueño ni secuestrar la recuperación. Es el PIN de demo anunciado en el
+  // gate (2026-08-27): 456 demo · 260 empleado · 357 contador · 789 activar.
   const DEMO_PIN = "456";
   // Apropiacion (JFC 2026-07-08): 789 convierte ESTE dispositivo en la
   // instancia propia del comprador — datos propios, correo propio, control
@@ -530,7 +531,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
            se cambian aqui, cambiarlos alli tambien. -->
       <div id="oc-gate-demo-pins" style="margin:14px 0 0;padding:12px;border:1px dashed var(--azul-medio,#2c4a68);border-radius:6px;text-align:center;">
         <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;">First time? Try these codes</p>
-        <p style="margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;"><strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">888</strong> owner &middot; <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">260</strong> employee &middot; <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">357</strong> bookkeeper &mdash; or <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">789</strong> to activate your own instance, free.</p>
+        <p style="margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;"><strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">456</strong> demo &middot; <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">260</strong> employee &middot; <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">357</strong> bookkeeper &mdash; or <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">789</strong> to activate your own instance, free.</p>
         <p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">Each code shows the app the way that person sees it. The employee does not see the profits.</p>
       </div>
       <p id="oc-gate-landing" style="margin:12px 0 0;font-size:13px;line-height:1.5;text-align:center;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">Not sure what this is? <a href="./save.html" style="color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;font-weight:700;">See what it does in 10 seconds</a>.</p>
@@ -652,15 +653,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // dispositivo YA apropiado, este codigo no reactiva nada (no se puede
     // redundar) — cae al flujo normal y solo entra si es el PIN de dueno.
     if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); return iniciarActivacion(); }
-    /* DEMO 888 (JFC, 2026-08-13, mismo fix que en amigable-123): el 888 es el
-       codigo que anunciamos en el gate y en checklist.html, asi que tiene que
-       abrir el DEMO de verdad y no la app como dueno real. Antes caia en
-       verificarOwnerOEmpleado, que lo aceptaba como PIN de dueno por defecto:
-       el visitante probaba la app entera sin rol-demo y sin ninguna via de
-       conversion. El guard !dispositivoApropiado() protege a los duenos reales:
-       al activar con 789 el PIN pasa a 789 y esta rama deja de correr. NO
-       quitar sin mover tambien el copy de los codigos demo. */
-    if (code === "888" && !dispositivoApropiado()) { registrarExito(); return entrar("demo"); }
+    /* 888 ya NO abre demo (JFC 2026-08-27): es un PIN de dueño inicial libre,
+       indistinto de 789. El demo es SOLO 456 (ver DEMO_PIN mas abajo). 888 cae
+       al flujo normal y entra como dueño si el hash de dueño lo acepta. */
     // Bloqueo anti fuerza bruta de crypto-store (capa de datos): si está
     // activo, verificarOwner/Encargado devuelven false AUNQUE el PIN sea
     // correcto. Sin este chequeo previo, la UI diría "Clave incorrecta" a un
@@ -902,7 +897,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       // seguía todo el flujo de activación (instancia, sync, "owned") y al
       // final le decía al dueño "tu PIN es 789" aunque el PIN real guardado
       // siguiera siendo el 888 de demo. Ahora, si falla, se detiene ANTES de
-      // dejar el dispositivo en un estado a medias y avisa honesto.
+      // dejar el dispositivo en un estado a medias y avisa honesto. (2026-08-27:
+      // 888 ya no es demo — es PIN de dueño libre; el demo es 456.)
       var pinGuardado = false;
       try { pinGuardado = await window.OCSecure.fijarOwnerPin("789"); } catch (_) {}
       if (!pinGuardado) {

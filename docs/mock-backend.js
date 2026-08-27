@@ -1363,7 +1363,7 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", comisionProveedorPct: p.comisionProveedorPct || 0, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
   }
   function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
@@ -1621,12 +1621,12 @@
   function _rolLocal() {
     try { return (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; } catch (_) { return ""; }
   }
-  /* PIN RESERVADO (JFC 2026-08-26). Belén eligió 888 para Sarah y cayó en DEMO
-     PERMANENTE: 888 es el código de DUEÑO DE MUESTRA — quien lo fija como PIN
-     real queda atrapado en demo (datos semilla, sin rol, sin poder editar).
-     SOLO 888 se bloquea; los demás (789/456/260/357) son defaults del sistema y
-     se dejan tal cual, según JFC. */
-  const PINS_RESERVADOS = ["888"];
+  /* PIN RESERVADO (JFC 2026-08-27). Esquema de PINs acordado:
+       456 = demo · 789 = activador de instancia propia · 260 = empleado/encargado
+       357 = capa contable/Accounting. 888 queda LIBRE como PIN de dueño inicial
+     (junto con 789, indistintamente). Un encargado no puede fijar como PIN suyo
+     ninguno de los códigos de sistema, o colisionaría con un rol o con la demo. */
+  const PINS_RESERVADOS = ["456", "789", "260", "357"];
   function _pinReservado(pin) { return PINS_RESERVADOS.indexOf(String(pin || "")) !== -1; }
 
   /* RELOJ LÓGICO DEL ROSTER (JFC 2026-08-26, Camino A "terminar bien lo nuestro").
@@ -1989,7 +1989,7 @@
     estadoParaCheckpoint() {
       return {
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia })),
-        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
+        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
         huella: huellaCatalogo(),
@@ -2219,7 +2219,7 @@
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
-        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
+        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
       if (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
@@ -2459,7 +2459,7 @@
       }
 
       if (path === "/api/productos" && (!opts || opts.method !== "POST")) {
-        let lista = filtrar(uid).map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "" }; });
+        let lista = filtrar(uid).map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "" }; });
         const est = q.get("estado");
         if (est) lista = lista.filter((x) => x.estado === est);
         lista.sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado] || a.nombre.localeCompare(b.nombre, "es"));
@@ -2493,6 +2493,11 @@
           metodoCosteo: body.metodoCosteo === "LIFO" ? "LIFO" : "FIFO",
           tipoProveedor: body.tipoProveedor === "consignacion" ? "consignacion" : "compra",
           comisionProveedorPct: Math.max(0, Number(body.comisionProveedorPct) || 0),
+          /* Bar (JFC 2026-08-27): tipoProducto "bar" cuenta stock en servings;
+             servingMl/botellaMl definen la conversión (default 50/750 ml). */
+          tipoProducto: body.tipoProducto === "ticket" ? "ticket" : (body.tipoProducto === "bar" ? "bar" : "normal"),
+          servingMl: Math.max(1, Number(body.servingMl) || 50),
+          botellaMl: Math.max(1, Number(body.botellaMl) || 750),
           creadoEn: new Date().toISOString(),
         };
         productos.push(nuevo);
@@ -2558,6 +2563,9 @@
           whatsapp: String(infoBody.whatsapp || "").trim().slice(0, 40),
           formaPago: String(infoBody.formaPago || "").trim().slice(0, 20), // JFC 2026-08-26: forma de pago (portado de amigable)
           montoPagado: (infoBody.montoPagado !== undefined && infoBody.montoPagado !== "") ? Math.max(0, Number(infoBody.montoPagado) || 0) : null,
+          /* Bar (JFC 2026-08-27): servings vendidos y su equivalente en botellas. */
+          servings: (infoBody.servings !== undefined && infoBody.servings !== "") ? Math.max(0, Number(infoBody.servings) || 0) : null,
+          botellas: (infoBody.botellas !== undefined && infoBody.botellas !== "") ? Math.max(0, Number(infoBody.botellas) || 0) : null,
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
         ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null });
@@ -2664,6 +2672,25 @@
         guardarEstadoLocal();
         return J({ ok: true });
       }
+      // PATCH /api/gastos/:id — edita concepto/monto/fecha de un gasto (JFC 2026-08-27).
+      if (mGastoDel && opts && opts.method === "PATCH") {
+        const g = gastos.find((x) => x.id === mGastoDel[1]);
+        if (!g) return J({ error: "Expense not found." }, 404);
+        if (body.concepto !== undefined) {
+          const c = String(body.concepto).trim();
+          if (!c) return J({ error: "Enter a description for the expense." }, 400);
+          g.concepto = c;
+        }
+        if (body.monto !== undefined) {
+          const m = Number(body.monto);
+          if (!Number.isFinite(m) || m <= 0) return J({ error: "Enter a valid amount." }, 400);
+          g.monto = +m.toFixed(2);
+        }
+        if (body.fecha !== undefined) g.fecha = body.fecha;
+        mov("gasto-editado", { concepto: g.concepto, monto: g.monto });
+        guardarEstadoLocal();
+        return J(g);
+      }
 
       // GET /api/movimientos?limite=N — últimos N movimientos (log), solo lectura.
       // Lo usa el tablero (dashboard.html) para pintar el periscopio de datos.
@@ -2732,7 +2759,7 @@
         const destUbic = ubicaciones.find((u) => u.id === body.ubicacionId && u.activa !== false);
         if (!destUbic) return J({ error: "That shelf does not exist or is switched off." }, 400);
         if (productos.some((x) => x.sku === origen.sku && x.ubicacionId === destUbic.id)) return J({ error: `Este producto ya tiene una fila en "${destUbic.nombre}". Usa Transferir en vez de Agregar percha.` }, 400);
-        const clon = { id: uuid("p"), nombre: origen.nombre, categoria: origen.categoria, sku: origen.sku, barcode: origen.barcode, ubicacionId: destUbic.id, precio: origen.precio, costo: origen.costo || 0, stockActual: 0, umbralRojo: origen.umbralRojo, umbralAmarillo: origen.umbralAmarillo, proveedor: origen.proveedor || "", tipoProveedor: origen.tipoProveedor || "compra", comisionProveedorPct: origen.comisionProveedorPct || 0, perecible: !!origen.perecible, fechaCaducidad: origen.perecible ? (origen.fechaCaducidad || null) : null, metodoCosteo: origen.metodoCosteo || "FIFO", foto: origen.foto || null, creadoEn: new Date().toISOString() };
+        const clon = { id: uuid("p"), nombre: origen.nombre, categoria: origen.categoria, sku: origen.sku, barcode: origen.barcode, ubicacionId: destUbic.id, precio: origen.precio, costo: origen.costo || 0, stockActual: 0, umbralRojo: origen.umbralRojo, umbralAmarillo: origen.umbralAmarillo, proveedor: origen.proveedor || "", tipoProveedor: origen.tipoProveedor || "compra", comisionProveedorPct: origen.comisionProveedorPct || 0, perecible: !!origen.perecible, fechaCaducidad: origen.perecible ? (origen.fechaCaducidad || null) : null, metodoCosteo: origen.metodoCosteo || "FIFO", tipoProducto: origen.tipoProducto || "normal", servingMl: origen.servingMl || 50, botellaMl: origen.botellaMl || 750, foto: origen.foto || null, creadoEn: new Date().toISOString() };
         productos.push(clon);
         mov("alta-percha", { producto: clon.nombre, sku: clon.sku, desde: nombreUbic(origen.ubicacionId), hacia: destUbic.nombre });
         return J(ficha(clon));
@@ -2854,6 +2881,8 @@
           eventoFecha: (v.info && v.info.fechaEvento) || "",
           eventoPersonas: (v.info && v.info.numPersonas) || null,
           pagador: (v.info && v.info.nombrePagador) || "",
+          servings: (v.info && v.info.servings) || null,
+          botellas: (v.info && v.info.botellas) || null,
           comisionPct: v.split ? v.split.comisionPct : null,
           comisionAsociado: v.split ? v.split.montoComisionSocio : 0,
           netoCasa: v.split ? v.split.montoNetoDueno : null,
@@ -3083,7 +3112,7 @@
         const rolNuevo = (body.rol === "admin" && _callerRolPost === "dueno") ? "admin" : "empleado";
         if (!nombre)                     return J({ error: "A name is required." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "The PIN must be exactly 3 digits." }, 400);
-        if (_pinReservado(pin))          return J({ error: "888 can't be used as a PIN — it's the app's demo code and would trap this device in demo. Pick another one.", codigo: "PIN_RESERVADO" }, 400);
+        if (_pinReservado(pin))          return J({ error: "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", codigo: "PIN_RESERVADO" }, 400);
         /* Limite free: 1 persona en el equipo ademas del dueno, sea encargado
            o admin. Se cuentan los dos roles y se bloquea la creacion de
            cualquiera de los dos. Esto SOLO afecta altas nuevas: a quien ya
@@ -3143,7 +3172,7 @@
         if (body.pin !== undefined) {
           const np = String(body.pin).trim();
           if (!/^\d{3}$/.test(np)) return J({ error: "The new PIN must be 3 digits." }, 400);
-          if (_pinReservado(np)) return J({ error: "888 can't be used as a PIN — it's the app's demo code and would trap this device in demo. Pick another one.", codigo: "PIN_RESERVADO" }, 400);
+          if (_pinReservado(np)) return J({ error: "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", codigo: "PIN_RESERVADO" }, 400);
           if (usuarios.some((x) => !x.borrado && x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
           u.pin = np;
         }

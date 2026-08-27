@@ -57,10 +57,10 @@ const tiene = (lista, nombre) => lista.some((u) => u.nombre === nombre);
     const B = await nuevoAparato(browser, "inst-B");
 
     // --- 1) ALTA + PROPAGACIÓN BÁSICA ---------------------------------------
-    const r1 = await api(A, "POST", "/api/usuarios", { nombre: "Belen", pin: "456", rol: "empleado" });
-    check("A: alta de Belen (456) responde 200", r1.status === 200, r1);
-    const r2 = await api(A, "POST", "/api/usuarios", { nombre: "Sarah2", pin: "260", rol: "admin" });
-    check("A: alta de Sarah2 (260) responde 200", r2.status === 200, r2);
+    const r1 = await api(A, "POST", "/api/usuarios", { nombre: "Belen", pin: "111", rol: "empleado" });
+    check("A: alta de Belen (111) responde 200", r1.status === 200, r1);
+    const r2 = await api(A, "POST", "/api/usuarios", { nombre: "Sarah2", pin: "222", rol: "admin" });
+    check("A: alta de Sarah2 (222) responde 200", r2.status === 200, r2);
     let catA = await catalogo(A);
     await mergeInto(B, catA, "dueno");
     let rB = await roster(B);
@@ -84,7 +84,7 @@ const tiene = (lista, nombre) => lista.some((u) => u.nombre === nombre);
     // la baja). Al mergear C en B, Belen NO debe revivir.
     const C = await nuevoAparato(browser, "inst-C");
     await mergeInto(C, { ubicaciones: [], productos: [], usuarios: [
-      { id: idBelenA, nombre: "Belen", pin: "456", rol: "empleado", activo: true, borrado: false,
+      { id: idBelenA, nombre: "Belen", pin: "111", rol: "empleado", activo: true, borrado: false,
         creadoEn: "2020-01-01T00:00:00.000Z", actualizadoEn: "2020-01-01T00:00:00.000Z", rev: { c: 1, d: "viejo" } }
     ] }, "dueno");
     check("C: tiene a Belen viva (estado rancio pre-baja)", tiene(await roster(C), "Belen"));
@@ -104,7 +104,7 @@ const tiene = (lista, nombre) => lista.some((u) => u.nombre === nombre);
     await mergeInto(B, catA, "dueno"); // B queda con SarahJefa y rev alto
     // Ahora un aparato con reloj de pared ADELANTADO pero rev MENOR intenta pisarlo:
     await mergeInto(B, { ubicaciones: [], productos: [], usuarios: [
-      { id: idSarahA, nombre: "PisadaPorRelojMalo", pin: "260", rol: "empleado", activo: true, borrado: false,
+      { id: idSarahA, nombre: "PisadaPorRelojMalo", pin: "222", rol: "empleado", activo: true, borrado: false,
         creadoEn: "2099-01-01T00:00:00.000Z", actualizadoEn: "2099-01-01T00:00:00.000Z",
         rev: { c: (revSarah && revSarah.c ? revSarah.c - 1 : 0), d: "aaa" } }
     ] }, "dueno");
@@ -113,11 +113,11 @@ const tiene = (lista, nombre) => lista.some((u) => u.nombre === nombre);
       rBSarah.nombre === "SarahJefa", rBSarah);
 
     // --- 5) COLISIÓN DE PIN: no entra un remoto con PIN de otro miembro vivo --
-    // B tiene a Sarah con 260. Llega un remoto NUEVO (id distinto) con PIN 260.
+    // B tiene a Sarah con 222. Llega un remoto NUEVO (id distinto) con PIN 222.
     let colision = false;
     await B.evaluate(() => { window.__col = false; window.addEventListener("oc-pin-colision", () => { window.__col = true; }); });
     await mergeInto(B, { ubicaciones: [], productos: [], usuarios: [
-      { id: "id-intruso", nombre: "Intruso", pin: "260", rol: "empleado", activo: true, borrado: false,
+      { id: "id-intruso", nombre: "Intruso", pin: "222", rol: "empleado", activo: true, borrado: false,
         creadoEn: "2026-01-01T00:00:00.000Z", actualizadoEn: "2026-01-01T00:00:00.000Z", rev: { c: 99, d: "z" } }
     ] }, "dueno");
     colision = await B.evaluate(() => window.__col);
@@ -132,11 +132,11 @@ const tiene = (lista, nombre) => lista.some((u) => u.nombre === nombre);
     const despues = (await roster(B)).length;
     check("B: merge repetido es idempotente (no duplica miembros)", antes === despues, { antes, despues });
 
-    // --- 7) RE-ALTA con el MISMO PIN tras una baja (Belen 456 fue tombstone) --
-    // Sarah cambia de opinión y vuelve a dar de alta a alguien con el PIN 456.
+    // --- 7) RE-ALTA con el MISMO PIN tras una baja (Belen 111 fue tombstone) --
+    // Sarah cambia de opinión y vuelve a dar de alta a alguien con el PIN 111.
     // El tombstone de Belen NO debe bloquear ese PIN (está borrada).
-    const realta = await api(A, "POST", "/api/usuarios", { nombre: "BelenNueva", pin: "456", rol: "empleado" });
-    check("A: se puede RE-usar el PIN 456 tras la baja (tombstone no bloquea)", realta.status === 200, realta);
+    const realta = await api(A, "POST", "/api/usuarios", { nombre: "BelenNueva", pin: "111", rol: "empleado" });
+    check("A: se puede RE-usar el PIN 111 tras la baja (tombstone no bloquea)", realta.status === 200, realta);
     const idBelenNueva = idPorNombre(await roster(A), "BelenNueva");
     check("A: BelenNueva y el tombstone viejo son ids distintos", idBelenNueva && idBelenNueva !== idBelenA);
     catA = await catalogo(A);

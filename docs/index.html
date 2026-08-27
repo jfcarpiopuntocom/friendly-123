@@ -2313,15 +2313,19 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
 // ============================================================================
 (function () {
   const btn = document.getElementById("btnShowCustomers");
-  if (!btn) return;
   const overlay = document.createElement("div");
   overlay.id = "oc-showcli-modal";
   overlay.style.cssText = "position:fixed;inset:0;z-index:9996;background:rgba(21,40,64,.82);display:none;align-items:flex-end;justify-content:center;";
   overlay.innerHTML = `
-    <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;max-height:82vh;border-radius:16px 16px 0 0;padding:20px 18px 24px;display:flex;flex-direction:column;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-        <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;" data-i18n="sold.showCustomersTitle">Customers who bought</strong>
-        <button id="oc-showcli-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;" data-i18n="sold.showCustomersClose">Close</button>
+    <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;max-height:86vh;border-radius:16px 16px 0 0;padding:20px 18px 24px;display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <strong id="oc-showcli-titulo" style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;"></strong>
+        <button id="oc-showcli-imprimir" title="Print" style="font-size:14px;padding:6px 12px;border:2px solid #0F1923;border-radius:7px;background:#0F1923;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">🖨️</button>
+        <button id="oc-showcli-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;"></button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <label id="oc-showcli-filtro-label" for="oc-showcli-filtro" style="font-size:12px;font-weight:700;color:var(--ink-soft);white-space:nowrap;"></label>
+        <select id="oc-showcli-filtro" style="flex:1;font-size:13px;padding:7px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:7px;background:#fff;color:var(--ink);"></select>
       </div>
       <div id="oc-showcli-lista" style="overflow:auto;flex:1;min-height:0;"></div>
       <p id="oc-showcli-msg" style="font-size:13px;margin:8px 0 0;font-weight:700;"></p>
@@ -2329,24 +2333,40 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
   document.body.appendChild(overlay);
   const lista = document.getElementById("oc-showcli-lista");
   const msg = document.getElementById("oc-showcli-msg");
+  const filtro = document.getElementById("oc-showcli-filtro");
+  const tituloEl = document.getElementById("oc-showcli-titulo");
+  const imprimirBtn = document.getElementById("oc-showcli-imprimir");
+  const cerrarBtn = document.getElementById("oc-showcli-cerrar");
+
+  let _ventas = [], _clientes = [], _filas = [], _cliPorNombre = {};
+
   function cerrar() { overlay.style.display = "none"; }
-  document.getElementById("oc-showcli-cerrar").addEventListener("click", cerrar);
+  cerrarBtn.addEventListener("click", cerrar);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
 
-  btn.addEventListener("click", async () => {
-    overlay.style.display = "flex";
-    lista.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">${escHtml(t("sold.showCustomersEmpty"))}…</p>`;
-    msg.textContent = "";
-    let ventas = [], clientes = [];
-    try { ventas = await (await fetch(`${API}/ventas/todas`)).json(); } catch (_) {}
-    try { clientes = await (await fetch(`${API}/clientes`)).json(); } catch (_) {}
-    if (!Array.isArray(ventas)) ventas = [];
-    if (!Array.isArray(clientes)) clientes = [];
-    const cliPorNombre = {};
-    for (const c of clientes) cliPorNombre[c.nombre] = c;
+  function opcionesFiltro() {
+    const prods = new Map(), evts = new Map();
+    for (const v of _ventas) {
+      if (v.productoNombre) prods.set(v.productoId || v.productoNombre, v.productoNombre);
+      if (v.eventoNombre) evts.set(v.eventoNombre, v.eventoNombre);
+    }
+    const opts = [{ k: "__all__", label: t("sold.showCustomersAll") }];
+    for (const [k, n] of prods) opts.push({ k: "p:" + k, label: n });
+    for (const [k, n] of evts) opts.push({ k: "e:" + k, label: n });
+    return opts;
+  }
+
+  function render() {
+    const sel = filtro.value;
+    _cliPorNombre = {};
+    for (const c of _clientes) _cliPorNombre[c.nombre] = c;
     const porNombre = {};
-    for (const v of ventas) {
+    for (const v of _ventas) {
       if (!v.clienteNombre) continue;
+      if (sel !== "__all__") {
+        if (sel.indexOf("p:") === 0 && v.productoId !== sel.slice(2) && v.productoNombre !== sel.slice(2)) continue;
+        if (sel.indexOf("e:") === 0 && v.eventoNombre !== sel.slice(2)) continue;
+      }
       const k = v.clienteNombre;
       if (!porNombre[k]) porNombre[k] = { nombre: k, compras: 0, total: 0, ultima: 0 };
       porNombre[k].compras += Number(v.cantidad) || 0;
@@ -2354,14 +2374,14 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
       const d = new Date(v.fecha).getTime();
       if (d > porNombre[k].ultima) porNombre[k].ultima = d;
     }
-    const filas = Object.values(porNombre).sort((a, b) => b.ultima - a.ultima);
-    if (!filas.length) {
+    _filas = Object.values(porNombre).sort((a, b) => b.ultima - a.ultima);
+    if (!_filas.length) {
       lista.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);padding:8px 0;">${escHtml(t("sold.showCustomersEmpty"))}</p>`;
       return;
     }
-    const sel = document.getElementById("ventaCliente");
+    const selCliente = document.getElementById("ventaCliente");
     const fila = (f) => {
-      const cli = cliPorNombre[f.nombre];
+      const cli = _cliPorNombre[f.nombre];
       const fecha = f.ultima ? new Date(f.ultima).toLocaleDateString() : "—";
       const tel = cli && cli.telefono ? escHtml(cli.telefono) : "";
       const codigo = cli && cli.codigo ? escHtml(cli.codigo) : "";
@@ -2374,21 +2394,67 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
         ${selBtn}
       </div>`;
     };
-    lista.innerHTML = filas.map(fila).join("");
+    lista.innerHTML = _filas.map(fila).join("");
     lista.querySelectorAll("button[data-sel]").forEach((b) => {
       b.addEventListener("click", () => {
-        if (sel) { sel.value = b.getAttribute("data-sel"); }
+        if (selCliente) { selCliente.value = b.getAttribute("data-sel"); }
         cerrar();
       });
     });
+  }
+
+  function pintarTitulo() {
+    const sel = filtro.value;
+    if (sel === "__all__") tituloEl.textContent = t("sold.showCustomersTitle");
+    else if (sel.indexOf("p:") === 0) tituloEl.textContent = t("sold.showCustomersForProduct").replace("{name}", sel.slice(2));
+    else if (sel.indexOf("e:") === 0) tituloEl.textContent = t("sold.showCustomersForEvent").replace("{name}", sel.slice(2));
+  }
+
+  async function abrir(opts) {
+    opts = opts || {};
+    overlay.style.display = "flex";
+    lista.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">${escHtml(t("sold.showCustomersEmpty"))}...</p>`;
+    msg.textContent = "";
+    try { _ventas = await (await fetch(`${API}/ventas/todas`)).json(); } catch (_) {}
+    try { _clientes = await (await fetch(`${API}/clientes`)).json(); } catch (_) {}
+    if (!Array.isArray(_ventas)) _ventas = [];
+    if (!Array.isArray(_clientes)) _clientes = [];
+    const optsF = opcionesFiltro();
+    filtro.innerHTML = optsF.map((o) => `<option value="${escHtml(o.k)}">${escHtml(o.label)}</option>`).join("");
+    let presel = "__all__";
+    if (opts.productoId) presel = "p:" + opts.productoId;
+    else if (opts.eventoNombre) presel = "e:" + opts.eventoNombre;
+    if (optsF.some((o) => o.k === presel)) filtro.value = presel;
+    pintarTitulo();
+    render();
+  }
+
+  filtro.addEventListener("change", () => { pintarTitulo(); render(); });
+
+  imprimirBtn.addEventListener("click", () => {
+    const w = window.open("", "_blank", "width=640,height=800");
+    if (!w) return;
+    const filasHtml = _filas.map((f) => {
+      const cli = _cliPorNombre[f.nombre];
+      const fecha = f.ultima ? new Date(f.ultima).toLocaleDateString() : "—";
+      const tel = cli && cli.telefono ? escHtml(cli.telefono) : "";
+      return `<tr><td>${escHtml(f.nombre)}${tel ? "<br><small>" + tel + "</small>" : ""}</td><td>${f.compras}</td><td>${fmtMoney(f.total)}</td><td>${escHtml(fecha)}</td></tr>`;
+    }).join("");
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(tituloEl.textContent)}</title><style>body{font-family:system-ui,sans-serif;padding:24px;color:#111}h1{font-size:18px;margin:0 0 4px}p.sub{color:#666;margin:0 0 16px;font-size:13px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #ddd}th{background:#f4f4f4}</style></head><body><h1>${escHtml(tituloEl.textContent)}</h1><p class="sub">${escHtml(new Date().toLocaleString())}</p><table><thead><tr><th>${escHtml(t("sold.showCustomersColName"))}</th><th>${escHtml(t("sold.showCustomersColPurchases"))}</th><th>${escHtml(t("sold.showCustomersColSpent"))}</th><th>${escHtml(t("sold.showCustomersColLast"))}</th></tr></thead><tbody>${filasHtml}</tbody></table><script>window.onload=function(){window.print()}<\/script></body></html>`);
+    w.document.close();
   });
+
+  if (btn) btn.addEventListener("click", () => abrir({}));
+
+  window.abrirCompradores = abrir;
 
   window.addEventListener("oc-lang-change", function () {
     try {
-      const set = function (id, k) { const el = document.getElementById(id); if (el) el.textContent = t(k); };
-      set("oc-showcli-cerrar", "sold.showCustomersClose");
-      const tit = overlay.querySelector("[data-i18n='sold.showCustomersTitle']");
-      if (tit) tit.textContent = t("sold.showCustomersTitle");
+      cerrarBtn.textContent = t("sold.showCustomersClose");
+      imprimirBtn.title = t("sold.showCustomersPrint");
+      document.getElementById("oc-showcli-filtro-label").textContent = t("sold.showCustomersFilter");
+      pintarTitulo();
+      render();
     } catch (_) {}
   });
 })();
@@ -4185,6 +4251,19 @@ function mostrarFormNuevoProducto(codigoEscaneado){
         <input id="np-nombre" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
         <input id="np-categoria" type="text" placeholder="${t('form.categoryPlaceholder')}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
+        <select id="np-tipo-producto" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;">
+          <option value="normal">Normal</option>
+          <option value="ticket">Ticket / Event</option>
+          <option value="bar">Bar (count by serving)</option>
+        </select></label>
+      <div id="np-bar-wrap" style="display:none;margin-top:10px;">
+        <div style="display:flex;gap:10px;">
+          <label style="flex:1;font-size:14px;">Serving size (ml)<br><input id="np-serving-ml" type="number" min="1" step="1" value="50" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="flex:1;font-size:14px;">Bottle size (ml)<br><input id="np-botella-ml" type="number" min="1" step="1" value="750" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+        </div>
+        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">Stock is counted in servings. 1 bottle (750 ml) ≈ 15 servings at 50 ml.</p>
+      </div>
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br>
           <input id="np-precio" type="number" min="0" step="0.01" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
@@ -4214,6 +4293,12 @@ function mostrarFormNuevoProducto(codigoEscaneado){
   `;
   document.getElementById("np-perecible").addEventListener("change", (e) => {
     document.getElementById("np-fecha-wrap").style.display = e.target.checked ? "block" : "none";
+  });
+  /* Tipo de producto: al elegir "Bar" se muestran los campos de serving/botella. */
+  const _npTipo = document.getElementById("np-tipo-producto");
+  if (_npTipo) _npTipo.addEventListener("change", (e) => {
+    const w = document.getElementById("np-bar-wrap");
+    if (w) w.style.display = e.target.value === "bar" ? "block" : "none";
   });
   /* Categoria como combo mixto: se elige de la lista o se escribe otra. */
   try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
@@ -4250,6 +4335,11 @@ async function crearProductoNuevo(codigoEscaneado){
     comisionProveedorPct: el("np-tipo-proveedor") && el("np-tipo-proveedor").value === "consignacion" ? Number(val("np-comision-pct")) || 0 : 0,
     perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
     metodoCosteo: perecible ? el("np-metodo").value : "FIFO",
+    /* Tipo de producto + campos de bar (JFC 2026-08-27): "bar" cuenta stock en
+       servings; servingMl/botellaMl definen la conversión (default 50/750 ml). */
+    tipoProducto: el("np-tipo-producto") ? el("np-tipo-producto").value : "normal",
+    servingMl: el("np-tipo-producto") && el("np-tipo-producto").value === "bar" ? Number(val("np-serving-ml")) || 50 : 50,
+    botellaMl: el("np-tipo-producto") && el("np-tipo-producto").value === "bar" ? Number(val("np-botella-ml")) || 750 : 750,
   };
   const msg = el("np-msg");
   if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
@@ -4452,6 +4542,19 @@ async function abrirAltaProducto(){
         <input id="np-nombre" type="text" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
         <input id="np-categoria" type="text" placeholder="${t('form.categoryPlaceholder')}" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
+        <select id="np-tipo-producto" ${inp}>
+          <option value="normal">Normal</option>
+          <option value="ticket">Ticket / Event</option>
+          <option value="bar">Bar (count by serving)</option>
+        </select></label>
+      <div id="np-bar-wrap" style="display:none;margin-top:10px;">
+        <div style="display:flex;gap:10px;">
+          <label style="flex:1;font-size:14px;">Serving size (ml)<br><input id="np-serving-ml" type="number" min="1" step="1" value="50" ${inp}></label>
+          <label style="flex:1;font-size:14px;">Bottle size (ml)<br><input id="np-botella-ml" type="number" min="1" step="1" value="750" ${inp}></label>
+        </div>
+        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">Stock is counted in servings. 1 bottle (750 ml) ≈ 15 servings at 50 ml.</p>
+      </div>
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br>
           <input id="np-precio" type="number" min="0" step="0.01" ${inp}></label>
@@ -4500,6 +4603,11 @@ async function abrirAltaProducto(){
   document.getElementById("np-tipo-proveedor").addEventListener("change", (e) => {
     document.getElementById("np-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
   });
+  const _npTipo2 = document.getElementById("np-tipo-producto");
+  if (_npTipo2) _npTipo2.addEventListener("change", (e) => {
+    const w = document.getElementById("np-bar-wrap");
+    if (w) w.style.display = e.target.value === "bar" ? "block" : "none";
+  });
   try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
   /* Mismo borrador que el formulario de Escanear: son el MISMO alta con dos
      puertas de entrada, asi que comparten clave y lo empezado en una se
@@ -4523,7 +4631,8 @@ document.getElementById("inputEscaner").addEventListener("keydown", (e) => {
 // por abrirFichaDesdeInventario()/cerrar del modal y ejecutarEscaneo().
 let fichaTargetActual = "fichaResultado";
 function pintarFicha(p){
-  if (p && p.id) _occoProductCache.set(p.id, p); // mantener caché fresca para abrirVistaCliente(id)
+  // (2026-08-27) Se eliminó la caché _occoProductCache junto con la vista de
+  // mostrador fullscreen; el botón 👁 ahora abre abrirCompradores(productoId).
   const contenedor = document.getElementById(fichaTargetActual) || document.getElementById("fichaResultado");
   contenedor.innerHTML = `
     <div class="ficha-producto tag-card">
@@ -4534,6 +4643,7 @@ function pintarFicha(p){
       <div class="linea"><strong>${t("ficha.code")}</strong> ${escHtml(p.barcode)}</div>
       <div class="linea"><strong>${t("ficha.supplier")}</strong> ${escHtml(p.proveedor)}</div>
       <div class="linea"><strong>${t("ficha.currentStock")}</strong> ${p.stockActual} ${t("ficha.units")}</div>
+      ${p.tipoProducto === "bar" ? `<div class="linea"><strong>Servings per bottle:</strong> ≈ ${Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50)))} (${escHtml(p.servingMl)} ml each)</div>` : ""}
       ${p.perecible ? `<div class="linea"><strong>${t("ficha.expires")}</strong> ${escHtml(p.fechaCaducidad || t("ficha.noDate"))}${p.metodoCosteo ? ` · ${escHtml(p.metodoCosteo)}` : ""}</div>` : ""}
       <span class="badge-estado ${escHtml(p.estado)}">${escHtml(p.mensaje)}</span>
       <div class="acciones-rapidas">
@@ -4542,10 +4652,11 @@ function pintarFicha(p){
         <button onclick="ajustar('${p.id}', -1)">-1 stock</button>
         <button class="etiqueta" onclick="abrirEtiqueta('${p.id}')">${t("ficha.viewLabel")}</button>
       </div>
-      <!-- "Mostrar al cliente": visible para cualquier rol autenticado (encargado o dueño) —
-           ambos están detrás del mostrador y pueden girar el teléfono hacia el cliente. -->
+      <!-- "Compradores": visible para cualquier rol autenticado (encargado o dueño).
+           Abre la lista de compradores de este producto (reemplaza a la antigua
+           vista de mostrador fullscreen, JFC 2026-08-27). -->
       <div class="acciones-rapidas" style="margin-top:8px;">
-        <button onclick="abrirVistaCliente('${p.id}')" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
+        <button onclick="abrirCompradores({productoId:'${p.id}'})" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
       </div>
       ${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
@@ -4651,12 +4762,17 @@ async function abrirPanelVentaInfo(id, esTicket){
   const caja = document.getElementById("oc-ventainfo-caja");
   const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"';
   const req = esTicket ? ' <span style="color:var(--rojo,#a3392a);">*</span>' : '';
+  const esBar = p.tipoProducto === "bar";
+  const _servPorBotella = esBar ? Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50))) : 0;
   caja.innerHTML = `
     <div class="ficha-producto tag-card" style="text-align:left;background:var(--blanco-calido,#fbf5e8);">
-      <div class="titulo" style="font-family:var(--font-display);font-size:17px;font-weight:700;">${esTicket ? "Sell ticket / event" : "Sale details"} — ${escHtml(p.nombre)}</div>
-      <p style="font-size:14px;color:var(--ink-soft);">${esTicket ? "This is a Ticket/Event product: these details are required." : "Optional — only if you want to record who bought and how they paid."}</p>
+      <div class="titulo" style="font-family:var(--font-display);font-size:17px;font-weight:700;">${esTicket ? "Sell ticket / event" : (esBar ? "Sell by serving" : "Sale details")} — ${escHtml(p.nombre)}</div>
+      <p style="font-size:14px;color:var(--ink-soft);">${esTicket ? "This is a Ticket/Event product: these details are required." : (esBar ? "Count servings sold; the app tracks the bottle equivalent." : "Optional — only if you want to record who bought and how they paid.")}</p>
+      ${esBar ? `
+      <label style="display:block;margin-top:10px;font-size:14px;">Servings sold<br><input id="vi-servings" type="number" min="1" step="1" value="1" ${inp}></label>
+      <p id="vi-botellas" style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;"></p>` : ""}
       <label style="display:block;margin-top:10px;font-size:14px;">Customer (search by name, or leave blank)<br>
-        <input id="vi-cliente-buscar" type="text" placeholder="Type to filter…" ${inp}></label>
+        <input id="vi-cliente-buscar" type="text" placeholder="Type to filter..." ${inp}></label>
       <select id="vi-cliente" size="1" style="width:100%;padding:8px;margin-top:6px;border:2px solid var(--azul-medio);border-radius:4px;">
         <option value="">Counter sale (no customer)</option>
         ${clientes.map(c => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("")}
@@ -4688,6 +4804,16 @@ async function abrirPanelVentaInfo(id, esTicket){
     [...selCli.options].forEach(o => { o.hidden = !!(q && o.value && !o.textContent.toLowerCase().includes(q)); });
   });
   buscar.focus();
+  if (esBar) {
+    const sInp = document.getElementById("vi-servings");
+    const bEl = document.getElementById("vi-botellas");
+    const actualizar = () => {
+      const n = Math.max(1, Number(sInp.value) || 1);
+      bEl.textContent = `${n} servings ≈ ${(n / _servPorBotella).toFixed(2)} bottles (${_servPorBotella} servings/bottle)`;
+    };
+    sInp.addEventListener("input", actualizar);
+    actualizar();
+  }
 }
 function cancelarPanelVentaInfo(){
   const overlay = document.getElementById("oc-ventainfo-overlay");
@@ -4699,9 +4825,16 @@ function cancelarPanelVentaInfo(){
 async function confirmarVentaConInfo(id, esTicket){
   if (_ventasEnCurso.has(id)) return;
   const g = (x) => { const el = document.getElementById(x); return el ? el.value.trim() : ""; };
+  /* Bar (JFC 2026-08-27): se vende por servings; cantidad = servings y se
+     registra el equivalente en botellas en info. Stock se cuenta en servings. */
+  const _pBar = _ventaInfoProductoCache;
+  const _esBar = _pBar && _pBar.tipoProducto === "bar";
+  const _servPorBotella = _esBar ? Math.max(1, Math.round((Number(_pBar.botellaMl) || 750) / (Number(_pBar.servingMl) || 50))) : 0;
+  const _servings = _esBar ? Math.max(1, Number(g("vi-servings")) || 1) : 1;
   const info = {
     fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
-    email: g("vi-email"), whatsapp: g("vi-whatsapp"), formaPago: g("vi-forma-pago"), montoPagado: g("vi-monto")
+    email: g("vi-email"), whatsapp: g("vi-whatsapp"), formaPago: g("vi-forma-pago"), montoPagado: g("vi-monto"),
+    ...(_esBar ? { servings: _servings, botellas: +(_servings / _servPorBotella).toFixed(2) } : {})
   };
   const msg = document.getElementById("vi-msg");
   if (esTicket && (!info.fechaEvento || !info.nombrePagador || !info.montoPagado)){
@@ -4716,7 +4849,7 @@ async function confirmarVentaConInfo(id, esTicket){
     try {
       res = await fetch(`${API}/productos/${id}/venta`, {
         method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cantidad: 1, clienteId, info })
+        body: JSON.stringify({ cantidad: _esBar ? _servings : 1, clienteId, info })
       });
       data = await res.json();
     } catch (err) {
@@ -5107,6 +5240,7 @@ async function renderComisionistas(){
 
 // GASTOS (2026-08-27): registrar gastos individuales y ver gastos vs ingresos.
 // El resumen muestra: total gastos del mes, ingresos (ventas) del mes y neto.
+let _gastosCache = [];
 async function cargarGastos(){
   const cont = document.getElementById("listaGastos");
   const resumen = document.getElementById("gastosResumen");
@@ -5127,18 +5261,27 @@ async function cargarGastos(){
   const tarjeta = (label, valor, color) => `<div style="flex:1;min-width:120px;background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:12px 14px;">
     <div style="font-size:13px;color:var(--ink-soft);">${label}</div>
     <div style="font-size:20px;font-weight:700;color:${color};">${fmtMoney(valor)}</div></div>`;
+  /* Gating por rol (JFC 2026-08-27): dueño/admin/contador ven ingresos y neto;
+     el encargado/clerk ve SOLO gastos, para no exponer la ganancia del negocio. */
+  const _rolG = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+  const _verIngresos = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
   if (resumen) resumen.innerHTML =
     tarjeta("Expenses (all time)", totalGastos, "#C0392B") +
-    tarjeta("Sales this month", ventasMes, "#006B3C") +
-    tarjeta("Net", neto, neto >= 0 ? "#006B3C" : "#C0392B");
+    (_verIngresos
+      ? tarjeta("Sales this month", ventasMes, "#006B3C") +
+        tarjeta("Net", neto, neto >= 0 ? "#006B3C" : "#C0392B")
+      : "");
   if (!gastos.length) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No expenses recorded yet. Add the first one above.</p>'; return; }
+  _gastosCache = gastos;
+  const _puedeEditarGasto = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
   if (cont) cont.innerHTML = gastos.map((g) => `
-    <div class="tag-card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;">
+    <div class="tag-card" id="gasto-fila-${g.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;">
       <div style="flex:1;">
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
         <div style="font-size:13px;color:var(--ink-soft);">${new Date(g.fecha).toLocaleDateString()}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
       <strong style="color:#C0392B;font-size:16px;">-${fmtMoney(g.monto)}</strong>
+      ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" style="font-size:13px;padding:3px 8px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}
       <button onclick="anularGasto('${g.id}')" title="Delete this expense" style="font-size:13px;padding:3px 8px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">✕</button>
     </div>`).join("");
 }
@@ -5161,6 +5304,32 @@ async function anularGasto(id){
   if (!(await ocConfirm("Delete this expense? It stays in the activity log."))) return;
   await fetch(`${API}/gastos/${id}`, { method: "DELETE" });
   cargarGastos();
+}
+/* Edición inline de un gasto (JFC 2026-08-27): el lapicito convierte la fila en
+   inputs de concepto/monto/fecha con Guardar/Cancelar. Solo dueño/admin/contador
+   (el encargado no ve el botón: el gating de rol está en el render). */
+async function editarGasto(id){
+  const g = (_gastosCache || []).find((x) => x.id === id);
+  const fila = document.getElementById("gasto-fila-" + id);
+  if (!g || !fila) return;
+  const fecha = (g.fecha || "").slice(0, 10);
+  fila.innerHTML = `
+    <div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <input id="ge-concepto" value="${escHtml(g.concepto)}" placeholder="Concept" style="flex:1;min-width:140px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <input id="ge-monto" type="number" min="0" step="0.01" value="${Number(g.monto) || 0}" style="width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <input id="ge-fecha" type="date" value="${escHtml(fecha)}" style="font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+    </div>
+    <button id="ge-guardar" style="font-size:13px;font-weight:700;padding:6px 12px;background:#006B3C;border:1.5px solid #006B3C;border-radius:6px;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">Save</button>
+    <button id="ge-cancelar" style="font-size:13px;padding:6px 12px;background:#fff;border:1.5px solid var(--linea,#D7E0E8);border-radius:6px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;cursor:pointer;">Cancel</button>`;
+  document.getElementById("ge-cancelar").addEventListener("click", () => cargarGastos());
+  document.getElementById("ge-guardar").addEventListener("click", async () => {
+    const concepto = document.getElementById("ge-concepto").value.trim();
+    const monto = Number(document.getElementById("ge-monto").value);
+    const fechaVal = document.getElementById("ge-fecha").value;
+    if (!concepto || !Number.isFinite(monto) || monto <= 0) return;
+    await fetch(`${API}/gastos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, fecha: fechaVal ? new Date(fechaVal).toISOString() : undefined }) });
+    cargarGastos();
+  });
 }
 
 async function cargarComisiones(){
@@ -6163,136 +6332,10 @@ function ocPrompt(mensaje, valorInicial) {
 </script>
 
 <!-- =====================================================================
-     FEATURE: "Mostrar al cliente" — vista de mostrador fullscreen.
-     Muestra solo nombre, foto y precio al cliente. Sin stock exacto,
-     sin costo, sin proveedor, sin botones internos.
-     El encargado entra con el botón 👁 en la ficha y sale con el botón
-     "← Volver a mi vista" o con el auto-retorno de 60s por inactividad.
+     (Eliminado 2026-08-27) La vista de mostrador fullscreen "Mostrar al
+     cliente" fue reemplazada por el modal de compradores (abrirCompradores).
+     El botón 👁 de la ficha ahora abre la lista de compradores del producto.
      ===================================================================== -->
-<div id="oc-customer-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--azul-oscuro,#1c3049);color:#fff;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;touch-action:none;">
-
-  <!-- Foto del producto (grande) -->
-  <div id="occo-foto" style="margin-bottom:24px;"></div>
-
-  <!-- Nombre del producto -->
-  <div id="occo-nombre" style="font-family:var(--font-display,sans-serif);font-size:clamp(26px,6vw,48px);font-weight:800;line-height:1.15;color:#fff;margin-bottom:12px;max-width:520px;"></div>
-
-  <!-- Precio -->
-  <div id="occo-precio" style="font-size:clamp(36px,9vw,72px);font-weight:900;color:var(--verde,#28ECAA);letter-spacing:-1px;margin-bottom:20px;"></div>
-
-  <!-- Disponibilidad (sin número exacto) -->
-  <div id="occo-disponibilidad" style="font-size:18px;font-weight:700;padding:8px 22px;border-radius:999px;display:inline-block;margin-bottom:40px;"></div>
-
-  <!-- Botón volver + countdown -->
-  <button id="occo-volver" onclick="cerrarVistaCliente()" style="background:rgba(255,255,255,0.12);color:#fff;border:2px solid rgba(255,255,255,0.35);border-radius:8px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;min-width:200px;min-height:48px;"></button>
-  <div id="occo-countdown" style="margin-top:12px;font-size:13px;color:#CCCCCC;min-height:18px;"></div>
-
-</div>
-
-<script>
-// --- "Mostrar al cliente" — lógica de overlay ---
-
-let _occoTimer = null;      // intervalo del countdown
-let _occoSecs  = 60;        // segundos restantes antes del auto-retorno
-let _occoProduct = null;    // producto actualmente en pantalla
-const _occoProductCache = new Map(); // id → product object, actualizado por pintarFicha()
-
-// Abre el overlay con los datos del producto p.
-// Llamado desde pintarFicha() cuando el encargado toca "👁 Mostrar al cliente".
-function abrirVistaCliente(idOrObj) {
-  const p = typeof idOrObj === "string" ? _occoProductCache.get(idOrObj) : idOrObj;
-  if (!p) return; // producto no en caché aún — no debería ocurrir
-  _occoProduct = p;
-  const ol = document.getElementById("oc-customer-overlay");
-
-  // Foto
-  const fotoEl = document.getElementById("occo-foto");
-  fotoEl.innerHTML = p.foto
-    ? `<img src="${p.foto}" alt="" style="width:140px;height:140px;object-fit:cover;border-radius:16px;border:3px solid rgba(255,255,255,0.2);">`
-    : `<div style="width:100px;height:100px;border-radius:16px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:48px;">🛍️</div>`;
-
-  // Nombre y precio
-  document.getElementById("occo-nombre").textContent = p.nombre || "";
-  document.getElementById("occo-precio").textContent = typeof fmtMoney === "function" ? fmtMoney(p.precio) : "$" + Number(p.precio).toFixed(2);
-
-  // Disponibilidad — mostramos estado sin revelar el número exacto
-  const dispEl = document.getElementById("occo-disponibilidad");
-  const stockN = Number(p.stockActual ?? 0);
-  let label, bg;
-  if (stockN <= 0) {
-    label = t("customer.soldOut");
-    bg = "rgba(220,60,60,0.85)";
-  } else if (p.estado === "rojo" || p.estado === "amarillo" || stockN <= 3) {
-    label = t("customer.lastUnits");
-    bg = "rgba(200,130,0,0.85)";
-  } else {
-    label = t("customer.available");
-    bg = "rgba(30,160,90,0.85)";
-  }
-  dispEl.textContent = label;
-  dispEl.style.background = bg;
-
-  // Botón de regreso
-  document.getElementById("occo-volver").textContent = t("customer.backTitle");
-
-  // Mostrar el overlay
-  ol.style.display = "flex";
-  document.body.style.overflow = "hidden"; // evita scroll accidental del fondo
-
-  // Arrancar countdown de 60s
-  _iniciarCountdown();
-
-  // Cualquier toque reinicia el countdown (el encargado sigue mirando junto al cliente)
-  ol.addEventListener("touchstart", _resetCountdown, { passive: true });
-  ol.addEventListener("click", _resetCountdown);
-}
-
-function cerrarVistaCliente() {
-  _detenerCountdown();
-  const ol = document.getElementById("oc-customer-overlay");
-  ol.style.display = "none";
-  document.body.style.overflow = "";
-  ol.removeEventListener("touchstart", _resetCountdown);
-  ol.removeEventListener("click", _resetCountdown);
-  _occoProduct = null;
-}
-
-function _iniciarCountdown() {
-  _detenerCountdown();
-  _occoSecs = 60;
-  _actualizarCountdown();
-  _occoTimer = setInterval(() => {
-    _occoSecs--;
-    _actualizarCountdown();
-    if (_occoSecs <= 0) cerrarVistaCliente();
-  }, 1000);
-}
-
-function _resetCountdown() {
-  // No reiniciar si el clic fue en el botón "Volver" (ese ya llama a cerrar)
-  _occoSecs = 60;
-  _actualizarCountdown();
-}
-
-function _detenerCountdown() {
-  if (_occoTimer) { clearInterval(_occoTimer); _occoTimer = null; }
-  document.getElementById("occo-countdown").textContent = "";
-}
-
-function _actualizarCountdown() {
-  const cd = document.getElementById("occo-countdown");
-  if (!cd) return;
-  // Solo muestra el aviso en los últimos 10s para no distraer
-  cd.textContent = _occoSecs <= 10
-    ? t("customer.autoReturn").replace("{n}", _occoSecs)
-    : "";
-}
-
-// Actualizar textos del overlay si el idioma cambia mientras está abierto
-document.addEventListener("oc-lang-change", () => {
-  if (_occoProduct) abrirVistaCliente(_occoProduct);
-});
-</script>
 
 <!-- ═════════ 2026-08-19, JFC: llegar por el QR del equipo ═════════════
      El QR del panel de sync lleva una URL con ?join=F123-XXXX-XXXX. Antes

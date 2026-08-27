@@ -217,7 +217,7 @@
 <div id="puerta">
   <div class="card">
     <img id="logo-puerta" alt="friendly-123">
-    <h1>Control Board</h1>
+    <h1>Dashboard</h1>
     <p class="sub">Your whole business, on one big screen.</p>
 
     <!-- AVISO INELUDIBLE (JFC 2026-08-19): el tablero NO tiene datos propios.
@@ -235,6 +235,12 @@
       </span>
     </div>
 
+    <!-- AVISO DE DEMO (JFC 2026-08-27): la demo es aislada y tiene su propia
+         licencia; se anuncia antes de la cajita de pegado para que un visitante
+         sepa que puede probar sin tocar un negocio real. -->
+    <div class="demo-aviso" style="margin:0 0 10px;padding:10px 12px;border:1px dashed #7a5510;border-radius:8px;background:rgba(122,85,16,.08);font-size:13px;line-height:1.5;color:#5d4a1e;">
+      <strong>Try the demo:</strong> enter PIN <strong style="font-family:var(--font-mono,monospace);">456</strong> to explore a sample business. It's fully isolated — nothing you do there touches a real store.
+    </div>
     <input id="codigo" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
            placeholder="F123-XXXX-XXXX-XXXX-XXXXX" aria-label="Your business code">
     <!-- EL PIN NO ES OPCIONAL (JFC, 2026-08-15). El codigo abre la sala; el PIN
@@ -712,6 +718,20 @@
         { title: "Monto 90d", field: "monto", width: 125, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return money(c.getValue()); } },
         { title: "Phone", field: "telefono", width: 140, cssClass: "num" },
+        /* "Compró" (JFC 2026-08-27): qué productos ha comprado cada cliente.
+           Se deriva en vivo de datos.ventas (clienteNombre → productoNombre),
+           no se inventa un campo nuevo del backend. */
+        { title: "Compró", field: "compro", minWidth: 200, widthGrow: 2,
+          formatter: function (c) {
+            var nombre = c.getRow().getData().nombre;
+            var prods = {};
+            (datos.ventas || []).forEach(function (v) {
+              if (v.clienteNombre === nombre && v.productoNombre) prods[v.productoNombre] = true;
+            });
+            var lista = Object.keys(prods);
+            if (!lista.length) return "—";
+            return lista.slice(0, 4).join(", ") + (lista.length > 4 ? "…" : "");
+          } },
       ],
       filas: function () { return datos.clientes || []; },
       cierre: function (f) {

@@ -2030,10 +2030,11 @@ Keep it somewhere safe.`);
          dueño es la llave maestra — un error de tecleo lo deja fuera de su propio
          negocio. Se pide escribirlo dos veces y se exige que coincidan. */
       if (o !== o2) { msg("oc-codes-msg", window.t("auth.act.pinMismatch"), "var(--rojo)"); return; }
-      /* 888 ES EL CÓDIGO DE DUEÑO DE MUESTRA (JFC 2026-08-26): fijarlo como PIN
-         real atrapa el dispositivo en DEMO permanente (fue justo lo que le pasó a
-         Sarah). Se rechaza con aviso de texto, sin romper la UI. Solo 888. */
-      if ([o, e, a].indexOf("888") !== -1) { msg("oc-codes-msg", "888 can't be used as a PIN — it's the app's demo code and would trap this device in demo. Pick another one.", "var(--rojo)"); return; }
+      /* PINs reservados (JFC 2026-08-27): 456 demo · 789 activación · 260 empleado
+         · 357 contable. 888 ya NO está reservado — es un PIN de dueño inicial
+         libre. Fijar un código de sistema como PIN real colisiona con un rol o
+         con la demo, así que se rechaza con aviso de texto, sin romper la UI. */
+      if ([o, e, a].some((s) => ["456", "789", "260", "357"].indexOf(s) !== -1)) { msg("oc-codes-msg", "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", "var(--rojo)"); return; }
       const correoActual = window.OCSecure.leerCorreo();
       if (!correoActual) { msg("oc-codes-msg", "Before changing PINs, register your recovery email above (if you forget the new PIN, without an email there is no way to recover it).", "var(--rojo)"); return; }
       await window.OCSecure.guardarSecreto(o, [e], a, correoActual);
