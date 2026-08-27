@@ -502,13 +502,14 @@
        todas y evitan que el tablero tenga que rehacer la cuenta del reparto por
        su cuenta — que es como dos pantallas terminan mostrando dos numeros
        distintos del mismo negocio. */
-    const [productos, clientes, ventas, resumen, liquidaciones, perchas] = await Promise.all([
+    const [productos, clientes, ventas, resumen, liquidaciones, perchas, movimientos] = await Promise.all([
       get("/productos?ubicacionId=todas"),
       get("/clientes"),
       get("/ventas/todas?ubicacionId=todas"),
       get("/dashboard?ubicacionId=todas"),
       get("/liquidaciones"),
       get("/ubicaciones?todas=1"),
+      get("/movimientos?limite=200"),
     ]);
     return {
       productos: productos || [],
@@ -517,6 +518,7 @@
       resumen: resumen || null,
       liquidaciones: Array.isArray(liquidaciones) ? liquidaciones : [],
       perchas: Array.isArray(perchas) ? perchas : [],
+      movimientos: Array.isArray(movimientos) ? movimientos : [],
       negocio: (function () {
         try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || ""; }
         catch (_) { return ""; }

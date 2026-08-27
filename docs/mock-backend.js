@@ -1891,6 +1891,29 @@
       try { location.reload(); } catch (_) {}
       return { ok: true, cambiado: true };
     },
+    /* CLAIM / MERGE DE DISPOSITIVOS PROPIOS (JFC 2026-08-27). Deja los TRES
+       campos de identidad (licenseCode, syncCode, sala de sync) en el MISMO
+       código, sin tocar los datos locales (NO vacía). Arregla el "mismatch"
+       (licenseCode vs syncCode vs sala) y es la base del claim: el aparato
+       queda como device de esa licencia canónica. El merge de datos ocurre
+       después, add-only, cuando ambos aparatos apuntan a la misma sala y
+       reconectan. */
+    reconciliar(licencia) {
+      const norm = _normLic(licencia);
+      if (!norm) return { ok: false, error: "Empty license." };
+      try {
+        const ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        ow.licenseCode = norm;
+        ow.syncCode = norm;              // la cajita de compartir deja de mostrar residuo
+        localStorage.setItem("f123_owned", JSON.stringify(ow));
+      } catch (_) {}
+      try { if (window.OCSyncControl && window.OCSyncControl.fijarSala) window.OCSyncControl.fijarSala(norm); } catch (_) {}
+      // NO se llama a _vaciarTiendaFresca(): los datos locales se conservan para que
+      // el merge posterior los sume a la tienda canónica.
+      try { if (window.OCSyncControl && window.OCSyncControl.resincronizar) window.OCSyncControl.resincronizar(); } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: {} })); } catch (_) {}
+      return { ok: true, licencia: norm };
+    },
   };
 
   window.OCSync = {
@@ -2576,6 +2599,13 @@
       }
 
       if (path === "/api/actividad") return J(movimientos.slice().reverse().slice(0, 100));
+
+      // GET /api/movimientos?limite=N — últimos N movimientos (log), solo lectura.
+      // Lo usa el tablero (dashboard.html) para pintar el periscopio de datos.
+      if (path === "/api/movimientos" && (!opts || opts.method === "GET")) {
+        const n = Math.min(Number(q.get("limite")) || 200, 500);
+        return J(movimientos.slice(-n).reverse());
+      }
 
       // Estrella: dueño marca/desmarca productos para que el encargado promueva
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/estrella$/))) {

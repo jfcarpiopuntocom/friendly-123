@@ -533,6 +533,20 @@
             <button id="oc-sync-unirme" class="ir" style="min-height:44px;">Join this notebook</button>
           </div>
         </details>
+        <!-- CLAIM / MERGE DE DISPOSITIVOS PROPIOS (JFC 2026-08-27). Cuando una
+             persona queda con dos aparatos sueltos (ej. "James Bond Store" en la
+             PC y "007 Store" en el cel), cada uno con su instanceId y a veces con
+             licenseCode/syncCode/sala divergentes, este bloque re-apunta ESTE
+             aparato a la licencia canónica SIN vaciar sus datos locales. Al
+             reconectar, el sync add-only junta los datos de ambos. -->
+        <details id="oc-sync-claim" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--azul-suave,#dde5ec);">
+          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">This is also MY device — claim it and merge its data</summary>
+          <p style="font-size:14px;color:var(--ink-soft);margin:8px 0;">Enter the license your OTHER device shows. Both will point to the same notebook and their data merges (nothing is deleted — merge only adds).</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="oc-sync-claim-cod" type="text" placeholder="F123-XXXX-XXXX-XXXX-XXXXX" maxlength="40" style="flex:1;min-width:220px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-size:15px;">
+            <button id="oc-sync-claim-btn" class="ir" style="min-height:44px;">Claim &amp; merge</button>
+          </div>
+        </details>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
 
@@ -542,7 +556,7 @@
          desde auth-ui.js: mayusculas y guiones al escribir Y al pegar. */
       try {
         if (window.OCAuth && window.OCAuth.mascaraCodigo) {
-          ["oc-sync-codigo", "oc-sync-codigo2"].forEach(function (id) {
+          ["oc-sync-codigo", "oc-sync-codigo2", "oc-sync-claim-cod"].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) { el.dataset.ocPrefijo = "F123"; window.OCAuth.mascaraCodigo(el); }
           });
@@ -872,6 +886,26 @@
       })(),
       (function(){var _r=document.getElementById("oc-sync-rotar");if(_r&&!_r.dataset.listo){_r.dataset.listo="1";_r.addEventListener("click",ocRotarCodigoSala);}})(),
       (function(){var _f=document.getElementById("oc-sync-fixlic");if(_f&&!_f.dataset.listo){_f.dataset.listo="1";_f.addEventListener("click",ocDarLicenciaBuena);}})(),
+      /* CLAIM / MERGE (JFC 2026-08-27). Re-apunta ESTE aparato a la licencia
+         canónica que muestra el otro aparato, conservando los datos locales.
+         El merge add-only ocurre después, al reconectar ambos a la misma sala. */
+      (function () {
+        const cb = document.getElementById("oc-sync-claim-btn");
+        if (!cb) return;
+        cb.addEventListener("click", () => {
+          const m3 = document.getElementById("oc-sync-msg");
+          const lic = (document.getElementById("oc-sync-claim-cod").value || "").trim();
+          if (!/^F123-/i.test(lic)) {
+            m3.style.color = "var(--rojo,#a3392a)";
+            m3.textContent = "Enter the full license of your other device (F123-XXXX-XXXX-XXXX-XXXXX).";
+            return;
+          }
+          const r3 = window.OCTienda.reconciliar(lic);
+          if (!r3.ok) { m3.style.color = "var(--rojo,#a3392a)"; m3.textContent = r3.error; return; }
+          m3.style.color = "var(--sim-verde-dk,#1a6e3c)";
+          m3.textContent = "Done. Open your other device online; the two notebooks are merging now.";
+        });
+      })(),
       document.getElementById("oc-sync-desactivar").addEventListener("click", () => {
         window.OCSyncControl.desactivar();
         document.getElementById("oc-sync-apagado").style.display = "flex";

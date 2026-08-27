@@ -364,6 +364,15 @@
     de tu equipo y desaparece al cerrar esta pesta&ntilde;a.
     <button type="button" id="ver-politica">C&oacute;mo tratamos tus datos</button>
   </p>
+
+  <!-- PERISCOPIO DE DATOS (JFC 2026-08-27). Al fondo del tablero, el log de
+       movimientos y el estado de sync/accesos, como termómetro del manejo de
+       datos. Solo pinta la foto que llega del dispositivo; no guarda nada. -->
+  <details id="oc-log-tablero" style="margin-top:28px;border-top:1px solid #2a3a4a;padding-top:14px;">
+    <summary style="cursor:pointer;font-weight:700;color:#B8860B;">My log · data &amp; sync control (periscope)</summary>
+    <div id="oc-log-sync" style="font-family:monospace;font-size:12px;margin:10px 0;"></div>
+    <table id="oc-log-tabla" style="width:100%;font-size:13px;border-collapse:collapse;"></table>
+  </details>
 </div></main>
 
 <!-- MODO LOCAL. aislamiento.js es OBLIGATORIO y va PRIMERO: sin el, este
@@ -994,6 +1003,37 @@
     if (!$("tabsel").children.length) pintarSelector();
     try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {}
     pintarTabla();
+    pintarLog();
+  }
+
+  /* PERISCOPIO DE DATOS (JFC 2026-08-27). Pinta el log de movimientos y el
+     estado de sync/accesos al fondo del tablero. Solo lee la foto que llegó
+     del dispositivo y el localStorage local (mismo origen); no guarda nada. */
+  function pintarLog() {
+    var syncEl = $("oc-log-sync");
+    var tablaEl = $("oc-log-tabla");
+    if (!syncEl || !tablaEl) return;
+    var accesos = 0;
+    try { accesos = (JSON.parse(localStorage.getItem("f123_accesos") || "[]") || []).length; } catch (_) {}
+    var neg = "";
+    try { neg = $("neg-nombre") ? $("neg-nombre").textContent : ""; } catch (_) {}
+    syncEl.textContent =
+      "store: " + (neg || "—") +
+      " · foto: " + (fotoEnCurso || "—") +
+      " · accesos (lord): " + accesos;
+    var filas = Array.isArray(datos.movimientos) ? datos.movimientos : [];
+    if (!filas.length) { tablaEl.innerHTML = '<tr><td style="padding:6px 0;color:#5A6B7A;">No activity yet.</td></tr>'; return; }
+    var html = '<tr style="text-align:left;color:#8a94a6;font-size:12px;">' +
+      "<th style=\"padding:4px 8px;\">Type</th><th style=\"padding:4px 8px;\">Detail</th>" +
+      "<th style=\"padding:4px 8px;\">Who</th><th style=\"padding:4px 8px;\">When</th></tr>";
+    filas.forEach(function (m) {
+      html += "<tr style=\"border-top:1px solid #2a3a4a;\">" +
+        "<td style=\"padding:4px 8px;\">" + esc(m.tipo || "—") + "</td>" +
+        "<td style=\"padding:4px 8px;\">" + esc(m.detalle || "—") + "</td>" +
+        "<td style=\"padding:4px 8px;\">" + esc(m.usuarioNombre || "—") + "</td>" +
+        "<td style=\"padding:4px 8px;\">" + esc(m.fecha || "—") + "</td></tr>";
+    });
+    tablaEl.innerHTML = html;
   }
 
   function pintarKpis() {

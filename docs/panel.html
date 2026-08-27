@@ -834,6 +834,23 @@ function licRenderTabla(data) {
     grupos[idx[cod]].filas.push(r);
   });
 
+  /* SEÑAL DE CLAIM (JFC 2026-08-27). Cuando DOS licencias distintas comparten
+     el mismo email, es muy probable que sean los aparatos sueltos de la misma
+     persona (ej. "James Bond Store" en la PC y "007 Store" en el cel). Se marca
+     la fila para que el dueño sepa que puede unirlas con "claim & merge" desde
+     la app. Es solo señalización visual; el claim se hace en la app, no aquí. */
+  const porEmail = {};
+  _licData.forEach(r => {
+    const e = String(r.email || "").trim().toLowerCase();
+    if (e) { (porEmail[e] = porEmail[e] || new Set()).add(String(r.licenseCode || "").trim().toUpperCase()); }
+  });
+  const chipClaim = (email) => {
+    const e = String(email || "").trim().toLowerCase();
+    const n = porEmail[e] ? porEmail[e].size : 0;
+    if (n < 2) return "";
+    return ` <span style="font-size:11px;color:#B8860B;" title="Same email on ${n} licenses — likely the same person. Use 'claim & merge' in the app to join them.">⚠ same email on ${n} licenses — likely the same person (claim/merge)</span>`;
+  };
+
   /* QUIÉN ENCABEZA LA FILA (JFC 2026-08-27: "sigue sin salir Sarah"). El teléfono
      de pruebas de JFC (jfcarpio@gmail.com) adoptó la licencia K7M2 de idiomARTE y,
      por checar más reciente, encabezaba la fila con el correo de JFC — el cliente
@@ -873,7 +890,7 @@ function licRenderTabla(data) {
       (n > 1 ? `<br><button onclick="licToggleDisp('${id}')" title="Ver cada aparato con esta licencia" style="margin-top:4px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-size:13px;cursor:pointer;">${etiquetaDisp}</button>` : "") + `</td>` +
       `<td>${r.nombreNegocio ? `<strong>${licEsc(r.nombreNegocio)}</strong>` : `<span style="color:var(--ink-soft);">—</span>`} <button onclick="licEditarCampo('${id}','negocio')" title="Editar el nombre del negocio" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;padding:0 2px;">✎</button></td>` +
       `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || `—`)} <button onclick="licEditarCampo('${id}','nombre')" title="Editar el nombre del dueño/a" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;padding:0 2px;">✎</button></td>` +
-      `<td style="font-size:13px;">${licEsc(r.email || "—")}${esMio(r) ? ` <span style="font-size:11px;color:#F97316;">(tu aparato)</span>` : ""}</td>` +
+      `<td style="font-size:13px;">${licEsc(r.email || "—")}${esMio(r) ? ` <span style="font-size:11px;color:#F97316;">(tu aparato)</span>` : ""}${chipClaim(r.email)}</td>` +
       `<td style="font-size:13px;">${waHref ? `<a href="${waHref}" target="_blank" style="color:#25D366;">${licEsc(r.whatsapp)}</a>` : "—"}</td>` +
       `<td style="font-size:13px;">${licEsc(r.cedula || "—")}</td>` +
       `<td class="date">${licFmtDate(r.activatedAt)}</td>` +
