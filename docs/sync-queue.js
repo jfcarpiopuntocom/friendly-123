@@ -122,12 +122,21 @@
         : self._transport(batch);
 
       return sendPromise.then(function (result) {
+        /* M3 (2026-08-27, auditoría): en dry-run NO se marca como synced.
+           Antes se llamaba a markSynced() también en dry-run, así que si luego
+           se activaba el transporte real, esa telemetría ya no se reenviaba
+           (se perdía). El dry-run es una simulación: no debe consumir la cola. */
+        if (dryRun) {
+          self._running = false;
+          log("DEBUG", "Dry-run: batch simulado (NO marcado como enviado — se reenviará cuando haya transporte real)", { count: batch.length });
+          return { sent: 0, dryRun: true, count: batch.length };
+        }
         var marks = batch.map(function (item) { return markSynced(item.id); });
         return Promise.all(marks).then(function () {
           self._running = false;
-          log(dryRun ? "DEBUG" : "AUDIT", dryRun ? "Dry-run: batch simulado como enviado" : "Batch enviado y confirmado", { count: batch.length });
+          log("AUDIT", "Batch enviado y confirmado", { count: batch.length });
           batch.forEach(function (item) { delete self._retries[item.id]; });
-          return { sent: batch.length, dryRun: dryRun };
+          return { sent: batch.length, dryRun: false };
         });
       }).catch(function (err) {
         self._running = false;

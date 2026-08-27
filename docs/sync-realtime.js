@@ -65,7 +65,7 @@
   // equipo apagado a la vez), la brecha no se puede cerrar sola — ahi sigue
   // el respaldo manual/WhatsApp como red de ultimo recurso (Fases 2 y 4).
   const LOG_KEY = "f123_sync_log"; // ultimas ops vistas (propias + ajenas), para poder RE-enviarlas a un par que las perdio
-  const LOG_TOPE = 500; // mismo tope que el dedup de mock-backend.js, mismo criterio
+  const LOG_TOPE = 1000; // M1 (2026-08-27): >= COLA_TOPE(1000). Antes 500 < 1000: un aparato offline que generaba >500 ops perdía las más viejas del log y no podía reenviarlas por catch-up a un par que también estuvo offline. Con 1000 el log nunca pierde ops que la cola aún tiene.
   const TIPO_CATCHUP_PEDIDO = "__catchup_pedido__";
   /* Tipos que alimentan el TABLERO DE CONTROL (portado de amigable-123,
      2026-08-18). El tablero es un lienzo que no guarda nada: pide una foto del

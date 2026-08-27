@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v125"; // bumped 2026-08-27: fix A4/A5 — botón Join usa unirse() (adopta licencia+cambia tienda), reconciliar alinea el namespace de tienda
+const CACHE = "f123-shell-v126"; // bumped 2026-08-27: fase 2 auditoría — A2 (push/pull automático solo si hay backend), A3 (merge multi-dispositivo por deviceId), M1 (LOG_TOPE 1000), M2 (reproducir normaliza body), M3 (dry-run no consume cola), M4 (aviso si cola no persiste), M5 (gate de dueño en sync)
 const SHELL = [
   "./",
   "./index.html",

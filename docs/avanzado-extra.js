@@ -101,11 +101,19 @@
     async function guardarColaCifrada() {
       if (!window.OCSecure.syncActiva()) return;
       const blob = await window.OCSecure.cifrarSync(JSON.stringify(cola));
-      // R2 (JFC 2026-08-20): IndexedDB primero (cupo grande), localStorage
-      // como respaldo si OCOutbox no cargo o IndexedDB no esta disponible.
       if (blob) {
-        if (window.OCOutbox) await window.OCOutbox.guardar(blob);
-        else localStorage.setItem("f123_sync_pending", blob);
+        /* M4 (2026-08-27, auditoría): verificar que la cola se persistió. Antes
+           se ignoraba el retorno de OCOutbox.guardar()/localStorage.setItem: si
+           el storage estaba lleno, la cola de cambios offline se perdía en
+           silencio. Ahora, si no se pudo persistir, se avisa (evento + console)
+           para que una venta offline no desaparezca sin que nadie lo note. */
+        let ok = false;
+        if (window.OCOutbox) ok = await window.OCOutbox.guardar(blob);
+        else { try { localStorage.setItem("f123_sync_pending", blob); ok = true; } catch (_) { ok = false; } }
+        if (!ok) {
+          try { console.warn("[sync] no se pudo persistir la cola de cambios (" + cola.length + " pendientes) — storage lleno?"); } catch (_) {}
+          try { window.dispatchEvent(new CustomEvent("oc-sync-cola-perdida", { detail: { n: cola.length } })); } catch (_) {}
+        }
       }
     }
     async function restaurarCola() {
@@ -143,8 +151,22 @@
           // un paquete manipulado o corrupto no debe poder hacer fetch a
           // cualquier URL arbitraria.
           if (typeof op.url !== "string" || op.url.indexOf("/api/") !== 0) break;
+          /* M2 (2026-08-27, auditoría): normalizar el body antes de reproducir.
+             El interceptor guarda el body tal cual; si era un objeto JS (no
+             string) o un FormData, al cifrar la cola (JSON.stringify) se
+             corrompe. Antes se reenviaba ese body corrupto y el backend local
+             lo degradaba a {} (mock-backend.js:2200) → la op se aplicaba mal.
+             Ahora: si es objeto, se stringifica; si es string no-JSON, se
+             salta la op (break) en vez de corromper el estado. */
+          let body = op.body;
+          if (body !== null && body !== undefined && typeof body !== "string") {
+            try { body = JSON.stringify(body); } catch (_) { break; }
+          }
+          if (body !== null && body !== undefined && typeof body === "string") {
+            try { JSON.parse(body); } catch (_) { break; } // body no-JSON corrupto: no reproducir
+          }
           try {
-            await fetchOriginal(op.url, { method: op.method, headers: { "Content-Type": "application/json" }, body: op.body });
+            await fetchOriginal(op.url, { method: op.method, headers: { "Content-Type": "application/json" }, body });
             aplicados.add(op.id);
           } catch (_) { break; /* se detiene aquí: preserva el orden para el próximo intento */ }
         }
@@ -206,12 +228,32 @@
       } catch (_) { return { ok: false, motivo: "No connection to your sync server." }; }
     }
     let onlineListenerListo = false;
+    /* A2 (2026-08-27, auditoría): el push/pull automático apunta a
+       /api/sync/push|pull que el backend local NO implementa (mock-backend.js
+       devuelve 404). Antes el intervalo (cada 4 min) y el listener "online"
+       intentaban push/pull en silencio — trabajo inútil y falsa sensación de
+       redundancia. Ahora se comprueba UNA vez si el servidor de sync existe; si
+       no, el automático se salta (el botón manual "Auto sync" sigue intentando
+       y mostrando el motivo). El relay WebSocket (licencia) es el camino
+       principal; este lazy sync es un respaldo manual (copiar/pegar). */
+    let _syncServerDisponible = null; // null = sin comprobar, true/false = resultado cacheado
+    async function _comprobarSyncServer() {
+      if (_syncServerDisponible !== null) return _syncServerDisponible;
+      try {
+        const res = await fetchOriginal(`${API}/sync/pull?device=probe`, { method: "GET" });
+        _syncServerDisponible = res.ok;
+      } catch (_) { _syncServerDisponible = false; }
+      return _syncServerDisponible;
+    }
     function arrancarIntervalo() {
       if (temporizador) clearInterval(temporizador);
-      temporizador = setInterval(() => { if (window.OCAuth && !window.OCAuth.rolActual()) return; push().then(pull); }, 4 * 60 * 1000); // sin sesion no hay trabajo
+      temporizador = setInterval(() => {
+        if (window.OCAuth && !window.OCAuth.rolActual()) return;
+        _comprobarSyncServer().then((disp) => { if (disp) push().then(pull); });
+      }, 4 * 60 * 1000); // sin sesion no hay trabajo
       if (!onlineListenerListo) {
         onlineListenerListo = true;
-        window.addEventListener("online", () => { if (syncOn) push().then(pull); });
+        window.addEventListener("online", () => { if (syncOn) _comprobarSyncServer().then((disp) => { if (disp) push().then(pull); }); });
       }
     }
 
@@ -550,6 +592,23 @@
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
 
+      /* M5 (2026-08-27, auditoría): las acciones de sync SENSIBLES (rotar la
+         licencia del negocio, re-emitir una licencia completa, claim/merge de
+         dispositivos, merge de inventario) son del DUEÑO. Un admin puede ver el
+         estado de sync y unirse a un notebook, pero NO debe poder rotar la
+         licencia del dueño ni re-apuntar la identidad del negocio. El botón
+         "avanzado" ya se oculta para empleados (auth-ui.js); esto cierra el
+         hueco del admin. */
+      try {
+        var _rolSync = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+        if (_rolSync !== "dueno") {
+          ["oc-sync-rotar", "oc-sync-fixlic", "oc-sync-claim", "oc-sync-mergear"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = "none";
+          });
+        }
+      } catch (_) {}
+
       /* CAJA AUTOFORMATEADA en los DOS campos de codigo (JFC 2026-08-19:
          "es penoso tener que poner las - manualmente o las mayusculas
          manualmente"). Es la MISMA mascara del modal de unirse, exportada
@@ -811,15 +870,23 @@
           if (!window.OCSyncControl.pedirCatalogo || !window.OCSync || !window.OCSync.compararCatalogo) {
             msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "This device cannot merge catalogs yet."; return;
           }
-          piezas = { ubicaciones: [], productos: [], usuarios: [], rol: "", huella: "", esperados: 0, vistos: 0 };
+          piezas = { ubicaciones: [], productos: [], usuarios: [], rol: "", huella: "", esperados: 0, vistos: 0, porDev: {} };
           msg.style.color = "var(--ink-soft)";
           msg.textContent = "Asking your team for their inventory…";
           window.OCSyncControl.pedirCatalogo();
           clearTimeout(temporizador);
           temporizador = setTimeout(function () {
-            if (!piezas || !piezas.vistos) {
+            if (!piezas) return;
+            const devs = Object.keys(piezas.porDev || {});
+            const todosCompletos = devs.length > 0 && devs.every((d) => piezas.porDev[d].recibidos >= piezas.porDev[d].total);
+            if (!piezas.vistos) {
               msg.style.color = "var(--rojo,#a3392a)";
               msg.textContent = "No other device answered. Open the app on the other device, activated with this same license, and try again.";
+            } else if (!todosCompletos) {
+              /* A3: algún dispositivo empezó a mandar su inventario pero no terminó
+                 (se desconectó a mitad). No disparar el preview con datos a medias. */
+              msg.style.color = "var(--rojo,#a3392a)";
+              msg.textContent = "Some devices did not finish sending their inventory. Try again.";
             }
           }, 9000);
         });
@@ -828,16 +895,30 @@
           try {
             if (!piezas) return;
             const pl = ev.detail && ev.detail.payload; if (!pl) return;
+            const dev = ev.detail && ev.detail.deviceId;
             piezas.rol = pl.rol || piezas.rol;
             piezas.huella = pl.huella || piezas.huella;
-            piezas.esperados = pl.deTotal || piezas.esperados;
             if (Array.isArray(pl.filas)) {
               if (pl.tabla === "ubicaciones") piezas.ubicaciones = piezas.ubicaciones.concat(pl.filas);
               if (pl.tabla === "productos") piezas.productos = piezas.productos.concat(pl.filas);
               if (pl.tabla === "usuarios") piezas.usuarios = piezas.usuarios.concat(pl.filas);
             }
+            /* A3 (2026-08-27, auditoría): agrupar por dispositivo. Antes
+               `piezas.esperados` se sobreescribía con el deTotal de cada trozo y
+               `piezas.vistos` contaba los trozos de TODOS los dispositivos, así
+               que con 2+ aparatos respondiendo el preview se disparaba prematuro
+               con datos mezclados/incompletos. Ahora cada dispositivo se cuenta
+               por separado (recibidos vs su propio total) y el preview espera a
+               que TODOS los que respondieron hayan completado. */
+            if (dev) {
+              if (!piezas.porDev[dev]) piezas.porDev[dev] = { recibidos: 0, total: 0 };
+              piezas.porDev[dev].total = pl.deTotal || piezas.porDev[dev].total;
+              piezas.porDev[dev].recibidos++;
+            }
             piezas.vistos++;
-            if (piezas.esperados && piezas.vistos >= piezas.esperados) {
+            const devs = Object.keys(piezas.porDev);
+            const todosCompletos = devs.length > 0 && devs.every((d) => piezas.porDev[d].recibidos >= piezas.porDev[d].total);
+            if (todosCompletos) {
               clearTimeout(temporizador);
               const cat = { ubicaciones: piezas.ubicaciones, productos: piezas.productos, usuarios: piezas.usuarios, huella: piezas.huella };
               const rol = piezas.rol; piezas = null;
