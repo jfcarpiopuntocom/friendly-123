@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v124"; // bumped 2026-08-27: fix C1/C2 relay — checkpoint no se pisa con uno rancio, lamport del checkpoint = lo aplicado
+const CACHE = "f123-shell-v125"; // bumped 2026-08-27: fix A4/A5 — botón Join usa unirse() (adopta licencia+cambia tienda), reconciliar alinea el namespace de tienda
 const SHELL = [
   "./",
   "./index.html",

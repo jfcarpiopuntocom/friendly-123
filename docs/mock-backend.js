@@ -1842,9 +1842,14 @@
     nombreActivo() { try { return nombreNegocio || ""; } catch (_) { return ""; } },
     /* Cambia la app a la tienda de la licencia dada. Devuelve
        { ok, cambiado, mismo } sin recargar si ya estás en esa tienda. */
-    cambiar(licencia) {
+    cambiar(licencia, opts) {
       const norm = _normLic(licencia);
       if (!norm) return { ok: false, error: "Empty license." };
+      /* A5 (2026-08-27): opción sinRecargar para que reconciliar() (claim/merge)
+         pueda alinear el namespace de tienda SIN recargar — el merge add-only
+         ocurre en memoria al reconectar, y recargar aquí vaciaría el estado
+         local que el merge debe sumar. El resto del flujo es idéntico. */
+      const sinRecargar = !!(opts && opts.sinRecargar);
       // Registro licencia -> sufijo.
       let reg = {};
       try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
@@ -1893,7 +1898,7 @@
         }
       } catch (_) {}
       // Recargar: en el boot el sufijo ya será el de la tienda destino.
-      try { location.reload(); } catch (_) {}
+      if (!sinRecargar) { try { location.reload(); } catch (_) {} }
       return { ok: true, cambiado: true };
     },
     /* CLAIM / MERGE DE DISPOSITIVOS PROPIOS (JFC 2026-08-27). Deja los TRES
@@ -1913,6 +1918,18 @@
         localStorage.setItem("f123_owned", JSON.stringify(ow));
       } catch (_) {}
       try { if (window.OCSyncControl && window.OCSyncControl.fijarSala) window.OCSyncControl.fijarSala(norm); } catch (_) {}
+      /* A5 (2026-08-27, auditoría de integridad): alinear el NAMESPACE de tienda
+         con la licencia canónica. Antes solo se fijaba la sala de sync; el
+         f123_tienda_activa quedaba apuntando al namespace viejo → el aparato
+         quedaba "partido" (identidad canónica pero tienda activa vieja) y el
+         merge posterior aterrizaba en el namespace equivocado. cambiar() registra
+         la tienda actual, flushea sus datos bajo sus claves, apunta
+         f123_tienda_activa al namespace de la canónica y fija la sala. sinRecargar:
+         el merge add-only ocurre en memoria al reconectar; recargar aquí vaciaría
+         el estado local que el merge debe sumar. */
+      try {
+        if (window.OCTienda && window.OCTienda.cambiar) window.OCTienda.cambiar(norm, { sinRecargar: true });
+      } catch (_) {}
       // NO se llama a _vaciarTiendaFresca(): los datos locales se conservan para que
       // el merge posterior los sume a la tienda canónica.
       try { if (window.OCSyncControl && window.OCSyncControl.resincronizar) window.OCSyncControl.resincronizar(); } catch (_) {}

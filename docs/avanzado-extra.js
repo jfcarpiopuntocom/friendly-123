@@ -868,10 +868,19 @@
           const cod = (document.getElementById("oc-sync-codigo2").value || "").trim();
           if (!cod) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = window.t("sync.panel.pasteCodeFirst"); return; }
           if (!/^(TEAM|F123)-/i.test(cod)) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = window.t("sync.panel.badCode"); return; }
-          const r2 = window.OCSyncControl.activar(cod);
+          /* A4 (2026-08-27, auditoría de integridad): antes usaba activar(), que
+             solo guarda la sala y conecta — el aparato sincronizaba a la sala
+             correcta pero NO adoptaba la licencia ni cambiaba de tienda (quedaba
+             "partido": identidad demo/otra, datos en el namespace viejo). unirse()
+             es el flujo de equipo completo: marca instanceId (sale de demo), fija
+             licenseCode (cuenta como device del negocio) y cambia de tienda vía
+             OCTienda.cambiar(). Si cambia de tienda, cambiar() recarga la página
+             (el código de abajo no se ejecuta, correcto). Si ya estás en esa
+             tienda (mismo:true), no recarga y mostramos el aviso de re-sync. */
+          const r2 = window.OCSyncControl.unirse(cod);
           if (!r2.ok) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = r2.error; return; }
           m2.style.color = "var(--sim-verde-dk,#1a6e3c)";
-          m2.textContent = window.t("sync.panel.joined");
+          m2.textContent = r2.mismo ? r2.error : window.t("sync.panel.joined");
           document.getElementById("oc-sync-apagado").style.display = "none";
           document.getElementById("oc-sync-activo").style.display = "block";
           document.getElementById("oc-sync-codigo-actual").textContent = (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(cod) : cod);
