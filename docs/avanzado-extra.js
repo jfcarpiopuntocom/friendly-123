@@ -600,9 +600,13 @@
         const T = window.OCTienda || {};
         let owned = {}; try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
         let marcador = ""; try { marcador = localStorage.getItem("f123_tienda_activa") || "(propia \"\")"; } catch (_) {}
+        let esLord = false; try { esLord = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
+        let accesos = []; try { accesos = JSON.parse(localStorage.getItem("f123_accesos") || "[]"); if (!Array.isArray(accesos)) accesos = []; } catch (_) { accesos = []; }
         const cnt = async (u) => { try { const r = await fetch(u); const a = await r.json(); return Array.isArray(a) ? a.length : "?"; } catch (_) { return "err"; } };
         const [nProd, nUbic, nCli, nUsu] = await Promise.all([cnt("/api/productos?todas=1"), cnt("/api/ubicaciones?todas=1"), cnt("/api/clientes"), cnt("/api/usuarios")]);
+        const ultAcceso = accesos.length ? accesos[accesos.length - 1] : null;
         const lineas = [
+          "Role of this device: " + (esLord ? "LORD (super-admin) — joins are GUEST / under observation, license not adopted" : "normal — joining a license makes this a device of that business"),
           "Connection:   " + (S.estado ? S.estado() : "?") + "   (peers online: " + (S.presencia ? S.presencia() : "?") + ")",
           "Sync room:    " + ((S.salaActiva && S.salaActiva()) || "(off)"),
           "This device's own license: " + (owned.licenseCode || "(none)"),
@@ -610,6 +614,7 @@
           "Active store:  " + (T.esUnida && T.esUnida() ? ("JOINED  " + ((T.licenciaActual && T.licenciaActual()) || "?")) : "OWN (\"\")") ,
           "Store marker:  " + marcador,
           "Data here:     products " + nProd + " · shelves " + nUbic + " · customers " + nCli + " · team " + nUsu,
+          (esLord ? ("Observed stores (audit log): " + accesos.length + (ultAcceso ? "  · last: " + ultAcceso.licencia + " @ " + ultAcceso.cuando : "")) : ""),
           "",
           "Reading this: if you paste another business's license and 'Active store' still says OWN and the counts are YOUR numbers, the switch did NOT happen (that license is being treated as this device's own). If it says JOINED but counts are 0, you switched but their data has not synced in yet (needs their device to have pushed to the relay).",
         ];

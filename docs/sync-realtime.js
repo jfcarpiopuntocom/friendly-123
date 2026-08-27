@@ -137,6 +137,28 @@
     return id;
   }
 
+  /* LORD / SUPER-ADMIN (JFC 2026-08-26). Un aparato se marca lord cuando se
+     verifica el código maestro (candado de JFC). El lord, al unirse a la licencia
+     de un cliente, entra como INVITADO/observador: NO adopta la licencia ajena y
+     deja rastro de auditoría (best-practice de acceso privilegiado: identidad
+     distinta + registro de todo acceso). Un usuario normal nunca es lord. */
+  const LORD_KEY = "f123_lord";
+  const ACCESOS_KEY = "f123_accesos"; // bitácora local de accesos del lord a tiendas ajenas
+  function _esLord() { try { return localStorage.getItem(LORD_KEY) === "1"; } catch (_) { return false; } }
+  function _registrarAcceso(licencia) {
+    try {
+      var log = [];
+      try { log = JSON.parse(localStorage.getItem(ACCESOS_KEY) || "[]"); if (!Array.isArray(log)) log = []; } catch (_) { log = []; }
+      log.push({
+        licencia: String(licencia || ""),
+        cuando: (new Date()).toISOString(),
+        deviceId: deviceId(),
+        toco: false, // observador por defecto; se marca true si ejecuta una orden que muta
+      });
+      localStorage.setItem(ACCESOS_KEY, JSON.stringify(log.slice(-500)));
+    } catch (_) {}
+  }
+
   function lamportActual() { return Number(localStorage.getItem(LAMPORT_KEY) || 0); }
   function mergeLamport(lam) {
     try { var n = Number(lam) || 0; if (n > lamportActual()) localStorage.setItem(LAMPORT_KEY, String(n)); } catch (_) {}
@@ -1073,8 +1095,26 @@
           if (!_ow.instanceId) {
             _ow.instanceId = (self.crypto && self.crypto.randomUUID) ? self.crypto.randomUUID() : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
             _ow.activatedAt = _ow.activatedAt || Date.now();
-            localStorage.setItem("f123_owned", JSON.stringify(_ow));
           }
+          /* IDENTIDAD AL UNIRSE — MODELO 1 vs MODELO 2 (JFC 2026-08-26).
+             Decidido por JFC: un usuario NORMAL que pone una licencia SE VUELVE un
+             dispositivo de ESE negocio (adopta la licencia como suya) → el panel de
+             licencias lo CUENTA como 2do/3er device en vez de forjar una licencia
+             nueva/truncada aparte. Era el bug: unirse() nunca fijaba licenseCode, así
+             que el teléfono reportaba una licencia distinta al Worker y salía como
+             fila separada. Se fija ANTES de cambiar() para que _licenciaPropia() ya
+             refleje esta licencia y la tienda destino sea la propia ("").
+             EXCEPCIÓN — EL LORD (JFC como super-admin): un aparato marcado lord NO
+             adopta la licencia ajena (conserva su identidad) y entra como INVITADO/
+             observador; se REGISTRA el acceso (auditoría, best-practice de acceso
+             privilegiado). Así el panel del cliente no lo cuenta como su device. */
+          var _codNorm = normalizarCodigo(codigo);
+          if (_esLord()) {
+            _registrarAcceso(_codNorm);
+          } else if (_codNorm && /^F123-/.test(_codNorm)) {
+            _ow.licenseCode = _codNorm; // se vuelve device de ese negocio (cuenta en el panel)
+          }
+          localStorage.setItem("f123_owned", JSON.stringify(_ow));
         }
       } catch (_) {}
       /* CAMBIO DE TIENDA AL UNIRSE (JFC 2026-08-26 — reemplaza el "adoptar la

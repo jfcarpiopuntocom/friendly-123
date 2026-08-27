@@ -86,10 +86,25 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       var url = (localStorage.getItem("f123_cf_worker_url") || "").trim() || OC_WORKER_URL;
       if (!url) return;
       var trim = function (v, n) { if (v == null) return v; var s = String(v); return s.length > n ? s.slice(0, n) : s; };
+      /* GUARD ANTI-DESAPARICIÓN DE LICENCIA (JFC 2026-08-26 — "ya no sale la
+         licencia de Sarah en el panel"). Un heartbeat con licenseCode vacío puede
+         hacer que el Worker sobrescriba con "" la fila de una licencia REAL y el
+         cliente desaparezca del panel — lo último que puede pasar. Redundancia:
+           1) si datos.licenseCode viene vacío, se RECUPERA de la sala de sync
+              activa (ROOM_KEY = la licencia del equipo), que es la misma;
+           2) si aun así no hay una licencia F123 válida, se OMITE el campo del
+              payload — el Worker no puede pisar un valor bueno con vacío.
+         Nunca se envía "" como licenseCode. */
+      var _licSegura = String(datos.licenseCode || "").trim();
+      if (!/^F123-/i.test(_licSegura)) {
+        try {
+          var _sala = (window.OCSyncControl && window.OCSyncControl.salaActiva) ? (window.OCSyncControl.salaActiva() || "") : "";
+          if (/^F123-/i.test(String(_sala))) _licSegura = String(_sala).trim();
+        } catch (_) {}
+      }
       var payload = {
         producto: "friendly-123",
         instanceId: trim(datos.instanceId, 100),
-        licenseCode: trim(datos.licenseCode, 40),
         email: trim(datos.email, 160),
         whatsapp: trim(datos.whatsapp, 20),
         nombre: trim(datos.nombre, 120),
@@ -98,6 +113,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         activatedAt: datos.activatedAt,
         accion: trim(datos.accion, 30),
       };
+      // Solo se adjunta la licencia si es una F123 válida: jamás un "" que borre
+      // la fila de un cliente real en el Worker (ver guard de arriba).
+      if (/^F123-/i.test(_licSegura)) payload.licenseCode = trim(_licSegura, 40);
       /* Autorreporte de fallas de la app, pegado al heartbeat que ya viaja.
          Cero endpoints nuevos, cero dependencias. El payload se arma por LISTA
          BLANCA en salud-app.js: no puede llevar datos de negocio. */

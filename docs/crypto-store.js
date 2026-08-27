@@ -315,6 +315,12 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const hashIngresado = await hashMaestro(codigo);
     const ok = guardado ? hashIngresado === guardado : hashIngresado === (await hashMaestro(MASTER_CODE_DEFAULT));
     ok ? registrarExito("maestro") : registrarFallo("maestro");
+    /* MARCA DE LORD (JFC 2026-08-26). Quien verifica el código maestro ES el
+       super-admin (JFC). Se marca el aparato como lord para que, al unirse a la
+       licencia de un cliente, entre como INVITADO/observador y NO adopte esa
+       licencia (ver _esLord() en sync-realtime.js). Un usuario normal jamás pasa
+       por aquí, así que nunca queda marcado. Solo se ESCRIBE en éxito. */
+    if (ok) { try { localStorage.setItem("f123_lord", "1"); } catch (_) {} }
     return ok;
   }
   // Permite fijar un código maestro propio por negocio (JFC, no el dueño).
