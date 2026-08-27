@@ -577,6 +577,7 @@
       "bcg.heading": "BCG matrix of your inventory",
       "bcg.intro": "Sales from the last 60 days. Right: sell more than average. Up: growing.",
       "comm.rankingHeading": "Promoter ranking",
+      "comm.rfmHeading": "Promoter RFM matrix",
       "comm.sendWhatsappDaily": "Send today's summary via WhatsApp",
       "weekly.nudgeTitle": "Send yourself this week's summary via WhatsApp?",
       "weekly.nudgeSend": "Send",
@@ -645,6 +646,7 @@
       "auth.roleChip.admin": "admin",
       "auth.roleChip.employee": "employee",
       "auth.roleChip.accountant": "accountant",
+      "auth.roleChip.demo": "demo",
     },
     es: {
       // Puntos de retorno + constancia del encargado + edutips
@@ -1199,6 +1201,7 @@
       "bcg.heading": "Matriz BCG de tu inventario",
       "bcg.intro": "Ventas de los últimos 60 días. Derecha: venden más que el promedio. Arriba: van creciendo.",
       "comm.rankingHeading": "Ranking de asociados/as",
+      "comm.rfmHeading": "Matriz RFM de asociados/as",
       "comm.sendWhatsappDaily": "Enviar resumen de hoy por WhatsApp",
       "weekly.nudgeTitle": "¿Enviarte el resumen de esta semana por WhatsApp?",
       "weekly.nudgeSend": "Enviar",
@@ -1267,6 +1270,7 @@
       "auth.roleChip.admin": "admin",
       "auth.roleChip.employee": "empleado",
       "auth.roleChip.accountant": "contador",
+      "auth.roleChip.demo": "demo",
     },
   };
 

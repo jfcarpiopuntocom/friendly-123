@@ -1475,10 +1475,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       header.appendChild(chip);
     }
     // Chip naranja de rol (homologado de AMIGABLE, JFC 2026-07-29: "no tiene
-    // el indicador naranja de si el usuario es owner o employee"). No se
-    // muestra en sesion demo — solo en dispositivos apropiados de verdad.
-    const _rolChipKey = { dueno: "auth.roleChip.owner", admin: "auth.roleChip.admin", empleado: "auth.roleChip.employee", contador: "auth.roleChip.accountant" }[rol];
-    if (_rolChipKey && !demoSesion) {
+    // el indicador naranja de si el usuario es owner o employee"). Se muestra
+    // SIEMPRE, incluso en sesion demo (456) — el usuario pidió que la pill
+    // naranja no desaparezca: con 456 debe decir "demo" (JFC 2026-08-27).
+    const _rolChipKey = demoSesion
+      ? "auth.roleChip.demo"
+      : ({ dueno: "auth.roleChip.owner", admin: "auth.roleChip.admin", empleado: "auth.roleChip.employee", contador: "auth.roleChip.accountant" }[rol]);
+    if (_rolChipKey) {
       const rc = document.createElement("span");
       rc.id = "oc-rol-chip";
       rc.textContent = window.t(_rolChipKey);

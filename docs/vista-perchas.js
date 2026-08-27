@@ -335,13 +335,11 @@
     modal.style.display = 'flex';
     try {
       const prods = await fetch(`${API}/productos?ubicacionId=${encodeURIComponent(perchaId)}`).then((r) => r.json());
-      const cajaChicaHtml = cajaChicaSeccionHtml(perchaId);
       if (!Array.isArray(prods) || !prods.length) {
-        body.innerHTML = `${cajaChicaHtml}<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noProductsYet'))}</p>`;
-        pintarSaldoCajaChica(perchaId);
+        body.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noProductsYet'))}</p>`;
         return;
       }
-      body.innerHTML = `${cajaChicaHtml}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">${
+      body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">${
         prods.map((p) => {
           const c = SIMON[p.estado] || SIMON.azul;
           const estrella = p.estrella ? '★ ' : '';
@@ -356,64 +354,10 @@
           </button>`;
         }).join('')
       }</div>`;
-      pintarSaldoCajaChica(perchaId);
     } catch (err) {
       body.innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">No se pudo cargar: ${esc(err.message)}</p>`;
     }
   }
-
-  // ── Caja chica de la percha — Fase 2 del roadmap agosto 2026 ───────────────
-  // "Solo un plus para que las cuentas cuadren" (JFC): control operativo
-  // rapido de efectivo en el punto fisico, NO reemplaza P&L ni comisiones.
-  // El saldo se pide async (misma razon que cartera.js: no bloquear el
-  // render con una lectura a IndexedDB).
-  function cajaChicaSeccionHtml(perchaId) {
-    // Caja chica es dato financiero: el admin tambien (JFC 2026-08-25).
-    const esDueno = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
-    if (!esDueno) return '';
-    return `<div style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--azul-medio,#2c4a68);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;">Caja chica</span>
-        <span id="vp-caja-saldo-${esc(perchaId)}" style="font-size:16px;font-weight:700;"></span>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button data-vp-caja-ingreso="${esc(perchaId)}" style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;">+ Ingreso</button>
-        <button data-vp-caja-retiro="${esc(perchaId)}" style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">− Retiro</button>
-      </div>
-    </div>`;
-  }
-
-  async function pintarSaldoCajaChica(perchaId) {
-    const el = document.getElementById(`vp-caja-saldo-${perchaId}`);
-    if (!el) return;
-    try {
-      const info = await fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/caja-chica`).then((r) => r.json());
-      const saldo = (info && info.saldo) || 0;
-      el.textContent = money(saldo);
-      el.style.color = saldo < 0 ? '#C0392B' : 'var(--ink)';
-    } catch (_) { el.textContent = ''; }
-  }
-
-  async function moverCajaChica(perchaId, tipo) {
-    const monto = parseFloat((await window.ocPrompt(`Amount (${tipo === 'ingreso' ? 'cash in' : 'cash out'}) ($):`, '') || '').trim());
-    if (!(monto > 0)) return;
-    const motivo = (await window.ocPrompt('Reason (required):', '') || '').trim();
-    if (!motivo) return;
-    if (!(await window.ocConfirm(`Record ${tipo === 'ingreso' ? 'cash in' : 'cash out'} of ${money(monto)}?`))) return;
-    try {
-      await fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/caja-chica/${tipo}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ monto, motivo })
-      });
-      pintarSaldoCajaChica(perchaId);
-    } catch (err) { console.error('[VPerchas] caja-chica:', err); }
-  }
-
-  modal.addEventListener('click', (ev) => {
-    const btnIn = ev.target.closest('[data-vp-caja-ingreso]');
-    const btnOut = ev.target.closest('[data-vp-caja-retiro]');
-    if (btnIn) { moverCajaChica(btnIn.dataset.vpCajaIngreso, 'ingreso'); return; }
-    if (btnOut) { moverCajaChica(btnOut.dataset.vpCajaRetiro, 'retiro'); return; }
-  });
 
   // ── MODAL GESTIÓN: renombrar o borrar la percha (✎) ───────────────────────
   // Reemplaza el prompt() simple. Bottom-sheet de 2 acciones: Renombrar y Borrar.

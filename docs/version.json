@@ -1,9 +1,9 @@
 {
-  "version": "1.7.17",
+  "version": "1.7.18",
   "fecha": "2026-08-27",
-  "changelog": "v1.7.17 — PINs claros (456 demo, 888 dueño libre, 260 empleado, 357 contable), compradores por ítem/evento con imprimir, dashboard con columna 'Compró' y aviso de demo, gastos por rol (encargado solo gastos) con edición, y productos de bar contados por serving.",
+  "changelog": "v1.7.18 — Ventas con notas y cliente nuevo desde el panel; borrado de clientes (dueño/admin) con registro; caja chica movida a Gastos; comisionista en el formulario de producto; comisiones como en amigable (editor de comisionista, escalas, matriz RFM, origen, editor de trato de percha).",
   "requerida": false,
-  "shell": "f123-shell-v130",
+  "shell": "f123-shell-v131",
   "apagar": [],
-  "releaseName": "v1.7.17"
+  "releaseName": "v1.7.18"
 }

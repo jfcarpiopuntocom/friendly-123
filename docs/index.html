@@ -1030,17 +1030,37 @@
     text-align:center;
     position:relative;
   }
+  /* X de cierre con contraste (JFC 2026-08-27): fondo blanco, borde y sombra
+     para que se vea en tablets/celulares y a pleno sol en ferias. */
+  .cerrar{
+    position:absolute;
+    top:8px; right:10px;
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    color:#0F1923;
+    background:#FFFFFF;
+    border:2px solid #0F1923;
+    border-radius:50%;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
+    font-family:var(--font-body);
+    width:36px; height:36px;
+    display:flex; align-items:center; justify-content:center;
+    z-index:5;
+  }
   .etiqueta-imprimible .cerrar{
     position:absolute;
     top:8px; left:10px;
     font-size:20px;
     cursor:pointer;
-    color:var(--ink-soft);
-    background:none;
-    border:none;
-    box-shadow:none;
+    color:#0F1923;
+    background:#FFFFFF;
+    border:2px solid #0F1923;
+    border-radius:50%;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
     font-family:var(--font-body);
-    width:34px; height:34px;
+    width:36px; height:36px;
+    display:flex; align-items:center; justify-content:center;
   }
   .etiqueta-imprimible h4{
     font-family:var(--font-display);
@@ -1740,6 +1760,21 @@
       </div>
       <p id="gastoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
     </div>
+    <!-- CAJA CHICA (JFC 2026-08-27): movida desde el modal de percha a la
+         pestaña Gastos. Control operativo de efectivo por percha. Solo
+         dueño/admin (gating por rol en cargarGastos). -->
+    <div id="cajaChicaBloque" class="tag-card" style="text-align:left;margin-top:14px;display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;">Petty cash (caja chica)</span>
+        <span id="cajaChicaSaldo" style="font-size:16px;font-weight:700;"></span>
+      </div>
+      <label style="display:block;margin-top:8px;font-size:14px;">Shelf:<br>
+        <select id="cajaChicaPercha" style="margin-top:4px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;max-width:100%;"></select></label>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button id="cajaChicaIngreso" style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;">+ Ingreso</button>
+        <button id="cajaChicaRetiro" style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">− Retiro</button>
+      </div>
+    </div>
     <div id="listaGastos" style="margin-top:14px;"></div>
   </section>
 
@@ -2245,6 +2280,12 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
   }
   function cerrar() { overlay.style.display = "none"; }
 
+  // JFC 2026-08-27: exponer el modal para reutilizarlo desde el panel de venta
+  // (selector "abajo"). El callback se invoca con el cliente recien creado.
+  window.ocAbrirNuevoCliente = abrir;
+  window.ocCerrarNuevoCliente = cerrar;
+  window._ocNuevoClienteCb = null;
+
   btn.addEventListener("click", abrir);
   document.getElementById("oc-ncli-cerrar").addEventListener("click", cerrar);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
@@ -2285,6 +2326,17 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
         sel.appendChild(opt);
         sel.value = r.id;
       }
+      // JFC 2026-08-27: si el modal se abrio desde el panel de venta (selector
+      // "abajo"), agregar el cliente ahi tambien y seleccionarlo.
+      const selAbajo = document.getElementById("vi-cliente");
+      if (selAbajo) {
+        const opt2 = document.createElement("option");
+        opt2.value = r.id;
+        opt2.textContent = escHtml(r.nombre) + " (" + escHtml(r.codigo) + ")";
+        selAbajo.appendChild(opt2);
+        selAbajo.value = r.id;
+      }
+      if (window._ocNuevoClienteCb) { try { window._ocNuevoClienteCb(r); } catch (_) {} window._ocNuevoClienteCb = null; }
       cerrar();
     } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("newcust.networkError"); btn2.disabled = false; }
   });
@@ -2690,6 +2742,12 @@ function tarjetaCliente(c, esDueno){
   const editKey = "cliedit-" + c.id;
   const panelEditAbierto = window.OCClienteEditOpen && window.OCClienteEditOpen.has(editKey);
   const btnEditar = `<button onclick="toggleEditarContacto('${editKey}')" style="margin-top:8px;font-size:13px;padding:4px 12px;background:#F4F7FA;border:1.5px solid var(--azul-medio,#2E6278);border-radius:6px;color:#1E4258 !important;-webkit-text-fill-color:#1E4258 !important;cursor:pointer;">✎ Edit contact / notes</button>`;
+  // Borrar cliente (JFC 2026-08-27): solo dueño/admin. Borrado REAL, pero
+  // siempre queda constancia en el registro de auditoría (mov "cliente-borrado").
+  const btnBorrar = esDueno
+    ? `<button onclick="borrarCliente('${c.id}','${escHtml(c.nombre)}')" title="Delete this customer permanently (kept in the audit log)"
+        style="margin-top:8px;font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">🗑 Delete</button>`
+    : "";
   const panelEditar = `<div id="oc-${editKey}" style="display:${panelEditAbierto ? "flex" : "none"};gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px 10px;background:var(--blanco-calido,#fbf5e8);border-radius:6px;">
       <input id="oc-edit-nombre-${c.id}" type="text" value="${escHtml(c.nombre || "")}" placeholder="Name" style="flex:1;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
       ${esDueno ? `<input id="oc-edit-tel-${c.id}" type="text" value="${escHtml(c.telefono || "")}" placeholder="Phone / WhatsApp" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
@@ -2772,7 +2830,7 @@ function tarjetaCliente(c, esDueno){
       ${esDueno ? badgeComportamiento(ev) : ""}
     </div>
     ${dato}${lineaContacto}${lineaNotas}${controles}${btnDespedir}${carteraHtml}
-    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;">${btnEditar}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;">${btnEditar}${btnBorrar}</div>
     ${panelEditar}
   </div>`;
 }
@@ -2974,6 +3032,17 @@ async function cargarClientes(){
       cargarClientes();
     });
   }
+}
+// Puebla un <select> de comisionistas (promotoras) con el valor actual opcional.
+// JFC 2026-08-27: usado en alta (np-comisionista) y edición (ed-comisionista) de producto.
+async function poblarSelectComisionistas(selectId, valorActual){
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  let lista = [];
+  try { lista = await (await fetch(`${API}/promotoras`)).json(); } catch (_) {}
+  if (!Array.isArray(lista)) lista = [];
+  sel.innerHTML = `<option value="">— None —</option>` + lista.map(p => `<option value="${escHtml(p.id)}">${escHtml(p.nombre)}</option>`).join("");
+  if (valorActual) sel.value = valorActual;
 }
 async function poblarSelectClientes(grupos){
   const sel = document.getElementById("ventaCliente");
@@ -3882,9 +3951,9 @@ async function cargarLogAjustes(){
   if (!movs.length){ cont.innerHTML = `<p style="color:var(--ink-soft);">${t("log.empty")}</p>`; return; }
   cont.innerHTML = movs.slice(0, 20).map(m => {
     const fecha = new Date(m.fecha).toLocaleString(OCI18n.getLang() === "en" ? "en-US" : "es", { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-    const icono = m.tipo === 'ajuste' ? '📦' : m.tipo === 'venta' ? '💰' : m.tipo === 'estrella' ? '⭐' : m.tipo === 'anulacion' ? '🔄' : m.tipo === 'alta' ? '🆕' : '📋';
-    const detalle = escHtml((m.detalle && m.detalle.producto) || '');
-    const extra = m.tipo === 'ajuste' ? ` (${m.detalle.delta > 0 ? '+' : ''}${m.detalle.delta}) — ${escHtml(m.detalle.motivo)}` : m.tipo === 'venta' ? ` × ${m.detalle.cantidad} = $${m.detalle.total}` : m.tipo === 'estrella' ? ` ${escHtml(m.detalle.accion)}` : '';
+    const icono = m.tipo === 'ajuste' ? '📦' : m.tipo === 'venta' ? '💰' : m.tipo === 'estrella' ? '⭐' : m.tipo === 'anulacion' ? '🔄' : m.tipo === 'alta' ? '🆕' : m.tipo === 'cliente-borrado' ? '🗑' : '📋';
+    const detalle = escHtml((m.detalle && m.detalle.producto) || (m.tipo === 'cliente-borrado' ? (m.detalle && m.detalle.cliente) || '' : ''));
+    const extra = m.tipo === 'ajuste' ? ` (${m.detalle.delta > 0 ? '+' : ''}${m.detalle.delta}) — ${escHtml(m.detalle.motivo)}` : m.tipo === 'venta' ? ` × ${m.detalle.cantidad} = $${m.detalle.total}` : m.tipo === 'estrella' ? ` ${escHtml(m.detalle.accion)}` : m.tipo === 'cliente-borrado' ? ` — deleted` : '';
     // Atribución multi-usuario (2026-07-08): mostrar QUIÉN hizo el movimiento.
     // El dato ya viajaba en cada movimiento (mov() lo guarda); antes no se pintaba.
     // "Sistema" (dueño por PIN clásico, sin encargado nombrado) no se muestra.
@@ -3897,6 +3966,109 @@ async function cargarLogAjustes(){
 // Perchas (ubicaciones): SOLO dueño — CRUD sobre tarjetas, 2da parte de Inventario.
 // renderPerchaCard: tarjeta individual de percha con selector para mover de sucursal.
 // JFC 2026-07-02: UI habla de percha; sucursal es el encabezado de grupo.
+// Editor de comisión de percha (JFC 2026-08-27, portado de amigable-123):
+// % asociado, meta mensual, tramos/escalas, contribución fija, mínimo
+// garantizado, lectura preferida y switch "usar comisión propia". El backend
+// ya aceptaba estos campos; faltaba la UI.
+async function abrirEditorComisionPercha(id){
+  let u;
+  try { u = (await (await fetch(`${API}/ubicaciones?todas=1`)).json()).find((x) => x.id === id); } catch (_) {}
+  if (!u) return;
+  const esc = (v) => escHtml(v == null ? "" : v);
+  const tramos = (Array.isArray(u.escalasComision) ? u.escalasComision : []).slice().sort((a,b) => (a.desde||0)-(b.desde||0));
+  const overlay = document.createElement("div");
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(6,13,20,.55);z-index:9600;display:flex;align-items:center;justify-content:center;padding:16px;";
+  overlay.innerHTML = `
+    <div style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--azul-medio,#2c4a68);border-radius:12px;max-width:520px;width:100%;max-height:90vh;overflow:auto;padding:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <strong style="font-size:16px;">Commission — ${esc(u.nombre)}</strong>
+        <button data-cep-cerrar style="font-size:20px;line-height:1;width:30px;height:30px;border-radius:50%;border:2px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer;">✕</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <label style="font-size:13px;">Associate takes (%)<br><input id="cep-pct" type="number" min="0" max="100" step="0.5" value="${Number(u.comisionSocio)||0}" style="width:110px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
+        <label style="font-size:13px;">Monthly target ($)<br><input id="cep-meta" type="number" min="0" step="1" value="${Number(u.metaMensual)||0}" style="width:130px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
+        <label style="font-size:13px;">Fixed contribution ($)<br><input id="cep-contrib" type="number" min="0" step="0.01" value="${Number(u.contribFija)||0}" style="width:120px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
+        <label style="font-size:13px;">Minimum guaranteed ($)<br><input id="cep-minimo" type="number" min="0" step="0.01" value="${Number(u.minimoGarantizado)||0}" style="width:120px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;">
+        <input id="cep-propia" type="checkbox" ${u.usarComisionPropia ? "checked" : ""} style="width:18px;height:18px;">
+        Use this shelf's own commission (ignore the agent's deal)</label>
+      <label style="display:block;font-size:13px;margin-top:8px;">Preferred reading<br>
+        <select id="cep-lectura" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;">
+          <option value="asociado" ${u.lecturaPreferida !== "casa" ? "selected" : ""}>Associate takes X%</option>
+          <option value="casa" ${u.lecturaPreferida === "casa" ? "selected" : ""}>House keeps X%</option>
+        </select></label>
+      <div style="margin-top:10px;">
+        <div style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);">Goal-based tiers (optional)</div>
+        <div id="cep-tramos" style="margin-top:4px;"></div>
+        <button id="cep-add-tramo" type="button" style="font-size:12px;padding:4px 10px;margin-top:6px;border:1.5px solid var(--azul-medio,#2E6278);border-radius:6px;background:transparent;color:var(--azul-medio,#2E6278);cursor:pointer;">+ Add tier</button>
+      </div>
+      <p id="cep-msg" style="font-size:13px;font-weight:700;margin:10px 0 0;"></p>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button id="cep-guardar" style="flex:1;font-size:14px;font-weight:700;padding:10px;background:#006B3C;border:1.5px solid #006B3C;border-radius:6px;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const tramosEl = overlay.querySelector("#cep-tramos");
+  const pintarTramos = () => {
+    const filas = [...tramosEl.querySelectorAll("[data-tramo]")].map((f) => ({ desde: Number(f.querySelector(".ce-t-desde").value) || 0, pct: Number(f.querySelector(".ce-t-pct").value) || 0 }));
+    tramosEl.innerHTML = filas.map((t) => `
+      <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+        <span style="font-size:12px;color:var(--ink-soft);">from</span>
+        <input class="ce-t-desde" type="number" min="0" step="1" value="${t.desde}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <span style="font-size:12px;color:var(--ink-soft);">%</span>
+        <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="${t.pct}" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
+      </div>`).join("");
+    tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
+  };
+  tramosEl.innerHTML = tramos.map((t) => `
+    <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+      <span style="font-size:12px;color:var(--ink-soft);">from</span>
+      <input class="ce-t-desde" type="number" min="0" step="1" value="${t.desde}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <span style="font-size:12px;color:var(--ink-soft);">%</span>
+      <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="${t.pct}" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
+    </div>`).join("");
+  tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
+  overlay.querySelector("#cep-add-tramo").addEventListener("click", () => {
+    const filas = [...tramosEl.querySelectorAll("[data-tramo]")];
+    const ultimo = filas.length ? Number(filas[filas.length-1].querySelector(".ce-t-desde").value) || 0 : 0;
+    tramosEl.insertAdjacentHTML("beforeend", `
+      <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+        <span style="font-size:12px;color:var(--ink-soft);">from</span>
+        <input class="ce-t-desde" type="number" min="0" step="1" value="${ultimo + 500}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <span style="font-size:12px;color:var(--ink-soft);">%</span>
+        <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
+      </div>`);
+    tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
+  });
+  const cerrar = () => overlay.remove();
+  overlay.querySelector("[data-cep-cerrar]").addEventListener("click", cerrar);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
+  overlay.querySelector("#cep-guardar").addEventListener("click", async () => {
+    const msg = overlay.querySelector("#cep-msg");
+    const escalas = [...tramosEl.querySelectorAll("[data-tramo]")].map((f) => ({ desde: Number(f.querySelector(".ce-t-desde").value) || 0, pct: Number(f.querySelector(".ce-t-pct").value) || 0 })).filter((e) => e.pct > 0);
+    const body = {
+      comisionSocio: overlay.querySelector("#cep-pct").value,
+      metaMensual: overlay.querySelector("#cep-meta").value,
+      contribFija: overlay.querySelector("#cep-contrib").value,
+      minimoGarantizado: overlay.querySelector("#cep-minimo").value,
+      usarComisionPropia: overlay.querySelector("#cep-propia").checked,
+      lecturaPreferida: overlay.querySelector("#cep-lectura").value,
+      escalasComision: escalas,
+    };
+    try {
+      const res = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const r = await res.json();
+      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Could not save."; return; }
+      msg.style.color = "var(--verde,#2f7a4f)"; msg.textContent = "Saved.";
+      setTimeout(() => { cerrar(); cargarPerchas(); }, 600);
+    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not reach the server."; }
+  });
+}
+
 function renderPerchaCard(u, sucursalesDisp, promotorasDisp) {
   const inactiva = u.activa === false;
   const tipo = u.tipo || 'propio';
@@ -3910,6 +4082,7 @@ function renderPerchaCard(u, sucursalesDisp, promotorasDisp) {
     <div style="font-size:13px;color:var(--ink-soft);margin:4px 0 10px;">${tipoLabel}${comLabel}${u.esFeria ? ' · <strong style="color:var(--rust,#E86040);">FERIA</strong>' : ''}${inactiva ? ' · DESACTIVADA' : ''}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
       <button data-percha-renombrar="${u.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Rename</button>
+      ${tipo !== 'propio' ? `<button data-percha-comision="${u.id}" style="font-size:13px;padding:6px 10px;border:2px solid #B8860B;border-radius:5px;background:transparent;color:#7a5510;cursor:pointer;">Commission</button>` : ""}
       <button data-percha-toggle="${u.id}" data-activa="${u.activa !== false}" data-feria="${u.esFeria ? '1' : ''}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust);border-radius:5px;background:transparent;color:var(--rust);cursor:pointer;">${inactiva ? 'Reactivate' : (u.esFeria ? 'Close and settle' : 'Deactivate')}</button>
       <button data-percha-borrar="${u.id}" data-nombre="${escHtml(u.nombre)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo,#E8365D);border-radius:5px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">Delete</button>
       <label style="font-size:13px;color:var(--ink-soft);">Move to:
@@ -4008,6 +4181,7 @@ async function cargarPerchas(){
     const r = await res.json(); if (!res.ok){ await ocAlert(r.error); return; }
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones();
   }));
+  grid.querySelectorAll('[data-percha-comision]').forEach(btn => btn.addEventListener('click', () => abrirEditorComisionPercha(btn.dataset.perchaComision)));
   grid.querySelectorAll('[data-percha-toggle]').forEach(btn => btn.addEventListener('click', async () => {
     const activaAhora = btn.dataset.activa === 'true';
     const esFeria = btn.dataset.feria === '1';
@@ -4278,6 +4452,10 @@ function mostrarFormNuevoProducto(codigoEscaneado){
         <input id="np-stock" type="number" min="0" step="1" value="0" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.supplier")}<br>
         <input id="np-proveedor" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">Commission agent (comisionista)<br>
+        <select id="np-comisionista" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;">
+          <option value="">— None —</option>
+        </select></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.photoAltaLabel")}<br>
         <input id="np-foto" type="file" accept="image/*" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
@@ -4304,6 +4482,8 @@ function mostrarFormNuevoProducto(codigoEscaneado){
     const w = document.getElementById("np-bar-wrap");
     if (w) w.style.display = e.target.value === "bar" ? "block" : "none";
   });
+  /* Comisionista (JFC 2026-08-27): poblar el dropdown con las promotoras. */
+  poblarSelectComisionistas("np-comisionista", null);
   /* Categoria como combo mixto: se elige de la lista o se escribe otra. */
   try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
   /* Nada tecleado se pierde: si se va la luz, se toca "atras" o el telefono
@@ -4337,6 +4517,7 @@ async function crearProductoNuevo(codigoEscaneado){
     ubicacionId: el("np-ubicacion") ? val("np-ubicacion") : (ubicacionActual === "todas" ? "todas" : ubicacionActual),
     tipoProveedor: el("np-tipo-proveedor") ? el("np-tipo-proveedor").value : "compra",
     comisionProveedorPct: el("np-tipo-proveedor") && el("np-tipo-proveedor").value === "consignacion" ? Number(val("np-comision-pct")) || 0 : 0,
+    comisionistaId: el("np-comisionista") ? (el("np-comisionista").value || null) : null,
     perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
     metodoCosteo: perecible ? el("np-metodo").value : "FIFO",
     /* Tipo de producto + campos de bar (JFC 2026-08-27): "bar" cuenta stock en
@@ -4423,6 +4604,10 @@ async function mostrarFormEditarProducto(id){
         <label style="display:block;font-size:14px;">${t("form.artistCommissionPct")}<br>
           <input id="ed-comision-pct" type="number" min="0" max="100" step="1" value="${p.comisionProveedorPct || 0}" ${inp}></label>
       </div>
+      <label style="display:block;margin-top:10px;font-size:14px;">Commission agent (comisionista)<br>
+        <select id="ed-comisionista" ${inp}>
+          <option value="">— None —</option>
+        </select></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.shelfLabel")}<br>
         <select id="ed-ubicacion" ${inp}>
           <option value="todas"${!p.ubicacionId || p.ubicacionId === "todas" ? " selected" : ""}>${t("form.noShelf")}</option>
@@ -4464,6 +4649,8 @@ async function mostrarFormEditarProducto(id){
   document.getElementById("ed-tipo-proveedor").addEventListener("change", (e) => {
     document.getElementById("ed-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
   });
+  /* Comisionista (JFC 2026-08-27): poblar el dropdown y preseleccionar el del producto. */
+  poblarSelectComisionistas("ed-comisionista", p.comisionistaId || null);
 }
 
 // Redimensiona la foto en el navegador (lado mayor 320px, JPEG 82%) a dataURL.
@@ -4493,7 +4680,7 @@ async function guardarEdicionProducto(id){
   // campo no existe en el DOM, se OMITE del PATCH en vez de reventar todo.
   const v = (x) => { const el = document.getElementById(x); return el ? el.value.trim() : undefined; };
   // OJO: el SKU no se toca aqui — solo el barcode si el dueno lo digito.
-  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml") };
+  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })() };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   const foto = await leerFotoRedimensionada(document.getElementById("ed-foto"));
   if (foto) body.foto = foto;
@@ -4795,10 +4982,14 @@ async function abrirPanelVentaInfo(id, esTicket){
       <p id="vi-botellas" style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;"></p>` : ""}
       <label style="display:block;margin-top:10px;font-size:14px;">Customer (search by name, or leave blank)<br>
         <input id="vi-cliente-buscar" type="text" placeholder="Type to filter..." ${inp}></label>
-      <select id="vi-cliente" size="1" style="width:100%;padding:8px;margin-top:6px;border:2px solid var(--azul-medio);border-radius:4px;">
-        <option value="">Counter sale (no customer)</option>
-        ${clientes.map(c => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("")}
-      </select>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+        <select id="vi-cliente" size="1" style="flex:1;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <option value="">Counter sale (no customer)</option>
+          ${clientes.map(c => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("")}
+        </select>
+        <button type="button" id="vi-nuevo-cliente" title="New customer"
+          style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">+ New</button>
+      </div>
       ${esTicket ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br><input id="vi-personas" type="number" min="0" step="1" ${inp}></label>` : ""}
@@ -4812,6 +5003,7 @@ async function abrirPanelVentaInfo(id, esTicket){
           <select id="vi-forma-pago" ${inp}><option value="">—</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="card">Card</option><option value="other">Other</option></select></label>
         <label style="flex:1;font-size:14px;">Amount paid${req}<br><input id="vi-monto" type="number" min="0" step="0.01" ${inp}></label>
       </div>
+      <label style="display:block;margin-top:10px;font-size:14px;">Notes (optional)<br><textarea id="vi-notas" rows="2" placeholder="Anything worth remembering about this sale..." ${inp}></textarea></label>
       <div id="vi-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div class="acciones-rapidas" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
         <button class="vender" onclick="confirmarVentaConInfo('${p.id}', ${esTicket ? "true" : "false"})">Confirm sale</button>
@@ -4826,6 +5018,15 @@ async function abrirPanelVentaInfo(id, esTicket){
     [...selCli.options].forEach(o => { o.hidden = !!(q && o.value && !o.textContent.toLowerCase().includes(q)); });
   });
   buscar.focus();
+  // JFC 2026-08-27: "+ New" en el panel de venta abre el mismo modal de nuevo
+  // cliente; al crearlo se agrega al selector "abajo" y se selecciona.
+  const btnNuevo = document.getElementById("vi-nuevo-cliente");
+  if (btnNuevo) {
+    btnNuevo.addEventListener("click", () => {
+      window._ocNuevoClienteCb = null; // el handler de creacion ya agrega a vi-cliente
+      if (window.ocAbrirNuevoCliente) window.ocAbrirNuevoCliente();
+    });
+  }
   if (esBar) {
     const sInp = document.getElementById("vi-servings");
     const bEl = document.getElementById("vi-botellas");
@@ -4856,6 +5057,7 @@ async function confirmarVentaConInfo(id, esTicket){
   const info = {
     fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
     email: g("vi-email"), whatsapp: g("vi-whatsapp"), formaPago: g("vi-forma-pago"), montoPagado: g("vi-monto"),
+    notas: g("vi-notas"),
     ...(_esBar ? { servings: _servings, botellas: +(_servings / _servPorBotella).toFixed(2) } : {})
   };
   const msg = document.getElementById("vi-msg");
@@ -5200,7 +5402,15 @@ async function renderComisionistas(){
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <label style="font-size:13px;flex:2;min-width:160px;"><span data-i18n="common.name">${t("common.name")}</span><br>${inp("cmNombre", t("comm.assoc.namePh"),"width:100%;")}</label>
         <label style="font-size:13px;"><span data-i18n="comm.assoc.pct">${t("comm.assoc.pct")}</span><br><input id="cmComision" type="number" min="0" max="100" step="0.5" placeholder="e.g. 15" style="width:110px;padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
+        <label style="font-size:13px;">Monthly target ($)<br><input id="cmMeta" type="number" min="0" step="1" placeholder="e.g. 2000" style="width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
       </div>
+      <label style="display:block;font-size:13px;margin-top:8px;">Origin<br>
+        <select id="cmOrigen" style="padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;">
+          <option value="libre">Free agent (brings their own people)</option>
+          <option value="empleado">Employee / staff</option>
+          <option value="proveedor">Supplier / artist</option>
+        </select></label>
+      <label style="display:block;font-size:13px;margin-top:8px;">Notes<br><input id="cmNotas" type="text" placeholder="Anything worth remembering..." style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
       <details style="margin-top:8px;">
         <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="comm.assoc.more">${t("comm.assoc.more")}</summary>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;">
@@ -5224,9 +5434,11 @@ async function renderComisionistas(){
     const el = document.getElementById("cmLista");
     if (!el) return;
     el.innerHTML = fil.length ? fil.map(p => `
-      <div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;">
+      <div class="tag-card" id="cm-card-${escHtml(p.id)}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;">
         <div style="flex:1;"><strong>${escHtml(p.nombre)}</strong>
-          <div style="font-size:13px;color:var(--ink-soft);">${(Number(p.comision)||0)}%${p.telefono?` · ${escHtml(p.telefono)}`:''}</div></div>
+          <div style="font-size:13px;color:var(--ink-soft);">${(Number(p.comision)||0)}%${p.metaMensual ? ` · target ${fmtMoney(p.metaMensual)}` : ''}${p.telefono?` · ${escHtml(p.telefono)}`:''}${p.origen ? ` · ${escHtml(p.origen)}` : ''}</div>
+          ${p.notas ? `<div style="font-size:12px;color:var(--ink-soft);font-style:italic;">${escHtml(p.notas)}</div>` : ""}</div>
+        <button data-cm-editar="${escHtml(p.id)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio,#2E6278);border-radius:5px;background:transparent;color:var(--azul-medio,#2E6278);cursor:pointer;">✎ Edit</button>
         <button data-cm-borrar="${escHtml(p.id)}" data-nombre="${escHtml(p.nombre)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo,#E8365D);border-radius:5px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">${t("common.delete")}</button>
       </div>`).join("") : `<p style="font-size:14px;color:var(--ink-soft);">${t("comm.assoc.empty")}</p>`;
   };
@@ -5239,6 +5451,9 @@ async function renderComisionistas(){
     const msg = document.getElementById("cmMsg");
     if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("comm.assoc.nameReq"); return; }
     const body = { nombre, comision: document.getElementById("cmComision").value,
+      metaMensual: document.getElementById("cmMeta").value,
+      origen: document.getElementById("cmOrigen").value,
+      notas: document.getElementById("cmNotas").value,
       telefono: document.getElementById("cmTelefono").value, cedula: document.getElementById("cmCedula").value,
       banco: document.getElementById("cmBanco").value, cuenta: document.getElementById("cmCuenta").value,
       direccion: document.getElementById("cmDireccion").value };
@@ -5253,10 +5468,113 @@ async function renderComisionistas(){
   });
   const elLista = document.getElementById("cmLista");
   if (elLista) elLista.addEventListener("click", async (e) => {
+    const bEd = e.target.closest("[data-cm-editar]");
+    if (bEd) { abrirEditorComisionista(bEd.dataset.cmEditar); return; }
     const b = e.target.closest("[data-cm-borrar]"); if (!b) return;
     if (!(await ocConfirm(tf("comm.assoc.delConfirm", {nombre: b.dataset.nombre})))) return;
     try { await fetch(`${API}/promotoras/${b.dataset.cmBorrar}`, { method:"DELETE" }); } catch (_) {}
     await renderComisionistas();
+  });
+}
+
+// Editor de comisionista (JFC 2026-08-27, portado de amigable-123): edita
+// nombre, %, meta mensual, tramos/escalas, datos de pago y notas. Inline en la
+// tarjeta, mismo patrón que el editor de gasto/servings.
+async function abrirEditorComisionista(id){
+  const card = document.getElementById("cm-card-" + id);
+  if (!card) return;
+  let p;
+  try { p = await (await fetch(`${API}/promotoras`)).json(); } catch (_) {}
+  const pr = (Array.isArray(p) ? p : []).find((x) => x.id === id);
+  if (!pr) return;
+  const esc = (v) => escHtml(v == null ? "" : v);
+  const tramos = (Array.isArray(pr.escalasComision) ? pr.escalasComision : []).slice().sort((a,b) => (a.desde||0)-(b.desde||0));
+  card.innerHTML = `
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input id="ce-nombre" value="${esc(pr.nombre)}" placeholder="Name" style="flex:2;min-width:140px;font-size:14px;padding:7px 9px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <label style="font-size:13px;">%<br><input id="ce-comision" type="number" min="0" max="100" step="0.5" value="${Number(pr.comision)||0}" style="width:80px;font-size:14px;padding:7px 9px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;"></label>
+        <label style="font-size:13px;">Target ($)<br><input id="ce-meta" type="number" min="0" step="1" value="${Number(pr.metaMensual)||0}" style="width:110px;font-size:14px;padding:7px 9px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;"></label>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+        <input id="ce-telefono" value="${esc(pr.telefono)}" placeholder="Phone" style="flex:1;min-width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <input id="ce-cedula" value="${esc(pr.cedula)}" placeholder="ID" style="flex:1;min-width:90px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <input id="ce-banco" value="${esc(pr.banco)}" placeholder="Bank" style="flex:1;min-width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <input id="ce-cuenta" value="${esc(pr.cuenta)}" placeholder="Account" style="flex:1;min-width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      </div>
+      <input id="ce-notas" value="${esc(pr.notas)}" placeholder="Notes" style="width:100%;margin-top:6px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <div style="margin-top:8px;">
+        <div style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);">Goal-based tiers (optional)</div>
+        <div id="ce-tramos" style="margin-top:4px;"></div>
+        <button id="ce-add-tramo" type="button" style="font-size:12px;padding:4px 10px;margin-top:6px;border:1.5px solid var(--azul-medio,#2E6278);border-radius:6px;background:transparent;color:var(--azul-medio,#2E6278);cursor:pointer;">+ Add tier</button>
+      </div>
+      <p id="ce-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;"></p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <button id="ce-guardar" style="font-size:13px;font-weight:700;padding:7px 12px;background:#006B3C;border:1.5px solid #006B3C;border-radius:6px;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">Save</button>
+      <button id="ce-cancelar" style="font-size:13px;padding:7px 12px;background:#fff;border:1.5px solid var(--linea,#D7E0E8);border-radius:6px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;cursor:pointer;">Cancel</button>
+    </div>`;
+  const tramosEl = document.getElementById("ce-tramos");
+  const pintarTramos = () => {
+    const filas = [...tramosEl.querySelectorAll("[data-tramo]")].map((f) => ({
+      desde: Number(f.querySelector(".ce-t-desde").value) || 0,
+      pct: Number(f.querySelector(".ce-t-pct").value) || 0,
+    }));
+    tramosEl.innerHTML = filas.map((t, i) => `
+      <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+        <span style="font-size:12px;color:var(--ink-soft);">from</span>
+        <input class="ce-t-desde" type="number" min="0" step="1" value="${t.desde}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <span style="font-size:12px;color:var(--ink-soft);">%</span>
+        <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="${t.pct}" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
+      </div>`).join("");
+    tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
+  };
+  tramosEl.innerHTML = tramos.map((t) => `
+    <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+      <span style="font-size:12px;color:var(--ink-soft);">from</span>
+      <input class="ce-t-desde" type="number" min="0" step="1" value="${t.desde}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <span style="font-size:12px;color:var(--ink-soft);">%</span>
+      <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="${t.pct}" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
+    </div>`).join("");
+  tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
+  document.getElementById("ce-add-tramo").addEventListener("click", () => {
+    const filas = [...tramosEl.querySelectorAll("[data-tramo]")];
+    const ultimo = filas.length ? Number(filas[filas.length-1].querySelector(".ce-t-desde").value) || 0 : 0;
+    tramosEl.insertAdjacentHTML("beforeend", `
+      <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+        <span style="font-size:12px;color:var(--ink-soft);">from</span>
+        <input class="ce-t-desde" type="number" min="0" step="1" value="${ultimo + 500}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <span style="font-size:12px;color:var(--ink-soft);">%</span>
+        <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
+      </div>`);
+    tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
+  });
+  document.getElementById("ce-cancelar").addEventListener("click", () => renderComisionistas());
+  document.getElementById("ce-guardar").addEventListener("click", async () => {
+    const msg = document.getElementById("ce-msg");
+    const nombre = document.getElementById("ce-nombre").value.trim();
+    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "A name is required."; return; }
+    const escalas = [...tramosEl.querySelectorAll("[data-tramo]")].map((f) => ({
+      desde: Number(f.querySelector(".ce-t-desde").value) || 0,
+      pct: Number(f.querySelector(".ce-t-pct").value) || 0,
+    })).filter((e) => e.pct > 0);
+    const body = {
+      nombre, comision: document.getElementById("ce-comision").value,
+      metaMensual: document.getElementById("ce-meta").value, escalasComision: escalas,
+      telefono: document.getElementById("ce-telefono").value, cedula: document.getElementById("ce-cedula").value,
+      banco: document.getElementById("ce-banco").value, cuenta: document.getElementById("ce-cuenta").value,
+      notas: document.getElementById("ce-notas").value,
+    };
+    try {
+      const res = await fetch(`${API}/promotoras/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const r = await res.json();
+      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Could not save."; return; }
+      msg.style.color = "var(--verde,#2f7a4f)"; msg.textContent = "Saved.";
+      setTimeout(() => renderComisionistas(), 500);
+    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not reach the server."; }
   });
 }
 
@@ -5293,6 +5611,7 @@ async function cargarGastos(){
       ? tarjeta("Sales this month", ventasMes, "#006B3C") +
         tarjeta("Net", neto, neto >= 0 ? "#006B3C" : "#C0392B")
       : "");
+  cargarCajaChica();
   if (!gastos.length) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No expenses recorded yet. Add the first one above.</p>'; return; }
   _gastosCache = gastos;
   const _puedeEditarGasto = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
@@ -5327,6 +5646,59 @@ async function anularGasto(id){
   await fetch(`${API}/gastos/${id}`, { method: "DELETE" });
   cargarGastos();
 }
+// CAJA CHICA en Gastos (JFC 2026-08-27): movida desde el modal de percha.
+// Solo dueño/admin. Selector de percha + saldo + ingreso/retiro.
+let _cajaChicaPerchaActual = "";
+async function cargarCajaChica(){
+  const bloque = document.getElementById("cajaChicaBloque");
+  if (!bloque) return;
+  const _rol = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+  const _puede = _rol === "dueno" || _rol === "admin";
+  if (!_puede) { bloque.style.display = "none"; return; }
+  bloque.style.display = "";
+  const sel = document.getElementById("cajaChicaPercha");
+  let perchas = [];
+  try { perchas = await (await fetch(`${API}/ubicaciones`)).json(); } catch (_) {}
+  if (!Array.isArray(perchas)) perchas = [];
+  const actual = _cajaChicaPerchaActual || (perchas[0] && perchas[0].id) || "";
+  sel.innerHTML = perchas.map(u => `<option value="${escHtml(u.id)}">${escHtml(u.nombre)}</option>`).join("");
+  if (actual) sel.value = actual;
+  _cajaChicaPerchaActual = sel.value;
+  pintarSaldoCajaChicaGastos(sel.value);
+}
+async function pintarSaldoCajaChicaGastos(perchaId){
+  const el = document.getElementById("cajaChicaSaldo");
+  if (!el || !perchaId) { if (el) el.textContent = ""; return; }
+  try {
+    const info = await (await fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/caja-chica`)).json();
+    const saldo = (info && info.saldo) || 0;
+    el.textContent = fmtMoney(saldo);
+    el.style.color = saldo < 0 ? "#C0392B" : "var(--ink)";
+  } catch (_) { el.textContent = ""; }
+}
+async function moverCajaChicaGastos(tipo){
+  const perchaId = document.getElementById("cajaChicaPercha").value;
+  if (!perchaId) return;
+  const monto = parseFloat((await ocPrompt(`Amount (${tipo === "ingreso" ? "cash in" : "cash out"}) ($):`, "") || "").trim());
+  if (!(monto > 0)) return;
+  const motivo = (await ocPrompt("Reason (required):", "") || "").trim();
+  if (!motivo) return;
+  if (!(await ocConfirm(`Record ${tipo === "ingreso" ? "cash in" : "cash out"} of ${fmtMoney(monto)}?`))) return;
+  try {
+    await fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/caja-chica/${tipo}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo })
+    });
+    pintarSaldoCajaChicaGastos(perchaId);
+  } catch (err) { console.error("[cajaChicaGastos]", err); }
+}
+(function(){
+  const sel = document.getElementById("cajaChicaPercha");
+  if (sel) sel.addEventListener("change", () => { _cajaChicaPerchaActual = sel.value; pintarSaldoCajaChicaGastos(sel.value); });
+  const btnIn = document.getElementById("cajaChicaIngreso");
+  if (btnIn) btnIn.addEventListener("click", () => moverCajaChicaGastos("ingreso"));
+  const btnOut = document.getElementById("cajaChicaRetiro");
+  if (btnOut) btnOut.addEventListener("click", () => moverCajaChicaGastos("retiro"));
+})();
 /* Edición inline de servings por botella (JFC 2026-08-27): cada negocio define
    su propia medida de trago. El lapicito de la ficha de un producto bar convierte
    la línea en inputs de servingMl/botellaMl con Guardar/Cancelar. Solo dueño/admin
@@ -5385,6 +5757,37 @@ async function editarGasto(id){
     await fetch(`${API}/gastos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, fecha: fechaVal ? new Date(fechaVal).toISOString() : undefined }) });
     cargarGastos();
   });
+}
+
+// Matriz RFM de comisionistas (JFC 2026-08-27, portado de amigable-123).
+// Clasifica a cada asociado en 4 cuadrantes según valor (ventas brutas del mes)
+// y recencia (días sin vender). Segunda lectura del mismo ranking ya cargado.
+function matrizComisionistasHtml(ranking){
+  if (!Array.isArray(ranking) || !ranking.length) return "";
+  const mediana = ranking.map(r => r.ventasBrutas || 0).sort((a,b) => a-b)[Math.floor(ranking.length/2)] || 0;
+  const cuadrante = (r) => {
+    const altoValor = (r.ventasBrutas || 0) >= mediana;
+    const activo = (r.diasSinVenta == null || r.diasSinVenta < 7);
+    if (altoValor && activo) return { k: "campeon", t: "Champions", c: "#006B3C", d: "High value, active. Protect and reward." };
+    if (altoValor && !activo) return { k: "riesgo", t: "At risk", c: "#E86040", d: "High value but dormant. Re-engage now." };
+    if (!altoValor && activo) return { k: "promesa", t: "Promising", c: "#2E6278", d: "Active but low value. Nurture to grow." };
+    return { k: "dormido", t: "Dormant", c: "#8A8A8A", d: "Low value and inactive. Consider re-activating or releasing." };
+  };
+  const grupos = { campeon: [], riesgo: [], promesa: [], dormido: [] };
+  ranking.forEach(r => grupos[cuadrante(r).k].push(r));
+  const orden = [["campeon","Champions","#006B3C","High value, active. Protect and reward."],["riesgo","At risk","#E86040","High value but dormant. Re-engage now."],["promesa","Promising","#2E6278","Active but low value. Nurture to grow."],["dormido","Dormant","#8A8A8A","Low value and inactive. Consider re-activating or releasing."]];
+  return `
+    <h3 class="seccion" style="font-size:15px;margin-top:26px;">${t("comm.rfmHeading")}</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
+      ${orden.map(([k, titulo, color, desc]) => {
+        const lista = grupos[k];
+        return `<div style="border:2px solid ${color};border-radius:10px;padding:12px;background:#fff;">
+          <div style="font-size:14px;font-weight:700;color:${color};">${titulo} <span style="font-weight:400;font-size:12px;">(${lista.length})</span></div>
+          <div style="font-size:12px;color:var(--ink-soft);margin:2px 0 8px;">${desc}</div>
+          ${lista.length ? lista.map(r => `<div style="font-size:13px;padding:3px 0;border-top:1px solid var(--linea,#E8E0D4);">${escHtml(r.nombre)} <span style="color:var(--ink-soft);">· ${fmtMoney(r.ventasBrutas)}${r.diasSinVenta != null ? ` · ${r.diasSinVenta}d` : ""}</span></div>`).join("") : `<div style="font-size:13px;color:var(--ink-soft);">—</div>`}
+        </div>`;
+      }).join("")}
+    </div>`;
 }
 
 async function cargarComisiones(){
@@ -5535,12 +5938,15 @@ async function cargarComisiones(){
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}</strong>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado}</span></div>
       </div>
-      ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promoter: <strong>${escHtml(f.promotorNombre)}</strong></div>` : ""}
+      ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
+      ${f.origenComision === "comisionista" ? `<div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
       <table style="width:100%;margin-top:10px;font-size:14px;">
         <tr><td>Monthly sales</td><td style="text-align:right;">${fmtMoney(f.ventasBrutas)}</td></tr>
+        ${f.contribFija ? `<tr><td>Fixed contribution</td><td style="text-align:right;">-${fmtMoney(f.contribFija)}</td></tr>` : ""}
         <tr><td><strong>Associate takes</strong> <span style="color:var(--ink-soft);font-weight:400;">(${f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0)}%)</span></td><td style="text-align:right;"><strong>${fmtMoney(f.comisionSocio)}</strong></td></tr>
         <tr><td>House keeps <span style="color:var(--ink-soft);">(${f.pctEfectivo != null ? (100 - f.pctEfectivo).toFixed(2).replace(/\.00$/,"") : (f.pctQuedaEnCasa || 0)}%)</span></td><td style="text-align:right;">${fmtMoney(f.netoDueno)}</td></tr>
       </table>
+      ${(f.avisosTrato && f.avisosTrato.length) ? f.avisosTrato.map(a => `<p style="font-size:12px;color:var(--rust,#E86040);margin:6px 0 0;">${escHtml(a)}</p>`).join("") : ""}
       ${f.ventasCorregidas ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ventasCorregidas} sale(s) this month have the percentage manually corrected.</p>` : ""}
       ${editorComisionHtml(f)}
       ${(f.detallePendientes && f.detallePendientes.length) ? `
@@ -5556,10 +5962,15 @@ async function cargarComisiones(){
     </div>`;
   }).join("");
 
-  cont.innerHTML = btnWA + btnExport + rankHtml + cardsHtml;
+  cont.innerHTML = btnWA + btnExport + rankHtml + cardsHtml + matrizComisionistasHtml(ranking);
 
   /* Los dos campos son el mismo numero visto al reves. Se espejan mientras se
      escribe: imposible dejar un reparto que no suma 100. */
+  /* Clic en el nombre del promotor → abre el editor de comisionista (JFC 2026-08-27). */
+  cont.querySelectorAll("[data-abrir-promotora]").forEach(a => {
+    a.addEventListener("click", () => abrirEditorComisionista(a.dataset.abrirPromotora));
+  });
+
   cont.querySelectorAll("[data-corregir]").forEach(btn => {
     const uid = btn.dataset.uid;
     const inAso = document.getElementById(`cor-aso-${uid}`);
@@ -5805,6 +6216,18 @@ async function despedirCliente(clienteId, nombre) {
     await fetch(`${API}/clientes/${clienteId}/despedir`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quien }) });
     cargarClientes();
   } catch(e) { console.error("Error despidiendo cliente:", e); }
+}
+
+// Borrar cliente por completo (JFC 2026-08-27). Solo dueño/admin. El borrado
+// queda SIEMPRE en el registro de auditoría (mov "cliente-borrado").
+async function borrarCliente(clienteId, nombre) {
+  if (!(await ocConfirm(`Delete ${nombre} permanently?\n\nThis removes them from the customer list and the sales selector. The deletion is recorded in the audit log (who, whom, when).`))) return;
+  try {
+    const quien = (window.OCAuth && window.OCAuth.usuarioActual && window.OCAuth.usuarioActual().nombre) || "Sistema";
+    const res = await fetch(`${API}/clientes/${clienteId}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quien }) });
+    if (!res.ok) { const r = await res.json().catch(() => ({})); await ocAlert(r.error || "Could not delete the customer."); return; }
+    cargarClientes();
+  } catch(e) { console.error("Error borrando cliente:", e); }
 }
 
 async function reactivarCliente(clienteId, nombre) {

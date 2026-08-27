@@ -172,8 +172,12 @@ test('el cliente persiste ops, sube checkpoint y jala del relay al conectar', ()
 
 test('el checkpoint solo se restaura en un dispositivo FRESCO (sin ventas propias)', () => {
   // La proteccion clave: nunca pisa el stock de una caja activa.
+  // (JFC 2026-08-27) la implementacion se refactorizo de "return no-fresco" a
+  // merge add-only con bandera fresco: el stock del checkpoint solo se adopta
+  // cuando el aparato no tiene ventas propias.
   assert.match(MOCK, /aplicarCheckpoint/);
-  assert.match(MOCK, /ventas\.length > 0\) return \{ ok: false, motivo: "no-fresco" \}/);
+  assert.match(MOCK, /const fresco = ventas\.length === 0/);
+  assert.match(MOCK, /stockActual: fresco \? stk : 0/);
 });
 
 // --- Licencia: el checksum es GUARD, no PUERTA (JFC 2026-08-25) ---

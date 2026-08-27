@@ -631,6 +631,7 @@
       <tr><td>Proveedor</td><td>Rock Import EC</td><td>Referencia para reposición</td></tr>
       <tr><td>Perecible + fecha de caducidad</td><td>Sí — vence 2026-07-08</td><td>Activa las alertas de vencimiento (rojo/naranja) sobre las de stock</td></tr>
       <tr><td>Método de costeo</td><td>FIFO (recomendado)</td><td>Orden de venta sugerido para perecibles: primero lo que vence antes</td></tr>
+      <tr><td>Comisionista</td><td>María Auquilla</td><td>Asocia el producto a un comisionista/promotor (opcional). Se elige en un desplegable al dar de alta o editar el producto</td></tr>
     </table>
   </div>
 
@@ -673,6 +674,8 @@
   </div>
   <p style="font-size:15px;color:var(--ink-soft);">Así la promotora tiene un incentivo directo: mientras más venda, mayor porcentaje se lleva sobre el total — no solo sobre el excedente.</p>
 
+  <p>En cada percha de tipo socio, franquicia o consignación hay un botón <strong>Commission</strong> que abre el editor del trato: % del asociado, meta mensual, tramos/escalas, contribución fija, mínimo garantizado, lectura preferida (asociado/casa) y el interruptor <strong>"usar la comisión propia de esta percha"</strong> (para ignorar el trato del comisionista cuando quieras que mande el de la percha).</p>
+
   <h3>Feria de fin de semana: percha temporal</h3>
   <p>Para eventos de 2–3 días (una feria artesanal, un bazar navideño) crea una percha marcada como <strong>Feria</strong> con su propia comisión. Al cerrarla queda archivada con todo su historial y saltas directo a Comisiones para ver su liquidación — sin mezclar sus números con el resto del año.</p>
 
@@ -702,6 +705,8 @@
   </div>
 
   <div class="exito"><strong>Deshacer venta:</strong> tras cada toque aparece un aviso de 5 segundos — "Venta registrada, toca aquí para anular". Perfecto para cuando el cliente cambia de opinión o hubo un toque accidental.</div>
+
+  <div class="tip"><strong>Cliente arriba o abajo:</strong> puedes elegir el cliente en el selector superior de Vendido, o dentro del panel de venta (botón "Vender con info"). En el panel también hay un botón <strong>+ New</strong> para registrar un cliente nuevo al vuelo — se crea y queda seleccionado en la venta y en tu lista de clientes. Además puedes anotar <strong>notas</strong> de la venta (por ejemplo, "cliente pidió factura" o "se llevó el último en talla M"), que quedan guardadas con la venta.</div>
 
   <h3>Ejemplo de cierre del día — tienda de libros latinoamericanos</h3>
   <p>La librería en el Centro Histórico no registra venta por venta durante el día. Al cerrar, el dueño cuenta lo que falta en la mesa y apunta:</p>
@@ -779,6 +784,8 @@
 
   <h3>Importar tu cartera de golpe (CSV)</h3>
   <p>Si ya tienes una lista de clientes, el dueño puede subirla toda de una vez desde el bloque <strong>"Importar tu cartera desde un archivo"</strong>, al fondo de esta misma sección. Necesita un CSV con dos columnas —nombre y teléfono— y cada cliente recibe su código único automáticamente. El formato exacto, con ejemplo y reglas, está en la <a href="#csv-respaldo">Sección 13</a>. <strong>El empleado no ve este botón:</strong> para él existe solo el registro manual de arriba.</p>
+
+  <div class="tip"><strong>Editar y borrar clientes:</strong> el dueño y el admin pueden editar el contacto y las notas de cualquier cliente (botón ✎) y también <strong>borrarlo por completo</strong> (botón 🗑). El borrado es definitivo — el cliente sale de la lista y del selector de ventas — pero <strong>siempre queda constancia en el registro de actividad</strong>: quién lo borró, a quién y cuándo. El empleado no ve el botón de borrar.</div>
 </section>
 
 <section class="bloque revela" id="comisiones">
@@ -794,16 +801,18 @@
     <li>Cumplimiento de meta mensual, si la percha tiene una definida</li>
     <li>Alerta si la percha lleva 7+ días sin ninguna venta ("percha dormida")</li>
     <li>Botón "Marcar como pagado" una vez que le transfieres o entregas su comisión</li>
+    <li>De dónde sale el %: si el comisionista tiene su propio trato, la tarjeta lo indica ("usando el trato propio del comisionista"); si no, usa el estándar de la percha</li>
+    <li>Contribución fija y avisos del trato (por ejemplo, si la contribución fija se ignora porque la percha usa escalas por meta)</li>
   </ul>
 
-  <h3>Ejemplo real: liquidación de dos promotoras</h3>
-  <div class="tabla-wrap">
-    <table class="datos">
-      <tr><th>Percha</th><th>Promotor/a</th><th>Ventas del mes</th><th>Comisión</th><th>Neto dueño</th></tr>
-      <tr><td>Stand Mercado 10 de Agosto</td><td>María Auquilla</td><td>$118.00</td><td>35% → $41.30</td><td>$76.70</td></tr>
-      <tr><td>Feria Artesanal El Otorongo</td><td>Carlos Once</td><td>$96.00</td><td>30% → $28.80</td><td>$67.20</td></tr>
-    </table>
-  </div>
+  <h3>Editar un comisionista (✎)</h3>
+  <p>Toca el botón <strong>✎ Edit</strong> en la tarjeta de un comisionista (o el nombre del promotor dentro de una liquidación) para abrir su editor. Ahí puedes cambiar su nombre, su % base, su <strong>meta mensual</strong>, sus <strong>tramos/escalas</strong>, sus datos de pago (teléfono, cédula, banco, cuenta) y <strong>notas</strong>. Si el comisionista tiene meta y escalas propias, estas mandan sobre las de la percha.</p>
+
+  <h3>Escalas de comisión por meta</h3>
+  <p>En el editor del comisionista (o en el botón <strong>Commission</strong> de una percha) puedes definir tramos: el % sube mientras más vende en el mes. Ejemplo con meta de $300: hasta $80 → 25%, hasta $100 → 30%, hasta $120 → 35%, $999+ → 40%. El % se aplica sobre el total vendido, no solo sobre el excedente.</p>
+
+  <h3>Matriz RFM de promotores/as</h3>
+  <p>Al final de Comisiones, una matriz de 4 cuadrantes clasifica a cada promotor según su valor (ventas del mes) y su recencia (días sin vender): <strong>Campeones</strong> (alto valor y activos), <strong>En riesgo</strong> (alto valor pero dormidos), <strong>Promesa</strong> (activos pero de bajo valor) y <strong>Dormidos</strong>. Es la misma lógica de la matriz de clientes, aplicada a tu equipo de ventas.</p>
 
   <h3>Ranking de promotores/as</h3>
   <p>Un medallero automático (🥇🥈🥉) que muestra unidades vendidas, ventas brutas, su SKU más fuerte y una alerta si algún promotor lleva más de 7 días sin vender nada — útil para detectar a tiempo si alguien necesita apoyo o capacitación.</p>
@@ -847,6 +856,9 @@
   <h3>Gastos mensuales</h3>
   <p>Arriendo, luz, sueldos, internet, etc. Ingresas el total mensual de cada ubicación y la app lo reparte entre los días reales del mes (28 a 31) para estimar el gasto operativo del día dentro del P&amp;G.</p>
   <div class="tip"><strong>Ejemplo:</strong> un local en el Centro Histórico con arriendo $280, luz $35, internet $25 y un ayudante a medio tiempo $180 suma $520/mes. Entre 31 días de julio, eso son $16.77/día de gasto operativo que la app resta automáticamente de la utilidad bruta de hoy.</div>
+
+  <h3>Caja chica (en la pestaña Gastos)</h3>
+  <p>El control de efectivo de cada percha vive ahora en la pestaña <strong>Gastos</strong> (antes estaba dentro de la carpeta de la percha). Elige la percha, ves su saldo y registras <strong>+ Ingreso</strong> o <strong>− Retiro</strong> con su motivo. Solo lo ven el dueño y el admin; es un control operativo de efectivo en el punto físico, no reemplaza el P&amp;L ni las comisiones.</p>
 
   <h3>Pérdidas y ganancias (del día)</h3>
   <div class="tabla-wrap">

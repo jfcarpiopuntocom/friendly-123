@@ -884,13 +884,13 @@
         var pr = promotoras.find(function (x) { return x.id === u.promotoraId; });
         /* Solo se usa el trato de la persona si de verdad tiene uno definido.
            Un comisionista recien creado sin % no puede dejar la percha en cero. */
-        if (pr && (Number(pr.comisionBase) > 0 || Number(pr.comisionSocio) > 0)) {
+        if (pr && (Number(pr.comisionBase) > 0 || Number(pr.comisionSocio) > 0 || Number(pr.comision) > 0)) {
           fuente = pr; origen = "comisionista";
         }
       }
     } catch (_) {}
 
-    var pctBase = Number(fuente.comisionBase !== undefined ? fuente.comisionBase : fuente.comisionSocio) || 0;
+    var pctBase = Number(fuente.comisionBase !== undefined ? fuente.comisionBase : (fuente.comisionSocio !== undefined ? fuente.comisionSocio : fuente.comision)) || 0;
     if (pctBase < 0) pctBase = 0;
     if (pctBase > 100) pctBase = 100;
 
@@ -1000,9 +1000,13 @@
       const ultima = ventas.filter((v) => v.ubicacionId === u.id).reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
       const diasSinVenta = ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000) : null;
       const prom = u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
+      /* Trato resuelto por el motor unico (JFC 2026-08-27): la meta y las
+         escalas del comisionista mandan sobre las de la percha cuando aplica. */
+      const _trato = resolverTrato(u) || {};
+      const _meta = Number(_trato.metaMensual) || Number(u.metaMensual) || 0;
       return {
-        ubicacionId: u.id, ubicacion: u.nombre, tipo: u.tipo, metaMensual: u.metaMensual || 0,
-        cumplimientoMeta: u.metaMensual ? +((ventasBrutas / u.metaMensual) * 100).toFixed(1) : null,
+        ubicacionId: u.id, ubicacion: u.nombre, tipo: u.tipo, metaMensual: _meta,
+        cumplimientoMeta: _meta ? +((ventasBrutas / _meta) * 100).toFixed(1) : null,
         ventasBrutas: +ventasBrutas.toFixed(2), comisionSocio: +comisionSocio.toFixed(2), netoDueno: +netoDueno.toFixed(2),
         estado: ventasMes.length === 0 ? "sin ventas" : pendientes.length === 0 ? "pagado" : "pendiente",
         ventasPendientes: pendientes.length, detallePendientes,
@@ -1022,7 +1026,7 @@
         /* El trato resuelto por el motor unico, no recalculado a mano aqui:
            asi la app, el tablero y el recibo dicen exactamente lo mismo. */
         ...(function () {
-          const t = resolverTrato(u) || {};
+          const t = _trato;
           return {
             pctBase: t.pct || 0,
             pctQuedaEnCasa: t.pctCasa != null ? t.pctCasa : 100,
@@ -1363,7 +1367,7 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null };
   }
   function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
@@ -2219,7 +2223,7 @@
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
-        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct"];
+        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
       if (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
@@ -2376,12 +2380,27 @@
         const _s = (x) => String(x || "").trim().slice(0, 160);
         const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim().slice(0, 80), comision: Number(body.comision) || 0,
           telefono: _s(body.telefono), cedula: _s(body.cedula), banco: _s(body.banco), cuenta: _s(body.cuenta),
-          direccion: _s(body.direccion), notas: _s(body.notas), activa: true, creadoEn: new Date().toISOString() };
+          direccion: _s(body.direccion), notas: _s(body.notas), activa: true, creadoEn: new Date().toISOString(),
+          /* JFC 2026-08-27 (portado de amigable-123): meta mensual y tramos/escalas
+             propios del comisionista. Si se definen, mandan sobre los de la percha. */
+          metaMensual: Math.max(0, Number(body.metaMensual) || 0),
+          escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ desde: Math.max(0, Number(e.desde) || 0), pct: Math.max(0, Number(e.pct) || 0) })).filter((e) => e.pct > 0) : [] };
         promotoras.push(nuevaProm);
         mov("promotora-alta", { promotora: nuevaProm.nombre });
         return J(nuevaProm);
       }
       const mProm = path.match(/^\/api\/promotoras\/([^/]+)$/);
+      if (mProm && opts && opts.method === "PUT") {
+        const pr = promotoras.find((x) => x.id === mProm[1]);
+        if (!pr) return J({ error: "Associate not found." }, 404);
+        if (body.nombre !== undefined) pr.nombre = String(body.nombre).trim().slice(0, 80) || pr.nombre;
+        if (body.comision !== undefined) pr.comision = Math.max(0, Number(body.comision) || 0);
+        if (body.metaMensual !== undefined) pr.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
+        if (body.escalasComision !== undefined) pr.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ desde: Math.max(0, Number(e.desde) || 0), pct: Math.max(0, Number(e.pct) || 0) })).filter((e) => e.pct > 0) : [];
+        ["telefono", "cedula", "banco", "cuenta", "direccion", "notas"].forEach((k) => { if (body[k] !== undefined) pr[k] = String(body[k] || "").trim().slice(0, 160); });
+        mov("promotora-edicion", { promotora: pr.nombre });
+        return J(pr);
+      }
       if (mProm && opts && opts.method === "DELETE") {
         const idxP = promotoras.findIndex((x) => x.id === mProm[1]);
         if (idxP < 0) return J({ error: "Associate not found." }, 404);
@@ -2499,6 +2518,7 @@
           tipoProducto: body.tipoProducto === "ticket" ? "ticket" : (body.tipoProducto === "bar" ? "bar" : "normal"),
           servingMl: Math.max(1, Number(body.servingMl) || 50),
           botellaMl: Math.max(1, Number(body.botellaMl) || 750),
+          comisionistaId: body.comisionistaId || null, // JFC 2026-08-27: comisionista asociado al producto
           creadoEn: new Date().toISOString(),
         };
         productos.push(nuevo);
@@ -2564,6 +2584,7 @@
           whatsapp: String(infoBody.whatsapp || "").trim().slice(0, 40),
           formaPago: String(infoBody.formaPago || "").trim().slice(0, 20), // JFC 2026-08-26: forma de pago (portado de amigable)
           montoPagado: (infoBody.montoPagado !== undefined && infoBody.montoPagado !== "") ? Math.max(0, Number(infoBody.montoPagado) || 0) : null,
+          notas: String(infoBody.notas || "").trim().slice(0, 500), // JFC 2026-08-27: notas de la venta
           /* Bar (JFC 2026-08-27): servings vendidos y su equivalente en botellas. */
           servings: (infoBody.servings !== undefined && infoBody.servings !== "") ? Math.max(0, Number(infoBody.servings) || 0) : null,
           botellas: (infoBody.botellas !== undefined && infoBody.botellas !== "") ? Math.max(0, Number(infoBody.botellas) || 0) : null,
@@ -3078,6 +3099,19 @@
         mov(accion === "despedir" ? "cliente-despedido" : "cliente-reactivado", { cliente: c.nombre, quien: body.quien || "Sistema" });
         guardarEstadoLocal();
         return J({ ok: true, despedido: c.despedido });
+      }
+      // DELETE /api/clientes/:id — borra el cliente por completo (solo dueño/admin).
+      // JFC 2026-08-27: el borrado queda SIEMPRE en el registro de auditoría
+      // (mov) con quién, a quién y cuándo — "todo esto queda en registro".
+      const mCliDel = path.match(/^\/api\/clientes\/([^/]+)$/);
+      if (mCliDel && opts && opts.method === "DELETE") {
+        const c = clientes.find((x) => x.id === mCliDel[1]);
+        if (!c) return J({ error: "Customer not found." }, 404);
+        const idx = clientes.indexOf(c);
+        clientes.splice(idx, 1);
+        mov("cliente-borrado", { cliente: c.nombre, codigo: c.codigo || "", quien: body.quien || "Sistema" });
+        guardarEstadoLocal();
+        return J({ ok: true });
       }
       if (path === "/api/inventario/bcg") return J(matrizBCG(uid));
 

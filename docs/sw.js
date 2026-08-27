@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v130"; // bumped 2026-08-27: PINs (456 demo/888 dueño libre), compradores por ítem/evento con imprimir, dashboard (Dashboard + columna Compró + aviso demo), gastos por rol + edición, bar por servings
+const CACHE = "f123-shell-v131"; // bumped 2026-08-27: ventas con notas + cliente nuevo desde panel, borrado de clientes con registro, caja chica en Gastos, comisionista en producto, comisiones como amigable (editor/escalas/RFM/origen/trato de percha)
 const SHELL = [
   "./",
   "./index.html",
