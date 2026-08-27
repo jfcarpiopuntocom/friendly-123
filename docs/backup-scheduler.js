@@ -342,17 +342,17 @@
     const _last = getLast();
     const _canalAssu = _last ? _last.canal : (getPrefs().canalEmail ? "email" : "whatsapp");
     const _textoAssu = _canalAssu === "whatsapp"
-      ? "Did your backup reach your WhatsApp?"
-      : (_canalAssu === "both" ? "Did your backup arrive — email or WhatsApp?" : "Did your backup reach your inbox?");
+      ? _bkT("bk.assuWa")
+      : (_canalAssu === "both" ? _bkT("bk.assuBoth") : _bkT("bk.assuEmail"));
     const _cuerpoAssu = _canalAssu === "whatsapp"
-      ? "Check your WhatsApp and confirm you have the file. It's yours — it never passes through us. Have a great week!"
-      : "Open it in your inbox and confirm it's there. It's yours — it never passes through us. Have a great week!";
+      ? _bkT("bk.assuWaBody")
+      : _bkT("bk.assuEmailBody");
     wrap.innerHTML = `
       <div style="font-weight:700;color:#E8A020;margin-bottom:4px;">${_textoAssu}</div>
       <div style="margin-bottom:10px;">${_cuerpoAssu}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="f123-backup-assured-ok" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #00C87A;background:#00C87A;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">Yes, it arrived — thanks!</button>
-        <button id="f123-backup-assured-resend" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #2E6278;background:#fff;color:#2E6278;border-radius:8px;font-weight:700;cursor:pointer;">Send again now</button>
+        <button id="f123-backup-assured-ok" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #00C87A;background:#00C87A;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">${_bkT("bk.assuOk")}</button>
+        <button id="f123-backup-assured-resend" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #2E6278;background:#fff;color:#2E6278;border-radius:8px;font-weight:700;cursor:pointer;">${_bkT("bk.assuResend")}</button>
       </div>`;
     document.body.appendChild(wrap);
     document.getElementById("f123-backup-assured-ok").addEventListener("click", () => {
@@ -426,16 +426,19 @@
     const f = frecDe(prefs.frecKey);
     const canales = [prefs.canalEmail && "email", prefs.canalWhatsapp && "WhatsApp"].filter(Boolean).join(" + ");
     // Dynamic message — show the actual channel, not a generic placeholder.
-    const _canalMsg = canales === "WhatsApp" ? "a WhatsApp message"
-      : (canales === "email + WhatsApp" ? "an email and a WhatsApp message"
-      : "an email");
-    const msg = `Tap "Back up now" and we'll prepare the file + ${_canalMsg} with everything ready. You just attach and send — <b>to yourself</b>. Chosen frequency: <b>${f.label.toLowerCase()}</b> via ${canales || "email"}.`;
+    const _canalMsg = canales === "WhatsApp" ? _bkT("bk.canalWa")
+      : (canales === "email + WhatsApp" ? _bkT("bk.canalBoth")
+      : _bkT("bk.canalEmail"));
+    const msg = _bkT("bk.remindBody")
+      .replace("{canal}", _canalMsg)
+      .replace("{frec}", f.label.toLowerCase())
+      .replace("{canales}", canales || "email");
     wrap.innerHTML = `
-      <div style="font-weight:700;color:#E8A020;margin-bottom:4px;">Time for your backup</div>
+      <div style="font-weight:700;color:#E8A020;margin-bottom:4px;">${_bkT("bk.remindTitle")}</div>
       <div style="margin-bottom:10px;">${msg}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="f123-backup-remind-ok" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #E8A020;background:#E8A020;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">Back up now</button>
-        <button id="f123-backup-remind-later" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #2E6278;background:#fff;color:#2E6278;border-radius:8px;font-weight:700;cursor:pointer;">Later</button>
+        <button id="f123-backup-remind-ok" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #E8A020;background:#E8A020;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">${_bkT("bk.backupNow")}</button>
+        <button id="f123-backup-remind-later" style="flex:1;min-height:44px;padding:8px 12px;border:2px solid #2E6278;background:#fff;color:#2E6278;border-radius:8px;font-weight:700;cursor:pointer;">${_bkT("bk.remindLater")}</button>
       </div>`;
     document.body.appendChild(wrap);
     document.getElementById("f123-backup-remind-ok").addEventListener("click", () => {

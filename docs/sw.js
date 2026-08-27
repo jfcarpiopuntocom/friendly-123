@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v120"; // bumped 2026-08-27: i18n wiring de strings hardcodeadas (geo, PINs, novedades, respaldo)
+const CACHE = "f123-shell-v121"; // bumped 2026-08-27: i18n wiring pase 2 (toasts de respaldo, errores de index)
 const SHELL = [
   "./",
   "./index.html",

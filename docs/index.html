@@ -2813,7 +2813,7 @@ async function cargarBCG(){
   let q;
   // Microcirugia 10 (2026-07-08): catch silencioso dejaba la matriz BCG en blanco.
   try { q = await (await fetch(`${API}/inventario/bcg?ubicacionId=${ubicacionActual}`)).json(); }
-  catch (_) { cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">Could not load BCG analysis. Reload the view.</p>'; return; }
+  catch (_) { cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">' + window.t("err.bcgLoad") + '</p>'; return; }
   const CUAD = {
     estrellas:    { icono: "⭐", titulo: "Estrellas",      sub: "Sell a lot and trending up. Protect their stock.",         bg: "var(--sim-verde-bg)",    borde: "var(--sim-verde)",    tinta: "#009A5A" },
     vacas:        { icono: "", titulo: "Cash cows", sub: "Sell a lot, stable. They fund everything else.",       bg: "var(--sim-amarillo-bg)", borde: "var(--sim-amarillo)", tinta: "#B8860B" },
@@ -3697,7 +3697,7 @@ async function cargarPerchas(){
     promotorasDisp = await resProm.json();
   } catch (_) {
     const g = document.getElementById('gridPerchas');
-    if (g) g.innerHTML = '<p style="color:var(--rojo,#a3392a);font-size:14px;">Could not load racks. Reload the view.</p>';
+    if (g) g.innerHTML = '<p style="color:var(--rojo,#a3392a);font-size:14px;">' + window.t("err.racksLoad") + '</p>';
     return;
   }
   const grid = document.getElementById('gridPerchas');
@@ -3706,7 +3706,7 @@ async function cargarPerchas(){
   // Poblar select sucursal del form "Agregar percha"
   const selSuc = document.getElementById('perchaSucursal');
   if (selSuc) {
-    selSuc.innerHTML = '<option value="">— Sin sucursal —</option>' +
+    selSuc.innerHTML = '<option value="">' + window.t("err.noBranch") + '</option>' +
       sucursalesDisp.map(s => `<option value="${s.id}">${escHtml(s.nombre)}</option>`).join('');
   }
 
@@ -3917,7 +3917,7 @@ async function ejecutarEscaneo(){
     });
   } catch (err) {
     console.error("[ejecutarEscaneo]", err);
-    contenedor.innerHTML = `<p style="color:var(--rojo); font-weight:bold;">Could not reach the server. Check your connection and try again.</p>`;
+    contenedor.innerHTML = `<p style="color:var(--rojo); font-weight:bold;">${window.t("err.serverReach")}</p>`;
     return;
   }
   if (!res.ok){
@@ -4621,11 +4621,11 @@ async function cargarEtiquetas(){
     const res = await fetch(`${API}/productos?ubicacionId=${ubicacionActual}`);
     productos = await res.json();
   } catch (_) {
-    grid.innerHTML = `<p>Could not load labels. Check your connection and try again.</p>`;
+    grid.innerHTML = `<p>${window.t("err.labelsLoad")}</p>`;
     return;
   }
   if (!Array.isArray(productos)){
-    grid.innerHTML = `<p>No se pudieron leer las etiquetas (respuesta inesperada del servidor).</p>`;
+    grid.innerHTML = `<p>${window.t("err.labelsRead")}</p>`;
     return;
   }
   // Mismo patrón escHtml que el resto del archivo (pintarFicha, el log,
@@ -4820,7 +4820,7 @@ async function cargarActividad(){
     if (!res.ok) throw new Error(res.status);
     items = await res.json();
   } catch (_) {
-    if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">Could not load activity.</p>';
+    if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">' + window.t("err.activityLoad") + '</p>';
     return;
   }
   if (items.length === 0){

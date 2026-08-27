@@ -41,3 +41,35 @@ hispana vean español). Antes varias secciones mostraban inglés fijo.
 ## Respaldo
 - Rama git: `backup/20260827-105647-antes-i18n-wiring`
 - Copia: `C:\00 Projects\sandbox\_backups\friendly-123-20260827-105647-antes-i18n-wiring` (con CHECKSUMS.sha256)
+# Nota de trabajo — i18n wiring pase 2 (2026-08-27)
+
+## Qué se cambió
+Segundo pase de i18n: se reemplazaron más strings hardcodeadas en inglés por
+claves i18n. Se agregaron **20 claves nuevas** (en+es balanceado, 601=601).
+
+## Archivos tocados
+- `docs/i18n.js` — 20 claves nuevas (en+es).
+- `docs/backup-scheduler.js` — toasts de "assurance" (¿llegó tu respaldo?) y de
+  recordatorio ("Time for your backup"), con sus botones y mensajes dinámicos
+  por canal (WhatsApp/correo/ambos). Se reutiliza `_bkT`.
+- `docs/index.html` — mensajes de error hardcodeados: BCG, perchas, etiquetas
+  (2), actividad, servidor, y "— Sin sucursal —".
+- `docs/sw.js` + `docs/version.json` — shell bump a `f123-shell-v121`.
+
+## Por qué
+Completar la traducibilidad de la app (los usuarios hispanos vean español).
+
+## Cómo se verificó
+- `node --check` en los .js modificados: OK.
+- Claves en+es balanceadas (601=601) y las 20 nuevas referenciadas.
+- Compuerta completa `test-todo.sh`: **TODO VERDE (7/7)**.
+
+## Qué quedó pendiente
+- `percha-reposicion.js` ya es bilingüe con su helper `_es()` (no es
+  inglés-fijo), así que se dejó como está para no arriesgar estabilidad.
+- Quedan strings hardcodeadas en vistas menos visibles de `index.html` y otros
+  módulos; este pase cubrió los errores y toasts más visibles.
+
+## Respaldo
+- Rama git: `backup/20260827-111227-antes-i18n-pase2`
+- Copia: `C:\00 Projects\sandbox\_backups\friendly-123-20260827-111227-antes-i18n-pase2` (con CHECKSUMS.sha256)
