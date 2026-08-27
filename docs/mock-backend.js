@@ -1792,6 +1792,18 @@
       });
     }
 
+    /* NOMBRE DE LA TIENDA (JFC 2026-08-27). Al unirse a un equipo, el aparato
+       adopta el nombre del negocio si el suyo está vacío — así sabe a qué tienda
+       entró. NO se pisa un nombre ya puesto (el dueño manda sobre el suyo). Se
+       persiste en f123_owned para que el candado/gate lo pinte, y se avisa a la UI. */
+    if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim() && !String(nombreNegocio || "").trim()) {
+      nombreNegocio = remoto.nombreNegocio.trim().slice(0, 80);
+      try {
+        const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        if (!String(_ow.nombreNegocio || "").trim()) { _ow.nombreNegocio = nombreNegocio; localStorage.setItem("f123_owned", JSON.stringify(_ow)); }
+      } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
+    }
     mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
     return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, huella: huellaCatalogo() };
@@ -1908,6 +1920,12 @@
            Eran estado local que nunca se propagaba. Viajan por el mismo canal
            cifrado device-to-device, merge add-only en aplicarCatalogo. */
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })),
+        /* NOMBRE DE LA TIENDA VIAJA CON EL CATÁLOGO (JFC 2026-08-27: "no se
+           sincroniza el nombre de la tienda al unirse, es absurdo"). Era estado
+           local (nombreNegocio) que nunca se propagaba, así que quien se unía no
+           sabía a qué negocio entró. Ahora viaja; el receptor lo adopta solo si el
+           suyo está vacío (aplicarCatalogo), sin pisar un nombre ya puesto. */
+        nombreNegocio: nombreNegocio || "",
         huella: huellaCatalogo(),
       };
     },
