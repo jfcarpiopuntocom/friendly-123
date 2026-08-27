@@ -63,12 +63,25 @@ export class SalaSync {
   _guardarCkpt(lam, c) {
     if (!this.sql || typeof c !== "string") return;
     try {
+      const lamN = Number(lam) || 0;
+      /* C1 (2026-08-27, auditoría de integridad): NUNCA sobreescribir un
+         checkpoint con uno MÁS VIEJO. Antes, un dispositivo atrasado que
+         reconectaba subía su estado rancio y pisaba el checkpoint bueno del
+         relay; como el checkpoint bueno ya había podado las ops (DELETE abajo),
+         un dispositivo nuevo que hacía pull recibía el estado rancio y perdía
+         las ops intermedias → stock/ventas incompletas sin forma de recuperarlas.
+         El lamport refleja lo aplicado (mayor lam = estado más completo), así
+         que solo se acepta si el entrante es >= al guardado. Igual se deja
+         pasar (último en subir gana) para no congelar el checkpoint en el
+         primer aparato que conecte. */
+      const existente = this.sql.exec("SELECT lam FROM ckpt WHERE k = 'latest'").toArray();
+      if (existente.length && (Number(existente[0].lam) || 0) > lamN) return;
       this.sql.exec(
         "INSERT INTO ckpt(k, lam, c) VALUES ('latest', ?, ?) ON CONFLICT(k) DO UPDATE SET lam = excluded.lam, c = excluded.c",
-        Number(lam) || 0, c
+        lamN, c
       );
       // El checkpoint resume todo lo <= su lam: esas ops ya no hacen falta.
-      this.sql.exec("DELETE FROM ops WHERE lam <= ?", Number(lam) || 0);
+      this.sql.exec("DELETE FROM ops WHERE lam <= ?", lamN);
     } catch (_) {}
   }
 

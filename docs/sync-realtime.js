@@ -102,6 +102,10 @@
       if (log.some((o) => o.opId === op.opId)) return; // ya esta, no duplicar
       log.push(op);
       localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(-LOG_TOPE)));
+      /* C2: solo las ops de negocio reales llegan aquí (los mensajes de control
+         retornan antes en onmessage), así que este es el lamport correcto del
+         checkpoint. Ver comentario en _lamportAplicadoMax. */
+      if (typeof op.lamport === "number" && op.lamport > _lamportAplicadoMax) _lamportAplicadoMax = op.lamport;
     } catch (_) {}
   }
   // Vector "lo mas nuevo que conozco de cada dispositivo" — se manda al
@@ -168,6 +172,27 @@
   function mergeLamport(lam) {
     try { var n = Number(lam) || 0; if (n > lamportActual()) localStorage.setItem(LAMPORT_KEY, String(n)); } catch (_) {}
   }
+  /* C2 (2026-08-27, auditoría de integridad): lamport de la última op de
+     negocio REALMENTE aplicada al estado. mergeLamport() corre para TODA op
+     descifrada (latidos, pedidos de catch-up, trozos de foto, órdenes,
+     checkpoints, snapshots) ANTES de los type-checks, así que lamportActual()
+     se infla más allá de lo que el estado refleja. Si el checkpoint usara ese
+     valor, el relay podaría ops que un par aún necesita (pérdida de stock).
+     Este contador solo sube con ops que pasan por registrarEnLog (locales y
+     remotas de negocio), que SÍ quedan en el estado. Se inicializa desde el
+     log persistido para reflejar sesiones anteriores; ser un límite inferior
+     es seguro (nunca sobre-poda). */
+  let _lamportAplicadoMax = (function () {
+    try {
+      const log = JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
+      if (Array.isArray(log)) {
+        let m = 0;
+        log.forEach((o) => { if (o && typeof o.lamport === "number" && o.lamport > m) m = o.lamport; });
+        return m;
+      }
+    } catch (_) {}
+    return 0;
+  })();
   // ArrayBuffer -> base64 (para meter el sobre cifrado en el frame de texto de
   // la bitacora). Solo se usa con paquetes chicos (ops) y el checkpoint.
   function ab2b64(buf) {
@@ -993,7 +1018,7 @@
       var snap = window.OCSync.estadoParaCheckpoint();
       var hu = (snap && snap.huella && snap.huella.completa) ? snap.huella.completa : "";
       if (!forzar && hu && hu === _ultimaHuellaCkpt) return; // sin cambios: no repetir
-      var sobre = { tipo: TIPO_CHECKPOINT, deviceId: deviceId(), lamport: lamportActual(), payload: snap };
+      var sobre = { tipo: TIPO_CHECKPOINT, deviceId: deviceId(), lamport: _lamportAplicadoMax || lamportActual(), payload: snap };
       var buf = await cifrar(claveActual, sobre);
       ws.send(JSON.stringify({ k: "ckpt", lam: sobre.lamport, c: ab2b64(buf) }));
       _ultimaHuellaCkpt = hu;
