@@ -324,6 +324,14 @@
       <button class="btn btn-outline" onclick="licToggleConfig()">⚙️ Config Worker</button>
       <button class="btn btn-outline" onclick="licRecargar()">↻ Recargar</button>
       <button class="btn btn-outline" onclick="licExportCSV()">Exportar CSV</button>
+      <button class="btn btn-outline" onclick="licVerBorrados()" title="Licencias borradas, recuperables">🗑 Papelera</button>
+    </div>
+    <!-- PAPELERA: licencias borradas, recuperables con un clic (JFC 2026-08-27).
+         Nada borrado queda irrecuperable: un cliente (p.ej. idiomARTE) que se
+         perdió del panel por un borrado accidental se restaura desde aquí. -->
+    <div id="lic-papelera" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px;">
+      <div class="sec-head" style="margin-top:0;"><h2 style="font-size:16px;">Papelera · licencias borradas (recuperables)</h2><span class="hint" id="lic-pap-meta"></span></div>
+      <div id="lic-pap-lista" style="font-size:13px;"></div>
     </div>
     <div id="lic-config" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:14px;">
       <!-- La URL viene PUESTA (JFC 2026-08-19). Antes el campo salia vacio con
@@ -920,6 +928,54 @@ async function licBorrar(instanceId) {
     const j = await res.json().catch(() => ({}));
     if (!res.ok) { alert("Error: " + (j.error || res.status)); return; }
     mostrarConfirmacion("Record deleted and archived");
+    licRecargar();
+  } catch (e) { alert("Network error: " + e.message); }
+}
+
+// PAPELERA (JFC 2026-08-27). Lista lo archivado en el Worker (borrado:<id>) y
+// permite restaurarlo. Requiere el Worker desplegado con los endpoints /borrados
+// y /licencias/:id/desarchivar.
+function licEscAttr(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+async function licVerBorrados() {
+  const cont = document.getElementById("lic-papelera");
+  const lista = document.getElementById("lic-pap-lista");
+  const meta = document.getElementById("lic-pap-meta");
+  cont.style.display = "block";
+  const url = licWorkerUrl();
+  if (!url) { meta.textContent = "sin URL del Worker"; return; }
+  lista.textContent = "Cargando…";
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/borrados", { headers: { "X-Master-Key": licMasterKey() } });
+    if (res.status === 404) { lista.textContent = "Este Worker todavía no tiene la papelera. Despliega la versión nueva (wrangler deploy) para poder ver y restaurar borrados."; return; }
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { lista.textContent = "Error: " + (j.error || res.status); return; }
+    const arr = Array.isArray(j.borrados) ? j.borrados : [];
+    meta.textContent = arr.length + (arr.length === 1 ? " archivada" : " archivadas");
+    if (!arr.length) { lista.textContent = "No hay licencias borradas."; return; }
+    lista.innerHTML = arr.map(r => {
+      const quien = (((r.nombre || "") + " " + (r.apellido || "")).trim() || r.nombreNegocio || r.email || "—");
+      const cuando = r.borradoEn ? licFmtDate(r.borradoEn) : "—";
+      const id = licEscAttr(r.instanceId);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">` +
+        `<span class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}</span>` +
+        `<span>${licEsc(quien)}</span>` +
+        `<span style="font-size:12px;color:var(--ink-soft);">borrada ${licEsc(cuando)}</span>` +
+        `<button class="btn-ok" style="margin-left:auto;" onclick="licDesarchivar('${id}')">Restaurar</button>` +
+        `</div>`;
+    }).join("");
+  } catch (e) { lista.textContent = "Error de red: " + e.message; }
+}
+async function licDesarchivar(instanceId) {
+  const url = licWorkerUrl();
+  if (!url) { mostrarConfirmacion("Set the Worker URL first"); return; }
+  if (!confirm("Restaurar esta licencia a la lista de activas?")) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/desarchivar",
+      { method: "POST", headers: { "X-Master-Key": licMasterKey() } });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Error: " + (j.error || res.status)); return; }
+    mostrarConfirmacion("Licencia restaurada");
+    licVerBorrados();
     licRecargar();
   } catch (e) { alert("Network error: " + e.message); }
 }

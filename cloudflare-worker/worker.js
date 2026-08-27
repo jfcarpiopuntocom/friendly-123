@@ -382,6 +382,58 @@ async function handleRestaurar(req, env, instanceId) {
   return json({ ok: true, restaurado: version.registro });
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   PAPELERA DE LICENCIAS BORRADAS (JFC 2026-08-27 — "no sale la licencia de
+   Sarah en el panel").
+
+   DELETE ya archivaba cada baja en `borrado:<instanceId>` con la promesa, escrita
+   en el propio comentario, de que era recuperable ("read borrado:<id> and write
+   it back"). Pero NO existía forma de ver ni de deshacer esos archivados: un
+   borrado accidental de una fila de "pruebas" podía llevarse por delante a un
+   cliente real sin vuelta atrás visible. Estos dos endpoints cierran ese hueco:
+     GET  /borrados                     — lista lo archivado (para verlo en el panel)
+     POST /licencias/:id/desarchivar    — devuelve `borrado:<id>` a `inst:<id>`
+   Un cliente nunca queda irrecuperable por un clic. */
+async function handleListarBorrados(env) {
+  const lista = await env.LICENCIAS.list({ prefix: "borrado:" });
+  const filas = (await Promise.all(
+    lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => {
+      const o = v ? JSON.parse(v) : null;
+      if (!o || !o.registro) return null;
+      // Se expone lo necesario para reconocer al cliente y decidir restaurar.
+      return {
+        instanceId: o.registro.instanceId || k.name.replace(/^borrado:/, ""),
+        borradoEn: o.borradoEn || null,
+        licenseCode: o.registro.licenseCode || "",
+        nombre: o.registro.nombre || "",
+        apellido: o.registro.apellido || "",
+        email: o.registro.email || "",
+        nombreNegocio: o.registro.nombreNegocio || "",
+        estado: o.registro.estado || "",
+        lastSeen: o.registro.lastSeen || null,
+      };
+    }))
+  )).filter(Boolean);
+  filas.sort((a, b) => (b.borradoEn || 0) - (a.borradoEn || 0));
+  return json({ ok: true, borrados: filas });
+}
+
+async function handleDesarchivar(env, instanceId) {
+  const key = `borrado:${instanceId}`;
+  const raw = await env.LICENCIAS.get(key);
+  if (!raw) return json({ error: "No hay nada archivado con ese instanceId" }, 404);
+  let arch; try { arch = JSON.parse(raw); } catch (_) { arch = null; }
+  if (!arch || !arch.registro) return json({ error: "Archivo corrupto" }, 500);
+  // Devolver el registro a la vida. guardarConHistorial deja rastro por si el
+  // desarchivado tampoco fuera lo deseado (todo es reversible).
+  const reg = arch.registro;
+  reg.estado = normalizarEstado(reg.estado);
+  await guardarConHistorial(env, instanceId, reg);
+  // Ya restaurado: se quita de la papelera para no dejar duplicados fantasma.
+  try { await env.LICENCIAS.delete(key); } catch (_) {}
+  return json({ ok: true, restaurado: reg });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -455,6 +507,20 @@ export default {
       reg.estado = normalizarEstado(body.estado);
       await guardarConHistorial(env, instanceId, reg);
       return json({ ok: true });
+    }
+
+    // Papelera: listar licencias borradas (master). Cierra el hueco de que un
+    // borrado accidental dejara a un cliente irrecuperable (JFC 2026-08-27).
+    if (url.pathname === "/borrados" && req.method === "GET") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleListarBorrados(env);
+    }
+
+    // Desarchivar (restaurar) una licencia borrada de vuelta a la lista (master).
+    const mDesarchivar = url.pathname.match(/^\/licencias\/([^/]+)\/desarchivar$/);
+    if (mDesarchivar && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      return handleDesarchivar(env, decodeURIComponent(mDesarchivar[1]));
     }
 
     // Historial de versiones de una instancia (master, homologado)
