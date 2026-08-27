@@ -45,6 +45,24 @@
   // Nombre de cada percha, cacheado del último cargar() para títulos de carpeta.
   let nombrePorId = {};
 
+  // Venta bruta del mes de una percha (2026-08-27, bloque 1d). Se usa para las
+  // perchas PROPIAS, que no salen en /api/liquidaciones. Suma el monto de las
+  // ventas del mes actual de esa ubicación. Se cachea por cargar() para no
+  // repetir el fetch por cada percha.
+  let _ventasTodasCache = null;
+  async function ventasDelMes(ubicacionId) {
+    try {
+      if (_ventasTodasCache === null) {
+        _ventasTodasCache = await fetch(`${API}/ventas/todas`).then((r) => r.json()).catch(() => []);
+      }
+      const ahora = new Date();
+      const mes = ahora.getMonth(), anio = ahora.getFullYear();
+      return (_ventasTodasCache || [])
+        .filter((v) => v.ubicacionId === ubicacionId && (() => { const d = new Date(v.fecha); return d.getMonth() === mes && d.getFullYear() === anio; })())
+        .reduce((a, v) => a + (Number(v.monto) || (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)), 0);
+    } catch (_) { return 0; }
+  }
+
   // Ordenar por columna (2026-07-29) — complementa el semaforo por defecto.
   const COLUMNAS_PERCHA = [
     { key: 'nombre', label: 'Name' },
@@ -246,21 +264,31 @@
       const promPor = {}; (Array.isArray(promotoras) ? promotoras : []).forEach((pr) => { promPor[pr.id] = pr.nombre; });
       nombrePorId = {};
 
-      const ms = perchas.map((u) => {
+      const ms = await Promise.all(perchas.map(async (u) => {
         const f = liqPor[u.id];
         const cumplimiento = f ? f.cumplimientoMeta : null;
         nombrePorId[u.id] = u.nombre;
+        /* 2026-08-27 (bloque 1d): las perchas PROPIAS (tipo "propio") no salen
+           en /api/liquidaciones (que solo cubre las de comisión), así que su
+           tarjeta mostraba ventasMes=0 y comisión=0 aunque vendieran. Se
+           calcula aquí su venta del mes para que la tarjeta refleje el valor
+           real. La comisión de una percha propia es 0 (no reparte con nadie). */
+        let ventasMes = f ? f.ventasBrutas : 0;
+        let comision = f ? f.comisionSocio : 0;
+        if (!f && u.tipo === "propio") {
+          ventasMes = await ventasDelMes(u.id);
+        }
         return {
           id: u.id, nombre: u.nombre, activa: u.activa !== false,
           semaforo: semaforoMeta(cumplimiento),
           cumplimiento: cumplimiento,
-          ventasMes: f ? f.ventasBrutas : 0,
+          ventasMes: ventasMes,
           meta: f ? f.metaMensual : (u.metaMensual || 0),
-          comision: f ? f.comisionSocio : 0,
+          comision: comision,
           promotor: u.promotoraId ? (promPor[u.promotoraId] || null) : null,
           diasSinVenta: f ? f.diasSinVenta : null,
         };
-      });
+      }));
       // Orden por defecto: semaforo de meta (rojo primero). Si el usuario
       // eligio otra columna ("Ordenar por"), esa manda en su lugar.
       if (_ordenPercha.col) {
