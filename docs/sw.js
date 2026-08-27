@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v115"; // bumped 2026-08-27: nombre de la tienda viaja (heartbeat→panel y sync device-to-device al unirse)
+const CACHE = "f123-shell-v116"; // bumped 2026-08-27: nombre completo en activación + diagnóstico marca mismatch de licencia/syncCode/sala
 const SHELL = [
   "./",
   "./index.html",
