@@ -29,3 +29,30 @@ UI visible (candado de PIN, tarjetas, flujos de team/join, colores).
 ## SALIDA
 Screenshots de las pantallas tocadas + una línea por cada regla verificada
 (cumple / no cumple). Si algo no cumple, arreglar ANTES de pushear.
+
+## LAS PASADAS HUGO / PACO / LUIS (JFC 2026-08-26 — nombre oficial del método)
+
+Las "pasadas adversariales" se llaman **Hugo, Paco y Luis**: tres usuarios de
+IQ distinto que prueban la app de formas distintas. NO es probar el camino feliz;
+es preguntarse *qué haría cada uno* y si la app es **FRIENDLY** con usos no
+rígidos. **Prioridad 1AAA: que TODO FUNCIONE**, para empezar; luego, que funcione
+aunque el usuario no siga el orden "correcto".
+
+- **Hugo** (mete la pata sin querer): pega la licencia con espacios/guiones de
+  más, teclea el PIN dos veces, borra a alguien y lo vuelve a agregar, entra con
+  el aparato del otro apagado, pone su propia licencia creyendo que se une.
+- **Paco** (metódico, desconfiado): edita en medio del código, cambia roles ida y
+  vuelta, prueba PIN repetido, revisa que la baja de verdad desaparezca en el
+  otro aparato, que dos aparatos con la hora distinta no se pisen.
+- **Luis** (poder-usuario, rompe cosas a propósito): dos aparatos empujando a la
+  vez, reloj de pared adelantado, estado rancio de un tercer aparato, mergear el
+  mismo catálogo dos veces, invadir la tienda de un cliente para "poner tuberías".
+
+**Cómo se corren de verdad (no funciones sueltas):** con el **arnés de dos
+aparatos** `.claude/harness-team-sync.cjs` — carga el app real en contextos
+aislados (dos localStorage = dos aparatos) y ejerce el camino REAL
+(POST/PATCH/DELETE + catalogoPropio + aplicarCatalogo + OCTienda.cambiar),
+rompiéndolo a propósito. Ese arnés ya cazó un bug real (precedencia del registro
+sobre la licencia propia en `cambiar`). Ampliarlo con cada caso nuevo de
+Hugo/Paco/Luis y dejarlo verde ANTES de pushear. Un "todo verde" en función
+aislada NO cuenta como pasada Hugo/Paco/Luis.

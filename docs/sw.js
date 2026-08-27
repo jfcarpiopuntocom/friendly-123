@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v112"; // bumped 2026-08-26: roster con reloj lógico + tombstones (baja propaga entre aparatos, promover/degradar/PIN por causalidad)
+const CACHE = "f123-shell-v114"; // bumped 2026-08-26: guard anti-desaparición de licencia en heartbeat + identidad al unirse (normal=device, lord=invitado con auditoría)
 const SHELL = [
   "./",
   "./index.html",
