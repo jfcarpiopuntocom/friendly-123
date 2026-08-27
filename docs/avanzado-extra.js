@@ -271,7 +271,7 @@
     const chartBox = document.createElement("div");
     chartBox.className = "tag-card";
     chartBox.style.cssText = "margin-bottom:22px;text-align:left;";
-    chartBox.innerHTML = `<h3 class="seccion" style="margin-top:0;">Location comparison (this month)</h3><div id="oc-chart"></div>`;
+    chartBox.innerHTML = `<h3 class="seccion" style="margin-top:0;">${window.t("adv.locComparison")}</h3><div id="oc-chart"></div>`;
     cont.appendChild(chartBox);
 
     // Mover PL / balance / valorizado (h3 + tabla-wrap) al contenedor
@@ -435,19 +435,19 @@
     gestion.className = "panel-escaner tag-card";
     gestion.style.cssText = "text-align:left;margin-top:22px;";
     gestion.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Access & recovery</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Owner email for key recovery. Once saved, it's masked for privacy.</p>
+      <h3 class="seccion" style="margin-top:0;">${window.t("auth.act.accessRecoveryTitle")}</h3>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">${window.t("auth.act.ownerEmailIntro")}</p>
       <div id="oc-email-row"></div>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:18px;">${window.t("auth.act.whatsappLabel")} — ${window.t("auth.act.whatsappHint")}</p>
       <div id="oc-whatsapp-row"></div>
       <div id="oc-clave-block" style="margin-top:18px;">
-        <p style="font-size:14px;color:var(--ink-soft);">PINs (3 digits). For security, current codes are NOT shown here (stored encrypted) — enter NEW ones only if you want to change them.</p>
+        <p style="font-size:14px;color:var(--ink-soft);">${window.t("auth.act.pinsIntro")}</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;">
-          <label style="font-size:13px;">Owner <input id="oc-c-owner" maxlength="3" inputmode="numeric" placeholder="3 digits" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">Employee <input id="oc-c-emp" maxlength="3" inputmode="numeric" placeholder="3 digits" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">Accounting <input id="oc-c-acct" maxlength="3" inputmode="numeric" placeholder="3 digits" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">${window.t("auth.act.roleOwner")} <input id="oc-c-owner" maxlength="3" inputmode="numeric" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">${window.t("auth.act.roleEmployee")} <input id="oc-c-emp" maxlength="3" inputmode="numeric" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">${window.t("auth.act.roleAccounting")} <input id="oc-c-acct" maxlength="3" inputmode="numeric" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
         </div>
-        <button id="oc-save-codes" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Save new PINs</button>
+        <button id="oc-save-codes" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">${window.t("auth.act.savePins")}</button>
         <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
       </div>`;
     vista.appendChild(gestion);
@@ -1602,7 +1602,7 @@ Keep it somewhere safe.`);
       const micPanel = document.createElement("div");
       micPanel.className = "tag-card";
       micPanel.style.cssText = "text-align:left;margin-top:22px;";
-      micPanel.innerHTML = '<h3 class="seccion" style="margin-top:0;">Your team right now</h3><div id="oc-micelio-panel"></div>';
+      micPanel.innerHTML = '<h3 class="seccion" style="margin-top:0;">' + window.t("adv.teamNow") + '</h3><div id="oc-micelio-panel"></div>';
       vista.appendChild(micPanel);
       if (window.OCMicelioUI) window.OCMicelioUI.pintarPanel();
       /* ESTADO VACÍO (2026-08-26, UX sweep P6): pintarPanel() puede poblar el div de

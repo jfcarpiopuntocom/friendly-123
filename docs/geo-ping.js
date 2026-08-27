@@ -459,9 +459,9 @@
              consentimiento al entrar. Ahora es una decision del dueño. */
           '<label style="display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;cursor:pointer;min-height:44px;color:#2C3E50;">' +
             '<input type="checkbox" id="amg-geo-toggle" style="width:20px;height:20px;">' +
-            'Record where the team was during their shift' +
+            '<span id="amg-geo-toggle-text">' + T("geo.panel.toggleLabel") + '</span>' +
           '</label>' +
-          '<p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:0 0 12px;">Off by default. When you turn it on, each person is asked for permission once on their own device, and nothing is recorded until they accept.</p>' +
+          '<p id="amg-geo-consent" style="font-size:14px;line-height:1.5;color:#2C3E50;margin:0 0 12px;">' + T("geo.panel.consentBody") + '</p>' +
           '<div id="amg-geo-panel"></div>';
         vista.appendChild(caja);
         try {
@@ -495,8 +495,12 @@
       if (!caja) return;
       var h3 = caja.querySelector("h3.seccion");
       var p = caja.querySelector("p");
+      var toggleText = caja.querySelector("#amg-geo-toggle-text");
+      var consent = caja.querySelector("#amg-geo-consent");
       if (h3) h3.textContent = T("geo.panel.title");
       if (p) p.textContent = T("geo.panel.body");
+      if (toggleText) toggleText.textContent = T("geo.panel.toggleLabel");
+      if (consent) consent.textContent = T("geo.panel.consentBody");
       if (esDuenoOAdmin()) renderPanel();
     });
   } catch (_) {}

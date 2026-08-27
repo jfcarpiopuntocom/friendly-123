@@ -261,7 +261,7 @@
       var cont = document.getElementById("oc-nov-turno");
       if (!cont) return;
       if (info.error) {
-        cont.innerHTML = '<h4 style="margin:0 0 6px;font-size:15px;">📋 Shift alerts</h4><p style="font-size:14px;color:var(--ink-soft,#5d5340);margin:0;">Check Inventory for products that need your attention (red and gold) and Perchas for today’s pending photos.</p>';
+        cont.innerHTML = '<h4 style="margin:0 0 6px;font-size:15px;">📋 ' + window.t("novedades.shiftAlerts") + '</h4><p style="font-size:14px;color:var(--ink-soft,#5d5340);margin:0;">' + window.t("novedades.shiftAlertsBody") + '</p>';
         return;
       }
       var alertasHtml = info.alertas.length
@@ -269,24 +269,24 @@
             var color = a.estado === "rojo" ? "var(--rust,#b2461f)" : (a.estado === "amarillo" ? "#8a6d1f" : "var(--ink,#211c14)");
             return '<li style="font-size:14px;color:' + color + ';font-weight:700;margin-bottom:4px;">● ' + escHtmlLocal(a.mensaje) + '</li>';
           }).join("") + '</ul>'
-        : '<p style="font-size:14px;color:var(--ink-soft,#5d5340);margin:6px 0 14px;">No pending alerts — all quiet for now.</p>';
+        : '<p style="font-size:14px;color:var(--ink-soft,#5d5340);margin:6px 0 14px;">' + window.t("novedades.noAlerts") + '</p>';
       var impulsadosHtml = info.impulsados.length
-        ? '<h4 style="margin:0 0 6px;font-size:15px;">⭐ Push these today</h4><ul style="margin:0;padding-left:0;list-style:none;">' + info.impulsados.map(function (p) {
+        ? '<h4 style="margin:0 0 6px;font-size:15px;">⭐ ' + window.t("novedades.pushToday") + '</h4><ul style="margin:0;padding-left:0;list-style:none;">' + info.impulsados.map(function (p) {
             return '<li style="font-size:14px;color:var(--ink,#211c14);margin-bottom:4px;">⭐ ' + escHtmlLocal(p.nombre) + '</li>';
           }).join("") + '</ul>'
         : '';
-      cont.innerHTML = '<h4 style="margin:0 0 6px;font-size:15px;">📋 Shift alerts</h4>' + alertasHtml + impulsadosHtml;
+      cont.innerHTML = '<h4 style="margin:0 0 6px;font-size:15px;">📋 ' + window.t("novedades.shiftAlerts") + '</h4>' + alertasHtml + impulsadosHtml;
     }).catch(function () {});
   }
 
   function etiquetaInsignia(id) {
-    if (id.indexOf("racha3") === 0) return "3 days in a row";
-    if (id.indexOf("racha7") === 0) return "A full week";
-    if (id.indexOf("racha30") === 0) return "A month-long streak";
-    if (id.indexOf("ventas5") === 0) return "5 sales in one day";
-    if (id.indexOf("foto_") === 0) return "Shelf up to date";
-    if (id.indexOf("transf_") === 0) return "Transfer handled";
-    return "Achievement";
+    if (id.indexOf("racha3") === 0) return window.t("novedades.badge3days");
+    if (id.indexOf("racha7") === 0) return window.t("novedades.badgeWeek");
+    if (id.indexOf("racha30") === 0) return window.t("novedades.badgeMonth");
+    if (id.indexOf("ventas5") === 0) return window.t("novedades.badge5sales");
+    if (id.indexOf("foto_") === 0) return window.t("novedades.badgeShelf");
+    if (id.indexOf("transf_") === 0) return window.t("novedades.badgeTransfer");
+    return window.t("novedades.badgeAchievement");
   }
   function escHtmlLocal(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 

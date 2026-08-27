@@ -50,6 +50,12 @@
     { key: "monthly",   dias: 30, label: "Monthly (minimum)"   },
   ];
 
+  // Traducción de las etiquetas de frecuencia (JFC 2026-08-27). El módulo era
+  // i18n-agnostic; ahora las etiquetas cortas se traducen con window.t.
+  const _freqKey = { daily: "bk.freqDaily", weekly: "bk.freqWeekly", biweekly: "bk.freqBiweekly", monthly: "bk.freqMonthly" };
+  function _freqLabel(f) { try { return window.t ? window.t(_freqKey[f.key] || "bk.freqDaily") : f.label; } catch (_) { return f.label; } }
+  function _bkT(k) { try { return window.t ? window.t(k) : k; } catch (_) { return k; } }
+
   function defaults() {
     return {
       frecKey:        "monthly",  // enforced minimum as default
@@ -460,8 +466,8 @@
       const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       if (!owned.instanceId) {
         mount.innerHTML = `<div style="border:2px solid #E86040;border-radius:12px;padding:14px 16px;background:#FFF3EE;margin-top:16px;">
-          <p style="margin:0;font-size:15px;font-weight:700;color:#C05000;">To activate automatic backup, first activate this device.</p>
-          <p style="margin:8px 0 0;font-size:14px;color:#2C3E50;">At the login screen enter PIN <strong>789</strong>. Once activated, come back here to set your email and frequency.</p>
+          <p style="margin:0;font-size:15px;font-weight:700;color:#C05000;">${_bkT("bk.activateTitle")}</p>
+          <p style="margin:8px 0 0;font-size:14px;color:#2C3E50;">${_bkT("bk.activateBody")}</p>
         </div>`;
         return;
       }
@@ -473,38 +479,38 @@
     mount.innerHTML = `
       <div style="border:2px solid #E8A020;border-radius:12px;padding:14px 16px;background:#FFF8EC;margin-top:16px;">
         <h3 style="margin:0 0 4px;color:#C05000;font-family:Georgia,serif;font-size:19px;">
-          Automatic backup — email and/or WhatsApp
+          ${_bkT("bk.title")}
         </h3>
         <p style="margin:0 0 12px;font-size:15px;color:#0F1923;font-weight:700;">
-          Your backup goes to YOU, not to us. You never lose control of your data.
+          ${_bkT("bk.yourData")}
         </p>
         <p style="margin:0 0 12px;font-size:14px;color:#2C3E50;line-height:1.5;">
-          The app downloads the file and opens your email/WhatsApp with everything pre-written. You attach and send — to yourself. The monthly minimum is enforced: if something goes wrong through neglect, you never lose more than 30 days.
+          ${_bkT("bk.howItWorks")}
         </p>
 
         <div style="display:grid;grid-template-columns:1fr;gap:10px;">
           <div>
-            <div style="font-size:14px;font-weight:700;margin-bottom:6px;">Backup frequency</div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:6px;">${_bkT("bk.frequency")}</div>
             <input type="range" id="f123-bk-frec" min="0" max="3" step="1" value="${frecIdxSafe}"
               style="width:100%;max-width:320px;accent-color:#E86040;height:6px;cursor:pointer;">
             <div style="display:flex;justify-content:space-between;max-width:320px;margin-top:5px;">
-              ${FREQS.map((f) => `<span style="font-size:13px;color:#2C3E50;text-align:center;width:25%;">${f.label.replace(" (minimum)","")}</span>`).join("")}
+              ${FREQS.map((f) => `<span style="font-size:13px;color:#2C3E50;text-align:center;width:25%;">${_freqLabel(f).replace(" (minimum)","").replace(" (mínimo)","")}</span>`).join("")}
             </div>
             <p id="f123-bk-frec-label" style="margin:6px 0 0;font-size:13px;color:#E86040;font-weight:700;">
-              Selected: ${FREQS[frecIdxSafe].label}
+              ${_bkT("bk.selected").replace("{label}", _freqLabel(FREQS[frecIdxSafe]))}
             </p>
           </div>
 
           <label style="font-size:14px;font-weight:700;">
             <input type="checkbox" id="f123-bk-canalEmail" ${prefs.canalEmail ? "checked" : ""} style="min-width:20px;min-height:20px;vertical-align:middle;margin-right:6px;">
-            Send to my email
+            ${_bkT("bk.sendEmail")}
           </label>
           <input type="email" id="f123-bk-email" value="${(prefs.email || "").replace(/"/g, "&quot;")}" placeholder="you@email.com"
             style="padding:10px;border:2px solid #E86040;border-radius:6px;min-height:44px;max-width:340px;font-size:15px;">
 
           <label style="font-size:14px;font-weight:700;">
             <input type="checkbox" id="f123-bk-canalWa" ${prefs.canalWhatsapp ? "checked" : ""} style="min-width:20px;min-height:20px;vertical-align:middle;margin-right:6px;">
-            Send to my WhatsApp
+            ${_bkT("bk.sendWhatsapp")}
           </label>
           <input type="tel" id="f123-bk-wa" value="${(prefs.whatsapp || "").replace(/"/g, "&quot;")}" placeholder="+1 555 123 4567"
             style="padding:10px;border:2px solid #E86040;border-radius:6px;min-height:44px;max-width:340px;font-size:15px;">
@@ -512,16 +518,20 @@
 
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
           <button id="f123-bk-guardar" style="min-height:44px;padding:10px 16px;border:2px solid #2E6278;background:#2E6278;color:#fff;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;">
-            Save preference
+            ${_bkT("bk.save")}
           </button>
           <button id="f123-bk-correr" style="min-height:44px;padding:10px 16px;border:2px solid #E8A020;background:#E8A020;color:#fff;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer;">
-            Back up now
+            ${_bkT("bk.backupNow")}
           </button>
         </div>
         <p id="f123-bk-msg" style="margin:10px 0 0;font-size:14px;font-weight:700;color:#2E6278;"></p>
         <p style="margin:8px 0 0;font-size:13px;color:#2C3E50;">
-          <b>Honest note:</b>
-          mailto: and wa.me links can't attach files automatically (web standard limitation). So we download the file first and open the message with the recipient and body already filled — you just attach and send. Most automatic possible without your data passing through us.
+          <b>${_bkT("bk.honestNote")}</b>
+          ${_bkT("bk.honestNoteBody")}
+        </p>
+        <p style="margin:8px 0 0;font-size:13px;color:#5A6270;">
+          <b>${_bkT("bk.scopeTitle")}</b>
+          ${_bkT("bk.scopeBody")}
         </p>
         <p style="margin:8px 0 0;font-size:13px;color:#5A6270;">
           <b>Scope of this backup:</b> includes products, sales, clients, commissions, and business settings.
@@ -540,7 +550,7 @@
     document.getElementById("f123-bk-frec").addEventListener("input", function () {
       const idx = parseInt(this.value, 10);
       const lbl = document.getElementById("f123-bk-frec-label");
-      if (lbl && FREQS[idx]) lbl.textContent = "Selected: " + FREQS[idx].label;
+      if (lbl && FREQS[idx]) lbl.textContent = _bkT("bk.selected").replace("{label}", _freqLabel(FREQS[idx]));
     });
 
     document.getElementById("f123-bk-guardar").addEventListener("click", () => {
