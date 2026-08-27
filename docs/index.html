@@ -4980,20 +4980,23 @@ async function abrirPanelVentaInfo(id, esTicket){
       ${esBar ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Servings sold<br><input id="vi-servings" type="number" min="1" step="1" value="1" ${inp}></label>
       <p id="vi-botellas" style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;"></p>` : ""}
-      <label style="display:block;margin-top:10px;font-size:14px;">Customer (search by name, or leave blank)<br>
-        <input id="vi-cliente-buscar" type="text" placeholder="Type to filter..." ${inp}></label>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
-        <select id="vi-cliente" size="1" style="flex:1;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
-          <option value="">Counter sale (no customer)</option>
-          ${clientes.map(c => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("")}
-        </select>
-        <button type="button" id="vi-nuevo-cliente" title="New customer"
-          style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">+ New</button>
-      </div>
+      <label style="display:block;margin-top:10px;font-size:14px;">Customer<br>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+          <select id="vi-cliente" size="1" style="flex:1;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
+            <option value="">Counter sale (no customer)</option>
+            ${clientes.map(c => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("")}
+          </select>
+          <button type="button" id="vi-nuevo-cliente" title="New customer"
+            style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">+ New</button>
+        </div>
+        <input id="vi-cliente-buscar" type="text" placeholder="Type to filter..." style="width:100%;padding:8px;margin-top:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
       ${esTicket ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br><input id="vi-personas" type="number" min="0" step="1" ${inp}></label>` : ""}
-      <label style="display:block;margin-top:10px;font-size:14px;">Payer's name${req}<br><input id="vi-pagador" type="text" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">Group / +1 (optional)
+        <button type="button" id="vi-toggle-pagador" title="Add a group name or extra people (+1, +N)"
+          style="margin-left:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
+        <input id="vi-pagador" type="text" placeholder="Group name or +N extra people" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">Email<br><input id="vi-email" type="email" ${inp}></label>
         <label style="flex:1;font-size:14px;">WhatsApp<br><input id="vi-whatsapp" type="text" ${inp}></label>
@@ -5025,6 +5028,16 @@ async function abrirPanelVentaInfo(id, esTicket){
     btnNuevo.addEventListener("click", () => {
       window._ocNuevoClienteCb = null; // el handler de creacion ya agrega a vi-cliente
       if (window.ocAbrirNuevoCliente) window.ocAbrirNuevoCliente();
+    });
+  }
+  // JFC 2026-08-27: "Payer's name" → lapicito opcional para +1/grupos. El ✎
+  // muestra/oculta el campo de grupo; es opcional, nunca obligatorio.
+  const btnPag = document.getElementById("vi-toggle-pagador");
+  const inpPag = document.getElementById("vi-pagador");
+  if (btnPag && inpPag) {
+    btnPag.addEventListener("click", () => {
+      inpPag.style.display = inpPag.style.display === "none" ? "block" : "none";
+      if (inpPag.style.display !== "none") inpPag.focus();
     });
   }
   if (esBar) {
@@ -5061,9 +5074,9 @@ async function confirmarVentaConInfo(id, esTicket){
     ...(_esBar ? { servings: _servings, botellas: +(_servings / _servPorBotella).toFixed(2) } : {})
   };
   const msg = document.getElementById("vi-msg");
-  if (esTicket && (!info.fechaEvento || !info.nombrePagador || !info.montoPagado)){
+  if (esTicket && (!info.fechaEvento || !info.montoPagado)){
     msg.style.color = "var(--rojo,#a3392a)";
-    msg.textContent = "For tickets/events you need: date, who's paying, and the amount paid.";
+    msg.textContent = "For tickets/events you need: date and the amount paid.";
     return;
   }
   const clienteId = document.getElementById("vi-cliente").value || undefined;

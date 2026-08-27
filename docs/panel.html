@@ -900,6 +900,7 @@ function licRenderTabla(data) {
       `<option value="full"${licNormEstado(est) === "full" ? " selected" : ""}>Full — uncapped</option>` +
       `<option value="bloqueada"${licNormEstado(est) === "bloqueada" ? " selected" : ""}>Blocked</option>` +
       `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button>` +
+      ` <button class="btn-ok" title="Re-enganchar esta oveja perdida a una licencia canónica (re-apunta su registro KV, reversible)" onclick="licReenganchar('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Re-enganchar</button>` +
       ` <button class="btn-ok" title="Delete this record (archived first, recoverable)" onclick="licBorrar('${id}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);margin-left:4px;">Delete</button></td>`;
     tb.appendChild(tr);
 
@@ -926,7 +927,8 @@ function licRenderTabla(data) {
         `<td style="font-size:13px;">${hWa ? `<a href="${hWa}" target="_blank" style="color:#25D366;">${licEsc(h.whatsapp)}</a>` : "—"}</td>` +
         `<td style="font-size:13px;">${licEsc(h.cedula || "—")}</td>` +
         `<td class="date">${licFmtDate(h.activatedAt)}</td><td class="date">${licFmtDate(h.lastSeen)}</td>` +
-        `<td><button class="btn-ok" onclick="licBorrar('${hid}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);">Delete</button></td>`;
+        `<td><button class="btn-ok" onclick="licReenganchar('${hid}')" title="Re-enganchar esta oveja perdida a una licencia canónica" style="background:transparent;border:1px solid var(--gold);color:var(--gold);">Re-enganchar</button> ` +
+        `<button class="btn-ok" onclick="licBorrar('${hid}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);">Delete</button></td>`;
       tb.appendChild(trh);
     });
   });
@@ -936,6 +938,40 @@ function licToggleDisp(id) {
   document.querySelectorAll(".lic-disp-" + id).forEach(f => {
     f.style.display = f.style.display === "none" ? "table-row" : "none";
   });
+}
+
+// RE-ENGANCHAR OVEJA PERDIDA (JFC 2026-08-27). Un dispositivo quedó "rogue"
+// (licencia trunca/vieja/ajena) y no se une a su licencia ni a sus hermanos.
+// Este botón re-apunta su registro KV a la licencia canónica que JFC elige.
+// Es reversible (pasa por el historial del Worker). Después, en el dispositivo,
+// se entra esa licencia por Avanzado → claim & merge para unir sus datos.
+async function licReenganchar(instanceId) {
+  const url = licWorkerUrl();
+  const key = licMasterKey();
+  if (!url || !key) { alert("Configura primero la URL del Worker y la Master Key."); return; }
+  const reg = (Array.isArray(_licData) ? _licData : []).find(r => r.instanceId === instanceId);
+  const actual = reg ? String(reg.licenseCode || "").trim() : "";
+  const nueva = prompt(
+    "Re-enganchar esta oveja perdida.\n\nDispositivo: " + (reg ? (reg.nombreNegocio || reg.nombre || reg.instanceId) : instanceId) +
+    "\nLicencia actual: " + (actual || "(ninguna)") +
+    "\n\nPega la licencia CANÓNICA a la que debe unirse (F123-XXXX-XXXX-XXXX-XXXXX):",
+    actual
+  );
+  if (nueva === null) return;
+  const lic = String(nueva).trim().toUpperCase();
+  if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(lic)) { alert("Esa no parece una licencia F123 válida."); return; }
+  if (!confirm("Re-apuntar este dispositivo a:\n\n    " + lic + "\n\nEs reversible (queda en el historial). ¿Continuar?")) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/reapuntar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Master-Key": key },
+      body: JSON.stringify({ licenseCode: lic }),
+    });
+    const r = await res.json();
+    if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
+    alert("Re-enganchado. Ahora en el dispositivo entra esa licencia por Avanzado → claim & merge para unir sus datos.");
+    licRecargar();
+  } catch (e) { alert("Fallo de red: " + (e && e.message)); }
 }
 
 // Delete archives the record in the Worker first (key borrado:<id>), so it is

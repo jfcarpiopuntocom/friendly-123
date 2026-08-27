@@ -90,18 +90,15 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          licencia de Sarah en el panel"). Un heartbeat con licenseCode vacío puede
          hacer que el Worker sobrescriba con "" la fila de una licencia REAL y el
          cliente desaparezca del panel — lo último que puede pasar. Redundancia:
-           1) si datos.licenseCode viene vacío, se RECUPERA de la sala de sync
-              activa (ROOM_KEY = la licencia del equipo), que es la misma;
-           2) si aun así no hay una licencia F123 válida, se OMITE el campo del
-              payload — el Worker no puede pisar un valor bueno con vacío.
-         Nunca se envía "" como licenseCode. */
+         si datos.licenseCode viene vacío o no es una F123 válida, se OMITE el
+         campo del payload — el Worker no puede pisar un valor bueno con vacío.
+         Nunca se envía "" como licenseCode.
+         (2026-08-27, JFC): se QUITÓ la autocuración que recuperaba la licencia
+         desde la sala de sync (salaActiva). Eso era lo que REVERTÍA la licencia
+         a un valor viejo de una sala anterior — el bug de "mi licencia cambió
+         sola". La licencia es la que el dueño puso deliberadamente; el heartbeat
+         solo la reporta, nunca la re-deriva de otro lado. */
       var _licSegura = String(datos.licenseCode || "").trim();
-      if (!/^F123-/i.test(_licSegura)) {
-        try {
-          var _sala = (window.OCSyncControl && window.OCSyncControl.salaActiva) ? (window.OCSyncControl.salaActiva() || "") : "";
-          if (/^F123-/i.test(String(_sala))) _licSegura = String(_sala).trim();
-        } catch (_) {}
-      }
       var payload = {
         producto: "friendly-123",
         instanceId: trim(datos.instanceId, 100),

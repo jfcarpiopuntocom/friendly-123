@@ -309,6 +309,30 @@ hiciste".
   retomar sin adivinar.
 - **BITÁCORA**: registrar cada trabajo en la bitácora (ver REGLA 3).
 
+## REGLA 6 — DIARIO .md POR VENTANA DE 48h (JFC, 2026-08-27) — REGLA DURA
+
+JFC lo pidió como regla dura: "guardes mis prompts en archivos .md por día pero
+cada día es 48h y tus 'epifanías' o 'redescubrimientos porque olvidaste
+contexto', para que siempre tengas contexto aunque yo solo tenga la cuenta de
+$10 de AbacusAI por ahora".
+
+- **Un archivo por ventana de 48h**, en la raíz del repo, nombrado
+  `DIARIO-<fecha-inicio>.md` (ej. `DIARIO-2026-08-27.md` cubre 2026-08-27 →
+  2026-08-29). Al abrir una ventana nueva se crea el archivo nuevo.
+- **Contenido obligatorio**:
+  1. **Prompts de JFC** textuales y fechados (lo que pidió, con sus palabras).
+  2. **Epifanías / redescubrimientos** míos: cosas que redescubrí porque perdí
+     contexto, lecciones duras, decisiones de producto, bugs de raíz. Que otra
+     sesión o modelo los lea y no vuelva a tropezar.
+  3. **Qué se hizo** con cada prompt (resumen de una línea + archivos tocados).
+- **Al empezar cada sesión**: leer el `DIARIO-*.md` más reciente (además de
+  `CLAUDE.md` y la bitácora) para tener contexto sin quemar tokens.
+- **Al terminar cada trabajo**: anotar en el diario de la ventana actual.
+- La bitácora (`PROMPTS-Y-BITACORA.md`) sigue siendo el registro histórico
+  largo; el diario es el contexto vivo de la ventana.
+
+---
+
 ## REGLA 5 — EL PLAN SIEMPRE EN EL CHAT ANTES DE HACER (JFC, 2026-08-27)
 
 JFC lo pidió como regla dura: "siempre mostrar un plan en este chat de lo que

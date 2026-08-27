@@ -509,6 +509,29 @@ export default {
       return json({ ok: true });
     }
 
+    // RE-ENGANCHAR OVEJA PERDIDA (JFC 2026-08-27). Un dispositivo puede quedar
+    // con una licencia trunca/vieja (ej. F123-5HSG-JENF) o ajena, y así queda
+    // "rogue": no se une a su licencia ni a sus hermanos. Este endpoint (master)
+    // re-apunta el registro KV de ESE dispositivo a la licencia canónica que JFC
+    // elige desde el panel. Pasa por guardarConHistorial, así que es reversible.
+    // NO toca syncCode (el KV no lo guarda) ni los datos locales del aparato:
+    // el dueño entra la licencia canónica en el dispositivo (claim & merge) para
+    // unir sus datos. Es el lado servidor del reensamblado.
+    const mReapuntar = url.pathname.match(/^\/licencias\/([^/]+)\/reapuntar$/);
+    if (mReapuntar && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      const instanceId = decodeURIComponent(mReapuntar[1]);
+      const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+      if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+      const reg = JSON.parse(raw);
+      let body; try { body = await req.json(); } catch (_) { body = {}; }
+      const nueva = String(body.licenseCode || "").trim().toUpperCase();
+      if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(nueva)) return json({ error: "Licencia inválida" }, 400);
+      reg.licenseCode = nueva;
+      await guardarConHistorial(env, instanceId, reg);
+      return json({ ok: true, licenseCode: reg.licenseCode });
+    }
+
     // Papelera: listar licencias borradas (master). Cierra el hueco de que un
     // borrado accidental dejara a un cliente irrecuperable (JFC 2026-08-27).
     if (url.pathname === "/borrados" && req.method === "GET") {
