@@ -238,6 +238,11 @@
   const ventas = [];
   const movimientos = [];
   const transferencias = [];
+  // GASTOS (2026-08-27): gastos individuales registrados por el dueño. Cada
+  // gasto es un movimiento tipo "gasto" con concepto, monto, fecha y ubicación.
+  // Se guardan en su propio array para listarlos y sumarlos sin mezclarlos con
+  // la actividad operativa. Viajan por el sync como el resto del estado.
+  const gastos = [];
 
   // ==========================================================================
   // CLIENTES (JFC 2026-07-07) — cada cliente tiene un CODIGO UNICO (C-####) y
@@ -368,7 +373,7 @@
       _rev: _localRev,
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
-      movimientos: clonar(movimientos), transferencias: clonar(transferencias),
+      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
       configuracion: { gastosMensuales: clonar(gastosMensuales) },
       usuarios: clonar(usuarios),
@@ -407,6 +412,7 @@
     if (body.ventas && !Array.isArray(body.ventas)) return "The sales section is corrupt.";
     if (body.movimientos && !Array.isArray(body.movimientos)) return "The activity section is corrupt.";
     if (body.transferencias && !Array.isArray(body.transferencias)) return "The transfers section is corrupt.";
+    if (body.gastos && !Array.isArray(body.gastos)) return "The expenses section is corrupt.";
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
@@ -416,6 +422,7 @@
     ventas.length = 0; ventas.push(...(Array.isArray(body.ventas) ? body.ventas : []));
     movimientos.length = 0; movimientos.push(...(Array.isArray(body.movimientos) ? body.movimientos : []));
     transferencias.length = 0; transferencias.push(...(Array.isArray(body.transferencias) ? body.transferencias : []));
+    gastos.length = 0; gastos.push(...(Array.isArray(body.gastos) ? body.gastos : []));
     if (Array.isArray(body.sucursales)) { sucursales.length = 0; sucursales.push(...body.sucursales); }
     if (Array.isArray(body.promotoras)) { promotoras.length = 0; promotoras.push(...body.promotoras); }
     if (Array.isArray(body.clientes)) {
@@ -1271,7 +1278,7 @@
     const rfm = datosRFM(c);
     // evaluacion: retrocompat con backups sin el campo (default neutro 0,0)
     const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
-    return { id: c.id, codigo: c.codigo, nombre: c.nombre, telefono: c.telefono || "", email: c.email || "",
+    return { id: c.id, codigo: c.codigo, nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "",
       ...rfm, estacion: estacionDe(rfm, mediana == null ? medianaMontos() : mediana),
       evaluacion: { trato: Number(ev.trato)||0, confiabilidad: Number(ev.confiabilidad)||0, historial: ev.historial||[] },
       despedido: !!c.despedido };
@@ -2622,6 +2629,42 @@
 
       if (path === "/api/actividad") return J(movimientos.slice().reverse().slice(0, 100));
 
+      // GASTOS (2026-08-27): registrar y listar gastos individuales.
+      // GET /api/gastos — lista los gastos (más recientes primero) + totales.
+      // POST /api/gastos — registra un gasto { concepto, monto, fecha, ubicacionId }.
+      if (path === "/api/gastos" && (!opts || opts.method === "GET")) {
+        const lista = gastos.slice().reverse();
+        const total = gastos.reduce((a, g) => a + (Number(g.monto) || 0), 0);
+        return J({ gastos: lista, total });
+      }
+      if (path === "/api/gastos" && opts && opts.method === "POST") {
+        const concepto = String(body.concepto || "").trim();
+        const monto = Number(body.monto);
+        if (!concepto) return J({ error: "Enter a description for the expense." }, 400);
+        if (!Number.isFinite(monto) || monto <= 0) return J({ error: "Enter a valid amount." }, 400);
+        const g = {
+          id: uuid("g"), concepto, monto: +monto.toFixed(2),
+          fecha: body.fecha || new Date().toISOString(),
+          ubicacionId: body.ubicacionId || "todas",
+          usuarioId: (window.OCCurrentUser && window.OCCurrentUser.id) || "sistema",
+          usuarioNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || "Sistema",
+        };
+        gastos.push(g);
+        mov("gasto", { concepto, monto: g.monto, ubicacionId: g.ubicacionId });
+        guardarEstadoLocal();
+        return J(g);
+      }
+      // DELETE /api/gastos/:id — anula un gasto (solo dueño). Deja constancia.
+      const mGastoDel = path.match(/^\/api\/gastos\/([^/]+)$/);
+      if (mGastoDel && opts && opts.method === "DELETE") {
+        const idx = gastos.findIndex((x) => x.id === mGastoDel[1]);
+        if (idx < 0) return J({ error: "Expense not found." }, 404);
+        const [g] = gastos.splice(idx, 1);
+        mov("gasto-anulado", { concepto: g.concepto, monto: g.monto });
+        guardarEstadoLocal();
+        return J({ ok: true });
+      }
+
       // GET /api/movimientos?limite=N — últimos N movimientos (log), solo lectura.
       // Lo usa el tablero (dashboard.html) para pintar el periscopio de datos.
       if (path === "/api/movimientos" && (!opts || opts.method === "GET")) {
@@ -2936,6 +2979,24 @@
         // horaIncidente: hora local del evento según el encargado (HH:MM), para conciliación con cámaras/audios.
         c.evaluacion.historial.push({ trato: c.evaluacion.trato, confiabilidad: c.evaluacion.confiabilidad, quien: body.quien || "Sistema", fecha: new Date().toISOString(), horaIncidente: body.horaIncidente || null });
         mov("cliente-evaluado", { cliente: c.nombre, trato: c.evaluacion.trato, confiabilidad: c.evaluacion.confiabilidad, horaIncidente: body.horaIncidente || null });
+        guardarEstadoLocal();
+        return J(fichaCliente(c));
+      }
+
+      // PATCH /api/clientes/:id/contacto — edita nombre/telefono/email/notas.
+      // Portado de amigable-123 (2026-08-27): el shared digital notebook debe
+      // dejar editar el contacto y las notas del cliente. Solo se actualizan
+      // los campos presentes en el body (nunca se pisan con "" los que no se
+      // mandaron — evita el bug de "un campo se vacía por una escritura pasiva").
+      const mCliContacto = path.match(/^\/api\/clientes\/([^/]+)\/contacto$/);
+      if (mCliContacto && opts && opts.method === "PATCH") {
+        const c = clientes.find((x) => x.id === mCliContacto[1]);
+        if (!c) return J({ error: "Customer not found." }, 404);
+        if (body.nombre !== undefined) c.nombre = String(body.nombre).trim() || c.nombre;
+        if (body.telefono !== undefined) c.telefono = String(body.telefono).trim();
+        if (body.email !== undefined) c.email = String(body.email).trim();
+        if (body.notas !== undefined) c.notas = String(body.notas).trim();
+        mov("cliente-contacto", { cliente: c.nombre });
         guardarEstadoLocal();
         return J(fichaCliente(c));
       }

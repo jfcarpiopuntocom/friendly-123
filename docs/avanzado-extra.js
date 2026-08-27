@@ -142,8 +142,23 @@
     // sincronización, en el mismo orden.
     async function reproducir(ops) {
       const aplicados = idsAplicados();
+      /* A1 (2026-08-27, auditoría): unificar el dedup con el relay. El lazy sync
+         deduplica por op.id (f123_sync_ids_aplicados) y el relay por op.opId
+         (f123_sync_ops_aplicadas). Si un mismo cambio viaja por ambos motores,
+         se aplicaba dos veces (doble conteo de stock). Ahora reproducir():
+         1) salta ops cuyo opId ya aplicó el relay (mismo ledger compartido), y
+         2) registra en el ledger del relay las ops que aplica aquí, para que el
+         relay no las re-aplique. Así ambos motores comparten un único dedup. */
+      const relayAplicados = (function () {
+        try { return new Set(JSON.parse(localStorage.getItem("f123_sync_ops_aplicadas") || "[]")); } catch (_) { return new Set(); }
+      })();
       const porDispositivo = {};
-      ops.forEach((op) => { if (op.dev !== deviceId() && op.id && !aplicados.has(op.id)) (porDispositivo[op.dev] = porDispositivo[op.dev] || []).push(op); });
+      ops.forEach((op) => {
+        if (op.dev === deviceId()) return;
+        if (op.id && aplicados.has(op.id)) return;
+        if (op.opId && relayAplicados.has(op.opId)) return; // ya lo aplicó el relay
+        (porDispositivo[op.dev] = porDispositivo[op.dev] || []).push(op);
+      });
       for (const dev in porDispositivo) {
         const pendientes = porDispositivo[dev].sort((a, b) => a.ts - b.ts);
         for (const op of pendientes) {
@@ -168,10 +183,14 @@
           try {
             await fetchOriginal(op.url, { method: op.method, headers: { "Content-Type": "application/json" }, body });
             aplicados.add(op.id);
+            /* A1: registrar en el ledger del relay para que no re-aplique. */
+            if (op.opId) relayAplicados.add(op.opId);
           } catch (_) { break; /* se detiene aquí: preserva el orden para el próximo intento */ }
         }
       }
       guardarIdsAplicados(aplicados);
+      /* A1: persistir el ledger compartido del relay. */
+      try { localStorage.setItem("f123_sync_ops_aplicadas", JSON.stringify(Array.from(relayAplicados).slice(-2000))); } catch (_) {}
     }
 
     async function activar(pin) {
