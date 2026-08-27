@@ -72,3 +72,20 @@ Orden al decidir cada cambio:
 
 Regla dura que nunca se negocia: **nunca romper los datos del usuario**
 (inventario, clientes, licencias, nombre de tienda, PINs, jerarquía).
+
+## REGLA 4 — RESPALDO ABUNDANTE + NOTAS PARA OTRAS SESIONES (JFC, 2026-08-27)
+
+- **RESPALDO ANTES DE TOCAR**: snapshot fechado + copia fuera del repo
+  (incluyendo lo NO rastreado por git) + checksums sha256, antes de cualquier
+  cambio.
+- **NOTAS POR CADA TRABAJO**: al terminar, dejar una nota fechada que diga QUÉ
+  se cambió, POR QUÉ, CÓMO se verificó, y QUÉ quedó pendiente. Que otra sesión
+  o modelo retome sin adivinar.
+- **BITÁCORA**: registrar cada trabajo.
+
+## REGLA 5 — EL PLAN SIEMPRE EN EL CHAT ANTES DE HACER (JFC, 2026-08-27)
+
+- Antes de ejecutar cualquier trabajo de varios pasos, el plan va **escrito en
+  el chat**, no sólo en un `.md` ni en la lista de tareas.
+- El plan dice QUÉ se va a hacer, EN QUÉ ORDEN, y QUÉ archivos se tocan.
+- Así JFC entiende y puede retroceder si algo sale mal.
