@@ -319,3 +319,33 @@ terrible o rompiste mis proyectos".
   el chat**, no sólo en un `.md` ni en la lista de tareas.
 - El plan dice QUÉ se va a hacer, EN QUÉ ORDEN, y QUÉ archivos se tocan.
 - Así JFC entiende y puede retroceder si algo sale mal.
+- El plan dice QUÉ se va a hacer, EN QUÉ ORDEN, y QUÉ archivos se tocan.
+- Así JFC entiende y puede retroceder si algo sale mal.
+
+---
+
+## FASE 2 — Fail-safes de integridad del sync (2026-08-27, shell v123)
+
+Día de fortificación/depuración del sync/team. Se cerraron 2 fallas de
+integridad silenciosas y 1 de higiene, todo aditivo y de mínimo toque:
+
+1. **Dedup `_opsAplicadas` tope 500→2000** (mock-backend.js): antes, si un opId
+   se evictaba del set y el par lo reenviaba, un delta de stock se aplicaba 2
+   veces (doble conteo). Con 2000 la evicción es rarísima.
+2. **Cola offline `COLA_KEY` tope 200→1000 + marca `f123_sync_cola_desbordada`**
+   (sync-realtime.js): antes descartaba movimientos en silencio si estabas
+   offline mucho tiempo. Ahora nunca se pierde stock en silencio; el watchdog
+   expone `colaDesbordada()` en `estado()`.
+3. **Poda de micelio `f123_micelio_vistos` >24h** (micelio-vivo.js): los aparatos
+   dados de baja ya no quedan "a ciegas" para siempre ni el verificador del
+   watchdog persigue fantasmas. Nunca poda mi propio id.
+
+Compuerta: **TODO VERDE (9/9)** con el nuevo `harness-failsafe.cjs` (paso 9, 11
+comprobaciones). Nota completa: `docs/NOTA-failsafes-sync-2026-08-27.md`.
+
+**Documentado, NO se cambió (por diseño):** el checkpoint NO lleva ventas (las
+ventas son el log irremplazable por caja; viajan por el stream de ops en vivo).
+WebRTC P2P (SPOF-7) y fotos (SPOF-8) quedan para fases futuras.
+
+Respaldo: rama `backup/20260827-115030-antes-fase2-sync-fortificar` + copia en
+`C:\00 Projects\sandbox\_backups\` con CHECKSUMS.sha256.

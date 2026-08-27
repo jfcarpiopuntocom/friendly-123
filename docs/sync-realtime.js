@@ -186,7 +186,18 @@
     catch (_) { return []; }
   }
   function guardarCola(cola) {
-    try { localStorage.setItem(COLA_KEY, JSON.stringify(cola.slice(-200))); } catch (_) {}
+    try {
+      /* FASE 2 (2026-08-27): antes se descartaba en silencio lo que pasara de
+         200 ops — si un aparato estaba offline mucho tiempo, movimientos de
+         stock se perdían sin aviso. Ahora el tope es 1000 y, si se desborda,
+         se deja una marca (f123_sync_cola_desbordada) que el sync-watchdog
+         puede avisar: nunca se pierde stock en silencio. */
+      const arr = Array.isArray(cola) ? cola : [];
+      if (arr.length > 1000) {
+        try { localStorage.setItem("f123_sync_cola_desbordada", String(arr.length)); } catch (_) {}
+      }
+      localStorage.setItem(COLA_KEY, JSON.stringify(arr.slice(-1000)));
+    } catch (_) {}
   }
 
   function leerSala() {

@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v122"; // bumped 2026-08-27: capa de redundancia de sync (sync-watchdog.js)
+const CACHE = "f123-shell-v123"; // bumped 2026-08-27: fail-safes de integridad del sync (dedup 2000, cola 1000+desborde, poda micelio)
 const SHELL = [
   "./",
   "./index.html",

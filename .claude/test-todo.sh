@@ -14,6 +14,7 @@
 #   6) harness-join-identity.cjs (navegador, 2 aparatos) (normal=device, lord=observador)
 #   7) harness-claim-merge.cjs  (navegador, 1 aparato)   (claim/merge NO borra datos locales)
 #   8) harness-watchdog.cjs     (navegador, 2 aparatos)  (redundancia de sync: snapshot local, consistencia, snapshot entre pares)
+#   9) harness-failsafe.cjs     (navegador, 1 aparato)   (dedup no dobla stock, cola no pierde en silencio, poda de micelio)
 #
 # Uso:  bash .claude/test-todo.sh
 # Sale 0 si TODO VERDE; !=0 si algo falla (y dice qué).
@@ -72,6 +73,11 @@ paso "8/8  harness-watchdog.cjs (redundancia de sync: snapshot local, consistenc
 if node .claude/harness-watchdog.cjs >/tmp/tt_wd.log 2>&1; then
   grep -q "TODO VERDE" /tmp/tt_wd.log && echo "  ok  $(grep -c '^  ok ' /tmp/tt_wd.log) comprobaciones verdes" || { tail -5 /tmp/tt_wd.log; fallo "harness-watchdog"; }
 else tail -8 /tmp/tt_wd.log; fallo "harness-watchdog (exit!=0)"; fi
+
+paso "9/9  harness-failsafe.cjs (dedup no dobla stock, cola no pierde en silencio, poda de micelio)"
+if node .claude/harness-failsafe.cjs >/tmp/tt_fs.log 2>&1; then
+  grep -q "TODO VERDE" /tmp/tt_fs.log && echo "  ok  $(grep -c '^  ok ' /tmp/tt_fs.log) comprobaciones verdes" || { tail -5 /tmp/tt_fs.log; fallo "harness-failsafe"; }
+else tail -8 /tmp/tt_fs.log; fallo "harness-failsafe (exit!=0)"; fi
 
 # Apagar el server solo si lo levantó este script.
 if [ "${SRV_LEVANTADO:-0}" = "1" ]; then pkill -f "http.server $PORT" 2>/dev/null || true; fi

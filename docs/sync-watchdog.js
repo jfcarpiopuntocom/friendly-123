@@ -302,7 +302,19 @@
       activo: !!_snapTimer,
       divergencias: _divergencias,
       ultimoCheck: _ultimoCheck,
+      colaDesbordada: colaDesbordada(),
     };
+  }
+
+  /* FASE 2 (2026-08-27): la cola offline (f123_sync_cola) marcó un desborde
+     (guardarCola en sync-realtime.js). Se expone para que una sesión o el
+     tablero puedan avisar que hubo más cambios offline de los que caben en la
+     cola — nunca se pierde stock en silencio. */
+  function colaDesbordada() {
+    try {
+      var n = Number(localStorage.getItem("f123_sync_cola_desbordada") || 0);
+      return n > 0 ? n : 0;
+    } catch (_) { return 0; }
   }
 
   // Exponer API pública

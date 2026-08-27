@@ -56,6 +56,10 @@
   var TOPE_EQUIPO = 40;   /* un negocio con más de 40 dispositivos en la misma
                              sala no existe; el tope evita que un código
                              filtrado llene el storage de basura. */
+  var PODA_MS = 24 * 60 * 60 * 1000; /* FASE 2 (2026-08-27): un aparato callado
+                             más de 24h se considera dado de baja y se poda del
+                             registro, para que no quede "a ciegas" para siempre
+                             ni el verificador del watchdog persiga fantasmas. */
 
   function leer(k, fallback) {
     try {
@@ -146,7 +150,25 @@
   }
 
   /* ------------------------------------------------------------- equipo --- */
+  /* Poda los aparatos callados más de PODA_MS (24h): se consideran dados de
+     baja. Nunca poda mi propio id (yo siempre estoy en el panel). Se llama al
+     leer, así el registro no crece con fantasmas. */
+  function podarEquipo() {
+    try {
+      var m = leer(K_EQUIPO, {});
+      var yoId = yo().id;
+      var ahora = Date.now();
+      var cambio = false;
+      Object.keys(m).forEach(function (id) {
+        if (id === yoId) return;
+        var visto = Number((m[id] || {}).visto) || 0;
+        if (visto && (ahora - visto) > PODA_MS) { delete m[id]; cambio = true; }
+      });
+      if (cambio) escribir(K_EQUIPO, m);
+    } catch (_) {}
+  }
   function equipo() {
+    podarEquipo();
     var m = leer(K_EQUIPO, {});
     var yoId = yo().id;
     var u = umbrales();
