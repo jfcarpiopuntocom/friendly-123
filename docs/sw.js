@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v116"; // bumped 2026-08-27: nombre completo en activación + diagnóstico marca mismatch de licencia/syncCode/sala
+const CACHE = "f123-shell-v117"; // bumped 2026-08-27: botón "give me a full license" (arregla licencia trunca/ausente)
 const SHELL = [
   "./",
   "./index.html",

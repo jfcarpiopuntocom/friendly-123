@@ -515,6 +515,7 @@
             <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
             <button id="oc-sync-mergear" class="ir" style="background:#2C3E50;border-color:#0F1923;color:#FFFFFF;border-left:5px solid var(--azul-medio,#2c4a68);">Merge inventory with my team</button>
             <button id="oc-sync-rotar" style="border-color:#E86040;color:#E86040;">Rotate team license</button>
+            <button id="oc-sync-fixlic" style="border-color:#00805A;color:#00805A;">My license is broken/short — give me a full one</button>
         <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
           </div>
         </div>
@@ -869,7 +870,9 @@
           if (pre) { document.getElementById("oc-sync-codigo2").value = pre; }
         } catch (_) {}
       })(),
-      (function(){var _r=document.getElementById("oc-sync-rotar");if(_r&&!_r.dataset.listo){_r.dataset.listo="1";_r.addEventListener("click",ocRotarCodigoSala);}})(),document.getElementById("oc-sync-desactivar").addEventListener("click", () => {
+      (function(){var _r=document.getElementById("oc-sync-rotar");if(_r&&!_r.dataset.listo){_r.dataset.listo="1";_r.addEventListener("click",ocRotarCodigoSala);}})(),
+      (function(){var _f=document.getElementById("oc-sync-fixlic");if(_f&&!_f.dataset.listo){_f.dataset.listo="1";_f.addEventListener("click",ocDarLicenciaBuena);}})(),
+      document.getElementById("oc-sync-desactivar").addEventListener("click", () => {
         window.OCSyncControl.desactivar();
         document.getElementById("oc-sync-apagado").style.display = "flex";
         document.getElementById("oc-sync-activo").style.display = "none";
@@ -2879,6 +2882,41 @@ Keep it somewhere safe.`);
         msg.textContent = (e && e.message) || "Could not change the code.";
       }
     });
+  }
+
+  /* MICROCIRUGÍA (JFC 2026-08-27). Caso real: un aparato quedó con una licencia
+     TRUNCA/vieja (cuerpo de 8 o 12, no 17) o sin licencia, y no había forma simple
+     de darle una BUENA que el otro aparato pueda unir. Este botón genera una
+     licencia COMPLETA (17, con el generador de auth-ui.js), la fija como licenseCode
+     Y syncCode (los deja coherentes), mueve la sala y la muestra/copia para pegarla
+     en el otro aparato. NO vacía los datos locales. Es el núcleo de "rotar" sin el
+     modal, con un aviso de una línea porque mueve la sala. */
+  function ocDarLicenciaBuena() {
+    try {
+      if (!confirm("This gives THIS device a brand-new full license and moves it to a fresh notebook (your local data stays). Any OTHER device must enter the new code to rejoin. Continue?")) return;
+      var nuevo = (window.OCAuth && window.OCAuth.generarCodigo) ? window.OCAuth.generarCodigo() : null;
+      if (!nuevo) { alert("License generator not available."); return; }
+      var owned = {};
+      try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
+      owned.licenseCode = nuevo;
+      owned.syncCode = nuevo;   // los dos campos describen la misma sala: se mueven juntos
+      owned.licenseRotadaEn = Date.now();
+      localStorage.setItem("f123_owned", JSON.stringify(owned));
+      if (window.OCSyncControl) {
+        try { window.OCSyncControl.desactivar(); } catch (_) {}
+        try { window.OCSyncControl.activar(nuevo); } catch (_) {}
+      }
+      try { if (window.OCAuth && window.OCAuth.heartbeat) window.OCAuth.heartbeat({ instanceId: owned.instanceId, licenseCode: nuevo, accion: "rotacion" }); } catch (_) {}
+      var mostrado = (window.OCSyncControl && window.OCSyncControl.paraMostrar) ? window.OCSyncControl.paraMostrar(nuevo) : nuevo;
+      try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(String(mostrado)); } catch (_) {}
+      var msg = document.getElementById("oc-sync-msg");
+      if (msg) {
+        msg.style.color = "#00805A";
+        msg.innerHTML = "Done — this device now has a full license (copied to clipboard). Enter it on your other device to join:<br><code style=\"font-family:monospace;font-size:17px;letter-spacing:.08em;\">" + String(mostrado).replace(/[&<>]/g, "") + "</code>";
+      } else {
+        alert("Your new full license (copied):\n\n" + mostrado);
+      }
+    } catch (e) { alert((e && e.message) || "Could not generate a license."); }
   }
 
 })();
