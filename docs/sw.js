@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v128"; // bumped 2026-08-27: perchas propias reflejan venta real del mes (ventasDelMes)
+const CACHE = "f123-shell-v129"; // bumped 2026-08-27: vendido (selector cliente arriba + modal Show customers), PIN dueño con confirmación, dashboard login solo-PIN local
 const SHELL = [
   "./",
   "./index.html",

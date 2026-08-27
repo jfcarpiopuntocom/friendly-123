@@ -1544,6 +1544,25 @@
         style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;font-size:15px;margin-bottom:8px;">
       <div id="venderCategoriaChips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     </div>
+    <!-- CLIENTE ARRIBA (2026-08-27, bloque 1e): el selector de cliente se elige
+         ANTES de tocar los productos, no al final. Barra prominente sobre el
+         grid. Incluye el botón negro "Show customers" para ver la lista de
+         compradores de un ítem/evento. -->
+    <div class="tag-card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;margin-bottom:12px;">
+      <label style="font-size:16px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+        <span data-i18n="sold.customerLabel">Customer:</span>
+        <select id="ventaCliente" style="flex:1;min-width:140px;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;font-size:15px;">
+          <option value="" data-i18n="sold.counterSale">Counter sale (no customer)</option>
+        </select>
+      </label>
+      <button id="btnNuevoCliente" type="button"
+        style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;" data-i18n="sold.newCustomer">+ New customer</button>
+      <button id="btnShowCustomers" type="button" title="Show customers"
+        style="font-size:13px;font-weight:700;padding:6px 12px;border:2px solid #0F1923;border-radius:6px;background:#0F1923;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M17 14c2.5.4 4 2.3 4 5"/></svg>
+        <span data-i18n="sold.showCustomers" style="margin-left:4px;">Show customers</span>
+      </button>
+    </div>
     <p style="font-size:14px;font-weight:700;color:var(--ink-soft);margin:0 0 8px;" data-i18n="sold.nextStep">Next step: tap a product</p>
     <div id="gridVender" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px;"></div>
     <!-- Carrito de "Build a sale": aparece solo en ese modo. Cada linea es
@@ -1568,20 +1587,6 @@
       <input id="inputEscaner" type="text" placeholder="e.g. 7501234567001 or MAR-RED-20" data-i18n-attr="placeholder:sold.scanPlaceholder" autocomplete="off">
       <br>
       <button class="ir" id="btnEscanear" data-i18n="sold.searchBtn">Search</button>
-      <div style="margin-top:12px;">
-        <label style="font-size:16px;font-weight:700;color:var(--ink);"><span data-i18n="sold.customerLabel">Customer:</span>
-          <select id="ventaCliente" style="padding:9px;border:2px solid var(--azul-medio);border-radius:6px;max-width:100%;margin-left:6px;">
-            <option value="" data-i18n="sold.counterSale">Counter sale (no customer)</option>
-          </select>
-        </label>
-        <!-- Nota operativa: el cliente elegido aquí aplica a todos los toques del grid. -->
-        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;"><span data-i18n="sold.pickBefore">Pick before tapping the products.</span> 
-          <button id="btnNuevoCliente" type="button"
-            style="font-size:13px;padding:3px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;
-                   background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;
-                   cursor:pointer;vertical-align:middle;margin-left:6px;" data-i18n="sold.newCustomer">+ New customer</button>
-        </p>
-      </div>
       <!-- EVENTO ACTIVO (JFC 2026-08-25): mismo patron que el selector de cliente.
            Se elige el evento UNA vez del pulldown (o se crea con "+ Nuevo evento")
            y cada venta se le suma sola — nunca se vuelve a pedir el nombre. Al lado,
@@ -2294,6 +2299,96 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
       set("oc-ncli-lbl-nombre", "newcust.name");
       set("oc-ncli-lbl-tel", "newcust.phone");
       set("oc-ncli-crear", "newcust.save");
+    } catch (_) {}
+  });
+})();
+
+// ============================================================================
+// SHOW CUSTOMERS EN VENDER (JFC 2026-08-27, bloque 1e)
+// El boton negro "Show customers" abre un modal con los clientes que SI han
+// comprado (agregados desde /api/ventas/todas), ordenados por compra mas
+// reciente: nombre, codigo, telefono, numero de compras, total gastado y
+// fecha de la ultima compra. Tocar una fila la selecciona en el selector de
+// cliente de arriba y cierra — el vendedor no pierde el hilo. Solo lectura.
+// ============================================================================
+(function () {
+  const btn = document.getElementById("btnShowCustomers");
+  if (!btn) return;
+  const overlay = document.createElement("div");
+  overlay.id = "oc-showcli-modal";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:9996;background:rgba(21,40,64,.82);display:none;align-items:flex-end;justify-content:center;";
+  overlay.innerHTML = `
+    <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;max-height:82vh;border-radius:16px 16px 0 0;padding:20px 18px 24px;display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;" data-i18n="sold.showCustomersTitle">Customers who bought</strong>
+        <button id="oc-showcli-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;" data-i18n="sold.showCustomersClose">Close</button>
+      </div>
+      <div id="oc-showcli-lista" style="overflow:auto;flex:1;min-height:0;"></div>
+      <p id="oc-showcli-msg" style="font-size:13px;margin:8px 0 0;font-weight:700;"></p>
+    </div>`;
+  document.body.appendChild(overlay);
+  const lista = document.getElementById("oc-showcli-lista");
+  const msg = document.getElementById("oc-showcli-msg");
+  function cerrar() { overlay.style.display = "none"; }
+  document.getElementById("oc-showcli-cerrar").addEventListener("click", cerrar);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
+
+  btn.addEventListener("click", async () => {
+    overlay.style.display = "flex";
+    lista.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">${escHtml(t("sold.showCustomersEmpty"))}…</p>`;
+    msg.textContent = "";
+    let ventas = [], clientes = [];
+    try { ventas = await (await fetch(`${API}/ventas/todas`)).json(); } catch (_) {}
+    try { clientes = await (await fetch(`${API}/clientes`)).json(); } catch (_) {}
+    if (!Array.isArray(ventas)) ventas = [];
+    if (!Array.isArray(clientes)) clientes = [];
+    const cliPorNombre = {};
+    for (const c of clientes) cliPorNombre[c.nombre] = c;
+    const porNombre = {};
+    for (const v of ventas) {
+      if (!v.clienteNombre) continue;
+      const k = v.clienteNombre;
+      if (!porNombre[k]) porNombre[k] = { nombre: k, compras: 0, total: 0, ultima: 0 };
+      porNombre[k].compras += Number(v.cantidad) || 0;
+      porNombre[k].total += (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0);
+      const d = new Date(v.fecha).getTime();
+      if (d > porNombre[k].ultima) porNombre[k].ultima = d;
+    }
+    const filas = Object.values(porNombre).sort((a, b) => b.ultima - a.ultima);
+    if (!filas.length) {
+      lista.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);padding:8px 0;">${escHtml(t("sold.showCustomersEmpty"))}</p>`;
+      return;
+    }
+    const sel = document.getElementById("ventaCliente");
+    const fila = (f) => {
+      const cli = cliPorNombre[f.nombre];
+      const fecha = f.ultima ? new Date(f.ultima).toLocaleDateString() : "—";
+      const tel = cli && cli.telefono ? escHtml(cli.telefono) : "";
+      const codigo = cli && cli.codigo ? escHtml(cli.codigo) : "";
+      const selBtn = cli ? `<button type="button" data-sel="${escHtml(cli.id)}" style="font-size:12px;font-weight:700;padding:5px 10px;border:2px solid #0F1923;border-radius:6px;background:#0F1923;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;white-space:nowrap;">${escHtml(t("sold.showCustomersSelect"))}</button>` : "";
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--linea,#D7E0E8);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:700;color:var(--ink);">${escHtml(f.nombre)} ${codigo ? `<span style="font-weight:400;color:var(--ink-soft);font-size:12px;">(${codigo})</span>` : ""}</div>
+          <div style="font-size:12px;color:var(--ink-soft);">${tel ? tel + " · " : ""}${f.compras} ${escHtml(t("sold.showCustomersColPurchases"))} · ${fmtMoney(f.total)} · ${escHtml(t("sold.showCustomersColLast"))} ${fecha}</div>
+        </div>
+        ${selBtn}
+      </div>`;
+    };
+    lista.innerHTML = filas.map(fila).join("");
+    lista.querySelectorAll("button[data-sel]").forEach((b) => {
+      b.addEventListener("click", () => {
+        if (sel) { sel.value = b.getAttribute("data-sel"); }
+        cerrar();
+      });
+    });
+  });
+
+  window.addEventListener("oc-lang-change", function () {
+    try {
+      const set = function (id, k) { const el = document.getElementById(id); if (el) el.textContent = t(k); };
+      set("oc-showcli-cerrar", "sold.showCustomersClose");
+      const tit = overlay.querySelector("[data-i18n='sold.showCustomersTitle']");
+      if (tit) tit.textContent = t("sold.showCustomersTitle");
     } catch (_) {}
   });
 })();

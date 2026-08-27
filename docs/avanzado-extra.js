@@ -504,9 +504,10 @@
       <div id="oc-clave-block" style="margin-top:18px;">
         <p style="font-size:14px;color:var(--ink-soft);">${window.t("auth.act.pinsIntro")}</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;">
-          <label style="font-size:13px;">${window.t("auth.act.roleOwner")} <input id="oc-c-owner" maxlength="3" inputmode="numeric" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">${window.t("auth.act.roleEmployee")} <input id="oc-c-emp" maxlength="3" inputmode="numeric" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">${window.t("auth.act.roleAccounting")} <input id="oc-c-acct" maxlength="3" inputmode="numeric" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">${window.t("auth.act.roleOwner")} <input id="oc-c-owner" type="password" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">${window.t("auth.act.confirmOwner")} <input id="oc-c-owner2" type="password" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">${window.t("auth.act.roleEmployee")} <input id="oc-c-emp" type="password" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <label style="font-size:13px;">${window.t("auth.act.roleAccounting")} <input id="oc-c-acct" type="password" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
         </div>
         <button id="oc-save-codes" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">${window.t("auth.act.savePins")}</button>
         <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
@@ -2022,9 +2023,13 @@ Keep it somewhere safe.`);
     // se toca aquí — se preserva tal cual esté guardado.
     $("oc-save-codes").addEventListener("click", async () => {
       if (window.OCAuth.esDemo && window.OCAuth.esDemo()) return; // demo: sin cambio de claves
-      const o = $("oc-c-owner").value.trim(), e = $("oc-c-emp").value.trim(), a = $("oc-c-acct").value.trim();
+      const o = $("oc-c-owner").value.trim(), o2 = $("oc-c-owner2").value.trim(), e = $("oc-c-emp").value.trim(), a = $("oc-c-acct").value.trim();
       const valido = (s) => /^[0-9]{3}$/.test(s);
       if (![o, e, a].every(valido)) { msg("oc-codes-msg", "Each PIN must be 3 digits (0-9).", "var(--rojo)"); return; }
+      /* Confirmación del PIN del dueño (JFC 2026-08-27, bloque 1f): el PIN del
+         dueño es la llave maestra — un error de tecleo lo deja fuera de su propio
+         negocio. Se pide escribirlo dos veces y se exige que coincidan. */
+      if (o !== o2) { msg("oc-codes-msg", window.t("auth.act.pinMismatch"), "var(--rojo)"); return; }
       /* 888 ES EL CÓDIGO DE DUEÑO DE MUESTRA (JFC 2026-08-26): fijarlo como PIN
          real atrapa el dispositivo en DEMO permanente (fue justo lo que le pasó a
          Sarah). Se rechaza con aviso de texto, sin romper la UI. Solo 888. */
@@ -2032,7 +2037,7 @@ Keep it somewhere safe.`);
       const correoActual = window.OCSecure.leerCorreo();
       if (!correoActual) { msg("oc-codes-msg", "Before changing PINs, register your recovery email above (if you forget the new PIN, without an email there is no way to recover it).", "var(--rojo)"); return; }
       await window.OCSecure.guardarSecreto(o, [e], a, correoActual);
-      $("oc-c-owner").value = ""; $("oc-c-emp").value = ""; $("oc-c-acct").value = "";
+      $("oc-c-owner").value = ""; $("oc-c-owner2").value = ""; $("oc-c-emp").value = ""; $("oc-c-acct").value = "";
       msg("oc-codes-msg", "PINs saved and encrypted.", "var(--verde)");
     });
 

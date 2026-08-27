@@ -1721,12 +1721,18 @@
     return String(c || "").toUpperCase().replace(/[^A-Z0-9*~$=-]/g, "");
   }
   $("entrar").addEventListener("click", async function () {
+    var local = leerEstadoLocal();
     var c = normalizarCodigo($("codigo").value);
     var cuerpo = c.replace(/^F123-/, "").replace(/-/g, "");
     /* La licencia se exige SIEMPRE, en todos los dispositivos por igual (JFC,
        2026-08-15). Lo unico que cambia entre un telefono y una computadora es
        el layout, nunca quien puede entrar. */
-    if (c.indexOf("F123-") !== 0 || (cuerpo.length !== 12 && cuerpo.length !== 17)) {
+    /* GUARD 4 (JFC 2026-08-27, bloque 2): si el negocio está en ESTE
+       dispositivo, la licencia sobra — solo hace falta el PIN. Se valida el
+       formato SOLO cuando hay que conectar con el equipo (sin estado local).
+       Antes se exigía el código aunque el negocio estuviera aquí, y el campo
+       estorbaba en la primera pantalla. */
+    if (!local && (c.indexOf("F123-") !== 0 || (cuerpo.length !== 12 && cuerpo.length !== 17))) {
       $("msg").style.color = "#A8123A";
       $("msg").textContent = "Revisa el código: va completo, como F123-XXXX-XXXX-XXXX-XXXXX.";
       return;
@@ -1745,7 +1751,6 @@
 
     /* PRIMERO LO LOCAL. Si el negocio esta en ESTE dispositivo, no hay nada que
        pedirle a nadie: ni relay, ni esperar, ni fallar porque otro no contesto. */
-    var local = leerEstadoLocal();
     if (local) {
       $("msg").textContent = "Comprobando tu PIN…";
       var vale = await pinLocalOk(pin);
