@@ -257,3 +257,37 @@ mucha mesura. Nunca dispararlas de oficio.
 
 Los archivos de estas skills viven en `.claude/commands/`. Crearlos no cuesta;
 CORRERLOS (sobre todo verificar-ui) sí → avisar y esperar aprobación.
+
+---
+
+## PRIORIDADES DE JFC (2026-08-27) — orden de decisión para TODO trabajo
+
+JFC lo dijo textual: "mis prioridades son estabilidad → redundancias para que el
+fallo sea virtualmente imposible → sistemas híbridos que combinen las mejores
+librerías y fail-safes a prueba de hierro disponibles mundialmente → flexibilidad
+de UX para que sea amigable y no demasiado estructurada, que permita 2 o más
+formas de lograr lo mismo en la UI → innovación → investigación para más
+innovación".
+
+Este es el orden de prioridad al decidir, en cada cambio:
+
+1. **ESTABILIDAD** — lo que ya funciona no se rompe. Nada de refactors que
+   toquen lo que está verde. La compuerta (test-todo.sh) es ley: rojo = no se
+   pushea.
+2. **REDUNDANCIA / FAIL-SAFE** — el fallo debe ser virtualmente imposible.
+   Doble buffer A/B, tombstones, respaldos, reloj lógico, kill-switch que falla
+   abierto: todo lo que hace que un fallo no destruya datos. Antes de quitar
+   cualquier salvaguarda, preguntar "¿qué pasa si esto falla?".
+3. **SISTEMAS HÍBRIDOS** — combinar las mejores librerías y soluciones
+   disponibles mundialmente, con fail-safes a prueba de hierro. No reinventar
+   lo que ya existe bien hecho; integrarlo con capas de seguridad.
+4. **FLEXIBILIDAD DE UX** — amigable, no rígida. Permitir 2 o más caminos para
+   lograr lo mismo en la UI (ej. teclado + botón, escáner + tipeo, panel + app).
+   No forzar una sola forma de hacer las cosas.
+5. **INNOVACIÓN** — mejoras nuevas que aporten valor real.
+6. **INVESTIGACIÓN** — buscar más innovación, sin quemar tokens (ver sección
+   "CÓMO INVESTIGAR SIN QUEMAR TOKENS").
+
+Regla dura que nunca se negocia: **nunca romper los datos del usuario** — su
+inventario, clientes, licencias, nombre de tienda, PINs, jerarquía. Todo lo
+demás se puede iterar; eso no.

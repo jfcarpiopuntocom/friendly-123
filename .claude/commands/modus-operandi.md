@@ -72,6 +72,29 @@ AMBOS) → 5. `check-sw.sh` coinciden → 6. commit + push + mergear cuando verd
 
 ---
 
+## PRIORIDADES DE JFC (2026-08-27) — orden de decisión para TODO trabajo
+
+JFC: "mis prioridades son estabilidad → redundancias para que el fallo sea
+virtualmente imposible → sistemas híbridos que combinen las mejores librerías y
+fail-safes a prueba de hierro disponibles mundialmente → flexibilidad de UX para
+que sea amigable y no demasiado estructurada, que permita 2 o más formas de
+lograr lo mismo en la UI → innovación → investigación para más innovación".
+
+Orden al decidir cada cambio:
+1. **ESTABILIDAD** — lo que funciona no se rompe; la compuerta es ley.
+2. **REDUNDANCIA / FAIL-SAFE** — el fallo debe ser virtualmente imposible; antes
+   de quitar una salvaguarda, preguntar "¿qué pasa si esto falla?".
+3. **SISTEMAS HÍBRIDOS** — combinar las mejores librerías/soluciones mundiales
+   con fail-safes a prueba de hierro; no reinventar lo bien hecho.
+4. **FLEXIBILIDAD DE UX** — amigable, no rígida; 2 o más caminos para lo mismo.
+5. **INNOVACIÓN** — mejoras nuevas con valor real.
+6. **INVESTIGACIÓN** — buscar más innovación sin quemar tokens.
+
+Regla dura que nunca se negocia: **nunca romper los datos del usuario**
+(inventario, clientes, licencias, nombre de tienda, PINs, jerarquía).
+
+---
+
 *Si un apunte más reciente contradice esto, gana el apunte y se actualiza este
 archivo en el mismo commit. Este es el estándar por defecto en todos los
 proyectos de JFC.*
