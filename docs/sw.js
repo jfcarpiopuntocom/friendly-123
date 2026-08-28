@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v133"; // bumped 2026-08-28: sync — la venta del celular llega a la PC aunque el id del producto difiera (guard por nombre), claim/merge visible para el lord, y el nombre de la tienda se sincroniza (el del dueño gana)
+const CACHE = "f123-shell-v134"; // bumped 2026-08-28: botón Copy en Sync diagnostics + no se pisa la selección de texto al refrescar
 const SHELL = [
   "./",
   "./index.html",

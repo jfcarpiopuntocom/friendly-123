@@ -1,9 +1,9 @@
 {
-  "version": "1.7.20",
+  "version": "1.7.21",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.20 — Sync entre dispositivos: la venta de un producto llega a otro dispositivo aunque el id del producto difiera (respaldo por nombre); el botón Claim & merge ahora es visible para el lord (JFC); el nombre de la tienda se sincroniza y el del dueño (mayor jerarquía) gana.",
+  "changelog": "v1.7.21 — Botón Copy en Sync diagnostics (copia todo el diagnóstico de un clic) y el refresco ya no pisa la selección de texto al copiar a mano.",
   "requerida": false,
-  "shell": "f123-shell-v133",
+  "shell": "f123-shell-v134",
   "apagar": [],
-  "releaseName": "v1.7.20"
+  "releaseName": "v1.7.21"
 }

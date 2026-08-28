@@ -565,7 +565,11 @@
              ni toca la UI del cliente. -->
         <details id="oc-sync-diag-wrap" style="margin-bottom:12px;">
           <summary style="font-size:13px;font-weight:700;color:var(--azul-medio);cursor:pointer;">Sync diagnostics (show the real state)</summary>
-          <pre id="oc-sync-diag" style="font-size:12px;line-height:1.5;background:var(--paper-deep,#E2E8ED);color:#0F1923;padding:10px 12px;border-radius:6px;margin:8px 0 0;white-space:pre-wrap;word-break:break-word;">loading…</pre>
+          <div style="position:relative;margin-top:8px;">
+            <button id="oc-sync-diag-copy" type="button" title="Copy diagnostics"
+              style="position:absolute;top:6px;right:6px;z-index:2;font-size:11px;padding:4px 10px;border:1px solid var(--azul-medio,#2c4a68);border-radius:5px;background:#fff;color:var(--azul-medio,#2c4a68);cursor:pointer;">Copy</button>
+            <pre id="oc-sync-diag" style="font-size:12px;line-height:1.5;background:var(--paper-deep,#E2E8ED);color:#0F1923;padding:10px 12px;border-radius:6px;margin:0;white-space:pre-wrap;word-break:break-word;">loading...</pre>
+          </div>
         </details>
         <div id="oc-sync-apagado" style="display:${salaActiva ? "none" : "flex"};gap:8px;flex-wrap:wrap;align-items:center;">
           <input id="oc-sync-codigo" type="text" value="${escHtml(codigoPrecargado)}" placeholder="${window.t("sync.panel.codePlaceholder")}" maxlength="40"
@@ -749,8 +753,44 @@
         pre.textContent = lineas.join("\n");
       }
       try { pintarDiag(); } catch (_) {}
-      // refrescar el diagnóstico cada 4s mientras el panel esté montado
-      try { if (window._ocSyncDiagTimer) clearInterval(window._ocSyncDiagTimer); window._ocSyncDiagTimer = setInterval(() => { if (document.getElementById("oc-sync-diag")) pintarDiag(); else { clearInterval(window._ocSyncDiagTimer); } }, 4000); } catch (_) {}
+      /* BOTÓN COPIAR (JFC 2026-08-28): copiar el diagnóstico a mano era
+         doloroso. Un clic copia todo el texto al portapapeles y avisa. */
+      try {
+        const _copyBtn = document.getElementById("oc-sync-diag-copy");
+        if (_copyBtn) _copyBtn.addEventListener("click", function () {
+          const pre = document.getElementById("oc-sync-diag");
+          if (!pre) return;
+          const txt = pre.textContent || "";
+          const _ok = function () { const o = _copyBtn.textContent; _copyBtn.textContent = "Copied ✓"; setTimeout(function () { _copyBtn.textContent = o; }, 1600); };
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(txt).then(_ok, function () { _copiarFallback(pre, txt, _ok); });
+            } else { _copiarFallback(pre, txt, _ok); }
+          } catch (_) { _copiarFallback(pre, txt, _ok); }
+        });
+      } catch (_) {}
+      function _copiarFallback(pre, txt, ok) {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.select();
+          try { document.execCommand("copy"); } catch (_) {}
+          document.body.removeChild(ta); ok();
+        } catch (_) { ok(); }
+      }
+      /* Refrescar el diagnóstico cada 4s mientras el panel esté montado. Si el
+         usuario está seleccionando texto dentro del pre (para copiar a mano),
+         NO se pisa el contenido a mitad de selección — se espera al siguiente
+         tick. (JFC 2026-08-28: "no lo hagas que se cierre apenas hago select
+         text"). */
+      try { if (window._ocSyncDiagTimer) clearInterval(window._ocSyncDiagTimer); window._ocSyncDiagTimer = setInterval(() => {
+        const pre = document.getElementById("oc-sync-diag");
+        if (!pre) { clearInterval(window._ocSyncDiagTimer); return; }
+        const sel = window.getSelection && window.getSelection();
+        const dentro = sel && sel.rangeCount > 0 && pre.contains(sel.anchorNode) && pre.contains(sel.focusNode);
+        if (dentro) return; // hay selección activa dentro del pre: no pisar
+        pintarDiag();
+      }, 4000); } catch (_) {}
 
       /* QR DE UNIRSE — DORMANT (JFC 2026-08-21). NO BORRAR: ver el comentario
          en el HTML de arriba. Poner en true para re-encenderlo (y devolver el
