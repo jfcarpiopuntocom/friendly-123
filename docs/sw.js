@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v134"; // bumped 2026-08-28: botón Copy en Sync diagnostics + no se pisa la selección de texto al refrescar
+const CACHE = "f123-shell-v135"; // bumped 2026-08-28: consolidación — la licencia ES la sync code y password (un solo código en el diagnóstico), aviso de bien precioso, PINs aclarados como roles para logs, botón Fix split identity
 const SHELL = [
   "./",
   "./index.html",

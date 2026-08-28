@@ -522,6 +522,7 @@
         <p style="font-size:14px;font-weight:700;color:var(--ink);margin:0 0 8px;">Current access codes (visible to you, the owner)</p>
         <div id="oc-pins-visibles-cuerpo" style="font-size:14px;line-height:1.7;color:var(--ink);"></div>
         <p style="font-size:13px;color:var(--ink-soft);margin:8px 0 0;">PINs are stored as hashes; the visible copy is only for your support. Codes set before this update can't be shown — re-save them above to make them visible.</p>
+        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">PINs only identify a role in the activity log (who did what). They are not the security of your business — your license is. Anyone with the license can open the notebook.</p>
       </div>
       <div id="oc-apodo-device" style="margin-top:12px;font-size:14px;color:var(--ink);">
         <span id="oc-apodo-device-txt"></span>
@@ -566,8 +567,12 @@
         <details id="oc-sync-diag-wrap" style="margin-bottom:12px;">
           <summary style="font-size:13px;font-weight:700;color:var(--azul-medio);cursor:pointer;">Sync diagnostics (show the real state)</summary>
           <div style="position:relative;margin-top:8px;">
-            <button id="oc-sync-diag-copy" type="button" title="Copy diagnostics"
-              style="position:absolute;top:6px;right:6px;z-index:2;font-size:11px;padding:4px 10px;border:1px solid var(--azul-medio,#2c4a68);border-radius:5px;background:#fff;color:var(--azul-medio,#2c4a68);cursor:pointer;">Copy</button>
+            <div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px;">
+              <button id="oc-sync-diag-fix" type="button" title="Align this device's identity to the license you entered"
+                style="font-size:11px;padding:4px 10px;border:1px solid #00805A;border-radius:5px;background:#fff;color:#00805A;cursor:pointer;">Fix split identity</button>
+              <button id="oc-sync-diag-copy" type="button" title="Copy diagnostics"
+                style="font-size:11px;padding:4px 10px;border:1px solid var(--azul-medio,#2c4a68);border-radius:5px;background:#fff;color:var(--azul-medio,#2c4a68);cursor:pointer;">Copy</button>
+            </div>
             <pre id="oc-sync-diag" style="font-size:12px;line-height:1.5;background:var(--paper-deep,#E2E8ED);color:#0F1923;padding:10px 12px;border-radius:6px;margin:0;white-space:pre-wrap;word-break:break-word;">loading...</pre>
           </div>
         </details>
@@ -591,6 +596,7 @@
                  devolver este div. -->
           </div>
           <p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:10px 0 0;">Every device that activates with this license is the same shared notebook. They keep each other up to date on their own: there is no separate team code to hand out.</p>
+          <p style="font-size:13px;line-height:1.5;color:#7a4a00;background:#FFF4D6;border-left:4px solid #E8A33D;padding:10px 12px;border-radius:0 8px 8px 0;margin:10px 0 0;">Your license is the key to your business. Anyone who has it can open your notebook, so guard it like a password: only share it one-to-one with people on your team, and never post it publicly.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
             <button id="oc-sync-compartir" class="ir" style="background:#25D366;border-color:#1da851;">${window.t("sync.panel.share")}</button>
             <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
@@ -738,10 +744,14 @@
           "Role of this device: " + (esLord ? "LORD (super-admin) — joining a license adopts it as this device's store (audited)" : "normal — joining a license makes this a device of that business"),
           "Connection:   " + (S.estado ? S.estado() : "?") + "   (peers online: " + (S.presencia ? S.presencia() : "?") + ")",
           "Sync room (where data actually syncs): " + (_sala || "(off)"),
-          "This device's own license (identity):  " + (_lic || "(none)"),
-          "Share-box code (syncCode):             " + (_syncCode || "(none)"),
-          (_coherente ? "→ COHERENT: identity, share code and sync room match." :
-            "→ ⚠ MISMATCH: these three should be the SAME code but they differ. This device's identity/sync got split (usually from testing or switching stores). It's why the screen shows two different licenses. Fix: on your REAL store's device, use 'Resync', or re-enter your true license once so all three line up."),
+          /* CONSOLIDACIÓN (JFC 2026-08-28): la licencia ES la sync code y la
+             password a la vez. Un solo código, un solo nombre. Antes se mostraban
+             licenseCode y syncCode como dos líneas, y cuando divergían (identidad
+             partida) confundía. Ahora una sola línea; si los campos internos
+             difieren, se marca SPLIT y se ofrece el botón de reparación. */
+          "License (this is your sync code & password): " + (_lic || "(none)"),
+          (_coherente ? "→ COHERENT: this device's identity, share code and sync room all match." :
+            "→ ⚠ SPLIT: this device's identity is split across different codes. Enter your true license in the field above, then press 'Fix split identity'."),
           "Business name (this device): " + (owned.nombreNegocio || "(none)"),
           "Active store:  " + (T.esUnida && T.esUnida() ? ("JOINED  " + ((T.licenciaActual && T.licenciaActual()) || "?")) : "OWN (\"\")") ,
           "Store marker:  " + marcador,
@@ -778,6 +788,30 @@
           document.body.removeChild(ta); ok();
         } catch (_) { ok(); }
       }
+      /* REPARAR IDENTIDAD PARTIDA (JFC 2026-08-28). Un clic alinea licenseCode,
+         syncCode y sala de sync al código que el usuario puso en el campo de
+         arriba (o al que ya tiene como licencia). Reutiliza reconciliar(), que
+         ya deja los tres campos en el MISMO código sin vaciar datos locales. */
+      try {
+        const _fixBtn = document.getElementById("oc-sync-diag-fix");
+        if (_fixBtn) _fixBtn.addEventListener("click", function () {
+          const campo = document.getElementById("oc-sync-codigo");
+          let cod = campo ? (campo.value || "").trim() : "";
+          if (!/^F123-/i.test(cod)) {
+            try { cod = (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseCode || ""; } catch (_) {}
+          }
+          if (!/^F123-/i.test(cod)) {
+            alert("Enter your true license in the field above first, then press 'Fix split identity'.");
+            return;
+          }
+          const msg = document.getElementById("oc-sync-msg");
+          try {
+            const r = (window.OCTienda && window.OCTienda.reconciliar) ? window.OCTienda.reconciliar(cod) : null;
+            if (msg) { msg.style.color = "#00805A"; msg.textContent = (r && r.ok) ? "Identity aligned to " + cod + ". Reconnecting..." : ((r && r.error) || "Could not fix."); }
+            if (r && r.ok) { setTimeout(function () { try { location.reload(); } catch (_) {} }, 1200); }
+          } catch (_) { if (msg) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not fix the identity."; } }
+        });
+      } catch (_) {}
       /* Refrescar el diagnóstico cada 4s mientras el panel esté montado. Si el
          usuario está seleccionando texto dentro del pre (para copiar a mano),
          NO se pisa el contenido a mitad de selección — se espera al siguiente

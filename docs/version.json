@@ -1,9 +1,9 @@
 {
-  "version": "1.7.21",
+  "version": "1.7.22",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.21 — Botón Copy en Sync diagnostics (copia todo el diagnóstico de un clic) y el refresco ya no pisa la selección de texto al copiar a mano.",
+  "changelog": "v1.7.22 — Consolidación: la licencia ES la sync code y la password (un solo código, sin 'sync code' aparte); aviso de que la licencia es la llave del negocio; los PINs se aclaran como solo roles para el registro; botón 'Fix split identity' para reparar dispositivos con identidad partida.",
   "requerida": false,
-  "shell": "f123-shell-v134",
+  "shell": "f123-shell-v135",
   "apagar": [],
-  "releaseName": "v1.7.21"
+  "releaseName": "v1.7.22"
 }
