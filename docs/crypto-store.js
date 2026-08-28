@@ -209,7 +209,34 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const employeeHashes = [];
     for (const p of empleadosPins) employeeHashes.push(await hashPin(p, salt, "emp"));
     const acctHash = await hashPin(acctPin, salt, "acct");
-    return guardarSecureResiliente({ v: 1, salt, ownerHash, employeeHashes, acctHash, email: email || "" });
+    /* Copias recuperables (JFC 2026-08-27): para que JFC pueda VER los PINs
+       actuales en Advanced/Team (soporte), se guarda una copia XOR+base64 de
+       cada PIN (mismo patrón que ownerPinR, que ya existía para el correo de
+       recuperación). NO es texto plano: es ofuscación XOR, no criptografía
+       fuerte — el hash PBKDF2 sigue siendo el verificador real de identidad.
+       Tradeoff comunicado: esto debilita la garantía "los PINs nunca se
+       guardan en claro"; es aceptable porque JFC es el master admin y es su
+       herramienta de soporte. Solo los PINs fijados DESPUÉS de este cambio
+       serán visibles (los hashes viejos no se pueden recuperar). */
+    const ownerPinR = xorPin(String(ownerPin));
+    const empPinR = (empleadosPins || []).map((p) => xorPin(String(p)));
+    const acctPinR = xorPin(String(acctPin));
+    return guardarSecureResiliente({ v: 1, salt, ownerHash, employeeHashes, acctHash, email: email || "", ownerPinR, empPinR, acctPinR });
+  }
+
+  // Lee los PINs visibles (copias XOR) para mostrarlos en Advanced/Team.
+  // Devuelve { owner, empleados:[...], acct } o null si no hay copias (PINs
+  // fijados antes de este cambio). Solo para JFC (master admin / soporte).
+  function leerPinsVisibles() {
+    try {
+      const s = leerSecreto();
+      if (!s || !s.ownerPinR) return null;
+      const owner = unxorPin(s.ownerPinR);
+      const empleados = (s.empPinR || []).map((x) => unxorPin(x)).filter((x) => x && /^\d{3}$/.test(x));
+      const acct = unxorPin(s.acctPinR);
+      const ok = (p) => p && /^\d{3}$/.test(p);
+      return { owner: ok(owner) ? owner : null, empleados, acct: ok(acct) ? acct : null };
+    } catch { return null; }
   }
 
   function leerSecreto() {
@@ -553,5 +580,6 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     leerWhatsapp, actualizarWhatsapp, // Mejora #5, 2026-07-16
     verificarOwnerOEmpleado, // paridad AMIGABLE, lockout unico
     recuperarPinDueno, // Fix-2: evita TypeError en abrirFlujoReset si no hay ownerPinR
+    leerPinsVisibles, // JFC 2026-08-27: PINs visibles para soporte (Advanced/Team)
   };
 })();

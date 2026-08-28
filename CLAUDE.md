@@ -318,10 +318,13 @@ ni numeros!!!! esto que acabo de decir, para TODAS mis apps!"
 - Cuando JFC entra a una tienda ajena (Sarah, Diego, etc.) su rol es
   **maintenance/support**: ve el **inventario y las fotos/visuales** para
   verificar integridad, pero **NO ve precios ni números** (ventas, costos,
-  ganancias, montos).
+  ganancias, montos) **NI los datos de contacto de los clientes** (teléfono,
+  email, WhatsApp, dirección). Es lo que se acostumbra legal y world-class
+  globalmente: el soporte técnico no accede a datos personales de los clientes
+  del negocio.
 - Aplica a **todas las apps** (friendly-123, AMIGABLE, etc.), no solo a esta.
-- No invade los números del negocio; solo verifica que el inventario y las fotos
-  estén íntegros.
+- No invade los números del negocio ni los datos personales de sus clientes;
+  solo verifica que el inventario y las fotos estén íntegros.
 
 ## REGLA 8 — TRACKING 24/7 SIN RETENER CONTENIDOS (JFC, 2026-08-27) — REGLA DURA
 

@@ -437,6 +437,25 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   body.rol-admin #oc-email-edit,
   body.rol-admin #oc-email-save,
   body.rol-admin #oc-email-in{display:none!important;}
+  /* Rol SOPORTE (JFC 2026-08-27): JFC como maintenance/support en una tienda
+     ajena (lord). Ve inventario y fotos para verificar integridad, pero NO
+     precios/números ni datos de contacto de clientes. Selectores de los
+     precios más visibles (tarjetas de inventario, etiquetas, totales) y de
+     los campos de contacto de clientes. El sanitizador JS (soporte-visual.js)
+     refuerza esto en re-renders. */
+  body.rol-soporte .ficha-producto .precio,
+  body.rol-soporte .etiqueta-card .precio-prod,
+  body.rol-soporte .etiqueta-imprimible .precio-grande,
+  body.rol-soporte .precio,
+  body.rol-soporte .total,
+  body.rol-soporte .monto,
+  body.rol-soporte [data-precio],
+  body.rol-soporte [data-monto]{display:none!important;}
+  body.rol-soporte #cliTelefono,
+  body.rol-soporte #cliEmail,
+  body.rol-soporte [data-contacto],
+  body.rol-soporte .cli-tel,
+  body.rol-soporte .cli-email{display:none!important;}
   `;
   document.head.appendChild(css);
 
@@ -1062,6 +1081,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     document.body.classList.toggle("rol-demo", esDemo);
     document.body.classList.toggle("rol-contador", rol === "contador");
     document.body.classList.toggle("rol-admin", rol === "admin");
+    /* ROL SOPORTE (JFC 2026-08-27): cuando JFC entra a una tienda ajena como
+       lord (código maestro), es maintenance/support: ve inventario y fotos
+       para verificar integridad, pero NO precios/números ni datos de contacto
+       de clientes. El CSS body.rol-soporte oculta esos selectores. */
+    var _esLord = false;
+    try { _esLord = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
+    document.body.classList.toggle("rol-soporte", _esLord);
     gate.style.display = "none";
     document.body.style.overflow = ""; // reabre el scroll del fondo
     // Primera impresion controlada: foco fuera de cualquier boton fantasma

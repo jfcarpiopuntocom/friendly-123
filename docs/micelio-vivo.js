@@ -98,10 +98,39 @@
   }
 
   function rolActual() {
+    /* ROL SOPORTE (JFC 2026-08-27): cuando JFC entra a una tienda ajena como
+       lord (código maestro), su latido reporta "soporte" (maintenance/support),
+       no el rol del PIN. Así aparece como soporte en el panel del equipo de esa
+       tienda, no como dueño. */
+    try {
+      if (localStorage.getItem("f123_lord") === "1") return "soporte";
+    } catch (_) {}
     try {
       var r = window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual();
       return r || "";
     } catch (_) { return ""; }
+  }
+
+  /* AUTO-NUMERACIÓN DE APODOS (JFC 2026-08-27): si un dispositivo no tiene
+     apodo/nickname, se le asigna visiblemente 001, 002, ... para que siempre
+     se pueda identificar qué pasa y tener control real. El número es
+     DETERMINISTA y ESTABLE: deriva del deviceId, así el mismo dispositivo
+     muestra el mismo número en TODOS los aparatos (consistencia entre
+     dispositivos, que es lo que pide "estable"). No es "en orden de llegada"
+     sino un hash estable → 001-999. */
+  function numeroEstable(id) {
+    var s = String(id || "");
+    if (!s) return "";
+    var h = 0;
+    for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0; }
+    return String((h % 999) + 1).padStart(3, "0");
+  }
+  function apodoVisible(m) {
+    if (!m) return "";
+    if (m.apodo) return m.apodo;
+    var n = numeroEstable(m.id);
+    if (n) return n;
+    return "Device " + String(m.id || "").slice(1, 5);
   }
 
   /* ------------------------------------------------------------ perilla --- */
@@ -362,6 +391,7 @@
 
   window.OCMicelio = {
     yo: yo, miApodo: miApodo, ponerApodo: ponerApodo,
+    apodoVisible: apodoVisible, numeroEstable: numeroEstable,
     equipo: equipo, recibir: recibir, latir: latir,
     umbrales: umbrales, ponerUmbrales: ponerUmbrales,
     estadoPorSilencio: estadoPorSilencio, haceCuanto: haceCuanto,

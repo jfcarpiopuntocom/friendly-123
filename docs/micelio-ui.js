@@ -41,12 +41,18 @@
     if (rol === "admin")    return _t("auth.roleChip.admin", "Admin");
     if (rol === "empleado") return _t("auth.roleChip.employee", "Staff member");
     if (rol === "contador") return _t("auth.roleChip.accountant", "Accountant");
+    if (rol === "soporte") return _t("auth.roleChip.support", "Maintenance / Support");
     return rol || "";
   }
   function comoSeLlama(m) {
-    /* El apodo manda; si no hay, el rol; si tampoco, el id corto. Nunca el
-       PIN: el PIN no se enseña, se teclea. */
-    return m.apodo || rolNombre(m.rol) || ("Device " + String(m.id).slice(1, 5));
+    /* El apodo manda; si no hay, el número estable (001, 002...); si tampoco,
+       el rol; si no, el id corto. Nunca el PIN: el PIN no se enseña, se teclea.
+       (JFC 2026-08-27: auto-numeración para identificar dispositivos sin
+       nickname.) */
+    if (m.apodo) return m.apodo;
+    var n = (window.OCMicelio && window.OCMicelio.numeroEstable) ? window.OCMicelio.numeroEstable(m.id) : "";
+    if (n) return n;
+    return rolNombre(m.rol) || ("Device " + String(m.id).slice(1, 5));
   }
 
   /* ====================================================== 1. EL PULSAR ===

@@ -511,6 +511,21 @@
         </div>
         <button id="oc-save-codes" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">${window.t("auth.act.savePins")}</button>
         <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
+      </div>
+      <!-- PINs VISIBLES + APODO DEL DISPOSITIVO (JFC 2026-08-27). JFC (master
+           admin / soporte) necesita VER los PINs actuales y el apodo del
+           dispositivo, sin opacarlos, para controlar sus estructuras y equipo.
+           Los PINs se leen de las copias XOR (leerPinsVisibles); si el PIN se
+           fijó antes de este cambio, no hay copia y se avisa. El apodo usa
+           OCMicelio (ya se sincroniza con el equipo). -->
+      <div id="oc-pins-visibles" style="margin-top:18px;padding:12px;border:1px solid var(--hairline,#dde5ec);border-radius:8px;background:var(--paper-deep,#E2E8ED);">
+        <p style="font-size:14px;font-weight:700;color:var(--ink);margin:0 0 8px;">Current access codes (visible to you, the owner)</p>
+        <div id="oc-pins-visibles-cuerpo" style="font-size:14px;line-height:1.7;color:var(--ink);"></div>
+        <p style="font-size:13px;color:var(--ink-soft);margin:8px 0 0;">PINs are stored as hashes; the visible copy is only for your support. Codes set before this update can't be shown — re-save them above to make them visible.</p>
+      </div>
+      <div id="oc-apodo-device" style="margin-top:12px;font-size:14px;color:var(--ink);">
+        <span id="oc-apodo-device-txt"></span>
+        <button type="button" id="oc-apodo-device-btn" title="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;">✎</button>
       </div>`;
     vista.appendChild(gestion);
 
@@ -2043,7 +2058,49 @@ Keep it somewhere safe.`);
       await window.OCSecure.guardarSecreto(o, [e], a, correoActual);
       $("oc-c-owner").value = ""; $("oc-c-owner2").value = ""; $("oc-c-emp").value = ""; $("oc-c-acct").value = "";
       msg("oc-codes-msg", "PINs saved and encrypted.", "var(--verde)");
+      pintarPinsVisibles();
     });
+
+    /* PINs VISIBLES + APODO (JFC 2026-08-27). Solo para el dueño (soporte de
+       JFC). Pinta los PINs actuales desde las copias XOR y el apodo del
+       dispositivo con lapicito. */
+    function _esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function pintarPinsVisibles() {
+      const cuerpo = $("oc-pins-visibles-cuerpo");
+      if (!cuerpo) return;
+      let pins = null;
+      try { pins = window.OCSecure.leerPinsVisibles(); } catch (_) {}
+      if (!pins) {
+        cuerpo.innerHTML = '<span style="color:var(--ink-soft);">No visible copy yet — re-save the codes above to make them visible.</span>';
+        return;
+      }
+      const emp = (pins.empleados && pins.empleados.length) ? pins.empleados.join(", ") : "—";
+      cuerpo.innerHTML =
+        '<div><strong>Owner:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(pins.owner || "—") + "</code></div>" +
+        '<div><strong>Staff:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(emp) + "</code></div>" +
+        '<div><strong>Accounting:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(pins.acct || "—") + "</code></div>";
+    }
+    function pintarApodoDevice() {
+      const txt = $("oc-apodo-device-txt");
+      if (!txt) return;
+      let apodo = "";
+      try { apodo = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
+      txt.textContent = apodo ? ("This device: " + apodo) : "Name this device";
+    }
+    const _apBtn = $("oc-apodo-device-btn");
+    if (_apBtn) {
+      _apBtn.addEventListener("click", () => {
+        let actual = "";
+        try { actual = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
+        const v = prompt("Name this device (your team will see it):", actual);
+        if (v === null) return;
+        try { if (window.OCMicelio && window.OCMicelio.ponerApodo) window.OCMicelio.ponerApodo(v); } catch (_) {}
+        pintarApodoDevice();
+      });
+    }
+    pintarPinsVisibles();
+    pintarApodoDevice();
+    try { window.addEventListener("oc-micelio-cambio", pintarApodoDevice); } catch (_) {}
 
     $("oc-descargar-csv").addEventListener("click", async () => {
       const u = ubic();

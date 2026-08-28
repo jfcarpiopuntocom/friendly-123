@@ -1266,7 +1266,7 @@
     rezagado: { texto: "Rezagado", bg: "#FFC700", txt: "#3D2E00" },
     ciegas:   { texto: "A ciegas", bg: "#E8365D", txt: "#FFFFFF" },
   };
-  var ROLES = { dueno: "Dueño", admin: "Admin", empleado: "Empleado", contador: "Contador" };
+  var ROLES = { dueno: "Dueño", admin: "Admin", empleado: "Empleado", contador: "Contador", soporte: "Maintenance / Support" };
 
   function micEstado(ms) {
     if (ms < UMB.rezagado * 60000) return "al_dia";
@@ -1306,15 +1306,42 @@
 
     $("micelio-lista").innerHTML = lista.map(function (m) {
       var c = MIC[m.estado];
-      /* El apodo manda; si no lo pusieron, el rol. Nunca el PIN. */
-      var nombre = m.apodo || ROLES[m.rol] || ("Dispositivo " + String(m.id).slice(1, 5));
+      /* El apodo manda; si no lo pusieron, el número estable (001, 002...);
+         si tampoco, el rol. Nunca el PIN. (JFC 2026-08-27: auto-numeración.) */
+      var nombre = m.apodo
+        || (window.OCMicelio && window.OCMicelio.numeroEstable ? window.OCMicelio.numeroEstable(m.id) : "")
+        || ROLES[m.rol] || ("Dispositivo " + String(m.id).slice(1, 5));
+      var rolTxt = ROLES[m.rol] ? '<span style="font-size:14px;color:var(--ink-soft);">' + esc(ROLES[m.rol]) + "</span>" : "";
+      /* Lapicito ✎ (JFC 2026-08-27): renombra el dispositivo desde el tablero.
+         Manda una orden orientada a ese deviceId (para) que el dispositivo
+         aplica con OCMicelio.ponerApodo. */
+      var lapiz = '<button type="button" title="Renombrar este dispositivo" data-renombrar="' + esc(m.id) + '" ' +
+        'style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;">✎</button>';
       return '<div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:11px 0;border-bottom:1px solid var(--hairline);">' +
         '<span style="display:inline-block;min-width:100px;text-align:center;padding:4px 12px;border-radius:20px;' +
         'font-size:13px;font-weight:700;background:' + c.bg + ';color:' + c.txt + ' !important;-webkit-text-fill-color:' + c.txt + ' !important;">' + c.texto + "</span>" +
-        '<span style="font-size:16px;font-weight:700;">' + esc(nombre) + "</span>" +
-        (m.apodo && ROLES[m.rol] ? '<span style="font-size:14px;">' + esc(ROLES[m.rol]) + "</span>" : "") +
+        '<span style="font-size:16px;font-weight:700;">' + esc(nombre) + "</span>" + lapiz +
+        rolTxt +
         '<span style="font-size:14px;margin-left:auto;">' + esc(micCuando(m.ms)) + "</span></div>";
     }).join("");
+    /* Delegación: un solo listener para todos los lapicitos (se re-renderiza
+       cada 20s, así que no se pueden enlazar listeners directos). */
+    var _listaEl = $("micelio-lista");
+    if (_listaEl && !_listaEl.dataset.renombrarOk) {
+      _listaEl.dataset.renombrarOk = "1";
+      _listaEl.addEventListener("click", function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest("[data-renombrar]") : null;
+        if (!b) return;
+        var id = b.getAttribute("data-renombrar");
+        var actual = (latidos[id] && latidos[id].apodo) || "";
+        var v = prompt("Renombrar este dispositivo:", actual);
+        if (v === null) return;
+        ordenar("POST", "/micelio/apodo", { apodo: v }, id).then(function (r) {
+          if (r && r.ok) { latidos[id] = latidos[id] || {}; latidos[id].apodo = v; pintarMicelio(); }
+          else alert("No se pudo renombrar: " + ((r && r.datos && r.datos.error) || "sin respuesta"));
+        });
+      });
+    }
 
     $("micelio-nota").innerHTML = ciegos.length
       ? "Se ponen al día solos en cuanto haya señal."
@@ -1406,7 +1433,7 @@
      ======================================================================== */
   var pedidos = {};   /* pedidoId -> resolve. En memoria y nada mas. */
 
-  function ordenar(metodo, ruta, cuerpo) {
+  function ordenar(metodo, ruta, cuerpo, para) {
     return new Promise(function (resolve) {
       if (!ws || ws.readyState !== 1) {
         resolve({ ok: false, datos: { error: "Sin conexión con tu equipo." } });
@@ -1423,8 +1450,10 @@
       /* A diferencia del PIN, aqui la PRIMERA respuesta manda: son ordenes
          ejecutadas contra un backend, no votos. */
       pedidos[id] = function (r) { clearTimeout(reloj); delete pedidos[id]; resolve(r); };
+      /* `para` (JFC 2026-08-27): orienta la orden a un dispositivo concreto
+         (ej. renombrar su apodo). Si viene, solo ese dispositivo la aplica. */
       cifrar({ opId: id, deviceId: miId, tipo: TIPO_ORDEN,
-               payload: { pedidoId: id, metodo: metodo, ruta: ruta, cuerpo: cuerpo || null } })
+               payload: { pedidoId: id, metodo: metodo, ruta: ruta, cuerpo: cuerpo || null, para: para || "" } })
         .then(function (buf) { try { ws.send(buf); } catch (_) {} });
     });
   }

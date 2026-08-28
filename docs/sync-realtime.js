@@ -813,6 +813,26 @@
     try { ws.send(await cifrar(claveActual, r)); } catch (_) {}
   }
 
+  /* LISTA BLANCA DE ÓRDENES REMOTAS (JFC 2026-08-27). Bug latente arreglado:
+     ORDENES_PERMITIDAS se referenciaba en ordenPermitida() pero NUNCA se
+     definía → cualquier orden del tablero lanzaba ReferenceError que se tragaba
+     el try/catch y el tablero esperaba y hacía timeout. Ahora se define aquí,
+     estricta: solo estas rutas se pueden pedir desde el dashboard. El tablero
+     (tablero-avanzado.js) usa /api/usuarios, /api/actividad, /api/integridad,
+     /api/transferencias, /api/reportes/pl y /api/reportes/balance. Se añade
+     /micelio/apodo (POST) para que el tablero pueda renombrar un dispositivo. */
+  var ORDENES_PERMITIDAS = [
+    { m: "GET",  re: /^\/api\/usuarios$/ },
+    { m: "PATCH", re: /^\/api\/usuarios\/[^/]+$/ },
+    { m: "POST", re: /^\/api\/usuarios$/ },
+    { m: "GET",  re: /^\/api\/actividad$/ },
+    { m: "GET",  re: /^\/api\/integridad$/ },
+    { m: "GET",  re: /^\/api\/transferencias$/ },
+    { m: "GET",  re: /^\/api\/reportes\/pl\?/ },
+    { m: "GET",  re: /^\/api\/reportes\/balance\?/ },
+    { m: "POST", re: /^\/micelio\/apodo$/ },
+  ];
+
   function ordenPermitida(metodo, ruta) {
     return ORDENES_PERMITIDAS.some(function (p) { return p.m === metodo && p.re.test(ruta); });
   }
@@ -840,6 +860,16 @@
        conectados, no ejecutan la misma orden a la vez. Solo el primero que
        conteste importa; el tablero descarta las respuestas repetidas. */
     await new Promise((r) => setTimeout(r, Math.random() * 350));
+    /* ORDEN DE APODO (JFC 2026-08-27): el tablero puede renombrar un
+       dispositivo. Se orienta por `para` (deviceId): solo el dispositivo
+       destinatario la aplica, para que no la ejecuten todos los de la sala. */
+    if (metodo === "POST" && ruta === "/micelio/apodo") {
+      const para = String(p.para || "");
+      if (para && para !== deviceId()) return; // no es para este dispositivo
+      const apodo = String((p.cuerpo && p.cuerpo.apodo) || "").trim().slice(0, 28);
+      try { if (window.OCMicelio && window.OCMicelio.ponerApodo) window.OCMicelio.ponerApodo(apodo); } catch (_) {}
+      return responder({ ok: true, apodo: apodo }, true);
+    }
     try {
       const opts = { method: metodo };
       let cuerpo = p.cuerpo || {};
