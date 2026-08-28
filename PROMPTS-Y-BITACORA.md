@@ -389,3 +389,18 @@ catálogo (v103).
 - `docs/avanzado-extra.js`: Rotate team license SOLO del lord (claim/merge siguen para dueño/lord); "Activate" reconcilia la identidad partida (helper `_estadoPartido()` → `OCTienda.reconciliar()`); "Fix split identity" ya no cae a la licencia equivocada si el campo está vacío; tooltip de la huella aclara que #XXXX es la huella del inventario.
 
 **Verificación:** node --check 72 .js OK; sw.js/version.json v147 consistentes; 52 scripts en SHELL OK; roster VERDE; arneses team-sync/claim-merge/watchdog/failsafe VERDE; join-identity FALLA preexistente (arnés desactualizado, no lo introdujo esta ventana). Respaldo: rama `backup/20260828-013415-antes-pulido-sync`.
+---
+
+## 2026-08-28 (3ª ventana) — v148
+
+**Prompt (resumido):** "cuando pongo join this notebook con F123-A6YK-6V1J-BF2A-S2J24 se reinicia a la pantalla del candado de PIN y se pierde todo!"; "Advanced mode" → "Advanced controls"; icono de Commissions (martillo) → justicia/fairness; estrellas engarzadas en la esquina trunca de My Products (NO como en Sold); consistencia rack/shelf; hallar hasta 33 microbugs/refuerzos/guards; sistema de versiones con checksums y compatibilidad entre partes (world best practices).
+
+**Causa raíz del bug de join:** `unirse()` escribía `licenseCode` antes de `cambiar()`, así que `_licenciaPropia()` devolvía el código nuevo y `sufDest` siempre caía a `""` → el switch de tienda nunca ocurría (contaminación cruzada). Fix: `cambiar()` usa `desde` (tienda de la que se sale, capturada antes de tocar licenseCode).
+
+**Qué se hizo — commit `c0b3901` en master, pusheado:**
+- Fix bug de join en `mock-backend.js` (cambiar/reconciliar) y `sync-realtime.js` (unirse). Validado por arneses join-identity (actualizado) y team-sync.
+- Sistema de integridad de versión: `scripts/gen-manifest.js` + `docs/version-manifest.json` (SHA-256 por archivo); `sw.js` verificación SRI-style en precache; `salud-app.js` R5 con hashes; `index.html` recarga coordinada (BroadcastChannel), anti-loop, purga solo de caches del shell, verificación de compatibilidad; `check-sw.sh` verifica el manifest.
+- Pulido UI: Advanced controls, balanza de justicia, estrellas engarzadas, shelf consistente.
+- Microbugs: guards de NaN en money/fmtVentas, aviso de sincronización en tienda unida.
+
+**Verificación:** node --check 72 .js OK; sw/version/manifest en v148 consistentes; manifest 59/59 hashes OK; arneses team-sync/claim-merge/join-identity/watchdog/failsafe VERDE; roster VERDE. Respaldo: rama `backup/20260828-014426-antes-v148-microbugs`. GitHub Pages sirve v1.7.35 / shell v148.
