@@ -18,6 +18,9 @@
   // para es-US). Cae al formato viejo si Intl no esta o el locale no existe.
   const money = (n) => {
     const v = Number(n || 0);
+    /* JFC 2026-08-28 (microbug): un valor no-finito (NaN/Infinity) mostraba
+       "$NaN" en la UI. Se cae a $0.00 en vez de pintar basura. */
+    if (!isFinite(v)) return "$0.00";
     try {
       const loc = (window.OCI18n && window.OCI18n.locale && window.OCI18n.locale()) || "en-US";
       return new Intl.NumberFormat(loc, { style: "currency", currency: "USD" }).format(v);
@@ -372,7 +375,7 @@
     respaldo.innerHTML = `
       <h3 class="seccion" style="margin-top:0;">Backup</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Download your full business data (products, sales, movements, costs, keys, and rack photos) in one file. Save it to your email, Drive, or anywhere — it's your backup if the cache is cleared or the device fails.</p>
+        Download your full business data (products, sales, movements, costs, keys, and shelf photos) in one file. Save it to your email, Drive, or anywhere — it's your backup if the cache is cleared or the device fails.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button id="oc-exportar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">⬇️ Export backup</button>
         <label class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);display:inline-flex;align-items:center;cursor:pointer;">⬆️ Import backup
@@ -2321,7 +2324,7 @@ Keep it somewhere safe.`);
               const nombre = prompt("Who uses this " + etiqueta + " PIN? (name)", "");
               if (nombre != null) {
                 const correo = prompt("Their email (optional):", "");
-                const notas = prompt("Notes (optional, e.g. 'runs Rack1', 'works Thursdays'):", "");
+                const notas = prompt("Notes (optional, e.g. 'runs Shelf1', 'works Thursdays'):", "");
                 if (rol === "owner") { dir.owner.nombre = String(nombre).trim(); dir.owner.correo = String(correo || "").trim(); dir.owner.notas = String(notas || "").trim(); }
                 else if (rol === "acct") { dir.acct.nombre = String(nombre).trim(); dir.acct.correo = String(correo || "").trim(); dir.acct.notas = String(notas || "").trim(); }
                 else {
@@ -2857,7 +2860,7 @@ Keep it somewhere safe.`);
       </div>`;
     }).join("");
   }
-  function fmtVentas(n) { return "$" + Number(n || 0).toFixed(2); }
+  function fmtVentas(n) { const v = Number(n || 0); return "$" + (isFinite(v) ? v.toFixed(2) : "0.00"); }
 
   // tAccount: acento azul en la T (azul = sabiduria/contable por semantica Simon).
   // Espina dorsal: el trazo vertical de la T es azul. Header en azul-dk.

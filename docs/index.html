@@ -811,14 +811,15 @@
      3 clases (>2) para ganarle a las reglas blancas de arriba. */
   /* 1 TONO (2026-08-05): n1 ya no es un tinte claro, es el color solido,
      asi que forzar tinta oscura aqui dejaba el texto ilegible. Se anula. */
-  /* La estrella de "promover" va JUSTO en la esquina rota (JFC 2026-08-28):
-     el usuario pidió que esté "ahí", en el doblez, no a la izquierda. El
-     clip-path de .tag-card recorta la esquina superior derecha (18px), así
-     que la estrella se apoya con su borde derecho justo sobre la línea del
-     doblez (right:18px) y arriba del todo (top:0): queda en la esquina, 100%
-     visible, sin que el clip la recorte. z-index sobre la foto. */
+  /* La estrella de "promover" va ENGAZADA en la esquina rota (JFC 2026-08-28):
+     el usuario pidió que encaje JUSTO en el doblez, superimpuesta/engarzada,
+     NO como en Sold (esas cards no tienen esquina trunca). El clip-path de
+     .tag-card recorta la esquina superior derecha (18px). Poniendo la estrella
+     en top:0;right:0, el MISMO clip-path le recorta su propia esquina superior
+     derecha a lo largo de la diagonal → la estrella queda "engarzada" en el
+     corte, como una gema en su engaste, siguiendo la línea del doblez. */
   .caja .estrella-badge{
-    position:absolute; top:0; right:18px; z-index:3;
+    position:absolute; top:0; right:0; z-index:3;
     font-size:20px; line-height:1;
     filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35));
   }
@@ -1341,7 +1342,7 @@
     <span data-i18n="nav.customers">Customers</span>
   </button>
   <button data-vista="comisiones">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0a2.12 2.12 0 0 1 0-3L11 10"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="M7 21h10"></path><path d="M12 3v18"></path><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path></svg>
     <span data-i18n="nav.commissions">Commissions</span>
   </button>
   <!-- GASTOS (2026-08-27): registrar gastos individuales y ver gastos vs ingresos. -->
@@ -1818,7 +1819,7 @@
 
   <!-- VISTA: AVANZADO -->
   <section id="vista-avanzado" class="vista">
-    <h3 class="seccion" style="margin-top:0;" data-i18n="adv.heading">Advanced mode</h3>
+    <h3 class="seccion" style="margin-top:0;" data-i18n="adv.heading">Advanced controls</h3>
     <details style="margin:-4px 0 12px;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
@@ -3390,7 +3391,7 @@ const MOODS = [
   "Fine-pricing day. Look at what moves slowly and give it a reason to leave.",
   "Start with the red. Restock the urgent and the rest falls into place.",
   "Balance the till early. A clear number in the morning is worth ten at night.",
-  "Your racks are talking. See which ones perform and which ones are sleeping.",
+  "Your shelves are talking. See which ones perform and which ones are sleeping.",
   "Today's star is your call. Pick one product, focus on it, and push it.",
   "Less discount, more story. Sell the why, not just the price.",
   "Every sale logged right is a better decision tomorrow. Record everything.",
@@ -4201,7 +4202,7 @@ async function cargarPerchas(){
       ${sinSucursal.map(u => renderPerchaCard(u, sucursalesDisp, promotorasDisp)).join('')}
     </div>`;
   }
-  if (!perchas.length) html = '<p style="font-size:14px;color:var(--ink-soft);">No racks registered.</p>';
+  if (!perchas.length) html = '<p style="font-size:14px;color:var(--ink-soft);">No shelves registered.</p>';
   grid.innerHTML = html;
 
   // ---- Eventos sucursales ----
@@ -4212,7 +4213,7 @@ async function cargarPerchas(){
     if (res.ok) cargarPerchas();
   }));
   grid.querySelectorAll('[data-suc-borrar]').forEach(btn => btn.addEventListener('click', async () => {
-    if (!(await ocConfirm(`Delete location "${btn.dataset.nombre}". Only possible if it has no assigned racks.`, { danger: true }))) return;
+    if (!(await ocConfirm(`Delete location "${btn.dataset.nombre}". Only possible if it has no assigned shelves.`, { danger: true }))) return;
     const res = await fetch(`${API}/sucursales/${btn.dataset.sucBorrar}`, { method:'DELETE' });
     const r = await res.json(); if (!res.ok) { await ocAlert(r.error); return; }
     cargarPerchas();
@@ -5877,7 +5878,7 @@ async function cargarComisiones(){
   const btnExport = `<button class="ir" style="margin-bottom:16px;background:#2C3E50;color:#fff;border-color:#0F1923;" onclick="exportarComisionesCSV()">⬇ Export CSV</button>`;
 
   if (filas.length === 0){
-    cont.innerHTML = btnWA + `<p>You don't have racks that generate commission yet (partner, franchise, or consignment). Create them in Inventory → Racks.</p>`;
+    cont.innerHTML = btnWA + `<p>You don't have shelves that generate commission yet (partner, franchise, or consignment). Create them in Inventory → Shelves.</p>`;
     return;
   }
 
@@ -6657,11 +6658,40 @@ if ("serviceWorker" in navigator) {
     const K = "f123_version_vista";
     const prev = localStorage.getItem(K);
     if (prev === v) return;
+    /* ANTI-LOOP ROBUSTO (JFC 2026-08-28, sistema de integridad de versión):
+       si el deploy está a medias o la red devuelve algo raro, no queremos un
+       bucle infinito de recargas. Se guarda la versión ANTES de recargar (ya
+       existía) y además un contador con timestamp: si se recarga más de 3
+       veces en 30s, se para y se deja la app como está (mejor servir algo que
+       recargar sin fin). */
+    const KI = "f123_version_intento";
+    try {
+      const ahora = Date.now();
+      const it = JSON.parse(localStorage.getItem(KI) || "null");
+      if (it && (ahora - it.ts) < 30000) {
+        if (it.n >= 3) { localStorage.setItem(K, v); return; } // tope: no más recargas
+        it.n += 1; it.ts = ahora; localStorage.setItem(KI, JSON.stringify(it));
+      } else {
+        localStorage.setItem(KI, JSON.stringify({ n: 1, ts: ahora }));
+      }
+    } catch (_) {}
     localStorage.setItem(K, v);
     // Sin excepcion de primera visita: los dispositivos atascados en una
     // version vieja nunca guardaron esta clave — tambien necesitan la purga.
     try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
-    try { const cs = await caches.keys(); for (const c of cs) { try { await caches.delete(c); } catch (_) {} } } catch (_) {}
+    /* JFC 2026-08-28 (Fix A3): purgar SOLO las caches del shell (f123-shell-*),
+       nunca las de fuentes ni datos. Antes se borraban TODAS las caches
+       (caches.keys() → delete), lo que rompía el offline-first si la red caía
+       durante el reload. */
+    try { const cs = await caches.keys(); for (const c of cs) { if (c.indexOf("f123-shell-") === 0) { try { await caches.delete(c); } catch (_) {} } } } catch (_) {}
+    /* RECARGA COORDINADA (JFC 2026-08-28): avisar a las OTRAS pestañas abiertas
+       para que recarguen juntas, en vez de dejar una pestaña vieja viva
+       sirviendo código mixto. Cada pestaña escucha el canal y recarga. */
+    try {
+      const bc = new BroadcastChannel("f123-version");
+      bc.postMessage({ tipo: "recargar", v: v });
+      setTimeout(function () { try { bc.close(); } catch (_) {} }, 500);
+    } catch (_) {}
     /* RELOAD FORZADO DE VERSIÓN (JFC 2026-08-28). JFC aclaró: se debe FORZAR la
        siguiente versión de inmediato — para no servir a nadie la app
        desactualizada. No se espera inactividad ni se retrasa. La sesión
@@ -6669,6 +6699,40 @@ if ("serviceWorker" in navigator) {
        recargar, así que el reload fuerza la actualización SIN sacar al usuario
        logueado al candado. */
     location.reload();
+  } catch (_) {}
+})();
+
+/* COMPATIBILIDAD DE VERSIÓN + RECARGA COORDINADA (JFC 2026-08-28, sistema de
+   integridad de versión). La app le pregunta al service worker qué shell está
+   sirviendo (la cache activa f123-shell-vNN) y lo compara con el shell que
+   version.json declara. Si el SW sirve un shell distinto al publicado (mezcla
+   de versiones), se fuerza una recarga coordinada UNA vez. También se escucha
+   el canal BroadcastChannel("f123-version") para recargar cuando otra pestaña
+   detecta una versión nueva. */
+(function verificarCompatibilidadVersion() {
+  try {
+    const esperado = (function () { try { return (JSON.parse(localStorage.getItem("f123_version_vista") || "null") || "").split("|")[1] || ""; } catch (_) { return ""; } })();
+    if (esperado && ("caches" in window)) {
+      caches.keys().then(function (nombres) {
+        const activa = (nombres.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
+        if (activa && esperado && activa !== esperado) {
+          try { console.warn("[version] el SW sirve " + activa + " pero version.json pide " + esperado + " — recargando."); } catch (_) {}
+          try { localStorage.setItem("f123_version_vista", esperado); } catch (_) {}
+          location.reload();
+        }
+      }).catch(function () {});
+    }
+  } catch (_) {}
+  try {
+    const bc = new BroadcastChannel("f123-version");
+    bc.onmessage = function (ev) {
+      try {
+        if (ev && ev.data && ev.data.tipo === "recargar") {
+          try { localStorage.setItem("f123_version_vista", ev.data.v || ""); } catch (_) {}
+          location.reload();
+        }
+      } catch (_) {}
+    };
   } catch (_) {}
 })();
 

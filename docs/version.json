@@ -1,9 +1,9 @@
 {
-  "version": "1.7.34",
+  "version": "1.7.35",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.34 — El shell v146 (reload de versión que no pasa por el candado) nunca se bumpió en sw.js, así que el cel seguía sirviendo el shell v139. Ahora el shell v147 llega a todos: Rotate team license solo para el lord, Activate reconcilia la identidad partida, y el rótulo de la huella de inventario ya no se confunde con un id de dispositivo.",
+  "changelog": "v1.7.35 — Sistema de integridad de versión: version-manifest.json con SHA-256 por archivo del shell, verificación SRI-style en el precache del service worker, autodiagnóstico R5 con hashes, recarga coordinada entre pestañas (BroadcastChannel), anti-loop y purga solo de caches del shell. Fix del bug de join (el switch de tienda nunca ocurría: unirse a otra licencia contaminaba la tienda propia). Estrellas engarzadas en la esquina trunca de My Products. 'Advanced mode' → 'Advanced controls'. Icono de Commissions: martillo → balanza de justicia. UI estandarizada a 'shelf' (antes mezclaba rack/shelf).",
   "requerida": false,
-  "shell": "f123-shell-v147",
+  "shell": "f123-shell-v148",
   "apagar": [],
-  "releaseName": "v1.7.34"
+  "releaseName": "v1.7.35"
 }

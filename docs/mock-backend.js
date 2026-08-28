@@ -1874,18 +1874,27 @@
          ocurre en memoria al reconectar, y recargar aquí vaciaría el estado
          local que el merge debe sumar. El resto del flujo es idéntico. */
       const sinRecargar = !!(opts && opts.sinRecargar);
+      /* JFC 2026-08-28 (bug de join): la tienda de la que se sale. Si el caller
+         pasó `desde` (capturado ANTES de tocar licenseCode), se usa esa; si no,
+         la activa actual. Sin esto, unirse()/reconciliar() que escriben
+         licenseCode ANTES de cambiar() hacían que _licenciaPropia() devolviera
+         el código NUEVO y sufDest siempre cayera a "" (la propia) → el switch
+         de tienda NUNCA ocurría y el aparato mergeaba datos ajenos en su
+         tienda propia (contaminación cruzada). */
+      const desde = (opts && opts.desde) ? _normLic(opts.desde) : _licenciaActual();
       // Registro licencia -> sufijo.
       let reg = {};
       try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
       // Asegurar que la tienda ACTUAL esté registrada (para poder volver a ella).
-      const licAct = _licenciaActual();
+      const licAct = desde;
       if (licAct && !(licAct in reg)) reg[licAct] = OC_STATE_SUFIJO;
       /* SUFIJO DESTINO por NAMESPACE, no por comparación de licencias (JFC
          2026-08-26). El bug: "misma tienda" se decidía con norm===_licenciaActual(),
          que depende de f123_owned.licenseCode — un dato frágil que puede no
          reflejar el namespace real. Resultado: aceptaba la licencia pero NO
          cambiaba de tienda. Ahora:
-           - si es la licencia de la tienda PROPIA, sufijo "" (la propia) SIEMPRE;
+           - si la licencia es la de la tienda en la que YA estás (`desde`),
+             sufijo = el ACTIVO (mismo:true, no recarga);
            - si no, y ya está registrada, se usa su sufijo;
            - si no, una tienda nueva namespaceada "::<lic>".
          Y "misma tienda" = el sufijo DESTINO es el MISMO que el ACTIVO. Así una
@@ -1897,8 +1906,15 @@
          unida ("::L") —basura de un join anterior—, esa entrada GANABA y te
          mandaba a la tienda namespaceada en vez de a TU CASA. Tu tienda propia
          debe ser siempre alcanzable como propia, pase lo que pase con el registro.
-         Por eso "¿es mi licencia propia?" se evalúa ANTES que el registro. */
-      let sufDest = (norm === _licenciaPropia()) ? "" : ((norm in reg) ? reg[norm] : ("::" + norm));
+         Por eso "¿es mi licencia propia?" se evalúa ANTES que el registro.
+         JFC 2026-08-28 (bug de join): la comparación se hace contra `desde` (la
+         tienda de la que se sale, capturada antes de tocar licenseCode), NO
+         contra _licenciaPropia(). unirse()/reconciliar() escriben licenseCode
+         ANTES de cambiar(); si se comparara contra _licenciaPropia() (que ya
+         devuelve el código NUEVO), sufDest siempre caería a "" y el switch de
+         tienda nunca ocurriría. Con `desde`, unirse a una licencia distinta
+         cambia a "::<lic>" (namespace aparte, sin pisar la tienda propia). */
+      let sufDest = (norm === desde) ? OC_STATE_SUFIJO : ((norm in reg) ? reg[norm] : ("::" + norm));
       reg[norm] = sufDest;
       try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
       if (sufDest === OC_STATE_SUFIJO) {
@@ -1935,6 +1951,10 @@
     reconciliar(licencia) {
       const norm = _normLic(licencia);
       if (!norm) return { ok: false, error: "Empty license." };
+      /* JFC 2026-08-28 (bug de join): capturar la tienda de la que se sale ANTES
+         de escribir licenseCode, y pasarla a cambiar() para que el destino sea
+         correcto (mismo bug que unirse()). */
+      const _desde = _licenciaActual();
       try {
         const ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
         ow.licenseCode = norm;
@@ -1952,7 +1972,7 @@
          el merge add-only ocurre en memoria al reconectar; recargar aquí vaciaría
          el estado local que el merge debe sumar. */
       try {
-        if (window.OCTienda && window.OCTienda.cambiar) window.OCTienda.cambiar(norm, { sinRecargar: true });
+        if (window.OCTienda && window.OCTienda.cambiar) window.OCTienda.cambiar(norm, { sinRecargar: true, desde: _desde });
       } catch (_) {}
       // NO se llama a _vaciarTiendaFresca(): los datos locales se conservan para que
       // el merge posterior los sume a la tienda canónica.

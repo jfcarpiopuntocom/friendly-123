@@ -539,7 +539,7 @@
         <p style="margin:8px 0 0;font-size:13px;color:#5A6270;">
           <b>Scope of this backup:</b> includes products, sales, clients, commissions, and business settings.
           The file is not encrypted — store it somewhere you trust.
-          For a full backup (including security keys and rack photos) use <b>Advanced → Export backup</b>.
+          For a full backup (including security keys and shelf photos) use <b>Advanced → Export backup</b>.
         </p>
       </div>
     `;

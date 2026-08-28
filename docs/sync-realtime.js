@@ -1213,6 +1213,12 @@
       } catch (_) { return { ok: false }; }
     },
     unirse(codigo) {
+      /* JFC 2026-08-28 (bug de join): capturar la tienda de la que se sale ANTES
+         de tocar licenseCode. unirse() escribe licenseCode abajo; si cambiar()
+         comparara contra _licenciaPropia() (que ya devuelve el código nuevo),
+         sufDest caería a "" y el switch nunca ocurriría. `desde` se pasa a
+         cambiar() para que el destino sea "::<lic>" (namespace aparte). */
+      const _desde = (window.OCTienda && window.OCTienda.licenciaActual) ? window.OCTienda.licenciaActual() : "";
       const r = this.activar(codigo);
       /* APROPIAR EL DISPOSITIVO AL UNIRSE (JFC 2026-08-26). Un aparato que se une
          a un equipo con licencia válida deja de ser DEMO: es un dispositivo REAL
@@ -1279,7 +1285,7 @@
         if (r && r.ok && window.OCTienda && window.OCTienda.cambiar) {
           const sala = leerSala();
           const cod = sala && sala.codigo ? sala.codigo : codigo;
-          const c = window.OCTienda.cambiar(cod); // recarga la página si cambia de tienda
+          const c = window.OCTienda.cambiar(cod, { desde: _desde }); // recarga la página si cambia de tienda
           /* MISMA TIENDA (JFC 2026-08-26): si la licencia tecleada es la de la
              tienda en la que YA estás, cambiar() no recarga (mismo:true). NO es
              callejón sin salida: se FUERZA una re-sincronización (reconecta +

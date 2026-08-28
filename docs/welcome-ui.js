@@ -80,7 +80,7 @@
       <p class="marca">friendly-123</p>
       <h2>Welcome</h2>
       <p class="tagline">Manage your business, in color</p>
-      <p class="formal">Inventory management · clients · commissions · racks</p>
+      <p class="formal">Inventory management · clients · commissions · shelves</p>
       <p class="cuerpo">Managing your business doesn't have to be complicated. Products talk in colors that light up when action is needed: green when everything's good, gold when money is waiting, red when it's time to move. Works offline. Your data is yours alone. No subscriptions, no ads.</p>
       <button id="am-welcome-tut" style="width:100%;min-height:46px;margin-bottom:8px;border-radius:8px;border:2px solid #E86040;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;cursor:pointer;">Take the guided tutorial</button>
       <button id="am-welcome-guia">See the guide</button>

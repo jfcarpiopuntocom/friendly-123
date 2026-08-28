@@ -27,6 +27,22 @@ if [ "$sw_ver" != "$vj_ver" ]; then
   falta=1
 fi
 
+# MANIFEST DE VERSION (JFC 2026-08-28, sistema de integridad de version):
+# version-manifest.json tiene que existir, estar al dia con version.json, y
+# regenerarse con node scripts/gen-manifest.js antes de cada push. Si el
+# manifest esta viejo, el SW y salud-app.js verificarian hashes equivocados.
+if [ ! -f docs/version-manifest.json ]; then
+  echo "FALTA docs/version-manifest.json — corre: node scripts/gen-manifest.js"
+  falta=1
+else
+  man_ver=$(grep -oE '"shell":\s*"f123-shell-v[0-9]+"' docs/version-manifest.json | grep -oE 'f123-shell-v[0-9]+' | head -1)
+  if [ "$man_ver" != "$vj_ver" ]; then
+    echo "MANIFEST DESACTUALIZADO: version-manifest.json dice $man_ver y version.json dice $vj_ver"
+    echo "  Corre: node scripts/gen-manifest.js"
+    falta=1
+  fi
+fi
+
 # G2 (JFC 2026-08-20, plan de guards): claves de localStorage/IndexedDB con
 # el prefijo de OTRA app hermana coladas por copy-paste sin adaptar -- la
 # clase de bug real que causo el hoyo de hechos.js/telemetry.js/etc. Corre el

@@ -333,11 +333,27 @@
       return out;
     }
 
-    async function verificarUno(nombre) {
+    async function verificarUno(nombre, esperado) {
       try {
         var cache = await caches.open(/* misma CACHE activa */ (await caches.keys()).filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
         var cacheada = await cache.match("./" + nombre);
         if (!cacheada) return; // no esta cacheado todavia, nada que verificar
+        /* JFC 2026-08-28 (sistema de integridad de versión): en vez de comparar
+           Content-Length (que puede coincidir con contenido corrupto), se
+           compara el SHA-256 real del archivo cacheado contra el hash esperado
+           del version-manifest.json. Si no cuadra, se re-pide a la red y se
+           repara la copia. */
+        if (esperado && esperado.indexOf("sha256-") === 0) {
+          var txt = await cacheada.clone().text();
+          var buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt));
+          var hex = Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+          if (("sha256-" + hex) === esperado) return; // integro, nada que hacer
+          try { console.warn("[integridad] " + nombre + " no cuadra con el manifest -- reparando."); } catch (_) {}
+          var fresca = await fetch("./" + nombre, { cache: "reload" });
+          if (fresca.ok) await cache.put("./" + nombre, fresca.clone());
+          return;
+        }
+        // Fallback (sin manifest): comparación por tamaño, como antes.
         var tamCacheado = Number(cacheada.headers.get("content-length")) || (await cacheada.clone().blob()).size;
         var fresca = await fetch("./" + nombre, { cache: "reload" });
         if (!fresca.ok) return; // sin red util ahora mismo: no se opina
@@ -352,8 +368,18 @@
     async function correr() {
       var lista = candidatos();
       if (!lista.length) return;
+      /* Cargar el manifest una vez (cache:"no-store" para no usar una copia
+         vieja) y verificar la muestra contra sus hashes. */
+      var hashes = null;
+      try {
+        var man = await fetch("./version-manifest.json", { cache: "no-store" });
+        if (man.ok) { var j = await man.json(); if (j && j.files) hashes = j.files; }
+      } catch (_) {}
       var muestra = elegirMuestra(lista, 3);
-      for (var i = 0; i < muestra.length; i++) await verificarUno(muestra[i]);
+      for (var i = 0; i < muestra.length; i++) {
+        var esperado = hashes ? (hashes["./" + muestra[i]] || null) : null;
+        await verificarUno(muestra[i], esperado);
+      }
     }
 
     if (document.readyState === "complete") setTimeout(correr, 4000);

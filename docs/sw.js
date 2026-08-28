@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v147"; // bumped 2026-08-28: v146 (reload de version no pasa por el candado) nunca se bumpió aquí — el cel seguía sirviendo el shell v139. v147: Rotate team license solo lord + Activate reconcilia identidad partida + rótulo de huella de inventario
+const CACHE = "f123-shell-v148"; // bumped 2026-08-28: sistema de integridad de version (version-manifest.json con SHA-256 por archivo, verificacion SRI-style en el precache, R5 con hashes, recarga coordinada entre pestanas via BroadcastChannel, anti-loop, purga solo de caches del shell) + fix del bug de join (switch de tienda) + estrellas engarzadas + Advanced controls + icono de justicia + rack/shelf -> shelf
 const SHELL = [
   "./",
   "./index.html",
@@ -71,6 +71,7 @@ const SHELL = [
   "./welcome-ui.js",
   "./tutorial-ui.js",
   "./event-bus.js", "./logger.js", "./telemetry.js", "./identity-context.js", "./feature-gate.js", "./audit-store.js", "./sync-queue.js", "./sync-outbox.js", "./ui-actions.js", "./salud-app.js", "./hechos.js", "./reconciliacion.js", "./cartera.js", "./plan-pagos.js", "./plan-pagos-ui.js", "./caja-chica.js", "./respaldo-empleado.js", "./edutips.js", "./manifest.json",
+  "./version-manifest.json",
 ];
 
 // Solo se cachean respuestas de estos orígenes — el propio y las fuentes.
@@ -102,7 +103,39 @@ self.addEventListener("install", (evento) => {
     evento.waitUntil(
       caches.open(CACHE).then((cache) => Promise.allSettled(
         SHELL.map((u) => cache.add(new Request(u, { cache: "reload" })).catch((e) => { try { console.warn("[SW] no se pudo precachear", u, e && e.message); } catch (_) {} }))
-      )).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} })
+      )).then(() => {
+        /* VERIFICACIÓN SRI-STYLE (JFC 2026-08-28, sistema de integridad de
+           versión). Tras precachear, se lee version-manifest.json (ya en la
+           cache) y se borra de la cache cualquier archivo del shell cuyo
+           SHA-256 no cuadre con el manifest. Así una copia corrupta o a medias
+           nunca se sirve: la próxima carga la re-pide a la red. Silencioso y
+           por archivo (no aborta el precache). */
+        try {
+          caches.open(CACHE).then((cache) => cache.match("./version-manifest.json").then((res) => {
+            if (!res) return;
+            res.json().then((man) => {
+              if (!man || !man.files) return;
+              const promesas = Object.keys(man.files).map((rel) => {
+                const esperado = man.files[rel];
+                if (typeof esperado !== "string" || esperado.indexOf("sha256-") !== 0) return Promise.resolve();
+                return cache.match(rel).then((r) => {
+                  if (!r) return;
+                  return r.text().then((txt) => {
+                    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt)).then((buf) => {
+                      const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+                      if (("sha256-" + hex) !== esperado) {
+                        try { console.warn("[SW] hash no cuadra, descartando copia corrupta:", rel); } catch (_) {}
+                        return cache.delete(rel);
+                      }
+                    });
+                  });
+                });
+              });
+              Promise.allSettled(promesas).catch(() => {});
+            }).catch(() => {});
+          })).catch(() => {});
+        } catch (_) {}
+      }).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} })
     );
   } catch (e) {
     // Blindaje 2026-08-25: si algo revienta ANTES de poder extender el

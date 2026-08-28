@@ -629,12 +629,24 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const T = window.OCTienda;
       if (T && T.esUnida && T.esUnida()) {
         let nom = (T.nombreActivo && T.nombreActivo().trim()) || "";
+        let sinSincronizar = false;
         if (!nom) {
           const lic = (T.licenciaActual && T.licenciaActual()) || "";
-          nom = lic ? ("Team · …" + String(lic).slice(-6)) : "";
+          nom = lic ? ("Team · ..." + String(lic).slice(-6)) : "";
+          /* JFC 2026-08-28 (A2, "se pierde todo"): una tienda unida recién
+             creada no tiene nombre ni datos hasta que el sync trae lo del
+             equipo. Antes solo se veía el nombre/cola de licencia y, al entrar,
+             la tienda parecía vacía (el usuario creía que perdió todo). Ahora se
+             añade una nota clara de que está sincronizando. */
+          sinSincronizar = true;
         }
         if (!nom) { el.style.display = "none"; return; }
         _pintar(nom);
+        if (sinSincronizar) {
+          el.innerHTML += '<div style="margin-top:6px;font-size:12px;color:var(--gold,#9c7a35);">'
+            + _esc(window.t("sync.panel.joined", "Joined. This device is now syncing with the team."))
+            + '</div>';
+        }
         return;
       }
       /* RAMA TIENDA PROPIA (JFC 2026-08-26): SÍ mostrar el nombre de la tienda —
