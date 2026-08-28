@@ -724,7 +724,7 @@
         const _presentes = [_lic, _syncCode, _sala].filter(Boolean).map(_norm);
         const _coherente = _presentes.length <= 1 || _presentes.every((x) => x === _presentes[0]);
         const lineas = [
-          "Role of this device: " + (esLord ? "LORD (super-admin) — joins are GUEST / under observation, license not adopted" : "normal — joining a license makes this a device of that business"),
+          "Role of this device: " + (esLord ? "LORD (super-admin) — joining a license adopts it as this device's store (audited)" : "normal — joining a license makes this a device of that business"),
           "Connection:   " + (S.estado ? S.estado() : "?") + "   (peers online: " + (S.presencia ? S.presencia() : "?") + ")",
           "Sync room (where data actually syncs): " + (_sala || "(off)"),
           "This device's own license (identity):  " + (_lic || "(none)"),
@@ -1252,11 +1252,11 @@
                 PIN
               </button>
               ${puedePromover ? `
-                <button data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}"
-                  style="font-size:13px;padding:5px 10px;border:2px solid #E87A10;
-                         border-radius:5px;background:transparent;color:#E87A10;cursor:pointer;margin-left:4px;">
-                  ${u.rol === "admin" ? "Demote to employee" : "Promote to admin"}
-                </button>
+                <select data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}" title="Change role"
+                  style="font-size:13px;padding:5px 8px;border:2px solid #E87A10;border-radius:5px;background:#fff;color:#7a4a00;cursor:pointer;margin-left:4px;">
+                  <option value="empleado" ${u.rol === "empleado" ? "selected" : ""}>Employee</option>
+                  <option value="admin" ${u.rol === "admin" ? "selected" : ""}>Admin</option>
+                </select>
               ` : ""}
             ` : `<span style="font-size:13px;color:var(--ink-soft);">Owner only</span>`}
           </td>`;
@@ -1302,11 +1302,12 @@
         });
       });
 
-      // Bind: promover/degradar (solo dueño ve el botón, ver puedePromover arriba)
+      // Bind: promover/degradar (solo dueño ve el selector, ver puedePromover arriba)
       tbody.querySelectorAll("[data-cambiar-rol]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("change", async () => {
           const id = btn.dataset.cambiarRol;
-          const rolNuevo = btn.dataset.rolActual === "admin" ? "empleado" : "admin";
+          const rolNuevo = btn.value;
+          if (rolNuevo === btn.dataset.rolActual) return;
           try {
             const r = await fetch("/api/usuarios/" + id, {
               method: "PATCH", headers: { "Content-Type": "application/json" },

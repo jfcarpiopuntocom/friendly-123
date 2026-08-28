@@ -1230,6 +1230,18 @@
           var _codNorm = normalizarCodigo(codigo);
           if (_esLord()) {
             _registrarAcceso(_codNorm);
+            /* LORD ADOPTA SU PROPIA TIENDA AL UNIRSE (JFC 2026-08-28). "Join
+               this notebook" es una acción DELIBERADA de volverse esa tienda.
+               Antes el lord NUNCA adoptaba la licencia (solo registraba el
+               acceso), así que al entrar su canónica la PC seguía reportando la
+               licencia vieja (K7M2 de idiomARTE) y el panel la mostraba mal.
+               El guardrail de "no contar el aparato de JFC como device del
+               cliente" ya lo cubre el panel (esMio: lo manda al fondo y lo
+               cuenta como "+N tuyos"). Se mantiene el registro de auditoría. */
+            if (_codNorm && /^F123-/.test(_codNorm)) {
+              _ow.licenseCode = _codNorm;
+              _ow.syncCode = _codNorm;
+            }
           } else if (_codNorm && /^F123-/.test(_codNorm)) {
             _ow.licenseCode = _codNorm; // se vuelve device de ese negocio (cuenta en el panel)
           }

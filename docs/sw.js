@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v131"; // bumped 2026-08-27: ventas con notas + cliente nuevo desde panel, borrado de clientes con registro, caja chica en Gastos, comisionista en producto, comisiones como amigable (editor/escalas/RFM/origen/trato de percha)
+const CACHE = "f123-shell-v132"; // bumped 2026-08-28: header/intro de Gastos, tipografía mobile-first y tablas compactas en móvil, promote/demote por selector de rol, lord adopta su tienda al unirse, panel ordena por identidad; + soporte-visual.js al SHELL (faltaba desde v131)
 const SHELL = [
   "./",
   "./index.html",
@@ -61,6 +61,7 @@ const SHELL = [
   "./auth-ui.js",
   "./backup-scheduler.js",
   "./avanzado-extra.js",
+  "./soporte-visual.js",
   "./geo-ping.js",
   "./novedades.js",
   "./help-ui.js",

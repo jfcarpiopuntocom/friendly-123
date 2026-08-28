@@ -868,13 +868,29 @@ function licRenderTabla(data) {
      licencia del cliente; esto ordena lo que ya quedó mezclado.) */
   const MI_CORREO = "jfcarpio@gmail.com";
   const esMio = (r) => String(r && r.email || "").trim().toLowerCase() === MI_CORREO;
+  /* PUNTUACIÓN DE IDENTIDAD (JFC 2026-08-28: "idiomARTE CUE / Sarah HB debe
+     estar en la primera fila"). La fila la encabeza el device con la identidad
+     más completa (nombreNegocio + nombre/apellido), no solo el más reciente.
+     Antes, si el device más reciente no tenía nombre de negocio, el cliente
+     real (idiomARTE / Sarah HB) quedaba plegado e invisible. Es solo orden de
+     presentación; no toca datos ni agrupamiento. */
+  const puntajeIdentidad = (r) => {
+    let p = 0;
+    if (String(r && r.nombreNegocio || "").trim()) p += 2;
+    if (String(r && r.nombre || "").trim()) p += 1;
+    if (String(r && r.apellido || "").trim()) p += 1;
+    if (String(r && r.email || "").trim()) p += 1;
+    return p;
+  };
   _licTodos = [];
   grupos.forEach(g => { g.filas.forEach(f => _licTodos.push(f)); });
   grupos.forEach(g => {
     if (g.filas.length > 1) {
       const cliente = g.filas.filter(x => !esMio(x));
       const mios = g.filas.filter(x => esMio(x));
-      if (cliente.length) g.filas = cliente.concat(mios); // el cliente encabeza
+      // El cliente con la identidad más completa encabeza; desempata por lastSeen.
+      cliente.sort((a, b) => (puntajeIdentidad(b) - puntajeIdentidad(a)) || (new Date(b.lastSeen || 0) - new Date(a.lastSeen || 0)));
+      g.filas = cliente.concat(mios);
     }
   });
 

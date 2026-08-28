@@ -489,7 +489,7 @@
     margin:0;
     font-family:var(--font-serif);
     font-weight:400;
-    font-size:26px;
+    font-size:22px;
     letter-spacing:0.01em;
   }
   header .slogan-app{
@@ -663,7 +663,7 @@
     margin:0 0 4px 0;
     font-family:var(--font-serif);
     font-weight:400;
-    font-size:20px;
+    font-size:18px;
     line-height:1.12;
   }
   .hero-semaforo p{
@@ -691,7 +691,7 @@
   }
   .tarjeta .valor{
     font-family:var(--font-serif);
-    font-size:30px;
+    font-size:24px;
     font-weight:400;
     color:var(--ink);
     margin-top:5px;
@@ -919,13 +919,13 @@
   }
   .ficha-producto .titulo{
     font-family:var(--font-serif);
-    font-size:26px;
+    font-size:22px;
     font-weight:400;
     color:var(--ink);
   }
   .ficha-producto .precio{
     font-family:var(--font-serif);
-    font-size:32px;
+    font-size:26px;
     color:var(--ambar);
     font-weight:400;
     font-style:italic;
@@ -1219,6 +1219,7 @@
     .grid-resumen{ grid-template-columns:repeat(4,1fr); gap:16px; }
     header h1{ font-size:25px; }
     .hero-semaforo h2{ font-size:20px; }
+    .tarjeta .valor{ font-size:26px; }
   }
 
   @media (min-width:768px) and (max-width:1023px){
@@ -1231,6 +1232,22 @@
     main{ max-width:1280px; }
     .grid-resumen{ gap:18px; }
     .tarjeta .valor{ font-size:28px; }
+    header h1{ font-size:28px; }
+    .hero-semaforo h2{ font-size:22px; }
+    .ficha-producto .titulo{ font-size:26px; }
+    .ficha-producto .precio{ font-size:30px; }
+  }
+
+  /* ================= MÓVIL: tablas navegables (JFC 2026-08-28) =============
+     Antes table.reporte forzaba min-width:420px dentro de .tabla-wrap con
+     overflow-x:auto → en el celular la tabla era imposible de recorrer (scroll
+     horizontal a ciegas). Ahora en pantallas angostas la tabla se compacta
+     (menos min-width y padding) para que quepa en el ancho del teléfono con
+     scroll mínimo. Mobile-first: en tablet/PC se mantiene la tabla con aire. */
+  @media (max-width:600px){
+    table.reporte{ min-width:320px; }
+    table.reporte th, table.reporte td{ padding:9px 10px; font-size:13px; }
+    table.reporte th{ font-size:12px; }
   }
 
   @media (max-width:380px){
@@ -1747,8 +1764,14 @@
 
   <!-- VISTA: GASTOS (2026-08-27) — registrar gastos individuales y ver gastos vs ingresos. -->
   <section id="vista-gastos" class="vista">
-    <h3 class="seccion" style="margin-top:0;" data-i18n="exp.heading">Expenses</h3>
-    <p style="font-size:14px;color:var(--ink-soft);margin-top:0;" data-i18n="exp.intro">Record what you spend and see it against what you earn — no spreadsheets, no surprises.</p>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:2px;">
+      <div style="width:6px;height:38px;border-radius:3px;background:linear-gradient(180deg,#C0392B,#F97316);flex:none;"></div>
+      <div>
+        <h3 class="seccion" style="margin:0;" data-i18n="exp.heading">Expenses</h3>
+        <div style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.1em;margin-top:1px;">Cash out · under control</div>
+      </div>
+    </div>
+    <p style="font-size:14px;color:var(--ink-soft);margin:8px 0 0;max-width:600px;" data-i18n="exp.intro">Record what you spend and see it against what you earn — no spreadsheets, no surprises.</p>
     <div id="gastosResumen" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
     <div class="panel-escaner tag-card" style="text-align:left;">
       <p style="margin:0 0 8px;font-size:14px;font-weight:700;" data-i18n="exp.record">Record an expense</p>
@@ -5610,7 +5633,13 @@ async function cargarGastos(){
     ventasMes = (dash && dash.resumenMes && dash.resumenMes.ventas) || 0;
   } catch (_) {}
   const totalGastos = gastos.reduce((a, g) => a + (Number(g.monto) || 0), 0);
-  const neto = ventasMes - totalGastos;
+  /* Enriquecimiento (JFC 2026-08-28): separar "este mes" de "todo el tiempo" y
+     que el neto compare el MISMO periodo (ventas del mes − gastos del mes).
+     Antes el neto mezclaba gastos de todo el tiempo con ventas del mes, un
+     número engañoso. */
+  const _mesActual = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); })();
+  const gastosMes = gastos.filter((g) => String(g.fecha || "").slice(0, 7) === _mesActual).reduce((a, g) => a + (Number(g.monto) || 0), 0);
+  const neto = ventasMes - gastosMes;
   const tarjeta = (label, valor, color) => `<div style="flex:1;min-width:120px;background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:12px 14px;">
     <div style="font-size:13px;color:var(--ink-soft);">${label}</div>
     <div style="font-size:20px;font-weight:700;color:${color};">${fmtMoney(valor)}</div></div>`;
@@ -5619,6 +5648,7 @@ async function cargarGastos(){
   const _rolG = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
   const _verIngresos = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
   if (resumen) resumen.innerHTML =
+    tarjeta("Expenses this month", gastosMes, "#C0392B") +
     tarjeta("Expenses (all time)", totalGastos, "#C0392B") +
     (_verIngresos
       ? tarjeta("Sales this month", ventasMes, "#006B3C") +

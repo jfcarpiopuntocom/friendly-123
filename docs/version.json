@@ -1,9 +1,9 @@
 {
-  "version": "1.7.18",
-  "fecha": "2026-08-27",
-  "changelog": "v1.7.18 — Ventas con notas y cliente nuevo desde el panel; borrado de clientes (dueño/admin) con registro; caja chica movida a Gastos; comisionista en el formulario de producto; comisiones como en amigable (editor de comisionista, escalas, matriz RFM, origen, editor de trato de percha).",
+  "version": "1.7.19",
+  "fecha": "2026-08-28",
+  "changelog": "v1.7.19 — Gastos con header/intro renovado y resumen por mes; tipografía mobile-first (menos grande en celular, más aire en PC); tablas compactas y navegables en móvil; promote/demote de roles por selector en Advanced/Team; el lord (JFC) adopta su tienda al unirse a una licencia; panel de licencias ordena por identidad (el negocio encabeza la fila).",
   "requerida": false,
-  "shell": "f123-shell-v131",
+  "shell": "f123-shell-v132",
   "apagar": [],
-  "releaseName": "v1.7.18"
+  "releaseName": "v1.7.19"
 }
