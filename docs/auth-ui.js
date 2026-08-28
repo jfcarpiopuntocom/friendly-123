@@ -564,6 +564,16 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     </div>`;
   document.body.appendChild(gate);
 
+  /* SIN FLASH DEL CANDADO TRAS RELOAD (JFC 2026-08-28). Si hay sesión activa
+     guardada (sessionStorage f123_sesion), el gate se oculta YA, en cuanto se
+     crea, para que el refresh forzado de versión aterrice directo en la UI
+     interna y el candado no parpadee ni un instante. El auto-login de abajo
+     completa la entrada cuando la migración de claves (listo) termina. */
+  try {
+    const _ses = JSON.parse(sessionStorage.getItem("f123_sesion") || "null");
+    if (_ses && _ses.rol) { gate.style.display = "none"; document.body.style.overflow = ""; }
+  } catch (_) {}
+
   /* APODO DEL DISPOSITIVO en el gate (JFC 2026-08-27). Pinta el apodo actual
      (si lo hay) y el lapicito abre un prompt que llama a OCMicelio.ponerApodo.
      El apodo ya se sincroniza con el equipo vía micelio; aquí solo se expone
@@ -1636,14 +1646,19 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
 
   /* AUTO-LOGIN TRAS RELOAD (JFC 2026-08-28). Si había sesión activa guardada
      en sessionStorage (ver entrar/cerrarSesion), se restaura al arrancar para
-     que el reload forzado de versión no saque al usuario al candado. Espera a
-     que la migración de claves (listo) termine antes de entrar. */
+     que el reload forzado de versión NO pase por el candado: se oculta el gate
+     INMEDIATAMENTE (sin esperar la migración de claves) y luego se entra. Así
+     el refresh forzado aterriza directo en la UI interna, sin flash del candado. */
   (async function () {
     try {
-      await listo;
       let ses = null;
       try { ses = JSON.parse(sessionStorage.getItem("f123_sesion") || "null"); } catch (_) {}
-      if (ses && ses.rol) entrar(ses.rol);
+      if (ses && ses.rol) {
+        // Ocultar el candado YA, antes de esperar listo, para que no haya flash.
+        try { gate.style.display = "none"; document.body.style.overflow = ""; } catch (_) {}
+        await listo;
+        entrar(ses.rol);
+      }
     } catch (_) {}
   })();
 })();

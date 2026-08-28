@@ -1,9 +1,9 @@
 {
-  "version": "1.7.32",
+  "version": "1.7.33",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.32 — Sync ultra-simplificado en Advanced: queda UNA sola forma de sync visible (la automática por licencia, en tiempo real). Se eliminaron el 'Remote sync' (PocketBase) y el 'Device sync' (copiar/pegar/WhatsApp/merge) — la redundancia vive en el backend, no como opciones que abruman. 'Transfers between locations' se movió de Advanced a Perchas (es operación de inventario entre ubicaciones). El reload de versión fuerza la siguiente versión de inmediato y, gracias a la sesión persistente, aterrizas de vuelta en la app, no en el candado.",
+  "changelog": "v1.7.33 — El refresh forzado de versión ya NO pasa por el candado: si hay sesión activa, el candado se oculta de inmediato al cargar y aterrizas directo en la UI interna (post-PIN), actualizada. El reload fuerza la siguiente versión para todos, sin sacar a nadie logueado al candado.",
   "requerida": false,
-  "shell": "f123-shell-v145",
+  "shell": "f123-shell-v146",
   "apagar": [],
-  "releaseName": "v1.7.32"
+  "releaseName": "v1.7.33"
 }
