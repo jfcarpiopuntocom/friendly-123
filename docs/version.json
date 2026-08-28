@@ -1,9 +1,9 @@
 {
-  "version": "1.7.28",
+  "version": "1.7.29",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.28 — Icono de Commissions ahora es un mazo de juez (justicia). La X de cerrar del modal de Buyers ya no sale opaca: ahora es una X con relieve (fondo blanco, borde negro, sombra). Nombres unificados en 'My': My products, My customers, My shelves. En Advanced, cada subsección termina con un 'volver arriba' (↑ Back to top / Volver arriba).",
+  "changelog": "v1.7.29 — Sync: autodiagnóstico en vivo en Advanced (prueba el relay desde el dispositivo, veredicto claro de qué falla, última actividad de sync, auto-refresco cada 5s). El panel 'Device sync' se limpia: las acciones manuales (copiar/pegar/WhatsApp) van plegadas en 'Backup & manual transfer' — el sync en tiempo real lo hace el backend solo.",
   "requerida": false,
-  "shell": "f123-shell-v141",
+  "shell": "f123-shell-v142",
   "apagar": [],
-  "releaseName": "v1.7.28"
+  "releaseName": "v1.7.29"
 }

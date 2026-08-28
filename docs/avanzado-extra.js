@@ -746,18 +746,48 @@
         const _norm = (x) => String(x || "").toUpperCase().replace(/\s+/g, "");
         const _presentes = [_lic, _syncCode, _sala].filter(Boolean).map(_norm);
         const _coherente = _presentes.length <= 1 || _presentes.every((x) => x === _presentes[0]);
+        /* AUTODIAGNÓSTICO EN VIVO (JFC 2026-08-28). El usuario lleva días con
+           dispositivos "desconectados entre sí" y el relay estaba bien. Para
+           saber QUÉ se rompe en cada aparato, este bloque prueba el relay DESDE
+           ESTE dispositivo (no desde el servidor) y cruza eso con el estado de
+           sync local. El veredicto dice en una línea qué falla y qué hacer. */
+        let relayOk = null; // null = probando, true/false = resultado
+        try {
+          const _r = await fetch("https://friendly123-sync-relay.jfcarpio.workers.dev/health", { method: "GET", cache: "no-store" });
+          relayOk = _r.ok && /ok/.test(await _r.text());
+        } catch (_) { relayOk = false; }
+        const _estado = (S.estado && S.estado()) || "?";
+        const _peers = (S.presencia && S.presencia()) || 0;
+        const _prob = !!(S.problemaPersistente && S.problemaPersistente());
+        // Última actividad de sync (check mutuo): la op más reciente del log,
+        // y si vino de OTRO dispositivo (prueba de que el equipo se habla).
+        let ultimaOp = null, ultimaOpAjena = null;
+        try {
+          const _log = JSON.parse(localStorage.getItem("f123_sync_log") || "[]");
+          if (Array.isArray(_log) && _log.length) {
+            const _miId = (S.deviceIdActual && S.deviceIdActual()) || "";
+            const _orden = _log.slice().sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+            ultimaOp = _orden[0] || null;
+            ultimaOpAjena = _orden.find((o) => o.deviceId && o.deviceId !== _miId) || null;
+          }
+        } catch (_) {}
+        // Veredicto: una línea clara de qué está mal y qué hacer.
+        let veredicto;
+        if (!_sala) veredicto = "SYNC OFF: this device has no room code. Enter your license above and press Activate.";
+        else if (relayOk === false) veredicto = "RELAY UNREACHABLE from this device: check this device's internet / firewall. The relay itself is up (verified from the server).";
+        else if (_estado === "conectado") veredicto = "CONNECTED: this device is on the relay room. " + (_peers > 0 ? ("Peers online: " + _peers + ". " + (ultimaOpAjena ? "Last data from a teammate: " + (ultimaOpAjena.fecha || "?") + "." : "No data from a teammate yet — their device must be on and synced.")) : "No peers online right now — the other device(s) must be open and connected to sync.");
+        else if (_prob) veredicto = "FAILING: this device has tried to connect many times without success. Check the room code matches your other device exactly (F123-...).";
+        else veredicto = "NOT CONNECTED (" + _estado + "): this device is not on the relay yet. If it stays like this, check the room code and this device's internet.";
         const lineas = [
-          "Role of this device: " + (esLord ? "LORD (super-admin) — joining a license adopts it as this device's store (audited)" : "normal — joining a license makes this a device of that business"),
-          "Connection:   " + (S.estado ? S.estado() : "?") + "   (peers online: " + (S.presencia ? S.presencia() : "?") + ")",
+          "VERDICT: " + veredicto,
+          "",
+          "Relay reachable from THIS device: " + (relayOk === null ? "checking..." : (relayOk ? "YES" : "NO")),
+          "Connection:   " + _estado + "   (peers online: " + _peers + ")",
           "Sync room (where data actually syncs): " + (_sala || "(off)"),
-          /* CONSOLIDACIÓN (JFC 2026-08-28): la licencia ES la sync code y la
-             password a la vez. Un solo código, un solo nombre. Antes se mostraban
-             licenseCode y syncCode como dos líneas, y cuando divergían (identidad
-             partida) confundía. Ahora una sola línea; si los campos internos
-             difieren, se marca SPLIT y se ofrece el botón de reparación. */
           "License (this is your sync code & password): " + (_lic || "(none)"),
           (_coherente ? "→ COHERENT: this device's identity, share code and sync room all match." :
             "→ ⚠ SPLIT: this device's identity is split across different codes. Enter your true license in the field above, then press 'Fix split identity'."),
+          "Last sync activity: " + (ultimaOp ? (ultimaOp.fecha || "?") + (ultimaOp.deviceId === ((S.deviceIdActual && S.deviceIdActual()) || "") ? " (this device)" : " (teammate)") : "none yet"),
           "Business name (this device): " + (owned.nombreNegocio || "(none)"),
           "Active store:  " + (T.esUnida && T.esUnida() ? ("JOINED  " + ((T.licenciaActual && T.licenciaActual()) || "?")) : "OWN (\"\")") ,
           "Store marker:  " + marcador,
@@ -769,6 +799,16 @@
         pre.textContent = lineas.join("\n");
       }
       try { pintarDiag(); } catch (_) {}
+      /* AUTO-REFRESCO DEL DIAGNÓSTICO (JFC 2026-08-28): el estado de sync cambia
+         solo (reconexión, peers que entran/salen). Re-pintar cada 5s mantiene el
+         veredicto al día sin que el usuario tenga que abrir/cerrar el desplegable.
+         Solo se pinta si el desplegable está abierto (no malgastar fetchs). */
+      try {
+        setInterval(function () {
+          const _wrap = document.getElementById("oc-sync-diag-wrap");
+          if (_wrap && _wrap.open) { try { pintarDiag(); } catch (_) {} }
+        }, 5000);
+      } catch (_) {}
       /* BOTÓN COPIAR (JFC 2026-08-28): copiar el diagnóstico a mano era
          doloroso. Un clic copia todo el texto al portapapeles y avisa. */
       try {
@@ -2751,24 +2791,35 @@ Keep it somewhere safe.`);
         <button id="oc-syncdev-activar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">${necesitaPin ? "Enter PIN to reactivate" : "Enable on this device (needs your PIN)"}</button>
       ` : `
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-          <button id="oc-syncdev-copiar" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">📋 Copy changes to send</button>
-          <button id="oc-syncdev-wa-cambios" class="ir" style="background:#25D366;color:#0a3d20;border-color:#1da851;">📲 Recent changes → WhatsApp</button>
-          <button id="oc-syncdev-wa-respaldo" class="ir" style="background:#128C7E;color:#e8fff7;border-color:#0c6b60;">📲 Full backup → WhatsApp</button>
-          <!-- SYNC POR QR — DORMANT (JFC 2026-08-21). NO BORRAR el codigo de
-               mostrarQRCambios()/escanearQRCambios() mas abajo.
-               Por que se retiro: pedia escanear con la app, y la app no tiene
-               lector propio en la mayoria de telefonos (en iPhone fallaba
-               siempre). Quien lo intentaba se quedaba a medio camino sin
-               entender por que. "Copy changes" hace lo mismo, funciona en todo
-               telefono y tiene la misma seguridad.
-               Para re-encenderlo: devolver estos dos botones. -->
-          <span></span>
           <button id="oc-syncdev-off" style="font-size:13px;padding:8px 12px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Disable</button>
         </div>
-        <div id="oc-syncdev-qr-zona" style="display:none;margin:10px 0;text-align:center;"></div>
-        <details><summary style="font-size:14px;cursor:pointer;color:var(--azul-medio);">Paste changes received from another device</summary>
-          <textarea id="oc-syncdev-pegar" rows="3" placeholder="Paste the text starting with OCSYNC1: here..." style="width:100%;margin-top:8px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);font-size:13px;"></textarea>
-          <button id="oc-syncdev-importar" class="ir" style="margin-top:8px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Import</button>
+        <!-- RESPALDO MANUAL PLEGADO (JFC 2026-08-28). El sync en tiempo real
+             (relay) ya mantiene los dispositivos al día solo. Estas acciones
+             manuales (copiar/pegar/WhatsApp) son la red de último recurso para
+             cuando no hay relay o el equipo estuvo apagado a la vez — por eso
+             van plegadas, no abruman al usuario normal. -->
+        <details style="margin-top:6px;padding-top:10px;border-top:1px solid var(--azul-suave,#dde5ec);">
+          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">Backup &amp; manual transfer (only if real-time sync is off)</summary>
+          <p style="font-size:13px;color:var(--ink-soft);margin:8px 0;">Real-time sync keeps your devices in step on its own. Use these only as a fallback — e.g. if a device was off while the team sold and needs to catch up.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <button id="oc-syncdev-copiar" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">📋 Copy changes to send</button>
+            <button id="oc-syncdev-wa-cambios" class="ir" style="background:#25D366;color:#0a3d20;border-color:#1da851;">📲 Recent changes → WhatsApp</button>
+            <button id="oc-syncdev-wa-respaldo" class="ir" style="background:#128C7E;color:#e8fff7;border-color:#0c6b60;">📲 Full backup → WhatsApp</button>
+            <!-- SYNC POR QR — DORMANT (JFC 2026-08-21). NO BORRAR el codigo de
+                 mostrarQRCambios()/escanearQRCambios() mas abajo.
+                 Por que se retiro: pedia escanear con la app, y la app no tiene
+                 lector propio en la mayoria de telefonos (en iPhone fallaba
+                 siempre). Quien lo intentaba se quedaba a medio camino sin
+                 entender por que. "Copy changes" hace lo mismo, funciona en todo
+                 telefono y tiene la misma seguridad.
+                 Para re-encenderlo: devolver estos dos botones. -->
+            <span></span>
+          </div>
+          <div id="oc-syncdev-qr-zona" style="display:none;margin:10px 0;text-align:center;"></div>
+          <details><summary style="font-size:14px;cursor:pointer;color:var(--azul-medio);">Paste changes received from another device</summary>
+            <textarea id="oc-syncdev-pegar" rows="3" placeholder="Paste the text starting with OCSYNC1: here..." style="width:100%;margin-top:8px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);font-size:13px;"></textarea>
+            <button id="oc-syncdev-importar" class="ir" style="margin-top:8px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Import</button>
+          </details>
         </details>
       `}`;
 
