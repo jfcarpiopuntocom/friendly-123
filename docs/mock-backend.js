@@ -1450,6 +1450,14 @@
     try { localStorage.setItem(OPS_APLICADAS_KEY, JSON.stringify([...s])); } catch (_) {}
   }
   function emitirOpStock(tipo, payload) {
+    /* A3 (2026-08-28): el delta viaja con el NOMBRE del producto, no solo el id.
+       Dos dispositivos del mismo negocio pueden tener el MISMO producto con ids
+       distintos (creado por separado en cada uno). El receptor (aplicarOpRemota)
+       usa el nombre como respaldo para aplicar el delta aunque el id no coincida.
+       Se enriquece aquí, en el único punto por donde pasan todas las ops de stock. */
+    if (payload && payload.productoId && !payload.nombre) {
+      try { const _pp = productos.find((x) => x.id === payload.productoId); if (_pp) payload.nombre = _pp.nombre; } catch (_) {}
+    }
     if (window.OCSyncEmit) { try { window.OCSyncEmit(tipo, payload); } catch (_) {} }
     // MYCELIUM PHASE B (2026-07-28). This is the only place where the stock
     // move has already happened AND the resulting stock is known. Emitting the
@@ -1808,15 +1816,20 @@
       });
     }
 
-    /* NOMBRE DE LA TIENDA (JFC 2026-08-27). Al unirse a un equipo, el aparato
-       adopta el nombre del negocio si el suyo está vacío — así sabe a qué tienda
-       entró. NO se pisa un nombre ya puesto (el dueño manda sobre el suyo). Se
-       persiste en f123_owned para que el candado/gate lo pinte, y se avisa a la UI. */
-    if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim() && !String(nombreNegocio || "").trim()) {
+    /* NOMBRE DE LA TIENDA (JFC 2026-08-27 + 2026-08-28). Al unirse a un equipo,
+       el aparato adopta el nombre del negocio. Regla de jerarquía (JFC 2026-08-28:
+       "la jerarquía le pertenece al PIN, el nombre sale del PIN de mayor jerarquía"):
+       se adopta si el local está vacío O si el remitente es el DUEÑO (mayor
+       jerarquía). Así el nombre que puso el dueño se propaga a todos y pisa los
+       nombres locales de los demás dispositivos. Se persiste en f123_owned y se
+       avisa a la UI. */
+    if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim() &&
+        (!String(nombreNegocio || "").trim() || rolRemoto === "dueno")) {
       nombreNegocio = remoto.nombreNegocio.trim().slice(0, 80);
       try {
         const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-        if (!String(_ow.nombreNegocio || "").trim()) { _ow.nombreNegocio = nombreNegocio; localStorage.setItem("f123_owned", JSON.stringify(_ow)); }
+        _ow.nombreNegocio = nombreNegocio;
+        localStorage.setItem("f123_owned", JSON.stringify(_ow));
       } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
     }
@@ -1976,11 +1989,10 @@
            Eran estado local que nunca se propagaba. Viajan por el mismo canal
            cifrado device-to-device, merge add-only en aplicarCatalogo. */
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })),
-        /* NOMBRE DE LA TIENDA VIAJA CON EL CATÁLOGO (JFC 2026-08-27: "no se
-           sincroniza el nombre de la tienda al unirse, es absurdo"). Era estado
-           local (nombreNegocio) que nunca se propagaba, así que quien se unía no
-           sabía a qué negocio entró. Ahora viaja; el receptor lo adopta solo si el
-           suyo está vacío (aplicarCatalogo), sin pisar un nombre ya puesto. */
+        /* NOMBRE DE LA TIENDA VIAJA CON EL CATÁLOGO (JFC 2026-08-27 + 2026-08-28).
+           Era estado local (nombreNegocio) que nunca se propagaba. Ahora viaja; el
+           receptor lo adopta si el suyo está vacío o si el remitente es el dueño
+           (mayor jerarquía) — ver aplicarCatalogo. */
         nombreNegocio: nombreNegocio || "",
         huella: huellaCatalogo(),
       };
@@ -1992,6 +2004,7 @@
        sobre cerrado. */
     estadoParaCheckpoint() {
       return {
+        nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia })),
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
@@ -2009,6 +2022,19 @@
     aplicarCheckpoint(snap) {
       try {
         if (!snap || !Array.isArray(snap.productos) || !Array.isArray(snap.ubicaciones)) return { ok: false, motivo: "ilegible" };
+        /* B3 (2026-08-28): el nombre de la tienda también llega por checkpoint.
+           Se adopta si el local está vacío (un dispositivo nuevo no tiene nombre
+           propio). El checkpoint no lleva rol del remitente, así que aquí no se
+           aplica la regla "el dueño gana" — esa corre por el catálogo en vivo. */
+        if (snap && typeof snap.nombreNegocio === "string" && snap.nombreNegocio.trim() && !String(nombreNegocio || "").trim()) {
+          nombreNegocio = snap.nombreNegocio.trim().slice(0, 80);
+          try {
+            const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+            _ow.nombreNegocio = nombreNegocio;
+            localStorage.setItem("f123_owned", JSON.stringify(_ow));
+          } catch (_) {}
+          try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
+        }
         /* MERGE ADD-ONLY EN CUALQUIER APARATO (JFC 2026-08-26). BUG RAÍZ del
            "no sincroniza ni entre mi PC y mi cel": antes, si el aparato tenía UNA
            sola venta propia, el checkpoint ENTERO se ignoraba (return no-fresco) —
@@ -2090,7 +2116,21 @@
       if (vistos.has(op.opId)) return { ok: true, repetida: true };
       const pl = op.payload;
       try {
-        const p = productos.find((x) => x.id === pl.productoId);
+        /* A3 (2026-08-28): respaldo por NOMBRE si el id no coincide. Dos
+           dispositivos del mismo negocio pueden tener el mismo producto con ids
+           distintos (creado por separado en cada uno). Antes el delta se
+           descartaba en silencio ("That product does not exist") y la venta del
+           celular no llegaba a la PC. Ahora, si no hay producto con ese id pero
+           hay EXACTAMENTE UNO con ese nombre, se aplica ahí y se deja constancia
+           en movimientos. Si hay dos con el mismo nombre, no se adivina. */
+        let p = productos.find((x) => x.id === pl.productoId);
+        if (!p && pl.nombre) {
+          const _porNombre = productos.filter((x) => String(x.nombre || "").trim().toLowerCase() === String(pl.nombre).trim().toLowerCase());
+          if (_porNombre.length === 1) {
+            p = _porNombre[0];
+            mov("alerta-id-producto", { producto: p.nombre, motivo: "El delta llegó con un id distinto; se aplicó por nombre (mismo producto en ambos dispositivos)." });
+          }
+        }
         if (!p) return { ok: false, error: "That product does not exist on this device (sync the catalog first)" };
         /* EL STOCK NO BAJA DE CERO (JFC 2026-08-21, reportado en produccion:
            "probe a sobrevender un item y quedo en -1 desde el celular").

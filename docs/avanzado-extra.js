@@ -636,7 +636,14 @@
          hueco del admin. */
       try {
         var _rolSync = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
-        if (_rolSync !== "dueno") {
+        /* A2 (2026-08-28): JFC es el lord/master admin y su panel ya separa sus
+           aparatos con esMio. Antes el claim/merge se ocultaba si el rol no era
+           "dueno", así que JFC (que entra como lord/soporte) no veía el botón
+           para re-apuntar su propia PC a la canónica. El lord también puede
+           rotar/re-emitir licencias (es quien las emite). */
+        var _esLordSync = false;
+        try { _esLordSync = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
+        if (_rolSync !== "dueno" && !_esLordSync) {
           ["oc-sync-rotar", "oc-sync-fixlic", "oc-sync-claim", "oc-sync-mergear"].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.style.display = "none";

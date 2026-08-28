@@ -1,9 +1,9 @@
 {
-  "version": "1.7.19",
+  "version": "1.7.20",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.19 — Gastos con header/intro renovado y resumen por mes; tipografía mobile-first (menos grande en celular, más aire en PC); tablas compactas y navegables en móvil; promote/demote de roles por selector en Advanced/Team; el lord (JFC) adopta su tienda al unirse a una licencia; panel de licencias ordena por identidad (el negocio encabeza la fila).",
+  "changelog": "v1.7.20 — Sync entre dispositivos: la venta de un producto llega a otro dispositivo aunque el id del producto difiera (respaldo por nombre); el botón Claim & merge ahora es visible para el lord (JFC); el nombre de la tienda se sincroniza y el del dueño (mayor jerarquía) gana.",
   "requerida": false,
-  "shell": "f123-shell-v132",
+  "shell": "f123-shell-v133",
   "apagar": [],
-  "releaseName": "v1.7.19"
+  "releaseName": "v1.7.20"
 }

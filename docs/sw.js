@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v132"; // bumped 2026-08-28: header/intro de Gastos, tipografía mobile-first y tablas compactas en móvil, promote/demote por selector de rol, lord adopta su tienda al unirse, panel ordena por identidad; + soporte-visual.js al SHELL (faltaba desde v131)
+const CACHE = "f123-shell-v133"; // bumped 2026-08-28: sync — la venta del celular llega a la PC aunque el id del producto difiera (guard por nombre), claim/merge visible para el lord, y el nombre de la tienda se sincroniza (el del dueño gana)
 const SHELL = [
   "./",
   "./index.html",

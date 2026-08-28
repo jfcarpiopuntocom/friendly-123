@@ -283,10 +283,11 @@
       if (_bufCat && pl.pushId && _bufCat.pushId && _bufCat.pushId !== pl.pushId) {
         _bufCat = null; // empuje viejo incompleto; empezar desde cero con el nuevo
       }
-      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], clientes: [], esperados: 0, vistos: 0, huella: "", rol: "", forzar: false, pushId: pl.pushId || null };
+      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], clientes: [], esperados: 0, vistos: 0, huella: "", rol: "", forzar: false, pushId: pl.pushId || null, nombreNegocio: "" };
       _bufCat.esperados = pl.deTotal || _bufCat.esperados;
       _bufCat.huella = pl.huella || _bufCat.huella;
       _bufCat.rol = pl.rol || _bufCat.rol;
+      if (pl.nombreNegocio) _bufCat.nombreNegocio = pl.nombreNegocio; // B2 (2026-08-28): el nombre de la tienda viaja con el catálogo
       if (forzar) _bufCat.forzar = true; // un EMPUJE (para:null) por un cambio real, no una respuesta a mi pedido
       if (Array.isArray(pl.filas)) {
         if (pl.tabla === "ubicaciones") _bufCat.ubicaciones = _bufCat.ubicaciones.concat(pl.filas);
@@ -296,7 +297,7 @@
       }
       _bufCat.vistos++;
       if (_bufCat.esperados && _bufCat.vistos >= _bufCat.esperados) {
-        var cat = { ubicaciones: _bufCat.ubicaciones, productos: _bufCat.productos, usuarios: _bufCat.usuarios, clientes: _bufCat.clientes || [], huella: _bufCat.huella };
+        var cat = { ubicaciones: _bufCat.ubicaciones, productos: _bufCat.productos, usuarios: _bufCat.usuarios, clientes: _bufCat.clientes || [], huella: _bufCat.huella, nombreNegocio: _bufCat.nombreNegocio || "" };
         var rol = _bufCat.rol; var forz = _bufCat.forzar; _bufCat = null;
         if (forz) {
           /* EMPUJE EN VIVO (JFC 2026-08-25): otro dispositivo del equipo cambio
@@ -624,7 +625,7 @@
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
         para: pedido.deviceId || null,
-        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length }, trozos[k]),
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, nombreNegocio: cat.nombreNegocio || "" }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
       try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
@@ -660,7 +661,7 @@
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
         para: null, // a todo el equipo, no a un solo pedido
-        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, pushId: pushId }, trozos[k]),
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, pushId: pushId, nombreNegocio: cat.nombreNegocio || "" }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
       try { ws.send(await cifrar(claveActual, op)); } catch (_) { return false; }
