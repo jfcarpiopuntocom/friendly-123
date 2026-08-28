@@ -283,11 +283,10 @@
       if (_bufCat && pl.pushId && _bufCat.pushId && _bufCat.pushId !== pl.pushId) {
         _bufCat = null; // empuje viejo incompleto; empezar desde cero con el nuevo
       }
-      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], clientes: [], esperados: 0, vistos: 0, huella: "", rol: "", forzar: false, pushId: pl.pushId || null, nombreNegocio: "" };
+      if (!_bufCat) _bufCat = { ubicaciones: [], productos: [], usuarios: [], clientes: [], esperados: 0, vistos: 0, huella: "", rol: "", forzar: false, pushId: pl.pushId || null };
       _bufCat.esperados = pl.deTotal || _bufCat.esperados;
       _bufCat.huella = pl.huella || _bufCat.huella;
       _bufCat.rol = pl.rol || _bufCat.rol;
-      if (pl.nombreNegocio) _bufCat.nombreNegocio = pl.nombreNegocio; // B2 (2026-08-28): el nombre de la tienda viaja con el catálogo
       if (forzar) _bufCat.forzar = true; // un EMPUJE (para:null) por un cambio real, no una respuesta a mi pedido
       if (Array.isArray(pl.filas)) {
         if (pl.tabla === "ubicaciones") _bufCat.ubicaciones = _bufCat.ubicaciones.concat(pl.filas);
@@ -297,7 +296,7 @@
       }
       _bufCat.vistos++;
       if (_bufCat.esperados && _bufCat.vistos >= _bufCat.esperados) {
-        var cat = { ubicaciones: _bufCat.ubicaciones, productos: _bufCat.productos, usuarios: _bufCat.usuarios, clientes: _bufCat.clientes || [], huella: _bufCat.huella, nombreNegocio: _bufCat.nombreNegocio || "" };
+        var cat = { ubicaciones: _bufCat.ubicaciones, productos: _bufCat.productos, usuarios: _bufCat.usuarios, clientes: _bufCat.clientes || [], huella: _bufCat.huella };
         var rol = _bufCat.rol; var forz = _bufCat.forzar; _bufCat = null;
         if (forz) {
           /* EMPUJE EN VIVO (JFC 2026-08-25): otro dispositivo del equipo cambio
@@ -625,7 +624,7 @@
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
         para: pedido.deviceId || null,
-        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, nombreNegocio: cat.nombreNegocio || "" }, trozos[k]),
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
       try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
@@ -661,7 +660,7 @@
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
         para: null, // a todo el equipo, no a un solo pedido
-        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, pushId: pushId, nombreNegocio: cat.nombreNegocio || "" }, trozos[k]),
+        payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, pushId: pushId }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
       try { ws.send(await cifrar(claveActual, op)); } catch (_) { return false; }
@@ -814,29 +813,6 @@
     try { ws.send(await cifrar(claveActual, r)); } catch (_) {}
   }
 
-  /* LISTA BLANCA DE ÓRDENES REMOTAS (JFC 2026-08-27). Bug latente arreglado:
-     ORDENES_PERMITIDAS se referenciaba en ordenPermitida() pero NUNCA se
-     definía → cualquier orden del tablero lanzaba ReferenceError que se tragaba
-     el try/catch y el tablero esperaba y hacía timeout. Ahora se define aquí,
-     estricta: solo estas rutas se pueden pedir desde el dashboard. El tablero
-     (tablero-avanzado.js) usa /api/usuarios, /api/actividad, /api/integridad,
-     /api/transferencias, /api/reportes/pl y /api/reportes/balance. Se añade
-     /micelio/apodo (POST) para que el tablero pueda renombrar un dispositivo. */
-  var ORDENES_PERMITIDAS = [
-    { m: "GET",  re: /^\/api\/usuarios$/ },
-    { m: "GET",  re: /^\/api\/directorio$/ }, // JFC 2026-08-28: directorio de acceso (quién tiene cada PIN)
-    { m: "PATCH", re: /^\/api\/usuarios\/[^/]+$/ },
-    { m: "POST", re: /^\/api\/usuarios$/ },
-    { m: "GET",  re: /^\/api\/actividad$/ },
-    { m: "GET",  re: /^\/api\/integridad$/ },
-    { m: "GET",  re: /^\/api\/transferencias$/ },
-    { m: "GET",  re: /^\/api\/reportes\/pl\?/ },
-    { m: "GET",  re: /^\/api\/reportes\/balance\?/ },
-    { m: "POST", re: /^\/micelio\/apodo$/ },
-    { m: "POST", re: /^\/micelio\/fixlic$/ }, // JFC 2026-08-28: soporte — dar licencia nueva completa
-    { m: "POST", re: /^\/micelio\/rotar$/ },  // JFC 2026-08-28: soporte — rotar licencia
-  ];
-
   function ordenPermitida(metodo, ruta) {
     return ORDENES_PERMITIDAS.some(function (p) { return p.m === metodo && p.re.test(ruta); });
   }
@@ -864,27 +840,6 @@
        conectados, no ejecutan la misma orden a la vez. Solo el primero que
        conteste importa; el tablero descarta las respuestas repetidas. */
     await new Promise((r) => setTimeout(r, Math.random() * 350));
-    /* ORDEN DE APODO (JFC 2026-08-27): el tablero puede renombrar un
-       dispositivo. Se orienta por `para` (deviceId): solo el dispositivo
-       destinatario la aplica, para que no la ejecuten todos los de la sala. */
-    if (metodo === "POST" && ruta === "/micelio/apodo") {
-      const para = String(p.para || "");
-      if (para && para !== deviceId()) return; // no es para este dispositivo
-      const apodo = String((p.cuerpo && p.cuerpo.apodo) || "").trim().slice(0, 28);
-      try { if (window.OCMicelio && window.OCMicelio.ponerApodo) window.OCMicelio.ponerApodo(apodo); } catch (_) {}
-      return responder({ ok: true, apodo: apodo }, true);
-    }
-    /* SOPORTE (JFC 2026-08-28): el dashboard pide dar una licencia nueva o
-       rotar la actual. Se ejecuta en ESTE dispositivo (window.ocDarLicenciaBuena
-       / ocRotarCodigoSala, expuestas por avanzado-extra.js). Solo el dueño. */
-    if (metodo === "POST" && (ruta === "/micelio/fixlic" || ruta === "/micelio/rotar")) {
-      if (rolActual() !== "dueno") return responder({ error: "Only the owner can do that." }, false);
-      try {
-        if (ruta === "/micelio/fixlic" && window.ocDarLicenciaBuena) window.ocDarLicenciaBuena();
-        if (ruta === "/micelio/rotar" && window.ocRotarCodigoSala) window.ocRotarCodigoSala();
-        return responder({ ok: true }, true);
-      } catch (_) { return responder({ error: "Could not run that action." }, false); }
-    }
     try {
       const opts = { method: metodo };
       let cuerpo = p.cuerpo || {};
@@ -967,12 +922,6 @@
   function normalizarCodigo(codigo) {
     var v = String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
     if (v.indexOf("TEAM-") === 0) v = "F123-" + v.slice(5);
-    /* Sustituciones Crockford (JFC 2026-08-27, refuerzo P0). I/L→1, O→0, igual
-       que _ocNormalizar() en auth-ui.js y que la máscara formatear(). Antes NO
-       se hacían aquí: el mismo código tecleado con "I"/"O" (copiado de un papel
-       o captura) caía en una sala DISTINTA a la de quien lo tecleó bien, y la
-       desincronización era silenciosa. Ahora ambos caminos normalizan igual. */
-    v = v.replace(/[IL]/g, "1").replace(/O/g, "0");
     return v;
   }
   /* SE ACABO EL CODIGO "TEAM-" (JFC 2026-08-21).
@@ -1133,15 +1082,6 @@
       if (!_prefijoOk || (_cuerpo.length !== 8 && _cuerpo.length !== 12 && _cuerpo.length !== 17)) {
         return { ok: false, error: "Invalid license — check that it is complete, in the format F123-XXXX-XXXX-XXXX-XXXXX." };
       }
-      /* AVISO, NO BLOQUEO (JFC 2026-08-27, refuerzo P1). Una licencia corta
-         (8/12 = formato viejo) o con checksum que no cuadra se ACEPTA igual
-         (guard, no puerta: no dejar fuera a quien tiene su licencia legítima),
-         pero se informa al dueño para que no entre a una sala vacía sin saber
-         por qué. El caller muestra r.warning si viene. */
-      var _aviso = "";
-      if (_cuerpo.length === 8 || _cuerpo.length === 12) {
-        _aviso = "Esta licencia parece corta (formato viejo). Revisa que esté completa: F123-XXXX-XXXX-XXXX-XXXXX.";
-      }
       if (_cuerpo.length === 17) {
         var _B32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ", _CHK = _B32 + "*~$=U", _acc = 0, _mal = false;
         for (var _i = 0; _i < 16; _i++) {
@@ -1160,40 +1100,13 @@
              quien SI tiene su licencia. Misma filosofia que
              ocLicenciaVerificada() en auth-ui.js ("guard, no puerta"). */
           try { console.warn("[sync] licencia sin simbolo de verificacion valido; se acepta igual (guard, no puerta)"); } catch (_) {}
-          if (!_aviso) _aviso = "El código no pasa la verificación. Revisa que esté bien tecleado (I/L valen 1, O vale 0).";
         }
       }
       try { localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm })); } catch (_) {}
-      /* ADOPTAR LA LICENCIA AL ACTIVAR (JFC 2026-08-27). Bug de entrada real:
-         "Sync your team" llamaba a activar(), que guardaba la sala de sync pero
-         NO actualizaba f123_owned.licenseCode. Así el aparato sincronizaba a la
-         sala correcta pero seguía reportando al panel una licencia vieja/trunca
-         (ej. F123-5HSG-JENF) y quedaba "rogue": no se unía a su licencia ni a
-         sus hermanos. Ahora la licencia que el dueño entra deliberadamente se
-         vuelve la del dispositivo — mismo criterio que ya tenía unirse().
-         Es una acción DELIBERADA del dueño, no autocuración: solo se escribe
-         cuando él teclea/pega un código. Se preserva la excepción del lord
-         (no adopta licencia ajena, registra el acceso). */
-      try {
-        if (/^F123-/i.test(codigoNorm)) {
-          var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-          if (_esLord()) {
-            _registrarAcceso(codigoNorm);
-          } else {
-            /* Se actualizan AMBOS (JFC 2026-08-27, refuerzo P1): licenseCode y
-               syncCode. Al entrar una licencia, la sala ES esa licencia, así
-               que syncCode debe seguirla. Antes solo se tocaba licenseCode y
-               quedaban divergentes (syncCode viejo). */
-            _ow.licenseCode = codigoNorm;
-            _ow.syncCode = codigoNorm;
-            localStorage.setItem("f123_owned", JSON.stringify(_ow));
-          }
-        }
-      } catch (_) {}
       reintentoMs = 1000;
       intentosSeguidos = 0;
       conectar();
-      return _aviso ? { ok: true, warning: _aviso } : { ok: true };
+      return { ok: true };
     },
     /* Fija la sala de sync a un código SIN conectar (JFC 2026-08-26, NB-1).
        La usa OCTienda.cambiar() al cambiar de tienda: cada tienda debe
@@ -1213,12 +1126,6 @@
       } catch (_) { return { ok: false }; }
     },
     unirse(codigo) {
-      /* JFC 2026-08-28 (bug de join): capturar la tienda de la que se sale ANTES
-         de tocar licenseCode. unirse() escribe licenseCode abajo; si cambiar()
-         comparara contra _licenciaPropia() (que ya devuelve el código nuevo),
-         sufDest caería a "" y el switch nunca ocurriría. `desde` se pasa a
-         cambiar() para que el destino sea "::<lic>" (namespace aparte). */
-      const _desde = (window.OCTienda && window.OCTienda.licenciaActual) ? window.OCTienda.licenciaActual() : "";
       const r = this.activar(codigo);
       /* APROPIAR EL DISPOSITIVO AL UNIRSE (JFC 2026-08-26). Un aparato que se une
          a un equipo con licencia válida deja de ser DEMO: es un dispositivo REAL
@@ -1229,9 +1136,20 @@
          entra con su PIN de equipo (sincronizado). Se hace ANTES del reload de
          cambiar() para que ya arranque apropiado. Idempotente: si ya tenía
          instanceId, no se toca. */
+      /* FUSIONADO EN UN SOLO TRY (JFC 2026-08-28, cierre de hueco de
+         auditoria C-JOIN1): antes esto eran DOS bloques try/catch
+         independientes. Si el primero escribia licenseCode en f123_owned y
+         el segundo fallaba en cambiar() (OCTienda ausente, excepcion, o
+         cambiar() devolviendo {ok:false}), el aparato quedaba "partido":
+         creyendose device de una licencia a la que nunca cambio de tienda
+         (viola el invariante de "sin escritura parcial" del diseno). Ahora
+         se guarda el f123_owned PREVIO y, si cambiar() no confirma
+         {ok:true}, se revierte antes de salir -- unirse() nunca deja
+         licenseCode adoptado sin la tienda real cambiada. */
       try {
         if (r && r.ok) {
           var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          var _owPrevioStr = JSON.stringify(_ow); // para revertir si cambiar() no confirma
           if (!_ow.instanceId) {
             _ow.instanceId = (self.crypto && self.crypto.randomUUID) ? self.crypto.randomUUID() : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
             _ow.activatedAt = _ow.activatedAt || Date.now();
@@ -1251,50 +1169,49 @@
           var _codNorm = normalizarCodigo(codigo);
           if (_esLord()) {
             _registrarAcceso(_codNorm);
-            /* LORD ADOPTA SU PROPIA TIENDA AL UNIRSE (JFC 2026-08-28). "Join
-               this notebook" es una acción DELIBERADA de volverse esa tienda.
-               Antes el lord NUNCA adoptaba la licencia (solo registraba el
-               acceso), así que al entrar su canónica la PC seguía reportando la
-               licencia vieja (K7M2 de idiomARTE) y el panel la mostraba mal.
-               El guardrail de "no contar el aparato de JFC como device del
-               cliente" ya lo cubre el panel (esMio: lo manda al fondo y lo
-               cuenta como "+N tuyos"). Se mantiene el registro de auditoría. */
-            if (_codNorm && /^F123-/.test(_codNorm)) {
-              _ow.licenseCode = _codNorm;
-              _ow.syncCode = _codNorm;
-            }
           } else if (_codNorm && /^F123-/.test(_codNorm)) {
             _ow.licenseCode = _codNorm; // se vuelve device de ese negocio (cuenta en el panel)
           }
           localStorage.setItem("f123_owned", JSON.stringify(_ow));
-        }
-      } catch (_) {}
-      /* CAMBIO DE TIENDA AL UNIRSE (JFC 2026-08-26 — reemplaza el "adoptar la
-         licencia" de 2026-08-25, que hacía merge y por eso el aparato SEGUÍA
-         mostrando su tienda local con otro nombre y los PINs del equipo no
-         entraban).
-         Modelo nuevo (multi-tienda): poner una licencia = VOLVERSE esa tienda.
-         La tienda propia queda guardada aparte; se vuelve a ella poniendo su
-         licencia otra vez. OCTienda.cambiar() flushea la tienda actual, apunta
-         el estado a la tienda de esta licencia y RECARGA — por eso esto va al
-         final y todo lo de abajo ya no se ejecuta tras el reload.
-         La sala (ROOM_KEY) ya quedó guardada por activar() y sobrevive el
-         reload, así que al reconectar los datos del equipo (PINs incluidos)
-         sincronizan hacia el namespace de ESTA tienda, no hacia la propia. */
-      try {
-        if (r && r.ok && window.OCTienda && window.OCTienda.cambiar) {
-          const sala = leerSala();
-          const cod = sala && sala.codigo ? sala.codigo : codigo;
-          const c = window.OCTienda.cambiar(cod, { desde: _desde }); // recarga la página si cambia de tienda
-          /* MISMA TIENDA (JFC 2026-08-26): si la licencia tecleada es la de la
-             tienda en la que YA estás, cambiar() no recarga (mismo:true). NO es
-             callejón sin salida: se FUERZA una re-sincronización (reconecta +
-             re-pide catálogo + jala el checkpoint del relay). Así, si estabas en
-             el namespace correcto pero el sync no había traído nada, este segundo
-             intento vuelve a jalar todo. */
-          if (c && c.mismo) {
-            try { reintentoMs = 1000; intentosSeguidos = 0; conectar(); } catch (_) {}
-            return { ok: true, mismo: true, error: "You're already in this store — re-syncing with the team now. If a teammate's device is on, their shelves and customers will land in a moment." };
+          /* CAMBIO DE TIENDA AL UNIRSE (JFC 2026-08-26 — reemplaza el "adoptar la
+             licencia" de 2026-08-25, que hacía merge y por eso el aparato SEGUÍA
+             mostrando su tienda local con otro nombre y los PINs del equipo no
+             entraban).
+             Modelo nuevo (multi-tienda): poner una licencia = VOLVERSE esa tienda.
+             La tienda propia queda guardada aparte; se vuelve a ella poniendo su
+             licencia otra vez. OCTienda.cambiar() flushea la tienda actual, apunta
+             el estado a la tienda de esta licencia y RECARGA — por eso esto va al
+             final y todo lo de abajo ya no se ejecuta tras el reload.
+             La sala (ROOM_KEY) ya quedó guardada por activar() y sobrevive el
+             reload, así que al reconectar los datos del equipo (PINs incluidos)
+             sincronizan hacia el namespace de ESTA tienda, no hacia la propia. */
+          if (window.OCTienda && window.OCTienda.cambiar) {
+            const sala = leerSala();
+            const cod = sala && sala.codigo ? sala.codigo : codigo;
+            let c = null;
+            try { c = window.OCTienda.cambiar(cod); } catch (_e) { c = null; } // recarga la página si cambia de tienda
+            if (!c || !c.ok) {
+              // cambiar() no confirmo: revertir f123_owned para no dejar el aparato
+              // "partido" (licencia adoptada sin haber cambiado de tienda).
+              try { localStorage.setItem("f123_owned", _owPrevioStr); } catch (_) {}
+              /* JOIN_CANT_CHANGE_STORE (JFC 2026-08-28): sin esto, unirse()
+                 caia al "return r" final con r={ok:true} de activar() y la UI
+                 pintaba "Joined" en verde aunque la tienda NUNCA cambio -- el
+                 rollback de arriba protegia el localStorage pero la persona
+                 se iba creyendo sincronizada sin estarlo. Se devuelve ok:false
+                 con codigo diagnosticable; el boton de Advanced ya pinta
+                 r2.error en oc-sync-msg cuando r2.ok es false. */
+              return { ok: false, error: "Could not join the shop right now — please try again or contact support. (code: JOIN_CANT_CHANGE_STORE)" };
+            } else if (c.mismo) {
+              /* MISMA TIENDA (JFC 2026-08-26): si la licencia tecleada es la de la
+                 tienda en la que YA estás, cambiar() no recarga (mismo:true). NO es
+                 callejón sin salida: se FUERZA una re-sincronización (reconecta +
+                 re-pide catálogo + jala el checkpoint del relay). Así, si estabas en
+                 el namespace correcto pero el sync no había traído nada, este segundo
+                 intento vuelve a jalar todo. */
+              try { reintentoMs = 1000; intentosSeguidos = 0; conectar(); } catch (_) {}
+              return { ok: true, mismo: true, error: "You're already in this store — re-syncing with the team now. If a teammate's device is on, their shelves and customers will land in a moment." };
+            }
           }
         }
       } catch (_) {}
