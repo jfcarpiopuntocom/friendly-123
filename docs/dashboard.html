@@ -397,10 +397,6 @@
         🔄 My devices aren't talking to each other<br>
         <span style="font-weight:400;font-size:12px;color:#5A6B7A;">Reconnect this device to your team</span>
       </button>
-      <button type="button" id="sop-rotar" style="padding:12px 16px;border:2px solid #E86040;border-radius:8px;background:#fff;color:#E86040;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
-        ⚠️ I think someone else has my license<br>
-        <span style="font-weight:400;font-size:12px;color:#5A6B7A;">Rotate to a brand-new license</span>
-      </button>
     </div>
     <p id="sop-msg" style="font-size:15px;font-weight:700;margin:12px 0 0;min-height:22px;"></p>
   </section>
@@ -1973,14 +1969,6 @@
       sopMsg("Pidiendo licencia nueva a tu dispositivo…", true);
       ordenar("POST", "/micelio/fixlic", {}).then(function (r) {
         sopMsg(r.ok ? "Listo — tu dispositivo generó la licencia nueva (mírala en la app)." : ((r.datos && r.datos.error) || "Tu dispositivo no contestó."), r.ok);
-      });
-    });
-    var bRot = $("sop-rotar");
-    if (bRot) bRot.addEventListener("click", function () {
-      if (!confirm("Esto rota a una licencia nueva para que quien la tenía antes ya no pueda entrar. ¿Continuar?")) return;
-      sopMsg("Rotando licencia…", true);
-      ordenar("POST", "/micelio/rotar", {}).then(function (r) {
-        sopMsg(r.ok ? "Listo — licencia rotada (mírala en la app)." : ((r.datos && r.datos.error) || "Tu dispositivo no contestó."), r.ok);
       });
     });
     var bRes = $("sop-resync");

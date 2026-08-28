@@ -1,9 +1,9 @@
 {
-  "version": "1.7.26",
+  "version": "1.7.27",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.26 — Directorio de acceso: cada PIN se asocia a una persona (nombre, correo, notas) al editarlo; el dashboard muestra 'Who has access' (quién tiene cada PIN). El botón 'My license is broken' salió de Sync y ahora vive en una sección de Support amigable en el dashboard, con botones según el tipo de problema.",
+  "changelog": "v1.7.27 — Pulido: el reload forzado de versión ya no saca al usuario logueado a mitad de uso (espera a que quede inactivo). Las tablas contables de Advanced caben en el celular (tipografía menor, sin scroll horizontal a ciegas). En Sold, 'Build a sale' ahora es 'Fill a basket' (canasta: Your basket / Check out). La estrella amarilla de 'promover' va justo en la esquina trunca de las tarjetas de Your Products. El botón de rotar licencia salió del dashboard (solo lord/agentes AI).",
   "requerida": false,
-  "shell": "f123-shell-v139",
+  "shell": "f123-shell-v140",
   "apagar": [],
-  "releaseName": "v1.7.26"
+  "releaseName": "v1.7.27"
 }
