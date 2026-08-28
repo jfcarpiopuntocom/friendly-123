@@ -1,9 +1,9 @@
 {
-  "version": "1.7.24",
+  "version": "1.7.25",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.24 — Nav 'Expenses' arreglado (ya no dice Nav.Expenses); Current access codes muestra los defaults (Staff 260, Accounting 357); los PINs se editan individualmente con lapicito (dueño edita los tres, admin solo el de encargado); el botón Claim & merge ya aparece tras entrar (gate re-ejecutable al login); sección Expenses fortificada con 'How does it work?'.",
+  "changelog": "v1.7.25 — Menú reordenado (Labels baja tras Expenses, antes de Advanced) e iconos renovados: Commissions usa una balanza de la justicia, Sold usa el signo $ correcto, Advanced usa una herramienta (ya no un sol idéntico a Today).",
   "requerida": false,
-  "shell": "f123-shell-v137",
+  "shell": "f123-shell-v138",
   "apagar": [],
-  "releaseName": "v1.7.24"
+  "releaseName": "v1.7.25"
 }
