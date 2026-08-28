@@ -663,10 +663,19 @@
              rotar/re-emitir licencias (es quien las emite). */
           var _esLordSync = false;
           try { _esLordSync = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
-          var _ocultar = _rolSync !== "dueno" && !_esLordSync;
-          ["oc-sync-rotar", "oc-sync-claim", "oc-sync-mergear"].forEach(function (id) {
+          /* JFC 2026-08-28: rotar la licencia del equipo es SOLO del lord (o de
+             sus agentes AI). Un dueño de licencia normal NO debe poder rotar la
+             licencia de su negocio — eso es license handling, cosa del lord.
+             Claim/merge de dispositivos propios SÍ es del dueño (re-apuntar su
+             propio aparato a la canónica), así que esos dos siguen con la regla
+             de dueño/lord. */
+          var _ocultarRotar = !_esLordSync;
+          var _ocultarClaim = _rolSync !== "dueno" && !_esLordSync;
+          var _rotar = document.getElementById("oc-sync-rotar");
+          if (_rotar) _rotar.style.display = _ocultarRotar ? "none" : "";
+          ["oc-sync-claim", "oc-sync-mergear"].forEach(function (id) {
             var el = document.getElementById(id);
-            if (el) el.style.display = _ocultar ? "none" : "";
+            if (el) el.style.display = _ocultarClaim ? "none" : "";
           });
         } catch (_) {}
       }
@@ -923,16 +932,18 @@
       }
       /* REPARAR IDENTIDAD PARTIDA (JFC 2026-08-28). Un clic alinea licenseCode,
          syncCode y sala de sync al código que el usuario puso en el campo de
-         arriba (o al que ya tiene como licencia). Reutiliza reconciliar(), que
-         ya deja los tres campos en el MISMO código sin vaciar datos locales. */
+         arriba. Reutiliza reconciliar(), que ya deja los tres campos en el MISMO
+         código sin vaciar datos locales.
+         JFC 2026-08-28: ANTES, si el campo estaba vacío, caía silenciosamente al
+         licenseCode actual — que puede ser el EQUIVOCADO (ej. una trunca vieja
+         como F123-5HSG-JENF) — y reconciliaba al código malo, empeorando el
+         SPLIT. Ahora exige la licencia verdadera en el campo: no reconciliar a
+         ciegas. */
       try {
         const _fixBtn = document.getElementById("oc-sync-diag-fix");
         if (_fixBtn) _fixBtn.addEventListener("click", function () {
           const campo = document.getElementById("oc-sync-codigo");
-          let cod = campo ? (campo.value || "").trim() : "";
-          if (!/^F123-/i.test(cod)) {
-            try { cod = (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseCode || ""; } catch (_) {}
-          }
+          const cod = campo ? (campo.value || "").trim() : "";
           if (!/^F123-/i.test(cod)) {
             alert("Enter your true license in the field above first, then press 'Fix split identity'.");
             return;
@@ -994,7 +1005,11 @@
           if (!el) return;
           const h = window.OCSync && window.OCSync.huella ? window.OCSync.huella() : null;
           el.textContent = h && h.corta ? " · " + h.corta : "";
-          el.title = h ? h.perchas + " shelves, " + h.productos + " products" : "";
+          /* JFC 2026-08-28: aclarar que #XXXX es la HUELLA DEL INVENTARIO (cambia
+             con tus datos), NO el id del dispositivo. El id firme del aparato es
+             su apodo/número estable. Antes el tooltip solo decía "N shelves, M
+             products" y la gente leía #XXXX como un id de device que "cambiaba". */
+          el.title = h ? ("Inventory fingerprint (changes with your data): " + h.perchas + " shelves, " + h.productos + " products. Your device's stable id is its nickname.") : "";
         } catch (_) {}
       }
       pintarHuella();
@@ -1009,6 +1024,21 @@
           if (e.key === "Enter") { e.preventDefault(); var b = document.getElementById("oc-sync-activar"); if (b) b.click(); }
         });
       })();
+      /* JFC 2026-08-28: detecta si el dispositivo está PARTIDO (licenseCode,
+         syncCode y sala de sync divergen). Es el mismo criterio que usa el
+         autodiagnóstico (pintarDiag) para marcar SPLIT. Se usa para que
+         "Activate" reconcilie del todo cuando el aparato está partido. */
+      function _estadoPartido() {
+        try {
+          const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          const _lic = _ow.licenseCode || "";
+          const _sync = _ow.syncCode || "";
+          const _sala = (window.OCSyncControl && window.OCSyncControl.salaActiva) ? (window.OCSyncControl.salaActiva() || "") : "";
+          const _norm = (x) => String(x || "").toUpperCase().replace(/\s+/g, "");
+          const _presentes = [_lic, _sync, _sala].filter(Boolean).map(_norm);
+          return _presentes.length > 1 && !_presentes.every((x) => x === _presentes[0]);
+        } catch (_) { return false; }
+      }
       document.getElementById("oc-sync-activar").addEventListener("click", (ev) => {
         const btn = ev.currentTarget;
         if (btn.disabled) return;
@@ -1024,8 +1054,23 @@
           btn.disabled = false;
           return;
         }
-        const r = window.OCSyncControl.activar(codigo);
         const msg = document.getElementById("oc-sync-msg");
+        /* JFC 2026-08-28: si el dispositivo está PARTIDO, "Activate" debe
+           RECONCILIAR del todo (alinear licenseCode+syncCode+sala+namespace de
+           tienda y resincronizar), no solo fijar la sala. Antes, un aparato
+           partido que entraba su licencia verdadera y pulsaba Activate seguía
+           mostrando el VERDICT viejo (SPLIT) porque activar() no alineaba el
+           namespace ni resincronizaba. reconcile() es el mismo fix que usa
+           "Fix split identity", y es seguro: para la licencia propia no cambia
+           de tienda (cambiar() devuelve mismo:true). */
+        const partido = _estadoPartido();
+        let r;
+        if (partido && /^F123-/i.test(codigo.trim()) && window.OCTienda && window.OCTienda.reconciliar) {
+          const rc = window.OCTienda.reconciliar(codigo.trim());
+          r = { ok: !!rc.ok, error: rc.error || "", warning: rc.error ? rc.error : "" };
+        } else {
+          r = window.OCSyncControl.activar(codigo);
+        }
         if (!r.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error; return; }
         /* AVISO, NO BLOQUEO (JFC 2026-08-27, refuerzo P1): si la licencia es
            corta o no pasa el checksum, se acepta igual pero se informa. */
@@ -1035,6 +1080,9 @@
         document.getElementById("oc-sync-activo").style.display = "block";
         document.getElementById("oc-sync-codigo-actual").textContent = (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(codigo.trim()) : codigo.trim());
         pintarQR(codigo.trim());
+        /* Refrescar el diagnóstico al instante para que el VERDICT deje de
+           mostrar el estado viejo (JFC 2026-08-28). */
+        try { pintarDiag(); } catch (_) {}
       });
       const btnCompartir = document.getElementById("oc-sync-compartir");
       if (btnCompartir) btnCompartir.addEventListener("click", () => {

@@ -1,9 +1,9 @@
 {
-  "version": "1.7.33",
+  "version": "1.7.34",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.33 — El refresh forzado de versión ya NO pasa por el candado: si hay sesión activa, el candado se oculta de inmediato al cargar y aterrizas directo en la UI interna (post-PIN), actualizada. El reload fuerza la siguiente versión para todos, sin sacar a nadie logueado al candado.",
+  "changelog": "v1.7.34 — El shell v146 (reload de versión que no pasa por el candado) nunca se bumpió en sw.js, así que el cel seguía sirviendo el shell v139. Ahora el shell v147 llega a todos: Rotate team license solo para el lord, Activate reconcilia la identidad partida, y el rótulo de la huella de inventario ya no se confunde con un id de dispositivo.",
   "requerida": false,
-  "shell": "f123-shell-v146",
+  "shell": "f123-shell-v147",
   "apagar": [],
-  "releaseName": "v1.7.33"
+  "releaseName": "v1.7.34"
 }
