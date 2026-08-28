@@ -1341,7 +1341,7 @@
     <span data-i18n="nav.customers">Customers</span>
   </button>
   <button data-vista="comisiones">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"></path><path d="M8 21h8"></path><path d="M12 6 4 10v1h16v-1L12 6z"></path><path d="M4 11l-1.6 3.2a2.4 2.4 0 0 0 3.2 0L4 11z"></path><path d="M20 11l-1.6 3.2a2.4 2.4 0 0 0 3.2 0L20 11z"></path></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0a2.12 2.12 0 0 1 0-3L11 10"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg>
     <span data-i18n="nav.commissions">Commissions</span>
   </button>
   <!-- GASTOS (2026-08-27): registrar gastos individuales y ver gastos vs ingresos. -->
@@ -1422,7 +1422,7 @@
   <!-- VISTA: INVENTARIO -->
   <section id="vista-inventario" class="vista">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
-      <h3 class="seccion" style="margin-top:0;flex:1;" data-i18n="inv.heading">Your products</h3>
+      <h3 class="seccion" style="margin-top:0;flex:1;" data-i18n="inv.heading">My products</h3>
       <!-- Alta libre (+): SOLO dueno. Se revela en cargarInventario() segun rol. -->
       <button id="btnAltaProducto" class="ir" style="display:none;padding:10px 16px;flex-shrink:0;" onclick="abrirAltaProducto()" data-i18n="inv.add">+ Add</button>
     </div>
@@ -1716,7 +1716,7 @@
        El encargado ve la lista y puede registrar clientes; los montos y la
        matriz de estaciones son SOLO del dueno (cargarClientes aplica el rol). -->
   <section id="vista-clientes" class="vista">
-    <h3 class="seccion" style="margin-top:0;" data-i18n="cust.heading">Your customers</h3>
+    <h3 class="seccion" style="margin-top:0;" data-i18n="cust.heading">My customers</h3>
     <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="cust.intro">Your whole customer list, live and searchable. Further down, the behavior read tells you who you can count on.</p>
     <details style="margin:-4px 0 12px;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
@@ -1830,6 +1830,7 @@
          no algo que se consulte varias veces al día como Hoy o Escanear. -->
     <h3 class="seccion" style="margin-top:0;" data-i18n="adv.recentActivity">Recent activity</h3>
     <div id="listaActividad" class="tag-card" style="text-align:left;max-height:280px;overflow-y:auto;"></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
 
     <h3 class="seccion" data-i18n="adv.timezoneHeading">Timezone</h3>
     <div class="panel-escaner tag-card" style="text-align:left;">
@@ -1837,6 +1838,7 @@
       <select id="selectTimezone" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;max-width:320px;"></select>
       <p id="msgTimezone" style="font-size:14px; margin-top:10px;"></p>
     </div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
 
     <h3 class="seccion" data-i18n="adv.monthlyExpenses">Monthly expenses</h3>
     <div class="panel-escaner tag-card" style="text-align:left;">
@@ -1850,15 +1852,19 @@
       <button class="ir" id="btnGuardarGastos" data-i18n="adv.save">Save</button>
       <p id="msgGastos" style="font-size:14px; margin-top:10px;"></p>
     </div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
 
     <h3 class="seccion" data-i18n="adv.pnlHeading">Profit &amp; loss (today)</h3>
     <div class="tabla-wrap"><table class="reporte" id="tablaPL"></table></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
 
     <h3 class="seccion" data-i18n="adv.balanceHeading">Simplified balance sheet</h3>
     <div class="tabla-wrap"><table class="reporte" id="tablaBalance"></table></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
 
     <h3 class="seccion" data-i18n="adv.valuedInvHeading">Valued inventory</h3>
     <div class="tabla-wrap"><table class="reporte" id="tablaValorizado"></table></div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
   </section>
 
 </main>
@@ -2407,7 +2413,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <strong id="oc-showcli-titulo" style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;"></strong>
         <button id="oc-showcli-imprimir" title="Print" style="font-size:14px;padding:6px 12px;border:2px solid #0F1923;border-radius:7px;background:#0F1923;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">🖨️</button>
-        <button id="oc-showcli-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;"></button>
+        <button id="oc-showcli-cerrar" title="Close" aria-label="Close" style="width:36px;height:36px;font-size:20px;line-height:1;cursor:pointer;color:#0F1923;background:#FFFFFF;border:2px solid #0F1923;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;flex:0 0 auto;">✕</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <label id="oc-showcli-filtro-label" for="oc-showcli-filtro" style="font-size:12px;font-weight:700;color:var(--ink-soft);white-space:nowrap;"></label>
@@ -2540,7 +2546,8 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
 
   window.addEventListener("oc-lang-change", function () {
     try {
-      cerrarBtn.textContent = t("sold.showCustomersClose");
+      cerrarBtn.title = t("sold.showCustomersClose");
+      cerrarBtn.setAttribute("aria-label", t("sold.showCustomersClose"));
       imprimirBtn.title = t("sold.showCustomersPrint");
       document.getElementById("oc-showcli-filtro-label").textContent = t("sold.showCustomersFilter");
       pintarTitulo();
@@ -6444,6 +6451,11 @@ document.getElementById("btnGuardarGastos").addEventListener("click", async () =
   msg.textContent = "Guardado. Actualizando el P&G...";
   cargarAvanzado();
 });
+
+function volverArribaAvanzado() {
+  const sec = document.getElementById("vista-avanzado");
+  if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 async function cargarAvanzado(){
   inicializarSelectorTimezone();

@@ -1,9 +1,9 @@
 {
-  "version": "1.7.27",
+  "version": "1.7.28",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.27 — Pulido: el reload forzado de versión ya no saca al usuario logueado a mitad de uso (espera a que quede inactivo). Las tablas contables de Advanced caben en el celular (tipografía menor, sin scroll horizontal a ciegas). En Sold, 'Build a sale' ahora es 'Fill a basket' (canasta: Your basket / Check out). La estrella amarilla de 'promover' va justo en la esquina trunca de las tarjetas de Your Products. El botón de rotar licencia salió del dashboard (solo lord/agentes AI).",
+  "changelog": "v1.7.28 — Icono de Commissions ahora es un mazo de juez (justicia). La X de cerrar del modal de Buyers ya no sale opaca: ahora es una X con relieve (fondo blanco, borde negro, sombra). Nombres unificados en 'My': My products, My customers, My shelves. En Advanced, cada subsección termina con un 'volver arriba' (↑ Back to top / Volver arriba).",
   "requerida": false,
-  "shell": "f123-shell-v140",
+  "shell": "f123-shell-v141",
   "apagar": [],
-  "releaseName": "v1.7.27"
+  "releaseName": "v1.7.28"
 }

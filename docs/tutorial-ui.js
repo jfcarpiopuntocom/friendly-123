@@ -22,7 +22,7 @@
         { titulo: "Your products speak in colors", texto: "Red: restock urgently. Yellow: check soon. Blue: good margin, push it. Green: all good. No numbers to interpret — the color tells you." },
         { titulo: "Sell in seconds", texto: "Scan the barcode (or type the SKU) and the sale is recorded with stock deducted. No cash registers, no extra steps." },
         { titulo: "Create your racks", texto: "A rack is a selling spot: your store, a partner's stand, a fair. Here you create them and assign products, with partner commission if it applies." },
-        { titulo: "Your customers", texto: "Register customers, rate service and reliability, and see their history. You decide who gets credit and who doesn't — with data." },
+        { titulo: "My customers", texto: "Register customers, rate service and reliability, and see their history. You decide who gets credit and who doesn't — with data." },
         { titulo: "Commissions without arguments", texto: "The app calculates on its own what each partner or promoter earns from what they sold. Settle with one tap and send the receipt via WhatsApp." },
         { titulo: "Advanced: your vault", texto: "Backups, PIN codes, recovery email, accounting reports and expenses. Everything lives on YOUR device — no cloud, no subscriptions." },
       ],
