@@ -52,7 +52,9 @@ function main() {
     version: version.version,
     shell: version.shell,
     algoritmo: "sha256",
-    generado: new Date().toISOString(),
+    /* Sin campo "generado": el manifest debe ser DETERMINISTA — solo cambia
+       cuando cambian los archivos del shell o la versión. Un timestamp haría
+       que git lo viera modificado en cada regeneración (ruido). */
     files,
   };
 

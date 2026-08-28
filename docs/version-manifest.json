@@ -2,7 +2,6 @@
   "version": "1.7.35",
   "shell": "f123-shell-v148",
   "algoritmo": "sha256",
-  "generado": "2026-08-28T07:13:05.344Z",
   "files": {
     "./index.html": "sha256-8f779918f9a83f91ddb465dea1c6cf721d4ef91f66dc9d1245e8d10b0819f389",
     "./aislamiento.js": "sha256-237d6aa8de2b55f2d90bdc5d5cae3e6fe60c0000d3b51b3fcdf05cd669a92c14",
