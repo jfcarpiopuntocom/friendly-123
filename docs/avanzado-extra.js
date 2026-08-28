@@ -561,6 +561,12 @@
         <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">${window.t("sync.panel.body")}</p>
         <p style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:0;">${window.t("sync.panel.privacy")}</p>
         <div id="oc-sync-estado" style="font-size:13px;font-weight:700;margin-bottom:10px;"></div>
+        <!-- REENGANCHE SELF-HELP (JFC 2026-08-28). Según el checkpoint del
+             autodiagnóstico, el botón del punto donde está trabado se pone
+             NARANJA (highlight = aquí se atascó) y es el desatorador/forzador;
+             los demás quedan inertes. Así el dueño/admin/encargado se desatasca
+             solo, sin llamar a soporte. -->
+        <div id="oc-sync-reenganche" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
         <!-- DIAGNÓSTICO REAL (JFC 2026-08-26): hechos crudos del estado de sync,
              para no adivinar. Solo el dueño lo ve (panel Avanzado). No es un popup
              ni toca la UI del cliente. -->
@@ -720,6 +726,68 @@
       pintarEstado();
       window.OCSyncControl.onEstado(pintarEstado);
 
+      /* REENGANCHE SELF-HELP (JFC 2026-08-28). Determina el checkpoint actual
+         del autodiagnóstico y pinta una fila de botones: el del punto donde
+         está trabado se pone NARANJA (highlight) y es el desatorador/forzador;
+         los demás quedan inertes (grises, sin click). El naranja es a la vez
+         indicador ("aquí se atascó") y parámetro de acción ("púlsame para
+         desatascarte"). */
+      function pintarReenganche() {
+        const box = document.getElementById("oc-sync-reenganche");
+        if (!box) return;
+        const S = window.OCSyncControl || {};
+        const _estado = (S.estado && S.estado()) || "?";
+        const _sala = (S.salaActiva && S.salaActiva()) || "";
+        const _prob = !!(S.problemaPersistente && S.problemaPersistente());
+        const _relayOk = window.__f123RelayOk; // lo setea pintarDiag()
+        // Checkpoint actual: el punto donde está trabado.
+        let activo = "conectar"; // default
+        if (!_sala) activo = "activar";
+        else if (_relayOk === false) activo = "relay";
+        else if (_estado === "conectado") activo = "resincronizar";
+        else if (_prob) activo = "reingresar";
+        else activo = "conectar";
+        const defs = [
+          { id: "activar",      label: "🔑 Activate sync",        hint: "No room code yet — enter your license" },
+          { id: "relay",        label: "📡 Test relay",           hint: "Relay unreachable from this device" },
+          { id: "conectar",     label: "🔌 Reconnect now",        hint: "Not connected to the room yet" },
+          { id: "reingresar",   label: "✏️ Re-enter license",     hint: "Failing to connect — check the code" },
+          { id: "resincronizar",label: "🔄 Resync now",           hint: "Connected — force a fresh sync" },
+        ];
+        box.innerHTML = "";
+        defs.forEach(function (d) {
+          const esActivo = d.id === activo;
+          const b = document.createElement("button");
+          b.type = "button";
+          b.textContent = d.label;
+          b.title = d.hint;
+          b.style.cssText = "font-size:12px;font-weight:700;padding:8px 12px;border-radius:6px;cursor:" + (esActivo ? "pointer" : "not-allowed") + ";border:2px solid " + (esActivo ? "#E86040" : "#C9D2DA") + ";background:" + (esActivo ? "#E86040" : "#F0F3F6") + ";color:" + (esActivo ? "#FFFFFF" : "#9AA7B2") + ";opacity:" + (esActivo ? "1" : "0.6") + ";";
+          if (esActivo) {
+            b.addEventListener("click", function () {
+              if (d.id === "activar") {
+                const campo = document.getElementById("oc-sync-codigo");
+                if (campo) { campo.focus(); campo.scrollIntoView({ behavior: "smooth", block: "center" }); }
+                const btn = document.getElementById("oc-sync-activar");
+                if (btn) btn.style.boxShadow = "0 0 0 3px rgba(232,96,64,.5)";
+              } else if (d.id === "relay") {
+                const pre = document.getElementById("oc-sync-diag");
+                if (pre) pre.textContent = "Testing relay from this device...";
+                try { pintarDiag(); } catch (_) {}
+              } else if (d.id === "reingresar") {
+                const campo = document.getElementById("oc-sync-codigo");
+                if (campo) { campo.focus(); campo.scrollIntoView({ behavior: "smooth", block: "center" }); }
+              } else {
+                // conectar / resincronizar → forzar reconexión ya
+                if (S.resincronizar) { try { S.resincronizar(); } catch (_) {} }
+              }
+            });
+          }
+          box.appendChild(b);
+        });
+      }
+      try { pintarReenganche(); } catch (_) {}
+      try { window.OCSyncControl.onEstado(function () { try { pintarReenganche(); } catch (_) {} }); } catch (_) {}
+
       /* DIAGNÓSTICO REAL DE SYNC (JFC 2026-08-26). Muestra los HECHOS crudos para
          no adivinar: con qué licencia está activado ESTE aparato, en qué tienda
          estás, a qué sala apunta el sync, si hay conexión y cuántos peers, y
@@ -756,6 +824,7 @@
           const _r = await fetch("https://friendly123-sync-relay.jfcarpio.workers.dev/health", { method: "GET", cache: "no-store" });
           relayOk = _r.ok && /ok/.test(await _r.text());
         } catch (_) { relayOk = false; }
+        window.__f123RelayOk = relayOk; // lo consume pintarReenganche()
         const _estado = (S.estado && S.estado()) || "?";
         const _peers = (S.presencia && S.presencia()) || 0;
         const _prob = !!(S.problemaPersistente && S.problemaPersistente());
@@ -797,6 +866,9 @@
           "Reading this: if you paste another business's license and 'Active store' still says OWN and the counts are YOUR numbers, the switch did NOT happen (that license is being treated as this device's own). If it says JOINED but counts are 0, you switched but their data has not synced in yet (needs their device to have pushed to the relay).",
         ];
         pre.textContent = lineas.join("\n");
+        // Tras actualizar el diagnóstico (p. ej. prueba de relay), re-pintar el
+        // reenganche para que el botón naranja refleje el checkpoint real.
+        try { pintarReenganche(); } catch (_) {}
       }
       try { pintarDiag(); } catch (_) {}
       /* AUTO-REFRESCO DEL DIAGNÓSTICO (JFC 2026-08-28): el estado de sync cambia

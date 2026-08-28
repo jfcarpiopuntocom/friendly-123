@@ -1,9 +1,9 @@
 {
-  "version": "1.7.29",
+  "version": "1.7.30",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.29 — Sync: autodiagnóstico en vivo en Advanced (prueba el relay desde el dispositivo, veredicto claro de qué falla, última actividad de sync, auto-refresco cada 5s). El panel 'Device sync' se limpia: las acciones manuales (copiar/pegar/WhatsApp) van plegadas en 'Backup & manual transfer' — el sync en tiempo real lo hace el backend solo.",
+  "changelog": "v1.7.30 — Reenganche self-help en Advanced: según el checkpoint del autodiagnóstico, el botón del punto donde está trabado se pone NARANJA (highlight = aquí se atascó) y es el desatorador/forzador; los demás quedan inertes. El dueño/admin/encargado se desatasca solo (activar sync, test relay, reconectar, re-ingresar licencia, resync).",
   "requerida": false,
-  "shell": "f123-shell-v142",
+  "shell": "f123-shell-v143",
   "apagar": [],
-  "releaseName": "v1.7.29"
+  "releaseName": "v1.7.30"
 }
