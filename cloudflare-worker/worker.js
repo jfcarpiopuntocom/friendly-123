@@ -532,6 +532,36 @@ export default {
       return json({ ok: true, licenseCode: reg.licenseCode });
     }
 
+    // FUSIONAR LICENCIAS (JFC 2026-08-27). "Qué licencia engancho a cuál otra".
+    // Re-apunta TODOS los dispositivos que hoy están en la licencia `origen` a
+    // la licencia `destino`. Es el reensamblado en bloque: si un negocio quedó
+    // partido entre una trunca/vieja (origen) y su canónica (destino), esto junta
+    // todas sus ovejas bajo la canónica. Pasa por guardarConHistorial (reversible).
+    // El panel muestra los dispositivos afectados ANTES de confirmar, para que
+    // JFC no mueva por error dispositivos de OTRO negocio que compartan origen.
+    if (url.pathname === "/licencias/fusionar" && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      let body; try { body = await req.json(); } catch (_) { body = {}; }
+      const origen = String(body.origen || "").trim().toUpperCase();
+      const destino = String(body.destino || "").trim().toUpperCase();
+      if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(origen)) return json({ error: "Licencia origen inválida" }, 400);
+      if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(destino)) return json({ error: "Licencia destino inválida" }, 400);
+      if (origen === destino) return json({ error: "Origen y destino son la misma licencia" }, 400);
+      const lista = await env.LICENCIAS.list({ prefix: "inst:" });
+      const movidos = [];
+      for (const k of lista.keys) {
+        const raw = await env.LICENCIAS.get(k.name);
+        if (!raw) continue;
+        let reg; try { reg = JSON.parse(raw); } catch (_) { continue; }
+        if (String(reg.licenseCode || "").trim().toUpperCase() === origen) {
+          reg.licenseCode = destino;
+          await guardarConHistorial(env, reg.instanceId, reg);
+          movidos.push({ instanceId: reg.instanceId, nombreNegocio: reg.nombreNegocio || "", nombre: reg.nombre || "" });
+        }
+      }
+      return json({ ok: true, movidos });
+    }
+
     // Papelera: listar licencias borradas (master). Cierra el hueco de que un
     // borrado accidental dejara a un cliente irrecuperable (JFC 2026-08-27).
     if (url.pathname === "/borrados" && req.method === "GET") {

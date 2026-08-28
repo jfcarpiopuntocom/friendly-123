@@ -515,6 +515,14 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
            f123_owned.nombreNegocio (queda guardado local tras el primer login,
            asi que sale aun sin conexion). Si no hay nombre aun, no se muestra. -->
       <div id="oc-gate-negocio" style="display:none;margin:0 0 14px;text-align:center;font-size:14px;line-height:1.35;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;"></div>
+      <!-- APODO DEL DISPOSITIVO (JFC 2026-08-27): "ponerle nombre o apodo a este
+           dispositivo para organizarte mejor", en la pantalla del PIN donde hace
+           más sentido UX. Usa el sistema de apodo de micelio (OCMicelio.ponerApodo),
+           que ya se sincroniza con el equipo. Se muestra el apodo actual si hay. -->
+      <div id="oc-gate-apodo" style="margin:0 0 12px;text-align:center;font-size:13px;line-height:1.4;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">
+        <span id="oc-gate-apodo-txt"></span>
+        <button type="button" id="oc-gate-apodo-btn" title="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:14px;padding:0 2px;">✎</button>
+      </div>
       <div class="oc-slots" id="oc-slots"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
       <div class="oc-pad" id="oc-pad"></div>
       <div class="oc-acciones">
@@ -536,6 +544,31 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       <p id="oc-gate-build" style="margin:8px 0 0;font-size:11px;letter-spacing:.06em;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;opacity:.75;">&nbsp;</p>
     </div>`;
   document.body.appendChild(gate);
+
+  /* APODO DEL DISPOSITIVO en el gate (JFC 2026-08-27). Pinta el apodo actual
+     (si lo hay) y el lapicito abre un prompt que llama a OCMicelio.ponerApodo.
+     El apodo ya se sincroniza con el equipo vía micelio; aquí solo se expone
+     donde el dueño lo ve al desbloquear. */
+  (function () {
+    const _txt = document.getElementById("oc-gate-apodo-txt");
+    const _btn = document.getElementById("oc-gate-apodo-btn");
+    if (!_txt || !_btn) return;
+    function _pintar() {
+      let apodo = "";
+      try { apodo = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
+      _txt.textContent = apodo ? ("This device: " + apodo) : "Name this device";
+    }
+    _pintar();
+    _btn.addEventListener("click", () => {
+      let actual = "";
+      try { actual = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
+      const v = prompt("Name this device (your team will see it):", actual);
+      if (v === null) return;
+      try { if (window.OCMicelio && window.OCMicelio.ponerApodo) window.OCMicelio.ponerApodo(v); } catch (_) {}
+      _pintar();
+    });
+    try { window.addEventListener("oc-micelio-cambio", _pintar); } catch (_) {}
+  })();
 
   /* Rotula el negocio al que se entra ANTES de teclear el PIN. Solo en un
      dispositivo ya activado/unido (dispositivoApropiado): en un dispositivo de

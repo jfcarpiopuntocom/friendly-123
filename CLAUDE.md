@@ -309,6 +309,35 @@ hiciste".
   retomar sin adivinar.
 - **BITÁCORA**: registrar cada trabajo en la bitácora (ver REGLA 3).
 
+## REGLA 7 — JFC ES MAINTENANCE/SUPPORT, VISITANTE PARCIAL (JFC, 2026-08-27) — REGLA DURA
+
+"a mi siempre taggeame como maintenance/support, como visitante parcial que no
+invade el total de datos, por ejemplo yo veo visual e inventario pero no precios
+ni numeros!!!! esto que acabo de decir, para TODAS mis apps!"
+
+- Cuando JFC entra a una tienda ajena (Sarah, Diego, etc.) su rol es
+  **maintenance/support**: ve el **inventario y las fotos/visuales** para
+  verificar integridad, pero **NO ve precios ni números** (ventas, costos,
+  ganancias, montos).
+- Aplica a **todas las apps** (friendly-123, AMIGABLE, etc.), no solo a esta.
+- No invade los números del negocio; solo verifica que el inventario y las fotos
+  estén íntegros.
+
+## REGLA 8 — TRACKING 24/7 SIN RETENER CONTENIDOS (JFC, 2026-08-27) — REGLA DURA
+
+"quiero tracking de todo, de dispositivo, de PIN, de errores para defendernos de
+quejas injustas, de todo! no retenemos los contenidos de las tiendas pero sí
+hasta hashes parciales"
+
+- Se trackea: dispositivo (instanceId, apodo, IP, lastSeen), PIN (eventos de
+  login/fallo, sin guardar el PIN en claro), errores (para defenderse de quejas
+  injustas).
+- **NO se retienen los contenidos de las tiendas** (productos, ventas, datos).
+  Solo **hashes parciales** (huellas) para verificar integridad sin guardar el
+  contenido.
+
+---
+
 ## REGLA 6 — DIARIO .md POR VENTANA DE 48h (JFC, 2026-08-27) — REGLA DURA
 
 JFC lo pidió como regla dura: "guardes mis prompts en archivos .md por día pero

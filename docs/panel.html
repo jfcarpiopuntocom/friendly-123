@@ -324,6 +324,7 @@
       <button class="btn btn-outline" onclick="licToggleConfig()">⚙️ Config Worker</button>
       <button class="btn btn-outline" onclick="licRecargar()">↻ Recargar</button>
       <button class="btn btn-outline" onclick="licExportCSV()">Exportar CSV</button>
+      <button class="btn btn-outline" onclick="licFusionar()" title="Re-apuntar todos los dispositivos de una licencia origen a una destino (reensamblar ovejas en bloque)">🔗 Fusionar licencias</button>
       <button class="btn btn-outline" onclick="licVerBorrados()" title="Licencias borradas, recuperables">🗑 Papelera</button>
     </div>
     <!-- PAPELERA: licencias borradas, recuperables con un clic (JFC 2026-08-27).
@@ -978,6 +979,53 @@ async function licReenganchar(instanceId) {
     const r = await res.json();
     if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
     alert("Re-enganchado. Ahora en el dispositivo entra esa licencia por Avanzado → Sync your team (o 'Unirme con el código de mi negocio') para que la adopte y se una a sus hermanos.");
+    licRecargar();
+  } catch (e) { alert("Fallo de red: " + (e && e.message)); }
+}
+
+// FUSIONAR LICENCIAS (JFC 2026-08-27). "Qué licencia engancho a cuál otra".
+// Re-apunta TODOS los dispositivos que hoy están en la licencia `origen` a la
+// licencia `destino`. Muestra los dispositivos afectados ANTES de confirmar,
+// para que JFC no mueva por error dispositivos de OTRO negocio que compartan
+// origen (ej. no fusionar K7M2→canónica si K7M2 tiene dispositivos de idiomARTE).
+async function licFusionar() {
+  const url = licWorkerUrl();
+  const key = licMasterKey();
+  if (!url || !key) { alert("Configura primero la URL del Worker y la Master Key."); return; }
+  const todos = Array.isArray(_licTodos) ? _licTodos : [];
+  const licencias = [...new Set(todos.map(r => String(r.licenseCode || "").trim().toUpperCase()).filter(Boolean))].sort();
+  if (licencias.length < 2) { alert("Necesitas al menos 2 licencias distintas para fusionar."); return; }
+  const opts = licencias.map(l => `<option value="${l}">${l}</option>`).join("");
+  const origen = prompt(
+    "FUSIONAR LICENCIAS\n\nRe-apunta TODOS los dispositivos de la licencia ORIGEN hacia la licencia DESTINO.\n\n" +
+    "Licencias presentes:\n" + licencias.map(l => "  • " + l).join("\n") +
+    "\n\nPega la licencia ORIGEN (la que tiene las ovejas perdidas):"
+  );
+  if (origen === null) return;
+  const o = String(origen).trim().toUpperCase();
+  if (!licencias.includes(o)) { alert("Esa licencia origen no está en la lista."); return; }
+  const destino = prompt(
+    "FUSIONAR LICENCIAS\n\nOrigen: " + o + "\n\nPega la licencia DESTINO (la canónica a la que deben unirse):"
+  );
+  if (destino === null) return;
+  const d = String(destino).trim().toUpperCase();
+  if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(d)) { alert("Esa no parece una licencia F123 válida."); return; }
+  if (o === d) { alert("Origen y destino son la misma licencia."); return; }
+  const afectados = todos.filter(r => String(r.licenseCode || "").trim().toUpperCase() === o);
+  const lista = afectados.map(r => "  • " + (r.nombreNegocio || r.nombre || r.instanceId)).join("\n");
+  if (!confirm(
+    "Fusionar:\n\n  ORIGEN:  " + o + "\n  DESTINO: " + d + "\n\nDispositivos que se moverán (" + afectados.length + "):\n" + lista +
+    "\n\nEs reversible (queda en el historial). ¿Continuar?"
+  )) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/fusionar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Master-Key": key },
+      body: JSON.stringify({ origen: o, destino: d }),
+    });
+    const r = await res.json();
+    if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
+    alert("Fusionadas: " + (r.movidos ? r.movidos.length : 0) + " dispositivo(s) movidos a " + d + ".\n\nEn cada dispositivo entra la licencia destino por Avanzado → Sync your team para que la adopte y se una a sus hermanos.");
     licRecargar();
   } catch (e) { alert("Fallo de red: " + (e && e.message)); }
 }
