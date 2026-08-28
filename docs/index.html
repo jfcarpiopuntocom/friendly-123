@@ -6635,7 +6635,30 @@ if ("serviceWorker" in navigator) {
     // version vieja nunca guardaron esta clave — tambien necesitan la purga.
     try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
     try { const cs = await caches.keys(); for (const c of cs) { try { await caches.delete(c); } catch (_) {} } } catch (_) {}
-    location.reload();
+    /* FIX CRASH (JFC 2026-08-28): este reload forzado corria en cuanto el fetch
+       de version.json resolvia — que en red lenta podia ser SEGUNDOS despues de
+       cargar, justo cuando el usuario iba por el 2do digito del PIN. Recargaba
+       la pagina a mitad de tecleo y el candado "volvia a aparecer". Ahora, si el
+       usuario esta tecleando en el candado, se espera a que quede inactivo
+       (max 8s) antes de recargar. */
+    (function _reloadCuandoIdle() {
+      var gate = document.getElementById("oc-gate");
+      var tecleando = gate && gate.style.display !== "none";
+      if (!tecleando) { location.reload(); return; }
+      var ultimo = Date.now();
+      var escucha = function () { ultimo = Date.now(); };
+      document.addEventListener("keydown", escucha, true);
+      document.addEventListener("click", escucha, true);
+      var inicio = Date.now();
+      var t = setInterval(function () {
+        if (Date.now() - ultimo > 2000 || Date.now() - inicio > 8000) {
+          clearInterval(t);
+          document.removeEventListener("keydown", escucha, true);
+          document.removeEventListener("click", escucha, true);
+          location.reload();
+        }
+      }, 500);
+    })();
   } catch (_) {}
 })();
 
