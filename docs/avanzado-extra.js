@@ -37,10 +37,10 @@
   // anotada con quién (deviceId), cuándo (ts) y qué (método+url+body). Ese
   // log se cifra con AES-256-GCM (crypto-store.js, llave derivada del PIN del
   // dueño) y sale por dos caminos, ninguno obligatorio:
-  //   1) Automático — POST /api/sync/push y GET /api/sync/pull, si tu backend
-  //      en Fly.io ya tiene esas rutas (relay ciego: solo guarda y reenvía
-  //      bytes, nunca los descifra). Si no existen, falla en silencio: el
-  //      negocio sigue 100% funcional en modo local.
+  //   1) Automático — POST /api/sync/push y GET /api/sync/pull, si el backend
+  //      tiene esas rutas (relay ciego: solo guarda y reenvía bytes, nunca los
+  //      descifra). Si no existen, falla en silencio: el negocio sigue 100%
+  //      funcional en modo local.
   //   2) Manual — botón "Copiar cambios" / "Pegar cambios". Cero servidor,
   //      cero mantenimiento, sirve por WhatsApp o cualquier medio.
   // En ambos casos, al recibir el log de otro dispositivo, sus operaciones se
@@ -212,7 +212,7 @@
     function requiereReactivar() { return syncOn && !window.OCSecure.syncActiva(); }
     function pendientes() { return cola.length; }
 
-    // ---- Automático (si tu Fly.io ya tiene /api/sync/push y /api/sync/pull) ----
+    // ---- Automático (si el backend tiene /api/sync/push y /api/sync/pull) ----
     async function push() {
       if (!syncOn || !window.OCSecure.syncActiva() || !cola.length) return { ok: true, enviado: 0 };
       // Snapshot por cantidad (no por referencia): si mientras esperamos la
@@ -1758,7 +1758,7 @@ Keep it somewhere safe.`);
     // sin URL guardada, el negocio corre 100% local (server.js + db.json o
     // mock-backend.js en la demo). Esto NO es un backend obligatorio: es
     // solo el canal para que el panel central master de JFC pueda mandar
-    // patches/actualizaciones a este negocio via PocketBase en Fly.io.
+    // patches/actualizaciones a este negocio.
     // Ver docs/pocketbase-client.js para el adaptador completo.
     const syncPanel = document.createElement("div");
     syncPanel.className = "tag-card";
@@ -1770,12 +1770,12 @@ Keep it somewhere safe.`);
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
         By default this system runs 100% locally, without depending on the internet.
         Only if you want to receive updates from the central panel, paste
-        your PocketBase URL on Fly.io here.
+        your PocketBase URL here.
       </p>
       <p style="font-size:14px;font-weight:700;margin:8px 0;color:${conectado ? "var(--sim-verde-dk)" : "var(--ink)"};">
         Estado: ${conectado ? "Connected" : "Local (no sync)"}
       </p>
-      <input id="oc-pb-url" type="text" placeholder="https://tu-negocio.fly.dev" value="${escHtml(pbUrlActual)}" style="width:100%;max-width:340px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;">
+      <input id="oc-pb-url" type="text" placeholder="https://tu-negocio.pocketbase.app" value="${escHtml(pbUrlActual)}" style="width:100%;max-width:340px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;">
       <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
         <button id="oc-pb-guardar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Save and connect</button>
         ${pbUrlActual ? `<button id="oc-pb-quitar" class="ir" style="background:transparent;color:var(--rojo);border-color:var(--rojo);">Switch to local</button>` : ""}
@@ -2751,7 +2751,6 @@ Keep it somewhere safe.`);
         <button id="oc-syncdev-activar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">${necesitaPin ? "Enter PIN to reactivate" : "Enable on this device (needs your PIN)"}</button>
       ` : `
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-          <button id="oc-syncdev-push" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">🔄 Auto sync (Fly.io)</button>
           <button id="oc-syncdev-copiar" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">📋 Copy changes to send</button>
           <button id="oc-syncdev-wa-cambios" class="ir" style="background:#25D366;color:#0a3d20;border-color:#1da851;">📲 Recent changes → WhatsApp</button>
           <button id="oc-syncdev-wa-respaldo" class="ir" style="background:#128C7E;color:#e8fff7;border-color:#0c6b60;">📲 Full backup → WhatsApp</button>
@@ -2779,15 +2778,6 @@ Keep it somewhere safe.`);
       if (pin === null) return;
       const ok = await OCSync.activar(pin.trim());
       msg("oc-syncdev-msg", ok ? "Sync enabled on this device." : "Incorrect PIN.", ok ? "var(--verde)" : "var(--rojo)");
-      pintarSyncDev();
-    });
-    const btnPush = $("oc-syncdev-push");
-    if (btnPush) btnPush.addEventListener("click", async () => {
-      msg("oc-syncdev-msg", "Sending and receiving...", "var(--ink)");
-      const rPush = await OCSync.push();
-      const rPull = await OCSync.pull();
-      if (rPush.ok && rPull.ok) msg("oc-syncdev-msg", `Done. Sent: ${rPush.enviado || 0} · Received: ${rPull.recibido || 0}.`, "var(--verde)");
-      else msg("oc-syncdev-msg", (rPush.motivo || rPull.motivo) + " In the meantime, use \"Copy changes\".", "var(--rojo)");
       pintarSyncDev();
     });
     const btnCopiar = $("oc-syncdev-copiar");

@@ -544,7 +544,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // original. Lo que sigue sí es cifrado real (AES-256-GCM) para que el log
   // de operaciones del motor de sync (avanzado-extra.js) viaje ilegible para
   // cualquiera que no sea otro dispositivo del mismo negocio con el mismo PIN
-  // de dueño — incluido un relay ciego en Fly.io, que solo verá bytes opacos
+  // de dueño — incluido un relay ciego, que solo verá bytes opacos
   // (igual que un relay nostr con un evento cifrado).
   //
   // La llave AES vive SOLO en memoria (variable de módulo) y se deriva del

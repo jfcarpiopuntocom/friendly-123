@@ -4,7 +4,7 @@
 // Si OC_PB_URL no está en localStorage, este archivo termina aquí y
 // mock-backend.js toma el control (modo demo de GitHub Pages).
 //
-// Diseño deliberado: cada cliente tiene su propio PocketBase en Fly.io.
+// Diseño deliberado: cada cliente tiene su propio PocketBase.
 // El frontend NO necesita auth token porque las reglas de las colecciones
 // están abiertas — la seguridad de acceso la da el PIN de AMIGABLE.
 // Un cliente con datos sensibles puede agregar reglas de auth en la admin UI
