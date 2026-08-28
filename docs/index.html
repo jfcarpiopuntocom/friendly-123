@@ -1709,6 +1709,10 @@
       <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;">Sort by:</span>
     </div>
     <div id="vp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;"></div>
+    <!-- TRANSFERS ENTRE PERCHAS (JFC 2026-08-28). Movido de Advanced a Perchas:
+         es una operación de inventario entre ubicaciones, no configuración
+         técnica. El usuario piensa en perchas cuando mueve stock. -->
+    <div id="vp-transfers" style="margin-top:26px;"></div>
   </section>
 
   <!-- VISTA: COMISIONES (solo dueño) -->
@@ -6658,40 +6662,13 @@ if ("serviceWorker" in navigator) {
     // version vieja nunca guardaron esta clave — tambien necesitan la purga.
     try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
     try { const cs = await caches.keys(); for (const c of cs) { try { await caches.delete(c); } catch (_) {} } } catch (_) {}
-    /* FIX CRASH (JFC 2026-08-28): este reload forzado corria en cuanto el fetch
-       de version.json resolvia — que en red lenta podia ser SEGUNDOS despues de
-       cargar, justo cuando el usuario iba por el 2do digito del PIN. Recargaba
-       la pagina a mitad de tecleo y el candado "volvia a aparecer". Ahora, si el
-       usuario esta tecleando en el candado, se espera a que quede inactivo
-       (max 8s) antes de recargar. */
-    (function _reloadCuandoIdle() {
-      var gate = document.getElementById("oc-gate");
-      var enCandado = gate && gate.style.display !== "none";
-      /* FIX (JFC 2026-08-28): antes esto solo esperaba a que el usuario dejara
-         de teclear en el CANDADO. Si ya estaba DENTRO (logueado) y activo, el
-         reload corria al instante y lo sacaba a la pantalla del candado a mitad
-         de uso (visto en el celular en Safari). Ahora, si el usuario esta dentro
-         y activo, se espera a que quede inactivo (3s) con un tope generoso (30s)
-         para no interrumpir una venta en curso. En el candado se mantiene el
-         tope corto (8s) para que una pantalla quieta no retrase la actualizacion. */
-      var umbralIdle = enCandado ? 2000 : 3000;
-      var tope = enCandado ? 8000 : 30000;
-      var ultimo = Date.now();
-      var escucha = function () { ultimo = Date.now(); };
-      document.addEventListener("keydown", escucha, true);
-      document.addEventListener("click", escucha, true);
-      document.addEventListener("touchstart", escucha, true);
-      var inicio = Date.now();
-      var t = setInterval(function () {
-        if (Date.now() - ultimo > umbralIdle || Date.now() - inicio > tope) {
-          clearInterval(t);
-          document.removeEventListener("keydown", escucha, true);
-          document.removeEventListener("click", escucha, true);
-          document.removeEventListener("touchstart", escucha, true);
-          location.reload();
-        }
-      }, 500);
-    })();
+    /* RELOAD FORZADO DE VERSIÓN (JFC 2026-08-28). JFC aclaró: se debe FORZAR la
+       siguiente versión de inmediato — para no servir a nadie la app
+       desactualizada. No se espera inactividad ni se retrasa. La sesión
+       persistente (auth-ui.js, sessionStorage f123_sesion) se restaura al
+       recargar, así que el reload fuerza la actualización SIN sacar al usuario
+       logueado al candado. */
+    location.reload();
   } catch (_) {}
 })();
 

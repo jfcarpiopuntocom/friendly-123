@@ -1867,62 +1867,18 @@ Keep it somewhere safe.`);
     // + mover/borrar, que este duplicado no tenia). Ver renderPerchaCard()/
     // cargarPerchas() en index.html.
 
-    // --- Transferencias (brote 2) — panel operativo, fuera del candado
-    // contable: el dueño necesita aprobar/rechazar rápido, no es info financiera.
-    try {
-      const transfPanel = document.createElement("div");
-      transfPanel.className = "tag-card";
-      transfPanel.style.cssText = "text-align:left;margin-top:22px;";
-      transfPanel.innerHTML = `
-        <h3 class="seccion" style="margin-top:0;">Transfers between locations</h3>
-        <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">Stock transfer requests between your locations.</p>
-        <div id="oc-transf-lista"></div>`;
-      vista.appendChild(transfPanel);
-      renderTransferencias();
-    } catch (e) { console.error("Panel de traslados no cargo (aislado, no rompe Avanzado):", e); }
+    // --- Transferencias MOVIDAS A PERCHAS (JFC 2026-08-28). Eran una operación
+    // de inventario entre ubicaciones que vivía en Advanced (configuración
+    // técnica). El usuario piensa en perchas cuando mueve stock, así que el
+    // panel y su render viven ahora en vista-perchas.js (sección #vp-transfers).
 
-    // --- Sync remoto (opcional, JFC 2026-07-04) — LOCAL-FIRST por diseño:
-    // sin URL guardada, el negocio corre 100% local (server.js + db.json o
-    // mock-backend.js en la demo). Esto NO es un backend obligatorio: es
-    // solo el canal para que el panel central master de JFC pueda mandar
-    // patches/actualizaciones a este negocio.
-    // Ver docs/pocketbase-client.js para el adaptador completo.
-    const syncPanel = document.createElement("div");
-    syncPanel.className = "tag-card";
-    syncPanel.style.cssText = "text-align:left;margin-top:22px;";
-    const pbUrlActual = localStorage.getItem("F123_PB_URL") || "";
-    const conectado = !!(window.OC_PB_CONNECTED);
-    syncPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Remote sync</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        By default this system runs 100% locally, without depending on the internet.
-        Only if you want to receive updates from the central panel, paste
-        your PocketBase URL here.
-      </p>
-      <p style="font-size:14px;font-weight:700;margin:8px 0;color:${conectado ? "var(--sim-verde-dk)" : "var(--ink)"};">
-        Estado: ${conectado ? "Connected" : "Local (no sync)"}
-      </p>
-      <input id="oc-pb-url" type="text" placeholder="https://tu-negocio.pocketbase.app" value="${escHtml(pbUrlActual)}" style="width:100%;max-width:340px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;">
-      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
-        <button id="oc-pb-guardar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Save and connect</button>
-        ${pbUrlActual ? `<button id="oc-pb-quitar" class="ir" style="background:transparent;color:var(--rojo);border-color:var(--rojo);">Switch to local</button>` : ""}
-      </div>
-      <p id="oc-pb-msg" style="font-size:14px;margin-top:8px;"></p>`;
-    vista.appendChild(syncPanel);
-
-    $("oc-pb-guardar").addEventListener("click", () => {
-      const url = $("oc-pb-url").value.trim();
-      if (!url) { msg("oc-pb-msg", "Paste your PocketBase URL first.", "var(--rojo)"); return; }
-      localStorage.setItem("F123_PB_URL", url);
-      msg("oc-pb-msg", "Saved. Reloading to connect...", "var(--sim-verde-dk)");
-      setTimeout(() => window.location.reload(), 800);
-    });
-    const btnQuitar = document.getElementById("oc-pb-quitar");
-    if (btnQuitar) btnQuitar.addEventListener("click", () => {
-      localStorage.removeItem("F123_PB_URL");
-      msg("oc-pb-msg", "Sync removed. Reloading in local mode...", "var(--ink)");
-      setTimeout(() => window.location.reload(), 800);
-    });
+    // --- Sync remoto (PocketBase) ELIMINADO DE AVANZADO (JFC 2026-08-28).
+    // Era una 3ª forma de sync (conectar con el panel central de JFC) que
+    // abrumaba al usuario. El sync en tiempo real (relay, panel oc-sync-panel)
+    // ya mantiene los dispositivos al día solo. La conexión PocketBase es una
+    // herramienta del lord/panel central, no del usuario normal — se gestiona
+    // desde el panel del lord (panel.html), no desde Advanced. El adaptador
+    // sigue en docs/pocketbase-client.js (backend), solo se quita la UI aquí.
 
     // --- Sync entre dispositivos (lazy sync cifrado, JFC 2026-07-04) ---
     // Distinto del panel de arriba: aquel es para recibir actualizaciones
@@ -1961,17 +1917,12 @@ Keep it somewhere safe.`);
       }, 2000);
     } catch (e) { console.error("Panel micelio no cargo (aislado, no rompe Avanzado):", e); }
 
-    // R3 (JFC 2026-08-20, bulkhead): mismo patron ya usado en antifraude y
-    // micelio -- si este panel falla al montar, el resto de Avanzado sigue
-    // en pie en vez de tumbarse entero.
-    try {
-      const syncDevPanel = document.createElement("div");
-      syncDevPanel.id = "oc-syncdev-panel";
-      syncDevPanel.className = "tag-card";
-      syncDevPanel.style.cssText = "text-align:left;margin-top:22px;";
-      vista.appendChild(syncDevPanel);
-      pintarSyncDev();
-    } catch (e) { console.error("Panel de sync entre dispositivos no cargo (aislado, no rompe Avanzado):", e); }
+    // --- Device sync (lazy manual) ELIMINADO DE AVANZADO (JFC 2026-08-28).
+    // Era la 2ª forma de sync visible (copiar/pegar/WhatsApp/merge) que
+    // abrumaba y sugería que el sync automático no bastaba. El sync en tiempo
+    // real (relay, panel oc-sync-panel) ya mantiene los dispositivos al día
+    // solo, cada pocos segundos, por la licencia. La redundancia manual vive
+    // en el backend (OCSync), no como opciones que el usuario deba tocar.
 
     // === RIEL FLEX (JFC 2026-07-30, importado de su avance en otra sesion,
     // "SOLO el menu de Avanzados en cascada/texto, be surgical") ===========
@@ -1996,11 +1947,6 @@ Keep it somewhere safe.`);
           "Activity log": "Who did what, and when.",
           "Your team right now": "Who is synced and who is not.",
           "Fraud control": "Integrity of sensitive operations.",
-          "Transfers between locations": "Move stock between branches.",
-          "Remote sync (optional)": "Your own PocketBase, if you set one up.",
-          "Remote sync": "Your own PocketBase, if you set one up.",
-          "Device-to-device sync": "Encrypted package for another device, no internet needed.",
-          "Device sync": "Encrypted package for another device, no internet needed.",
           "Where the team has been": "Location pings while a session is open.",
         };
         /* ICONOS DEL RIEL (2026-08-26, UX sweep H1): un carácter Unicode geométrico
@@ -2014,15 +1960,12 @@ Keep it somewhere safe.`);
           "Team": "⊕", "Equipo": "⊕",
           "Activity log": "≡", "Actividad reciente": "≡", "Recent activity": "≡",
           "Fraud control": "⊙", "Control antifraude": "⊙",
-          "Transfers between locations": "⇌", "Traslados entre perchas": "⇌",
-          "Remote sync": "○", "Remote sync (optional)": "○", "Sync remoto (opcional)": "○",
           "Your team right now": "●", "Tu equipo ahora": "●",
           "Access & recovery": "◈", "Acceso y recuperación": "◈",
           "Accounting": "▤", "Contabilidad": "▤",
           "Backup": "◉", "Respaldo": "◉",
           "Accounting report": "▦", "Reporte contable": "▦",
           "Location comparison (this month)": "▧", "Comparación de perchas": "▧",
-          "Device sync": "⊟", "Device-to-device sync": "⊟", "Sync entre dispositivos": "⊟",
           "Where the team has been": "⊛",
         };
         function esComo(t) { t = (t || "").trim(); return /^¿?Cómo funciona/i.test(t) || /^How does it work/i.test(t); }
@@ -2128,11 +2071,9 @@ Keep it somewhere safe.`);
             if (q("#oc-micelio-panel")) return 50;                  // Your team right now
             if (/Timezone/i.test(th)) return 60;
             if (/Monthly expenses/i.test(th)) return 65;
-            if (/Transfers between/i.test(th)) return 70;
             if (/Fraud control/i.test(th)) return 75;
             if (n.id === "amg-geo-caja") return 80;                 // Where the team has been
-            if (/Remote sync/i.test(th)) return 85;
-            if (q("#oc-syncdev-activar")) return 90;                // Device-to-device
+            if (q("#oc-sync-panel")) return 90;                    // Sync (real-time)
           } catch (_) {}
           return 500; // desconocido: se queda donde estaba (sort estable)
         }
@@ -2698,67 +2639,6 @@ Keep it somewhere safe.`);
   // cualquiera con el dispositivo del dueño secuestre la cuenta apuntando la
   // recuperación a un correo propio. Si NO hay correo (primera vez), el
   // dueño lo registra libre, sin master. Ver nota larga en crypto-store.js.
-  async function renderTransferencias() {
-    const cont = $("oc-transf-lista");
-    if (!cont) return;
-    // Reforzado (JFC 2026-07-18): sin este guard, aprobar/rechazar/confirmar
-    // una transferencia hacia el re-render, y si la red fallaba en ese
-    // re-render la lista se quedaba muda (parecia que el boton no hizo nada).
-    let lista;
-    try {
-      lista = await (await fetch(`${API}/transferencias`)).json();
-    } catch (err) {
-      console.error("[renderTransferencias]", err);
-      cont.innerHTML = `<p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load. Check your connection and try again.</p>`;
-      return;
-    }
-    if (!lista.length) { cont.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No transfers yet.</p>`; return; }
-    cont.innerHTML = lista.map((t) => {
-      const colorEstado = t.estado === "recibida" ? "verde" : t.estado === "rechazada" ? "rojo" : t.estado === "en_transito" ? "azul" : "amarillo";
-      let acciones = "";
-      if (t.estado === "solicitada") {
-        /* min-height:44px (2026-08-26, UX sweep L4): Apple HIG touch-target mínimo.
-           Estos botones son la acción primaria en mobile; el padding de 6px los
-           dejaba demasiado chicos para dedos. */
-        acciones = `<button data-transf-aprobar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--verde);border-radius:5px;background:transparent;color:var(--verde);cursor:pointer;">Approve</button>
-          <button data-transf-rechazar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Reject</button>`;
-      } else if (t.estado === "en_transito") {
-        acciones = `<button data-transf-confirmar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Confirm receipt</button>`;
-      }
-      return `<div class="tag-card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:180px;">
-          <strong>${escHtml(t.nombre)}</strong> · ${t.cantidad} un.
-          <div style="font-size:13px;color:var(--ink-soft);">${escHtml(t.desdeNombre)} → ${escHtml(t.haciaNombre)}</div>
-        </div>
-        <span class="badge-estado ${colorEstado}">${t.estado.replace("_", " ")}</span>
-        ${acciones}
-      </div>`;
-    }).join("");
-
-    // try/catch (homologado de AMIGABLE, auditoria 2026-07-23): los 3
-    // botones de transferencias no tenian proteccion de red.
-    cont.querySelectorAll("[data-transf-aprobar]").forEach((btn) => btn.addEventListener("click", async () => {
-      let res, r;
-      try { res = await fetch(`${API}/transferencias/${btn.dataset.transfAprobar}/aprobar`, { method: "POST" }); r = await res.json(); }
-      catch (err) { console.error("[transf-aprobar]", err); alert("Could not reach the server. Try again."); return; }
-      if (!res.ok) { alert(r.error); return; }
-      renderTransferencias();
-    }));
-    cont.querySelectorAll("[data-transf-rechazar]").forEach((btn) => btn.addEventListener("click", async () => {
-      try { await fetch(`${API}/transferencias/${btn.dataset.transfRechazar}/rechazar`, { method: "POST" }); }
-      catch (err) { console.error("[transf-rechazar]", err); alert("Could not reach the server. Try again."); return; }
-      renderTransferencias();
-    }));
-    cont.querySelectorAll("[data-transf-confirmar]").forEach((btn) => btn.addEventListener("click", async () => {
-      let res, r;
-      try { res = await fetch(`${API}/transferencias/${btn.dataset.transfConfirmar}/confirmar-recepcion`, { method: "POST" }); r = await res.json(); }
-      catch (err) { console.error("[transf-confirmar]", err); alert("Could not reach the server. Try again."); return; }
-      if (!res.ok) { alert(r.error); return; }
-      renderTransferencias();
-      cargarInventario();
-    }));
-  }
-
   function pintarEmail() {
     const email = window.OCSecure.leerCorreo();
     const row = $("oc-email-row");
@@ -2861,286 +2741,6 @@ Keep it somewhere safe.`);
   // La llave de cifrado nunca se persiste — por eso, si ya estaba activado en
   // este navegador pero se recargó la página, hay que reingresar el PIN antes
   // de poder cifrar/descifrar de nuevo (mismo patrón que la subclave contable).
-  function pintarSyncDev() {
-    const box = $("oc-syncdev-panel");
-    if (!box) return;
-    const activo = OCSync.activa();
-    const necesitaPin = OCSync.requiereReactivar();
-    const pend = OCSync.pendientes();
-    box.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Device sync</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        For when the same business runs on more than one phone/tablet (e.g. register and stockroom).
-        Each device encrypts its own changes with your owner PIN — not even the
-        sync server can read them.
-      </p>
-      <p style="font-size:14px;font-weight:700;margin:8px 0;color:${activo && !necesitaPin ? "var(--sim-verde-dk)" : "var(--ink)"};">
-        Estado: ${!activo ? "Disabled" : necesitaPin ? "Enabled, but needs your PIN again in this browser" : "Enabled"}
-        ${activo && !necesitaPin && pend ? ` · ${pend} change(s) pending` : ""}
-      </p>
-      <p id="oc-syncdev-msg" style="font-size:14px;font-weight:700;margin-bottom:10px;"></p>
-      ${(!activo || necesitaPin) ? `
-        <button id="oc-syncdev-activar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">${necesitaPin ? "Enter PIN to reactivate" : "Enable on this device (needs your PIN)"}</button>
-      ` : `
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-          <button id="oc-syncdev-off" style="font-size:13px;padding:8px 12px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Disable</button>
-        </div>
-        <!-- RESPALDO MANUAL PLEGADO (JFC 2026-08-28). El sync en tiempo real
-             (relay) ya mantiene los dispositivos al día solo. Estas acciones
-             manuales (copiar/pegar/WhatsApp) son la red de último recurso para
-             cuando no hay relay o el equipo estuvo apagado a la vez — por eso
-             van plegadas, no abruman al usuario normal. -->
-        <details style="margin-top:6px;padding-top:10px;border-top:1px solid var(--azul-suave,#dde5ec);">
-          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">Backup &amp; manual transfer (only if real-time sync is off)</summary>
-          <p style="font-size:13px;color:var(--ink-soft);margin:8px 0;">Real-time sync keeps your devices in step on its own. Use these only as a fallback — e.g. if a device was off while the team sold and needs to catch up.</p>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-            <button id="oc-syncdev-copiar" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">📋 Copy changes to send</button>
-            <button id="oc-syncdev-wa-cambios" class="ir" style="background:#25D366;color:#0a3d20;border-color:#1da851;">📲 Recent changes → WhatsApp</button>
-            <button id="oc-syncdev-wa-respaldo" class="ir" style="background:#128C7E;color:#e8fff7;border-color:#0c6b60;">📲 Full backup → WhatsApp</button>
-            <!-- SYNC POR QR — DORMANT (JFC 2026-08-21). NO BORRAR el codigo de
-                 mostrarQRCambios()/escanearQRCambios() mas abajo.
-                 Por que se retiro: pedia escanear con la app, y la app no tiene
-                 lector propio en la mayoria de telefonos (en iPhone fallaba
-                 siempre). Quien lo intentaba se quedaba a medio camino sin
-                 entender por que. "Copy changes" hace lo mismo, funciona en todo
-                 telefono y tiene la misma seguridad.
-                 Para re-encenderlo: devolver estos dos botones. -->
-            <span></span>
-          </div>
-          <div id="oc-syncdev-qr-zona" style="display:none;margin:10px 0;text-align:center;"></div>
-          <details><summary style="font-size:14px;cursor:pointer;color:var(--azul-medio);">Paste changes received from another device</summary>
-            <textarea id="oc-syncdev-pegar" rows="3" placeholder="Paste the text starting with OCSYNC1: here..." style="width:100%;margin-top:8px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);font-size:13px;"></textarea>
-            <button id="oc-syncdev-importar" class="ir" style="margin-top:8px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Import</button>
-          </details>
-        </details>
-      `}`;
-
-    const btnActivar = $("oc-syncdev-activar");
-    if (btnActivar) btnActivar.addEventListener("click", async () => {
-      const pin = prompt("Owner PIN (3 digits) to enable sync on this device:");
-      if (pin === null) return;
-      const ok = await OCSync.activar(pin.trim());
-      msg("oc-syncdev-msg", ok ? "Sync enabled on this device." : "Incorrect PIN.", ok ? "var(--verde)" : "var(--rojo)");
-      pintarSyncDev();
-    });
-    const btnCopiar = $("oc-syncdev-copiar");
-    if (btnCopiar) btnCopiar.addEventListener("click", async () => {
-      const texto = await OCSync.generarPaqueteManual();
-      if (!texto) { msg("oc-syncdev-msg", "No pending changes on this device.", "var(--ink)"); return; }
-      try { await navigator.clipboard.writeText(texto); msg("oc-syncdev-msg", "Copied. Send it to the other device via WhatsApp or any channel.", "var(--verde)"); }
-      catch (_) { prompt("Copia este texto manualmente:", texto); }
-      pintarSyncDev();
-    });
-
-    // Enviar CAMBIOS RECIENTES (op-log cifrado) por WhatsApp. Prioridad:
-    // 1) Web Share (movil: WhatsApp aparece entre las apps) 2) wa.me si es corto
-    // 3) copiar al portapapeles. El receptor los aplica en "Pegar cambios".
-    const btnWaCambios = $("oc-syncdev-wa-cambios");
-    if (btnWaCambios) btnWaCambios.addEventListener("click", async () => {
-      const texto = await OCSync.generarPaqueteManual();
-      if (!texto) { msg("oc-syncdev-msg", "There are no pending changes on this device.", "var(--ink)"); return; }
-      const mensaje = "friendly-123 — changes to sync. Paste this on the other device (Advanced → Paste changes):\n\n" + texto;
-      if (navigator.share) {
-        try { await navigator.share({ text: mensaje }); msg("oc-syncdev-msg", "Shared. On the other device: Advanced → Paste changes.", "var(--verde)"); return; } catch (_) {}
-      }
-      if (mensaje.length < 1500) { window.open("https://wa.me/?text=" + encodeURIComponent(mensaje), "_blank"); msg("oc-syncdev-msg", "Opened WhatsApp with the changes ready to send.", "var(--verde)"); return; }
-      try { await navigator.clipboard.writeText(texto); msg("oc-syncdev-msg", "Too many changes for a direct link. Copied them — paste them yourself in WhatsApp.", "var(--verde)"); }
-      catch (_) { prompt("Copy this text and send it via WhatsApp:", texto); }
-    });
-
-    // Enviar RESPALDO COMPLETO (.json cifrado) por WhatsApp como ARCHIVO.
-    // Reusa exactamente el mismo empaquetado que "Exportar respaldo" (checksum +
-    // cifrado opcional AES-256-GCM). Web Share nivel 2 adjunta el archivo; si el
-    // navegador no lo soporta, lo descarga y pide adjuntarlo a mano.
-    const btnWaResp = $("oc-syncdev-wa-respaldo");
-    if (btnWaResp) btnWaResp.addEventListener("click", async () => {
-      try {
-        const datos = await (await fetch(`${API}/respaldo/exportar`)).json();
-        try { if (window.OCArchivo) { const arch = await window.OCArchivo.leerTodos(); if (arch.length) datos.movimientos = [...arch, ...(datos.movimientos || [])]; } } catch (_) {}
-        const fotosPerchas = {};
-        for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k); }
-        const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: (function () {
-          // SEGURIDAD 2026-07-17: ownerPinR va XOR-ofuscado con clave fija visible
-          // en el fuente — cualquiera con el archivo recuperaria el PIN del dueno.
-          // Se quita del export; la recuperacion "Olvidaste?" se re-arma sola en
-          // el proximo cambio de PIN tras restaurar.
-          try { const s = JSON.parse(localStorage.getItem("f123_secure")); if (s) delete s.ownerPinR; return s ? JSON.stringify(s) : null; } catch (_) { return localStorage.getItem("f123_secure"); }
-        })(), fotosPerchas };
-        const contenidoPlano = JSON.stringify(paquete);
-        const checksum = await window.OCSecure.hashTexto(contenidoPlano);
-        const clave = prompt("Key to encrypt the backup before sending via WhatsApp (min 8 chars). Leave blank = no encryption (not recommended for WhatsApp):");
-        if (clave === null) { msg("oc-syncdev-msg", "Send cancelled.", "var(--ink)"); return; }
-        let archivoFinal;
-        if (clave && clave.trim()) { const cif = await window.OCSecure.cifrarTextoConClave(contenidoPlano, clave.trim()); archivoFinal = JSON.stringify({ amigableRespaldoCifrado: true, checksum, ...cif }, null, 2); }
-        else archivoFinal = JSON.stringify({ ...paquete, checksum }, null, 2);
-        // Fase 4 (2026-08-04): mismo autoverificado que el export principal —
-        // ver comentario extenso en el handler de oc-exportar.
-        try {
-          const relectura = JSON.parse(archivoFinal);
-          let textoParaVerificar;
-          if (relectura.amigableRespaldoCifrado) {
-            if (!clave || !clave.trim()) throw new Error("the passphrase to re-verify is missing");
-            textoParaVerificar = await window.OCSecure.descifrarTextoConClave(relectura, clave.trim());
-            if (!textoParaVerificar) throw new Error("could not be decrypted back with the same passphrase");
-          } else {
-            const { checksum: _c, ...resto } = relectura;
-            textoParaVerificar = JSON.stringify(resto);
-          }
-          const checksumRelectura = await window.OCSecure.hashTexto(textoParaVerificar);
-          if (checksumRelectura !== checksum) throw new Error("the checksum does not match after re-reading the file");
-        } catch (eVerif) {
-          msg("oc-syncdev-msg", "The backup did not pass its own check (" + eVerif.message + ") — it was not sent. Try again.", "var(--rojo)");
-          return;
-        }
-        const nombre = `respaldo-friendly-${new Date().toISOString().slice(0, 10)}.json`;
-        const file = new File([archivoFinal], nombre, { type: "application/json" });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: "friendly-123 backup", text: "My business backup (friendly-123)." });
-          msg("oc-syncdev-msg", "Backup shared. On the other device: Advanced → Import backup.", "var(--verde)");
-        } else {
-          const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = nombre; a.click(); URL.revokeObjectURL(a.href);
-          msg("oc-syncdev-msg", "Your browser doesn't share files directly. Downloaded it — attach it yourself in WhatsApp.", "var(--ink)");
-        }
-      } catch (e) { msg("oc-syncdev-msg", "Could not prepare the backup: " + e.message, "var(--rojo)"); }
-    });
-    const btnImportar = $("oc-syncdev-importar");
-    if (btnImportar) btnImportar.addEventListener("click", async () => {
-      const texto = $("oc-syncdev-pegar").value;
-      const r = await OCSync.importarPaqueteManual(texto);
-      msg("oc-syncdev-msg", r.ok ? `Importado. ${r.recibido || 0} cambio(s) aplicados.` : r.motivo, r.ok ? "var(--verde)" : "var(--rojo)");
-      if (r.ok) $("oc-syncdev-pegar").value = "";
-    });
-    const btnOff = $("oc-syncdev-off");
-    if (btnOff) btnOff.addEventListener("click", () => {
-      if (!confirm("Disable sync on this device?")) return;
-      OCSync.desactivar();
-      pintarSyncDev();
-    });
-
-    // ========================================================================
-    // SYNC POR QR ENTRE DISPOSITIVOS (recomendación 9, JFC 2026-07-07)
-    // ------------------------------------------------------------------------
-    // Canal físico sin internet: el paquete es el MISMO OCSYNC1 cifrado
-    // (AES-256-GCM derivado del PIN de dueño, dedup por op.id al importar) —
-    // idéntico nivel de seguridad que copiar/pegar; solo cambia el transporte.
-    // Un QR guarda ~1KB cómodo, así que el paquete se parte en FRAGMENTOS:
-    //   OCQ|<sesión>|<i>|<total>|<pedazo>
-    // El receptor los escanea en cualquier orden; cuando junta todos, importa.
-    //
-    // HONESTIDAD TÉCNICA (por qué QR y no Bluetooth): los navegadores web NO
-    // pueden hacer Bluetooth teléfono-a-teléfono — Web Bluetooth solo actúa
-    // como "central" (no como periférico anunciable) y en iOS ni existe.
-    // Mesh BLE real exigiría empaquetar la app como nativa (p.ej. Capacitor);
-    // queda anotado como camino futuro. El QR es hoy el canal offline
-    // universal: cámara a cámara, cero red, cero servidor.
-    //
-    // Escáner: usa BarcodeDetector (Chrome/Android). Donde no exista (iOS
-    // Safari), el botón lo dice honesto y el camino es Copiar/Pegar.
-    // ========================================================================
-    const QR_CHUNK = 700; // caracteres por QR: legible rápido en pantallas medianas
-    function qrLib() { return window.qrcode || null; }
-
-    async function mostrarQRCambios() {
-      // R4 (JFC 2026-08-20): kill-switch remoto -- si version.json trae
-      // "syncPorQR" en apagar[], se corta aqui sin tocar camara ni datos.
-      if (window.OCApagado && window.OCApagado("syncPorQR")) { msg("oc-syncdev-msg", "Sync por QR temporalmente desactivado. Usa Copiar cambios mientras tanto.", "var(--rojo)"); return; }
-      const zona = $("oc-syncdev-qr-zona");
-      if (zona.style.display !== "none") { zona.style.display = "none"; zona.innerHTML = ""; return; }
-      if (!qrLib()) { msg("oc-syncdev-msg", "The local QR generator did not load (qrcode-local.js).", "var(--rojo)"); return; }
-      const texto = await OCSync.generarPaqueteManual();
-      if (!texto) { msg("oc-syncdev-msg", "There are no pending changes on this device.", "var(--ink)"); return; }
-      const sesion = Math.random().toString(36).slice(2, 6);
-      const total = Math.ceil(texto.length / QR_CHUNK);
-      // FIX preventivo 2026-07-07: con una cola enorme (semanas sin sincronizar)
-      // esto generaria decenas de QRs y congelaria la pestana. Tope duro y
-      // camino claro: para paquetes grandes, Copiar/Pegar es el canal correcto.
-      if (total > 12) { msg("oc-syncdev-msg", `Too many changes for QR (${total} codes). Use "Copy changes" and paste on the other device — same security.`, "var(--rojo)"); return; }
-      let html = `<p style="font-size:14px;font-weight:700;color:var(--ink);">Scan ${total > 1 ? "the " + total + " codes, in any order," : "this code"} from the other device (Advanced → Escanear QR):</p>`;
-      for (let i = 0; i < total; i++) {
-        const frag = "OCQ|" + sesion + "|" + (i + 1) + "|" + total + "|" + texto.slice(i * QR_CHUNK, (i + 1) * QR_CHUNK);
-        const q = qrLib()(0, "M");
-        q.addData(frag);
-        q.make();
-        html += `<div style="display:inline-block;background:#FFFFFF;padding:10px;border:2px solid var(--sim-plata,#C4CDD8);border-radius:8px;margin:6px;"><img src="${q.createDataURL(4, 8)}" alt="QR ${i + 1} de ${total}" style="display:block;max-width:240px;width:100%;image-rendering:pixelated;"><span style="font-family:var(--font-mono);font-size:13px;color:#0F1923;">${i + 1} / ${total}</span></div>`;
-      }
-      zona.innerHTML = html;
-      zona.style.display = "block";
-      msg("oc-syncdev-msg", "QR codes ready. Changes are NOT removed here until the other device imports them (dedup by op: scanning twice does not duplicate).", "var(--verde)");
-    }
-
-    let escaneoActivo = null; // { stream, timer } para poder apagar la cámara siempre
-    function detenerEscaneo() {
-      if (!escaneoActivo) return;
-      clearInterval(escaneoActivo.timer);
-      escaneoActivo.stream.getTracks().forEach((t) => t.stop());
-      const ov = $("oc-syncdev-qr-overlay");
-      if (ov) ov.remove();
-      escaneoActivo = null;
-    }
-
-    // FIX preventivo 2026-07-07: si cierran la pestana o navegan con el
-    // escaner abierto, la camara quedaria tomada hasta matar el navegador.
-    window.addEventListener("pagehide", detenerEscaneo);
-    document.addEventListener("visibilitychange", () => { if (document.hidden) detenerEscaneo(); });
-
-    async function escanearQRCambios() {
-      if (window.OCApagado && window.OCApagado("syncPorQR")) { msg("oc-syncdev-msg", "Sync por QR temporalmente desactivado. Usa Copiar cambios mientras tanto.", "var(--rojo)"); return; }
-      if (!("BarcodeDetector" in window)) {
-        msg("oc-syncdev-msg", "This browser cannot scan QR codes (common on iPhone). Use \"Copy changes\" and paste on the other device — same security.", "var(--rojo)");
-        return;
-      }
-      if (!window.OCSecure.syncActiva()) { msg("oc-syncdev-msg", "First enable sync with your PIN.", "var(--rojo)"); return; }
-      let stream;
-      try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); }
-      catch (_) { msg("oc-syncdev-msg", "Could not open camera (permission denied?).", "var(--rojo)"); return; }
-      const ov = document.createElement("div");
-      ov.id = "oc-syncdev-qr-overlay";
-      ov.style.cssText = "position:fixed;inset:0;z-index:10001;background:#0F1923;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;";
-      ov.innerHTML = `
-        <video autoplay playsinline style="width:100%;max-width:420px;border-radius:10px;border:3px solid #5294AC;"></video>
-        <p id="oc-qr-progreso" style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:17px;font-weight:700;margin:0;">Point at the QR from the other device...</p>
-        <button id="oc-qr-cerrar" style="min-height:44px;padding:10px 22px;border-radius:8px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;">Cancelar</button>`;
-      document.body.appendChild(ov);
-      const video = ov.querySelector("video");
-      video.srcObject = stream;
-      const detector = new BarcodeDetector({ formats: ["qr_code"] });
-      const frags = {}; // sesión actual: { i: pedazo }
-      let sesion = null, total = 0;
-      const timer = setInterval(async () => {
-        try {
-          const codes = await detector.detect(video);
-          for (const c of codes) {
-            const v = String(c.rawValue || "");
-            if (v.indexOf("OCQ|") !== 0) continue;
-            const [, ses, iStr, nStr] = v.split("|", 4);
-            const pedazo = v.split("|").slice(4).join("|");
-            if (sesion && ses !== sesion) continue; // no mezclar sesiones distintas
-            sesion = sesion || ses;
-            total = Number(nStr) || 0;
-            frags[Number(iStr)] = pedazo;
-            const tengo = Object.keys(frags).length;
-            $("oc-qr-progreso").textContent = `Read ${tengo} of ${total}...`;
-            if (total > 0 && tengo >= total) {
-              detenerEscaneo();
-              let texto = "";
-              for (let i = 1; i <= total; i++) texto += frags[i];
-              const r = await OCSync.importarPaqueteManual(texto);
-              msg("oc-syncdev-msg", r.ok ? `Imported via QR: ${r.recibido || 0} change(s) applied.` : r.motivo, r.ok ? "var(--verde)" : "var(--rojo)");
-              return;
-            }
-          }
-        } catch (_) { /* frame sin QR legible: seguir intentando */ }
-      }, 300);
-      escaneoActivo = { stream, timer };
-      $("oc-qr-cerrar").addEventListener("click", detenerEscaneo);
-    }
-
-    const btnQRMostrar = $("oc-syncdev-qr-mostrar");
-    if (btnQRMostrar) btnQRMostrar.addEventListener("click", mostrarQRCambios);
-    const btnQREscanear = $("oc-syncdev-qr-escanear");
-    if (btnQREscanear) btnQREscanear.addEventListener("click", escanearQRCambios);
-  }
-
   async function render() {
     const u = ubic();
     // Reforzado (JFC 2026-07-18): render() se llama tras desbloquear la capa

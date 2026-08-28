@@ -305,6 +305,7 @@
       }
       pintarBotonesOrdenPercha();
       grid.innerHTML = ms.map(_tarjeta).join('');
+      renderTransferencias(); // transfers entre perchas (movido de Advanced)
     } catch (err) {
       console.error('[VPerchas]', err);
       grid.innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">No se pudo cargar: ${esc(err.message)}</p>`;
@@ -596,6 +597,68 @@
     if (abrir) { e.preventDefault(); abrirCarpeta(abrir.dataset.vpAbrir); }
   });
 
+  // ── TRANSFERS ENTRE PERCHAS (JFC 2026-08-28) ──────────────────────────────
+  // Movido de Advanced a Perchas: es una operación de inventario entre
+  // ubicaciones, no configuración técnica. El dueño aprueba/rechaza/confirma
+  // rápido desde donde piensa en perchas. Reusa el mismo endpoint /api/transferencias.
+  async function renderTransferencias() {
+    const cont = $('vp-transfers');
+    if (!cont) return;
+    let lista;
+    try {
+      lista = await (await fetch(`${API}/transferencias`)).json();
+    } catch (err) {
+      console.error('[VPerchas transferencias]', err);
+      cont.innerHTML = `<h3 class="seccion" style="margin-top:0;">${esc(window.t('shelves.transfersHeading') || 'Transfers between locations')}</h3>
+        <p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load. Check your connection and try again.</p>`;
+      return;
+    }
+    const titulo = `<h3 class="seccion" style="margin-top:0;">${esc(window.t('shelves.transfersHeading') || 'Transfers between locations')}</h3>`;
+    if (!Array.isArray(lista) || !lista.length) {
+      cont.innerHTML = titulo + `<p style="font-size:14px;color:var(--ink-soft);">No transfers yet.</p>`;
+      return;
+    }
+    cont.innerHTML = titulo + lista.map((t) => {
+      const colorEstado = t.estado === 'recibida' ? 'verde' : t.estado === 'rechazada' ? 'rojo' : t.estado === 'en_transito' ? 'azul' : 'amarillo';
+      let acciones = '';
+      if (t.estado === 'solicitada') {
+        acciones = `<button data-transf-aprobar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--verde);border-radius:5px;background:transparent;color:var(--verde);cursor:pointer;">Approve</button>
+          <button data-transf-rechazar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--rojo);border-radius:5px;background:transparent;color:var(--rojo);cursor:pointer;">Reject</button>`;
+      } else if (t.estado === 'en_transito') {
+        acciones = `<button data-transf-confirmar="${t.id}" style="font-size:13px;padding:6px 10px;min-height:44px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Confirm receipt</button>`;
+      }
+      return `<div class="tag-card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <strong>${esc(t.nombre)}</strong> · ${t.cantidad} un.
+          <div style="font-size:13px;color:var(--ink-soft);">${esc(t.desdeNombre)} → ${esc(t.haciaNombre)}</div>
+        </div>
+        <span class="badge-estado ${colorEstado}">${t.estado.replace('_', ' ')}</span>
+        ${acciones}
+      </div>`;
+    }).join('');
+
+    cont.querySelectorAll('[data-transf-aprobar]').forEach((btn) => btn.addEventListener('click', async () => {
+      let res, r;
+      try { res = await fetch(`${API}/transferencias/${btn.dataset.transfAprobar}/aprobar`, { method: 'POST' }); r = await res.json(); }
+      catch (err) { console.error('[transf-aprobar]', err); alert('Could not reach the server. Try again.'); return; }
+      if (!res.ok) { alert(r.error); return; }
+      renderTransferencias();
+    }));
+    cont.querySelectorAll('[data-transf-rechazar]').forEach((btn) => btn.addEventListener('click', async () => {
+      try { await fetch(`${API}/transferencias/${btn.dataset.transfRechazar}/rechazar`, { method: 'POST' }); }
+      catch (err) { console.error('[transf-rechazar]', err); alert('Could not reach the server. Try again.'); return; }
+      renderTransferencias();
+    }));
+    cont.querySelectorAll('[data-transf-confirmar]').forEach((btn) => btn.addEventListener('click', async () => {
+      let res, r;
+      try { res = await fetch(`${API}/transferencias/${btn.dataset.transfConfirmar}/confirmar-recepcion`, { method: 'POST' }); r = await res.json(); }
+      catch (err) { console.error('[transf-confirmar]', err); alert('Could not reach the server. Try again.'); return; }
+      if (!res.ok) { alert(r.error); return; }
+      renderTransferencias();
+      cargar(); // re-render del grid de perchas (el stock cambió)
+    }));
+  }
+
   function init() {
     document.body.appendChild(inputFoto);
     document.body.appendChild(modal);
@@ -628,5 +691,5 @@
     ? document.addEventListener('DOMContentLoaded', initSeguro)
     : initSeguro();
 
-  window.VPerchas = { cargar };
+  window.VPerchas = { cargar, renderTransferencias };
 })();

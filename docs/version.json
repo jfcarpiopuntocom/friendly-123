@@ -1,9 +1,9 @@
 {
-  "version": "1.7.31",
+  "version": "1.7.32",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.31 — 1) La sesión ya sobrevive al reload forzado de versión: ya no te saca al candado estando logueado (se restaura al arrancar; el timeout de inactividad y el logout la limpian). 2) Arreglados los lapicitos de edición individual de PINs en Access & recovery (se re-renderizan al hacer login). 3) El check del relay ahora usa WebSocket (no sujeto a CORS): ya no reporta 'Relay unreachable' en falso.",
+  "changelog": "v1.7.32 — Sync ultra-simplificado en Advanced: queda UNA sola forma de sync visible (la automática por licencia, en tiempo real). Se eliminaron el 'Remote sync' (PocketBase) y el 'Device sync' (copiar/pegar/WhatsApp/merge) — la redundancia vive en el backend, no como opciones que abruman. 'Transfers between locations' se movió de Advanced a Perchas (es operación de inventario entre ubicaciones). El reload de versión fuerza la siguiente versión de inmediato y, gracias a la sesión persistente, aterrizas de vuelta en la app, no en el candado.",
   "requerida": false,
-  "shell": "f123-shell-v144",
+  "shell": "f123-shell-v145",
   "apagar": [],
-  "releaseName": "v1.7.31"
+  "releaseName": "v1.7.32"
 }
