@@ -14,3 +14,4 @@ _local/
 check-no-cloud.sh
 cloudflare-worker/.wrangler/
 _backups/
+.superpowers/
