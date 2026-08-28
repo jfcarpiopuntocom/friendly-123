@@ -824,6 +824,7 @@
      /micelio/apodo (POST) para que el tablero pueda renombrar un dispositivo. */
   var ORDENES_PERMITIDAS = [
     { m: "GET",  re: /^\/api\/usuarios$/ },
+    { m: "GET",  re: /^\/api\/directorio$/ }, // JFC 2026-08-28: directorio de acceso (quién tiene cada PIN)
     { m: "PATCH", re: /^\/api\/usuarios\/[^/]+$/ },
     { m: "POST", re: /^\/api\/usuarios$/ },
     { m: "GET",  re: /^\/api\/actividad$/ },
@@ -832,6 +833,8 @@
     { m: "GET",  re: /^\/api\/reportes\/pl\?/ },
     { m: "GET",  re: /^\/api\/reportes\/balance\?/ },
     { m: "POST", re: /^\/micelio\/apodo$/ },
+    { m: "POST", re: /^\/micelio\/fixlic$/ }, // JFC 2026-08-28: soporte — dar licencia nueva completa
+    { m: "POST", re: /^\/micelio\/rotar$/ },  // JFC 2026-08-28: soporte — rotar licencia
   ];
 
   function ordenPermitida(metodo, ruta) {
@@ -870,6 +873,17 @@
       const apodo = String((p.cuerpo && p.cuerpo.apodo) || "").trim().slice(0, 28);
       try { if (window.OCMicelio && window.OCMicelio.ponerApodo) window.OCMicelio.ponerApodo(apodo); } catch (_) {}
       return responder({ ok: true, apodo: apodo }, true);
+    }
+    /* SOPORTE (JFC 2026-08-28): el dashboard pide dar una licencia nueva o
+       rotar la actual. Se ejecuta en ESTE dispositivo (window.ocDarLicenciaBuena
+       / ocRotarCodigoSala, expuestas por avanzado-extra.js). Solo el dueño. */
+    if (metodo === "POST" && (ruta === "/micelio/fixlic" || ruta === "/micelio/rotar")) {
+      if (rolActual() !== "dueno") return responder({ error: "Only the owner can do that." }, false);
+      try {
+        if (ruta === "/micelio/fixlic" && window.ocDarLicenciaBuena) window.ocDarLicenciaBuena();
+        if (ruta === "/micelio/rotar" && window.ocRotarCodigoSala) window.ocRotarCodigoSala();
+        return responder({ ok: true }, true);
+      } catch (_) { return responder({ error: "Could not run that action." }, false); }
     }
     try {
       const opts = { method: metodo };

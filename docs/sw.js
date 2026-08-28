@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v138"; // bumped 2026-08-28: nav reordenado (Labels tras Expenses, antes de Advanced) + iconos: Commissions=balanza de la justicia, Sold=$ correcto, Advanced=herramienta
+const CACHE = "f123-shell-v139"; // bumped 2026-08-28: directorio de acceso (PINs atados a personas) + sección Who has access y Support en el dashboard; botón 'My license is broken' movido de Sync a Support
 const SHELL = [
   "./",
   "./index.html",

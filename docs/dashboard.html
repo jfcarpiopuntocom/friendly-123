@@ -365,6 +365,46 @@
     <p id="avz-msg" style="font-size:15px;font-weight:700;margin:10px 0 0;min-height:22px;"></p>
   </section>
 
+  <!-- QUIEN TIENE ACCESO (JFC 2026-08-28). El directorio de acceso: qué PIN
+       corresponde a qué persona (nombre, correo, notas). Es la base para el
+       control real de quién puede entrar a tu cuaderno. Se pide al dispositivo
+       del dueño por el canal cifrado (GET /api/directorio). -->
+  <section id="acceso" style="margin:30px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Who has access</h2>
+    <p style="font-size:14px;color:#5A6B7A;margin:0 0 12px;max-width:640px;">
+      Cada PIN de tu cuaderno, con la persona que lo usa. Si un PIN no tiene
+      nombre, edítalo en la app (Access &amp; recovery) y asígnale quién es.
+    </p>
+    <div id="acceso-cuerpo" class="card" style="padding:6px 16px;">
+      <p style="font-size:14px;color:#5A6B7A;margin:8px 0;">Cargando…</p>
+    </div>
+  </section>
+
+  <!-- SOPORTE (JFC 2026-08-28). Botones de auxilio según el tipo de problema,
+       todo amigable. El dueño pide una acción y el dispositivo la ejecuta. -->
+  <section id="soporte" style="margin:30px 0 0;">
+    <h2 style="font-size:19px;margin:0 0 4px;">Support</h2>
+    <p style="font-size:14px;color:#5A6B7A;margin:0 0 12px;max-width:640px;">
+      ¿Algo se atascó? Elige lo que te pasa y te ayudamos a desatascarlo. Nada
+      de esto borra tus datos.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button type="button" id="sop-fixlic" style="padding:12px 16px;border:2px solid #00805A;border-radius:8px;background:#fff;color:#00805A;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
+        🔑 My license is broken or too short<br>
+        <span style="font-weight:400;font-size:12px;color:#5A6B7A;">Get a fresh full license for this device</span>
+      </button>
+      <button type="button" id="sop-resync" style="padding:12px 16px;border:2px solid #2C4A68;border-radius:8px;background:#fff;color:#2C4A68;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
+        🔄 My devices aren't talking to each other<br>
+        <span style="font-weight:400;font-size:12px;color:#5A6B7A;">Reconnect this device to your team</span>
+      </button>
+      <button type="button" id="sop-rotar" style="padding:12px 16px;border:2px solid #E86040;border-radius:8px;background:#fff;color:#E86040;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
+        ⚠️ I think someone else has my license<br>
+        <span style="font-weight:400;font-size:12px;color:#5A6B7A;">Rotate to a brand-new license</span>
+      </button>
+    </div>
+    <p id="sop-msg" style="font-size:15px;font-weight:700;margin:12px 0 0;min-height:22px;"></p>
+  </section>
+
   <p class="pie-lienzo">
     Este tablero es un lienzo: no guarda nada. Lo que ves llega cifrado desde los dispositivos
     de tu equipo y desaparece al cerrar esta pesta&ntilde;a.
@@ -1868,8 +1908,9 @@
          Antes, si nadie contestaba, la duenia se quedaba mirando las pestanias
          vacias sentada delante del computador donde estan todos sus datos. */
       pintarDesdeLocal();
-      pulso("pidiendo tu negocio…");
+      pulso("pidiendo tu negocio...");
       pedirFoto();
+      cargarAcceso();
       sinNadie();
     } catch (e) {
       $("entrar").disabled = false;
@@ -1881,6 +1922,83 @@
       if (!autorizado) $("entrar").disabled = false;
     }
   });
+
+  /* ========================================================================
+     QUIEN TIENE ACCESO + SOPORTE (JFC 2026-08-28).
+     El directorio de acceso se pide al dispositivo del duenio (GET
+     /api/directorio) y se pinta. Los botones de soporte piden una accion por
+     orden remota (fixlic / rotar) o re-sincronizan.
+     ======================================================================== */
+  function cargarAcceso() {
+    var el = $("acceso-cuerpo");
+    if (!el) return;
+    el.innerHTML = '<p style="font-size:14px;color:#5A6B7A;margin:8px 0;">Cargando…</p>';
+    ordenar("GET", "/api/directorio", null).then(function (r) {
+      if (!r.ok || !r.datos || !r.datos.directorio) {
+        el.innerHTML = '<p style="font-size:14px;color:#5A6B7A;margin:8px 0;">' +
+          ((r.datos && r.datos.error) || "No se pudo leer el directorio. ¿La app está abierta en tu dispositivo?") + "</p>";
+        return;
+      }
+      var d = r.datos.directorio;
+      var filas = [];
+      var fila = function (rol, pin, persona) {
+        var nombre = (persona && persona.nombre) ? persona.nombre : '<span style="color:#A8123A;">sin nombre</span>';
+        var correo = (persona && persona.correo) ? persona.correo : "";
+        var notas = (persona && persona.notas) ? persona.notas : "";
+        return '<div style="padding:8px 0;border-bottom:1px solid #E3EAF0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">' +
+          '<span style="font-weight:700;min-width:110px;">' + rol + '</span>' +
+          '<code style="font-family:monospace;letter-spacing:.08em;color:#2C4A68;">' + (pin || "—") + '</code>' +
+          '<span style="flex:1;min-width:160px;">' + nombre + (correo ? ' <span style="color:#5A6B7A;font-size:12px;">· ' + correo + "</span>" : "") + "</span>" +
+          (notas ? '<span style="color:#5A6B7A;font-size:12px;width:100%;">' + notas + "</span>" : "") +
+          "</div>";
+      };
+      filas.push(fila("Owner", d.owner && d.owner.pin, d.owner));
+      (d.empleados || []).forEach(function (e) { filas.push(fila("Staff", e.pin, e)); });
+      filas.push(fila("Accounting", d.acct && d.acct.pin, d.acct));
+      el.innerHTML = filas.join("") || '<p style="font-size:14px;color:#5A6B7A;margin:8px 0;">Aún no hay directorio. Edita un PIN en la app (Access &amp; recovery) para asignarle quién es.</p>';
+    });
+  }
+
+  function sopMsg(txt, ok) {
+    var m = $("sop-msg");
+    if (!m) return;
+    m.style.color = ok ? "#00805A" : "#A8123A";
+    m.textContent = txt;
+  }
+
+  function bindSoporte() {
+    var bFix = $("sop-fixlic");
+    if (bFix) bFix.addEventListener("click", function () {
+      if (!confirm("Esto le da a ESTE dispositivo una licencia nueva completa y lo mueve a un cuaderno nuevo (tus datos locales se quedan). Cualquier otro dispositivo debe entrar con el código nuevo para volver a unirse. ¿Continuar?")) return;
+      sopMsg("Pidiendo licencia nueva a tu dispositivo…", true);
+      ordenar("POST", "/micelio/fixlic", {}).then(function (r) {
+        sopMsg(r.ok ? "Listo — tu dispositivo generó la licencia nueva (mírala en la app)." : ((r.datos && r.datos.error) || "Tu dispositivo no contestó."), r.ok);
+      });
+    });
+    var bRot = $("sop-rotar");
+    if (bRot) bRot.addEventListener("click", function () {
+      if (!confirm("Esto rota a una licencia nueva para que quien la tenía antes ya no pueda entrar. ¿Continuar?")) return;
+      sopMsg("Rotando licencia…", true);
+      ordenar("POST", "/micelio/rotar", {}).then(function (r) {
+        sopMsg(r.ok ? "Listo — licencia rotada (mírala en la app)." : ((r.datos && r.datos.error) || "Tu dispositivo no contestó."), r.ok);
+      });
+    });
+    var bRes = $("sop-resync");
+    if (bRes) bRes.addEventListener("click", function () {
+      sopMsg("Pidiendo reconexión…", true);
+      ordenar("POST", "/micelio/apodo", { apodo: "" }).then(function () {
+        /* La reconexión real la hace el dispositivo; aquí solo se avisa. */
+        sopMsg("Hecho — tu dispositivo se está reconectando a tu equipo.", true);
+      });
+    });
+  }
+
+  /* Se cargan al entrar (autorizado) y cada vez que llega una foto nueva. */
+  var _cargarAccesoY = function () { cargarAcceso(); };
+  try { window.addEventListener("oc-dashboard-entro", _cargarAccesoY); } catch (_) {}
+  try { bindSoporte(); } catch (_) {}
+  /* Si ya se entró antes de bindear, cargar igual. */
+  try { if (autorizado) cargarAcceso(); } catch (_) {}
   $("codigo").addEventListener("keydown", function (e) { if (e.key === "Enter") $("entrar").click(); });
 
   /* ------------------------------------------------ LOS GUIONES LOS PONE LA APP

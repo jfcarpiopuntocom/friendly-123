@@ -1,9 +1,9 @@
 {
-  "version": "1.7.25",
+  "version": "1.7.26",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.25 — Menú reordenado (Labels baja tras Expenses, antes de Advanced) e iconos renovados: Commissions usa una balanza de la justicia, Sold usa el signo $ correcto, Advanced usa una herramienta (ya no un sol idéntico a Today).",
+  "changelog": "v1.7.26 — Directorio de acceso: cada PIN se asocia a una persona (nombre, correo, notas) al editarlo; el dashboard muestra 'Who has access' (quién tiene cada PIN). El botón 'My license is broken' salió de Sync y ahora vive en una sección de Support amigable en el dashboard, con botones según el tipo de problema.",
   "requerida": false,
-  "shell": "f123-shell-v138",
+  "shell": "f123-shell-v139",
   "apagar": [],
-  "releaseName": "v1.7.25"
+  "releaseName": "v1.7.26"
 }

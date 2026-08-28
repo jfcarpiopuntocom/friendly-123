@@ -389,6 +389,45 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     return guardarSecureResiliente(s);
   }
 
+  /* DIRECTORIO DE ACCESO (JFC 2026-08-28, aprobado). Cada PIN se asocia a una
+     persona: nombre, correo (opcional) y notas/apuntes de control. Es la base
+     para reportes "quién hizo qué" y para que cada dueño de licencia tenga
+     control real de quién tiene cada PIN. Viaja cifrado con el resto del
+     secreto (mismo mecanismo que los PINs). No cambia la verificación: el hash
+     PBKDF2 sigue siendo el verificador de identidad; esto es metadato. */
+  function leerDirectorio() {
+    try {
+      const s = leerSecreto();
+      if (!s || !s.directorio) return null;
+      return s.directorio;
+    } catch { return null; }
+  }
+  function guardarDirectorio(dir) {
+    try {
+      const s = leerSecreto(); if (!s) return false;
+      s.directorio = dir || {};
+      return guardarSecureResiliente(s);
+    } catch { return false; }
+  }
+  // Asegura que el directorio tenga la forma esperada (con los PINs actuales
+  // como claves de referencia), sin pisar nombres/correos/notas ya guardados.
+  function directorioNormalizado() {
+    const pins = leerPinsVisibles();
+    const dir = leerDirectorio() || {};
+    const out = {
+      owner: Object.assign({ pin: (pins && pins.owner) || "", nombre: "", correo: "", notas: "" }, dir.owner || {}),
+      acct: Object.assign({ pin: (pins && pins.acct) || "", nombre: "", correo: "", notas: "" }, dir.acct || {}),
+      empleados: [],
+    };
+    const empPins = (pins && pins.empleados && pins.empleados.length) ? pins.empleados : ["260"];
+    const empDir = Array.isArray(dir.empleados) ? dir.empleados : [];
+    empPins.forEach((pin) => {
+      const prev = empDir.find((e) => String(e.pin) === String(pin)) || {};
+      out.empleados.push(Object.assign({ pin: String(pin), nombre: "", correo: "", notas: "" }, prev));
+    });
+    return out;
+  }
+
   // ---- Reseteo de acceso por correo ("olvidé mi clave") ----
   // Flujo: 1) generarCodigoReset() crea un código de 6 dígitos con vencimiento
   // de 15 min y lo guarda (solo su hash) en localStorage["oc_reset"]; el
@@ -596,6 +635,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo, segundosBloqueo,
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia
     fijarEmpleadoPin, fijarAcctPin, // JFC 2026-08-28: edición individual de PINs (lapicito en Access & recovery)
+    leerDirectorio, guardarDirectorio, directorioNormalizado, // JFC 2026-08-28: directorio de acceso (PINs atados a personas)
     activarSync, syncActiva, desactivarSync, cifrarSync, descifrarSync,
     hashTexto, cifrarTextoConClave, descifrarTextoConClave,
     leerWhatsapp, actualizarWhatsapp, // Mejora #5, 2026-07-16

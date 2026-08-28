@@ -2699,6 +2699,17 @@
 
       if (path === "/api/actividad") return J(movimientos.slice().reverse().slice(0, 100));
 
+      /* DIRECTORIO DE ACCESO (JFC 2026-08-28). Quién tiene cada PIN (nombre,
+         correo, notas). Solo el dueño. Lo lee el dashboard para el reporte
+         "quién tiene acceso". Viaja cifrado con el secreto; aquí solo se
+         expone lo que el dueño ya puede ver en Advanced/Team. */
+      if (path === "/api/directorio" && (!opts || opts.method === "GET")) {
+        if (_rolLocal() !== "dueno") return J({ error: "Only the owner can see the access directory." }, 403);
+        let dir = null;
+        try { dir = (window.OCSecure && window.OCSecure.directorioNormalizado) ? window.OCSecure.directorioNormalizado() : null; } catch (_) {}
+        return J({ directorio: dir });
+      }
+
       // GASTOS (2026-08-27): registrar y listar gastos individuales.
       // GET /api/gastos — lista los gastos (más recientes primero) + totales.
       // POST /api/gastos — registra un gasto { concepto, monto, fecha, ubicacionId }.

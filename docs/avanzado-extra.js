@@ -602,7 +602,6 @@
             <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
             <button id="oc-sync-mergear" class="ir" style="background:#2C3E50;border-color:#0F1923;color:#FFFFFF;border-left:5px solid var(--azul-medio,#2c4a68);">Merge inventory with my team</button>
             <button id="oc-sync-rotar" style="border-color:#E86040;color:#E86040;">Rotate team license</button>
-            <button id="oc-sync-fixlic" style="border-color:#00805A;color:#00805A;">My license is broken/short — give me a full one</button>
         <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
           </div>
         </div>
@@ -659,7 +658,7 @@
           var _esLordSync = false;
           try { _esLordSync = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
           var _ocultar = _rolSync !== "dueno" && !_esLordSync;
-          ["oc-sync-rotar", "oc-sync-fixlic", "oc-sync-claim", "oc-sync-mergear"].forEach(function (id) {
+          ["oc-sync-rotar", "oc-sync-claim", "oc-sync-mergear"].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.style.display = _ocultar ? "none" : "";
           });
@@ -1101,7 +1100,6 @@
         } catch (_) {}
       })(),
       (function(){var _r=document.getElementById("oc-sync-rotar");if(_r&&!_r.dataset.listo){_r.dataset.listo="1";_r.addEventListener("click",ocRotarCodigoSala);}})(),
-      (function(){var _f=document.getElementById("oc-sync-fixlic");if(_f&&!_f.dataset.listo){_f.dataset.listo="1";_f.addEventListener("click",ocDarLicenciaBuena);}})(),
       /* CLAIM / MERGE (JFC 2026-08-27). Re-apunta ESTE aparato a la licencia
          canónica que muestra el otro aparato, conservando los datos locales.
          El merge add-only ocurre después, al reconectar ambos a la misma sala. */
@@ -2198,8 +2196,28 @@ Keep it somewhere safe.`);
           if (["456", "789", "260", "357"].indexOf(v) !== -1) { alert("That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one."); return; }
           try {
             const ok = await window.OCSecure[fn](v);
-            if (ok) { pintarPinsVisibles(); msg("oc-codes-msg", etiqueta + " PIN updated.", "var(--verde)"); }
-            else { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); }
+            if (!ok) { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); return; }
+            /* DIRECTORIO DE ACCESO (JFC 2026-08-28): al cambiar un PIN, se
+               asocia a una persona (nombre, correo opcional, notas). Es la base
+               para "quién hizo qué" y el control de acceso de cada dueño. */
+            try {
+              const dir = window.OCSecure.directorioNormalizado();
+              const nombre = prompt("Who uses this " + etiqueta + " PIN? (name)", "");
+              if (nombre != null) {
+                const correo = prompt("Their email (optional):", "");
+                const notas = prompt("Notes (optional, e.g. 'runs Rack1', 'works Thursdays'):", "");
+                if (rol === "owner") { dir.owner.nombre = String(nombre).trim(); dir.owner.correo = String(correo || "").trim(); dir.owner.notas = String(notas || "").trim(); }
+                else if (rol === "acct") { dir.acct.nombre = String(nombre).trim(); dir.acct.correo = String(correo || "").trim(); dir.acct.notas = String(notas || "").trim(); }
+                else {
+                  const e = dir.empleados.find((x) => String(x.pin) === String(v)) || { pin: String(v), nombre: "", correo: "", notas: "" };
+                  e.nombre = String(nombre).trim(); e.correo = String(correo || "").trim(); e.notas = String(notas || "").trim();
+                  if (!dir.empleados.some((x) => String(x.pin) === String(v))) dir.empleados.push(e);
+                }
+                window.OCSecure.guardarDirectorio(dir);
+              }
+            } catch (_) {}
+            pintarPinsVisibles();
+            msg("oc-codes-msg", etiqueta + " PIN updated.", "var(--verde)");
           } catch (_) { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); }
         });
       });
@@ -3251,5 +3269,12 @@ Keep it somewhere safe.`);
       }
     } catch (e) { alert((e && e.message) || "Could not generate a license."); }
   }
+
+  /* EXPUESTAS PARA EL DASHBOARD (JFC 2026-08-28). El tablero pide estas
+     acciones por orden remota (POST /micelio/fixlic y /micelio/rotar) y el
+     dispositivo las ejecuta aquí. Antes solo se disparaban desde el botón de
+     la sección Sync (que se quitó). */
+  try { window.ocDarLicenciaBuena = ocDarLicenciaBuena; } catch (_) {}
+  try { window.ocRotarCodigoSala = ocRotarCodigoSala; } catch (_) {}
 
 })();
