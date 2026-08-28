@@ -1,9 +1,9 @@
 {
-  "version": "1.7.23",
+  "version": "1.7.24",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.23 — Fix crash: el candado de PIN ya no se resetea a mitad de tecleo (el reload forzado de versión ahora espera a que dejes de teclear).",
+  "changelog": "v1.7.24 — Nav 'Expenses' arreglado (ya no dice Nav.Expenses); Current access codes muestra los defaults (Staff 260, Accounting 357); los PINs se editan individualmente con lapicito (dueño edita los tres, admin solo el de encargado); el botón Claim & merge ya aparece tras entrar (gate re-ejecutable al login); sección Expenses fortificada con 'How does it work?'.",
   "requerida": false,
-  "shell": "f123-shell-v136",
+  "shell": "f123-shell-v137",
   "apagar": [],
-  "releaseName": "v1.7.23"
+  "releaseName": "v1.7.24"
 }

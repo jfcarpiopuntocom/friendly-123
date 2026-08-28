@@ -643,23 +643,30 @@
          estado de sync y unirse a un notebook, pero NO debe poder rotar la
          licencia del dueño ni re-apuntar la identidad del negocio. El botón
          "avanzado" ya se oculta para empleados (auth-ui.js); esto cierra el
-         hueco del admin. */
-      try {
-        var _rolSync = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
-        /* A2 (2026-08-28): JFC es el lord/master admin y su panel ya separa sus
-           aparatos con esMio. Antes el claim/merge se ocultaba si el rol no era
-           "dueno", así que JFC (que entra como lord/soporte) no veía el botón
-           para re-apuntar su propia PC a la canónica. El lord también puede
-           rotar/re-emitir licencias (es quien las emite). */
-        var _esLordSync = false;
-        try { _esLordSync = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
-        if (_rolSync !== "dueno" && !_esLordSync) {
+         hueco del admin.
+         FIX (JFC 2026-08-28): el panel se construye ANTES del login, cuando
+         rolActual() es null, así que el gate ocultaba claim/merge/rotar/fixlic/
+         mergear para siempre. Ahora es una función re-ejecutable que se vuelve
+         a aplicar al hacer login (evento oc-login). */
+      function _aplicarGateSync() {
+        try {
+          var _rolSync = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+          /* A2 (2026-08-28): JFC es el lord/master admin y su panel ya separa sus
+             aparatos con esMio. Antes el claim/merge se ocultaba si el rol no era
+             "dueno", así que JFC (que entra como lord/soporte) no veía el botón
+             para re-apuntar su propia PC a la canónica. El lord también puede
+             rotar/re-emitir licencias (es quien las emite). */
+          var _esLordSync = false;
+          try { _esLordSync = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
+          var _ocultar = _rolSync !== "dueno" && !_esLordSync;
           ["oc-sync-rotar", "oc-sync-fixlic", "oc-sync-claim", "oc-sync-mergear"].forEach(function (id) {
             var el = document.getElementById(id);
-            if (el) el.style.display = "none";
+            if (el) el.style.display = _ocultar ? "none" : "";
           });
-        }
-      } catch (_) {}
+        } catch (_) {}
+      }
+      _aplicarGateSync();
+      try { window.addEventListener("oc-login", _aplicarGateSync); } catch (_) {}
 
       /* CAJA AUTOFORMATEADA en los DOS campos de codigo (JFC 2026-08-19:
          "es penoso tener que poner las - manualmente o las mayusculas
@@ -2152,15 +2159,50 @@ Keep it somewhere safe.`);
       if (!cuerpo) return;
       let pins = null;
       try { pins = window.OCSecure.leerPinsVisibles(); } catch (_) {}
-      if (!pins) {
-        cuerpo.innerHTML = '<span style="color:var(--ink-soft);">No visible copy yet — re-save the codes above to make them visible.</span>';
-        return;
-      }
-      const emp = (pins.empleados && pins.empleados.length) ? pins.empleados.join(", ") : "—";
+      /* Defaults (JFC 2026-08-28): si no hay copia visible de un PIN (se fijó
+         antes de que existieran las copias XOR), se muestra el default del
+         sistema — Staff 260, Accounting 357 — en vez de un guión vacío. El
+         dueño/admin puede cambiarlos con los lapicitos de abajo. */
+      const emp = (pins && pins.empleados && pins.empleados.length) ? pins.empleados.join(", ") : "260";
+      const acct = (pins && pins.acct) ? pins.acct : "357";
+      const owner = (pins && pins.owner) ? pins.owner : "—";
+      /* LAPICITOS DE EDICIÓN INDIVIDUAL (JFC 2026-08-28). Cada PIN se edita
+         por separado con su lapicito, en la cascada de jerarquía: el dueño
+         edita los tres; el admin edita SOLO el de encargado (no el del dueño
+         ni el contable). El lapicito pide el PIN nuevo (3 dígitos) y llama a
+         la función individual de crypto-store (fijarOwnerPin/fijarEmpleadoPin/
+         fijarAcctPin), que NO rota los otros PINs. */
+      const _rolPin = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+      const _puedeOwner = _rolPin === "dueno";
+      const _puedeEmp = _rolPin === "dueno" || _rolPin === "admin";
+      const _puedeAcct = _rolPin === "dueno";
+      const _lapiz = (rol, fn, actual) =>
+        (_puedeOwner || (rol === "emp" && _puedeEmp) || (rol === "acct" && _puedeAcct))
+          ? '<button type="button" data-pin-edit="' + rol + '" title="Change this PIN" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;margin-left:4px;">✎</button>'
+          : "";
       cuerpo.innerHTML =
-        '<div><strong>Owner:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(pins.owner || "—") + "</code></div>" +
-        '<div><strong>Staff:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(emp) + "</code></div>" +
-        '<div><strong>Accounting:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(pins.acct || "—") + "</code></div>";
+        '<div><strong>Owner:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(owner) + "</code>" + _lapiz("owner", "fijarOwnerPin", owner) + "</div>" +
+        '<div><strong>Staff:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(emp) + "</code>" + _lapiz("emp", "fijarEmpleadoPin", emp) + "</div>" +
+        '<div><strong>Accounting:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(acct) + "</code>" + _lapiz("acct", "fijarAcctPin", acct) + "</div>";
+      /* Bind de los lapicitos. Se re-bindea en cada pintado (los botones son
+         nuevos). */
+      cuerpo.querySelectorAll("[data-pin-edit]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const rol = btn.dataset.pinEdit;
+          const fn = rol === "owner" ? "fijarOwnerPin" : (rol === "emp" ? "fijarEmpleadoPin" : "fijarAcctPin");
+          const etiqueta = rol === "owner" ? "Owner" : (rol === "emp" ? "Staff" : "Accounting");
+          const nuevo = prompt("New " + etiqueta + " PIN (3 digits):");
+          if (nuevo == null) return;
+          const v = String(nuevo).trim();
+          if (!/^[0-9]{3}$/.test(v)) { alert("The PIN must be 3 digits (0-9)."); return; }
+          if (["456", "789", "260", "357"].indexOf(v) !== -1) { alert("That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one."); return; }
+          try {
+            const ok = await window.OCSecure[fn](v);
+            if (ok) { pintarPinsVisibles(); msg("oc-codes-msg", etiqueta + " PIN updated.", "var(--verde)"); }
+            else { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); }
+          } catch (_) { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); }
+        });
+      });
     }
     function pintarApodoDevice() {
       const txt = $("oc-apodo-device-txt");

@@ -369,6 +369,26 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     return guardarSecureResiliente(s);
   }
 
+  // Cambia SOLO el PIN de encargado (re-hash bajo el salt existente) sin rotar
+  // dueño/contable/correo. (JFC 2026-08-28: edición individual de PINs con
+  // lapicito en Access & recovery.) Reemplaza la lista de encargados por el
+  // PIN nuevo. Devuelve boolean (Guard G1).
+  async function fijarEmpleadoPin(nuevoPin) {
+    const s = leerSecreto(); if (!s) return false;
+    s.employeeHashes = [await hashPin(nuevoPin, s.salt, "emp")];
+    s.empPinR = [xorPin(nuevoPin)];
+    return guardarSecureResiliente(s);
+  }
+
+  // Cambia SOLO el PIN de la subclave contable (re-hash bajo el salt existente)
+  // sin rotar dueño/encargado/correo. (JFC 2026-08-28.) Devuelve boolean.
+  async function fijarAcctPin(nuevoPin) {
+    const s = leerSecreto(); if (!s) return false;
+    s.acctHash = await hashPin(nuevoPin, s.salt, "acct");
+    s.acctPinR = xorPin(nuevoPin);
+    return guardarSecureResiliente(s);
+  }
+
   // ---- Reseteo de acceso por correo ("olvidé mi clave") ----
   // Flujo: 1) generarCodigoReset() crea un código de 6 dígitos con vencimiento
   // de 15 min y lo guarda (solo su hash) en localStorage["oc_reset"]; el
@@ -575,6 +595,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     estadoSecreto, // Guard G2, JFC 2026-08-04: distingue "vacío"/"ok"/"corrupto" para dar mensajes honestos
     verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo, segundosBloqueo,
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia
+    fijarEmpleadoPin, fijarAcctPin, // JFC 2026-08-28: edición individual de PINs (lapicito en Access & recovery)
     activarSync, syncActiva, desactivarSync, cifrarSync, descifrarSync,
     hashTexto, cifrarTextoConClave, descifrarTextoConClave,
     leerWhatsapp, actualizarWhatsapp, // Mejora #5, 2026-07-16

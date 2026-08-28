@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v136"; // bumped 2026-08-28: fix crash — el reload forzado de version ya no recarga a mitad de tecleo del PIN (espera a que el usuario quede inactivo)
+const CACHE = "f123-shell-v137"; // bumped 2026-08-28: nav Expenses arreglado (i18n), Current access codes muestra defaults (Staff 260 / Accounting 357), PINs editables individualmente con lapicito (owner/admin), gate de sync re-ejecutable al login (Claim & merge ya aparece), sección Expenses fortificada con How it works
 const SHELL = [
   "./",
   "./index.html",
