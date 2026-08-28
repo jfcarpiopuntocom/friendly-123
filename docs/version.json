@@ -1,9 +1,9 @@
 {
-  "version": "1.7.30",
+  "version": "1.7.31",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.30 — Reenganche self-help en Advanced: según el checkpoint del autodiagnóstico, el botón del punto donde está trabado se pone NARANJA (highlight = aquí se atascó) y es el desatorador/forzador; los demás quedan inertes. El dueño/admin/encargado se desatasca solo (activar sync, test relay, reconectar, re-ingresar licencia, resync).",
+  "changelog": "v1.7.31 — 1) La sesión ya sobrevive al reload forzado de versión: ya no te saca al candado estando logueado (se restaura al arrancar; el timeout de inactividad y el logout la limpian). 2) Arreglados los lapicitos de edición individual de PINs en Access & recovery (se re-renderizan al hacer login). 3) El check del relay ahora usa WebSocket (no sujeto a CORS): ya no reporta 'Relay unreachable' en falso.",
   "requerida": false,
-  "shell": "f123-shell-v143",
+  "shell": "f123-shell-v144",
   "apagar": [],
-  "releaseName": "v1.7.30"
+  "releaseName": "v1.7.31"
 }

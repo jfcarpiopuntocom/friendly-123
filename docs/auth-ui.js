@@ -1076,6 +1076,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // un rol propio: NO se remapea a "dueno", queda aislado y solo-lectura.
     demoSesion = esDemo;
     rol = esDemo ? "dueno" : nuevoRol;
+    /* SESIÓN PERSISTENTE (JFC 2026-08-28). El reload forzado de versión
+       recargaba la página y volvía a mostrar el candado, sacando al usuario
+       logueado a mitad de uso. Se guarda la sesión en sessionStorage (sobrevive
+       al reload, se borra al cerrar la pestaña/navegador) y se restaura al
+       arrancar. El timeout de inactividad (30 min) y el logout manual la
+       limpian, así que no es un bypass de seguridad. */
+    try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: nuevoRol, demo: esDemo })); } catch (_) {}
     document.body.classList.toggle("rol-empleado", rol === "empleado");
     document.body.classList.toggle("rol-dueno", rol === "dueno");
     document.body.classList.toggle("rol-demo", esDemo);
@@ -1186,6 +1193,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // panel.html abierto y logueado si estaba en otra pestana — riesgo si
     // alguien mas usa el dispositivo despues.
     try { sessionStorage.removeItem("panel_auth_f123"); } catch (_) {}
+    try { sessionStorage.removeItem("f123_sesion"); } catch (_) {}
     rol = null;
     demoSesion = false;
     window.OCCurrentUser = null; // borrar sesion de encargado nombrado
@@ -1625,4 +1633,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       });
     },
   };
+
+  /* AUTO-LOGIN TRAS RELOAD (JFC 2026-08-28). Si había sesión activa guardada
+     en sessionStorage (ver entrar/cerrarSesion), se restaura al arrancar para
+     que el reload forzado de versión no saque al usuario al candado. Espera a
+     que la migración de claves (listo) termine antes de entrar. */
+  (async function () {
+    try {
+      await listo;
+      let ses = null;
+      try { ses = JSON.parse(sessionStorage.getItem("f123_sesion") || "null"); } catch (_) {}
+      if (ses && ses.rol) entrar(ses.rol);
+    } catch (_) {}
+  })();
 })();

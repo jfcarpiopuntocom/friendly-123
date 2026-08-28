@@ -820,9 +820,24 @@
            ESTE dispositivo (no desde el servidor) y cruza eso con el estado de
            sync local. El veredicto dice en una línea qué falla y qué hacer. */
         let relayOk = null; // null = probando, true/false = resultado
+        /* CHECK DEL RELAY POR WEBSOCKET (JFC 2026-08-28). Antes se usaba
+           fetch("/health"), pero el Worker no manda cabeceras CORS y el
+           navegador (github.io) bloqueaba el fetch → reportaba "RELAY
+           UNREACHABLE" en falso aunque el relay estuviera bien. Los WebSocket
+           NO están sujetos a CORS, así que este check abre una conexión real a
+           una sala de prueba: si abre, el relay es alcanzable desde ESTE
+           dispositivo (que es exactamente lo que el sync usa). */
         try {
-          const _r = await fetch("https://friendly123-sync-relay.jfcarpio.workers.dev/health", { method: "GET", cache: "no-store" });
-          relayOk = _r.ok && /ok/.test(await _r.text());
+          relayOk = await new Promise(function (res) {
+            let ws = null;
+            const t = setTimeout(function () { try { ws && ws.close(); } catch (_) {} res(false); }, 6000);
+            try {
+              ws = new WebSocket("wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/__diag__" + Math.random().toString(36).slice(2, 8));
+            } catch (_) { clearTimeout(t); res(false); return; }
+            ws.onopen = function () { clearTimeout(t); try { ws.close(); } catch (_) {} res(true); };
+            ws.onerror = function () { clearTimeout(t); try { ws.close(); } catch (_) {} res(false); };
+            ws.onclose = function () { clearTimeout(t); res(false); };
+          });
         } catch (_) { relayOk = false; }
         window.__f123RelayOk = relayOk; // lo consume pintarReenganche()
         const _estado = (S.estado && S.estado()) || "?";
@@ -2355,6 +2370,11 @@ Keep it somewhere safe.`);
     pintarPinsVisibles();
     pintarApodoDevice();
     try { window.addEventListener("oc-micelio-cambio", pintarApodoDevice); } catch (_) {}
+    /* FIX (JFC 2026-08-28): init() construye este panel ANTES del login, cuando
+       rolActual() es null, así que los lapicitos de edición individual de PINs
+       se renderizaban con rol vacío y NO aparecían nunca. Se re-pinta al hacer
+       login (evento oc-login) para que el dueño/admin vea sus lapicitos. */
+    try { window.addEventListener("oc-login", pintarPinsVisibles); } catch (_) {}
 
     $("oc-descargar-csv").addEventListener("click", async () => {
       const u = ubic();

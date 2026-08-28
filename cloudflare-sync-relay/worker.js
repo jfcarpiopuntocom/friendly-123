@@ -173,12 +173,20 @@ export default {
     if (url.pathname === "/" || url.pathname === "/health") {
       return new Response("friendly123-sync-relay ok", {
         status: 200,
-        headers: { "content-type": "text/plain; charset=utf-8" },
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          /* CORS (JFC 2026-08-28): sin esto, un fetch("/health") desde el
+             navegador (github.io) se bloqueaba por CORS y el autodiagnóstico
+             reportaba "RELAY UNREACHABLE" en falso. El check del cliente ya
+             usa WebSocket (no sujeto a CORS), pero /health debe responder
+             también para monitoreo externo. */
+          "access-control-allow-origin": "*",
+        },
       });
     }
     // /sala/<id>  — el id es el hash de sala que deriva el cliente (opaco aqui).
     const m = url.pathname.match(/^\/sala\/([A-Za-z0-9_-]{1,128})$/);
-    if (!m) return new Response("not found", { status: 404 });
+    if (!m) return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
     const idSala = env.SALAS.idFromName(m[1]);
     const stub = env.SALAS.get(idSala);
     return stub.fetch(request);
