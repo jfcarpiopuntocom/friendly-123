@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v148"; // bumped 2026-08-28: sistema de integridad de version (version-manifest.json con SHA-256 por archivo, verificacion SRI-style en el precache, R5 con hashes, recarga coordinada entre pestanas via BroadcastChannel, anti-loop, purga solo de caches del shell) + fix del bug de join (switch de tienda) + estrellas engarzadas + Advanced controls + icono de justicia + rack/shelf -> shelf
+const CACHE = "f123-shell-v149"; // bumped 2026-08-28: Join notebook production: Option A UI, PIN digit visibility 300ms, license validation before writes, atomic notebook switch, i18n unification
 const SHELL = [
   "./",
   "./index.html",

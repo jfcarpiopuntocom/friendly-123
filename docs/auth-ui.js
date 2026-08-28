@@ -148,20 +148,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
             owned.licenseEstado = r.estado;
             owned.licenseEstadoAt = Date.now();
-            /* RESCATE DE LICENCIA (JFC 2026-08-19) — ver RESCATE-LICENCIAS.md.
-               Si el servidor tiene una licencia para esta instancia y el
-               dispositivo no la tiene, se adopta y se le avisa al dueno con el
-               mismo aviso de siempre. Solo RELLENA un hueco: si el dispositivo
-               ya tiene su codigo, no se toca (el servidor nunca pisa al
-               cliente). Whitelist de formato para que una respuesta corrupta
-               no pueda escribir basura donde va la licencia.
-               ESTO NO TOCA syncCode: la sala del equipo se queda como esta.
-               Cambiarla sacaria de la sala a los telefonos ya sincronizados. */
-            var lic = r.licenseCode;
-            if (!owned.licenseCode && typeof lic === "string" && /^F123-[0-9A-Z*~$=-]{8,34}$/.test(lic)) {
-              owned.licenseCode = lic;
-              try { setTimeout(function () { mostrarAvisoLicencia(lic, true); }, 900); } catch (_) {}
-            }
             localStorage.setItem("f123_owned", JSON.stringify(owned));
           }
         }
@@ -172,26 +158,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     } catch (_) { /* never block UI */ }
   }
 
-
-  // Pool de emojis de adorno — emojis de oficina/negocios, apropiados para
-  // un sistema contable y de inventarios. Retrocompatibles: los PINs son
-  // numéricos; emojis son adorno visual barajado en cada apertura (no afectan
-  // el código almacenado ni los hashes).
-  const EMOJI_POOL = [
-    "💼", "📊", "📋", "📁", "🗂️", "📌", "📎", "📝", "🖊️", "✏️",
-    "🔑", "", "💰", "📦", "🏷️", "⚖️", "🔍", "🖨️", "📞", "📱",
-    "🏢", "💡", "⏰", "📅", "🗓️", "💳",
-  ];
-
-  // Fisher-Yates: baraja una copia del arreglo (no muta el original).
-  function barajar(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
 
   let rol = null; // "dueno" | "empleado"
   // Rol DEMO (JFC, 2026-07-02): la clave 456 entra con acceso de dueño pero SIN
@@ -386,7 +352,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     padding:8px 4px;border:2px solid var(--ink,#211c14);border-radius:6px;background:var(--crema,#f3e8cd);
     cursor:pointer;min-height:54px;}
   .oc-pad button .dig{font-family:var(--font-display,sans-serif);font-weight:700;font-size:20px;color:var(--ink,#211c14);line-height:1;}
-  .oc-pad button .emo{font-size:13px;line-height:1;}
   .oc-pad button:active{transform:translateY(1px);}
   /* FIX 2026-07-07 (JFC: "se agrandan y arruinan todo"): digitar rapido el PIN
      disparaba el double-tap zoom de iOS. touch-action:manipulation lo elimina
@@ -461,9 +426,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
 
   // ---------------------------------------------------------------------------
   // Construye un teclado de PIN reutilizable (lo usan el candado principal y el
-  // de la subclave contable). Cada vez que se llama, BARAJA los emojis de
-  // adorno entre las teclas. Las teclas muestran el dígito (lo que el usuario
-  // toca) más emojis decorativos.
+  // de la subclave contable).
   //   padEl   : contenedor del grid de teclas
   //   slotsEl : contenedor de las 3 casillas (se enmascaran con ●)
   //   onComplete(code) : callback cuando se ingresan 3 dígitos
@@ -471,22 +434,32 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // ---------------------------------------------------------------------------
   function montarTeclado(padEl, slotsEl, onComplete) {
     let entrada = [];
-    const pool = barajar(EMOJI_POOL); // adorno barajado por sesión de teclado
-    // Render de teclas 0-9 (dígitos en orden, visibles). A cada tecla le toca
-    // un emoji distinto del pool barajado (intercambiable, no fijo por dígito).
+    let ultimoVisible = -1;
+    let ocultarTimer = null;
     padEl.innerHTML = "";
     for (let d = 0; d <= 9; d++) {
       const b = document.createElement("button");
       b.dataset.d = String(d);
-      b.innerHTML = `<span class="dig">${d}</span><span class="emo">${pool[d % pool.length]}</span>`;
+      b.innerHTML = `<span class="dig">${d}</span>`;
       padEl.appendChild(b);
     }
     const slots = () => slotsEl.querySelectorAll(".slot");
     function pintar() {
       slots().forEach((s, i) => {
-        if (entrada[i] != null) { s.textContent = "●"; s.classList.add("lleno"); } // enmascarado: no delata
-        else { s.textContent = ""; s.classList.remove("lleno"); }
+        if (entrada[i] != null) {
+          s.textContent = i === ultimoVisible ? String(entrada[i]) : "●";
+          s.classList.add("lleno");
+        } else {
+          s.textContent = "";
+          s.classList.remove("lleno");
+        }
       });
+    }
+    function revelarUltimo() {
+      if (ocultarTimer) clearTimeout(ocultarTimer);
+      ultimoVisible = entrada.length - 1;
+      pintar();
+      ocultarTimer = setTimeout(() => { ultimoVisible = -1; pintar(); }, 300);
     }
     // BUG FIJADO: montarTeclado() se vuelve a llamar en cada reintento (un PIN
     // equivocado re-baraja el teclado). Antes esto hacía padEl.addEventListener
@@ -497,24 +470,19 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // vez por nodo (guardado en un dataset flag) y lee el callback/estado
     // vigente desde padEl._ocTeclado, que cada llamada a montarTeclado() sí
     // reemplaza por completo.
-    padEl._ocTeclado = { entrada: () => entrada, push: (d) => entrada.push(d), pintar, onComplete };
+    padEl._ocTeclado = { entrada: () => entrada, push: (d) => entrada.push(d), revelarUltimo, onComplete };
     if (!padEl.dataset.ocListenerMontado) {
       padEl.dataset.ocListenerMontado = "1";
       padEl.addEventListener("click", (e) => {
         const st = padEl._ocTeclado; // siempre el estado de la montada MÁS RECIENTE
         const b = e.target.closest("button[data-d]"); if (!b || st.entrada().length >= 3) return;
         st.push(Number(b.dataset.d));
-        st.pintar();
-        // JFC 2026-07-29: 150ms apuraba a la gente — apenas alcanza a ver que
-        // toco el 3er digito y ya se envio. Se sube a 900ms: tiempo real para
-        // notar un typo (el punto sigue enmascarado por diseño, pero el
-        // usuario SIENTE que se completo, no que salio disparado) antes de
-        // que cuente como intento.
+        st.revelarUltimo();
         if (st.entrada().length === 3) { const code = st.entrada().join(""); setTimeout(() => st.onComplete(code), 900); }
       });
     }
     pintar();
-    return { reset: () => { entrada = []; pintar(); } };
+    return { reset: () => { if (ocultarTimer) clearTimeout(ocultarTimer); ocultarTimer = null; ultimoVisible = -1; entrada = []; pintar(); } };
   }
 
   // ---------- Candado principal (DUEÑO / EMPLEADO) ----------

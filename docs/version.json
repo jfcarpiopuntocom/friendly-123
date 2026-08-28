@@ -1,9 +1,9 @@
 {
-  "version": "1.7.35",
+  "version": "1.7.36",
   "fecha": "2026-08-28",
-  "changelog": "v1.7.35 — Sistema de integridad de versión: version-manifest.json con SHA-256 por archivo del shell, verificación SRI-style en el precache del service worker, autodiagnóstico R5 con hashes, recarga coordinada entre pestañas (BroadcastChannel), anti-loop y purga solo de caches del shell. Fix del bug de join (el switch de tienda nunca ocurría: unirse a otra licencia contaminaba la tienda propia). Estrellas engarzadas en la esquina trunca de My Products. 'Advanced mode' → 'Advanced controls'. Icono de Commissions: martillo → balanza de justicia. UI estandarizada a 'shelf' (antes mezclaba rack/shelf).",
+  "changelog": "v1.7.36 — Join notebook production implementation: Option A UI with only two visible sync actions (Join notebook, Check connection), PIN keypad shows latest digit for 300ms before masking, production license validation before writes, atomic notebook switching without merge, i18n unification for Join notebook / Unirse al cuaderno terminology, enhanced production error handling and recovery.",
   "requerida": false,
-  "shell": "f123-shell-v148",
+  "shell": "f123-shell-v149",
   "apagar": [],
-  "releaseName": "v1.7.35"
+  "releaseName": "v1.7.36"
 }
