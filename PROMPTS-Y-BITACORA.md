@@ -376,3 +376,16 @@ Todo en producción durante el día: multi-tienda por namespace, fix del rótulo
 tienda en el PIN, quita de banners no autorizados, bordes de tarjeta al semáforo
 exacto, refresh forzado por shell+version, y clientes que ya viajan con el
 catálogo (v103).
+---
+
+## 2026-08-28 (2ª ventana) — v147
+
+**Prompt (resumido):** "me sacó a la pantalla del candado YA ESTANDO adentro loggeado con 789 en mi cel en Safari!!" (reportado de nuevo); tipografía de Advanced demasiado grande y sin scroll; "build a sale" → "fill a basket"; estrella amarilla en la esquina trunca de Your Products; "no entiendo por qué les das boton de 'rotate team license'... solo YO hago license handling!"; diagnóstico de sync pegado (VERDICT SYNC OFF, License F123-5HSG-JENF, SPLIT, "ya puse F123-A6YK-6V1J-BF2A-S2J24 y no cambió el VERDICT"); "ese id de device debe quedarse firme con el device!!!"
+
+**Causa raíz:** los puntos 1-4 ya estaban corregidos en v140-v146 pero el cel los veía viejos porque `sw.js` CACHE nunca se bumpió de v139. #ZWPM es la huella del inventario (cambia con los datos), no el id del device.
+
+**Qué se hizo — commit `01f0d1b` en master, pusheado:**
+- `docs/sw.js` + `docs/version.json`: bump de shell a v147 (v1.7.34). El cel re-instala el SW y recibe el shell nuevo.
+- `docs/avanzado-extra.js`: Rotate team license SOLO del lord (claim/merge siguen para dueño/lord); "Activate" reconcilia la identidad partida (helper `_estadoPartido()` → `OCTienda.reconciliar()`); "Fix split identity" ya no cae a la licencia equivocada si el campo está vacío; tooltip de la huella aclara que #XXXX es la huella del inventario.
+
+**Verificación:** node --check 72 .js OK; sw.js/version.json v147 consistentes; 52 scripts en SHELL OK; roster VERDE; arneses team-sync/claim-merge/watchdog/failsafe VERDE; join-identity FALLA preexistente (arnés desactualizado, no lo introdujo esta ventana). Respaldo: rama `backup/20260828-013415-antes-pulido-sync`.
