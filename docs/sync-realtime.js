@@ -548,7 +548,7 @@
        todas y evitan que el tablero tenga que rehacer la cuenta del reparto por
        su cuenta — que es como dos pantallas terminan mostrando dos numeros
        distintos del mismo negocio. */
-    const [productos, clientes, ventas, resumen, liquidaciones, perchas, movimientos] = await Promise.all([
+    const [productos, clientes, ventas, resumen, liquidaciones, perchas, movimientos, promotoras] = await Promise.all([
       get("/productos?ubicacionId=todas"),
       get("/clientes"),
       get("/ventas/todas?ubicacionId=todas"),
@@ -556,6 +556,13 @@
       get("/liquidaciones"),
       get("/ubicaciones?todas=1"),
       get("/movimientos?limite=200"),
+      /* PROMOTORAS EN LA FOTO (JFC 2026-08-29): liquidaciones ya viajaba (el
+         reparto YA CALCULADO), pero la fuente -- la lista de comisionistas en
+         si, con %, meta mensual, banco/cuenta -- nunca se pedia. El tablero
+         veia los pagos pero no sabia quienes son los comisionistas ni su %
+         vigente si alguien los daba de alta o los editaba desde otro aparato.
+         Ruta verificada contra el modulo de comisiones: GET /api/promotoras. */
+      get("/promotoras"),
     ]);
     return {
       productos: productos || [],
@@ -565,6 +572,7 @@
       liquidaciones: Array.isArray(liquidaciones) ? liquidaciones : [],
       perchas: Array.isArray(perchas) ? perchas : [],
       movimientos: Array.isArray(movimientos) ? movimientos : [],
+      promotoras: Array.isArray(promotoras) ? promotoras : [],
       negocio: (function () {
         try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || ""; }
         catch (_) { return ""; }
