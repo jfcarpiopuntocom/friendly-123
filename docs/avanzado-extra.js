@@ -505,15 +505,7 @@
       <p style="font-size:14px;color:var(--ink-soft);margin-top:18px;">${window.t("auth.act.whatsappLabel")} — ${window.t("auth.act.whatsappHint")}</p>
       <div id="oc-whatsapp-row"></div>
       <div id="oc-clave-block" style="margin-top:18px;">
-        <p style="font-size:14px;color:var(--ink-soft);">${window.t("auth.act.pinsIntro")}</p>
-        <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;">
-          <label style="font-size:13px;">${window.t("auth.act.roleOwner")} <input id="oc-c-owner" type="password" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">${window.t("auth.act.confirmOwner")} <input id="oc-c-owner2" type="password" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">${window.t("auth.act.roleEmployee")} <input id="oc-c-emp" type="password" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-          <label style="font-size:13px;">${window.t("auth.act.roleAccounting")} <input id="oc-c-acct" type="password" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="${window.t("auth.act.pinPlaceholder")}" style="margin-left:8px;width:90px;text-align:center;font-family:var(--font-mono);padding:8px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-        </div>
-        <button id="oc-save-codes" class="ir" style="margin-top:12px;background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">${window.t("auth.act.savePins")}</button>
-        <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
+        <p style="font-size:14px;color:var(--ink-soft);">PINs identify who does what (owner / staff / accounting). Not your business's security — your license is that.</p>
       </div>
       <!-- PINs VISIBLES + APODO DEL DISPOSITIVO (JFC 2026-08-27). JFC (master
            admin / soporte) necesita VER los PINs actuales y el apodo del
@@ -526,6 +518,7 @@
         <div id="oc-pins-visibles-cuerpo" style="font-size:14px;line-height:1.7;color:var(--ink);"></div>
         <p style="font-size:13px;color:var(--ink-soft);margin:8px 0 0;">PINs are stored as hashes; the visible copy is only for your support. Codes set before this update can't be shown — re-save them above to make them visible.</p>
         <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">PINs only identify a role in the activity log (who did what). They are not the security of your business — your license is. Anyone with the license can open the notebook.</p>
+        <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
       </div>
       <div id="oc-apodo-device" style="margin-top:12px;font-size:14px;color:var(--ink);">
         <span id="oc-apodo-device-txt"></span>
@@ -2254,33 +2247,13 @@ Keep it somewhere safe.`);
 
     window.OCAuth.listo().then(() => { pintarEmail(); pintarWhatsapp(); });
 
-    // Cambiar los 3 PINs rota TODO (nuevo salt + nuevos hashes). Por eso se
-    // piden los tres juntos: no se puede "mantener" un hash viejo bajo un
-    // salt nuevo. JFC pidió explícitamente: si el dueño cambia su código,
-    // EXIGIR que ya tenga un correo de recuperación guardado (si no, no se
-    // puede recuperar el código nuevo si se le olvida). El correo en sí no
-    // se toca aquí — se preserva tal cual esté guardado.
-    $("oc-save-codes").addEventListener("click", async () => {
-      if (window.OCAuth.esDemo && window.OCAuth.esDemo()) return; // demo: sin cambio de claves
-      const o = $("oc-c-owner").value.trim(), o2 = $("oc-c-owner2").value.trim(), e = $("oc-c-emp").value.trim(), a = $("oc-c-acct").value.trim();
-      const valido = (s) => /^[0-9]{3}$/.test(s);
-      if (![o, e, a].every(valido)) { msg("oc-codes-msg", "Each PIN must be 3 digits (0-9).", "var(--rojo)"); return; }
-      /* Confirmación del PIN del dueño (JFC 2026-08-27, bloque 1f): el PIN del
-         dueño es la llave maestra — un error de tecleo lo deja fuera de su propio
-         negocio. Se pide escribirlo dos veces y se exige que coincidan. */
-      if (o !== o2) { msg("oc-codes-msg", window.t("auth.act.pinMismatch"), "var(--rojo)"); return; }
-      /* PINs reservados (JFC 2026-08-27): 456 demo · 789 activación · 260 empleado
-         · 357 contable. 888 ya NO está reservado — es un PIN de dueño inicial
-         libre. Fijar un código de sistema como PIN real colisiona con un rol o
-         con la demo, así que se rechaza con aviso de texto, sin romper la UI. */
-      if ([o, e, a].some((s) => ["456", "789", "260", "357"].indexOf(s) !== -1)) { msg("oc-codes-msg", "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", "var(--rojo)"); return; }
-      const correoActual = window.OCSecure.leerCorreo();
-      if (!correoActual) { msg("oc-codes-msg", "Before changing PINs, register your recovery email above (if you forget the new PIN, without an email there is no way to recover it).", "var(--rojo)"); return; }
-      await window.OCSecure.guardarSecreto(o, [e], a, correoActual);
-      $("oc-c-owner").value = ""; $("oc-c-owner2").value = ""; $("oc-c-emp").value = ""; $("oc-c-acct").value = "";
-      msg("oc-codes-msg", "PINs saved and encrypted.", "var(--verde)");
-      pintarPinsVisibles();
-    });
+    // NOTA (JFC 2026-08-29, fusión de listas de PIN): el flujo de "rotar los
+    // 3 PINs a ciegas" (oc-save-codes / oc-c-owner / oc-c-owner2 / oc-c-emp /
+    // oc-c-acct) se retiró — quedaba redundante con el panel de PINs visibles
+    // de abajo, que ya permite editar cada PIN por separado con su lápiz. Los
+    // dos resguardos que solo tenía este flujo (confirmación doble del PIN del
+    // dueño y exigir email de recuperación antes de cambiarlo) se movieron al
+    // editor individual del PIN del dueño (ver pintarPinsVisibles → rol==="owner").
 
     /* PINs VISIBLES + APODO (JFC 2026-08-27). Solo para el dueño (soporte de
        JFC). Pinta los PINs actuales desde las copias XOR y el apodo del
@@ -2323,11 +2296,25 @@ Keep it somewhere safe.`);
           const rol = btn.dataset.pinEdit;
           const fn = rol === "owner" ? "fijarOwnerPin" : (rol === "emp" ? "fijarEmpleadoPin" : "fijarAcctPin");
           const etiqueta = rol === "owner" ? "Owner" : (rol === "emp" ? "Staff" : "Accounting");
+          if (window.OCAuth.esDemo && window.OCAuth.esDemo()) { alert("Demo mode: PINs can't be changed here."); return; }
           const nuevo = prompt("New " + etiqueta + " PIN (3 digits):");
           if (nuevo == null) return;
           const v = String(nuevo).trim();
           if (!/^[0-9]{3}$/.test(v)) { alert("The PIN must be 3 digits (0-9)."); return; }
           if (["456", "789", "260", "357"].indexOf(v) !== -1) { alert("That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one."); return; }
+          /* RESGUARDOS DEL DUEÑO (JFC 2026-08-29, fusión de listas de PIN):
+             el flujo viejo de "rotar los 3 a ciegas" exigía confirmación doble
+             y correo de recuperación ANTES de cambiar el PIN del dueño — es la
+             llave maestra, un typo aquí puede dejarlo fuera de su propio
+             negocio. Se portan esos dos resguardos al editor individual,
+             SOLO para "owner": Staff/Accounting no arriesgan sacar al dueño. */
+          if (rol === "owner") {
+            const confirmacion = prompt("Confirm the new Owner PIN (type it again):");
+            if (confirmacion == null) return;
+            if (String(confirmacion).trim() !== v) { alert("The PINs don't match — nothing was changed."); return; }
+            const correoActual = window.OCSecure.leerCorreo();
+            if (!correoActual) { alert("Before changing the Owner PIN, register a recovery email above (without one, a forgotten PIN can't be recovered)."); return; }
+          }
           try {
             const ok = await window.OCSecure[fn](v);
             if (!ok) { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); return; }
