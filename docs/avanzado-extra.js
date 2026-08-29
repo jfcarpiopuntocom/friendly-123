@@ -1,6 +1,6 @@
-// avanzado-extra.js â€” Reestructura la vista "Avanzado" del dueÃ±o en dos capas:
-//   1) GestiÃ³n (gastos, correo de recuperaciÃ³n, claves) â€” visible al dueÃ±o.
-//   2) Contable (cuentas T, P&G, balance, valorizado) â€” detrÃ¡s de la SUBCLAVE.
+// avanzado-extra.js — Reestructura la vista "Avanzado" del dueño en dos capas:
+//   1) Gestión (gastos, correo de recuperación, claves) — visible al dueño.
+//   2) Contable (cuentas T, P&G, balance, valorizado) — detrás de la SUBCLAVE.
 // Depende de window.OCAuth (auth-ui.js).
 (function () {
   // FIX preventivo 2026-07-07: escHtml vive en index.html; si algun dia
@@ -26,42 +26,42 @@
       return new Intl.NumberFormat(loc, { style: "currency", currency: "USD" }).format(v);
     } catch (_) { return "$" + v.toFixed(2); }
   };
-  // Distingue "primer registro libre de correo" de "re-registro tras cÃ³digo
-  // maestro" (SÃ debe encadenar directo a poner un PIN nuevo). Ver mismo
-  // patrÃ³n en Olimpo Control.
+  // Distingue "primer registro libre de correo" de "re-registro tras código
+  // maestro" (SÍ debe encadenar directo a poner un PIN nuevo). Ver mismo
+  // patrón en Olimpo Control.
   let reasignacionViaMaestro = false;
 
   // ===========================================================================
-  // SINCRONIZACIÃ“N ENTRE DISPOSITIVOS (lazy sync, JFC 2026-07-04)
+  // SINCRONIZACIÓN ENTRE DISPOSITIVOS (lazy sync, JFC 2026-07-04)
   // ---------------------------------------------------------------------------
   // Modelo "relay ciego" al estilo nostr: cada dispositivo lleva un LOG DE
-  // OPERACIONES (no una foto del negocio) â€” toda escritura (POST/PUT/PATCH/
-  // DELETE a /api/*) que YA se aplicÃ³ con Ã©xito en este dispositivo queda
-  // anotada con quiÃ©n (deviceId), cuÃ¡ndo (ts) y quÃ© (mÃ©todo+url+body). Ese
+  // OPERACIONES (no una foto del negocio) — toda escritura (POST/PUT/PATCH/
+  // DELETE a /api/*) que YA se aplicó con éxito en este dispositivo queda
+  // anotada con quién (deviceId), cuándo (ts) y qué (método+url+body). Ese
   // log se cifra con AES-256-GCM (crypto-store.js, llave derivada del PIN del
-  // dueÃ±o) y sale por dos caminos, ninguno obligatorio:
-  //   1) AutomÃ¡tico â€” POST /api/sync/push y GET /api/sync/pull, si el backend
-  //      tiene esas rutas (relay ciego: solo guarda y reenvÃ­a bytes, nunca los
+  // dueño) y sale por dos caminos, ninguno obligatorio:
+  //   1) Automático — POST /api/sync/push y GET /api/sync/pull, si el backend
+  //      tiene esas rutas (relay ciego: solo guarda y reenvía bytes, nunca los
   //      descifra). Si no existen, falla en silencio: el negocio sigue 100%
   //      funcional en modo local.
-  //   2) Manual â€” botÃ³n "Copiar cambios" / "Pegar cambios". Cero servidor,
+  //   2) Manual — botón "Copiar cambios" / "Pegar cambios". Cero servidor,
   //      cero mantenimiento, sirve por WhatsApp o cualquier medio.
   // En ambos casos, al recibir el log de otro dispositivo, sus operaciones se
-  // REPRODUCEN contra el backend local (fetch real, en orden cronolÃ³gico) â€”
-  // asÃ­ "lo mÃ¡s reciente manda" a nivel de cada operaciÃ³n, no de un documento
+  // REPRODUCEN contra el backend local (fetch real, en orden cronológico) —
+  // así "lo más reciente manda" a nivel de cada operación, no de un documento
   // completo.
   //
-  // LIMITACIÃ“N HONESTA â€” lÃ©ela antes de operar con 2+ dispositivos a la vez:
-  // reproducir un POST que CREA un registro (ej. una venta) dos veces â€”porque
-  // llegÃ³ por los dos caminos, o porque se pegÃ³ el mismo paquete manual dos
-  // vecesâ€” puede duplicarlo. Este archivo no puede saber por sÃ­ solo si tu
-  // backend es idempotente. Se mitiga marcando la Ãºltima operaciÃ³n ya
+  // LIMITACIÓN HONESTA — léela antes de operar con 2+ dispositivos a la vez:
+  // reproducir un POST que CREA un registro (ej. una venta) dos veces —porque
+  // llegó por los dos caminos, o porque se pegó el mismo paquete manual dos
+  // veces— puede duplicarlo. Este archivo no puede saber por sí solo si tu
+  // backend es idempotente. Se mitiga marcando la última operación ya
   // aplicada POR DISPOSITIVO (oc_sync_last) para no reproducir el mismo log
-  // dos veces, y cada operaciÃ³n lleva un id propio por si mÃ¡s adelante quieres
+  // dos veces, y cada operación lleva un id propio por si más adelante quieres
   // que el servidor real valide duplicados con la cabecera X-Sync-Op-Id. Sin
-  // esa validaciÃ³n del lado del servidor, esto es "suficientemente bueno" para
-  // un par de dispositivos que casi nunca escriben en el mismo minuto exacto â€”
-  // no es una garantÃ­a matemÃ¡tica de cero duplicados.
+  // esa validación del lado del servidor, esto es "suficientemente bueno" para
+  // un par de dispositivos que casi nunca escriben en el mismo minuto exacto —
+  // no es una garantía matemática de cero duplicados.
   // ===========================================================================
   const OCSync = (function () {
     const MET_ESCRITURA = ["POST", "PUT", "PATCH", "DELETE"];
@@ -79,9 +79,9 @@
     function opId() { return deviceId() + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6); }
     function urlDe(input) { return typeof input === "string" ? input : (input && input.url) || ""; }
 
-    // Intercepta fetch UNA sola vez para todo el sitio â€” no hace falta tocar
-    // cada botÃ³n de index.html. Solo ANOTA; nunca bloquea ni retrasa la
-    // peticiÃ³n real, que sigue su camino normal contra el backend local.
+    // Intercepta fetch UNA sola vez para todo el sitio — no hace falta tocar
+    // cada botón de index.html. Solo ANOTA; nunca bloquea ni retrasa la
+    // petición real, que sigue su camino normal contra el backend local.
     if (!window.__ocSyncPatched) {
       window.__ocSyncPatched = true;
       window.fetch = async function (input, init) {
@@ -96,7 +96,7 @@
               await guardarColaCifrada();
             }
           }
-        } catch (_) { /* nunca romper la peticiÃ³n real por un fallo de logging */ }
+        } catch (_) { /* nunca romper la petición real por un fallo de logging */ }
         return res;
       };
     }
@@ -105,16 +105,16 @@
       if (!window.OCSecure.syncActiva()) return;
       const blob = await window.OCSecure.cifrarSync(JSON.stringify(cola));
       if (blob) {
-        /* M4 (2026-08-27, auditorÃ­a): verificar que la cola se persistiÃ³. Antes
+        /* M4 (2026-08-27, auditoría): verificar que la cola se persistió. Antes
            se ignoraba el retorno de OCOutbox.guardar()/localStorage.setItem: si
-           el storage estaba lleno, la cola de cambios offline se perdÃ­a en
+           el storage estaba lleno, la cola de cambios offline se perdía en
            silencio. Ahora, si no se pudo persistir, se avisa (evento + console)
            para que una venta offline no desaparezca sin que nadie lo note. */
         let ok = false;
         if (window.OCOutbox) ok = await window.OCOutbox.guardar(blob);
         else { try { localStorage.setItem("f123_sync_pending", blob); ok = true; } catch (_) { ok = false; } }
         if (!ok) {
-          try { console.warn("[sync] no se pudo persistir la cola de cambios (" + cola.length + " pendientes) â€” storage lleno?"); } catch (_) {}
+          try { console.warn("[sync] no se pudo persistir la cola de cambios (" + cola.length + " pendientes) — storage lleno?"); } catch (_) {}
           try { window.dispatchEvent(new CustomEvent("oc-sync-cola-perdida", { detail: { n: cola.length } })); } catch (_) {}
         }
       }
@@ -127,7 +127,7 @@
       if (texto) { try { cola = JSON.parse(texto) || []; } catch { cola = []; } }
     }
 
-    // Ledger de op.id ya aplicados (no solo "Ãºltimo ts por dispositivo"):
+    // Ledger de op.id ya aplicados (no solo "último ts por dispositivo"):
     // dos operaciones con timestamps iguales o paquetes parciales/reenviados
     // ya no se saltan ni se duplican, porque el ledger es por id exacto.
     function idsAplicados() {
@@ -138,20 +138,20 @@
     }
 
     // Reproduce las operaciones de OTROS dispositivos contra el backend
-    // local, en orden cronolÃ³gico, saltando lo ya aplicado (por id, no por
-    // fecha). Si una operaciÃ³n falla, se DETIENE ese dispositivo ahÃ­ (no
+    // local, en orden cronológico, saltando lo ya aplicado (por id, no por
+    // fecha). Si una operación falla, se DETIENE ese dispositivo ahí (no
     // sigue con las siguientes) para no dejar el inventario en un estado a
-    // medias â€” las que quedaron pendientes se reintentan en la prÃ³xima
-    // sincronizaciÃ³n, en el mismo orden.
+    // medias — las que quedaron pendientes se reintentan en la próxima
+    // sincronización, en el mismo orden.
     async function reproducir(ops) {
       const aplicados = idsAplicados();
-      /* A1 (2026-08-27, auditorÃ­a): unificar el dedup con el relay. El lazy sync
+      /* A1 (2026-08-27, auditoría): unificar el dedup con el relay. El lazy sync
          deduplica por op.id (f123_sync_ids_aplicados) y el relay por op.opId
          (f123_sync_ops_aplicadas). Si un mismo cambio viaja por ambos motores,
          se aplicaba dos veces (doble conteo de stock). Ahora reproducir():
-         1) salta ops cuyo opId ya aplicÃ³ el relay (mismo ledger compartido), y
-         2) registra en el ledger del relay las ops que aplica aquÃ­, para que el
-         relay no las re-aplique. AsÃ­ ambos motores comparten un Ãºnico dedup. */
+         1) salta ops cuyo opId ya aplicó el relay (mismo ledger compartido), y
+         2) registra en el ledger del relay las ops que aplica aquí, para que el
+         relay no las re-aplique. Así ambos motores comparten un único dedup. */
       const relayAplicados = (function () {
         try { return new Set(JSON.parse(localStorage.getItem("f123_sync_ops_aplicadas") || "[]")); } catch (_) { return new Set(); }
       })();
@@ -159,21 +159,21 @@
       ops.forEach((op) => {
         if (op.dev === deviceId()) return;
         if (op.id && aplicados.has(op.id)) return;
-        if (op.opId && relayAplicados.has(op.opId)) return; // ya lo aplicÃ³ el relay
+        if (op.opId && relayAplicados.has(op.opId)) return; // ya lo aplicó el relay
         (porDispositivo[op.dev] = porDispositivo[op.dev] || []).push(op);
       });
       for (const dev in porDispositivo) {
         const pendientes = porDispositivo[dev].sort((a, b) => a.ts - b.ts);
         for (const op of pendientes) {
-          // Nunca reproducir contra otra cosa que no sea nuestra propia API â€”
+          // Nunca reproducir contra otra cosa que no sea nuestra propia API —
           // un paquete manipulado o corrupto no debe poder hacer fetch a
           // cualquier URL arbitraria.
           if (typeof op.url !== "string" || op.url.indexOf("/api/") !== 0) break;
-          /* M2 (2026-08-27, auditorÃ­a): normalizar el body antes de reproducir.
+          /* M2 (2026-08-27, auditoría): normalizar el body antes de reproducir.
              El interceptor guarda el body tal cual; si era un objeto JS (no
              string) o un FormData, al cifrar la cola (JSON.stringify) se
              corrompe. Antes se reenviaba ese body corrupto y el backend local
-             lo degradaba a {} (mock-backend.js:2200) â†’ la op se aplicaba mal.
+             lo degradaba a {} (mock-backend.js:2200) → la op se aplicaba mal.
              Ahora: si es objeto, se stringifica; si es string no-JSON, se
              salta la op (break) en vez de corromper el estado. */
           let body = op.body;
@@ -188,7 +188,7 @@
             aplicados.add(op.id);
             /* A1: registrar en el ledger del relay para que no re-aplique. */
             if (op.opId) relayAplicados.add(op.opId);
-          } catch (_) { break; /* se detiene aquÃ­: preserva el orden para el prÃ³ximo intento */ }
+          } catch (_) { break; /* se detiene aquí: preserva el orden para el próximo intento */ }
         }
       }
       guardarIdsAplicados(aplicados);
@@ -215,12 +215,12 @@
     function requiereReactivar() { return syncOn && !window.OCSecure.syncActiva(); }
     function pendientes() { return cola.length; }
 
-    // ---- AutomÃ¡tico (si el backend tiene /api/sync/push y /api/sync/pull) ----
+    // ---- Automático (si el backend tiene /api/sync/push y /api/sync/pull) ----
     async function push() {
       if (!syncOn || !window.OCSecure.syncActiva() || !cola.length) return { ok: true, enviado: 0 };
       // Snapshot por cantidad (no por referencia): si mientras esperamos la
       // respuesta del servidor se agregan operaciones nuevas (venta hecha en
-      // paralelo), NO deben perderse al limpiar la cola despuÃ©s.
+      // paralelo), NO deben perderse al limpiar la cola después.
       const n = cola.length;
       const paraEnviar = cola.slice(0, n);
       const blob = await window.OCSecure.cifrarSync(JSON.stringify(paraEnviar));
@@ -250,12 +250,12 @@
       } catch (_) { return { ok: false, motivo: "No connection to your sync server." }; }
     }
     let onlineListenerListo = false;
-    /* A2 (2026-08-27, auditorÃ­a): el push/pull automÃ¡tico apunta a
+    /* A2 (2026-08-27, auditoría): el push/pull automático apunta a
        /api/sync/push|pull que el backend local NO implementa (mock-backend.js
        devuelve 404). Antes el intervalo (cada 4 min) y el listener "online"
-       intentaban push/pull en silencio â€” trabajo inÃºtil y falsa sensaciÃ³n de
+       intentaban push/pull en silencio — trabajo inútil y falsa sensación de
        redundancia. Ahora se comprueba UNA vez si el servidor de sync existe; si
-       no, el automÃ¡tico se salta (el botÃ³n manual "Auto sync" sigue intentando
+       no, el automático se salta (el botón manual "Auto sync" sigue intentando
        y mostrando el motivo). El relay WebSocket (licencia) es el camino
        principal; este lazy sync es un respaldo manual (copiar/pegar). */
     let _syncServerDisponible = null; // null = sin comprobar, true/false = resultado cacheado
@@ -280,18 +280,18 @@
     }
 
     // ---- Manual (copiar/pegar, sin servidor) ----
-    // NO vacÃ­a la cola: si el dueÃ±o copia el texto pero no llega a pegarlo en
-    // el otro dispositivo (se cerrÃ³ WhatsApp, se distrajo), esas operaciones
-    // NO deben perderse â€” siguen disponibles para el prÃ³ximo "Copiar" o para
-    // el envÃ­o automÃ¡tico por servidor. El receptor deduplica por op.id, asÃ­
-    // que compartir de mÃ¡s nunca duplica nada del lado de quien recibe.
+    // NO vacía la cola: si el dueño copia el texto pero no llega a pegarlo en
+    // el otro dispositivo (se cerró WhatsApp, se distrajo), esas operaciones
+    // NO deben perderse — siguen disponibles para el próximo "Copiar" o para
+    // el envío automático por servidor. El receptor deduplica por op.id, así
+    // que compartir de más nunca duplica nada del lado de quien recibe.
     async function generarPaqueteManual() {
       if (!cola.length) return null;
       const blob = await window.OCSecure.cifrarSync(JSON.stringify(cola));
       const paquete = { v: 1, device: deviceId(), blob };
       return "OCSYNC1:" + btoa(unescape(encodeURIComponent(JSON.stringify(paquete))));
     }
-    const MANUAL_MAX_BYTES = 2 * 1024 * 1024; // 2MB: un paquete manual razonable jamÃ¡s deberÃ­a pesar mÃ¡s
+    const MANUAL_MAX_BYTES = 2 * 1024 * 1024; // 2MB: un paquete manual razonable jamás debería pesar más
     async function importarPaqueteManual(texto) {
       texto = (texto || "").trim();
       if (texto.indexOf("OCSYNC1:") !== 0) return { ok: false, motivo: "This text is not a valid sync package." };
@@ -329,9 +329,9 @@
     tboxes.style.cssText = "display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:6px 0 22px;";
     cont.appendChild(tboxes);
 
-    // GrÃ¡fico comparativo por ubicaciÃ³n (brote 3): ventas, margen,
-    // cumplimiento de meta y comisiÃ³n efectiva pagada â€” una barra por
-    // ubicaciÃ³n, en divs puros con CSS (sin librerÃ­as de grÃ¡ficos).
+    // Gráfico comparativo por ubicación (brote 3): ventas, margen,
+    // cumplimiento de meta y comisión efectiva pagada — una barra por
+    // ubicación, en divs puros con CSS (sin librerías de gráficos).
     const chartBox = document.createElement("div");
     chartBox.className = "tag-card";
     chartBox.style.cssText = "margin-bottom:22px;text-align:left;";
@@ -351,23 +351,23 @@
 
     // --- Descarga formal para el contador (JFC, 2026-07-01) ---
     // CSV (no JSON) porque un contador real lo abre en Excel/Sheets, no en un
-    // editor de cÃ³digo. Incluye el desglose de IVA que pidiÃ³ JFC. A propÃ³sito
-    // NO se presenta como una declaraciÃ³n vÃ¡lida ante el SRI â€” es un insumo
+    // editor de código. Incluye el desglose de IVA que pidió JFC. A propósito
+    // NO se presenta como una declaración válida ante el SRI — es un insumo
     // limpio para que el contador humano haga su trabajo, la responsabilidad
-    // de declarar sigue siendo de Ã©l.
+    // de declarar sigue siendo de él.
     const descargaBox = document.createElement("div");
     descargaBox.className = "tag-card";
     descargaBox.style.cssText = "text-align:left;margin-top:22px;";
     descargaBox.innerHTML = `
       <h3 class="seccion" style="margin-top:0;">Accounting report</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">P&amp;L, balance sheet, and valued inventory in one file, ready for Excel. Not a tax declaration â€” it's the input your accountant needs.</p>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">P&amp;L, balance sheet, and valued inventory in one file, ready for Excel. Not a tax declaration — it's the input your accountant needs.</p>
       <button id="oc-descargar-csv" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">Download accounting report (.csv)</button>
     `;
     cont.appendChild(descargaBox);
 
     // --- Respaldo exportable/importable (tronco 3, JFC 2026-07-01) ---
-    // Vive DENTRO de "cont" (detrÃ¡s de la subclave contable): exportar/
-    // importar el negocio completo es una acciÃ³n sensible, no debe estar al
+    // Vive DENTRO de "cont" (detrás de la subclave contable): exportar/
+    // importar el negocio completo es una acción sensible, no debe estar al
     // alcance de un encargado ni de cualquiera que abra Avanzado.
     const respaldo = document.createElement("div");
     respaldo.className = "tag-card";
@@ -375,10 +375,10 @@
     respaldo.innerHTML = `
       <h3 class="seccion" style="margin-top:0;">Backup</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Download your full business data (products, sales, movements, costs, keys, and shelf photos) in one file. Save it to your email, Drive, or anywhere â€” it's your backup if the cache is cleared or the device fails.</p>
+        Download your full business data (products, sales, movements, costs, keys, and shelf photos) in one file. Save it to your email, Drive, or anywhere — it's your backup if the cache is cleared or the device fails.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="oc-exportar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">â¬‡ï¸ Export backup</button>
-        <label class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);display:inline-flex;align-items:center;cursor:pointer;">â¬†ï¸ Import backup
+        <button id="oc-exportar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">⬇️ Export backup</button>
+        <label class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);display:inline-flex;align-items:center;cursor:pointer;">⬆️ Import backup
           <input id="oc-importar-file" type="file" accept=".json" style="display:none;">
         </label>
       </div>
@@ -388,11 +388,11 @@
       <h4 style="margin:0 0 6px;font-size:14px;">Local safe (automatic)</h4>
       <p style="font-size:13px;color:var(--ink-soft);margin-top:0;">
         In addition to the manual backup above, friendly-123 saves a snapshot of your data here (in this browser) periodically,
-        in case you delete something by accident. This does NOT replace the manual backup â€” if the browser cache is cleared, these checkpoints are lost too.
-        <em>Coming soon: automatic replication of these checkpoints across your devices. In the meantime, you can copy your data to another device via Advanced â†’ QR Sync.</em></p>
+        in case you delete something by accident. This does NOT replace the manual backup — if the browser cache is cleared, these checkpoints are lost too.
+        <em>Coming soon: automatic replication of these checkpoints across your devices. In the meantime, you can copy your data to another device via Advanced → QR Sync.</em></p>
       <p id="oc-caja-alerta" style="font-size:13px;font-weight:700;"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">âŸ³ Save checkpoint now</button>
+        <button id="oc-caja-guardar" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">⟳ Save checkpoint now</button>
         <button id="oc-caja-ver" style="font-size:13px;padding:8px 12px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">View saved checkpoints</button>
       </div>
       <div id="oc-caja-lista" style="display:none;margin-top:10px;"></div>
@@ -400,7 +400,7 @@
     `;
     cont.appendChild(respaldo);
 
-    // Mostrar usage/quota en el panel de checkpoints â€” util para diagnostico remoto
+    // Mostrar usage/quota en el panel de checkpoints — util para diagnostico remoto
     // (JFC puede pedir screenshot de esta linea para saber si el problema es espacio).
     (async () => {
       try {
@@ -494,7 +494,7 @@
       await render();
     });
 
-    // --- Panel de gestiÃ³n (correo recuperaciÃ³n + claves) ---
+    // --- Panel de gestión (correo recuperación + claves) ---
     const gestion = document.createElement("div");
     gestion.className = "panel-escaner tag-card";
     gestion.style.cssText = "text-align:left;margin-top:22px;";
@@ -502,7 +502,7 @@
       <h3 class="seccion" style="margin-top:0;">${window.t("auth.act.accessRecoveryTitle")}</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">${window.t("auth.act.ownerEmailIntro")}</p>
       <div id="oc-email-row"></div>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:18px;">${window.t("auth.act.whatsappLabel")} â€” ${window.t("auth.act.whatsappHint")}</p>
+      <p style="font-size:14px;color:var(--ink-soft);margin-top:18px;">${window.t("auth.act.whatsappLabel")} — ${window.t("auth.act.whatsappHint")}</p>
       <div id="oc-whatsapp-row"></div>
       <div id="oc-clave-block" style="margin-top:18px;">
         <p style="font-size:14px;color:var(--ink-soft);">${window.t("auth.act.pinsIntro")}</p>
@@ -519,22 +519,22 @@
            admin / soporte) necesita VER los PINs actuales y el apodo del
            dispositivo, sin opacarlos, para controlar sus estructuras y equipo.
            Los PINs se leen de las copias XOR (leerPinsVisibles); si el PIN se
-           fijÃ³ antes de este cambio, no hay copia y se avisa. El apodo usa
+           fijó antes de este cambio, no hay copia y se avisa. El apodo usa
            OCMicelio (ya se sincroniza con el equipo). -->
       <div id="oc-pins-visibles" style="margin-top:18px;padding:12px;border:1px solid var(--hairline,#dde5ec);border-radius:8px;background:var(--paper-deep,#E2E8ED);">
         <p style="font-size:14px;font-weight:700;color:var(--ink);margin:0 0 8px;">Current access codes (visible to you, the owner)</p>
         <div id="oc-pins-visibles-cuerpo" style="font-size:14px;line-height:1.7;color:var(--ink);"></div>
-        <p style="font-size:13px;color:var(--ink-soft);margin:8px 0 0;">PINs are stored as hashes; the visible copy is only for your support. Codes set before this update can't be shown â€” re-save them above to make them visible.</p>
-        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">PINs only identify a role in the activity log (who did what). They are not the security of your business â€” your license is. Anyone with the license can open the notebook.</p>
+        <p style="font-size:13px;color:var(--ink-soft);margin:8px 0 0;">PINs are stored as hashes; the visible copy is only for your support. Codes set before this update can't be shown — re-save them above to make them visible.</p>
+        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">PINs only identify a role in the activity log (who did what). They are not the security of your business — your license is. Anyone with the license can open the notebook.</p>
       </div>
       <div id="oc-apodo-device" style="margin-top:12px;font-size:14px;color:var(--ink);">
         <span id="oc-apodo-device-txt"></span>
-        <button type="button" id="oc-apodo-device-btn" title="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;">âœŽ</button>
+        <button type="button" id="oc-apodo-device-btn" title="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;">✎</button>
       </div>`;
     vista.appendChild(gestion);
 
     // === SINCRONIZAR EQUIPO (tiempo real, homologado de AMIGABLE, 2026-07-23) ==
-    // Solo dueÃ±o. Si nunca hay codigo de sync, la app funciona exactamente igual
+    // Solo dueño. Si nunca hay codigo de sync, la app funciona exactamente igual
     // que siempre (solo local) - este panel es 100% opcional, cero dependencia.
     // Sync corre 24/7 desde que se activa (automatico al licenciarse) - este
     // panel es de ESTADO, no de switch on/off manual del flujo normal.
@@ -564,14 +564,14 @@
         <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">${window.t("sync.panel.body")}</p>
         <p style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:0;">${window.t("sync.panel.privacy")}</p>
         <div id="oc-sync-estado" style="font-size:13px;font-weight:700;margin-bottom:10px;"></div>
-        <!-- REENGANCHE SELF-HELP (JFC 2026-08-28). SegÃºn el checkpoint del
-             autodiagnÃ³stico, el botÃ³n del punto donde estÃ¡ trabado se pone
-             NARANJA (highlight = aquÃ­ se atascÃ³) y es el desatorador/forzador;
-             los demÃ¡s quedan inertes. AsÃ­ el dueÃ±o/admin/encargado se desatasca
+        <!-- REENGANCHE SELF-HELP (JFC 2026-08-28). Según el checkpoint del
+             autodiagnóstico, el botón del punto donde está trabado se pone
+             NARANJA (highlight = aquí se atascó) y es el desatorador/forzador;
+             los demás quedan inertes. Así el dueño/admin/encargado se desatasca
              solo, sin llamar a soporte. -->
         <div id="oc-sync-reenganche" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
-        <!-- DIAGNÃ“STICO REAL (JFC 2026-08-26): hechos crudos del estado de sync,
-             para no adivinar. Solo el dueÃ±o lo ve (panel Avanzado). No es un popup
+        <!-- DIAGNÓSTICO REAL (JFC 2026-08-26): hechos crudos del estado de sync,
+             para no adivinar. Solo el dueño lo ve (panel Avanzado). No es un popup
              ni toca la UI del cliente. -->
         <details id="oc-sync-diag-wrap" style="margin-bottom:12px;">
           <summary style="font-size:13px;font-weight:700;color:var(--azul-medio);cursor:pointer;">Sync diagnostics (show the real state)</summary>
@@ -595,7 +595,7 @@
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <code id="oc-sync-codigo-actual" style="font-size:16px;font-weight:700;background:var(--paper-deep,#E2E8ED);padding:6px 12px;border-radius:6px;">${escHtml((window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(salaActiva) : salaActiva) || "")}</code>
             <span id="oc-sync-huella" style="font-family:var(--font-mono,monospace);font-size:15px;font-weight:700;color:#0F1923;"></span>
-            <!-- QR DE UNIRSE â€” DORMANT (JFC 2026-08-21). NO BORRAR.
+            <!-- QR DE UNIRSE — DORMANT (JFC 2026-08-21). NO BORRAR.
                  Se retiro porque no cerraba el circulo: la app no tiene lector,
                  y al escanearlo con la camara del telefono abria la web pero
                  igual habia que pasar por el PIN, asi que no ahorraba ningun
@@ -608,19 +608,26 @@
           <p style="font-size:13px;line-height:1.5;color:#7a4a00;background:#FFF4D6;border-left:4px solid #E8A33D;padding:10px 12px;border-radius:0 8px 8px 0;margin:10px 0 0;">Your license is the key to your business. Anyone who has it can open your notebook, so guard it like a password: only share it one-to-one with people on your team, and never post it publicly.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
             <button id="oc-sync-compartir" class="ir" style="background:#25D366;border-color:#1da851;">${window.t("sync.panel.share")}</button>
-            <button id="oc-sync-resincronizar">${window.t("sync.panel.resync")}</button>
-            <button id="oc-sync-mergear" class="ir" style="background:#2C3E50;border-color:#0F1923;color:#FFFFFF;border-left:5px solid var(--azul-medio,#2c4a68);">Merge inventory with my team</button>
-            <button id="oc-sync-rotar" style="border-color:#E86040;color:#E86040;">Rotate team license</button>
-        <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
+            <!-- SIMPLIFICACION DE BOTONES (JFC 2026-08-28, pedido explicito):
+                 solo deben quedar visibles Share (WhatsApp) y Join notebook.
+                 Resync/Merge/Rotate/Deactivate NO se borraron del DOM ni de
+                 la logica (los handlers siguen atados mas abajo por getElementById,
+                 asi que si algun dia hace falta reactivarlos basta con quitar
+                 display:none) -- solo se ocultan/apagan para bajar el ruido
+                 visual del panel Advanced. -->
+            <button id="oc-sync-resincronizar" style="display:none;">${window.t("sync.panel.resync")}</button>
+            <button id="oc-sync-mergear" class="ir" style="display:none;background:#2C3E50;border-color:#0F1923;color:#FFFFFF;border-left:5px solid var(--azul-medio,#2c4a68);">Merge inventory with my team</button>
+            <button id="oc-sync-rotar" style="display:none;border-color:#E86040;color:#E86040;">Rotate team license</button>
+        <button id="oc-sync-desactivar" style="display:none;border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
           </div>
         </div>
-        <!-- UNIRSE â€” plegado a proposito (JFC 2026-08-21). Antes esto estaba
+        <!-- UNIRSE — plegado a proposito (JFC 2026-08-21). Antes esto estaba
              ABIERTO y arriba, asi que el panel PEDIA un codigo antes de
              ofrecer el propio, y la gente creia que le faltaba conseguir algo.
              Ahora primero se ve la licencia propia; esto es para el caso menos
              comun: un dispositivo que llega a un negocio que ya existe. -->
         <details id="oc-sync-unirse" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">
-          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">This device belongs to another business â€” enter its license</summary>
+          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">This device belongs to another business — enter its license</summary>
           <p style="font-size:14px;color:var(--ink-soft);margin:8px 0;">Paste the license of the notebook you want to join. It is the same code the owner sees on their device.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input id="oc-sync-codigo2" type="text" placeholder="F123-XXXX-XXXX-XXXX-XXXXX" maxlength="40"
@@ -632,11 +639,11 @@
              persona queda con dos aparatos sueltos (ej. "James Bond Store" en la
              PC y "007 Store" en el cel), cada uno con su instanceId y a veces con
              licenseCode/syncCode/sala divergentes, este bloque re-apunta ESTE
-             aparato a la licencia canÃ³nica SIN vaciar sus datos locales. Al
+             aparato a la licencia canónica SIN vaciar sus datos locales. Al
              reconectar, el sync add-only junta los datos de ambos. -->
-        <details id="oc-sync-claim" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--azul-suave,#dde5ec);">
-          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">This is also MY device â€” claim it and merge its data</summary>
-          <p style="font-size:14px;color:var(--ink-soft);margin:8px 0;">Enter the license your OTHER device shows. Both will point to the same notebook and their data merges (nothing is deleted â€” merge only adds).</p>
+        <details id="oc-sync-claim" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--azul-suave,#dde5ec);">
+          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">This is also MY device — claim it and merge its data</summary>
+          <p style="font-size:14px;color:var(--ink-soft);margin:8px 0;">Enter the license your OTHER device shows. Both will point to the same notebook and their data merges (nothing is deleted — merge only adds).</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input id="oc-sync-claim-cod" type="text" placeholder="F123-XXXX-XXXX-XXXX-XXXXX" maxlength="40" style="flex:1;min-width:220px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-size:15px;">
             <button id="oc-sync-claim-btn" class="ir" style="min-height:44px;">Claim &amp; merge</button>
@@ -645,42 +652,49 @@
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
 
-      /* M5 (2026-08-27, auditorÃ­a): las acciones de sync SENSIBLES (rotar la
+      /* M5 (2026-08-27, auditoría): las acciones de sync SENSIBLES (rotar la
          licencia del negocio, re-emitir una licencia completa, claim/merge de
-         dispositivos, merge de inventario) son del DUEÃ‘O. Un admin puede ver el
+         dispositivos, merge de inventario) son del DUEÑO. Un admin puede ver el
          estado de sync y unirse a un notebook, pero NO debe poder rotar la
-         licencia del dueÃ±o ni re-apuntar la identidad del negocio. El botÃ³n
+         licencia del dueño ni re-apuntar la identidad del negocio. El botón
          "avanzado" ya se oculta para empleados (auth-ui.js); esto cierra el
          hueco del admin.
          FIX (JFC 2026-08-28): el panel se construye ANTES del login, cuando
-         rolActual() es null, asÃ­ que el gate ocultaba claim/merge/rotar/fixlic/
-         mergear para siempre. Ahora es una funciÃ³n re-ejecutable que se vuelve
+         rolActual() es null, así que el gate ocultaba claim/merge/rotar/fixlic/
+         mergear para siempre. Ahora es una función re-ejecutable que se vuelve
          a aplicar al hacer login (evento oc-login). */
       function _aplicarGateSync() {
         try {
           var _rolSync = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
           /* A2 (2026-08-28): JFC es el lord/master admin y su panel ya separa sus
              aparatos con esMio. Antes el claim/merge se ocultaba si el rol no era
-             "dueno", asÃ­ que JFC (que entra como lord/soporte) no veÃ­a el botÃ³n
-             para re-apuntar su propia PC a la canÃ³nica. El lord tambiÃ©n puede
+             "dueno", así que JFC (que entra como lord/soporte) no veía el botón
+             para re-apuntar su propia PC a la canónica. El lord también puede
              rotar/re-emitir licencias (es quien las emite). */
           var _esLordSync = false;
           try { _esLordSync = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
           /* JFC 2026-08-28: rotar la licencia del equipo es SOLO del lord (o de
-             sus agentes AI). Un dueÃ±o de licencia normal NO debe poder rotar la
-             licencia de su negocio â€” eso es license handling, cosa del lord.
-             Claim/merge de dispositivos propios SÃ es del dueÃ±o (re-apuntar su
-             propio aparato a la canÃ³nica), asÃ­ que esos dos siguen con la regla
-             de dueÃ±o/lord. */
+             sus agentes AI). Un dueño de licencia normal NO debe poder rotar la
+             licencia de su negocio — eso es license handling, cosa del lord.
+             Claim/merge de dispositivos propios SÍ es del dueño (re-apuntar su
+             propio aparato a la canónica), así que esos dos siguen con la regla
+             de dueño/lord. */
           var _ocultarRotar = !_esLordSync;
           var _ocultarClaim = _rolSync !== "dueno" && !_esLordSync;
-          var _rotar = document.getElementById("oc-sync-rotar");
-          if (_rotar) _rotar.style.display = _ocultarRotar ? "none" : "";
-          ["oc-sync-claim", "oc-sync-mergear"].forEach(function (id) {
+          /* SIMPLIFICACION DE BOTONES (JFC 2026-08-28, pedido explicito): esta
+             funcion se re-ejecuta en cada login y ANTES pisaba el display:none
+             puesto en el HTML (linea ~611-614) apenas el usuario era dueno o
+             lord -- volvia a mostrar Resync/Merge/Rotate/Deactivate/Claim que
+             se querian ocultar siempre. Ahora esos 5 quedan SIEMPRE ocultos
+             (sin importar rol); _ocultarRotar/_ocultarClaim se conservan sin
+             usar por si se reactivan mas adelante. Solo Share queda SIEMPRE
+             visible cuando hay sala activa. */
+          ["oc-sync-rotar", "oc-sync-claim", "oc-sync-mergear", "oc-sync-resincronizar", "oc-sync-desactivar"].forEach(function (id) {
             var el = document.getElementById(id);
-            if (el) el.style.display = _ocultarClaim ? "none" : "";
+            if (el) el.style.display = "none";
           });
-          ["oc-sync-compartir", "oc-sync-resincronizar", "oc-sync-desactivar"].forEach(function (id) {             var el = document.getElementById(id);             if (el) el.style.display = (_rolSync !== "dueno" && !_esLordSync) ? "none" : "";           });
+          var _compartir = document.getElementById("oc-sync-compartir");
+          if (_compartir) _compartir.style.display = "";
         } catch (_) {}
       }
       _aplicarGateSync();
@@ -700,7 +714,7 @@
       } catch (_) {}
 
       const pillTexto = (estado, n) => {
-        if (estado === "conectado") return window.t("sync.panel.statusOn") + (n != null ? ` Â· ${n}` : "");
+        if (estado === "conectado") return window.t("sync.panel.statusOn") + (n != null ? ` · ${n}` : "");
         if (window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente()) {
           return window.t("sync.panel.statusFailed");
         }
@@ -740,10 +754,10 @@
       window.OCSyncControl.onEstado(pintarEstado);
 
       /* REENGANCHE SELF-HELP (JFC 2026-08-28). Determina el checkpoint actual
-         del autodiagnÃ³stico y pinta una fila de botones: el del punto donde
-         estÃ¡ trabado se pone NARANJA (highlight) y es el desatorador/forzador;
-         los demÃ¡s quedan inertes (grises, sin click). El naranja es a la vez
-         indicador ("aquÃ­ se atascÃ³") y parÃ¡metro de acciÃ³n ("pÃºlsame para
+         del autodiagnóstico y pinta una fila de botones: el del punto donde
+         está trabado se pone NARANJA (highlight) y es el desatorador/forzador;
+         los demás quedan inertes (grises, sin click). El naranja es a la vez
+         indicador ("aquí se atascó") y parámetro de acción ("púlsame para
          desatascarte"). */
       function pintarReenganche() {
         const box = document.getElementById("oc-sync-reenganche");
@@ -753,7 +767,7 @@
         const _sala = (S.salaActiva && S.salaActiva()) || "";
         const _prob = !!(S.problemaPersistente && S.problemaPersistente());
         const _relayOk = window.__f123RelayOk; // lo setea pintarDiag()
-        // Checkpoint actual: el punto donde estÃ¡ trabado.
+        // Checkpoint actual: el punto donde está trabado.
         let activo = "conectar"; // default
         if (!_sala) activo = "activar";
         else if (_relayOk === false) activo = "relay";
@@ -761,11 +775,11 @@
         else if (_prob) activo = "reingresar";
         else activo = "conectar";
         const defs = [
-          { id: "activar",      label: "ðŸ”‘ Activate sync",        hint: "No room code yet â€” enter your license" },
-          { id: "relay",        label: "ðŸ“¡ Test relay",           hint: "Relay unreachable from this device" },
-          { id: "conectar",     label: "ðŸ”Œ Reconnect now",        hint: "Not connected to the room yet" },
-          { id: "reingresar",   label: "âœï¸ Re-enter license",     hint: "Failing to connect â€” check the code" },
-          { id: "resincronizar",label: "ðŸ”„ Resync now",           hint: "Connected â€” force a fresh sync" },
+          { id: "activar",      label: "🔑 Activate sync",        hint: "No room code yet — enter your license" },
+          { id: "relay",        label: "📡 Test relay",           hint: "Relay unreachable from this device" },
+          { id: "conectar",     label: "🔌 Reconnect now",        hint: "Not connected to the room yet" },
+          { id: "reingresar",   label: "✏️ Re-enter license",     hint: "Failing to connect — check the code" },
+          { id: "resincronizar",label: "🔄 Resync now",           hint: "Connected — force a fresh sync" },
         ];
         box.innerHTML = "";
         defs.forEach(function (d) {
@@ -790,7 +804,7 @@
                 const campo = document.getElementById("oc-sync-codigo");
                 if (campo) { campo.focus(); campo.scrollIntoView({ behavior: "smooth", block: "center" }); }
               } else {
-                // conectar / resincronizar â†’ forzar reconexiÃ³n ya
+                // conectar / resincronizar → forzar reconexión ya
                 if (S.resincronizar) { try { S.resincronizar(); } catch (_) {} }
               }
             });
@@ -801,11 +815,11 @@
       try { pintarReenganche(); } catch (_) {}
       try { window.OCSyncControl.onEstado(function () { try { pintarReenganche(); } catch (_) {} }); } catch (_) {}
 
-      /* DIAGNÃ“STICO REAL DE SYNC (JFC 2026-08-26). Muestra los HECHOS crudos para
-         no adivinar: con quÃ© licencia estÃ¡ activado ESTE aparato, en quÃ© tienda
-         estÃ¡s, a quÃ© sala apunta el sync, si hay conexiÃ³n y cuÃ¡ntos peers, y
-         cuÃ¡ntos datos hay. AsÃ­ se ve al instante si "poner la licencia" cambiÃ³ de
-         tienda o no, y si el relay estÃ¡ entregando algo. */
+      /* DIAGNÓSTICO REAL DE SYNC (JFC 2026-08-26). Muestra los HECHOS crudos para
+         no adivinar: con qué licencia está activado ESTE aparato, en qué tienda
+         estás, a qué sala apunta el sync, si hay conexión y cuántos peers, y
+         cuántos datos hay. Así se ve al instante si "poner la licencia" cambió de
+         tienda o no, y si el relay está entregando algo. */
       async function pintarDiag() {
         const pre = document.getElementById("oc-sync-diag");
         if (!pre) return;
@@ -821,23 +835,23 @@
         const _sala = (S.salaActiva && S.salaActiva()) || "";
         const _lic = owned.licenseCode || "";
         const _syncCode = owned.syncCode || "";
-        // Los tres deberÃ­an ser el MISMO cÃ³digo. Si divergen, el estado quedÃ³
-        // enredado (tÃ­pico tras probar/cambiar de tienda) y la UI muestra cosas
-        // incoherentes â€” se marca aquÃ­ para que se vea el porquÃ© (JFC 2026-08-27).
+        // Los tres deberían ser el MISMO código. Si divergen, el estado quedó
+        // enredado (típico tras probar/cambiar de tienda) y la UI muestra cosas
+        // incoherentes — se marca aquí para que se vea el porqué (JFC 2026-08-27).
         const _norm = (x) => String(x || "").toUpperCase().replace(/\s+/g, "");
         const _presentes = [_lic, _syncCode, _sala].filter(Boolean).map(_norm);
         const _coherente = _presentes.length <= 1 || _presentes.every((x) => x === _presentes[0]);
-        /* AUTODIAGNÃ“STICO EN VIVO (JFC 2026-08-28). El usuario lleva dÃ­as con
-           dispositivos "desconectados entre sÃ­" y el relay estaba bien. Para
-           saber QUÃ‰ se rompe en cada aparato, este bloque prueba el relay DESDE
+        /* AUTODIAGNÓSTICO EN VIVO (JFC 2026-08-28). El usuario lleva días con
+           dispositivos "desconectados entre sí" y el relay estaba bien. Para
+           saber QUÉ se rompe en cada aparato, este bloque prueba el relay DESDE
            ESTE dispositivo (no desde el servidor) y cruza eso con el estado de
-           sync local. El veredicto dice en una lÃ­nea quÃ© falla y quÃ© hacer. */
+           sync local. El veredicto dice en una línea qué falla y qué hacer. */
         let relayOk = null; // null = probando, true/false = resultado
         /* CHECK DEL RELAY POR WEBSOCKET (JFC 2026-08-28). Antes se usaba
            fetch("/health"), pero el Worker no manda cabeceras CORS y el
-           navegador (github.io) bloqueaba el fetch â†’ reportaba "RELAY
+           navegador (github.io) bloqueaba el fetch → reportaba "RELAY
            UNREACHABLE" en falso aunque el relay estuviera bien. Los WebSocket
-           NO estÃ¡n sujetos a CORS, asÃ­ que este check abre una conexiÃ³n real a
+           NO están sujetos a CORS, así que este check abre una conexión real a
            una sala de prueba: si abre, el relay es alcanzable desde ESTE
            dispositivo (que es exactamente lo que el sync usa). */
         try {
@@ -856,7 +870,7 @@
         const _estado = (S.estado && S.estado()) || "?";
         const _peers = (S.presencia && S.presencia()) || 0;
         const _prob = !!(S.problemaPersistente && S.problemaPersistente());
-        // Ãšltima actividad de sync (check mutuo): la op mÃ¡s reciente del log,
+        // Última actividad de sync (check mutuo): la op más reciente del log,
         // y si vino de OTRO dispositivo (prueba de que el equipo se habla).
         let ultimaOp = null, ultimaOpAjena = null;
         try {
@@ -868,11 +882,11 @@
             ultimaOpAjena = _orden.find((o) => o.deviceId && o.deviceId !== _miId) || null;
           }
         } catch (_) {}
-        // Veredicto: una lÃ­nea clara de quÃ© estÃ¡ mal y quÃ© hacer.
+        // Veredicto: una línea clara de qué está mal y qué hacer.
         let veredicto;
         if (!_sala) veredicto = "SYNC OFF: this device has no room code. Enter your license above and press Activate.";
         else if (relayOk === false) veredicto = "RELAY UNREACHABLE from this device: check this device's internet / firewall. The relay itself is up (verified from the server).";
-        else if (_estado === "conectado") veredicto = "CONNECTED: this device is on the relay room. " + (_peers > 0 ? ("Peers online: " + _peers + ". " + (ultimaOpAjena ? "Last data from a teammate: " + (ultimaOpAjena.fecha || "?") + "." : "No data from a teammate yet â€” their device must be on and synced.")) : "No peers online right now â€” the other device(s) must be open and connected to sync.");
+        else if (_estado === "conectado") veredicto = "CONNECTED: this device is on the relay room. " + (_peers > 0 ? ("Peers online: " + _peers + ". " + (ultimaOpAjena ? "Last data from a teammate: " + (ultimaOpAjena.fecha || "?") + "." : "No data from a teammate yet — their device must be on and synced.")) : "No peers online right now — the other device(s) must be open and connected to sync.");
         else if (_prob) veredicto = "FAILING: this device has tried to connect many times without success. Check the room code matches your other device exactly (F123-...).";
         else veredicto = "NOT CONNECTED (" + _estado + "): this device is not on the relay yet. If it stays like this, check the room code and this device's internet.";
         const lineas = [
@@ -882,34 +896,34 @@
           "Connection:   " + _estado + "   (peers online: " + _peers + ")",
           "Sync room (where data actually syncs): " + (_sala || "(off)"),
           "License (this is your sync code & password): " + (_lic || "(none)"),
-          (_coherente ? "â†’ COHERENT: this device's identity, share code and sync room all match." :
-            "â†’ âš  SPLIT: this device's identity is split across different codes. Enter your true license in the field above, then press 'Fix split identity'."),
+          (_coherente ? "→ COHERENT: this device's identity, share code and sync room all match." :
+            "→ ⚠ SPLIT: this device's identity is split across different codes. Enter your true license in the field above, then press 'Fix split identity'."),
           "Last sync activity: " + (ultimaOp ? (ultimaOp.fecha || "?") + (ultimaOp.deviceId === ((S.deviceIdActual && S.deviceIdActual()) || "") ? " (this device)" : " (teammate)") : "none yet"),
           "Business name (this device): " + (owned.nombreNegocio || "(none)"),
           "Active store:  " + (T.esUnida && T.esUnida() ? ("JOINED  " + ((T.licenciaActual && T.licenciaActual()) || "?")) : "OWN (\"\")") ,
           "Store marker:  " + marcador,
-          "Data here:     products " + nProd + " Â· shelves " + nUbic + " Â· customers " + nCli + " Â· team " + nUsu,
-          (esLord ? ("Observed stores (audit log): " + accesos.length + (ultAcceso ? "  Â· last: " + ultAcceso.licencia + " @ " + ultAcceso.cuando : "")) : ""),
+          "Data here:     products " + nProd + " · shelves " + nUbic + " · customers " + nCli + " · team " + nUsu,
+          (esLord ? ("Observed stores (audit log): " + accesos.length + (ultAcceso ? "  · last: " + ultAcceso.licencia + " @ " + ultAcceso.cuando : "")) : ""),
           "",
           "Reading this: if you paste another business's license and 'Active store' still says OWN and the counts are YOUR numbers, the switch did NOT happen (that license is being treated as this device's own). If it says JOINED but counts are 0, you switched but their data has not synced in yet (needs their device to have pushed to the relay).",
         ];
         pre.textContent = lineas.join("\n");
-        // Tras actualizar el diagnÃ³stico (p. ej. prueba de relay), re-pintar el
-        // reenganche para que el botÃ³n naranja refleje el checkpoint real.
+        // Tras actualizar el diagnóstico (p. ej. prueba de relay), re-pintar el
+        // reenganche para que el botón naranja refleje el checkpoint real.
         try { pintarReenganche(); } catch (_) {}
       }
       try { pintarDiag(); } catch (_) {}
-      /* AUTO-REFRESCO DEL DIAGNÃ“STICO (JFC 2026-08-28): el estado de sync cambia
-         solo (reconexiÃ³n, peers que entran/salen). Re-pintar cada 5s mantiene el
-         veredicto al dÃ­a sin que el usuario tenga que abrir/cerrar el desplegable.
-         Solo se pinta si el desplegable estÃ¡ abierto (no malgastar fetchs). */
+      /* AUTO-REFRESCO DEL DIAGNÓSTICO (JFC 2026-08-28): el estado de sync cambia
+         solo (reconexión, peers que entran/salen). Re-pintar cada 5s mantiene el
+         veredicto al día sin que el usuario tenga que abrir/cerrar el desplegable.
+         Solo se pinta si el desplegable está abierto (no malgastar fetchs). */
       try {
         setInterval(function () {
           const _wrap = document.getElementById("oc-sync-diag-wrap");
           if (_wrap && _wrap.open) { try { pintarDiag(); } catch (_) {} }
         }, 5000);
       } catch (_) {}
-      /* BOTÃ“N COPIAR (JFC 2026-08-28): copiar el diagnÃ³stico a mano era
+      /* BOTÓN COPIAR (JFC 2026-08-28): copiar el diagnóstico a mano era
          doloroso. Un clic copia todo el texto al portapapeles y avisa. */
       try {
         const _copyBtn = document.getElementById("oc-sync-diag-copy");
@@ -917,7 +931,7 @@
           const pre = document.getElementById("oc-sync-diag");
           if (!pre) return;
           const txt = pre.textContent || "";
-          const _ok = function () { const o = _copyBtn.textContent; _copyBtn.textContent = "Copied âœ“"; setTimeout(function () { _copyBtn.textContent = o; }, 1600); };
+          const _ok = function () { const o = _copyBtn.textContent; _copyBtn.textContent = "Copied ✓"; setTimeout(function () { _copyBtn.textContent = o; }, 1600); };
           try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
               navigator.clipboard.writeText(txt).then(_ok, function () { _copiarFallback(pre, txt, _ok); });
@@ -935,12 +949,12 @@
         } catch (_) { ok(); }
       }
       /* REPARAR IDENTIDAD PARTIDA (JFC 2026-08-28). Un clic alinea licenseCode,
-         syncCode y sala de sync al cÃ³digo que el usuario puso en el campo de
+         syncCode y sala de sync al código que el usuario puso en el campo de
          arriba. Reutiliza reconciliar(), que ya deja los tres campos en el MISMO
-         cÃ³digo sin vaciar datos locales.
-         JFC 2026-08-28: ANTES, si el campo estaba vacÃ­o, caÃ­a silenciosamente al
-         licenseCode actual â€” que puede ser el EQUIVOCADO (ej. una trunca vieja
-         como F123-5HSG-JENF) â€” y reconciliaba al cÃ³digo malo, empeorando el
+         código sin vaciar datos locales.
+         JFC 2026-08-28: ANTES, si el campo estaba vacío, caía silenciosamente al
+         licenseCode actual — que puede ser el EQUIVOCADO (ej. una trunca vieja
+         como F123-5HSG-JENF) — y reconciliaba al código malo, empeorando el
          SPLIT. Ahora exige la licencia verdadera en el campo: no reconciliar a
          ciegas. */
       try {
@@ -960,9 +974,9 @@
           } catch (_) { if (msg) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not fix the identity."; } }
         });
       } catch (_) {}
-      /* Refrescar el diagnÃ³stico cada 4s mientras el panel estÃ© montado. Si el
-         usuario estÃ¡ seleccionando texto dentro del pre (para copiar a mano),
-         NO se pisa el contenido a mitad de selecciÃ³n â€” se espera al siguiente
+      /* Refrescar el diagnóstico cada 4s mientras el panel esté montado. Si el
+         usuario está seleccionando texto dentro del pre (para copiar a mano),
+         NO se pisa el contenido a mitad de selección — se espera al siguiente
          tick. (JFC 2026-08-28: "no lo hagas que se cierre apenas hago select
          text"). */
       try { if (window._ocSyncDiagTimer) clearInterval(window._ocSyncDiagTimer); window._ocSyncDiagTimer = setInterval(() => {
@@ -970,11 +984,11 @@
         if (!pre) { clearInterval(window._ocSyncDiagTimer); return; }
         const sel = window.getSelection && window.getSelection();
         const dentro = sel && sel.rangeCount > 0 && pre.contains(sel.anchorNode) && pre.contains(sel.focusNode);
-        if (dentro) return; // hay selecciÃ³n activa dentro del pre: no pisar
+        if (dentro) return; // hay selección activa dentro del pre: no pisar
         pintarDiag();
       }, 4000); } catch (_) {}
 
-      /* QR DE UNIRSE â€” DORMANT (JFC 2026-08-21). NO BORRAR: ver el comentario
+      /* QR DE UNIRSE — DORMANT (JFC 2026-08-21). NO BORRAR: ver el comentario
          en el HTML de arriba. Poner en true para re-encenderlo (y devolver el
          div #oc-sync-qr). El generador qrcode-local.js SE QUEDA: lo usan las
          etiquetas de producto, que no tienen nada que ver con esto. */
@@ -1008,11 +1022,11 @@
           const el = document.getElementById("oc-sync-huella");
           if (!el) return;
           const h = window.OCSync && window.OCSync.huella ? window.OCSync.huella() : null;
-          el.textContent = h && h.corta ? " Â· " + h.corta : "";
+          el.textContent = h && h.corta ? " · " + h.corta : "";
           /* JFC 2026-08-28: aclarar que #XXXX es la HUELLA DEL INVENTARIO (cambia
              con tus datos), NO el id del dispositivo. El id firme del aparato es
-             su apodo/nÃºmero estable. Antes el tooltip solo decÃ­a "N shelves, M
-             products" y la gente leÃ­a #XXXX como un id de device que "cambiaba". */
+             su apodo/número estable. Antes el tooltip solo decía "N shelves, M
+             products" y la gente leía #XXXX como un id de device que "cambiaba". */
           el.title = h ? ("Inventory fingerprint (changes with your data): " + h.perchas + " shelves, " + h.productos + " products. Your device's stable id is its nickname.") : "";
         } catch (_) {}
       }
@@ -1021,17 +1035,17 @@
       if (salaActiva) pintarQR(salaActiva);
 
       /* ENTER activa (JFC 2026-08-25): en un campo unico, Enter dispara la
-         accion principal â€” es lo estandar y da el "sense of completion". */
+         accion principal — es lo estandar y da el "sense of completion". */
       (function () {
         var _campo = document.getElementById("oc-sync-codigo");
         if (_campo) _campo.addEventListener("keydown", function (e) {
           if (e.key === "Enter") { e.preventDefault(); var b = document.getElementById("oc-sync-activar"); if (b) b.click(); }
         });
       })();
-      /* JFC 2026-08-28: detecta si el dispositivo estÃ¡ PARTIDO (licenseCode,
+      /* JFC 2026-08-28: detecta si el dispositivo está PARTIDO (licenseCode,
          syncCode y sala de sync divergen). Es el mismo criterio que usa el
-         autodiagnÃ³stico (pintarDiag) para marcar SPLIT. Se usa para que
-         "Activate" reconcilie del todo cuando el aparato estÃ¡ partido. */
+         autodiagnóstico (pintarDiag) para marcar SPLIT. Se usa para que
+         "Activate" reconcilie del todo cuando el aparato está partido. */
       function _estadoPartido() {
         try {
           const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
@@ -1059,10 +1073,10 @@
           return;
         }
         const msg = document.getElementById("oc-sync-msg");
-        /* JFC 2026-08-28: si el dispositivo estÃ¡ PARTIDO, "Activate" debe
+        /* JFC 2026-08-28: si el dispositivo está PARTIDO, "Activate" debe
            RECONCILIAR del todo (alinear licenseCode+syncCode+sala+namespace de
            tienda y resincronizar), no solo fijar la sala. Antes, un aparato
-           partido que entraba su licencia verdadera y pulsaba Activate seguÃ­a
+           partido que entraba su licencia verdadera y pulsaba Activate seguía
            mostrando el VERDICT viejo (SPLIT) porque activar() no alineaba el
            namespace ni resincronizaba. reconcile() es el mismo fix que usa
            "Fix split identity", y es seguro: para la licencia propia no cambia
@@ -1084,7 +1098,7 @@
         document.getElementById("oc-sync-activo").style.display = "block";
         document.getElementById("oc-sync-codigo-actual").textContent = (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(codigo.trim()) : codigo.trim());
         pintarQR(codigo.trim());
-        /* Refrescar el diagnÃ³stico al instante para que el VERDICT deje de
+        /* Refrescar el diagnóstico al instante para que el VERDICT deje de
            mostrar el estado viejo (JFC 2026-08-28). */
         try { pintarDiag(); } catch (_) {}
       });
@@ -1093,17 +1107,17 @@
         const _c = (window.OCSyncControl.salaActiva() || "").trim();
         /* Se comparte la licencia tal cual (JFC 2026-08-21): ES lo que el otro
            va a teclear. Antes se traducia a TEAM- para que "no pareciera una
-           licencia" â€” y era exactamente eso, asi que el disfraz solo hacia
+           licencia" — y era exactamente eso, asi que el disfraz solo hacia
            dudar a quien lo recibia. */
         const codigo = /^F123-/i.test(_c) ? _c : "";
         const negocio = (function () { try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch (_) { return ""; } })();
         const _h = (function () { try { const x = window.OCSync && window.OCSync.huella ? window.OCSync.huella() : null; return x && x.corta ? x.corta : ""; } catch (_) { return ""; } })();
         const texto = window.t("sync.panel.shareText")
           .replace("{business}", negocio ? " (" + negocio + ")" : "")
-          .replace("{code}", codigo + (_h ? " Â· " + _h : ""));
+          .replace("{code}", codigo + (_h ? " · " + _h : ""));
         window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
       });
-      /* PASO 5 â€” JUNTAR LOS CATALOGOS, mostrando el cambio ANTES de aplicarlo.
+      /* PASO 5 — JUNTAR LOS CATALOGOS, mostrando el cambio ANTES de aplicarlo.
          Este es el boton que le faltaba a JFC: sus dos dispositivos estaban
          conectados y hablando, pero no habia forma de decirles "y ahora junten
          sus perchas". Nada se aplica solo: se pide, se junta lo que llega, se
@@ -1136,7 +1150,7 @@
                   '<ul style="font-size:16px;line-height:1.7;color:#0F1923;margin:0 0 14px;padding-left:20px;">' +
                   (dif.nuevasPerchas.length ? "<li><strong>+ " + dif.nuevasPerchas.length + "</strong> shelf(s): " + dif.nuevasPerchas.map(function (x) { return escHtml(x.nombre); }).join(", ") + "</li>" : "") +
                   (dif.nuevosProductos.length ? "<li><strong>+ " + dif.nuevosProductos.length + "</strong> product(s), each arriving with stock 0</li>" : "") +
-                  (dif.conflictos.length ? "<li><strong>" + dif.conflictos.length + "</strong> item(s) differ in name or price" + (dif.ganaElOtro ? " â€” theirs wins (higher role)" : " â€” yours is kept") + "</li>" : "") +
+                  (dif.conflictos.length ? "<li><strong>" + dif.conflictos.length + "</strong> item(s) differ in name or price" + (dif.ganaElOtro ? " — theirs wins (higher role)" : " — yours is kept") + "</li>" : "") +
                   /* El equipo se lista aparte y con nombres: un cambio de rol o
                      de PIN decide quien entra y con cuanto peso, y eso no puede
                      ir escondido dentro de un conteo generico. */
@@ -1176,7 +1190,7 @@
           }
           piezas = { ubicaciones: [], productos: [], usuarios: [], rol: "", huella: "", esperados: 0, vistos: 0, porDev: {} };
           msg.style.color = "var(--ink-soft)";
-          msg.textContent = "Asking your team for their inventoryâ€¦";
+          msg.textContent = "Asking your team for their inventory…";
           window.OCSyncControl.pedirCatalogo();
           clearTimeout(temporizador);
           temporizador = setTimeout(function () {
@@ -1187,8 +1201,8 @@
               msg.style.color = "var(--rojo,#a3392a)";
               msg.textContent = "No other device answered. Open the app on the other device, activated with this same license, and try again.";
             } else if (!todosCompletos) {
-              /* A3: algÃºn dispositivo empezÃ³ a mandar su inventario pero no terminÃ³
-                 (se desconectÃ³ a mitad). No disparar el preview con datos a medias. */
+              /* A3: algún dispositivo empezó a mandar su inventario pero no terminó
+                 (se desconectó a mitad). No disparar el preview con datos a medias. */
               msg.style.color = "var(--rojo,#a3392a)";
               msg.textContent = "Some devices did not finish sending their inventory. Try again.";
             }
@@ -1207,9 +1221,9 @@
               if (pl.tabla === "productos") piezas.productos = piezas.productos.concat(pl.filas);
               if (pl.tabla === "usuarios") piezas.usuarios = piezas.usuarios.concat(pl.filas);
             }
-            /* A3 (2026-08-27, auditorÃ­a): agrupar por dispositivo. Antes
-               `piezas.esperados` se sobreescribÃ­a con el deTotal de cada trozo y
-               `piezas.vistos` contaba los trozos de TODOS los dispositivos, asÃ­
+            /* A3 (2026-08-27, auditoría): agrupar por dispositivo. Antes
+               `piezas.esperados` se sobreescribía con el deTotal de cada trozo y
+               `piezas.vistos` contaba los trozos de TODOS los dispositivos, así
                que con 2+ aparatos respondiendo el preview se disparaba prematuro
                con datos mezclados/incompletos. Ahora cada dispositivo se cuenta
                por separado (recibidos vs su propio total) y el preview espera a
@@ -1243,7 +1257,7 @@
       });
       /* UNIRSE DESDE ESTE MISMO SUBSEGMENTO (JFC 2026-08-19): antes no habia
          donde pegar el codigo si la sala ya estaba activa, y el unico boton a
-         mano ("Change the code") ROTABA el codigo â€” que es lo contrario de lo
+         mano ("Change the code") ROTABA el codigo — que es lo contrario de lo
          que quiere quien llega a unirse. Este input une sin rotar nada. */
       (function () {
         const bu = document.getElementById("oc-sync-unirme");
@@ -1253,14 +1267,14 @@
           const cod = (document.getElementById("oc-sync-codigo2").value || "").trim();
           if (!cod) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = window.t("sync.panel.pasteCodeFirst"); return; }
           if (!/^(TEAM|F123)-/i.test(cod)) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = window.t("sync.panel.badCode"); return; }
-          /* A4 (2026-08-27, auditorÃ­a de integridad): antes usaba activar(), que
-             solo guarda la sala y conecta â€” el aparato sincronizaba a la sala
+          /* A4 (2026-08-27, auditoría de integridad): antes usaba activar(), que
+             solo guarda la sala y conecta — el aparato sincronizaba a la sala
              correcta pero NO adoptaba la licencia ni cambiaba de tienda (quedaba
              "partido": identidad demo/otra, datos en el namespace viejo). unirse()
              es el flujo de equipo completo: marca instanceId (sale de demo), fija
-             licenseCode (cuenta como device del negocio) y cambia de tienda vÃ­a
-             OCTienda.cambiar(). Si cambia de tienda, cambiar() recarga la pÃ¡gina
-             (el cÃ³digo de abajo no se ejecuta, correcto). Si ya estÃ¡s en esa
+             licenseCode (cuenta como device del negocio) y cambia de tienda vía
+             OCTienda.cambiar(). Si cambia de tienda, cambiar() recarga la página
+             (el código de abajo no se ejecuta, correcto). Si ya estás en esa
              tienda (mismo:true), no recarga y mostramos el aviso de re-sync. */
           const r2 = window.OCSyncControl.unirse(cod);
           if (!r2.ok) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = r2.error; return; }
@@ -1280,8 +1294,8 @@
       })(),
       (function(){var _r=document.getElementById("oc-sync-rotar");if(_r&&!_r.dataset.listo){_r.dataset.listo="1";_r.addEventListener("click",ocRotarCodigoSala);}})(),
       /* CLAIM / MERGE (JFC 2026-08-27). Re-apunta ESTE aparato a la licencia
-         canÃ³nica que muestra el otro aparato, conservando los datos locales.
-         El merge add-only ocurre despuÃ©s, al reconectar ambos a la misma sala. */
+         canónica que muestra el otro aparato, conservando los datos locales.
+         El merge add-only ocurre después, al reconectar ambos a la misma sala. */
       (function () {
         const cb = document.getElementById("oc-sync-claim-btn");
         if (!cb) return;
@@ -1308,10 +1322,10 @@
     // === FIN SINCRONIZAR EQUIPO ==================================================
 
     // === EQUIPO (multi-usuario, admins + encargados, 2026-07-22) ===========
-    // Panel de gestiÃ³n del Equipo: admins + encargados con PINs y correos.
-    // - DueÃ±o: crea admins y encargados, cambia cualquier PIN, desactiva cualquiera.
+    // Panel de gestión del Equipo: admins + encargados con PINs y correos.
+    // - Dueño: crea admins y encargados, cambia cualquier PIN, desactiva cualquiera.
     // - Admin: crea y gestiona encargados (NO puede crear otros admins ni editar el PIN de admins).
-    // - LÃ­mite free: 1 encargado (admins exentos â€” son co-dueÃ±os, no personal).
+    // - Límite free: 1 encargado (admins exentos — son co-dueños, no personal).
     const isDueno = () => window.OCAuth && window.OCAuth.rolActual() === "dueno";
     const isAdmin = () => window.OCAuth && window.OCAuth.rolActual() === "admin";
 
@@ -1356,16 +1370,16 @@
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
-          <label style="font-size:13px;">Email (optional â€” for notifications)
+          <label style="font-size:13px;">Email (optional — for notifications)
             <input id="oc-emp-email" type="email" maxlength="160" placeholder="name@example.com"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
-          <label style="font-size:13px;">PIN (3 digits)<!-- Microcirugia 7 (2026-07-08): aviso de colisiÃ³n. El mock no puede verificar contra el PIN del dueÃ±o/contador (esos hashes viven en crypto-store). Si colisionan, el miembro queda bloqueado silenciosamente. -->
+          <label style="font-size:13px;">PIN (3 digits)<!-- Microcirugia 7 (2026-07-08): aviso de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el miembro queda bloqueado silenciosamente. -->
             <span style="display:block;font-size:13px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;">
               Do not reuse the PIN of the owner, the general staff login or the bookkeeper.
             </span>
-            <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="â€¢â€¢â€¢"
+            <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="•••"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;text-align:center;font-family:var(--font-mono);
                      box-sizing:border-box;letter-spacing:.2em;">
@@ -1374,8 +1388,8 @@
             <select id="oc-emp-rol"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;background:var(--blanco-calido,#fbf5e8);">
-              <option value="empleado">Employee â€” day-to-day access (sales, inventory, shelves)</option>
-              <option value="admin">Admin â€” full access except the owner's credentials</option>
+              <option value="empleado">Employee — day-to-day access (sales, inventory, shelves)</option>
+              <option value="admin">Admin — full access except the owner's credentials</option>
             </select>
             <span style="display:block;font-size:13px;color:var(--ink-soft);margin-top:3px;">
               Only the owner can create admins.
@@ -1391,15 +1405,15 @@
     vista.appendChild(equipoPanel);
 
     // Renderiza la tabla del equipo (llama al endpoint cada vez que hay cambio).
-    // TambiÃ©n actualiza la visibilidad del selector de rol (dueÃ±o vs admin),
-    // porque init() corre antes del login y el rol real no estÃ¡ disponible aÃºn.
+    // También actualiza la visibilidad del selector de rol (dueño vs admin),
+    // porque init() corre antes del login y el rol real no está disponible aún.
     async function renderEmpleados() {
       const rolLabel = document.getElementById("oc-emp-rol-label");
       if (rolLabel) rolLabel.style.display = isDueno() ? "" : "none";
       const lista = document.getElementById("oc-emp-lista");
       if (!lista) return;
-      // B-02 (2026-08-26): rescatar aviso de colisiÃ³n antes de que innerHTML lo borre.
-      // Si aplicarCatalogo disparÃ³ oc-pin-colision, el mensaje lleva dataset.colisionPendiente.
+      // B-02 (2026-08-26): rescatar aviso de colisión antes de que innerHTML lo borre.
+      // Si aplicarCatalogo disparó oc-pin-colision, el mensaje lleva dataset.colisionPendiente.
       const msgElPre = document.getElementById("oc-emp-msg");
       const colisionPendiente = msgElPre && msgElPre.dataset.colisionPendiente ? msgElPre.dataset.colisionPendiente : null;
       let equipo = [];
@@ -1413,11 +1427,11 @@
         return;
       }
 
-      // "Ãšltima ubicaciÃ³n" (JFC 2026-07-28): geo-ping.js es un archivo aparte
-      // y opcional (ver ese archivo) â€” si no cargÃ³, o no hay AMG.GeoPing, o
-      // falla la lectura de IndexedDB, esto se degrada a un mapa vacÃ­o sin
-      // romper el resto de Mi Equipo. Solo dueÃ±o/admin ven esto â€” un
-      // encargado viendo a sus compaÃ±eros no necesita saber dÃ³nde estuvieron.
+      // "Última ubicación" (JFC 2026-07-28): geo-ping.js es un archivo aparte
+      // y opcional (ver ese archivo) — si no cargó, o no hay AMG.GeoPing, o
+      // falla la lectura de IndexedDB, esto se degrada a un mapa vacío sin
+      // romper el resto de Mi Equipo. Solo dueño/admin ven esto — un
+      // encargado viendo a sus compañeros no necesita saber dónde estuvieron.
       let ultimasUbic = {};
       if ((isDueno() || isAdmin()) && window.AMG && window.AMG.GeoPing && window.AMG.GeoPing.ultimosPorPin) {
         try { ultimasUbic = await window.AMG.GeoPing.ultimosPorPin(); } catch (_) { ultimasUbic = {}; }
@@ -1443,11 +1457,11 @@
         </table>`;
       const tbody = document.getElementById("oc-emp-tbody");
 
-      /* EL DUEÃ‘O ENCABEZA LA LISTA (JFC 2026-08-21). Antes la tabla empezaba
+      /* EL DUEÑO ENCABEZA LA LISTA (JFC 2026-08-21). Antes la tabla empezaba
          en los admins, asi que la jerarquia se leia descabezada y parecia que
          el admin era lo mas alto que hay. Es una fila informativa: el PIN del
-         dueÃ±o no se guarda aqui (vive cifrado en crypto-store) y por eso no
-         tiene botones â€” no hay nada que editar desde esta tabla. */
+         dueño no se guarda aqui (vive cifrado en crypto-store) y por eso no
+         tiene botones — no hay nada que editar desde esta tabla. */
       (function () {
         const trD = document.createElement("tr");
         trD.style.borderBottom = "1px solid var(--azul-suave,#dde5ec)";
@@ -1468,33 +1482,33 @@
         const btnEstLabel  = u.activo ? "Deactivate" : "Activate";
         const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
         /* BADGES NARANJA UNIFICADOS (2026-08-26, UX sweep H3): antes Owner era negro,
-           Admin era Ã¡mbar y Employee era azul â€” tres colores distintos que complicaban
-           la paleta sin aÃ±adir informaciÃ³n Ãºtil (el texto del badge ya dice el rol).
+           Admin era ámbar y Employee era azul — tres colores distintos que complicaban
+           la paleta sin añadir información útil (el texto del badge ya dice el rol).
            Ahora todos usan el mismo naranja #E87A10: limpio, vivo, coherente con el
            chip activo del riel en mobile. El texto sigue siendo el diferenciador real. */
         const rolBadge     = u.rol === "admin"
           ? `<span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
           : `<span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Employee</span>`;
         // Admin puede editar encargados Y SU PROPIA FILA (su nombre/PIN), pero no
-        // a OTROS admins (seguridad por capas). El dueÃ±o edita a todos. (JFC 2026-08-26:
-        // "el admin tambiÃ©n... y el de ellos" â€” que el admin pueda cambiar su propio PIN.)
+        // a OTROS admins (seguridad por capas). El dueño edita a todos. (JFC 2026-08-26:
+        // "el admin también... y el de ellos" — que el admin pueda cambiar su propio PIN.)
         const esMiFila = window.OCCurrentUser && String(window.OCCurrentUser.id) === String(u.id);
         const puedeEditar = isDueno() || (isAdmin() && (u.rol === "empleado" || esMiFila));
         // Promover/degradar (JFC 2026-07-30: "hazlo una lista dinamica y permite
-        // editar y promote y demote") â€” solo el dueÃ±o decide quiÃ©n es admin.
+        // editar y promote y demote") — solo el dueño decide quién es admin.
         const puedePromover = isDueno();
         const ping = ultimasUbic["u:" + u.id];
         const ubicHtml = (isDueno() || isAdmin())
           ? (ping
-              ? `<div style="font-size:13px;color:var(--ink-soft);">ðŸ“ ${window.tf("geo.emp.lastSeen", { when: hacetiempo(ping.ts) })}${
+              ? `<div style="font-size:13px;color:var(--ink-soft);">📍 ${window.tf("geo.emp.lastSeen", { when: hacetiempo(ping.ts) })}${
                   (ping.lat != null && ping.lon != null)
-                    ? ` Â· <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">${window.t("geo.panel.viewMap")}</a>` +
+                    ? ` · <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">${window.t("geo.panel.viewMap")}</a>` +
                       (ping.precision != null && ping.precision > 300
-                        ? ` <span style="color:#E8A020;">(approximate, Â±${ping.precision}m â€” not exact)</span>`
-                        : ping.precision != null ? ` (Â±${ping.precision}m)` : "")
-                    : " Â· " + window.t("geo.emp.noLocationThatTime")
+                        ? ` <span style="color:#E8A020;">(approximate, ±${ping.precision}m — not exact)</span>`
+                        : ping.precision != null ? ` (±${ping.precision}m)` : "")
+                    : " · " + window.t("geo.emp.noLocationThatTime")
                 }</div>`
-              : `<div style="font-size:13px;color:var(--ink-soft);">ðŸ“ ${window.t("geo.emp.none")}</div>`)
+              : `<div style="font-size:13px;color:var(--ink-soft);">📍 ${window.t("geo.emp.none")}</div>`)
           : "";
         tr.innerHTML = `
           <td style="padding:8px;">
@@ -1567,7 +1581,7 @@
         });
       });
 
-      // Bind: promover/degradar (solo dueÃ±o ve el selector, ver puedePromover arriba)
+      // Bind: promover/degradar (solo dueño ve el selector, ver puedePromover arriba)
       tbody.querySelectorAll("[data-cambiar-rol]").forEach((btn) => {
         btn.addEventListener("change", async () => {
           const id = btn.dataset.cambiarRol;
@@ -1611,13 +1625,13 @@
             msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
             msg.textContent = window.t ? window.t("team.pinUpdated") : "PIN updated.";
             // Entrega por correo (JFC 2026-07-30): mailto abre EL PROPIO cliente
-            // de correo del dueÃ±o con el mensaje listo â€” sin backend, sin nube,
+            // de correo del dueño con el mensaje listo — sin backend, sin nube,
             // cumple la regla dura NUNCA CLOUD. El PIN nunca se guarda en claro
-            // en ningÃºn servidor; solo pasa por esta URL local hacia el mailer.
+            // en ningún servidor; solo pasa por esta URL local hacia el mailer.
             const miembro = equipo.find((x) => x.id === id);
             if (miembro && miembro.email) {
-              const asunto = encodeURIComponent(`Tu PIN de acceso â€” ${miembro.nombre}`);
-              const cuerpo = encodeURIComponent(`Hola ${miembro.nombre},\n\nTu nuevo PIN de acceso es: ${pin}\n\nGuÃ¡rdalo en un lugar seguro.`);
+              const asunto = encodeURIComponent(`Tu PIN de acceso — ${miembro.nombre}`);
+              const cuerpo = encodeURIComponent(`Hola ${miembro.nombre},\n\nTu nuevo PIN de acceso es: ${pin}\n\nGuárdalo en un lugar seguro.`);
               const linkMail = document.createElement("a");
               linkMail.href = `mailto:${miembro.email}?subject=${asunto}&body=${cuerpo}`;
               linkMail.textContent = " Enviar por correo";
@@ -1630,9 +1644,9 @@
         });
       });
 
-      // B-02 (2026-08-26): restaurar aviso de colisiÃ³n si se perdiÃ³ durante el render.
+      // B-02 (2026-08-26): restaurar aviso de colisión si se perdió durante el render.
       // renderEmpleados solo toca #oc-emp-lista, pero una segunda llamada concurrente
-      // puede haber limpiado #oc-emp-msg; al terminar, si habÃ­a colisiÃ³n pendiente, se vuelve a poner.
+      // puede haber limpiado #oc-emp-msg; al terminar, si había colisión pendiente, se vuelve a poner.
       if (colisionPendiente) {
         try {
           const msgElPost = document.getElementById("oc-emp-msg");
@@ -1651,7 +1665,7 @@
       const email  = (document.getElementById("oc-emp-email").value  || "").trim();
       const pin    = (document.getElementById("oc-emp-pin").value    || "").trim();
       const rolSel = document.getElementById("oc-emp-rol");
-      // Admin que llega aquÃ­ solo puede crear encargados; dueÃ±o puede elegir admin
+      // Admin que llega aquí solo puede crear encargados; dueño puede elegir admin
       const rol = (isDueno() && rolSel) ? (rolSel.value || "empleado") : "empleado";
       const msgEl = document.getElementById("oc-emp-msg");
       msgEl.style.color = "var(--rojo,#a3392a)";
@@ -1667,7 +1681,7 @@
         msgEl.style.color = "var(--sim-verde-dk,#1a6e3c)";
         msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Employee"} "${data.nombre}" added.`;
         if (email) {
-          const asunto = encodeURIComponent(`Your access PIN â€” ${data.nombre}`);
+          const asunto = encodeURIComponent(`Your access PIN — ${data.nombre}`);
           const cuerpo = encodeURIComponent(`Hi ${data.nombre},
 
 Your access PIN is: ${pin}
@@ -1693,12 +1707,12 @@ Keep it somewhere safe.`);
     window.addEventListener("oc-login", renderEmpleados);
 
     /* REFRESH EN VIVO (2026-08-26, code-review finding #4b): cuando llega un
-       cambio de equipo por sync (promote, nuevo miembro, ediciÃ³n de rol/PIN),
+       cambio de equipo por sync (promote, nuevo miembro, edición de rol/PIN),
        mock-backend.js dispara oc-equipo-sync. Sin este listener la tabla
-       queda estancada hasta que el usuario navega fuera y vuelve. Con Ã©l,
+       queda estancada hasta que el usuario navega fuera y vuelve. Con él,
        cualquier cambio remoto actualiza la pantalla al instante. */
-    // B-03 + B-06 (2026-08-26): renderEmpleados es async â€” el wrapper atrapa la Promise.
-    // Debounce de 300 ms: un sync de catÃ¡logo con varios chunks puede disparar
+    // B-03 + B-06 (2026-08-26): renderEmpleados es async — el wrapper atrapa la Promise.
+    // Debounce de 300 ms: un sync de catálogo con varios chunks puede disparar
     // oc-equipo-sync varias veces seguidas; solo re-renderizar una vez al final.
     let _renderEmpDebTimer = null;
     window.addEventListener("oc-equipo-sync", () => {
@@ -1706,19 +1720,19 @@ Keep it somewhere safe.`);
       _renderEmpDebTimer = setTimeout(() => renderEmpleados().catch(() => {}), 300);
     });
 
-    /* AVISO DE COLISIÃ“N DE PIN EN SYNC (2026-08-26, code-review finding #3b).
+    /* AVISO DE COLISIÓN DE PIN EN SYNC (2026-08-26, code-review finding #3b).
        aplicarCatalogo dispara oc-pin-colision cuando un miembro que llega
        por sync tiene el mismo PIN que uno ya registrado en este dispositivo.
-       El merge descarta al miembro remoto (polÃ­tica: gana el PIN de casa),
-       pero sin este aviso el dueÃ±o no sabe por quÃ© no apareciÃ³.
-       Se muestra el mensaje en el panel de equipo si estÃ¡ visible, o como
-       alert de Ãºltimo recurso para que nunca pase desapercibido. */
+       El merge descarta al miembro remoto (política: gana el PIN de casa),
+       pero sin este aviso el dueño no sabe por qué no apareció.
+       Se muestra el mensaje en el panel de equipo si está visible, o como
+       alert de último recurso para que nunca pase desapercibido. */
     window.addEventListener("oc-pin-colision", function (ev) {
       try {
         const d = ev.detail || {};
-        /* B-01 (2026-08-26): nunca mostrar el PIN real â€” es una credencial.
-           B-04: si el panel de equipo no estÃ¡ visible, usar un toast en vez de
-           alert() bloqueante (que cortarÃ­a una venta en curso). */
+        /* B-01 (2026-08-26): nunca mostrar el PIN real — es una credencial.
+           B-04: si el panel de equipo no está visible, usar un toast en vez de
+           alert() bloqueante (que cortaría una venta en curso). */
         const msg = `PIN conflict: ${d.nombre || "A team member"} uses a PIN that is already taken here. Change their PIN before syncing.`;
         const msgEl = document.getElementById("oc-emp-msg");
         if (msgEl) {
@@ -1742,8 +1756,8 @@ Keep it somewhere safe.`);
     // === FIN EQUIPO ========================================================
 
     // === LOG DE ACTIVIDAD (2026-07-22) =====================================
-    // Disponible para dueÃ±o y admins. Muestra los Ãºltimos 100 movimientos con
-    // quiÃ©n los hizo, cuÃ¡ndo y quÃ© (tipo + detalle). El log es append-only
+    // Disponible para dueño y admins. Muestra los últimos 100 movimientos con
+    // quién los hizo, cuándo y qué (tipo + detalle). El log es append-only
     // y sellado (anti-tamper via mock-backend.js). Este panel solo LEE.
     const logPanel = document.createElement("div");
     logPanel.className = "tag-card";
@@ -1752,8 +1766,8 @@ Keep it somewhere safe.`);
     logPanel.innerHTML = `
       <h3 class="seccion" style="margin-top:0;">Activity log</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Ãšltimos 100 movimientos registrados en este dispositivo. Cada entrada incluye
-        quiÃ©n lo hizo y cuÃ¡ndo. El historial es de solo lectura â€” no se puede editar.
+        Últimos 100 movimientos registrados en este dispositivo. Cada entrada incluye
+        quién lo hizo y cuándo. El historial es de solo lectura — no se puede editar.
       </p>
       <button id="oc-log-cargar"
         style="font-size:13px;padding:7px 14px;border:2px solid var(--azul-medio);
@@ -1782,7 +1796,7 @@ Keep it somewhere safe.`);
         };
         /* Scroll al resultado (2026-08-26, UX sweep L5 / B-10 fix): usar el
            contenedor scroll del riel flex si existe, y caer a scrollIntoView
-           solo si no hay un panel con overflow-y:auto mÃ¡s cercano. */
+           solo si no hay un panel con overflow-y:auto más cercano. */
         setTimeout(function () {
           try {
             // El riel flex pone el contenido en #oc-riel-cont (o similar); buscar
@@ -1799,9 +1813,9 @@ Keep it somewhere safe.`);
         logBody.innerHTML = `<div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
-              <th style="text-align:left;padding:5px 8px;font-weight:700;white-space:nowrap;">CuÃ¡ndo</th>
-              <th style="text-align:left;padding:5px 8px;font-weight:700;">QuiÃ©n</th>
-              <th style="text-align:left;padding:5px 8px;font-weight:700;">QuÃ©</th>
+              <th style="text-align:left;padding:5px 8px;font-weight:700;white-space:nowrap;">Cuándo</th>
+              <th style="text-align:left;padding:5px 8px;font-weight:700;">Quién</th>
+              <th style="text-align:left;padding:5px 8px;font-weight:700;">Qué</th>
             </tr></thead>
             <tbody>${movs.slice(0, 100).map((m) => {
               const fecha = new Date(m.fecha).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" });
@@ -1809,7 +1823,7 @@ Keep it somewhere safe.`);
               return `<tr style="border-bottom:1px solid var(--azul-suave,#dde5ec);">
                 <td style="padding:5px 8px;white-space:nowrap;color:var(--ink-soft);">${escHtml(fecha)}</td>
                 <td style="padding:5px 8px;font-weight:700;">${escHtml(m.usuarioNombre || "Sistema")}</td>
-                <td style="padding:5px 8px;">${escHtml(tipoLabel(m.tipo))}${det ? ` â€” <span style="color:var(--ink-soft);">${escHtml(det)}</span>` : ""}</td>
+                <td style="padding:5px 8px;">${escHtml(tipoLabel(m.tipo))}${det ? ` — <span style="color:var(--ink-soft);">${escHtml(det)}</span>` : ""}</td>
               </tr>`;
             }).join("")}</tbody>
           </table></div>`;
@@ -1818,7 +1832,7 @@ Keep it somewhere safe.`);
     // === FIN LOG ===========================================================
 
     // === CONTROL ANTI FRAUDE (2026-07-08) ==================================
-    // Integridad del historial (cadena de sellos anti-tamper) + seÃ±ales de las
+    // Integridad del historial (cadena de sellos anti-tamper) + señales de las
     // 3 vias tipicas de falseo del encargado: anular ventas para quedarse el
     // efectivo, bajar stock a mano ("merma") para tapar un robo, y editar/borrar
     // el propio log para ocultar lo anterior. Todo el bloque va en su propio
@@ -1844,16 +1858,16 @@ Keep it somewhere safe.`);
           try {
             const d = await (await fetch("/api/integridad")).json();
             if (d.ok) {
-              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#e7f7ee;border:2px solid #1a6e3c;"><strong style="color:#1a6e3c;">âœ“ History intact</strong> <span style="color:#0F1923;font-size:14px;">â€” ${d.sellados} movement(s) sealed${d.historico ? ", " + d.historico + " unsealed historic(s)" : ""}.</span></div>`;
+              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#e7f7ee;border:2px solid #1a6e3c;"><strong style="color:#1a6e3c;">✓ History intact</strong> <span style="color:#0F1923;font-size:14px;">— ${d.sellados} movement(s) sealed${d.historico ? ", " + d.historico + " unsealed historic(s)" : ""}.</span></div>`;
             } else {
               const det = d.ruptura
-                ? `at position ${d.ruptura.index} (${escHtml(d.ruptura.tipo)} Â· ${escHtml(d.ruptura.usuarioNombre)} Â· ${escHtml(new Date(d.ruptura.fecha).toLocaleString())}) â€” ${escHtml(d.ruptura.motivo)}`
+                ? `at position ${d.ruptura.index} (${escHtml(d.ruptura.tipo)} · ${escHtml(d.ruptura.usuarioNombre)} · ${escHtml(new Date(d.ruptura.fecha).toLocaleString())}) — ${escHtml(d.ruptura.motivo)}`
                 : (d.colaOk === false ? "end of history was trimmed" : "inconsistency detected");
-              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#fdecea;border:2px solid #a3392a;"><strong style="color:#a3392a;">History has been altered</strong> <span style="color:#0F1923;font-size:14px;">â€” ${det}.</span></div>`;
+              cont.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:#fdecea;border:2px solid #a3392a;"><strong style="color:#a3392a;">History has been altered</strong> <span style="color:#0F1923;font-size:14px;">— ${det}.</span></div>`;
             }
           } catch (_) { cont.innerHTML = ""; }
         }
-        // 2) SeÃ±ales del dÃ­a por persona
+        // 2) Señales del día por persona
         const sen = $("oc-af-senales");
         if (sen) {
           try {
@@ -1897,7 +1911,7 @@ Keep it somewhere safe.`);
               const ents = Object.entries(obj);
               if (!ents.length) return `<p style="font-size:14px;color:var(--ink-soft);margin:6px 0;">${titulo}: no activity today.</p>`;
               return `<p style="font-size:14px;font-weight:700;color:var(--ink);margin:10px 0 2px;">${titulo}:</p>` +
-                ents.map(([n, v]) => `<div style="font-size:14px;color:#0F1923;padding:2px 0;">â€¢ ${escHtml(n)}: <strong>${v}</strong> ${unidad}</div>`).join("");
+                ents.map(([n, v]) => `<div style="font-size:14px;color:#0F1923;padding:2px 0;">• ${escHtml(n)}: <strong>${v}</strong> ${unidad}</div>`).join("");
             };
             sen.innerHTML =
               bloque("Voided sales per person (today)", anul, "void(s)") +
@@ -1909,7 +1923,7 @@ Keep it somewhere safe.`);
       if (btnAF) btnAF.addEventListener("click", renderAntiFraude);
       renderAntiFraude();
       window.addEventListener("oc-login", renderAntiFraude);
-    } catch (e) { console.error("Panel anti fraude no cargÃ³ (aislado, no rompe Avanzado):", e); }
+    } catch (e) { console.error("Panel anti fraude no cargó (aislado, no rompe Avanzado):", e); }
     // === FIN CONTROL ANTI FRAUDE ===========================================
 
 
@@ -1919,25 +1933,25 @@ Keep it somewhere safe.`);
     // + mover/borrar, que este duplicado no tenia). Ver renderPerchaCard()/
     // cargarPerchas() en index.html.
 
-    // --- Transferencias MOVIDAS A PERCHAS (JFC 2026-08-28). Eran una operaciÃ³n
-    // de inventario entre ubicaciones que vivÃ­a en Advanced (configuraciÃ³n
-    // tÃ©cnica). El usuario piensa en perchas cuando mueve stock, asÃ­ que el
-    // panel y su render viven ahora en vista-perchas.js (secciÃ³n #vp-transfers).
+    // --- Transferencias MOVIDAS A PERCHAS (JFC 2026-08-28). Eran una operación
+    // de inventario entre ubicaciones que vivía en Advanced (configuración
+    // técnica). El usuario piensa en perchas cuando mueve stock, así que el
+    // panel y su render viven ahora en vista-perchas.js (sección #vp-transfers).
 
     // --- Sync remoto (PocketBase) ELIMINADO DE AVANZADO (JFC 2026-08-28).
-    // Era una 3Âª forma de sync (conectar con el panel central de JFC) que
+    // Era una 3ª forma de sync (conectar con el panel central de JFC) que
     // abrumaba al usuario. El sync en tiempo real (relay, panel oc-sync-panel)
-    // ya mantiene los dispositivos al dÃ­a solo. La conexiÃ³n PocketBase es una
-    // herramienta del lord/panel central, no del usuario normal â€” se gestiona
+    // ya mantiene los dispositivos al día solo. La conexión PocketBase es una
+    // herramienta del lord/panel central, no del usuario normal — se gestiona
     // desde el panel del lord (panel.html), no desde Advanced. El adaptador
-    // sigue en docs/pocketbase-client.js (backend), solo se quita la UI aquÃ­.
+    // sigue en docs/pocketbase-client.js (backend), solo se quita la UI aquí.
 
     // --- Sync entre dispositivos (lazy sync cifrado, JFC 2026-07-04) ---
     // Distinto del panel de arriba: aquel es para recibir actualizaciones
     // desde EL PANEL CENTRAL de JFC (PocketBase); este es para que DOS
-    // DISPOSITIVOS DEL MISMO NEGOCIO (ej. caja + bodega) se pongan al dÃ­a
-    // entre ellos, cifrado de punta a punta con el PIN del dueÃ±o.
-    /* MICELIO VIVO â€” portado de amigable-123 (595bc18), 2026-08-19.
+    // DISPOSITIVOS DEL MISMO NEGOCIO (ej. caja + bodega) se pongan al día
+    // entre ellos, cifrado de punta a punta con el PIN del dueño.
+    /* MICELIO VIVO — portado de amigable-123 (595bc18), 2026-08-19.
        En friendly-123 este panel NO SE DIBUJABA NUNCA: micelio-ui.js hace
        pintarPanel() buscando #oc-micelio-panel y aqui no habia contenedor
        ninguno, asi que "quien esta en el loop y quien anda a ciegas" existia
@@ -1955,10 +1969,10 @@ Keep it somewhere safe.`);
       micPanel.innerHTML = '<h3 class="seccion" style="margin-top:0;">' + window.t("adv.teamNow") + '</h3><div id="oc-micelio-panel"></div>';
       vista.appendChild(micPanel);
       if (window.OCMicelioUI) window.OCMicelioUI.pintarPanel();
-      /* ESTADO VACÃO (2026-08-26, UX sweep P6): pintarPanel() puede poblar el div de
-         forma asÃ­ncrona (datos de red), asÃ­ que esperamos 2s antes de verificar.
-         Si el div sigue vacÃ­o, mostramos un texto en vez de dejar el panel en blanco â€”
-         un panel vacÃ­o parece roto; el texto deja claro que es el estado normal. */
+      /* ESTADO VACÍO (2026-08-26, UX sweep P6): pintarPanel() puede poblar el div de
+         forma asíncrona (datos de red), así que esperamos 2s antes de verificar.
+         Si el div sigue vacío, mostramos un texto en vez de dejar el panel en blanco —
+         un panel vacío parece roto; el texto deja claro que es el estado normal. */
       setTimeout(function () {
         try {
           const mp = document.getElementById("oc-micelio-panel");
@@ -1970,9 +1984,9 @@ Keep it somewhere safe.`);
     } catch (e) { console.error("Panel micelio no cargo (aislado, no rompe Avanzado):", e); }
 
     // --- Device sync (lazy manual) ELIMINADO DE AVANZADO (JFC 2026-08-28).
-    // Era la 2Âª forma de sync visible (copiar/pegar/WhatsApp/merge) que
-    // abrumaba y sugerÃ­a que el sync automÃ¡tico no bastaba. El sync en tiempo
-    // real (relay, panel oc-sync-panel) ya mantiene los dispositivos al dÃ­a
+    // Era la 2ª forma de sync visible (copiar/pegar/WhatsApp/merge) que
+    // abrumaba y sugería que el sync automático no bastaba. El sync en tiempo
+    // real (relay, panel oc-sync-panel) ya mantiene los dispositivos al día
     // solo, cada pocos segundos, por la licencia. La redundancia manual vive
     // en el backend (OCSync), no como opciones que el usuario deba tocar.
 
@@ -1980,7 +1994,7 @@ Keep it somewhere safe.`);
     // "SOLO el menu de Avanzados en cascada/texto, be surgical") ===========
     // Menu izquierdo fijo + columna de contenido a la derecha. TODO el
     // contenido sigue visible (scroll), un click en el menu hace scrollIntoView
-    // a esa seccion â€” no hay display:none escondiendo nada. No reconstruye
+    // a esa seccion — no hay display:none escondiendo nada. No reconstruye
     // ningun panel, solo reparenta nodos DOM ya vivos y con sus listeners
     // atados. "Como funciona?" nunca es su propia entrada del menu. Cada
     // seccion reconocida se explica con un hint breve. Si el riel falla,
@@ -1992,7 +2006,7 @@ Keep it somewhere safe.`);
           "Accounting": "T-accounts, P&L, balance sheet, valued inventory. Needs a passcode.",
           "Recent activity": "Today's operational history.",
           "Timezone": "Sets what counts as \"today\" for sales and closes.",
-          "Monthly expenses": "Rent, payroll, utilitiesâ€¦ prorated into the P&L.",
+          "Monthly expenses": "Rent, payroll, utilities… prorated into the P&L.",
           "Access & recovery": "Email, WhatsApp, PINs and password.",
           "Sync your team": "Live sync across every device on your team.",
           "Team": "Team members, roles and PINs for this business.",
@@ -2001,26 +2015,26 @@ Keep it somewhere safe.`);
           "Fraud control": "Integrity of sensitive operations.",
           "Where the team has been": "Location pings while a session is open.",
         };
-        /* ICONOS DEL RIEL (2026-08-26, UX sweep H1): un carÃ¡cter Unicode geomÃ©trico
+        /* ICONOS DEL RIEL (2026-08-26, UX sweep H1): un carácter Unicode geométrico
            antes de cada label mejora el escaneado vertical en desktop y horizontal
-           en mobile. Solo aquÃ­ en Advanced â€” no afecta al nav principal de la app.
-           Claves en inglÃ©s Y espaÃ±ol para que funcione en ambos idiomas.
-           Unicode geomÃ©trico bÃ¡sico (BMP): renderiza igual en iOS, Android, Chrome y Safari. */
+           en mobile. Solo aquí en Advanced — no afecta al nav principal de la app.
+           Claves en inglés Y español para que funcione en ambos idiomas.
+           Unicode geométrico básico (BMP): renderiza igual en iOS, Android, Chrome y Safari. */
         const ICONS = {
           "First Steps": "â—Ž", "Primeros Pasos": "â—Ž",
-          "Sync your team": "â‡„", "Sincronizar equipo": "â‡„",
-          "Team": "âŠ•", "Equipo": "âŠ•",
-          "Activity log": "â‰¡", "Actividad reciente": "â‰¡", "Recent activity": "â‰¡",
-          "Fraud control": "âŠ™", "Control antifraude": "âŠ™",
-          "Your team right now": "â—", "Tu equipo ahora": "â—",
-          "Access & recovery": "â—ˆ", "Acceso y recuperaciÃ³n": "â—ˆ",
+          "Sync your team": "⇄", "Sincronizar equipo": "⇄",
+          "Team": "⊕", "Equipo": "⊕",
+          "Activity log": "≡", "Actividad reciente": "≡", "Recent activity": "≡",
+          "Fraud control": "⊙", "Control antifraude": "⊙",
+          "Your team right now": "●", "Tu equipo ahora": "●",
+          "Access & recovery": "◈", "Acceso y recuperación": "◈",
           "Accounting": "â–¤", "Contabilidad": "â–¤",
           "Backup": "â—‰", "Respaldo": "â—‰",
           "Accounting report": "â–¦", "Reporte contable": "â–¦",
-          "Location comparison (this month)": "â–§", "ComparaciÃ³n de perchas": "â–§",
-          "Where the team has been": "âŠ›",
+          "Location comparison (this month)": "▧", "Comparación de perchas": "▧",
+          "Where the team has been": "⊛",
         };
-        function esComo(t) { t = (t || "").trim(); return /^Â¿?CÃ³mo funciona/i.test(t) || /^How does it work/i.test(t); }
+        function esComo(t) { t = (t || "").trim(); return /^¿?Cómo funciona/i.test(t) || /^How does it work/i.test(t); }
         function tituloDe(n) {
           if (!n || n.nodeType !== 1) return null;
           if (n.id === "oc-acct-lock") return (window.t ? window.t("adv.acct.tab", "Accounting") : "Accounting");
@@ -2089,14 +2103,14 @@ Keep it somewhere safe.`);
                  con borde punteado y marcada "optional / opcional": quien sabe leer
                  sigue la lista; quien prefiere que le muestren, toca el tour. El
                  tour reusa el OCTutorial bilingue que ya existe (no se porto el de
-                 amigable, que es solo-ES y va por detras â€” regla 1b). */
+                 amigable, que es solo-ES y va por detras — regla 1b). */
               fs.innerHTML =
                 `<h3 class="seccion" style="margin-top:0;">${T("firststeps.title", "First Steps")}</h3>` +
                 `<p style="font-size:14px;color:var(--ink-soft,#5d5340);margin-top:0;">${T("firststeps.intro", "")}</p>` +
                 `<ol style="font-size:14px;color:var(--ink,#211c14);padding-left:20px;margin:0 0 4px;">${pasos}</ol>` +
                 `<div style="margin-top:14px;padding:12px 14px;border:1px dashed var(--azul-suave,#c9d6e2);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">` +
                   `<span style="font-size:13px;color:var(--ink-soft,#5d5340);">${T("firststeps.tourNote", "")}</span>` +
-                  `<button type="button" id="oc-fs-tour" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;">${T("firststeps.tourBtn", "Take the guided tour")} <span style="opacity:.7;font-weight:400;">Â· ${T("firststeps.tourOptional", "optional")}</span></button>` +
+                  `<button type="button" id="oc-fs-tour" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;">${T("firststeps.tourBtn", "Take the guided tour")} <span style="opacity:.7;font-weight:400;">· ${T("firststeps.tourOptional", "optional")}</span></button>` +
                 `</div>`;
               try {
                 const bTour = fs.querySelector("#oc-fs-tour");
@@ -2148,8 +2162,8 @@ Keep it somewhere safe.`);
         function activo(id) {
           /* ESTADO ACTIVO (2026-08-26, UX sweep L1): en desktop el indicador
              es la barra izquierda (border-left) + fondo azul suave. En mobile
-             los chips son horizontales y border-left no es visible, asÃ­ que el
-             chip activo toma fondo naranja (#E87A10) con texto blanco â€” mismo
+             los chips son horizontales y border-left no es visible, así que el
+             chip activo toma fondo naranja (#E87A10) con texto blanco — mismo
              naranja que los badges del equipo (coherencia de paleta). */
           const angosto = window.matchMedia && window.matchMedia("(max-width:720px)").matches;
           rNav.querySelectorAll("[data-riel-go]").forEach((b) => {
@@ -2181,12 +2195,12 @@ Keep it somewhere safe.`);
               hint(n, t); secciones.push({ id, label: t });
               const b = document.createElement("button"); b.type = "button"; b.setAttribute("data-riel-go", id);
               b.style.cssText = "display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:9px 8px;margin:0;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;";
-              /* Inyectar icono del mapa ICONS al botÃ³n agregado tardÃ­amente (MutationObserver) */
+              /* Inyectar icono del mapa ICONS al botón agregado tardíamente (MutationObserver) */
               const ico2 = ICONS[t] ? `<span aria-hidden="true" style="display:inline-block;width:1.4em;text-align:center;opacity:.75;">${ICONS[t]}</span>` : "";
               b.innerHTML = ico2 + escHtml(t); rNav.appendChild(b);
-              // B-11 (2026-08-26): re-aplicar estado activo despuÃ©s de agregar el
-              // chip; de lo contrario el chip tardÃ­o aparece sin resaltar aunque
-              // su secciÃ³n sea la activa en este momento.
+              // B-11 (2026-08-26): re-aplicar estado activo después de agregar el
+              // chip; de lo contrario el chip tardío aparece sin resaltar aunque
+              // su sección sea la activa en este momento.
               try { const cur = localStorage.getItem("f123_riel_tab"); if (cur) activo(cur); } catch (_) {}
             });
           });
@@ -2242,23 +2256,23 @@ Keep it somewhere safe.`);
 
     // Cambiar los 3 PINs rota TODO (nuevo salt + nuevos hashes). Por eso se
     // piden los tres juntos: no se puede "mantener" un hash viejo bajo un
-    // salt nuevo. JFC pidiÃ³ explÃ­citamente: si el dueÃ±o cambia su cÃ³digo,
-    // EXIGIR que ya tenga un correo de recuperaciÃ³n guardado (si no, no se
-    // puede recuperar el cÃ³digo nuevo si se le olvida). El correo en sÃ­ no
-    // se toca aquÃ­ â€” se preserva tal cual estÃ© guardado.
+    // salt nuevo. JFC pidió explícitamente: si el dueño cambia su código,
+    // EXIGIR que ya tenga un correo de recuperación guardado (si no, no se
+    // puede recuperar el código nuevo si se le olvida). El correo en sí no
+    // se toca aquí — se preserva tal cual esté guardado.
     $("oc-save-codes").addEventListener("click", async () => {
       if (window.OCAuth.esDemo && window.OCAuth.esDemo()) return; // demo: sin cambio de claves
       const o = $("oc-c-owner").value.trim(), o2 = $("oc-c-owner2").value.trim(), e = $("oc-c-emp").value.trim(), a = $("oc-c-acct").value.trim();
       const valido = (s) => /^[0-9]{3}$/.test(s);
       if (![o, e, a].every(valido)) { msg("oc-codes-msg", "Each PIN must be 3 digits (0-9).", "var(--rojo)"); return; }
-      /* ConfirmaciÃ³n del PIN del dueÃ±o (JFC 2026-08-27, bloque 1f): el PIN del
-         dueÃ±o es la llave maestra â€” un error de tecleo lo deja fuera de su propio
+      /* Confirmación del PIN del dueño (JFC 2026-08-27, bloque 1f): el PIN del
+         dueño es la llave maestra — un error de tecleo lo deja fuera de su propio
          negocio. Se pide escribirlo dos veces y se exige que coincidan. */
       if (o !== o2) { msg("oc-codes-msg", window.t("auth.act.pinMismatch"), "var(--rojo)"); return; }
-      /* PINs reservados (JFC 2026-08-27): 456 demo Â· 789 activaciÃ³n Â· 260 empleado
-         Â· 357 contable. 888 ya NO estÃ¡ reservado â€” es un PIN de dueÃ±o inicial
-         libre. Fijar un cÃ³digo de sistema como PIN real colisiona con un rol o
-         con la demo, asÃ­ que se rechaza con aviso de texto, sin romper la UI. */
+      /* PINs reservados (JFC 2026-08-27): 456 demo · 789 activación · 260 empleado
+         · 357 contable. 888 ya NO está reservado — es un PIN de dueño inicial
+         libre. Fijar un código de sistema como PIN real colisiona con un rol o
+         con la demo, así que se rechaza con aviso de texto, sin romper la UI. */
       if ([o, e, a].some((s) => ["456", "789", "260", "357"].indexOf(s) !== -1)) { msg("oc-codes-msg", "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", "var(--rojo)"); return; }
       const correoActual = window.OCSecure.leerCorreo();
       if (!correoActual) { msg("oc-codes-msg", "Before changing PINs, register your recovery email above (if you forget the new PIN, without an email there is no way to recover it).", "var(--rojo)"); return; }
@@ -2268,7 +2282,7 @@ Keep it somewhere safe.`);
       pintarPinsVisibles();
     });
 
-    /* PINs VISIBLES + APODO (JFC 2026-08-27). Solo para el dueÃ±o (soporte de
+    /* PINs VISIBLES + APODO (JFC 2026-08-27). Solo para el dueño (soporte de
        JFC). Pinta los PINs actuales desde las copias XOR y el apodo del
        dispositivo con lapicito. */
     function _esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -2277,18 +2291,18 @@ Keep it somewhere safe.`);
       if (!cuerpo) return;
       let pins = null;
       try { pins = window.OCSecure.leerPinsVisibles(); } catch (_) {}
-      /* Defaults (JFC 2026-08-28): si no hay copia visible de un PIN (se fijÃ³
+      /* Defaults (JFC 2026-08-28): si no hay copia visible de un PIN (se fijó
          antes de que existieran las copias XOR), se muestra el default del
-         sistema â€” Staff 260, Accounting 357 â€” en vez de un guiÃ³n vacÃ­o. El
-         dueÃ±o/admin puede cambiarlos con los lapicitos de abajo. */
+         sistema — Staff 260, Accounting 357 — en vez de un guión vacío. El
+         dueño/admin puede cambiarlos con los lapicitos de abajo. */
       const emp = (pins && pins.empleados && pins.empleados.length) ? pins.empleados.join(", ") : "260";
       const acct = (pins && pins.acct) ? pins.acct : "357";
-      const owner = (pins && pins.owner) ? pins.owner : "â€”";
-      /* LAPICITOS DE EDICIÃ“N INDIVIDUAL (JFC 2026-08-28). Cada PIN se edita
-         por separado con su lapicito, en la cascada de jerarquÃ­a: el dueÃ±o
-         edita los tres; el admin edita SOLO el de encargado (no el del dueÃ±o
-         ni el contable). El lapicito pide el PIN nuevo (3 dÃ­gitos) y llama a
-         la funciÃ³n individual de crypto-store (fijarOwnerPin/fijarEmpleadoPin/
+      const owner = (pins && pins.owner) ? pins.owner : "—";
+      /* LAPICITOS DE EDICIÓN INDIVIDUAL (JFC 2026-08-28). Cada PIN se edita
+         por separado con su lapicito, en la cascada de jerarquía: el dueño
+         edita los tres; el admin edita SOLO el de encargado (no el del dueño
+         ni el contable). El lapicito pide el PIN nuevo (3 dígitos) y llama a
+         la función individual de crypto-store (fijarOwnerPin/fijarEmpleadoPin/
          fijarAcctPin), que NO rota los otros PINs. */
       const _rolPin = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
       const _puedeOwner = _rolPin === "dueno";
@@ -2296,7 +2310,7 @@ Keep it somewhere safe.`);
       const _puedeAcct = _rolPin === "dueno";
       const _lapiz = (rol, fn, actual) =>
         (_puedeOwner || (rol === "emp" && _puedeEmp) || (rol === "acct" && _puedeAcct))
-          ? '<button type="button" data-pin-edit="' + rol + '" title="Change this PIN" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;margin-left:4px;">âœŽ</button>'
+          ? '<button type="button" data-pin-edit="' + rol + '" title="Change this PIN" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;margin-left:4px;">✎</button>'
           : "";
       cuerpo.innerHTML =
         '<div><strong>Owner:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(owner) + "</code>" + _lapiz("owner", "fijarOwnerPin", owner) + "</div>" +
@@ -2319,7 +2333,7 @@ Keep it somewhere safe.`);
             if (!ok) { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); return; }
             /* DIRECTORIO DE ACCESO (JFC 2026-08-28): al cambiar un PIN, se
                asocia a una persona (nombre, correo opcional, notas). Es la base
-               para "quiÃ©n hizo quÃ©" y el control de acceso de cada dueÃ±o. */
+               para "quién hizo qué" y el control de acceso de cada dueño. */
             try {
               const dir = window.OCSecure.directorioNormalizado();
               const nombre = prompt("Who uses this " + etiqueta + " PIN? (name)", "");
@@ -2364,9 +2378,9 @@ Keep it somewhere safe.`);
     pintarApodoDevice();
     try { window.addEventListener("oc-micelio-cambio", pintarApodoDevice); } catch (_) {}
     /* FIX (JFC 2026-08-28): init() construye este panel ANTES del login, cuando
-       rolActual() es null, asÃ­ que los lapicitos de ediciÃ³n individual de PINs
-       se renderizaban con rol vacÃ­o y NO aparecÃ­an nunca. Se re-pinta al hacer
-       login (evento oc-login) para que el dueÃ±o/admin vea sus lapicitos. */
+       rolActual() es null, así que los lapicitos de edición individual de PINs
+       se renderizaban con rol vacío y NO aparecían nunca. Se re-pinta al hacer
+       login (evento oc-login) para que el dueño/admin vea sus lapicitos. */
     try { window.addEventListener("oc-login", pintarPinsVisibles); } catch (_) {}
 
     $("oc-descargar-csv").addEventListener("click", async () => {
@@ -2378,7 +2392,7 @@ Keep it somewhere safe.`);
       ]);
       const fila = (a, b) => `"${a}","${b}"`;
       const filas = [
-        fila("Accounting report â€” friendly-123", new Date().toLocaleString(window.OCI18n ? window.OCI18n.locale() : "en-US")),
+        fila("Accounting report — friendly-123", new Date().toLocaleString(window.OCI18n ? window.OCI18n.locale() : "en-US")),
         fila("NOTICE", "Input for your accountant. Not a valid tax declaration."),
         fila("", ""),
         fila("PROFIT & LOSS (today)", ""),
@@ -2399,7 +2413,7 @@ Keep it somewhere safe.`);
         fila("Product", "Stock,Costo,Venta,Utilidad potencial"),
         ...val.productos.map((p) => fila(p.nombre, `${p.stockActual},${money(p.valorCosto)},${money(p.valorVenta)},${money(p.utilidadPotencial)}`)),
       ];
-      const csv = "ï»¿" + filas.join("\n"); // BOM para que Excel abra tildes bien
+      const csv = "" + filas.join("\n"); // BOM para que Excel abra tildes bien
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -2408,12 +2422,12 @@ Keep it somewhere safe.`);
       URL.revokeObjectURL(a.href);
     });
 
-    // El respaldo incluye TANTO los datos del negocio (server/mock, vÃ­a
+    // El respaldo incluye TANTO los datos del negocio (server/mock, vía
     // /api/respaldo/exportar) COMO el estado de acceso cifrado
-    // (localStorage["oc_secure"]: hashes de PIN + correo) â€” sin esto Ãºltimo,
-    // restaurar en otra tablet dejarÃ­a al dueÃ±o sin sus propias claves.
+    // (localStorage["oc_secure"]: hashes de PIN + correo) — sin esto último,
+    // restaurar en otra tablet dejaría al dueño sin sus propias claves.
     // Free-tier (JFC 2026-07-15): sin dispositivo activado (PIN 789) el
-    // export queda bloqueado â€” la proteccion REAL vive en el servidor
+    // export queda bloqueado — la proteccion REAL vive en el servidor
     // (server.js / mock-backend.js), esto es solo cortesia visual.
     fetch(`${API}/instancia`).then((r) => r.json()).then(({ apropiada }) => {
       if (!apropiada) {
@@ -2433,7 +2447,7 @@ Keep it somewhere safe.`);
         if (!respExp.ok) { msg("oc-respaldo-msg", datos.error || "Activate this device (PIN 789) to export.", "var(--rojo)"); return; }
         // Fase 2 (2026-08-04): el respaldo debe incluir el historial archivado
         // en IndexedDB (movido ahi cuando localStorage se llenaba), no solo la
-        // ventana caliente â€” un respaldo incompleto no es un respaldo.
+        // ventana caliente — un respaldo incompleto no es un respaldo.
         try { if (window.OCArchivo) { const arch = await window.OCArchivo.leerTodos(); if (arch.length) datos.movimientos = [...arch, ...(datos.movimientos || [])]; } } catch (_) {}
         const fotosPerchas = {};
         for (let i = 0; i < localStorage.length; i++) {
@@ -2442,19 +2456,19 @@ Keep it somewhere safe.`);
         }
         const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: (function () {
           // SEGURIDAD 2026-07-17: ownerPinR va XOR-ofuscado con clave fija visible
-          // en el fuente â€” cualquiera con el archivo recuperaria el PIN del dueno.
+          // en el fuente — cualquiera con el archivo recuperaria el PIN del dueno.
           // Se quita del export; la recuperacion "Olvidaste?" se re-arma sola en
           // el proximo cambio de PIN tras restaurar.
           try { const s = JSON.parse(localStorage.getItem("f123_secure")); if (s) delete s.ownerPinR; return s ? JSON.stringify(s) : null; } catch (_) { return localStorage.getItem("f123_secure"); }
         })(), fotosPerchas };
         const contenidoPlano = JSON.stringify(paquete);
         const checksum = await window.OCSecure.hashTexto(contenidoPlano);
-        // ContraseÃ±a de exportaciÃ³n OPCIONAL: si el dueÃ±o la pone, el archivo
+        // Contraseña de exportación OPCIONAL: si el dueño la pone, el archivo
         // completo (incluye oc_secure: hashes de PIN + correo) sale cifrado
         // con AES-256-GCM real, no solo "protegido por no compartirlo". Si la
-        // deja vacÃ­a, se exporta igual que antes (compatibilidad).
+        // deja vacía, se exporta igual que antes (compatibilidad).
         const clave = prompt("Key to protect this backup (minimum 8 characters). Leave blank to export unencrypted:");
-        // FIX 2026-07-07: "Cancelar" devolvia null y caia al camino sin cifrar â€”
+        // FIX 2026-07-07: "Cancelar" devolvia null y caia al camino sin cifrar —
         // exportaba un archivo CON oc_secure adentro sin que el dueno lo pidiera.
         // Cancelar ahora cancela de verdad.
         if (clave === null) {
@@ -2469,12 +2483,12 @@ Keep it somewhere safe.`);
         } else {
           archivoFinal = JSON.stringify({ ...paquete, checksum }, null, 2);
         }
-        // Fase 4 (2026-08-04): "un respaldo que no abre no es un respaldo" â€” en
+        // Fase 4 (2026-08-04): "un respaldo que no abre no es un respaldo" — en
         // vez de solo CALCULAR el checksum y confiar, se vuelve a leer el
         // archivo que se va a ofrecer para descarga y se confirma que abre y
         // que su contenido cuadra con el checksum, ANTES de mostrarlo como
         // exitoso. Si esto falla, es mejor decirlo ahora que dejar que el
-        // dueÃ±o descubra un respaldo roto el dia que de verdad lo necesita.
+        // dueño descubra un respaldo roto el dia que de verdad lo necesita.
         try {
           const relectura = JSON.parse(archivoFinal);
           let textoParaVerificar;
@@ -2489,7 +2503,7 @@ Keep it somewhere safe.`);
           const checksumRelectura = await window.OCSecure.hashTexto(textoParaVerificar);
           if (checksumRelectura !== checksum) throw new Error("the checksum does not match after re-reading the file");
         } catch (eVerif) {
-          msg("oc-respaldo-msg", "The backup did not pass its own check (" + eVerif.message + ") â€” it was not downloaded. Try again; if it keeps happening, contact support.", "var(--rojo)");
+          msg("oc-respaldo-msg", "The backup did not pass its own check (" + eVerif.message + ") — it was not downloaded. Try again; if it keeps happening, contact support.", "var(--rojo)");
           return;
         }
         const blob = new Blob([archivoFinal], { type: "application/json" });
@@ -2514,15 +2528,15 @@ Keep it somewhere safe.`);
           const texto = await window.OCSecure.descifrarTextoConClave(paquete, clave.trim());
           if (!texto) { msg("oc-respaldo-msg", "Wrong key or damaged file.", "var(--rojo)"); e.target.value = ""; return; }
           const checksumOk = paquete.checksum ? (await window.OCSecure.hashTexto(texto)) === paquete.checksum : true;
-          if (!checksumOk) { msg("oc-respaldo-msg", "Content does not match its checksum â€” file may be corrupted.", "var(--rojo)"); e.target.value = ""; return; }
+          if (!checksumOk) { msg("oc-respaldo-msg", "Content does not match its checksum — file may be corrupted.", "var(--rojo)"); e.target.value = ""; return; }
           paquete = JSON.parse(texto);
         } else if (paquete.checksum) {
           const { checksum, ...resto } = paquete;
           const ok = (await window.OCSecure.hashTexto(JSON.stringify(resto))) === checksum;
-          if (!ok) { msg("oc-respaldo-msg", "Content does not match its checksum â€” file may be corrupted.", "var(--rojo)"); e.target.value = ""; return; }
+          if (!ok) { msg("oc-respaldo-msg", "Content does not match its checksum — file may be corrupted.", "var(--rojo)"); e.target.value = ""; return; }
         }
         if (!paquete.datos) { msg("oc-respaldo-msg", "This file does not look like a friendly-123 backup.", "var(--rojo)"); return; }
-        if ((paquete.schemaVersion || 1) > 2) { msg("oc-respaldo-msg", "This backup is from a newer version of friendly-123 â€” update the app before importing it.", "var(--rojo)"); return; }
+        if ((paquete.schemaVersion || 1) > 2) { msg("oc-respaldo-msg", "This backup is from a newer version of friendly-123 — update the app before importing it.", "var(--rojo)"); return; }
         if (!confirm("This REPLACES all current data (products, sales, keys) with the backup data. Continue?")) return;
         const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
         const r = await res.json();
@@ -2555,31 +2569,31 @@ Keep it somewhere safe.`);
     });
 
     // ==========================================================================
-    // CAJA FUERTE LOCAL â€” Alternativa B (JFC, aprobado 2026-07-05)
+    // CAJA FUERTE LOCAL — Alternativa B (JFC, aprobado 2026-07-05)
     // --------------------------------------------------------------------------
-    // Snapshots automÃ¡ticos ROTATIVOS en localStorage (Ãºltimos 7), cada uno
+    // Snapshots automáticos ROTATIVOS en localStorage (últimos 7), cada uno
     // con checksum SHA-256 (window.OCSecure.hashTexto) para detectar
-    // corrupciÃ³n antes de restaurar. Protege contra "borrÃ© algo sin querer" y
-    // errores humanos recientes â€” NO contra perder el dispositivo/cachÃ©
+    // corrupción antes de restaurar. Protege contra "borré algo sin querer" y
+    // errores humanos recientes — NO contra perder el dispositivo/caché
     // completo (para eso sigue siendo indispensable el respaldo manual de
-    // arriba, que sÃ­ sale del navegador).
+    // arriba, que sí sale del navegador).
     //
-    // APUNTES PARA LA FASE C (NO IMPLEMENTADA â€” solo queda anotado para
-    // cuando se decida construirla, tal cual se aprobÃ³):
+    // APUNTES PARA LA FASE C (NO IMPLEMENTADA — solo queda anotado para
+    // cuando se decida construirla, tal cual se aprobó):
     //   - Empaquetar cada snapshot en un paquete QR/texto dividido en partes
     //     (mismo formato "OCSYNC1:" ya usado en sync manual) para poder
     //     copiarlo a OTRO dispositivo sin depender de este navegador.
     //   - "Modo simulacro": importar en memoria y comparar conteos/totales
     //     (productos, ventas, valor de inventario) contra el estado actual
-    //     ANTES de reemplazar nada â€” hoy el respaldo manual reemplaza directo
+    //     ANTES de reemplazar nada — hoy el respaldo manual reemplaza directo
     //     tras un simple confirm().
     //   - Manifest con checksum POR TABLA (productos, ventas, movimientos,
-    //     claves, fotos) en vez de un checksum Ãºnico del archivo completo â€”
-    //     permite saber cuÃ¡l tabla se corrompiÃ³, no solo que "algo" fallÃ³.
+    //     claves, fotos) en vez de un checksum único del archivo completo —
+    //     permite saber cuál tabla se corrompió, no solo que "algo" falló.
     // ==========================================================================
     const CAJA_MAX_SNAPSHOTS = 7;
-    const CAJA_INTERVALO_MS = 30 * 60 * 1000; // cada 30 min mientras la pestaÃ±a estÃ© abierta
-    const CAJA_ALERTA_DIAS = 7; // avisa si el ÃšLTIMO RESPALDO MANUAL tiene mÃ¡s de esto
+    const CAJA_INTERVALO_MS = 30 * 60 * 1000; // cada 30 min mientras la pestaña esté abierta
+    const CAJA_ALERTA_DIAS = 7; // avisa si el ÚLTIMO RESPALDO MANUAL tiene más de esto
 
     function cajaLeer() {
       try { return JSON.parse(localStorage.getItem("f123_caja_snapshots") || "[]"); } catch { return []; }
@@ -2606,7 +2620,7 @@ Keep it somewhere safe.`);
       const punto = lista[idx];
       if (!punto) return;
       const okChecksum = (await window.OCSecure.hashTexto(punto.contenido)) === punto.checksum;
-      if (!okChecksum) { msg("oc-respaldo-msg", "This checkpoint failed the checksum check â€” may be corrupted. Nothing was restored.", "var(--rojo)"); return; }
+      if (!okChecksum) { msg("oc-respaldo-msg", "This checkpoint failed the checksum check — may be corrupted. Nothing was restored.", "var(--rojo)"); return; }
       if (!confirm(`This REPLACES current data with the checkpoint from ${new Date(punto.fecha).toLocaleString()}. Continue?`)) return;
       let paquete; try { paquete = JSON.parse(punto.contenido); } catch { msg("oc-respaldo-msg", "This checkpoint is corrupted.", "var(--rojo)"); return; }
       const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
@@ -2618,9 +2632,9 @@ Keep it somewhere safe.`);
       const ultimo = Number(localStorage.getItem("f123_ultimo_export_manual") || 0);
       const el = $("oc-caja-alerta");
       if (!el) return;
-      if (!ultimo) { el.textContent = "You have not made a manual backup yet (the one above) â€” do it at least once."; el.style.color = "var(--rust)"; return; }
+      if (!ultimo) { el.textContent = "You have not made a manual backup yet (the one above) — do it at least once."; el.style.color = "var(--rust)"; return; }
       const dias = Math.floor((Date.now() - ultimo) / 86400000);
-      if (dias >= CAJA_ALERTA_DIAS) { el.textContent = `Your last manual backup is ${dias} days old â€” consider making a new one.`; el.style.color = "var(--rust)"; }
+      if (dias >= CAJA_ALERTA_DIAS) { el.textContent = `Your last manual backup is ${dias} days old — consider making a new one.`; el.style.color = "var(--rust)"; }
       else { el.textContent = `Last manual backup: ${dias} day(s) ago.`; el.style.color = "var(--verde)"; }
     }
     cajaPintarAlerta();
@@ -2628,10 +2642,10 @@ Keep it somewhere safe.`);
     // StorageManager: aviso preventivo si el dispositivo ya uso >80% de la cuota.
     // Solo corre una vez al abrir Avanzado, silencioso si la API no existe o falla.
     // El elemento se inyecta ANTES del primer hijo de #vista-avanzado para que sea
-    // lo primero visible â€” si hay problema de espacio, el dueno lo ve de inmediato.
-    // AVISO DE CUOTA: SOLO CONSOLA (JFC 2026-08-26). El banner cafÃ©/rojo de
+    // lo primero visible — si hay problema de espacio, el dueno lo ve de inmediato.
+    // AVISO DE CUOTA: SOLO CONSOLA (JFC 2026-08-26). El banner café/rojo de
     // "Storage at X%" NO fue autorizado y no debe alterar la experiencia. Se
-    // conserva el dato en consola para diagnÃ³stico remoto, pero NUNCA se pinta.
+    // conserva el dato en consola para diagnóstico remoto, pero NUNCA se pinta.
     (async () => {
       try {
         if (!navigator.storage || !navigator.storage.estimate) return;
@@ -2651,7 +2665,7 @@ Keep it somewhere safe.`);
     // instalar la app en la pantalla de inicio sube mucho la probabilidad de
     // que el navegador conceda persistencia.
     // PERSISTENCIA: se SIGUE solicitando (verificarYSolicitar sube la
-    // probabilidad de que el navegador NO borre los datos â€” es beneficioso y
+    // probabilidad de que el navegador NO borre los datos — es beneficioso y
     // silencioso), pero el banner rojo NO fue autorizado y no se pinta.
     // (JFC 2026-08-26: "no alteres la experiencia esencial de usuario").
     (async () => {
@@ -2664,7 +2678,7 @@ Keep it somewhere safe.`);
     // FIX 2026-07-07: los timers ya no trabajan con la sesion cerrada
     // (trabajo fantasma y bateria en tablets que quedan encendidas).
     setInterval(() => { if (window.OCAuth && window.OCAuth.rolActual()) cajaGuardarPunto(true); }, CAJA_INTERVALO_MS);
-    setTimeout(() => cajaGuardarPunto(true), 5000); // primer punto poco despuÃ©s de abrir Avanzado
+    setTimeout(() => cajaGuardarPunto(true), 5000); // primer punto poco después de abrir Avanzado
 
     $("oc-caja-guardar").addEventListener("click", () => cajaGuardarPunto(false));
     $("oc-caja-ver").addEventListener("click", () => {
@@ -2686,11 +2700,11 @@ Keep it somewhere safe.`);
   }
 
 
-  // Cambiar un correo YA registrado exige el cÃ³digo maestro (solo JFC lo
-  // conoce) â€” pedido explÃ­cito de JFC como "master admin": evita que
-  // cualquiera con el dispositivo del dueÃ±o secuestre la cuenta apuntando la
-  // recuperaciÃ³n a un correo propio. Si NO hay correo (primera vez), el
-  // dueÃ±o lo registra libre, sin master. Ver nota larga en crypto-store.js.
+  // Cambiar un correo YA registrado exige el código maestro (solo JFC lo
+  // conoce) — pedido explícito de JFC como "master admin": evita que
+  // cualquiera con el dispositivo del dueño secuestre la cuenta apuntando la
+  // recuperación a un correo propio. Si NO hay correo (primera vez), el
+  // dueño lo registra libre, sin master. Ver nota larga en crypto-store.js.
   function pintarEmail() {
     const email = window.OCSecure.leerCorreo();
     const row = $("oc-email-row");
@@ -2719,14 +2733,14 @@ Keep it somewhere safe.`);
   }
 
   // WhatsApp del dueno (Mejora #5, JFC 2026-07-16). A diferencia del correo,
-  // SIEMPRE editable â€” no es via de recuperacion de acceso, solo un dato de
+  // SIEMPRE editable — no es via de recuperacion de acceso, solo un dato de
   // contacto/notificacion. Se guarda local (crypto-store.js) Y se manda al
   // worker (mismo endpoint que el registro de licencia) para que aparezca
   // en el panel de JFC con un link clickeable a wa.me. Primer contacto
   // deliberadamente unidireccional (JFC -> dueno): la copia de este campo
   // NUNCA invita al dueno a escribirle a JFC por WhatsApp, solo explica el
   // beneficio para el/ella (resumenes + sync). Soporte sigue siendo solo
-  // por correo â€” no cambiar esta redaccion sin que JFC lo pida.
+  // por correo — no cambiar esta redaccion sin que JFC lo pida.
   function pintarWhatsapp() {
     const wa = window.OCSecure.leerWhatsapp();
     const row = $("oc-whatsapp-row");
@@ -2740,9 +2754,9 @@ Keep it somewhere safe.`);
       const v = $("oc-whatsapp-in").value.trim();
       if (v && !/^\+?[0-9 ()-]{7,20}$/.test(v)) { msg("oc-whatsapp-msg", window.t("auth.act.whatsappInvalid"), "var(--rojo)"); return; }
       const waOk = window.OCSecure.actualizarWhatsapp(v); // Fix-7: false si f123_secure ausente/corrupto
-      if (!waOk) { msg("oc-whatsapp-msg", "Could not save (storage issue â€” try reloading).", "var(--rojo)"); return; }
+      if (!waOk) { msg("oc-whatsapp-msg", "Could not save (storage issue — try reloading).", "var(--rojo)"); return; }
       msg("oc-whatsapp-msg", window.t("auth.act.whatsappSaved"), "var(--verde)");
-      // Sube el numero al mismo worker de registro de licencia â€” asi JFC
+      // Sube el numero al mismo worker de registro de licencia — asi JFC
       // lo ve en su panel con un link directo. Best-effort: si falla (sin
       // conexion, worker no configurado), el dato local ya quedo guardado.
       try {
@@ -2759,8 +2773,8 @@ Keep it somewhere safe.`);
     });
   }
 
-  // Pide el cÃ³digo maestro (candado de JFC) antes de dejar editar un correo
-  // ya registrado. Reutiliza el mismo patrÃ³n visual del candado contable.
+  // Pide el código maestro (candado de JFC) antes de dejar editar un correo
+  // ya registrado. Reutiliza el mismo patrón visual del candado contable.
   function pedirMaestroYCambiarCorreo() {
     const cont = document.createElement("div");
     cont.className = "oc-subgate";
@@ -2789,16 +2803,16 @@ Keep it somewhere safe.`);
 
   function msg(id, txt, color) { const el = $(id); if (el) { el.style.color = color; el.textContent = txt; } }
 
-  // Solo el dueÃ±o ve/activa esto (vive dentro de "Avanzado", ya restringido).
-  // La llave de cifrado nunca se persiste â€” por eso, si ya estaba activado en
-  // este navegador pero se recargÃ³ la pÃ¡gina, hay que reingresar el PIN antes
-  // de poder cifrar/descifrar de nuevo (mismo patrÃ³n que la subclave contable).
+  // Solo el dueño ve/activa esto (vive dentro de "Avanzado", ya restringido).
+  // La llave de cifrado nunca se persiste — por eso, si ya estaba activado en
+  // este navegador pero se recargó la página, hay que reingresar el PIN antes
+  // de poder cifrar/descifrar de nuevo (mismo patrón que la subclave contable).
   async function render() {
     const u = ubic();
     // Reforzado (JFC 2026-07-18): render() se llama tras desbloquear la capa
-    // contable con PIN (click handler sin try/catch propio) â€” sin este guard,
+    // contable con PIN (click handler sin try/catch propio) — sin este guard,
     // un fallo de red aqui dejaba el panel VISIBLE pero VACIO, justo despues
-    // de que el dueÃ±o tecleara su clave. Ahora se avisa claro en vez de
+    // de que el dueño tecleara su clave. Ahora se avisa claro en vez de
     // quedarse en blanco.
     let pl, bal;
     try {
@@ -2811,8 +2825,8 @@ Keep it somewhere safe.`);
       $("oc-taccounts").innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">Could not load. Check your connection and try again.</p>`;
       return;
     }
-    // Cuentas T derivadas del dÃ­a (partida doble simplificada). El IVA
-    // cobrado NO es ingreso del negocio â€” es un pasivo (se le debe al SRI),
+    // Cuentas T derivadas del día (partida doble simplificada). El IVA
+    // cobrado NO es ingreso del negocio — es un pasivo (se le debe al SRI),
     // por eso tiene su propia cuenta en vez de mezclarse con Ventas.
     const cuentas = [
       { nombre: "Cash (Asset)", debe: [["Collected today (incl. VAT)", pl.ingresosConIva]], haber: [["Operating expenses", pl.gastosOperativos]] },
@@ -2826,10 +2840,10 @@ Keep it somewhere safe.`);
     await renderChart();
   }
 
-  // Una barra por ubicaciÃ³n no-propia: % de meta cumplida (la mÃ©trica que
-  // mÃ¡s le importa al socio) + la comisiÃ³n efectiva que terminÃ³ pagÃ¡ndose
-  // (revela el efecto de las escalas dinÃ¡micas: no es un % fijo, sube con
-  // el desempeÃ±o). Divs + CSS, cero librerÃ­as de grÃ¡ficos.
+  // Una barra por ubicación no-propia: % de meta cumplida (la métrica que
+  // más le importa al socio) + la comisión efectiva que terminó pagándose
+  // (revela el efecto de las escalas dinámicas: no es un % fijo, sube con
+  // el desempeño). Divs + CSS, cero librerías de gráficos.
   async function renderChart() {
     const box = $("oc-chart");
     if (!box) return;
@@ -2852,7 +2866,7 @@ Keep it somewhere safe.`);
       <div style="margin-bottom:16px;">
         <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
           <strong>${escHtml(f.ubicacion)}</strong>
-          <span style="color:var(--ink-soft);">${fmtVentas(f.ventasBrutas)} sold Â· ${f.cumplimientoMeta ?? 0}% of target</span>
+          <span style="color:var(--ink-soft);">${fmtVentas(f.ventasBrutas)} sold · ${f.cumplimientoMeta ?? 0}% of target</span>
         </div>
         <div style="background:var(--sim-azul-bg,#D4ECF5);border-radius:6px;overflow:hidden;height:22px;position:relative;">
           <div style="background:${(f.cumplimientoMeta || 0) >= 100 ? "var(--sim-verde,#00C87A)" : "var(--sim-azul,#5294AC)"};height:100%;width:${anchoMeta}%;transition:width .3s;"></div>
@@ -2865,7 +2879,7 @@ Keep it somewhere safe.`);
 
   // tAccount: acento azul en la T (azul = sabiduria/contable por semantica Simon).
   // Espina dorsal: el trazo vertical de la T es azul. Header en azul-dk.
-  // Cero cambios de estructura â€” solo color intencional del codigo aprobado.
+  // Cero cambios de estructura — solo color intencional del codigo aprobado.
   function tAccount(c) {
     const filas = Math.max(c.debe.length, c.haber.length, 1);
     let rows = "";
@@ -2886,21 +2900,21 @@ Keep it somewhere safe.`);
       </table></div>`;
   }
 
-  // Si la ubicaciÃ³n cambia mientras estÃ¡ desbloqueada, re-render
+  // Si la ubicación cambia mientras está desbloqueada, re-render
   document.addEventListener("change", (e) => {
     if (e.target && e.target.id === "selectUbicacion" && desbloqueadaSesion && $("oc-contable") && $("oc-contable").style.display !== "none") render();
   });
 
   // Wall defensiva (2026-07-08): si init() lanzara al construir Avanzado, el
-  // error queda aislado aquÃ­ â€” no rompe el resto de la app ni el arranque.
-  function initSeguro() { try { init(); } catch (e) { console.error("Avanzado init fallÃ³ (aislado):", e); } }
+  // error queda aislado aquí — no rompe el resto de la app ni el arranque.
+  function initSeguro() { try { init(); } catch (e) { console.error("Avanzado init falló (aislado):", e); } }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initSeguro);
   else initSeguro();
 
   // ===========================================================================
   // ROL CONTADOR (JFC 2026-07-15): PIN 357 directo en el candado principal.
   // init() SIEMPRE construye #oc-contable dentro de #vista-avanzado (arriba),
-  // sin importar el rol â€” aqui solo lo TRASLADAMOS a una vista propia
+  // sin importar el rol — aqui solo lo TRASLADAMOS a una vista propia
   // "contable" (nav + section creados al vuelo, mismo mecanismo de clase
   // .activo/.activa que usa index.html para el resto del nav) y lo mostramos
   // sin candado (la subclave YA se verifico en auth-ui.js via verificarAcct).
@@ -2985,7 +2999,7 @@ Keep it somewhere safe.`);
         owned.licenseCode = nuevo;
         /* BUG (JFC 2026-08-19): se actualizaba licenseCode pero NO syncCode, y
            el panel de sync precarga su campo desde owned.syncCode. Despues de
-           rotar, el panel seguia mostrando el codigo VIEJO â€”ya muertoâ€” como si
+           rotar, el panel seguia mostrando el codigo VIEJO —ya muerto— como si
            fuera el bueno. Los dos campos describen la misma sala: se mueven
            juntos o no se mueven. */
         owned.syncCode = nuevo;
@@ -3020,13 +3034,13 @@ Keep it somewhere safe.`);
     });
   }
 
-  /* MICROCIRUGÃA (JFC 2026-08-27). Caso real: un aparato quedÃ³ con una licencia
-     TRUNCA/vieja (cuerpo de 8 o 12, no 17) o sin licencia, y no habÃ­a forma simple
-     de darle una BUENA que el otro aparato pueda unir. Este botÃ³n genera una
+  /* MICROCIRUGÍA (JFC 2026-08-27). Caso real: un aparato quedó con una licencia
+     TRUNCA/vieja (cuerpo de 8 o 12, no 17) o sin licencia, y no había forma simple
+     de darle una BUENA que el otro aparato pueda unir. Este botón genera una
      licencia COMPLETA (17, con el generador de auth-ui.js), la fija como licenseCode
      Y syncCode (los deja coherentes), mueve la sala y la muestra/copia para pegarla
-     en el otro aparato. NO vacÃ­a los datos locales. Es el nÃºcleo de "rotar" sin el
-     modal, con un aviso de una lÃ­nea porque mueve la sala. */
+     en el otro aparato. NO vacía los datos locales. Es el núcleo de "rotar" sin el
+     modal, con un aviso de una línea porque mueve la sala. */
   function ocDarLicenciaBuena() {
     try {
       if (!confirm("This gives THIS device a brand-new full license and moves it to a fresh notebook (your local data stays). Any OTHER device must enter the new code to rejoin. Continue?")) return;
@@ -3048,7 +3062,7 @@ Keep it somewhere safe.`);
       var msg = document.getElementById("oc-sync-msg");
       if (msg) {
         msg.style.color = "#00805A";
-        msg.innerHTML = "Done â€” this device now has a full license (copied to clipboard). Enter it on your other device to join:<br><code style=\"font-family:monospace;font-size:17px;letter-spacing:.08em;\">" + String(mostrado).replace(/[&<>]/g, "") + "</code>";
+        msg.innerHTML = "Done — this device now has a full license (copied to clipboard). Enter it on your other device to join:<br><code style=\"font-family:monospace;font-size:17px;letter-spacing:.08em;\">" + String(mostrado).replace(/[&<>]/g, "") + "</code>";
       } else {
         alert("Your new full license (copied):\n\n" + mostrado);
       }
@@ -3057,8 +3071,8 @@ Keep it somewhere safe.`);
 
   /* EXPUESTAS PARA EL DASHBOARD (JFC 2026-08-28). El tablero pide estas
      acciones por orden remota (POST /micelio/fixlic y /micelio/rotar) y el
-     dispositivo las ejecuta aquÃ­. Antes solo se disparaban desde el botÃ³n de
-     la secciÃ³n Sync (que se quitÃ³). */
+     dispositivo las ejecuta aquí. Antes solo se disparaban desde el botón de
+     la sección Sync (que se quitó). */
   try { window.ocDarLicenciaBuena = ocDarLicenciaBuena; } catch (_) {}
   try { window.ocRotarCodigoSala = ocRotarCodigoSala; } catch (_) {}
 
