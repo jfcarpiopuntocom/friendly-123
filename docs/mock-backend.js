@@ -1816,6 +1816,35 @@
       });
     }
 
+    /* PROMOTORAS/COMISIONISTAS — SUMA, NUNCA BORRA (JFC 2026-08-29). Mismo
+       patron que clientes: add-only por id, no se pisa lo local (respeta
+       ediciones de % o meta hechas en este aparato). Cierra el hueco real:
+       "solo se sincronizan las comisiones" resultaba ser al reves — las
+       LIQUIDACIONES (ya calculadas) viajaban al tablero, pero la lista de
+       comisionistas en si nunca viajaba entre dispositivos del equipo. */
+    let promotorasAgregadas = 0;
+    if (Array.isArray(remoto.promotoras)) {
+      remoto.promotoras.forEach((p) => {
+        if (!p || !p.id || !p.nombre) return;
+        if (promotoras.some((x) => String(x.id) === String(p.id))) return; // ya está: no se pisa
+        promotoras.push({
+          id: p.id,
+          nombre: String(p.nombre).slice(0, 80),
+          comision: Number(p.comision) || 0,
+          metaMensual: Math.max(0, Number(p.metaMensual) || 0),
+          telefono: p.telefono || "",
+          cedula: p.cedula || "",
+          banco: p.banco || "",
+          cuenta: p.cuenta || "",
+          direccion: p.direccion || "",
+          notas: p.notas || "",
+          activa: p.activa !== false,
+          escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [],
+        });
+        promotorasAgregadas++;
+      });
+    }
+
     /* NOMBRE DE LA TIENDA (JFC 2026-08-27 + 2026-08-28). Al unirse a un equipo,
        el aparato adopta el nombre del negocio. Regla de jerarquía (JFC 2026-08-28:
        "la jerarquía le pertenece al PIN, el nombre sale del PIN de mayor jerarquía"):
@@ -1833,9 +1862,9 @@
       } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
     }
-    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
+    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
-    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, huella: huellaCatalogo() };
+    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, huella: huellaCatalogo() };
   }
 
   /* ===================================================================
@@ -2009,6 +2038,11 @@
            Eran estado local que nunca se propagaba. Viajan por el mismo canal
            cifrado device-to-device, merge add-only en aplicarCatalogo. */
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })),
+        /* PROMOTORAS/COMISIONISTAS (JFC 2026-08-29). Mismo bug que tuvieron
+           usuarios y clientes: era estado local que nunca se propagaba — un
+           comisionista dado de alta en un celular jamas aparecia en el otro.
+           Viajan por el mismo canal cifrado, merge add-only en aplicarCatalogo. */
+        promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comision: p.comision || 0, metaMensual: p.metaMensual || 0, telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [] })),
         /* NOMBRE DE LA TIENDA VIAJA CON EL CATÁLOGO (JFC 2026-08-27 + 2026-08-28).
            Era estado local (nombreNegocio) que nunca se propagaba. Ahora viaja; el
            receptor lo adopta si el suyo está vacío o si el remitente es el dueño
@@ -2029,6 +2063,8 @@
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
+        // JFC 2026-08-29: el checkpoint también lleva promotoras — mismo hueco que clientes, para el dispositivo nuevo.
+        promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comision: p.comision || 0, metaMensual: p.metaMensual || 0, telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [] })),
         huella: huellaCatalogo(),
       };
     },
@@ -2092,12 +2128,25 @@
             }
           });
         }
+        /* PROMOTORAS del checkpoint (add-only) — JFC 2026-08-29, mismo hueco
+           que clientes: nunca se aplicaban, asi que los comisionistas reales
+           no llegaban a un aparato nuevo. */
+        let agPm = 0;
+        if (Array.isArray(snap.promotoras)) {
+          snap.promotoras.forEach((p) => {
+            if (!p || !p.id || !p.nombre) return;
+            if (!promotoras.some((x) => String(x.id) === String(p.id))) {
+              promotoras.push({ id: p.id, nombre: String(p.nombre).slice(0, 80), comision: Number(p.comision) || 0, metaMensual: Math.max(0, Number(p.metaMensual) || 0), telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [] });
+              agPm++;
+            }
+          });
+        }
         if (Array.isArray(snap.usuarios)) {
           try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios }, null); } catch (_) {}
         }
         guardarEstadoLocal();
-        mov("checkpoint-mergeado", { perchas: agP, productos: agPr, clientes: agC, fresco });
-        return { ok: true, productos: agPr, perchas: agP, clientes: agC };
+        mov("checkpoint-mergeado", { perchas: agP, productos: agPr, clientes: agC, promotoras: agPm, fresco });
+        return { ok: true, productos: agPr, perchas: agP, clientes: agC, promotoras: agPm };
       } catch (_) { return { ok: false, motivo: "error" }; }
     },
     compararCatalogo,
