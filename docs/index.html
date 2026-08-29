@@ -2260,6 +2260,15 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
         <input id="oc-ncli-tel" type="tel" maxlength="24" autocomplete="tel" inputmode="tel"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
+      <!-- EMAIL EN ALTA RAPIDA (JFC 2026-08-29): el modal de "+ New customer" del
+           panel de venta era el unico punto de alta de cliente que NO pedia email
+           (si lo pedian vista-clientes y la edicion ex-post-facto). Este es el
+           punto mas usado (durante el checkout), asi que era el hueco real. -->
+      <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;"><span id="oc-ncli-lbl-email">${t("newcust.email")}</span>
+        <input id="oc-ncli-email" type="email" inputmode="email" autocomplete="off" maxlength="120"
+          data-i18n-attr="placeholder:newcust.emailPlaceholder" placeholder="Email (optional)"
+          style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
+      </label>
       <button id="oc-ncli-crear" style="width:100%;padding:11px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;font-size:15px;font-weight:700;cursor:pointer;">
         ${t("newcust.save")}
       </button>
@@ -2298,6 +2307,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
     document.getElementById("oc-ncli-nombre").value = "";
     var telEl = document.getElementById("oc-ncli-tel");
     if (_iti && _iti.setNumber) _iti.setNumber(""); else telEl.value = "";
+    { const _e = document.getElementById("oc-ncli-email"); if (_e) _e.value = ""; }
     document.getElementById("oc-ncli-msg").textContent = "";
     overlay.style.display = "flex";
     setTimeout(function () { document.getElementById("oc-ncli-nombre").focus(); }, 60);
@@ -2337,7 +2347,8 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
 
   // Enter en nombre → foco a teléfono; Enter en teléfono → crear
   document.getElementById("oc-ncli-nombre").addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("oc-ncli-tel").focus(); });
-  document.getElementById("oc-ncli-tel").addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("oc-ncli-crear").click(); });
+  document.getElementById("oc-ncli-tel").addEventListener("keydown", (e) => { if (e.key === "Enter") { const _e = document.getElementById("oc-ncli-email"); if (_e) _e.focus(); else document.getElementById("oc-ncli-crear").click(); } });
+  { const _emailEl = document.getElementById("oc-ncli-email"); if (_emailEl) _emailEl.addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("oc-ncli-crear").click(); }); }
 
   document.getElementById("oc-ncli-crear").addEventListener("click", async () => {
     const nombre = (document.getElementById("oc-ncli-nombre").value || "").trim();
@@ -2354,12 +2365,13 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
     } catch (_) {
       telefono = (document.getElementById("oc-ncli-tel").value || "").trim();
     }
+    const email = (document.getElementById("oc-ncli-email") || {}).value || "";
     const msg = document.getElementById("oc-ncli-msg");
     if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("newcust.nameRequired"); return; }
     const btn2 = document.getElementById("oc-ncli-crear");
     btn2.disabled = true;
     try {
-      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono }) });
+      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono, email: (email || "").trim() }) });
       const r = await res.json();
       if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || t("newcust.createError"); btn2.disabled = false; return; }
       // Agregar al selector y seleccionarlo automáticamente
@@ -2395,6 +2407,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
       set("oc-ncli-cerrar", "newcust.close");
       set("oc-ncli-lbl-nombre", "newcust.name");
       set("oc-ncli-lbl-tel", "newcust.phone");
+      set("oc-ncli-lbl-email", "newcust.email");
       set("oc-ncli-crear", "newcust.save");
     } catch (_) {}
   });
@@ -2412,7 +2425,7 @@ if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.ope
   const btn = document.getElementById("btnShowCustomers");
   const overlay = document.createElement("div");
   overlay.id = "oc-showcli-modal";
-  overlay.style.cssText = "position:fixed;inset:0;z-index:9996;background:rgba(21,40,64,.82);display:none;align-items:flex-end;justify-content:center;";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:9996;background:rgba(21,40,64,.82);display:none;align-items:center;justify-content:center;";
   overlay.innerHTML = `
     <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;max-height:86vh;border-radius:16px 16px 0 0;padding:20px 18px 24px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
