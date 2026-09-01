@@ -36,10 +36,11 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v149"; // bumped 2026-08-28: Join notebook production: Option A UI, PIN digit visibility 300ms, license validation before writes, atomic notebook switch, i18n unification
+const CACHE = "f123-shell-v180"; // v180: one Back-to-top per Advanced subsection, no stacked orphans
 const SHELL = [
   "./",
   "./index.html",
+  "./logo.png",
   "./aislamiento.js",
   "./404.html",
   "./manual.html",

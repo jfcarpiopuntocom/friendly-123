@@ -4,11 +4,13 @@
    Prueba la IDENTIDAD al unirse (JFC 2026-08-26), en navegador real:
      - usuario NORMAL que pone una licencia SE VUELVE device de ese negocio
        (adopta licenseCode) → el panel lo cuenta, no forja una licencia aparte;
-     - el LORD (super-admin) TAMBIÉN adopta la licencia al unirse (decisión
-       2026-08-28: "Join this notebook" es una acción deliberada de volverse esa
-       tienda), pero REGISTRA el acceso (auditoría) y queda como observador
-       (toco=false). El guardrail de "no contar el aparato de JFC como device
-       del cliente" lo cubre el panel (esMio). */
+     - el LORD (super-admin) NUNCA adopta la licencia ajena al unirse (SYNCIDENTITYFIX
+       2026-08-31, P0: supera la decisión del 2026-08-28). Conserva su identidad
+       canónica; si no tiene canónica guardada, queda como está (no adopta nada).
+       Solo REGISTRA el acceso (auditoría) y queda como observador (toco=false).
+       Así la PC del Lord nunca reporta la licencia del cliente al Worker. El
+       guardrail de "no contar el aparato de JFC como device del cliente" lo cubre
+       el panel (esMio). */
 /* Playwright portable: primero el node_modules local del repo (Windows/macOS),
    luego el path Linux del contenedor original. */
 const path = require("path");
@@ -51,14 +53,13 @@ const accesos = (page) => page.evaluate(() => { try { return JSON.parse(localSto
     const aN = await accesos(N);
     check("NORMAL: no deja registro de acceso de lord (no es super-admin)", aN.length === 0, aN);
 
-    // --- LORD: adopta la licencia, registra el acceso (observador) ------------
+    // --- LORD: NO adopta la licencia ajena; conserva su identidad, registra acceso ---
     const L = await device(browser, { lord: true });
     await L.evaluate((lic) => { try { window.OCSyncControl.unirse(lic); } catch (_) {} }, IDIOMARTE).catch(() => {});
-    // el lord SÍ recarga (cambia a tienda namespaceada); esperar a que vuelva.
     await L.waitForFunction(() => window.OCSyncControl, null, { timeout: 15000 }).catch(() => {});
     const oL = await owned(L);
-    check("LORD: al unirse ADOPTA la licencia de idiomARTE (decisión 2026-08-28)",
-      String(oL.licenseCode || "").replace(/\s+/g, "").toUpperCase() === IDIOMARTE, oL);
+    check("LORD: al unirse NO adopta la licencia ajena; conserva su identidad canónica (SYNCIDENTITYFIX 2026-08-31)",
+      String(oL.licenseCode || "").replace(/\s+/g, "").toUpperCase() === OWN.replace(/\s+/g, "").toUpperCase(), oL);
     const aL = await accesos(L);
     check("LORD: registra el acceso a la tienda del cliente (auditoría)",
       aL.length >= 1 && String(aL[aL.length - 1].licencia || "").replace(/\s+/g, "").toUpperCase() === IDIOMARTE, aL);

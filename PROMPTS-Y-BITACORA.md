@@ -404,3 +404,15 @@ catálogo (v103).
 - Microbugs: guards de NaN en money/fmtVentas, aviso de sincronización en tienda unida.
 
 **Verificación:** node --check 72 .js OK; sw/version/manifest en v148 consistentes; manifest 59/59 hashes OK; arneses team-sync/claim-merge/join-identity/watchdog/failsafe VERDE; roster VERDE. Respaldo: rama `backup/20260828-014426-antes-v148-microbugs`. GitHub Pages sirve v1.7.35 / shell v148.
+
+---
+## 2026-09-01 — Integración lab 1.7.67 → repo (Fase A)
+Prompt JFC: avances de UI en el lab (build .67), integrar con "proceso JFC" sin
+romper nada; bajar skills de Emil Kowalski; primero plan, luego Fase A.
+Hecho: plan (PLAN-INTEGRACION-LAB-1.7.67-2026-09-01.md) + skills Emil vendorizados
+(.claude/skills/emil-kowalski/, 12 skills). Fase A: repo 1.7.36→1.7.67 (shell
+v149→v180). 8 archivos byte-idénticos al lab + auth-ui.js (par con crypto-store) +
+version.json + version-manifest.json regenerado. Fix P0 identidad Lord integrado.
+2 tests actualizados (join-identity al contrato nuevo 08-31; team-sync resiliente
+a recarga coordinada). Compuerta 9/9 verde (proxy off). Detalle:
+docs/NOTA-integracion-lab-1.7.67-2026-09-01.md y DIARIO-2026-09-01.md.

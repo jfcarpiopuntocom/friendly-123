@@ -149,7 +149,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     if (!localStorage.getItem("f123_secure")) {
       let viejo = null;
       try { viejo = JSON.parse(localStorage.getItem("f123_auth") || "null"); } catch {}
-      const DEF = { owner: "888", encargados: ["260"], acct: "357", email: "" };
+      const DEF = { owner: "789", encargados: ["260"], acct: "357", email: "" };
       const base = viejo || DEF;
       await guardarSecreto(base.owner, base.encargados || [], base.acct, base.email || "");
       localStorage.removeItem("f123_auth"); // ya no queda nada en texto plano
@@ -162,19 +162,35 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       let _apropiado = false;
       try { _apropiado = !!(JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId; } catch (_) {}
       if (!_apropiado) {
-        await guardarSecreto("888", ["260"], "357", "");
+        await guardarSecreto("789", ["260"], "357", "");
       }
     }
-    // AMIGABLE (JFC 2026-07-02): el PIN de dueño pasó de 159 a 888. Si un
-    // navegador ya tenía guardado el default viejo (159), lo subimos a 888 sin
-    // tocar encargado/contable/correo. No-op si el dueño ya no es 159.
-    // Fix-5: flag de un-solo-run — sin esto verificarOwner("159") corre en CADA
-    // pageload y acumula registrarFallo("owner") hasta lockout del dueño.
+    // Viejo default 159 (AMIGABLE) → 789 (dueño actual). NUNCA pasar por 888:
+    // 888 es PIN libre, no fábrica. coincidePin no suma fallos al candado.
     if (!localStorage.getItem("f123_migrado_159_888")) {
-      if (await verificarOwner("159") && !(await verificarOwner("888"))) {
-        await fijarOwnerPin("888");
-      }
-      localStorage.setItem("f123_migrado_159_888", "1");
+      try {
+        if (await coincidePin("159", "owner")) await fijarOwnerPin("789");
+      } catch (_) {}
+      try { localStorage.setItem("f123_migrado_159_888", "1"); } catch (_) {}
+    }
+    /* 2026-08-31: 888 dejó de ser el default de dueño. Default = 789.
+       456 demo. 888 queda libre para que cada dueño lo asigne si quiere.
+       Solo se migra si el hash actual SIGUE siendo 888 (fábrica). Un 555/222
+       propio no se toca. coincidePin no suma fallos al candado. */
+    if (!localStorage.getItem("f123_migrado_888_a_789_default")) {
+      try {
+        if (await coincidePin("888", "owner")) {
+          await fijarOwnerPin("789");
+          try {
+            const cur = leerPinQueAbre();
+            if (!cur.owner || cur.owner === "888") {
+              cur.owner = "789";
+              localStorage.setItem("f123_pin_que_abre", JSON.stringify(cur));
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+      try { localStorage.setItem("f123_migrado_888_a_789_default", "1"); } catch (_) {}
     }
   }
 
@@ -347,7 +363,21 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
        licencia de un cliente, entre como INVITADO/observador y NO adopte esa
        licencia (ver _esLord() en sync-realtime.js). Un usuario normal jamás pasa
        por aquí, así que nunca queda marcado. Solo se ESCRIBE en éxito. */
-    if (ok) { try { localStorage.setItem("f123_lord", "1"); } catch (_) {} }
+    if (ok) {
+      try { localStorage.setItem("f123_lord", "1"); } catch (_) {}
+      /* Identidad canónica del Lord: UNA sola escritura, aquí, al verificar
+         el código maestro. unirse()/activar() jamás la tocan. Si ya existe,
+         no se pisa aunque f123_owned ya esté corrupto. */
+      try {
+        if (!localStorage.getItem("f123_lord_licencia_canonica")) {
+          var o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          var cand = String(o.syncCode || o.licenseCode || "").trim().toUpperCase().replace(/\s+/g, "");
+          if (cand && /^F123-/i.test(cand)) {
+            localStorage.setItem("f123_lord_licencia_canonica", cand);
+          }
+        }
+      } catch (_) {}
+    }
     return ok;
   }
   // Permite fijar un código maestro propio por negocio (JFC, no el dueño).
@@ -444,8 +474,12 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // probarlas todas en segundos). Bloqueo progresivo por ámbito
   // ("owner"|"emp"|"acct"|"maestro"|"reset"), guardado en localStorage para
   // que sobreviva un refresh de página.
-  const INTENTOS_MAX = 5;
+  // 2026-08-30: 5 intentos y un lock en CADA fallo extra era hostil en un
+  // mostrador. NIST 800-63B pide limitar la tasa, no encerrar a la tercera.
+  // iOS espera ~10 fallos antes del primer delay. Tope 15 min.
+  const INTENTOS_MAX = 10;
   const BLOQUEO_BASE_MS = 30 * 1000;
+  const BLOQUEO_TOPE_MS = 15 * 60 * 1000;
   // f123_ prefijo (2026-07-17): sin esto, los contadores de bloqueo por
   // intentos fallidos se compartian con AMIGABLE (mismo origen en GitHub
   // Pages). Solo son contadores de lockout, sin datos sensibles — renombrar
@@ -471,7 +505,12 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const m = _memInt[ambito] = _memInt[ambito] || { n: 0, bloqueadoHasta: 0 };
     m.n++;
     if (m.n > i.n) i.n = m.n;
-    if (i.n >= INTENTOS_MAX) { i.bloqueadoHasta = Date.now() + BLOQUEO_BASE_MS * Math.min(20, Math.floor(i.n / INTENTOS_MAX)); m.bloqueadoHasta = i.bloqueadoHasta; }
+    if (i.n >= INTENTOS_MAX && i.n % INTENTOS_MAX === 0) {
+      const ronda = Math.floor(i.n / INTENTOS_MAX);
+      const ms = Math.min(BLOQUEO_TOPE_MS, BLOQUEO_BASE_MS * Math.pow(2, ronda - 1));
+      i.bloqueadoHasta = Date.now() + ms;
+      m.bloqueadoHasta = i.bloqueadoHasta;
+    }
     try { localStorage.setItem(intentosKey(ambito), JSON.stringify(i)); } catch (_) {}
   }
   function registrarExito(ambito) {
@@ -629,6 +668,109 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     } catch { return null; }
   }
 
+  function intentosRestantes(ambito) {
+    if (segundosBloqueo(ambito) > 0) return 0;
+    const i = leerIntentos(ambito);
+    const m = _memInt[ambito] || {};
+    const n = Math.max(i.n || 0, m.n || 0);
+    const enRonda = n % INTENTOS_MAX;
+    return INTENTOS_MAX - enRonda;
+  }
+
+  async function identificarPin(pin) {
+    const p = String(pin || "");
+    if (!/^\d{3}$/.test(p)) return null;
+    const s = leerSecreto();
+    if (!s) return null;
+    try {
+      if ((await hashPin(p, s.salt, "owner")) === s.ownerHash) return "dueno";
+      const hEmp = await hashPin(p, s.salt, "emp");
+      if ((s.employeeHashes || []).includes(hEmp)) return "empleado";
+      if ((await hashPin(p, s.salt, "acct")) === s.acctHash) return "contador";
+    } catch (_) {}
+    try {
+      const vis = leerPinsVisibles();
+      if (vis && vis.owner === p) return "dueno";
+    } catch (_) {}
+    try {
+      const abre = leerPinQueAbre();
+      if (abre.owner === p) return "dueno";
+      if (abre.emp === p) return "empleado";
+      if (abre.acct === p) return "contador";
+    } catch (_) {}
+    try {
+      const dir = directorioNormalizado();
+      if (dir.owner && String(dir.owner.pin) === p) return "dueno";
+      if (dir.acct && String(dir.acct.pin) === p) return "contador";
+      if ((dir.empleados || []).some(function (e) { return e && String(e.pin) === p; })) return "empleado";
+    } catch (_) {}
+    try {
+      const eq = leerPinsEquipo();
+      if (eq.owner === p) return "dueno";
+      if (eq.acct === p) return "contador";
+      if (eq.emp === p || (Array.isArray(eq.emps) && eq.emps.indexOf(p) >= 0)) return "empleado";
+    } catch (_) {}
+    return null;
+  }
+
+  function limpiarLockouts() {
+    ["login", "owner", "emp", "acct"].forEach(function (a) { registrarExito(a); });
+  }
+
+  async function coincidePin(pin, rol) {
+    const s = leerSecreto();
+    if (!s || !/^\d{3}$/.test(String(pin || ""))) return false;
+    const p = String(pin);
+    try {
+      if (rol === "owner") return (await hashPin(p, s.salt, "owner")) === s.ownerHash;
+      if (rol === "acct") return (await hashPin(p, s.salt, "acct")) === s.acctHash;
+      if (rol === "emp") {
+        const h = await hashPin(p, s.salt, "emp");
+        return (s.employeeHashes || []).includes(h);
+      }
+    } catch (_) { return false; }
+    return false;
+  }
+
+  async function pinsVisiblesVerificados() {
+    const vis = leerPinsVisibles() || { owner: null, empleados: [], acct: null };
+    const owner = (vis.owner && await coincidePin(vis.owner, "owner")) ? vis.owner : null;
+    const acct = (vis.acct && await coincidePin(vis.acct, "acct")) ? vis.acct : null;
+    const empleados = [];
+    for (const e of (vis.empleados || [])) {
+      if (e && await coincidePin(e, "emp")) empleados.push(e);
+    }
+    return { owner, empleados, acct };
+  }
+
+  const PIN_ABRE_KEY = "f123_pin_que_abre";
+  function leerPinQueAbre() {
+    try { return JSON.parse(localStorage.getItem(PIN_ABRE_KEY) || "{}") || {}; }
+    catch (_) { return {}; }
+  }
+  function recordarPinQueAbre(pin, rol) {
+    const p = String(pin || "");
+    if (!/^\d{3}$/.test(p) || p === "456") return;
+    const cur = leerPinQueAbre();
+    if (rol === "dueno" || rol === "admin") cur.owner = p;
+    else if (rol === "empleado") cur.emp = p;
+    else if (rol === "contador") cur.acct = p;
+    try { localStorage.setItem(PIN_ABRE_KEY, JSON.stringify(cur)); } catch (_) {}
+  }
+  function clavePinsEquipo() {
+    let suf = "";
+    try { suf = localStorage.getItem("f123_tienda_activa") || ""; } catch (_) {}
+    return "f123_pins_equipo" + suf;
+  }
+  function leerPinsEquipo() {
+    try { return JSON.parse(localStorage.getItem(clavePinsEquipo()) || "{}") || {}; }
+    catch (_) { return {}; }
+  }
+  function guardarPinsEquipo(obj) {
+    try { localStorage.setItem(clavePinsEquipo(), JSON.stringify(obj || {})); return true; }
+    catch (_) { return false; }
+  }
+
   window.OCSecure = {
     migrarSiHaceFalta, guardarSecreto, verificarOwner, verificarEmpleado, verificarAcct, leerCorreo, actualizarCorreo,
     estadoSecreto, // Guard G2, JFC 2026-08-04: distingue "vacío"/"ok"/"corrupto" para dar mensajes honestos
@@ -642,5 +784,12 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     verificarOwnerOEmpleado, // paridad AMIGABLE, lockout unico
     recuperarPinDueno, // Fix-2: evita TypeError en abrirFlujoReset si no hay ownerPinR
     leerPinsVisibles, // JFC 2026-08-27: PINs visibles para soporte (Advanced/Team)
+    pinsVisiblesVerificados, coincidePin,
+    identificarPin, intentosRestantes,
+    anotarFalloLogin: function () { registrarFallo("login"); },
+    anotarExitoLogin: function () { limpiarLockouts(); },
+    limpiarLockouts,
+    leerPinQueAbre, recordarPinQueAbre,
+    leerPinsEquipo, guardarPinsEquipo,
   };
 })();

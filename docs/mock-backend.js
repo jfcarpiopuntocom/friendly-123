@@ -1633,11 +1633,11 @@
   function _rolLocal() {
     try { return (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; } catch (_) { return ""; }
   }
-  /* PIN RESERVADO (JFC 2026-08-27). Esquema de PINs acordado:
-       456 = demo · 789 = activador de instancia propia · 260 = empleado/encargado
-       357 = capa contable/Accounting. 888 queda LIBRE como PIN de dueño inicial
-     (junto con 789, indistintamente). Un encargado no puede fijar como PIN suyo
-     ninguno de los códigos de sistema, o colisionaría con un rol o con la demo. */
+  /* PIN RESERVADO (JFC 2026-08-31). Esquema de PINs acordado:
+       456 = demo · 789 = dueño de fábrica Y activador de instancia propia
+       260 = empleado/encargado · 357 = contable/Accounting.
+       888 queda LIBRE (no es dueño de fábrica). Un encargado no puede fijar
+       como PIN suyo ninguno de los códigos de sistema. */
   const PINS_RESERVADOS = ["456", "789", "260", "357"];
   function _pinReservado(pin) { return PINS_RESERVADOS.indexOf(String(pin || "")) !== -1; }
 
@@ -1833,6 +1833,44 @@
       } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
     }
+    try {
+      const pr = remoto && remoto.pinsRol;
+      if (pr && window.OCSecure) {
+        const fabrica = { owner: "789", emp: "260", acct: "357" };
+        const vis = (window.OCSecure.leerPinsVisibles && window.OCSecure.leerPinsVisibles()) || {};
+        const take = function (remotoPin, localPin, fijar, rolAbre) {
+          const p = String(remotoPin || "");
+          if (!/^\d{3}$/.test(p) || p === "456") return;
+          const fab = fabrica[rolAbre === "dueno" ? "owner" : (rolAbre === "empleado" ? "emp" : "acct")];
+          let abrePin = "";
+          try {
+            const abre = (window.OCSecure.leerPinQueAbre && window.OCSecure.leerPinQueAbre()) || {};
+            abrePin = rolAbre === "dueno" ? (abre.owner || "") : (rolAbre === "empleado" ? (abre.emp || "") : (abre.acct || ""));
+          } catch (_) {}
+          const local = String(localPin || abrePin || "");
+          const localEsCustom = !!(local && local !== fab && local !== "888" && local !== "456");
+          const remotoEsFabrica = (p === fab || p === "888");
+          /* Sidecar: el PIN del cuaderno TAMBIEN abre, sin borrar el de este aparato. */
+          try {
+            const eq = (window.OCSecure.leerPinsEquipo && window.OCSecure.leerPinsEquipo()) || {};
+            if (rolAbre === "dueno") eq.owner = p;
+            else if (rolAbre === "empleado") eq.emp = p;
+            else eq.acct = p;
+            if (window.OCSecure.guardarPinsEquipo) window.OCSecure.guardarPinsEquipo(eq);
+          } catch (_) {}
+          if (localEsCustom) return;
+          if (local === p) return;
+          if (remotoEsFabrica) return;
+          Promise.resolve(fijar(p)).then(function (ok) {
+            if (ok && window.OCSecure.recordarPinQueAbre) window.OCSecure.recordarPinQueAbre(p, rolAbre);
+          }).catch(function () {});
+        };
+        if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
+        const localEmp = (vis.empleados && vis.empleados[0]) || "";
+        if (pr.emp && window.OCSecure.fijarEmpleadoPin) take(pr.emp, localEmp, window.OCSecure.fijarEmpleadoPin, "empleado");
+        if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
+      }
+    } catch (_) {}
     mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
     return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, huella: huellaCatalogo() };
@@ -1849,6 +1887,12 @@
      cuyo sufijo es ""). =============================================== */
   function _normLic(c) { return String(c || "").trim().toUpperCase().replace(/\s+/g, ""); }
   function _licenciaPropia() {
+    try {
+      if (localStorage.getItem("f123_lord") === "1") {
+        const can = localStorage.getItem("f123_lord_licencia_canonica");
+        if (can) return _normLic(can);
+      }
+    } catch (_) {}
     try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); return o && o.licenseCode ? _normLic(o.licenseCode) : ""; } catch (_) { return ""; }
   }
   function _licenciaActual() {
@@ -1885,6 +1929,13 @@
       // Registro licencia -> sufijo.
       let reg = {};
       try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
+      /* Guest licenses must not map to the own-store suffix "". That was the
+         f123_tiendas corruption (P3W1D/JENF → ""). Own license MAY be "". */
+      try {
+        Object.keys(reg).forEach(function (k) {
+          if (reg[k] === "" && _normLic(k) !== _licenciaPropia()) delete reg[k];
+        });
+      } catch (_) {}
       // Asegurar que la tienda ACTUAL esté registrada (para poder volver a ella).
       const licAct = desde;
       if (licAct && !(licAct in reg)) reg[licAct] = OC_STATE_SUFIJO;
@@ -2014,6 +2065,17 @@
            receptor lo adopta si el suyo está vacío o si el remitente es el dueño
            (mayor jerarquía) — ver aplicarCatalogo. */
         nombreNegocio: nombreNegocio || "",
+        pinsRol: (function () {
+          try {
+            const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
+            const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? (window.OCSecure.leerPinsVisibles() || {}) : {};
+            return {
+              owner: abre.owner || vis.owner || "",
+              emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""),
+              acct: abre.acct || vis.acct || ""
+            };
+          } catch (_) { return {}; }
+        })(),
         huella: huellaCatalogo(),
       };
     },

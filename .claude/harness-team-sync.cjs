@@ -32,9 +32,21 @@ async function nuevoAparato(browser, instanceId) {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.OCSync && window.OCSync.catalogoPropio, null, { timeout: 15000 });
   // Activar (789) para no toparse con el límite del plan free al crear equipo.
-  await page.evaluate(async (iid) => {
+  // Resiliente a la recarga coordinada de versión (v148): dos "aparatos" en el
+  // MISMO navegador comparten BroadcastChannel, así que la recarga de uno puede
+  // navegar al otro justo durante el evaluate (en producción son dispositivos
+  // distintos y no se tocan). Si el contexto se destruye por navegación, se
+  // re-espera OCSync y se reintenta una vez.
+  const activar = async () => page.evaluate(async (iid) => {
     await fetch("/api/instancia/activar", { method: "POST", body: JSON.stringify({ instanceId: iid, vaciar: false }) });
   }, instanceId);
+  try {
+    await activar();
+  } catch (e) {
+    if (!/context was destroyed|Execution context/i.test(String(e))) throw e;
+    await page.waitForFunction(() => window.OCSync && window.OCSync.catalogoPropio, null, { timeout: 15000 });
+    await activar();
+  }
   page._errs = errs;
   return page;
 }

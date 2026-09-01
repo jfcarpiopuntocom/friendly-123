@@ -338,7 +338,7 @@
     chartBox.innerHTML = `<h3 class="seccion" style="margin-top:0;">${window.t("adv.locComparison")}</h3><div id="oc-chart"></div>`;
     cont.appendChild(chartBox);
 
-    // Mover PL / balance / valorizado (h3 + tabla-wrap) al contenedor
+    // Mover PL / balance / valorizado (h3 + tabla-wrap + su Back to top) al contenedor
     const marcadores = ["tablaPL", "tablaBalance", "tablaValorizado"];
     marcadores.forEach((idTabla) => {
       const tabla = $(idTabla);
@@ -347,6 +347,10 @@
       const h3 = wrap && wrap.previousElementSibling;
       if (h3 && h3.tagName === "H3") cont.appendChild(h3);
       if (wrap) cont.appendChild(wrap);
+      const nxt = wrap && wrap.nextElementSibling;
+      if (nxt && nxt.querySelector && nxt.querySelector('[data-i18n="adv.backToTop"]')) {
+        cont.appendChild(nxt);
+      }
     });
 
     // --- Descarga formal para el contador (JFC, 2026-07-01) ---
@@ -1993,8 +1997,58 @@ Keep it somewhere safe.`);
     // seccion reconocida se explica con un hint breve. Si el riel falla,
     // los paneles ya armados quedan visibles tal cual estaban - cero riesgo
     // (ver feedback_aislar_fallos_ui_nunca_datos).
+    function enlaceArriba() {
+      const d = document.createElement("div");
+      d.className = "oc-back-top";
+      d.style.cssText = "text-align:right;margin:8px 0 20px;";
+      const label = (window.t ? window.t("adv.backToTop") : "Back to top");
+      d.innerHTML = '<a href="#vista-avanzado" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">' + label + "</span></a>";
+      return d;
+    }
+    function quitarTops(scope) {
+      if (!scope) return;
+      Array.from(scope.querySelectorAll('[data-i18n="adv.backToTop"]')).forEach(function (span) {
+        const box = span.closest("div");
+        if (box && box.parentNode) box.parentNode.removeChild(box);
+      });
+    }
+    function esInicioSeccion(n) {
+      if (!n || n.nodeType !== 1) return false;
+      if (n.classList && n.classList.contains("oc-back-top")) return false;
+      if (n.tagName === "H3") return true;
+      if (n.id === "oc-contable" || n.id === "oc-acct-lock" || n.id === "oc-firststeps") return true;
+      if (n.querySelector && n.querySelector(":scope > h3, :scope > h4")) return true;
+      return false;
+    }
+    function repartirBackToTop(scope) {
+      if (!scope) return;
+      quitarTops(scope);
+      const raw = Array.from(scope.children);
+      let i = 0;
+      while (i < raw.length) {
+        const ch = raw[i];
+        if (!ch || !ch.parentNode) { i++; continue; }
+        if (ch.id === "oc-contable") { repartirBackToTop(ch); i++; continue; }
+        if (ch.tagName === "DETAILS") { i++; continue; }
+        if (ch.classList && ch.classList.contains("oc-back-top")) { i++; continue; }
+        if (!esInicioSeccion(ch)) { i++; continue; }
+        let last = ch;
+        let k = i + 1;
+        while (k < raw.length) {
+          const nx = raw[k];
+          if (!nx) break;
+          if (nx.id === "oc-contable") break;
+          if (esInicioSeccion(nx) || nx.tagName === "H3") break;
+          last = nx;
+          k++;
+        }
+        last.insertAdjacentElement("afterend", enlaceArriba());
+        i = k;
+      }
+    }
     (function () {
       try {
+        quitarTops(vista);
         const HINTS = {
           "Accounting": "T-accounts, P&L, balance sheet, valued inventory. Needs a passcode.",
           "Recent activity": "Today's operational history.",
@@ -2065,6 +2119,9 @@ Keep it somewhere safe.`);
           if (i < 3) return; // titulo + intro + "how does it work" quedan fuera del riel
           if (n.id === "oc-riel-fila" || n.id === "oc-firststeps") return;
           if (n.tagName === "DETAILS") { const sm = n.querySelector("summary"); if (sm && esComo(sm.textContent)) return; }
+          /* Huérfanos "Back to top": el riel los trata como hijos sueltos y
+             los apila al final (4 seguidos). Se redistribuyen después. */
+          if (n.querySelector && n.querySelector('[data-i18n="adv.backToTop"]') && !n.querySelector("h3,h4") && n.children.length <= 1) return;
           mover.push(n);
         });
 
@@ -2242,6 +2299,7 @@ Keep it somewhere safe.`);
           else if (mq && mq.addListener) mq.addListener(resp);
         } catch (_) {}
         try { obs.observe(rNav, { childList: true }); new MutationObserver(resp).observe(rNav, { childList: true }); } catch (_) {}
+        try { repartirBackToTop(contR); } catch (_) {}
       } catch (_) { /* si el riel falla, los paneles ya armados arriba siguen visibles tal cual estaban - cero riesgo */ }
     })();
 
@@ -2270,7 +2328,10 @@ Keep it somewhere safe.`);
          dueño/admin puede cambiarlos con los lapicitos de abajo. */
       const emp = (pins && pins.empleados && pins.empleados.length) ? pins.empleados.join(", ") : "260";
       const acct = (pins && pins.acct) ? pins.acct : "357";
-      const owner = (pins && pins.owner) ? pins.owner : "—";
+      const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
+      let owner = abre.owner || (pins && pins.owner) || "";
+      if (owner === "888" && abre.owner !== "888") owner = abre.owner || "789";
+      if (!owner) owner = "789";
       /* LAPICITOS DE EDICIÓN INDIVIDUAL (JFC 2026-08-28). Cada PIN se edita
          por separado con su lapicito, en la cascada de jerarquía: el dueño
          edita los tres; el admin edita SOLO el de encargado (no el del dueño
@@ -2301,7 +2362,8 @@ Keep it somewhere safe.`);
           if (nuevo == null) return;
           const v = String(nuevo).trim();
           if (!/^[0-9]{3}$/.test(v)) { alert("The PIN must be 3 digits (0-9)."); return; }
-          if (["456", "789", "260", "357"].indexOf(v) !== -1) { alert("That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one."); return; }
+          if (["456", "789"].indexOf(v) !== -1) { alert("That PIN is reserved (demo or activation). Pick another one."); return; }
+          if (rol !== "owner" && ["260", "357"].indexOf(v) !== -1) { alert("That PIN is reserved. Pick another one."); return; }
           /* RESGUARDOS DEL DUEÑO (JFC 2026-08-29, fusión de listas de PIN):
              el flujo viejo de "rotar los 3 a ciegas" exigía confirmación doble
              y correo de recuperación ANTES de cambiar el PIN del dueño — es la
@@ -2318,6 +2380,12 @@ Keep it somewhere safe.`);
           try {
             const ok = await window.OCSecure[fn](v);
             if (!ok) { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); return; }
+            try {
+              if (window.OCSecure.recordarPinQueAbre) {
+                window.OCSecure.recordarPinQueAbre(v, rol === "owner" ? "dueno" : (rol === "emp" ? "empleado" : "contador"));
+              }
+            } catch (_) {}
+            try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
             /* DIRECTORIO DE ACCESO (JFC 2026-08-28): al cambiar un PIN, se
                asocia a una persona (nombre, correo opcional, notas). Es la base
                para "quién hizo qué" y el control de acceso de cada dueño. */
