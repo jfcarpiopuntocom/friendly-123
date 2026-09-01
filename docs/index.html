@@ -714,6 +714,12 @@
     padding-bottom:9px;
     margin-top:30px;
   }
+  /* Advanced: escala de texto plana (JFC 2026-09-01). "Todo texto del tamaño de
+     Member/Role/Status o en sus inmediaciones": los titulos de seccion (18px,
+     repetidos por toda la vista) se veian grotescamente grandes. Se capan a 15px
+     SOLO dentro de #vista-avanzado — no afecta ninguna otra vista. !important
+     tambien alcanza titulos con font-size inline del contenido dinamico. */
+  #vista-avanzado h2, #vista-avanzado h3, #vista-avanzado h3.seccion, #vista-avanzado h4{ font-size:15px !important; }
 
   /* ================= ALERTAS ================= */
   .lista-alertas{
