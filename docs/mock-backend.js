@@ -2500,13 +2500,20 @@
            2026-08-25): antes solo se guardaba nombre + %, muy por detras de lo
            que ya se pide para clientes. Todo opcional salvo el nombre. */
         const _s = (x) => String(x || "").trim().slice(0, 160);
-        const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim().slice(0, 80), comision: Number(body.comision) || 0,
+        /* Base % en `comisionBase` (JFC 2026-09-01): el editor de comisionista
+           (portado de amigable) usa comisionBase y resolverTrato lo lee primero.
+           Se acepta `comision` como alias de entrada y se guarda `comision`
+           espejo para compatibilidad con datos/lectores viejos. */
+        const _base = Math.max(0, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0);
+        const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim().slice(0, 80), comisionBase: _base, comision: _base,
           telefono: _s(body.telefono), cedula: _s(body.cedula), banco: _s(body.banco), cuenta: _s(body.cuenta),
           direccion: _s(body.direccion), notas: _s(body.notas), activa: true, creadoEn: new Date().toISOString(),
           /* JFC 2026-08-27 (portado de amigable-123): meta mensual y tramos/escalas
-             propios del comisionista. Si se definen, mandan sobre los de la percha. */
+             propios del comisionista. Formato {hasta,comision} — el MISMO que lee
+             pctDeLaVenta/resolverTrato y el editor de barra (antes {desde,pct}: los
+             tramos del comisionista se perdían en silencio). */
           metaMensual: Math.max(0, Number(body.metaMensual) || 0),
-          escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ desde: Math.max(0, Number(e.desde) || 0), pct: Math.max(0, Number(e.pct) || 0) })).filter((e) => e.pct > 0) : [] };
+          escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ hasta: Math.max(0, Number(e.hasta) || 0), comision: Math.max(0, Math.min(100, Number(e.comision) || 0)) })).filter((e) => e.hasta > 0) : [] };
         promotoras.push(nuevaProm);
         mov("promotora-alta", { promotora: nuevaProm.nombre });
         return J(nuevaProm);
@@ -2516,9 +2523,14 @@
         const pr = promotoras.find((x) => x.id === mProm[1]);
         if (!pr) return J({ error: "Associate not found." }, 404);
         if (body.nombre !== undefined) pr.nombre = String(body.nombre).trim().slice(0, 80) || pr.nombre;
-        if (body.comision !== undefined) pr.comision = Math.max(0, Number(body.comision) || 0);
+        // Base % en comisionBase (con comision espejo) — acepta ambos nombres de entrada.
+        if (body.comisionBase !== undefined || body.comision !== undefined) {
+          const b = Math.max(0, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0);
+          pr.comisionBase = b; pr.comision = b;
+        }
         if (body.metaMensual !== undefined) pr.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
-        if (body.escalasComision !== undefined) pr.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ desde: Math.max(0, Number(e.desde) || 0), pct: Math.max(0, Number(e.pct) || 0) })).filter((e) => e.pct > 0) : [];
+        // Escalas {hasta,comision} — el mismo formato que lee pctDeLaVenta (antes {desde,pct}).
+        if (body.escalasComision !== undefined) pr.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ hasta: Math.max(0, Number(e.hasta) || 0), comision: Math.max(0, Math.min(100, Number(e.comision) || 0)) })).filter((e) => e.hasta > 0) : [];
         ["telefono", "cedula", "banco", "cuenta", "direccion", "notas"].forEach((k) => { if (body[k] !== undefined) pr[k] = String(body[k] || "").trim().slice(0, 160); });
         mov("promotora-edicion", { promotora: pr.nombre });
         return J(pr);

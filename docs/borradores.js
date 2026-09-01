@@ -254,6 +254,13 @@
 (function () {
   "use strict";
 
+  // Categorías propias del negocio (JFC 2026-09-01): además de la semilla y las
+  // derivadas de productos, el dueño/admin puede AGREGAR categorías desde Sold.
+  // Se persisten local (sin nube; el relay sigue zero-knowledge).
+  var CUSTOM_KEY = "f123_categorias_custom";
+  function _leerCustom() { try { var a = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+  function _guardarCustom(a) { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(a)); } catch (_) {} }
+
   var SEMILLA = [
     "Bar", "Kitchen", "Soft drinks", "Snacks",
     "Crafts", "Art & prints", "Jewelry",
@@ -293,6 +300,11 @@
         if (set[k]) return;
         set[k] = 1; vistas.push(c);
       });
+      _leerCustom().forEach(function (c) {
+        var cc = normalizar(c); if (!cc) return;
+        var k = cc.toLowerCase(); if (set[k]) return;
+        set[k] = 1; vistas.push(cc);
+      });
       lista.innerHTML = vistas.map(function (c) {
         return '<option value="' + String(c).replace(/"/g, "&quot;") + '"></option>';
       }).join("");
@@ -318,10 +330,52 @@
     } catch (_) {}
   }
 
+  /* Lista unificada: derivadas de productos + semilla + propias, sin duplicar. */
+  function listar(productos) {
+    var set = Object.create(null), out = [];
+    function add(c) { var cc = normalizar(c); if (!cc) return; var k = cc.toLowerCase(); if (set[k]) return; set[k] = 1; out.push(cc); }
+    (productos || []).forEach(function (p) { add(p && p.categoria); });
+    SEMILLA.forEach(add);
+    _leerCustom().forEach(add);
+    return out.sort(function (a, b) { return a.localeCompare(b); });
+  }
+  /* Agregar categoría propia. Devuelve false si vacía o ya existe. */
+  function agregar(nombre) {
+    var c = normalizar(nombre); if (!c) return false;
+    var cur = _leerCustom();
+    if (cur.some(function (x) { return normalizar(x).toLowerCase() === c.toLowerCase(); })) return false;
+    if (SEMILLA.some(function (x) { return x.toLowerCase() === c.toLowerCase(); })) return true; // ya sugerida
+    cur.push(c); _guardarCustom(cur);
+    try { if (window.OCLastProductos) refrescar(window.OCLastProductos); } catch (_) {}
+    return true;
+  }
+  /* Renombrar una categoría en TODO el negocio: propaga a los productos que la
+     usan (PATCH por producto) y actualiza la lista propia. Async; devuelve el
+     número de productos actualizados. */
+  async function renombrar(viejo, nuevo) {
+    var vo = normalizar(viejo), nu = normalizar(nuevo);
+    if (!vo || !nu || vo.toLowerCase() === nu.toLowerCase()) return 0;
+    var prods = [];
+    try { prods = await (await fetch("/api/productos?todas=1")).json(); } catch (_) { prods = []; }
+    var afectados = (prods || []).filter(function (p) { return normalizar(p.categoria).toLowerCase() === vo.toLowerCase(); });
+    for (var i = 0; i < afectados.length; i++) {
+      try { await fetch("/api/productos/" + encodeURIComponent(afectados[i].id), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoria: nu }) }); } catch (_) {}
+    }
+    // Actualizar la lista propia: quitar el viejo, asegurar el nuevo.
+    var cur = _leerCustom().filter(function (x) { return normalizar(x).toLowerCase() !== vo.toLowerCase(); });
+    if (!cur.some(function (x) { return normalizar(x).toLowerCase() === nu.toLowerCase(); }) &&
+        !SEMILLA.some(function (x) { return x.toLowerCase() === nu.toLowerCase(); })) cur.push(nu);
+    _guardarCustom(cur);
+    return afectados.length;
+  }
+
   window.OCCategorias = {
     refrescar: refrescar,
     enganchar: enganchar,
     engancharTodos: engancharTodos,
+    listar: listar,
+    agregar: agregar,
+    renombrar: renombrar,
     semilla: SEMILLA.slice(),
   };
 })();

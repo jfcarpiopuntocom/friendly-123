@@ -1,9 +1,9 @@
 {
-  "version": "1.7.73",
+  "version": "1.7.74",
   "fecha": "2026-09-01",
-  "changelog": "v1.7.73 — Team: lista unificada mobile-first (tarjetas, no tablas) con PIN visible a owner/admin (para no repetir al crear otros), lapicito por miembro, badges de rol/estado, ubicacion; sincronizada con Access & recovery (misma fuente /api/usuarios). Backend GET /api/usuarios?pins=1 opt-in (local, el relay sigue zero-knowledge).",
+  "changelog": "v1.7.74 — (1) Fix conexion frontend/backend de comisiones: /api/promotoras guardaba escalasComision como {desde,pct} y base en `comision`, pero el editor y pctDeLaVenta usan {hasta,comision} y comisionBase -> los tramos del comisionista se perdian. Ahora casan. (2) Sold: lapicito para dueno/admin para AGREGAR o EDITAR (renombrar) categorias; renombrar propaga a los productos.",
   "requerida": false,
-  "shell": "f123-shell-v186",
+  "shell": "f123-shell-v187",
   "apagar": [],
-  "releaseName": "v1.7.73"
+  "releaseName": "v1.7.74"
 }

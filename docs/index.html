@@ -2161,11 +2161,20 @@ function montarBuscadorVender(productos){
   const chips = document.getElementById("venderCategoriaChips");
   const input = document.getElementById("venderBuscarInput");
   if (!chips || !input) return;
-  const categorias = Array.from(new Set(productos.map(p => (p.categoria || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  // Categorías: derivadas de productos + semilla + propias (JFC 2026-09-01).
+  const categorias = (window.OCCategorias && window.OCCategorias.listar)
+    ? window.OCCategorias.listar(productos)
+    : Array.from(new Set(productos.map(p => (p.categoria || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   if (_venderCategoriaActiva && !categorias.includes(_venderCategoriaActiva)) _venderCategoriaActiva = "";
   const chipEstilo = (activo) => `font-size:13px;padding:6px 12px;border-radius:999px;border:2px solid var(--azul-medio,#2c4a68);cursor:pointer;background:${activo ? "var(--azul-medio,#2c4a68)" : "transparent"};color:${activo ? "#fff" : "var(--azul-medio,#2c4a68)"} !important;-webkit-text-fill-color:${activo ? "#fff" : "var(--azul-medio,#2c4a68)"} !important;`;
+  // Lapicito de gestión de categorías: SOLO dueño/admin (JFC 2026-09-01) — pueden
+  // AGREGAR o EDITAR (renombrar) categorías, no solo elegirlas para filtrar.
+  const _rolCat = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; const puedeGestionarCat = _rolCat === "dueno" || _rolCat === "admin" || _rolCat === "demo";
+  const lapizCat = puedeGestionarCat
+    ? `<button type="button" data-cat-manage="1" title="${window.t ? window.t("sold.catManage") : "Add or edit categories"}" aria-label="${window.t ? window.t("sold.catManage") : "Add or edit categories"}" style="font-size:15px;padding:5px 11px;border-radius:999px;border:2px dashed var(--azul-medio,#2c4a68);cursor:pointer;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;">✎</button>`
+    : "";
   chips.innerHTML = `<button type="button" data-chip-cat="" style="${chipEstilo(!_venderCategoriaActiva)}">${window.t("sold.chipAll")}</button>` +
-    categorias.map(c => `<button type="button" data-chip-cat="${escHtml(c)}" style="${chipEstilo(_venderCategoriaActiva === c)}">${escHtml(c)}</button>`).join("");
+    categorias.map(c => `<button type="button" data-chip-cat="${escHtml(c)}" style="${chipEstilo(_venderCategoriaActiva === c)}">${escHtml(c)}</button>`).join("") + lapizCat;
   // Indice de busqueda tolerante a errores de tipeo (JFC 2026-07-30, "world
   // standards"). MiniSearch esta vendorizado localmente. Se reconstruye
   // cada vez que llega una lista nueva de productos (evita indice viejo) y
@@ -2201,6 +2210,8 @@ function montarBuscadorVender(productos){
   if (!chips.dataset.listenerListo) {
     chips.dataset.listenerListo = "1";
     chips.addEventListener("click", (e) => {
+      const gestor = e.target.closest("[data-cat-manage]");
+      if (gestor) { abrirGestorCategorias(); return; }
       const b = e.target.closest("[data-chip-cat]");
       if (!b) return;
       _venderCategoriaActiva = b.dataset.chipCat;
@@ -2212,6 +2223,80 @@ function montarBuscadorVender(productos){
     input.addEventListener("input", aplicarFiltro);
   }
   aplicarFiltro();
+}
+
+// Gestor de categorías (JFC 2026-09-01): dueño/admin agregan o renombran
+// categorías desde Sold. Panel INLINE bajo los chips (no popup nuevo en la UI
+// del cliente). Renombrar propaga a los productos vía OCCategorias.renombrar.
+function abrirGestorCategorias() {
+  const _rolCat = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; const puede = _rolCat === "dueno" || _rolCat === "admin" || _rolCat === "demo";
+  if (!puede || !window.OCCategorias) return;
+  const chips = document.getElementById("venderCategoriaChips");
+  if (!chips) return;
+  let panel = document.getElementById("oc-cat-manager");
+  if (panel) { panel.remove(); return; } // toggle: segundo click cierra
+  panel = document.createElement("div");
+  panel.id = "oc-cat-manager";
+  panel.className = "tag-card";
+  panel.style.cssText = "margin-top:10px;padding:12px 14px;text-align:left;";
+  const T = (k, f) => (window.t ? window.t(k) : f);
+  function pintar() {
+    const cats = window.OCCategorias.listar(window._productosVenderCache || []);
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+        <strong style="font-size:14px;">${T("sold.catTitle", "Categories")}</strong>
+        <button type="button" data-cat-cerrar style="background:none;border:none;font-size:18px;line-height:1;cursor:pointer;color:var(--ink-soft);">✕</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input id="oc-cat-nueva" type="text" placeholder="${T("sold.catAddPh", "New category name")}" style="flex:1;min-width:160px;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;">
+        <button type="button" data-cat-add class="ir" style="font-size:14px;padding:9px 16px;">${T("sold.catAdd", "+ Add")}</button>
+      </div>
+      <div id="oc-cat-list" style="display:flex;flex-direction:column;gap:6px;">
+        ${cats.map(c => `
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="flex:1;min-width:120px;font-size:14px;">${escHtml(c)}</span>
+            <button type="button" data-cat-rename="${escHtml(c)}" title="${T("sold.catRename", "Rename")}" aria-label="${T("sold.catRename", "Rename")}" style="font-size:14px;padding:4px 10px;border:2px solid var(--azul-medio);border-radius:6px;background:transparent;color:var(--azul-medio);cursor:pointer;">✎</button>
+          </div>`).join("")}
+      </div>
+      <p id="oc-cat-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;"></p>`;
+    const msg = panel.querySelector("#oc-cat-msg");
+    panel.querySelector("[data-cat-cerrar]").addEventListener("click", () => panel.remove());
+    panel.querySelector("[data-cat-add]").addEventListener("click", () => {
+      const inp = panel.querySelector("#oc-cat-nueva");
+      const v = (inp.value || "").trim();
+      if (!v) return;
+      const ok = window.OCCategorias.agregar(v);
+      msg.style.color = ok ? "var(--verde,#2f7a4f)" : "var(--rojo,#a3392a)";
+      msg.textContent = ok ? T("sold.catAdded", "Category added.") : T("sold.catExists", "That category already exists.");
+      if (ok) { inp.value = ""; montarBuscadorVender(window._productosVenderCache || []); pintar(); }
+    });
+    panel.querySelectorAll("[data-cat-rename]").forEach(btn => btn.addEventListener("click", () => {
+      const row = btn.parentElement;
+      const viejo = btn.dataset.catRename;
+      if (row.dataset.editando) return;
+      row.dataset.editando = "1";
+      row.innerHTML = `
+        <input type="text" value="${escHtml(viejo)}" data-cat-rn-input style="flex:1;min-width:120px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;">
+        <button type="button" data-cat-rn-save style="font-size:13px;padding:5px 12px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:#fff;cursor:pointer;">${T("sold.catRenameSave", "Save")}</button>
+        <button type="button" data-cat-rn-cancel style="font-size:13px;padding:5px 10px;border:2px solid var(--ink-soft);border-radius:6px;background:transparent;color:var(--ink-soft);cursor:pointer;">✕</button>`;
+      const input = row.querySelector("[data-cat-rn-input]");
+      input.focus();
+      row.querySelector("[data-cat-rn-cancel]").addEventListener("click", () => pintar());
+      row.querySelector("[data-cat-rn-save]").addEventListener("click", async () => {
+        const nuevo = (input.value || "").trim();
+        if (!nuevo || nuevo === viejo) { pintar(); return; }
+        row.querySelector("[data-cat-rn-save]").disabled = true;
+        const n = await window.OCCategorias.renombrar(viejo, nuevo);
+        msg.style.color = "var(--verde,#2f7a4f)";
+        msg.textContent = window.tf ? window.tf("sold.catRenamed", { n: n }) : (n + " product(s) updated.");
+        try { if (typeof cargarGridVender === "function") cargarGridVender(); } catch (_) {}
+        montarBuscadorVender(window._productosVenderCache || []);
+        pintar();
+      });
+    }));
+  }
+  pintar();
+  chips.insertAdjacentElement("afterend", panel);
 }
 
 // ---- Cierre del dia ----
