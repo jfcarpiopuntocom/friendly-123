@@ -3255,9 +3255,19 @@
       // (esos hashes viven en crypto-store, no en este mock). Se pide al dueno
       // que elija PINs que no coincidan con los suyos.
 
-      // GET /api/usuarios — lista usuarios del equipo (sin PIN; id/nombre/rol/email/activo)
+      // GET /api/usuarios — lista usuarios del equipo (id/nombre/rol/email/activo).
+      // ?pins=1 (JFC 2026-09-01): incluye el PIN en claro para que el owner/admin
+      // vea la lista unificada del Team y no repita PINs al crear otros. Es LOCAL
+      // (este fetch lo intercepta el mock en el dispositivo) — el PIN nunca sale
+      // del aparato: el relay sigue zero-knowledge. El gating por rol lo hace el
+      // frontend (solo pide ?pins=1 si isDueno()/isAdmin()).
       if (path === "/api/usuarios" && (!opts || !opts.method || opts.method === "GET")) {
-        return J(usuarios.filter((u) => !u.borrado).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn })));
+        const conPin = q.get("pins") === "1";
+        return J(usuarios.filter((u) => !u.borrado).map((u) => {
+          const base = { id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn };
+          if (conPin) base.pin = u.pin || "";
+          return base;
+        }));
       }
       // POST /api/usuarios — crear miembro del equipo (encargado o admin); desde Avanzado = solo dueno.
       //

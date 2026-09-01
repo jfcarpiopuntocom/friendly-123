@@ -1,9 +1,9 @@
 {
-  "version": "1.7.72",
+  "version": "1.7.73",
   "fecha": "2026-09-01",
-  "changelog": "v1.7.72 — Commissions (Opción B, idéntico a AMIGABLE): editor con barra de tramos + modalidad artista/vendedora + inputs espejo; gestión de comisionistas con lista viva, buscador, datos de contacto/pago y archivar. i18n EN/ES. Arregla el bug de tramos de friendly ({desde,pct}->{hasta,comision}). Mobile-first.",
+  "changelog": "v1.7.73 — Team: lista unificada mobile-first (tarjetas, no tablas) con PIN visible a owner/admin (para no repetir al crear otros), lapicito por miembro, badges de rol/estado, ubicacion; sincronizada con Access & recovery (misma fuente /api/usuarios). Backend GET /api/usuarios?pins=1 opt-in (local, el relay sigue zero-knowledge).",
   "requerida": false,
-  "shell": "f123-shell-v185",
+  "shell": "f123-shell-v186",
   "apagar": [],
-  "releaseName": "v1.7.72"
+  "releaseName": "v1.7.73"
 }
