@@ -1,9 +1,9 @@
 {
-  "version": "1.7.71",
+  "version": "1.7.72",
   "fecha": "2026-09-01",
-  "changelog": "v1.7.71 — Advanced: titulos de seccion capados a 15px (escala plana, ~tamano de la tabla del equipo; antes 18px se veian grandes), solo dentro de #vista-avanzado. Nuevo heading real para transfers entre perchas (shelves.transfersHeading). Sin cambios de comportamiento.",
+  "changelog": "v1.7.72 — Commissions (Opción B, idéntico a AMIGABLE): editor con barra de tramos + modalidad artista/vendedora + inputs espejo; gestión de comisionistas con lista viva, buscador, datos de contacto/pago y archivar. i18n EN/ES. Arregla el bug de tramos de friendly ({desde,pct}->{hasta,comision}). Mobile-first.",
   "requerida": false,
-  "shell": "f123-shell-v184",
+  "shell": "f123-shell-v185",
   "apagar": [],
-  "releaseName": "v1.7.71"
+  "releaseName": "v1.7.72"
 }
