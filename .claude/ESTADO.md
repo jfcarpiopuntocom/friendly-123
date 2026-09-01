@@ -57,7 +57,7 @@ Actualizado: 2026-09-01 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 
 ## 3. ESTADO DE EJECUCIÓN (mutable — se sobrescribe cada trabajo)
 
-- **Versión en producción (master):** `1.7.74` · shell `f123-shell-v187`.
+- **Versión en producción (master):** `1.7.76` · shell `f123-shell-v189`.
 - **friendly-123** es el repo de TESTEO (inglés/i18n); suele ir ADELANTE de
   AMIGABLE. AMIGABLE (español) clonado read-only en
   `/home/user/jfcarpiopuntocom/amigable` para ports.
@@ -87,17 +87,17 @@ Actualizado: 2026-09-01 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 
 ## 4. ÚLTIMA OBSERVACIÓN / PENDIENTES
 
-- Hecho reciente: SKILL.state (este archivo); fix recarga de versión que NO
-  interrumpe el candado del PIN (se difiere a post-login vía
-  `f123_reload_al_entrar`, invisible); Demo:456 agregado a "Current access codes"
-  en Access & Recovery (sin lapicito, permanente).
-- **PENDIENTE (JFC 2026-09-01): mejorar el inventario DEMO.** Está «demasiado
-  rock&roll y poco serio». Meter **cuadros/pinturas, eventos y antigüedades** —
-  el demo (456, permanente) es la probada completa de la app antes de comprar;
-  debe verse world-class y creíble. (Está en `mock-backend.js`, array `productos`
-  del seed.) NO implementado aún — esperar momento/OK.
-- Pendiente opcional (dicho por mí, sin OK): matriz de Commissions está como RFM
-  (Champions/At-risk, inglés) en vez de «Estaciones» de AMIGABLE — mismo concepto.
+- Hecho reciente (v1.7.75/76): recarga de versión ya NO interrumpe el candado
+  (se difiere a post-login, invisible); Demo:456 en "Current access codes";
+  **inventario DEMO mejorado** — negocio cultural creíble (Galería + Consignación
+  de artistas 85/15 + Bar & Café con vinos/quesos/bebidas/comida + Eventos
+  culturales), 38 productos, precios/stock realistas.
+- **Garantía dura verificada:** el seed del demo SOLO afecta al demo (456). Un
+  usuario real carga sus buffers A/B guardados (aplicarRespaldo) y una activación
+  789 arranca de cero (vaciar). Editar el seed NO escribe en localStorage de
+  nadie. idiomARTE y todos los reales, intactos. (Demo ≠ fresco ≠ real.)
+- Pendiente opcional (sin OK): matriz de Commissions como RFM (Champions/At-risk)
+  vs «Estaciones» de AMIGABLE — mismo concepto.
 - Nada roto; rama sincronizada con master.
 
 ## 5. PROTOCOLO (cómo usar y actualizar este archivo)
