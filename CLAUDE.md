@@ -29,6 +29,15 @@ El detalle completo y portátil a TODOS los proyectos está en
 
 ---
 
+## REGLA 0-bis — ESTADO MUTABLE PRIMERO (patrón SKILL.state, JFC 2026-09-01)
+
+Antes que nada, leer **`.claude/ESTADO.md`**: el estado de ejecución vivo, compacto
+y mutable (implementa arXiv:2608.26263 aplicado a este trabajo). Da contexto
+suficiente sin re-derivar del chat gigante → menos tokens, menos errores
+evitables. **Al terminar cada trabajo se SOBRESCRIBE** (estado, no log); el
+detalle narrativo va al `DIARIO-*.md`. Orden de lectura al abrir sesión:
+`.claude/ESTADO.md` → `CLAUDE.md` → `DIARIO-*.md` más reciente.
+
 ## REGLA 0 — LEER LOS APUNTES ANTES DE PLANIFICAR
 
 **Obligatorio, antes de proponer cualquier plan o port:**
