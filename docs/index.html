@@ -133,6 +133,13 @@
     --font-serif:"Space Grotesk", "Avenir Next Condensed", sans-serif;
     --nav-h:78px;
     --sidebar-w:248px;
+
+    /* Easings del sistema (Fase C 2026-09-01, basado en Emil Kowalski): las
+       curvas nativas de CSS son débiles; se usa una curva ease-out fuerte para
+       entradas/salidas y una ease-in-out fuerte para movimiento en pantalla.
+       No se tocan hover/color (esos siguen con `ease`, que es lo correcto). */
+    --ease-out:cubic-bezier(.23,1,.32,1);
+    --ease-in-out:cubic-bezier(.77,0,.175,1);
     --header-h:104px;
     /* === SISTEMA SIMON — paleta oficial, aprobado JFC 2026-07-03 ===
        Inventario (core):  Verde · Amarillo · Naranja · Rojo · Azul · Negro
@@ -635,7 +642,7 @@
     margin:0 auto;
   }
   .vista{display:none;}
-  .vista.activa{display:block; animation:vistaEntra .32s cubic-bezier(.22,.8,.32,1);}
+  .vista.activa{display:block; animation:vistaEntra .32s var(--ease-out,cubic-bezier(.23,1,.32,1));}
   @keyframes vistaEntra{
     /* Solo transform — NUNCA opacity: el contenido debe ser visible aunque
        la animacion no corra (regla IN STONE de JFC, contenido visible x default). */
