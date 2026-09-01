@@ -1,9 +1,9 @@
 {
-  "version": "1.7.68",
+  "version": "1.7.69",
   "fecha": "2026-09-01",
-  "changelog": "v1.7.68 — i18n: el apodo del dispositivo (header y Avanzado) ahora se traduce EN/ES (antes 'Name this device' estaba fijo en inglés). Sin cambios de comportamiento.",
+  "changelog": "v1.7.69 — pulido de animacion (Emil): curva ease-out fuerte unificada (tokens --ease-out/--ease-in-out) aplicada a la entrada de vistas. Sin cambios de comportamiento ni de paleta. B/C/D se auditaron y ya estaban cubiertos (no requerian cambio).",
   "requerida": false,
-  "shell": "f123-shell-v181",
+  "shell": "f123-shell-v182",
   "apagar": [],
-  "releaseName": "v1.7.68"
+  "releaseName": "v1.7.69"
 }
