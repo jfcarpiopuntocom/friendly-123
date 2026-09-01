@@ -1,9 +1,9 @@
 {
-  "version": "1.7.67",
-  "fecha": "2026-08-31",
-  "changelog": "v1.7.67 — Advanced: one ↑ Back to top per subsection. Orphans left by moving P&L/balance/inventory into Accounting no longer stack.",
+  "version": "1.7.68",
+  "fecha": "2026-09-01",
+  "changelog": "v1.7.68 — i18n: el apodo del dispositivo (header y Avanzado) ahora se traduce EN/ES (antes 'Name this device' estaba fijo en inglés). Sin cambios de comportamiento.",
   "requerida": false,
-  "shell": "f123-shell-v180",
+  "shell": "f123-shell-v181",
   "apagar": [],
-  "releaseName": "v1.7.67"
+  "releaseName": "v1.7.68"
 }
