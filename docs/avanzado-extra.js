@@ -1418,8 +1418,11 @@
       const msgElPre = document.getElementById("oc-emp-msg");
       const colisionPendiente = msgElPre && msgElPre.dataset.colisionPendiente ? msgElPre.dataset.colisionPendiente : null;
       let equipo = [];
+      // ?pins=1 solo para owner/admin (JFC 2026-09-01): la lista unificada del
+      // Team muestra los PINs para no repetirlos al crear otros. Es local.
+      const _verPins = (isDueno() || isAdmin());
       try {
-        const r = await fetch("/api/usuarios");
+        const r = await fetch("/api/usuarios" + (_verPins ? "?pins=1" : ""));
         if (r.ok) equipo = await r.json();
       } catch (_) {}
 
@@ -1446,62 +1449,41 @@
         return window.tf("geo.time.dAgo", { n: Math.round(h / 24) });
       };
 
-      lista.innerHTML = `
-        <table style="width:100%;border-collapse:collapse;font-size:14px;">
-          <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
-            <th style="text-align:left;padding:6px 8px;font-weight:700;">Member</th>
-            <th style="text-align:center;padding:6px 8px;font-weight:700;">Role</th>
-            <th style="text-align:center;padding:6px 8px;font-weight:700;">Status</th>
-            <th aria-hidden="true" style="text-align:right;padding:6px 8px;font-weight:700;">Actions</th>
-          </tr></thead>
-          <tbody id="oc-emp-tbody"></tbody>
-        </table>`;
-      const tbody = document.getElementById("oc-emp-tbody");
-
-      /* EL DUEÑO ENCABEZA LA LISTA (JFC 2026-08-21). Antes la tabla empezaba
-         en los admins, asi que la jerarquia se leia descabezada y parecia que
-         el admin era lo mas alto que hay. Es una fila informativa: el PIN del
-         dueño no se guarda aqui (vive cifrado en crypto-store) y por eso no
-         tiene botones — no hay nada que editar desde esta tabla. */
-      (function () {
-        const trD = document.createElement("tr");
-        trD.style.borderBottom = "1px solid var(--azul-suave,#dde5ec)";
-        trD.style.background = "var(--paper-deep,#E2E8ED)";
-        trD.innerHTML = `
-          <td style="padding:8px;"><div style="font-weight:700;">${isDueno() ? "You" : "The owner"}</div></td>
-          <td style="padding:8px;text-align:center;"><span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Owner</span></td>
-          <td style="padding:8px;text-align:center;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">Active</td>
-          <td style="padding:8px;text-align:right;"><span style="font-size:13px;color:#4A5A6A;">Highest authority</span></td>`;
-        tbody.appendChild(trD);
-      })();
+      // ===== Lista unificada del Team — TARJETAS mobile-first (JFC 2026-09-01) =====
+      // Una sola lista de todo el equipo (dueño + admins + encargados), tarjetas
+      // que se leen bien en vertical (nada de tablas), PIN visible a owner/admin
+      // (para no repetir al crear otros), y lapicito por miembro. Sincroniza con
+      // Access & recovery: ambos leen /api/usuarios (misma fuente de verdad).
+      const _cardCss = "display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;padding:12px 14px;margin-bottom:8px;";
+      const _badge = (txt, bg) => `<span style="font-size:12px;font-weight:700;background:${bg};color:#fff;padding:2px 8px;border-radius:10px;white-space:nowrap;">${txt}</span>`;
+      const _pinChip = (pin) => `<span title="PIN" style="font-size:13px;font-weight:700;font-family:var(--font-mono);letter-spacing:.12em;background:var(--paper-deep,#E2E8ED);color:var(--ink,#0F1923);padding:2px 8px;border-radius:6px;border:1px solid var(--azul-suave,#dde5ec);">PIN ${escHtml(pin)}</span>`;
+      const cards = [];
+      // Tarjeta del DUEÑO (encabeza; su PIN vive cifrado en crypto-store, no aquí).
+      cards.push(`
+        <div class="tag-card" style="${_cardCss}background:var(--paper-deep,#E2E8ED);">
+          <div style="flex:1;min-width:160px;">
+            <div style="font-weight:700;font-size:15px;">${isDueno() ? "You" : "The owner"}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
+              ${_badge("Owner", "#E87A10")}
+              <span style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">Active</span>
+            </div>
+          </div>
+          <div style="font-size:13px;color:#4A5A6A;align-self:center;">Highest authority</div>
+        </div>`);
 
       equipo.forEach((u) => {
-        const tr = document.createElement("tr");
-        tr.style.borderBottom = "1px solid var(--azul-suave,#dde5ec)";
         const estadoColor  = u.activo ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)";
         const estadoTxt    = u.activo ? "Active" : "Inactive";
         const btnEstLabel  = u.activo ? "Deactivate" : "Activate";
         const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
-        /* BADGES NARANJA UNIFICADOS (2026-08-26, UX sweep H3): antes Owner era negro,
-           Admin era ámbar y Employee era azul — tres colores distintos que complicaban
-           la paleta sin añadir información útil (el texto del badge ya dice el rol).
-           Ahora todos usan el mismo naranja #E87A10: limpio, vivo, coherente con el
-           chip activo del riel en mobile. El texto sigue siendo el diferenciador real. */
-        const rolBadge     = u.rol === "admin"
-          ? `<span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Admin</span>`
-          : `<span style="font-size:13px;font-weight:700;background:#E87A10;color:#fff;padding:2px 7px;border-radius:10px;">Employee</span>`;
-        // Admin puede editar encargados Y SU PROPIA FILA (su nombre/PIN), pero no
-        // a OTROS admins (seguridad por capas). El dueño edita a todos. (JFC 2026-08-26:
-        // "el admin también... y el de ellos" — que el admin pueda cambiar su propio PIN.)
+        const rolBadge     = _badge(u.rol === "admin" ? "Admin" : "Employee", "#E87A10");
         const esMiFila = window.OCCurrentUser && String(window.OCCurrentUser.id) === String(u.id);
         const puedeEditar = isDueno() || (isAdmin() && (u.rol === "empleado" || esMiFila));
-        // Promover/degradar (JFC 2026-07-30: "hazlo una lista dinamica y permite
-        // editar y promote y demote") — solo el dueño decide quién es admin.
         const puedePromover = isDueno();
         const ping = ultimasUbic["u:" + u.id];
         const ubicHtml = (isDueno() || isAdmin())
           ? (ping
-              ? `<div style="font-size:13px;color:var(--ink-soft);">📍 ${window.tf("geo.emp.lastSeen", { when: hacetiempo(ping.ts) })}${
+              ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">📍 ${window.tf("geo.emp.lastSeen", { when: hacetiempo(ping.ts) })}${
                   (ping.lat != null && ping.lon != null)
                     ? ` · <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">${window.t("geo.panel.viewMap")}</a>` +
                       (ping.precision != null && ping.precision > 300
@@ -1509,62 +1491,53 @@
                         : ping.precision != null ? ` (±${ping.precision}m)` : "")
                     : " · " + window.t("geo.emp.noLocationThatTime")
                 }</div>`
-              : `<div style="font-size:13px;color:var(--ink-soft);">📍 ${window.t("geo.emp.none")}</div>`)
+              : `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">📍 ${window.t("geo.emp.none")}</div>`)
           : "";
-        tr.innerHTML = `
-          <td style="padding:8px;">
-            <div style="font-weight:700;">${escHtml(u.nombre)}</div>
-            ${u.email ? `<div style="font-size:13px;color:var(--ink-soft);">${escHtml(u.email)}</div>` : ""}
-            ${ubicHtml}
-          </td>
-          <td style="padding:8px;text-align:center;">${rolBadge}</td>
-          <td style="padding:8px;text-align:center;color:${estadoColor};font-weight:700;">${estadoTxt}</td>
-          <td style="padding:8px;text-align:right;white-space:nowrap;">
-            ${puedeEditar ? `
+        const pinChip = (_verPins && u.pin) ? _pinChip(u.pin) : "";
+        const acciones = puedeEditar ? `
               <button data-toggle-id="${escHtml(u.id)}" data-activo="${u.activo}"
-                style="font-size:13px;padding:5px 10px;border:2px solid ${btnEstColor};
-                       border-radius:5px;background:transparent;color:${btnEstColor};cursor:pointer;">
-                ${btnEstLabel}
-              </button>
-              <button data-cambiar-pin="${escHtml(u.id)}"
-                style="font-size:13px;padding:5px 10px;border:2px solid var(--azul-medio);
-                       border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;margin-left:4px;">
-                PIN
-              </button>
+                style="font-size:13px;padding:6px 12px;border:2px solid ${btnEstColor};border-radius:6px;background:transparent;color:${btnEstColor};cursor:pointer;">${btnEstLabel}</button>
+              <button data-cambiar-pin="${escHtml(u.id)}" title="${window.t ? window.t("team.editPin") : "Edit PIN"}" aria-label="${window.t ? window.t("team.editPin") : "Edit PIN"}"
+                style="font-size:15px;padding:5px 11px;border:2px solid var(--azul-medio);border-radius:6px;background:transparent;color:var(--azul-medio);cursor:pointer;">✎ PIN</button>
               ${puedePromover ? `
                 <select data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}" title="Change role"
-                  style="font-size:13px;padding:5px 8px;border:2px solid #E87A10;border-radius:5px;background:#fff;color:#7a4a00;cursor:pointer;margin-left:4px;">
+                  style="font-size:13px;padding:6px 8px;border:2px solid #E87A10;border-radius:6px;background:#fff;color:#7a4a00;cursor:pointer;">
                   <option value="empleado" ${u.rol === "empleado" ? "selected" : ""}>Employee</option>
                   <option value="admin" ${u.rol === "admin" ? "selected" : ""}>Admin</option>
-                </select>
-              ` : ""}
-            ` : `<span style="font-size:13px;color:var(--ink-soft);">Owner only</span>`}
-          </td>`;
-        tbody.appendChild(tr);
-
-        // Fila inline para cambiar PIN (oculta hasta click en "PIN")
-        if (puedeEditar) {
-          const trPin = document.createElement("tr");
-          trPin.id = `oc-pin-row-${u.id}`;
-          trPin.style.cssText = "display:none;background:var(--azul-suave,#EEF3F7);";
-          trPin.innerHTML = `
-            <td colspan="4" style="padding:10px 12px;">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <span style="font-size:13px;font-weight:700;">${window.t ? window.t("team.newPinFor") : "New PIN for"} ${escHtml(u.nombre)}:</span>
-                <input data-pin-input="${escHtml(u.id)}" maxlength="3" inputmode="numeric" placeholder="3 digits"
-                  style="width:80px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:5px;
-                         font-size:14px;text-align:center;font-family:var(--font-mono);letter-spacing:.15em;">
-                <button data-guardar-pin="${escHtml(u.id)}"
-                  style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:5px;
-                         background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">
-                  Guardar
-                </button>
-                <span data-pin-msg="${escHtml(u.id)}" style="font-size:13px;font-weight:700;"></span>
+                </select>` : ""}
+          ` : `<span style="font-size:13px;color:var(--ink-soft);align-self:center;">Owner only</span>`;
+        const pinEditor = puedeEditar ? `
+          <div id="oc-pin-row-${escHtml(u.id)}" style="display:none;flex-basis:100%;background:var(--azul-suave,#EEF3F7);border-radius:8px;padding:10px 12px;margin-top:4px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <span style="font-size:13px;font-weight:700;">${window.t ? window.t("team.newPinFor") : "New PIN for"} ${escHtml(u.nombre)}:</span>
+              <input data-pin-input="${escHtml(u.id)}" maxlength="3" inputmode="numeric" placeholder="3 digits"
+                style="width:80px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;text-align:center;font-family:var(--font-mono);letter-spacing:.15em;">
+              <button data-guardar-pin="${escHtml(u.id)}"
+                style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">${window.t ? window.t("team.save") : "Save"}</button>
+              <span data-pin-msg="${escHtml(u.id)}" style="font-size:13px;font-weight:700;"></span>
+            </div>
+          </div>` : "";
+        cards.push(`
+          <div class="tag-card" style="${_cardCss}">
+            <div style="flex:1;min-width:160px;">
+              <div style="font-weight:700;font-size:15px;">${escHtml(u.nombre)}</div>
+              ${u.email ? `<div style="font-size:13px;color:var(--ink-soft);">${escHtml(u.email)}</div>` : ""}
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
+                ${rolBadge}
+                <span style="font-size:13px;color:${estadoColor};font-weight:700;">${estadoTxt}</span>
+                ${pinChip}
               </div>
-            </td>`;
-          tbody.appendChild(trPin);
-        }
+              ${ubicHtml}
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-end;">
+              ${acciones}
+            </div>
+            ${pinEditor}
+          </div>`);
       });
+      lista.innerHTML = cards.join("");
+      // Alias para conservar TODOS los bindings existentes (antes era el <tbody>).
+      const tbody = lista;
 
       // Bind: toggle activo/inactivo
       tbody.querySelectorAll("[data-toggle-id]").forEach((btn) => {
