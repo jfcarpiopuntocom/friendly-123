@@ -61,178 +61,62 @@
 
   // Perchas (unidades operativas). sucursalId -> agrupador backend.
   const ubicaciones = [
-      {
-          "id": "smokeshop",
-          "nombre": "Cornerstone Local Souvenirs",
-          "activa": true,
-          "tipo": "propio",
-          "sucursalId": "suc01"
-      },
-      {
-          "id": "bookshelf",
-          "nombre": "Ink & Pages",
-          "activa": true,
-          "tipo": "socio",
-          "sucursalId": "suc02",
-          "promotoraId": "pr01",
-          "comisionSocio": 25,
-          "metaMensual": 300,
-          "escalasComision": [
-              {
-                  "hasta": 80,
-                  "comision": 25
-              },
-              {
-                  "hasta": 100,
-                  "comision": 30
-              },
-              {
-                  "hasta": 120,
-                  "comision": 35
-              },
-              {
-                  "hasta": 999,
-                  "comision": 40
-              }
-          ]
-      },
-      {
-          "id": "fairbooth",
-          "nombre": "Weekend Vendor Fair Booth",
-          "activa": true,
-          "tipo": "consignacion",
-          "sucursalId": "suc03",
-          "promotoraId": "pr02",
-          "comisionSocio": 30,
-          "metaMensual": 200,
-          "escalasComision": []
-      }
+    { "id": "galeria",  "nombre": "Galería idiomARTE",        "activa": true, "tipo": "propio",        "sucursalId": "suc01" },
+    { "id": "consigna", "nombre": "Consignación de artistas", "activa": true, "tipo": "consignacion",  "sucursalId": "suc01", "promotoraId": "pr01", "comisionSocio": 85, "metaMensual": 800, "lecturaPreferida": "asociado", "escalasComision": [ {"hasta":80,"comision":85}, {"hasta":120,"comision":88}, {"hasta":999,"comision":90} ] },
+    { "id": "bar",      "nombre": "Bar & Café",               "activa": true, "tipo": "propio",        "sucursalId": "suc02" },
+    { "id": "eventos",  "nombre": "Eventos culturales",       "activa": true, "tipo": "socio",         "sucursalId": "suc03", "promotoraId": "pr02", "comisionSocio": 10, "metaMensual": 500, "escalasComision": [] }
   ];
-  // Sucursales: agrupadores backend de perchas. En la UI el usuario ve PERCHAS;
-  // la sucursal es el encabezado de sección en el gestor de perchas (Inventario).
-  // Asociados/as: personas que traen gente (turistas, recomendados,
-  // familiares) y llevan comision. Se asignan por percha (promotoraId).
+  // Sucursales: agrupadores backend de perchas (encabezados de sección en Inventario).
+  // Asociados/as: artistas en consignación (modalidad artista 85/15) y quien trae público.
   const promotoras = [
-    { id: "pr01", nombre: "Jamie Ortiz", comision: 10 },
-    { id: "pr02", nombre: "Casey Nguyen", comision: 8 },
+    { id: "pr01", nombre: "María Auquilla",  comisionBase: 85, comision: 85 },
+    { id: "pr02", nombre: "Carlos Mendoza",  comisionBase: 10, comision: 10 },
   ];
   const sucursales = [
-    { id: "suc01", nombre: "Downtown",                  activa: true },
-    { id: "suc02", nombre: "Vendor Row",                activa: true },
-    { id: "suc03", nombre: "Riverside Market",          activa: true },
+    { id: "suc01", nombre: "Galería",    activa: true },
+    { id: "suc02", nombre: "Bar & Café", activa: true },
+    { id: "suc03", nombre: "Eventos",    activa: true },
   ];
 
   const productos = [
-    {"id":"p01","nombre":"Butane Torch Lighter","categoria":"Smoke Accessories","sku":"CAM-PF-DSM","barcode":"7861000030019","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":30,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Coastal Wholesale Co."},
-    {"id":"p02","nombre":"Souvenir Shot Glass","categoria":"Gifts & Souvenirs","sku":"CAM-MET-MOP","estrella":true,"barcode":"7861000030026","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":8,"umbralRojo":10,"umbralAmarillo":18,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p03","nombre":"Local History Zine Vol. 3","categoria":"Books","sku":"CAM-ACDC-BIB","estrella":true,"barcode":"7861000030033","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":25,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Indie Press Collective"},
-    {"id":"p04","nombre":"Souvenir Keychain 3-Pack","categoria":"Gifts & Souvenirs","sku":"CAM-NIR-NVM","barcode":"7861000030040","ubicacionId":"smokeshop","precio":21,"costo":9,"stockActual":15,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p05","nombre":"Graphic Tee — Skyline Print","categoria":"Apparel","sku":"CAM-IM-TRP","barcode":"7861000030057","ubicacionId":"fairbooth","precio":23,"costo":10,"stockActual":4,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Textiles"},
-    {"id":"p06","nombre":"Poetry Chapbook — Late Bloom","categoria":"Books","sku":"CAM-RS-TON","barcode":"7861000030064","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":18,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Indie Press Collective"},
-    {"id":"p07","nombre":"Postcard Rack Set","categoria":"Gifts & Souvenirs","sku":"CAM-LZ-ICA","barcode":"7861000030071","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":12,"umbralRojo":5,"umbralAmarillo":13,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p08","nombre":"Graphic Tee — Retro Sunset","categoria":"Apparel","sku":"CAM-RAM-PRS","barcode":"7861000030088","ubicacionId":"fairbooth","precio":19,"costo":8,"stockActual":9,"umbralRojo":5,"umbralAmarillo":11,"proveedor":"Riverside Textiles"},
-    {"id":"p09","nombre":"Fridge Magnet Set","categoria":"Gifts & Souvenirs","sku":"CAM-GNR-APP","barcode":"7861000030095","ubicacionId":"smokeshop","precio":22,"costo":9,"stockActual":20,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p10","nombre":"Short Story Collection — Night Shift","categoria":"Books","sku":"CAM-QUE-CRS","barcode":"7861000030101","ubicacionId":"bookshelf","precio":21,"costo":9,"stockActual":3,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Indie Press Collective"},
-    {"id":"p11","nombre":"Handmade Beaded Bracelet","categoria":"Handmade Crafts","sku":"SOU-TAZ-001","estrella":true,"barcode":"7861000030118","ubicacionId":"fairbooth","precio":8,"costo":3,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"River Valley Artisans"},
-    {"id":"p12","nombre":"Bookmark Set — Pressed Flowers","categoria":"Stationery & Gifts","sku":"SOU-LLA-001","barcode":"7861000030125","ubicacionId":"bookshelf","precio":3.5,"costo":1.2,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Paper & Bind Co."},
-    {"id":"p13","nombre":"Incense Sticks — Sandalwood","categoria":"Smoke Accessories","sku":"ACC-PIN-001","barcode":"7861000030132","ubicacionId":"smokeshop","precio":4,"costo":1.5,"stockActual":50,"umbralRojo":12,"umbralAmarillo":25,"proveedor":"Coastal Wholesale Co."},
-    {"id":"p14","nombre":"Embroidered Patch — Mountain Range","categoria":"Handmade Crafts","sku":"ACC-PAR-001","barcode":"7861000030149","ubicacionId":"fairbooth","precio":5,"costo":2,"stockActual":35,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"River Valley Artisans"},
-    {"id":"p15","nombre":"Snapback Cap — Logo","categoria":"Apparel","sku":"SOU-GOR-001","barcode":"7861000030156","ubicacionId":"smokeshop","precio":15,"costo":6.5,"stockActual":6,"umbralRojo":5,"umbralAmarillo":9,"proveedor":"Coastal Wholesale Co."},
-    {"id":"p16","nombre":"Reading Journal — Lined","categoria":"Stationery & Gifts","sku":"ACC-PUA-006","barcode":"7861000030163","ubicacionId":"bookshelf","precio":6,"costo":2.2,"stockActual":22,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Paper & Bind Co."},
-    /* Novela latinoamericana contemporánea — 8 títulos cultos, selección JFC 2026-07-03 */
-    {"id":"p17","nombre":"Hand-Painted Ceramic Ornament","categoria":"Gifts & Souvenirs","sku":"LIB-ENR-NPN","barcode":"9789584293152","ubicacionId":"smokeshop","precio":22,"costo":9.5,"stockActual":3,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p18","nombre":"Novel — The Long Season","categoria":"Books","sku":"LIB-MEL-TDH","barcode":"9786071653697","ubicacionId":"bookshelf","precio":20,"costo":8.5,"stockActual":6,"umbralRojo":3,"umbralAmarillo":7,"proveedor":"Indie Press Collective"},
-    {"id":"p19","nombre":"Local Scene Art Print","categoria":"Home & Decor","sku":"LIB-SCH-KEN","barcode":"9788439735564","ubicacionId":"smokeshop","precio":19,"costo":7.5,"stockActual":11,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p20","nombre":"Novel — Ash and Amber","categoria":"Books","sku":"LIB-REY-COM","barcode":"9789878358154","ubicacionId":"fairbooth","precio":21,"costo":6,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
-    {"id":"p21","nombre":"Poetry — Salt Water Letters","categoria":"Books","sku":"LIB-TRI-MGR","barcode":"9789974723146","ubicacionId":"fairbooth","precio":18,"costo":8,"stockActual":2,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
-    {"id":"p22","nombre":"Engraved Wood Coaster Set","categoria":"Gifts & Souvenirs","sku":"LIB-AMP-PDG","estrella":true,"barcode":"9788417125400","ubicacionId":"smokeshop","precio":18,"costo":7.5,"stockActual":9,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    {"id":"p23","nombre":"Novel — Low Tide","categoria":"Books","sku":"LIB-MEL-PAR","barcode":"9786071677129","ubicacionId":"bookshelf","precio":17,"costo":7,"stockActual":5,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Indie Press Collective"},
-    {"id":"p24","nombre":"Souvenir Snow Globe","categoria":"Gifts & Souvenirs","sku":"LIB-CAB-CIA","estrella":true,"barcode":"9789877383652","ubicacionId":"smokeshop","precio":20,"costo":7.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    /* ---- VITRINAS SIMON: productos diseñados para exhibir los 6 estados del semáforo ---- */
-    /* ROJO intensidad 1 — sin stock (inventario muerto, cero unidades) */
-    {"id":"p25","nombre":"Woven Friendship Bracelet Pack","categoria":"Gifts & Souvenirs","sku":"VIN-LZ-PGR","barcode":"7861000030170","ubicacionId":"smokeshop","precio":45,"costo":28,"stockActual":0,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    /* ROJO intensidad 2 — quedan 1 (critico, reponer urgente) */
-    {"id":"p26","nombre":"Vinyl Record — Midnight Radio","categoria":"Vinyl Records","sku":"VIN-PF-ANM","barcode":"7861000030187","ubicacionId":"bookshelf","precio":42,"costo":25,"stockActual":1,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Second Spin Records"},
-    /* ROJO intensidad 3 — exactamente en el umbral rojo (limite de emergencia) */
-    {"id":"p27","nombre":"Graphic Tee — Vintage Fade","categoria":"Apparel","sku":"CAM-BOW-ZIG","barcode":"7861000030194","ubicacionId":"fairbooth","precio":24,"costo":10,"stockActual":5,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Riverside Textiles"},
-    /* NARANJA encendido 3 — a 1 unidad del umbral rojo (revisar hoy) */
-    {"id":"p28","nombre":"Metal Poster — Neon City","categoria":"Home & Decor","sku":"ACC-POS-001","barcode":"7861000030200","ubicacionId":"smokeshop","precio":12,"costo":7,"stockActual":6,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Coastal Wholesale Co."},
-    /* NARANJA encendido 1 — recién entrando a la zona de revisar */
-    {"id":"p29","nombre":"Novel — Static Line","categoria":"Books","sku":"CAM-CUR-DIS","barcode":"7861000030217","ubicacionId":"bookshelf","precio":22,"costo":13,"stockActual":9,"umbralRojo":4,"umbralAmarillo":14,"proveedor":"Indie Press Collective"},
-    /* NARANJA encendido 1 — tope del rango, sin apuro todavía */
-    {"id":"p30","nombre":"Ceramic Mug — Hand Painted","categoria":"Handmade Crafts","sku":"SOU-TAZ-002","barcode":"7861000030224","ubicacionId":"fairbooth","precio":9,"costo":5.5,"stockActual":13,"umbralRojo":4,"umbralAmarillo":14,"proveedor":"River Valley Artisans"},
-    /* VERDE — stock saludable, margen moderado (< 0.50, no es azul) */
-    {"id":"p31","nombre":"Planner 2026 — Hardcover","categoria":"Stationery & Gifts","sku":"PAP-AGE-001","barcode":"7861000030231","ubicacionId":"smokeshop","precio":15,"costo":9,"stockActual":25,"umbralRojo":5,"umbralAmarillo":12,"proveedor":"Paper & Bind Co."},
-    /* VERDE — margen bajo, volumen alto (artículo de bajo costo) */
-    {"id":"p32","nombre":"Canvas Tote Bag — Screen Print","categoria":"Stationery & Gifts","sku":"ACC-BOL-001","barcode":"7861000030248","ubicacionId":"bookshelf","precio":8,"costo":5,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Paper & Bind Co."},
-    /* VERDE — producto de volumen, margen ajustado */
-    {"id":"p33","nombre":"Notebook — Kraft Cover","categoria":"Handmade Crafts","sku":"PAP-LIB-001","barcode":"7861000030255","ubicacionId":"fairbooth","precio":11,"costo":7,"stockActual":18,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"River Valley Artisans"},
-    /* AMARILLO (oportunidad) encendido 2 — margen 62%: hay dinero esperándote */
-    {"id":"p34","nombre":"Hand-Blown Glass Ornament","categoria":"Gifts & Souvenirs","sku":"VIN-CLA-LON","barcode":"7861000030262","ubicacionId":"smokeshop","precio":48,"costo":18,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    /* AMARILLO (oportunidad) encendido 2 — margen 64% */
-    {"id":"p35","nombre":"Vinyl Record — Signal Lost","categoria":"Vinyl Records","sku":"VIN-RAD-OKC","barcode":"7861000030279","ubicacionId":"bookshelf","precio":50,"costo":18,"stockActual":8,"umbralRojo":2,"umbralAmarillo":5,"proveedor":"Second Spin Records"},
-    /* AMARILLO (oportunidad) encendido 3 — margen 72%, pieza estrella */
-    {"id":"p36","nombre":"Collectible Figure — Limited Run","categoria":"Collectibles","sku":"COL-IM-EDI","estrella":true,"barcode":"7861000030286","ubicacionId":"fairbooth","precio":65,"costo":18,"stockActual":5,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Second Spin Records"},
-    /* PERECIBLES — 3 grados de urgencia por vencimiento */
-    /* Rojo por vencimiento: vence en 2 dias (retiralo ya aunque el stock sea bueno) */
-    {"id":"p37","nombre":"Homemade Strawberry Jam 8oz","categoria":"Local Foods","sku":"ALI-CAF-001","barcode":"7861000030293","ubicacionId":"smokeshop","precio":7,"costo":3,"stockActual":15,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-05","proveedor":"Grandma's Kitchen Preserves"},
-    /* Amarillo por vencimiento: vence en 5 dias (vendelo primero) */
-    {"id":"p38","nombre":"Chocolate Bar — Dark 70%","categoria":"Snacks & Drinks","sku":"ALI-CHO-001","barcode":"7861000030309","ubicacionId":"bookshelf","precio":4,"costo":1.8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-07-08","proveedor":"Coastal Wholesale Co."},
-    /* Rojo extremo: ya vencio hace 3 dias (retirar inmediatamente) */
-    {"id":"p39","nombre":"Trail Mix Bag","categoria":"Local Foods","sku":"ALI-GRA-001","barcode":"7861000030316","ubicacionId":"fairbooth","precio":9,"costo":4.5,"stockActual":8,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-06-30","proveedor":"Coastal Wholesale Co."},
-
-    /* ---- VITRINA GRADOS DE ENCENDIDO (JFC 2026-07-07): completa los niveles
-       1-3 de cada color que faltaban, para que el visitante VEA la Escala
-       semaforo de colores en acción sin tener que operar nada. ---- */
-    /* VERDE encendido 1 — sano pero con poco fondo (stock < 7) */
-    {"id":"p40","nombre":"Keychain — Bottle Opener","categoria":"Gifts & Souvenirs","sku":"ACC-LLA-001","barcode":"7861000030323","ubicacionId":"smokeshop","precio":12,"costo":8,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Coastal Wholesale Co."},
-    /* VERDE encendido 2 — sano, fondo medio (7-14) */
-    {"id":"p41","nombre":"Embroidered Patch — Wave","categoria":"Stationery & Gifts","sku":"ACC-PAR-001","barcode":"7861000030330","ubicacionId":"bookshelf","precio":14,"costo":9,"stockActual":10,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Paper & Bind Co."},
-    /* AMARILLO (oportunidad) encendido 1 — margen 52%, recién cruza el umbral */
-    {"id":"p42","nombre":"Local Landmark Puzzle","categoria":"Gifts & Souvenirs","sku":"VIN-SOD-CAN","barcode":"7861000030347","ubicacionId":"smokeshop","precio":40,"costo":19,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Gift & Souvenir Co."},
-    /* NARANJA encendido 2 — a 3 unidades del umbral rojo */
-    {"id":"p43","nombre":"Knit Beanie — Charcoal","categoria":"Apparel","sku":"ACC-GOR-002","barcode":"7861000030354","ubicacionId":"fairbooth","precio":10,"costo":6,"stockActual":7,"umbralRojo":4,"umbralAmarillo":9,"proveedor":"Riverside Textiles"},
-    /* AZUL (dato) encendido 1 — margen 22%: revisa precio o costo */
-    {"id":"p44","nombre":"AA Batteries 4-Pack","categoria":"Counter Basics","sku":"BAS-PIL-001","barcode":"7861000030361","ubicacionId":"smokeshop","precio":4.5,"costo":3.5,"stockActual":30,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Metro Distribution"},
-    /* AZUL (dato) encendido 2 — margen 15% */
-    {"id":"p45","nombre":"Kraft Gift Bag","categoria":"Stationery & Gifts","sku":"BAS-FUN-001","barcode":"7861000030378","ubicacionId":"bookshelf","precio":2,"costo":1.7,"stockActual":50,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Paper & Bind Co."},
-    /* AZUL (dato) encendido 3 — margen 8%: casi trabajas gratis en este */
-    {"id":"p46","nombre":"Clear Packing Tape","categoria":"Counter Basics","sku":"BAS-CIN-001","barcode":"7861000030385","ubicacionId":"fairbooth","precio":1.3,"costo":1.2,"stockActual":24,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Metro Distribution"},
-    /* NEGRO encendido 1 — ~50 dias dormido (dormidoDesde: solo vitrina/carga manual) */
-    {"id":"p47","nombre":"Vintage-Style Tin Sign","categoria":"Home & Decor","sku":"CD-QUE-WEM","barcode":"7861000030392","ubicacionId":"smokeshop","precio":15,"costo":9,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"dormidoDesde":"2026-05-16","proveedor":"Riverside Gift & Souvenir Co."},
-    /* NEGRO encendido 2 — ~80 dias dormido */
-    {"id":"p48","nombre":"Used VHS — Director's Cut","categoria":"Collectibles","sku":"COL-VHS-WAL","barcode":"7861000030408","ubicacionId":"bookshelf","precio":25,"costo":15,"stockActual":8,"umbralRojo":2,"umbralAmarillo":4,"dormidoDesde":"2026-04-18","proveedor":"Second Spin Records"},
-    /* NEGRO encendido 3 — ~180 dias dormido: capital bien dormido */
-    {"id":"p49","nombre":"Oversized Tour Poster","categoria":"Collectibles","sku":"ACC-POS-WOO","barcode":"7861000030415","ubicacionId":"fairbooth","precio":18,"costo":11,"stockActual":9,"umbralRojo":2,"umbralAmarillo":4,"dormidoDesde":"2026-01-08","proveedor":"Second Spin Records"},
-
-    /* ---- VARIEDAD DE MOSTRADOR (JFC 2026-07-07): categorías de tienda real
-       (artesanía, dulces, hogar, ropa, papelería) repartidas por las 3
-       perchas, para que el tablero luzca los 6 colores con encendidos
-       mezclados — no solo merch rockero. ---- */
-    /* VERDE n3 — el caballito de batalla: mucho stock, margen sano */
-    {"id":"p50","nombre":"Woven Sun Hat","categoria":"Handmade Crafts","sku":"ART-SOM-001","barcode":"7861000030422","ubicacionId":"smokeshop","precio":30,"costo":19,"stockActual":22,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"River Valley Artisans"},
-    /* VERDE n2 — estable, sin drama */
-    {"id":"p51","nombre":"Beaded Charm Bracelet","categoria":"Handmade Crafts","sku":"ART-PUL-001","barcode":"7861000030439","ubicacionId":"fairbooth","precio":6,"costo":3.8,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"River Valley Artisans"},
-    /* VERDE n1 — sano pero justito de fondo */
-    {"id":"p52","nombre":"Wool Blend Scarf — Grey","categoria":"Apparel","sku":"ROP-BUF-001","barcode":"7861000030446","ubicacionId":"bookshelf","precio":25,"costo":16,"stockActual":6,"umbralRojo":2,"umbralAmarillo":4,"proveedor":"Riverside Textiles"},
-    /* AMARILLO n3 — margen 73%: la mina de oro del mostrador */
-    {"id":"p53","nombre":"Filigree Drop Earrings","categoria":"Handmade Crafts","sku":"ART-ARE-001","estrella":true,"barcode":"7861000030453","ubicacionId":"smokeshop","precio":22,"costo":6,"stockActual":15,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Riverside Jewelry Co."},
-    /* AMARILLO n1 — margen 52%: buena oportunidad, sin ser la joya */
-    {"id":"p54","nombre":"Local Honey 10oz","categoria":"Local Foods","sku":"ALI-MIE-001","barcode":"7861000030460","ubicacionId":"fairbooth","precio":8.5,"costo":4,"stockActual":18,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Blue Ridge Apiary"},
-    /* NARANJA n2 — quedan 6 con umbral rojo 4: reponer esta semana */
-    {"id":"p55","nombre":"Embroidered Shawl","categoria":"Apparel","sku":"ROP-CHA-001","barcode":"7861000030477","ubicacionId":"bookshelf","precio":35,"costo":21,"stockActual":6,"umbralRojo":4,"umbralAmarillo":9,"proveedor":"Riverside Textiles"},
-    /* NARANJA n1 por vencimiento — vence en 7 dias, sin apuro pero primero en salir */
-    {"id":"p56","nombre":"Fresh Farmstead Cheese 1lb","categoria":"Local Foods","sku":"ALI-QUE-001","barcode":"7861000030484","ubicacionId":"smokeshop","precio":5.5,"costo":3.6,"stockActual":14,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-07-14","proveedor":"Blue Ridge Creamery"},
-    /* ROJO n1 — recien tocando el umbral: urgente pero encendido suave */
-    {"id":"p57","nombre":"Eucalyptus Candle 3-Pack","categoria":"Handmade Crafts","sku":"HOG-VEL-001","barcode":"7861000030491","ubicacionId":"fairbooth","precio":9,"costo":5.4,"stockActual":4,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"River Valley Artisans"},
-    /* AZUL n2 — margen 12%: dato contable, este casi no deja nada */
-    {"id":"p58","nombre":"Bottled Water 20oz","categoria":"Counter Basics","sku":"BAS-AGU-001","barcode":"7861000030507","ubicacionId":"smokeshop","precio":0.8,"costo":0.7,"stockActual":48,"umbralRojo":12,"umbralAmarillo":24,"proveedor":"Metro Distribution"},
-    /* AZUL n1 — margen 20%: revisable, no critico */
-    {"id":"p59","nombre":"Mint Gum — Counter Box","categoria":"Counter Basics","sku":"BAS-CHI-001","barcode":"7861000030514","ubicacionId":"bookshelf","precio":15,"costo":12,"stockActual":20,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Metro Distribution"},
-    /* NEGRO n2 — 3 meses dormido: plata parada en la vitrina */
-    {"id":"p60","nombre":"Carved Wooden Chess Set","categoria":"Collectibles","sku":"HOG-AJE-001","barcode":"7861000030521","ubicacionId":"smokeshop","precio":45,"costo":27,"stockActual":5,"umbralRojo":1,"umbralAmarillo":3,"dormidoDesde":"2026-04-05","proveedor":"River Valley Artisans"},
-    /* NEGRO n3 — dormido desde el año pasado: el ejemplo perfecto de capital congelado */
-    {"id":"p61","nombre":"Antique Cuckoo Clock","categoria":"Collectibles","sku":"HOG-REL-001","barcode":"7861000030538","ubicacionId":"bookshelf","precio":120,"costo":75,"stockActual":2,"umbralRojo":0,"umbralAmarillo":1,"dormidoDesde":"2025-11-20","proveedor":"Heritage Imports"}
+    {"id":"p01","nombre":"Óleo original — Tejados de Cuenca","categoria":"Paintings","sku":"ART-OIL-001","barcode":"7862000010011","ubicacionId":"galeria","precio":420,"costo":180,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Taller propio"},
+    {"id":"p02","nombre":"Acuarela original — Río Tomebamba","categoria":"Paintings","sku":"ART-WAT-002","estrella":true,"barcode":"7862000010028","ubicacionId":"galeria","precio":260,"costo":110,"stockActual":2,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Taller propio"},
+    {"id":"p03","nombre":"Lámina — Serie Andes I","categoria":"Art & prints","sku":"ART-PRN-003","barcode":"7862000010035","ubicacionId":"galeria","precio":45,"costo":16,"stockActual":24,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Imprenta Fine Art"},
+    {"id":"p04","nombre":"Lámina — Puertas coloniales","categoria":"Art & prints","sku":"ART-PRN-004","barcode":"7862000010042","ubicacionId":"galeria","precio":38,"costo":14,"stockActual":30,"umbralRojo":8,"umbralAmarillo":15,"proveedor":"Imprenta Fine Art"},
+    {"id":"p05","nombre":"Consignación — Tejedora (óleo)","categoria":"Paintings","sku":"CON-OIL-005","barcode":"7862000010059","ubicacionId":"consigna","precio":520,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"María Auquilla"},
+    {"id":"p06","nombre":"Consignación — Mañana de mercado","categoria":"Paintings","sku":"CON-OIL-006","estrella":true,"barcode":"7862000010066","ubicacionId":"consigna","precio":380,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"María Auquilla"},
+    {"id":"p07","nombre":"Consignación — Lámina Laguna del Cajas","categoria":"Art & prints","sku":"CON-PRN-007","barcode":"7862000010073","ubicacionId":"consigna","precio":60,"costo":0,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"María Auquilla"},
+    {"id":"p08","nombre":"Brújula de latón antigua","categoria":"Antiques","sku":"ANT-BRS-008","barcode":"7862000010080","ubicacionId":"galeria","precio":145,"costo":70,"stockActual":3,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Anticuario del Centro"},
+    {"id":"p09","nombre":"Máquina de escribir vintage","categoria":"Antiques","sku":"ANT-TYP-009","estrella":true,"barcode":"7862000010097","ubicacionId":"galeria","precio":320,"costo":160,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Anticuario del Centro"},
+    {"id":"p10","nombre":"Reloj de pared antiguo","categoria":"Antiques","sku":"ANT-CLK-010","barcode":"7862000010103","ubicacionId":"galeria","precio":180,"costo":90,"stockActual":2,"umbralRojo":1,"umbralAmarillo":2,"dormidoDesde":"2026-06-10","proveedor":"Anticuario del Centro"},
+    {"id":"p11","nombre":"Manchego curado 200g","categoria":"Cheese & deli","sku":"CHE-MAN-011","barcode":"7862000010110","ubicacionId":"bar","precio":14,"costo":7,"stockActual":18,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-09-24","proveedor":"Quesos del Austro"},
+    {"id":"p12","nombre":"Rueda de Brie","categoria":"Cheese & deli","sku":"CHE-BRI-012","barcode":"7862000010127","ubicacionId":"bar","precio":12,"costo":6,"stockActual":12,"umbralRojo":4,"umbralAmarillo":8,"perecible":true,"fechaCaducidad":"2026-09-18","proveedor":"Quesos del Austro"},
+    {"id":"p13","nombre":"Queso azul 150g","categoria":"Cheese & deli","sku":"CHE-BLU-013","estrella":true,"barcode":"7862000010134","ubicacionId":"bar","precio":16,"costo":8.5,"stockActual":10,"umbralRojo":3,"umbralAmarillo":6,"perecible":true,"fechaCaducidad":"2026-09-16","proveedor":"Quesos del Austro"},
+    {"id":"p14","nombre":"Tabla de quesos y embutidos","categoria":"Cheese & deli","sku":"CHE-BRD-014","barcode":"7862000010141","ubicacionId":"bar","precio":18,"costo":8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"perecible":true,"fechaCaducidad":"2026-09-14","proveedor":"Cocina propia"},
+    {"id":"p15","nombre":"Queso fresco local 250g","categoria":"Cheese & deli","sku":"CHE-FRE-015","barcode":"7862000010158","ubicacionId":"bar","precio":6,"costo":3,"stockActual":24,"umbralRojo":6,"umbralAmarillo":12,"perecible":true,"fechaCaducidad":"2026-09-12","proveedor":"Hacienda El Valle"},
+    {"id":"p16","nombre":"Malbec Reserva (botella)","categoria":"Wine","sku":"WIN-MAL-016","estrella":true,"barcode":"7862000010165","ubicacionId":"bar","precio":28,"costo":14,"stockActual":48,"umbralRojo":12,"umbralAmarillo":24,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p17","nombre":"Cabernet Sauvignon (botella)","categoria":"Wine","sku":"WIN-CAB-017","barcode":"7862000010172","ubicacionId":"bar","precio":24,"costo":12,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p18","nombre":"Sauvignon Blanc (botella)","categoria":"Wine","sku":"WIN-SAU-018","barcode":"7862000010189","ubicacionId":"bar","precio":22,"costo":11,"stockActual":40,"umbralRojo":10,"umbralAmarillo":20,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p19","nombre":"Espumante Brut (botella)","categoria":"Wine","sku":"WIN-BRU-019","barcode":"7862000010196","ubicacionId":"bar","precio":32,"costo":17,"stockActual":30,"umbralRojo":8,"umbralAmarillo":16,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p20","nombre":"Copa de vino de la casa","categoria":"Bar","sku":"BAR-HRE-020","barcode":"7862000010202","ubicacionId":"bar","precio":6,"costo":2.2,"stockActual":90,"umbralRojo":20,"umbralAmarillo":40,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p21","nombre":"Rosé (botella)","categoria":"Wine","sku":"WIN-ROS-021","barcode":"7862000010219","ubicacionId":"bar","precio":19,"costo":9,"stockActual":36,"umbralRojo":9,"umbralAmarillo":18,"proveedor":"Distribuidora de Vinos Andes"},
+    {"id":"p22","nombre":"Espresso","categoria":"Bar","sku":"BAR-ESP-022","barcode":"7862000010226","ubicacionId":"bar","precio":2.5,"costo":0.6,"stockActual":200,"umbralRojo":40,"umbralAmarillo":80,"proveedor":"Café del Austro"},
+    {"id":"p23","nombre":"Cappuccino","categoria":"Bar","sku":"BAR-CAP-023","estrella":true,"barcode":"7862000010233","ubicacionId":"bar","precio":3.5,"costo":0.9,"stockActual":200,"umbralRojo":40,"umbralAmarillo":80,"proveedor":"Café del Austro"},
+    {"id":"p24","nombre":"Cerveza artesanal (pinta)","categoria":"Bar","sku":"BAR-BEE-024","barcode":"7862000010240","ubicacionId":"bar","precio":6,"costo":2.5,"stockActual":80,"umbralRojo":20,"umbralAmarillo":40,"proveedor":"Cervecería Local"},
+    {"id":"p25","nombre":"Spritz aperitivo","categoria":"Bar","sku":"BAR-SPR-025","barcode":"7862000010257","ubicacionId":"bar","precio":8,"costo":3,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"proveedor":"Bar propio"},
+    {"id":"p26","nombre":"Agua con gas","categoria":"Bar","sku":"BAR-WAT-026","barcode":"7862000010264","ubicacionId":"bar","precio":2.5,"costo":0.8,"stockActual":120,"umbralRojo":24,"umbralAmarillo":48,"proveedor":"Distribuidora Cuenca"},
+    {"id":"p27","nombre":"Plato de tapas","categoria":"Kitchen","sku":"KIT-TAP-027","estrella":true,"barcode":"7862000010271","ubicacionId":"bar","precio":9,"costo":3.5,"stockActual":60,"umbralRojo":15,"umbralAmarillo":30,"perecible":true,"fechaCaducidad":"2026-09-05","proveedor":"Cocina propia"},
+    {"id":"p28","nombre":"Sándwich tostado","categoria":"Kitchen","sku":"KIT-SAN-028","barcode":"7862000010288","ubicacionId":"bar","precio":7,"costo":2.8,"stockActual":50,"umbralRojo":12,"umbralAmarillo":24,"perecible":true,"fechaCaducidad":"2026-09-04","proveedor":"Cocina propia"},
+    {"id":"p29","nombre":"Empanadas (2u)","categoria":"Kitchen","sku":"KIT-EMP-029","barcode":"7862000010295","ubicacionId":"bar","precio":5,"costo":1.8,"stockActual":70,"umbralRojo":18,"umbralAmarillo":36,"perecible":true,"fechaCaducidad":"2026-09-03","proveedor":"Cocina propia"},
+    {"id":"p30","nombre":"Bowl de aceitunas y frutos secos","categoria":"Kitchen","sku":"KIT-OLV-030","barcode":"7862000010301","ubicacionId":"bar","precio":4.5,"costo":1.5,"stockActual":80,"umbralRojo":20,"umbralAmarillo":40,"proveedor":"Cocina propia"},
+    {"id":"p31","nombre":"Antología de poesía","categoria":"Books","sku":"LIB-POE-031","barcode":"7862000010318","ubicacionId":"galeria","precio":18,"costo":8,"stockActual":20,"umbralRojo":5,"umbralAmarillo":10,"proveedor":"Editorial Independiente"},
+    {"id":"p32","nombre":"Historia del arte local (libro)","categoria":"Books","sku":"LIB-ART-032","estrella":true,"barcode":"7862000010325","ubicacionId":"galeria","precio":24,"costo":11,"stockActual":15,"umbralRojo":4,"umbralAmarillo":8,"proveedor":"Editorial Independiente"},
+    {"id":"p33","nombre":"Cata de vinos y quesos (entrada)","categoria":"Tickets & events","sku":"EVT-CAT-033","estrella":true,"barcode":"7862000010332","ubicacionId":"eventos","precio":22,"costo":6,"stockActual":40,"umbralRojo":8,"umbralAmarillo":20,"proveedor":"Evento propio"},
+    {"id":"p34","nombre":"Noche de jazz en vivo (entrada)","categoria":"Tickets & events","sku":"EVT-JAZ-034","barcode":"7862000010349","ubicacionId":"eventos","precio":18,"costo":5,"stockActual":60,"umbralRojo":12,"umbralAmarillo":30,"proveedor":"Evento propio"},
+    {"id":"p35","nombre":"Taller de acuarela (cupo)","categoria":"Tickets & events","sku":"EVT-ACU-035","barcode":"7862000010356","ubicacionId":"eventos","precio":25,"costo":9,"stockActual":20,"umbralRojo":4,"umbralAmarillo":10,"proveedor":"Evento propio"},
+    {"id":"p36","nombre":"Noche de tango (entrada)","categoria":"Tickets & events","sku":"EVT-TAN-036","barcode":"7862000010363","ubicacionId":"eventos","precio":15,"costo":4,"stockActual":50,"umbralRojo":10,"umbralAmarillo":25,"proveedor":"Evento propio"},
+    {"id":"p37","nombre":"Exposición fotográfica (entrada)","categoria":"Tickets & events","sku":"EVT-FOT-037","barcode":"7862000010370","ubicacionId":"eventos","precio":8,"costo":2,"stockActual":80,"umbralRojo":16,"umbralAmarillo":40,"proveedor":"Evento propio"},
+    {"id":"p38","nombre":"Recital de poesía (entrada)","categoria":"Tickets & events","sku":"EVT-POE-038","barcode":"7862000010387","ubicacionId":"eventos","precio":12,"costo":3,"stockActual":40,"umbralRojo":8,"umbralAmarillo":20,"dormidoDesde":"2026-07-01","proveedor":"Evento propio"}
   ];
 
   const ventas = [];
@@ -284,25 +168,36 @@
         ventas.push({ id: "vs-" + pid + "-" + d + "-" + i, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant || 1, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date(Date.now() - d * 86400000).toISOString(), split: null, liquidada: true, clienteId: cli || null });
       });
     };
-    gen("p34", [3, 12, 20, 33], "c01");        // Rosa: verano (frecuente, vinilos caros) + p34 estrella BCG
-    gen("p36", [8], "c01");
-    gen("p01", [2, 6, 14, 19, 28, 40], "c02"); // Marco: verano (muy frecuente)
-    gen("p51", [4], "c03");                     // Lucia: primavera (recien germina)
-    gen("p54", [7, 15], "c04");                 // Ivan: primavera
-    gen("p50", [32, 40, 52], "c05");            // Maria Belen: otoño (valia mucho, se enfria)
-    gen("p22", [24, 35, 48], "c06");            // Pedro: otoño
-    gen("p53", [30], "c06");                    // Pedro compraba fino: refuerza su valor
-    gen("p01", [95, 105], "c07");               // Carmen: invierno (ultima compra hace 3 meses)
-    // c08 Andres: nunca ha comprado -> invierno profundo
-    gen("p32", [31, 34, 38, 41, 44], null, 3);  // vaca lechera BCG: vendia fuerte, se estabiliza
-    gen("p32", [8], null, 2);
-    gen("p42", [5], null);                      // interrogante BCG: recien empieza a moverse
+    // Bar & café: alto volumen, tickets chicos (lo que sostiene el día a día).
+    gen("p22", [0,0,1,1,2,3,4,6,8,11,14], null, 1);      // espressos
+    gen("p23", [0,1,1,2,3,5,7,9,12], "c01", 1);           // cappuccinos (c01 cliente frecuente reciente)
+    gen("p24", [0,1,2,4,6,9], "c02", 1);                  // cervezas (c02 muy frecuente)
+    gen("p20", [0,2,3,5,8], null, 2);                     // copas de vino de la casa
+    gen("p27", [1,3,6,10], "c02", 1);                     // tapas
+    gen("p29", [0,2,4,7], null, 2);                       // empanadas
+    // Vinos y quesos por botella/tabla: ticket medio, menos frecuente.
+    gen("p16", [3,12,20], "c01", 1);                      // Malbec (c01 valioso)
+    gen("p11", [5,15], "c04", 1);                         // Manchego (c04 primavera)
+    gen("p14", [7], "c03", 1);                            // tabla de quesos (c03 recién germina)
+    // Galería y antigüedades: raro, ticket alto.
+    gen("p02", [22], "c05", 1);                           // acuarela (c05 otoño, valía mucho)
+    gen("p09", [30], "c06", 1);                           // máquina de escribir (c06 otoño)
+    gen("p32", [40], "c06", 1);                           // libro de arte
+    // Consignación de artista (comisión 85/15): dispara el cálculo de comisiones.
+    gen("p06", [10], "c04", 1);                           // óleo en consignación
+    gen("p07", [6, 18], null, 1);                         // láminas en consignación
+    // Eventos culturales: por tandas.
+    gen("p33", [4, 32], "c01", 2);                        // cata de vinos y quesos
+    gen("p34", [11], null, 3);                            // jazz
+    gen("p35", [8], "c03", 1);                            // taller de acuarela
+    // c07 invierno (última compra vieja), c08 nunca compró.
+    gen("p16", [95, 110], "c07", 1);
   }
   // Microcirugia 1 (2026-07-07): el arranque JAMAS puede tumbar el
   // interceptor — sin el, la app abre sin backend (pantallas vacias). Si la
   // siembra falla, se arranca sin historial; el error queda en consola.
   try { sembrarVentasDemo(); } catch (e) { console.error("Seed de ventas fallo (la app arranca sin historial):", e); }
-  const gastosMensuales = {"smokeshop":0,"bookshelf":0,"fairbooth":0};
+  const gastosMensuales = {"galeria":900,"consigna":0,"bar":1500,"eventos":350};
   // Usuarios nombrados (encargados): hasta 49.
   // El dueno NO aparece aqui — su acceso es por PIN en crypto-store.
   // Cada entrada: { id, nombre, pin, rol:"empleado", activo, creadoEn }

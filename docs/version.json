@@ -1,9 +1,9 @@
 {
-  "version": "1.7.75",
+  "version": "1.7.76",
   "fecha": "2026-09-01",
-  "changelog": "v1.7.75 — (1) La recarga de version ya NO se dispara en el candado del PIN (te reseteaba el tecleo): se difiere a post-login (f123_reload_al_entrar), invisible, y abre la app ya actualizada. (2) Access & Recovery: agregada la linea Demo: 456 (permanente, sin lapicito) a 'Current access codes'.",
+  "changelog": "v1.7.76 — Inventario DEMO (PIN 456) mejorado a un negocio cultural creible: Galeria (cuadros, laminas, antiguedades, libros) + Consignacion de artistas (modalidad artista 85/15) + Bar & Cafe (vinos, quesos, bebidas y comida) + Eventos culturales (catas, jazz, taller de acuarela, tango, etc.). 38 productos, precios/stock realistas. SOLO afecta al demo: el usuario real carga sus buffers guardados (verificado) y una activacion 789 arranca de cero. Datos de idiomARTE y de todos, intactos.",
   "requerida": false,
-  "shell": "f123-shell-v188",
+  "shell": "f123-shell-v189",
   "apagar": [],
-  "releaseName": "v1.7.75"
+  "releaseName": "v1.7.76"
 }
