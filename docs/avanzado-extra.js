@@ -526,9 +526,13 @@
       </div>
       <div id="oc-apodo-device" style="margin-top:12px;font-size:14px;color:var(--ink);">
         <span id="oc-apodo-device-txt"></span>
-        <button type="button" id="oc-apodo-device-btn" title="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;">✎</button>
+        <button type="button" id="oc-apodo-device-btn" data-i18n-attr="title:device.name,aria-label:device.name" title="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;">✎</button>
       </div>`;
     vista.appendChild(gestion);
+    // i18n (2026-09-01): el motor solo traduce con applyStatic; esta vista se
+    // inyecta después del load, así que se re-aplica sobre el scope inyectado
+    // para que title/aria-label (data-i18n-attr) del apodo salgan traducidos.
+    try { if (window.OCI18n && window.OCI18n.applyStatic) window.OCI18n.applyStatic(gestion); } catch (_) {}
 
     // === SINCRONIZAR EQUIPO (tiempo real, homologado de AMIGABLE, 2026-07-23) ==
     // Solo dueño. Si nunca hay codigo de sync, la app funciona exactamente igual
@@ -2416,14 +2420,14 @@ Keep it somewhere safe.`);
       if (!txt) return;
       let apodo = "";
       try { apodo = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
-      txt.textContent = apodo ? ("This device: " + apodo) : "Name this device";
+      txt.textContent = apodo ? window.tf("device.current", { name: apodo }) : window.t("device.name");
     }
     const _apBtn = $("oc-apodo-device-btn");
     if (_apBtn) {
       _apBtn.addEventListener("click", () => {
         let actual = "";
         try { actual = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
-        const v = prompt("Name this device (your team will see it):", actual);
+        const v = prompt(window.t("device.namePrompt"), actual);
         if (v === null) return;
         try { if (window.OCMicelio && window.OCMicelio.ponerApodo) window.OCMicelio.ponerApodo(v); } catch (_) {}
         pintarApodoDevice();

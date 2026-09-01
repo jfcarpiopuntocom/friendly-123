@@ -1303,7 +1303,7 @@
       <h1><span id="oc-negocio-nombre" data-i18n="header.bizNameDefault">My store or shelf(s)</span><button id="oc-negocio-editar" type="button" data-i18n-attr="title:header.editBizName,aria-label:header.editBizName" title="Edit your business name" aria-label="Edit your business name" style="display:none;margin-left:6px;font-size:18px;line-height:1;min-width:32px;min-height:32px;background:transparent;border:none;color:var(--rust,#E86040);cursor:pointer;vertical-align:middle;padding:4px 6px;">✎</button></h1>
       <div id="oc-header-apodo" style="display:none;margin-top:2px;font-size:13px;line-height:1.3;color:var(--ink-soft,#5d5340);">
         <span id="oc-header-apodo-txt"></span>
-        <button type="button" id="oc-header-apodo-btn" title="Name this device" aria-label="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;font-size:13px;padding:0 2px;vertical-align:middle;">✎</button>
+        <button type="button" id="oc-header-apodo-btn" data-i18n-attr="title:device.name,aria-label:device.name" title="Name this device" aria-label="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;font-size:13px;padding:0 2px;vertical-align:middle;">✎</button>
       </div>
       <div class="sub" data-i18n="brand.slogan">Manage your business, in color</div>
       <div id="oc-offline-badge" style="display:none;font-size:13px;font-weight:700;color:#fff;background:var(--sim-naranja-dk,#C05000);padding:2px 8px;border-radius:999px;margin-top:4px;width:fit-content;">📴 <span data-i18n="offline.badge">Offline — saved locally</span></div>
@@ -3298,7 +3298,7 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
     if (!wrap || !txt) return;
     let apodo = "";
     try { apodo = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
-    txt.textContent = apodo ? ("This device: " + apodo) : "Name this device";
+    txt.textContent = apodo ? window.tf("device.current", { name: apodo }) : window.t("device.name");
     wrap.style.display = "block";
   }
   const apodoBtn = document.getElementById("oc-header-apodo-btn");
@@ -3306,7 +3306,7 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
     apodoBtn.addEventListener("click", () => {
       let actual = "";
       try { actual = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
-      const v = prompt("Name this device (your team will see it):", actual);
+      const v = prompt(window.t("device.namePrompt"), actual);
       if (v === null) return;
       try { if (window.OCMicelio && window.OCMicelio.ponerApodo) window.OCMicelio.ponerApodo(v); } catch (_) {}
       pintarApodoHeader();
