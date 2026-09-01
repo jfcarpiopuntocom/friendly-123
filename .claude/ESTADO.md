@@ -87,11 +87,17 @@ Actualizado: 2026-09-01 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 
 ## 4. ÚLTIMA OBSERVACIÓN / PENDIENTES
 
-- Último pedido: implementar SKILL.state (este archivo) para más contexto y
-  menos errores, frugal en tokens. **Hecho.**
+- Hecho reciente: SKILL.state (este archivo); fix recarga de versión que NO
+  interrumpe el candado del PIN (se difiere a post-login vía
+  `f123_reload_al_entrar`, invisible); Demo:456 agregado a "Current access codes"
+  en Access & Recovery (sin lapicito, permanente).
+- **PENDIENTE (JFC 2026-09-01): mejorar el inventario DEMO.** Está «demasiado
+  rock&roll y poco serio». Meter **cuadros/pinturas, eventos y antigüedades** —
+  el demo (456, permanente) es la probada completa de la app antes de comprar;
+  debe verse world-class y creíble. (Está en `mock-backend.js`, array `productos`
+  del seed.) NO implementado aún — esperar momento/OK.
 - Pendiente opcional (dicho por mí, sin OK): matriz de Commissions está como RFM
-  (Champions/At-risk, inglés) en vez de «Estaciones» de AMIGABLE — mismo concepto;
-  cambiar a estaciones solo si JFC lo pide.
+  (Champions/At-risk, inglés) en vez de «Estaciones» de AMIGABLE — mismo concepto.
 - Nada roto; rama sincronizada con master.
 
 ## 5. PROTOCOLO (cómo usar y actualizar este archivo)
