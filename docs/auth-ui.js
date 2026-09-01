@@ -350,9 +350,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   .oc-pad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
   .oc-pad button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
     padding:8px 4px;border:2px solid var(--ink,#211c14);border-radius:6px;background:var(--crema,#f3e8cd);
-    cursor:pointer;min-height:54px;}
+    cursor:pointer;min-height:54px;
+    /* Hundimiento de tecla (JFC 2026-09-01): canto/relieve inferior en reposo;
+       al presionar la tecla baja hasta el canto y la sombra colapsa, dando la
+       sensacion de que se hunde en el panel (mismo idioma que header/metal-tecla).
+       Solo sombra rgba de la tinta existente — cero colores nuevos. */
+    box-shadow:0 2px 0 rgba(15,25,35,.55);
+    transition:transform .07s ease, box-shadow .07s ease;}
   .oc-pad button .dig{font-family:var(--font-display,sans-serif);font-weight:700;font-size:20px;color:var(--ink,#211c14);line-height:1;}
-  .oc-pad button:active{transform:translateY(1px);}
+  .oc-pad button:active{transform:translateY(2px); box-shadow:0 0 0 rgba(15,25,35,0);}
+  /* La casilla llena se ve presionada hacia adentro (sombra interior sutil). */
+  .oc-slots .slot.lleno{box-shadow:inset 0 2px 3px rgba(15,25,35,.22);}
+  @media (prefers-reduced-motion: reduce){ .oc-pad button{transition:none;} }
   /* FIX 2026-07-07 (JFC: "se agrandan y arruinan todo"): digitar rapido el PIN
      disparaba el double-tap zoom de iOS. touch-action:manipulation lo elimina
      sin tocar el pinch-zoom de accesibilidad. */

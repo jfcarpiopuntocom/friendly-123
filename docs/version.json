@@ -1,9 +1,9 @@
 {
-  "version": "1.7.69",
+  "version": "1.7.70",
   "fecha": "2026-09-01",
-  "changelog": "v1.7.69 — pulido de animacion (Emil): curva ease-out fuerte unificada (tokens --ease-out/--ease-in-out) aplicada a la entrada de vistas. Sin cambios de comportamiento ni de paleta. B/C/D se auditaron y ya estaban cubiertos (no requerian cambio).",
+  "changelog": "v1.7.70 — candado del PIN: efecto de hundimiento en las teclas (canto en reposo, colapsa al presionar) y casilla llena presionada hacia adentro. Aditivo, misma paleta, respeta reduced-motion. Sin cambios de comportamiento.",
   "requerida": false,
-  "shell": "f123-shell-v182",
+  "shell": "f123-shell-v183",
   "apagar": [],
-  "releaseName": "v1.7.69"
+  "releaseName": "v1.7.70"
 }
