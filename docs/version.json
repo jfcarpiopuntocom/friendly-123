@@ -1,9 +1,9 @@
 {
-  "version": "1.7.70",
+  "version": "1.7.71",
   "fecha": "2026-09-01",
-  "changelog": "v1.7.70 — candado del PIN: efecto de hundimiento en las teclas (canto en reposo, colapsa al presionar) y casilla llena presionada hacia adentro. Aditivo, misma paleta, respeta reduced-motion. Sin cambios de comportamiento.",
+  "changelog": "v1.7.71 — Advanced: titulos de seccion capados a 15px (escala plana, ~tamano de la tabla del equipo; antes 18px se veian grandes), solo dentro de #vista-avanzado. Nuevo heading real para transfers entre perchas (shelves.transfersHeading). Sin cambios de comportamiento.",
   "requerida": false,
-  "shell": "f123-shell-v183",
+  "shell": "f123-shell-v184",
   "apagar": [],
-  "releaseName": "v1.7.70"
+  "releaseName": "v1.7.71"
 }
