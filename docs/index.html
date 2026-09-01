@@ -1783,9 +1783,15 @@
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.4">4. The ranking shows who's selling the most — and flags anyone who's gone quiet.</p>
       </div>
     </details>
-    <div id="listaComisionistas"></div>
+    <div id="gestionPromotoras" style="margin-bottom:22px;"></div>
     <div id="listaComisiones"></div>
   </section>
+
+  <!-- Overlay del editor de comisión (portado de AMIGABLE 2026-09-01, Opción B):
+       editor con barra de tramos + modalidad artista/vendedora. Mobile-first. -->
+  <div id="oc-comision-overlay" style="display:none;position:fixed;inset:0;z-index:10001;background:#0F141E;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;">
+    <div id="oc-comision-caja" style="max-width:460px;width:100%;margin:16px auto;"></div>
+  </div>
 
   <!-- VISTA: GASTOS (2026-08-27) — registrar gastos individuales y ver gastos vs ingresos. -->
   <section id="vista-gastos" class="vista">
@@ -4070,103 +4076,170 @@ async function cargarLogAjustes(){
 // % asociado, meta mensual, tramos/escalas, contribución fija, mínimo
 // garantizado, lectura preferida y switch "usar comisión propia". El backend
 // ya aceptaba estos campos; faltaba la UI.
+// ===== COMISIONES — editor con barra de tramos + modalidad (portado de AMIGABLE, Opción B, 2026-09-01) =====
+// Mobile-first: tarjetas y flex, nada de tablas. Textos vía window.t (EN/ES).
+function medallaOC(i){
+  const c = ["#E8A020", "#B9C4CE", "#C05000"][i];
+  if (!c) return `${i + 1}.`;
+  return `<span style="display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;background:${c};border:2px solid #211C14;font-family:var(--font-display);font-weight:700;font-size:14px;color:#211C14;">${i + 1}</span>`;
+}
+function normalizarTexto(s){ return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+let _promotorasVivasCache = [];
+function _comisionFilaHtml(hasta, comision, idx){
+  const inp = 'style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"';
+  return `<div class="oc-com-fila" data-fila="${idx}" style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+    <label style="flex:1;font-size:14px;color:var(--ink-soft);">${window.t("comm.ed.uptoGoal")}<br><input type="number" min="1" step="1" class="oc-com-hasta" value="${hasta}" ${inp}></label>
+    <label style="flex:1;font-size:14px;color:var(--ink-soft);">${window.t("comm.ed.pct")}<br><input type="number" min="0" max="100" step="1" class="oc-com-pct" value="${comision}" ${inp}></label>
+    <button type="button" class="oc-com-quitar" style="margin-top:14px;border:none;background:transparent;color:var(--rojo,#a3392a);font-size:18px;cursor:pointer;padding:4px 8px;" title="${window.t("comm.ed.removeTier")}">✕</button>
+  </div>`;
+}
+function _comisionBarraHtml(escalas){
+  if (!escalas.length) return '';
+  const colores = ['#4a7fa5', '#2f7a4f', '#B8760A', '#E86040', '#a3392a', '#6b4a9e'];
+  return `<div style="display:flex;height:22px;border-radius:4px;overflow:hidden;margin-top:10px;border:1px solid var(--azul-medio);">
+    ${escalas.map((e, i) => `<div style="flex:1;background:${colores[i % colores.length]};display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;" title="${window.tf("comm.ed.tierTitle", {hasta: e.hasta, com: e.comision})}">${e.comision}%</div>`).join('')}
+  </div>
+  <div style="display:flex;font-size:14px;color:var(--ink-soft);margin-top:2px;">
+    ${escalas.map(e => `<div style="flex:1;text-align:center;">≤${e.hasta}%</div>`).join('')}
+  </div>`;
+}
+function _comisionLeerFilas(caja){
+  return [...caja.querySelectorAll('.oc-com-fila')].map(f => ({
+    hasta: Number(f.querySelector('.oc-com-hasta').value) || 0,
+    comision: Number(f.querySelector('.oc-com-pct').value) || 0
+  }));
+}
+function _comisionRepintarBarra(caja){
+  const barra = caja.querySelector('#oc-com-barra');
+  if (barra) barra.innerHTML = _comisionBarraHtml(_comisionLeerFilas(caja).filter(e => e.hasta > 0));
+}
+let _ocLecturaPreferida = 'asociado';
+// Editor de comisión de la PERCHA. Reemplaza al viejo abrirEditorComisionPercha
+// (que guardaba {desde,pct}, inconsistente con el backend {hasta,comision}).
 async function abrirEditorComisionPercha(id){
   let u;
   try { u = (await (await fetch(`${API}/ubicaciones?todas=1`)).json()).find((x) => x.id === id); } catch (_) {}
+  abrirEditorComision(id, u);
+}
+async function abrirEditorComision(id, u){
+  _ocLecturaPreferida = (u && u.lecturaPreferida === 'casa') ? 'casa' : 'asociado';
   if (!u) return;
-  const esc = (v) => escHtml(v == null ? "" : v);
-  const tramos = (Array.isArray(u.escalasComision) ? u.escalasComision : []).slice().sort((a,b) => (a.desde||0)-(b.desde||0));
-  const overlay = document.createElement("div");
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(6,13,20,.55);z-index:9600;display:flex;align-items:center;justify-content:center;padding:16px;";
-  overlay.innerHTML = `
-    <div style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--azul-medio,#2c4a68);border-radius:12px;max-width:520px;width:100%;max-height:90vh;overflow:auto;padding:18px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <strong style="font-size:16px;">Commission — ${esc(u.nombre)}</strong>
-        <button data-cep-cerrar style="font-size:20px;line-height:1;width:30px;height:30px;border-radius:50%;border:2px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer;">✕</button>
+  const overlay = document.getElementById('oc-comision-overlay');
+  const caja = document.getElementById('oc-comision-caja');
+  const escalas = Array.isArray(u.escalasComision) ? u.escalasComision : [];
+  const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"';
+  const prom = (u.promotoraId && Array.isArray(window.OCPromotorasCache)) ? window.OCPromotorasCache.find(x => x.id === u.promotoraId) : null;
+  const nomProm = escHtml(prom ? prom.nombre : window.t("comm.ed.theirAgent"));
+  const toggleHtml = u.promotoraId ? `
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:14px;background:#fff;padding:10px;border-radius:4px;border:2px solid var(--azul-medio);">
+        <input type="checkbox" id="oc-com-propia" ${u.usarComisionPropia ? "checked" : ""} style="width:18px;height:18px;">
+        ${window.tf("comm.ed.useOwnFor", {name: nomProm})}
+      </label>
+      <p id="oc-com-nota" style="font-size:14px;color:var(--ink-soft);margin:4px 0 0;">${u.usarComisionPropia ? "" : window.tf("comm.ed.usingDefault", {pct: Number(prom ? prom.comisionBase : 0) || 0, name: nomProm})}</p>` : '';
+  caja.innerHTML = `
+    <div class="ficha-producto tag-card" style="text-align:left;background:var(--blanco-calido,#fbf5e8);">
+      <div class="titulo">${window.t("comm.ed.title")} — ${escHtml(u.nombre)}</div>
+      <p style="font-size:14px;color:var(--ink-soft);">${window.t("comm.ed.blurb")}</p>
+      ${toggleHtml}
+      <div id="oc-com-camposPropios" style="${(u.promotoraId && !u.usarComisionPropia) ? "pointer-events:none;background:var(--azul-suave,#dde5ec);border-radius:4px;padding:8px;" : ""}">
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+          <label style="flex:1;min-width:120px;font-size:14px;">${window.t("comm.ed.associateTakes")}<br><input id="oc-com-base" type="number" min="0" max="100" step="0.5" value="${Number(u.comisionSocio)||0}" ${inp}></label>
+          <label style="flex:1;min-width:120px;font-size:14px;">${window.t("comm.ed.houseKeeps")}<br><input id="oc-com-casa" type="number" min="0" max="100" step="0.5" value="${+(100-(Number(u.comisionSocio)||0)).toFixed(2)}" ${inp}></label>
+          <label style="flex:1;min-width:120px;font-size:14px;">${window.t("comm.ed.monthlyTarget")}<br><input id="oc-com-meta" type="number" min="0" step="1" value="${Number(u.metaMensual)||0}" ${inp}></label>
+        </div>
+        <label style="display:block;margin-top:10px;font-size:14px;">${window.t("comm.ed.fixedContrib")} <span style="font-weight:400;color:var(--ink-soft);">${window.t("comm.ed.fixedContribHint")}</span><br><input id="oc-com-fija" type="number" min="0" step="1" value="${Number(u.contribFija)||0}" ${inp}></label>
+        <p style="font-size:13px;color:var(--ink-soft);margin:4px 0 0;">${window.t("comm.ed.fixedVsTiers")}</p>
+        <label style="display:block;margin-top:10px;font-size:14px;">${window.t("comm.ed.minGuaranteed")} <span style="font-weight:400;color:var(--ink-soft);">${window.t("comm.ed.minGuaranteedHint")}</span><br><input id="oc-com-minimo" type="number" min="0" step="1" value="${Number(u.minimoGarantizado)||0}" ${inp}></label>
+        <div id="oc-com-modalidad" style="margin-top:12px;padding:10px;border-radius:6px;background:var(--paper-deep,#E2E8ED);font-size:14px;"></div>
+        <div style="margin-top:14px;font-size:14px;font-weight:700;">${window.t("comm.ed.tiers")}</div>
+        <div id="oc-com-barra">${_comisionBarraHtml(escalas)}</div>
+        <div id="oc-com-filas">${escalas.map((e, i) => _comisionFilaHtml(e.hasta, e.comision, i)).join('')}</div>
+        <button type="button" id="oc-com-agregar" style="margin-top:10px;font-size:14px;padding:6px 12px;">${window.t("comm.ed.addTier")}</button>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <label style="font-size:13px;">Associate takes (%)<br><input id="cep-pct" type="number" min="0" max="100" step="0.5" value="${Number(u.comisionSocio)||0}" style="width:110px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
-        <label style="font-size:13px;">Monthly target ($)<br><input id="cep-meta" type="number" min="0" step="1" value="${Number(u.metaMensual)||0}" style="width:130px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
-        <label style="font-size:13px;">Fixed contribution ($)<br><input id="cep-contrib" type="number" min="0" step="0.01" value="${Number(u.contribFija)||0}" style="width:120px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
-        <label style="font-size:13px;">Minimum guaranteed ($)<br><input id="cep-minimo" type="number" min="0" step="0.01" value="${Number(u.minimoGarantizado)||0}" style="width:120px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
-      </div>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;">
-        <input id="cep-propia" type="checkbox" ${u.usarComisionPropia ? "checked" : ""} style="width:18px;height:18px;">
-        Use this shelf's own commission (ignore the agent's deal)</label>
-      <label style="display:block;font-size:13px;margin-top:8px;">Preferred reading<br>
-        <select id="cep-lectura" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;">
-          <option value="asociado" ${u.lecturaPreferida !== "casa" ? "selected" : ""}>Associate takes X%</option>
-          <option value="casa" ${u.lecturaPreferida === "casa" ? "selected" : ""}>House keeps X%</option>
-        </select></label>
-      <div style="margin-top:10px;">
-        <div style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);">Goal-based tiers (optional)</div>
-        <div id="cep-tramos" style="margin-top:4px;"></div>
-        <button id="cep-add-tramo" type="button" style="font-size:12px;padding:4px 10px;margin-top:6px;border:1.5px solid var(--azul-medio,#2E6278);border-radius:6px;background:transparent;color:var(--azul-medio,#2E6278);cursor:pointer;">+ Add tier</button>
-      </div>
-      <p id="cep-msg" style="font-size:13px;font-weight:700;margin:10px 0 0;"></p>
-      <div style="display:flex;gap:8px;margin-top:12px;">
-        <button id="cep-guardar" style="flex:1;font-size:14px;font-weight:700;padding:10px;background:#006B3C;border:1.5px solid #006B3C;border-radius:6px;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">Save</button>
+      <div id="oc-com-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
+      <div class="acciones-rapidas" style="margin-top:12px;">
+        <button class="vender" id="oc-com-guardar">${window.t("comm.ed.save")}</button>
+        <button type="button" onclick="cerrarEditorComision()">${window.t("comm.ed.cancel")}</button>
       </div>
     </div>`;
-  document.body.appendChild(overlay);
-  const tramosEl = overlay.querySelector("#cep-tramos");
-  const pintarTramos = () => {
-    const filas = [...tramosEl.querySelectorAll("[data-tramo]")].map((f) => ({ desde: Number(f.querySelector(".ce-t-desde").value) || 0, pct: Number(f.querySelector(".ce-t-pct").value) || 0 }));
-    tramosEl.innerHTML = filas.map((t) => `
-      <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
-        <span style="font-size:12px;color:var(--ink-soft);">from</span>
-        <input class="ce-t-desde" type="number" min="0" step="1" value="${t.desde}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <span style="font-size:12px;color:var(--ink-soft);">%</span>
-        <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="${t.pct}" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
-      </div>`).join("");
-    tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
+  overlay.style.display = 'flex';
+  let contador = escalas.length;
+  const agregarFila = () => {
+    caja.querySelector('#oc-com-filas').insertAdjacentHTML('beforeend', _comisionFilaHtml(100, 0, contador++));
+    _atarFilasComision(caja);
   };
-  tramosEl.innerHTML = tramos.map((t) => `
-    <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
-      <span style="font-size:12px;color:var(--ink-soft);">from</span>
-      <input class="ce-t-desde" type="number" min="0" step="1" value="${t.desde}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-      <span style="font-size:12px;color:var(--ink-soft);">%</span>
-      <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="${t.pct}" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-      <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
-    </div>`).join("");
-  tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
-  overlay.querySelector("#cep-add-tramo").addEventListener("click", () => {
-    const filas = [...tramosEl.querySelectorAll("[data-tramo]")];
-    const ultimo = filas.length ? Number(filas[filas.length-1].querySelector(".ce-t-desde").value) || 0 : 0;
-    tramosEl.insertAdjacentHTML("beforeend", `
-      <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
-        <span style="font-size:12px;color:var(--ink-soft);">from</span>
-        <input class="ce-t-desde" type="number" min="0" step="1" value="${ultimo + 500}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <span style="font-size:12px;color:var(--ink-soft);">%</span>
-        <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
-      </div>`);
-    tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
+  document.getElementById('oc-com-agregar').addEventListener('click', agregarFila);
+  (function () {
+    const inAso = document.getElementById('oc-com-base');
+    const inCasa = document.getElementById('oc-com-casa');
+    const cartel = document.getElementById('oc-com-modalidad');
+    if (!inAso || !inCasa) return;
+    let espejando = false;
+    const limpio = (n) => Math.round(Math.max(0, Math.min(100, n)) * 100) / 100;
+    function pintarModalidad() {
+      if (!cartel) return;
+      const pp = limpio(Number(inAso.value) || 0);
+      const esArtista = pp >= 50;
+      cartel.innerHTML = esArtista
+        ? window.tf("comm.ed.modeArtist", {pct: pp, rest: +(100 - pp).toFixed(2)})
+        : window.tf("comm.ed.modeSeller", {pct: pp, rest: +(100 - pp).toFixed(2)});
+      cartel.style.borderLeft = '4px solid ' + (esArtista ? '#6b4a9e' : '#2f7a4f');
+    }
+    function espejo(origen, destino, lectura) {
+      origen.addEventListener('input', () => {
+        if (espejando) return;
+        const n = Number(origen.value);
+        if (!Number.isFinite(n)) return;
+        espejando = true;
+        destino.value = String(limpio(100 - limpio(n)));
+        espejando = false;
+        _ocLecturaPreferida = lectura;
+        pintarModalidad();
+      });
+    }
+    espejo(inAso, inCasa, 'asociado');
+    espejo(inCasa, inAso, 'casa');
+    pintarModalidad();
+  })();
+  const chkPropia = document.getElementById('oc-com-propia');
+  if (chkPropia) chkPropia.addEventListener('change', () => {
+    document.getElementById('oc-com-camposPropios').style.opacity = chkPropia.checked ? '1' : '.45';
+    const nota = document.getElementById('oc-com-nota');
+    if (nota) nota.textContent = chkPropia.checked ? '' : window.tf("comm.ed.usingDefaultShort", {name: (window.OCPromotorasCache||[]).find(x=>x.id===u.promotoraId)?.nombre || window.t("comm.ed.theirAgent")});
   });
-  const cerrar = () => overlay.remove();
-  overlay.querySelector("[data-cep-cerrar]").addEventListener("click", cerrar);
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
-  overlay.querySelector("#cep-guardar").addEventListener("click", async () => {
-    const msg = overlay.querySelector("#cep-msg");
-    const escalas = [...tramosEl.querySelectorAll("[data-tramo]")].map((f) => ({ desde: Number(f.querySelector(".ce-t-desde").value) || 0, pct: Number(f.querySelector(".ce-t-pct").value) || 0 })).filter((e) => e.pct > 0);
+  document.getElementById('oc-com-guardar').addEventListener('click', async () => {
+    const msg = document.getElementById('oc-com-msg');
+    const filas = _comisionLeerFilas(caja);
+    if (filas.some(f => f.hasta <= 0)) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = window.t("comm.ed.tierNeedsGoal"); return; }
     const body = {
-      comisionSocio: overlay.querySelector("#cep-pct").value,
-      metaMensual: overlay.querySelector("#cep-meta").value,
-      contribFija: overlay.querySelector("#cep-contrib").value,
-      minimoGarantizado: overlay.querySelector("#cep-minimo").value,
-      usarComisionPropia: overlay.querySelector("#cep-propia").checked,
-      lecturaPreferida: overlay.querySelector("#cep-lectura").value,
-      escalasComision: escalas,
+      comisionSocio: document.getElementById('oc-com-base').value,
+      minimoGarantizado: (document.getElementById('oc-com-minimo') || {}).value || 0,
+      lecturaPreferida: _ocLecturaPreferida,
+      metaMensual: document.getElementById('oc-com-meta').value,
+      contribFija: document.getElementById('oc-com-fija').value,
+      escalasComision: filas
     };
-    try {
-      const res = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const r = await res.json();
-      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Could not save."; return; }
-      msg.style.color = "var(--verde,#2f7a4f)"; msg.textContent = "Saved.";
-      setTimeout(() => { cerrar(); cargarPerchas(); }, 600);
-    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not reach the server."; }
+    if (chkPropia) body.usarComisionPropia = chkPropia.checked;
+    const res = await fetch(`${API}/ubicaciones/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await res.json();
+    if (!res.ok) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = r.error; return; }
+    cerrarEditorComision();
+    if (typeof cargarPerchas === "function") cargarPerchas();
+    if (typeof cargarComisiones === "function") cargarComisiones();
   });
+  _atarFilasComision(caja);
+}
+function _atarFilasComision(caja){
+  caja.querySelectorAll('.oc-com-fila').forEach(fila => {
+    if (fila.dataset.ocListo) return;
+    fila.dataset.ocListo = '1';
+    fila.querySelector('.oc-com-quitar').addEventListener('click', () => { fila.remove(); _comisionRepintarBarra(caja); });
+    fila.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => _comisionRepintarBarra(caja)));
+  });
+}
+function cerrarEditorComision(){
+  document.getElementById('oc-comision-overlay').style.display = 'none';
+  document.getElementById('oc-comision-caja').innerHTML = '';
 }
 
 function renderPerchaCard(u, sucursalesDisp, promotorasDisp) {
@@ -5499,201 +5572,243 @@ async function cargarActividad(){
 // (puedeGestionar). Es aditivo y autocontenido: no toca el reparto ni las
 // liquidaciones existentes.
 let _comisionistasCache = [];
-async function renderComisionistas(){
-  const cont = document.getElementById("listaComisionistas");
+// ===== Gestión de comisionistas (portado de AMIGABLE, Opción B, 2026-09-01) =====
+// Lista viva con buscador + alta con datos de contacto/pago + archivar. Mobile-first.
+function tarjetaPromotora(pr){
+  const datos = [
+    pr.telefono ? `📞 ${escHtml(pr.telefono)}` : "",
+    pr.cedula ? `🪪 ${escHtml(pr.cedula)}` : "",
+    (pr.banco || pr.cuenta) ? `🏦 ${escHtml(pr.banco || "")}${pr.banco && pr.cuenta ? " · " : ""}${escHtml(pr.cuenta || "")}` : "",
+  ].filter(Boolean).join(" &nbsp;·&nbsp; ");
+  const tramos = (pr.escalasComision && pr.escalasComision.length) ? ` · ${window.tf("comm.g.tierCount", {n: pr.escalasComision.length})}` : "";
+  return `
+    <div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;">
+      <button type="button" data-abrir-promotora="${pr.id}" style="flex:1;text-align:left;background:transparent;border:none;padding:0;cursor:pointer;">
+        <strong style="color:var(--azul-medio,#2c4a68);text-decoration:underline;">${escHtml(pr.nombre)}</strong>
+        <div style="font-size:14px;color:var(--ink-soft);">${window.tf("comm.g.pctCommission", {pct: Number(pr.comisionBase)||0})}${tramos} — ${window.t("comm.g.tapToEdit")}</div>
+        ${datos ? `<div style="font-size:14px;color:var(--ink-soft);margin-top:2px;">${datos}</div>` : ""}
+        ${pr.direccion ? `<div style="font-size:14px;color:var(--ink-soft);">📍 ${escHtml(pr.direccion)}</div>` : ""}
+        ${pr.notas ? `<div style="font-size:14px;color:var(--ink-soft);font-style:italic;margin-top:2px;">"${escHtml(pr.notas)}"</div>` : ""}
+      </button>
+      <button data-archivar-promotora="${pr.id}" data-nombre-promotora="${escHtml(pr.nombre)}" style="font-size:14px;padding:8px 12px;border:2px solid var(--rojo,#a3392a);border-radius:4px;background:transparent;color:var(--rojo,#a3392a);cursor:pointer;">${window.t("comm.g.archive")}</button>
+    </div>`;
+}
+function renderListaPromotorasViva(query){
+  const cont = document.getElementById("listaPromotoras");
+  const conteo = document.getElementById("promBuscarConteo");
   if (!cont) return;
-  const puede = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
-  if (!puede) { cont.innerHTML = ""; return; } // staff: no gestiona comisionistas
-  let lista = [];
-  try { lista = await (await fetch(`${API}/promotoras`)).json(); } catch (_) { lista = []; }
-  _comisionistasCache = (Array.isArray(lista) ? lista : []).slice().sort((a,b) => String(a.nombre||"").localeCompare(String(b.nombre||"")));
-  const inp = (id, ph, extra) => `<input id="${id}" type="text" autocomplete="off" placeholder="${escHtml(ph)}" style="flex:1;min-width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;${extra||''}">`;
-  cont.innerHTML = `
-    <div class="tag-card" style="text-align:left;margin-bottom:16px;">
-      <h3 class="seccion" style="margin-top:0;font-size:15px;" data-i18n="comm.assoc.heading">${t("comm.assoc.heading")}</h3>
-      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 10px;" data-i18n="comm.assoc.intro">${t("comm.assoc.intro")}</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <label style="font-size:13px;flex:2;min-width:160px;"><span data-i18n="common.name">${t("common.name")}</span><br>${inp("cmNombre", t("comm.assoc.namePh"),"width:100%;")}</label>
-        <label style="font-size:13px;"><span data-i18n="comm.assoc.pct">${t("comm.assoc.pct")}</span><br><input id="cmComision" type="number" min="0" max="100" step="0.5" placeholder="e.g. 15" style="width:110px;padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
-        <label style="font-size:13px;">Monthly target ($)<br><input id="cmMeta" type="number" min="0" step="1" placeholder="e.g. 2000" style="width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
+  const q = normalizarTexto(query || "");
+  const filtrados = !q ? _promotorasVivasCache : _promotorasVivasCache.filter(pr => {
+    const campos = [pr.nombre, pr.telefono, pr.cedula, pr.banco, pr.cuenta, pr.direccion];
+    return campos.some(v => v && normalizarTexto(v).includes(q));
+  });
+  cont.innerHTML = filtrados.length
+    ? filtrados.map(pr => tarjetaPromotora(pr)).join("")
+    : (_promotorasVivasCache.length
+        ? `<p style="font-size:14px;color:var(--ink-soft);">${window.tf("comm.g.noneMatch", {q: escHtml(query)})}</p>`
+        : `<p style="font-size:14px;color:var(--ink-soft);">${window.t("comm.g.noneYet")}</p>`);
+  if (conteo) {
+    conteo.textContent = _promotorasVivasCache.length
+      ? (q ? window.tf("comm.g.showingOf", {shown: filtrados.length, total: _promotorasVivasCache.length}) : window.tf("comm.g.totalCount", {total: _promotorasVivasCache.length}))
+      : "";
+  }
+  cont.querySelectorAll("[data-archivar-promotora]").forEach(btn => btn.addEventListener("click", async () => {
+    const nombre = btn.dataset.nombrePromotora;
+    if (!(await ocConfirm(window.tf("comm.g.archiveConfirm", {name: nombre})))) return;
+    try { await fetch(`${API}/promotoras/${btn.dataset.archivarPromotora}`, { method: "DELETE" }); }
+    catch (_) { await ocAlert(window.t("comm.g.archiveFail")); return; }
+    renderGestionPromotoras();
+  }));
+  cont.querySelectorAll("[data-abrir-promotora]").forEach(btn => btn.addEventListener("click", () => {
+    abrirEditorComisionista(btn.dataset.abrirPromotora, _promotorasVivasCache.find(x => x.id === btn.dataset.abrirPromotora));
+  }));
+}
+async function renderGestionPromotoras(){
+  const box = document.getElementById("gestionPromotoras");
+  if (!box) return;
+  let lista, encargados = [], proveedoresConsig = [];
+  try {
+    lista = await (await fetch(`${API}/promotoras`)).json();
+  } catch (_) {
+    box.innerHTML = `<p style="font-size:14px;color:var(--rojo,#a3392a);">${window.t("comm.g.loadFail")}</p>`;
+    return;
+  }
+  try { encargados = await (await fetch(`${API}/usuarios`)).json(); } catch (_) { encargados = []; }
+  try {
+    const prods = await (await fetch(`${API}/productos?todas=1`)).json();
+    const nombres = new Set();
+    (prods||[]).forEach(p => { if (p.tipoProveedor === "consignacion" && p.proveedor) nombres.add(p.proveedor); });
+    proveedoresConsig = [...nombres].sort((a,b) => a.localeCompare(b));
+  } catch (_) { proveedoresConsig = []; }
+  box.innerHTML = `
+    <h3 class="seccion" style="font-size:15px;margin-top:0;">${window.t("comm.g.heading")}</h3>
+    <div class="tag-card" style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:14px;font-weight:600;cursor:pointer;"><input type="radio" name="promOrigen" value="libre" checked> ${window.t("comm.g.originFree")}</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:14px;font-weight:600;cursor:pointer;"><input type="radio" name="promOrigen" value="empleado"> ${window.t("comm.g.originStaff")}</label>
+        <label style="display:flex;align-items:center;gap:5px;font-size:14px;font-weight:600;cursor:pointer;"><input type="radio" name="promOrigen" value="proveedor"> ${window.t("comm.g.originSupplier")}</label>
       </div>
-      <label style="display:block;font-size:13px;margin-top:8px;">Origin<br>
-        <select id="cmOrigen" style="padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;">
-          <option value="libre">Free agent (brings their own people)</option>
-          <option value="empleado">Employee / staff</option>
-          <option value="proveedor">Supplier / artist</option>
-        </select></label>
-      <label style="display:block;font-size:13px;margin-top:8px;">Notes<br><input id="cmNotas" type="text" placeholder="Anything worth remembering..." style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;"></label>
-      <details style="margin-top:8px;">
-        <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="comm.assoc.more">${t("comm.assoc.more")}</summary>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <input id="promNombre" type="text" placeholder="${window.t("comm.g.namePh")}" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
+        <select id="promNombreSelect" style="display:none;flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;"></select>
+        <input id="promComision" type="number" min="0" max="100" placeholder="${window.t("comm.g.pctPh")}" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
+      </div>
+      <details style="margin-top:2px;">
+        <summary style="cursor:pointer;font-size:14px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;">${window.t("comm.g.contactToggle")}</summary>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;">
-          ${inp("cmTelefono", t("comm.assoc.phone"))}
-          ${inp("cmCedula", t("comm.assoc.id"))}
-          ${inp("cmBanco", t("comm.assoc.bank"))}
-          ${inp("cmCuenta", t("comm.assoc.account"))}
-          ${inp("cmDireccion", t("comm.assoc.address"),"flex:2;min-width:160px;")}
+          <input id="promTelefono" type="text" placeholder="${window.t("comm.g.phone")}" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <input id="promCedula" type="text" placeholder="${window.t("comm.g.id")}" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <input id="promBanco" type="text" placeholder="${window.t("comm.g.bank")}" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <input id="promCuenta" type="text" placeholder="${window.t("comm.g.account")}" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <input id="promDireccion" type="text" placeholder="${window.t("comm.g.address")}" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <textarea id="promNotas" placeholder="${window.t("comm.g.notes")}" style="flex:2;min-width:200px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;min-height:40px;font-family:inherit;"></textarea>
         </div>
       </details>
-      <div style="margin-top:10px;"><button class="ir" id="btnAltaComisionista" style="padding:10px 16px;" data-i18n="comm.assoc.addBtn">${t("comm.assoc.addBtn")}</button></div>
-      <p id="cmMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
-      <div class="tag-card" style="padding:8px 12px;display:flex;align-items:center;gap:10px;margin-top:14px;">
-        <input id="cmBuscar" type="search" autocomplete="off" placeholder="${escHtml(t("comm.assoc.searchPh"))}" style="flex:1;min-width:0;padding:9px 11px;font-size:14px;border:2px solid var(--azul-medio);border-radius:5px;">
-      </div>
-      <div id="cmLista" style="margin-top:10px;"></div>
-    </div>`;
-  const pintarLista = (q) => {
-    const ql = String(q||"").trim().toLowerCase();
-    const fil = _comisionistasCache.filter(p => !ql || String(p.nombre||"").toLowerCase().includes(ql) || String(p.telefono||"").toLowerCase().includes(ql) || String(p.cedula||"").toLowerCase().includes(ql));
-    const el = document.getElementById("cmLista");
-    if (!el) return;
-    el.innerHTML = fil.length ? fil.map(p => `
-      <div class="tag-card" id="cm-card-${escHtml(p.id)}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;">
-        <div style="flex:1;"><strong>${escHtml(p.nombre)}</strong>
-          <div style="font-size:13px;color:var(--ink-soft);">${(Number(p.comision)||0)}%${p.metaMensual ? ` · target ${fmtMoney(p.metaMensual)}` : ''}${p.telefono?` · ${escHtml(p.telefono)}`:''}${p.origen ? ` · ${escHtml(p.origen)}` : ''}</div>
-          ${p.notas ? `<div style="font-size:12px;color:var(--ink-soft);font-style:italic;">${escHtml(p.notas)}</div>` : ""}</div>
-        <button data-cm-editar="${escHtml(p.id)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio,#2E6278);border-radius:5px;background:transparent;color:var(--azul-medio,#2E6278);cursor:pointer;">✎ Edit</button>
-        <button data-cm-borrar="${escHtml(p.id)}" data-nombre="${escHtml(p.nombre)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo,#E8365D);border-radius:5px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">${t("common.delete")}</button>
-      </div>`).join("") : `<p style="font-size:14px;color:var(--ink-soft);">${t("comm.assoc.empty")}</p>`;
-  };
-  pintarLista("");
-  const buscar = document.getElementById("cmBuscar");
-  if (buscar) buscar.addEventListener("input", () => pintarLista(buscar.value));
-  const btn = document.getElementById("btnAltaComisionista");
-  if (btn) btn.addEventListener("click", async () => {
-    const nombre = (document.getElementById("cmNombre").value||"").trim();
-    const msg = document.getElementById("cmMsg");
-    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("comm.assoc.nameReq"); return; }
-    const body = { nombre, comision: document.getElementById("cmComision").value,
-      metaMensual: document.getElementById("cmMeta").value,
-      origen: document.getElementById("cmOrigen").value,
-      notas: document.getElementById("cmNotas").value,
-      telefono: document.getElementById("cmTelefono").value, cedula: document.getElementById("cmCedula").value,
-      banco: document.getElementById("cmBanco").value, cuenta: document.getElementById("cmCuenta").value,
-      direccion: document.getElementById("cmDireccion").value };
-    btn.disabled = true;
-    try {
-      const res = await fetch(`${API}/promotoras`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
-      const r = await res.json();
-      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || t("comm.assoc.addFail"); btn.disabled = false; return; }
-      msg.style.color = "var(--verde,#2f7a4f)"; msg.textContent = t("comm.assoc.added");
-      await renderComisionistas();
-    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("comm.assoc.addFail"); btn.disabled = false; }
-  });
-  const elLista = document.getElementById("cmLista");
-  if (elLista) elLista.addEventListener("click", async (e) => {
-    const bEd = e.target.closest("[data-cm-editar]");
-    if (bEd) { abrirEditorComisionista(bEd.dataset.cmEditar); return; }
-    const b = e.target.closest("[data-cm-borrar]"); if (!b) return;
-    if (!(await ocConfirm(tf("comm.assoc.delConfirm", {nombre: b.dataset.nombre})))) return;
-    try { await fetch(`${API}/promotoras/${b.dataset.cmBorrar}`, { method:"DELETE" }); } catch (_) {}
-    await renderComisionistas();
-  });
-}
-
-// Editor de comisionista (JFC 2026-08-27, portado de amigable-123): edita
-// nombre, %, meta mensual, tramos/escalas, datos de pago y notas. Inline en la
-// tarjeta, mismo patrón que el editor de gasto/servings.
-async function abrirEditorComisionista(id){
-  const card = document.getElementById("cm-card-" + id);
-  if (!card) return;
-  let p;
-  try { p = await (await fetch(`${API}/promotoras`)).json(); } catch (_) {}
-  const pr = (Array.isArray(p) ? p : []).find((x) => x.id === id);
-  if (!pr) return;
-  const esc = (v) => escHtml(v == null ? "" : v);
-  const tramos = (Array.isArray(pr.escalasComision) ? pr.escalasComision : []).slice().sort((a,b) => (a.desde||0)-(b.desde||0));
-  card.innerHTML = `
-    <div style="flex:1;min-width:0;">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <input id="ce-nombre" value="${esc(pr.nombre)}" placeholder="Name" style="flex:2;min-width:140px;font-size:14px;padding:7px 9px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <label style="font-size:13px;">%<br><input id="ce-comision" type="number" min="0" max="100" step="0.5" value="${Number(pr.comision)||0}" style="width:80px;font-size:14px;padding:7px 9px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;"></label>
-        <label style="font-size:13px;">Target ($)<br><input id="ce-meta" type="number" min="0" step="1" value="${Number(pr.metaMensual)||0}" style="width:110px;font-size:14px;padding:7px 9px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;"></label>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-        <input id="ce-telefono" value="${esc(pr.telefono)}" placeholder="Phone" style="flex:1;min-width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <input id="ce-cedula" value="${esc(pr.cedula)}" placeholder="ID" style="flex:1;min-width:90px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <input id="ce-banco" value="${esc(pr.banco)}" placeholder="Bank" style="flex:1;min-width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <input id="ce-cuenta" value="${esc(pr.cuenta)}" placeholder="Account" style="flex:1;min-width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-      </div>
-      <input id="ce-notas" value="${esc(pr.notas)}" placeholder="Notes" style="width:100%;margin-top:6px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-      <div style="margin-top:8px;">
-        <div style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);">Goal-based tiers (optional)</div>
-        <div id="ce-tramos" style="margin-top:4px;"></div>
-        <button id="ce-add-tramo" type="button" style="font-size:12px;padding:4px 10px;margin-top:6px;border:1.5px solid var(--azul-medio,#2E6278);border-radius:6px;background:transparent;color:var(--azul-medio,#2E6278);cursor:pointer;">+ Add tier</button>
-      </div>
-      <p id="ce-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;"></p>
+      <div style="margin-top:10px;"><button class="ir" id="btnAltaPromotora" style="padding:10px 18px;">${window.t("comm.g.addBtn")}</button></div>
+      <p style="font-size:14px;color:var(--ink-soft);margin:0;">${window.t("comm.g.dualRoleNote")}</p>
     </div>
-    <div style="display:flex;flex-direction:column;gap:6px;">
-      <button id="ce-guardar" style="font-size:13px;font-weight:700;padding:7px 12px;background:#006B3C;border:1.5px solid #006B3C;border-radius:6px;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">Save</button>
-      <button id="ce-cancelar" style="font-size:13px;padding:7px 12px;background:#fff;border:1.5px solid var(--linea,#D7E0E8);border-radius:6px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;cursor:pointer;">Cancel</button>
-    </div>`;
-  const tramosEl = document.getElementById("ce-tramos");
-  const pintarTramos = () => {
-    const filas = [...tramosEl.querySelectorAll("[data-tramo]")].map((f) => ({
-      desde: Number(f.querySelector(".ce-t-desde").value) || 0,
-      pct: Number(f.querySelector(".ce-t-pct").value) || 0,
-    }));
-    tramosEl.innerHTML = filas.map((t, i) => `
-      <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
-        <span style="font-size:12px;color:var(--ink-soft);">from</span>
-        <input class="ce-t-desde" type="number" min="0" step="1" value="${t.desde}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <span style="font-size:12px;color:var(--ink-soft);">%</span>
-        <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="${t.pct}" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
-      </div>`).join("");
-    tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
-  };
-  tramosEl.innerHTML = tramos.map((t) => `
-    <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
-      <span style="font-size:12px;color:var(--ink-soft);">from</span>
-      <input class="ce-t-desde" type="number" min="0" step="1" value="${t.desde}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-      <span style="font-size:12px;color:var(--ink-soft);">%</span>
-      <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="${t.pct}" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-      <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
-    </div>`).join("");
-  tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
-  document.getElementById("ce-add-tramo").addEventListener("click", () => {
-    const filas = [...tramosEl.querySelectorAll("[data-tramo]")];
-    const ultimo = filas.length ? Number(filas[filas.length-1].querySelector(".ce-t-desde").value) || 0 : 0;
-    tramosEl.insertAdjacentHTML("beforeend", `
-      <div data-tramo style="display:flex;gap:6px;align-items:center;margin-top:4px;">
-        <span style="font-size:12px;color:var(--ink-soft);">from</span>
-        <input class="ce-t-desde" type="number" min="0" step="1" value="${ultimo + 500}" style="width:90px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <span style="font-size:12px;color:var(--ink-soft);">%</span>
-        <input class="ce-t-pct" type="number" min="0" max="100" step="0.5" value="" style="width:80px;font-size:13px;padding:5px 7px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
-        <button type="button" data-tramo-del style="font-size:12px;padding:3px 8px;border:1px solid #C0392B;border-radius:5px;background:transparent;color:#C0392B;cursor:pointer;">✕</button>
-      </div>`);
-    tramosEl.querySelectorAll("[data-tramo-del]").forEach((b) => b.addEventListener("click", () => { b.closest("[data-tramo]").remove(); pintarTramos(); }));
-  });
-  document.getElementById("ce-cancelar").addEventListener("click", () => renderComisionistas());
-  document.getElementById("ce-guardar").addEventListener("click", async () => {
-    const msg = document.getElementById("ce-msg");
-    const nombre = document.getElementById("ce-nombre").value.trim();
-    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "A name is required."; return; }
-    const escalas = [...tramosEl.querySelectorAll("[data-tramo]")].map((f) => ({
-      desde: Number(f.querySelector(".ce-t-desde").value) || 0,
-      pct: Number(f.querySelector(".ce-t-pct").value) || 0,
-    })).filter((e) => e.pct > 0);
+    <p id="promMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
+    <div class="tag-card" style="padding:10px 14px;display:flex;align-items:center;gap:12px;margin-top:16px;">
+      <svg width="26" height="26" viewBox="0 0 16 16" aria-hidden="true" style="flex-shrink:0;">
+        <circle cx="6.6" cy="6.6" r="4.8" fill="none" stroke="var(--azul-medio,#2E6278)" stroke-width="2.2"/>
+        <path d="M10.2 10.2L15 15" stroke="var(--azul-medio,#2E6278)" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <input id="promBuscar" type="search" inputmode="search" autocomplete="off" placeholder="${window.t("comm.g.searchPh")}"
+        style="flex:1;min-width:0;padding:10px 12px;font-size:15px;border:2px solid var(--azul-medio);border-radius:4px;">
+    </div>
+    <p id="promBuscarConteo" style="font-size:14px;color:var(--ink-soft);margin:6px 2px 0;"></p>
+    <div id="listaPromotoras" style="margin-top:10px;"></div>`;
+  _promotorasVivasCache = lista.slice().sort((a, b) => a.nombre.localeCompare(b.nombre));
+  window.OCPromotorasCache = _promotorasVivasCache;
+  const buscarPromEl = document.getElementById("promBuscar");
+  renderListaPromotorasViva(buscarPromEl ? buscarPromEl.value : "");
+  if (buscarPromEl && !buscarPromEl.dataset.listo) {
+    buscarPromEl.dataset.listo = "1";
+    buscarPromEl.addEventListener("input", () => renderListaPromotorasViva(buscarPromEl.value));
+  }
+  const inputTexto = document.getElementById("promNombre");
+  const selectNombre = document.getElementById("promNombreSelect");
+  function poblarSelect(opciones, placeholder){
+    selectNombre.innerHTML = `<option value="">${placeholder}</option>` + opciones.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join("");
+  }
+  document.querySelectorAll('input[name="promOrigen"]').forEach(r => r.addEventListener("change", (e) => {
+    const v = e.target.value;
+    if (v === "libre"){ inputTexto.style.display = ""; selectNombre.style.display = "none"; }
+    else if (v === "empleado"){
+      inputTexto.style.display = "none"; selectNombre.style.display = "";
+      poblarSelect(encargados.map(u => u.nombre), encargados.length ? window.t("comm.g.pickStaff") : window.t("comm.g.noStaff"));
+    } else {
+      inputTexto.style.display = "none"; selectNombre.style.display = "";
+      poblarSelect(proveedoresConsig, proveedoresConsig.length ? window.t("comm.g.pickSupplier") : window.t("comm.g.noSupplier"));
+    }
+  }));
+  document.getElementById("btnAltaPromotora").addEventListener("click", async () => {
+    const origen = document.querySelector('input[name="promOrigen"]:checked').value;
+    const nombre = (origen === "libre" ? inputTexto.value : selectNombre.value).trim();
+    const comision = document.getElementById("promComision").value;
+    const msgEl = document.getElementById("promMsg");
+    if (!nombre){ msgEl.textContent = window.t("comm.g.needName"); msgEl.style.color = "var(--rojo,#a3392a)"; return; }
     const body = {
-      nombre, comision: document.getElementById("ce-comision").value,
-      metaMensual: document.getElementById("ce-meta").value, escalasComision: escalas,
-      telefono: document.getElementById("ce-telefono").value, cedula: document.getElementById("ce-cedula").value,
-      banco: document.getElementById("ce-banco").value, cuenta: document.getElementById("ce-cuenta").value,
-      notas: document.getElementById("ce-notas").value,
+      nombre, comision,
+      telefono: document.getElementById("promTelefono").value.trim(),
+      cedula: document.getElementById("promCedula").value.trim(),
+      banco: document.getElementById("promBanco").value.trim(),
+      cuenta: document.getElementById("promCuenta").value.trim(),
+      direccion: document.getElementById("promDireccion").value.trim(),
+      notas: document.getElementById("promNotas").value.trim(),
     };
+    const btn = document.getElementById("btnAltaPromotora");
+    btn.disabled = true;
+    let res, r;
     try {
-      const res = await fetch(`${API}/promotoras/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const r = await res.json();
-      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Could not save."; return; }
-      msg.style.color = "var(--verde,#2f7a4f)"; msg.textContent = "Saved.";
-      setTimeout(() => renderComisionistas(), 500);
-    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not reach the server."; }
+      res = await fetch(`${API}/promotoras`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+      r = await res.json();
+    } catch (_) {
+      msgEl.textContent = window.t("comm.g.addFail"); msgEl.style.color = "var(--rojo,#a3392a)"; btn.disabled = false; return;
+    }
+    btn.disabled = false;
+    if (!res.ok){ msgEl.textContent = r.error || window.t("comm.g.addFailShort"); msgEl.style.color = "var(--rojo,#a3392a)"; return; }
+    msgEl.textContent = window.t("comm.g.added"); msgEl.style.color = "var(--verde)";
+    renderGestionPromotoras();
   });
 }
+async function abrirEditorComisionista(id, pr){
+  if (!pr) {
+    try { const lista = await (await fetch(`${API}/promotoras`)).json(); pr = lista.find(x => x.id === id); } catch (_) { pr = null; }
+  }
+  if (!pr) return;
+  const overlay = document.getElementById('oc-comision-overlay');
+  const caja = document.getElementById('oc-comision-caja');
+  const escalas = Array.isArray(pr.escalasComision) ? pr.escalasComision : [];
+  const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"';
+  caja.innerHTML = `
+    <div class="ficha-producto tag-card" style="text-align:left;background:var(--blanco-calido,#fbf5e8);">
+      <div class="titulo">${window.t("comm.ed.title")} — ${escHtml(pr.nombre)}</div>
+      <p style="font-size:14px;color:var(--ink-soft);">${window.t("comm.ci.blurb")}</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <label style="flex:1;min-width:120px;font-size:14px;">${window.t("comm.ci.basepct")}<br><input id="oc-com-base" type="number" min="0" max="100" step="1" value="${Number(pr.comisionBase)||0}" ${inp}></label>
+        <label style="flex:1;min-width:120px;font-size:14px;">${window.t("comm.ed.monthlyTarget")}<br><input id="oc-com-meta" type="number" min="0" step="1" value="${Number(pr.metaMensual)||0}" ${inp}></label>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <label style="flex:1;min-width:120px;font-size:14px;">${window.t("comm.g.phone")}<br><input id="oc-com-tel" type="text" value="${escHtml(pr.telefono||'')}" ${inp}></label>
+        <label style="flex:1;min-width:120px;font-size:14px;">${window.t("comm.g.id")}<br><input id="oc-com-cedula" type="text" value="${escHtml(pr.cedula||'')}" ${inp}></label>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+        <label style="flex:1;min-width:120px;font-size:14px;">${window.t("comm.g.bank")}<br><input id="oc-com-banco" type="text" value="${escHtml(pr.banco||'')}" ${inp}></label>
+        <label style="flex:1;min-width:120px;font-size:14px;">${window.t("comm.g.account")}<br><input id="oc-com-cuenta" type="text" value="${escHtml(pr.cuenta||'')}" ${inp}></label>
+      </div>
+      <label style="display:block;margin-top:10px;font-size:14px;">${window.t("comm.g.address")}<br><input id="oc-com-direccion" type="text" value="${escHtml(pr.direccion||'')}" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${window.t("comm.g.notesLabel")}<br><textarea id="oc-com-notas" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;min-height:50px;font-family:inherit;">${escHtml(pr.notas||'')}</textarea></label>
+      <div style="margin-top:14px;font-size:14px;font-weight:700;">${window.t("comm.ed.tiers")}</div>
+      <div id="oc-com-barra">${_comisionBarraHtml(escalas)}</div>
+      <div id="oc-com-filas">${escalas.map((e, i) => _comisionFilaHtml(e.hasta, e.comision, i)).join('')}</div>
+      <button type="button" id="oc-com-agregar" style="margin-top:10px;font-size:14px;padding:6px 12px;">${window.t("comm.ed.addTier")}</button>
+      <div id="oc-com-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
+      <div class="acciones-rapidas" style="margin-top:12px;">
+        <button class="vender" id="oc-com-guardar">${window.t("comm.ed.save")}</button>
+        <button type="button" onclick="cerrarEditorComision()">${window.t("comm.ed.cancel")}</button>
+      </div>
+    </div>`;
+  overlay.style.display = 'flex';
+  let contador = escalas.length;
+  const agregarFila = () => {
+    caja.querySelector('#oc-com-filas').insertAdjacentHTML('beforeend', _comisionFilaHtml(100, 0, contador++));
+    _atarFilasComision(caja);
+  };
+  document.getElementById('oc-com-agregar').addEventListener('click', agregarFila);
+  document.getElementById('oc-com-guardar').addEventListener('click', async () => {
+    const msg = document.getElementById('oc-com-msg');
+    const filas = _comisionLeerFilas(caja);
+    if (filas.some(f => f.hasta <= 0)) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = window.t("comm.ed.tierNeedsGoal"); return; }
+    const body = {
+      comisionBase: document.getElementById('oc-com-base').value,
+      metaMensual: document.getElementById('oc-com-meta').value,
+      escalasComision: filas,
+      telefono: document.getElementById('oc-com-tel').value.trim(),
+      cedula: document.getElementById('oc-com-cedula').value.trim(),
+      banco: document.getElementById('oc-com-banco').value.trim(),
+      cuenta: document.getElementById('oc-com-cuenta').value.trim(),
+      direccion: document.getElementById('oc-com-direccion').value.trim(),
+      notas: document.getElementById('oc-com-notas').value.trim(),
+    };
+    const btnGuardar = document.getElementById('oc-com-guardar');
+    btnGuardar.disabled = true;
+    let res, r;
+    try {
+      res = await fetch(`${API}/promotoras/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      r = await res.json();
+    } catch (_) {
+      msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = window.t("comm.g.addFail"); btnGuardar.disabled = false; return;
+    }
+    btnGuardar.disabled = false;
+    if (!res.ok) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = r.error; return; }
+    cerrarEditorComision();
+    renderGestionPromotoras();
+    if (typeof cargarComisiones === "function") cargarComisiones();
+  });
+  _atarFilasComision(caja);
+}
 
-// GASTOS (2026-08-27): registrar gastos individuales y ver gastos vs ingresos.
-// El resumen muestra: total gastos del mes, ingresos (ventas) del mes y neto.
-let _gastosCache = [];
 async function cargarGastos(){
   const cont = document.getElementById("listaGastos");
   const resumen = document.getElementById("gastosResumen");
@@ -5911,7 +6026,7 @@ function matrizComisionistasHtml(ranking){
 }
 
 async function cargarComisiones(){
-  try { renderComisionistas(); } catch (_) {}
+  try { renderGestionPromotoras(); } catch (_) {}
   // Microcirugia 11 (2026-07-08): Promise.all sin guard dejaba Comisiones en blanco.
   const cont = document.getElementById("listaComisiones");
   let filas, ranking;
