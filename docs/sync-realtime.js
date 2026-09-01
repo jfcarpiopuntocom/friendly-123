@@ -152,8 +152,16 @@
      deja rastro de auditoría (best-practice de acceso privilegiado: identidad
      distinta + registro de todo acceso). Un usuario normal nunca es lord. */
   const LORD_KEY = "f123_lord";
+  const LORD_LIC_KEY = "f123_lord_licencia_canonica";
   const ACCESOS_KEY = "f123_accesos"; // bitácora local de accesos del lord a tiendas ajenas
   function _esLord() { try { return localStorage.getItem(LORD_KEY) === "1"; } catch (_) { return false; } }
+  function _licenciaCanonicaLord() {
+    try {
+      if (!_esLord()) return null;
+      var c = localStorage.getItem(LORD_LIC_KEY);
+      return c ? String(c).trim().toUpperCase().replace(/\s+/g, "") : null;
+    } catch (_) { return null; }
+  }
   function _registrarAcceso(licencia) {
     try {
       var log = [];
@@ -1259,17 +1267,15 @@
           var _codNorm = normalizarCodigo(codigo);
           if (_esLord()) {
             _registrarAcceso(_codNorm);
-            /* LORD ADOPTA SU PROPIA TIENDA AL UNIRSE (JFC 2026-08-28). "Join
-               this notebook" es una acción DELIBERADA de volverse esa tienda.
-               Antes el lord NUNCA adoptaba la licencia (solo registraba el
-               acceso), así que al entrar su canónica la PC seguía reportando la
-               licencia vieja (K7M2 de idiomARTE) y el panel la mostraba mal.
-               El guardrail de "no contar el aparato de JFC como device del
-               cliente" ya lo cubre el panel (esMio: lo manda al fondo y lo
-               cuenta como "+N tuyos"). Se mantiene el registro de auditoría. */
-            if (_codNorm && /^F123-/.test(_codNorm)) {
-              _ow.licenseCode = _codNorm;
-              _ow.syncCode = _codNorm;
+            /* LORD NUNCA ADOPTA (JFC 2026-08-31). Join a una licencia ajena
+               solo registra el acceso. La identidad canónica se escribió UNA
+               vez al verificar el código maestro (f123_lord_licencia_canonica)
+               y aquí se RESTAURA, no se pisa. Si no hay canónica, no se toca
+               licenseCode/syncCode. */
+            var _can = _licenciaCanonicaLord();
+            if (_can && /^F123-/i.test(_can)) {
+              _ow.licenseCode = _can;
+              _ow.syncCode = _can;
             }
           } else if (_codNorm && /^F123-/.test(_codNorm)) {
             /* SIMETRIA CON EL LORD (JFC 2026-08-28, cierre de hueco de
@@ -1304,7 +1310,10 @@
       try {
         if (r && r.ok && window.OCTienda && window.OCTienda.cambiar) {
           const sala = leerSala();
-          const cod = sala && sala.codigo ? sala.codigo : codigo;
+          if (!sala || !sala.codigo) {
+            return { ok: false, error: "Failed to set sync room. Try again." };
+          }
+          const cod = sala.codigo;
           const c = window.OCTienda.cambiar(cod, { desde: _desde }); // recarga la página si cambia de tienda
           /* MISMA TIENDA (JFC 2026-08-26): si la licencia tecleada es la de la
              tienda en la que YA estás, cambiar() no recarga (mismo:true). NO es
@@ -1317,7 +1326,10 @@
             return { ok: true, mismo: true, error: "You're already in this store — re-syncing with the team now. If a teammate's device is on, their shelves and customers will land in a moment." };
           }
         }
-      } catch (_) {}
+      } catch (err) {
+        try { console.error("[unirse] error:", err); } catch (_) {}
+        return { ok: false, error: "Unexpected error. Try again." };
+      }
       return r;
     },
     desactivar() {

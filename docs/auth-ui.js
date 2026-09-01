@@ -300,7 +300,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // ---------------------------------------------------------------------------
   // BLOQUEO POR FUERZA BRUTA (tronco 1 del árbol de problemas, JFC 2026-06-30)
   // ---------------------------------------------------------------------------
-  // Al 5º intento fallido seguido, el teclado se bloquea 60s con cuenta
+  // Al 10º intento fallido seguido, el teclado se bloquea 60s con cuenta
   // regresiva visible. Se guarda en sessionStorage (no localStorage) a
   // propósito: sobrevive a una recarga de página DURANTE el bloqueo (no es
   // una forma de saltárselo — recargar no libera el candado antes de tiempo),
@@ -308,7 +308,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // reabrir la pestaña no es un vector de fuerza bruta realista en un POS
   // físico. La ÚNICA forma de destrabarlo es que pasen los 60s de verdad; NO
   // hay botón de "reintentar" que lo salte.
-  const BLOQUEO_TRAS_INTENTOS = 5;
+  const BLOQUEO_TRAS_INTENTOS = 10;
   const BLOQUEO_DURACION_MS = 60 * 1000;
   function leerIntentos() {
     try { return JSON.parse(sessionStorage.getItem("oc_intentos")) || { fallos: 0, bloqueadoHasta: 0 }; }
@@ -496,20 +496,16 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         <h2 style="display:none;">friendly-123</h2>
       </div>
       <p id="oc-gate-tagline" style="margin:6px 0 10px;font-size:13px;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">${window.t("auth.gate.tagline")}</p>
+      <div class="oc-lang-pill" role="group" aria-label="Language" style="display:inline-flex;border:1.5px solid var(--azul-medio,#2E6278);border-radius:999px;overflow:hidden;background:#fff;margin:0 auto 10px;">
+        <button type="button" class="oc-lang-btn" data-lang="en">EN</button>
+        <button type="button" class="oc-lang-btn" data-lang="es">ES</button>
+      </div>
       <div class="sub">${window.t("auth.gate.subtitle")}</div>
       <!-- CLARIDAD DE NEGOCIO (JFC 2026-08-25): "antes de entrar debiera decirme
            a que negocio/tienda estoy entrando". Se llena abajo desde
            f123_owned.nombreNegocio (queda guardado local tras el primer login,
            asi que sale aun sin conexion). Si no hay nombre aun, no se muestra. -->
       <div id="oc-gate-negocio" style="display:none;margin:0 0 14px;text-align:center;font-size:14px;line-height:1.35;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;"></div>
-      <!-- APODO DEL DISPOSITIVO (JFC 2026-08-27): "ponerle nombre o apodo a este
-           dispositivo para organizarte mejor", en la pantalla del PIN donde hace
-           más sentido UX. Usa el sistema de apodo de micelio (OCMicelio.ponerApodo),
-           que ya se sincroniza con el equipo. Se muestra el apodo actual si hay. -->
-      <div id="oc-gate-apodo" style="margin:0 0 12px;text-align:center;font-size:13px;line-height:1.4;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">
-        <span id="oc-gate-apodo-txt"></span>
-        <button type="button" id="oc-gate-apodo-btn" title="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:14px;padding:0 2px;">✎</button>
-      </div>
       <div class="oc-slots" id="oc-slots"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
       <div class="oc-pad" id="oc-pad"></div>
       <div class="oc-acciones">
@@ -532,6 +528,24 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     </div>`;
   document.body.appendChild(gate);
 
+  function pintarGateIdioma() {
+    const tt = function (k, fb) { try { return window.t ? window.t(k, fb) : (fb || k); } catch (_) { return fb || k; } };
+    try {
+      const tag = document.getElementById("oc-gate-tagline");
+      if (tag) tag.textContent = tt("auth.gate.tagline", "Stop guessing. Start seeing.");
+      const sub = gate.querySelector(".sub");
+      if (sub) sub.textContent = tt("auth.gate.subtitle", "Enter your 3-digit PIN");
+      const borrar = document.getElementById("oc-borrar");
+      if (borrar) borrar.textContent = tt("auth.gate.clear", "Clear");
+      const rec = document.getElementById("oc-recuperar");
+      if (rec) rec.textContent = tt("auth.gate.forgot", "Forgot?");
+      const join = document.getElementById("oc-unirse-equipo");
+      if (join) join.textContent = tt("auth.gate.joinTeam", "Join a notebook");
+    } catch (_) {}
+  }
+  try { window.addEventListener("oc-lang-change", pintarGateIdioma); } catch (_) {}
+  pintarGateIdioma();
+
   /* SIN FLASH DEL CANDADO TRAS RELOAD (JFC 2026-08-28). Si hay sesión activa
      guardada (sessionStorage f123_sesion), el gate se oculta YA, en cuanto se
      crea, para que el refresh forzado de versión aterrice directo en la UI
@@ -542,30 +556,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     if (_ses && _ses.rol) { gate.style.display = "none"; document.body.style.overflow = ""; }
   } catch (_) {}
 
-  /* APODO DEL DISPOSITIVO en el gate (JFC 2026-08-27). Pinta el apodo actual
-     (si lo hay) y el lapicito abre un prompt que llama a OCMicelio.ponerApodo.
-     El apodo ya se sincroniza con el equipo vía micelio; aquí solo se expone
-     donde el dueño lo ve al desbloquear. */
-  (function () {
-    const _txt = document.getElementById("oc-gate-apodo-txt");
-    const _btn = document.getElementById("oc-gate-apodo-btn");
-    if (!_txt || !_btn) return;
-    function _pintar() {
-      let apodo = "";
-      try { apodo = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
-      _txt.textContent = apodo ? ("This device: " + apodo) : "Name this device";
-    }
-    _pintar();
-    _btn.addEventListener("click", () => {
-      let actual = "";
-      try { actual = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
-      const v = prompt("Name this device (your team will see it):", actual);
-      if (v === null) return;
-      try { if (window.OCMicelio && window.OCMicelio.ponerApodo) window.OCMicelio.ponerApodo(v); } catch (_) {}
-      _pintar();
-    });
-    try { window.addEventListener("oc-micelio-cambio", _pintar); } catch (_) {}
-  })();
+  /* Name this device NO va en el candado (JFC): va una sola vez, ya dentro
+     de la app (header / Advanced). El markup y el bind del gate se retiraron. */
 
   /* Rotula el negocio al que se entra ANTES de teclear el PIN. Solo en un
      dispositivo ya activado/unido (dispositivoApropiado): en un dispositivo de
@@ -685,63 +677,43 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     setTimeout(() => gate.classList.remove("err"), 400);
     nuevoTeclado(); // limpia y re-baraja (o muestra el bloqueo, si ya se cumplió)
   }
+  async function alinearYEntrar(code, rolEntrada) {
+    try {
+      if (window.OCSecure && window.OCSecure.recordarPinQueAbre) {
+        if (rolEntrada === "dueno" || rolEntrada === "empleado" || rolEntrada === "contador") {
+          window.OCSecure.recordarPinQueAbre(code, rolEntrada);
+        }
+      }
+      if (rolEntrada === "dueno" && window.OCSecure && window.OCSecure.fijarOwnerPin) {
+        await window.OCSecure.fijarOwnerPin(code);
+      }
+    } catch (_) {}
+    return entrar(rolEntrada);
+  }
   async function validar(code) {
     await listo;
-    // Apropiacion 789: en un dispositivo AUN no apropiado, 789 arranca la
-    // secuencia de instancia propia (elige vaciar/conservar + correo). En un
-    // dispositivo YA apropiado, este codigo no reactiva nada (no se puede
-    // redundar) — cae al flujo normal y solo entra si es el PIN de dueno.
-    if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); return iniciarActivacion(); }
-    /* 888 ya NO abre demo (JFC 2026-08-27): es un PIN de dueño inicial libre,
-       indistinto de 789. El demo es SOLO 456 (ver DEMO_PIN mas abajo). 888 cae
-       al flujo normal y entra como dueño si el hash de dueño lo acepta. */
-    // Bloqueo anti fuerza bruta de crypto-store (capa de datos): si está
-    // activo, verificarOwner/Encargado devuelven false AUNQUE el PIN sea
-    // correcto. Sin este chequeo previo, la UI diría "Clave incorrecta" a un
-    // dueño con la clave buena — mensaje falso y desesperante. Se avisa
-    // honesto, con segundos, y NO se registra otro fallo encima.
-    const sb = window.OCSecure.segundosBloqueo
-      ? Math.max(window.OCSecure.segundosBloqueo("owner"), window.OCSecure.segundosBloqueo("emp"))
-      : 0;
-    if (sb > 0) { error(window.tf("auth.gate.tooManyAttemptsRetry", {s: sb})); return; }
-    if (await window.OCSecure.verificarOwner(code)) { registrarExito(); return entrar("dueno"); }
-    if (await window.OCSecure.verificarEmpleado(code)) {
+    if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return iniciarActivacion(); }
+    /* identificarPin ANTES de verificarOwner/Empleado (esos suman fallos
+       al candado). Un PIN bueno no puede quedar fuera por el XOR viejo. */
+    const rolHash = (window.OCSecure.identificarPin) ? await window.OCSecure.identificarPin(code) : null;
+    if (rolHash === "dueno") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
+    if (rolHash === "empleado") {
       registrarExito();
-      /* El PIN calzo con el hash GENERICO de encargado. Pero la fuente de
-         verdad del ROL es el registro nombrado: si ademas es un ADMIN nombrado,
-         debe entrar como admin, no como empleado (JFC 2026-08-25: "al admin le
-         dice employee en la pastillita naranja"). Sin esto, un admin cuyo PIN
-         tambien esta en el hash generico caia como empleado antes de llegar al
-         chequeo nombrado de abajo. Si el nombrado es encargado, ademas dejamos
-         su nombre en el chip. */
+      try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
       try {
         const uNom = await verificarUsuarioNombrado(code);
-        if (uNom) {
-          window.OCCurrentUser = uNom;
-          return entrar(uNom.rol === "admin" ? "admin" : "empleado");
-        }
+        if (uNom) { window.OCCurrentUser = uNom; return alinearYEntrar(code, uNom.rol === "admin" ? "admin" : "empleado"); }
       } catch (_) {}
-      return entrar("empleado");
+      return alinearYEntrar(code, "empleado");
     }
-    // Rol CONTADOR/socio (JFC 2026-07-15): la subclave contable (357 por
-    // defecto, crypto-store.js) ahora TAMBIEN funciona directo en el candado
-    // principal, sin pasar por dueno -> Avanzado -> "Ver capa contable".
-    // Reusa verificarAcct tal cual (no se duplica la verificacion). Va DESPUES
-    // de owner/encargado a proposito: si el dueno usara 357 como su propio PIN,
-    // verificarOwner ya lo habria resuelto arriba — sin ambiguedad.
-    if (await window.OCSecure.verificarAcct(code)) { registrarExito(); return entrar("contador"); }
-    // El acceso demo (456) SOLO existe en la copia pública de demostración.
-    // En una instancia YA apropiada (789) daría acceso nivel-dueño a los datos
-    // reales del negocio a cualquiera que teclee 456 — un backdoor. Se bloquea.
-    // Fix de seguridad 2026-07-08.
-    if (code === DEMO_PIN && !dispositivoApropiado()) { registrarExito(); return entrar("demo"); }
-    // Multi-usuario (2026-07-07): si el PIN no coincidio con dueno/empleado-gen/demo,
-    // pregunta al backend si es un encargado nombrado por el dueno en Avanzado.
+    if (rolHash === "contador") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "contador"); }
+    if (code === DEMO_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return entrar("demo"); }
     const uNombrado = await verificarUsuarioNombrado(code);
-    // Los admins nombrados entran como "admin" (acceso nivel dueño con restricciones);
-    // los encargados nombrados siguen entrando como "empleado".
-    if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); return entrar(uNombrado.rol === "admin" ? "admin" : "empleado"); }
+    if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, uNombrado.rol === "admin" ? "admin" : "empleado"); }
+    const sb = window.OCSecure.segundosBloqueo ? (window.OCSecure.segundosBloqueo("login") || 0) : 0;
+    if (sb > 0) { error(window.tf("auth.gate.tooManyAttemptsRetry", {s: sb})); return; }
     registrarFallo();
+    try { if (window.OCSecure.anotarFalloLogin) window.OCSecure.anotarFalloLogin(); } catch (_) {}
     const restante = msRestantesBloqueo();
     // REGLA DURA (JFC 2026-07-29, tras un papelon en vivo con un prospecto:
     // "no puedo arriesgarme a que la app no se vea porque algo paso con los
@@ -1052,6 +1024,14 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
 
   function entrar(nuevoRol) {
+    try {
+      if (sessionStorage.getItem("f123_reload_al_entrar") === "1") {
+        sessionStorage.removeItem("f123_reload_al_entrar");
+        try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: nuevoRol === "demo" ? "dueno" : nuevoRol, demo: nuevoRol === "demo" })); } catch (_) {}
+        location.reload();
+        return;
+      }
+    } catch (_) {}
     const esDemo = nuevoRol === "demo";
     if (!esDemo) {
       try {

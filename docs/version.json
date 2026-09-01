@@ -1,9 +1,9 @@
 {
-  "version": "1.7.36",
-  "fecha": "2026-08-28",
-  "changelog": "v1.7.36 — Join notebook production implementation: Option A UI with only two visible sync actions (Join notebook, Check connection), PIN keypad shows latest digit for 300ms before masking, production license validation before writes, atomic notebook switching without merge, i18n unification for Join notebook / Unirse al cuaderno terminology, enhanced production error handling and recovery.",
+  "version": "1.7.67",
+  "fecha": "2026-08-31",
+  "changelog": "v1.7.67 — Advanced: one ↑ Back to top per subsection. Orphans left by moving P&L/balance/inventory into Accounting no longer stack.",
   "requerida": false,
-  "shell": "f123-shell-v149",
+  "shell": "f123-shell-v180",
   "apagar": [],
-  "releaseName": "v1.7.36"
+  "releaseName": "v1.7.67"
 }
