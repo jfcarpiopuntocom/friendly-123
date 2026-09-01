@@ -2326,7 +2326,11 @@ Keep it somewhere safe.`);
       cuerpo.innerHTML =
         '<div><strong>Owner:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(owner) + "</code>" + _lapiz("owner", "fijarOwnerPin", owner) + "</div>" +
         '<div><strong>Staff:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(emp) + "</code>" + _lapiz("emp", "fijarEmpleadoPin", emp) + "</div>" +
-        '<div><strong>Accounting:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(acct) + "</code>" + _lapiz("acct", "fijarAcctPin", acct) + "</div>";
+        '<div><strong>Accounting:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(acct) + "</code>" + _lapiz("acct", "fijarAcctPin", acct) + "</div>" +
+        /* Demo (JFC 2026-09-01): 456 es permanente y reservado — muestra la app
+           completa con datos de ejemplo antes de comprar. No lleva lapicito
+           porque no se cambia nunca. Faltaba en esta lista. */
+        '<div><strong>Demo:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">456</code> <span style="font-size:13px;color:var(--ink-soft);">— permanent demo (mock data), can\'t be changed</span></div>';
       /* Bind de los lapicitos. Se re-bindea en cada pintado (los botones son
          nuevos). */
       cuerpo.querySelectorAll("[data-pin-edit]").forEach((btn) => {

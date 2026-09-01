@@ -1,9 +1,9 @@
 {
-  "version": "1.7.74",
+  "version": "1.7.75",
   "fecha": "2026-09-01",
-  "changelog": "v1.7.74 — (1) Fix conexion frontend/backend de comisiones: /api/promotoras guardaba escalasComision como {desde,pct} y base en `comision`, pero el editor y pctDeLaVenta usan {hasta,comision} y comisionBase -> los tramos del comisionista se perdian. Ahora casan. (2) Sold: lapicito para dueno/admin para AGREGAR o EDITAR (renombrar) categorias; renombrar propaga a los productos.",
+  "changelog": "v1.7.75 — (1) La recarga de version ya NO se dispara en el candado del PIN (te reseteaba el tecleo): se difiere a post-login (f123_reload_al_entrar), invisible, y abre la app ya actualizada. (2) Access & Recovery: agregada la linea Demo: 456 (permanente, sin lapicito) a 'Current access codes'.",
   "requerida": false,
-  "shell": "f123-shell-v187",
+  "shell": "f123-shell-v188",
   "apagar": [],
-  "releaseName": "v1.7.74"
+  "releaseName": "v1.7.75"
 }

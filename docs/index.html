@@ -6953,6 +6953,19 @@ if ("serviceWorker" in navigator) {
    de versiones), se fuerza una recarga coordinada UNA vez. También se escucha
    el canal BroadcastChannel("f123-version") para recargar cuando otra pestaña
    detecta una versión nueva. */
+/* Recarga de versión que NO interrumpe el candado del PIN (JFC 2026-09-01):
+   si el gate está visible, el usuario está tecleando su PIN — recargar ahí le
+   resetea el tecleo (bug en PC y cel). En vez de eso se DIFIERE al paso
+   siguiente: se marca f123_reload_al_entrar y auth-ui.entrar() recarga solo,
+   invisible, justo al pasar a la app (ya actualizada). Fuera del gate recarga
+   normal. Mismo mecanismo que ya usaba la recarga coordinada de arriba. */
+function _recargarSeguroVersion() {
+  try {
+    const g = document.getElementById("oc-gate");
+    if (g && g.style.display !== "none") { sessionStorage.setItem("f123_reload_al_entrar", "1"); return; }
+  } catch (_) {}
+  location.reload();
+}
 (function verificarCompatibilidadVersion() {
   try {
     const esperado = (function () { try { return (JSON.parse(localStorage.getItem("f123_version_vista") || "null") || "").split("|")[1] || ""; } catch (_) { return ""; } })();
@@ -6960,9 +6973,9 @@ if ("serviceWorker" in navigator) {
       caches.keys().then(function (nombres) {
         const activa = (nombres.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
         if (activa && esperado && activa !== esperado) {
-          try { console.warn("[version] el SW sirve " + activa + " pero version.json pide " + esperado + " — recargando."); } catch (_) {}
+          try { console.warn("[version] el SW sirve " + activa + " pero version.json pide " + esperado + " — recargando (diferido si hay candado)."); } catch (_) {}
           try { localStorage.setItem("f123_version_vista", esperado); } catch (_) {}
-          location.reload();
+          _recargarSeguroVersion();
         }
       }).catch(function () {});
     }
@@ -6973,7 +6986,7 @@ if ("serviceWorker" in navigator) {
       try {
         if (ev && ev.data && ev.data.tipo === "recargar") {
           try { localStorage.setItem("f123_version_vista", ev.data.v || ""); } catch (_) {}
-          location.reload();
+          _recargarSeguroVersion();
         }
       } catch (_) {}
     };

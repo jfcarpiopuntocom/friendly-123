@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v187"; // v180: one Back-to-top per Advanced subsection, no stacked orphans
+const CACHE = "f123-shell-v188"; // v180: one Back-to-top per Advanced subsection, no stacked orphans
 const SHELL = [
   "./",
   "./index.html",
