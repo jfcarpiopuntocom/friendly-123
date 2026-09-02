@@ -57,7 +57,7 @@ Actualizado: 2026-09-02 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 
 ## 3. ESTADO DE EJECUCIÓN (mutable — se sobrescribe cada trabajo)
 
-- **Versión (rama, por mergear):** `1.7.77` · shell `f123-shell-v190`.
+- **Versión (rama, por mergear):** `1.7.78` · shell `f123-shell-v191`.
 - **friendly-123** es el repo de TESTEO (inglés/i18n); suele ir ADELANTE de
   AMIGABLE. AMIGABLE (español) clonado read-only en
   `/home/user/jfcarpiopuntocom/amigable` para ports.
@@ -83,6 +83,8 @@ Actualizado: 2026-09-02 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 | My customers: edad + país | ✅ | pulldowns en panel editar; fichaCliente devuelve rangoEdad/pais |
 | Daily Summary (rename) | ✅ | Close the day → Daily Summary (bilingüe) |
 | Dashboard refleja todo | ✅ | cols Age/Country, Payment/Invoice; log con Who+Device |
+| Crédito con fecha de expiración | ✅ | modal input date (cal+MM/DD/YYYY); exp=fecha+1; [exp:] en motivo; EXPIRED en saldo |
+| Cancelar reservación de evento | ✅ | Guests → Cancel booking; libera cupo + resta pagado (reusa /ventas/:id/cancelar) |
 
 ### Trampas técnicas verificadas (para no re-tropezar)
 - `isDueno()/isAdmin()` **NO existen en index.html** (viven en avanzado-extra.js).

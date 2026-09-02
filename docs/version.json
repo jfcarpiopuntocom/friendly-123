@@ -1,9 +1,9 @@
 {
-  "version": "1.7.77",
+  "version": "1.7.78",
   "fecha": "2026-09-02",
-  "changelog": "v1.7.77 — Sold: se quita Amount paid y la venta de mostrador (sin cliente) permite elegir cantidad para vender varias unidades de golpe; checkbox Add invoice con numero de factura opcional. Nuevo Sales log expandible y editable (lapicitos) con cancelar ex-post; todo va al log con usuario+rol+dispositivo(apodo) responsable. Expenses: categorias por tipo (best-practice USA/Ecuador) y se quita la caja chica por percha. Cartera: credit(abono)=verde y debt(fiado)=rojo (semaforo), y el credito queda atado a un item. My customers: pulldowns de rango de edad y pais. Boton Close the day renombrado a Daily Summary. dashboard.html refleja todo (Age/Country, Payment/Invoice, log con quien+dispositivo).",
+  "changelog": "v1.7.78 — El credito (abono) ahora tiene fecha de expiracion: en el modal se elige la fecha con calendario o tecleando MM/DD/YYYY, y el credito expira al dia siguiente de esa fecha; en el saldo del cliente se muestra 'expires ...' y se marca EXPIRED en rojo cuando ya venció (sigue atado a un solo item). Cancelar una reservacion de evento: en la lista de Guests cada reserva tiene 'Cancel booking' que libera el cupo (revierte el ticket al stock) y resta lo pagado (reembolso), todo al log con usuario+dispositivo; bloqueado si ya se liquidó a un socio.",
   "requerida": false,
-  "shell": "f123-shell-v190",
+  "shell": "f123-shell-v191",
   "apagar": [],
-  "releaseName": "v1.7.77"
+  "releaseName": "v1.7.78"
 }

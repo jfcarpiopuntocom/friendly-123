@@ -2766,6 +2766,32 @@ async function mostrarInvitados() {
          <tfoot><tr style="border-top:2px solid var(--azul-suave,#dde5ec);font-weight:700;"><td style="padding:6px 4px;">${escHtml(t("guests.total"))}</td><td style="padding:6px 4px;text-align:right;">${totQty}</td><td style="padding:6px 4px;text-align:right;">${fmtMoney(totSpent)}</td></tr></tfoot>
        </table>`
     : `<p style="font-size:14px;color:var(--ink-soft);">${escHtml(t("guests.none"))}</p>`;
+  // JFC 2026-09-02: cancelar una reservación de evento — reservas individuales
+  // con botón Cancel booking (world's best practice): libera el cupo (revierte
+  // el ticket al stock) y resta lo pagado (reembolso), todo al log. Solo
+  // dueño/admin; bloqueado si la venta ya fue liquidada a un socio.
+  const _rolInv = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+  const _puedeCancelar = _rolInv === "dueno" || _rolInv === "admin";
+  const bookings = rows.slice().sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  const cuerpoBookings = (_puedeCancelar && bookings.length)
+    ? `<div style="margin-top:18px;">
+        <strong style="font-size:14px;color:var(--ink);">${escHtml(t("guests.bookings"))}</strong>
+        <div style="margin-top:8px;">${bookings.map((r) => {
+          const quien = escHtml((r.clienteNombre || r.pagador || "").trim() || t("guests.counter"));
+          const monto = (Number(r.precioUnit) || 0) * (Number(r.cantidad) || 0);
+          return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--azul-suave,#eef2f6);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:700;">${quien} <span style="font-weight:400;color:var(--ink-soft);">×${r.cantidad}</span></div>
+              <div style="font-size:12px;color:var(--ink-soft);">${escHtml(r.productoNombre || "")} · ${fmtMoney(monto)}</div>
+            </div>
+            ${r.liquidada
+              ? `<span style="font-size:12px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">${escHtml(t("guests.settled"))}</span>`
+              : `<button class="oc-book-cancel" data-id="${escHtml(r.id)}" data-monto="${monto.toFixed(2)}"
+                  style="font-size:12px;font-weight:700;padding:5px 10px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">${escHtml(t("guests.cancelBooking"))}</button>`}
+          </div>`;
+        }).join("")}</div>
+      </div>`
+    : "";
   const overlay = document.createElement("div");
   overlay.style.cssText = "position:fixed;inset:0;z-index:9996;background:rgba(21,40,64,.82);display:flex;align-items:flex-end;justify-content:center;";
   const titulo = `${t("guests.titlePrefix")} — ${_eventoActivo.nombre}`;
@@ -2773,11 +2799,29 @@ async function mostrarInvitados() {
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">${escHtml(titulo)}</strong>
       <button id="oc-inv-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${escHtml(t("newcust.close"))}</button>
-    </div>${cuerpo}</div>`;
+    </div>${cuerpo}${cuerpoBookings}</div>`;
   document.body.appendChild(overlay);
   const cerrar = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
   overlay.querySelector("#oc-inv-cerrar").addEventListener("click", cerrar);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
+  // Cancelar reservación: revierte el ticket (stock) y resta lo pagado, con log.
+  overlay.querySelectorAll(".oc-book-cancel").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-id");
+      const monto = btn.getAttribute("data-monto");
+      if (!(await ocConfirm(tf("guests.cancelConfirm", { amount: fmtMoney(Number(monto)) })))) return;
+      let motivo = "";
+      try { motivo = (await ocPrompt(t("guests.cancelReason"))) || ""; } catch (_) {}
+      try {
+        const res = await fetch(`${API}/ventas/${id}/cancelar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ motivo }) });
+        const data = await res.json();
+        if (!res.ok) { await ocAlert(data.error || "Could not cancel the booking."); return; }
+        cerrar();
+        if (document.getElementById("gridVender")) cargarGridVender();
+        mostrarInvitados();
+      } catch (_) { await ocAlert("Could not reach the server."); }
+    });
+  });
 }
 async function exportarEventoCSV() {
   const rows = await _ventasDelEventoActivo();
@@ -3065,15 +3109,32 @@ async function pintarSaldoCartera(clienteId) {
     const debe = info.saldo < 0;
     const color = debe ? "#E8365D" : "#008a54";
     const texto = debe ? `Debt ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
-    // Ítems a los que está atado el crédito (abono): "el credit solo se puede
-    // gastar en el mismo item" (JFC 2026-09-02). Se extrae de los motivos [for:...].
+    // Ítems y expiración del crédito (abono): "el credit solo se puede gastar en
+    // el mismo item" + "debe tener fecha de expiracion" (JFC 2026-09-02). Se
+    // extrae de los motivos [for:...][exp:YYYY-MM-DD]. Un crédito ya expirado
+    // (hoy >= exp) se muestra en rojo como EXPIRED (toca dar otros pasos).
     let restringido = "";
     if (!debe && Array.isArray(info.historial)) {
-      const items = [...new Set(info.historial
-        .filter((h) => h.tipo === "abono")
-        .map((h) => { const mm = /\[for:([^\]]+)\]/.exec(h.motivo || ""); return mm ? mm[1].trim() : ""; })
-        .filter(Boolean))];
-      if (items.length) restringido = ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— only for: ${escHtml(items.join(", "))}</span>`;
+      const hoy = new Date().toLocaleDateString("en-CA");
+      const abonos = info.historial.filter((h) => h.tipo === "abono");
+      const partes = abonos.map((h) => {
+        const mi = /\[for:([^\]]+)\]/.exec(h.motivo || "");
+        const me = /\[exp:(\d{4}-\d{2}-\d{2})\]/.exec(h.motivo || "");
+        return { item: mi ? mi[1].trim() : "", exp: me ? me[1] : "" };
+      }).filter((p) => p.item);
+      const items = [...new Set(partes.map((p) => p.item))];
+      // Fecha de expiración más próxima (la que primero vence).
+      const exps = partes.map((p) => p.exp).filter(Boolean).sort();
+      const proxExp = exps[0] || "";
+      const expirado = proxExp && proxExp <= hoy;
+      if (items.length) {
+        restringido = ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— only for: ${escHtml(items.join(", "))}</span>`;
+        if (proxExp) {
+          restringido += expirado
+            ? ` <span style="font-size:12px;font-weight:700;color:#E8365D;">EXPIRED (${escHtml(proxExp)})</span>`
+            : ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— expires ${escHtml(proxExp)}</span>`;
+        }
+      }
     }
     const alertaOn = window.AMG && window.AMG.Cartera ? window.AMG.Cartera.alertaActiva(clienteId) : true;
     const badge = (debe && alertaOn)
@@ -3118,6 +3179,8 @@ async function abonarCliente(clienteId, nombre) {
         <option value="">— pick an item —</option>
         ${productos.map((p) => `<option value="${escHtml(p.nombre)}">${escHtml(p.nombre)}</option>`).join("")}
       </select></label>
+    <label style="display:block;font-size:14px;margin-top:10px;">Valid through <span style="color:var(--ink-soft);font-weight:400;">(the credit expires the next day)</span><br>
+      <input id="oc-abono-exp" type="date" value="${new Date().toLocaleDateString("en-CA")}" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
     <label style="display:block;font-size:14px;margin-top:10px;">Reason (optional)<br><input id="oc-abono-motivo" type="text" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
     <p id="oc-abono-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:var(--rojo,#a3392a);"></p>
     <div style="display:flex;gap:10px;margin-top:14px;">
@@ -3133,10 +3196,20 @@ async function abonarCliente(clienteId, nombre) {
     const monto = parseFloat((ov.querySelector("#oc-abono-monto").value || "").trim());
     const item = ov.querySelector("#oc-abono-item").value;
     const razon = (ov.querySelector("#oc-abono-motivo").value || "").trim();
+    const validoHasta = ov.querySelector("#oc-abono-exp").value; // YYYY-MM-DD (día válido inclusive)
     const msg = ov.querySelector("#oc-abono-msg");
     if (!(monto > 0)) { msg.textContent = "Enter a valid amount."; return; }
     if (!item) { msg.textContent = "Pick the item this credit is for."; return; }
-    const motivo = `[for:${item}]${razon ? " " + razon : ""}`;
+    if (!validoHasta) { msg.textContent = "Pick the date the credit is valid through."; return; }
+    // JFC 2026-09-02: el crédito expira al DÍA SIGUIENTE de la fecha elegida.
+    // Se guarda la fecha de expiración [exp:YYYY-MM-DD] (día en que ya NO vale).
+    const expira = (() => {
+      const parts = validoHasta.split("-").map(Number);
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      d.setDate(d.getDate() + 1);
+      return d.toLocaleDateString("en-CA"); // YYYY-MM-DD local
+    })();
+    const motivo = `[for:${item}][exp:${expira}]${razon ? " " + razon : ""}`;
     try {
       const res = await fetch(`${API}/clientes/${clienteId}/abonar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo }) });
       if (!res.ok) { const r = await res.json().catch(() => ({})); msg.textContent = r.error || "Could not save."; return; }
