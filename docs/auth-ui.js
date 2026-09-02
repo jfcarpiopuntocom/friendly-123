@@ -1036,7 +1036,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     try {
       if (sessionStorage.getItem("f123_reload_al_entrar") === "1") {
         sessionStorage.removeItem("f123_reload_al_entrar");
-        try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: nuevoRol === "demo" ? "dueno" : nuevoRol, demo: nuevoRol === "demo" })); } catch (_) {}
+        /* BUG (JFC 2026-09-02): aquí se mapeaba demo→"dueno" en la sesión diferida,
+           así que tras el reload forzado de versión el auto-login entraba como
+           dueño real y NUNCA llegaba al demo (456 "no lleva al demo"). Se preserva
+           el rol tal cual: tras el reload, entrar("demo") corre con el flag ya
+           limpio y hace la entrada demo correcta. */
+        try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: nuevoRol, demo: nuevoRol === "demo" })); } catch (_) {}
         location.reload();
         return;
       }

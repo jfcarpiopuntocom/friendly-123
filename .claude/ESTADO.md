@@ -15,6 +15,16 @@ Actualizado: 2026-09-02 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 
 ---
 
+## 0. PRIME DIRECTIVE 1A (JFC 2026-09-02) — la más alta después de REGLA –1
+
+**NUNCA romper a un dueño de licencia que YA usa la app** (experiencia, datos,
+confianza). idiomARTE (primer cliente pagado) recibió un límite del plan gratis
+por un `instanceId` transitoriamente null → arreglado con `estaLicenciado()`
+(fail-open, re-lee f123_owned en vivo; mock-backend.js). Los cambios son SOLO
+tweaks/adiciones ENANAS al margen; nada de gates nuevos sobre flujos vivos, nada
+que pueda capar/bloquear/degradar una instancia activada. Ante la duda: no se
+hace, se pregunta. Detalle en `CLAUDE.md` (PRIME DIRECTIVE 1A).
+
 ## 1. ESPECIFICACIÓN INMUTABLE (punteros — NO copiar aquí, leer la fuente)
 
 - **Reglas y constitución:** `CLAUDE.md` (REGLA –1 a 8) y

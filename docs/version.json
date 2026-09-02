@@ -1,9 +1,9 @@
 {
-  "version": "1.7.79",
+  "version": "1.7.80",
   "fecha": "2026-09-02",
-  "changelog": "v1.7.79 — 12 micromejoras (Emil craft): #1 lapicito unico .oc-edit-btn con hundimiento + variante naranja de precaucion para ediciones de dinero; #2 paleta del dinero coherente (tokens); #3 fechas del credito con locale; #4 tocar un producto vendido lo busca en el grid; #5 aviso (consola+hint) de credito vigente al vender ese item; #6 chips de categoria filtran los gastos; #7 undo de 5s tras cancelar una venta; #8 editar/cancelar venta solo dueno/admin (guard backend); #9 credito 'expires soon' en ambar y EXPIRED con monto tachado; #10 dueno/admin edita el evento (nombre/fecha) y el comprador de una reserva; #11 (ya existia) lapicito de apodo del dispositivo y correccion del % de comision con auditoria; #12 dueno/admin cambia la expiracion de un credito emitido. Sin banners nuevos; pencils sensibles solo dueno/admin; append-only intacto.",
+  "changelog": "v1.7.80 — CRITICO (Prime Directive 1A): un dueno de licencia ya activado JAMAS vuelve a ver el limite del plan gratis. Nuevo estaLicenciado() falla ABIERTO (re-lee f123_owned en vivo) — arregla que a idiomARTE le saliera el limite por un instanceId transitoriamente null. Ademas: 456 vuelve a entrar al demo (el reload de version ya no mapea demo->dueno y pierde el demo); y el saldo de cartera (credito/deuda) vuelve a mostrarse (se habia borrado por accidente la linea de texto en v1.7.79).",
   "requerida": false,
-  "shell": "f123-shell-v192",
+  "shell": "f123-shell-v193",
   "apagar": [],
-  "releaseName": "v1.7.79"
+  "releaseName": "v1.7.80"
 }
