@@ -425,3 +425,11 @@ Daily Summary; credit(abono)=verde y debt(fiado)=rojo, crédito atado al mismo i
 checkbox Add invoice con nº opcional; pulldowns de edad y país en My customers;
 enchufar y reflejar todo en dashboard.html. Hecho en 7 lotes, todos verdes y
 pusheados. Detalle completo en DIARIO-2026-09-01.md (entrada 2026-09-02).
+
+## 2026-09-02 (2) — Crédito con fecha de expiración + cancelar reservación de evento → v1.7.78 / shell v191
+JFC: el crédito (abono) debe tener fecha de expiración elegible por calendario o
+MM/DD/YYYY, y expira al día siguiente de la fecha elegida; y poder cancelar una
+reservación de evento restando lo pagado (world's best practices). Hecho: modal de
+crédito con "Valid through" (input date, default hoy, exp=fecha+1, [exp:] en motivo,
+"expires"/"EXPIRED" en el saldo); Guests con "Cancel booking" que libera cupo y resta
+lo pagado (reusa /api/ventas/:id/cancelar). Verde. Detalle en DIARIO-2026-09-01.md.

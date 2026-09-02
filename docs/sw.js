@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v190"; // v190: Sold quantity+invoice, editable sales log + ex-post cancel, expense categories, credit/debt colors, customer age/country, dashboard reflects all
+const CACHE = "f123-shell-v191"; // v191: credit expiry date (calendar/MM-DD-YYYY, expires next day), cancel event booking from Guests (frees seat + subtracts paid)
 const SHELL = [
   "./",
   "./index.html",
