@@ -8,6 +8,19 @@ código.
 
 ---
 
+## PRIME DIRECTIVE 1A — NUNCA ROMPER A UN DUEÑO DE LICENCIA (JFC, 2026-09-02)
+
+Solo debajo de la palabra de JFC. **Jamás romper la experiencia, los datos ni la
+confianza de un cliente que YA está usando la app.** Los cambios son SOLO tweaks o
+adiciones ENANAS al margen — a JFC le gusta la app como está. Nada de refactors,
+gates nuevos sobre flujos vivos, ni nada que pueda capar/bloquear/degradar una
+instancia ya activada o pagada. Una instancia con licencia NUNCA debe ver el tope
+del plan gratis. Ante cualquier duda de si un cambio afecta a un cliente activo:
+**no se hace, se pregunta.** (Origen: idiomARTE, primer cliente pagado, recibió un
+límite de licencia por un cambio nuestro. Nunca más.)
+
+---
+
 ## REGLA SUPREMA — EL PROMPT DE JFC ES PALABRA SAGRADA
 
 Lo que JFC dice **es lo que va**. Su instrucción **prevalece siempre** sobre mis

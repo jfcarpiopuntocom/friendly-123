@@ -3172,6 +3172,10 @@ async function pintarSaldoCartera(clienteId) {
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
     const color = debe ? "#E8365D" : "#008a54";
+    // BUG FIX (JFC 2026-09-02): esta línea se borró por accidente en v1.7.79, así
+    // que `texto` quedaba indefinido → ReferenceError → el saldo NO se pintaba
+    // (ni crédito a favor ni deuda). Restaurada.
+    const texto = debe ? `Debt ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
     // #3 (JFC 2026-09-02): fecha coherente con el idioma activo en toda la app.
     const fmtFechaLoc = (ymd) => { try { const p = ymd.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || "en-US"); } catch (_) { return ymd; } };
     // Ítems y expiración del crédito (abono): "el credit solo se puede gastar en
@@ -3222,7 +3226,7 @@ async function pintarSaldoCartera(clienteId) {
     // #9: crédito totalmente expirado → monto tachado (el dato NO se borra).
     const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
     el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}`;
-  } catch (_) { el.innerHTML = ""; }
+  } catch (e) { console.error("[pintarSaldoCartera]", e); el.innerHTML = ""; }
 }
 /* #12 (JFC 2026-09-02): dueño/admin puede extender/acortar la expiración de un
    crédito ya emitido ("toque dar otros pasos" cuando expira). El hecho original

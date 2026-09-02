@@ -220,6 +220,25 @@
   function licenciaLimitada() {
     try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseEstado === "limitada"; } catch (_) { return false; }
   }
+  /* PRIME DIRECTIVE 1A (JFC 2026-09-02): JAMÁS capar a un dueño de licencia ya
+     activado. A idiomARTE (primer cliente pagado) le salió el límite del plan
+     gratis por un `instanceId` transitoriamente null tras un reload. Este helper
+     falla ABIERTO: re-lee f123_owned EN VIVO en cada chequeo (no solo la
+     hidratación de arranque, que pudo correr antes que localStorage) y trata como
+     licenciado a cualquier dispositivo con instanceId o código de licencia, salvo
+     que JFC lo haya bajado a "limitada" a mano desde el panel. Solo AFLOJA topes;
+     nunca puede romperle a un cliente. La demo (sin f123_owned) sigue con su tope. */
+  function estaLicenciado() {
+    try {
+      const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (o.licenseEstado === "limitada") return false; // baja deliberada desde el panel
+      if (o.instanceId || o.licenseCode) {
+        if (!instanceId && o.instanceId) instanceId = o.instanceId; // re-hidrata si el arranque quedó null
+        return true;
+      }
+    } catch (_) {}
+    return !!instanceId;
+  }
   // Nombre editable del negocio (identidad de instancia, 2026-07-08). Viaja en
   // respaldos/sync. El header lo muestra; vacío = usa el título por defecto.
   let nombreNegocio = "";
@@ -2540,7 +2559,7 @@
         const ubicNueva = body.ubicacionId && body.ubicacionId !== "todas" ? ubicaciones.find((x) => x.id === body.ubicacionId) : null;
         if (ubicNueva && ubicNueva.activa === false) return J({ error: `"${ubicNueva.nombre}" está desactivada — reactívala en Avanzado antes de agregar productos ahí.` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 25 productos.
-        if ((!instanceId || licenciaLimitada()) && productos.length >= 25) {
+        if (!estaLicenciado() && productos.length >= 25) {
           return J({ error: "You've reached the 25-product limit on the free plan. Activate this device (PIN 789) to unlock unlimited products.", codigo: "LIMITE_PRODUCTOS" }, 403);
         }
         const nuevo = {
@@ -2578,7 +2597,7 @@
         const cant = Number.isInteger(body.cantidad) && body.cantidad > 0 ? body.cantidad : 1;
         if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
-        if ((!instanceId || licenciaLimitada()) && ventasCountMesGlobal() >= 100) {
+        if (!estaLicenciado() && ventasCountMesGlobal() >= 100) {
           return J({ error: "You've reached the 100-sales/month limit on the free plan. Activate this device (PIN 789) to unlock unlimited sales.", codigo: "LIMITE_VENTAS" }, 403);
         }
         /* BUG CRITICO reportado en vivo por una clienta (Idiomarte, 2026-07-29),
@@ -3102,7 +3121,7 @@
       // una sola vez (misma logica de split/comisiones que la venta normal).
       // Se aplican los items validos y se reportan los que no calzan.
       if (path === "/api/ventas/cierre" && opts && opts.method === "POST") {
-        if (!instanceId || licenciaLimitada()) return J({ error: "Activate this device (PIN 789) to use day close." }, 403);
+        if (!estaLicenciado()) return J({ error: "Activate this device (PIN 789) to use day close." }, 403);
         const items = Array.isArray(body.items) ? body.items : [];
         if (!items.length) return J({ error: "There are no quantities to apply." }, 400);
         const errores = [];
@@ -3343,7 +3362,7 @@
            esta creado no se le toca ni se le desactiva nada, asi que ningun
            equipo existente se rompe con este cambio. */
         const staffActual = usuarios.filter((u) => !u.borrado && (u.rol === "empleado" || u.rol === "admin")).length;
-        if (staffActual >= 1 && (!instanceId || licenciaLimitada()))
+        if (staffActual >= 1 && !estaLicenciado())
           return J({ error: "The free plan includes 1 team member besides you, and that counts admins too. Activate this device (PIN 789) for an unlimited team.", codigo: "LIMITE_EMPLEADOS" }, 403);
         if (usuarios.some((u) => !u.borrado && u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
         const _ahoraU = new Date().toISOString();
