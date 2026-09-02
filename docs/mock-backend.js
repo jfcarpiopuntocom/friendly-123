@@ -2738,6 +2738,30 @@
         mov("venta-editada", { producto: p.nombre, ventaId: venta.id, cambios });
         return J({ producto: ficha(p), venta, ok: true });
       }
+      /* EDITAR UN EVENTO (JFC 2026-09-02, micromejora #10): dueño/admin puede
+         renombrar el evento y cambiar su fecha. Como el "evento" es el nombre que
+         llevan las ventas (info.nombreEvento), se actualizan TODAS las ventas de
+         ese evento de una sola vez. Todo al log. */
+      if (path === "/api/eventos" && opts && opts.method === "PATCH") {
+        const _rEv = _rolLocal();
+        if (_rEv !== "dueno" && _rEv !== "admin") return J({ error: "Only the owner or an admin can edit an event." }, 403);
+        const antes = String(body.nombreAnterior || "").trim();
+        const nuevo = String(body.nombreNuevo || "").trim().slice(0, 120);
+        const fechaNueva = body.fechaNueva !== undefined ? String(body.fechaNueva || "").trim().slice(0, 20) : null;
+        if (!antes) return J({ error: "Missing the event to edit." }, 400);
+        if (!nuevo) return J({ error: "Enter a name for the event." }, 400);
+        let n = 0;
+        ventas.forEach((v) => {
+          if (v.info && v.info.nombreEvento === antes) {
+            v.info.nombreEvento = nuevo;
+            if (fechaNueva !== null) v.info.fechaEvento = fechaNueva;
+            n++;
+          }
+        });
+        mov("evento-editado", { antes, ahora: nuevo, fecha: fechaNueva || "", ventasAfectadas: n });
+        guardarEstadoLocal();
+        return J({ ok: true, ventasAfectadas: n, nombre: nuevo, fecha: fechaNueva });
+      }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/ajustar$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         const d = Number.isInteger(body.delta) ? body.delta : 0;

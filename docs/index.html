@@ -2812,7 +2812,8 @@ async function mostrarInvitados() {
             </div>
             ${r.liquidada
               ? `<span style="font-size:12px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">${escHtml(t("guests.settled"))}</span>`
-              : `<button class="oc-book-cancel" data-id="${escHtml(r.id)}" data-monto="${monto.toFixed(2)}"
+              : `<button class="oc-book-name oc-edit-btn" data-id="${escHtml(r.id)}" data-nombre="${escHtml((r.pagador || "").trim())}" title="${escHtml(t("guests.editBuyer"))}" style="padding:4px 8px;">✎</button>
+                 <button class="oc-book-cancel" data-id="${escHtml(r.id)}" data-monto="${monto.toFixed(2)}"
                   style="font-size:12px;font-weight:700;padding:5px 10px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">${escHtml(t("guests.cancelBooking"))}</button>`}
           </div>`;
         }).join("")}</div>
@@ -2824,12 +2825,49 @@ async function mostrarInvitados() {
   overlay.innerHTML = `<div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:20px 18px 28px;max-height:80vh;overflow:auto;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">${escHtml(titulo)}</strong>
+      ${_puedeCancelar ? `<button id="oc-inv-editar" class="oc-edit-btn oc-edit-btn--warn" title="${escHtml(t("guests.editEvent"))}">✎</button>` : ""}
       <button id="oc-inv-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${escHtml(t("newcust.close"))}</button>
     </div>${cuerpo}${cuerpoBookings}</div>`;
   document.body.appendChild(overlay);
   const cerrar = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
   overlay.querySelector("#oc-inv-cerrar").addEventListener("click", cerrar);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
+  // #10 (JFC 2026-09-02): dueño/admin renombra el evento y cambia su fecha.
+  const btnEvEdit = overlay.querySelector("#oc-inv-editar");
+  if (btnEvEdit) btnEvEdit.addEventListener("click", async () => {
+    const nuevo = await ocPrompt(t("guests.newEventName"), _eventoActivo.nombre || "");
+    if (nuevo == null) return;
+    const nombreNuevo = String(nuevo).trim();
+    if (!nombreNuevo) { await ocAlert(t("guests.needEventName")); return; }
+    let fechaNueva = _eventoActivo.fecha || "";
+    try { const f = await ocPrompt(t("guests.newEventDate"), fechaNueva); if (f != null) fechaNueva = String(f).trim(); } catch (_) {}
+    try {
+      const res = await fetch(`${API}/eventos`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombreAnterior: _eventoActivo.nombre, nombreNuevo, fechaNueva }) });
+      const data = await res.json();
+      if (!res.ok) { await ocAlert(data.error || "Could not edit the event."); return; }
+      _eventoActivo = { nombre: nombreNuevo, fecha: fechaNueva };
+      try { localStorage.setItem("f123_evento_activo", JSON.stringify(_eventoActivo)); } catch (_) {}
+      cerrar();
+      if (typeof poblarSelectEventos === "function") poblarSelectEventos();
+      mostrarInvitados();
+    } catch (_) { await ocAlert("Could not reach the server."); }
+  });
+  // #10: editar el nombre del comprador de una reserva (dueño/admin).
+  overlay.querySelectorAll(".oc-book-name").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-id");
+      const actual = btn.getAttribute("data-nombre") || "";
+      const nuevo = await ocPrompt(t("guests.editBuyer") + ":", actual);
+      if (nuevo == null) return;
+      try {
+        const res = await fetch(`${API}/ventas/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ info: { nombrePagador: String(nuevo).trim() } }) });
+        const data = await res.json();
+        if (!res.ok) { await ocAlert(data.error || "Could not save."); return; }
+        cerrar();
+        mostrarInvitados();
+      } catch (_) { await ocAlert("Could not reach the server."); }
+    });
+  });
   // Cancelar reservación: revierte el ticket (stock) y resta lo pagado, con log.
   overlay.querySelectorAll(".oc-book-cancel").forEach((btn) => {
     btn.addEventListener("click", async () => {
