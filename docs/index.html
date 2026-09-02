@@ -661,6 +661,12 @@
   .oc-edit-btn--warn{ border-color:#F97316; color:#c2560c !important; -webkit-text-fill-color:#c2560c !important; }
   .oc-edit-btn--warn:hover{ background:#FFF1E6; }
   @media (prefers-reduced-motion: reduce){ .oc-edit-btn{ transition:none; } .oc-edit-btn:active{ transform:none; } }
+  /* Flash de llegada a una tarjeta (JFC 2026-09-02, Emil — feedback + continuidad
+     espacial): al SELECT en Show customers, la tarjeta del cliente pulsa en verde
+     para que se vea "a dónde llegaste". */
+  @keyframes oc-flash-card{ 0%{ box-shadow:0 0 0 3px rgba(0,200,122,0); } 25%{ box-shadow:0 0 0 3px rgba(0,200,122,.65); } 100%{ box-shadow:0 0 0 3px rgba(0,200,122,0); } }
+  .oc-card-flash{ animation:oc-flash-card 1.5s var(--ease-out,cubic-bezier(.23,1,.32,1)) 1; }
+  @media (prefers-reduced-motion: reduce){ .oc-card-flash{ animation:none; outline:2px solid #00C87A; outline-offset:2px; } }
 
   main{
     padding:18px 16px calc(var(--nav-h) + 28px);
@@ -2577,7 +2583,7 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
     <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;max-height:86vh;border-radius:16px 16px 0 0;padding:20px 18px 24px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
         <strong id="oc-showcli-titulo" style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;"></strong>
-        <button id="oc-showcli-imprimir" title="Print" style="font-size:14px;padding:6px 12px;border:2px solid #0F1923;border-radius:7px;background:#0F1923;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">🖨️</button>
+        <button id="oc-showcli-imprimir" title="Print" style="font-size:14px;padding:6px 12px;border:2px solid #0F1923;border-radius:7px;background:#0F1923;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">🖨️ Print</button>
         <button id="oc-showcli-cerrar" title="Close" aria-label="Close" style="width:36px;height:36px;font-size:20px;line-height:1;cursor:pointer;color:#0F1923;background:#FFFFFF;border:2px solid #0F1923;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;flex:0 0 auto;">✕</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -2654,8 +2660,13 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
     lista.innerHTML = _filas.map(fila).join("");
     lista.querySelectorAll("button[data-sel]").forEach((b) => {
       b.addEventListener("click", () => {
-        if (selCliente) { selCliente.value = b.getAttribute("data-sel"); }
+        const cid = b.getAttribute("data-sel");
+        // Se preselecciona para la venta (por si vuelve a Sold) Y se lleva a la
+        // tarjeta del cliente (JFC 2026-09-02): SELECT antes no llevaba a ningún
+        // lado. Navega a My customers, hace scroll a la tarjeta y la resalta.
+        if (selCliente) { selCliente.value = cid; }
         cerrar();
+        irATarjetaCliente(cid);
       });
     });
   }
@@ -3120,7 +3131,7 @@ function tarjetaCliente(c, esDueno){
       <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#008a54 !important;-webkit-text-fill-color:#008a54 !important;cursor:pointer;"
         onclick="abonarCliente('${c.id}','${escHtml(c.nombre)}')">Record credit (abono)</button>
     </div>${toggleAlerta}`;
-  return `<div class="cliente-card" style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
+  return `<div class="cliente-card" data-cliente-id="${escHtml(c.id)}" style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
       <span style="font-family:var(--font-mono);font-size:14px;color:#2E6278;margin-left:6px;">${escHtml(c.codigo)}</span>
@@ -5503,15 +5514,19 @@ async function abrirPanelVentaInfo(id, esTicket){
           <button type="button" id="vi-nuevo-cliente" title="New customer"
             style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">+ New</button>
         </div>
-        <input id="vi-cliente-buscar" type="text" placeholder="Type to filter..." style="width:100%;padding:8px;margin-top:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <input id="vi-cliente-buscar" type="text" placeholder="Type to search..." style="width:100%;padding:8px;margin-top:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
       <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#008a54;margin:4px 0 0;"></p>
       ${esTicket ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br><input id="vi-personas" type="number" min="0" step="1" ${inp}></label>` : ""}
-      <label style="display:block;margin-top:10px;font-size:14px;">Group / +1 (optional)
-        <button type="button" id="vi-toggle-pagador" title="Add a group name or extra people (+1, +N)"
+      <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br>
+        <select id="vi-personas" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <option value="">—</option>
+          ${Array.from({length:20},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join("")}
+        </select></label>` : ""}
+      <label style="display:block;margin-top:10px;font-size:14px;">Group / Reservation name (optional)
+        <button type="button" id="vi-toggle-pagador" title="Add a group or reservation name"
           style="margin-left:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
-        <input id="vi-pagador" type="text" placeholder="Group name or +N extra people" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <input id="vi-pagador" type="text" placeholder="Group or reservation name" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">Email<br><input id="vi-email" type="email" ${inp}></label>
         <label style="flex:1;font-size:14px;">WhatsApp<br><input id="vi-whatsapp" type="text" ${inp}></label>
@@ -5959,7 +5974,7 @@ async function abrirEtiqueta(id){
   `;
   // Botón de impresión fuera de la etiqueta — no viaja al papel ni aparece en el preview
   const accionesEl = document.getElementById("oc-etiqueta-acciones");
-  if (accionesEl) accionesEl.innerHTML = `<button class="imprimir" id="oc-print-completa">Imprimir etiqueta completa</button>`;
+  if (accionesEl) accionesEl.innerHTML = `<button class="imprimir" id="oc-print-completa">🖨️ Print full label</button>`;
   document.getElementById("modalEtiqueta").classList.add("activo");
   document.getElementById("cerrarModal2").addEventListener("click", cerrarModalEtiqueta);
   document.getElementById("barrasClicable").addEventListener("click", (e) => mostrarMenuBarcode(e, data.barcodeSvg, p));
@@ -6381,6 +6396,29 @@ async function abrirEditorComisionista(id, pr){
   _atarFilasComision(caja);
 }
 
+/* Ir a la tarjeta de un cliente y resaltarla (JFC 2026-09-02). Navega a My
+   customers, espera a que rendericen las tarjetas y hace scroll + flash a la
+   del cliente pedido. Emil: feedback claro + continuidad espacial. */
+function irATarjetaCliente(clienteId){
+  try {
+    const nav = document.querySelector('nav button[data-vista="clientes"]');
+    if (nav) nav.click();
+  } catch (_) {}
+  let intentos = 0;
+  const buscar = () => {
+    const card = document.querySelector(`.cliente-card[data-cliente-id="${clienteId}"]`);
+    if (card) {
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+      card.classList.remove("oc-card-flash");
+      void card.offsetWidth; // reinicia la animación si se repite
+      card.classList.add("oc-card-flash");
+      setTimeout(() => card.classList.remove("oc-card-flash"), 1700);
+      return;
+    }
+    if (intentos++ < 30) setTimeout(buscar, 100); // hasta ~3s a que rendericen
+  };
+  setTimeout(buscar, 120);
+}
 let _gastoCatFiltro = ""; // #6: filtro activo de categoría de gasto (o "" = todas)
 async function cargarGastos(){
   const cont = document.getElementById("listaGastos");

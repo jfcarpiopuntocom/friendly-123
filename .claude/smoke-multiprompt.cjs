@@ -17,6 +17,7 @@ function check(n, c, x){ if(c) console.log("  ok   "+n); else { console.log("  F
     await page.evaluate(() => { try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: "dueno", demo: false })); } catch (_) {} });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.OCAuth && window.OCAuth.rolActual, null, { timeout: 15000 });
+    await page.waitForFunction(() => window.OCAuth.rolActual() === "dueno", null, { timeout: 15000 });
 
     // pick a normal product with stock
     const prod = await page.evaluate(async () => {

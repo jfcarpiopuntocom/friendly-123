@@ -1,9 +1,9 @@
 {
-  "version": "1.7.80",
+  "version": "1.7.81",
   "fecha": "2026-09-02",
-  "changelog": "v1.7.80 — CRITICO (Prime Directive 1A): un dueno de licencia ya activado JAMAS vuelve a ver el limite del plan gratis. Nuevo estaLicenciado() falla ABIERTO (re-lee f123_owned en vivo) — arregla que a idiomARTE le saliera el limite por un instanceId transitoriamente null. Ademas: 456 vuelve a entrar al demo (el reload de version ya no mapea demo->dueno y pierde el demo); y el saldo de cartera (credito/deuda) vuelve a mostrarse (se habia borrado por accidente la linea de texto en v1.7.79).",
+  "changelog": "v1.7.81 — Tweaks de UI (marginales, sin tocar flujos vivos): boton de impresora ahora dice 'Print' (Show customers y etiqueta de Inventory); 'Type to filter' -> 'Type to search...'; 'People in the reservation' es un pulldown de numeros; 'Group / +1' -> 'Group / Reservation name (optional)'; en Show customers, SELECT ahora LLEVA a la tarjeta del cliente en My customers y la resalta con un flash verde (Emil: feedback + continuidad).",
   "requerida": false,
-  "shell": "f123-shell-v193",
+  "shell": "f123-shell-v194",
   "apagar": [],
-  "releaseName": "v1.7.80"
+  "releaseName": "v1.7.81"
 }
