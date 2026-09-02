@@ -433,3 +433,11 @@ reservación de evento restando lo pagado (world's best practices). Hecho: modal
 crédito con "Valid through" (input date, default hoy, exp=fecha+1, [exp:] en motivo,
 "expires"/"EXPIRED" en el saldo); Guests con "Cancel booking" que libera cupo y resta
 lo pagado (reusa /api/ventas/:id/cancelar). Verde. Detalle en DIARIO-2026-09-01.md.
+
+## 2026-09-02 (3) — 12 micromejoras (coherencia/interconexión/robustez/empoderamiento) → v1.7.79 / shell v192
+JFC aprobó las 12 y pidió batches ligeros con pushes frecuentes, y lapicitos naranja
+de precaución para ediciones sensibles. Hechas todas en 6 batches sobre PR #77:
+lapicito único (+naranja), paleta del dinero, fechas locale, actividad→registro,
+crédito↔ítem, chip filtra gastos, undo 5s, editar/cancelar venta solo dueño/admin,
+crédito por expirar, editar evento/comprador, editar expiración de crédito (apodo y
+% de comisión ya existían). Verde. Detalle en DIARIO-2026-09-01.md (entrada 3).

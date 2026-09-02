@@ -57,7 +57,7 @@ Actualizado: 2026-09-02 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 
 ## 3. ESTADO DE EJECUCIÓN (mutable — se sobrescribe cada trabajo)
 
-- **Versión (rama, por mergear):** `1.7.78` · shell `f123-shell-v191`.
+- **Versión (rama, por mergear):** `1.7.79` · shell `f123-shell-v192`.
 - **friendly-123** es el repo de TESTEO (inglés/i18n); suele ir ADELANTE de
   AMIGABLE. AMIGABLE (español) clonado read-only en
   `/home/user/jfcarpiopuntocom/amigable` para ports.
@@ -85,6 +85,7 @@ Actualizado: 2026-09-02 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 | Dashboard refleja todo | ✅ | cols Age/Country, Payment/Invoice; log con Who+Device |
 | Crédito con fecha de expiración | ✅ | modal input date (cal+MM/DD/YYYY); exp=fecha+1; [exp:] en motivo; EXPIRED en saldo |
 | Cancelar reservación de evento | ✅ | Guests → Cancel booking; libera cupo + resta pagado (reusa /ventas/:id/cancelar) |
+| 12 micromejoras Emil | ✅ | lapicito único+naranja precaución, dinero coherente, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo 5s, edit/cancel venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar exp. crédito |
 
 ### Trampas técnicas verificadas (para no re-tropezar)
 - `isDueno()/isAdmin()` **NO existen en index.html** (viven en avanzado-extra.js).
