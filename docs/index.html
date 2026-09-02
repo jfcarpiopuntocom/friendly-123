@@ -120,6 +120,13 @@
     --azul-op:#5294AC;
     --azul-op-claro:#D4ECF5;
 
+    /* Dinero coherente (JFC 2026-09-02, micromejora #2): un solo par para
+       crédito/verde y deuda/gasto/rojo en TODA la app — paleta semáforo exacta. */
+    --dinero-verde:#00C87A;
+    --dinero-verde-dk:#008a54;
+    --dinero-rojo:#E8365D;
+    --dinero-rojo-bg:#FDECEA;
+
     /* --- nuevas variables del sistema --- */
     --paper-deep:#E2E8ED;
     --ink:#0F1923;
@@ -635,6 +642,19 @@
   }
   nav button.activo svg{ transform:scale(1.05); }
   nav button:active{ transform:scale(0.94); }
+  /* Lapicito único y consistente (JFC 2026-09-02, micromejora #1): un solo estilo
+     de "editar" en toda la app, con el mismo micro-hundimiento de las teclas del
+     PIN. Reemplaza los estilos sueltos (✎ azul/gris, ✏️ ámbar). */
+  .oc-edit-btn{
+    font-size:13px; font-weight:700; line-height:1; cursor:pointer;
+    padding:5px 10px; border-radius:6px;
+    border:2px solid var(--azul-medio,#2c4a68); background:transparent;
+    color:var(--azul-medio,#2c4a68) !important; -webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;
+    transition:transform .12s var(--ease-out,cubic-bezier(.23,1,.32,1)), background .12s var(--ease-out,cubic-bezier(.23,1,.32,1));
+  }
+  .oc-edit-btn:hover{ background:var(--azul-op-claro,#D4ECF5); }
+  .oc-edit-btn:active{ transform:translateY(2px) scale(.97); }
+  @media (prefers-reduced-motion: reduce){ .oc-edit-btn{ transition:none; } .oc-edit-btn:active{ transform:none; } }
 
   main{
     padding:18px 16px calc(var(--nav-h) + 28px);
@@ -2974,7 +2994,7 @@ function tarjetaCliente(c, esDueno){
   // Lapicito para editar contacto/notas (2026-08-27): panel colapsable.
   const editKey = "cliedit-" + c.id;
   const panelEditAbierto = window.OCClienteEditOpen && window.OCClienteEditOpen.has(editKey);
-  const btnEditar = `<button onclick="toggleEditarContacto('${editKey}')" style="margin-top:8px;font-size:13px;padding:4px 12px;background:#F4F7FA;border:1.5px solid var(--azul-medio,#2E6278);border-radius:6px;color:#1E4258 !important;-webkit-text-fill-color:#1E4258 !important;cursor:pointer;">✎ Edit contact / notes</button>`;
+  const btnEditar = `<button onclick="toggleEditarContacto('${editKey}')" class="oc-edit-btn" style="margin-top:8px;">✎ Edit contact / notes</button>`;
   // Borrar cliente (JFC 2026-08-27): solo dueño/admin. Borrado REAL, pero
   // siempre queda constancia en el registro de auditoría (mov "cliente-borrado").
   const btnBorrar = esDueno
@@ -5582,8 +5602,8 @@ async function cargarVentasSold(){
         </div>
         <div style="text-align:right;flex:0 0 auto;">
           <div style="font-weight:700;font-size:15px;">${money(total)}</div>
-          ${bloqueada ? "" : `<button type="button" class="oc-vs-edit" title="Edit"
-            style="margin-top:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
+          ${bloqueada ? "" : `<button type="button" class="oc-vs-edit oc-edit-btn" title="Edit"
+            style="margin-top:6px;">✎</button>
           <button type="button" class="oc-vs-cancel" title="Cancel sale"
             style="margin-top:6px;margin-left:4px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">✕</button>`}
         </div>
@@ -6215,11 +6235,11 @@ async function cargarGastos(){
   const _rolG = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
   const _verIngresos = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
   if (resumen) resumen.innerHTML =
-    tarjeta("Expenses this month", gastosMes, "#C0392B") +
-    tarjeta("Expenses (all time)", totalGastos, "#C0392B") +
+    tarjeta("Expenses this month", gastosMes, "var(--dinero-rojo)") +
+    tarjeta("Expenses (all time)", totalGastos, "var(--dinero-rojo)") +
     (_verIngresos
-      ? tarjeta("Sales this month", ventasMes, "#006B3C") +
-        tarjeta("Net", neto, neto >= 0 ? "#006B3C" : "#C0392B")
+      ? tarjeta("Sales this month", ventasMes, "var(--dinero-verde-dk)") +
+        tarjeta("Net", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--dinero-rojo)")
       : "");
   // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
   const catDelMes = {};
@@ -6243,8 +6263,8 @@ async function cargarGastos(){
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
         <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${new Date(g.fecha).toLocaleDateString()}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
-      <strong style="color:#C0392B;font-size:16px;">-${fmtMoney(g.monto)}</strong>
-      ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" style="font-size:13px;padding:3px 8px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}
+      <strong style="color:var(--dinero-rojo);font-size:16px;">-${fmtMoney(g.monto)}</strong>
+      ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" class="oc-edit-btn">✎</button>` : ""}
       ${_puedeEditarGasto ? `<button onclick="anularGasto('${g.id}')" title="Delete this expense" style="font-size:13px;padding:3px 8px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">✕</button>` : ""}
     </div>`).join("");
 }
