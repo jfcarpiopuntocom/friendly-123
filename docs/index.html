@@ -120,6 +120,13 @@
     --azul-op:#5294AC;
     --azul-op-claro:#D4ECF5;
 
+    /* Dinero coherente (JFC 2026-09-02, micromejora #2): un solo par para
+       crédito/verde y deuda/gasto/rojo en TODA la app — paleta semáforo exacta. */
+    --dinero-verde:#00C87A;
+    --dinero-verde-dk:#008a54;
+    --dinero-rojo:#E8365D;
+    --dinero-rojo-bg:#FDECEA;
+
     /* --- nuevas variables del sistema --- */
     --paper-deep:#E2E8ED;
     --ink:#0F1923;
@@ -635,6 +642,25 @@
   }
   nav button.activo svg{ transform:scale(1.05); }
   nav button:active{ transform:scale(0.94); }
+  /* Lapicito único y consistente (JFC 2026-09-02, micromejora #1): un solo estilo
+     de "editar" en toda la app, con el mismo micro-hundimiento de las teclas del
+     PIN. Reemplaza los estilos sueltos (✎ azul/gris, ✏️ ámbar). */
+  .oc-edit-btn{
+    font-size:13px; font-weight:700; line-height:1; cursor:pointer;
+    padding:5px 10px; border-radius:6px;
+    border:2px solid var(--azul-medio,#2c4a68); background:transparent;
+    color:var(--azul-medio,#2c4a68) !important; -webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;
+    transition:transform .12s var(--ease-out,cubic-bezier(.23,1,.32,1)), background .12s var(--ease-out,cubic-bezier(.23,1,.32,1));
+  }
+  .oc-edit-btn:hover{ background:var(--azul-op-claro,#D4ECF5); }
+  .oc-edit-btn:active{ transform:translateY(2px) scale(.97); }
+  /* Variante NARANJA de precaución (JFC 2026-09-02): para ediciones que tocan
+     dinero o registros ya asentados (una venta, una comisión, la expiración de
+     un crédito) — el naranja del semáforo #F97316 avisa "cuidado, esto cambia
+     algo real". Los lapicitos seguros (contacto, notas, categoría) siguen azules. */
+  .oc-edit-btn--warn{ border-color:#F97316; color:#c2560c !important; -webkit-text-fill-color:#c2560c !important; }
+  .oc-edit-btn--warn:hover{ background:#FFF1E6; }
+  @media (prefers-reduced-motion: reduce){ .oc-edit-btn{ transition:none; } .oc-edit-btn:active{ transform:none; } }
 
   main{
     padding:18px 16px calc(var(--nav-h) + 28px);
@@ -2786,7 +2812,8 @@ async function mostrarInvitados() {
             </div>
             ${r.liquidada
               ? `<span style="font-size:12px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">${escHtml(t("guests.settled"))}</span>`
-              : `<button class="oc-book-cancel" data-id="${escHtml(r.id)}" data-monto="${monto.toFixed(2)}"
+              : `<button class="oc-book-name oc-edit-btn" data-id="${escHtml(r.id)}" data-nombre="${escHtml((r.pagador || "").trim())}" title="${escHtml(t("guests.editBuyer"))}" style="padding:4px 8px;">✎</button>
+                 <button class="oc-book-cancel" data-id="${escHtml(r.id)}" data-monto="${monto.toFixed(2)}"
                   style="font-size:12px;font-weight:700;padding:5px 10px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">${escHtml(t("guests.cancelBooking"))}</button>`}
           </div>`;
         }).join("")}</div>
@@ -2798,12 +2825,49 @@ async function mostrarInvitados() {
   overlay.innerHTML = `<div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:20px 18px 28px;max-height:80vh;overflow:auto;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
       <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">${escHtml(titulo)}</strong>
+      ${_puedeCancelar ? `<button id="oc-inv-editar" class="oc-edit-btn oc-edit-btn--warn" title="${escHtml(t("guests.editEvent"))}">✎</button>` : ""}
       <button id="oc-inv-cerrar" style="font-size:13px;padding:6px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${escHtml(t("newcust.close"))}</button>
     </div>${cuerpo}${cuerpoBookings}</div>`;
   document.body.appendChild(overlay);
   const cerrar = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
   overlay.querySelector("#oc-inv-cerrar").addEventListener("click", cerrar);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) cerrar(); });
+  // #10 (JFC 2026-09-02): dueño/admin renombra el evento y cambia su fecha.
+  const btnEvEdit = overlay.querySelector("#oc-inv-editar");
+  if (btnEvEdit) btnEvEdit.addEventListener("click", async () => {
+    const nuevo = await ocPrompt(t("guests.newEventName"), _eventoActivo.nombre || "");
+    if (nuevo == null) return;
+    const nombreNuevo = String(nuevo).trim();
+    if (!nombreNuevo) { await ocAlert(t("guests.needEventName")); return; }
+    let fechaNueva = _eventoActivo.fecha || "";
+    try { const f = await ocPrompt(t("guests.newEventDate"), fechaNueva); if (f != null) fechaNueva = String(f).trim(); } catch (_) {}
+    try {
+      const res = await fetch(`${API}/eventos`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombreAnterior: _eventoActivo.nombre, nombreNuevo, fechaNueva }) });
+      const data = await res.json();
+      if (!res.ok) { await ocAlert(data.error || "Could not edit the event."); return; }
+      _eventoActivo = { nombre: nombreNuevo, fecha: fechaNueva };
+      try { localStorage.setItem("f123_evento_activo", JSON.stringify(_eventoActivo)); } catch (_) {}
+      cerrar();
+      if (typeof poblarSelectEventos === "function") poblarSelectEventos();
+      mostrarInvitados();
+    } catch (_) { await ocAlert("Could not reach the server."); }
+  });
+  // #10: editar el nombre del comprador de una reserva (dueño/admin).
+  overlay.querySelectorAll(".oc-book-name").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-id");
+      const actual = btn.getAttribute("data-nombre") || "";
+      const nuevo = await ocPrompt(t("guests.editBuyer") + ":", actual);
+      if (nuevo == null) return;
+      try {
+        const res = await fetch(`${API}/ventas/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ info: { nombrePagador: String(nuevo).trim() } }) });
+        const data = await res.json();
+        if (!res.ok) { await ocAlert(data.error || "Could not save."); return; }
+        cerrar();
+        mostrarInvitados();
+      } catch (_) { await ocAlert("Could not reach the server."); }
+    });
+  });
   // Cancelar reservación: revierte el ticket (stock) y resta lo pagado, con log.
   overlay.querySelectorAll(".oc-book-cancel").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -2974,7 +3038,7 @@ function tarjetaCliente(c, esDueno){
   // Lapicito para editar contacto/notas (2026-08-27): panel colapsable.
   const editKey = "cliedit-" + c.id;
   const panelEditAbierto = window.OCClienteEditOpen && window.OCClienteEditOpen.has(editKey);
-  const btnEditar = `<button onclick="toggleEditarContacto('${editKey}')" style="margin-top:8px;font-size:13px;padding:4px 12px;background:#F4F7FA;border:1.5px solid var(--azul-medio,#2E6278);border-radius:6px;color:#1E4258 !important;-webkit-text-fill-color:#1E4258 !important;cursor:pointer;">✎ Edit contact / notes</button>`;
+  const btnEditar = `<button onclick="toggleEditarContacto('${editKey}')" class="oc-edit-btn" style="margin-top:8px;">✎ Edit contact / notes</button>`;
   // Borrar cliente (JFC 2026-08-27): solo dueño/admin. Borrado REAL, pero
   // siempre queda constancia en el registro de auditoría (mov "cliente-borrado").
   const btnBorrar = esDueno
@@ -3108,12 +3172,14 @@ async function pintarSaldoCartera(clienteId) {
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
     const color = debe ? "#E8365D" : "#008a54";
-    const texto = debe ? `Debt ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
+    // #3 (JFC 2026-09-02): fecha coherente con el idioma activo en toda la app.
+    const fmtFechaLoc = (ymd) => { try { const p = ymd.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || "en-US"); } catch (_) { return ymd; } };
     // Ítems y expiración del crédito (abono): "el credit solo se puede gastar en
     // el mismo item" + "debe tener fecha de expiracion" (JFC 2026-09-02). Se
-    // extrae de los motivos [for:...][exp:YYYY-MM-DD]. Un crédito ya expirado
-    // (hoy >= exp) se muestra en rojo como EXPIRED (toca dar otros pasos).
-    let restringido = "";
+    // extrae de los motivos [for:...][exp:YYYY-MM-DD]. #9: se avisa "expires soon"
+    // (ámbar) a ≤3 días, y al vencer se muestra EXPIRED y el monto se TACHA (no se
+    // borra el dato — nunca romper datos).
+    let restringido = "", expiradoTodo = false;
     if (!debe && Array.isArray(info.historial)) {
       const hoy = new Date().toLocaleDateString("en-CA");
       const abonos = info.historial.filter((h) => h.tipo === "abono");
@@ -3123,16 +3189,29 @@ async function pintarSaldoCartera(clienteId) {
         return { item: mi ? mi[1].trim() : "", exp: me ? me[1] : "" };
       }).filter((p) => p.item);
       const items = [...new Set(partes.map((p) => p.item))];
-      // Fecha de expiración más próxima (la que primero vence).
       const exps = partes.map((p) => p.exp).filter(Boolean).sort();
-      const proxExp = exps[0] || "";
+      // #12: si dueño/admin extendió/acortó la expiración, ese override manda.
+      const proxExp = _credExpOverride(clienteId) || exps[0] || "";
       const expirado = proxExp && proxExp <= hoy;
+      expiradoTodo = expirado;
+      // Días hasta la expiración más próxima (para el aviso ámbar).
+      let diasRest = null;
+      if (proxExp && !expirado) { const pe = proxExp.split("-").map(Number); diasRest = Math.round((new Date(pe[0], pe[1] - 1, pe[2]) - new Date(hoy.split("-").map(Number)[0], hoy.split("-").map(Number)[1] - 1, hoy.split("-").map(Number)[2])) / 86400000); }
       if (items.length) {
         restringido = ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— only for: ${escHtml(items.join(", "))}</span>`;
         if (proxExp) {
-          restringido += expirado
-            ? ` <span style="font-size:12px;font-weight:700;color:#E8365D;">EXPIRED (${escHtml(proxExp)})</span>`
-            : ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— expires ${escHtml(proxExp)}</span>`;
+          if (expirado) {
+            restringido += ` <span style="font-size:12px;font-weight:700;color:#E8365D;">EXPIRED (${escHtml(fmtFechaLoc(proxExp))})</span>`;
+          } else if (diasRest != null && diasRest <= 3) {
+            restringido += ` <span style="font-size:12px;font-weight:700;color:#F97316;">expires soon (${escHtml(fmtFechaLoc(proxExp))})</span>`;
+          } else {
+            restringido += ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— expires ${escHtml(fmtFechaLoc(proxExp))}</span>`;
+          }
+          // #12: lapicito NARANJA de precaución para dueño/admin — cambia la expiración.
+          const _rolC = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+          if (_rolC === "dueno" || _rolC === "admin") {
+            restringido += ` <button type="button" class="oc-edit-btn oc-edit-btn--warn" title="Change expiration" onclick="editarExpiracionCredito('${clienteId}')" style="padding:2px 7px;font-size:12px;">✎</button>`;
+          }
         }
       }
     }
@@ -3140,8 +3219,32 @@ async function pintarSaldoCartera(clienteId) {
     const badge = (debe && alertaOn)
       ? `<span style="margin-left:6px;font-size:13px;font-weight:700;background:#E8365D;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">pending</span>`
       : "";
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;">${texto}</span>${restringido}${badge}`;
+    // #9: crédito totalmente expirado → monto tachado (el dato NO se borra).
+    const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}`;
   } catch (_) { el.innerHTML = ""; }
+}
+/* #12 (JFC 2026-09-02): dueño/admin puede extender/acortar la expiración de un
+   crédito ya emitido ("toque dar otros pasos" cuando expira). El hecho original
+   del abono es append-only y NO se toca; la nueva expiración efectiva se guarda
+   como override local por cliente (mismo patrón que la alerta, que también es
+   preferencia local, no un hecho). Limitación consciente: es local a este
+   aparato hasta que se promueva a un hecho sincronizado (anotado en el diario). */
+const _CRED_EXP_KEY = "f123_credito_exp_override_v1";
+function _credExpMap() { try { return JSON.parse(localStorage.getItem(_CRED_EXP_KEY) || "{}") || {}; } catch (_) { return {}; } }
+function _credExpOverride(clienteId) { return _credExpMap()[clienteId] || ""; }
+async function editarExpiracionCredito(clienteId) {
+  const actual = _credExpOverride(clienteId) || new Date().toLocaleDateString("en-CA");
+  const val = await ocPrompt("New valid-through date (YYYY-MM-DD). The credit expires the next day:", actual);
+  if (val == null) return;
+  const v = String(val).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { await ocAlert("Use the format YYYY-MM-DD."); return; }
+  // Se guarda la expiración = día siguiente a la fecha elegida (mismo criterio).
+  const p = v.split("-").map(Number); const d = new Date(p[0], p[1] - 1, p[2]); d.setDate(d.getDate() + 1);
+  const exp = d.toLocaleDateString("en-CA");
+  const m = _credExpMap(); m[clienteId] = exp;
+  try { localStorage.setItem(_CRED_EXP_KEY, JSON.stringify(m)); } catch (_) {}
+  pintarSaldoCartera(clienteId);
 }
 function toggleAlertaCliente(clienteId, activa) {
   if (window.AMG && window.AMG.Cartera) window.AMG.Cartera.fijarAlerta(clienteId, activa);
@@ -5397,6 +5500,7 @@ async function abrirPanelVentaInfo(id, esTicket){
             style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">+ New</button>
         </div>
         <input id="vi-cliente-buscar" type="text" placeholder="Type to filter..." style="width:100%;padding:8px;margin-top:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+      <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#008a54;margin:4px 0 0;"></p>
       ${esTicket ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br><input id="vi-personas" type="number" min="0" step="1" ${inp}></label>` : ""}
@@ -5476,6 +5580,33 @@ async function abrirPanelVentaInfo(id, esTicket){
     selCli.addEventListener("change", syncCant);
     syncCant();
   }
+  // #5 (JFC 2026-09-02): crédito ↔ ítem ↔ venta. Al elegir un cliente, si tiene
+  // crédito vigente (no expirado) atado a ESTE ítem, se avisa — a consola (no
+  // banner) y con un hint discreto dentro del mismo modal. Cierra el lazo "el
+  // crédito solo se gasta en el mismo item".
+  const avisarCredito = async () => {
+    const hintEl = document.getElementById("vi-credito-hint");
+    if (hintEl) hintEl.textContent = "";
+    const cid = selCli.value;
+    if (!cid) return;
+    try {
+      const info = await (await fetch(`${API}/clientes/${cid}/cartera`)).json();
+      if (!info || info.saldo <= 0 || !Array.isArray(info.historial)) return;
+      const hoy = new Date().toLocaleDateString("en-CA");
+      const match = info.historial.some((h) => {
+        if (h.tipo !== "abono") return false;
+        const mi = /\[for:([^\]]+)\]/.exec(h.motivo || "");
+        const me = /\[exp:(\d{4}-\d{2}-\d{2})\]/.exec(h.motivo || "");
+        return mi && mi[1].trim() === p.nombre && (!me || me[1] > hoy);
+      });
+      if (match) {
+        console.info(`[crédito] Este cliente tiene crédito vigente para "${p.nombre}" (saldo ${fmtMoney(info.saldo)}).`);
+        if (hintEl) hintEl.textContent = `Note: this customer has active store credit for ${p.nombre} (${fmtMoney(info.saldo)}).`;
+      }
+    } catch (_) {}
+  };
+  selCli.addEventListener("change", avisarCredito);
+  avisarCredito();
   if (esBar) {
     const sInp = document.getElementById("vi-servings");
     const bEl = document.getElementById("vi-botellas");
@@ -5562,6 +5693,10 @@ async function cargarVentasSold(){
     cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">No sales recorded yet.</p>'; return;
   }
   rows.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  // #8 (JFC 2026-09-02): editar/cancelar una venta asentada es solo dueño/admin
+  // (el backend también lo exige). El encargado ve el registro, no lo altera.
+  const _rolVS = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+  const _puedeGestionarVenta = _rolVS === "dueno" || _rolVS === "admin";
   const money = (v) => { try { return new Intl.NumberFormat((window.OCI18n && window.OCI18n.locale()) || "en-US", { style: "currency", currency: "USD" }).format(v || 0); } catch (_) { return "$" + Number(v || 0).toFixed(2); } };
   const fmtFecha = (iso) => { try { return new Date(iso).toLocaleString((window.OCI18n && window.OCI18n.locale()) || "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return iso; } };
   cont.innerHTML = rows.map((v) => {
@@ -5575,15 +5710,15 @@ async function cargarVentasSold(){
     return `<div class="tag-card oc-vs-row" data-id="${v.id}" style="padding:10px 12px;margin-bottom:8px;background:var(--blanco-calido,#fbf5e8);">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;font-size:15px;">${escHtml(v.productoNombre)} <span style="color:var(--ink-soft);font-weight:400;">×${v.cantidad}</span></div>
+          <div style="font-weight:700;font-size:15px;"><a href="#" class="oc-vs-goto" data-nombre="${escHtml(v.productoNombre)}" title="Find this product above" style="color:var(--azul-medio,#2c4a68);text-decoration:none;">${escHtml(v.productoNombre)}</a> <span style="color:var(--ink-soft);font-weight:400;">×${v.cantidad}</span></div>
           <div style="font-size:13px;color:var(--ink-soft);">${fmtFecha(v.fecha)} · ${cli}${chips.length ? " · " + chips.join(" · ") : ""}</div>
           ${v.notas ? `<div style="font-size:13px;color:var(--ink-soft);font-style:italic;">“${escHtml(v.notas)}”</div>` : ""}
           ${bloqueada ? `<div style="font-size:12px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:2px;">Settled — locked</div>` : ""}
         </div>
         <div style="text-align:right;flex:0 0 auto;">
           <div style="font-weight:700;font-size:15px;">${money(total)}</div>
-          ${bloqueada ? "" : `<button type="button" class="oc-vs-edit" title="Edit"
-            style="margin-top:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
+          ${(bloqueada || !_puedeGestionarVenta) ? "" : `<button type="button" class="oc-vs-edit oc-edit-btn oc-edit-btn--warn" title="Edit (changes a recorded sale)"
+            style="margin-top:6px;">✎</button>
           <button type="button" class="oc-vs-cancel" title="Cancel sale"
             style="margin-top:6px;margin-left:4px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">✕</button>`}
         </div>
@@ -5610,6 +5745,16 @@ async function cargarVentasSold(){
       </div>
     </div>`;
   }).join("");
+  // #4 (JFC 2026-09-02): tocar el nombre de un producto vendido lo busca arriba
+  // en el grid de Sold (interconexión actividad → registro).
+  cont.querySelectorAll(".oc-vs-goto").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    const nombre = a.getAttribute("data-nombre") || "";
+    const inp = document.getElementById("venderBuscarInput");
+    if (inp) { inp.value = nombre; inp.dispatchEvent(new Event("input", { bubbles: true })); }
+    const grid = document.getElementById("gridVender");
+    if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
   cont.querySelectorAll(".oc-vs-row").forEach((row) => {
     const id = row.getAttribute("data-id");
     const editor = row.querySelector(".oc-vs-editor");
@@ -5642,14 +5787,62 @@ async function cargarVentasSold(){
       if (!ok) return;
       let motivo = "";
       try { motivo = (await ocPrompt("Reason (optional):")) || ""; } catch (_) {}
+      const snap = rows.find((x) => x.id === id); // #7: para poder deshacer
       try {
         const res = await fetch(`${API}/ventas/${id}/cancelar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ motivo }) });
         const data = await res.json();
         if (!res.ok) { await ocAlert(data.error || "Could not cancel the sale."); return; }
         cargarVentasSold();
         if (document.getElementById("gridVender")) cargarGridVender();
+        // #7 (JFC 2026-09-02): 5s de gracia para deshacer la cancelación. Al
+        // deshacer se re-registra una venta equivalente (mismo producto, cantidad,
+        // cliente e info). Sin banner nuevo: usa el mismo toast de "deshacer".
+        if (snap) mostrarToastDeshacerCancelacion(snap);
       } catch (_) { await ocAlert("Could not reach the server."); }
     });
+  });
+}
+
+/* #7 (JFC 2026-09-02): toast de 5s para deshacer una cancelación ex-post. Reusa
+   el contenedor de toast existente (#oc-toast-venta), sin banner nuevo. Deshacer
+   re-registra una venta equivalente vía POST /venta. */
+let _toastDeshacerInterval = null;
+function mostrarToastDeshacerCancelacion(snap){
+  const cont = document.getElementById("oc-toast-venta");
+  if (!cont || !snap) return;
+  clearInterval(_toastDeshacerInterval);
+  cont.innerHTML = `<div class="tag-card" style="position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h,78px) + 16px);z-index:400;
+    background:var(--azul-oscuro,#1c3049);color:var(--blanco-calido,#F8F9FB);padding:14px 16px;border-radius:8px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;" id="oc-toast-deshacer">
+    <span>Sale cancelled. Tap to undo (5s)</span>
+    <strong id="oc-toast-deshacer-n">5s</strong>
+  </div>`;
+  let restante = 5;
+  const el = document.getElementById("oc-toast-deshacer");
+  const n = document.getElementById("oc-toast-deshacer-n");
+  _toastDeshacerInterval = setInterval(() => {
+    restante -= 1;
+    if (n) n.textContent = restante + "s";
+    if (restante <= 0) { clearInterval(_toastDeshacerInterval); _toastDeshacerInterval = null; cont.innerHTML = ""; }
+  }, 1000);
+  if (el) el.addEventListener("click", async () => {
+    clearInterval(_toastDeshacerInterval); _toastDeshacerInterval = null; cont.innerHTML = "";
+    const info = {};
+    if (snap.formaPago) info.formaPago = snap.formaPago;
+    if (snap.factura) info.factura = snap.factura;
+    if (snap.notas) info.notas = snap.notas;
+    if (snap.pagador) info.nombrePagador = snap.pagador;
+    if (snap.eventoNombre) info.nombreEvento = snap.eventoNombre;
+    try {
+      const res = await fetch(`${API}/productos/${snap.productoId}/venta`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cantidad: snap.cantidad || 1, clienteId: snap.clienteId || undefined, info })
+      });
+      const data = await res.json();
+      if (!res.ok) { await ocAlert(data.error || "Could not undo the cancellation."); return; }
+      if (document.getElementById("ventasSold") && document.getElementById("ventasSold").open) cargarVentasSold();
+      if (document.getElementById("gridVender")) cargarGridVender();
+    } catch (_) { await ocAlert("Could not reach the server."); }
   });
 }
 
@@ -6184,6 +6377,7 @@ async function abrirEditorComisionista(id, pr){
   _atarFilasComision(caja);
 }
 
+let _gastoCatFiltro = ""; // #6: filtro activo de categoría de gasto (o "" = todas)
 async function cargarGastos(){
   const cont = document.getElementById("listaGastos");
   const resumen = document.getElementById("gastosResumen");
@@ -6215,11 +6409,11 @@ async function cargarGastos(){
   const _rolG = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
   const _verIngresos = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
   if (resumen) resumen.innerHTML =
-    tarjeta("Expenses this month", gastosMes, "#C0392B") +
-    tarjeta("Expenses (all time)", totalGastos, "#C0392B") +
+    tarjeta("Expenses this month", gastosMes, "var(--dinero-rojo)") +
+    tarjeta("Expenses (all time)", totalGastos, "var(--dinero-rojo)") +
     (_verIngresos
-      ? tarjeta("Sales this month", ventasMes, "#006B3C") +
-        tarjeta("Net", neto, neto >= 0 ? "#006B3C" : "#C0392B")
+      ? tarjeta("Sales this month", ventasMes, "var(--dinero-verde-dk)") +
+        tarjeta("Net", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--dinero-rojo)")
       : "");
   // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
   const catDelMes = {};
@@ -6228,23 +6422,36 @@ async function cargarGastos(){
   const catCont = document.getElementById("gastosPorCategoria");
   if (catCont) {
     const orden = Object.entries(catDelMes).sort((a, b) => b[1] - a[1]);
+    // #6 (JFC 2026-09-02): los chips filtran la lista. Tocar uno filtra a esa
+    // categoría; tocarlo de nuevo (o "All") limpia el filtro. El activo se resalta.
     catCont.innerHTML = orden.length
       ? `<div style="font-size:13px;color:var(--ink-soft);margin:0 0 6px;">${(window.t && window.t("exp.byCategory")) || "This month by category"}</div>
-         <div style="display:flex;gap:6px;flex-wrap:wrap;">${orden.map(([k, v]) =>
-           `<span style="font-size:13px;padding:4px 10px;border-radius:999px;background:#FDECEA;border:1px solid #E8365D;color:#8f2036;">${escHtml(gastoCatLabel(k))} · ${fmtMoney(v)}</span>`).join("")}</div>`
+         <div style="display:flex;gap:6px;flex-wrap:wrap;">
+           ${_gastoCatFiltro ? `<button type="button" data-cat="" class="oc-gasto-chip" style="font-size:13px;padding:4px 10px;border-radius:999px;background:var(--azul-medio,#2c4a68);border:1px solid var(--azul-medio,#2c4a68);color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">✕ All</button>` : ""}
+           ${orden.map(([k, v]) => {
+             const on = _gastoCatFiltro === k;
+             return `<button type="button" data-cat="${k}" class="oc-gasto-chip" style="font-size:13px;padding:4px 10px;border-radius:999px;cursor:pointer;background:${on ? "#E8365D" : "#FDECEA"};border:1px solid #E8365D;color:${on ? "#fff" : "#8f2036"} !important;-webkit-text-fill-color:${on ? "#fff" : "#8f2036"} !important;">${escHtml(gastoCatLabel(k))} · ${fmtMoney(v)}</button>`;
+           }).join("")}</div>`
       : "";
+    catCont.querySelectorAll(".oc-gasto-chip").forEach((b) => b.addEventListener("click", () => {
+      const c = b.getAttribute("data-cat");
+      _gastoCatFiltro = (c && c === _gastoCatFiltro) ? "" : c;
+      cargarGastos();
+    }));
   }
   if (!gastos.length) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No expenses recorded yet. Add the first one above.</p>'; return; }
   _gastosCache = gastos;
   const _puedeEditarGasto = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
-  if (cont) cont.innerHTML = gastos.map((g) => `
+  const listaGastos = _gastoCatFiltro ? gastos.filter((g) => (g.categoria || "other") === _gastoCatFiltro) : gastos;
+  if (cont && !listaGastos.length) { cont.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No expenses in ${escHtml(gastoCatLabel(_gastoCatFiltro))}.</p>`; return; }
+  if (cont) cont.innerHTML = listaGastos.map((g) => `
     <div class="tag-card" id="gasto-fila-${g.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;">
       <div style="flex:1;">
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
         <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${new Date(g.fecha).toLocaleDateString()}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
-      <strong style="color:#C0392B;font-size:16px;">-${fmtMoney(g.monto)}</strong>
-      ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" style="font-size:13px;padding:3px 8px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}
+      <strong style="color:var(--dinero-rojo);font-size:16px;">-${fmtMoney(g.monto)}</strong>
+      ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" class="oc-edit-btn oc-edit-btn--warn">✎</button>` : ""}
       ${_puedeEditarGasto ? `<button onclick="anularGasto('${g.id}')" title="Delete this expense" style="font-size:13px;padding:3px 8px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">✕</button>` : ""}
     </div>`).join("");
 }
