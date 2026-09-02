@@ -5668,7 +5668,7 @@ async function cargarVentasSold(){
     return `<div class="tag-card oc-vs-row" data-id="${v.id}" style="padding:10px 12px;margin-bottom:8px;background:var(--blanco-calido,#fbf5e8);">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:700;font-size:15px;">${escHtml(v.productoNombre)} <span style="color:var(--ink-soft);font-weight:400;">×${v.cantidad}</span></div>
+          <div style="font-weight:700;font-size:15px;"><a href="#" class="oc-vs-goto" data-nombre="${escHtml(v.productoNombre)}" title="Find this product above" style="color:var(--azul-medio,#2c4a68);text-decoration:none;">${escHtml(v.productoNombre)}</a> <span style="color:var(--ink-soft);font-weight:400;">×${v.cantidad}</span></div>
           <div style="font-size:13px;color:var(--ink-soft);">${fmtFecha(v.fecha)} · ${cli}${chips.length ? " · " + chips.join(" · ") : ""}</div>
           ${v.notas ? `<div style="font-size:13px;color:var(--ink-soft);font-style:italic;">“${escHtml(v.notas)}”</div>` : ""}
           ${bloqueada ? `<div style="font-size:12px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:2px;">Settled — locked</div>` : ""}
@@ -5703,6 +5703,16 @@ async function cargarVentasSold(){
       </div>
     </div>`;
   }).join("");
+  // #4 (JFC 2026-09-02): tocar el nombre de un producto vendido lo busca arriba
+  // en el grid de Sold (interconexión actividad → registro).
+  cont.querySelectorAll(".oc-vs-goto").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    const nombre = a.getAttribute("data-nombre") || "";
+    const inp = document.getElementById("venderBuscarInput");
+    if (inp) { inp.value = nombre; inp.dispatchEvent(new Event("input", { bubbles: true })); }
+    const grid = document.getElementById("gridVender");
+    if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
   cont.querySelectorAll(".oc-vs-row").forEach((row) => {
     const id = row.getAttribute("data-id");
     const editor = row.querySelector(".oc-vs-editor");
@@ -6277,6 +6287,7 @@ async function abrirEditorComisionista(id, pr){
   _atarFilasComision(caja);
 }
 
+let _gastoCatFiltro = ""; // #6: filtro activo de categoría de gasto (o "" = todas)
 async function cargarGastos(){
   const cont = document.getElementById("listaGastos");
   const resumen = document.getElementById("gastosResumen");
@@ -6321,16 +6332,29 @@ async function cargarGastos(){
   const catCont = document.getElementById("gastosPorCategoria");
   if (catCont) {
     const orden = Object.entries(catDelMes).sort((a, b) => b[1] - a[1]);
+    // #6 (JFC 2026-09-02): los chips filtran la lista. Tocar uno filtra a esa
+    // categoría; tocarlo de nuevo (o "All") limpia el filtro. El activo se resalta.
     catCont.innerHTML = orden.length
       ? `<div style="font-size:13px;color:var(--ink-soft);margin:0 0 6px;">${(window.t && window.t("exp.byCategory")) || "This month by category"}</div>
-         <div style="display:flex;gap:6px;flex-wrap:wrap;">${orden.map(([k, v]) =>
-           `<span style="font-size:13px;padding:4px 10px;border-radius:999px;background:#FDECEA;border:1px solid #E8365D;color:#8f2036;">${escHtml(gastoCatLabel(k))} · ${fmtMoney(v)}</span>`).join("")}</div>`
+         <div style="display:flex;gap:6px;flex-wrap:wrap;">
+           ${_gastoCatFiltro ? `<button type="button" data-cat="" class="oc-gasto-chip" style="font-size:13px;padding:4px 10px;border-radius:999px;background:var(--azul-medio,#2c4a68);border:1px solid var(--azul-medio,#2c4a68);color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">✕ All</button>` : ""}
+           ${orden.map(([k, v]) => {
+             const on = _gastoCatFiltro === k;
+             return `<button type="button" data-cat="${k}" class="oc-gasto-chip" style="font-size:13px;padding:4px 10px;border-radius:999px;cursor:pointer;background:${on ? "#E8365D" : "#FDECEA"};border:1px solid #E8365D;color:${on ? "#fff" : "#8f2036"} !important;-webkit-text-fill-color:${on ? "#fff" : "#8f2036"} !important;">${escHtml(gastoCatLabel(k))} · ${fmtMoney(v)}</button>`;
+           }).join("")}</div>`
       : "";
+    catCont.querySelectorAll(".oc-gasto-chip").forEach((b) => b.addEventListener("click", () => {
+      const c = b.getAttribute("data-cat");
+      _gastoCatFiltro = (c && c === _gastoCatFiltro) ? "" : c;
+      cargarGastos();
+    }));
   }
   if (!gastos.length) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No expenses recorded yet. Add the first one above.</p>'; return; }
   _gastosCache = gastos;
   const _puedeEditarGasto = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
-  if (cont) cont.innerHTML = gastos.map((g) => `
+  const listaGastos = _gastoCatFiltro ? gastos.filter((g) => (g.categoria || "other") === _gastoCatFiltro) : gastos;
+  if (cont && !listaGastos.length) { cont.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No expenses in ${escHtml(gastoCatLabel(_gastoCatFiltro))}.</p>`; return; }
+  if (cont) cont.innerHTML = listaGastos.map((g) => `
     <div class="tag-card" id="gasto-fila-${g.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;">
       <div style="flex:1;">
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
