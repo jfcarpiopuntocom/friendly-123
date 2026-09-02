@@ -416,3 +416,12 @@ version.json + version-manifest.json regenerado. Fix P0 identidad Lord integrado
 2 tests actualizados (join-identity al contrato nuevo 08-31; team-sync resiliente
 a recarga coordinada). Compuerta 9/9 verde (proxy off). Detalle:
 docs/NOTA-integracion-lab-1.7.67-2026-09-01.md y DIARIO-2026-09-01.md.
+
+## 2026-09-02 — Prompt multi-parte (Sold/Expenses/Cartera/Customers/Dashboard) → v1.7.77 / shell v190
+JFC pidió (textual resumido): quitar Amount paid y poner cantidad en counter sale;
+Sales log editable + cancelar ex-post con logs de PIN/usuario+dispositivo; categorías
+de Expenses (USA/Ecuador) y quitar caja chica por percha; renombrar Close the day →
+Daily Summary; credit(abono)=verde y debt(fiado)=rojo, crédito atado al mismo item;
+checkbox Add invoice con nº opcional; pulldowns de edad y país en My customers;
+enchufar y reflejar todo en dashboard.html. Hecho en 7 lotes, todos verdes y
+pusheados. Detalle completo en DIARIO-2026-09-01.md (entrada 2026-09-02).

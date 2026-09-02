@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v189"; // v180: one Back-to-top per Advanced subsection, no stacked orphans
+const CACHE = "f123-shell-v190"; // v190: Sold quantity+invoice, editable sales log + ex-post cancel, expense categories, credit/debt colors, customer age/country, dashboard reflects all
 const SHELL = [
   "./",
   "./index.html",
