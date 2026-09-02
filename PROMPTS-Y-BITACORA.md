@@ -441,3 +441,12 @@ lapicito único (+naranja), paleta del dinero, fechas locale, actividad→regist
 crédito↔ítem, chip filtra gastos, undo 5s, editar/cancelar venta solo dueño/admin,
 crédito por expirar, editar evento/comprador, editar expiración de crédito (apodo y
 % de comisión ya existían). Verde. Detalle en DIARIO-2026-09-01.md (entrada 3).
+
+## 2026-09-02 (4) — P0 idiomARTE (Prime Directive 1A) + 5 bugs + tweaks → v1.7.80 y v1.7.81
+JFC: a idiomARTE (1er cliente pagado) le salió el límite del plan → Prime Directive 1A
+(nunca romper a un dueño de licencia; tweaks solo al margen). Arreglado con
+estaLicenciado() fail-open. Además cacé 5 bugs de 24h: cartera no pintaba saldo (texto
+borrado), 456 no entraba al demo, cap a licencia activa, modal de crédito item+exp
+shadoweado por plan-pagos (pendiente decisión), botón imprimir en español. Tweaks:
+Print, Type to search, personas pulldown, Group/Reservation, SELECT→tarjeta+flash.
+Detalle en DIARIO-2026-09-01.md (entrada 4).
