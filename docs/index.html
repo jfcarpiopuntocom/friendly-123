@@ -1692,7 +1692,7 @@
          (#eod-modal) y el mismo handler: cero logica duplicada. Se muestra
          solo si el rol puede verla (lo decide actualizarFAB()). -->
     <div id="eod-inline-wrap">
-      <button type="button" id="eod-inline">Close the day</button>
+      <button type="button" id="eod-inline">Daily Summary</button>
     </div>
   </section>
 
@@ -5259,11 +5259,17 @@ async function abrirPanelVentaInfo(id, esTicket){
         <label style="flex:1;font-size:14px;">Email<br><input id="vi-email" type="email" ${inp}></label>
         <label style="flex:1;font-size:14px;">WhatsApp<br><input id="vi-whatsapp" type="text" ${inp}></label>
       </div>
-      <div style="display:flex;gap:10px;margin-top:10px;">
-        <label style="flex:1;font-size:14px;">Payment method<br>
+      ${(!esBar && !esTicket) ? `
+      <label id="vi-cant-wrap" style="display:block;margin-top:10px;font-size:14px;">Quantity (counter sale — sell several at once)<br>
+        <input id="vi-cantidad" type="number" min="1" step="1" value="1" ${inp}></label>` : ""}
+      <div style="margin-top:10px;">
+        <label style="font-size:14px;">Payment method<br>
           <select id="vi-forma-pago" ${inp}><option value="">—</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="card">Card</option><option value="other">Other</option></select></label>
-        <label style="flex:1;font-size:14px;">Amount paid${req}<br><input id="vi-monto" type="number" min="0" step="0.01" ${inp}></label>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;cursor:pointer;">
+        <input id="vi-add-factura" type="checkbox" style="width:auto;margin:0;">Add invoice</label>
+      <label id="vi-factura-wrap" style="display:none;margin-top:6px;font-size:14px;">Invoice number (optional)<br>
+        <input id="vi-factura" type="text" placeholder="e.g. 001-002-000012345" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Notes (optional)<br><textarea id="vi-notas" rows="2" placeholder="Anything worth remembering about this sale..." ${inp}></textarea></label>
       <div id="vi-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div class="acciones-rapidas" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -5298,6 +5304,29 @@ async function abrirPanelVentaInfo(id, esTicket){
       if (inpPag.style.display !== "none") inpPag.focus();
     });
   }
+  // JFC 2026-09-02: checkbox "Add invoice" (default off) → muestra la caja
+  // opcional de número de factura. Nunca obligatorio.
+  const chkFac = document.getElementById("vi-add-factura");
+  const wrapFac = document.getElementById("vi-factura-wrap");
+  if (chkFac && wrapFac) {
+    chkFac.addEventListener("change", () => {
+      wrapFac.style.display = chkFac.checked ? "block" : "none";
+      if (chkFac.checked) { const f = document.getElementById("vi-factura"); if (f) f.focus(); }
+    });
+  }
+  // JFC 2026-09-02: la cantidad (vender varios de golpe) solo aplica a la venta
+  // de mostrador (sin cliente). Si eligen un cliente, se fuerza a 1 y se oculta.
+  const cantWrap = document.getElementById("vi-cant-wrap");
+  const cantInp = document.getElementById("vi-cantidad");
+  if (cantWrap && cantInp) {
+    const syncCant = () => {
+      const esMostrador = !selCli.value;
+      cantWrap.style.display = esMostrador ? "block" : "none";
+      if (!esMostrador) cantInp.value = "1";
+    };
+    selCli.addEventListener("change", syncCant);
+    syncCant();
+  }
   if (esBar) {
     const sInp = document.getElementById("vi-servings");
     const bEl = document.getElementById("vi-botellas");
@@ -5325,26 +5354,32 @@ async function confirmarVentaConInfo(id, esTicket){
   const _esBar = _pBar && _pBar.tipoProducto === "bar";
   const _servPorBotella = _esBar ? Math.max(1, Math.round((Number(_pBar.botellaMl) || 750) / (Number(_pBar.servingMl) || 50))) : 0;
   const _servings = _esBar ? Math.max(1, Number(g("vi-servings")) || 1) : 1;
+  const clienteId = document.getElementById("vi-cliente").value || undefined;
+  // JFC 2026-09-02: cantidad de mostrador (varios de golpe) solo sin cliente y
+  // en productos normales (no bar/ticket). Con cliente o bar/ticket = 1.
+  const _cantMostrador = (!_esBar && !esTicket && !clienteId)
+    ? Math.max(1, Math.floor(Number(g("vi-cantidad")) || 1)) : 1;
+  const _facturaOn = (() => { const c = document.getElementById("vi-add-factura"); return !!(c && c.checked); })();
   const info = {
     fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
-    email: g("vi-email"), whatsapp: g("vi-whatsapp"), formaPago: g("vi-forma-pago"), montoPagado: g("vi-monto"),
+    email: g("vi-email"), whatsapp: g("vi-whatsapp"), formaPago: g("vi-forma-pago"),
     notas: g("vi-notas"),
+    ...(_facturaOn ? { factura: g("vi-factura") || "(sin número)" } : {}),
     ...(_esBar ? { servings: _servings, botellas: +(_servings / _servPorBotella).toFixed(2) } : {})
   };
   const msg = document.getElementById("vi-msg");
-  if (esTicket && (!info.fechaEvento || !info.montoPagado)){
+  if (esTicket && !info.fechaEvento){
     msg.style.color = "var(--rojo,#a3392a)";
-    msg.textContent = "For tickets/events you need: date and the amount paid.";
+    msg.textContent = "For tickets/events you need the event/class date.";
     return;
   }
-  const clienteId = document.getElementById("vi-cliente").value || undefined;
   _ventasEnCurso.add(id);
   try {
     let res, data;
     try {
       res = await fetch(`${API}/productos/${id}/venta`, {
         method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cantidad: _esBar ? _servings : 1, clienteId, info })
+        body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info })
       });
       data = await res.json();
     } catch (err) {
@@ -7283,10 +7318,10 @@ function ocPrompt(mensaje, valorInicial) {
   #eod-modal .btn-o{background:#fff;border-color:#e5e7eb;color:#0F1923;}
   #eod-msg{font-size:13px;color:#6b7280;margin-top:10px;min-height:16px;}
 </style>
-<button type="button" id="fab-eod" aria-label="Close the day">Close the day</button>
+<button type="button" id="fab-eod" aria-label="Daily Summary">Daily Summary</button>
 <div id="eod-modal" role="dialog" aria-modal="true" aria-labelledby="eod-t">
   <div class="card">
-    <h3 id="eod-t">Close the day</h3>
+    <h3 id="eod-t">Daily Summary</h3>
     <div id="eod-body">Loading today's summary…</div>
     <div class="row">
       <button type="button" class="btn btn-p" id="eod-backup">Download backup</button>
@@ -7299,17 +7334,17 @@ function ocPrompt(mensaje, valorInicial) {
 (function(){
   var _EOD_ES = function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}};
   var TX = function(){ return _EOD_ES() ? {
-    title:"Cerrar el dia", loading:"Cargando resumen de hoy...",
+    title:"Resumen diario", loading:"Cargando resumen de hoy...",
     revenue:"Ingresos de hoy", sales:"Ventas", profit:"Ganancia estimada", inv:"Inventario valorizado",
     week:"Ingresos de la semana", backup:"Descargar respaldo", close:"Cerrar",
-    fabLabel:"Cerrar el dia", noHint:"No hay sesion — solo el dueno o admin ven este boton.",
+    fabLabel:"Resumen diario", noHint:"No hay sesion — solo el dueno o admin ven este boton.",
     backupOk:"Respaldo descargado.", backupFail:"No se pudo descargar el respaldo: ",
     fetchFail:"No se pudo cargar el resumen: "
   } : {
-    title:"Close the day", loading:"Loading today's summary...",
+    title:"Daily Summary", loading:"Loading today's summary...",
     revenue:"Revenue today", sales:"Sales", profit:"Estimated profit", inv:"Inventory value",
     week:"Revenue this week", backup:"Download backup", close:"Close",
-    fabLabel:"Close the day", noHint:"No session — only owner or admin see this button.",
+    fabLabel:"Daily Summary", noHint:"No session — only owner or admin see this button.",
     backupOk:"Backup downloaded.", backupFail:"Could not download backup: ",
     fetchFail:"Could not load summary: "
   };};
