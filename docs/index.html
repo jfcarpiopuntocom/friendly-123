@@ -1686,6 +1686,17 @@
       <button class="ir" id="btnAplicarCierre" style="margin-top:12px;" data-i18n="sold.applyClose">Apply day close</button>
       <p id="cierreMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
     </details>
+    <!-- LISTA DE VENTAS EDITABLE (JFC 2026-09-02): "en Sold falta una lista
+         dinamica, expandible de lo que ya se vendio y obvio debe poder editarse
+         con lapicitos por si hubo errores u otras necesidades de cambios" +
+         "cancelar ex post tambien". Expandible; cada venta se edita (cantidad,
+         forma de pago, factura, notas) o se cancela. Todo va al log con usuario
+         y dispositivo responsable. -->
+    <details id="ventasSold" class="tag-card" style="margin-top:18px;padding:14px 16px;">
+      <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);" data-i18n="sold.logSummary">🧾 Sales log — edit or cancel</summary>
+      <p style="font-size:14px;color:var(--ink-soft);margin:6px 0 10px;" data-i18n="sold.logIntro">Everything already sold. Tap the pencil to fix a mistake, or cancel a sale. Every change is recorded with who did it and from which device.</p>
+      <div id="ventasSoldLista"></div>
+    </details>
     <!-- CIERRE DEL DIA EN MOVIL (JFC 2026-08-19): el FAB flotante tapaba el
          menu inferior, asi que en telefono la misma pantalla de cierre se abre
          desde aqui, dentro de SOLD, que es su sitio logico. Es EL MISMO modal
@@ -2333,6 +2344,9 @@ async function cargarCierreLista(){
 // el script principal completo NO debe morir por un addEventListener sobre null.
 const elCierreDia = document.getElementById("cierreDia");
 if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.open) cargarCierreLista(); });
+// JFC 2026-09-02: lista de ventas editable dentro de Sold — carga al expandir.
+const elVentasSold = document.getElementById("ventasSold");
+if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.open) cargarVentasSold(); });
 // "+ Nuevo cliente" en Vender: navega a la vista de Clientes para registrar uno.
 // El operador crea el cliente, vuelve a Vender y lo elige en el selector.
 // Mini-modal inline "Nuevo cliente" desde Vender.
@@ -5392,10 +5406,116 @@ async function confirmarVentaConInfo(id, esTicket){
     if (document.getElementById(fichaTargetActual)) pintarFicha(data.producto);
     if (document.getElementById("gridVender")) cargarGridVender();
     if (document.getElementById("cierreDia") && document.getElementById("cierreDia").open) cargarCierreLista();
+    if (document.getElementById("ventasSold") && document.getElementById("ventasSold").open) cargarVentasSold();
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
   } finally {
     _ventasEnCurso.delete(id);
   }
+}
+
+/* LISTA DE VENTAS EDITABLE (JFC 2026-09-02). Expandible dentro de Sold. Muestra
+   lo ya vendido (más reciente primero), agrupado por día, y deja editar con
+   lapicito o cancelar ex-post. Mobile-first: tarjetas, sin <table>. */
+async function cargarVentasSold(){
+  const cont = document.getElementById("ventasSoldLista");
+  if (!cont) return;
+  cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Loading…</p>';
+  let rows = [];
+  try { rows = await (await fetch(`${API}/ventas/todas?ubicacionId=${ubicacionActual}`)).json(); }
+  catch (_) { cont.innerHTML = '<p style="color:var(--rojo,#a3392a);font-size:14px;">Could not load sales.</p>'; return; }
+  if (!Array.isArray(rows) || !rows.length) {
+    cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">No sales recorded yet.</p>'; return;
+  }
+  rows.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  const money = (v) => { try { return new Intl.NumberFormat((window.OCI18n && window.OCI18n.locale()) || "en-US", { style: "currency", currency: "USD" }).format(v || 0); } catch (_) { return "$" + Number(v || 0).toFixed(2); } };
+  const fmtFecha = (iso) => { try { return new Date(iso).toLocaleString((window.OCI18n && window.OCI18n.locale()) || "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return iso; } };
+  cont.innerHTML = rows.map((v) => {
+    const total = (v.precioUnit || 0) * (v.cantidad || 1);
+    const bloqueada = !!v.liquidada;
+    const cli = v.clienteNombre ? escHtml(v.clienteNombre) : "Counter sale";
+    const chips = [];
+    if (v.formaPago) chips.push(escHtml(v.formaPago));
+    if (v.factura) chips.push("Invoice " + escHtml(v.factura));
+    if (v.eventoNombre) chips.push(escHtml(v.eventoNombre));
+    return `<div class="tag-card oc-vs-row" data-id="${v.id}" style="padding:10px 12px;margin-bottom:8px;background:var(--blanco-calido,#fbf5e8);">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:15px;">${escHtml(v.productoNombre)} <span style="color:var(--ink-soft);font-weight:400;">×${v.cantidad}</span></div>
+          <div style="font-size:13px;color:var(--ink-soft);">${fmtFecha(v.fecha)} · ${cli}${chips.length ? " · " + chips.join(" · ") : ""}</div>
+          ${v.notas ? `<div style="font-size:13px;color:var(--ink-soft);font-style:italic;">“${escHtml(v.notas)}”</div>` : ""}
+          ${bloqueada ? `<div style="font-size:12px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:2px;">Settled — locked</div>` : ""}
+        </div>
+        <div style="text-align:right;flex:0 0 auto;">
+          <div style="font-weight:700;font-size:15px;">${money(total)}</div>
+          ${bloqueada ? "" : `<button type="button" class="oc-vs-edit" title="Edit"
+            style="margin-top:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
+          <button type="button" class="oc-vs-cancel" title="Cancel sale"
+            style="margin-top:6px;margin-left:4px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">✕</button>`}
+        </div>
+      </div>
+      <div class="oc-vs-editor" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--linea,#D7E0E8);">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <label style="font-size:13px;flex:1;min-width:90px;">Quantity<br><input class="vs-cant" type="number" min="1" step="1" value="${v.cantidad}" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+          <label style="font-size:13px;flex:1;min-width:120px;">Payment method<br>
+            <select class="vs-pago" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;">
+              <option value=""${v.formaPago ? "" : " selected"}>—</option>
+              <option value="cash"${v.formaPago === "cash" ? " selected" : ""}>Cash</option>
+              <option value="transfer"${v.formaPago === "transfer" ? " selected" : ""}>Transfer</option>
+              <option value="card"${v.formaPago === "card" ? " selected" : ""}>Card</option>
+              <option value="other"${v.formaPago === "other" ? " selected" : ""}>Other</option>
+            </select></label>
+        </div>
+        <label style="display:block;font-size:13px;margin-top:8px;">Invoice number (optional)<br><input class="vs-factura" type="text" value="${escHtml(v.factura || "")}" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <label style="display:block;font-size:13px;margin-top:8px;">Notes<br><input class="vs-notas" type="text" value="${escHtml(v.notas || "")}" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button type="button" class="ir oc-vs-save" style="padding:7px 14px;">Save changes</button>
+          <button type="button" class="oc-vs-cancel-edit" style="padding:7px 14px;border:2px solid var(--linea,#D7E0E8);border-radius:8px;background:transparent;cursor:pointer;">Cancel</button>
+        </div>
+        <p class="vs-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
+      </div>
+    </div>`;
+  }).join("");
+  cont.querySelectorAll(".oc-vs-row").forEach((row) => {
+    const id = row.getAttribute("data-id");
+    const editor = row.querySelector(".oc-vs-editor");
+    const btnEdit = row.querySelector(".oc-vs-edit");
+    if (btnEdit) btnEdit.addEventListener("click", () => { editor.style.display = editor.style.display === "none" ? "block" : "none"; });
+    const btnCancelEdit = row.querySelector(".oc-vs-cancel-edit");
+    if (btnCancelEdit) btnCancelEdit.addEventListener("click", () => { editor.style.display = "none"; });
+    const btnSave = row.querySelector(".oc-vs-save");
+    if (btnSave) btnSave.addEventListener("click", async () => {
+      const msg = row.querySelector(".vs-msg");
+      const payload = {
+        cantidad: row.querySelector(".vs-cant").value,
+        info: {
+          formaPago: row.querySelector(".vs-pago").value,
+          factura: row.querySelector(".vs-factura").value.trim(),
+          notas: row.querySelector(".vs-notas").value.trim(),
+        }
+      };
+      try {
+        const res = await fetch(`${API}/ventas/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = data.error || "Could not save."; return; }
+        cargarVentasSold();
+        if (document.getElementById("gridVender")) cargarGridVender();
+      } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not reach the server."; }
+    });
+    const btnCancel = row.querySelector(".oc-vs-cancel");
+    if (btnCancel) btnCancel.addEventListener("click", async () => {
+      const ok = await ocConfirm("Cancel this sale? Stock will be returned and the change recorded in the log.");
+      if (!ok) return;
+      let motivo = "";
+      try { motivo = (await ocPrompt("Reason (optional):")) || ""; } catch (_) {}
+      try {
+        const res = await fetch(`${API}/ventas/${id}/cancelar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ motivo }) });
+        const data = await res.json();
+        if (!res.ok) { await ocAlert(data.error || "Could not cancel the sale."); return; }
+        cargarVentasSold();
+        if (document.getElementById("gridVender")) cargarGridVender();
+      } catch (_) { await ocAlert("Could not reach the server."); }
+    });
+  });
 }
 
 // Guarda el interval activo del toast para poder cancelarlo si llega un segundo

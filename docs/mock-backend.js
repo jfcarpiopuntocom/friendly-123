@@ -1307,10 +1307,24 @@
 
   function mov(tipo, detalle) {
     const usr = window.OCCurrentUser;
+    // JFC 2026-09-02: cada acción va al log con el responsable (usuario que entró
+    // con su PIN — el PIN nunca se guarda en claro, REGLA 8) Y el dispositivo
+    // (apodo + id del micelio), para defender al negocio de quejas injustas.
+    let dispApodo = "", dispId = "";
+    try {
+      if (window.OCMicelio) {
+        dispApodo = window.OCMicelio.miApodo() || "";
+        const _yo = window.OCMicelio.yo && window.OCMicelio.yo();
+        dispId = (_yo && _yo.id) || "";
+      }
+    } catch (_) {}
     const m = {
       id: uuid("m"), tipo, detalle, fecha: new Date().toISOString(),
       usuarioId:     usr ? usr.id     : "sistema",
       usuarioNombre: usr ? usr.nombre : "Sistema",
+      usuarioRol:    usr ? (usr.rol || "") : "",
+      dispositivoApodo: dispApodo,
+      dispositivoId:    dispId,
     };
     m.prevSello = selloUltimo;
     m.sello = selloHash(movHuella(m));
@@ -2648,6 +2662,73 @@
         emitirOpStock("anulacion", { productoId: p.id, delta: venta.cantidad });
         return J({ producto: ficha(p) });
       }
+      /* CANCELAR EX-POST (JFC 2026-09-02): "sobre todo en Sales/Sold debe haber
+         cancelar ex post tambien". A diferencia de /anular (ventana de 30s para
+         deshacer un toque recién hecho), esto permite cancelar una venta pasada
+         cuando hubo un error. Protege la plata ya liquidada a un socio: si la
+         venta ya se pagó a la casa/artista, NO se puede cancelar aquí (habría que
+         corregir la liquidación). Todo queda en el log con usuario + dispositivo. */
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)\/cancelar$/)) && opts && opts.method === "POST") {
+        const idx = ventas.findIndex((v) => v.id === m[1]);
+        if (idx === -1) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
+        const venta = ventas[idx];
+        if (venta.liquidada) return J({ error: "This sale was already settled to a partner. Fix the settlement in Commissions instead of cancelling." }, 400);
+        const p = productos.find((x) => x.id === venta.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
+        p.stockActual += venta.cantidad;
+        ventas.splice(idx, 1);
+        mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "(sin motivo)", ventaId: venta.id, fechaVenta: venta.fecha });
+        emitirOpStock("cancelacion-ex-post", { productoId: p.id, delta: venta.cantidad });
+        return J({ producto: ficha(p), ok: true });
+      }
+      /* EDITAR UNA VENTA (JFC 2026-09-02): la lista de Sold es editable con
+         lapicitos "por si hubo errores". Se puede corregir cantidad, forma de
+         pago, notas, número de factura y el cliente. Si cambia la cantidad se
+         ajusta stock y se recalcula el split de comisión. Bloqueado si la venta
+         ya fue liquidada (la plata ya se repartió). Todo va al log. */
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)$/)) && opts && opts.method === "PATCH") {
+        const venta = ventas.find((v) => v.id === m[1]);
+        if (!venta) return J({ error: "Sale not found." }, 404);
+        if (venta.liquidada) return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
+        const p = productos.find((x) => x.id === venta.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        const cambios = {};
+        // Cantidad: ajusta stock (delta) y recalcula split.
+        if (body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "") {
+          const nueva = Math.max(1, Math.floor(Number(body.cantidad) || 1));
+          const delta = nueva - venta.cantidad; // >0 = vender más (baja stock)
+          if (delta > 0 && p.stockActual < delta) return J({ error: `Not enough stock to raise the quantity (only ${p.stockActual} left).` }, 400);
+          if (delta !== 0) {
+            p.stockActual -= delta;
+            emitirOpStock("venta-editada", { productoId: p.id, delta: -delta });
+            cambios.cantidad = { antes: venta.cantidad, ahora: nueva };
+            venta.cantidad = nueva;
+            const ubicP = ubicaciones.find((x) => x.id === venta.ubicacionId);
+            if (ubicP && venta.split) {
+              const montoBruto = (venta.precioUnit || 0) * nueva;
+              const acumuladoPrevio = ventasMesAcumuladas(ubicP.id);
+              venta.split = calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio);
+            }
+          }
+        }
+        if (body.clienteId !== undefined) {
+          if (body.clienteId) { const c = clientes.find((x) => x.id === body.clienteId); if (!c) return J({ error: "Customer not found." }, 404); venta.clienteId = c.id; }
+          else venta.clienteId = null;
+          cambios.clienteId = venta.clienteId;
+        }
+        if (body.info && typeof body.info === "object") {
+          venta.info = venta.info || {};
+          const iv = body.info;
+          if (iv.formaPago !== undefined) venta.info.formaPago = String(iv.formaPago || "").slice(0, 20);
+          if (iv.notas !== undefined) venta.info.notas = String(iv.notas || "").slice(0, 500);
+          if (iv.factura !== undefined) venta.info.factura = String(iv.factura || "").slice(0, 60);
+          if (iv.nombrePagador !== undefined) venta.info.nombrePagador = String(iv.nombrePagador || "").slice(0, 120);
+          cambios.info = true;
+        }
+        mov("venta-editada", { producto: p.nombre, ventaId: venta.id, cambios });
+        return J({ producto: ficha(p), venta, ok: true });
+      }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/ajustar$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         const d = Number.isInteger(body.delta) ? body.delta : 0;
@@ -2948,6 +3029,10 @@
           eventoFecha: (v.info && v.info.fechaEvento) || "",
           eventoPersonas: (v.info && v.info.numPersonas) || null,
           pagador: (v.info && v.info.nombrePagador) || "",
+          formaPago: (v.info && v.info.formaPago) || "",
+          factura: (v.info && v.info.factura) || "",
+          notas: (v.info && v.info.notas) || "",
+          clienteId: v.clienteId || "",
           servings: (v.info && v.info.servings) || null,
           botellas: (v.info && v.info.botellas) || null,
           comisionPct: v.split ? v.split.comisionPct : null,
