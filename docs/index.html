@@ -654,6 +654,12 @@
   }
   .oc-edit-btn:hover{ background:var(--azul-op-claro,#D4ECF5); }
   .oc-edit-btn:active{ transform:translateY(2px) scale(.97); }
+  /* Variante NARANJA de precaución (JFC 2026-09-02): para ediciones que tocan
+     dinero o registros ya asentados (una venta, una comisión, la expiración de
+     un crédito) — el naranja del semáforo #F97316 avisa "cuidado, esto cambia
+     algo real". Los lapicitos seguros (contacto, notas, categoría) siguen azules. */
+  .oc-edit-btn--warn{ border-color:#F97316; color:#c2560c !important; -webkit-text-fill-color:#c2560c !important; }
+  .oc-edit-btn--warn:hover{ background:#FFF1E6; }
   @media (prefers-reduced-motion: reduce){ .oc-edit-btn{ transition:none; } .oc-edit-btn:active{ transform:none; } }
 
   main{
@@ -3128,12 +3134,14 @@ async function pintarSaldoCartera(clienteId) {
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
     const color = debe ? "#E8365D" : "#008a54";
-    const texto = debe ? `Debt ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
+    // #3 (JFC 2026-09-02): fecha coherente con el idioma activo en toda la app.
+    const fmtFechaLoc = (ymd) => { try { const p = ymd.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || "en-US"); } catch (_) { return ymd; } };
     // Ítems y expiración del crédito (abono): "el credit solo se puede gastar en
     // el mismo item" + "debe tener fecha de expiracion" (JFC 2026-09-02). Se
-    // extrae de los motivos [for:...][exp:YYYY-MM-DD]. Un crédito ya expirado
-    // (hoy >= exp) se muestra en rojo como EXPIRED (toca dar otros pasos).
-    let restringido = "";
+    // extrae de los motivos [for:...][exp:YYYY-MM-DD]. #9: se avisa "expires soon"
+    // (ámbar) a ≤3 días, y al vencer se muestra EXPIRED y el monto se TACHA (no se
+    // borra el dato — nunca romper datos).
+    let restringido = "", expiradoTodo = false;
     if (!debe && Array.isArray(info.historial)) {
       const hoy = new Date().toLocaleDateString("en-CA");
       const abonos = info.historial.filter((h) => h.tipo === "abono");
@@ -3143,16 +3151,23 @@ async function pintarSaldoCartera(clienteId) {
         return { item: mi ? mi[1].trim() : "", exp: me ? me[1] : "" };
       }).filter((p) => p.item);
       const items = [...new Set(partes.map((p) => p.item))];
-      // Fecha de expiración más próxima (la que primero vence).
       const exps = partes.map((p) => p.exp).filter(Boolean).sort();
       const proxExp = exps[0] || "";
       const expirado = proxExp && proxExp <= hoy;
+      expiradoTodo = expirado;
+      // Días hasta la expiración más próxima (para el aviso ámbar).
+      let diasRest = null;
+      if (proxExp && !expirado) { const pe = proxExp.split("-").map(Number); diasRest = Math.round((new Date(pe[0], pe[1] - 1, pe[2]) - new Date(hoy.split("-").map(Number)[0], hoy.split("-").map(Number)[1] - 1, hoy.split("-").map(Number)[2])) / 86400000); }
       if (items.length) {
         restringido = ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— only for: ${escHtml(items.join(", "))}</span>`;
         if (proxExp) {
-          restringido += expirado
-            ? ` <span style="font-size:12px;font-weight:700;color:#E8365D;">EXPIRED (${escHtml(proxExp)})</span>`
-            : ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— expires ${escHtml(proxExp)}</span>`;
+          if (expirado) {
+            restringido += ` <span style="font-size:12px;font-weight:700;color:#E8365D;">EXPIRED (${escHtml(fmtFechaLoc(proxExp))})</span>`;
+          } else if (diasRest != null && diasRest <= 3) {
+            restringido += ` <span style="font-size:12px;font-weight:700;color:#F97316;">expires soon (${escHtml(fmtFechaLoc(proxExp))})</span>`;
+          } else {
+            restringido += ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— expires ${escHtml(fmtFechaLoc(proxExp))}</span>`;
+          }
         }
       }
     }
@@ -3160,7 +3175,9 @@ async function pintarSaldoCartera(clienteId) {
     const badge = (debe && alertaOn)
       ? `<span style="margin-left:6px;font-size:13px;font-weight:700;background:#E8365D;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">pending</span>`
       : "";
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;">${texto}</span>${restringido}${badge}`;
+    // #9: crédito totalmente expirado → monto tachado (el dato NO se borra).
+    const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}`;
   } catch (_) { el.innerHTML = ""; }
 }
 function toggleAlertaCliente(clienteId, activa) {
@@ -5602,7 +5619,7 @@ async function cargarVentasSold(){
         </div>
         <div style="text-align:right;flex:0 0 auto;">
           <div style="font-weight:700;font-size:15px;">${money(total)}</div>
-          ${bloqueada ? "" : `<button type="button" class="oc-vs-edit oc-edit-btn" title="Edit"
+          ${bloqueada ? "" : `<button type="button" class="oc-vs-edit oc-edit-btn oc-edit-btn--warn" title="Edit (changes a recorded sale)"
             style="margin-top:6px;">✎</button>
           <button type="button" class="oc-vs-cancel" title="Cancel sale"
             style="margin-top:6px;margin-left:4px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">✕</button>`}
@@ -6264,7 +6281,7 @@ async function cargarGastos(){
         <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${new Date(g.fecha).toLocaleDateString()}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
       <strong style="color:var(--dinero-rojo);font-size:16px;">-${fmtMoney(g.monto)}</strong>
-      ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" class="oc-edit-btn">✎</button>` : ""}
+      ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" class="oc-edit-btn oc-edit-btn--warn">✎</button>` : ""}
       ${_puedeEditarGasto ? `<button onclick="anularGasto('${g.id}')" title="Delete this expense" style="font-size:13px;padding:3px 8px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">✕</button>` : ""}
     </div>`).join("");
 }
