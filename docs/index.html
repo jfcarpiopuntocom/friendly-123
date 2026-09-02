@@ -2896,6 +2896,13 @@ function badgeComportamiento(ev) {
   return "";
 }
 
+/* Rangos de edad y países para My customers (JFC 2026-09-02): pulldowns en la
+   misma línea. Neutrales (sin PII sensible: rango, no fecha exacta). */
+const OC_RANGOS_EDAD = ["", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
+const OC_PAISES = ["", "Ecuador", "United States", "Argentina", "Bolivia", "Brazil", "Canada", "Chile", "Colombia", "Costa Rica", "Cuba", "Dominican Republic", "El Salvador", "France", "Germany", "Guatemala", "Honduras", "Italy", "Mexico", "Nicaragua", "Panama", "Paraguay", "Peru", "Portugal", "Spain", "United Kingdom", "Uruguay", "Venezuela", "Other"];
+function opcionesEdad(sel){ return OC_RANGOS_EDAD.map((r) => `<option value="${r}"${(sel || "") === r ? " selected" : ""}>${r || "Age range"}</option>`).join(""); }
+function opcionesPais(sel){ return OC_PAISES.map((p) => `<option value="${escHtml(p)}"${(sel || "") === p ? " selected" : ""}>${p || "Country"}</option>`).join(""); }
+
 function tarjetaCliente(c, esDueno){
   const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
   /* "Han comprado" (2026-08-27, portado de amigable-123): un chip claro que
@@ -2914,6 +2921,8 @@ function tarjetaCliente(c, esDueno){
   const contactoPartes = [];
   if (esDueno && c.telefono) contactoPartes.push(`☎ ${escHtml(c.telefono)}`);
   if (esDueno && c.email) contactoPartes.push(`✉ ${escHtml(c.email)}`);
+  if (esDueno && c.rangoEdad) contactoPartes.push(escHtml(c.rangoEdad));
+  if (esDueno && c.pais) contactoPartes.push(escHtml(c.pais));
   const lineaContacto = contactoPartes.length
     ? `<div style="font-size:14px;color:var(--ink-soft);margin-top:2px;">${contactoPartes.join(" · ")}</div>` : "";
   const lineaNotas = (esDueno && c.notas)
@@ -2932,7 +2941,9 @@ function tarjetaCliente(c, esDueno){
       <input id="oc-edit-nombre-${c.id}" type="text" value="${escHtml(c.nombre || "")}" placeholder="Name" style="flex:1;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
       ${esDueno ? `<input id="oc-edit-tel-${c.id}" type="text" value="${escHtml(c.telefono || "")}" placeholder="Phone / WhatsApp" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
       <input id="oc-edit-email-${c.id}" type="email" value="${escHtml(c.email || "")}" placeholder="Email" style="flex:1;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
-      <input id="oc-edit-notas-${c.id}" type="text" value="${escHtml(c.notas || "")}" placeholder="Notes" style="flex:2;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">` : ""}
+      <input id="oc-edit-notas-${c.id}" type="text" value="${escHtml(c.notas || "")}" placeholder="Notes" style="flex:2;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+      <select id="oc-edit-edad-${c.id}" title="Age range" style="flex:1;min-width:110px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesEdad(c.rangoEdad)}</select>
+      <select id="oc-edit-pais-${c.id}" title="Country" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesPais(c.pais)}</select>` : ""}
       <button onclick="guardarContactoCliente('${c.id}')" class="ir" style="font-size:13px;padding:6px 12px;">Save</button>
     </div>`;
   // Controles de evaluación: visibles a dueño y encargados (no en demo si no hay sesión).
@@ -3028,11 +3039,15 @@ async function guardarContactoCliente(id) {
   const telEl = document.getElementById(`oc-edit-tel-${id}`);
   const emailEl = document.getElementById(`oc-edit-email-${id}`);
   const notasEl = document.getElementById(`oc-edit-notas-${id}`);
+  const edadEl = document.getElementById(`oc-edit-edad-${id}`);
+  const paisEl = document.getElementById(`oc-edit-pais-${id}`);
   const body = {};
   if (nombreEl) body.nombre = nombreEl.value;
   if (telEl) body.telefono = telEl.value;
   if (emailEl) body.email = emailEl.value;
   if (notasEl) body.notas = notasEl.value;
+  if (edadEl) body.rangoEdad = edadEl.value;
+  if (paisEl) body.pais = paisEl.value;
   const res = await fetch(`${API}/clientes/${id}/contacto`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) { const r = await res.json().catch(() => ({})); alert(r.error || "Could not save the contact."); return; }
   cargarClientes();

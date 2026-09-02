@@ -1178,6 +1178,7 @@
     // evaluacion: retrocompat con backups sin el campo (default neutro 0,0)
     const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
     return { id: c.id, codigo: c.codigo, nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "",
+      rangoEdad: c.rangoEdad || "", pais: c.pais || "",
       ...rfm, estacion: estacionDe(rfm, mediana == null ? medianaMontos() : mediana),
       evaluacion: { trato: Number(ev.trato)||0, confiabilidad: Number(ev.confiabilidad)||0, historial: ev.historial||[] },
       despedido: !!c.despedido };
@@ -3190,6 +3191,9 @@
         if (body.telefono !== undefined) c.telefono = String(body.telefono).trim();
         if (body.email !== undefined) c.email = String(body.email).trim();
         if (body.notas !== undefined) c.notas = String(body.notas).trim();
+        // JFC 2026-09-02: rango de edad y país (pulldowns en My customers).
+        if (body.rangoEdad !== undefined) c.rangoEdad = String(body.rangoEdad).trim().slice(0, 12);
+        if (body.pais !== undefined) c.pais = String(body.pais).trim().slice(0, 60);
         mov("cliente-contacto", { cliente: c.nombre });
         guardarEstadoLocal();
         return J(fichaCliente(c));
