@@ -5655,6 +5655,10 @@ async function cargarVentasSold(){
     cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">No sales recorded yet.</p>'; return;
   }
   rows.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  // #8 (JFC 2026-09-02): editar/cancelar una venta asentada es solo dueño/admin
+  // (el backend también lo exige). El encargado ve el registro, no lo altera.
+  const _rolVS = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+  const _puedeGestionarVenta = _rolVS === "dueno" || _rolVS === "admin";
   const money = (v) => { try { return new Intl.NumberFormat((window.OCI18n && window.OCI18n.locale()) || "en-US", { style: "currency", currency: "USD" }).format(v || 0); } catch (_) { return "$" + Number(v || 0).toFixed(2); } };
   const fmtFecha = (iso) => { try { return new Date(iso).toLocaleString((window.OCI18n && window.OCI18n.locale()) || "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return iso; } };
   cont.innerHTML = rows.map((v) => {
@@ -5675,7 +5679,7 @@ async function cargarVentasSold(){
         </div>
         <div style="text-align:right;flex:0 0 auto;">
           <div style="font-weight:700;font-size:15px;">${money(total)}</div>
-          ${bloqueada ? "" : `<button type="button" class="oc-vs-edit oc-edit-btn oc-edit-btn--warn" title="Edit (changes a recorded sale)"
+          ${(bloqueada || !_puedeGestionarVenta) ? "" : `<button type="button" class="oc-vs-edit oc-edit-btn oc-edit-btn--warn" title="Edit (changes a recorded sale)"
             style="margin-top:6px;">✎</button>
           <button type="button" class="oc-vs-cancel" title="Cancel sale"
             style="margin-top:6px;margin-left:4px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">✕</button>`}
@@ -5745,14 +5749,62 @@ async function cargarVentasSold(){
       if (!ok) return;
       let motivo = "";
       try { motivo = (await ocPrompt("Reason (optional):")) || ""; } catch (_) {}
+      const snap = rows.find((x) => x.id === id); // #7: para poder deshacer
       try {
         const res = await fetch(`${API}/ventas/${id}/cancelar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ motivo }) });
         const data = await res.json();
         if (!res.ok) { await ocAlert(data.error || "Could not cancel the sale."); return; }
         cargarVentasSold();
         if (document.getElementById("gridVender")) cargarGridVender();
+        // #7 (JFC 2026-09-02): 5s de gracia para deshacer la cancelación. Al
+        // deshacer se re-registra una venta equivalente (mismo producto, cantidad,
+        // cliente e info). Sin banner nuevo: usa el mismo toast de "deshacer".
+        if (snap) mostrarToastDeshacerCancelacion(snap);
       } catch (_) { await ocAlert("Could not reach the server."); }
     });
+  });
+}
+
+/* #7 (JFC 2026-09-02): toast de 5s para deshacer una cancelación ex-post. Reusa
+   el contenedor de toast existente (#oc-toast-venta), sin banner nuevo. Deshacer
+   re-registra una venta equivalente vía POST /venta. */
+let _toastDeshacerInterval = null;
+function mostrarToastDeshacerCancelacion(snap){
+  const cont = document.getElementById("oc-toast-venta");
+  if (!cont || !snap) return;
+  clearInterval(_toastDeshacerInterval);
+  cont.innerHTML = `<div class="tag-card" style="position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h,78px) + 16px);z-index:400;
+    background:var(--azul-oscuro,#1c3049);color:var(--blanco-calido,#F8F9FB);padding:14px 16px;border-radius:8px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;" id="oc-toast-deshacer">
+    <span>Sale cancelled. Tap to undo (5s)</span>
+    <strong id="oc-toast-deshacer-n">5s</strong>
+  </div>`;
+  let restante = 5;
+  const el = document.getElementById("oc-toast-deshacer");
+  const n = document.getElementById("oc-toast-deshacer-n");
+  _toastDeshacerInterval = setInterval(() => {
+    restante -= 1;
+    if (n) n.textContent = restante + "s";
+    if (restante <= 0) { clearInterval(_toastDeshacerInterval); _toastDeshacerInterval = null; cont.innerHTML = ""; }
+  }, 1000);
+  if (el) el.addEventListener("click", async () => {
+    clearInterval(_toastDeshacerInterval); _toastDeshacerInterval = null; cont.innerHTML = "";
+    const info = {};
+    if (snap.formaPago) info.formaPago = snap.formaPago;
+    if (snap.factura) info.factura = snap.factura;
+    if (snap.notas) info.notas = snap.notas;
+    if (snap.pagador) info.nombrePagador = snap.pagador;
+    if (snap.eventoNombre) info.nombreEvento = snap.eventoNombre;
+    try {
+      const res = await fetch(`${API}/productos/${snap.productoId}/venta`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cantidad: snap.cantidad || 1, clienteId: snap.clienteId || undefined, info })
+      });
+      const data = await res.json();
+      if (!res.ok) { await ocAlert(data.error || "Could not undo the cancellation."); return; }
+      if (document.getElementById("ventasSold") && document.getElementById("ventasSold").open) cargarVentasSold();
+      if (document.getElementById("gridVender")) cargarGridVender();
+    } catch (_) { await ocAlert("Could not reach the server."); }
   });
 }
 

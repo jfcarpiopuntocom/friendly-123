@@ -9,6 +9,7 @@ const check=(n,c,x)=>{ if(c)console.log("  ok   "+n); else {console.log("  FALLA
   await page.goto(BASE,{waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.OCAuth&&window.OCAuth.rolActual,null,{timeout:15000});
   await page.evaluate(async()=>{await fetch("/api/instancia/activar",{method:"POST",body:JSON.stringify({instanceId:"inst-exp",vaciar:false})});});
+  await page.evaluate(()=>{try{sessionStorage.setItem("f123_sesion",JSON.stringify({rol:"dueno",demo:false}));}catch(_){}});
   await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>window.OCAuth&&window.OCAuth.rolActual,null,{timeout:15000});
   const rol=await page.evaluate(()=>window.OCAuth.rolActual());
