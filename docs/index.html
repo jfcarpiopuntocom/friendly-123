@@ -2996,10 +2996,10 @@ function tarjetaCliente(c, esDueno){
   const carteraHtml = `
     <div id="cartera-${c.id}" style="margin-top:8px;"></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
-      <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;"
-        onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record credit (fiado)</button>
-      <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;"
-        onclick="abonarCliente('${c.id}','${escHtml(c.nombre)}')">Record payment (abono)</button>
+      <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #E8365D;border-radius:6px;color:#E8365D !important;-webkit-text-fill-color:#E8365D !important;cursor:pointer;"
+        onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record debt (fiado)</button>
+      <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#008a54 !important;-webkit-text-fill-color:#008a54 !important;cursor:pointer;"
+        onclick="abonarCliente('${c.id}','${escHtml(c.nombre)}')">Record credit (abono)</button>
     </div>${toggleAlerta}`;
   return `<div class="cliente-card" style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
@@ -3045,16 +3045,26 @@ async function pintarSaldoCartera(clienteId) {
   try {
     const info = await (await fetch(`${API}/clientes/${clienteId}/cartera`)).json();
     if (!info || !info.saldo) { el.innerHTML = ""; return; }
+    // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
+    // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
-    const color = debe ? "#C0392B" : "#006B3C";
-    const texto = debe ? `Owes ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
-    // La alerta es solo un badge visual (nunca interes/recargo): se muestra
-    // si el cliente debe Y el dueño no la apagó para este caso puntual.
+    const color = debe ? "#E8365D" : "#008a54";
+    const texto = debe ? `Debt ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
+    // Ítems a los que está atado el crédito (abono): "el credit solo se puede
+    // gastar en el mismo item" (JFC 2026-09-02). Se extrae de los motivos [for:...].
+    let restringido = "";
+    if (!debe && Array.isArray(info.historial)) {
+      const items = [...new Set(info.historial
+        .filter((h) => h.tipo === "abono")
+        .map((h) => { const mm = /\[for:([^\]]+)\]/.exec(h.motivo || ""); return mm ? mm[1].trim() : ""; })
+        .filter(Boolean))];
+      if (items.length) restringido = ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— only for: ${escHtml(items.join(", "))}</span>`;
+    }
     const alertaOn = window.AMG && window.AMG.Cartera ? window.AMG.Cartera.alertaActiva(clienteId) : true;
     const badge = (debe && alertaOn)
-      ? `<span style="margin-left:6px;font-size:13px;font-weight:700;background:#C0392B;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">pending</span>`
+      ? `<span style="margin-left:6px;font-size:13px;font-weight:700;background:#E8365D;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">pending</span>`
       : "";
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;">${texto}</span>${badge}`;
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;">${texto}</span>${restringido}${badge}`;
   } catch (_) { el.innerHTML = ""; }
 }
 function toggleAlertaCliente(clienteId, activa) {
@@ -3071,15 +3081,54 @@ async function fiarCliente(clienteId, nombre) {
     pintarSaldoCartera(clienteId);
   } catch (e) { console.error("Error registrando fiado:", e); }
 }
+/* Registrar crédito (abono) — JFC 2026-09-02: "el credit (abono) solo se puede
+   gastar en el mismo item". Al dar crédito se elige EL ÍTEM al que queda atado;
+   se guarda en el motivo como [for:<ítem>] para que quede registrado y visible
+   ("Credit $X — only for: <ítem>"). Modal compacto: monto + ítem + razón. */
 async function abonarCliente(clienteId, nombre) {
-  const monto = parseFloat((await ocPrompt(`Payment amount from ${nombre} ($):`, "") || "").trim());
-  if (!(monto > 0)) return;
-  const motivo = (await ocPrompt("Reason (optional):", "") || "").trim();
-  if (!(await ocConfirm(`Record ${fmtMoney(monto)} paid by ${nombre}?`))) return;
-  try {
-    await fetch(`${API}/clientes/${clienteId}/abonar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo }) });
-    pintarSaldoCartera(clienteId);
-  } catch (e) { console.error("Error registrando abono:", e); }
+  let productos = [];
+  try { productos = await (await fetch(`${API}/productos`)).json(); } catch (_) { productos = []; }
+  if (!Array.isArray(productos)) productos = [];
+  const prev = document.getElementById("oc-abono-overlay");
+  if (prev) prev.remove();
+  const ov = document.createElement("div");
+  ov.id = "oc-abono-overlay";
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(10,10,15,.55);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px;";
+  ov.innerHTML = `<div class="tag-card" style="background:#fff;max-width:420px;width:100%;padding:18px 20px;border-radius:12px;">
+    <h3 style="margin:0 0 4px;font-size:18px;">Record credit for ${escHtml(nombre)}</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">Store credit is tied to one item — it can only be spent on that same item.</p>
+    <label style="display:block;font-size:14px;">Amount ($)<br><input id="oc-abono-monto" type="number" min="0" step="0.01" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
+    <label style="display:block;font-size:14px;margin-top:10px;">Item this credit is for<br>
+      <select id="oc-abono-item" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;">
+        <option value="">— pick an item —</option>
+        ${productos.map((p) => `<option value="${escHtml(p.nombre)}">${escHtml(p.nombre)}</option>`).join("")}
+      </select></label>
+    <label style="display:block;font-size:14px;margin-top:10px;">Reason (optional)<br><input id="oc-abono-motivo" type="text" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
+    <p id="oc-abono-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:var(--rojo,#a3392a);"></p>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button id="oc-abono-ok" class="ir" style="flex:1;padding:9px;">Save credit</button>
+      <button id="oc-abono-cancel" style="padding:9px 16px;border:2px solid var(--linea,#D7E0E8);border-radius:8px;background:transparent;cursor:pointer;">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const cerrar = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) cerrar(); });
+  ov.querySelector("#oc-abono-cancel").addEventListener("click", cerrar);
+  ov.querySelector("#oc-abono-ok").addEventListener("click", async () => {
+    const monto = parseFloat((ov.querySelector("#oc-abono-monto").value || "").trim());
+    const item = ov.querySelector("#oc-abono-item").value;
+    const razon = (ov.querySelector("#oc-abono-motivo").value || "").trim();
+    const msg = ov.querySelector("#oc-abono-msg");
+    if (!(monto > 0)) { msg.textContent = "Enter a valid amount."; return; }
+    if (!item) { msg.textContent = "Pick the item this credit is for."; return; }
+    const motivo = `[for:${item}]${razon ? " " + razon : ""}`;
+    try {
+      const res = await fetch(`${API}/clientes/${clienteId}/abonar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo }) });
+      if (!res.ok) { const r = await res.json().catch(() => ({})); msg.textContent = r.error || "Could not save."; return; }
+      cerrar();
+      pintarSaldoCartera(clienteId);
+    } catch (e) { msg.textContent = "Could not reach the server."; }
+  });
 }
 async function cargarClientes(){
   // dueño Y admin ven todo ("plenamente visibles", JFC 2026-07-29) — solo
