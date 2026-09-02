@@ -3152,7 +3152,8 @@ async function pintarSaldoCartera(clienteId) {
       }).filter((p) => p.item);
       const items = [...new Set(partes.map((p) => p.item))];
       const exps = partes.map((p) => p.exp).filter(Boolean).sort();
-      const proxExp = exps[0] || "";
+      // #12: si dueño/admin extendió/acortó la expiración, ese override manda.
+      const proxExp = _credExpOverride(clienteId) || exps[0] || "";
       const expirado = proxExp && proxExp <= hoy;
       expiradoTodo = expirado;
       // Días hasta la expiración más próxima (para el aviso ámbar).
@@ -3168,6 +3169,11 @@ async function pintarSaldoCartera(clienteId) {
           } else {
             restringido += ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— expires ${escHtml(fmtFechaLoc(proxExp))}</span>`;
           }
+          // #12: lapicito NARANJA de precaución para dueño/admin — cambia la expiración.
+          const _rolC = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+          if (_rolC === "dueno" || _rolC === "admin") {
+            restringido += ` <button type="button" class="oc-edit-btn oc-edit-btn--warn" title="Change expiration" onclick="editarExpiracionCredito('${clienteId}')" style="padding:2px 7px;font-size:12px;">✎</button>`;
+          }
         }
       }
     }
@@ -3179,6 +3185,28 @@ async function pintarSaldoCartera(clienteId) {
     const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
     el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}`;
   } catch (_) { el.innerHTML = ""; }
+}
+/* #12 (JFC 2026-09-02): dueño/admin puede extender/acortar la expiración de un
+   crédito ya emitido ("toque dar otros pasos" cuando expira). El hecho original
+   del abono es append-only y NO se toca; la nueva expiración efectiva se guarda
+   como override local por cliente (mismo patrón que la alerta, que también es
+   preferencia local, no un hecho). Limitación consciente: es local a este
+   aparato hasta que se promueva a un hecho sincronizado (anotado en el diario). */
+const _CRED_EXP_KEY = "f123_credito_exp_override_v1";
+function _credExpMap() { try { return JSON.parse(localStorage.getItem(_CRED_EXP_KEY) || "{}") || {}; } catch (_) { return {}; } }
+function _credExpOverride(clienteId) { return _credExpMap()[clienteId] || ""; }
+async function editarExpiracionCredito(clienteId) {
+  const actual = _credExpOverride(clienteId) || new Date().toLocaleDateString("en-CA");
+  const val = await ocPrompt("New valid-through date (YYYY-MM-DD). The credit expires the next day:", actual);
+  if (val == null) return;
+  const v = String(val).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { await ocAlert("Use the format YYYY-MM-DD."); return; }
+  // Se guarda la expiración = día siguiente a la fecha elegida (mismo criterio).
+  const p = v.split("-").map(Number); const d = new Date(p[0], p[1] - 1, p[2]); d.setDate(d.getDate() + 1);
+  const exp = d.toLocaleDateString("en-CA");
+  const m = _credExpMap(); m[clienteId] = exp;
+  try { localStorage.setItem(_CRED_EXP_KEY, JSON.stringify(m)); } catch (_) {}
+  pintarSaldoCartera(clienteId);
 }
 function toggleAlertaCliente(clienteId, activa) {
   if (window.AMG && window.AMG.Cartera) window.AMG.Cartera.fijarAlerta(clienteId, activa);
@@ -5434,6 +5462,7 @@ async function abrirPanelVentaInfo(id, esTicket){
             style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">+ New</button>
         </div>
         <input id="vi-cliente-buscar" type="text" placeholder="Type to filter..." style="width:100%;padding:8px;margin-top:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+      <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#008a54;margin:4px 0 0;"></p>
       ${esTicket ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br><input id="vi-personas" type="number" min="0" step="1" ${inp}></label>` : ""}
@@ -5513,6 +5542,33 @@ async function abrirPanelVentaInfo(id, esTicket){
     selCli.addEventListener("change", syncCant);
     syncCant();
   }
+  // #5 (JFC 2026-09-02): crédito ↔ ítem ↔ venta. Al elegir un cliente, si tiene
+  // crédito vigente (no expirado) atado a ESTE ítem, se avisa — a consola (no
+  // banner) y con un hint discreto dentro del mismo modal. Cierra el lazo "el
+  // crédito solo se gasta en el mismo item".
+  const avisarCredito = async () => {
+    const hintEl = document.getElementById("vi-credito-hint");
+    if (hintEl) hintEl.textContent = "";
+    const cid = selCli.value;
+    if (!cid) return;
+    try {
+      const info = await (await fetch(`${API}/clientes/${cid}/cartera`)).json();
+      if (!info || info.saldo <= 0 || !Array.isArray(info.historial)) return;
+      const hoy = new Date().toLocaleDateString("en-CA");
+      const match = info.historial.some((h) => {
+        if (h.tipo !== "abono") return false;
+        const mi = /\[for:([^\]]+)\]/.exec(h.motivo || "");
+        const me = /\[exp:(\d{4}-\d{2}-\d{2})\]/.exec(h.motivo || "");
+        return mi && mi[1].trim() === p.nombre && (!me || me[1] > hoy);
+      });
+      if (match) {
+        console.info(`[crédito] Este cliente tiene crédito vigente para "${p.nombre}" (saldo ${fmtMoney(info.saldo)}).`);
+        if (hintEl) hintEl.textContent = `Note: this customer has active store credit for ${p.nombre} (${fmtMoney(info.saldo)}).`;
+      }
+    } catch (_) {}
+  };
+  selCli.addEventListener("change", avisarCredito);
+  avisarCredito();
   if (esBar) {
     const sInp = document.getElementById("vi-servings");
     const bEl = document.getElementById("vi-botellas");
