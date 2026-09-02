@@ -1,9 +1,9 @@
 {
-  "version": "1.7.76",
-  "fecha": "2026-09-01",
-  "changelog": "v1.7.76 — Inventario DEMO (PIN 456) mejorado a un negocio cultural creible: Galeria (cuadros, laminas, antiguedades, libros) + Consignacion de artistas (modalidad artista 85/15) + Bar & Cafe (vinos, quesos, bebidas y comida) + Eventos culturales (catas, jazz, taller de acuarela, tango, etc.). 38 productos, precios/stock realistas. SOLO afecta al demo: el usuario real carga sus buffers guardados (verificado) y una activacion 789 arranca de cero. Datos de idiomARTE y de todos, intactos.",
+  "version": "1.7.77",
+  "fecha": "2026-09-02",
+  "changelog": "v1.7.77 — Sold: se quita Amount paid y la venta de mostrador (sin cliente) permite elegir cantidad para vender varias unidades de golpe; checkbox Add invoice con numero de factura opcional. Nuevo Sales log expandible y editable (lapicitos) con cancelar ex-post; todo va al log con usuario+rol+dispositivo(apodo) responsable. Expenses: categorias por tipo (best-practice USA/Ecuador) y se quita la caja chica por percha. Cartera: credit(abono)=verde y debt(fiado)=rojo (semaforo), y el credito queda atado a un item. My customers: pulldowns de rango de edad y pais. Boton Close the day renombrado a Daily Summary. dashboard.html refleja todo (Age/Country, Payment/Invoice, log con quien+dispositivo).",
   "requerida": false,
-  "shell": "f123-shell-v189",
+  "shell": "f123-shell-v190",
   "apagar": [],
-  "releaseName": "v1.7.76"
+  "releaseName": "v1.7.77"
 }

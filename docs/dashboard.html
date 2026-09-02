@@ -754,6 +754,9 @@
         { title: "Monto 90d", field: "monto", width: 125, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return money(c.getValue()); } },
         { title: "Phone", field: "telefono", width: 140, cssClass: "num" },
+        /* JFC 2026-09-02: refleja el rango de edad y país capturados en My customers. */
+        { title: "Age", field: "rangoEdad", width: 100 },
+        { title: "Country", field: "pais", width: 130 },
         /* "Compró" (JFC 2026-08-27): qué productos ha comprado cada cliente.
            Se deriva en vivo de datos.ventas (clienteNombre → productoNombre),
            no se inventa un campo nuevo del backend. */
@@ -790,6 +793,9 @@
         { title: "Total", field: "total", width: 115, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return money(c.getValue()); } },
         { title: "Customer", field: "clienteNombre", width: 160 },
+        /* JFC 2026-09-02: refleja forma de pago y número de factura de la venta. */
+        { title: "Payment", field: "formaPago", width: 110 },
+        { title: "Invoice", field: "factura", width: 150 },
         { title: "Shelf", field: "ubicacionNombre", width: 150 },
       ],
       filas: function () {
@@ -1081,12 +1087,27 @@
     if (!filas.length) { tablaEl.innerHTML = '<tr><td style="padding:6px 0;color:#5A6B7A;">No activity yet.</td></tr>'; return; }
     var html = '<tr style="text-align:left;color:#8a94a6;font-size:12px;">' +
       "<th style=\"padding:4px 8px;\">Type</th><th style=\"padding:4px 8px;\">Detail</th>" +
-      "<th style=\"padding:4px 8px;\">Who</th><th style=\"padding:4px 8px;\">When</th></tr>";
+      "<th style=\"padding:4px 8px;\">Who</th><th style=\"padding:4px 8px;\">Device</th><th style=\"padding:4px 8px;\">When</th></tr>";
+    // JFC 2026-09-02: quién (usuario + rol) Y desde qué dispositivo (apodo) hizo
+    // cada acción — el tablero refleja el responsable de todo movimiento.
+    var detalleTxt = function (d) {
+      if (d == null) return "—";
+      if (typeof d === "string") return d;
+      try {
+        return Object.keys(d).map(function (k) {
+          var v = d[k];
+          if (v && typeof v === "object") v = JSON.stringify(v);
+          return k + ": " + v;
+        }).join(" · ");
+      } catch (_) { return "—"; }
+    };
     filas.forEach(function (m) {
+      var quien = esc(m.usuarioNombre || "—") + (m.usuarioRol ? ' <span style="color:#8a94a6;">(' + esc(m.usuarioRol) + ")</span>" : "");
       html += "<tr style=\"border-top:1px solid #2a3a4a;\">" +
         "<td style=\"padding:4px 8px;\">" + esc(m.tipo || "—") + "</td>" +
-        "<td style=\"padding:4px 8px;\">" + esc(m.detalle || "—") + "</td>" +
-        "<td style=\"padding:4px 8px;\">" + esc(m.usuarioNombre || "—") + "</td>" +
+        "<td style=\"padding:4px 8px;\">" + esc(detalleTxt(m.detalle)) + "</td>" +
+        "<td style=\"padding:4px 8px;\">" + quien + "</td>" +
+        "<td style=\"padding:4px 8px;\">" + esc(m.dispositivoApodo || "—") + "</td>" +
         "<td style=\"padding:4px 8px;\">" + esc(m.fecha || "—") + "</td></tr>";
     });
     tablaEl.innerHTML = html;

@@ -11,7 +11,7 @@
 > (append-only, para retroceder). ESTADO.md es el ESTADO VIVO (mutable).** Son
 > complementarios: el log recuerda qué pasó; el estado dice dónde estamos AHORA.
 
-Actualizado: 2026-09-01 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
+Actualizado: 2026-09-02 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 
 ---
 
@@ -57,7 +57,7 @@ Actualizado: 2026-09-01 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 
 ## 3. ESTADO DE EJECUCIÓN (mutable — se sobrescribe cada trabajo)
 
-- **Versión en producción (master):** `1.7.76` · shell `f123-shell-v189`.
+- **Versión (rama, por mergear):** `1.7.77` · shell `f123-shell-v190`.
 - **friendly-123** es el repo de TESTEO (inglés/i18n); suele ir ADELANTE de
   AMIGABLE. AMIGABLE (español) clonado read-only en
   `/home/user/jfcarpiopuntocom/amigable` para ports.
@@ -75,6 +75,14 @@ Actualizado: 2026-09-01 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 | Team formidable mobile-first | ✅ | tarjetas, PIN visible, ✎; `GET /api/usuarios?pins=1` |
 | Conexión FE/BE comisiones | ✅ | promotoras {hasta,comision}+comisionBase (antes {desde,pct}) |
 | Sold: categorías con ✎ | ✅ | OCCategorias.agregar/renombrar; gate OCAuth.rolActual |
+| Sold modal: cantidad mostrador + factura | ✅ | quita Amount paid; cantidad solo counter-sale; checkbox Add invoice |
+| Sold: Sales log editable + cancelar ex-post | ✅ | PATCH /api/ventas/:id, POST /:id/cancelar (bloqueado si liquidada) |
+| Logs con usuario+rol+dispositivo | ✅ | mov() añade dispositivoApodo/dispositivoId/usuarioRol (PIN nunca en claro) |
+| Expenses: categorías por tipo | ✅ | rent/utilities/…/other; porCategoria; se quitó caja chica por percha |
+| Cartera credit/debt colores + item | ✅ | abono=verde #00C87A, fiado=rojo #E8365D; crédito atado a item [for:] |
+| My customers: edad + país | ✅ | pulldowns en panel editar; fichaCliente devuelve rangoEdad/pais |
+| Daily Summary (rename) | ✅ | Close the day → Daily Summary (bilingüe) |
+| Dashboard refleja todo | ✅ | cols Age/Country, Payment/Invoice; log con Who+Device |
 
 ### Trampas técnicas verificadas (para no re-tropezar)
 - `isDueno()/isAdmin()` **NO existen en index.html** (viven en avanzado-extra.js).
@@ -87,7 +95,16 @@ Actualizado: 2026-09-01 · Rama: `claude/ui-integration-jfc-process-nc2lj7`
 
 ## 4. ÚLTIMA OBSERVACIÓN / PENDIENTES
 
-- Hecho reciente (v1.7.75/76): recarga de versión ya NO interrumpe el candado
+- **Hecho hoy (v1.7.77):** prompt multi-parte de JFC (2026-09-02), en 7 lotes,
+  todos verdes y pusheados. Endpoints nuevos verificados por
+  `.claude/smoke-multiprompt.cjs` (stock cuadra en venta/edición/cancelación).
+- **Límite consciente (honesto, no alucinar):** el editar "en vivo" de registros
+  se dejó en la app (superficie /api segura: Sold log, Expenses, My customers),
+  NO se bolteó edición sobre el *Activity log* sellado append-only (rompería el
+  sello anti-tamper) ni sobre el visor de sync `dashboard.html` (relay
+  zero-knowledge, escribir por ahí es riesgoso). El dashboard REFLEJA todo
+  (columnas nuevas + log con usuario+rol+dispositivo de cada acción).
+- Nota histórica (v1.7.75/76): recarga de versión ya NO interrumpe el candado
   (se difiere a post-login, invisible); Demo:456 en "Current access codes";
   **inventario DEMO mejorado** — negocio cultural creíble (Galería + Consignación
   de artistas 85/15 + Bar & Café con vinos/quesos/bebidas/comida + Eventos

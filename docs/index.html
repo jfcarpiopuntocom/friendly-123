@@ -1686,13 +1686,24 @@
       <button class="ir" id="btnAplicarCierre" style="margin-top:12px;" data-i18n="sold.applyClose">Apply day close</button>
       <p id="cierreMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
     </details>
+    <!-- LISTA DE VENTAS EDITABLE (JFC 2026-09-02): "en Sold falta una lista
+         dinamica, expandible de lo que ya se vendio y obvio debe poder editarse
+         con lapicitos por si hubo errores u otras necesidades de cambios" +
+         "cancelar ex post tambien". Expandible; cada venta se edita (cantidad,
+         forma de pago, factura, notas) o se cancela. Todo va al log con usuario
+         y dispositivo responsable. -->
+    <details id="ventasSold" class="tag-card" style="margin-top:18px;padding:14px 16px;">
+      <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);" data-i18n="sold.logSummary">🧾 Sales log — edit or cancel</summary>
+      <p style="font-size:14px;color:var(--ink-soft);margin:6px 0 10px;" data-i18n="sold.logIntro">Everything already sold. Tap the pencil to fix a mistake, or cancel a sale. Every change is recorded with who did it and from which device.</p>
+      <div id="ventasSoldLista"></div>
+    </details>
     <!-- CIERRE DEL DIA EN MOVIL (JFC 2026-08-19): el FAB flotante tapaba el
          menu inferior, asi que en telefono la misma pantalla de cierre se abre
          desde aqui, dentro de SOLD, que es su sitio logico. Es EL MISMO modal
          (#eod-modal) y el mismo handler: cero logica duplicada. Se muestra
          solo si el rol puede verla (lo decide actualizarFAB()). -->
     <div id="eod-inline-wrap">
-      <button type="button" id="eod-inline">Close the day</button>
+      <button type="button" id="eod-inline">Daily Summary</button>
     </div>
   </section>
 
@@ -1808,35 +1819,33 @@
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.1">1. Type what it was, the amount and the date, then tap "Add expense".</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.2">2. The summary shows this month's expenses, all-time expenses, and — for the owner — sales and net.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.3">3. Petty cash (caja chica) lives here too: record money in/out per shelf.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.3">3. Pick a category (rent, utilities, payroll…) so the summary groups spending by type.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.4">4. Staff see only expenses; the owner sees the full picture (sales and net).</p>
       </div>
     </details>
     <div id="gastosResumen" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
+    <div id="gastosPorCategoria" style="margin-bottom:14px;"></div>
     <div class="panel-escaner tag-card" style="text-align:left;">
       <p style="margin:0 0 8px;font-size:14px;font-weight:700;" data-i18n="exp.record">Record an expense</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <input id="gastoConcepto" type="text" placeholder="What was it? (e.g. rent, supplies, transport)" style="flex:2;min-width:160px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <select id="gastoCategoria" title="Category" style="flex:1;min-width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+          <option value="rent" data-i18n="exp.cat.rent">Rent</option>
+          <option value="utilities" data-i18n="exp.cat.utilities">Utilities</option>
+          <option value="inventory" data-i18n="exp.cat.inventory">Inventory / supplies</option>
+          <option value="payroll" data-i18n="exp.cat.payroll">Payroll / staff</option>
+          <option value="services" data-i18n="exp.cat.services">Professional services</option>
+          <option value="marketing" data-i18n="exp.cat.marketing">Marketing</option>
+          <option value="transport" data-i18n="exp.cat.transport">Transport / delivery</option>
+          <option value="taxes" data-i18n="exp.cat.taxes">Taxes / fees</option>
+          <option value="maintenance" data-i18n="exp.cat.maintenance">Maintenance / repairs</option>
+          <option value="other" selected data-i18n="exp.cat.other">Other</option>
+        </select>
         <input id="gastoMonto" type="number" min="0" step="0.01" placeholder="Amount" style="flex:1;min-width:100px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <input id="gastoFecha" type="date" style="flex:1;min-width:130px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <button class="ir" onclick="registrarGasto()" style="font-size:14px;padding:9px 16px;">+ Add expense</button>
       </div>
       <p id="gastoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
-    </div>
-    <!-- CAJA CHICA (JFC 2026-08-27): movida desde el modal de percha a la
-         pestaña Gastos. Control operativo de efectivo por percha. Solo
-         dueño/admin (gating por rol en cargarGastos). -->
-    <div id="cajaChicaBloque" class="tag-card" style="text-align:left;margin-top:14px;display:none;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;">Petty cash (caja chica)</span>
-        <span id="cajaChicaSaldo" style="font-size:16px;font-weight:700;"></span>
-      </div>
-      <label style="display:block;margin-top:8px;font-size:14px;">Shelf:<br>
-        <select id="cajaChicaPercha" style="margin-top:4px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;max-width:100%;"></select></label>
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button id="cajaChicaIngreso" style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;">+ Ingreso</button>
-        <button id="cajaChicaRetiro" style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">− Retiro</button>
-      </div>
     </div>
     <div id="listaGastos" style="margin-top:14px;"></div>
   </section>
@@ -2333,6 +2342,9 @@ async function cargarCierreLista(){
 // el script principal completo NO debe morir por un addEventListener sobre null.
 const elCierreDia = document.getElementById("cierreDia");
 if (elCierreDia) elCierreDia.addEventListener("toggle", function(){ if (this.open) cargarCierreLista(); });
+// JFC 2026-09-02: lista de ventas editable dentro de Sold — carga al expandir.
+const elVentasSold = document.getElementById("ventasSold");
+if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.open) cargarVentasSold(); });
 // "+ Nuevo cliente" en Vender: navega a la vista de Clientes para registrar uno.
 // El operador crea el cliente, vuelve a Vender y lo elige en el selector.
 // Mini-modal inline "Nuevo cliente" desde Vender.
@@ -2884,6 +2896,13 @@ function badgeComportamiento(ev) {
   return "";
 }
 
+/* Rangos de edad y países para My customers (JFC 2026-09-02): pulldowns en la
+   misma línea. Neutrales (sin PII sensible: rango, no fecha exacta). */
+const OC_RANGOS_EDAD = ["", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
+const OC_PAISES = ["", "Ecuador", "United States", "Argentina", "Bolivia", "Brazil", "Canada", "Chile", "Colombia", "Costa Rica", "Cuba", "Dominican Republic", "El Salvador", "France", "Germany", "Guatemala", "Honduras", "Italy", "Mexico", "Nicaragua", "Panama", "Paraguay", "Peru", "Portugal", "Spain", "United Kingdom", "Uruguay", "Venezuela", "Other"];
+function opcionesEdad(sel){ return OC_RANGOS_EDAD.map((r) => `<option value="${r}"${(sel || "") === r ? " selected" : ""}>${r || "Age range"}</option>`).join(""); }
+function opcionesPais(sel){ return OC_PAISES.map((p) => `<option value="${escHtml(p)}"${(sel || "") === p ? " selected" : ""}>${p || "Country"}</option>`).join(""); }
+
 function tarjetaCliente(c, esDueno){
   const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
   /* "Han comprado" (2026-08-27, portado de amigable-123): un chip claro que
@@ -2902,6 +2921,8 @@ function tarjetaCliente(c, esDueno){
   const contactoPartes = [];
   if (esDueno && c.telefono) contactoPartes.push(`☎ ${escHtml(c.telefono)}`);
   if (esDueno && c.email) contactoPartes.push(`✉ ${escHtml(c.email)}`);
+  if (esDueno && c.rangoEdad) contactoPartes.push(escHtml(c.rangoEdad));
+  if (esDueno && c.pais) contactoPartes.push(escHtml(c.pais));
   const lineaContacto = contactoPartes.length
     ? `<div style="font-size:14px;color:var(--ink-soft);margin-top:2px;">${contactoPartes.join(" · ")}</div>` : "";
   const lineaNotas = (esDueno && c.notas)
@@ -2920,7 +2941,9 @@ function tarjetaCliente(c, esDueno){
       <input id="oc-edit-nombre-${c.id}" type="text" value="${escHtml(c.nombre || "")}" placeholder="Name" style="flex:1;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
       ${esDueno ? `<input id="oc-edit-tel-${c.id}" type="text" value="${escHtml(c.telefono || "")}" placeholder="Phone / WhatsApp" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
       <input id="oc-edit-email-${c.id}" type="email" value="${escHtml(c.email || "")}" placeholder="Email" style="flex:1;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
-      <input id="oc-edit-notas-${c.id}" type="text" value="${escHtml(c.notas || "")}" placeholder="Notes" style="flex:2;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">` : ""}
+      <input id="oc-edit-notas-${c.id}" type="text" value="${escHtml(c.notas || "")}" placeholder="Notes" style="flex:2;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+      <select id="oc-edit-edad-${c.id}" title="Age range" style="flex:1;min-width:110px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesEdad(c.rangoEdad)}</select>
+      <select id="oc-edit-pais-${c.id}" title="Country" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesPais(c.pais)}</select>` : ""}
       <button onclick="guardarContactoCliente('${c.id}')" class="ir" style="font-size:13px;padding:6px 12px;">Save</button>
     </div>`;
   // Controles de evaluación: visibles a dueño y encargados (no en demo si no hay sesión).
@@ -2984,10 +3007,10 @@ function tarjetaCliente(c, esDueno){
   const carteraHtml = `
     <div id="cartera-${c.id}" style="margin-top:8px;"></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
-      <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;"
-        onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record credit (fiado)</button>
-      <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;"
-        onclick="abonarCliente('${c.id}','${escHtml(c.nombre)}')">Record payment (abono)</button>
+      <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #E8365D;border-radius:6px;color:#E8365D !important;-webkit-text-fill-color:#E8365D !important;cursor:pointer;"
+        onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record debt (fiado)</button>
+      <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#008a54 !important;-webkit-text-fill-color:#008a54 !important;cursor:pointer;"
+        onclick="abonarCliente('${c.id}','${escHtml(c.nombre)}')">Record credit (abono)</button>
     </div>${toggleAlerta}`;
   return `<div class="cliente-card" style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
@@ -3016,11 +3039,15 @@ async function guardarContactoCliente(id) {
   const telEl = document.getElementById(`oc-edit-tel-${id}`);
   const emailEl = document.getElementById(`oc-edit-email-${id}`);
   const notasEl = document.getElementById(`oc-edit-notas-${id}`);
+  const edadEl = document.getElementById(`oc-edit-edad-${id}`);
+  const paisEl = document.getElementById(`oc-edit-pais-${id}`);
   const body = {};
   if (nombreEl) body.nombre = nombreEl.value;
   if (telEl) body.telefono = telEl.value;
   if (emailEl) body.email = emailEl.value;
   if (notasEl) body.notas = notasEl.value;
+  if (edadEl) body.rangoEdad = edadEl.value;
+  if (paisEl) body.pais = paisEl.value;
   const res = await fetch(`${API}/clientes/${id}/contacto`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) { const r = await res.json().catch(() => ({})); alert(r.error || "Could not save the contact."); return; }
   cargarClientes();
@@ -3033,16 +3060,26 @@ async function pintarSaldoCartera(clienteId) {
   try {
     const info = await (await fetch(`${API}/clientes/${clienteId}/cartera`)).json();
     if (!info || !info.saldo) { el.innerHTML = ""; return; }
+    // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
+    // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
-    const color = debe ? "#C0392B" : "#006B3C";
-    const texto = debe ? `Owes ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
-    // La alerta es solo un badge visual (nunca interes/recargo): se muestra
-    // si el cliente debe Y el dueño no la apagó para este caso puntual.
+    const color = debe ? "#E8365D" : "#008a54";
+    const texto = debe ? `Debt ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
+    // Ítems a los que está atado el crédito (abono): "el credit solo se puede
+    // gastar en el mismo item" (JFC 2026-09-02). Se extrae de los motivos [for:...].
+    let restringido = "";
+    if (!debe && Array.isArray(info.historial)) {
+      const items = [...new Set(info.historial
+        .filter((h) => h.tipo === "abono")
+        .map((h) => { const mm = /\[for:([^\]]+)\]/.exec(h.motivo || ""); return mm ? mm[1].trim() : ""; })
+        .filter(Boolean))];
+      if (items.length) restringido = ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— only for: ${escHtml(items.join(", "))}</span>`;
+    }
     const alertaOn = window.AMG && window.AMG.Cartera ? window.AMG.Cartera.alertaActiva(clienteId) : true;
     const badge = (debe && alertaOn)
-      ? `<span style="margin-left:6px;font-size:13px;font-weight:700;background:#C0392B;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">pending</span>`
+      ? `<span style="margin-left:6px;font-size:13px;font-weight:700;background:#E8365D;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">pending</span>`
       : "";
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;">${texto}</span>${badge}`;
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;">${texto}</span>${restringido}${badge}`;
   } catch (_) { el.innerHTML = ""; }
 }
 function toggleAlertaCliente(clienteId, activa) {
@@ -3059,15 +3096,54 @@ async function fiarCliente(clienteId, nombre) {
     pintarSaldoCartera(clienteId);
   } catch (e) { console.error("Error registrando fiado:", e); }
 }
+/* Registrar crédito (abono) — JFC 2026-09-02: "el credit (abono) solo se puede
+   gastar en el mismo item". Al dar crédito se elige EL ÍTEM al que queda atado;
+   se guarda en el motivo como [for:<ítem>] para que quede registrado y visible
+   ("Credit $X — only for: <ítem>"). Modal compacto: monto + ítem + razón. */
 async function abonarCliente(clienteId, nombre) {
-  const monto = parseFloat((await ocPrompt(`Payment amount from ${nombre} ($):`, "") || "").trim());
-  if (!(monto > 0)) return;
-  const motivo = (await ocPrompt("Reason (optional):", "") || "").trim();
-  if (!(await ocConfirm(`Record ${fmtMoney(monto)} paid by ${nombre}?`))) return;
-  try {
-    await fetch(`${API}/clientes/${clienteId}/abonar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo }) });
-    pintarSaldoCartera(clienteId);
-  } catch (e) { console.error("Error registrando abono:", e); }
+  let productos = [];
+  try { productos = await (await fetch(`${API}/productos`)).json(); } catch (_) { productos = []; }
+  if (!Array.isArray(productos)) productos = [];
+  const prev = document.getElementById("oc-abono-overlay");
+  if (prev) prev.remove();
+  const ov = document.createElement("div");
+  ov.id = "oc-abono-overlay";
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(10,10,15,.55);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px;";
+  ov.innerHTML = `<div class="tag-card" style="background:#fff;max-width:420px;width:100%;padding:18px 20px;border-radius:12px;">
+    <h3 style="margin:0 0 4px;font-size:18px;">Record credit for ${escHtml(nombre)}</h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">Store credit is tied to one item — it can only be spent on that same item.</p>
+    <label style="display:block;font-size:14px;">Amount ($)<br><input id="oc-abono-monto" type="number" min="0" step="0.01" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
+    <label style="display:block;font-size:14px;margin-top:10px;">Item this credit is for<br>
+      <select id="oc-abono-item" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;">
+        <option value="">— pick an item —</option>
+        ${productos.map((p) => `<option value="${escHtml(p.nombre)}">${escHtml(p.nombre)}</option>`).join("")}
+      </select></label>
+    <label style="display:block;font-size:14px;margin-top:10px;">Reason (optional)<br><input id="oc-abono-motivo" type="text" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
+    <p id="oc-abono-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:var(--rojo,#a3392a);"></p>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button id="oc-abono-ok" class="ir" style="flex:1;padding:9px;">Save credit</button>
+      <button id="oc-abono-cancel" style="padding:9px 16px;border:2px solid var(--linea,#D7E0E8);border-radius:8px;background:transparent;cursor:pointer;">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const cerrar = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) cerrar(); });
+  ov.querySelector("#oc-abono-cancel").addEventListener("click", cerrar);
+  ov.querySelector("#oc-abono-ok").addEventListener("click", async () => {
+    const monto = parseFloat((ov.querySelector("#oc-abono-monto").value || "").trim());
+    const item = ov.querySelector("#oc-abono-item").value;
+    const razon = (ov.querySelector("#oc-abono-motivo").value || "").trim();
+    const msg = ov.querySelector("#oc-abono-msg");
+    if (!(monto > 0)) { msg.textContent = "Enter a valid amount."; return; }
+    if (!item) { msg.textContent = "Pick the item this credit is for."; return; }
+    const motivo = `[for:${item}]${razon ? " " + razon : ""}`;
+    try {
+      const res = await fetch(`${API}/clientes/${clienteId}/abonar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo }) });
+      if (!res.ok) { const r = await res.json().catch(() => ({})); msg.textContent = r.error || "Could not save."; return; }
+      cerrar();
+      pintarSaldoCartera(clienteId);
+    } catch (e) { msg.textContent = "Could not reach the server."; }
+  });
 }
 async function cargarClientes(){
   // dueño Y admin ven todo ("plenamente visibles", JFC 2026-07-29) — solo
@@ -5259,11 +5335,17 @@ async function abrirPanelVentaInfo(id, esTicket){
         <label style="flex:1;font-size:14px;">Email<br><input id="vi-email" type="email" ${inp}></label>
         <label style="flex:1;font-size:14px;">WhatsApp<br><input id="vi-whatsapp" type="text" ${inp}></label>
       </div>
-      <div style="display:flex;gap:10px;margin-top:10px;">
-        <label style="flex:1;font-size:14px;">Payment method<br>
+      ${(!esBar && !esTicket) ? `
+      <label id="vi-cant-wrap" style="display:block;margin-top:10px;font-size:14px;">Quantity (counter sale — sell several at once)<br>
+        <input id="vi-cantidad" type="number" min="1" step="1" value="1" ${inp}></label>` : ""}
+      <div style="margin-top:10px;">
+        <label style="font-size:14px;">Payment method<br>
           <select id="vi-forma-pago" ${inp}><option value="">—</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="card">Card</option><option value="other">Other</option></select></label>
-        <label style="flex:1;font-size:14px;">Amount paid${req}<br><input id="vi-monto" type="number" min="0" step="0.01" ${inp}></label>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;cursor:pointer;">
+        <input id="vi-add-factura" type="checkbox" style="width:auto;margin:0;">Add invoice</label>
+      <label id="vi-factura-wrap" style="display:none;margin-top:6px;font-size:14px;">Invoice number (optional)<br>
+        <input id="vi-factura" type="text" placeholder="e.g. 001-002-000012345" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Notes (optional)<br><textarea id="vi-notas" rows="2" placeholder="Anything worth remembering about this sale..." ${inp}></textarea></label>
       <div id="vi-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div class="acciones-rapidas" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -5298,6 +5380,29 @@ async function abrirPanelVentaInfo(id, esTicket){
       if (inpPag.style.display !== "none") inpPag.focus();
     });
   }
+  // JFC 2026-09-02: checkbox "Add invoice" (default off) → muestra la caja
+  // opcional de número de factura. Nunca obligatorio.
+  const chkFac = document.getElementById("vi-add-factura");
+  const wrapFac = document.getElementById("vi-factura-wrap");
+  if (chkFac && wrapFac) {
+    chkFac.addEventListener("change", () => {
+      wrapFac.style.display = chkFac.checked ? "block" : "none";
+      if (chkFac.checked) { const f = document.getElementById("vi-factura"); if (f) f.focus(); }
+    });
+  }
+  // JFC 2026-09-02: la cantidad (vender varios de golpe) solo aplica a la venta
+  // de mostrador (sin cliente). Si eligen un cliente, se fuerza a 1 y se oculta.
+  const cantWrap = document.getElementById("vi-cant-wrap");
+  const cantInp = document.getElementById("vi-cantidad");
+  if (cantWrap && cantInp) {
+    const syncCant = () => {
+      const esMostrador = !selCli.value;
+      cantWrap.style.display = esMostrador ? "block" : "none";
+      if (!esMostrador) cantInp.value = "1";
+    };
+    selCli.addEventListener("change", syncCant);
+    syncCant();
+  }
   if (esBar) {
     const sInp = document.getElementById("vi-servings");
     const bEl = document.getElementById("vi-botellas");
@@ -5325,26 +5430,32 @@ async function confirmarVentaConInfo(id, esTicket){
   const _esBar = _pBar && _pBar.tipoProducto === "bar";
   const _servPorBotella = _esBar ? Math.max(1, Math.round((Number(_pBar.botellaMl) || 750) / (Number(_pBar.servingMl) || 50))) : 0;
   const _servings = _esBar ? Math.max(1, Number(g("vi-servings")) || 1) : 1;
+  const clienteId = document.getElementById("vi-cliente").value || undefined;
+  // JFC 2026-09-02: cantidad de mostrador (varios de golpe) solo sin cliente y
+  // en productos normales (no bar/ticket). Con cliente o bar/ticket = 1.
+  const _cantMostrador = (!_esBar && !esTicket && !clienteId)
+    ? Math.max(1, Math.floor(Number(g("vi-cantidad")) || 1)) : 1;
+  const _facturaOn = (() => { const c = document.getElementById("vi-add-factura"); return !!(c && c.checked); })();
   const info = {
     fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
-    email: g("vi-email"), whatsapp: g("vi-whatsapp"), formaPago: g("vi-forma-pago"), montoPagado: g("vi-monto"),
+    email: g("vi-email"), whatsapp: g("vi-whatsapp"), formaPago: g("vi-forma-pago"),
     notas: g("vi-notas"),
+    ...(_facturaOn ? { factura: g("vi-factura") || "(sin número)" } : {}),
     ...(_esBar ? { servings: _servings, botellas: +(_servings / _servPorBotella).toFixed(2) } : {})
   };
   const msg = document.getElementById("vi-msg");
-  if (esTicket && (!info.fechaEvento || !info.montoPagado)){
+  if (esTicket && !info.fechaEvento){
     msg.style.color = "var(--rojo,#a3392a)";
-    msg.textContent = "For tickets/events you need: date and the amount paid.";
+    msg.textContent = "For tickets/events you need the event/class date.";
     return;
   }
-  const clienteId = document.getElementById("vi-cliente").value || undefined;
   _ventasEnCurso.add(id);
   try {
     let res, data;
     try {
       res = await fetch(`${API}/productos/${id}/venta`, {
         method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cantidad: _esBar ? _servings : 1, clienteId, info })
+        body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info })
       });
       data = await res.json();
     } catch (err) {
@@ -5357,10 +5468,116 @@ async function confirmarVentaConInfo(id, esTicket){
     if (document.getElementById(fichaTargetActual)) pintarFicha(data.producto);
     if (document.getElementById("gridVender")) cargarGridVender();
     if (document.getElementById("cierreDia") && document.getElementById("cierreDia").open) cargarCierreLista();
+    if (document.getElementById("ventasSold") && document.getElementById("ventasSold").open) cargarVentasSold();
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
   } finally {
     _ventasEnCurso.delete(id);
   }
+}
+
+/* LISTA DE VENTAS EDITABLE (JFC 2026-09-02). Expandible dentro de Sold. Muestra
+   lo ya vendido (más reciente primero), agrupado por día, y deja editar con
+   lapicito o cancelar ex-post. Mobile-first: tarjetas, sin <table>. */
+async function cargarVentasSold(){
+  const cont = document.getElementById("ventasSoldLista");
+  if (!cont) return;
+  cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Loading…</p>';
+  let rows = [];
+  try { rows = await (await fetch(`${API}/ventas/todas?ubicacionId=${ubicacionActual}`)).json(); }
+  catch (_) { cont.innerHTML = '<p style="color:var(--rojo,#a3392a);font-size:14px;">Could not load sales.</p>'; return; }
+  if (!Array.isArray(rows) || !rows.length) {
+    cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">No sales recorded yet.</p>'; return;
+  }
+  rows.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  const money = (v) => { try { return new Intl.NumberFormat((window.OCI18n && window.OCI18n.locale()) || "en-US", { style: "currency", currency: "USD" }).format(v || 0); } catch (_) { return "$" + Number(v || 0).toFixed(2); } };
+  const fmtFecha = (iso) => { try { return new Date(iso).toLocaleString((window.OCI18n && window.OCI18n.locale()) || "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return iso; } };
+  cont.innerHTML = rows.map((v) => {
+    const total = (v.precioUnit || 0) * (v.cantidad || 1);
+    const bloqueada = !!v.liquidada;
+    const cli = v.clienteNombre ? escHtml(v.clienteNombre) : "Counter sale";
+    const chips = [];
+    if (v.formaPago) chips.push(escHtml(v.formaPago));
+    if (v.factura) chips.push("Invoice " + escHtml(v.factura));
+    if (v.eventoNombre) chips.push(escHtml(v.eventoNombre));
+    return `<div class="tag-card oc-vs-row" data-id="${v.id}" style="padding:10px 12px;margin-bottom:8px;background:var(--blanco-calido,#fbf5e8);">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:15px;">${escHtml(v.productoNombre)} <span style="color:var(--ink-soft);font-weight:400;">×${v.cantidad}</span></div>
+          <div style="font-size:13px;color:var(--ink-soft);">${fmtFecha(v.fecha)} · ${cli}${chips.length ? " · " + chips.join(" · ") : ""}</div>
+          ${v.notas ? `<div style="font-size:13px;color:var(--ink-soft);font-style:italic;">“${escHtml(v.notas)}”</div>` : ""}
+          ${bloqueada ? `<div style="font-size:12px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:2px;">Settled — locked</div>` : ""}
+        </div>
+        <div style="text-align:right;flex:0 0 auto;">
+          <div style="font-weight:700;font-size:15px;">${money(total)}</div>
+          ${bloqueada ? "" : `<button type="button" class="oc-vs-edit" title="Edit"
+            style="margin-top:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
+          <button type="button" class="oc-vs-cancel" title="Cancel sale"
+            style="margin-top:6px;margin-left:4px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">✕</button>`}
+        </div>
+      </div>
+      <div class="oc-vs-editor" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--linea,#D7E0E8);">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <label style="font-size:13px;flex:1;min-width:90px;">Quantity<br><input class="vs-cant" type="number" min="1" step="1" value="${v.cantidad}" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+          <label style="font-size:13px;flex:1;min-width:120px;">Payment method<br>
+            <select class="vs-pago" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;">
+              <option value=""${v.formaPago ? "" : " selected"}>—</option>
+              <option value="cash"${v.formaPago === "cash" ? " selected" : ""}>Cash</option>
+              <option value="transfer"${v.formaPago === "transfer" ? " selected" : ""}>Transfer</option>
+              <option value="card"${v.formaPago === "card" ? " selected" : ""}>Card</option>
+              <option value="other"${v.formaPago === "other" ? " selected" : ""}>Other</option>
+            </select></label>
+        </div>
+        <label style="display:block;font-size:13px;margin-top:8px;">Invoice number (optional)<br><input class="vs-factura" type="text" value="${escHtml(v.factura || "")}" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <label style="display:block;font-size:13px;margin-top:8px;">Notes<br><input class="vs-notas" type="text" value="${escHtml(v.notas || "")}" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button type="button" class="ir oc-vs-save" style="padding:7px 14px;">Save changes</button>
+          <button type="button" class="oc-vs-cancel-edit" style="padding:7px 14px;border:2px solid var(--linea,#D7E0E8);border-radius:8px;background:transparent;cursor:pointer;">Cancel</button>
+        </div>
+        <p class="vs-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
+      </div>
+    </div>`;
+  }).join("");
+  cont.querySelectorAll(".oc-vs-row").forEach((row) => {
+    const id = row.getAttribute("data-id");
+    const editor = row.querySelector(".oc-vs-editor");
+    const btnEdit = row.querySelector(".oc-vs-edit");
+    if (btnEdit) btnEdit.addEventListener("click", () => { editor.style.display = editor.style.display === "none" ? "block" : "none"; });
+    const btnCancelEdit = row.querySelector(".oc-vs-cancel-edit");
+    if (btnCancelEdit) btnCancelEdit.addEventListener("click", () => { editor.style.display = "none"; });
+    const btnSave = row.querySelector(".oc-vs-save");
+    if (btnSave) btnSave.addEventListener("click", async () => {
+      const msg = row.querySelector(".vs-msg");
+      const payload = {
+        cantidad: row.querySelector(".vs-cant").value,
+        info: {
+          formaPago: row.querySelector(".vs-pago").value,
+          factura: row.querySelector(".vs-factura").value.trim(),
+          notas: row.querySelector(".vs-notas").value.trim(),
+        }
+      };
+      try {
+        const res = await fetch(`${API}/ventas/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = data.error || "Could not save."; return; }
+        cargarVentasSold();
+        if (document.getElementById("gridVender")) cargarGridVender();
+      } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not reach the server."; }
+    });
+    const btnCancel = row.querySelector(".oc-vs-cancel");
+    if (btnCancel) btnCancel.addEventListener("click", async () => {
+      const ok = await ocConfirm("Cancel this sale? Stock will be returned and the change recorded in the log.");
+      if (!ok) return;
+      let motivo = "";
+      try { motivo = (await ocPrompt("Reason (optional):")) || ""; } catch (_) {}
+      try {
+        const res = await fetch(`${API}/ventas/${id}/cancelar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ motivo }) });
+        const data = await res.json();
+        if (!res.ok) { await ocAlert(data.error || "Could not cancel the sale."); return; }
+        cargarVentasSold();
+        if (document.getElementById("gridVender")) cargarGridVender();
+      } catch (_) { await ocAlert("Could not reach the server."); }
+    });
+  });
 }
 
 // Guarda el interval activo del toast para poder cancelarlo si llega un segundo
@@ -5931,7 +6148,19 @@ async function cargarGastos(){
       ? tarjeta("Sales this month", ventasMes, "#006B3C") +
         tarjeta("Net", neto, neto >= 0 ? "#006B3C" : "#C0392B")
       : "");
-  cargarCajaChica();
+  // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
+  const catDelMes = {};
+  gastos.filter((g) => String(g.fecha || "").slice(0, 7) === _mesActual)
+    .forEach((g) => { const k = g.categoria || "other"; catDelMes[k] = (catDelMes[k] || 0) + (Number(g.monto) || 0); });
+  const catCont = document.getElementById("gastosPorCategoria");
+  if (catCont) {
+    const orden = Object.entries(catDelMes).sort((a, b) => b[1] - a[1]);
+    catCont.innerHTML = orden.length
+      ? `<div style="font-size:13px;color:var(--ink-soft);margin:0 0 6px;">${(window.t && window.t("exp.byCategory")) || "This month by category"}</div>
+         <div style="display:flex;gap:6px;flex-wrap:wrap;">${orden.map(([k, v]) =>
+           `<span style="font-size:13px;padding:4px 10px;border-radius:999px;background:#FDECEA;border:1px solid #E8365D;color:#8f2036;">${escHtml(gastoCatLabel(k))} · ${fmtMoney(v)}</span>`).join("")}</div>`
+      : "";
+  }
   if (!gastos.length) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No expenses recorded yet. Add the first one above.</p>'; return; }
   _gastosCache = gastos;
   const _puedeEditarGasto = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
@@ -5939,7 +6168,7 @@ async function cargarGastos(){
     <div class="tag-card" id="gasto-fila-${g.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;">
       <div style="flex:1;">
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
-        <div style="font-size:13px;color:var(--ink-soft);">${new Date(g.fecha).toLocaleDateString()}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
+        <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${new Date(g.fecha).toLocaleDateString()}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
       <strong style="color:#C0392B;font-size:16px;">-${fmtMoney(g.monto)}</strong>
       ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" style="font-size:13px;padding:3px 8px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}
@@ -5955,7 +6184,9 @@ async function registrarGasto(){
   const monto = Number(montoEl.value);
   if (!concepto) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Enter a description for the expense."; return; }
   if (!Number.isFinite(monto) || monto <= 0) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Enter a valid amount."; return; }
-  const res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, fecha: fechaEl.value ? new Date(fechaEl.value).toISOString() : undefined, ubicacionId: ubicacionActual }) });
+  const catEl = document.getElementById("gastoCategoria");
+  const categoria = catEl ? catEl.value : "other";
+  const res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, fecha: fechaEl.value ? new Date(fechaEl.value).toISOString() : undefined, ubicacionId: ubicacionActual }) });
   if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Could not save the expense."; return; }
   conceptoEl.value = ""; montoEl.value = "";
   msg.style.color = "var(--sim-verde-dk,#1a6e3c)"; msg.textContent = "Expense recorded.";
@@ -5966,59 +6197,15 @@ async function anularGasto(id){
   await fetch(`${API}/gastos/${id}`, { method: "DELETE" });
   cargarGastos();
 }
-// CAJA CHICA en Gastos (JFC 2026-08-27): movida desde el modal de percha.
-// Solo dueño/admin. Selector de percha + saldo + ingreso/retiro.
-let _cajaChicaPerchaActual = "";
-async function cargarCajaChica(){
-  const bloque = document.getElementById("cajaChicaBloque");
-  if (!bloque) return;
-  const _rol = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
-  const _puede = _rol === "dueno" || _rol === "admin";
-  if (!_puede) { bloque.style.display = "none"; return; }
-  bloque.style.display = "";
-  const sel = document.getElementById("cajaChicaPercha");
-  let perchas = [];
-  try { perchas = await (await fetch(`${API}/ubicaciones`)).json(); } catch (_) {}
-  if (!Array.isArray(perchas)) perchas = [];
-  const actual = _cajaChicaPerchaActual || (perchas[0] && perchas[0].id) || "";
-  sel.innerHTML = perchas.map(u => `<option value="${escHtml(u.id)}">${escHtml(u.nombre)}</option>`).join("");
-  if (actual) sel.value = actual;
-  _cajaChicaPerchaActual = sel.value;
-  pintarSaldoCajaChicaGastos(sel.value);
+/* Etiqueta visible de la categoría de gasto (JFC 2026-09-02). Claves canónicas
+   neutrales, texto traducible por i18n; fallback a inglés si no hay clave. */
+function gastoCatLabel(k){
+  const key = "exp.cat." + (k || "other");
+  const v = (window.t && window.t(key)) || "";
+  if (v && v !== key) return v;
+  const EN = { rent: "Rent", utilities: "Utilities", inventory: "Inventory / supplies", payroll: "Payroll / staff", services: "Professional services", marketing: "Marketing", transport: "Transport / delivery", taxes: "Taxes / fees", maintenance: "Maintenance / repairs", other: "Other" };
+  return EN[k || "other"] || EN.other;
 }
-async function pintarSaldoCajaChicaGastos(perchaId){
-  const el = document.getElementById("cajaChicaSaldo");
-  if (!el || !perchaId) { if (el) el.textContent = ""; return; }
-  try {
-    const info = await (await fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/caja-chica`)).json();
-    const saldo = (info && info.saldo) || 0;
-    el.textContent = fmtMoney(saldo);
-    el.style.color = saldo < 0 ? "#C0392B" : "var(--ink)";
-  } catch (_) { el.textContent = ""; }
-}
-async function moverCajaChicaGastos(tipo){
-  const perchaId = document.getElementById("cajaChicaPercha").value;
-  if (!perchaId) return;
-  const monto = parseFloat((await ocPrompt(`Amount (${tipo === "ingreso" ? "cash in" : "cash out"}) ($):`, "") || "").trim());
-  if (!(monto > 0)) return;
-  const motivo = (await ocPrompt("Reason (required):", "") || "").trim();
-  if (!motivo) return;
-  if (!(await ocConfirm(`Record ${tipo === "ingreso" ? "cash in" : "cash out"} of ${fmtMoney(monto)}?`))) return;
-  try {
-    await fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/caja-chica/${tipo}`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo })
-    });
-    pintarSaldoCajaChicaGastos(perchaId);
-  } catch (err) { console.error("[cajaChicaGastos]", err); }
-}
-(function(){
-  const sel = document.getElementById("cajaChicaPercha");
-  if (sel) sel.addEventListener("change", () => { _cajaChicaPerchaActual = sel.value; pintarSaldoCajaChicaGastos(sel.value); });
-  const btnIn = document.getElementById("cajaChicaIngreso");
-  if (btnIn) btnIn.addEventListener("click", () => moverCajaChicaGastos("ingreso"));
-  const btnOut = document.getElementById("cajaChicaRetiro");
-  if (btnOut) btnOut.addEventListener("click", () => moverCajaChicaGastos("retiro"));
-})();
 /* Edición inline de servings por botella (JFC 2026-08-27): cada negocio define
    su propia medida de trago. El lapicito de la ficha de un producto bar convierte
    la línea en inputs de servingMl/botellaMl con Guardar/Cancelar. Solo dueño/admin
@@ -6063,6 +6250,9 @@ async function editarGasto(id){
   fila.innerHTML = `
     <div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
       <input id="ge-concepto" value="${escHtml(g.concepto)}" placeholder="Concept" style="flex:1;min-width:140px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <select id="ge-categoria" style="font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        ${["rent","utilities","inventory","payroll","services","marketing","transport","taxes","maintenance","other"].map((k) => `<option value="${k}"${(g.categoria || "other") === k ? " selected" : ""}>${escHtml(gastoCatLabel(k))}</option>`).join("")}
+      </select>
       <input id="ge-monto" type="number" min="0" step="0.01" value="${Number(g.monto) || 0}" style="width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
       <input id="ge-fecha" type="date" value="${escHtml(fecha)}" style="font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
     </div>
@@ -6074,7 +6264,8 @@ async function editarGasto(id){
     const monto = Number(document.getElementById("ge-monto").value);
     const fechaVal = document.getElementById("ge-fecha").value;
     if (!concepto || !Number.isFinite(monto) || monto <= 0) return;
-    await fetch(`${API}/gastos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, fecha: fechaVal ? new Date(fechaVal).toISOString() : undefined }) });
+    const categoria = (document.getElementById("ge-categoria") || {}).value || "other";
+    await fetch(`${API}/gastos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, fecha: fechaVal ? new Date(fechaVal).toISOString() : undefined }) });
     cargarGastos();
   });
 }
@@ -7283,10 +7474,10 @@ function ocPrompt(mensaje, valorInicial) {
   #eod-modal .btn-o{background:#fff;border-color:#e5e7eb;color:#0F1923;}
   #eod-msg{font-size:13px;color:#6b7280;margin-top:10px;min-height:16px;}
 </style>
-<button type="button" id="fab-eod" aria-label="Close the day">Close the day</button>
+<button type="button" id="fab-eod" aria-label="Daily Summary">Daily Summary</button>
 <div id="eod-modal" role="dialog" aria-modal="true" aria-labelledby="eod-t">
   <div class="card">
-    <h3 id="eod-t">Close the day</h3>
+    <h3 id="eod-t">Daily Summary</h3>
     <div id="eod-body">Loading today's summary…</div>
     <div class="row">
       <button type="button" class="btn btn-p" id="eod-backup">Download backup</button>
@@ -7299,17 +7490,17 @@ function ocPrompt(mensaje, valorInicial) {
 (function(){
   var _EOD_ES = function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}};
   var TX = function(){ return _EOD_ES() ? {
-    title:"Cerrar el dia", loading:"Cargando resumen de hoy...",
+    title:"Resumen diario", loading:"Cargando resumen de hoy...",
     revenue:"Ingresos de hoy", sales:"Ventas", profit:"Ganancia estimada", inv:"Inventario valorizado",
     week:"Ingresos de la semana", backup:"Descargar respaldo", close:"Cerrar",
-    fabLabel:"Cerrar el dia", noHint:"No hay sesion — solo el dueno o admin ven este boton.",
+    fabLabel:"Resumen diario", noHint:"No hay sesion — solo el dueno o admin ven este boton.",
     backupOk:"Respaldo descargado.", backupFail:"No se pudo descargar el respaldo: ",
     fetchFail:"No se pudo cargar el resumen: "
   } : {
-    title:"Close the day", loading:"Loading today's summary...",
+    title:"Daily Summary", loading:"Loading today's summary...",
     revenue:"Revenue today", sales:"Sales", profit:"Estimated profit", inv:"Inventory value",
     week:"Revenue this week", backup:"Download backup", close:"Close",
-    fabLabel:"Close the day", noHint:"No session — only owner or admin see this button.",
+    fabLabel:"Daily Summary", noHint:"No session — only owner or admin see this button.",
     backupOk:"Backup downloaded.", backupFail:"Could not download backup: ",
     fetchFail:"Could not load summary: "
   };};
