@@ -2786,22 +2786,31 @@
       if (path === "/api/gastos" && (!opts || opts.method === "GET")) {
         const lista = gastos.slice().reverse();
         const total = gastos.reduce((a, g) => a + (Number(g.monto) || 0), 0);
-        return J({ gastos: lista, total });
+        // JFC 2026-09-02: totales por categoría para el tablero y el resumen.
+        const porCategoria = {};
+        gastos.forEach((g) => { const k = g.categoria || "other"; porCategoria[k] = (porCategoria[k] || 0) + (Number(g.monto) || 0); });
+        Object.keys(porCategoria).forEach((k) => { porCategoria[k] = +porCategoria[k].toFixed(2); });
+        return J({ gastos: lista, total, porCategoria });
       }
       if (path === "/api/gastos" && opts && opts.method === "POST") {
         const concepto = String(body.concepto || "").trim();
         const monto = Number(body.monto);
         if (!concepto) return J({ error: "Enter a description for the expense." }, 400);
         if (!Number.isFinite(monto) || monto <= 0) return J({ error: "Enter a valid amount." }, 400);
+        // JFC 2026-09-02: categoría de gasto (best-practice sirve en USA y Ecuador).
+        // Claves canónicas neutrales; la etiqueta visible la traduce la UI.
+        const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
+        const categoria = CATS_GASTO.includes(String(body.categoria || "")) ? String(body.categoria) : "other";
         const g = {
           id: uuid("g"), concepto, monto: +monto.toFixed(2),
+          categoria,
           fecha: body.fecha || new Date().toISOString(),
           ubicacionId: body.ubicacionId || "todas",
           usuarioId: (window.OCCurrentUser && window.OCCurrentUser.id) || "sistema",
           usuarioNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || "Sistema",
         };
         gastos.push(g);
-        mov("gasto", { concepto, monto: g.monto, ubicacionId: g.ubicacionId });
+        mov("gasto", { concepto, monto: g.monto, categoria, ubicacionId: g.ubicacionId });
         guardarEstadoLocal();
         return J(g);
       }
@@ -2834,7 +2843,11 @@
           g.monto = +m.toFixed(2);
         }
         if (body.fecha !== undefined) g.fecha = body.fecha;
-        mov("gasto-editado", { concepto: g.concepto, monto: g.monto });
+        if (body.categoria !== undefined) {
+          const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
+          g.categoria = CATS_GASTO.includes(String(body.categoria)) ? String(body.categoria) : (g.categoria || "other");
+        }
+        mov("gasto-editado", { concepto: g.concepto, monto: g.monto, categoria: g.categoria });
         guardarEstadoLocal();
         return J(g);
       }

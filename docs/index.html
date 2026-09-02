@@ -1819,35 +1819,33 @@
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.1">1. Type what it was, the amount and the date, then tap "Add expense".</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.2">2. The summary shows this month's expenses, all-time expenses, and — for the owner — sales and net.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.3">3. Petty cash (caja chica) lives here too: record money in/out per shelf.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.3">3. Pick a category (rent, utilities, payroll…) so the summary groups spending by type.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.exp.4">4. Staff see only expenses; the owner sees the full picture (sales and net).</p>
       </div>
     </details>
     <div id="gastosResumen" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
+    <div id="gastosPorCategoria" style="margin-bottom:14px;"></div>
     <div class="panel-escaner tag-card" style="text-align:left;">
       <p style="margin:0 0 8px;font-size:14px;font-weight:700;" data-i18n="exp.record">Record an expense</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <input id="gastoConcepto" type="text" placeholder="What was it? (e.g. rent, supplies, transport)" style="flex:2;min-width:160px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <select id="gastoCategoria" title="Category" style="flex:1;min-width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+          <option value="rent" data-i18n="exp.cat.rent">Rent</option>
+          <option value="utilities" data-i18n="exp.cat.utilities">Utilities</option>
+          <option value="inventory" data-i18n="exp.cat.inventory">Inventory / supplies</option>
+          <option value="payroll" data-i18n="exp.cat.payroll">Payroll / staff</option>
+          <option value="services" data-i18n="exp.cat.services">Professional services</option>
+          <option value="marketing" data-i18n="exp.cat.marketing">Marketing</option>
+          <option value="transport" data-i18n="exp.cat.transport">Transport / delivery</option>
+          <option value="taxes" data-i18n="exp.cat.taxes">Taxes / fees</option>
+          <option value="maintenance" data-i18n="exp.cat.maintenance">Maintenance / repairs</option>
+          <option value="other" selected data-i18n="exp.cat.other">Other</option>
+        </select>
         <input id="gastoMonto" type="number" min="0" step="0.01" placeholder="Amount" style="flex:1;min-width:100px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <input id="gastoFecha" type="date" style="flex:1;min-width:130px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <button class="ir" onclick="registrarGasto()" style="font-size:14px;padding:9px 16px;">+ Add expense</button>
       </div>
       <p id="gastoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
-    </div>
-    <!-- CAJA CHICA (JFC 2026-08-27): movida desde el modal de percha a la
-         pestaña Gastos. Control operativo de efectivo por percha. Solo
-         dueño/admin (gating por rol en cargarGastos). -->
-    <div id="cajaChicaBloque" class="tag-card" style="text-align:left;margin-top:14px;display:none;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;">Petty cash (caja chica)</span>
-        <span id="cajaChicaSaldo" style="font-size:16px;font-weight:700;"></span>
-      </div>
-      <label style="display:block;margin-top:8px;font-size:14px;">Shelf:<br>
-        <select id="cajaChicaPercha" style="margin-top:4px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;max-width:100%;"></select></label>
-      <div style="display:flex;gap:8px;margin-top:8px;">
-        <button id="cajaChicaIngreso" style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #006B3C;border-radius:6px;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;cursor:pointer;">+ Ingreso</button>
-        <button id="cajaChicaRetiro" style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">− Retiro</button>
-      </div>
     </div>
     <div id="listaGastos" style="margin-top:14px;"></div>
   </section>
@@ -6086,7 +6084,19 @@ async function cargarGastos(){
       ? tarjeta("Sales this month", ventasMes, "#006B3C") +
         tarjeta("Net", neto, neto >= 0 ? "#006B3C" : "#C0392B")
       : "");
-  cargarCajaChica();
+  // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
+  const catDelMes = {};
+  gastos.filter((g) => String(g.fecha || "").slice(0, 7) === _mesActual)
+    .forEach((g) => { const k = g.categoria || "other"; catDelMes[k] = (catDelMes[k] || 0) + (Number(g.monto) || 0); });
+  const catCont = document.getElementById("gastosPorCategoria");
+  if (catCont) {
+    const orden = Object.entries(catDelMes).sort((a, b) => b[1] - a[1]);
+    catCont.innerHTML = orden.length
+      ? `<div style="font-size:13px;color:var(--ink-soft);margin:0 0 6px;">${(window.t && window.t("exp.byCategory")) || "This month by category"}</div>
+         <div style="display:flex;gap:6px;flex-wrap:wrap;">${orden.map(([k, v]) =>
+           `<span style="font-size:13px;padding:4px 10px;border-radius:999px;background:#FDECEA;border:1px solid #E8365D;color:#8f2036;">${escHtml(gastoCatLabel(k))} · ${fmtMoney(v)}</span>`).join("")}</div>`
+      : "";
+  }
   if (!gastos.length) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No expenses recorded yet. Add the first one above.</p>'; return; }
   _gastosCache = gastos;
   const _puedeEditarGasto = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
@@ -6094,7 +6104,7 @@ async function cargarGastos(){
     <div class="tag-card" id="gasto-fila-${g.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;">
       <div style="flex:1;">
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
-        <div style="font-size:13px;color:var(--ink-soft);">${new Date(g.fecha).toLocaleDateString()}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
+        <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${new Date(g.fecha).toLocaleDateString()}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
       <strong style="color:#C0392B;font-size:16px;">-${fmtMoney(g.monto)}</strong>
       ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" style="font-size:13px;padding:3px 8px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}
@@ -6110,7 +6120,9 @@ async function registrarGasto(){
   const monto = Number(montoEl.value);
   if (!concepto) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Enter a description for the expense."; return; }
   if (!Number.isFinite(monto) || monto <= 0) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Enter a valid amount."; return; }
-  const res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, fecha: fechaEl.value ? new Date(fechaEl.value).toISOString() : undefined, ubicacionId: ubicacionActual }) });
+  const catEl = document.getElementById("gastoCategoria");
+  const categoria = catEl ? catEl.value : "other";
+  const res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, fecha: fechaEl.value ? new Date(fechaEl.value).toISOString() : undefined, ubicacionId: ubicacionActual }) });
   if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Could not save the expense."; return; }
   conceptoEl.value = ""; montoEl.value = "";
   msg.style.color = "var(--sim-verde-dk,#1a6e3c)"; msg.textContent = "Expense recorded.";
@@ -6121,59 +6133,15 @@ async function anularGasto(id){
   await fetch(`${API}/gastos/${id}`, { method: "DELETE" });
   cargarGastos();
 }
-// CAJA CHICA en Gastos (JFC 2026-08-27): movida desde el modal de percha.
-// Solo dueño/admin. Selector de percha + saldo + ingreso/retiro.
-let _cajaChicaPerchaActual = "";
-async function cargarCajaChica(){
-  const bloque = document.getElementById("cajaChicaBloque");
-  if (!bloque) return;
-  const _rol = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
-  const _puede = _rol === "dueno" || _rol === "admin";
-  if (!_puede) { bloque.style.display = "none"; return; }
-  bloque.style.display = "";
-  const sel = document.getElementById("cajaChicaPercha");
-  let perchas = [];
-  try { perchas = await (await fetch(`${API}/ubicaciones`)).json(); } catch (_) {}
-  if (!Array.isArray(perchas)) perchas = [];
-  const actual = _cajaChicaPerchaActual || (perchas[0] && perchas[0].id) || "";
-  sel.innerHTML = perchas.map(u => `<option value="${escHtml(u.id)}">${escHtml(u.nombre)}</option>`).join("");
-  if (actual) sel.value = actual;
-  _cajaChicaPerchaActual = sel.value;
-  pintarSaldoCajaChicaGastos(sel.value);
+/* Etiqueta visible de la categoría de gasto (JFC 2026-09-02). Claves canónicas
+   neutrales, texto traducible por i18n; fallback a inglés si no hay clave. */
+function gastoCatLabel(k){
+  const key = "exp.cat." + (k || "other");
+  const v = (window.t && window.t(key)) || "";
+  if (v && v !== key) return v;
+  const EN = { rent: "Rent", utilities: "Utilities", inventory: "Inventory / supplies", payroll: "Payroll / staff", services: "Professional services", marketing: "Marketing", transport: "Transport / delivery", taxes: "Taxes / fees", maintenance: "Maintenance / repairs", other: "Other" };
+  return EN[k || "other"] || EN.other;
 }
-async function pintarSaldoCajaChicaGastos(perchaId){
-  const el = document.getElementById("cajaChicaSaldo");
-  if (!el || !perchaId) { if (el) el.textContent = ""; return; }
-  try {
-    const info = await (await fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/caja-chica`)).json();
-    const saldo = (info && info.saldo) || 0;
-    el.textContent = fmtMoney(saldo);
-    el.style.color = saldo < 0 ? "#C0392B" : "var(--ink)";
-  } catch (_) { el.textContent = ""; }
-}
-async function moverCajaChicaGastos(tipo){
-  const perchaId = document.getElementById("cajaChicaPercha").value;
-  if (!perchaId) return;
-  const monto = parseFloat((await ocPrompt(`Amount (${tipo === "ingreso" ? "cash in" : "cash out"}) ($):`, "") || "").trim());
-  if (!(monto > 0)) return;
-  const motivo = (await ocPrompt("Reason (required):", "") || "").trim();
-  if (!motivo) return;
-  if (!(await ocConfirm(`Record ${tipo === "ingreso" ? "cash in" : "cash out"} of ${fmtMoney(monto)}?`))) return;
-  try {
-    await fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/caja-chica/${tipo}`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo })
-    });
-    pintarSaldoCajaChicaGastos(perchaId);
-  } catch (err) { console.error("[cajaChicaGastos]", err); }
-}
-(function(){
-  const sel = document.getElementById("cajaChicaPercha");
-  if (sel) sel.addEventListener("change", () => { _cajaChicaPerchaActual = sel.value; pintarSaldoCajaChicaGastos(sel.value); });
-  const btnIn = document.getElementById("cajaChicaIngreso");
-  if (btnIn) btnIn.addEventListener("click", () => moverCajaChicaGastos("ingreso"));
-  const btnOut = document.getElementById("cajaChicaRetiro");
-  if (btnOut) btnOut.addEventListener("click", () => moverCajaChicaGastos("retiro"));
-})();
 /* Edición inline de servings por botella (JFC 2026-08-27): cada negocio define
    su propia medida de trago. El lapicito de la ficha de un producto bar convierte
    la línea en inputs de servingMl/botellaMl con Guardar/Cancelar. Solo dueño/admin
@@ -6218,6 +6186,9 @@ async function editarGasto(id){
   fila.innerHTML = `
     <div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
       <input id="ge-concepto" value="${escHtml(g.concepto)}" placeholder="Concept" style="flex:1;min-width:140px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <select id="ge-categoria" style="font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+        ${["rent","utilities","inventory","payroll","services","marketing","transport","taxes","maintenance","other"].map((k) => `<option value="${k}"${(g.categoria || "other") === k ? " selected" : ""}>${escHtml(gastoCatLabel(k))}</option>`).join("")}
+      </select>
       <input id="ge-monto" type="number" min="0" step="0.01" value="${Number(g.monto) || 0}" style="width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
       <input id="ge-fecha" type="date" value="${escHtml(fecha)}" style="font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
     </div>
@@ -6229,7 +6200,8 @@ async function editarGasto(id){
     const monto = Number(document.getElementById("ge-monto").value);
     const fechaVal = document.getElementById("ge-fecha").value;
     if (!concepto || !Number.isFinite(monto) || monto <= 0) return;
-    await fetch(`${API}/gastos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, fecha: fechaVal ? new Date(fechaVal).toISOString() : undefined }) });
+    const categoria = (document.getElementById("ge-categoria") || {}).value || "other";
+    await fetch(`${API}/gastos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, fecha: fechaVal ? new Date(fechaVal).toISOString() : undefined }) });
     cargarGastos();
   });
 }
