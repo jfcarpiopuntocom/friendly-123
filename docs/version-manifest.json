@@ -1,9 +1,9 @@
 {
-  "version": "1.7.90",
-  "shell": "f123-shell-v203",
+  "version": "1.7.91",
+  "shell": "f123-shell-v204",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-309fd4c3985a08e03dd45daf43fb23ba3532c0543f558abb2bec30b73f8c4b24",
+    "./index.html": "sha256-1a58f86559b85028397b7ad10e7ba5452181c5a076808e224ced79f3e47fdbef",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-70633c7a2fb8630ecd5678d180edb818aeec807c6ed79b93727f1e7636abee2f",
     "./404.html": "sha256-ca1c148400c0daf46db5c8217191e350b978638029cbec562f4d2abef8350554",
@@ -25,7 +25,7 @@
     "./i18n.js": "sha256-727fe7db81c35c4001e8561fbedba8b56956ec447464dc47d29b0798374bc32b",
     "./crypto-store.js": "sha256-6b3561d5fd2a7a56f22971d724783444409dabd426b746d39204b0927be703da",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
-    "./auth-ui.js": "sha256-77dfc5dc1a82a6674446185fcb459da7e77292f5905297de6f5627bc642ec97d",
+    "./auth-ui.js": "sha256-6a0deb33b44ae24fa0c3f9ae1628f3902bcec54969183e65fa7315c10811c015",
     "./backup-scheduler.js": "sha256-869060f6e9edfcbf1052dea781c2953bce73d53958b7712b61974332df589330",
     "./avanzado-extra.js": "sha256-27b4a47386c249c80dd42161b761c474eabbb4a8333738405594ccc7cc4f7bfe",
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
@@ -62,6 +62,7 @@
     "./caja-chica.js": "sha256-6703f0e3ea31c7dbb0f187156e83207629b2202d8cd40dce970be8115e85c2e7",
     "./respaldo-empleado.js": "sha256-52620b8851003f435300e64d8649812bcd69f9efd3c082b2970d36f0675f4ac7",
     "./edutips.js": "sha256-e0fdc3a0d30d4e763656046a8edc0eb425b7a727a2c83d446b142b9c7134f718",
+    "./workshop-brand.js": "sha256-c94848891eb4a20d821393946777ab352e99bf4a9a40301d50bbb1d40e166b1b",
     "./manifest.json": "sha256-a1a75d88ea0ac9bae676106d49ffa4fc45433a0d5a760cc7855b276484ea8bcd"
   }
 }
