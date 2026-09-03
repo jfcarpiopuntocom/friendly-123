@@ -3129,7 +3129,7 @@ function tarjetaCliente(c, esDueno){
       <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #E8365D;border-radius:6px;color:#E8365D !important;-webkit-text-fill-color:#E8365D !important;cursor:pointer;"
         onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record debt (fiado)</button>
       <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#008a54 !important;-webkit-text-fill-color:#008a54 !important;cursor:pointer;"
-        onclick="abonarCliente('${c.id}','${escHtml(c.nombre)}')">Record credit (abono)</button>
+        onclick="ocRegistrarCredito('${c.id}','${escHtml(c.nombre)}')">Record credit (abono)</button>
     </div>${toggleAlerta}`;
   return `<div class="cliente-card" data-cliente-id="${escHtml(c.id)}" style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
@@ -3234,10 +3234,23 @@ async function pintarSaldoCartera(clienteId) {
     const badge = (debe && alertaOn)
       ? `<span style="margin-left:6px;font-size:13px;font-weight:700;background:#E8365D;color:#fff !important;-webkit-text-fill-color:#fff !important;padding:2px 8px;border-radius:20px;">pending</span>`
       : "";
+    // JFC 2026-09-02: cuando el cliente DEBE, se ofrece "Record a payment" (el modal
+    // de plan-pagos, que abona a la deuda). Así ese flujo sigue vivo aunque el botón
+    // "Record credit (abono)" ahora abra el modal de crédito a favor (item+expiración).
+    const btnPagar = debe
+      ? ` <button type="button" onclick="ocPagarDeuda('${clienteId}')" class="oc-edit-btn" style="padding:2px 9px;">Record a payment</button>`
+      : "";
     // #9: crédito totalmente expirado → monto tachado (el dato NO se borra).
     const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}`;
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}`;
   } catch (e) { console.error("[pintarSaldoCartera]", e); el.innerHTML = ""; }
+}
+/* Pagar una deuda (JFC 2026-09-02): abre el modal de plan-pagos ("Record a
+   payment"), que sigue en window.abonarCliente. Busca el nombre en la tarjeta. */
+function ocPagarDeuda(clienteId){
+  let nombre = "";
+  try { const card = document.querySelector(`.cliente-card[data-cliente-id="${clienteId}"] strong`); if (card) nombre = card.textContent.trim(); } catch (_) {}
+  if (window.abonarCliente) window.abonarCliente(clienteId, nombre);
 }
 /* #12 (JFC 2026-09-02): dueño/admin puede extender/acortar la expiración de un
    crédito ya emitido ("toque dar otros pasos" cuando expira). El hecho original
@@ -3275,11 +3288,15 @@ async function fiarCliente(clienteId, nombre) {
     pintarSaldoCartera(clienteId);
   } catch (e) { console.error("Error registrando fiado:", e); }
 }
-/* Registrar crédito (abono) — JFC 2026-09-02: "el credit (abono) solo se puede
-   gastar en el mismo item". Al dar crédito se elige EL ÍTEM al que queda atado;
-   se guarda en el motivo como [for:<ítem>] para que quede registrado y visible
-   ("Credit $X — only for: <ítem>"). Modal compacto: monto + ítem + razón. */
-async function abonarCliente(clienteId, nombre) {
+/* Registrar crédito a favor (store credit) — JFC 2026-09-02: "el credit (abono)
+   solo se puede gastar en el mismo item" + fecha de expiración. Al dar crédito se
+   elige EL ÍTEM al que queda atado y la fecha hasta la que vale; se guarda en el
+   motivo como [for:<ítem>][exp:YYYY-MM-DD]. Modal: monto + ítem + expiración + razón.
+   NOMBRE ÚNICO (JFC 2026-09-02): antes se llamaba abonarCliente y plan-pagos-ui.js
+   lo tapaba (global.abonarCliente = su modal de "Record a payment"), así que ESTE
+   modal nunca corría. Ahora el botón "Record credit (abono)" llama a esta función
+   directamente; el modal de plan-pagos queda para PAGAR una deuda (ver abajo). */
+async function ocRegistrarCredito(clienteId, nombre) {
   let productos = [];
   try { productos = await (await fetch(`${API}/productos`)).json(); } catch (_) { productos = []; }
   if (!Array.isArray(productos)) productos = [];

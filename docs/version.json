@@ -1,9 +1,9 @@
 {
-  "version": "1.7.81",
+  "version": "1.7.82",
   "fecha": "2026-09-02",
-  "changelog": "v1.7.81 — Tweaks de UI (marginales, sin tocar flujos vivos): boton de impresora ahora dice 'Print' (Show customers y etiqueta de Inventory); 'Type to filter' -> 'Type to search...'; 'People in the reservation' es un pulldown de numeros; 'Group / +1' -> 'Group / Reservation name (optional)'; en Show customers, SELECT ahora LLEVA a la tarjeta del cliente en My customers y la resalta con un flash verde (Emil: feedback + continuidad).",
+  "changelog": "v1.7.82 — El boton 'Record credit (abono)' ahora SI abre el modal de credito a favor con selector de item y fecha de expiracion (antes plan-pagos-ui.js lo tapaba con su modal de 'Record a payment'). Cuando el cliente DEBE, aparece un boton 'Record a payment' que abre el modal de pago de deuda (ese flujo sigue vivo). Asi el credito a favor queda atado a un item y con expiracion, como se diseño.",
   "requerida": false,
-  "shell": "f123-shell-v194",
+  "shell": "f123-shell-v195",
   "apagar": [],
-  "releaseName": "v1.7.81"
+  "releaseName": "v1.7.82"
 }
