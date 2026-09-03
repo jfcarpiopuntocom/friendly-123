@@ -1,9 +1,9 @@
 {
-  "version": "1.7.91",
+  "version": "1.7.92",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.91 — Acceso al campo de pruebas: quitado el boton feo de dentro de la UI logueada; ahora vive discreto al pie del candado (para beta helpers, origin-gated: no aparece dentro del propio workshop). Y marca del workshop: en su origen el nombre de tienda queda fijo en VERSION DE PRUEBAS en naranja intocable, y se desactiva unirse a un cuaderno (limite racional anti-desastre por el relay compartido). Todo origin-gated, aditivo, no-op fuera del workshop.",
+  "changelog": "v1.7.92 — Inspector(TM) en el panel privado del lord (JFC): card lord-gated al fondo de Advanced (solo con f123_lord=1). Verifica integridad del inventario (sello SHA-256), guarda un sello base y compara para detectar faltantes/cambios/nuevos. Inventario SOLO, jamas cifras; todo local. Motor inspector.js cableado a inspector-ui.js. Aditivo, no-op para cualquiera que no sea el lord.",
   "requerida": false,
-  "shell": "f123-shell-v204",
+  "shell": "f123-shell-v205",
   "apagar": [],
-  "releaseName": "v1.7.91"
+  "releaseName": "v1.7.92"
 }
