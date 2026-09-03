@@ -58,7 +58,6 @@
     var lista = [];
     try { lista = (window.OCMicelio && window.OCMicelio.equipo) ? window.OCMicelio.equipo() : []; } catch (_) { lista = []; }
     if (!lista.length) { cont.innerHTML = '<span style="color:var(--ink-soft);">' + esc(t("inspector.radar.empty", "No instances seen yet.")) + '</span>'; return; }
-<<<<<<< HEAD
     // Dedup (prio 2): apodos repetidos = posibles duplicados/extraviadas.
     var cuenta = {};
     lista.forEach(function (x) { var a = (x.apodo || "").toLowerCase(); if (a) cuenta[a] = (cuenta[a] || 0) + 1; });
@@ -96,16 +95,6 @@
         pintarRadar(cont);
       });
     });
-=======
-    cont.innerHTML = lista.map(function (x) {
-      var nombre = x.apodo || ("#" + String(x.id).slice(0, 6));
-      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #eef0ec;">' +
-        '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + colorEstado(x.estado) + ';margin-right:6px;"></span>' +
-        '<strong>' + esc(nombre) + '</strong>' + (x.soyYo ? ' <span style="color:var(--ink-soft);font-size:11px;">(' + esc(t("inspector.radar.self", "this device")) + ')</span>' : '') +
-        ' <span style="color:var(--ink-soft);font-size:11px;">' + esc(x.rol || "") + '</span></span>' +
-        '<span style="color:var(--ink-soft);font-size:12px;">' + esc(x.cuando || "") + '</span></div>';
-    }).join("");
->>>>>>> origin/master
   }
 
   function pintarSello(out, snap) {
