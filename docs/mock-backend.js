@@ -736,6 +736,13 @@
   function ventasMesAcumuladas(ubicacionId) {
     return ventas.filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
   }
+  /* BUG FIX (JFC/Belén 2026-09-03): al EDITAR una venta, el split se recalculaba
+     con ventasMesAcumuladas(), que ya incluye a la propia venta editada (vive en
+     el array) → el umbral de escala se contaba a sí mismo y la comisión salía mal.
+     Este acumulado EXCLUYE la venta en curso, que es lo correcto para el "previo". */
+  function ventasMesAcumuladasExcl(ubicacionId, ventaId) {
+    return ventas.filter((v) => v.id !== ventaId && v.ubicacionId === ubicacionId && esDelMesActual(v.fecha)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
+  }
     /* ==========================================================================
      MOTOR DE TRATOS — una sola cuenta para todas las formas de repartir
      ==========================================================================
@@ -2738,7 +2745,7 @@
             const ubicP = ubicaciones.find((x) => x.id === venta.ubicacionId);
             if (ubicP && venta.split) {
               const montoBruto = (venta.precioUnit || 0) * nueva;
-              const acumuladoPrevio = ventasMesAcumuladas(ubicP.id);
+              const acumuladoPrevio = ventasMesAcumuladasExcl(ubicP.id, venta.id);
               venta.split = calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio);
             }
           }
@@ -2755,7 +2762,7 @@
             const ubicP2 = ubicaciones.find((x) => x.id === venta.ubicacionId);
             if (ubicP2 && venta.split) {
               const montoBruto2 = precioRedondo * (venta.cantidad || 1);
-              venta.split = calcularSplitVenta(ubicP2, montoBruto2, ventasMesAcumuladas(ubicP2.id));
+              venta.split = calcularSplitVenta(ubicP2, montoBruto2, ventasMesAcumuladasExcl(ubicP2.id, venta.id));
             }
           }
         }

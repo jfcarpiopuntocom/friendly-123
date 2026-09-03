@@ -1,9 +1,9 @@
 {
-  "version": "1.7.89",
+  "version": "1.7.90",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.89 — Fix mojibake: el <meta charset=UTF-8> estaba pasado el limite de 1024 bytes del spec HTML (byte ~4041), un comentario largo lo empujaba. En dispositivos que caian a otra codificacion, el español acentuado salia como mojibake (peor en el menu de Advanced). Charset movido a primer hijo de <head> (byte 44). Aditivo, sin tocar datos ni flujos.",
+  "changelog": "v1.7.90 — 3 microbugs de las ultimas 48h: (1) al editar una venta el split de comision se recalculaba con un acumulado que se incluia a si mismo -> comision errada; ahora excluye la venta en curso. (2) renombrar una categoria SEMILLA la dejaba vacia en la lista; ahora se oculta via tombstone (solo si no tiene productos, nunca oculta inventario real). (3) el boton Ver liquidacion de eventos archivados quedaba muerto si el rol no tiene la vista Comisiones; ahora no se pinta.",
   "requerida": false,
-  "shell": "f123-shell-v202",
+  "shell": "f123-shell-v203",
   "apagar": [],
-  "releaseName": "v1.7.89"
+  "releaseName": "v1.7.90"
 }
