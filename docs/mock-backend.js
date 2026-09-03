@@ -236,6 +236,16 @@
         if (!instanceId && o.instanceId) instanceId = o.instanceId; // re-hidrata si el arranque quedó null
         return true;
       }
+      /* SEÑALES DURABLES (JFC 2026-09-03, 1A — a idiomARTE le volvió a salir el
+         tope de 25 productos). Un dispositivo YA activado que perdió el instanceId
+         del f123_owned pelado (por un switch de tienda / reload) NO puede caer al
+         tope free. Se considera licenciado ante CUALQUIER evidencia durable de uso
+         real: está dentro de una tienda unida (f123_tienda_activa), conoce ≥1
+         tienda en el registro (f123_tiendas), o ya tiene datos reales (productos/
+         ventas que un demo recién abierto no tendría). Solo AFLOJA; nunca capa. */
+      try { if (localStorage.getItem("f123_tienda_activa")) return true; } catch (_) {}
+      try { var _reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; if (Object.keys(_reg).length) return true; } catch (_) {}
+      try { if ((productos && productos.length) || (ventas && ventas.length)) return true; } catch (_) {}
     } catch (_) {}
     return !!instanceId;
   }
