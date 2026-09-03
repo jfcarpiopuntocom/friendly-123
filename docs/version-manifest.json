@@ -1,9 +1,9 @@
 {
-  "version": "1.7.94",
-  "shell": "f123-shell-v207",
+  "version": "1.7.95",
+  "shell": "f123-shell-v208",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-bbd003ca4bf1134299670b8ed644497bf91d1cdae2733b5c3d693b1e762c9fb3",
+    "./index.html": "sha256-bd503e3bacf55aa794496bacb1aad247a638b29353551f6c4fe28bc8e004d1dd",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-70633c7a2fb8630ecd5678d180edb818aeec807c6ed79b93727f1e7636abee2f",
     "./404.html": "sha256-ca1c148400c0daf46db5c8217191e350b978638029cbec562f4d2abef8350554",
@@ -22,7 +22,7 @@
     "./lista-dinamica.js": "sha256-c3760de6d4b4c935243a4da1da9a95d88e6a32e572158ae5cb7a4d53e6e452af",
     "./vendor/ufuzzy.min.js": "sha256-3eef8ba0ad55444c31f0e86f8375f25916515402cf2d4d7b5a2c01b4b67f2e19",
     "./vendor/minisearch.min.js": "sha256-8a05b42785db448f2c19e24a6a2107204c825565fe4f95aa69b79652baf26e82",
-    "./i18n.js": "sha256-f9ce032165bbf41ae4fd034a5f25c086e0c2da31752be5fd2d6b37cd3347a80a",
+    "./i18n.js": "sha256-b9e078e68da60c3b5a60374088e293987e3eb774b50d1f358332a0a599fd21cb",
     "./crypto-store.js": "sha256-6b3561d5fd2a7a56f22971d724783444409dabd426b746d39204b0927be703da",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
     "./auth-ui.js": "sha256-6a0deb33b44ae24fa0c3f9ae1628f3902bcec54969183e65fa7315c10811c015",
@@ -36,7 +36,7 @@
     "./idb-archivo.js": "sha256-7a973da43f5858675d472a9982af855e047ebe14ac16c93b4d89333c28da8963",
     "./simon-config.js": "sha256-0b9c5463811f166452079019d749ca2fb4e7172dd86c8ab2a7ae4737fe93f455",
     "./percha-reposicion.js": "sha256-2525df1bd08a28eacecd4ca5419ccb1de9ed412e21764e1cae9823b656d1a333",
-    "./micelio-vivo.js": "sha256-1f37c7b67e74a9905b1220daf4901258ac8533f9353d9c5c44f33d1a4762c003",
+    "./micelio-vivo.js": "sha256-872f11da8dc53e20914999e053cddd7d947e2356e76ff2b37fa071da06729a49",
     "./micelio-ui.js": "sha256-85f2e15243f9961047efdec851bd84634839c6f733317f0197f1d6632a82e306",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
     "./tablero-avanzado.js": "sha256-e6c3fbbd407bca323be96e97f8b91b9164a8321128f80dd088c4640c6c2a8957",
@@ -64,7 +64,7 @@
     "./edutips.js": "sha256-e0fdc3a0d30d4e763656046a8edc0eb425b7a727a2c83d446b142b9c7134f718",
     "./workshop-brand.js": "sha256-c94848891eb4a20d821393946777ab352e99bf4a9a40301d50bbb1d40e166b1b",
     "./inspector.js": "sha256-2f5c01bf853b766344ab4c432ba51c842b5d34f852beb207dc159c5a0b7598f5",
-    "./inspector-ui.js": "sha256-a68f7b71da101e5a0228f67be130405ad2af03ab4e44ef9b67684f1593080fa4",
+    "./inspector-ui.js": "sha256-eca823a3d9b79264771dcb4fa3b17aaf1880f4a23cba85374e08902695920084",
     "./manifest.json": "sha256-a1a75d88ea0ac9bae676106d49ffa4fc45433a0d5a760cc7855b276484ea8bcd"
   }
 }

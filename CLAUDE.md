@@ -393,6 +393,29 @@ esté en nuestro radar todo uso de la app o nunca vamos a tener control de esto.
   salas donde el aparato del lord está presente). No se agrega un servidor central
   que guarde estado de todas las tiendas — eso rompería la regla sin-nube.
 
+<<<<<<< HEAD
+### REGLA 8c — MERGE PRIMERO, JAMÁS PERDER TRABAJO REAL (JFC, 2026-09-03) — DURA
+
+"prefiero que se mergee todo siempre cuando se encuentran dispositivos entre sí y
+la gente deba borrar manualmente y haya excesos en esa dirección ligeramente, a
+que se pierdan datos y trabajo de la gente en el mundo real en sus dispositivos
+rogue o huérfanos ... no todo cliente es pagado y nuestra capa de servicio a la
+comunidad emprendedora y a la sociedad debe honrar y cuidar a todos, la
+integridad de su trabajo y sus datos."
+
+- **Sesgo permanente hacia FUSIONAR, no descartar.** Cuando dos aparatos se
+  encuentran, la conducta por defecto es MERGE (absorber/conservar), aunque eso
+  deje de más. Perder datos/trabajo de una persona real es MUCHO peor que un
+  exceso de datos que ella luego limpia a mano.
+- **Todo borrado es MANUAL y NO destructivo.** Ninguna limpieza automática puede
+  borrar datos ni identidad reales. "Olvidar" en el radar solo quita una entrada
+  del roster LOCAL (huella); el aparato, su inventario y su identidad quedan
+  intactos y reaparece si vuelve a latir.
+- Aplica a **todos**, pagados o no. La integridad del trabajo del usuario está por
+  encima de la prolijidad del radar.
+
+=======
+>>>>>>> origin/master
 ---
 
 ## REGLA 6 — DIARIO .md POR VENTANA DE 48h (JFC, 2026-08-27) — REGLA DURA

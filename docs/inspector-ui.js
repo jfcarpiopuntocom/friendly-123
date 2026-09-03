@@ -58,14 +58,43 @@
     var lista = [];
     try { lista = (window.OCMicelio && window.OCMicelio.equipo) ? window.OCMicelio.equipo() : []; } catch (_) { lista = []; }
     if (!lista.length) { cont.innerHTML = '<span style="color:var(--ink-soft);">' + esc(t("inspector.radar.empty", "No instances seen yet.")) + '</span>'; return; }
+    // Dedup (prio 2): apodos repetidos = posibles duplicados/extraviadas.
+    var cuenta = {};
+    lista.forEach(function (x) { var a = (x.apodo || "").toLowerCase(); if (a) cuenta[a] = (cuenta[a] || 0) + 1; });
     cont.innerHTML = lista.map(function (x) {
       var nombre = x.apodo || ("#" + String(x.id).slice(0, 6));
-      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #eef0ec;">' +
+      var esDup = x.apodo && cuenta[x.apodo.toLowerCase()] > 1 && !x.soyYo;
+      var esExtraviada = x.estado === "ciegas" && !x.soyYo;
+      var etiqueta = esDup ? ('<span style="color:' + NARANJA + ';font-size:11px;font-weight:700;"> · ' + esc(t("inspector.radar.dup", "possible duplicate")) + '</span>')
+                   : (esExtraviada ? ('<span style="color:' + ROJO + ';font-size:11px;font-weight:700;"> · ' + esc(t("inspector.radar.stray", "stray")) + '</span>') : '');
+      // Olvidar: limpieza LOCAL del roster (fantasmas). Nunca a uno mismo.
+      var btn = (!x.soyYo && window.OCMicelio && window.OCMicelio.olvidar)
+        ? '<button data-insp-olvidar="' + esc(x.id) + '" style="font-size:11px;padding:3px 8px;border:1px solid var(--ink-soft);border-radius:5px;background:transparent;color:var(--ink-soft);cursor:pointer;">' + esc(t("inspector.radar.forget", "Forget")) + '</button>'
+        : '';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #eef0ec;">' +
         '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + colorEstado(x.estado) + ';margin-right:6px;"></span>' +
         '<strong>' + esc(nombre) + '</strong>' + (x.soyYo ? ' <span style="color:var(--ink-soft);font-size:11px;">(' + esc(t("inspector.radar.self", "this device")) + ')</span>' : '') +
-        ' <span style="color:var(--ink-soft);font-size:11px;">' + esc(x.rol || "") + '</span></span>' +
-        '<span style="color:var(--ink-soft);font-size:12px;">' + esc(x.cuando || "") + '</span></div>';
+        ' <span style="color:var(--ink-soft);font-size:11px;">' + esc(x.rol || "") + '</span>' + etiqueta + '</span>' +
+        '<span style="display:flex;align-items:center;gap:8px;"><span style="color:var(--ink-soft);font-size:12px;">' + esc(x.cuando || "") + '</span>' + btn + '</span></div>';
     }).join("");
+    // Sesgo merge-primero (REGLA 8c): si hay duplicados, guiar a fusionar (que
+    // conserva sus datos), no a borrar. Olvidar solo limpia el radar local.
+    var hayDup = Object.keys(cuenta).some(function (a) { return cuenta[a] > 1; });
+    if (hayDup) {
+      cont.innerHTML += '<p style="margin:10px 0 0;font-size:12px;color:var(--ink-soft);line-height:1.5;">' +
+        esc(t("inspector.radar.mergeFirst", "Duplicates: prefer Claim & merge (it keeps their data). Forget only clears a ghost from your local radar — it never deletes real work.")) + '</p>';
+    }
+    // Cablear "Olvidar" (limpieza local, con confirmación).
+    cont.querySelectorAll("[data-insp-olvidar]").forEach(function (b) {
+      b.addEventListener("click", async function () {
+        var id = b.getAttribute("data-insp-olvidar");
+        var ok = true;
+        try { ok = window.ocConfirm ? await window.ocConfirm(t("inspector.radar.forgetConfirm", "Remove this stray instance from your local radar? Real data is not touched, and it reappears if it comes back online.")) : window.confirm(t("inspector.radar.forgetConfirm", "Remove this stray instance from your local radar?")); } catch (_) {}
+        if (!ok) return;
+        try { window.OCMicelio.olvidar(id); } catch (_) {}
+        pintarRadar(cont);
+      });
+    });
   }
 
   function pintarSello(out, snap) {
