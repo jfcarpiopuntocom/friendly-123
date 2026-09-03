@@ -377,6 +377,22 @@ hasta hashes parciales"
   Solo **hashes parciales** (huellas) para verificar integridad sin guardar el
   contenido.
 
+### REGLA 8b — TODO USO DE LA APP AL RADAR DE INSPECTOR (JFC, 2026-09-03, 1A)
+
+"si alguien usa la app debe estar en nuestro radar de inventarios, PUNTO, aunque
+lo de las licencias siga sin estar totalmente resuelto ... la prioridad 1A es que
+esté en nuestro radar todo uso de la app o nunca vamos a tener control de esto."
+
+- **Cada instancia que usa la app entra al radar de Inspector™** (panel privado
+  del lord). El radar reusa el roster de micelio (zero-knowledge, sobre el relay
+  ya existente): apodo, rol, estado y última señal de cada instancia — **huellas,
+  nunca contenido** (respeta REGLA 8 y el límite sin-nube).
+- Esto es prioridad **1A**; va por delante de resolver licencias y de "peso"
+  (dedup/absorción de instancias extraviadas), que son prioridad 2.
+- LÍMITE HONESTO (no-nube): el radar ve lo que alcanza por el relay (las tiendas/
+  salas donde el aparato del lord está presente). No se agrega un servidor central
+  que guarde estado de todas las tiendas — eso rompería la regla sin-nube.
+
 ---
 
 ## REGLA 6 — DIARIO .md POR VENTANA DE 48h (JFC, 2026-08-27) — REGLA DURA

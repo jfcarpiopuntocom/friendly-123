@@ -36,9 +36,36 @@
       '  <button id="oc-insp-guardar" style="font-size:14px;padding:8px 14px;border:2px solid ' + NARANJA + ';border-radius:6px;background:transparent;color:' + NARANJA + ';cursor:pointer;">' + esc(t("inspector.saveBaseline", "Save as baseline seal")) + '</button>' +
       '  <button id="oc-insp-comparar" style="font-size:14px;padding:8px 14px;border:2px solid var(--ink-soft);border-radius:6px;background:transparent;color:var(--ink-soft);cursor:pointer;">' + esc(t("inspector.compare", "Compare with baseline")) + '</button>' +
       '</div>' +
-      '<div id="oc-insp-out" style="font-size:14px;line-height:1.5;"></div>';
+      '<div id="oc-insp-out" style="font-size:14px;line-height:1.5;"></div>' +
+      // Radar de instancias (JFC 2026-09-03, regla 1A): TODO uso de la app que
+      // podamos ver entra al radar. Reusa el roster de micelio (zero-knowledge,
+      // sin trafico nuevo): apodo, rol, estado y ultima senal de cada instancia.
+      '<div style="margin-top:18px;border-top:1px solid #e5e7e1;padding-top:12px;">' +
+      '  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+      '    <h4 style="margin:0;font-size:14px;color:var(--ink-soft);">' + esc(t("inspector.radar.title", "Instance radar")) + '</h4>' +
+      '    <button id="oc-insp-radar-ref" style="font-size:12px;padding:4px 10px;border:1px solid var(--ink-soft);border-radius:5px;background:transparent;color:var(--ink-soft);cursor:pointer;">' + esc(t("inspector.radar.refresh", "Refresh")) + '</button>' +
+      '  </div>' +
+      '  <div id="oc-insp-radar" style="font-size:13px;margin-top:8px;"></div>' +
+      '</div>';
     vista.appendChild(card);
     return card;
+  }
+
+  function colorEstado(e) { return e === "ciegas" ? ROJO : (e === "rezagado" ? NARANJA : VERDE); }
+
+  function pintarRadar(cont) {
+    if (!cont) return;
+    var lista = [];
+    try { lista = (window.OCMicelio && window.OCMicelio.equipo) ? window.OCMicelio.equipo() : []; } catch (_) { lista = []; }
+    if (!lista.length) { cont.innerHTML = '<span style="color:var(--ink-soft);">' + esc(t("inspector.radar.empty", "No instances seen yet.")) + '</span>'; return; }
+    cont.innerHTML = lista.map(function (x) {
+      var nombre = x.apodo || ("#" + String(x.id).slice(0, 6));
+      return '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #eef0ec;">' +
+        '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + colorEstado(x.estado) + ';margin-right:6px;"></span>' +
+        '<strong>' + esc(nombre) + '</strong>' + (x.soyYo ? ' <span style="color:var(--ink-soft);font-size:11px;">(' + esc(t("inspector.radar.self", "this device")) + ')</span>' : '') +
+        ' <span style="color:var(--ink-soft);font-size:11px;">' + esc(x.rol || "") + '</span></span>' +
+        '<span style="color:var(--ink-soft);font-size:12px;">' + esc(x.cuando || "") + '</span></div>';
+    }).join("");
   }
 
   function pintarSello(out, snap) {
@@ -78,6 +105,12 @@
     if (!card || card._listo) return;
     card._listo = true;
     var out = card.querySelector("#oc-insp-out");
+    var radar = card.querySelector("#oc-insp-radar");
+    pintarRadar(radar);
+    var refBtn = card.querySelector("#oc-insp-radar-ref");
+    if (refBtn) refBtn.addEventListener("click", function () { pintarRadar(radar); });
+    // Refresco suave del radar mientras el panel esté montado.
+    try { setInterval(function () { if (document.getElementById("oc-insp-radar")) pintarRadar(card.querySelector("#oc-insp-radar")); }, 15000); } catch (_) {}
     card.querySelector("#oc-insp-verificar").addEventListener("click", async function () {
       out.textContent = t("inspector.working", "Verifying…");
       try { pintarSello(out, await window.Inspector.snapshot()); } catch (_) { out.textContent = t("inspector.err", "Could not read inventory."); }
