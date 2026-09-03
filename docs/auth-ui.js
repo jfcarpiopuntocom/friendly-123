@@ -554,6 +554,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
   try { window.addEventListener("oc-lang-change", pintarGateIdioma); } catch (_) {}
   pintarGateIdioma();
+  /* BUG FIX (JFC 2026-09-03): el toggle EN/ES del candado se quedó roto. Sus
+     botones se crean dentro del gate (dinámico) DESPUÉS de que corre el IIFE de
+     index.html que ata los clicks, así que nunca recibían listener. Se ata aquí
+     por delegación en el propio gate — funciona sin importar el orden de carga. */
+  try {
+    gate.addEventListener("click", function (e) {
+      var b = e.target && e.target.closest ? e.target.closest(".oc-lang-btn") : null;
+      if (b && b.dataset && b.dataset.lang && window.OCI18n && window.OCI18n.setLang) {
+        window.OCI18n.setLang(b.dataset.lang);
+      }
+    });
+  } catch (_) {}
 
   /* SIN FLASH DEL CANDADO TRAS RELOAD (JFC 2026-08-28). Si hay sesión activa
      guardada (sessionStorage f123_sesion), el gate se oculta YA, en cuanto se
