@@ -393,6 +393,7 @@ esté en nuestro radar todo uso de la app o nunca vamos a tener control de esto.
   salas donde el aparato del lord está presente). No se agrega un servidor central
   que guarde estado de todas las tiendas — eso rompería la regla sin-nube.
 
+<<<<<<< HEAD
 ### REGLA 8c — MERGE PRIMERO, JAMÁS PERDER TRABAJO REAL (JFC, 2026-09-03) — DURA
 
 "prefiero que se mergee todo siempre cuando se encuentran dispositivos entre sí y
@@ -413,6 +414,8 @@ integridad de su trabajo y sus datos."
 - Aplica a **todos**, pagados o no. La integridad del trabajo del usuario está por
   encima de la prolijidad del radar.
 
+=======
+>>>>>>> origin/master
 ---
 
 ## REGLA 6 — DIARIO .md POR VENTANA DE 48h (JFC, 2026-08-27) — REGLA DURA
