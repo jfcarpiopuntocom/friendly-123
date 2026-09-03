@@ -77,6 +77,13 @@
         ' <span style="color:var(--ink-soft);font-size:11px;">' + esc(x.rol || "") + '</span>' + etiqueta + '</span>' +
         '<span style="display:flex;align-items:center;gap:8px;"><span style="color:var(--ink-soft);font-size:12px;">' + esc(x.cuando || "") + '</span>' + btn + '</span></div>';
     }).join("");
+    // Sesgo merge-primero (REGLA 8c): si hay duplicados, guiar a fusionar (que
+    // conserva sus datos), no a borrar. Olvidar solo limpia el radar local.
+    var hayDup = Object.keys(cuenta).some(function (a) { return cuenta[a] > 1; });
+    if (hayDup) {
+      cont.innerHTML += '<p style="margin:10px 0 0;font-size:12px;color:var(--ink-soft);line-height:1.5;">' +
+        esc(t("inspector.radar.mergeFirst", "Duplicates: prefer Claim & merge (it keeps their data). Forget only clears a ghost from your local radar — it never deletes real work.")) + '</p>';
+    }
     // Cablear "Olvidar" (limpieza local, con confirmación).
     cont.querySelectorAll("[data-insp-olvidar]").forEach(function (b) {
       b.addEventListener("click", async function () {
