@@ -1,9 +1,9 @@
 {
-  "version": "1.7.87",
+  "version": "1.7.88",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.87 — Renombrar categoria ahora REEMPLAZA en vez de sumar: OCCategorias.renombrar usaba PUT y no existe PUT /api/productos/:id, asi que los productos no se movian y la categoria vieja seguia viva junto a la nueva. Ahora usa PATCH (que si acepta categoria) y los productos se mueven de verdad.",
+  "changelog": "v1.7.88 — Eventos archivados: las ferias cerradas ya conservaban historial y liquidacion, pero no habia forma clara de encontrarlas. Aditivo: lista de eventos archivados dentro de la tarjeta Feria, con boton que salta a la liquidacion existente.",
   "requerida": false,
-  "shell": "f123-shell-v200",
+  "shell": "f123-shell-v201",
   "apagar": [],
-  "releaseName": "v1.7.87"
+  "releaseName": "v1.7.88"
 }
