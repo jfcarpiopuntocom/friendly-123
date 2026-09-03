@@ -1,9 +1,9 @@
 {
-  "version": "1.7.84",
+  "version": "1.7.85",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.84 — Fix de textos (dejaban de traducirse y mostraban la clave cruda): 'exp.record' (encabezado 'Record an expense' de Expenses, que se veia como 'exp.record') y 'newcust.emailPlaceholder' (placeholder de email en Nuevo cliente). Auditado: 0 claves i18n faltantes en toda la app.",
+  "changelog": "v1.7.85 — Boton Pruebas/Testing al final del index que abre el workshop (UI paralela de pruebas, mismo relay) para ver mejoras sin arriesgar la UX principal.",
   "requerida": false,
-  "shell": "f123-shell-v197",
+  "shell": "f123-shell-v198",
   "apagar": [],
-  "releaseName": "v1.7.84"
+  "releaseName": "v1.7.85"
 }
