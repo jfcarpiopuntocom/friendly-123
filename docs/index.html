@@ -4725,6 +4725,10 @@ async function cargarPerchas(){
     const cajaArch = document.getElementById('feriasArchivadas');
     if (cajaArch) {
       const cerradas = perchas.filter(u => u.esFeria && u.activa === false);
+      // Fix (2026-09-03): el botón "Ver liquidación" solo tiene sentido si este
+      // rol tiene acceso a la vista Comisiones; si no existe el nav, no se pinta
+      // el botón (antes quedaba muerto sin aviso).
+      const navComis = document.querySelector('nav button[data-vista="comisiones"]');
       if (!cerradas.length) {
         cajaArch.innerHTML = '';
       } else {
@@ -4732,11 +4736,10 @@ async function cargarPerchas(){
           `<h4 style="font-size:14px;margin:0 0 8px;color:var(--ink-soft);">${window.t("fair.archived")}</h4>` +
           cerradas.map(u => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid #9DA29B;border-radius:5px;background:#E7E9E5;margin-bottom:6px;">
             <span style="font-size:14px;color:var(--ink);">${escHtml(u.nombre)}</span>
-            <button data-feria-liq="1" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust,#E86040);border-radius:5px;background:transparent;color:var(--rust,#E86040);cursor:pointer;">${window.t("fair.viewSettlement")}</button>
+            ${navComis ? `<button data-feria-liq="1" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust,#E86040);border-radius:5px;background:transparent;color:var(--rust,#E86040);cursor:pointer;">${window.t("fair.viewSettlement")}</button>` : ''}
           </div>`).join('');
         cajaArch.querySelectorAll('[data-feria-liq]').forEach(b => b.addEventListener('click', () => {
-          const nav = document.querySelector('nav button[data-vista="comisiones"]');
-          if (nav) nav.click();
+          if (navComis) navComis.click();
         }));
       }
     }

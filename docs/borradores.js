@@ -260,6 +260,14 @@
   var CUSTOM_KEY = "f123_categorias_custom";
   function _leerCustom() { try { var a = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
   function _guardarCustom(a) { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(a)); } catch (_) {} }
+  /* Tombstones de categorías ocultas (JFC/Belén 2026-09-03): al renombrar una
+     categoría SEMILLA los productos se mueven bien, pero la semilla seguía en la
+     lista (vacía) → "se aumenta en vez de reemplazar" para las default. Se marca
+     oculta; listar() la esconde SOLO si ya no tiene productos (nunca oculta
+     inventario real). */
+  var OCULTAS_KEY = "f123_categorias_ocultas";
+  function _leerOcultas() { try { var a = JSON.parse(localStorage.getItem(OCULTAS_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+  function _guardarOcultas(a) { try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(a)); } catch (_) {} }
 
   var SEMILLA = [
     "Bar", "Kitchen", "Soft drinks", "Snacks",
@@ -333,7 +341,17 @@
   /* Lista unificada: derivadas de productos + semilla + propias, sin duplicar. */
   function listar(productos) {
     var set = Object.create(null), out = [];
-    function add(c) { var cc = normalizar(c); if (!cc) return; var k = cc.toLowerCase(); if (set[k]) return; set[k] = 1; out.push(cc); }
+    // Categorías que SÍ tienen productos: esas nunca se ocultan (es inventario real).
+    var conProd = Object.create(null);
+    (productos || []).forEach(function (p) { var c = normalizar(p && p.categoria); if (c) conProd[c.toLowerCase()] = 1; });
+    var ocultas = Object.create(null);
+    _leerOcultas().forEach(function (c) { var k = normalizar(c).toLowerCase(); if (k) ocultas[k] = 1; });
+    function add(c) {
+      var cc = normalizar(c); if (!cc) return; var k = cc.toLowerCase();
+      if (set[k]) return;
+      if (ocultas[k] && !conProd[k]) return; // oculta y sin productos → no se lista
+      set[k] = 1; out.push(cc);
+    }
     (productos || []).forEach(function (p) { add(p && p.categoria); });
     SEMILLA.forEach(add);
     _leerCustom().forEach(add);
@@ -344,6 +362,9 @@
     var c = normalizar(nombre); if (!c) return false;
     var cur = _leerCustom();
     if (cur.some(function (x) { return normalizar(x).toLowerCase() === c.toLowerCase(); })) return false;
+    // Si estaba oculta (renombrada antes), reaparece al agregarla de nuevo.
+    var oc = _leerOcultas().filter(function (x) { return normalizar(x).toLowerCase() !== c.toLowerCase(); });
+    _guardarOcultas(oc);
     if (SEMILLA.some(function (x) { return x.toLowerCase() === c.toLowerCase(); })) return true; // ya sugerida
     cur.push(c); _guardarCustom(cur);
     try { if (window.OCLastProductos) refrescar(window.OCLastProductos); } catch (_) {}
@@ -370,6 +391,11 @@
     if (!cur.some(function (x) { return normalizar(x).toLowerCase() === nu.toLowerCase(); }) &&
         !SEMILLA.some(function (x) { return x.toLowerCase() === nu.toLowerCase(); })) cur.push(nu);
     _guardarCustom(cur);
+    // Ocultar la vieja (cubre las SEMILLA, que no viven en custom). listar() la
+    // esconde solo si ya no tiene productos; el nuevo nombre nunca se oculta.
+    var oc = _leerOcultas().filter(function (x) { return normalizar(x).toLowerCase() !== nu.toLowerCase(); });
+    if (!oc.some(function (x) { return normalizar(x).toLowerCase() === vo.toLowerCase(); })) oc.push(vo);
+    _guardarOcultas(oc);
     return afectados.length;
   }
 
