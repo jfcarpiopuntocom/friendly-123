@@ -2740,6 +2740,22 @@
             }
           }
         }
+        // Precio unitario: corregir un monto mal tecleado (JFC/Belén 2026-09-02:
+        // "puse $150 y no 115"). Recalcula el split de comisión con el precio nuevo.
+        if (body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "") {
+          const nuevoPrecio = Number(body.precioUnit);
+          if (!Number.isFinite(nuevoPrecio) || nuevoPrecio < 0) return J({ error: "Enter a valid unit price." }, 400);
+          const precioRedondo = +nuevoPrecio.toFixed(2);
+          if (precioRedondo !== venta.precioUnit) {
+            cambios.precioUnit = { antes: venta.precioUnit, ahora: precioRedondo };
+            venta.precioUnit = precioRedondo;
+            const ubicP2 = ubicaciones.find((x) => x.id === venta.ubicacionId);
+            if (ubicP2 && venta.split) {
+              const montoBruto2 = precioRedondo * (venta.cantidad || 1);
+              venta.split = calcularSplitVenta(ubicP2, montoBruto2, ventasMesAcumuladas(ubicP2.id));
+            }
+          }
+        }
         if (body.clienteId !== undefined) {
           if (body.clienteId) { const c = clientes.find((x) => x.id === body.clienteId); if (!c) return J({ error: "Customer not found." }, 404); venta.clienteId = c.id; }
           else venta.clienteId = null;

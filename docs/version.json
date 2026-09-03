@@ -1,9 +1,9 @@
 {
-  "version": "1.7.82",
+  "version": "1.7.83",
   "fecha": "2026-09-02",
-  "changelog": "v1.7.82 — El boton 'Record credit (abono)' ahora SI abre el modal de credito a favor con selector de item y fecha de expiracion (antes plan-pagos-ui.js lo tapaba con su modal de 'Record a payment'). Cuando el cliente DEBE, aparece un boton 'Record a payment' que abre el modal de pago de deuda (ese flujo sigue vivo). Asi el credito a favor queda atado a un item y con expiracion, como se diseño.",
+  "changelog": "v1.7.83 — En el Sales log ahora se puede corregir el PRECIO/monto de una venta con lapicito (antes solo cantidad/pago/factura/notas). Belen (idiomARTE) pidio corregir 'puse $150 y no 115': ahora dueno/admin edita 'Unit price' y se recalcula la comision. La cantidad ('20 en vez de 10') ya era editable; reasignar parte a otra persona se hace en Commissions (Apply fix). Ademas: el boton Record credit abre el modal de credito a favor con item+expiracion (v1.7.82).",
   "requerida": false,
-  "shell": "f123-shell-v195",
+  "shell": "f123-shell-v196",
   "apagar": [],
-  "releaseName": "v1.7.82"
+  "releaseName": "v1.7.83"
 }
