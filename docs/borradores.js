@@ -191,6 +191,14 @@
     if (opciones.restaurar === false) return;
     var previo = leer(nombre);
     if (!previo) return;
+    /* JFC 2026-09-03: el cartel visible "You had unsaved data a las 3:12pm" con
+       botones NUNCA fue aprobado y es intimidante para el cliente en vivo (le
+       salió a idiomARTE en producción). Se APAGA el prompt visual — aviso solo a
+       consola. El auto-guardado del borrador sigue igual; simplemente ya no se
+       interrumpe al usuario con un cartel. */
+    try { console.info("[borradores] hay un borrador previo (prompt visual desactivado por diseño)"); } catch (_) {}
+    return;
+    // eslint-disable-next-line no-unreachable
     var msg = opciones.msgId ? cont.querySelector("#" + opciones.msgId) : null;
     if (!msg) {
       msg = document.createElement("div");
