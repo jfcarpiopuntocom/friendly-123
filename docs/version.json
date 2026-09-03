@@ -1,9 +1,9 @@
 {
-  "version": "1.7.86",
+  "version": "1.7.87",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.86 — El encargado tambien puede corregir errores en ventas (editar/cancelar); la defensa es el log con usuario+rol+dispositivo (tracking de tampering), no capar al encargado. Y el toggle EN/ES del candado vuelve a funcionar (sus botones se atan por delegacion en el gate; se habian quedado sin listener).",
+  "changelog": "v1.7.87 — Renombrar categoria ahora REEMPLAZA en vez de sumar: OCCategorias.renombrar usaba PUT y no existe PUT /api/productos/:id, asi que los productos no se movian y la categoria vieja seguia viva junto a la nueva. Ahora usa PATCH (que si acepta categoria) y los productos se mueven de verdad.",
   "requerida": false,
-  "shell": "f123-shell-v199",
+  "shell": "f123-shell-v200",
   "apagar": [],
-  "releaseName": "v1.7.86"
+  "releaseName": "v1.7.87"
 }

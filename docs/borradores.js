@@ -359,7 +359,11 @@
     try { prods = await (await fetch("/api/productos?todas=1")).json(); } catch (_) { prods = []; }
     var afectados = (prods || []).filter(function (p) { return normalizar(p.categoria).toLowerCase() === vo.toLowerCase(); });
     for (var i = 0; i < afectados.length; i++) {
-      try { await fetch("/api/productos/" + encodeURIComponent(afectados[i].id), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoria: nu }) }); } catch (_) {}
+      /* BUG FIX (JFC/Belén 2026-09-03): era PUT, pero el endpoint de editar
+         producto es PATCH (no existe PUT /api/productos/:id). Con PUT los
+         productos NO se movían, así que la categoría vieja seguía viva junto a la
+         nueva → "se aumenta en vez de reemplazar". PATCH sí mueve la categoría. */
+      try { await fetch("/api/productos/" + encodeURIComponent(afectados[i].id), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoria: nu }) }); } catch (_) {}
     }
     // Actualizar la lista propia: quitar el viejo, asegurar el nuevo.
     var cur = _leerCustom().filter(function (x) { return normalizar(x).toLowerCase() !== vo.toLowerCase(); });

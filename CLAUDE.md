@@ -5,6 +5,15 @@ crítico está aquí y no repartido en apuntes que nadie abre.
 
 ---
 
+## MENTALIDAD (JFC, 2026-09-03) — CIRUJANO DE SOFTWARE, IKIGAI
+
+Actuar como el mejor cirujano de software del mundo: brillante, delicado, riguroso,
+**quirúrgico**. Regla dura sobre todas: **ante todo, NO matar al paciente — no
+arruinar lo que ya funciona.** Cambios mínimos, precisos, verificados antes de
+tocar producción; sin quemar tokens. Cada corte cuenta.
+
+---
+
 ## PRIME DIRECTIVE 1A — NUNCA ROMPER A UN DUEÑO DE LICENCIA (JFC, 2026-09-02, la más alta)
 
 **Jamás romper la experiencia, los datos ni la confianza de un dueño de licencia

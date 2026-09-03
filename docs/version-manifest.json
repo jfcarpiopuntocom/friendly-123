@@ -1,6 +1,6 @@
 {
-  "version": "1.7.86",
-  "shell": "f123-shell-v199",
+  "version": "1.7.87",
+  "shell": "f123-shell-v200",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-ced2289b928282a7b693b4405c20a80bfea6e95ec8fcb6f02953e23ee7196ced",
@@ -40,7 +40,7 @@
     "./micelio-ui.js": "sha256-85f2e15243f9961047efdec851bd84634839c6f733317f0197f1d6632a82e306",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
     "./tablero-avanzado.js": "sha256-e6c3fbbd407bca323be96e97f8b91b9164a8321128f80dd088c4640c6c2a8957",
-    "./borradores.js": "sha256-be39aceeb167587ec121252525e9c560dccf050bd0cdd53abf870f9d89b5b6f8",
+    "./borradores.js": "sha256-102fe26852fc960604caefb280652f4c48ed8ab261ce006d7f75adb6ba9a8c83",
     "./vista-perchas.js": "sha256-d42a6e79c11f150175a8ac5e6c66c695f2c5e3c6bdc0ba943a178d65e1a85cb3",
     "./welcome-ui.js": "sha256-41c9e8912a43b35bc7be73abace4882f208c741927f74c68b13cb835e7099dc0",
     "./tutorial-ui.js": "sha256-356f6732038ab6cd6f109ac7c749efb4c40dc59650a793fc4e6c6061b7497756",
