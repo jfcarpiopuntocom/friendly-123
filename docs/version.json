@@ -1,9 +1,9 @@
 {
-  "version": "1.7.92",
+  "version": "1.7.93",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.92 — Inspector(TM) en el panel privado del lord (JFC): card lord-gated al fondo de Advanced (solo con f123_lord=1). Verifica integridad del inventario (sello SHA-256), guarda un sello base y compara para detectar faltantes/cambios/nuevos. Inventario SOLO, jamas cifras; todo local. Motor inspector.js cableado a inspector-ui.js. Aditivo, no-op para cualquiera que no sea el lord.",
+  "changelog": "v1.7.93 — El dashboard de duenos de licencia (dashboard.html, NO el panel privado de JFC) tenia embebido el logo de la app hermana en el header. Reemplazado por el logo real de friendly (logo.png) manteniendolo embebido en base64 (el dashboard se manda por WhatsApp y debe abrir sin servidor).",
   "requerida": false,
-  "shell": "f123-shell-v205",
+  "shell": "f123-shell-v206",
   "apagar": [],
-  "releaseName": "v1.7.92"
+  "releaseName": "v1.7.93"
 }
