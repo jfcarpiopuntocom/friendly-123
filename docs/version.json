@@ -1,9 +1,9 @@
 {
-  "version": "1.7.88",
+  "version": "1.7.89",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.88 — Eventos archivados: las ferias cerradas ya conservaban historial y liquidacion, pero no habia forma clara de encontrarlas. Aditivo: lista de eventos archivados dentro de la tarjeta Feria, con boton que salta a la liquidacion existente.",
+  "changelog": "v1.7.89 — Fix mojibake: el <meta charset=UTF-8> estaba pasado el limite de 1024 bytes del spec HTML (byte ~4041), un comentario largo lo empujaba. En dispositivos que caian a otra codificacion, el español acentuado salia como mojibake (peor en el menu de Advanced). Charset movido a primer hijo de <head> (byte 44). Aditivo, sin tocar datos ni flujos.",
   "requerida": false,
-  "shell": "f123-shell-v201",
+  "shell": "f123-shell-v202",
   "apagar": [],
-  "releaseName": "v1.7.88"
+  "releaseName": "v1.7.89"
 }

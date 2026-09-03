@@ -1,9 +1,9 @@
 {
-  "version": "1.7.88",
-  "shell": "f123-shell-v201",
+  "version": "1.7.89",
+  "shell": "f123-shell-v202",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-08fe720cd3beac13dce5c32e9cd7343e69d4de9779cb493f2b4b10e236f1c620",
+    "./index.html": "sha256-d890c569b547207b280fb20eedca2ce11f9bea882e68408b7a2413714f451075",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-70633c7a2fb8630ecd5678d180edb818aeec807c6ed79b93727f1e7636abee2f",
     "./404.html": "sha256-ca1c148400c0daf46db5c8217191e350b978638029cbec562f4d2abef8350554",
