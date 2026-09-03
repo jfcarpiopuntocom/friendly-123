@@ -1,9 +1,9 @@
 {
-  "version": "1.7.94",
+  "version": "1.7.95",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.94 — Radar de instancias en Inspector(TM) (regla 1A): todo uso de la app que se pueda ver entra al radar del panel privado del lord. Reusa el roster de micelio (zero-knowledge, sin trafico nuevo): apodo, rol, estado y ultima senal de cada instancia — huellas, nunca contenido. Limite honesto sin-nube: ve lo que alcanza por el relay. Prioridad 1A por delante de licencias y dedup (prioridad 2).",
+  "changelog": "v1.7.95 — Peso/dedup (prioridad 2): el radar de Inspector marca posibles duplicados (mismo apodo) e instancias extraviadas (a ciegas), y ofrece Olvidar para limpiar fantasmas del roster LOCAL (nunca toca datos ni identidad reales; reaparecen si vuelven a latir). Nuevo OCMicelio.olvidar(id). La absorcion real de datos sigue por el Claim & merge existente (requiere el codigo de licencia del propio aparato, por seguridad).",
   "requerida": false,
-  "shell": "f123-shell-v207",
+  "shell": "f123-shell-v208",
   "apagar": [],
-  "releaseName": "v1.7.94"
+  "releaseName": "v1.7.95"
 }

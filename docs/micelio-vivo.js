@@ -196,6 +196,20 @@
       if (cambio) escribir(K_EQUIPO, m);
     } catch (_) {}
   }
+  /* Olvidar UNA instancia del roster local (dedup/peso, JFC 2026-09-03, prio 2).
+     Limpieza SOLO del registro local de "vistos" (fantasmas/extraviadas). NUNCA
+     toca datos reales ni identidad de nadie, NUNCA se olvida a uno mismo. Si esa
+     instancia vuelve a latir, reaparece sola. */
+  function olvidar(id) {
+    try {
+      if (!id || id === yo().id) return false;
+      var m = leer(K_EQUIPO, {});
+      if (!(id in m)) return false;
+      delete m[id];
+      escribir(K_EQUIPO, m);
+      return true;
+    } catch (_) { return false; }
+  }
   function equipo() {
     podarEquipo();
     var m = leer(K_EQUIPO, {});
@@ -392,7 +406,7 @@
   window.OCMicelio = {
     yo: yo, miApodo: miApodo, ponerApodo: ponerApodo,
     apodoVisible: apodoVisible, numeroEstable: numeroEstable,
-    equipo: equipo, recibir: recibir, latir: latir,
+    equipo: equipo, olvidar: olvidar, recibir: recibir, latir: latir,
     umbrales: umbrales, ponerUmbrales: ponerUmbrales,
     estadoPorSilencio: estadoPorSilencio, haceCuanto: haceCuanto,
     etiquetas: ETIQUETAS, miEstado: miEstado, marcarConectado: marcarConectado,
