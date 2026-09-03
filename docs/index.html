@@ -5738,7 +5738,7 @@ async function cargarVentasSold(){
   // #8 (JFC 2026-09-02): editar/cancelar una venta asentada es solo dueño/admin
   // (el backend también lo exige). El encargado ve el registro, no lo altera.
   const _rolVS = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
-  const _puedeGestionarVenta = _rolVS === "dueno" || _rolVS === "admin";
+  const _puedeGestionarVenta = _rolVS === "dueno" || _rolVS === "admin" || _rolVS === "empleado";
   const money = (v) => { try { return new Intl.NumberFormat((window.OCI18n && window.OCI18n.locale()) || "en-US", { style: "currency", currency: "USD" }).format(v || 0); } catch (_) { return "$" + Number(v || 0).toFixed(2); } };
   const fmtFecha = (iso) => { try { return new Date(iso).toLocaleString((window.OCI18n && window.OCI18n.locale()) || "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return iso; } };
   cont.innerHTML = rows.map((v) => {

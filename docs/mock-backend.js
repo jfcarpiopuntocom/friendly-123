@@ -2690,10 +2690,12 @@
          venta ya se pagó a la casa/artista, NO se puede cancelar aquí (habría que
          corregir la liquidación). Todo queda en el log con usuario + dispositivo. */
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/cancelar$/)) && opts && opts.method === "POST") {
-        // #8 (JFC 2026-09-02): cancelar una venta asentada es sensible → solo
-        // dueño/admin. Un encargado no revierte ventas en silencio.
+        // JFC 2026-09-03: el encargado TAMBIÉN puede corregir errores (cancelar).
+        // La defensa contra abusos es el log (cada acción queda con usuario+rol+
+        // dispositivo, tracking de tampering), no capar al encargado. Se exige
+        // sesión (rol) y sigue bloqueado si la venta ya fue liquidada.
         const _rC = _rolLocal();
-        if (_rC !== "dueno" && _rC !== "admin") return J({ error: "Only the owner or an admin can cancel a recorded sale." }, 403);
+        if (_rC !== "dueno" && _rC !== "admin" && _rC !== "empleado") return J({ error: "Sign in to cancel a recorded sale." }, 403);
         const idx = ventas.findIndex((v) => v.id === m[1]);
         if (idx === -1) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
         const venta = ventas[idx];
@@ -2713,9 +2715,10 @@
          ajusta stock y se recalcula el split de comisión. Bloqueado si la venta
          ya fue liquidada (la plata ya se repartió). Todo va al log. */
       if ((m = path.match(/^\/api\/ventas\/([^/]+)$/)) && opts && opts.method === "PATCH") {
-        // #8: editar una venta asentada = solo dueño/admin.
+        // JFC 2026-09-03: el encargado también puede corregir errores (editar
+        // cantidad/precio/pago/notas). El log registra quién+dispositivo (tampering).
         const _rE = _rolLocal();
-        if (_rE !== "dueno" && _rE !== "admin") return J({ error: "Only the owner or an admin can edit a recorded sale." }, 403);
+        if (_rE !== "dueno" && _rE !== "admin" && _rE !== "empleado") return J({ error: "Sign in to edit a recorded sale." }, 403);
         const venta = ventas.find((v) => v.id === m[1]);
         if (!venta) return J({ error: "Sale not found." }, 404);
         if (venta.liquidada) return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
