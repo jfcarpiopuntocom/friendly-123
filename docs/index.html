@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="en"><head><meta charset="UTF-8">
+<!-- CHARSET ARRIBA DEL TODO (JFC/Belén 2026-09-03): el <meta charset> estaba en
+     el byte ~4041, pasado el limite de 1024 del spec HTML. El navegador de Belén
+     caia a otra codificacion y TODO el español acentuado (í é ñ) salia como
+     mojibake — peor en el menu de Advanced, que es el mas cargado de texto. Con
+     el charset como PRIMER hijo de <head> se decodifica UTF-8 en todo aparato.
+     El <meta charset> de mas abajo queda como redundancia inofensiva (gana el
+     primero). Cambio aditivo: no toca ningun dato ni flujo. -->
 <!-- BUG FIJADO (JFC 2026-08-19, caza produccion): lang="es" era herencia del
      fork de amigable; el default aqui es ingles. i18n.js reasigna
      document.documentElement.lang al cambiar de idioma, pero el primer paint
