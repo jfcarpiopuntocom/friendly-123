@@ -1,9 +1,9 @@
 {
-  "version": "1.7.81",
+  "version": "1.7.83",
   "fecha": "2026-09-02",
-  "changelog": "v1.7.81 — Tweaks de UI (marginales, sin tocar flujos vivos): boton de impresora ahora dice 'Print' (Show customers y etiqueta de Inventory); 'Type to filter' -> 'Type to search...'; 'People in the reservation' es un pulldown de numeros; 'Group / +1' -> 'Group / Reservation name (optional)'; en Show customers, SELECT ahora LLEVA a la tarjeta del cliente en My customers y la resalta con un flash verde (Emil: feedback + continuidad).",
+  "changelog": "v1.7.83 — En el Sales log ahora se puede corregir el PRECIO/monto de una venta con lapicito (antes solo cantidad/pago/factura/notas). Belen (idiomARTE) pidio corregir 'puse $150 y no 115': ahora dueno/admin edita 'Unit price' y se recalcula la comision. La cantidad ('20 en vez de 10') ya era editable; reasignar parte a otra persona se hace en Commissions (Apply fix). Ademas: el boton Record credit abre el modal de credito a favor con item+expiracion (v1.7.82).",
   "requerida": false,
-  "shell": "f123-shell-v194",
+  "shell": "f123-shell-v196",
   "apagar": [],
-  "releaseName": "v1.7.81"
+  "releaseName": "v1.7.83"
 }

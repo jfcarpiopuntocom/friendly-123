@@ -1,9 +1,9 @@
 {
-  "version": "1.7.81",
-  "shell": "f123-shell-v194",
+  "version": "1.7.83",
+  "shell": "f123-shell-v196",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-3fb9f19540810176c8afd3d7bf96335d2a3a0c2499880af464672dc6911d2f52",
+    "./index.html": "sha256-171053c1b4eb520bdd97c83ae3c4ad43acfad937c6bb3dd262fbc24090f615dd",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-70633c7a2fb8630ecd5678d180edb818aeec807c6ed79b93727f1e7636abee2f",
     "./404.html": "sha256-ca1c148400c0daf46db5c8217191e350b978638029cbec562f4d2abef8350554",
@@ -13,7 +13,7 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-36fd0a437feeefe02873bd8acf685ef67d522f9bb21cfe83c090b30d8bc6f763",
     "./estado-idb.js": "sha256-dcd965158d1322a80550c73737aefd7480a11ced8f2348453f04e756dd94764d",
-    "./mock-backend.js": "sha256-ba5fb6d3a1c41b90d11e366546719a5c08cb4756dbe84e0f55b5df9411cf46ed",
+    "./mock-backend.js": "sha256-473f3dcc44406578eb8d9659fd7812984ffc867176f0a147f92b05c95d734109",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
