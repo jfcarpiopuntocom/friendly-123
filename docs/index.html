@@ -1590,6 +1590,11 @@
           <button id="feriaAbrir" class="ir" style="padding:10px 16px;background:var(--rust,#E86040);color:#fff;border-color:var(--rust-deep,#C05000);" data-i18n="fair.open">Open pop-up</button>
         </div>
         <p id="feriaMsg" style="font-size:14px;margin-top:8px;"></p>
+        <!-- Eventos archivados (JFC/Belén 2026-09-03): las ferias cerradas ya
+             conservan su historial y liquidación; faltaba una forma clara de
+             encontrarlas. Aditivo: lista los eventos cerrados con acceso a su
+             liquidación. Se llena desde cargarPerchas(). -->
+        <div id="feriasArchivadas" style="margin-top:12px;"></div>
       </div>
     </div>
   
@@ -4706,6 +4711,29 @@ async function cargarPerchas(){
   }
   if (!perchas.length) html = '<p style="font-size:14px;color:var(--ink-soft);">No shelves registered.</p>';
   grid.innerHTML = html;
+
+  // Eventos archivados: ferias cerradas (esFeria && activa===false). Aditivo,
+  // solo lectura; el botón salta a la liquidación que ya existe en Comisiones.
+  try {
+    const cajaArch = document.getElementById('feriasArchivadas');
+    if (cajaArch) {
+      const cerradas = perchas.filter(u => u.esFeria && u.activa === false);
+      if (!cerradas.length) {
+        cajaArch.innerHTML = '';
+      } else {
+        cajaArch.innerHTML =
+          `<h4 style="font-size:14px;margin:0 0 8px;color:var(--ink-soft);">${window.t("fair.archived")}</h4>` +
+          cerradas.map(u => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid #9DA29B;border-radius:5px;background:#E7E9E5;margin-bottom:6px;">
+            <span style="font-size:14px;color:var(--ink);">${escHtml(u.nombre)}</span>
+            <button data-feria-liq="1" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust,#E86040);border-radius:5px;background:transparent;color:var(--rust,#E86040);cursor:pointer;">${window.t("fair.viewSettlement")}</button>
+          </div>`).join('');
+        cajaArch.querySelectorAll('[data-feria-liq]').forEach(b => b.addEventListener('click', () => {
+          const nav = document.querySelector('nav button[data-vista="comisiones"]');
+          if (nav) nav.click();
+        }));
+      }
+    }
+  } catch (_) {}
 
   // ---- Eventos sucursales ----
   grid.querySelectorAll('[data-suc-renombrar]').forEach(btn => btn.addEventListener('click', async () => {
