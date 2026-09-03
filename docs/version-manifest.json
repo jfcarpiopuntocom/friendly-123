@@ -1,9 +1,9 @@
 {
-  "version": "1.7.91",
-  "shell": "f123-shell-v204",
+  "version": "1.7.92",
+  "shell": "f123-shell-v205",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-1a58f86559b85028397b7ad10e7ba5452181c5a076808e224ced79f3e47fdbef",
+    "./index.html": "sha256-bbd003ca4bf1134299670b8ed644497bf91d1cdae2733b5c3d693b1e762c9fb3",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-70633c7a2fb8630ecd5678d180edb818aeec807c6ed79b93727f1e7636abee2f",
     "./404.html": "sha256-ca1c148400c0daf46db5c8217191e350b978638029cbec562f4d2abef8350554",
@@ -22,7 +22,7 @@
     "./lista-dinamica.js": "sha256-c3760de6d4b4c935243a4da1da9a95d88e6a32e572158ae5cb7a4d53e6e452af",
     "./vendor/ufuzzy.min.js": "sha256-3eef8ba0ad55444c31f0e86f8375f25916515402cf2d4d7b5a2c01b4b67f2e19",
     "./vendor/minisearch.min.js": "sha256-8a05b42785db448f2c19e24a6a2107204c825565fe4f95aa69b79652baf26e82",
-    "./i18n.js": "sha256-727fe7db81c35c4001e8561fbedba8b56956ec447464dc47d29b0798374bc32b",
+    "./i18n.js": "sha256-68f15482d40a9f8c6290b75a37be6bc3f47651edaa948036799b3379ccfa6af9",
     "./crypto-store.js": "sha256-6b3561d5fd2a7a56f22971d724783444409dabd426b746d39204b0927be703da",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
     "./auth-ui.js": "sha256-6a0deb33b44ae24fa0c3f9ae1628f3902bcec54969183e65fa7315c10811c015",
@@ -63,6 +63,8 @@
     "./respaldo-empleado.js": "sha256-52620b8851003f435300e64d8649812bcd69f9efd3c082b2970d36f0675f4ac7",
     "./edutips.js": "sha256-e0fdc3a0d30d4e763656046a8edc0eb425b7a727a2c83d446b142b9c7134f718",
     "./workshop-brand.js": "sha256-c94848891eb4a20d821393946777ab352e99bf4a9a40301d50bbb1d40e166b1b",
+    "./inspector.js": "sha256-2f5c01bf853b766344ab4c432ba51c842b5d34f852beb207dc159c5a0b7598f5",
+    "./inspector-ui.js": "sha256-35fc4f527c3e5519eab8ebbb75f10c2275a5a4f28ba91bb341d46d65547af504",
     "./manifest.json": "sha256-a1a75d88ea0ac9bae676106d49ffa4fc45433a0d5a760cc7855b276484ea8bcd"
   }
 }
