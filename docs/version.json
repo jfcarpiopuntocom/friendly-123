@@ -1,9 +1,9 @@
 {
-  "version": "1.7.90",
+  "version": "1.7.91",
   "fecha": "2026-09-03",
-  "changelog": "v1.7.90 — 3 microbugs de las ultimas 48h: (1) al editar una venta el split de comision se recalculaba con un acumulado que se incluia a si mismo -> comision errada; ahora excluye la venta en curso. (2) renombrar una categoria SEMILLA la dejaba vacia en la lista; ahora se oculta via tombstone (solo si no tiene productos, nunca oculta inventario real). (3) el boton Ver liquidacion de eventos archivados quedaba muerto si el rol no tiene la vista Comisiones; ahora no se pinta.",
+  "changelog": "v1.7.91 — Acceso al campo de pruebas: quitado el boton feo de dentro de la UI logueada; ahora vive discreto al pie del candado (para beta helpers, origin-gated: no aparece dentro del propio workshop). Y marca del workshop: en su origen el nombre de tienda queda fijo en VERSION DE PRUEBAS en naranja intocable, y se desactiva unirse a un cuaderno (limite racional anti-desastre por el relay compartido). Todo origin-gated, aditivo, no-op fuera del workshop.",
   "requerida": false,
-  "shell": "f123-shell-v203",
+  "shell": "f123-shell-v204",
   "apagar": [],
-  "releaseName": "v1.7.90"
+  "releaseName": "v1.7.91"
 }

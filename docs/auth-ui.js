@@ -534,8 +534,14 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       <p id="oc-gate-landing" style="margin:12px 0 0;font-size:13px;line-height:1.5;text-align:center;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">Not sure what this is? <a href="./save.html" style="color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;font-weight:700;">See what it does in 10 seconds</a>.</p>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
       <p id="oc-gate-build" style="margin:8px 0 0;font-size:11px;letter-spacing:.06em;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;opacity:.75;">&nbsp;</p>
+      <!-- Acceso discreto al campo de pruebas (JFC 2026-09-03): para beta helpers,
+           al PIE del candado y poco perceptible. Se oculta si YA estamos en el
+           workshop (no tiene sentido enlazar a uno mismo). -->
+      <p id="oc-gate-lab" style="margin:14px 0 0;text-align:center;"><a href="https://jfcarpiopuntocom.github.io/friendly123workshop/" style="font-size:10px;letter-spacing:.08em;text-transform:lowercase;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;opacity:.45;text-decoration:none;">campo de pruebas</a></p>
     </div>`;
   document.body.appendChild(gate);
+  // El acceso al workshop no se muestra dentro del propio workshop.
+  try { if (/friendly123workshop/i.test(location.href)) { var _lab = document.getElementById("oc-gate-lab"); if (_lab) _lab.style.display = "none"; } } catch (_) {}
 
   function pintarGateIdioma() {
     const tt = function (k, fb) { try { return window.t ? window.t(k, fb) : (fb || k); } catch (_) { return fb || k; } };
