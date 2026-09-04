@@ -5695,12 +5695,18 @@ async function abrirPanelVentaInfo(id, esTicket){
         <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
       </div>
       <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#008a54;margin:4px 0 0;"></p>
-      ${_esComisionPercha ? `<label style="display:block;margin-top:10px;font-size:14px;">Commissionist / associate<br>
-        <select id="vi-comisionista" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
-          <option value="">— None —</option>
-          ${(_promsVenta || []).map(pr => `<option value="${escHtml(pr.id)}"${_perchaVenta && _perchaVenta.promotoraId === pr.id ? " selected" : ""}>${escHtml(pr.nombre)}</option>`).join("")}
-        </select>
-        <span style="font-size:12px;color:var(--ink-soft);">Assigning here sets the associate for this shelf, so the commission shows up in Commissions.</span></label>` : ""}
+      ${(function(){
+        var actualNom = (_perchaVenta && _perchaVenta.promotoraId && (_promsVenta||[]).find(function(x){return x.id===_perchaVenta.promotoraId;})||{}).nombre || "";
+        // Compacto (JFC 2026-09-04): un ✎ que expande el selector inline, sin
+        // ocupar una linea fija. Se muestra siempre en el modal de venta.
+        return `<div style="margin-top:8px;">
+          <button type="button" id="vi-com-toggle" style="background:none;border:none;padding:0;font-size:13px;color:var(--azul-medio,#2c4a68);cursor:pointer;text-decoration:underline;">✎ ${actualNom ? "Commissionist: " + escHtml(actualNom) : "Assign commissionist / associate"}</button>
+          <select id="vi-comisionista" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
+            <option value="">— None —</option>
+            ${(_promsVenta || []).map(function(pr){ return `<option value="${escHtml(pr.id)}"${_perchaVenta && _perchaVenta.promotoraId === pr.id ? " selected" : ""}>${escHtml(pr.nombre)}</option>`; }).join("")}
+          </select>
+        </div>`;
+      })()}
       ${esTicket ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br>
@@ -5785,6 +5791,9 @@ async function abrirPanelVentaInfo(id, esTicket){
       if (inpPag.style.display !== "none") inpPag.focus();
     });
   }
+  // ✎ Comisionista: expande el selector inline sin ocupar una línea fija.
+  { const _cT = document.getElementById("vi-com-toggle"); const _cS = document.getElementById("vi-comisionista");
+    if (_cT && _cS) _cT.addEventListener("click", () => { _cS.style.display = _cS.style.display === "none" ? "block" : "none"; if (_cS.style.display !== "none") _cS.focus(); }); }
   // JFC 2026-09-02: checkbox "Add invoice" (default off) → muestra la caja
   // opcional de número de factura. Nunca obligatorio.
   const chkFac = document.getElementById("vi-add-factura");

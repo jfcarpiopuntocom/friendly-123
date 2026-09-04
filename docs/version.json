@@ -1,9 +1,9 @@
 {
-  "version": "1.7.102",
+  "version": "1.7.103",
   "fecha": "2026-09-04",
-  "changelog": "v1.7.102 — Asignar comisionista EN Vendido: el modal de venta de una percha de comision ahora trae un selector Comisionista/asociado, precargado con el de la percha. Al registrar la venta se asigna a la percha (antes del POST), asi el reparto ya lo incluye y Comisiones no queda vacio. Reusa el endpoint PUT /api/ubicaciones y el tunel reactivo.",
+  "changelog": "v1.7.103 — El selector de comisionista en Vendido ahora es COMPACTO: un lapicito (✎) colapsado que expande el pulldown inline, sin ocupar una linea fija, y se muestra siempre en el modal de venta (no gated a la percha). Antes quedaba como label fijo y solo si la percha era de comision. Al registrar la venta se asigna a la percha como antes.",
   "requerida": false,
-  "shell": "f123-shell-v215",
+  "shell": "f123-shell-v216",
   "apagar": [],
-  "releaseName": "v1.7.102"
+  "releaseName": "v1.7.103"
 }
