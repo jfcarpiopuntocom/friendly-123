@@ -2309,6 +2309,7 @@ function abrirGestorCategorias() {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span style="flex:1;min-width:120px;font-size:14px;">${escHtml(c)}</span>
             <button type="button" data-cat-rename="${escHtml(c)}" title="${T("sold.catRename", "Rename")}" aria-label="${T("sold.catRename", "Rename")}" style="font-size:14px;padding:4px 10px;border:2px solid var(--azul-medio);border-radius:6px;background:transparent;color:var(--azul-medio);cursor:pointer;">✎</button>
+            <button type="button" data-cat-del="${escHtml(c)}" title="${T("sold.catDelete", "Delete")}" aria-label="${T("sold.catDelete", "Delete")}" style="font-size:14px;padding:4px 10px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">🗑</button>
           </div>`).join("")}
       </div>
       <p id="oc-cat-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;"></p>`;
@@ -2346,6 +2347,19 @@ function abrirGestorCategorias() {
         montarBuscadorVender(window._productosVenderCache || []);
         pintar();
       });
+    }));
+    panel.querySelectorAll("[data-cat-del]").forEach(btn => btn.addEventListener("click", async () => {
+      const cat = btn.dataset.catDel;
+      const aviso = T("sold.catDeleteConfirm", "Delete this category? Its products are NOT deleted — they move to “Uncategorized”. Continue?");
+      let ok = true;
+      try { ok = window.ocConfirm ? await window.ocConfirm(aviso) : window.confirm(aviso); } catch (_) {}
+      if (!ok) return;
+      const n = await window.OCCategorias.borrar(cat);
+      msg.style.color = "var(--verde,#2f7a4f)";
+      msg.textContent = window.tf ? window.tf("sold.catDeleted", { n: n }) : (n + " product(s) moved to Uncategorized.");
+      try { if (typeof cargarGridVender === "function") cargarGridVender(); } catch (_) {}
+      montarBuscadorVender(window._productosVenderCache || []);
+      pintar();
     }));
   }
   pintar();

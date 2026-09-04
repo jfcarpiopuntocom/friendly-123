@@ -406,6 +406,25 @@
     _guardarOcultas(oc);
     return afectados.length;
   }
+  /* Borrar una categoría (JFC/Belén 2026-09-04: "puedo aumentar pero no borrar").
+     REGLA 8c — JAMÁS perder productos: los productos de esa categoría se
+     REASIGNAN a "sin categoría" (categoria ""), no se borran. Luego la categoría
+     se quita del custom y se marca oculta (cubre las SEMILLA). Devuelve el número
+     de productos reasignados. */
+  async function borrar(nombre) {
+    var vo = normalizar(nombre); if (!vo) return 0;
+    var prods = [];
+    try { prods = await (await fetch("/api/productos?todas=1")).json(); } catch (_) { prods = []; }
+    var afectados = (prods || []).filter(function (p) { return normalizar(p.categoria).toLowerCase() === vo.toLowerCase(); });
+    for (var i = 0; i < afectados.length; i++) {
+      try { await fetch("/api/productos/" + encodeURIComponent(afectados[i].id), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoria: "" }) }); } catch (_) {}
+    }
+    _guardarCustom(_leerCustom().filter(function (x) { return normalizar(x).toLowerCase() !== vo.toLowerCase(); }));
+    var oc = _leerOcultas();
+    if (!oc.some(function (x) { return normalizar(x).toLowerCase() === vo.toLowerCase(); })) { oc.push(vo); _guardarOcultas(oc); }
+    try { if (window.OCLastProductos) refrescar(window.OCLastProductos); } catch (_) {}
+    return afectados.length;
+  }
 
   window.OCCategorias = {
     refrescar: refrescar,
@@ -414,6 +433,7 @@
     listar: listar,
     agregar: agregar,
     renombrar: renombrar,
+    borrar: borrar,
     semilla: SEMILLA.slice(),
   };
 })();

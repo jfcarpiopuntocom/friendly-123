@@ -1,9 +1,9 @@
 {
-  "version": "1.7.96",
-  "fecha": "2026-09-03",
-  "changelog": "v1.7.96 — P0 produccion (idiomARTE): (1) el tope de 25 productos le volvia a salir a un cliente activado porque estaLicenciado() solo miraba el f123_owned pelado y su tienda activa habia perdido ese dato; ahora tambien reconoce como licenciada cualquier tienda con evidencia durable (f123_tienda_activa, registro f123_tiendas, o datos reales). Cubre tambien los topes de ventas/cierre/equipo. (2) Se apaga el cartel intimidante You had unsaved data … con botones (borradores): nunca fue aprobado en la UI viva; aviso solo a consola, el auto-guardado sigue igual.",
+  "version": "1.7.97",
+  "fecha": "2026-09-04",
+  "changelog": "v1.7.97 — Categorias: faltaba BORRAR (Belen: puedo aumentar pero no borrar). Se agrega OCCategorias.borrar + boton papelera en el gestor. REGLA 8c: los productos de la categoria borrada NO se eliminan, pasan a Sin categoria; la categoria se quita del custom y se marca oculta (cubre semillas). Con confirmacion. i18n EN+ES.",
   "requerida": false,
-  "shell": "f123-shell-v209",
+  "shell": "f123-shell-v210",
   "apagar": [],
-  "releaseName": "v1.7.96"
+  "releaseName": "v1.7.97"
 }
