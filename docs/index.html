@@ -5651,6 +5651,12 @@ async function abrirPanelVentaInfo(id, esTicket){
   try { p = await (await fetch(`${API}/productos/${id}`)).json(); }
   catch (err) { console.error("[abrirPanelVentaInfo]", err); await ocAlert("Could not reach the server."); return; }
   try { clientes = await (await fetch(`${API}/clientes`)).json(); } catch (_) { clientes = []; }
+  // Comisionista de la percha (JFC 2026-09-04): poder asignarlo AQUÍ, al vender,
+  // para que la comisión quede atribuida y no haya vacío en Comisiones.
+  let _promsVenta = [], _perchaVenta = null;
+  try { _promsVenta = await (await fetch(`${API}/promotoras`)).json(); } catch (_) { _promsVenta = []; }
+  try { const _ubis = await (await fetch(`${API}/ubicaciones?todas=1`)).json(); _perchaVenta = (_ubis || []).find(u => u.id === p.ubicacionId) || null; } catch (_) {}
+  const _esComisionPercha = !!(_perchaVenta && _perchaVenta.tipo && _perchaVenta.tipo !== "propio");
   _ventaInfoProductoCache = p;
   const overlay = document.getElementById("oc-ventainfo-overlay");
   const caja = document.getElementById("oc-ventainfo-caja");
@@ -5689,6 +5695,12 @@ async function abrirPanelVentaInfo(id, esTicket){
         <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
       </div>
       <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#008a54;margin:4px 0 0;"></p>
+      ${_esComisionPercha ? `<label style="display:block;margin-top:10px;font-size:14px;">Commissionist / associate<br>
+        <select id="vi-comisionista" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <option value="">— None —</option>
+          ${(_promsVenta || []).map(pr => `<option value="${escHtml(pr.id)}"${_perchaVenta && _perchaVenta.promotoraId === pr.id ? " selected" : ""}>${escHtml(pr.nombre)}</option>`).join("")}
+        </select>
+        <span style="font-size:12px;color:var(--ink-soft);">Assigning here sets the associate for this shelf, so the commission shows up in Commissions.</span></label>` : ""}
       ${esTicket ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br>
@@ -5869,6 +5881,17 @@ async function confirmarVentaConInfo(id, esTicket){
     msg.textContent = "For tickets/events you need the event/class date.";
     return;
   }
+  // Comisionista elegido en Vendido (JFC 2026-09-04): se asigna a la percha ANTES
+  // de registrar la venta, así el reparto ya lo incluye y Comisiones no queda
+  // vacío. Idempotente (poner el mismo valor no hace daño).
+  try {
+    const _selCom = document.getElementById("vi-comisionista");
+    const _p2 = _ventaInfoProductoCache;
+    if (_selCom && _p2 && _p2.ubicacionId) {
+      await fetch(`${API}/ubicaciones/${encodeURIComponent(_p2.ubicacionId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ promotoraId: _selCom.value || null }) });
+      try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {}
+    }
+  } catch (_) {}
   _ventasEnCurso.add(id);
   try {
     let res, data;
