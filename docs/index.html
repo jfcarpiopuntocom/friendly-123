@@ -3619,6 +3619,14 @@ window.OCReactivo = (function () {
   on("clientes", function () { try { if (typeof poblarSelectClientes === "function") poblarSelectClientes(); } catch (_) {} });
   on("perchas", function () { try { if (typeof ocMontarTraslado === "function") { ocMontarTraslado("oc-traslado-inv"); ocMontarTraslado("oc-traslado-perchas"); } } catch (_) {} });
   on("categorias", function () { try { if (typeof montarBuscadorVender === "function") montarBuscadorVender(window._productosVenderCache || []); } catch (_) {} });
+  // JFC 2026-09-04: registrar una venta debe reflejarse AL INSTANTE en el ranking
+  // de Promoters/commissionists (antes solo se recalculaba al re-entrar a la vista;
+  // Belén ponía un Sold y la comisión del comisionista no aparecía). Solo refresca
+  // si la vista está activa, para no pegarle al backend de balde.
+  on("ventas", function () {
+    try { var vc = document.getElementById("vista-comisiones"); if (vc && vc.classList.contains("activa") && typeof cargarComisiones === "function") cargarComisiones(); } catch (_) {}
+    try { var vp = document.getElementById("vista-perchas"); if (vp && vp.classList.contains("activa") && window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
+  });
   return { emitir: function (tipo) { try { var b = bus(); if (b) b.emit("oc:datos:" + tipo, {}); } catch (_) {} } };
 })();
 
@@ -5633,6 +5641,9 @@ async function venderUno(id){
     if (!res.ok){ await ocAlert(data.error); return; }
     pintarFicha(data.producto);
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+    // Túnel reactivo (JFC 2026-09-04): refresca en vivo ranking de comisionistas
+    // y reparto de perchas si están a la vista.
+    try { window.OCReactivo && window.OCReactivo.emitir("ventas"); } catch (_) {}
   } finally {
     _ventasEnCurso.delete(id);
   }
@@ -5922,6 +5933,9 @@ async function confirmarVentaConInfo(id, esTicket){
     if (document.getElementById("cierreDia") && document.getElementById("cierreDia").open) cargarCierreLista();
     if (document.getElementById("ventasSold") && document.getElementById("ventasSold").open) cargarVentasSold();
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+    // Túnel reactivo (JFC 2026-09-04): recalcular en vivo el ranking de
+    // Promoters/commissionists y el reparto de perchas si están a la vista.
+    try { window.OCReactivo && window.OCReactivo.emitir("ventas"); } catch (_) {}
   } finally {
     _ventasEnCurso.delete(id);
   }

@@ -1,9 +1,9 @@
 {
-  "version": "1.7.105",
+  "version": "1.7.106",
   "fecha": "2026-09-04",
-  "changelog": "v1.7.105 — (1) No refrescar la UI mid-uso: el chequeo de version ya NO hace location.reload() forzado mientras trabajas (se veia mal y podia romper el layout al re-render). El shell nuevo se aplica DIFERIDO al proximo login (invisible); la info sigue viva por el tunel reactivo. (2) Perchas mas expansivas: tarjetas de resumen (valor inventario, ventas del mes, ganancia del mes) al abrir una percha, ademas del reparto/compradores/historico.",
+  "changelog": "v1.7.106 — Comisiones: (1) el encabezado del ranking ahora se llama solo 'Promoters / commissionists'. (2) Al registrar una venta (Vendido), el ranking de comisionistas y el reparto de perchas se recalculan EN VIVO por el tunel reactivo (topico 'ventas') si esas vistas estan abiertas; antes solo se refrescaba al re-entrar y parecia que la comision del comisionista no aparecia.",
   "requerida": false,
-  "shell": "f123-shell-v218",
+  "shell": "f123-shell-v219",
   "apagar": [],
-  "releaseName": "v1.7.105"
+  "releaseName": "v1.7.106"
 }
