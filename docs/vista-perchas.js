@@ -335,12 +335,38 @@
     body.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);">Cargando productos…</p>';
     modal.style.display = 'flex';
     try {
-      const prods = await fetch(`${API}/productos?ubicacionId=${encodeURIComponent(perchaId)}`).then((r) => r.json());
+      // Panorama de la percha (reparto + histórico) — friendly ya tiene el
+      // endpoint; faltaba mostrarlo como en AMIGABLE (JFC/Belén 2026-09-04:
+      // "que se parezca a Perchas de amigable, open view"). Se pide en paralelo;
+      // si falla, la carpeta sigue mostrando los productos igual.
+      const [prods, pano] = await Promise.all([
+        fetch(`${API}/productos?ubicacionId=${encodeURIComponent(perchaId)}`).then((r) => r.json()),
+        fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/panorama`).then((r) => r.json()).catch(() => null),
+      ]);
+      let repartoHtml = '';
+      try {
+        const T = (k, f) => (window.t ? window.t(k, f) : f);
+        if (pano && pano.comision) {
+          const cm = pano.comision, aso = pano.asociado, h = pano.historico || {};
+          const pctA = cm.pct != null ? cm.pct : 0;
+          const hist = (h.transacciones ? `${money(h.venta)} · ${window.tf ? window.tf('shelves.split.inN', { n: h.transacciones }) : h.transacciones + ' sale(s)'}` : T('shelves.split.noHistory', 'No sales yet')) +
+            (h.diasSinVender != null ? ` · ${window.tf ? window.tf('shelves.split.lastSaleD', { d: h.diasSinVender }) : 'last sale ' + h.diasSinVender + 'd ago'}` : '');
+          repartoHtml = `
+            <div class="tag-card" style="text-align:left;padding:14px 16px;margin-bottom:14px;border:2px solid var(--sim-verde,#00C87A);">
+              <strong style="font-size:15px;color:var(--ink);">${T('shelves.split.title', 'Split of this shelf')}${aso ? ' — ' + esc(aso.nombre) : ''}</strong>
+              <div style="font-size:14px;color:var(--ink);margin-top:8px;">${T('shelves.split.associateTakes', 'Associate takes')}: <strong>${money(cm.seLlevaElAsociado)}</strong> <span style="color:var(--ink-soft);">(${pctA}%)</span></div>
+              <div style="font-size:14px;color:var(--ink);margin-top:2px;">${T('shelves.split.houseKeeps', 'House keeps')}: <strong>${money(cm.quedaEnCasa)}</strong></div>
+              <div style="font-size:13px;color:var(--ink-soft);margin-top:6px;">${T('shelves.split.history', 'History')}: ${hist}</div>
+              <button data-vp-compradores="${esc(perchaId)}" style="margin-top:10px;font-size:14px;padding:8px 14px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">${T('shelves.split.viewBuyers', 'View buyers of this shelf')}</button>
+            </div>`;
+        }
+      } catch (_) {}
       if (!Array.isArray(prods) || !prods.length) {
-        body.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noProductsYet'))}</p>`;
+        body.innerHTML = repartoHtml + `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noProductsYet'))}</p>`;
+        _cablearCompradores(body);
         return;
       }
-      body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">${
+      body.innerHTML = repartoHtml + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">${
         prods.map((p) => {
           const c = SIMON[p.estado] || SIMON.azul;
           const estrella = p.estrella ? '★ ' : '';
@@ -355,9 +381,34 @@
           </button>`;
         }).join('')
       }</div>`;
+      _cablearCompradores(body);
     } catch (err) {
       body.innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">No se pudo cargar: ${esc(err.message)}</p>`;
     }
+  }
+
+  // "Ver compradores de esta percha": lista los clientes que compraron aquí este
+  // mes (reusa /api/compradores, que friendly ya tiene). Se muestra inline en la
+  // carpeta; respeta REGLA 7 (soporte/lord no ve datos personales — el backend ya
+  // los omite para ese rol). Aditivo, no toca nada más.
+  function _cablearCompradores(body) {
+    if (!body) return;
+    body.querySelectorAll('[data-vp-compradores]').forEach((btn) => {
+      if (btn._listo) return; btn._listo = true;
+      btn.addEventListener('click', async () => {
+        const T = (k, f) => (window.t ? window.t(k, f) : f);
+        const pid = btn.getAttribute('data-vp-compradores');
+        btn.disabled = true;
+        let lista = [];
+        try { lista = await fetch(`${API}/compradores?ubicacionId=${encodeURIComponent(pid)}`).then((r) => r.json()); } catch (_) { lista = []; }
+        let cont = body.querySelector('#vp-compradores-lista');
+        if (!cont) { cont = document.createElement('div'); cont.id = 'vp-compradores-lista'; cont.style.cssText = 'margin:0 0 14px;'; btn.parentElement.appendChild(cont); }
+        cont.innerHTML = (Array.isArray(lista) && lista.length)
+          ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${lista.map((c) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid #eef0ec;"><span>${esc(c.nombre || '')}</span><span>${money(c.monto)} · ${c.unidades || 0}u</span></div>`).join('')}</div>`
+          : `<p style="font-size:13px;color:var(--ink-soft);margin-top:8px;">${T('shelves.split.noBuyers', 'No buyers recorded for this shelf yet.')}</p>`;
+        btn.disabled = false;
+      });
+    });
   }
 
   // ── MODAL GESTIÓN: renombrar o borrar la percha (✎) ───────────────────────
