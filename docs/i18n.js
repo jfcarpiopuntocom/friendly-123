@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // i18n.js — Capa bilingüe EN/ES para friendly-123.
 // Inglés es el idioma por DEFECTO; el español se retiene completo (no se
 // descarta nada). El usuario cambia de idioma con el switch del header.
@@ -708,6 +708,15 @@
       "shelves.target": "Target",
       "shelves.commission": "Commission",
       "shelves.promoter": "Promoter",
+      "move.title": "Move an item between shelves",
+      "move.from": "From shelf",
+      "move.item": "Item",
+      "move.to": "To shelf",
+      "move.go": "Move",
+      "move.pick": "Pick an item and a destination shelf.",
+      "move.same": "That is the same shelf.",
+      "move.done": "Item moved.",
+      "move.fail": "Could not move it.",
       "shelves.split.title": "Split of this shelf",
       "shelves.split.associateTakes": "Associate takes",
       "shelves.split.houseKeeps": "House keeps",
@@ -1487,6 +1496,15 @@
       "shelves.target": "Meta",
       "shelves.commission": "Comisión",
       "shelves.promoter": "Promotora/e",
+      "move.title": "Trasladar un ítem entre perchas",
+      "move.from": "Desde la percha",
+      "move.item": "Ítem",
+      "move.to": "Hacia la percha",
+      "move.go": "Trasladar",
+      "move.pick": "Elige un ítem y una percha de destino.",
+      "move.same": "Es la misma percha.",
+      "move.done": "Ítem trasladado.",
+      "move.fail": "No se pudo trasladar.",
       "shelves.split.title": "Reparto de esta percha",
       "shelves.split.associateTakes": "Se lleva el asociado/a",
       "shelves.split.houseKeeps": "Queda en la casa",

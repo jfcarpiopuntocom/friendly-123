@@ -305,6 +305,7 @@
       }
       pintarBotonesOrdenPercha();
       grid.innerHTML = ms.map(_tarjeta).join('');
+      try { if (window.ocMontarTraslado) window.ocMontarTraslado('oc-traslado-perchas'); } catch (_) {} // mover ítems entre perchas (breezy)
       renderTransferencias(); // transfers entre perchas (movido de Advanced)
     } catch (err) {
       console.error('[VPerchas]', err);
