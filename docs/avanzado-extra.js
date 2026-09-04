@@ -1,4 +1,4 @@
-// avanzado-extra.js — Reestructura la vista "Avanzado" del dueño en dos capas:
+﻿// avanzado-extra.js — Reestructura la vista "Avanzado" del dueño en dos capas:
 //   1) Gestión (gastos, correo de recuperación, claves) — visible al dueño.
 //   2) Contable (cuentas T, P&G, balance, valorizado) — detrás de la SUBCLAVE.
 // Depende de window.OCAuth (auth-ui.js).

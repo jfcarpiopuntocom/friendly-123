@@ -1,9 +1,9 @@
 {
-  "version": "1.7.99",
+  "version": "1.7.100",
   "fecha": "2026-09-04",
-  "changelog": "v1.7.99 — Venta de ticket/evento: se quito la caja Type to search del cliente (o existe, o counter sale, o se crea) y el boton + New ahora abre un mini-form INLINE en la fila siguiente (nombre + telefono opcional + Save), sin modal posterior — seamless. Al guardar, el cliente se agrega al select y queda seleccionado.",
+  "changelog": "v1.7.100 — (1) Nombre de tienda: el candado se quedaba con el nombre de la tienda anterior si la activa no tenia nombre; ahora sincroniza SIEMPRE al de la tienda activa (candado y header ya no se contradicen). (2) Mojibake del menu de Advanced blindado: BOM UTF-8 en avanzado-extra.js e i18n.js (scripts externos que decodificaban mal si el shell cacheado estaba viejo). (3) Traslado breezy de items entre perchas (Desde -> Item -> Hacia -> Trasladar) al fondo de Inventario y de Perchas.",
   "requerida": false,
-  "shell": "f123-shell-v212",
+  "shell": "f123-shell-v213",
   "apagar": [],
-  "releaseName": "v1.7.99"
+  "releaseName": "v1.7.100"
 }

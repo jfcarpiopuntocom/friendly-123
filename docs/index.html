@@ -1607,6 +1607,8 @@
   
     <!-- Matriz BCG del inventario (JFC 2026-07-07): bien al fondo, solo dueno -->
     <div id="matrizBCG" style="margin-top:26px;"></div>
+    <!-- Traslado de ítems entre perchas (JFC 2026-09-04): breezy, al fondo. -->
+    <div id="oc-traslado-inv" style="margin-top:26px;"></div>
 </section>
 
   <!-- VISTA: ESCANEAR -->
@@ -1786,6 +1788,9 @@
     <!-- TRANSFERS ENTRE PERCHAS (JFC 2026-08-28). Movido de Advanced a Perchas:
          es una operación de inventario entre ubicaciones, no configuración
          técnica. El usuario piensa en perchas cuando mueve stock. -->
+    <!-- Traslado breezy de ítems entre perchas (JFC 2026-09-04): mover 1 ítem
+         de una percha a otra en 3 toques. Va aquí y también al fondo de Inventario. -->
+    <div id="oc-traslado-perchas" style="margin-top:26px;"></div>
     <div id="vp-transfers" style="margin-top:26px;"></div>
   </section>
 
@@ -2281,6 +2286,58 @@ function montarBuscadorVender(productos){
 // Gestor de categorías (JFC 2026-09-01): dueño/admin agregan o renombran
 // categorías desde Sold. Panel INLINE bajo los chips (no popup nuevo en la UI
 // del cliente). Renombrar propaga a los productos vía OCCategorias.renombrar.
+// Traslado breezy de un ítem entre perchas (JFC 2026-09-04): Desde → Ítem →
+// Hacia → Mover. Cambia ubicacionId (PATCH). Se monta al fondo de Inventario y
+// de Perchas. Solo dueño/admin (puedeGestionar). Aditivo.
+async function ocMontarTraslado(hostId) {
+  const host = document.getElementById(hostId);
+  if (!host) return;
+  const T = (k, f) => (window.t ? window.t(k, f) : f);
+  const puede = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
+  if (!puede) { host.innerHTML = ""; return; }
+  let ubis = [], prods = [];
+  try { [ubis, prods] = await Promise.all([
+    fetch(`${API}/ubicaciones?todas=1`).then(r => r.json()),
+    fetch(`${API}/productos?todas=1`).then(r => r.json()),
+  ]); } catch (_) {}
+  const activas = (ubis || []).filter(u => u.activa !== false);
+  const opts = activas.map(u => `<option value="${u.id}">${escHtml(u.nombre)}</option>`).join("");
+  host.innerHTML = `
+    <div class="tag-card" style="text-align:left;padding:14px 16px;">
+      <h3 class="seccion" style="margin-top:0;font-size:15px;">${T("move.title", "Move an item between shelves")}</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <label style="font-size:13px;">${T("move.from", "From shelf")}<br>
+          <select data-move-from style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;min-width:150px;"><option value="">—</option>${opts}</select></label>
+        <label style="font-size:13px;">${T("move.item", "Item")}<br>
+          <select data-move-item style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;min-width:180px;"><option value="">—</option></select></label>
+        <label style="font-size:13px;">${T("move.to", "To shelf")}<br>
+          <select data-move-to style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;min-width:150px;"><option value="">—</option>${opts}</select></label>
+        <button data-move-go class="ir" style="padding:9px 16px;">${T("move.go", "Move")}</button>
+      </div>
+      <p data-move-msg style="font-size:13px;font-weight:700;margin:8px 0 0;"></p>
+    </div>`;
+  const selFrom = host.querySelector("[data-move-from]");
+  const selItem = host.querySelector("[data-move-item]");
+  const selTo = host.querySelector("[data-move-to]");
+  const msg = host.querySelector("[data-move-msg]");
+  selFrom.addEventListener("change", () => {
+    const items = (prods || []).filter(p => p.ubicacionId === selFrom.value);
+    selItem.innerHTML = `<option value="">—</option>` + items.map(p => `<option value="${p.id}">${escHtml(p.nombre)} (${p.stockActual})</option>`).join("");
+  });
+  host.querySelector("[data-move-go]").addEventListener("click", async () => {
+    const pid = selItem.value, to = selTo.value;
+    if (!pid || !to) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = T("move.pick", "Pick an item and a destination shelf."); return; }
+    if (to === selFrom.value) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = T("move.same", "That's the same shelf."); return; }
+    try {
+      const res = await fetch(`${API}/productos/${encodeURIComponent(pid)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ubicacionId: to }) });
+      if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || T("move.fail", "Could not move it."); return; }
+      msg.style.color = "var(--verde,#2f7a4f)"; msg.textContent = T("move.done", "Item moved.");
+      try { if (typeof cargarInventario === "function") cargarInventario(); } catch (_) {}
+      try { if (window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
+      setTimeout(() => ocMontarTraslado(hostId), 400);
+    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = T("move.fail", "Could not move it."); }
+  });
+}
 function abrirGestorCategorias() {
   const _rolCat = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; const puede = _rolCat === "dueno" || _rolCat === "admin" || _rolCat === "demo";
   if (!puede || !window.OCCategorias) return;
@@ -3673,14 +3730,17 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   async function cargarNombre() {
     try {
       const inst = await (await fetch(`${API}/instancia`)).json();
-      if (inst && inst.nombreNegocio) {
-        span.textContent = inst.nombreNegocio;
-        /* Persistir el nombre en f123_owned para que el candado pueda rotular
-           "Entrando a: <negocio>" ANTES del login la proxima vez, aun offline
-           (JFC 2026-08-25). Antes solo se guardaba al EDITAR el nombre, asi que
-           un dispositivo que nunca lo edito nunca mostraba el negocio en el
-           candado. */
-        try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o && o.nombreNegocio !== inst.nombreNegocio) { o.nombreNegocio = inst.nombreNegocio; localStorage.setItem("f123_owned", JSON.stringify(o)); } } catch (_) {}
+      if (inst) {
+        const nom = inst.nombreNegocio || "";
+        if (nom) span.textContent = nom;
+        /* Persistir el nombre en f123_owned para que el candado rotule la tienda
+           ANTES del login la proxima vez (JFC 2026-08-25). FIX (JFC 2026-09-04):
+           antes solo se sincronizaba cuando la tienda activa TENIA nombre; si la
+           activa estaba vacia, el candado se quedaba mostrando el nombre de la
+           tienda ANTERIOR (por eso "entro a una tienda y adentro sale otra").
+           Ahora se sincroniza SIEMPRE al nombre real de la tienda activa
+           (incluido vacio), asi candado y header nunca se contradicen. */
+        try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o && (o.nombreNegocio || "") !== nom) { o.nombreNegocio = nom; localStorage.setItem("f123_owned", JSON.stringify(o)); } } catch (_) {}
       }
     } catch (_) {}
   }
@@ -4249,6 +4309,7 @@ async function cargarInventario(){
   // El "+" de alta libre es del dueno; el encargado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
   if (btnAlta) btnAlta.style.display = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? "" : "none";
+  try { ocMontarTraslado("oc-traslado-inv"); } catch (_) {} // panel de traslado al fondo
   let url = `${API}/productos?ubicacionId=${ubicacionActual}`;
   if (filtroEstadoActual) url += `&estado=${filtroEstadoActual}`;
   const grid = document.getElementById("gridInventario");
