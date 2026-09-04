@@ -1,9 +1,9 @@
 {
-  "version": "1.7.104",
+  "version": "1.7.105",
   "fecha": "2026-09-04",
-  "changelog": "v1.7.104 — Perchas mas expansivas: al abrir una percha ahora se ven arriba las tarjetas de resumen (valor del inventario + items/unidades, ventas del mes, ganancia del mes despues del costo), ademas del reparto/compradores/historico que ya estaban — como el open view de AMIGABLE. Del mismo endpoint /panorama, solo dueno/admin. i18n EN+ES.",
+  "changelog": "v1.7.105 — (1) No refrescar la UI mid-uso: el chequeo de version ya NO hace location.reload() forzado mientras trabajas (se veia mal y podia romper el layout al re-render). El shell nuevo se aplica DIFERIDO al proximo login (invisible); la info sigue viva por el tunel reactivo. (2) Perchas mas expansivas: tarjetas de resumen (valor inventario, ventas del mes, ganancia del mes) al abrir una percha, ademas del reparto/compradores/historico.",
   "requerida": false,
-  "shell": "f123-shell-v217",
+  "shell": "f123-shell-v218",
   "apagar": [],
-  "releaseName": "v1.7.104"
+  "releaseName": "v1.7.105"
 }
