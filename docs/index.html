@@ -5695,6 +5695,7 @@ async function abrirPanelVentaInfo(id, esTicket){
         <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
       </div>
       <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#008a54;margin:4px 0 0;"></p>
+<<<<<<< HEAD
       ${(function(){
         var actualNom = (_perchaVenta && _perchaVenta.promotoraId && (_promsVenta||[]).find(function(x){return x.id===_perchaVenta.promotoraId;})||{}).nombre || "";
         // Compacto (JFC 2026-09-04): un ✎ que expande el selector inline, sin
@@ -5707,6 +5708,14 @@ async function abrirPanelVentaInfo(id, esTicket){
           </select>
         </div>`;
       })()}
+=======
+      ${_esComisionPercha ? `<label style="display:block;margin-top:10px;font-size:14px;">Commissionist / associate<br>
+        <select id="vi-comisionista" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <option value="">— None —</option>
+          ${(_promsVenta || []).map(pr => `<option value="${escHtml(pr.id)}"${_perchaVenta && _perchaVenta.promotoraId === pr.id ? " selected" : ""}>${escHtml(pr.nombre)}</option>`).join("")}
+        </select>
+        <span style="font-size:12px;color:var(--ink-soft);">Assigning here sets the associate for this shelf, so the commission shows up in Commissions.</span></label>` : ""}
+>>>>>>> origin/master
       ${esTicket ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br>
