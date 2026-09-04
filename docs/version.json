@@ -1,9 +1,9 @@
 {
-  "version": "1.7.100",
+  "version": "1.7.101",
   "fecha": "2026-09-04",
-  "changelog": "v1.7.100 — (1) Nombre de tienda: el candado se quedaba con el nombre de la tienda anterior si la activa no tenia nombre; ahora sincroniza SIEMPRE al de la tienda activa (candado y header ya no se contradicen). (2) Mojibake del menu de Advanced blindado: BOM UTF-8 en avanzado-extra.js e i18n.js (scripts externos que decodificaban mal si el shell cacheado estaba viejo). (3) Traslado breezy de items entre perchas (Desde -> Item -> Hacia -> Trasladar) al fondo de Inventario y de Perchas.",
+  "changelog": "v1.7.101 — Tunel reactivo entre partes de la UI (sobre el AMG.EventBus existente): crear/editar una entidad refresca AL INSTANTE los selects/paneles que dependen de ella, sin recargar. Antes un comisionista recien creado no aparecia enseguida en el pulldown del flujo de Vendido (podia arruinar el registro). Cubre los 4 puntos criticos: comisionistas, clientes, perchas y categorias. Falla abierto (cada refresco en try/catch).",
   "requerida": false,
-  "shell": "f123-shell-v213",
+  "shell": "f123-shell-v214",
   "apagar": [],
-  "releaseName": "v1.7.100"
+  "releaseName": "v1.7.101"
 }

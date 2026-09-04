@@ -2379,7 +2379,7 @@ function abrirGestorCategorias() {
       const ok = window.OCCategorias.agregar(v);
       msg.style.color = ok ? "var(--verde,#2f7a4f)" : "var(--rojo,#a3392a)";
       msg.textContent = ok ? T("sold.catAdded", "Category added.") : T("sold.catExists", "That category already exists.");
-      if (ok) { inp.value = ""; montarBuscadorVender(window._productosVenderCache || []); pintar(); }
+      if (ok) { inp.value = ""; try { window.OCReactivo && window.OCReactivo.emitir("categorias"); } catch (_) {} montarBuscadorVender(window._productosVenderCache || []); pintar(); }
     });
     panel.querySelectorAll("[data-cat-rename]").forEach(btn => btn.addEventListener("click", () => {
       const row = btn.parentElement;
@@ -2401,6 +2401,7 @@ function abrirGestorCategorias() {
         msg.style.color = "var(--verde,#2f7a4f)";
         msg.textContent = window.tf ? window.tf("sold.catRenamed", { n: n }) : (n + " product(s) updated.");
         try { if (typeof cargarGridVender === "function") cargarGridVender(); } catch (_) {}
+        try { window.OCReactivo && window.OCReactivo.emitir("categorias"); } catch (_) {}
         montarBuscadorVender(window._productosVenderCache || []);
         pintar();
       });
@@ -2415,6 +2416,7 @@ function abrirGestorCategorias() {
       msg.style.color = "var(--verde,#2f7a4f)";
       msg.textContent = window.tf ? window.tf("sold.catDeleted", { n: n }) : (n + " product(s) moved to Uncategorized.");
       try { if (typeof cargarGridVender === "function") cargarGridVender(); } catch (_) {}
+      try { window.OCReactivo && window.OCReactivo.emitir("categorias"); } catch (_) {}
       montarBuscadorVender(window._productosVenderCache || []);
       pintar();
     }));
@@ -2630,6 +2632,7 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
         selAbajo.value = r.id;
       }
       if (window._ocNuevoClienteCb) { try { window._ocNuevoClienteCb(r); } catch (_) {} window._ocNuevoClienteCb = null; }
+      try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {} // túnel: aparece enseguida en el select de venta
       cerrar();
     } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("newcust.networkError"); btn2.disabled = false; }
   });
@@ -3564,6 +3567,7 @@ async function cargarClientes(){
       msgEl.style.color = "var(--sim-verde-dk)";
       document.getElementById("cliNombre").value = ""; document.getElementById("cliTelefono").value = "";
       { const _e = document.getElementById("cliEmail"); if (_e) _e.value = ""; }
+      try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}
       cargarClientes();
     });
   }
@@ -3594,6 +3598,30 @@ async function poblarSelectClientes(grupos){
   sel.innerHTML = `<option value="">${escHtml(t("sold.counterSale"))}</option>` + lista.map((c) => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("");
   if (actual) sel.value = actual;
 }
+/* TÚNEL REACTIVO ENTRE PARTES DE LA UI (JFC 2026-09-04). Crear/editar una entidad
+   debe refrescar AL INSTANTE los selects/paneles que dependen de ella, sin recargar
+   la vista. Antes había lag: un comisionista recién creado no aparecía enseguida en
+   el pulldown para elegirlo en el flujo de Vendido — eso puede arruinar el registro.
+   Se apoya en el AMG.EventBus que ya existe. Puntos críticos cubiertos:
+     - comisionistas  → selects de comisionista + grid de perchas + gestión
+     - clientes       → select de cliente en Vendido
+     - perchas        → paneles de traslado + selects de percha
+     - categorias     → chips de categoría en Vendido
+   Falla abierto: cualquier refresco va en try/catch y nunca rompe el flujo. */
+window.OCReactivo = (function () {
+  function bus() { try { return (window.AMG && window.AMG.EventBus) || null; } catch (_) { return null; } }
+  function on(tipo, fn) { try { var b = bus(); if (b) b.on("oc:datos:" + tipo, fn); } catch (_) {} }
+  on("comisionistas", function () {
+    try { ["np-comisionista", "ed-comisionista"].forEach(function (id) { var s = document.getElementById(id); if (s) poblarSelectComisionistas(id, s.value || null); }); } catch (_) {}
+    try { var vp = document.getElementById("vista-perchas"); if (vp && vp.classList.contains("activa") && window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
+    try { if (typeof renderGestionPromotoras === "function") renderGestionPromotoras(); } catch (_) {}
+  });
+  on("clientes", function () { try { if (typeof poblarSelectClientes === "function") poblarSelectClientes(); } catch (_) {} });
+  on("perchas", function () { try { if (typeof ocMontarTraslado === "function") { ocMontarTraslado("oc-traslado-inv"); ocMontarTraslado("oc-traslado-perchas"); } } catch (_) {} });
+  on("categorias", function () { try { if (typeof montarBuscadorVender === "function") montarBuscadorVender(window._productosVenderCache || []); } catch (_) {} });
+  return { emitir: function (tipo) { try { var b = bus(); if (b) b.emit("oc:datos:" + tipo, {}); } catch (_) {} } };
+})();
+
 // Parser CSV minimo y robusto (sin librerias): respeta comillas dobles y
 // comas dentro de campos entrecomillados. Devuelve filas de campos ya
 // recortados. Tolera saltos de linea Windows/Unix.
@@ -4894,6 +4922,7 @@ document.addEventListener('click', async (e) => {
     const r = await res.json(); if (!res.ok){ msg.style.color='var(--rojo,#E8365D)'; msg.textContent=r.error; return; }
     document.getElementById('feriaNombre').value=''; document.getElementById('feriaComision').value='';
     msg.style.color='var(--verde,#2f7a4f)'; msg.textContent=`Event "${r.nombre}" opened. Assign products in Inventory and, when done, close it from its card.`;
+    try { window.OCReactivo && window.OCReactivo.emitir("perchas"); } catch (_) {}
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones();
     return;
   }
@@ -4914,6 +4943,7 @@ document.addEventListener('click', async (e) => {
     document.getElementById('perchaNombre').value=''; document.getElementById('perchaComision').value=''; document.getElementById('perchaMeta').value=''; document.getElementById('perchaMinimo').value=''; document.getElementById('perchaContrib').value='';
     { const _c = document.getElementById('perchaCasa'); if (_c) _c.value=''; }
     msg.style.color='var(--verde,#2f7a4f)'; msg.textContent=`"${r.nombre}" creada.`;
+    try { window.OCReactivo && window.OCReactivo.emitir("perchas"); } catch (_) {}
     cargarPerchas(); if (window.cargarUbicaciones) window.cargarUbicaciones();
   }
 });
@@ -5726,6 +5756,7 @@ async function abrirPanelVentaInfo(id, esTicket){
       selCli.appendChild(opt); selCli.value = r.id;
       try { selCli.dispatchEvent(new Event("change")); } catch (_) {}
       try { if (typeof poblarSelectClientes === "function") poblarSelectClientes(); } catch (_) {}
+      try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}
       cerrarInline();
     } catch (_) { if (inMsg) { inMsg.style.color = "var(--rojo,#a3392a)"; inMsg.textContent = "Network error — try again."; } if (btnSaveNew) btnSaveNew.disabled = false; }
   }
@@ -6372,6 +6403,7 @@ function renderListaPromotorasViva(query){
     if (!(await ocConfirm(window.tf("comm.g.archiveConfirm", {name: nombre})))) return;
     try { await fetch(`${API}/promotoras/${btn.dataset.archivarPromotora}`, { method: "DELETE" }); }
     catch (_) { await ocAlert(window.t("comm.g.archiveFail")); return; }
+    try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {}
     renderGestionPromotoras();
   }));
   cont.querySelectorAll("[data-abrir-promotora]").forEach(btn => btn.addEventListener("click", () => {
@@ -6484,6 +6516,7 @@ async function renderGestionPromotoras(){
     btn.disabled = false;
     if (!res.ok){ msgEl.textContent = r.error || window.t("comm.g.addFailShort"); msgEl.style.color = "var(--rojo,#a3392a)"; return; }
     msgEl.textContent = window.t("comm.g.added"); msgEl.style.color = "var(--verde)";
+    try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {} // túnel: aparece enseguida en los pulldowns
     renderGestionPromotoras();
   });
 }
@@ -6558,6 +6591,7 @@ async function abrirEditorComisionista(id, pr){
     btnGuardar.disabled = false;
     if (!res.ok) { msg.style.color = 'var(--rojo,#a3392a)'; msg.textContent = r.error; return; }
     cerrarEditorComision();
+    try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {}
     renderGestionPromotoras();
     if (typeof cargarComisiones === "function") cargarComisiones();
   });
