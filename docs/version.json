@@ -1,9 +1,9 @@
 {
-  "version": "1.7.97",
+  "version": "1.7.98",
   "fecha": "2026-09-04",
-  "changelog": "v1.7.97 — Categorias: faltaba BORRAR (Belen: puedo aumentar pero no borrar). Se agrega OCCategorias.borrar + boton papelera en el gestor. REGLA 8c: los productos de la categoria borrada NO se eliminan, pasan a Sin categoria; la categoria se quita del custom y se marca oculta (cubre semillas). Con confirmacion. i18n EN+ES.",
+  "changelog": "v1.7.98 — Perchas: al abrir una percha ahora se ve el Reparto de esta percha (asociado/a, se lleva X%, queda en la casa) + historico + boton Ver compradores, como en AMIGABLE (open view que a Belen le gusta). friendly ya tenia el endpoint panorama; faltaba mostrarlo. Aditivo, no toca el calculo ni el grid de productos; i18n EN+ES.",
   "requerida": false,
-  "shell": "f123-shell-v210",
+  "shell": "f123-shell-v211",
   "apagar": [],
-  "releaseName": "v1.7.97"
+  "releaseName": "v1.7.98"
 }
