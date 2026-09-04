@@ -344,9 +344,20 @@
         fetch(`${API}/productos?ubicacionId=${encodeURIComponent(perchaId)}`).then((r) => r.json()),
         fetch(`${API}/ubicaciones/${encodeURIComponent(perchaId)}/panorama`).then((r) => r.json()).catch(() => null),
       ]);
-      let repartoHtml = '';
+      let repartoHtml = '', resumenHtml = '';
       try {
         const T = (k, f) => (window.t ? window.t(k, f) : f);
+        // Tarjetas de resumen (JFC 2026-09-04: "que luzca expansivo como AMIGABLE,
+        // info a la mano"). Del mismo /panorama. Solo dueño/admin.
+        const esDueno = !!(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
+        if (esDueno && pano && pano.inventario && pano.mes) {
+          const inv = pano.inventario, mes = pano.mes;
+          resumenHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px;">
+            <div class="tag-card" style="padding:10px 12px;"><div style="font-size:13px;color:var(--ink-soft);">${T('shelves.pano.inventory', 'Inventory value')}</div><strong style="font-size:18px;color:var(--ink);">${money(inv.valorVenta)}</strong><div style="font-size:12px;color:var(--ink-soft);">${inv.productos} ${T('shelves.pano.items', 'items')} · ${inv.unidades} u.</div></div>
+            <div class="tag-card" style="padding:10px 12px;"><div style="font-size:13px;color:var(--ink-soft);">${T('shelves.pano.monthSales', 'Sales this month')}</div><strong style="font-size:18px;color:var(--ink);">${money(mes.venta)}</strong><div style="font-size:12px;color:var(--ink-soft);">${mes.transacciones} ${T('shelves.pano.sales', 'sales')}</div></div>
+            <div class="tag-card" style="padding:10px 12px;"><div style="font-size:13px;color:var(--ink-soft);">${T('shelves.pano.monthProfit', 'Profit this month')}</div><strong style="font-size:18px;color:var(--sim-verde-dk,#1a6e3c);">${money(mes.ganancia)}</strong><div style="font-size:12px;color:var(--ink-soft);">${T('shelves.pano.afterCost', 'after cost')}</div></div>
+          </div>`;
+        }
         if (pano && pano.comision) {
           const cm = pano.comision, aso = pano.asociado, h = pano.historico || {};
           const pctA = cm.pct != null ? cm.pct : 0;
@@ -363,11 +374,11 @@
         }
       } catch (_) {}
       if (!Array.isArray(prods) || !prods.length) {
-        body.innerHTML = repartoHtml + `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noProductsYet'))}</p>`;
+        body.innerHTML = resumenHtml + repartoHtml + `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noProductsYet'))}</p>`;
         _cablearCompradores(body);
         return;
       }
-      body.innerHTML = repartoHtml + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">${
+      body.innerHTML = resumenHtml + repartoHtml + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">${
         prods.map((p) => {
           const c = SIMON[p.estado] || SIMON.azul;
           const estrella = p.estrella ? '★ ' : '';

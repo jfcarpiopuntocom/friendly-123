@@ -1,9 +1,9 @@
 {
-  "version": "1.7.103",
+  "version": "1.7.104",
   "fecha": "2026-09-04",
-  "changelog": "v1.7.103 — El selector de comisionista en Vendido ahora es COMPACTO: un lapicito (✎) colapsado que expande el pulldown inline, sin ocupar una linea fija, y se muestra siempre en el modal de venta (no gated a la percha). Antes quedaba como label fijo y solo si la percha era de comision. Al registrar la venta se asigna a la percha como antes.",
+  "changelog": "v1.7.104 — Perchas mas expansivas: al abrir una percha ahora se ven arriba las tarjetas de resumen (valor del inventario + items/unidades, ventas del mes, ganancia del mes despues del costo), ademas del reparto/compradores/historico que ya estaban — como el open view de AMIGABLE. Del mismo endpoint /panorama, solo dueno/admin. i18n EN+ES.",
   "requerida": false,
-  "shell": "f123-shell-v216",
+  "shell": "f123-shell-v217",
   "apagar": [],
-  "releaseName": "v1.7.103"
+  "releaseName": "v1.7.104"
 }
