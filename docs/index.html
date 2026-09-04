@@ -5583,7 +5583,20 @@ async function abrirPanelVentaInfo(id, esTicket){
           <button type="button" id="vi-nuevo-cliente" title="New customer"
             style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">+ New</button>
         </div>
-        <input id="vi-cliente-buscar" type="text" placeholder="Type to search..." style="width:100%;padding:8px;margin-top:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+      </label>
+      <!-- JFC 2026-09-04: sin "Type to search" (o existe, o counter sale, o se
+           crea). "+ New" abre este mini-form INLINE en la fila siguiente, sin
+           modal posterior — seamless. Al guardar, el cliente se agrega al select
+           y queda seleccionado. -->
+      <div id="vi-newcli-inline" style="display:none;margin-top:8px;padding:10px 12px;border:2px dashed var(--azul-medio,#2c4a68);border-radius:6px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <input id="vi-newcli-nombre" type="text" placeholder="Customer name" style="flex:2;min-width:140px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <input id="vi-newcli-tel" type="tel" placeholder="Phone (optional)" style="flex:1;min-width:120px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <button type="button" id="vi-newcli-save" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--sim-verde,#00C87A);border-radius:6px;background:var(--sim-verde,#00C87A);color:#fff;cursor:pointer;">Save</button>
+          <button type="button" id="vi-newcli-cancel" title="Cancel" style="flex:0 0 auto;font-size:13px;padding:8px 10px;border:2px solid var(--ink-soft);border-radius:6px;background:transparent;color:var(--ink-soft);cursor:pointer;">✕</button>
+        </div>
+        <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
+      </div>
       <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#008a54;margin:4px 0 0;"></p>
       ${esTicket ? `
       <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
@@ -5619,22 +5632,45 @@ async function abrirPanelVentaInfo(id, esTicket){
       </div>
     </div>`;
   overlay.style.display = "flex";
-  const buscar = document.getElementById("vi-cliente-buscar");
   const selCli = document.getElementById("vi-cliente");
-  buscar.addEventListener("input", () => {
-    const q = buscar.value.trim().toLowerCase();
-    [...selCli.options].forEach(o => { o.hidden = !!(q && o.value && !o.textContent.toLowerCase().includes(q)); });
-  });
-  buscar.focus();
-  // JFC 2026-08-27: "+ New" en el panel de venta abre el mismo modal de nuevo
-  // cliente; al crearlo se agrega al selector "abajo" y se selecciona.
+  // JFC 2026-09-04: "+ New" abre un mini-form INLINE en la fila siguiente (sin
+  // modal posterior). Al guardar, se crea el cliente, se agrega al select y
+  // queda seleccionado — seamless.
   const btnNuevo = document.getElementById("vi-nuevo-cliente");
-  if (btnNuevo) {
+  const inlineNew = document.getElementById("vi-newcli-inline");
+  const inNom = document.getElementById("vi-newcli-nombre");
+  const inTel = document.getElementById("vi-newcli-tel");
+  const inMsg = document.getElementById("vi-newcli-msg");
+  function cerrarInline() { if (inlineNew) inlineNew.style.display = "none"; if (inNom) inNom.value = ""; if (inTel) inTel.value = ""; if (inMsg) inMsg.textContent = ""; }
+  if (btnNuevo && inlineNew) {
     btnNuevo.addEventListener("click", () => {
-      window._ocNuevoClienteCb = null; // el handler de creacion ya agrega a vi-cliente
-      if (window.ocAbrirNuevoCliente) window.ocAbrirNuevoCliente();
+      const abierto = inlineNew.style.display !== "none";
+      inlineNew.style.display = abierto ? "none" : "block";
+      if (!abierto && inNom) inNom.focus();
     });
   }
+  const btnCancel = document.getElementById("vi-newcli-cancel");
+  if (btnCancel) btnCancel.addEventListener("click", cerrarInline);
+  const btnSaveNew = document.getElementById("vi-newcli-save");
+  async function guardarInline() {
+    const nombre = (inNom && inNom.value || "").trim();
+    if (!nombre) { if (inMsg) { inMsg.style.color = "var(--rojo,#a3392a)"; inMsg.textContent = "Enter a customer name."; } if (inNom) inNom.focus(); return; }
+    if (btnSaveNew) btnSaveNew.disabled = true;
+    try {
+      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nombre, telefono: (inTel && inTel.value || "").trim() }) });
+      const r = await res.json();
+      if (!res.ok) { if (inMsg) { inMsg.style.color = "var(--rojo,#a3392a)"; inMsg.textContent = r.error || "Could not create the customer."; } if (btnSaveNew) btnSaveNew.disabled = false; return; }
+      const opt = document.createElement("option");
+      opt.value = r.id; opt.textContent = `${r.nombre}${r.codigo ? " (" + r.codigo + ")" : ""}`;
+      selCli.appendChild(opt); selCli.value = r.id;
+      try { selCli.dispatchEvent(new Event("change")); } catch (_) {}
+      try { if (typeof poblarSelectClientes === "function") poblarSelectClientes(); } catch (_) {}
+      cerrarInline();
+    } catch (_) { if (inMsg) { inMsg.style.color = "var(--rojo,#a3392a)"; inMsg.textContent = "Network error — try again."; } if (btnSaveNew) btnSaveNew.disabled = false; }
+  }
+  if (btnSaveNew) btnSaveNew.addEventListener("click", guardarInline);
+  if (inTel) inTel.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); guardarInline(); } });
+  if (inNom) inNom.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); guardarInline(); } });
   // JFC 2026-08-27: "Payer's name" → lapicito opcional para +1/grupos. El ✎
   // muestra/oculta el campo de grupo; es opcional, nunca obligatorio.
   const btnPag = document.getElementById("vi-toggle-pagador");

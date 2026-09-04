@@ -1,9 +1,9 @@
 {
-  "version": "1.7.98",
+  "version": "1.7.99",
   "fecha": "2026-09-04",
-  "changelog": "v1.7.98 — Perchas: al abrir una percha ahora se ve el Reparto de esta percha (asociado/a, se lleva X%, queda en la casa) + historico + boton Ver compradores, como en AMIGABLE (open view que a Belen le gusta). friendly ya tenia el endpoint panorama; faltaba mostrarlo. Aditivo, no toca el calculo ni el grid de productos; i18n EN+ES.",
+  "changelog": "v1.7.99 — Venta de ticket/evento: se quito la caja Type to search del cliente (o existe, o counter sale, o se crea) y el boton + New ahora abre un mini-form INLINE en la fila siguiente (nombre + telefono opcional + Save), sin modal posterior — seamless. Al guardar, el cliente se agrega al select y queda seleccionado.",
   "requerida": false,
-  "shell": "f123-shell-v211",
+  "shell": "f123-shell-v212",
   "apagar": [],
-  "releaseName": "v1.7.98"
+  "releaseName": "v1.7.99"
 }
