@@ -1,9 +1,9 @@
 {
-  "version": "1.7.103",
+  "version": "1.7.105",
   "fecha": "2026-09-04",
-  "changelog": "v1.7.103 — El selector de comisionista en Vendido ahora es COMPACTO: un lapicito (✎) colapsado que expande el pulldown inline, sin ocupar una linea fija, y se muestra siempre en el modal de venta (no gated a la percha). Antes quedaba como label fijo y solo si la percha era de comision. Al registrar la venta se asigna a la percha como antes.",
+  "changelog": "v1.7.105 — (1) No refrescar la UI mid-uso: el chequeo de version ya NO hace location.reload() forzado mientras trabajas (se veia mal y podia romper el layout al re-render). El shell nuevo se aplica DIFERIDO al proximo login (invisible); la info sigue viva por el tunel reactivo. (2) Perchas mas expansivas: tarjetas de resumen (valor inventario, ventas del mes, ganancia del mes) al abrir una percha, ademas del reparto/compradores/historico.",
   "requerida": false,
-  "shell": "f123-shell-v216",
+  "shell": "f123-shell-v218",
   "apagar": [],
-  "releaseName": "v1.7.103"
+  "releaseName": "v1.7.105"
 }

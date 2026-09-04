@@ -7687,12 +7687,12 @@ if ("serviceWorker" in navigator) {
       bc.postMessage({ tipo: "recargar", v: v });
       setTimeout(function () { try { bc.close(); } catch (_) {} }, 500);
     } catch (_) {}
-    try {
-      const g = document.getElementById("oc-gate");
-      const visible = g && g.style.display !== "none";
-      if (visible) { sessionStorage.setItem("f123_reload_al_entrar", "1"); return; }
-    } catch (_) {}
-    location.reload();
+    /* JFC 2026-09-04: NO refrescar la UI mid-uso — reiniciar la pantalla mientras
+       se trabaja se ve mal (y peor si rompe el layout). El shell nuevo ya quedó
+       purgado/actualizado arriba; se DIFIERE la recarga al próximo login (que es
+       invisible, vía auth-ui.entrar()). La info del negocio sigue viva por el
+       túnel reactivo; el "vivir actualizado" no requiere reiniciar la página. */
+    try { sessionStorage.setItem("f123_reload_al_entrar", "1"); } catch (_) {}
   } catch (_) {}
 })();
 
@@ -7710,11 +7710,10 @@ if ("serviceWorker" in navigator) {
    invisible, justo al pasar a la app (ya actualizada). Fuera del gate recarga
    normal. Mismo mecanismo que ya usaba la recarga coordinada de arriba. */
 function _recargarSeguroVersion() {
-  try {
-    const g = document.getElementById("oc-gate");
-    if (g && g.style.display !== "none") { sessionStorage.setItem("f123_reload_al_entrar", "1"); return; }
-  } catch (_) {}
-  location.reload();
+  /* JFC 2026-09-04: nunca recargar mid-uso. Se difiere SIEMPRE al próximo login
+     (invisible). Antes recargaba de golpe fuera del candado y reiniciaba la UI
+     del usuario mientras trabajaba. */
+  try { sessionStorage.setItem("f123_reload_al_entrar", "1"); } catch (_) {}
 }
 (function verificarCompatibilidadVersion() {
   try {
