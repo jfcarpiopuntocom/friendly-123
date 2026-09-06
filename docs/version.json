@@ -1,9 +1,9 @@
 {
-  "version": "1.7.107",
+  "version": "1.7.108",
   "fecha": "2026-09-06",
-  "changelog": "v1.7.107 — Comisiones mas completa y clara: (1) subsecciones con titulo propio: 'Add commissionist / promoter', 'Commissionist list', 'Promoters / commissionists by results' (el ranking) y 'Summary by rack / event' (las tarjetas por percha/evento, datos reales de /liquidaciones). (2) Reactividad plena: agregar/editar un comisionista o registrar una venta refresca EN VIVO ranking y tarjetas si estas en Comisiones. (3) New Product: se quito el 'Artist commission %' duplicado (la comision se define por la percha / el trato del comisionista) y en su lugar va el pulldown de comisionistas, reactivo. La direccion de la comision ya estaba correcta en friendly (asociado 85% / casa 15%).",
+  "changelog": "v1.7.108 — LORD ES LA LICENCIA, NO EL DISPOSITIVO (corrige un incidente real): poner una licencia = unirse a ESA licencia, SIEMPRE, tambien en un aparato con la marca de lord. Antes esa marca secuestraba el join y restauraba la licencia canonica del lord, asi que reenganchar el aparato de un cliente a SU licencia lo pegaba a la tienda del lord ('aunque pongas SU licencia les unes a MI tienda'). Ahora la marca de lord solo agrega un registro de acceso (auditoria) y ya no cambia a que tienda te unes. Arnes join-identity actualizado al contrato nuevo.",
   "requerida": false,
-  "shell": "f123-shell-v220",
+  "shell": "f123-shell-v221",
   "apagar": [],
-  "releaseName": "v1.7.107"
+  "releaseName": "v1.7.108"
 }

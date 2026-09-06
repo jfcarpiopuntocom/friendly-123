@@ -1265,31 +1265,19 @@
              observador; se REGISTRA el acceso (auditoría, best-practice de acceso
              privilegiado). Así el panel del cliente no lo cuenta como su device. */
           var _codNorm = normalizarCodigo(codigo);
-          if (_esLord()) {
-            _registrarAcceso(_codNorm);
-            /* LORD NUNCA ADOPTA (JFC 2026-08-31). Join a una licencia ajena
-               solo registra el acceso. La identidad canónica se escribió UNA
-               vez al verificar el código maestro (f123_lord_licencia_canonica)
-               y aquí se RESTAURA, no se pisa. Si no hay canónica, no se toca
-               licenseCode/syncCode. */
-            var _can = _licenciaCanonicaLord();
-            if (_can && /^F123-/i.test(_can)) {
-              _ow.licenseCode = _can;
-              _ow.syncCode = _can;
-            }
-          } else if (_codNorm && /^F123-/.test(_codNorm)) {
-            /* SIMETRIA CON EL LORD (JFC 2026-08-28, cierre de hueco de
-               auditoria C-SYNC1): la rama lord de arriba fija licenseCode
-               Y syncCode juntos; esta rama normal solo fijaba licenseCode.
-               syncCode se quedaba con el valor de la activacion original
-               (auth-ui.js los fija iguales al activar), asi que Sync
-               diagnostics mostraba dos licencias distintas para SIEMPRE
-               despues del primer join -- el sintoma exacto reportado: "me
-               muestra la licencia de una tienda a la que me uni una vez
-               pero no me deja irme de ahi". No es que no se pueda salir:
-               syncCode (la identidad real) nunca se movio; solo la
-               etiqueta licenseCode quedo pegada al join. */
-            _ow.licenseCode = _codNorm; // se vuelve device de ese negocio (cuenta en el panel)
+          /* LORD ES LA LICENCIA, NO EL DISPOSITIVO (JFC 2026-09-06, corrección de
+             un incidente real con idiomARTE). El comportamiento viejo RESTAURABA
+             la licencia canónica del lord al unirse a CUALQUIER sala; por eso, al
+             reenganchar el aparato de un cliente a SU propia licencia, el aparato
+             quedaba pegado a la tienda del lord (JFC): "aunque pongas SU licencia
+             les unes a MI tienda". Corrección por orden directa de JFC: poner una
+             licencia = unirse a ESA licencia, SIEMPRE, para todos. Una marca de
+             dispositivo (f123_lord) ya NO secuestra el join. El lord solo AÑADE un
+             registro de acceso (auditoría). Se fijan licenseCode Y syncCode juntos
+             (evita la "identidad partida" del bug C-SYNC1 2026-08-28). */
+          if (_esLord()) { _registrarAcceso(_codNorm); }
+          if (_codNorm && /^F123-/.test(_codNorm)) {
+            _ow.licenseCode = _codNorm; // se vuelve device de ESE negocio (cuenta en el panel)
             _ow.syncCode = _codNorm;
           }
           localStorage.setItem("f123_owned", JSON.stringify(_ow));
