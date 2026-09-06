@@ -1,16 +1,15 @@
 /* CÓMO CORRERLO:
      cd docs && python3 -m http.server 8127 &
      node .claude/harness-join-identity.cjs   # sale 0 si TODO VERDE
-   Prueba la IDENTIDAD al unirse (JFC 2026-08-26), en navegador real:
+   Prueba la IDENTIDAD al unirse (JFC 2026-08-26; contrato revisado 2026-09-06):
      - usuario NORMAL que pone una licencia SE VUELVE device de ese negocio
        (adopta licenseCode) → el panel lo cuenta, no forja una licencia aparte;
-     - el LORD (super-admin) NUNCA adopta la licencia ajena al unirse (SYNCIDENTITYFIX
-       2026-08-31, P0: supera la decisión del 2026-08-28). Conserva su identidad
-       canónica; si no tiene canónica guardada, queda como está (no adopta nada).
-       Solo REGISTRA el acceso (auditoría) y queda como observador (toco=false).
-       Así la PC del Lord nunca reporta la licencia del cliente al Worker. El
-       guardrail de "no contar el aparato de JFC como device del cliente" lo cubre
-       el panel (esMio). */
+     - LORD ES LA LICENCIA, NO EL DISPOSITIVO (JFC 2026-09-06, tras un incidente
+       real con idiomARTE): poner una licencia = unirse a ESA licencia, SIEMPRE,
+       también para un aparato con la marca de lord. La marca ya NO secuestra el
+       join hacia la licencia canónica del lord (ese era el bug: "aunque pongas SU
+       licencia les unes a MI tienda"). El lord solo AÑADE un registro de acceso
+       (auditoría) y queda como observador (toco=false). */
 /* Playwright portable: primero el node_modules local del repo (Windows/macOS),
    luego el path Linux del contenedor original. */
 const path = require("path");
@@ -53,13 +52,14 @@ const accesos = (page) => page.evaluate(() => { try { return JSON.parse(localSto
     const aN = await accesos(N);
     check("NORMAL: no deja registro de acceso de lord (no es super-admin)", aN.length === 0, aN);
 
-    // --- LORD: NO adopta la licencia ajena; conserva su identidad, registra acceso ---
+    // --- LORD: ADOPTA la licencia tecleada (JFC 2026-09-06: poner una licencia =
+    //     unirse a ESA licencia, siempre) y ADEMÁS registra el acceso (auditoría) ---
     const L = await device(browser, { lord: true });
     await L.evaluate((lic) => { try { window.OCSyncControl.unirse(lic); } catch (_) {} }, IDIOMARTE).catch(() => {});
     await L.waitForFunction(() => window.OCSyncControl, null, { timeout: 15000 }).catch(() => {});
     const oL = await owned(L);
-    check("LORD: al unirse NO adopta la licencia ajena; conserva su identidad canónica (SYNCIDENTITYFIX 2026-08-31)",
-      String(oL.licenseCode || "").replace(/\s+/g, "").toUpperCase() === OWN.replace(/\s+/g, "").toUpperCase(), oL);
+    check("LORD: al unirse ADOPTA la licencia tecleada (poner licencia = unirse a ESA, la marca de lord NO secuestra a la canónica)",
+      String(oL.licenseCode || "").replace(/\s+/g, "").toUpperCase() === IDIOMARTE, oL);
     const aL = await accesos(L);
     check("LORD: registra el acceso a la tienda del cliente (auditoría)",
       aL.length >= 1 && String(aL[aL.length - 1].licencia || "").replace(/\s+/g, "").toUpperCase() === IDIOMARTE, aL);
