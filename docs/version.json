@@ -1,9 +1,9 @@
 {
-  "version": "1.7.106",
-  "fecha": "2026-09-04",
-  "changelog": "v1.7.106 — Comisiones: (1) el encabezado del ranking ahora se llama solo 'Promoters / commissionists'. (2) Al registrar una venta (Vendido), el ranking de comisionistas y el reparto de perchas se recalculan EN VIVO por el tunel reactivo (topico 'ventas') si esas vistas estan abiertas; antes solo se refrescaba al re-entrar y parecia que la comision del comisionista no aparecia.",
+  "version": "1.7.107",
+  "fecha": "2026-09-06",
+  "changelog": "v1.7.107 — Comisiones mas completa y clara: (1) subsecciones con titulo propio: 'Add commissionist / promoter', 'Commissionist list', 'Promoters / commissionists by results' (el ranking) y 'Summary by rack / event' (las tarjetas por percha/evento, datos reales de /liquidaciones). (2) Reactividad plena: agregar/editar un comisionista o registrar una venta refresca EN VIVO ranking y tarjetas si estas en Comisiones. (3) New Product: se quito el 'Artist commission %' duplicado (la comision se define por la percha / el trato del comisionista) y en su lugar va el pulldown de comisionistas, reactivo. La direccion de la comision ya estaba correcta en friendly (asociado 85% / casa 15%).",
   "requerida": false,
-  "shell": "f123-shell-v219",
+  "shell": "f123-shell-v220",
   "apagar": [],
-  "releaseName": "v1.7.106"
+  "releaseName": "v1.7.107"
 }

@@ -3615,6 +3615,9 @@ window.OCReactivo = (function () {
     try { ["np-comisionista", "ed-comisionista"].forEach(function (id) { var s = document.getElementById(id); if (s) poblarSelectComisionistas(id, s.value || null); }); } catch (_) {}
     try { var vp = document.getElementById("vista-perchas"); if (vp && vp.classList.contains("activa") && window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
     try { if (typeof renderGestionPromotoras === "function") renderGestionPromotoras(); } catch (_) {}
+    // JFC 2026-09-06: si estás en Comisiones, refresca también ranking y tarjetas
+    // por percha (un comisionista nuevo/editado debe reflejarse al instante ahí).
+    try { var vc = document.getElementById("vista-comisiones"); if (vc && vc.classList.contains("activa") && typeof cargarComisiones === "function") cargarComisiones(); } catch (_) {}
   });
   on("clientes", function () { try { if (typeof poblarSelectClientes === "function") poblarSelectClientes(); } catch (_) {} });
   on("perchas", function () { try { if (typeof ocMontarTraslado === "function") { ocMontarTraslado("oc-traslado-inv"); ocMontarTraslado("oc-traslado-perchas"); } } catch (_) {} });
@@ -5481,10 +5484,10 @@ async function abrirAltaProducto(){
             ${perchasAlta.map(u => `<option value="${escHtml(u.id)}"${u.id === ubicacionActual ? " selected" : ""}>${escHtml(u.nombre)}</option>`).join("")}
           </select></label>
       </div>
-      <div id="np-comision-wrap" style="display:none;margin-top:8px;">
-        <label style="display:block;font-size:14px;">${t("form.artistCommissionPct")}<br>
-          <input id="np-comision-pct" type="number" min="0" max="100" step="1" ${inp}></label>
-      </div>
+      <label style="display:block;margin-top:10px;font-size:14px;">Commission agent (comisionista)<br>
+        <select id="np-comisionista" ${inp}>
+          <option value="">— None —</option>
+        </select></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
         <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
@@ -5502,9 +5505,10 @@ async function abrirAltaProducto(){
   document.getElementById("np-perecible").addEventListener("change", (e) => {
     document.getElementById("np-fecha-wrap").style.display = e.target.checked ? "block" : "none";
   });
-  document.getElementById("np-tipo-proveedor").addEventListener("change", (e) => {
-    document.getElementById("np-comision-wrap").style.display = e.target.value === "consignacion" ? "block" : "none";
-  });
+  /* JFC 2026-09-06: el % de comisión del artista ya NO se pide aquí (se define
+     por la percha / el trato del comisionista). En su lugar va el pulldown de
+     comisionistas, poblado en vivo por el túnel reactivo. */
+  try { poblarSelectComisionistas("np-comisionista", null); } catch (_) {}
   const _npTipo2 = document.getElementById("np-tipo-producto");
   if (_npTipo2) _npTipo2.addEventListener("change", (e) => {
     const w = document.getElementById("np-bar-wrap");
@@ -6501,7 +6505,8 @@ async function renderGestionPromotoras(){
       <p style="font-size:14px;color:var(--ink-soft);margin:0;">${window.t("comm.g.dualRoleNote")}</p>
     </div>
     <p id="promMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
-    <div class="tag-card" style="padding:10px 14px;display:flex;align-items:center;gap:12px;margin-top:16px;">
+    <h3 class="seccion" style="font-size:15px;margin:22px 0 0;">${window.t("comm.g.listHeading")}</h3>
+    <div class="tag-card" style="padding:10px 14px;display:flex;align-items:center;gap:12px;margin-top:12px;">
       <svg width="26" height="26" viewBox="0 0 16 16" aria-hidden="true" style="flex-shrink:0;">
         <circle cx="6.6" cy="6.6" r="4.8" fill="none" stroke="var(--azul-medio,#2E6278)" stroke-width="2.2"/>
         <path d="M10.2 10.2L15 15" stroke="var(--azul-medio,#2E6278)" stroke-width="2.6" stroke-linecap="round"/>
@@ -7043,7 +7048,10 @@ async function cargarComisiones(){
     </div>`;
   }).join("");
 
-  cont.innerHTML = btnWA + btnExport + rankHtml + cardsHtml + matrizComisionistasHtml(ranking);
+  // JFC 2026-09-06: subsección con título propio para las tarjetas de resultado
+  // por percha/evento (antes iban sueltas sin encabezado). Solo si hay filas.
+  const cardsHeading = cardsHtml ? `<h3 class="seccion" style="font-size:15px;margin:22px 0 10px;">${t("comm.cardsHeading")}</h3>` : "";
+  cont.innerHTML = btnWA + btnExport + rankHtml + cardsHeading + cardsHtml + matrizComisionistasHtml(ranking);
 
   /* Los dos campos son el mismo numero visto al reves. Se espejan mientras se
      escribe: imposible dejar un reparto que no suma 100. */
