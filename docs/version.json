@@ -1,9 +1,9 @@
 {
-  "version": "1.7.117",
+  "version": "1.7.118",
   "fecha": "2026-09-08",
-  "changelog": "v1.7.117 — Archivar/desarchivar un producto o evento individual (pedido de Belen): un evento fechado que ya paso se da de baja sin borrarlo, con la misma facilidad que una percha. Sale del inventario activo y se recupera desde 'Show archived'. Aditivo y reversible.",
+  "changelog": "v1.7.118 — Fix (world's best practice): archivar un producto/evento lo saca SOLO del grid de inventario operacional; el dashboard, el resumen historico, el BCG y los reportes financieros lo SIGUEN viendo (archivar no borra del historial). La exclusion de archivados ya no vive en filtrar() sino solo en el listado del grid.",
   "requerida": false,
-  "shell": "f123-shell-v230",
+  "shell": "f123-shell-v231",
   "apagar": [],
-  "releaseName": "v1.7.117"
+  "releaseName": "v1.7.118"
 }
