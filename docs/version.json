@@ -1,9 +1,9 @@
 {
-  "version": "1.7.114",
+  "version": "1.7.115",
   "fecha": "2026-09-08",
-  "changelog": "v1.7.114 — La pagina del PIN ahora muestra la licencia a la que uno se une, con solo los ultimos 4 caracteres (maxima privacidad, cero confusion) — pedido de Belen para no unirse a ciegas. Sale en la tienda propia y en la unida.",
+  "changelog": "v1.7.115 — En el modal de Vendido, dos checkboxes: Cortesia (venta sin precio; el costo si se contabiliza, sin ingreso ni comision) y On credit/fiado (la venta se cuelga como deuda del cliente en Clientes). Modal mas compacto: Payment method + los checkboxes en una linea, y fecha de evento + personas lado a lado, sin estirar hacia abajo.",
   "requerida": false,
-  "shell": "f123-shell-v227",
+  "shell": "f123-shell-v228",
   "apagar": [],
-  "releaseName": "v1.7.114"
+  "releaseName": "v1.7.115"
 }

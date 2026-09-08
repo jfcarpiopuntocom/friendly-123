@@ -5723,12 +5723,14 @@ async function abrirPanelVentaInfo(id, esTicket){
         </div>`;
       })()}
       ${esTicket ? `
-      <label style="display:block;margin-top:10px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" ${inp}></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">People in the reservation<br>
-        <select id="vi-personas" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
-          <option value="">—</option>
-          ${Array.from({length:20},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join("")}
-        </select></label>` : ""}
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;">
+        <label style="flex:1;min-width:150px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <label style="flex:1;min-width:150px;font-size:14px;">People in the reservation<br>
+          <select id="vi-personas" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
+            <option value="">—</option>
+            ${Array.from({length:20},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join("")}
+          </select></label>
+      </div>` : ""}
       <label style="display:block;margin-top:10px;font-size:14px;">Group / Reservation name (optional)
         <button type="button" id="vi-toggle-pagador" title="Add a group or reservation name"
           style="margin-left:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
@@ -5740,10 +5742,19 @@ async function abrirPanelVentaInfo(id, esTicket){
       ${(!esBar && !esTicket) ? `
       <label id="vi-cant-wrap" style="display:block;margin-top:10px;font-size:14px;">Quantity (counter sale — sell several at once)<br>
         <input id="vi-cantidad" type="number" min="1" step="1" value="1" ${inp}></label>` : ""}
-      <div style="margin-top:10px;">
-        <label style="font-size:14px;">Payment method<br>
-          <select id="vi-forma-pago" ${inp}><option value="">—</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="card">Card</option><option value="other">Other</option></select></label>
+      <!-- Compacto (JFC 2026-09-08): Payment method + Cortesía + Fiado en UNA
+           línea, sin estirar el modal hacia abajo. -->
+      <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <label style="font-size:14px;flex:1;min-width:150px;">Payment method<br>
+          <select id="vi-forma-pago" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"><option value="">—</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="card">Card</option><option value="other">Other</option></select></label>
+        <div style="flex:1;min-width:165px;display:flex;flex-direction:column;gap:5px;">
+          <label style="display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">
+            <input id="vi-cortesia" type="checkbox" style="width:auto;margin:0;">Courtesy (comp)</label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">
+            <input id="vi-fiado" type="checkbox" style="width:auto;margin:0;">On credit (fiado)</label>
+        </div>
       </div>
+      <p id="vi-cf-hint" style="font-size:12px;font-weight:700;margin:4px 0 0;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;"></p>
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;cursor:pointer;">
         <input id="vi-add-factura" type="checkbox" style="width:auto;margin:0;">Add invoice</label>
       <label id="vi-factura-wrap" style="display:none;margin-top:6px;font-size:14px;">Invoice number (optional)<br>
@@ -5819,6 +5830,29 @@ async function abrirPanelVentaInfo(id, esTicket){
       if (chkFac.checked) { const f = document.getElementById("vi-factura"); if (f) f.focus(); }
     });
   }
+  // CORTESÍA / FIADO (JFC 2026-09-08). Cortesía = sin precio (el costo sí cuenta);
+  // Fiado = va a la deuda del cliente. Son excluyentes (una cortesía no genera
+  // deuda). Fiado necesita un cliente elegido: se avisa en el hint. El registro
+  // real de la deuda lo hace confirmarVentaConInfo tras la venta.
+  const chkCort = document.getElementById("vi-cortesia");
+  const chkFia = document.getElementById("vi-fiado");
+  const cfHint = document.getElementById("vi-cf-hint");
+  const syncCortFia = () => {
+    if (!cfHint) return;
+    let txt = "";
+    if (chkCort && chkCort.checked) {
+      if (chkFia) chkFia.checked = false;
+      txt = "Courtesy: no charge (revenue $0), but the cost still counts. No commission.";
+    } else if (chkFia && chkFia.checked) {
+      const cid = (document.getElementById("vi-cliente") || {}).value || "";
+      txt = cid ? "On credit: this sale is added to the customer's debt in Customers."
+                : "Pick a customer above — on credit needs a customer to record the debt.";
+    }
+    cfHint.textContent = txt;
+  };
+  if (chkCort) chkCort.addEventListener("change", () => { if (chkCort.checked && chkFia) chkFia.checked = false; syncCortFia(); });
+  if (chkFia) chkFia.addEventListener("change", () => { if (chkFia.checked && chkCort) chkCort.checked = false; syncCortFia(); });
+  { const _sc = document.getElementById("vi-cliente"); if (_sc) _sc.addEventListener("change", syncCortFia); }
   // JFC 2026-09-02: la cantidad (vender varios de golpe) solo aplica a la venta
   // de mostrador (sin cliente). Si eligen un cliente, se fuerza a 1 y se oculta.
   const cantWrap = document.getElementById("vi-cant-wrap");
@@ -5892,10 +5926,17 @@ async function confirmarVentaConInfo(id, esTicket){
   const _cantMostrador = (!_esBar && !esTicket && !clienteId)
     ? Math.max(1, Math.floor(Number(g("vi-cantidad")) || 1)) : 1;
   const _facturaOn = (() => { const c = document.getElementById("vi-add-factura"); return !!(c && c.checked); })();
+  // CORTESÍA / FIADO (JFC 2026-09-08). Excluyentes: una cortesía (precio 0) no
+  // genera deuda. Fiado necesita un cliente para colgarle la deuda.
+  const _cortesiaOn = (() => { const c = document.getElementById("vi-cortesia"); return !!(c && c.checked); })();
+  let _fiadoOn = (() => { const c = document.getElementById("vi-fiado"); return !!(c && c.checked); })();
+  if (_cortesiaOn) _fiadoOn = false;
   const info = {
     fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
-    email: g("vi-email"), whatsapp: g("vi-whatsapp"), formaPago: g("vi-forma-pago"),
+    email: g("vi-email"), whatsapp: g("vi-whatsapp"),
+    formaPago: _fiadoOn ? "credit" : g("vi-forma-pago"),
     notas: g("vi-notas"),
+    ...(_cortesiaOn ? { cortesia: true } : {}),
     ...(_facturaOn ? { factura: g("vi-factura") || "(sin número)" } : {}),
     ...(_esBar ? { servings: _servings, botellas: +(_servings / _servPorBotella).toFixed(2) } : {})
   };
@@ -5905,6 +5946,15 @@ async function confirmarVentaConInfo(id, esTicket){
     msg.textContent = "For tickets/events you need the event/class date.";
     return;
   }
+  if (_fiadoOn && !clienteId){
+    msg.style.color = "var(--rojo,#a3392a)";
+    msg.textContent = "On credit needs a customer — pick one above (or use New).";
+    return;
+  }
+  // Precio para registrar la deuda del fiado (se captura antes de cerrar el modal).
+  const _precioFiado = (_ventaInfoProductoCache && Number(_ventaInfoProductoCache.precio)) || 0;
+  const _nombreFiado = (_ventaInfoProductoCache && _ventaInfoProductoCache.nombre) || "";
+  const _cantVenta = _esBar ? _servings : _cantMostrador;
   // Comisionista elegido en Vendido (JFC 2026-09-04): se asigna a la percha ANTES
   // de registrar la venta, así el reparto ya lo incluye y Comisiones no queda
   // vacío. Idempotente (poner el mismo valor no hace daño).
@@ -5937,6 +5987,21 @@ async function confirmarVentaConInfo(id, esTicket){
     if (document.getElementById("cierreDia") && document.getElementById("cierreDia").open) cargarCierreLista();
     if (document.getElementById("ventasSold") && document.getElementById("ventasSold").open) cargarVentasSold();
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+    // FIADO → deuda en Clientes (JFC 2026-09-08). La venta ya quedó asentada
+    // (es ingreso, aunque impago); aquí se cuelga la deuda al cliente con el
+    // endpoint que ya existe. Si falla, la venta NO se pierde: se avisa a consola.
+    if (_fiadoOn && clienteId) {
+      const _montoFiado = +(_precioFiado * _cantVenta).toFixed(2);
+      if (_montoFiado > 0) {
+        try {
+          await fetch(`${API}/clientes/${clienteId}/fiar`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ monto: _montoFiado, motivo: `Sale on credit: ${_nombreFiado}` })
+          });
+          try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}
+        } catch (e) { console.error("[fiado] no se pudo registrar la deuda:", e); }
+      }
+    }
     // Túnel reactivo (JFC 2026-09-04): recalcular en vivo el ranking de
     // Promoters/commissionists y el reparto de perchas si están a la vista.
     try { window.OCReactivo && window.OCReactivo.emitir("ventas"); } catch (_) {}
@@ -5970,7 +6035,9 @@ async function cargarVentasSold(){
     const bloqueada = !!v.liquidada;
     const cli = v.clienteNombre ? escHtml(v.clienteNombre) : "Counter sale";
     const chips = [];
-    if (v.formaPago) chips.push(escHtml(v.formaPago));
+    if (v.cortesia) chips.push("Courtesy");                          // JFC 2026-09-08
+    if (v.formaPago === "credit") chips.push("On credit (fiado)");   // JFC 2026-09-08
+    else if (v.formaPago) chips.push(escHtml(v.formaPago));
     if (v.factura) chips.push("Invoice " + escHtml(v.factura));
     if (v.eventoNombre) chips.push(escHtml(v.eventoNombre));
     return `<div class="tag-card oc-vs-row" data-id="${v.id}" style="padding:10px 12px;margin-bottom:8px;background:var(--blanco-calido,#fbf5e8);">
