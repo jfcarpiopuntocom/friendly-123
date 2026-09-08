@@ -1,9 +1,9 @@
 {
-  "version": "1.7.111",
+  "version": "1.7.112",
   "fecha": "2026-09-08",
-  "changelog": "v1.7.111 — Mejoras #4 y #5 del sistema de versión: la insignia del candado ahora muestra el shell que el aparato REALMENTE corre y avisa en rojo si está desactualizado (con el botón Purge como salida); y un piso autoritativo lee version.json y, si el aparato está por debajo del shell publicado, fuerza una recarga segura diferida (nunca bloquea).",
+  "changelog": "v1.7.112 — Mejora #3 del sistema de versión: fin de la mezcla intra-sesión. La página ahora escucha el aviso del service worker cuando un shell nuevo toma control y marca una recarga segura diferida (al próximo login, invisible), para que el aparato converja a UNA sola versión limpia en vez de mezclar código viejo con archivos nuevos. No toca la activación del SW.",
   "requerida": false,
-  "shell": "f123-shell-v224",
+  "shell": "f123-shell-v225",
   "apagar": [],
-  "releaseName": "v1.7.111"
+  "releaseName": "v1.7.112"
 }
