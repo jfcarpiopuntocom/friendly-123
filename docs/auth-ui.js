@@ -681,6 +681,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           + _esc(texto) + '</strong>';
         el.style.display = "block";
       };
+      /* LICENCIA A LA QUE UNO SE UNE, en el candado (JFC 2026-09-08, pedido de
+         Belén: "que se vea a qué me estoy uniendo, así nadie se une a ciegas").
+         Se muestran SOLO los últimos 4 caracteres — máxima privacidad, cero
+         confusión. Es como el periscopio pero para el join: parte de cumplir la
+         promesa de shared digital notebook. Alta legibilidad (tinta, no gris). */
+      const _lic4Linea = (lic) => {
+        const s = String(lic || "").replace(/\s+/g, "");
+        if (s.length < 4) return "";
+        return '<div style="margin-top:6px;font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">'
+          + _esc(window.t("auth.gate.license", "License")) + ' ••••' + _esc(s.slice(-4)) + '</div>';
+      };
       /* RAMA TIENDA UNIDA (multi-tienda, JFC 2026-08-26). CRÍTICO: rotular la
          tienda ACTIVA, no la propia. Antes esta función leía SIEMPRE
          f123_owned.nombreNegocio (la tienda propia), así que al entrar a la
@@ -707,6 +718,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         }
         if (!nom) { el.style.display = "none"; return; }
         _pintar(nom);
+        const licU = (T.licenciaActual && T.licenciaActual()) || "";
+        if (licU) el.innerHTML += _lic4Linea(licU);
         if (sinSincronizar) {
           el.innerHTML += '<div style="margin-top:6px;font-size:12px;color:var(--gold,#9c7a35);">'
             + _esc(window.t("sync.panel.joined", "Joined. This device is now syncing with the team."))
@@ -721,6 +734,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const nombre = (owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "";
       if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
       _pintar(nombre);
+      const licP = (owned && typeof owned.licenseCode === "string") ? owned.licenseCode : "";
+      if (licP) el.innerHTML += _lic4Linea(licP);
     } catch (_) { try { const el = document.getElementById("oc-gate-negocio"); if (el) el.style.display = "none"; } catch (__) {} }
   }
   /* Pinta la versión REAL del build en el candado (JFC 2026-08-26: "solo dice
