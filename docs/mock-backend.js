@@ -2628,7 +2628,13 @@
         const _infoPago = (body && typeof body.info === "object" && body.info) ? body.info : {};
         const _esTicket = (p.tipoProducto || "normal") === "ticket";
         const _pagado = Number(_infoPago.montoPagado);
-        const precioEfectivo = (_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : p.precio;
+        /* CORTESIA (JFC 2026-09-08, "hay costo pero no precio"): una venta de
+           cortesía sale del stock y CONSERVA su costoUnit (el costo se contabiliza),
+           pero su precioUnit es 0 — no genera ingreso ni comisión (no hay monto que
+           repartir). Se marca cortesia:true en info para que reportes y la lista de
+           ventas la distingan. */
+        const _esCortesia = !!_infoPago.cortesia;
+        const precioEfectivo = _esCortesia ? 0 : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : p.precio);
         const montoBruto = precioEfectivo * cant;
         const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
         const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null;
@@ -2669,6 +2675,7 @@
           /* Bar (JFC 2026-08-27): servings vendidos y su equivalente en botellas. */
           servings: (infoBody.servings !== undefined && infoBody.servings !== "") ? Math.max(0, Number(infoBody.servings) || 0) : null,
           botellas: (infoBody.botellas !== undefined && infoBody.botellas !== "") ? Math.max(0, Number(infoBody.botellas) || 0) : null,
+          cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
         ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null });
@@ -3132,6 +3139,7 @@
           pagador: (v.info && v.info.nombrePagador) || "",
           formaPago: (v.info && v.info.formaPago) || "",
           factura: (v.info && v.info.factura) || "",
+          cortesia: !!(v.info && v.info.cortesia), // JFC 2026-09-08: venta de cortesía.
           notas: (v.info && v.info.notas) || "",
           clienteId: v.clienteId || "",
           servings: (v.info && v.info.servings) || null,
