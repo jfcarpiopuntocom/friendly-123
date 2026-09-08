@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v228"; // v222 (JFC 2026-09-08): botón Purge & Reload al pie del candado — sube shell para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json. // v192: 12 micromejoras (lapicito único + naranja de precaución, paleta del dinero, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo cancelación 5s, editar/cancelar venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar expiración de crédito)
+const CACHE = "f123-shell-v229"; // v222 (JFC 2026-09-08): botón Purge & Reload al pie del candado — sube shell para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json. // v192: 12 micromejoras (lapicito único + naranja de precaución, paleta del dinero, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo cancelación 5s, editar/cancelar venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar expiración de crédito)
 const SHELL = [
   "./",
   "./index.html",

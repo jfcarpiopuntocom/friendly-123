@@ -1,9 +1,9 @@
 {
-  "version": "1.7.115",
+  "version": "1.7.116",
   "fecha": "2026-09-08",
-  "changelog": "v1.7.115 — En el modal de Vendido, dos checkboxes: Cortesia (venta sin precio; el costo si se contabiliza, sin ingreso ni comision) y On credit/fiado (la venta se cuelga como deuda del cliente en Clientes). Modal mas compacto: Payment method + los checkboxes en una linea, y fecha de evento + personas lado a lado, sin estirar hacia abajo.",
+  "changelog": "v1.7.116 — (1) Expenses: campo opcional de nº de factura/invoice del proveedor (control tributario basico). (2) Nomenclatura: la venta fiada se llama 'On account (fiado)' en vez de 'on credit' para no confundir con el credit/abono (saldo a favor). (3) El credit/abono ahora puede ser GENERAL (sin determinar) o atado a un item: primera opcion 'Not tied to an item (general credit)'.",
   "requerida": false,
-  "shell": "f123-shell-v228",
+  "shell": "f123-shell-v229",
   "apagar": [],
-  "releaseName": "v1.7.115"
+  "releaseName": "v1.7.116"
 }

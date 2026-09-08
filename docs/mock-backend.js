@@ -2899,6 +2899,7 @@
         const g = {
           id: uuid("g"), concepto, monto: +monto.toFixed(2),
           categoria,
+          factura: String(body.factura || "").trim().slice(0, 60), // JFC 2026-09-08: nº factura/invoice del proveedor (control tributario básico).
           fecha: body.fecha || new Date().toISOString(),
           ubicacionId: body.ubicacionId || "todas",
           usuarioId: (window.OCCurrentUser && window.OCCurrentUser.id) || "sistema",
