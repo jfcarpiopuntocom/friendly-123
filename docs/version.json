@@ -1,9 +1,9 @@
 {
-  "version": "1.7.109",
+  "version": "1.7.110",
   "fecha": "2026-09-08",
-  "changelog": "v1.7.109 — Botón 'Purge & Reload' al pie del candado del PIN: salida de emergencia para aparatos atascados en un shell viejo (desregistra service workers + borra CacheStorage + recarga duro, SIN tocar los datos del cliente). Sube el shell a v222 para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json.",
+  "changelog": "v1.7.110 — Blindaje del sistema de versión (fail-open): la verificación de integridad del service worker YA NO borra un archivo cuyo hash no cuadra; lo re-pide a la red y solo reemplaza si la copia fresca cuadra, si no conserva la que ya tiene (una versión vieja nunca deja a nadie afuera). Y check-sw.sh ahora verifica los hashes REALES del shell contra version-manifest.json, así un push con manifest desincronizado (el incidente del 2026-09-08) es imposible.",
   "requerida": false,
-  "shell": "f123-shell-v222",
+  "shell": "f123-shell-v223",
   "apagar": [],
-  "releaseName": "v1.7.109"
+  "releaseName": "v1.7.110"
 }
