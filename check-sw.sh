@@ -72,9 +72,41 @@ if [ -n "$huerfanas_seccion" ]; then
   echo "$huerfanas_seccion" | sed 's/^/  /'
 fi
 
+# VERIFICACION DE HASHES REALES (JFC 2026-09-08, mejora #2 de la auditoria de
+# version). ANTES este script solo comparaba el STRING de version entre sw.js,
+# version.json y el manifest -- por eso un cambio a un archivo del shell SIN
+# regenerar version-manifest.json pasaba la compuerta y el service worker luego
+# lo rechazaba en los aparatos (el incidente del 2026-09-08 con auth-ui.js). Ahora
+# se recomputa el SHA-256 REAL de cada archivo del manifest y se compara: si uno
+# no cuadra, la compuerta FALLA y pide regenerar. Deploy con manifest viejo =
+# imposible.
+if [ -f docs/version-manifest.json ]; then
+  desfasados=$(node -e '
+    const fs=require("fs"), crypto=require("crypto"), path=require("path");
+    const man=JSON.parse(fs.readFileSync("docs/version-manifest.json","utf8"));
+    const files=(man&&man.files)||{}; let bad=[];
+    for(const rel of Object.keys(files)){
+      const esp=files[rel];
+      if(typeof esp!=="string"||esp.indexOf("sha256-")!==0) continue;
+      const p=path.join("docs", rel.replace(/^\.\//,""));
+      if(!fs.existsSync(p)){ bad.push(rel+" (falta el archivo)"); continue; }
+      const real="sha256-"+crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");
+      if(real!==esp) bad.push(rel);
+    }
+    if(bad.length) console.log(bad.join("\n"));
+  ' 2>/dev/null)
+  if [ -n "$desfasados" ]; then
+    echo "MANIFEST DESINCRONIZADO (hashes reales): estos archivos del shell no cuadran"
+    echo "con version-manifest.json. Corre: node scripts/gen-manifest.js"
+    echo "$desfasados" | sed 's/^/  /'
+    falta=1
+  fi
+fi
+
 if [ "$falta" = "0" ]; then
   echo "OK — todos los scripts de index.html estan en el SHELL del service worker."
   echo "OK — sw.js y version.json coinciden en $sw_ver."
+  echo "OK — hashes reales del shell cuadran con version-manifest.json."
   echo "OK — sin claves de otra app hermana (G2)."
   echo "OK — todo data-vista del nav tiene su seccion (G4)."
   grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1 | sed 's/^/CACHE actual: /'

@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v222"; // v222 (JFC 2026-09-08): botón Purge & Reload al pie del candado — sube shell para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json. // v192: 12 micromejoras (lapicito único + naranja de precaución, paleta del dinero, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo cancelación 5s, editar/cancelar venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar expiración de crédito)
+const CACHE = "f123-shell-v223"; // v222 (JFC 2026-09-08): botón Purge & Reload al pie del candado — sube shell para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json. // v192: 12 micromejoras (lapicito único + naranja de precaución, paleta del dinero, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo cancelación 5s, editar/cancelar venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar expiración de crédito)
 const SHELL = [
   "./",
   "./index.html",
@@ -124,10 +124,29 @@ self.addEventListener("install", (evento) => {
                   return r.text().then((txt) => {
                     return crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt)).then((buf) => {
                       const hex = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-                      if (("sha256-" + hex) !== esperado) {
-                        try { console.warn("[SW] hash no cuadra, descartando copia corrupta:", rel); } catch (_) {}
-                        return cache.delete(rel);
-                      }
+                      if (("sha256-" + hex) === esperado) return; // cuadra: nada que hacer.
+                      /* FAIL-OPEN (JFC 2026-09-08, mejora #1 de la auditoría de versión).
+                         ANTES esto hacía cache.delete(rel): si version-manifest.json
+                         estaba desincronizado, BORRABA el archivo BUENO y actual, y el
+                         aparato quedaba con media app o roto sin conexión. Fue el corazón
+                         del incidente de versiones. AHORA no se borra jamás: se re-pide el
+                         archivo a la red y se reemplaza SOLO si la copia fresca cuadra con
+                         el manifest; si la red falla, o si la copia fresca TAMPOCO cuadra
+                         (síntoma de manifest desincronizado, no de archivo corrupto), se
+                         CONSERVA la copia que ya estaba servida. La app nunca se queda sin
+                         el archivo: peor caso, versión vieja pero funcional. */
+                      return fetch(new Request(rel, { cache: "reload" })).then((fresca) => {
+                        if (!fresca || !fresca.ok) return; // sin red útil: conservar lo que hay.
+                        return fresca.clone().text().then((ftxt) =>
+                          crypto.subtle.digest("SHA-256", new TextEncoder().encode(ftxt)).then((fbuf) => {
+                            const fhex = Array.from(new Uint8Array(fbuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+                            if (("sha256-" + fhex) === esperado) {
+                              return cache.put(rel, fresca); // copia fresca cuadra: reemplazar.
+                            }
+                            try { console.warn("[SW] manifest posiblemente desincronizado en", rel, "— se conserva la copia servida (fail-open, no se borra)"); } catch (_) {}
+                          })
+                        );
+                      }).catch(() => { /* sin red: conservar la copia que ya está. */ });
                     });
                   });
                 });
