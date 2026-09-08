@@ -1301,14 +1301,12 @@
     const e = estadoDe(p);
     return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
-  function filtrar(uid) {
-    const base = !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid);
-    // ARCHIVADOS (JFC/Belén 2026-09-08): un producto/evento archivado sale del
-    // inventario activo (grid, estados, BCG, dormidos) pero NO se borra — se ve
-    // y se reactiva desde la lista de archivados. Igual de fácil que dar de baja
-    // una percha, pero a nivel de producto (ej. un evento fechado que ya pasó).
-    return base.filter((p) => !p.archivado);
-  }
+  /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
+     archivados: dashboards, resumen histórico, BCG y reportes financieros deben
+     seguir viéndolos (world's best practice — archivar NO borra del historial,
+     JFC 2026-09-08). La exclusión de archivados vive SOLO en el grid de
+     Inventario (endpoint GET /productos), que es la vista operacional. */
+  function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
   // ubicacion; con historial de dias anteriores el resumen del dia mentia.
   function ventasHoyDe(uid) { const hoy = hoyISO(); return ventas.filter((v) => fechaLocalDe(v.fecha) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
@@ -2568,10 +2566,13 @@
       if (path === "/api/productos" && (!opts || opts.method !== "POST")) {
         // soloArchivados=1 → devuelve los archivados (para la lista de archivados),
         // en vez de excluirlos como hace filtrar(). JFC/Belén 2026-09-08.
+        // El GRID de Inventario (vista operacional) es el ÚNICO que oculta los
+        // archivados. Todo lo demás (dashboard, resumen, BCG, reportes) usa
+        // filtrar() y SÍ los ve — archivar no borra del historial (JFC 2026-09-08).
         const soloArch = q.get("soloArchivados") === "1";
         const fuente = soloArch
           ? productos.filter((p) => p.archivado && (!uid || uid === "todas" || p.ubicacionId === uid))
-          : filtrar(uid);
+          : filtrar(uid).filter((p) => !p.archivado);
         let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", archivado: !!p.archivado }; });
         const est = q.get("estado");
         if (est) lista = lista.filter((x) => x.estado === est);
