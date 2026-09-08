@@ -733,9 +733,29 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if (!vj) return;
         const el = document.getElementById("oc-gate-build");
         if (!el) return;
-        const shell = String(vj.shell || "").replace("f123-shell-", "");
+        const shellServidor = String(vj.shell || "");
+        const shell = shellServidor.replace("f123-shell-", "");
         const ver = String(vj.version || "");
-        el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  build " + shell) : "");
+        const normal = function () { el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  build " + shell) : ""); };
+        /* MEJORA #4 (JFC 2026-09-08, auditoría de versión): mostrar el shell que
+           el aparato REALMENTE corre, no solo el que declara version.json. Un
+           aparato atascado en un shell viejo debe VERLO y saber que el botón
+           "Purge & reload" de abajo es la salida. Aviso LEGIBLE (rojo del
+           semáforo a plena opacidad, nunca gris). Fail-safe: si algo falla,
+           deja la insignia normal. */
+        if (!("caches" in window)) { normal(); return; }
+        caches.keys().then(function (nombres) {
+          const activa = (nombres.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
+          if (activa && shellServidor && activa !== shellServidor) {
+            const activaCorta = activa.replace("f123-shell-", "");
+            el.style.opacity = "1";
+            el.style.color = "#E8365D";
+            try { el.style.setProperty("-webkit-text-fill-color", "#E8365D", "important"); } catch (_) {}
+            el.textContent = "build " + activaCorta + " — versión vieja. Usa “Purge & reload” abajo (última: " + shell + ").";
+          } else {
+            normal();
+          }
+        }).catch(normal);
       }).catch(() => {});
     } catch (_) {}
   }
