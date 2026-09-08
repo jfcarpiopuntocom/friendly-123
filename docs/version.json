@@ -1,9 +1,9 @@
 {
-  "version": "1.7.113",
+  "version": "1.7.114",
   "fecha": "2026-09-08",
-  "changelog": "v1.7.113 — Mejora #6: radar de versión en la tarjeta Inspector(TM). Cada aparato reporta en su latido de micelio el shell que corre (solo huella de versión, ningun dato del negocio); el radar muestra el shell de cada instancia y marca en rojo la que esta en version vieja, para ver quien quedo atascado sin esperar una queja. Tarjeta Inspector propia, NO se toca la lista de licencias.",
+  "changelog": "v1.7.114 — La pagina del PIN ahora muestra la licencia a la que uno se une, con solo los ultimos 4 caracteres (maxima privacidad, cero confusion) — pedido de Belen para no unirse a ciegas. Sale en la tienda propia y en la unida.",
   "requerida": false,
-  "shell": "f123-shell-v226",
+  "shell": "f123-shell-v227",
   "apagar": [],
-  "releaseName": "v1.7.113"
+  "releaseName": "v1.7.114"
 }
