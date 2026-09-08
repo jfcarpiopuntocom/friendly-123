@@ -26,9 +26,9 @@ Ese fue el corazón del incidente.
 3. **Sin mezcla de versiones intra-sesión.** [PENDIENTE] skipWaiting+clients.claim
    puede dejar una página vieja pidiendo módulos nuevos (mezcla). Cerrar con
    recarga atómica coordinada: un cliente es o todo viejo o todo nuevo.
-4. **Insignia de versión visible + botón Purge a mano.** [PENDIENTE, Purge ya está]
+4. **Insignia de versión visible + botón Purge a mano.** [IMPLEMENTADA v1.7.111]
    Pintar el shell activo en el pie del candado (`id="oc-gate-build"`).
-5. **Piso de versión que fuerza actualizar, nunca bloquea.** [PENDIENTE] Usar
+5. **Piso de versión que fuerza actualizar, nunca bloquea.** [IMPLEMENTADA v1.7.111] Usar
    `version.json.requerida`/shell mínimo para recargar (no bloquear) a un aparato
    por debajo del piso. Jamás un mensaje de "bloqueado/límite".
 6. **Radar de versión por aparato en Inspector™.** [PENDIENTE] Reportar el shell

@@ -7764,6 +7764,36 @@ function _recargarSeguroVersion() {
   } catch (_) {}
 })();
 
+/* PISO DE VERSIÓN AUTORITATIVO (JFC 2026-09-08, mejora #5 de la auditoría de
+   versión). El chequeo de arriba compara el shell activo contra
+   f123_version_vista (un valor LOCAL): solo actualiza si algo local ya supo de
+   la versión nueva. Este además consulta version.json —la fuente de verdad del
+   servidor, que el SW nunca cachea— y, si el shell activo del aparato es
+   distinto al que el servidor publica, fuerza la recarga SEGURA (diferida al
+   próximo login, invisible; NUNCA bloquea, nunca muestra un límite). Así un
+   aparato por debajo del piso converge solo a la versión nueva sin depender de
+   que un valor local ya la conociera. Es la versión fail-open de un update
+   forzado: empuja a todos a la buena, no deja a nadie afuera. */
+(function verificarPisoVersion() {
+  try {
+    if (!("caches" in window)) return;
+    fetch("./version.json?ts=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (vj) {
+        if (!vj || !vj.shell) return;
+        const servidor = String(vj.shell);
+        caches.keys().then(function (nombres) {
+          const activa = (nombres.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
+          if (activa && servidor && activa !== servidor) {
+            try { console.warn("[version] piso: el SW sirve " + activa + " y el servidor publica " + servidor + " — recarga diferida al próximo login."); } catch (_) {}
+            try { localStorage.setItem("f123_version_vista", (vj.version || "") + "|" + servidor); } catch (_) {}
+            _recargarSeguroVersion();
+          }
+        }).catch(function () {});
+      }).catch(function () {});
+  } catch (_) {}
+})();
+
 // Microcirugia 5 (2026-07-07): tras importar un respaldo o restaurar un punto
 // de la caja fuerte (avanzado-extra dispara "oc-datos-importados"), la UI se
 // re-sincroniza sola: ubicaciones, vista activa y select de clientes. Antes

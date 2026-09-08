@@ -1,9 +1,9 @@
 {
-  "version": "1.7.110",
+  "version": "1.7.111",
   "fecha": "2026-09-08",
-  "changelog": "v1.7.110 — Blindaje del sistema de versión (fail-open): la verificación de integridad del service worker YA NO borra un archivo cuyo hash no cuadra; lo re-pide a la red y solo reemplaza si la copia fresca cuadra, si no conserva la que ya tiene (una versión vieja nunca deja a nadie afuera). Y check-sw.sh ahora verifica los hashes REALES del shell contra version-manifest.json, así un push con manifest desincronizado (el incidente del 2026-09-08) es imposible.",
+  "changelog": "v1.7.111 — Mejoras #4 y #5 del sistema de versión: la insignia del candado ahora muestra el shell que el aparato REALMENTE corre y avisa en rojo si está desactualizado (con el botón Purge como salida); y un piso autoritativo lee version.json y, si el aparato está por debajo del shell publicado, fuerza una recarga segura diferida (nunca bloquea).",
   "requerida": false,
-  "shell": "f123-shell-v223",
+  "shell": "f123-shell-v224",
   "apagar": [],
-  "releaseName": "v1.7.110"
+  "releaseName": "v1.7.111"
 }
