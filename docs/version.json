@@ -1,9 +1,9 @@
 {
-  "version": "1.7.112",
+  "version": "1.7.113",
   "fecha": "2026-09-08",
-  "changelog": "v1.7.112 — Mejora #3 del sistema de versión: fin de la mezcla intra-sesión. La página ahora escucha el aviso del service worker cuando un shell nuevo toma control y marca una recarga segura diferida (al próximo login, invisible), para que el aparato converja a UNA sola versión limpia en vez de mezclar código viejo con archivos nuevos. No toca la activación del SW.",
+  "changelog": "v1.7.113 — Mejora #6: radar de versión en la tarjeta Inspector(TM). Cada aparato reporta en su latido de micelio el shell que corre (solo huella de versión, ningun dato del negocio); el radar muestra el shell de cada instancia y marca en rojo la que esta en version vieja, para ver quien quedo atascado sin esperar una queja. Tarjeta Inspector propia, NO se toca la lista de licencias.",
   "requerida": false,
-  "shell": "f123-shell-v225",
+  "shell": "f123-shell-v226",
   "apagar": [],
-  "releaseName": "v1.7.112"
+  "releaseName": "v1.7.113"
 }

@@ -31,7 +31,7 @@ Ese fue el corazón del incidente.
 5. **Piso de versión que fuerza actualizar, nunca bloquea.** [IMPLEMENTADA v1.7.111] Usar
    `version.json.requerida`/shell mínimo para recargar (no bloquear) a un aparato
    por debajo del piso. Jamás un mensaje de "bloqueado/límite".
-6. **Radar de versión por aparato en Inspector™.** [PENDIENTE] Reportar el shell
+6. **Radar de versión por aparato en Inspector™.** [IMPLEMENTADA v1.7.113 — tarjeta Inspector propia, NO toca licencias] Reportar el shell
    activo de cada aparato al radar (solo huella, REGLA 8) para VER quién quedó
    atascado sin esperar una queja.
 
