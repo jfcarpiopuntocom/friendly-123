@@ -1,9 +1,9 @@
 {
-  "version": "1.7.108",
-  "fecha": "2026-09-06",
-  "changelog": "v1.7.108 — LORD ES LA LICENCIA, NO EL DISPOSITIVO (corrige un incidente real): poner una licencia = unirse a ESA licencia, SIEMPRE, tambien en un aparato con la marca de lord. Antes esa marca secuestraba el join y restauraba la licencia canonica del lord, asi que reenganchar el aparato de un cliente a SU licencia lo pegaba a la tienda del lord ('aunque pongas SU licencia les unes a MI tienda'). Ahora la marca de lord solo agrega un registro de acceso (auditoria) y ya no cambia a que tienda te unes. Arnes join-identity actualizado al contrato nuevo.",
+  "version": "1.7.109",
+  "fecha": "2026-09-08",
+  "changelog": "v1.7.109 — Botón 'Purge & Reload' al pie del candado del PIN: salida de emergencia para aparatos atascados en un shell viejo (desregistra service workers + borra CacheStorage + recarga duro, SIN tocar los datos del cliente). Sube el shell a v222 para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json.",
   "requerida": false,
-  "shell": "f123-shell-v221",
+  "shell": "f123-shell-v222",
   "apagar": [],
-  "releaseName": "v1.7.108"
+  "releaseName": "v1.7.109"
 }
