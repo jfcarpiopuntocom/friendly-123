@@ -4353,6 +4353,10 @@ async function duplicarComoVariante(id) {
   }
 }
 
+// Ver archivados (JFC/Belén 2026-09-08): alterna el grid entre inventario activo
+// y la lista de productos/eventos archivados (para restaurarlos).
+var _verArchivados = false;
+function toggleVerArchivados(){ _verArchivados = !_verArchivados; cargarInventario(); }
 async function cargarInventario(){
   // El "+" de alta libre es del dueno; el encargado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
@@ -4360,27 +4364,33 @@ async function cargarInventario(){
   try { ocMontarTraslado("oc-traslado-inv"); } catch (_) {} // panel de traslado al fondo
   let url = `${API}/productos?ubicacionId=${ubicacionActual}`;
   if (filtroEstadoActual) url += `&estado=${filtroEstadoActual}`;
+  if (_verArchivados) url += `&soloArchivados=1`;
   const grid = document.getElementById("gridInventario");
+  // Barra de alternancia archivados (alta legibilidad, tinta sobre naranja de precaución).
+  const _toggleArch = `<div style="grid-column:1/-1;margin:0 0 10px;">
+    <button type="button" onclick="toggleVerArchivados()" style="font-size:13px;font-weight:700;padding:7px 14px;border:2px solid var(--rust,#E86040);border-radius:6px;background:${_verArchivados ? "var(--rust,#E86040)" : "transparent"};color:${_verArchivados ? "#fff" : "var(--rust,#E86040)"};cursor:pointer;">${_verArchivados ? "← Back to inventory" : "Show archived"}</button>
+    ${_verArchivados ? '<span style="margin-left:10px;font-size:13px;font-weight:700;color:var(--ink,#211c14);">Archived products &amp; events — tap one, then “Unarchive” to restore.</span>' : ""}
+  </div>`;
   let productos;
   try {
     const res = await fetch(url);
     productos = await res.json();
   } catch (_) {
-    grid.innerHTML = `<p>${t("inv.loadError")}</p>`;
+    grid.innerHTML = _toggleArch + `<p>${t("inv.loadError")}</p>`;
     return;
   }
   if (!Array.isArray(productos)){
-    grid.innerHTML = `<p>${t("inv.readError")}</p>`;
+    grid.innerHTML = _toggleArch + `<p>${t("inv.readError")}</p>`;
     return;
   }
   if (productos.length === 0){
-    grid.innerHTML = `<p>${t("inv.emptyFilter")}</p>`;
+    grid.innerHTML = _toggleArch + `<p>${_verArchivados ? "No archived products or events." : t("inv.emptyFilter")}</p>`;
     return;
   }
   const esDuenoInv = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
   productos = ordenarInventario(productos);
   pintarBotonesOrdenInventario();
-  grid.innerHTML = productos.map(p => `
+  grid.innerHTML = _toggleArch + productos.map(p => `
     <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}" data-buscar="${escHtml(`${p.nombre} ${p.sku} ${p.categoria}`.toLowerCase())}">
       ${p.estrella ? '<span class="estrella-badge">⭐</span>' : ''}
       <div onclick="abrirFichaDesdeInventario('${p.id}')" style="cursor:pointer;">
@@ -5407,6 +5417,29 @@ async function guardarEdicionProducto(id){
 }
 
 // Borrado con RE-confirmacion: primer toque arma 4s; el segundo ejecuta.
+/* ARCHIVAR/DESARCHIVAR un producto o evento (JFC/Belén 2026-09-08). Soft y
+   reversible: sale del inventario activo pero NO se borra; se recupera desde la
+   lista de archivados. Pedido de Belén: un evento fechado que ya pasó (ej. "club
+   8 de septiembre") se da de baja sin perderlo, con la misma facilidad que una
+   percha. */
+async function archivarProductoUI(id, archivar, btn){
+  if (btn) btn.disabled = true;
+  let res, data;
+  try {
+    res = await fetch(`${API}/productos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archivado: !!archivar }) });
+    data = await res.json();
+  } catch (err) {
+    console.error("[archivarProductoUI]", err);
+    if (btn) btn.disabled = false;
+    await ocAlert("Could not reach the server. Nothing was changed. Check your connection and try again.");
+    return;
+  }
+  if (!res.ok){ if (btn) btn.disabled = false; await ocAlert(data.error || "Could not archive."); return; }
+  const fr = document.getElementById("fichaResultado");
+  if (fr) fr.innerHTML = `<p style="font-weight:700;">${archivar ? "Archived. Find it under “Show archived” in Inventory to restore it." : "Unarchived — back in your inventory."}</p>`;
+  cargarInventario();
+  try { window.OCReactivo && window.OCReactivo.emitir("inventario"); } catch (_) {}
+}
 async function eliminarProductoUI(id, btn){
   if (btn.dataset.armado !== "1"){
     btn.dataset.armado = "1";
@@ -5575,6 +5608,7 @@ function pintarFicha(p){
       </div>
       ${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
+        <button style="border-color:var(--rust,#E86040);color:var(--rust,#E86040);" onclick="archivarProductoUI('${p.id}', ${p.archivado ? "false" : "true"}, this)">${p.archivado ? "Unarchive" : "Archive"}</button>
         <button style="border-color:var(--rojo);color:var(--rojo);" onclick="eliminarProductoUI('${p.id}', this)">${t("ficha.deleteBtn")}</button>
       </div>` : ""}
     </div>
