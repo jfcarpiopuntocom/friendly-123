@@ -23,7 +23,7 @@ Ese fue el corazón del incidente.
    ahora recomputa el SHA-256 REAL de cada archivo del shell y lo compara con el
    manifest; un push con manifest desincronizado falla la compuerta. Antes solo
    comparaba el string de versión y el incidente se coló.
-3. **Sin mezcla de versiones intra-sesión.** [PENDIENTE] skipWaiting+clients.claim
+3. **Sin mezcla de versiones intra-sesión.** [IMPLEMENTADA v1.7.112] skipWaiting+clients.claim
    puede dejar una página vieja pidiendo módulos nuevos (mezcla). Cerrar con
    recarga atómica coordinada: un cliente es o todo viejo o todo nuevo.
 4. **Insignia de versión visible + botón Purge a mano.** [IMPLEMENTADA v1.7.111]

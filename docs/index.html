@@ -7661,6 +7661,26 @@ setTimeout(() => {
 // Falla en silencio en navegadores sin soporte — nunca bloquea la carga.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).catch(() => {}); });
+  /* MEJORA #3 (JFC 2026-09-08, auditoría de versión): fin de la mezcla
+     intra-sesión. Cuando un service worker NUEVO toma control con un shell
+     distinto (avisa con {tipo:"shell-actualizado"} desde broadcastActualizacion),
+     la página vieja puede quedar corriendo código viejo en memoria mientras el
+     SW ya sirve archivos nuevos = MEZCLA (fue el bug del Avanzado roto). Nadie
+     escuchaba ese aviso. Ahora la página lo escucha y marca la recarga SEGURA
+     diferida (misma que el piso de versión: invisible, al próximo login, nunca
+     interrumpe el tecleo del PIN). Así el aparato converge a UNA sola versión
+     limpia: o todo viejo o todo nuevo, nunca mezclado. NO se toca la activación
+     del SW (skipWaiting) — cambio puramente aditivo y seguro para producción. */
+  try {
+    navigator.serviceWorker.addEventListener("message", function (ev) {
+      try {
+        if (ev && ev.data && ev.data.tipo === "shell-actualizado") {
+          if (typeof _recargarSeguroVersion === "function") _recargarSeguroVersion();
+          else { try { sessionStorage.setItem("f123_reload_al_entrar", "1"); } catch (_) {} }
+        }
+      } catch (_) {}
+    });
+  } catch (_) {}
 }
 // CONTROL DE VERSION FORZADO (JFC 2026-07-17, "no podemos andar sirviendo
 // versiones viejas"): en CADA carga se pide version.json fresco (el SW nunca
