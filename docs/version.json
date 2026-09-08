@@ -1,9 +1,9 @@
 {
-  "version": "1.7.118",
+  "version": "1.7.119",
   "fecha": "2026-09-08",
-  "changelog": "v1.7.118 — Fix (world's best practice): archivar un producto/evento lo saca SOLO del grid de inventario operacional; el dashboard, el resumen historico, el BCG y los reportes financieros lo SIGUEN viendo (archivar no borra del historial). La exclusion de archivados ya no vive en filtrar() sino solo en el listado del grid.",
+  "changelog": "v1.7.119 — Form de comisionista/agente: 'Free name' se llama 'Promoter'; cada origen (Promoter/staff/supplier) tiene su pulldown Y una cajita para escribir uno nuevo, en la MISMA linea (sin estirar el form). El boton dejo de parecer '+ agregar otro' y ahora dice 'Save agent' (guardar este).",
   "requerida": false,
-  "shell": "f123-shell-v231",
+  "shell": "f123-shell-v232",
   "apagar": [],
-  "releaseName": "v1.7.118"
+  "releaseName": "v1.7.119"
 }
