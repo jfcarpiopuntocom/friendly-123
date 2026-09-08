@@ -6595,10 +6595,15 @@ async function renderGestionPromotoras(){
         <label style="display:flex;align-items:center;gap:5px;font-size:14px;font-weight:600;cursor:pointer;"><input type="radio" name="promOrigen" value="empleado"> ${window.t("comm.g.originStaff")}</label>
         <label style="display:flex;align-items:center;gap:5px;font-size:14px;font-weight:600;cursor:pointer;"><input type="radio" name="promOrigen" value="proveedor"> ${window.t("comm.g.originSupplier")}</label>
       </div>
+      <!-- JFC 2026-09-08: pulldown Y cajita en la MISMA línea (aprovechar el
+           ancho, no estirar hacia abajo). Cada origen (Promoter/staff/supplier)
+           llena el pulldown con SU lista; se elige de ahí O se escribe un nombre
+           nuevo en la cajita — 2 formas de lograr lo mismo. Al guardar gana el
+           texto escrito; si no, el del pulldown. -->
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <input id="promNombre" type="text" placeholder="${window.t("comm.g.namePh")}" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
-        <select id="promNombreSelect" style="display:none;flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;"></select>
-        <input id="promComision" type="number" min="0" max="100" placeholder="${window.t("comm.g.pctPh")}" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
+        <select id="promNombreSelect" style="flex:2;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;"></select>
+        <input id="promNombre" type="text" placeholder="${window.t("comm.g.namePh")}" style="flex:2;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
+        <input id="promComision" type="number" min="0" max="100" placeholder="${window.t("comm.g.pctPh")}" style="flex:1;min-width:110px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
       </div>
       <details style="margin-top:2px;">
         <summary style="cursor:pointer;font-size:14px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;">${window.t("comm.g.contactToggle")}</summary>
@@ -6639,20 +6644,26 @@ async function renderGestionPromotoras(){
   function poblarSelect(opciones, placeholder){
     selectNombre.innerHTML = `<option value="">${placeholder}</option>` + opciones.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join("");
   }
-  document.querySelectorAll('input[name="promOrigen"]').forEach(r => r.addEventListener("change", (e) => {
-    const v = e.target.value;
-    if (v === "libre"){ inputTexto.style.display = ""; selectNombre.style.display = "none"; }
-    else if (v === "empleado"){
-      inputTexto.style.display = "none"; selectNombre.style.display = "";
+  // JFC 2026-09-08: pulldown y cajita SIEMPRE visibles; el radio solo cambia qué
+  // lista el pulldown. Promoter → agentes ya existentes; staff → encargados;
+  // supplier → proveedores/artistas. La cajita permite escribir uno nuevo.
+  function poblarPorOrigen(v){
+    if (v === "empleado"){
       poblarSelect(encargados.map(u => u.nombre), encargados.length ? window.t("comm.g.pickStaff") : window.t("comm.g.noStaff"));
-    } else {
-      inputTexto.style.display = "none"; selectNombre.style.display = "";
+    } else if (v === "proveedor"){
       poblarSelect(proveedoresConsig, proveedoresConsig.length ? window.t("comm.g.pickSupplier") : window.t("comm.g.noSupplier"));
+    } else {
+      const nombresProm = (_promotorasVivasCache || []).map(p => p.nombre);
+      poblarSelect(nombresProm, nombresProm.length ? window.t("comm.g.pickExisting") : window.t("comm.g.pickExistingNone"));
     }
-  }));
+  }
+  document.querySelectorAll('input[name="promOrigen"]').forEach(r => r.addEventListener("change", (e) => poblarPorOrigen(e.target.value)));
+  poblarPorOrigen("libre"); // población inicial (origen por defecto)
   document.getElementById("btnAltaPromotora").addEventListener("click", async () => {
     const origen = document.querySelector('input[name="promOrigen"]:checked').value;
-    const nombre = (origen === "libre" ? inputTexto.value : selectNombre.value).trim();
+    // JFC 2026-09-08: gana lo que se ESCRIBIÓ en la cajita; si está vacía, lo
+    // elegido en el pulldown. Así funcionan las 2 formas en la misma línea.
+    const nombre = ((inputTexto.value || "").trim() || (selectNombre.value || "")).trim();
     const comision = document.getElementById("promComision").value;
     const msgEl = document.getElementById("promMsg");
     if (!nombre){ msgEl.textContent = window.t("comm.g.needName"); msgEl.style.color = "var(--rojo,#a3392a)"; return; }
