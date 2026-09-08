@@ -1,6 +1,6 @@
 {
-  "version": "1.7.112",
-  "shell": "f123-shell-v225",
+  "version": "1.7.113",
+  "shell": "f123-shell-v226",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-2ba814001af3cfc36fcdbc40627069af6a5de29f570e2134a475f925fe8734f0",
@@ -36,7 +36,7 @@
     "./idb-archivo.js": "sha256-7a973da43f5858675d472a9982af855e047ebe14ac16c93b4d89333c28da8963",
     "./simon-config.js": "sha256-0b9c5463811f166452079019d749ca2fb4e7172dd86c8ab2a7ae4737fe93f455",
     "./percha-reposicion.js": "sha256-2525df1bd08a28eacecd4ca5419ccb1de9ed412e21764e1cae9823b656d1a333",
-    "./micelio-vivo.js": "sha256-872f11da8dc53e20914999e053cddd7d947e2356e76ff2b37fa071da06729a49",
+    "./micelio-vivo.js": "sha256-0509b05761d793b4ae0af398cfcf281bb4f05a2311d9b550ab94e0a57d0f6e4e",
     "./micelio-ui.js": "sha256-85f2e15243f9961047efdec851bd84634839c6f733317f0197f1d6632a82e306",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
     "./tablero-avanzado.js": "sha256-e6c3fbbd407bca323be96e97f8b91b9164a8321128f80dd088c4640c6c2a8957",
@@ -64,7 +64,7 @@
     "./edutips.js": "sha256-e0fdc3a0d30d4e763656046a8edc0eb425b7a727a2c83d446b142b9c7134f718",
     "./workshop-brand.js": "sha256-c94848891eb4a20d821393946777ab352e99bf4a9a40301d50bbb1d40e166b1b",
     "./inspector.js": "sha256-2f5c01bf853b766344ab4c432ba51c842b5d34f852beb207dc159c5a0b7598f5",
-    "./inspector-ui.js": "sha256-eca823a3d9b79264771dcb4fa3b17aaf1880f4a23cba85374e08902695920084",
+    "./inspector-ui.js": "sha256-01927769c7f55d3e8e744bd9e1b87e040cb8c314f1a15b8d2eceb87bbd8dea94",
     "./manifest.json": "sha256-a1a75d88ea0ac9bae676106d49ffa4fc45433a0d5a760cc7855b276484ea8bcd"
   }
 }

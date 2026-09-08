@@ -228,6 +228,7 @@
         apodo: e.apodo || "",
         rol: e.rol || "",
         huella: e.huella || "",
+        shell: e.shell || "",
         visto: visto,
         silencioMs: silencio,
         cuando: haceCuanto(silencio),
@@ -237,7 +238,7 @@
     /* Yo siempre estoy en la lista, aunque nunca haya latido: no verse a uno
        mismo en el panel del equipo es desconcertante. */
     if (!out.some(function (x) { return x.soyYo; })) {
-      out.push({ id: yoId, soyYo: true, apodo: miApodo(), rol: rolActual(),
+      out.push({ id: yoId, soyYo: true, apodo: miApodo(), rol: rolActual(), shell: miShell(),
                  visto: ahora, silencioMs: 0, cuando: "hace un momento", estado: "al_dia" });
     }
     /* Lo urgente arriba: a ciegas, rezagado, al día. Dentro de cada grupo, el
@@ -263,6 +264,7 @@
       apodo: String(payload.apodo || "").slice(0, 28),
       rol: String(payload.rol || "").slice(0, 12),
       huella: String(payload.huella || "").slice(0, 12),
+      shell: String(payload.shell || "").slice(0, 20),
       visto: Date.now(),
     };
     escribir(K_EQUIPO, m);
@@ -278,6 +280,23 @@
       return h && h.corta ? h.corta : "";
     } catch (_) { return ""; }
   }
+
+  /* MEJORA #6 (JFC 2026-09-08, auditoría de versión): el shell que ESTE aparato
+     corre, para el radar de Inspector — ver quién quedó atascado en una versión
+     vieja sin esperar una queja. Es solo huella de versión, ningún dato del
+     negocio (respeta REGLA 8 y el límite sin-nube). Se lee una vez de
+     CacheStorage y se cachea; los primeros latidos van vacíos hasta resolverse,
+     y un peer con la app vieja manda vacío (se trata como "no se sabe"). */
+  var _miShellCache = "";
+  (function resolverMiShell() {
+    try {
+      if (!("caches" in window)) return;
+      caches.keys().then(function (ns) {
+        _miShellCache = (ns.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "").replace("f123-shell-", "");
+      }).catch(function () {});
+    } catch (_) {}
+  })();
+  function miShell() { return _miShellCache; }
 
   /* Compara la huella de cada miembro con la mia. Devuelve los que estan
      mostrando OTRO inventario. Los que no mandaron huella (version vieja de la
@@ -306,9 +325,10 @@
       if (!canal || !canal.emitirLatido) return;
       var m = yo();
       var hu = miHuella();
-      canal.emitirLatido({ id: m.id, apodo: m.apodo, rol: rolActual(), huella: hu });
+      var sh = miShell();
+      canal.emitirLatido({ id: m.id, apodo: m.apodo, rol: rolActual(), huella: hu, shell: sh });
       /* Mi propio latido no vuelve a mí por el relay, así que me anoto solo. */
-      anotar({ id: m.id, apodo: m.apodo, rol: rolActual(), huella: hu });
+      anotar({ id: m.id, apodo: m.apodo, rol: rolActual(), huella: hu, shell: sh });
     } catch (_) {}
   }
 

@@ -61,6 +61,9 @@
     // Dedup (prio 2): apodos repetidos = posibles duplicados/extraviadas.
     var cuenta = {};
     lista.forEach(function (x) { var a = (x.apodo || "").toLowerCase(); if (a) cuenta[a] = (cuenta[a] || 0) + 1; });
+    // MEJORA #6 (JFC 2026-09-08): radar de versión. Mi shell (el de ESTE aparato)
+    // para contrastar: un aparato en un shell distinto al mío está en otra versión.
+    var miSh = ""; lista.forEach(function (x) { if (x.soyYo) miSh = x.shell || ""; });
     cont.innerHTML = lista.map(function (x) {
       var nombre = x.apodo || ("#" + String(x.id).slice(0, 6));
       var esDup = x.apodo && cuenta[x.apodo.toLowerCase()] > 1 && !x.soyYo;
@@ -75,7 +78,9 @@
         '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + colorEstado(x.estado) + ';margin-right:6px;"></span>' +
         '<strong>' + esc(nombre) + '</strong>' + (x.soyYo ? ' <span style="color:var(--ink-soft);font-size:11px;">(' + esc(t("inspector.radar.self", "this device")) + ')</span>' : '') +
         ' <span style="color:var(--ink-soft);font-size:11px;">' + esc(x.rol || "") + '</span>' + etiqueta + '</span>' +
-        '<span style="display:flex;align-items:center;gap:8px;"><span style="color:var(--ink-soft);font-size:12px;">' + esc(x.cuando || "") + '</span>' + btn + '</span></div>';
+        '<span style="display:flex;align-items:center;gap:8px;">' +
+        (x.shell ? ('<span style="font-size:11px;font-weight:700;color:' + ((miSh && x.shell !== miSh) ? ROJO : 'var(--ink-soft)') + ';">' + esc(x.shell) + ((miSh && x.shell !== miSh) ? (' · ' + esc(t("inspector.radar.oldver", "old version"))) : '') + '</span>') : '') +
+        '<span style="color:var(--ink-soft);font-size:12px;">' + esc(x.cuando || "") + '</span>' + btn + '</span></div>';
     }).join("");
     // Sesgo merge-primero (REGLA 8c): si hay duplicados, guiar a fusionar (que
     // conserva sus datos), no a borrar. Olvidar solo limpia el radar local.
