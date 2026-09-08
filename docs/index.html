@@ -1892,6 +1892,8 @@
         </select>
         <input id="gastoMonto" type="number" min="0" step="0.01" placeholder="Amount" style="flex:1;min-width:100px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <input id="gastoFecha" type="date" style="flex:1;min-width:130px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <!-- JFC 2026-09-08: nº de factura/invoice del proveedor externo, para control tributario básico. Opcional. -->
+        <input id="gastoFactura" type="text" placeholder="Invoice # (optional)" title="Supplier invoice number — for basic tax control" style="flex:1;min-width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <button class="ir" onclick="registrarGasto()" style="font-size:14px;padding:9px 16px;">+ Add expense</button>
       </div>
       <p id="gastoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
@@ -3393,11 +3395,11 @@ async function ocRegistrarCredito(clienteId, nombre) {
   ov.style.cssText = "position:fixed;inset:0;background:rgba(10,10,15,.55);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px;";
   ov.innerHTML = `<div class="tag-card" style="background:#fff;max-width:420px;width:100%;padding:18px 20px;border-radius:12px;">
     <h3 style="margin:0 0 4px;font-size:18px;">Record credit for ${escHtml(nombre)}</h3>
-    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">Store credit is tied to one item — it can only be spent on that same item.</p>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">Store credit can be general, or tied to one item (then it can only be spent on that item).</p>
     <label style="display:block;font-size:14px;">Amount ($)<br><input id="oc-abono-monto" type="number" min="0" step="0.01" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
     <label style="display:block;font-size:14px;margin-top:10px;">Item this credit is for<br>
       <select id="oc-abono-item" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;">
-        <option value="">— pick an item —</option>
+        <option value="">— Not tied to an item (general credit) —</option>
         ${productos.map((p) => `<option value="${escHtml(p.nombre)}">${escHtml(p.nombre)}</option>`).join("")}
       </select></label>
     <label style="display:block;font-size:14px;margin-top:10px;">Valid through <span style="color:var(--ink-soft);font-weight:400;">(the credit expires the next day)</span><br>
@@ -3420,17 +3422,24 @@ async function ocRegistrarCredito(clienteId, nombre) {
     const validoHasta = ov.querySelector("#oc-abono-exp").value; // YYYY-MM-DD (día válido inclusive)
     const msg = ov.querySelector("#oc-abono-msg");
     if (!(monto > 0)) { msg.textContent = "Enter a valid amount."; return; }
-    if (!item) { msg.textContent = "Pick the item this credit is for."; return; }
-    if (!validoHasta) { msg.textContent = "Pick the date the credit is valid through."; return; }
-    // JFC 2026-09-02: el crédito expira al DÍA SIGUIENTE de la fecha elegida.
-    // Se guarda la fecha de expiración [exp:YYYY-MM-DD] (día en que ya NO vale).
-    const expira = (() => {
-      const parts = validoHasta.split("-").map(Number);
-      const d = new Date(parts[0], parts[1] - 1, parts[2]);
-      d.setDate(d.getDate() + 1);
-      return d.toLocaleDateString("en-CA"); // YYYY-MM-DD local
-    })();
-    const motivo = `[for:${item}][exp:${expira}]${razon ? " " + razon : ""}`;
+    /* JFC 2026-09-08: el abono puede ser GENERAL (sin determinar) o atado a un
+       ítem. Si es general (item === ""), no lleva [for:] y la expiración es
+       OPCIONAL — es un simple saldo a favor gastable en lo que sea. Si se elige
+       un ítem, se conserva el comportamiento de antes (ítem + expiración). */
+    let motivo;
+    if (!item) {
+      motivo = razon || ""; // abono general, sin restricción de ítem ni fecha.
+    } else {
+      if (!validoHasta) { msg.textContent = "Pick the date the credit is valid through."; return; }
+      // El crédito expira al DÍA SIGUIENTE de la fecha elegida (día en que ya NO vale).
+      const expira = (() => {
+        const parts = validoHasta.split("-").map(Number);
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        d.setDate(d.getDate() + 1);
+        return d.toLocaleDateString("en-CA"); // YYYY-MM-DD local
+      })();
+      motivo = `[for:${item}][exp:${expira}]${razon ? " " + razon : ""}`;
+    }
     try {
       const res = await fetch(`${API}/clientes/${clienteId}/abonar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo }) });
       if (!res.ok) { const r = await res.json().catch(() => ({})); msg.textContent = r.error || "Could not save."; return; }
@@ -5751,7 +5760,7 @@ async function abrirPanelVentaInfo(id, esTicket){
           <label style="display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">
             <input id="vi-cortesia" type="checkbox" style="width:auto;margin:0;">Courtesy (comp)</label>
           <label style="display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">
-            <input id="vi-fiado" type="checkbox" style="width:auto;margin:0;">On credit (fiado)</label>
+            <input id="vi-fiado" type="checkbox" style="width:auto;margin:0;">On account (fiado)</label>
         </div>
       </div>
       <p id="vi-cf-hint" style="font-size:12px;font-weight:700;margin:4px 0 0;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;"></p>
@@ -5845,8 +5854,8 @@ async function abrirPanelVentaInfo(id, esTicket){
       txt = "Courtesy: no charge (revenue $0), but the cost still counts. No commission.";
     } else if (chkFia && chkFia.checked) {
       const cid = (document.getElementById("vi-cliente") || {}).value || "";
-      txt = cid ? "On credit: this sale is added to the customer's debt in Customers."
-                : "Pick a customer above — on credit needs a customer to record the debt.";
+      txt = cid ? "On account (fiado): this sale is added to the customer's debt in Customers."
+                : "Pick a customer above — on account needs a customer to record the debt.";
     }
     cfHint.textContent = txt;
   };
@@ -5934,7 +5943,7 @@ async function confirmarVentaConInfo(id, esTicket){
   const info = {
     fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
     email: g("vi-email"), whatsapp: g("vi-whatsapp"),
-    formaPago: _fiadoOn ? "credit" : g("vi-forma-pago"),
+    formaPago: _fiadoOn ? "fiado" : g("vi-forma-pago"),
     notas: g("vi-notas"),
     ...(_cortesiaOn ? { cortesia: true } : {}),
     ...(_facturaOn ? { factura: g("vi-factura") || "(sin número)" } : {}),
@@ -6036,7 +6045,7 @@ async function cargarVentasSold(){
     const cli = v.clienteNombre ? escHtml(v.clienteNombre) : "Counter sale";
     const chips = [];
     if (v.cortesia) chips.push("Courtesy");                          // JFC 2026-09-08
-    if (v.formaPago === "credit") chips.push("On credit (fiado)");   // JFC 2026-09-08
+    if (v.formaPago === "fiado") chips.push("On account (fiado)");   // JFC 2026-09-08
     else if (v.formaPago) chips.push(escHtml(v.formaPago));
     if (v.factura) chips.push("Invoice " + escHtml(v.factura));
     if (v.eventoNombre) chips.push(escHtml(v.eventoNombre));
@@ -6810,7 +6819,7 @@ async function cargarGastos(){
     <div class="tag-card" id="gasto-fila-${g.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;">
       <div style="flex:1;">
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
-        <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${new Date(g.fecha).toLocaleDateString()}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
+        <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${new Date(g.fecha).toLocaleDateString()}${g.factura ? " · Invoice " + escHtml(g.factura) : ""}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
       <strong style="color:var(--dinero-rojo);font-size:16px;">-${fmtMoney(g.monto)}</strong>
       ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" class="oc-edit-btn oc-edit-btn--warn">✎</button>` : ""}
@@ -6828,9 +6837,11 @@ async function registrarGasto(){
   if (!Number.isFinite(monto) || monto <= 0) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Enter a valid amount."; return; }
   const catEl = document.getElementById("gastoCategoria");
   const categoria = catEl ? catEl.value : "other";
-  const res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, fecha: fechaEl.value ? new Date(fechaEl.value).toISOString() : undefined, ubicacionId: ubicacionActual }) });
+  const facturaEl = document.getElementById("gastoFactura");
+  const factura = facturaEl ? (facturaEl.value || "").trim() : "";
+  const res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, factura: factura || undefined, fecha: fechaEl.value ? new Date(fechaEl.value).toISOString() : undefined, ubicacionId: ubicacionActual }) });
   if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Could not save the expense."; return; }
-  conceptoEl.value = ""; montoEl.value = "";
+  conceptoEl.value = ""; montoEl.value = ""; if (facturaEl) facturaEl.value = "";
   msg.style.color = "var(--sim-verde-dk,#1a6e3c)"; msg.textContent = "Expense recorded.";
   cargarGastos();
 }
