@@ -538,10 +538,88 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
            al PIE del candado y poco perceptible. Se oculta si YA estamos en el
            workshop (no tiene sentido enlazar a uno mismo). -->
       <p id="oc-gate-lab" style="margin:14px 0 0;text-align:center;"><a href="https://jfcarpiopuntocom.github.io/friendly123workshop/" style="font-size:10px;letter-spacing:.08em;text-transform:lowercase;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;opacity:.45;text-decoration:none;">campo de pruebas</a></p>
+      <!-- ============================================================
+           FAILSAFE DE VERSIÓN — "Purge & Reload" (JFC 2026-09-08)
+           ------------------------------------------------------------
+           POR QUÉ EXISTE: el 2026-09 distintos dispositivos/browsers se
+           quedaron sirviendo un index.html VIEJO desde el service worker /
+           CacheStorage (mezcla de versiones: cada quien veía una app y hasta
+           un nombre de tienda distinto). Este botón es el botón de escape que
+           cualquier usuario puede pulsar para salir de una versión pegada.
+           Va al PIE del candado del PIN a propósito: es la única pantalla que
+           TODOS ven en común, sin haber entrado aún.
+
+           QUÉ HACE (y qué NO — CRÍTICO, no romper esto):
+             - Desregistra TODOS los service workers de este dominio.
+             - Borra TODO CacheStorage (los shells f123-shell-vNN viejos).
+             - Recarga duro -> baja el index.html nuevo desde el origen.
+           NO TOCA localStorage NI sessionStorage. Borrar esos destruiría el
+           inventario, los PINs, la licencia y el nombre de tienda del cliente
+           (PRIME DIRECTIVE 1A + REGLA 8c: jamás perder datos reales). El
+           problema de "versión vieja" es 100% de caché/SW; los datos NO son la
+           causa y NO se tocan. Si alguna sesión futura agrega aquí un
+           localStorage.clear(), está rompiendo a un cliente vivo: NO lo hagas.
+           ============================================================ -->
+      <div id="oc-gate-purge" style="margin:20px 0 0;padding-top:16px;border-top:1px solid rgba(156,122,53,.35);text-align:center;">
+        <button type="button" id="oc-purge-btn" style="display:inline-block;background:var(--sim-naranja,#F97316);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;border:2px solid #0A0A0F;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:700;letter-spacing:.02em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;">Stuck on an old version? Purge &amp; reload</button>
+        <p id="oc-purge-help" style="margin:10px 0 0;font-size:13px;line-height:1.5;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">Clears the app cache and gets the newest version. Your data (PINs, inventory, store) is kept.</p>
+        <div id="oc-purge-log" style="display:none;margin:10px auto 0;max-width:320px;font-size:13px;line-height:1.5;text-align:left;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;background:#FFFFFF;border:1.5px solid #0A0A0F;border-radius:6px;padding:10px;"></div>
+      </div>
     </div>`;
   document.body.appendChild(gate);
   // El acceso al workshop no se muestra dentro del propio workshop.
   try { if (/friendly123workshop/i.test(location.href)) { var _lab = document.getElementById("oc-gate-lab"); if (_lab) _lab.style.display = "none"; } } catch (_) {}
+
+  // FAILSAFE "Purge & Reload" (JFC 2026-09-08). Ver el comentario largo en el
+  // markup del gate arriba. Regla dura: NO borrar localStorage/sessionStorage.
+  try {
+    var _purgeBtn = document.getElementById("oc-purge-btn");
+    if (_purgeBtn && !_purgeBtn._ocWired) {
+      _purgeBtn._ocWired = true;
+      _purgeBtn.addEventListener("click", async function () {
+        var log = document.getElementById("oc-purge-log");
+        var linea = function (txt) {
+          if (!log) return;
+          log.style.display = "block";
+          var d = document.createElement("div");
+          d.textContent = txt;
+          log.appendChild(d);
+        };
+        _purgeBtn.disabled = true;
+        _purgeBtn.style.opacity = ".7";
+        _purgeBtn.textContent = "Purging…";
+        if (log) log.innerHTML = "";
+        try {
+          // 1) Desregistrar todos los service workers de este dominio.
+          if ("serviceWorker" in navigator) {
+            var regs = await navigator.serviceWorker.getRegistrations();
+            if (regs && regs.length) {
+              for (var i = 0; i < regs.length; i++) { await regs[i].unregister(); }
+              linea("Service worker unregistered (" + regs.length + ").");
+            } else {
+              linea("No service worker to remove.");
+            }
+          }
+          // 2) Borrar todo CacheStorage (los shells viejos f123-shell-vNN).
+          if ("caches" in window) {
+            var nombres = await caches.keys();
+            for (var j = 0; j < nombres.length; j++) { await caches.delete(nombres[j]); }
+            linea("Cache cleared (" + nombres.length + ").");
+          }
+          // NO se toca localStorage ni sessionStorage: son los datos del cliente.
+          linea("Done. Reloading the newest version…");
+          console.log("[f123] purge failsafe: SW + caches cleared, localStorage preserved.");
+          setTimeout(function () { location.reload(true); }, 1000);
+        } catch (err) {
+          linea("Could not finish: " + (err && err.message ? err.message : String(err)));
+          _purgeBtn.disabled = false;
+          _purgeBtn.style.opacity = "1";
+          _purgeBtn.textContent = "Stuck on an old version? Purge & reload";
+          console.warn("[f123] purge failsafe error:", err);
+        }
+      });
+    }
+  } catch (_) {}
 
   function pintarGateIdioma() {
     const tt = function (k, fb) { try { return window.t ? window.t(k, fb) : (fb || k); } catch (_) { return fb || k; } };
