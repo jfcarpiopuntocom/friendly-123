@@ -1,9 +1,9 @@
 {
-  "version": "1.7.119",
-  "fecha": "2026-09-08",
-  "changelog": "v1.7.119 — Form de comisionista/agente: 'Free name' se llama 'Promoter'; cada origen (Promoter/staff/supplier) tiene su pulldown Y una cajita para escribir uno nuevo, en la MISMA linea (sin estirar el form). El boton dejo de parecer '+ agregar otro' y ahora dice 'Save agent' (guardar este).",
+  "version": "1.0",
+  "fecha": "2026-09-09",
+  "changelog": "POLITICA DE VERSION (JFC 2026-09-09): la version publica queda fija en v1.0 (asi se declara en la pagina del PIN); de aqui en adelante SOLO sube el entero del shell (f123-shell-vNN), que es el control de cambios real. No volver a mover 'version' salvo un salto mayor deliberado.",
   "requerida": false,
-  "shell": "f123-shell-v232",
+  "shell": "f123-shell-v233",
   "apagar": [],
-  "releaseName": "v1.7.119"
+  "releaseName": "v1.0"
 }
