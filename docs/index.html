@@ -331,6 +331,14 @@
 
   *{box-sizing:border-box;}
   html{-webkit-tap-highlight-color:transparent;}
+  /* ANTI-DOBLE-TAP-ZOOM (JFC 2026-09-09): en iOS Safari, tocar rápido un botón
+     (ej. "Sold" en cada card, o los +/- de cantidad al vender varias unidades)
+     se interpreta como doble-tap = zoom; la página salta de escala y rompe la
+     UI (toca achicar con los dedos). touch-action:manipulation mata SOLO el
+     doble-tap-zoom del elemento, dejando el pinch-zoom global intacto (buena
+     accesibilidad). Regla GLOBAL a propósito: antes solo estaba inline en los
+     tiles y se colaba en todos los demás botones. */
+  button, a, input, select, textarea, label, summary, [role="button"], [onclick]{ touch-action:manipulation; }
   ::selection{ background:var(--brass); color:var(--blanco-calido); }
   :focus-visible{ outline:2.5px solid var(--rust); outline-offset:2px; border-radius:3px; }
   ::-webkit-scrollbar{ width:10px; height:10px; }
