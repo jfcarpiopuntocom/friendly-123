@@ -126,6 +126,34 @@
     }
   }
 
+  /* Borra el espejo. Se usa en un solo caso legitimo: el dueno activa su
+     negocio y elige "empezar vacio". Sin esto, el espejo conserva la revision
+     con el catalogo de demo y el rescate asincrono del arranque puede
+     repintarlo encima del negocio recien vaciado (JFC 2026-08-19: "dije que
+     prefiero la tienda vacia PERO SIGUEN CARGADAS LAS CAMISETAS").
+
+     Tambien cancela cualquier guardado agrupado que estuviera en vuelo: si un
+     estado viejo se escribiera 400 ms despues del borrado, el espejo volveria
+     a tener la demo y el bug reaparecia en el siguiente arranque. */
+  async function borrar() {
+    if (!SOPORTADO) return false;
+    try { if (_reloj) { clearTimeout(_reloj); _reloj = null; } _pend = null; } catch (_) {}
+    try {
+      var db = await abrirDB();
+      await new Promise(function (resolve, reject) {
+        var tx = db.transaction(STORE, "readwrite");
+        tx.objectStore(STORE).delete(CLAVE);
+        tx.oncomplete = resolve;
+        tx.onerror = function () { reject(tx.error); };
+        tx.onabort = function () { reject(tx.error || new Error("abortada")); };
+      });
+      return true;
+    } catch (err) {
+      try { console.error("[estado-idb] borrar:", err); } catch (_) {}
+      return false;
+    }
+  }
+
   /* Cuanto espacio hay DE VERDAD. Sirve para no acusar al dispositivo de estar
      lleno cuando el que se lleno fue el cajoncito de localStorage. */
   async function espacio() {
@@ -137,5 +165,5 @@
     } catch (_) { return null; }
   }
 
-  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardar, leer: leer, espacio: espacio, soportado: SOPORTADO };
+  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardar, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO };
 })();

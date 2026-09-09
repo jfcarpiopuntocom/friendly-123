@@ -1060,6 +1060,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try { window.OCSecure.actualizarCorreo(email); } catch (_) {}
       if (vaciar) {
         try { var rm = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rm.push(k); } rm.forEach(function (kk) { localStorage.removeItem(kk); }); } catch (_) {}
+        /* BUG REAL (JFC 2026-08-19): el dueno elegia "empezar vacio" y al
+           siguiente arranque volvian los datos de demo. El auto-heal de
+           mock-backend.js veia el catalogo en cero y lo trataba como una
+           averia. Esta marca le dice que el vacio fue una DECISION, no un
+           accidente. Se deja permanente a proposito: el dispositivo nunca
+           debe volver a reseedear la demo por su cuenta. */
+        try { localStorage.setItem("f123_vaciado_deliberado", String(Date.now())); } catch (_) {}
+        /* El espejo de IndexedDB tambien guarda estado. Si conserva una
+           revision con el catalogo de demo, el rescate asincrono del arranque
+           puede repintarla encima del negocio vacio. Se borra aqui. */
+        try { if (window.OCEstadoIDB && window.OCEstadoIDB.borrar) window.OCEstadoIDB.borrar(); } catch (_) {}
       }
       // Sincro-equipos (homologado de AMIGABLE, 2026-07-23): generar el codigo
       // de sala y activar sync en el mismo instante — sin pantalla extra. Sync
@@ -1107,6 +1118,19 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     wrap.querySelector("#oc-act-entrar").addEventListener("click", function () {
       wrap.style.display = "none";
       entrar("dueno");
+      /* BUG REAL (JFC 2026-08-19): "puse 7-8-9 y dije que prefiero la tienda
+         vacia PERO SIGUEN CARGADAS LAS CAMISETAS DE METALLICA".
+
+         El backend SI se vaciaba. Lo que no pasaba era el repintado: entrar()
+         solo fuerza un click de navegacion para los roles empleado y admin, y
+         al activar tu negocio entras como dueno. Las vistas conservaban el
+         dibujo anterior — el catalogo de demo — aunque los datos detras ya
+         estuvieran en cero. El dueno veia su tienda "llena" de productos que
+         ya no existian.
+
+         Se reutiliza el evento que ya existe para repintar todo despues de un
+         rescate de estado: mismo camino probado, cero logica nueva. */
+      try { window.dispatchEvent(new CustomEvent("oc-estado-rescatado")); } catch (_) {}
     });
 
     return wrap;

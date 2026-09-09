@@ -699,7 +699,13 @@
             d.id = "oc-estado-corrupto-aviso";
             d.setAttribute("role", "alert");
             d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10003;background:#B0183E;padding:12px 16px;text-align:center;cursor:pointer;";
-            d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">El inventario guardado no pudo cargarse (datos de ejemplo activos). Ve a AVANZADO para recuperar o importar tu respaldo.</span>';
+            // B14 (JFC 2026-08-19): cartel critico hardcoded en espanol en la
+            // app cuyo idioma por defecto es ingles.
+            var _es_c = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+            d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">'
+              + (_es_c ? 'El inventario guardado no pudo cargarse (datos de ejemplo activos). Ve a AVANZADO para recuperar o importar tu respaldo.'
+                       : 'Your saved inventory could not be loaded (example data is showing). Go to ADVANCED to recover or import your backup.')
+              + '</span>';
             d.addEventListener("click", () => d.remove());
             (document.body || document.documentElement).appendChild(d);
           } catch (_) {}
@@ -723,7 +729,13 @@
             d.id = "oc-estado-corrupto-aviso";
             d.setAttribute("role", "alert");
             d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10003;background:#B0183E;padding:12px 16px;text-align:center;cursor:pointer;";
-            d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">El inventario guardado no pudo cargarse (datos de ejemplo activos). Ve a AVANZADO para recuperar o importar tu respaldo.</span>';
+            // B14 (JFC 2026-08-19): cartel critico hardcoded en espanol en la
+            // app cuyo idioma por defecto es ingles.
+            var _es_c = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+            d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">'
+              + (_es_c ? 'El inventario guardado no pudo cargarse (datos de ejemplo activos). Ve a AVANZADO para recuperar o importar tu respaldo.'
+                       : 'Your saved inventory could not be loaded (example data is showing). Go to ADVANCED to recover or import your backup.')
+              + '</span>';
             d.addEventListener("click", () => d.remove());
             (document.body || document.documentElement).appendChild(d);
           } catch (_) {}
@@ -2245,14 +2257,59 @@
   try {
     if (!localStorage.getItem("f123_autoheal_888_v1")) {
       localStorage.setItem("f123_autoheal_888_v1", "1");
-      if (productos.length === 0 && ubicaciones.length === 0) {
-        localStorage.removeItem("f123_owned");
+      /* BUG REAL (JFC 2026-08-19): "puse 7-8-9 y dije que prefiero la tienda
+         vacia PERO SIGUEN CARGADAS LAS CAMISETAS DE METALLICA".
+
+         Este auto-heal existe para un caso concreto y unico: alguien teclea
+         789 SIN QUERER en un dispositivo de demo y se queda sin catalogo. En
+         ese caso el dispositivo NO esta activado (no hay f123_owned) y
+         devolverle la demo es un favor.
+
+         Lo que hacia mal: no distinguia ese accidente de una activacion
+         DELIBERADA con "empezar vacio". El dueno activaba su negocio, elegia
+         tienda vacia, y al siguiente arranque este bloque veia el catalogo en
+         cero, borraba f123_owned (desactivando el dispositivo del dueno) y
+         recargaba con los datos semilla. Las camisetas volvian y la
+         activacion se perdia.
+
+         Ahora: si el dispositivo esta ACTIVADO (f123_owned existe) o el dueno
+         marco explicitamente que vacio a proposito, no se toca nada. Un
+         catalogo vacio en un negocio activado es una decision, no una averia.
+
+         Ademas, homologado con amigable-123: (a) se exige que TODAS las
+         colecciones esten vacias, no solo productos/ubicaciones — un negocio
+         con ventas o clientes cargados nunca fue una demo rota; (b) antes de
+         borrar nada se guarda una copia de rescate fechada, para no destruir
+         un estado que resulte ser real. */
+      var _activado = false;
+      try {
+        _activado = !!localStorage.getItem("f123_owned")
+                 || !!localStorage.getItem("f123_vaciado_deliberado");
+      } catch (_) {}
+      var _realmenteVacio = productos.length === 0 && ubicaciones.length === 0
+        && ventas.length === 0 && clientes.length === 0
+        && movimientos.length === 0 && sucursales.length === 0
+        && promotoras.length === 0;
+      if (!_activado && _realmenteVacio) {
+        try {
+          var _raw = localStorage.getItem(OC_STATE_KEY);
+          if (_raw) localStorage.setItem(OC_STATE_KEY + "_rescate_" + Date.now(), _raw);
+          var _ptr = localStorage.getItem(OC_STATE_PTR);
+          if (_ptr) {
+            var _buf = localStorage.getItem(OC_STATE_KEY + "_" + _ptr);
+            if (_buf) localStorage.setItem(OC_STATE_KEY + "_rescate_" + Date.now(), _buf);
+          }
+        } catch (_) {}
         localStorage.removeItem(OC_STATE_KEY);
         // Fase 3: el estado real vive en los buffers A/B, no en OC_STATE_KEY
         // directo (esa clave ahora es solo fallback de migracion) — limpiar
         // tambien los buffers y el puntero, o el reload de abajo recargaria
         // el mismo estado vacio en vez de volver a los datos semilla.
-        try { localStorage.removeItem(OC_STATE_KEY + "_A"); localStorage.removeItem(OC_STATE_KEY + "_B"); localStorage.removeItem(OC_STATE_KEY + "_ptr"); } catch (_) {}
+        try {
+          localStorage.removeItem(OC_STATE_KEY + "_A");
+          localStorage.removeItem(OC_STATE_KEY + "_B");
+          localStorage.removeItem(OC_STATE_PTR);
+        } catch (_) {}
         location.reload();
       }
     }
@@ -2625,7 +2682,35 @@
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
         if (ubicP && ubicP.activa === false) return J({ error: `"${ubicP.nombre}" está desactivada — no admite ventas nuevas.` }, 400);
-        const cant = Number.isInteger(body.cantidad) && body.cantidad > 0 ? body.cantidad : 1;
+        /* B19 (JFC 2026-08-19, medido con un harness contra este endpoint).
+           Antes: `Number.isInteger(body.cantidad) && body.cantidad > 0 ?
+           body.cantidad : 1`. Cualquier cantidad invalida se convertia en 1
+           EN SILENCIO. Pedir vender -5, o 0, o "dos" devolvia 200 y grababa
+           una venta real de 1 unidad: movimiento de stock y de dinero que
+           nadie pidio, sin un solo aviso.
+
+           Es la misma enfermedad que JFC ya hizo corregir en el PUT de
+           ubicacion ("clampeaba silenciosamente"): ante un dato invalido se
+           rechaza y se explica, nunca se adivina.
+
+           Se conserva el contrato viejo para el caso legitimo: si no viene
+           cantidad, es una venta de 1 (asi la manda el toque de producto, la
+           accion mas frecuente de la app). Solo se rechaza lo que VINO y
+           esta mal. Se acepta "3" como texto porque un input HTML devuelve
+           texto, pero no 0, ni negativos, ni fracciones, ni letras.
+
+           NOTA: amigable-123 tiene exactamente el mismo defecto en su
+           propio mock-backend. No se toca desde aqui (regla 1b: se injerta
+           por repo, nunca se sobreescribe entre hermanas). */
+        var cant;
+        if (body.cantidad === undefined || body.cantidad === null || body.cantidad === "") {
+          cant = 1;
+        } else {
+          cant = Number(body.cantidad);
+          if (!Number.isFinite(cant) || !Number.isInteger(cant) || cant <= 0) {
+            return J({ error: "The quantity must be a whole number greater than zero." }, 400);
+          }
+        }
         if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
         if (!estaLicenciado() && ventasCountMesGlobal() >= 100) {
@@ -3044,6 +3129,20 @@
         const origen = productos.find((x) => x.id === body.productoOrigenId);
         const destino = productos.find((x) => x.id === body.productoDestinoId);
         if (!origen || !destino) return J({ error: "Product not found." }, 404);
+        /* B20 (JFC 2026-09-09, caza 33, medido contra el endpoint real): se
+           aceptaba una transferencia de un producto A SI MISMO. Devolvia 200,
+           y al aprobarla el stock bajaba de 20 a 18 con destino la MISMA
+           percha de la que nunca salio. Esas 2 unidades quedaban en transito
+           hacia donde ya estaban: invisibles en el inventario, y perdidas del
+           todo si nadie confirmaba la recepcion.
+
+           Se rechazan los dos casos sin sentido: el mismo producto, y dos
+           productos que ya estan en la misma percha (mover algo dentro de una
+           percha no es una transferencia). Comprobado contra los datos antes
+           de escribir la segunda regla: no existe ningun par de productos con
+           el mismo SKU en una misma percha, asi que no bloquea nada legitimo. */
+        if (origen.id === destino.id) return J({ error: "Origin and destination are the same product." }, 400);
+        if (origen.ubicacionId === destino.ubicacionId) return J({ error: "Both products are already on the same shelf — there is nothing to transfer." }, 400);
         if (origen.sku !== destino.sku) return J({ error: "The source and destination products are not the same item (different SKU)." }, 400);
         const cant = Number(body.cantidad);
         if (!Number.isInteger(cant) || cant <= 0) return J({ error: "The quantity must be a whole number greater than 0." }, 400);

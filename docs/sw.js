@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v235"; // v233 (JFC 2026-09-09): version publica fija en v1.0 (se declara en el PIN); de aqui solo sube el entero del shell. // v222 (JFC 2026-09-08): botón Purge & Reload al pie del candado — sube shell para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json. // v192: 12 micromejoras (lapicito único + naranja de precaución, paleta del dinero, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo cancelación 5s, editar/cancelar venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar expiración de crédito)
+const CACHE = "f123-shell-v236"; // v236 (JFC 2026-09-09): caza 33 — repintado tras activar (las camisetas que no se iban), dashboard.html al SHELL, venta y transferencia rechazan datos invalidos en vez de adivinarlos. // v233 (JFC 2026-09-09): version publica fija en v1.0 (se declara en el PIN); de aqui solo sube el entero del shell. // v222 (JFC 2026-09-08): botón Purge & Reload al pie del candado — sube shell para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json. // v192: 12 micromejoras (lapicito único + naranja de precaución, paleta del dinero, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo cancelación 5s, editar/cancelar venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar expiración de crédito)
 const SHELL = [
   "./",
   "./index.html",
@@ -68,7 +68,13 @@ const SHELL = [
   "./help-ui.js",
   "./idb-fotos.js",
   "./idb-archivo.js",
-  "./simon-config.js", "./percha-reposicion.js", "./micelio-vivo.js", "./micelio-ui.js", "./tablero.html", "./tablero-avanzado.js", "./borradores.js", "./vista-perchas.js",
+  /* B16 (JFC 2026-08-19): el shell cacheaba tablero.html pero NO
+     dashboard.html. Desde que tablero.html es solo un redirect a
+     dashboard.html, un dispositivo sin conexion seguia el redirect y se
+     quedaba en blanco: el destino no estaba en cache. Se cachean los dos —
+     tablero.html pesa unos cientos de bytes ahora y hay enlaces viejos
+     (WhatsApp, redes) que todavia apuntan ahi. */
+  "./simon-config.js", "./percha-reposicion.js", "./micelio-vivo.js", "./micelio-ui.js", "./tablero.html", "./dashboard.html", "./tablero-avanzado.js", "./borradores.js", "./vista-perchas.js",
   "./welcome-ui.js",
   "./tutorial-ui.js",
   "./event-bus.js", "./logger.js", "./telemetry.js", "./identity-context.js", "./feature-gate.js", "./audit-store.js", "./sync-queue.js", "./sync-outbox.js", "./ui-actions.js", "./salud-app.js", "./hechos.js", "./reconciliacion.js", "./cartera.js", "./plan-pagos.js", "./plan-pagos-ui.js", "./caja-chica.js", "./respaldo-empleado.js", "./edutips.js", "./workshop-brand.js", "./inspector.js", "./inspector-ui.js", "./manifest.json",
