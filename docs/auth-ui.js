@@ -751,7 +751,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         const shellServidor = String(vj.shell || "");
         const shell = shellServidor.replace("f123-shell-", "");
         const ver = String(vj.version || "");
-        const normal = function () { el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  build " + shell) : ""); };
+        const normal = function () { el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  shell-" + shell) : ""); };
         /* MEJORA #4 (JFC 2026-09-08, auditoría de versión): mostrar el shell que
            el aparato REALMENTE corre, no solo el que declara version.json. Un
            aparato atascado en un shell viejo debe VERLO y saber que el botón
@@ -766,7 +766,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             el.style.opacity = "1";
             el.style.color = "#E8365D";
             try { el.style.setProperty("-webkit-text-fill-color", "#E8365D", "important"); } catch (_) {}
-            el.textContent = "build " + activaCorta + " — versión vieja. Usa “Purge & reload” abajo (última: " + shell + ").";
+            el.textContent = "shell-" + activaCorta + " — versión vieja. Usa “Purge & reload” abajo (última: shell-" + shell + ").";
           } else {
             normal();
           }
