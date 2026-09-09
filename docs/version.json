@@ -3,7 +3,7 @@
   "fecha": "2026-09-09",
   "changelog": "POLITICA DE VERSION (JFC 2026-09-09): la version publica queda fija en v1.0 (asi se declara en la pagina del PIN); de aqui en adelante SOLO sube el entero del shell (f123-shell-vNN), que es el control de cambios real. No volver a mover 'version' salvo un salto mayor deliberado.",
   "requerida": false,
-  "shell": "f123-shell-v234",
+  "shell": "f123-shell-v235",
   "apagar": [],
   "releaseName": "v1.0"
 }
