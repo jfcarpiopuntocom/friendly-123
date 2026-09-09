@@ -3129,6 +3129,20 @@
         const origen = productos.find((x) => x.id === body.productoOrigenId);
         const destino = productos.find((x) => x.id === body.productoDestinoId);
         if (!origen || !destino) return J({ error: "Product not found." }, 404);
+        /* B20 (JFC 2026-09-09, caza 33, medido contra el endpoint real): se
+           aceptaba una transferencia de un producto A SI MISMO. Devolvia 200,
+           y al aprobarla el stock bajaba de 20 a 18 con destino la MISMA
+           percha de la que nunca salio. Esas 2 unidades quedaban en transito
+           hacia donde ya estaban: invisibles en el inventario, y perdidas del
+           todo si nadie confirmaba la recepcion.
+
+           Se rechazan los dos casos sin sentido: el mismo producto, y dos
+           productos que ya estan en la misma percha (mover algo dentro de una
+           percha no es una transferencia). Comprobado contra los datos antes
+           de escribir la segunda regla: no existe ningun par de productos con
+           el mismo SKU en una misma percha, asi que no bloquea nada legitimo. */
+        if (origen.id === destino.id) return J({ error: "Origin and destination are the same product." }, 400);
+        if (origen.ubicacionId === destino.ubicacionId) return J({ error: "Both products are already on the same shelf — there is nothing to transfer." }, 400);
         if (origen.sku !== destino.sku) return J({ error: "The source and destination products are not the same item (different SKU)." }, 400);
         const cant = Number(body.cantidad);
         if (!Number.isInteger(cant) || cant <= 0) return J({ error: "The quantity must be a whole number greater than 0." }, 400);

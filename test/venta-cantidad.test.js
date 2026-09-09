@@ -24,6 +24,7 @@ function mkWin(ls){const w={localStorage:ls,sessionStorage:mkStore(),location:{o
 const src=fs.readFileSync(require('path').join(__dirname,'..','docs','mock-backend.js'),'utf8');
 const w=mkWin(mkStore());vm.createContext(w);vm.runInContext(src,w);
 const J=async(p,o)=>{const r=await w.fetch(p,o);return{s:r.status,b:await r.json()};};
+const P=(o)=>({method:'POST',body:JSON.stringify(o)});
 test('venta: cantidades invalidas se rechazan, no se adivinan', async () => {
  const chk=(n,c,d)=>{ assert.ok(c, n + (c?'':'  -> '+JSON.stringify(d).slice(0,200))); };
 
@@ -63,4 +64,32 @@ test('venta: cantidades invalidas se rechazan, no se adivinan', async () => {
  r=await J('/api/clientes',{method:'POST',body:JSON.stringify({nombre:'   '})});
  chk('cliente sin nombre RECHAZADO',r.s===400,r);
 
+});
+
+test('transferencia: no se puede transferir a la misma percha ni al mismo producto', async () => {
+  const chk=(n,c,d)=>{ assert.ok(c, n + (c?'':'  -> '+JSON.stringify(d).slice(0,200))); };
+  const all=(await J('/api/productos')).b;
+  const o=all.find(x=>x.stockActual>3);
+  const so=o.stockActual;
+
+  // B20: transferir un producto a si mismo restaba el stock y lo dejaba "en
+  // transito" hacia la percha de la que nunca salio. Invisible en inventario,
+  // y perdido del todo si nadie confirmaba la recepcion.
+  let r=await J('/api/transferencias',P({productoOrigenId:o.id,productoDestinoId:o.id,cantidad:2}));
+  chk('transferencia al mismo producto rechazada', r.s===400, r);
+  let now=(await J('/api/productos')).b.find(x=>x.id===o.id).stockActual;
+  chk('el stock no se movio', now===so, {so,now});
+
+  // Cantidades invalidas en transferencia (ya estaban bien; quedan cubiertas)
+  const porSku={}; all.forEach(x=>{(porSku[x.sku]=porSku[x.sku]||[]).push(x);});
+  const par=Object.values(porSku).find(g=>g.length>1 && g[0].ubicacionId!==g[1].ubicacionId && g[0].stockActual>3);
+  if (par) {
+    const a=par[0], b=par[1], sa=a.stockActual;
+    for (const mala of [-3, 0, 'tres', 2.5]) {
+      r=await J('/api/transferencias',P({productoOrigenId:a.id,productoDestinoId:b.id,cantidad:mala}));
+      chk('transferencia con cantidad '+JSON.stringify(mala)+' rechazada', r.s===400, r);
+    }
+    now=(await J('/api/productos')).b.find(x=>x.id===a.id).stockActual;
+    chk('ninguna cantidad invalida toco el stock', now===sa, {sa,now});
+  }
 });
