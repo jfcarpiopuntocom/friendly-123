@@ -98,10 +98,10 @@ después. Nunca `sed` a ciegas en minificado.
   atado a un producto) o por ítem.
 - **Cortesía**: hay costo pero no precio (ingreso 0). **SÍ cuenta** hacia las
   100 ventas gratis del mes (espíritu Robin Hood).
-- Form de comisionista: el origen "libre" se muestra como **"Promoter"**;
-  pulldown Y cajita en la misma línea; botón **"Save agent"/"Guardar
-  comisionista"**. (Esto reemplaza el viejo "nunca promotor/a" en apps donde ya
-  se pidió el cambio — gana la instrucción más reciente de JFC.)
+- Form de comisionista: el origen "libre" se muestra como **"Promoter"** (esta
+  app es en inglés). En las apps en español el término preferido de JFC es
+  **"promotor/a"** (cubre ambos géneros). Pulldown Y cajita en la misma línea;
+  botón **"Save agent"**.
 - Archivar un producto/evento **NO** lo saca del dashboard ni del histórico.
 
 ---
