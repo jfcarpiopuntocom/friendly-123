@@ -8204,6 +8204,29 @@ function ocPrompt(mensaje, valorInicial) {
 })();
 </script>
 
+<script>
+/* DEEP-LINK DE EDICION (JFC 2026-09-09): el dashboard es un VISOR de solo lectura;
+   sus lapicitos abren el editor REAL de la app por link (#editar=<tipo>:<id>).
+   Complementario: el dashboard muestra, la app edita. Sin backend en el dashboard,
+   sin duplicar logica. Corre cuando ya hay sesion; navega a la vista y abre el editor. */
+(function(){
+  function intent(){try{var m=(location.hash||"").match(/^#editar=([a-z]+):(.+)$/i);return m?{tipo:m[1].toLowerCase(),id:decodeURIComponent(m[2])}:null;}catch(_){return null;}}
+  var it=intent(); if(!it) return;
+  var hecho=false,intentos=0;
+  function logueado(){try{return /\brol-(dueno|admin|contador|empleado|demo)\b/.test(document.body.className);}catch(_){return false;}}
+  function irYEditar(){
+    if(hecho)return; intentos++;
+    if(intentos>80)return;
+    if(!logueado()){setTimeout(irYEditar,500);return;}
+    var mapa={comisionista:{vista:"comisiones",fn:function(){try{var btn=document.querySelector('[data-abrir-promotora="'+it.id+'"]');if(btn){btn.click();return;}}catch(_){}if(typeof abrirEditorComisionista==="function")abrirEditorComisionista(it.id);}},
+              gasto:{vista:"gastos",fn:function(){if(typeof editarGasto==="function")editarGasto(it.id);}}};
+    var cfg=mapa[it.tipo]; if(!cfg){hecho=true;return;}
+    try{var b=document.querySelector('nav button[data-vista="'+cfg.vista+'"]');if(b)b.click();}catch(_){}
+    setTimeout(function(){try{cfg.fn();}catch(_){}hecho=true;try{history.replaceState(null,"",location.pathname+location.search);}catch(_){}} ,900);
+  }
+  setTimeout(irYEditar,600);
+})();
+</script>
 <!-- ═════════ 2026-08-19, aprobado JFC: FAB "Close the day" ═════════════
      Boton flotante abajo a la derecha (el hueco que dejo el pulsar).
      Un solo click: (1) trae /api/dashboard con el resumen de hoy;
