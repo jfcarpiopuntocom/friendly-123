@@ -873,6 +873,19 @@
           } },
         { title: "Corrected", field: "corregidas", width: 120, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return Number(c.getValue()) ? c.getValue() : "—"; } },
+        /* LAPICITO (JFC 2026-09-09): el dashboard es un visor; para editar de
+           verdad, este link abre el editor REAL del comisionista en la app
+           (#editar=comisionista:<id>). Complementario, sin duplicar lógica.
+           Tinta sólida (azul), nunca gris. Solo cuando la fila trae id. */
+        { title: "Edit", field: "id", width: 110, hozAlign: "center", headerSort: false,
+          formatter: function (c) {
+            var id = c.getValue();
+            if (!id) return "—";
+            return '<a href="./index.html#editar=comisionista:' + encodeURIComponent(id) +
+              '" title="Editar este comisionista en la app" style="display:inline-block;padding:4px 10px;border-radius:6px;' +
+              'background:#E7EEF2;border:1px solid #2E6278;color:#1d4d63 !important;-webkit-text-fill-color:#1d4d63 !important;' +
+              'font-weight:700;font-size:13px;text-decoration:none;">✎ Editar</a>';
+          } },
       ],
       filas: filasComisiones,
       cierre: function (f) {
@@ -1017,6 +1030,7 @@
           estado: l.estado || "",
           pendientes: l.ventasPendientes || 0,
           corregidas: l.ventasCorregidas || 0,
+          id: l.promotoraId || null, /* JFC 2026-09-09: id del comisionista para el lapicito (deep-link al editor de la app) */
         };
       }).sort(function (a, b) { return b.comision - a.comision; });
     }
@@ -1028,9 +1042,10 @@
       var quien = l.asociadoNombre || l.promotorNombre || "(no associate assigned)";
       if (!porQuien[quien]) porQuien[quien] = {
         quien: quien, perchas: [], ventasBrutas: 0, comision: 0, casa: 0,
-        pendientes: 0, corregidas: 0,
+        pendientes: 0, corregidas: 0, id: null,
       };
       var g = porQuien[quien];
+      if (!g.id && l.promotoraId) g.id = l.promotoraId; /* id para el lapicito */
       g.perchas.push(l.ubicacion + " (" + (l.pctEfectivo != null ? l.pctEfectivo : l.pctBase || 0) + "%)");
       g.ventasBrutas += l.ventasBrutas || 0;
       g.comision += l.comisionSocio || 0;
@@ -1053,6 +1068,7 @@
         estado: g.pendientes ? "pendiente" : "pagado",
         pendientes: g.pendientes,
         corregidas: g.corregidas,
+        id: g.id || null, /* id del comisionista para el lapicito */
       };
     }).sort(function (a, b) { return b.comision - a.comision; });
   }
