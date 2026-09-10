@@ -1809,7 +1809,18 @@
       } catch (_) {}
       if (!window.OCSecure.verificarOwnerOEmpleado) return null;
       var rol = await window.OCSecure.verificarOwnerOEmpleado(pin);
-      return rol === "dueno" || rol === "admin";
+      if (rol === "dueno" || rol === "admin") return true;
+      /* #3 (JFC 2026-09-10): los PIN de admin TAMBIEN abren el dashboard. A nivel
+         cripto un admin cuenta como "empleado", así que se comprueba contra la
+         lista de PINs de admin que la app publica (f123_admins_pins, mismo origen).
+         Un empleado normal NO entra. */
+      if (rol === "empleado") {
+        try {
+          var _admins = JSON.parse(localStorage.getItem("f123_admins_pins") || "[]");
+          if (Array.isArray(_admins) && _admins.indexOf(String(pin)) >= 0) return true;
+        } catch (_) {}
+      }
+      return false;
     } catch (_) { return null; }
   }
 

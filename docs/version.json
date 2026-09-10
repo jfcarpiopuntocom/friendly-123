@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "El tablero (dashboard) gana un lapiz por venta: lo tocas y abre la app en el editor de esa venta para corregir el precio o la cantidad despues, y asi cuadrar la ganancia real. El tablero no edita dinero por su cuenta: usa el editor probado de la app. Sube shell a f123-shell-v256.",
+  "changelog": "Dos mejoras de Belen: los PIN de admin ahora abren el dashboard (antes solo el dueno); y la ficha de cada cliente despliega el detalle de sus compras (fecha, producto, monto y si fue fiado, pagado o cortesia, con cuanto debe en fiado) para ver claro que corresponde a que. Sube shell a f123-shell-v257.",
   "requerida": false,
-  "shell": "f123-shell-v256",
+  "shell": "f123-shell-v257",
   "apagar": [],
   "releaseName": "v1.0"
 }
