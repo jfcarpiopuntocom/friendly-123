@@ -165,13 +165,98 @@
       enviarRelayFotos(update);
     });
 
+    // SYNC DE VENTAS/OPS (JFC 2026-09-10, "que sincronice TODO"). Doc SEPARADO de
+    // eventos append-only: opId -> op. Cada venta/movimiento viaja como un hecho
+    // inmutable y se aplica UNA sola vez por OCSync.aplicarOpRemota (idempotente
+    // por opId). Sala de relay "-ops" aparte. Los ops PROPIOS (mismo deviceId) no
+    // se re-aplican: ya se aplicaron al hacer la acción. Esto es event-sourcing
+    // sobre CRDT: transporte confiable (Yjs) + aplicación segura (handler probado).
+    // Va detrás del MISMO flag y en paralelo al sync viejo (respaldo), así que un
+    // op duplicado por los dos transportes se aplica una vez y no dobla la plata.
+    API.opsDoc = new Y.Doc();
+    API.opsMap = API.opsDoc.getMap("eventos");
+    try { API.opsIdb = new window.IndexeddbPersistence("f123-yjs-ops-" + API.roomId, API.opsDoc); } catch (_) {}
+    try {
+      API.opsBc = new BroadcastChannel("f123-yjs-ops-" + API.roomId);
+      API.opsBc.onmessage = function (ev) { try { Y.applyUpdate(API.opsDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
+    } catch (_) {}
+    API.opsDoc.on("update", function (update, origin) {
+      if (origin === "bc" || origin === "red") { pedirProcesarEventos(); return; }
+      try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
+      enviarRelayOps(update);
+    });
+    // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
+    window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
+
     conectarRelay(Y);
     conectarFotosRelay(Y);   // B3: relay separado para los bytes de las fotos
+    conectarOpsRelay(Y);     // ventas/ops: relay separado "-ops"
     conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
     if (API.fotosIdb && API.fotosIdb.once) API.fotosIdb.once("synced", pedirVolcarFotos);
+    // Al cargar los eventos ya guardados, procesarlos (aplica los que falten).
+    if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", pedirProcesarEventos);
     API.estado = "activo";
-    log("Plan C activo (Fase 2 + fotos). Sala:", API.roomId);
+    log("Plan C activo (Fase 2 + fotos + ops). Sala:", API.roomId);
+  }
+
+  // ===================================================================
+  // VENTAS/OPS device-to-device (event-sourcing sobre CRDT).
+  // ===================================================================
+  function miDeviceId() {
+    try { return String((window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || ""); } catch (_) { return ""; }
+  }
+  function publicarOpLocal(op) {
+    if (!op || !op.opId || !API.opsMap) return;
+    try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
+  }
+  var _tOps = null, _opsProcesadas = null;
+  function pedirProcesarEventos() { clearTimeout(_tOps); _tOps = setTimeout(procesarEventos, 200); }
+  function procesarEventos() {
+    if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" || !API.opsMap) return;
+    if (!_opsProcesadas) _opsProcesadas = {}; // cache liviano por sesión (aplicarOpRemota ya es idempotente igual)
+    var mio = miDeviceId(), aplico = false;
+    API.opsMap.forEach(function (op, opId) {
+      if (!op || _opsProcesadas[opId]) return;
+      _opsProcesadas[opId] = 1;
+      // ECO: un op PROPIO ya se aplicó al hacer la acción; re-aplicarlo doblaría
+      // la plata (el handler NO lo tiene en su set de "vistos", porque nunca pasó
+      // por aplicarOpRemota). Por eso se salta explícitamente por deviceId.
+      if (mio && String(op.deviceId) === mio) return;
+      try {
+        var r = window.OCSync.aplicarOpRemota(op);
+        if (r && r.ok && !r.repetida) {
+          aplico = true;
+          // Mismo evento que dispara el sync viejo tras una op remota: la UI ya
+          // sabe refrescar con esto (no reinventamos el refresco).
+          try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op })); } catch (_) {}
+        }
+      } catch (_) {}
+    });
+    void aplico;
+  }
+  var _pendOps = [];
+  function enviarRelayOps(update) {
+    if (!API.clave) return;
+    cifrarBin(API.clave, update).then(function (buf) {
+      if (API.opsWs && API.opsWs.readyState === 1) API.opsWs.send(buf);
+      else _pendOps.push(buf);
+    }).catch(function () {});
+  }
+  function conectarOpsRelay(Y) {
+    var url = RELAY_URL + API.roomId + "-ops";
+    var ws; try { ws = new WebSocket(url); } catch (_) { setTimeout(function () { conectarOpsRelay(Y); }, 5000); return; }
+    ws.binaryType = "arraybuffer"; API.opsWs = ws;
+    ws.onopen = function () {
+      try { enviarRelayOps(Y.encodeStateAsUpdate(API.opsDoc)); } catch (_) {}
+      while (_pendOps.length && ws.readyState === 1) ws.send(_pendOps.shift());
+    };
+    ws.onmessage = function (ev) {
+      if (!(ev.data instanceof ArrayBuffer) || !API.clave) return;
+      descifrarBin(API.clave, ev.data).then(function (bytes) { Y.applyUpdate(API.opsDoc, bytes, "red"); }).catch(function () {});
+    };
+    ws.onclose = function () { API.opsWs = null; setTimeout(function () { conectarOpsRelay(Y); }, 4000); };
+    ws.onerror = function () { try { ws.close(); } catch (_) {} };
   }
 
   // ===================================================================

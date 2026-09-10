@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Sync integral: los comisionistas y las sucursales ahora tambien se sincronizan entre aparatos, sumando y sin pisar (una comision ya puesta nunca se sobreescribe). Las ventas y el dinero siguen por su propio canal con orden causal, no por este, para no arriesgar duplicar plata. Sube shell a f123-shell-v248.",
+  "changelog": "Sync integral total: ahora el sync nuevo tambien lleva las VENTAS y movimientos, como eventos que se aplican una sola vez (idempotente por opId, y cada aparato ignora los suyos por deviceId, asi que la plata nunca se dobla aunque viaje por dos caminos). Corre en paralelo al sync de siempre, detras del flag. Sube shell a f123-shell-v249.",
   "requerida": false,
-  "shell": "f123-shell-v248",
+  "shell": "f123-shell-v249",
   "apagar": [],
   "releaseName": "v1.0"
 }
