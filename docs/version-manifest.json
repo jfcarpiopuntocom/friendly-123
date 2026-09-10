@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v238",
+  "shell": "f123-shell-v239",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-ee242240ede29a755282a50774c26e93a105d9b0924a9a519b108a42faa44aeb",
@@ -19,7 +19,7 @@
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
     "./sync-realtime.js": "sha256-c7495aae86f09748e99101e56aa1af49a12d26581270d9a7370227d4ac8e1970",
     "./sync-watchdog.js": "sha256-d894dcd64788881148b90d8205db529d6aee45961fc71eec106a7e50fcf349d0",
-    "./sync-yjs.js": "sha256-35855c4d5cded3747c6eeec499d5fbbda826fd310148c25fbf282c286baacd32",
+    "./sync-yjs.js": "sha256-20b4bbef2a98a1fb426caa56f4e5d20b29931c3a47e2c82afe80448a4a5b58b6",
     "./vendor/yjs-bundle.min.js": "sha256-a723f1618428ef38937626e8b72165a31ac41894fe7ab07f83d9bbb6cdd0176a",
     "./lista-dinamica.js": "sha256-c3760de6d4b4c935243a4da1da9a95d88e6a32e572158ae5cb7a4d53e6e452af",
     "./vendor/ufuzzy.min.js": "sha256-3eef8ba0ad55444c31f0e86f8375f25916515402cf2d4d7b5a2c01b4b67f2e19",
@@ -33,7 +33,7 @@
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
     "./geo-ping.js": "sha256-0ead39d09c652caeb07991401e33b61b7ef9b13e1de5ae367d401c8870c6fd56",
     "./novedades.js": "sha256-c85f26c537e877935e5f41bda9c88adbb8b2c1e4e5dde7d5b107fb3f08e91946",
-    "./help-ui.js": "sha256-66b7ee6de2aae99bf0988813f43139259677db12e50596b343fc3dcca6bad1fc",
+    "./help-ui.js": "sha256-4dce06798b274efaee175f508aa684d98f39d3ca9b5e7038648a598a815ffe44",
     "./idb-fotos.js": "sha256-1f3a95bf156f996c15c90a2e036c041810147e9ab6df773f92bf6fac2a966604",
     "./idb-archivo.js": "sha256-7a973da43f5858675d472a9982af855e047ebe14ac16c93b4d89333c28da8963",
     "./simon-config.js": "sha256-0b9c5463811f166452079019d749ca2fb4e7172dd86c8ab2a7ae4737fe93f455",

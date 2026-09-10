@@ -14,8 +14,10 @@
 // NO ROMPE NADA: apagado por defecto. Solo hace algo si
 // localStorage["OC_YJS_FASE0"] === "1". Corre EN PARALELO al sync casero, en una
 // SALA DISTINTA del relay (sufijo "-y"), así los updates binarios de Yjs jamás
-// llegan al handler JSON de sync-realtime.js. Fase 0 sincroniza solo la colección
-// "productos" para probar convergencia entre 2 pestañas/dispositivos.
+// llegan al handler JSON de sync-realtime.js.
+// FASE 1 (2026-09-10): sincroniza TODAS las colecciones del catálogo (productos,
+// ubicaciones, usuarios, clientes) como Y.Maps de un mismo Y.Doc. Sigue sin tocar
+// el store real de la app — eso es Fase 2 (Plan A: nube propia del usuario).
 (function () {
   "use strict";
 
@@ -73,12 +75,25 @@
     });
   }
 
+  // Fase 1: TODAS las colecciones del catálogo, no solo productos. Cada una es
+  // un Y.Map dentro del mismo Y.Doc, así un solo update binario las cubre todas
+  // y convergen juntas. La lista es la misma que viaja hoy en el sync casero
+  // (ver _acumularCatalogo en sync-realtime.js): ubicaciones, productos,
+  // usuarios, clientes. Agregar aquí una colección nueva es una línea.
+  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes"];
   var API = {
-    estado: "apagado", doc: null, productos: null, clave: null, ws: null, bc: null, roomId: null,
-    // API mínima para probar convergencia a mano desde la consola.
-    setProducto: function (id, obj) { if (!this.productos) return false; this.productos.set(String(id), obj); return true; },
-    getProductos: function () { var o = {}; if (this.productos) this.productos.forEach(function (v, k) { o[k] = v; }); return o; },
-    _diag: function () { return { estado: this.estado, roomId: this.roomId, n: this.productos ? this.productos.size : 0, ws: this.ws ? this.ws.readyState : null }; }
+    estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, colecciones: COLECCIONES,
+    // API genérica por colección (probar convergencia a mano o desde código).
+    set: function (col, id, obj) { var m = this.mapas[col]; if (!m) return false; m.set(String(id), obj); return true; },
+    get: function (col) { var o = {}, m = this.mapas[col]; if (m) m.forEach(function (v, k) { o[k] = v; }); return o; },
+    del: function (col, id) { var m = this.mapas[col]; if (!m) return false; m.delete(String(id)); return true; },
+    // Atajos retro-compatibles con la Fase 0.
+    setProducto: function (id, obj) { return this.set("productos", id, obj); },
+    getProductos: function () { return this.get("productos"); },
+    _diag: function () {
+      var n = {}, self = this; this.colecciones.forEach(function (c) { n[c] = self.mapas[c] ? self.mapas[c].size : 0; });
+      return { estado: this.estado, roomId: this.roomId, n: n, ws: this.ws ? this.ws.readyState : null };
+    }
   };
   window.OCYjs = API;
 
@@ -92,7 +107,7 @@
 
     var Y = window.Y;
     API.doc = new Y.Doc();
-    API.productos = API.doc.getMap("productos");
+    COLECCIONES.forEach(function (c) { API.mapas[c] = API.doc.getMap(c); });
     API.clave = await derivarClave(codigo);
     API.roomId = await idDeSala(codigo);
 
@@ -115,7 +130,7 @@
 
     conectarRelay(Y);
     API.estado = "activo";
-    log("Plan C activo. Sala:", API.roomId, "— probar: OCYjs.setProducto('p1',{nombre:'test'}) y OCYjs.getProductos() en el otro aparato");
+    log("Plan C activo (Fase 1: " + COLECCIONES.join(", ") + "). Sala:", API.roomId, "— OCYjs.set('productos','p1',{...}) / OCYjs.get('productos')");
   }
 
   // --- Relay device-to-device (sala separada "-y" para no chocar con el sync casero) ---

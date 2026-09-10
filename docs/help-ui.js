@@ -148,7 +148,8 @@
       vendedores, promotoras y control de comisiones — organizado alrededor de
       <b>perchas</b> (tus espacios, racks o ubicaciones) como unidad esencial. Los
       colores reemplazan a las hojas de cálculo. Tus datos se quedan en tu
-      dispositivo: sin suscripción atada, sin necesidad de nube.
+      dispositivo, sin suscripción atada. La nube es opcional y, cuando la
+      usas, es la TUYA: nosotros nunca la tocamos.
     </p>
     <h3>El lenguaje de colores (sistema Simon)</h3>
     <ul>
@@ -189,8 +190,10 @@
     </p>
     <h3>Propiedad y actualizaciones</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
-      Tus datos viven en este dispositivo — ningún servidor los tiene, ninguna
-      suscripción te los puede quitar. La activación desbloquea productos y
+      Tus datos se quedan en este dispositivo — ningún servidor <b>nuestro</b> los
+      tiene, ninguna suscripción te los puede quitar. Si algún día enlazas una nube
+      para sincronizar, esa nube es tuya, no nuestra: nosotros solo hacemos el
+      programa. La activación desbloquea productos y
       exportaciones ilimitadas, con parches y actualizaciones incluidos durante
       toda la <b>licencia de 5 años</b>.
     </p>
