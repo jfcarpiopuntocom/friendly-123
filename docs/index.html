@@ -1962,6 +1962,21 @@
     <h3 class="seccion" data-i18n="adv.valuedInvHeading">Valued inventory</h3>
     <div class="tabla-wrap"><table class="reporte" id="tablaValorizado"></table></div>
     <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <!-- SYNC DE PRUEBA (Plan C / Yjs) — FASE 2, JFC 2026-09-09.
+         Toggle discreto para que JFC prenda/apaga el sync CRDT device-to-device
+         sin consola y lo pruebe EN VIVO en sus dos aparatos reales (el relay no se
+         prueba headless). Enciende/apaga localStorage["OC_YJS_FASE0"] y recarga,
+         porque sync-yjs.js decide al cargar si actúa. Corre EN PARALELO al sync
+         de siempre; es aditivo y no borra nada, pero es EXPERIMENTAL: por eso vive
+         aquí en Avanzado y no en el candado. NO BORRAR sin orden de JFC. -->
+    <h3 class="seccion">New sync (experimental)</h3>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p style="color:#1a1a1a;">A new peer-to-peer sync that keeps every device's data safe and merges everything additively, so nothing is ever lost. It runs alongside the current sync. Turn it on here on both devices, using the same team/business code, then reload each one.</p>
+      <p id="ocSyncNuevoEstado" style="font-weight:700;color:#1a1a1a;margin:10px 0;">Status: off</p>
+      <button class="ir" id="btnSyncNuevo" onclick="toggleSyncNuevo();return false;">Turn on new sync</button>
+    </div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
   </section>
 
 </main>
@@ -7629,7 +7644,26 @@ function volverArribaAvanzado() {
   if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+/* SYNC DE PRUEBA (Plan C / Yjs) — FASE 2, JFC 2026-09-09.
+   Prende/apaga la bandera que lee sync-yjs.js al cargar. Hay que recargar para
+   que el módulo re-evalúe el gate (no engancha/desengancha en caliente a propósito:
+   más simple y sin riesgo). Add-only, corre en paralelo al sync de siempre. */
+function pintarSyncNuevoEstado() {
+  var on = false; try { on = localStorage.getItem("OC_YJS_FASE0") === "1"; } catch (_) {}
+  var e = document.getElementById("ocSyncNuevoEstado");
+  var b = document.getElementById("btnSyncNuevo");
+  if (e) e.textContent = on ? "Status: on" : "Status: off";
+  if (b) b.textContent = on ? "Turn off new sync" : "Turn on new sync";
+}
+function toggleSyncNuevo() {
+  var on = false; try { on = localStorage.getItem("OC_YJS_FASE0") === "1"; } catch (_) {}
+  try { if (on) localStorage.removeItem("OC_YJS_FASE0"); else localStorage.setItem("OC_YJS_FASE0", "1"); } catch (_) {}
+  pintarSyncNuevoEstado();
+  location.reload(); // sync-yjs.js decide al cargar; recargar lo aplica
+}
+
 async function cargarAvanzado(){
+  try { pintarSyncNuevoEstado(); } catch (_) {}
   inicializarSelectorTimezone();
   await cargarGastosMensuales();
   await cargarActividad();
@@ -7773,6 +7807,9 @@ setTimeout(() => {
 <script src="./audit-store.js"></script>
 <script src="./sync-queue.js"></script>
 <script src="./sync-outbox.js"></script>
+<!-- Plan C del sync redundante (Yjs/CRDT). Apagado por defecto: solo actúa si
+     localStorage["OC_YJS_FASE0"]==="1". Carga su bundle vendorizado a demanda. -->
+<script src="./sync-yjs.js"></script>
 <script src="./ui-actions.js"></script>
 <script src="./feature-gate.js"></script>
 <script src="./salud-app.js"></script>

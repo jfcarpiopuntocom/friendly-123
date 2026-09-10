@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "POLITICA DE VERSION (JFC 2026-09-09): la version publica queda fija en v1.0 (asi se declara en la pagina del PIN); de aqui en adelante SOLO sube el entero del shell (f123-shell-vNN), que es el control de cambios real. No volver a mover 'version' salvo un salto mayor deliberado.",
+  "changelog": "Sync Fase 2: Plan C (Yjs/CRDT) YA lee y escribe el store real de la app. Volcado store->Yjs con catalogoPropio(); vuelta Yjs->store con el merge add-only ya probado (aplicarCatalogo): nunca borra, los merges son aditivos, no se pierde nada. Sigue detras del flag OC_YJS_FASE0, ahora con un toggle 'New sync (experimental)' en Avanzado para prenderlo sin consola. Corre en paralelo al sync de siempre. Sube shell a f123-shell-v240.",
   "requerida": false,
-  "shell": "f123-shell-v237",
+  "shell": "f123-shell-v240",
   "apagar": [],
   "releaseName": "v1.0"
 }
