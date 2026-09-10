@@ -67,6 +67,58 @@
     return new Uint8Array(claro);
   }
 
+  // ===================================================================
+  // CANAL DE RELAY con HANDSHAKE de catch-up (JFC 2026-09-10, fix del bug
+  // "no sincronizan fotos ni el nombre"). ANTES: cada aparato solo mandaba su
+  // estado en onopen; un aparato YA conectado no le compartía nada al que entra
+  // DESPUÉS, así que lo puesto antes (nombre, fotos) nunca llegaba (el relay solo
+  // rebota, no guarda historia). AHORA: state-vector de Yjs, dos vías y loop-safe.
+  //   Marco: 1 byte de tag + payload, todo cifrado.
+  //     tag 0 = update binario (aplicar)
+  //     tag 1 = "hola": mi state-vector. Quien lo recibe responde con lo que al
+  //             otro le falta (tag 0) Y su propio SV (tag 2) para pedir lo suyo.
+  //     tag 2 = respuesta de SV: se contesta SOLO con el diff (tag 0), sin re-pedir
+  //             (corta el ciclo). Así ambos convergen en un ida y vuelta.
+  // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
+  // ===================================================================
+  function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
+  function crearCanal(Y, doc, suffix, nombre) {
+    var canal = { ws: null, pend: [] };
+    function enviar(tag, payload) {
+      if (!API.clave) return;
+      cifrarBin(API.clave, _frame(tag, payload)).then(function (buf) {
+        if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
+      }).catch(function () {});
+    }
+    canal.enviarUpdate = function (update) { enviar(0, update); };
+    function conectar() {
+      var url = RELAY_URL + API.roomId + suffix;
+      var ws; try { ws = new WebSocket(url); } catch (_) { setTimeout(conectar, 5000); return; }
+      ws.binaryType = "arraybuffer"; canal.ws = ws;
+      ws.onopen = function () {
+        try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": pido lo que me falte
+        while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
+      };
+      ws.onmessage = function (ev) {
+        if (!(ev.data instanceof ArrayBuffer) || !API.clave) return;
+        descifrarBin(API.clave, ev.data).then(function (bytes) {
+          var tag = bytes[0], payload = bytes.subarray(1);
+          if (tag === 0) { Y.applyUpdate(doc, payload, "red"); }
+          else if (tag === 1) { // me saludan: les mando lo que les falta + mi SV para pedir lo mío
+            try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+            try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
+          } else if (tag === 2) { // respuesta a mi SV: solo el diff, sin re-pedir (corta el loop)
+            try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+          }
+        }).catch(function () {}); // basura o clave distinta -> se ignora
+      };
+      ws.onclose = function () { canal.ws = null; setTimeout(conectar, 4000); };
+      ws.onerror = function () { try { ws.close(); } catch (_) {} };
+    }
+    canal.conectar = conectar;
+    return canal;
+  }
+
   // Carga perezosa del bundle vendorizado (solo si el flag está encendido, para no
   // pagar 94kb de parse a quien no prueba). Sin CDN: es un archivo del shell.
   function cargarBundle() {
@@ -103,7 +155,11 @@
     getProductos: function () { return this.get("productos"); },
     _diag: function () {
       var n = {}, self = this; this.colecciones.forEach(function (c) { n[c] = self.mapas[c] ? self.mapas[c].size : 0; });
-      return { estado: this.estado, roomId: this.roomId, n: n, ws: this.ws ? this.ws.readyState : null };
+      var rs = function (cn) { return cn && cn.ws ? cn.ws.readyState : null; };
+      return { estado: this.estado, roomId: this.roomId, n: n,
+        ws: { catalogo: rs(this.canal), fotos: rs(this.fotosCanal), ops: rs(this.opsCanal) },
+        meta: { nombre: this.meta ? this.meta.get("nombreNegocio") : null, esDueno: this.meta ? this.meta.get("nombreEsDueno") : null },
+        fotos: this.fotosMap ? this.fotosMap.size : 0, ops: this.opsMap ? this.opsMap.size : 0 };
     }
   };
   window.OCYjs = API;
@@ -140,10 +196,11 @@
 
     // Cada cambio local -> update binario -> (a) pestañas por BroadcastChannel,
     // (b) otros dispositivos por el relay cifrado. origin !== "bc"/"red" evita eco.
+    API.canal = crearCanal(Y, API.doc, "-y", "catalogo");
     API.doc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") return;
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
-      enviarRelay(update);
+      API.canal.enviarUpdate(update);
     });
 
     // B3 (JFC 2026-09-10): documento SEPARADO para los BYTES de las fotos. NO van
@@ -159,10 +216,11 @@
       API.fotosBc = new BroadcastChannel("f123-yjs-fotos-" + API.roomId);
       API.fotosBc.onmessage = function (ev) { try { Y.applyUpdate(API.fotosDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
+    API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos");
     API.fotosDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
       try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
-      enviarRelayFotos(update);
+      API.fotosCanal.enviarUpdate(update);
     });
 
     // SYNC DE VENTAS/OPS (JFC 2026-09-10, "que sincronice TODO"). Doc SEPARADO de
@@ -180,17 +238,18 @@
       API.opsBc = new BroadcastChannel("f123-yjs-ops-" + API.roomId);
       API.opsBc.onmessage = function (ev) { try { Y.applyUpdate(API.opsDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
+    API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops");
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
-      enviarRelayOps(update);
+      API.opsCanal.enviarUpdate(update);
     });
     // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
     window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
 
-    conectarRelay(Y);
-    conectarFotosRelay(Y);   // B3: relay separado para los bytes de las fotos
-    conectarOpsRelay(Y);     // ventas/ops: relay separado "-ops"
+    API.canal.conectar();      // catálogo + _meta (nombre, pinsRol) — sala "-y"
+    API.fotosCanal.conectar(); // bytes de las fotos — sala "-fotos"
+    API.opsCanal.conectar();   // ventas/ops — sala "-ops"
     conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
     if (API.fotosIdb && API.fotosIdb.once) API.fotosIdb.once("synced", pedirVolcarFotos);
@@ -218,45 +277,27 @@
     var mio = miDeviceId(), aplico = false;
     API.opsMap.forEach(function (op, opId) {
       if (!op || _opsProcesadas[opId]) return;
-      _opsProcesadas[opId] = 1;
       // ECO: un op PROPIO ya se aplicó al hacer la acción; re-aplicarlo doblaría
       // la plata (el handler NO lo tiene en su set de "vistos", porque nunca pasó
-      // por aplicarOpRemota). Por eso se salta explícitamente por deviceId.
-      if (mio && String(op.deviceId) === mio) return;
+      // por aplicarOpRemota). Se salta explícitamente por deviceId, y se marca
+      // procesado (no hay nada que reintentar).
+      if (mio && String(op.deviceId) === mio) { _opsProcesadas[opId] = 1; return; }
       try {
         var r = window.OCSync.aplicarOpRemota(op);
-        if (r && r.ok && !r.repetida) {
-          aplico = true;
-          // Mismo evento que dispara el sync viejo tras una op remota: la UI ya
-          // sabe refrescar con esto (no reinventamos el refresco).
-          try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op })); } catch (_) {}
+        // #4 (fix 2026-09-10): marcar procesado SOLO si el handler respondió ok
+        // (aplicado o repetido). Si lanzó, se deja sin marcar para reintentar en
+        // el próximo pase. aplicarOpRemota ya es idempotente por opId, así que
+        // reintentar es seguro.
+        if (r && r.ok) {
+          _opsProcesadas[opId] = 1;
+          if (!r.repetida) {
+            aplico = true;
+            try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op })); } catch (_) {}
+          }
         }
-      } catch (_) {}
+      } catch (_) { /* sin marcar: se reintenta */ }
     });
     void aplico;
-  }
-  var _pendOps = [];
-  function enviarRelayOps(update) {
-    if (!API.clave) return;
-    cifrarBin(API.clave, update).then(function (buf) {
-      if (API.opsWs && API.opsWs.readyState === 1) API.opsWs.send(buf);
-      else _pendOps.push(buf);
-    }).catch(function () {});
-  }
-  function conectarOpsRelay(Y) {
-    var url = RELAY_URL + API.roomId + "-ops";
-    var ws; try { ws = new WebSocket(url); } catch (_) { setTimeout(function () { conectarOpsRelay(Y); }, 5000); return; }
-    ws.binaryType = "arraybuffer"; API.opsWs = ws;
-    ws.onopen = function () {
-      try { enviarRelayOps(Y.encodeStateAsUpdate(API.opsDoc)); } catch (_) {}
-      while (_pendOps.length && ws.readyState === 1) ws.send(_pendOps.shift());
-    };
-    ws.onmessage = function (ev) {
-      if (!(ev.data instanceof ArrayBuffer) || !API.clave) return;
-      descifrarBin(API.clave, ev.data).then(function (bytes) { Y.applyUpdate(API.opsDoc, bytes, "red"); }).catch(function () {});
-    };
-    ws.onclose = function () { API.opsWs = null; setTimeout(function () { conectarOpsRelay(Y); }, 4000); };
-    ws.onerror = function () { try { ws.close(); } catch (_) {} };
   }
 
   // ===================================================================
@@ -296,30 +337,6 @@
     });
   }
 
-  // Relay de fotos: mismo esquema que el del catálogo, sala "-fotos" aparte.
-  var _pendFotos = [];
-  function enviarRelayFotos(update) {
-    if (!API.clave) return;
-    cifrarBin(API.clave, update).then(function (buf) {
-      if (API.fotosWs && API.fotosWs.readyState === 1) API.fotosWs.send(buf);
-      else _pendFotos.push(buf);
-    }).catch(function () {});
-  }
-  function conectarFotosRelay(Y) {
-    var url = RELAY_URL + API.roomId + "-fotos";
-    var ws; try { ws = new WebSocket(url); } catch (_) { setTimeout(function () { conectarFotosRelay(Y); }, 5000); return; }
-    ws.binaryType = "arraybuffer"; API.fotosWs = ws;
-    ws.onopen = function () {
-      try { enviarRelayFotos(Y.encodeStateAsUpdate(API.fotosDoc)); } catch (_) {}
-      while (_pendFotos.length && ws.readyState === 1) ws.send(_pendFotos.shift());
-    };
-    ws.onmessage = function (ev) {
-      if (!(ev.data instanceof ArrayBuffer) || !API.clave) return;
-      descifrarBin(API.clave, ev.data).then(function (bytes) { Y.applyUpdate(API.fotosDoc, bytes, "red"); }).catch(function () {});
-    };
-    ws.onclose = function () { API.fotosWs = null; setTimeout(function () { conectarFotosRelay(Y); }, 4000); };
-    ws.onerror = function () { try { ws.close(); } catch (_) {} };
-  }
 
   // ===================================================================
   // FASE 2 (JFC 2026-09-09) — PUENTE AL STORE REAL, sin perder nada.
@@ -409,7 +426,10 @@
       var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", pinsRol: API.meta.get("pinsRol") || null, deviceNombre: "sync" };
       var hay = false;
       COLECCIONES.forEach(function (c) { remoto[c] = valores(c); if (remoto[c].length) hay = true; });
-      if (!hay) return; // nada que aplicar: no molestar al store
+      // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
+      // aplicarse aunque no haya entidades — antes se descartaba y el nombre nunca
+      // llegaba a un aparato que recibió primero el _meta.
+      if (!hay && !remoto.nombreNegocio && !remoto.pinsRol) return;
       // rolRemoto="dueno" si el nombre lo puso un dueño (A1): así aplicarCatalogo
       // adopta el nombre del negocio aunque el local ya tenga otro. Para el resto
       // de reglas (nombre/precio de ítems) esto solo habilita que el nombre del
@@ -460,36 +480,6 @@
     setTimeout(function () { if (API.estado === "activo") sembrar(); }, 2500);
 
     API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual
-  }
-
-  // --- Relay device-to-device (sala separada "-y" para no chocar con el sync casero) ---
-  var pendientes = [];
-  function enviarRelay(update) {
-    if (!API.clave) return;
-    cifrarBin(API.clave, update).then(function (buf) {
-      if (API.ws && API.ws.readyState === 1) API.ws.send(buf);
-      else pendientes.push(buf); // se drenan al reconectar
-    }).catch(function () {});
-  }
-  function conectarRelay(Y) {
-    var url = RELAY_URL + API.roomId + "-y"; // sufijo -y: aislado del sync casero
-    var ws;
-    try { ws = new WebSocket(url); } catch (_) { setTimeout(function () { conectarRelay(Y); }, 5000); return; }
-    ws.binaryType = "arraybuffer";
-    API.ws = ws;
-    ws.onopen = function () {
-      // Al entrar: manda mi estado completo para que un par nuevo converja rápido.
-      try { enviarRelay(Y.encodeStateAsUpdate(API.doc)); } catch (_) {}
-      while (pendientes.length && ws.readyState === 1) ws.send(pendientes.shift());
-    };
-    ws.onmessage = function (ev) {
-      if (!(ev.data instanceof ArrayBuffer) || !API.clave) return;
-      descifrarBin(API.clave, ev.data).then(function (bytes) {
-        Y.applyUpdate(API.doc, bytes, "red"); // origin "red": no re-difundir (evita eco)
-      }).catch(function () {}); // basura o clave distinta -> se ignora (relay sordo)
-    };
-    ws.onclose = function () { API.ws = null; setTimeout(function () { conectarRelay(Y); }, 4000); };
-    ws.onerror = function () { try { ws.close(); } catch (_) {} };
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arrancar);
