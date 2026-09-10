@@ -555,6 +555,20 @@
         return;
       }
       fotoCache[id] = dataUrl; // optimista: se ve de inmediato, sin esperar otra lectura
+      /* B2 (JFC 2026-09-10): ademas de guardarla por id (para la vista de aca),
+         se guarda por su HASH y se registra el puntero fotoHash en la ubicacion.
+         Asi la asignacion viaja por el sync (solo el hash) y el otro aparato sabe
+         que foto le toca a esta percha; los bytes se traeran cuando haya nube (B3).
+         Falla en silencio: si algo de esto no anda, la foto local ya quedo guardada. */
+      try {
+        if (window.OCFotos && window.OCFotos.guardarFotoContenido) {
+          const hash = await window.OCFotos.guardarFotoContenido(dataUrl);
+          await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fotoHash: hash })
+          });
+        }
+      } catch (_) {}
       cargar();
     });
   });

@@ -1652,8 +1652,15 @@
       if (!mia) {
         ubicaciones.push(Object.assign({}, u, { activa: u.activa !== false }));
         agregadasU++;
-      } else if (mandaElOtro && String(mia.nombre || "") !== String(u.nombre || "") && esTextoCorto(String(u.nombre || ""), 240)) {
-        mia.nombre = u.nombre; actualizados++;
+      } else {
+        if (mandaElOtro && String(mia.nombre || "") !== String(u.nombre || "") && esTextoCorto(String(u.nombre || ""), 240)) {
+          mia.nombre = u.nombre; actualizados++;
+        }
+        /* B2: puntero de foto ADD-ONLY. Si la percha de aca no tiene foto y la
+           del otro aparato si, se adopta el hash (los bytes se traen despues, B3).
+           No se pisa una foto ya puesta aqui: cada aparato conserva la suya hasta
+           que haya una regla mas fina; asi nunca se pierde una asignacion. */
+        if (u.fotoHash && !mia.fotoHash) { mia.fotoHash = u.fotoHash; actualizados++; }
       }
     });
     remoto.productos.forEach((p) => {
@@ -2001,7 +2008,7 @@
        DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
     catalogoPropio() {
       return {
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, fotoHash: u.fotoHash || null })),
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad })),
         /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
            BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
@@ -2450,8 +2457,14 @@
         if ("minimoGarantizado" in body) u.minimoGarantizado = Math.max(0, Number(body.minimoGarantizado) || 0);
         if ("usarComisionPropia" in body) u.usarComisionPropia = !!body.usarComisionPropia;
         if ("escalasComision" in body) u.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision : [];
+        /* B2 (JFC 2026-09-10): puntero de la foto. La foto (bytes) se guarda por
+           su hash SHA-256 en idb-fotos; aqui solo viaja el HASH en el catalogo,
+           asi la asignacion "esta percha tiene esta foto" converge entre aparatos
+           sin mover megas por el CRDT. Los bytes viajan aparte (a la nube del
+           dueno, B3). null = quitar la foto. */
+        if ("fotoHash" in body) u.fotoHash = body.fotoHash || null;
         guardarEstadoLocal();
-        avisarCatalogoCambiado(); // cambios de la percha (nombre, trato) viajan al equipo
+        avisarCatalogoCambiado(); // cambios de la percha (nombre, trato, foto) viajan al equipo
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
