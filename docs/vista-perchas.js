@@ -126,22 +126,30 @@
     fotoCache = await window.OCFotos.leerTodas();
   }
 
-  /* B0 (JFC 2026-09-10): NO achicar de más. Antes 640px/0.8 se veía borroso y
-     JFC comprobó que sobra espacio (el Drive del dueño da 15 GB; una foto pesa
-     KB). Ahora se limita el LADO MAYOR a 1600px (portrait o landscape por igual,
-     antes solo se miraba el ancho) y calidad 0.9. Una foto de cámara queda en
-     ~250-500 KB, nítida, y sigue siendo minúscula. Nunca se agranda (Math.min 1). */
-  const FOTO_LADO_MAX = 1600, FOTO_CALIDAD = 0.9;
+  /* FOTO — calidad alta PERO bajo el tope del relay (JFC 2026-09-10, fix A).
+     El relay corta cualquier frame > 256 KB (MAX_FRAME_BYTES en el worker); una
+     foto de 1600px/0.9 pesaba 300-600 KB en dataURL → el relay mataba el socket
+     de fotos ("frame too big"), la foto NO cruzaba y el canal reconectaba en
+     bucle (parte del límite diario del worker). Ahora se redimensiona en cascada
+     hasta que el dataURL quede < ~180 KB (así el frame cifrado < 256 KB): sigue
+     nítida (arranca en 1400px/0.82) pero SIEMPRE cruza. Nunca agranda (Math.min 1). */
+  const FOTO_BYTES_MAX = 180000; // margen bajo los 256 KB del relay (base64 + AES)
   function redimensionar(file, cb) {
     const img = new Image();
     img.onload = () => {
-      const escala = Math.min(1, FOTO_LADO_MAX / Math.max(img.width, img.height));
-      const cv = document.createElement('canvas');
-      cv.width = Math.round(img.width * escala);
-      cv.height = Math.round(img.height * escala);
-      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
       URL.revokeObjectURL(img.src);
-      cb(cv.toDataURL('image/jpeg', FOTO_CALIDAD));
+      const intentos = [[1400, 0.82], [1200, 0.8], [1000, 0.75], [820, 0.7], [640, 0.62]];
+      const rend = (lado, q) => {
+        const escala = Math.min(1, lado / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * escala);
+        cv.height = Math.round(img.height * escala);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        return cv.toDataURL('image/jpeg', q);
+      };
+      let out = rend(intentos[0][0], intentos[0][1]);
+      for (let i = 1; i < intentos.length && out.length > FOTO_BYTES_MAX; i++) out = rend(intentos[i][0], intentos[i][1]);
+      cb(out);
     };
     img.src = URL.createObjectURL(file);
   }

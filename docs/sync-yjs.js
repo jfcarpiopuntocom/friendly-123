@@ -84,6 +84,16 @@
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
   function crearCanal(Y, doc, suffix, nombre) {
     var canal = { ws: null, pend: [] };
+    var reintentos = 0; // backoff (fix B, JFC 2026-09-10): antes reconectaba fijo
+                        // cada 4s; si el relay cerraba (p.ej. frame grande), era una
+                        // tormenta de upgrades -> límite diario del worker. Ahora
+                        // exponencial con jitter y tope 30s, como el sync viejo.
+    function reprogramar() {
+      reintentos++;
+      var base = Math.min(30000, 1000 * Math.pow(2, Math.min(reintentos, 5))); // 2,4,8,16,32->30s
+      var delay = base / 2 + Math.random() * base / 2; // jitter: no todos reconectan a la vez
+      setTimeout(conectar, delay);
+    }
     function enviar(tag, payload) {
       if (!API.clave) return;
       cifrarBin(API.clave, _frame(tag, payload)).then(function (buf) {
@@ -93,9 +103,10 @@
     canal.enviarUpdate = function (update) { enviar(0, update); };
     function conectar() {
       var url = RELAY_URL + API.roomId + suffix;
-      var ws; try { ws = new WebSocket(url); } catch (_) { setTimeout(conectar, 5000); return; }
+      var ws; try { ws = new WebSocket(url); } catch (_) { reprogramar(); return; }
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
+        reintentos = 0; // conexión buena: resetea el backoff
         try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": pido lo que me falte
         while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
       };
@@ -112,7 +123,7 @@
           }
         }).catch(function () {}); // basura o clave distinta -> se ignora
       };
-      ws.onclose = function () { canal.ws = null; setTimeout(conectar, 4000); };
+      ws.onclose = function () { canal.ws = null; reprogramar(); };
       ws.onerror = function () { try { ws.close(); } catch (_) {} };
     }
     canal.conectar = conectar;
