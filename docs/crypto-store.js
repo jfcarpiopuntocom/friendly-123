@@ -173,24 +173,25 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       } catch (_) {}
       try { localStorage.setItem("f123_migrado_159_888", "1"); } catch (_) {}
     }
-    /* 2026-08-31: 888 dejó de ser el default de dueño. Default = 789.
-       456 demo. 888 queda libre para que cada dueño lo asigne si quiere.
-       Solo se migra si el hash actual SIGUE siendo 888 (fábrica). Un 555/222
-       propio no se toca. coincidePin no suma fallos al candado. */
-    if (!localStorage.getItem("f123_migrado_888_a_789_default")) {
+    /* ANULADA + CORREGIDA (JFC 2026-09-10). La migración "888→789" de 2026-08-31
+       cambiaba EN SILENCIO el PIN de dueño a 789 si el actual era 888 — asumiendo
+       que 888 era "fábrica". Pero dueños REALES usaban 888 a propósito
+       (idiomARTE/Sarah): les borró el acceso de admin en producción. JFC nunca
+       pidió inutilizar 888 para quien ya lo usaba, solo que dejara de ser el demo
+       (el demo es 456). Aquí:
+       1) NO se vuelve a resetear ningún 888 (la migración destructiva se retira).
+       2) Se RESTAURA 888 como PIN de dueño en los dispositivos que YA corrieron
+          aquella migración (flag f123_migrado_888_a_789_default): se re-habilita
+          por el sidecar de equipo (ADITIVO — 789 sigue abriendo, no se pisa nada).
+          Los dispositivos NUEVOS no tienen ese flag → a ellos NO se les abre 888.
+          888 era el default público histórico, así que reabrirlo no expone ningún
+          secreto nuevo. Corre una sola vez (flag f123_restaurar_888_v1). */
+    if (localStorage.getItem("f123_migrado_888_a_789_default") && !localStorage.getItem("f123_restaurar_888_v1")) {
       try {
-        if (await coincidePin("888", "owner")) {
-          await fijarOwnerPin("789");
-          try {
-            const cur = leerPinQueAbre();
-            if (!cur.owner || cur.owner === "888") {
-              cur.owner = "789";
-              localStorage.setItem("f123_pin_que_abre", JSON.stringify(cur));
-            }
-          } catch (_) {}
-        }
+        const eq = leerPinsEquipo() || {};
+        if (eq.owner !== "888") { eq.owner = "888"; guardarPinsEquipo(eq); }
       } catch (_) {}
-      try { localStorage.setItem("f123_migrado_888_a_789_default", "1"); } catch (_) {}
+      try { localStorage.setItem("f123_restaurar_888_v1", "1"); } catch (_) {}
     }
   }
 

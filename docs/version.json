@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Arreglo del sync nuevo: no sincronizaban las fotos ni el nombre de la tienda porque faltaba el handshake de puesta al dia (un aparato ya conectado no le pasaba su estado al que entraba despues). Ahora los tres canales (catalogo, fotos, ventas) hacen el saludo de Yjs y se ponen al dia en ambos sentidos. Sube shell a f123-shell-v253.",
+  "changelog": "Arreglos criticos: las fotos ahora se comprimen bajo el limite del relay (antes no cruzaban y saturaban el worker); las reconexiones del sync usan backoff; y se RESTAURA el PIN 888 a los duenios reales que lo usaban y una migracion se los habia cambiado por error. Sube shell a f123-shell-v254.",
   "requerida": false,
-  "shell": "f123-shell-v253",
+  "shell": "f123-shell-v254",
   "apagar": [],
   "releaseName": "v1.0"
 }
