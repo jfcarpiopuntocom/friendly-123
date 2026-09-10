@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v250",
+  "shell": "f123-shell-v251",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-a28e90622682a2c7d24729df277f5ca393705adb0b9c164775a08dd0618fbdf1",
@@ -17,7 +17,7 @@
     "./red-segura.js": "sha256-79f50e85caecb4fdda91e6116f308a1a29a0fe3aa5ce50878e08138a14129a9f",
     "./device-identity.js": "sha256-e2a699aa82d417e65f49ff8491d6fba98be64bd0e77809645b016b1df9bb3897",
     "./storage-durabilidad.js": "sha256-f013cb48cd72b03cec5db92673653f7fcf0ea264d4a3298c325a9b299efa5d8d",
-    "./sync-realtime.js": "sha256-b97a8bac734ce657a5443a54a859d9945144c888e74edbf879788972ed33065d",
+    "./sync-realtime.js": "sha256-c43416d474e3520406a76dff1adf776bb8a29b9620626a330493d51cbc310032",
     "./sync-watchdog.js": "sha256-cd9123da8625f6daad517fdbd96c784fd1dec015327c6ba8c238049130d5b55e",
     "./sync-yjs.js": "sha256-491170d4647ffa9d0935af840f96296571b13882ec28cbbb25aab1cbfbe8ccf9",
     "./vendor/yjs-bundle.min.js": "sha256-c43a513bae0acc69020997612f1a0f145f5481b1939320d97ff03330546053bc",
@@ -41,7 +41,7 @@
     "./micelio-vivo.js": "sha256-cdf2708d852a1eec9b39ed528bece8b9c07ffe92e000f76ca919bb5be7fef5e1",
     "./micelio-ui.js": "sha256-85b17a8f68ce2583376b88e01816356875eaebaaafc2b7fcd58c60fde28fc7b0",
     "./tablero.html": "sha256-a497a91886d86a58666d1c5fd330b58b80d8ded0d401a02c166cd49a50a37c94",
-    "./dashboard.html": "sha256-8ff31218960f0b9f616ab74b797cebb9fbc5eaf1d29095b3a6df4870846ea5b0",
+    "./dashboard.html": "sha256-f81cf3473dd609535c53f297bf82a5c0f331a2366f385f502e01c28d34b98668",
     "./tablero-avanzado.js": "sha256-f1a7a6d904e3cb55359fce7b3e3a80e6aa6513165636502f483059ce52d49510",
     "./borradores.js": "sha256-330e3fe1e208767d2895f60b14c137f5894cc3df972c5672cff5472539338fb6",
     "./vista-perchas.js": "sha256-7f56a73e92cb01a0ddc91ca327a6048fb37ad70b3ca93e79dc7092076e578459",

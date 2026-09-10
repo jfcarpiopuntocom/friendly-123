@@ -901,6 +901,66 @@
           "con % distintos, y las dos cosas son ciertas a la vez.";
       },
     },
+
+    /* RESTOCK (JFC 2026-09-10, best-practice de dashboards para negocios chicos:
+       la vista más útil no es la más llena, es la que deja ver la PRÓXIMA ACCIÓN.
+       Esta junta lo que está en o bajo su punto de reorden — la excepción
+       operativa que el dueño quiere ver antes de decidir qué comprar. Usa los
+       datos que ya llegan en la foto (productos con stock y umbrales). */
+    reposicion: {
+      nombre: "Restock",
+      cols: [
+        { title: "Product", field: "nombre", minWidth: 200, widthGrow: 3 },
+        { title: "Shelf", field: "ubicacionNombre", width: 150 },
+        { title: "Stock", field: "stockActual", width: 90, hozAlign: "right", cssClass: "num" },
+        { title: "Reorder at", field: "umbralRojo", width: 110, hozAlign: "right", cssClass: "num" },
+        { title: "Order", field: "faltan", width: 100, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = Number(c.getValue()) || 0; return v > 0 ? "+" + v : "—"; } },
+        { title: "Status", field: "estado", width: 125, formatter: function (c) {
+            var v = String(c.getValue() || "");
+            var col = SIMON[v] || { bg: "#FFFFFF", txt: "#2C3E50", nom: v };
+            return '<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:13px;' +
+              'font-weight:700;background:' + col.bg + ';color:' + col.txt + ';">' + col.nom + "</span>";
+          } },
+      ],
+      filas: function () {
+        return (datos.productos || []).filter(function (p) {
+          var s = Number(p.stockActual) || 0, r = Number(p.umbralRojo) || 0;
+          return p.estado === "rojo" || p.estado === "negro" || (r > 0 && s <= r);
+        }).map(function (p) {
+          var s = Number(p.stockActual) || 0, a = Number(p.umbralAmarillo) || 0;
+          return Object.assign({}, p, { faltan: Math.max(0, a - s) }); // cuánto pedir para volver al amarillo
+        }).sort(function (a, b) { return (Number(a.stockActual) || 0) - (Number(b.stockActual) || 0); });
+      },
+      cierre: function (f) {
+        if (!f.length) return "<strong>Nada por reponer.</strong>Todo el stock está sobre su punto de reorden.";
+        var cero = f.filter(function (p) { return (Number(p.stockActual) || 0) === 0; }).length;
+        return "<strong>" + plural(f.length, "producto por reponer", "productos por reponer") + "." +
+          (cero ? " " + cero + " en cero." : "") + "</strong>En la app, Inventario con el filtro Urgente los deja juntos para reponer.";
+      },
+    },
+
+    /* COMISIONISTAS (JFC 2026-09-10). La entidad que ahora SÍ sincroniza entre
+       aparatos: el dueño ve su equipo de comisionistas con su % vigente, venga
+       el alta de donde venga. Usa datos.promotoras, que ya viaja en la foto. */
+    comisionistas: {
+      nombre: "Promoters",
+      cols: [
+        { title: "Promoter", field: "nombre", minWidth: 180, widthGrow: 3 },
+        { title: "Commission", field: "comisionBase", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = c.getValue(); if (v == null) v = c.getRow().getData().comision; return (Number(v) || 0) + "%"; } },
+        { title: "Monthly goal", field: "metaMensual", width: 130, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = Number(c.getValue()) || 0; return v ? money(v) : "—"; } },
+        { title: "Tiers", field: "escalasComision", width: 85, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = c.getValue(); return (Array.isArray(v) && v.length) ? v.length : "—"; } },
+        { title: "Phone", field: "telefono", width: 150, cssClass: "num" },
+      ],
+      filas: function () { return datos.promotoras || []; },
+      cierre: function (f) {
+        return "<strong>" + plural(f.length, "comisionista", "comisionistas") + ".</strong>" +
+          "Se dan de alta en el formulario de comisionista y ahora se sincronizan a todos los aparatos del negocio.";
+      },
+    },
   };
 
   /* ======================================================================

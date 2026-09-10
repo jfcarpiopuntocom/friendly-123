@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "El dashboard (tablero) pinta el control de cambios EN COLORES: cada dispositivo tiene su color estable, cada movimiento lleva una franja y un punto de ese color, y el tipo de accion se tine por categoria (venta verde, borrado rojo, edicion/sync ambar), con una leyenda de dispositivos. Se ve de un vistazo quien cambio que. Sube shell a f123-shell-v250.",
+  "changelog": "El dashboard del dueno queda enchufado a todo lo nuevo: el snapshot ahora incluye la lista de comisionistas y el log de movimientos, y se agregan dos vistas segun best-practices para negocios chicos: Restock (lo que esta en o bajo su punto de reorden, la proxima accion a la vista) y Promoters (los comisionistas que ahora sincronizan entre aparatos). Sube shell a f123-shell-v251.",
   "requerida": false,
-  "shell": "f123-shell-v250",
+  "shell": "f123-shell-v251",
   "apagar": [],
   "releaseName": "v1.0"
 }
