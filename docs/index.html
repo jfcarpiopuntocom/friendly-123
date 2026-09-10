@@ -7773,6 +7773,9 @@ setTimeout(() => {
 <script src="./audit-store.js"></script>
 <script src="./sync-queue.js"></script>
 <script src="./sync-outbox.js"></script>
+<!-- Plan C del sync redundante (Yjs/CRDT). Apagado por defecto: solo actúa si
+     localStorage["OC_YJS_FASE0"]==="1". Carga su bundle vendorizado a demanda. -->
+<script src="./sync-yjs.js"></script>
 <script src="./ui-actions.js"></script>
 <script src="./feature-gate.js"></script>
 <script src="./salud-app.js"></script>

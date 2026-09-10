@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v237"; // v236 (JFC 2026-09-09): caza 33 — repintado tras activar (las camisetas que no se iban), dashboard.html al SHELL, venta y transferencia rechazan datos invalidos en vez de adivinarlos. // v233 (JFC 2026-09-09): version publica fija en v1.0 (se declara en el PIN); de aqui solo sube el entero del shell. // v222 (JFC 2026-09-08): botón Purge & Reload al pie del candado — sube shell para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json. // v192: 12 micromejoras (lapicito único + naranja de precaución, paleta del dinero, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo cancelación 5s, editar/cancelar venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar expiración de crédito)
+const CACHE = "f123-shell-v238"; // v238 (JFC 2026-09-10): Plan C del sync (Yjs/CRDT) detrás de flag OC_YJS_FASE0 — sync-yjs.js + vendor/yjs-bundle.min.js al SHELL, apagado por defecto. // v236 (JFC 2026-09-09): caza 33 — repintado tras activar (las camisetas que no se iban), dashboard.html al SHELL, venta y transferencia rechazan datos invalidos en vez de adivinarlos. // v233 (JFC 2026-09-09): version publica fija en v1.0 (se declara en el PIN); de aqui solo sube el entero del shell. // v222 (JFC 2026-09-08): botón Purge & Reload al pie del candado — sube shell para que los aparatos re-precacheen el auth-ui.js nuevo y su hash cuadre con version-manifest.json. // v192: 12 micromejoras (lapicito único + naranja de precaución, paleta del dinero, fechas locale, actividad→registro, crédito↔ítem, chip filtra gastos, undo cancelación 5s, editar/cancelar venta solo dueño/admin, crédito por expirar, editar evento/comprador, editar expiración de crédito)
 const SHELL = [
   "./",
   "./index.html",
@@ -53,6 +53,8 @@ const SHELL = [
   "./storage-durabilidad.js",
   "./sync-realtime.js",
   "./sync-watchdog.js",
+  "./sync-yjs.js",
+  "./vendor/yjs-bundle.min.js",
   "./lista-dinamica.js",
   "./vendor/ufuzzy.min.js",
   "./vendor/minisearch.min.js",

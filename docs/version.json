@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "fecha": "2026-09-09",
-  "changelog": "POLITICA DE VERSION (JFC 2026-09-09): la version publica queda fija en v1.0 (asi se declara en la pagina del PIN); de aqui en adelante SOLO sube el entero del shell (f123-shell-vNN), que es el control de cambios real. No volver a mover 'version' salvo un salto mayor deliberado.",
+  "fecha": "2026-09-10",
+  "changelog": "Plan C del sync redundante (Yjs/CRDT) montado detras de un flag apagado por defecto (OC_YJS_FASE0). No cambia nada para nadie todavia: es el piso device-to-device de la cascada de fallbacks (Plan A/B = nube propia del usuario, Plan C = CRDT que sirve aunque las nubes esten caidas). Sube shell a f123-shell-v238.",
   "requerida": false,
-  "shell": "f123-shell-v237",
+  "shell": "f123-shell-v238",
   "apagar": [],
   "releaseName": "v1.0"
 }
