@@ -186,6 +186,7 @@
       var cat;
       try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
       if (!cat) return;
+      var miRol = ""; try { if (window.OCAuth && OCAuth.rolActual) miRol = OCAuth.rolActual() || ""; } catch (_) {}
       try {
         API.doc.transact(function () {
           COLECCIONES.forEach(function (col) {
@@ -199,8 +200,23 @@
               if (!prev || JSON.stringify(prev) !== js) API.mapas[col].set(k, JSON.parse(js));
             });
           });
-          if (cat.nombreNegocio && API.meta.get("nombreNegocio") !== cat.nombreNegocio)
-            API.meta.set("nombreNegocio", cat.nombreNegocio);
+          /* NOMBRE DEL NEGOCIO (A1, JFC 2026-09-10). No mergeaba porque el
+             puente aplicaba con rol=null y aplicarCatalogo solo adopta el nombre
+             si el local está vacío. Ahora el nombre del DUEÑO gana, como la regla
+             de jerarquía de siempre: guardamos junto al nombre si quien lo puso es
+             el dueño; el otro aparato aplica con rolRemoto="dueno" y lo adopta.
+             Un no-dueño no pisa un nombre ya marcado como del dueño. */
+          if (cat.nombreNegocio) {
+            var soyDueno = miRol === "dueno";
+            var yaEsDueno = API.meta.get("nombreEsDueno") === true;
+            if (soyDueno) {
+              if (API.meta.get("nombreNegocio") !== cat.nombreNegocio) API.meta.set("nombreNegocio", cat.nombreNegocio);
+              if (!yaEsDueno) API.meta.set("nombreEsDueno", true);
+            } else if (!yaEsDueno && !API.meta.get("nombreNegocio")) {
+              API.meta.set("nombreNegocio", cat.nombreNegocio);
+              API.meta.set("nombreEsDueno", false);
+            }
+          }
           if (cat.pinsRol && JSON.stringify(API.meta.get("pinsRol")) !== JSON.stringify(cat.pinsRol))
             API.meta.set("pinsRol", cat.pinsRol);
         }, "seed"); // origin "seed": estos updates no deben re-aplicarse al store
@@ -223,8 +239,27 @@
       // Nada que aplicar: no molestar al store (evita guardados en vano).
       if (!remoto.ubicaciones.length && !remoto.productos.length &&
           !remoto.usuarios.length && !remoto.clientes.length) return;
+      // rolRemoto="dueno" si el nombre lo puso un dueño (A1): así aplicarCatalogo
+      // adopta el nombre del negocio aunque el local ya tenga otro. Para el resto
+      // de reglas (nombre/precio de ítems) esto solo habilita que el nombre del
+      // dueño gane; el add-only del catálogo no cambia.
+      var rolRemoto = (API.meta.get("nombreEsDueno") === true) ? "dueno" : null;
       _aplicando = true;
-      try { window.OCSync.aplicarCatalogo(remoto, null); }
+      try {
+        var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto);
+        // A2/A3 (JFC 2026-09-10): si el merge sumó algo, avisar a la UI para que
+        // (a) lo muestre como alerta dentro de "Today's alerts", no como banner
+        // suelto, y (b) re-pinte la vista Hoy (si no, el hero se queda en
+        // "Loading your business..."). La UI escucha oc-sync-merge en index.html.
+        if (r && r.ok && (r.agregadasU || r.agregadosP || r.miembrosAgregados || r.clientesAgregados)) {
+          try {
+            window.dispatchEvent(new CustomEvent("oc-sync-merge", { detail: {
+              perchas: r.agregadasU || 0, productos: r.agregadosP || 0,
+              miembros: r.miembrosAgregados || 0, clientes: r.clientesAgregados || 0
+            } }));
+          } catch (_) {}
+        }
+      }
       catch (e) { log("aplicar:", e && e.message); }
       _aplicando = false;
     }
