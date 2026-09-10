@@ -3240,6 +3240,17 @@ function tarjetaCliente(c, esDueno){
       <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#008a54 !important;-webkit-text-fill-color:#008a54 !important;cursor:pointer;"
         onclick="ocRegistrarCredito('${c.id}','${escHtml(c.nombre)}')">Record credit (abono)</button>
     </div>${toggleAlerta}`;
+  /* #8 (JFC 2026-09-10, claridad de Belén): "fiaron una copa y la app dice 2
+     purchases; no hay forma clara de ver qué es qué". El número suelto no basta:
+     se despliega el DETALLE — cada compra con fecha, producto×cantidad, monto y un
+     chip claro (fiado / pagado / cortesía). Carga on-demand al abrir (ver el
+     listener global oc-cli-compras más abajo). */
+  const comprasBlock = esDueno ? `<details class="oc-cli-compras" style="margin-top:6px;">
+    <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--azul-medio,#2c4a68);">See purchases — what's on account (fiado) and what's paid</summary>
+    <div class="oc-cli-compras-cont" data-cli-nombre="${escHtml(c.nombre || "")}" data-cli-id="${escHtml(c.id || "")}" style="margin-top:6px;">
+      <span style="font-size:13px;color:var(--ink-soft);">Loading…</span>
+    </div>
+  </details>` : "";
   return `<div class="cliente-card" data-cliente-id="${escHtml(c.id)}" style="background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:10px 12px;margin:6px 0;">
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
       <strong style="font-size:16px;color:#0F1923;">${escHtml(c.nombre)}</strong>
@@ -3248,7 +3259,7 @@ function tarjetaCliente(c, esDueno){
       ${(promEje("confiabilidad") || promEje("trato")) ? `<span title="Average rating" style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:700;background:#F4F7FA;color:#1E4258;">${promEje("confiabilidad") ? `${svgStarR(true, 13)}${promEje("confiabilidad")}` : ""}${promEje("trato") ? `${svgHeartR(true, 13)}${promEje("trato")}` : ""}</span>` : ""}
       ${esDueno ? badgeComportamiento(ev) : ""}
     </div>
-    ${dato}${lineaContacto}${lineaNotas}${controles}${btnDespedir}${carteraHtml}
+    ${dato}${comprasBlock}${lineaContacto}${lineaNotas}${controles}${btnDespedir}${carteraHtml}
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;">${btnEditar}${btnBorrar}</div>
     ${panelEditar}
   </div>`;
@@ -3469,6 +3480,47 @@ async function ocRegistrarCredito(clienteId, nombre) {
     } catch (e) { msg.textContent = "Could not reach the server."; }
   });
 }
+/* #8 (JFC 2026-09-10): detalle de compras del cliente, on-demand al abrir su
+   <details class="oc-cli-compras">. UN solo listener (capture: 'toggle' no
+   burbujea). Lista cada venta con fecha, producto×cantidad, monto y chip claro
+   (fiado / pagado / cortesía), y arriba cuánto debe en fiado. */
+if (!window.__ocCliComprasWired) {
+  window.__ocCliComprasWired = true;
+  document.addEventListener("toggle", function (e) {
+    var det = e.target;
+    if (!det || !det.classList || !det.classList.contains("oc-cli-compras") || !det.open) return;
+    var cont = det.querySelector(".oc-cli-compras-cont");
+    if (!cont || cont.dataset.cargado === "1") return;
+    cont.dataset.cargado = "1";
+    var nombre = cont.getAttribute("data-cli-nombre") || "";
+    var cliId = cont.getAttribute("data-cli-id") || "";
+    fetch(`${API}/ventas/todas?ubicacionId=todas`).then(function (r) { return r.json(); }).then(function (vs) {
+      var mias = (vs || []).filter(function (v) {
+        return (cliId && v.clienteId && String(v.clienteId) === String(cliId)) || (nombre && v.clienteNombre === nombre);
+      });
+      if (!mias.length) { cont.innerHTML = '<span style="font-size:13px;color:var(--ink-soft);">No purchases recorded for this customer.</span>'; return; }
+      mias.sort(function (a, b) { return (b.fecha || "").localeCompare(a.fecha || ""); });
+      var fiadoTot = 0;
+      var html = mias.map(function (v) {
+        var total = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
+        var esFiado = v.formaPago === "fiado";
+        if (esFiado) fiadoTot += total;
+        var chip = esFiado
+          ? '<span style="background:#FDE7EC;color:#B0183E;font-weight:700;font-size:12px;padding:1px 8px;border-radius:10px;">On account (fiado)</span>'
+          : (v.cortesia
+            ? '<span style="background:#EAF3FF;color:#1B4E86;font-weight:700;font-size:12px;padding:1px 8px;border-radius:10px;">Courtesy</span>'
+            : '<span style="background:#EDFAF4;color:#006B3C;font-weight:700;font-size:12px;padding:1px 8px;border-radius:10px;">Paid</span>');
+        var f = (function () { try { return new Date(v.fecha).toLocaleDateString((window.OCI18n && OCI18n.locale()) || "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return v.fecha || ""; } })();
+        return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--linea,#D7E0E8);font-size:13px;">'
+          + '<div style="min-width:0;"><b>' + escHtml(v.productoNombre || "—") + '</b> ×' + (v.cantidad || 1) + '<div style="color:var(--ink-soft);font-size:12px;">' + escHtml(f) + '</div></div>'
+          + '<div style="text-align:right;white-space:nowrap;"><b>' + fmtMoney(total) + '</b><br>' + chip + '</div></div>';
+      }).join("");
+      if (fiadoTot > 0) html = '<div style="font-size:13px;font-weight:700;color:#B0183E;margin-bottom:2px;">Owes ' + fmtMoney(fiadoTot) + ' on account</div>' + html;
+      cont.innerHTML = html;
+    }).catch(function () { cont.innerHTML = '<span style="font-size:13px;color:var(--rojo,#a3392a);">Could not load purchases.</span>'; });
+  }, true);
+}
+
 async function cargarClientes(){
   // dueño Y admin ven todo ("plenamente visibles", JFC 2026-07-29) — solo
   // encargado/contador quedan en modo restringido mas abajo.

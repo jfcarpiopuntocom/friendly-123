@@ -451,6 +451,19 @@
   }
   function guardarEstadoLocal() {
     _localRev++;
+    /* #3 (JFC 2026-09-10): "los PIN de admin TAMBIEN deben abrir el dashboard".
+       Los admin cuentan como "empleado" a nivel cripto (mismo employeeHashes), así
+       que el dashboard (que juzga con OCSecure) no puede distinguirlos. Aquí la app
+       publica los PINs de admin ACTIVOS en una clave local del MISMO origen; el
+       dashboard la lee en su gate para dejarlos entrar. Se reescribe en cada
+       guardado, así queda fresca (alta/baja/cambio de rol). Cada dispositivo la
+       arma de sus propios usuarios (que ya sincronizan), sin sync extra. */
+    try {
+      const _adminPins = usuarios
+        .filter((u) => u && !u.borrado && u.activo !== false && u.rol === "admin" && /^\d{3}$/.test(String(u.pin || "")))
+        .map((u) => String(u.pin));
+      localStorage.setItem("f123_admins_pins", JSON.stringify(_adminPins));
+    } catch (_) {}
     const completo = estadoActualExportable();
     const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
     const destino = activo === "A" ? "B" : "A";
