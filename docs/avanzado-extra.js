@@ -653,6 +653,22 @@
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
 
+      /* TOGGLE DEL SYNC NUEVO (JFC 2026-09-10). Movido aquí, al pie del panel de
+         "Shared notebook" (la subsección de equipo/sync), desde su ubicación
+         anterior al fondo de Advanced. Es donde JFC lo espera: junto a todo lo de
+         sincronizar. Las funciones toggleSyncNuevo/pintarSyncNuevoEstado viven en
+         index.html (globales). Enciende/apaga OC_YJS_FASE0 y recarga. */
+      try {
+        panel.insertAdjacentHTML("beforeend",
+          '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">' +
+          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">New sync (experimental)</h4>' +
+          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">A new peer-to-peer sync that keeps every device’s data safe and merges everything additively, so nothing is ever lost. Turn it on here on both devices, using the same team code, then reload each one.</p>' +
+          '<p id="ocSyncNuevoEstado" style="font-weight:700;color:#1a1a1a;margin:0 0 8px;">Status: off</p>' +
+          '<button class="ir" id="btnSyncNuevo" onclick="toggleSyncNuevo();return false;">Turn on new sync</button>' +
+          '</div>');
+        if (typeof window.pintarSyncNuevoEstado === "function") window.pintarSyncNuevoEstado();
+      } catch (_) {}
+
       /* M5 (2026-08-27, auditoría): las acciones de sync SENSIBLES (rotar la
          licencia del negocio, re-emitir una licencia completa, claim/merge de
          dispositivos, merge de inventario) son del DUEÑO. Un admin puede ver el
