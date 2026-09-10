@@ -231,6 +231,14 @@
   // Re-pinta los textos fijos que se construyen UNA sola vez al cargar el
   // script (botón "Agregar +", modal "carpeta" y modal "Nueva percha") —
   // esos innerHTML no se regeneran solos al cambiar de idioma.
+  /* B3 (JFC 2026-09-10): cuando el sync baja fotos nuevas de otro aparato
+     (sync-yjs dispara oc-fotos-actualizadas), si el panel de perchas está a la
+     vista se re-pinta para que aparezcan las imágenes recién llegadas. */
+  window.addEventListener('oc-fotos-actualizadas', () => {
+    const vp = document.getElementById('vista-perchas');
+    if (vp && vp.classList.contains('activa')) { try { cargar(); } catch (_) {} }
+  });
+
   window.addEventListener('oc-lang-change', () => {
     const b = document.getElementById('vp-btn-agregar');
     if (b) b.textContent = window.t('shelves.addRackBtn');
@@ -262,6 +270,18 @@
         fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
         fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
       ]);
+      /* B3 (JFC 2026-09-10): una percha puede traer fotoHash (asignada en OTRO
+         aparato y llegada por el sync) sin tener la imagen guardada por id aquí.
+         El doc de fotos (sync-yjs) ya bajó los bytes a OCFotos por su hash; aquí
+         se resuelve el blob por hash y se mete al cache por id, así la tarjeta la
+         muestra igual que una foto propia. */
+      if (Array.isArray(perchas) && window.OCFotos && window.OCFotos.leerPorHash) {
+        await Promise.all(perchas.map(async (u) => {
+          if (u && u.fotoHash && !fotoCache[u.id]) {
+            try { const d = await window.OCFotos.leerPorHash(u.fotoHash); if (d) fotoCache[u.id] = d; } catch (_) {}
+          }
+        }));
+      }
       if (!Array.isArray(perchas) || !perchas.length) {
         grid.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noRacksYet'))}</p>`;
         return;
