@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v249",
+  "shell": "f123-shell-v250",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-a28e90622682a2c7d24729df277f5ca393705adb0b9c164775a08dd0618fbdf1",
@@ -41,7 +41,7 @@
     "./micelio-vivo.js": "sha256-cdf2708d852a1eec9b39ed528bece8b9c07ffe92e000f76ca919bb5be7fef5e1",
     "./micelio-ui.js": "sha256-85b17a8f68ce2583376b88e01816356875eaebaaafc2b7fcd58c60fde28fc7b0",
     "./tablero.html": "sha256-a497a91886d86a58666d1c5fd330b58b80d8ded0d401a02c166cd49a50a37c94",
-    "./dashboard.html": "sha256-f90a699225f2c373ec24792d2eaee8e321d3b10f63f1c0a8fc2693fd33a763f7",
+    "./dashboard.html": "sha256-8ff31218960f0b9f616ab74b797cebb9fbc5eaf1d29095b3a6df4870846ea5b0",
     "./tablero-avanzado.js": "sha256-f1a7a6d904e3cb55359fce7b3e3a80e6aa6513165636502f483059ce52d49510",
     "./borradores.js": "sha256-330e3fe1e208767d2895f60b14c137f5894cc3df972c5672cff5472539338fb6",
     "./vista-perchas.js": "sha256-7f56a73e92cb01a0ddc91ca327a6048fb37ad70b3ca93e79dc7092076e578459",

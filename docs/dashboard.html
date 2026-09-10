@@ -1079,13 +1079,39 @@
     try { accesos = (JSON.parse(localStorage.getItem("f123_accesos") || "[]") || []).length; } catch (_) {}
     var neg = "";
     try { neg = $("neg-nombre") ? $("neg-nombre").textContent : ""; } catch (_) {}
-    syncEl.textContent =
-      "store: " + (neg || "—") +
-      " · foto: " + (fotoEnCurso || "—") +
-      " · accesos (lord): " + accesos;
     var filas = Array.isArray(datos.movimientos) ? datos.movimientos : [];
-    if (!filas.length) { tablaEl.innerHTML = '<tr><td style="padding:6px 0;color:#5A6B7A;">No activity yet.</td></tr>'; return; }
-    var html = '<tr style="text-align:left;color:#8a94a6;font-size:12px;">' +
+    /* CONTROL DE CAMBIOS EN COLORES (JFC 2026-09-10, "world class"). Cada
+       dispositivo recibe un color ESTABLE (derivado de su apodo), y cada
+       movimiento se pinta con el color de quién lo hizo: una franja a la
+       izquierda + un punto en la columna Device. Así, de un vistazo, se ve qué
+       aparato tocó qué. Además el TIPO se tiñe por categoría (venta = verde,
+       borrado = rojo, edición/sync = ámbar). Todo con color SÓLIDO y legible
+       sobre el fondo oscuro — nunca gris ni opaco. */
+    function colorDisp(nombre) {
+      var s = String(nombre || "—"), h = 0;
+      for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+      return "hsl(" + (h % 360) + ",75%,63%)"; // sólido, brillante, sobre fondo oscuro
+    }
+    function colorTipo(t) {
+      t = String(t || "");
+      if (/venta|sold|sale|cortes/i.test(t)) return "#28ECAA";
+      if (/borr|elimin|delete|anul|cancel|baja/i.test(t)) return "#FF6B6B";
+      if (/edic|edit|actualiz|update|merge|sync|promov|degrad/i.test(t)) return "#E8A020";
+      return "#CFE3F5";
+    }
+    // Leyenda: un chip por dispositivo con su color y cuántas acciones hizo.
+    var porDisp = {};
+    filas.forEach(function (m) { var k = m.dispositivoApodo || "—"; porDisp[k] = (porDisp[k] || 0) + 1; });
+    var leyenda = Object.keys(porDisp).sort(function (a, b) { return porDisp[b] - porDisp[a]; }).map(function (k) {
+      return '<span style="display:inline-flex;align-items:center;gap:6px;margin:0 12px 6px 0;font-size:12px;color:#E6EDF3;">' +
+        '<span style="width:11px;height:11px;border-radius:50%;background:' + colorDisp(k) + ';display:inline-block;"></span>' +
+        esc(k) + ' <span style="color:#9fb2c4;">(' + porDisp[k] + ')</span></span>';
+    }).join("");
+    syncEl.innerHTML =
+      '<div style="margin-bottom:8px;">store: <b>' + esc(neg || "—") + '</b> · foto: ' + esc(fotoEnCurso || "—") + ' · accesos: ' + accesos + '</div>' +
+      (leyenda ? '<div style="margin-bottom:6px;">' + leyenda + '</div>' : "");
+    if (!filas.length) { tablaEl.innerHTML = '<tr><td style="padding:6px 0;color:#9fb2c4;">No activity yet.</td></tr>'; return; }
+    var html = '<tr style="text-align:left;color:#9fb2c4;font-size:12px;">' +
       "<th style=\"padding:4px 8px;\">Type</th><th style=\"padding:4px 8px;\">Detail</th>" +
       "<th style=\"padding:4px 8px;\">Who</th><th style=\"padding:4px 8px;\">Device</th><th style=\"padding:4px 8px;\">When</th></tr>";
     // JFC 2026-09-02: quién (usuario + rol) Y desde qué dispositivo (apodo) hizo
@@ -1102,13 +1128,14 @@
       } catch (_) { return "—"; }
     };
     filas.forEach(function (m) {
-      var quien = esc(m.usuarioNombre || "—") + (m.usuarioRol ? ' <span style="color:#8a94a6;">(' + esc(m.usuarioRol) + ")</span>" : "");
+      var cd = colorDisp(m.dispositivoApodo || "—");
+      var quien = esc(m.usuarioNombre || "—") + (m.usuarioRol ? ' <span style="color:#9fb2c4;">(' + esc(m.usuarioRol) + ")</span>" : "");
       html += "<tr style=\"border-top:1px solid #2a3a4a;\">" +
-        "<td style=\"padding:4px 8px;\">" + esc(m.tipo || "—") + "</td>" +
-        "<td style=\"padding:4px 8px;\">" + esc(detalleTxt(m.detalle)) + "</td>" +
-        "<td style=\"padding:4px 8px;\">" + quien + "</td>" +
-        "<td style=\"padding:4px 8px;\">" + esc(m.dispositivoApodo || "—") + "</td>" +
-        "<td style=\"padding:4px 8px;\">" + esc(m.fecha || "—") + "</td></tr>";
+        '<td style="padding:4px 8px;border-left:4px solid ' + cd + ';font-weight:700;color:' + colorTipo(m.tipo) + ';">' + esc(m.tipo || "—") + "</td>" +
+        '<td style="padding:4px 8px;color:#E6EDF3;">' + esc(detalleTxt(m.detalle)) + "</td>" +
+        '<td style="padding:4px 8px;color:#E6EDF3;">' + quien + "</td>" +
+        '<td style="padding:4px 8px;color:#E6EDF3;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + cd + ';margin-right:6px;"></span>' + esc(m.dispositivoApodo || "—") + "</td>" +
+        '<td style="padding:4px 8px;color:#9fb2c4;">' + esc(m.fecha || "—") + "</td></tr>";
     });
     tablaEl.innerHTML = html;
   }
