@@ -1962,21 +1962,9 @@
     <h3 class="seccion" data-i18n="adv.valuedInvHeading">Valued inventory</h3>
     <div class="tabla-wrap"><table class="reporte" id="tablaValorizado"></table></div>
     <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
-
-    <!-- SYNC DE PRUEBA (Plan C / Yjs) — FASE 2, JFC 2026-09-09.
-         Toggle discreto para que JFC prenda/apaga el sync CRDT device-to-device
-         sin consola y lo pruebe EN VIVO en sus dos aparatos reales (el relay no se
-         prueba headless). Enciende/apaga localStorage["OC_YJS_FASE0"] y recarga,
-         porque sync-yjs.js decide al cargar si actúa. Corre EN PARALELO al sync
-         de siempre; es aditivo y no borra nada, pero es EXPERIMENTAL: por eso vive
-         aquí en Avanzado y no en el candado. NO BORRAR sin orden de JFC. -->
-    <h3 class="seccion">New sync (experimental)</h3>
-    <div class="panel-escaner tag-card" style="text-align:left;">
-      <p style="color:#1a1a1a;">A new peer-to-peer sync that keeps every device's data safe and merges everything additively, so nothing is ever lost. It runs alongside the current sync. Turn it on here on both devices, using the same team/business code, then reload each one.</p>
-      <p id="ocSyncNuevoEstado" style="font-weight:700;color:#1a1a1a;margin:10px 0;">Status: off</p>
-      <button class="ir" id="btnSyncNuevo" onclick="toggleSyncNuevo();return false;">Turn on new sync</button>
-    </div>
-    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+    <!-- El toggle "New sync (experimental)" se movió (JFC 2026-09-10) al pie del
+         panel "Shared notebook" (subsección de equipo/sync), lo inyecta
+         avanzado-extra.js. Aquí ya no va. -->
   </section>
 
 </main>

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Fotos B2: la asignacion \"esta percha tiene esta foto\" (fotoHash) ahora viaja por el sync y converge entre aparatos, sumando sin pisar. Los bytes de la foto todavia no cruzan: eso es B3 (a la nube del dueno). Sube shell a f123-shell-v245.",
+  "changelog": "El boton \"New sync (experimental)\" se movio al pie del panel \"Shared notebook\" en Advanced (junto a todo lo de sincronizar), en vez del fondo suelto de Advanced. Sube shell a f123-shell-v246.",
   "requerida": false,
-  "shell": "f123-shell-v245",
+  "shell": "f123-shell-v246",
   "apagar": [],
   "releaseName": "v1.0"
 }
