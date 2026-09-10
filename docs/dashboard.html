@@ -781,6 +781,19 @@
     ventas: {
       nombre: "Sales",
       cols: [
+        /* LAPICITO (JFC 2026-09-10, #6): editar una venta ya asentada — corregir
+           el precio/cantidad para cuadrar la ganancia real (lo que pide Belén).
+           El dashboard NO edita dinero: abre la app en su editor probado por
+           deep-link (#editar=venta:<id>), solo dueño/admin. Las liquidadas van
+           bloqueadas (no se tocan). */
+        { title: "", field: "id", width: 48, hozAlign: "center", headerSort: false, download: false,
+          formatter: function (c) {
+            var v = c.getRow().getData();
+            if (v.liquidada) return '<span title="Liquidada — bloqueada">·</span>';
+            return '<a href="index.html#editar=venta:' + encodeURIComponent(v.id) +
+              '" title="Corregir esta venta (precio, cantidad) en la app" ' +
+              'style="text-decoration:none;font-size:17px;font-weight:700;color:var(--azul-medio,#2c4a68);">✎</a>';
+          } },
         { title: "Date", field: "fecha", width: 155, cssClass: "num",
           formatter: function (c) { return fecha(c.getValue()); },
           /* Se ordena por el ISO original, no por el texto pintado: si no,
@@ -806,7 +819,7 @@
       cierre: function (f) {
         var t = f.reduce(function (a, v) { return a + (Number(v.total) || 0); }, 0);
         return "<strong>" + plural(f.length, "venta", "ventas") + " por " + money(t) + " en lo que ves.</strong>" +
-          "Filtra por fecha en la columna y exporta a PDF para tu contador.";
+          "Toca el lápiz ✎ de una fila para corregir su precio o cantidad en la app y cuadrar la ganancia real. Filtra por fecha y exporta a PDF para tu contador.";
       },
     },
 

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Bebidas: al cambiar los ml por copa, el stock (en copas) se reescala para conservar el volumen real (antes el numero de copas no cambiaba). Sube shell a f123-shell-v255.",
+  "changelog": "El tablero (dashboard) gana un lapiz por venta: lo tocas y abre la app en el editor de esa venta para corregir el precio o la cantidad despues, y asi cuadrar la ganancia real. El tablero no edita dinero por su cuenta: usa el editor probado de la app. Sube shell a f123-shell-v256.",
   "requerida": false,
-  "shell": "f123-shell-v255",
+  "shell": "f123-shell-v256",
   "apagar": [],
   "releaseName": "v1.0"
 }
