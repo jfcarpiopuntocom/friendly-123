@@ -750,6 +750,13 @@
       .concat(trocear("ventas", foto.ventas))
       .concat(trocear("liquidaciones", foto.liquidaciones))
       .concat(trocear("perchas", foto.perchas))
+      /* ENCHUFE AL DASHBOARD (JFC 2026-09-10): armarFoto ya traía promotoras y
+         movimientos pero NO se enviaban, así que el tablero del dueño no tenía la
+         lista de comisionistas (vista Promoters) ni el log para el control de
+         cambios en colores. Ahora sí viajan — son datos del propio negocio, al
+         propio dueño, por el mismo canal cifrado. */
+      .concat(trocear("promotoras", foto.promotoras))
+      .concat(trocear("movimientos", foto.movimientos))
       .concat([{ tabla: "resumen", i: 0, total: 1, filas: [foto.resumen || {}] }]);
     for (let k = 0; k < trozos.length; k++) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
