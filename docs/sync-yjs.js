@@ -16,8 +16,13 @@
 // SALA DISTINTA del relay (sufijo "-y"), así los updates binarios de Yjs jamás
 // llegan al handler JSON de sync-realtime.js.
 // FASE 1 (2026-09-10): sincroniza TODAS las colecciones del catálogo (productos,
-// ubicaciones, usuarios, clientes) como Y.Maps de un mismo Y.Doc. Sigue sin tocar
-// el store real de la app — eso es Fase 2 (Plan A: nube propia del usuario).
+// ubicaciones, usuarios, clientes) como Y.Maps de un mismo Y.Doc.
+// FASE 2 (2026-09-09, JFC "ya conectalo, world class"): Plan C YA lee/escribe el
+// store REAL de la app (mock-backend.js). store->Yjs con OCSync.catalogoPropio();
+// Yjs->store con OCSync.aplicarCatalogo() — el merge ADD-ONLY ya probado en
+// producción: nunca borra, nunca pierde, los merges son aditivos. Ver conectarStore().
+// Sigue detrás del flag OC_YJS_FASE0 (toggle en Avanzado), en paralelo al sync
+// casero y en sala de relay separada ("-y").
 (function () {
   "use strict";
 
@@ -108,11 +113,18 @@
     var Y = window.Y;
     API.doc = new Y.Doc();
     COLECCIONES.forEach(function (c) { API.mapas[c] = API.doc.getMap(c); });
+    // FASE 2 (JFC 2026-09-09): mapa aparte para el nombre del negocio y los PINs
+    // de rol, que viajan CON el catálogo pero no son una colección de ítems. Así
+    // Plan C converge un negocio completo por sí solo, sin depender del sync casero.
+    API.meta = API.doc.getMap("_meta");
     API.clave = await derivarClave(codigo);
     API.roomId = await idDeSala(codigo);
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
-    try { new window.IndexeddbPersistence("f123-yjs-" + API.roomId, API.doc); } catch (e) { log("idb:", e && e.message); }
+    // Guardamos la referencia: al terminar de cargar de IndexedDB ("synced")
+    // hacemos el primer volcado Yjs->store, para que un aparato que arranca
+    // offline ya vea lo que otro dejó, sin esperar al relay (Fase 2).
+    try { API.idb = new window.IndexeddbPersistence("f123-yjs-" + API.roomId, API.doc); } catch (e) { log("idb:", e && e.message); }
 
     // Convergencia entre pestañas del MISMO origen: instantánea, sin red.
     try {
@@ -129,8 +141,118 @@
     });
 
     conectarRelay(Y);
+    conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
     API.estado = "activo";
-    log("Plan C activo (Fase 1: " + COLECCIONES.join(", ") + "). Sala:", API.roomId, "— OCYjs.set('productos','p1',{...}) / OCYjs.get('productos')");
+    log("Plan C activo (Fase 2: store real, " + COLECCIONES.join(", ") + "). Sala:", API.roomId);
+  }
+
+  // ===================================================================
+  // FASE 2 (JFC 2026-09-09) — PUENTE AL STORE REAL, sin perder nada.
+  //
+  // POR QUÉ ASÍ: el sync casero (sync-realtime.js) ya tenía el contrato bueno
+  // y probado en producción. NO se reinventa el merge:
+  //   store -> Yjs : window.OCSync.catalogoPropio() da la foto de las 4
+  //                  colecciones; se vuelca a los Y.Map por id.
+  //   Yjs -> store : window.OCSync.aplicarCatalogo(remoto, null), que es el
+  //                  merge ADD-ONLY ya probado (nunca borra, nunca pisa un ítem
+  //                  existente salvo edición del dueño; el equipo usa LWW con
+  //                  reloj lógico + tombstones). Es exactamente lo que pidió JFC:
+  //                  "los datos a salvo, los merges aditivos, nunca se pierda nada".
+  //
+  // rol = null a propósito: Yjs converge sin saber el rol del emisor, así que la
+  // regla "el dueño pisa nombre/precio" no aplica por este canal; add-only sí, que
+  // es lo que garantiza no perder datos. Si el sync casero sigue encendido, esa
+  // regla la resuelve él. Ver aplicarCatalogo() en mock-backend.js.
+  //
+  // ANTI-BUCLE: al escribir en el store se disparan oc-catalogo-cambiado /
+  // oc-equipo-cambiado, que a su vez re-vuelcan a Yjs. Con _aplicando=true durante
+  // el volcado y comparando por JSON antes de cada set(), el re-vuelco no genera
+  // updates nuevos (no hay diferencias) y el bucle muere solo.
+  // ===================================================================
+  function conectarStore(Y) {
+    if (!window.OCSync || typeof window.OCSync.catalogoPropio !== "function" ||
+        typeof window.OCSync.aplicarCatalogo !== "function") {
+      log("store no disponible (OCSync) — Plan C queda solo como capa CRDT");
+      return;
+    }
+    var _aplicando = false;   // guard: no re-volcar mientras aplicamos al store
+    var _tSeed = null, _tAplica = null;
+
+    // store -> Yjs. Add/update por id; nunca borra del Y.Map (add-only también
+    // aguas arriba). Las bajas de equipo viajan como tombstone (borrado:true),
+    // que catalogoPropio() sí incluye, así que la baja converge igual.
+    function sembrar() {
+      if (_aplicando) return;
+      var cat;
+      try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+      if (!cat) return;
+      try {
+        API.doc.transact(function () {
+          COLECCIONES.forEach(function (col) {
+            var filas = cat[col] || [];
+            filas.forEach(function (r) {
+              if (!r || r.id == null) return;
+              var k = String(r.id);
+              var prev = API.mapas[col].get(k);
+              var js = JSON.stringify(r);
+              // Solo si cambió: evita tormenta de updates binarios por el relay.
+              if (!prev || JSON.stringify(prev) !== js) API.mapas[col].set(k, JSON.parse(js));
+            });
+          });
+          if (cat.nombreNegocio && API.meta.get("nombreNegocio") !== cat.nombreNegocio)
+            API.meta.set("nombreNegocio", cat.nombreNegocio);
+          if (cat.pinsRol && JSON.stringify(API.meta.get("pinsRol")) !== JSON.stringify(cat.pinsRol))
+            API.meta.set("pinsRol", cat.pinsRol);
+        }, "seed"); // origin "seed": estos updates no deben re-aplicarse al store
+      } catch (e) { log("sembrar:", e && e.message); }
+    }
+
+    // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge
+    // add-only probado. Síncrono: aplicarCatalogo no es async.
+    function aplicar() {
+      if (_aplicando) return;
+      var remoto = {
+        ubicaciones: valores("ubicaciones"),
+        productos: valores("productos"),
+        usuarios: valores("usuarios"),
+        clientes: valores("clientes"),
+        nombreNegocio: API.meta.get("nombreNegocio") || "",
+        pinsRol: API.meta.get("pinsRol") || null,
+        deviceNombre: "sync"
+      };
+      // Nada que aplicar: no molestar al store (evita guardados en vano).
+      if (!remoto.ubicaciones.length && !remoto.productos.length &&
+          !remoto.usuarios.length && !remoto.clientes.length) return;
+      _aplicando = true;
+      try { window.OCSync.aplicarCatalogo(remoto, null); }
+      catch (e) { log("aplicar:", e && e.message); }
+      _aplicando = false;
+    }
+    function valores(col) { var o = API.get(col), a = []; for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) a.push(o[k]); return a; }
+
+    // Cambios locales del catálogo / equipo -> re-volcar a Yjs (con rebote).
+    // Son las MISMAS señales que escucha el sync casero (mock-backend las emite).
+    function pedirSeed() { clearTimeout(_tSeed); _tSeed = setTimeout(sembrar, 400); }
+    window.addEventListener("oc-catalogo-cambiado", pedirSeed);
+    window.addEventListener("oc-equipo-cambiado", pedirSeed);
+
+    // Convergencia remota (relay) o de otra pestaña (BroadcastChannel) -> aplicar.
+    // Los updates propios de sembrar() llevan origin "seed" y se ignoran aquí.
+    API.doc.on("update", function (update, origin) {
+      if (origin !== "red" && origin !== "bc") return;
+      clearTimeout(_tAplica); _tAplica = setTimeout(aplicar, 300);
+    });
+
+    // Arranque: cuando IndexedDB termina de cargar, primero APLICAMOS lo que ya
+    // había guardado localmente (por si este aparato arrancó offline) y luego
+    // SEMBRAMOS lo local que aún no esté en Yjs. Ambos son idempotentes.
+    function primerCruce() { aplicar(); sembrar(); }
+    if (API.idb && typeof API.idb.on === "function") API.idb.once ? API.idb.once("synced", primerCruce) : API.idb.on("synced", primerCruce);
+    else setTimeout(primerCruce, 800);
+    // Red de seguridad si "synced" no llega (idb deshabilitado en algún navegador).
+    setTimeout(function () { if (API.estado === "activo") sembrar(); }, 2500);
+
+    API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual
   }
 
   // --- Relay device-to-device (sala separada "-y" para no chocar con el sync casero) ---

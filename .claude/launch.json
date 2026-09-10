@@ -58,6 +58,18 @@
       "port": 8740
     },
     {
+      "name": "f123-sync-fase2",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8963",
+        "--directory",
+        "C:\\00 Projects\\friendly-123\\.claude\\worktrees\\sync-world-class-migration-0cba04\\docs"
+      ],
+      "port": 8963
+    },
+    {
       "name": "f123-fresh",
       "runtimeExecutable": "python",
       "runtimeArgs": [
