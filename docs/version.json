@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "El dashboard del dueno queda enchufado a todo lo nuevo: el snapshot ahora incluye la lista de comisionistas y el log de movimientos, y se agregan dos vistas segun best-practices para negocios chicos: Restock (lo que esta en o bajo su punto de reorden, la proxima accion a la vista) y Promoters (los comisionistas que ahora sincronizan entre aparatos). Sube shell a f123-shell-v251.",
+  "changelog": "Se retira del candado el enlace \"campo de pruebas\" al workshop (ya no se quiere ese acceso). Sube shell a f123-shell-v252.",
   "requerida": false,
-  "shell": "f123-shell-v251",
+  "shell": "f123-shell-v252",
   "apagar": [],
   "releaseName": "v1.0"
 }
