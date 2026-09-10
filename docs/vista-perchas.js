@@ -126,16 +126,22 @@
     fotoCache = await window.OCFotos.leerTodas();
   }
 
+  /* B0 (JFC 2026-09-10): NO achicar de más. Antes 640px/0.8 se veía borroso y
+     JFC comprobó que sobra espacio (el Drive del dueño da 15 GB; una foto pesa
+     KB). Ahora se limita el LADO MAYOR a 1600px (portrait o landscape por igual,
+     antes solo se miraba el ancho) y calidad 0.9. Una foto de cámara queda en
+     ~250-500 KB, nítida, y sigue siendo minúscula. Nunca se agranda (Math.min 1). */
+  const FOTO_LADO_MAX = 1600, FOTO_CALIDAD = 0.9;
   function redimensionar(file, cb) {
     const img = new Image();
     img.onload = () => {
-      const escala = Math.min(1, 640 / img.width);
+      const escala = Math.min(1, FOTO_LADO_MAX / Math.max(img.width, img.height));
       const cv = document.createElement('canvas');
       cv.width = Math.round(img.width * escala);
       cv.height = Math.round(img.height * escala);
       cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
       URL.revokeObjectURL(img.src);
-      cb(cv.toDataURL('image/jpeg', 0.8));
+      cb(cv.toDataURL('image/jpeg', FOTO_CALIDAD));
     };
     img.src = URL.createObjectURL(file);
   }
