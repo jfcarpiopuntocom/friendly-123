@@ -140,10 +140,94 @@
       enviarRelay(update);
     });
 
+    // B3 (JFC 2026-09-10): documento SEPARADO para los BYTES de las fotos. NO van
+    // en el doc del catálogo (lo inflarían): aquí cada foto es hash -> dataURL,
+    // converge por su propia sala de relay ("-fotos"), persiste en su propio
+    // IndexedDB y entre pestañas por su BroadcastChannel. Content-addressed: una
+    // foto (un hash) se escribe una sola vez. Así las fotos cruzan device-to-device
+    // sin nube; la nube durable del dueño (Google Drive) es una fase posterior.
+    API.fotosDoc = new Y.Doc();
+    API.fotosMap = API.fotosDoc.getMap("blobs");
+    try { API.fotosIdb = new window.IndexeddbPersistence("f123-yjs-fotos-" + API.roomId, API.fotosDoc); } catch (_) {}
+    try {
+      API.fotosBc = new BroadcastChannel("f123-yjs-fotos-" + API.roomId);
+      API.fotosBc.onmessage = function (ev) { try { Y.applyUpdate(API.fotosDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
+    } catch (_) {}
+    API.fotosDoc.on("update", function (update, origin) {
+      if (origin === "bc" || origin === "red") { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
+      try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
+      enviarRelayFotos(update);
+    });
+
     conectarRelay(Y);
+    conectarFotosRelay(Y);   // B3: relay separado para los bytes de las fotos
     conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
+    // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
+    if (API.fotosIdb && API.fotosIdb.once) API.fotosIdb.once("synced", pedirVolcarFotos);
     API.estado = "activo";
-    log("Plan C activo (Fase 2: store real, " + COLECCIONES.join(", ") + "). Sala:", API.roomId);
+    log("Plan C activo (Fase 2 + fotos). Sala:", API.roomId);
+  }
+
+  // ===================================================================
+  // B3 — BYTES DE LAS FOTOS device-to-device (doc y relay separados).
+  // ===================================================================
+  var _tVolcar = null;
+  function pedirVolcarFotos() { clearTimeout(_tVolcar); _tVolcar = setTimeout(volcarFotosAlStore, 250); }
+
+  // Yjs(fotos) -> OCFotos (IndexedDB local). Cada hash que llegó y no esté local
+  // se guarda; luego se avisa a la UI para que la percha muestre su foto.
+  function volcarFotosAlStore() {
+    if (!window.OCFotos || !API.fotosMap) return;
+    var pend = [], hubo = false;
+    API.fotosMap.forEach(function (dataUrl, hash) { pend.push([hash, dataUrl]); });
+    var i = 0;
+    (function next() {
+      if (i >= pend.length) { if (hubo) { try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} } return; }
+      var hash = pend[i][0], dataUrl = pend[i][1]; i++;
+      Promise.resolve(window.OCFotos.tieneHash(hash)).then(function (ya) {
+        if (ya) return next();
+        return Promise.resolve(window.OCFotos.guardarPorHash(hash, dataUrl)).then(function () { hubo = true; next(); });
+      }).catch(next);
+    })();
+  }
+
+  // OCFotos local -> Yjs(fotos). Publica los blobs de las fotos EN USO (las que
+  // alguna percha referencia por fotoHash) que aún no estén en el doc de fotos.
+  function publicarFotosLocales() {
+    if (!window.OCFotos || !API.fotosMap || !window.OCSync) return;
+    var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+    var hashes = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
+    hashes.forEach(function (hash) {
+      if (API.fotosMap.get(hash)) return; // ya publicado
+      Promise.resolve(window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
+        if (dataUrl && !API.fotosMap.get(hash)) { try { API.fotosMap.set(hash, dataUrl); } catch (_) {} }
+      }).catch(function () {});
+    });
+  }
+
+  // Relay de fotos: mismo esquema que el del catálogo, sala "-fotos" aparte.
+  var _pendFotos = [];
+  function enviarRelayFotos(update) {
+    if (!API.clave) return;
+    cifrarBin(API.clave, update).then(function (buf) {
+      if (API.fotosWs && API.fotosWs.readyState === 1) API.fotosWs.send(buf);
+      else _pendFotos.push(buf);
+    }).catch(function () {});
+  }
+  function conectarFotosRelay(Y) {
+    var url = RELAY_URL + API.roomId + "-fotos";
+    var ws; try { ws = new WebSocket(url); } catch (_) { setTimeout(function () { conectarFotosRelay(Y); }, 5000); return; }
+    ws.binaryType = "arraybuffer"; API.fotosWs = ws;
+    ws.onopen = function () {
+      try { enviarRelayFotos(Y.encodeStateAsUpdate(API.fotosDoc)); } catch (_) {}
+      while (_pendFotos.length && ws.readyState === 1) ws.send(_pendFotos.shift());
+    };
+    ws.onmessage = function (ev) {
+      if (!(ev.data instanceof ArrayBuffer) || !API.clave) return;
+      descifrarBin(API.clave, ev.data).then(function (bytes) { Y.applyUpdate(API.fotosDoc, bytes, "red"); }).catch(function () {});
+    };
+    ws.onclose = function () { API.fotosWs = null; setTimeout(function () { conectarFotosRelay(Y); }, 4000); };
+    ws.onerror = function () { try { ws.close(); } catch (_) {} };
   }
 
   // ===================================================================
@@ -221,6 +305,8 @@
             API.meta.set("pinsRol", cat.pinsRol);
         }, "seed"); // origin "seed": estos updates no deben re-aplicarse al store
       } catch (e) { log("sembrar:", e && e.message); }
+      // B3: publicar al doc de fotos los blobs de las perchas que tienen foto.
+      try { publicarFotosLocales(); } catch (_) {}
     }
 
     // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge

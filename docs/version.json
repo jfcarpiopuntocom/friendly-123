@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "El boton \"New sync (experimental)\" se movio al pie del panel \"Shared notebook\" en Advanced (junto a todo lo de sincronizar), en vez del fondo suelto de Advanced. Sube shell a f123-shell-v246.",
+  "changelog": "Fotos B3: los bytes de las fotos ya viajan de un aparato a otro (canal Yjs separado, cifrado, aparte del catalogo para no inflarlo). Una percha muestra su foto aunque la imagen haya llegado del otro aparato. Content-addressed (por hash): cada foto viaja una sola vez. Sube shell a f123-shell-v247.",
   "requerida": false,
-  "shell": "f123-shell-v246",
+  "shell": "f123-shell-v247",
   "apagar": [],
   "releaseName": "v1.0"
 }
