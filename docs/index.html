@@ -4051,6 +4051,20 @@ async function cargarHoy(){
       `<li class="${a.estado}">${puntito()}${a.mensaje}</li>`
     ).join("");
   }
+  /* AVISO DE MERGE POR SYNC (A2, JFC 2026-09-10). Va DENTRO de Today's alerts,
+     arriba del todo, con estilo verde. Se guarda en window.__syncMergeAviso al
+     recibir oc-sync-merge y se pinta aquí para que sobreviva a cada re-pintado.
+     Se muestra hasta la próxima recarga (es una notificación, no un estado). */
+  try {
+    var _sm = window.__syncMergeAviso;
+    if (_sm && _sm.texto) {
+      var _li = document.createElement("li");
+      _li.className = "verde";
+      _li.setAttribute("data-sync-merge", "1");
+      _li.innerHTML = puntito() + escHtml(_sm.texto);
+      lista.insertBefore(_li, lista.firstChild);
+    }
+  } catch (_) {}
 
   // Para impulsar hoy: productos estrella de la percha actual (encargado los ve).
   try {
@@ -7661,6 +7675,40 @@ function toggleSyncNuevo() {
   pintarSyncNuevoEstado();
   location.reload(); // sync-yjs.js decide al cargar; recargar lo aplica
 }
+
+/* AVISO DE MERGE POR SYNC EN "Today's alerts" + RE-PINTAR HOY (A2/A3, JFC 2026-09-10).
+   El puente del sync nuevo (sync-yjs.js) dispara oc-sync-merge cuando un merge
+   sumó algo desde otro aparato. Antes salía como banner suelto encima del hero y
+   además el hero se quedaba en "Loading your business...". Ahora:
+   (A2) se agrega un <li> dentro de #listaAlertas (mismo estilo semáforo).
+   (A3) si la vista Hoy está activa, se re-pinta para soltar el "Loading...". */
+window.addEventListener("oc-sync-merge", function (ev) {
+  try {
+    var d = ev.detail || {};
+    var es = false; try { es = !window.OCI18n || window.OCI18n.getLang() !== "en"; } catch (_) {}
+    var partes = [];
+    if (d.perchas)   partes.push(d.perchas + " " + (es ? (d.perchas === 1 ? "percha" : "perchas") : (d.perchas === 1 ? "shelf" : "shelves")));
+    if (d.productos) partes.push(d.productos + " " + (es ? (d.productos === 1 ? "producto" : "productos") : (d.productos === 1 ? "product" : "products")));
+    if (d.clientes)  partes.push(d.clientes + " " + (es ? (d.clientes === 1 ? "cliente" : "clientes") : (d.clientes === 1 ? "customer" : "customers")));
+    if (d.miembros)  partes.push(d.miembros + " " + (es ? "de equipo" : "team"));
+    if (partes.length) {
+      // El aviso se guarda en una variable y lo PINTA cargarHoy (único que arma
+      // #listaAlertas). Insertarlo por fuera no sirve: el re-pintado de A3 lo
+      // borraría. Así sobrevive a cada refresco hasta la próxima recarga.
+      window.__syncMergeAviso = {
+        texto: es ? ("Sync: llegaron " + partes.join(", ") + " de otro aparato.")
+                  : ("Sync: merged " + partes.join(", ") + " from another device.")
+      };
+    }
+    // A3: re-pintar Hoy (suelta el "Loading..." y, de paso, muestra el aviso).
+    var vistaHoy = document.getElementById("vista-hoy");
+    var hoyActiva = vistaHoy && vistaHoy.classList.contains("activa");
+    if (hoyActiva && typeof cargarHoy === "function") {
+      clearTimeout(window.__syncHoyT);
+      window.__syncHoyT = setTimeout(function () { try { cargarHoy(); } catch (_) {} }, 400);
+    }
+  } catch (_) {}
+});
 
 async function cargarAvanzado(){
   try { pintarSyncNuevoEstado(); } catch (_) {}

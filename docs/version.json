@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Arreglo de bochorno: 4 iconos del riel de Advanced (First Steps, Accounting, Backup, Reporte contable) salian como mojibake por doble codificacion; ahora renderizan su glifo correcto. Sube shell a f123-shell-v242.",
+  "changelog": "Cierre del sync nuevo: el nombre del negocio ahora si mergea (gana el nombre del dueno); el aviso de merge aparece dentro de \"Today's alerts\" en vez de un banner suelto sobre el hero; y tras un merge se re-pinta la vista Hoy para que no se quede en \"Loading your business...\". Sube shell a f123-shell-v243.",
   "requerida": false,
-  "shell": "f123-shell-v242",
+  "shell": "f123-shell-v243",
   "apagar": [],
   "releaseName": "v1.0"
 }
