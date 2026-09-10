@@ -2398,7 +2398,20 @@
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
       if (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
-      if (k === "servingMl" || k === "botellaMl") { p[k] = Math.max(1, Number(body[k]) || (k === "servingMl" ? 50 : 750)); return; }
+      if (k === "servingMl" || k === "botellaMl") {
+        const nuevo = Math.max(1, Number(body[k]) || (k === "servingMl" ? 50 : 750));
+        /* BAR (JFC 2026-09-10, queja de Belén: "el stock de bebidas no cambia al
+           editar copas/ml"). El stock de una bebida está en COPAS. Si cambia el ml
+           POR COPA, la MISMA bebida física rinde otro número de copas: se reescala
+           el stock para conservar el volumen (copas × mlViejo = copas' × mlNuevo).
+           Antes solo se guardaba el ml y el número de copas quedaba igual (mal).
+           botellaMl NO reescala: es solo la referencia copas↔botellas. */
+        if (k === "servingMl" && (p.tipoProducto || "normal") === "bar") {
+          const viejo = Math.max(1, Number(p.servingMl) || 50);
+          if (viejo !== nuevo) p.stockActual = Math.round(Math.max(0, Number(p.stockActual) || 0) * viejo / nuevo);
+        }
+        p[k] = nuevo; return;
+      }
       if (k === "chip") { p[k] = String(body[k] || "").trim().slice(0, 12); return; }
       if (k === "perecible" || k === "archivado") { p[k] = !!body[k]; return; } // archivado: JFC/Belén 2026-09-08
       p[k] = body[k];

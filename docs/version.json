@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Arreglos criticos: las fotos ahora se comprimen bajo el limite del relay (antes no cruzaban y saturaban el worker); las reconexiones del sync usan backoff; y se RESTAURA el PIN 888 a los duenios reales que lo usaban y una migracion se los habia cambiado por error. Sube shell a f123-shell-v254.",
+  "changelog": "Bebidas: al cambiar los ml por copa, el stock (en copas) se reescala para conservar el volumen real (antes el numero de copas no cambiaba). Sube shell a f123-shell-v255.",
   "requerida": false,
-  "shell": "f123-shell-v254",
+  "shell": "f123-shell-v255",
   "apagar": [],
   "releaseName": "v1.0"
 }
