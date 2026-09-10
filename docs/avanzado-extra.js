@@ -2045,16 +2045,16 @@ Keep it somewhere safe.`);
            Claves en inglés Y español para que funcione en ambos idiomas.
            Unicode geométrico básico (BMP): renderiza igual en iOS, Android, Chrome y Safari. */
         const ICONS = {
-          "First Steps": "â—Ž", "Primeros Pasos": "â—Ž",
+          "First Steps": "◎", "Primeros Pasos": "◎",
           "Sync your team": "⇄", "Sincronizar equipo": "⇄",
           "Team": "⊕", "Equipo": "⊕",
           "Activity log": "≡", "Actividad reciente": "≡", "Recent activity": "≡",
           "Fraud control": "⊙", "Control antifraude": "⊙",
           "Your team right now": "●", "Tu equipo ahora": "●",
           "Access & recovery": "◈", "Acceso y recuperación": "◈",
-          "Accounting": "â–¤", "Contabilidad": "â–¤",
-          "Backup": "â—‰", "Respaldo": "â—‰",
-          "Accounting report": "â–¦", "Reporte contable": "â–¦",
+          "Accounting": "▤", "Contabilidad": "▤",
+          "Backup": "◉", "Respaldo": "◉",
+          "Accounting report": "▦", "Reporte contable": "▦",
           "Location comparison (this month)": "▧", "Comparación de perchas": "▧",
           "Where the team has been": "⊛",
         };
