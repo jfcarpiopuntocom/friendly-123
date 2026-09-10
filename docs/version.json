@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Fotos, primeros pasos: (B0) las fotos de percha ya no se achican a 640px borroso; ahora lado mayor 1600px calidad 0.9 (siguen pesando poco). (B1) idb-fotos guarda fotos por su hash SHA-256, con dedup, base para sincronizarlas. Sube shell a f123-shell-v244.",
+  "changelog": "Fotos B2: la asignacion \"esta percha tiene esta foto\" (fotoHash) ahora viaja por el sync y converge entre aparatos, sumando sin pisar. Los bytes de la foto todavia no cruzan: eso es B3 (a la nube del dueno). Sube shell a f123-shell-v245.",
   "requerida": false,
-  "shell": "f123-shell-v244",
+  "shell": "f123-shell-v245",
   "apagar": [],
   "releaseName": "v1.0"
 }
