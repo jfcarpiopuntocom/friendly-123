@@ -7646,6 +7646,57 @@ function volverArribaAvanzado() {
   if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+/* DEEP-LINK DE EDICIÓN (JFC 2026-09-10, #6). El dashboard es un VISOR; para editar
+   con calma (p.ej. corregir el precio de una venta ya asentada y cuadrar la
+   ganancia real, como pide Belén) pone un lapicito que abre la app aquí, en su
+   editor PROBADO, vía el hash #editar=venta:<id>. No se re-implementa dinero en el
+   dashboard: se reusa el editor de la app (que ya valida y es solo dueño/admin).
+   Extensible: #editar=producto:<id> abre el inventario en ese producto. */
+async function procesarDeepLinkEditar() {
+  var m = (location.hash || "").match(/#editar=([a-z]+):([^&]+)/i);
+  if (!m) return;
+  var tipo = m[1].toLowerCase(), id = decodeURIComponent(m[2]);
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
+  var sel = (window.CSS && CSS.escape) ? CSS.escape(id) : id.replace(/"/g, '\\"');
+  if (tipo === "venta") {
+    var nav = document.querySelector('nav button[data-vista="escanear"]');
+    if (nav) nav.click();
+    setTimeout(async function () {
+      var det = document.getElementById("ventasSold");
+      // Abrir el details dispara su propio listener 'toggle' que llama a
+      // cargarVentasSold(). NO se llama aquí también: un doble render borraría el
+      // editor recién abierto (bug detectado 2026-09-10). Si ya estaba abierto,
+      // las filas ya están y el bucle las encuentra.
+      if (det && !det.open) det.open = true;
+      for (var i = 0; i < 40; i++) {
+        var row = document.querySelector('.oc-vs-row[data-id="' + sel + '"]');
+        if (row) {
+          var ed = row.querySelector('.oc-vs-edit');
+          var editor = row.querySelector('.oc-vs-editor');
+          if (ed && editor && editor.style.display !== "block") ed.click(); // abre el editor inline (precio, cantidad…)
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
+          row.style.outline = "3px solid var(--sim-amarillo,#E8A020)";
+          setTimeout(function () { try { row.style.outline = ""; } catch (_) {} }, 4000);
+          break;
+        }
+        await new Promise(function (r) { setTimeout(r, 200); });
+      }
+    }, 500);
+  } else if (tipo === "producto") {
+    var navI = document.querySelector('nav button[data-vista="inventario"]');
+    if (navI) navI.click();
+    setTimeout(function () {
+      var card = document.querySelector('[data-id="' + sel + '"], [data-producto="' + sel + '"]');
+      if (card) { card.scrollIntoView({ behavior: "smooth", block: "center" }); card.style.outline = "3px solid var(--sim-amarillo,#E8A020)"; setTimeout(function () { try { card.style.outline = ""; } catch (_) {} }, 4000); }
+    }, 500);
+  }
+}
+window.addEventListener("hashchange", procesarDeepLinkEditar);
+window.addEventListener("oc-login", function () { setTimeout(procesarDeepLinkEditar, 600); });
+// Sesión ya activa (restaurada sin oc-login fresco): reintento al cargar. Si aún
+// no hay login, no-op (el nav no responde) y oc-login lo cubre luego.
+setTimeout(procesarDeepLinkEditar, 1600);
+
 /* SYNC DE PRUEBA (Plan C / Yjs) — FASE 2, JFC 2026-09-09.
    Prende/apaga la bandera que lee sync-yjs.js al cargar. Hay que recargar para
    que el módulo re-evalúe el gate (no engancha/desengancha en caliente a propósito:
