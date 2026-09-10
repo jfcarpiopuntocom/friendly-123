@@ -7678,6 +7678,8 @@ window.addEventListener("oc-sync-merge", function (ev) {
     if (d.perchas)   partes.push(d.perchas + " " + (es ? (d.perchas === 1 ? "percha" : "perchas") : (d.perchas === 1 ? "shelf" : "shelves")));
     if (d.productos) partes.push(d.productos + " " + (es ? (d.productos === 1 ? "producto" : "productos") : (d.productos === 1 ? "product" : "products")));
     if (d.clientes)  partes.push(d.clientes + " " + (es ? (d.clientes === 1 ? "cliente" : "clientes") : (d.clientes === 1 ? "customer" : "customers")));
+    if (d.promotoras) partes.push(d.promotoras + " " + (es ? (d.promotoras === 1 ? "comisionista" : "comisionistas") : (d.promotoras === 1 ? "promoter" : "promoters")));
+    if (d.sucursales) partes.push(d.sucursales + " " + (es ? (d.sucursales === 1 ? "sucursal" : "sucursales") : (d.sucursales === 1 ? "branch" : "branches")));
     if (d.miembros)  partes.push(d.miembros + " " + (es ? "de equipo" : "team"));
     if (partes.length) {
       // El aviso se guarda en una variable y lo PINTA cargarHoy (único que arma

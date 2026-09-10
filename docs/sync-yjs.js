@@ -85,7 +85,13 @@
   // y convergen juntas. La lista es la misma que viaja hoy en el sync casero
   // (ver _acumularCatalogo en sync-realtime.js): ubicaciones, productos,
   // usuarios, clientes. Agregar aquí una colección nueva es una línea.
-  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes"];
+  // JFC 2026-09-10 ("sync integral, shared notebook"): se suman las entidades
+  // definicionales que faltaban — promotoras (comisionistas) y sucursales. Son
+  // como el catálogo: se mergean add-only (nunca se pisa una ya existente, así no
+  // se adivina sobre comisiones/plata). Las VENTAS y el dinero NO van por aquí: eso
+  // lo maneja el sync de ops (sync-realtime) con orden causal; meterlo al add-only
+  // ciego duplicaría plata. Ver aplicarCatalogo() en mock-backend.js.
+  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales"];
   var API = {
     estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, colecciones: COLECCIONES,
     // API genérica por colección (probar convergencia a mano o desde código).
@@ -313,18 +319,12 @@
     // add-only probado. Síncrono: aplicarCatalogo no es async.
     function aplicar() {
       if (_aplicando) return;
-      var remoto = {
-        ubicaciones: valores("ubicaciones"),
-        productos: valores("productos"),
-        usuarios: valores("usuarios"),
-        clientes: valores("clientes"),
-        nombreNegocio: API.meta.get("nombreNegocio") || "",
-        pinsRol: API.meta.get("pinsRol") || null,
-        deviceNombre: "sync"
-      };
-      // Nada que aplicar: no molestar al store (evita guardados en vano).
-      if (!remoto.ubicaciones.length && !remoto.productos.length &&
-          !remoto.usuarios.length && !remoto.clientes.length) return;
+      // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
+      // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
+      var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", pinsRol: API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var hay = false;
+      COLECCIONES.forEach(function (c) { remoto[c] = valores(c); if (remoto[c].length) hay = true; });
+      if (!hay) return; // nada que aplicar: no molestar al store
       // rolRemoto="dueno" si el nombre lo puso un dueño (A1): así aplicarCatalogo
       // adopta el nombre del negocio aunque el local ya tenga otro. Para el resto
       // de reglas (nombre/precio de ítems) esto solo habilita que el nombre del
@@ -337,11 +337,12 @@
         // (a) lo muestre como alerta dentro de "Today's alerts", no como banner
         // suelto, y (b) re-pinte la vista Hoy (si no, el hero se queda en
         // "Loading your business..."). La UI escucha oc-sync-merge en index.html.
-        if (r && r.ok && (r.agregadasU || r.agregadosP || r.miembrosAgregados || r.clientesAgregados)) {
+        if (r && r.ok && (r.agregadasU || r.agregadosP || r.miembrosAgregados || r.clientesAgregados || r.promotorasAgregadas || r.sucursalesAgregadas)) {
           try {
             window.dispatchEvent(new CustomEvent("oc-sync-merge", { detail: {
               perchas: r.agregadasU || 0, productos: r.agregadosP || 0,
-              miembros: r.miembrosAgregados || 0, clientes: r.clientesAgregados || 0
+              miembros: r.miembrosAgregados || 0, clientes: r.clientesAgregados || 0,
+              promotoras: r.promotorasAgregadas || 0, sucursales: r.sucursalesAgregadas || 0
             } }));
           } catch (_) {}
         }

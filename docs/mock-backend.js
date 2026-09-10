@@ -1786,6 +1786,36 @@
       });
     }
 
+    /* COMISIONISTAS (promotoras) y SUCURSALES — SUMA, NUNCA PISA (JFC 2026-09-10,
+       "sync integral"). Add-only por id, igual que los clientes: si ya existe
+       aqui, NO se toca (se respeta su comision/datos locales — sobre plata no se
+       adivina). Solo entran los que faltan. Asi un comisionista dado de alta en un
+       aparato aparece en el otro sin arriesgar sus porcentajes. */
+    let promotorasAgregadas = 0;
+    if (Array.isArray(remoto.promotoras)) {
+      remoto.promotoras.forEach((p) => {
+        if (!p || !p.id || !p.nombre) return;
+        if (promotoras.some((x) => String(x.id) === String(p.id))) return;
+        const base = Math.max(0, Number(p.comisionBase != null ? p.comisionBase : p.comision) || 0);
+        promotoras.push({ id: p.id, nombre: String(p.nombre).slice(0, 80), comisionBase: base, comision: base,
+          telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "",
+          direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false,
+          metaMensual: Math.max(0, Number(p.metaMensual) || 0),
+          escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [],
+          creadoEn: p.creadoEn || new Date().toISOString() });
+        promotorasAgregadas++;
+      });
+    }
+    let sucursalesAgregadas = 0;
+    if (Array.isArray(remoto.sucursales)) {
+      remoto.sucursales.forEach((s) => {
+        if (!s || !s.id || !s.nombre) return;
+        if (sucursales.some((x) => String(x.id) === String(s.id))) return;
+        sucursales.push({ id: s.id, nombre: String(s.nombre).slice(0, 80), activa: s.activa !== false });
+        sucursalesAgregadas++;
+      });
+    }
+
     /* NOMBRE DE LA TIENDA (JFC 2026-08-27 + 2026-08-28). Al unirse a un equipo,
        el aparato adopta el nombre del negocio. Regla de jerarquía (JFC 2026-08-28:
        "la jerarquía le pertenece al PIN, el nombre sale del PIN de mayor jerarquía"):
@@ -1843,7 +1873,7 @@
     } catch (_) {}
     mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
-    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, huella: huellaCatalogo() };
+    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo() };
   }
 
   /* ===================================================================
@@ -2030,6 +2060,10 @@
            Eran estado local que nunca se propagaba. Viajan por el mismo canal
            cifrado device-to-device, merge add-only en aplicarCatalogo. */
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })),
+        /* COMISIONISTAS + SUCURSALES viajan con el catálogo (JFC 2026-09-10, "sync
+           integral"). Add-only en aplicarCatalogo: nunca se pisa una comision. */
+        promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [] })),
+        sucursales: sucursales.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa !== false })),
         /* NOMBRE DE LA TIENDA VIAJA CON EL CATÁLOGO (JFC 2026-08-27 + 2026-08-28).
            Era estado local (nombreNegocio) que nunca se propagaba. Ahora viaja; el
            receptor lo adopta si el suyo está vacío o si el remitente es el dueño
