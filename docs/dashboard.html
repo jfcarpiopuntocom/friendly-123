@@ -1104,7 +1104,10 @@
           percha: l.ubicacion,
           modalidad: pct >= 50 ? "Artist — house keeps" : "Seller — takes",
           pct: pct,
-          pctCasa: +(100 - pct).toFixed(2),
+          /* FIX (JFC 2026-09-11): el % de la casa se enchufa al valor que YA calcula
+             la app (pctQuedaEnCasa), no a un 100-pct ingenuo. Con aporte fijo o
+             mínimo garantizado la casa NO es 100-pct; recomputarlo aquí mentía. */
+          pctCasa: l.pctQuedaEnCasa != null ? l.pctQuedaEnCasa : +(100 - pct).toFixed(2),
           ventasBrutas: l.ventasBrutas || 0,
           comision: l.comisionSocio || 0,
           casa: l.netoDueno != null ? l.netoDueno : +((l.ventasBrutas || 0) - (l.comisionSocio || 0)).toFixed(2),
