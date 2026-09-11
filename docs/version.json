@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Dos mejoras de Belen: los PIN de admin ahora abren el dashboard (antes solo el dueno); y la ficha de cada cliente despliega el detalle de sus compras (fecha, producto, monto y si fue fiado, pagado o cortesia, con cuanto debe en fiado) para ver claro que corresponde a que. Sube shell a f123-shell-v257.",
+  "changelog": "Microajustes: en Restock, la columna Order sugiere cuanto reponer aunque la percha no tenga umbral amarillo; y las fotos rarisimas siempre quedan bajo el limite del relay. Sube shell a f123-shell-v258.",
   "requerida": false,
-  "shell": "f123-shell-v257",
+  "shell": "f123-shell-v258",
   "apagar": [],
   "releaseName": "v1.0"
 }

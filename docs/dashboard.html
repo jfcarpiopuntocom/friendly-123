@@ -941,8 +941,13 @@
           var s = Number(p.stockActual) || 0, r = Number(p.umbralRojo) || 0;
           return p.estado === "rojo" || p.estado === "negro" || (r > 0 && s <= r);
         }).map(function (p) {
-          var s = Number(p.stockActual) || 0, a = Number(p.umbralAmarillo) || 0;
-          return Object.assign({}, p, { faltan: Math.max(0, a - s) }); // cuánto pedir para volver al amarillo
+          var s = Number(p.stockActual) || 0, a = Number(p.umbralAmarillo) || 0, r = Number(p.umbralRojo) || 0;
+          /* F (fix 2026-09-10): "Order +N" salía en blanco cuando la percha no tiene
+             umbral amarillo (a=0 → max(0, 0-s)=0). Objetivo de reposición: el
+             amarillo si existe; si no, el doble del rojo; y si tampoco hay rojo,
+             al menos 1 (la percha ya está en rojo/negro, algo hay que pedir). */
+          var objetivo = a > 0 ? a : (r > 0 ? r * 2 : 1);
+          return Object.assign({}, p, { faltan: Math.max(0, objetivo - s) });
         }).sort(function (a, b) { return (Number(a.stockActual) || 0) - (Number(b.stockActual) || 0); });
       },
       cierre: function (f) {
