@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Robustez del sync: acepta los mensajes del relay vengan como ArrayBuffer o como Blob (algunos navegadores entregan uno u otro). Sube shell a f123-shell-v259.",
+  "changelog": "Correcciones finas: el detalle de compras de un cliente ya no mezcla a dos clientes con el mismo nombre; el aviso de \"llegaron datos de otro aparato\" se descarta solo tras unos minutos; y al tocar el lapiz de una venta ya liquidada, avisa que esta bloqueada en vez de no hacer nada. Sube shell a f123-shell-v260.",
   "requerida": false,
-  "shell": "f123-shell-v259",
+  "shell": "f123-shell-v260",
   "apagar": [],
   "releaseName": "v1.0"
 }

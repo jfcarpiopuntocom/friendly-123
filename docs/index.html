@@ -3496,7 +3496,11 @@ if (!window.__ocCliComprasWired) {
     var cliId = cont.getAttribute("data-cli-id") || "";
     fetch(`${API}/ventas/todas?ubicacionId=todas`).then(function (r) { return r.json(); }).then(function (vs) {
       var mias = (vs || []).filter(function (v) {
-        return (cliId && v.clienteId && String(v.clienteId) === String(cliId)) || (nombre && v.clienteNombre === nombre);
+        // #8 (fix 2026-09-11): por-venta. Si la venta trae clienteId, se exige que
+        // cuadre con ESTE cliente (así dos clientes con el mismo nombre no mezclan
+        // compras). Las ventas viejas sin clienteId caen al nombre (no hay otra).
+        if (v.clienteId != null && cliId) return String(v.clienteId) === String(cliId);
+        return nombre && v.clienteNombre === nombre;
       });
       if (!mias.length) { cont.innerHTML = '<span style="font-size:13px;color:var(--ink-soft);">No purchases recorded for this customer.</span>'; return; }
       mias.sort(function (a, b) { return (b.fecha || "").localeCompare(a.fecha || ""); });
@@ -4097,12 +4101,17 @@ async function cargarHoy(){
      Se muestra hasta la próxima recarga (es una notificación, no un estado). */
   try {
     var _sm = window.__syncMergeAviso;
-    if (_sm && _sm.texto) {
+    // J (fix 2026-09-11): el aviso EXPIRA (antes se re-pintaba en cada cargarHoy
+    // hasta recargar). Se muestra solo dentro de los ~3 min del merge; pasado eso,
+    // se descarta solo. Es una notificación, no un estado permanente.
+    if (_sm && _sm.texto && (!_sm.ts || (Date.now() - _sm.ts) < 180000)) {
       var _li = document.createElement("li");
       _li.className = "verde";
       _li.setAttribute("data-sync-merge", "1");
       _li.innerHTML = puntito() + escHtml(_sm.texto);
       lista.insertBefore(_li, lista.firstChild);
+    } else if (_sm && _sm.ts && (Date.now() - _sm.ts) >= 180000) {
+      window.__syncMergeAviso = null; // caducó: se limpia
     }
   } catch (_) {}
 
@@ -7729,6 +7738,16 @@ async function procesarDeepLinkEditar() {
           row.scrollIntoView({ behavior: "smooth", block: "center" });
           row.style.outline = "3px solid var(--sim-amarillo,#E8A020)";
           setTimeout(function () { try { row.style.outline = ""; } catch (_) {} }, 4000);
+          /* #12 (fix 2026-09-11): si la venta está liquidada no hay lápiz (.oc-vs-edit
+             ausente): antes solo se resaltaba sin decir por qué. Ahora se avisa. */
+          if (!ed) {
+            var _msg = document.createElement("div");
+            _msg.setAttribute("role", "alert");
+            _msg.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#0F1923;color:#fff;-webkit-text-fill-color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.35);max-width:90vw;text-align:center;";
+            _msg.textContent = "Esta venta ya está liquidada (bloqueada). Para corregirla, reabre su período de comisión.";
+            document.body.appendChild(_msg);
+            setTimeout(function () { try { document.body.removeChild(_msg); } catch (_) {} }, 6000);
+          }
           break;
         }
         await new Promise(function (r) { setTimeout(r, 200); });
@@ -7789,6 +7808,7 @@ window.addEventListener("oc-sync-merge", function (ev) {
       // #listaAlertas). Insertarlo por fuera no sirve: el re-pintado de A3 lo
       // borraría. Así sobrevive a cada refresco hasta la próxima recarga.
       window.__syncMergeAviso = {
+        ts: Date.now(), // J (2026-09-11): marca de tiempo para que el aviso expire (~3 min)
         texto: es ? ("Sync: llegaron " + partes.join(", ") + " de otro aparato.")
                   : ("Sync: merged " + partes.join(", ") + " from another device.")
       };
