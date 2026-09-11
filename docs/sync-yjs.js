@@ -110,9 +110,8 @@
         try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": pido lo que me falte
         while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
       };
-      ws.onmessage = function (ev) {
-        if (!(ev.data instanceof ArrayBuffer) || !API.clave) return;
-        descifrarBin(API.clave, ev.data).then(function (bytes) {
+      function manejar(buf) {
+        descifrarBin(API.clave, buf).then(function (bytes) {
           var tag = bytes[0], payload = bytes.subarray(1);
           if (tag === 0) { Y.applyUpdate(doc, payload, "red"); }
           else if (tag === 1) { // me saludan: les mando lo que les falta + mi SV para pedir lo mío
@@ -122,6 +121,16 @@
             try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
           }
         }).catch(function () {}); // basura o clave distinta -> se ignora
+      }
+      ws.onmessage = function (ev) {
+        if (!API.clave) return;
+        var d = ev.data;
+        // ROBUSTEZ (JFC 2026-09-10, world-class): normalmente con binaryType
+        // "arraybuffer" llega un ArrayBuffer, pero algunos navegadores/proxies
+        // entregan un Blob aunque se pida ArrayBuffer. Se aceptan AMBOS. Los
+        // frames de texto (que no son nuestros marcos binarios) se ignoran.
+        if (d instanceof ArrayBuffer) manejar(d);
+        else if (typeof Blob !== "undefined" && d instanceof Blob) { try { d.arrayBuffer().then(manejar).catch(function () {}); } catch (_) {} }
       };
       ws.onclose = function () { canal.ws = null; reprogramar(); };
       ws.onerror = function () { try { ws.close(); } catch (_) {} };
