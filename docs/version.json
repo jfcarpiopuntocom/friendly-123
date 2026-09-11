@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Contraste del dashboard: se auditaron los textos contra su fondo (WCAG AA) y se subio el gold del titulo del periscopio para que se lea bien. Sube shell a f123-shell-v261.",
+  "changelog": "Comisiones editable desde el tablero: cada percha en Comisiones tiene un lapiz que abre la app en su editor de comision para ajustar el porcentaje. El tablero no edita dinero por su cuenta: usa el editor probado de la app. Sube shell a f123-shell-v262.",
   "requerida": false,
-  "shell": "f123-shell-v261",
+  "shell": "f123-shell-v262",
   "apagar": [],
   "releaseName": "v1.0"
 }

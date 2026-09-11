@@ -7753,6 +7753,13 @@ async function procesarDeepLinkEditar() {
         await new Promise(function (r) { setTimeout(r, 200); });
       }
     }, 500);
+  } else if (tipo === "comisionpercha") {
+    /* #2 (JFC 2026-09-11): editar la comisión de una percha desde el dashboard.
+       Abre el editor de comisión PROBADO de la app (abrirEditorComisionPercha),
+       igual patrón que #6. Aditivo y en try/catch: si algo no está, no rompe. */
+    var navP = document.querySelector('nav button[data-vista="perchas"]');
+    if (navP) navP.click();
+    setTimeout(function () { try { if (typeof abrirEditorComisionPercha === "function") abrirEditorComisionPercha(id); } catch (_) {} }, 600);
   } else if (tipo === "producto") {
     var navI = document.querySelector('nav button[data-vista="inventario"]');
     if (navI) navI.click();

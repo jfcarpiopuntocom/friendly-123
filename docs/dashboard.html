@@ -865,6 +865,17 @@
     comisiones: {
       nombre: "Commissions",
       cols: [
+        /* #2 (JFC 2026-09-11): editar la comisión de la percha desde el dashboard.
+           Aditivo: el lápiz solo aparece si la fila trae ubicacionId; si no, no se
+           pinta y no rompe nada. Abre la app en su editor probado por deep-link. */
+        { title: "", field: "ubicacionId", width: 44, hozAlign: "center", headerSort: false, download: false,
+          formatter: function (c) {
+            var id = c.getValue();
+            if (!id) return "";
+            return '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(id) +
+              '" title="Ajustar la comisión de esta percha en la app" ' +
+              'style="text-decoration:none;font-size:17px;font-weight:700;color:var(--azul-medio,#2c4a68);">✎</a>';
+          } },
         { title: "Who gets paid", field: "quien", minWidth: 170, widthGrow: 2 },
         { title: "Deal", field: "percha", minWidth: 160, widthGrow: 2 },
         { title: "Type", field: "modalidad", width: 190 },
@@ -1084,6 +1095,7 @@
       return liq.map(function (l) {
         var pct = l.pctEfectivo != null ? l.pctEfectivo : (l.pctBase || 0);
         return {
+          ubicacionId: l.ubicacionId || l.perchaId || "", // #2 (JFC 2026-09-11): id para el lapicito -> editor de comision de la app
           quien: l.asociadoNombre || l.promotorNombre || "(no associate assigned)",
           percha: l.ubicacion,
           modalidad: pct >= 50 ? "Artist — house keeps" : "Seller — takes",
