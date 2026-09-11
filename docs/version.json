@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Comisiones editable desde el tablero: cada percha en Comisiones tiene un lapiz que abre la app en su editor de comision para ajustar el porcentaje. El tablero no edita dinero por su cuenta: usa el editor probado de la app. Sube shell a f123-shell-v262.",
+  "changelog": "El tablero: la barra de vistas (tabs) ahora se desliza en horizontal cuando no cabe, en vez de apretarse. Sube shell a f123-shell-v263.",
   "requerida": false,
-  "shell": "f123-shell-v262",
+  "shell": "f123-shell-v263",
   "apagar": [],
   "releaseName": "v1.0"
 }
