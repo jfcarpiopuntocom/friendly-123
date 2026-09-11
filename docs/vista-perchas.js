@@ -149,6 +149,9 @@
       };
       let out = rend(intentos[0][0], intentos[0][1]);
       for (let i = 1; i < intentos.length && out.length > FOTO_BYTES_MAX; i++) out = rend(intentos[i][0], intentos[i][1]);
+      // Piso duro (fix A, 2026-09-10): si una imagen rarísima sigue pasada tras el
+      // paso más chico, un último recurso que SIEMPRE cabe en el frame del relay.
+      if (out.length > FOTO_BYTES_MAX) out = rend(480, 0.5);
       cb(out);
     };
     img.src = URL.createObjectURL(file);
