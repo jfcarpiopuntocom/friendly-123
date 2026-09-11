@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-09",
-  "changelog": "Microajustes: en Restock, la columna Order sugiere cuanto reponer aunque la percha no tenga umbral amarillo; y las fotos rarisimas siempre quedan bajo el limite del relay. Sube shell a f123-shell-v258.",
+  "changelog": "Robustez del sync: acepta los mensajes del relay vengan como ArrayBuffer o como Blob (algunos navegadores entregan uno u otro). Sube shell a f123-shell-v259.",
   "requerida": false,
-  "shell": "f123-shell-v258",
+  "shell": "f123-shell-v259",
   "apagar": [],
   "releaseName": "v1.0"
 }
