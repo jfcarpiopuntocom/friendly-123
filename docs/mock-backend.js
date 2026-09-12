@@ -640,6 +640,12 @@
       nombreNegocio = "";
     } catch (_) {}
   }
+  // GUARD DEMO (JFC 2026-09-11): se pone true en cuanto el arranque carga un
+  // buffer REAL persistido (A/B, reparado o legacy). Si al terminar sigue en
+  // false y el aparato NO es demo (está activado o entró con licencia), las
+  // arrays solo tienen la SEMILLA de ejemplo y hay que vaciarla antes de que el
+  // sync mezcle datos reales encima. Ver el guard tras cargarEstadoLocal().
+  let _cargoBufferReal = false;
   function cargarEstadoLocal() {
     try {
       const activo = localStorage.getItem(OC_STATE_PTR);
@@ -658,6 +664,7 @@
         // fresco que ya dejó otra pestaña, perdiendo silenciosamente sus cambios.
         if (typeof body._rev === "number" && body._rev > _localRev) _localRev = body._rev;
         aplicarRespaldo(body);
+        _cargoBufferReal = true; // buffer A/B real cargado: no es semilla demo
         if (letra !== activo) {
           console.warn("[cargarEstadoLocal] el buffer activo estaba dañado, recuperado desde el buffer anterior");
           try { localStorage.setItem(OC_STATE_PTR, letra); } catch (_) {} // corrige el puntero
@@ -677,6 +684,7 @@
           const _rep = repararRespaldo(_b);
           if (!_rep) continue;
           aplicarRespaldo(_rep.limpio);
+          _cargoBufferReal = true; // buffer reparado real cargado: no es semilla demo
           try { localStorage.setItem(OC_STATE_PTR, _l); } catch (_) {}
           console.warn("[cargarEstadoLocal] estado reparado; registros podados:", _rep.podados);
           setTimeout(function () { avisarEstadoReparado(_rep.podados); }, 800);
@@ -730,6 +738,7 @@
       const error = validarRespaldo(body);
       if (!error) {
         aplicarRespaldo(body);
+        _cargoBufferReal = true; // buffer legacy real cargado: no es semilla demo
       } else {
         // Estado guardado no pasa validación — rescatar raw ANTES de sobrescribir con datos semilla.
         // El dueño puede recuperar el archivo desde Avanzado > Exportar (busca oc_rescate_v4).
@@ -2281,6 +2290,27 @@
   // Al arrancar: si hay un estado persistido válido, reemplaza los datos
   // semilla (item 1 — persistencia local real).
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
+  /* GUARD DEMO — NADIE QUE NO SEA DEMO VE STOCK DE EJEMPLO (JFC 2026-09-11).
+     Bug real: en un navegador/PC nuevo la app arranca con la SEMILLA demo en
+     memoria. Si el aparato está ACTIVADO (f123_owned con instanceId, o sea
+     alguien ya aplastó 789/entró con su licencia) o entró a una tienda por
+     licencia (OC_STATE_SUFIJO), pero el arranque no cargó ningún buffer real
+     todavía (sin datos locales aún), esas arrays con ejemplo se quedaban y el
+     "sync integral" mezclaba el catálogo REAL add-only encima -> demo + real
+     revueltos (queja de JFC). Ahora: si es un aparato real y no cargó buffer,
+     se vacía la semilla y la tienda arranca LIMPIA; solo se llena con lo que
+     baje por sync/respaldo. El demo puro (456: sin f123_owned y sin sufijo) NO
+     entra aquí y conserva su ejemplo. Solo puede vaciar la SEMILLA: los datos
+     reales únicamente entran vía buffer cargado (que ya puso _cargoBufferReal)
+     o vía sync (posterior a esto), así que esto jamás borra inventario real. */
+  try {
+    var _aparatoReal = false;
+    try { _aparatoReal = !!((JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId); } catch (_) {}
+    if (!_cargoBufferReal && (_aparatoReal || OC_STATE_SUFIJO)) {
+      _vaciarTiendaFresca();
+      console.warn("[guard-demo] aparato real sin buffer local: semilla de ejemplo vaciada, la tienda arranca limpia y se llena por sync.");
+    }
+  } catch (_) {}
   /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).
      Si en la sesion anterior localStorage estaba lleno, los ultimos guardados
      solo entraron en el espejo de IndexedDB. Aqui se comparan las revisiones y
