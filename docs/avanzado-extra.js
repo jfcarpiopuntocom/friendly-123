@@ -1475,16 +1475,52 @@
       const _pinChip = (pin) => `<span title="PIN" style="font-size:13px;font-weight:700;font-family:var(--font-mono);letter-spacing:.12em;background:var(--paper-deep,#E2E8ED);color:var(--ink,#0F1923);padding:2px 8px;border-radius:6px;border:1px solid var(--azul-suave,#dde5ec);">PIN ${escHtml(pin)}</span>`;
       const cards = [];
       // Tarjeta del DUEÑO (encabeza; su PIN vive cifrado en crypto-store, no aquí).
+      // JFC 2026-09-11: la fila del dueño deja de ser estática — gana los mismos
+      // lapicitos que el resto del equipo, con dos diferencias por world's-best-
+      // practices: (1) su PIN NO se edita aquí (vive cifrado en crypto-store; se
+      // cambia en "Access & recovery" con el código maestro), y (2) el "nombre"
+      // del dueño es el NOMBRE DEL NEGOCIO (no hay una ficha personal de dueño),
+      // que es un dato real ya sincronizado (POST /api/instancia/nombre). El
+      // correo del dueño es el de RECUPERACIÓN: su ✎ lleva al editor protegido de
+      // arriba (requiere código maestro), nunca se edita suelto desde aquí.
+      // Solo el dueño ve/usa estos controles; un admin/encargado ve la fila
+      // informativa sin lapicitos.
+      const _soyDueno = isDueno();
+      let _nombreNegocio = "";
+      try {
+        _nombreNegocio = (window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo())
+          || (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || "";
+      } catch (_) {}
+      let _correoDueno = "";
+      try { _correoDueno = (window.OCSecure && window.OCSecure.leerCorreo && window.OCSecure.leerCorreo()) || ""; } catch (_) {}
+      const _correoDuenoTxt = _correoDueno
+        ? (window.OCAuth && window.OCAuth.enmascarar ? window.OCAuth.enmascarar(_correoDueno) : _correoDueno)
+        : "No recovery email yet";
+      const _lapiz = (attrs) => `<button ${attrs} style="font-size:15px;padding:0 4px;border:none;background:none;color:var(--azul-medio,#2c4a68);cursor:pointer;vertical-align:middle;">✎</button>`;
       cards.push(`
         <div class="tag-card" style="${_cardCss}background:var(--paper-deep,#E2E8ED);">
           <div style="flex:1;min-width:160px;">
-            <div style="font-weight:700;font-size:15px;">${isDueno() ? "You" : "The owner"}</div>
+            <div style="font-weight:700;font-size:15px;">
+              ${_soyDueno ? "You" : "The owner"}${_nombreNegocio ? ` · ${escHtml(_nombreNegocio)}` : ""}${_soyDueno ? _lapiz(`data-edit-negocio="1" title="Edit business name" aria-label="Edit business name"`) : ""}
+            </div>
+            ${_soyDueno ? `<div style="font-size:13px;color:var(--ink);margin-top:2px;">${escHtml(_correoDuenoTxt)}${_lapiz(`data-edit-correo-dueno="1" title="Change recovery email" aria-label="Change recovery email"`)}</div>` : ""}
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
               ${_badge("Owner", "#E87A10")}
               <span style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">Active</span>
             </div>
+            ${_soyDueno ? `
+              <div id="oc-neg-row" style="display:none;background:var(--azul-suave,#EEF3F7);border-radius:8px;padding:10px 12px;margin-top:8px;">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <span style="font-size:13px;font-weight:700;">Business name:</span>
+                  <input id="oc-neg-input" maxlength="80" placeholder="e.g. Galería Cuenca" value="${escHtml(_nombreNegocio)}"
+                    style="flex:1;min-width:160px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;">
+                  <button id="oc-neg-save"
+                    style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">Save</button>
+                  <span id="oc-neg-msg" style="font-size:13px;font-weight:700;"></span>
+                </div>
+              </div>` : ""}
           </div>
-          <div style="font-size:13px;color:#4A5A6A;align-self:center;">Highest authority</div>
+          <div style="font-size:13px;color:#4A5A6A;align-self:center;">Highest authority${_soyDueno ? " · only you can close the account, change the license, or promote/demote/remove admins" : ""}</div>
         </div>`);
 
       equipo.forEach((u) => {
@@ -1536,8 +1572,32 @@
         cards.push(`
           <div class="tag-card" style="${_cardCss}">
             <div style="flex:1;min-width:160px;">
-              <div style="font-weight:700;font-size:15px;">${escHtml(u.nombre)}</div>
-              ${u.email ? `<div style="font-size:13px;color:var(--ink-soft);">${escHtml(u.email)}</div>` : ""}
+              <!-- JFC 2026-09-11: nombre y email con lapicito por-campo (mismo nivel
+                   de control que ya tenían PIN/estado). Solo aparece el ✎ si el
+                   caller puede editar a esta persona (puedeEditar); el backend
+                   PATCH /api/usuarios/:id vuelve a validar admin-vs-admin, así que
+                   el ✎ oculto no es la seguridad, es solo la UI. -->
+              <div style="font-weight:700;font-size:15px;">${escHtml(u.nombre)}${puedeEditar ? _lapiz(`data-edit-campo="nombre" data-uid="${escHtml(u.id)}" title="${window.t ? window.t("team.editName", "Edit name") : "Edit name"}" aria-label="Edit name"`) : ""}</div>
+              <div style="font-size:13px;color:${u.email ? "var(--ink)" : "var(--ink-soft)"};">${u.email ? escHtml(u.email) : "No email"}${puedeEditar ? _lapiz(`data-edit-campo="email" data-uid="${escHtml(u.id)}" title="${window.t ? window.t("team.editEmail", "Edit email") : "Edit email"}" aria-label="Edit email"`) : ""}</div>
+              ${puedeEditar ? `
+                <div id="oc-fld-nombre-${escHtml(u.id)}" style="display:none;background:var(--azul-suave,#EEF3F7);border-radius:8px;padding:10px 12px;margin-top:6px;">
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <input data-fld-input="nombre" data-uid="${escHtml(u.id)}" maxlength="60" placeholder="Name" value="${escHtml(u.nombre)}"
+                      style="flex:1;min-width:140px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;">
+                    <button data-fld-save="nombre" data-uid="${escHtml(u.id)}"
+                      style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">Save</button>
+                    <span data-fld-msg="nombre" data-uid="${escHtml(u.id)}" style="font-size:13px;font-weight:700;"></span>
+                  </div>
+                </div>
+                <div id="oc-fld-email-${escHtml(u.id)}" style="display:none;background:var(--azul-suave,#EEF3F7);border-radius:8px;padding:10px 12px;margin-top:6px;">
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <input data-fld-input="email" data-uid="${escHtml(u.id)}" type="email" maxlength="160" placeholder="email@domain.com" value="${escHtml(u.email || "")}"
+                      style="flex:1;min-width:160px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;">
+                    <button data-fld-save="email" data-uid="${escHtml(u.id)}"
+                      style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">Save</button>
+                    <span data-fld-msg="email" data-uid="${escHtml(u.id)}" style="font-size:13px;font-weight:700;"></span>
+                  </div>
+                </div>` : ""}
               <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
                 ${rolBadge}
                 <span style="font-size:13px;color:${estadoColor};font-weight:700;">${estadoTxt}</span>
@@ -1594,6 +1654,82 @@
           const row = document.getElementById("oc-pin-row-" + btn.dataset.cambiarPin);
           if (row) row.style.display = row.style.display === "none" ? "" : "none";
         });
+      });
+
+      // Bind: lapicitos por-campo del EQUIPO (nombre / email) — JFC 2026-09-11.
+      // El ✎ abre su fila inline; guardar hace PATCH del campo. El backend
+      // revalida permisos (admin no edita a otro admin), así que aquí solo
+      // reflejamos el error si vuelve 403/400.
+      tbody.querySelectorAll("[data-edit-campo]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const campo = btn.dataset.editCampo, id = btn.dataset.uid;
+          const row = document.getElementById("oc-fld-" + campo + "-" + id);
+          if (row) {
+            const abrir = row.style.display === "none";
+            row.style.display = abrir ? "" : "none";
+            if (abrir) { const inp = row.querySelector("[data-fld-input]"); if (inp) inp.focus(); }
+          }
+        });
+      });
+      tbody.querySelectorAll("[data-fld-save]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const campo = btn.dataset.fldSave, id = btn.dataset.uid;
+          const inp = tbody.querySelector(`[data-fld-input="${campo}"][data-uid="${id}"]`);
+          const msg = tbody.querySelector(`[data-fld-msg="${campo}"][data-uid="${id}"]`);
+          const val = (inp ? inp.value : "").trim();
+          if (msg) msg.style.color = "var(--rojo,#a3392a)";
+          if (campo === "nombre" && !val) { if (msg) msg.textContent = "Name can't be empty."; return; }
+          if (campo === "email" && val && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)) { if (msg) msg.textContent = "Invalid email."; return; }
+          try {
+            const body = campo === "nombre" ? { nombre: val } : { email: val };
+            const r = await fetch("/api/usuarios/" + id, {
+              method: "PATCH", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) { if (msg) msg.textContent = data.error || "Could not save."; return; }
+            await renderEmpleados();
+          } catch (_) { if (msg) msg.textContent = "Network error."; }
+        });
+      });
+
+      // Bind: nombre del NEGOCIO (fila del dueño) — inline, POST /api/instancia/nombre.
+      const _negBtn = tbody.querySelector("[data-edit-negocio]");
+      if (_negBtn) {
+        _negBtn.addEventListener("click", () => {
+          const row = document.getElementById("oc-neg-row");
+          if (row) { const abrir = row.style.display === "none"; row.style.display = abrir ? "" : "none"; if (abrir) { const i = document.getElementById("oc-neg-input"); if (i) i.focus(); } }
+        });
+        const _negSave = tbody.querySelector("#oc-neg-save");
+        if (_negSave) _negSave.addEventListener("click", async () => {
+          const inp = document.getElementById("oc-neg-input");
+          const msg = document.getElementById("oc-neg-msg");
+          const v = (inp ? inp.value : "").trim();
+          if (msg) msg.style.color = "var(--rojo,#a3392a)";
+          if (!v) { if (msg) msg.textContent = "Name can't be empty."; return; }
+          try {
+            const r = await fetch("/api/instancia/nombre", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ nombre: v }),
+            });
+            if (!r.ok) { if (msg) msg.textContent = "Could not save."; return; }
+            try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: v } })); } catch (_) {}
+            await renderEmpleados();
+          } catch (_) { if (msg) msg.textContent = "Network error."; }
+        });
+      }
+
+      // Bind: correo del DUEÑO (fila del dueño) — lleva al editor PROTEGIDO de
+      // "Access & recovery" (requiere código maestro). No se edita suelto aquí:
+      // es la vía de recuperación de acceso, no un dato cosmético.
+      const _correoBtn = tbody.querySelector("[data-edit-correo-dueno]");
+      if (_correoBtn) _correoBtn.addEventListener("click", () => {
+        const dest = document.getElementById("oc-email-row");
+        if (dest) {
+          dest.scrollIntoView({ behavior: "smooth", block: "center" });
+          const btnEdit = document.getElementById("oc-email-edit");
+          if (btnEdit) btnEdit.click(); // dispara pedirMaestroYCambiarCorreo
+        }
       });
 
       // Bind: guardar nuevo PIN

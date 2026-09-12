@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "fecha": "2026-09-09",
-  "changelog": "Comisiones en el tablero: el porcentaje que queda en la casa ahora usa el valor real que calcula la app (no un 100 menos el del asociado, que se equivocaba cuando hay aporte fijo o minimo garantizado). Sube shell a f123-shell-v264.",
+  "fecha": "2026-09-11",
+  "changelog": "Mi Equipo: TODOS los miembros salen con lapicitos por campo (nombre y correo editables al toque), y la ficha del dueno deja de ser estatica. Solo el dueno cierra la cuenta, cambia la licencia o quita/degrada admins. Sube shell a f123-shell-v265.",
   "requerida": false,
-  "shell": "f123-shell-v264",
+  "shell": "f123-shell-v265",
   "apagar": [],
   "releaseName": "v1.0"
 }
