@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v279",
+  "shell": "f123-shell-v280",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-225e435968c27df6fa84847aab05f4299bbcd3e612236d5027f5fbd3ead8d07e",
@@ -13,7 +13,7 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-c9f828735a650f6991f4bd40b4a91a0770ee52c1c3d5a8870f9052a56ddaf5f9",
     "./estado-idb.js": "sha256-c6117eae5303bf0f5a48d69e44d9cbca996fa1293d67932a7f2fea70a7154dbf",
-    "./mock-backend.js": "sha256-a4b5ade2d6f23a21c04ea8142ea819a8567299add99ba6a2da55700770982526",
+    "./mock-backend.js": "sha256-4cf592121981615eb314bec6207c358a4a7c1b350598d8450b4f8f9e90200dad",
     "./red-segura.js": "sha256-79f50e85caecb4fdda91e6116f308a1a29a0fe3aa5ce50878e08138a14129a9f",
     "./device-identity.js": "sha256-e2a699aa82d417e65f49ff8491d6fba98be64bd0e77809645b016b1df9bb3897",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
@@ -29,7 +29,7 @@
     "./email-recovery.js": "sha256-12475b470318661c8575f712fd8fff2f32c082629105a46f3b82d04c98ec884e",
     "./auth-ui.js": "sha256-c163108b122a8206e513d5e18d525301aeba0c9b3dfc0f9aff231cad6d6298a9",
     "./backup-scheduler.js": "sha256-a043573a011789d052c47977447fa4edf271053b7003cc5e5bef7efe31284174",
-    "./avanzado-extra.js": "sha256-7be13ea29ffe5593216caf8f111110ac3f436e6737ccb55aa9f01cc4f39ab0f6",
+    "./avanzado-extra.js": "sha256-d9fcca627ca6dba126a12a9dd00be809a865e1824113c4c343e4be8fa96d2dfb",
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
     "./geo-ping.js": "sha256-c0d673e5d1c18df4a5e8e6217e5fb16541000b91c86376c05e149157a77a2b52",
     "./novedades.js": "sha256-dfaf6c6bb76495e478e37d9ec48783d19e021c3d3c478b1f829ae7bd0adaa365",

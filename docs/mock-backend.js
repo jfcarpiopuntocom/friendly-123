@@ -2322,12 +2322,48 @@
      entra aquí y conserva su ejemplo. Solo puede vaciar la SEMILLA: los datos
      reales únicamente entran vía buffer cargado (que ya puso _cargoBufferReal)
      o vía sync (posterior a esto), así que esto jamás borra inventario real. */
+  /* AUTO-RECUPERAR INVENTARIO (JFC 2026-09-15, SIN BOTÓN). El bug: al entrar con
+     la licencia, el aparato quedaba parado sobre un namespace de tienda VACÍO y el
+     inventario real seguía guardado bajo OTRO namespace de ESTE MISMO aparato
+     (nunca se perdió, solo quedó "huérfano"). Antes se vaciaba y a esperar el sync.
+     Ahora, si la tienda activa arranca vacía, se busca el buffer con MÁS productos
+     entre las otras tiendas de este aparato y se ADOPTA a la tienda activa (se
+     persiste bajo la licencia actual). Así, con solo estar/entrar en la licencia,
+     el inventario aparece SOLO, sin tocar nada a mano. No borra: la otra tienda
+     conserva su copia; esto SUMA a la activa. */
+  function _autoRecuperarInventario() {
+    try {
+      if (productos.length > 0) return false;           // ya hay inventario cargado
+      var baseActiva = OC_STATE_KEY + OC_STATE_SUFIJO;  // prefijo de los buffers de la tienda ACTIVA
+      var mejor = null, mejorScore = -1;
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i); if (!k) continue;
+        var m = k.match(/^f123_estado_v4(.*)_(A|B)$/); if (!m) continue;
+        if ((OC_STATE_KEY + m[1]) === baseActiva) continue;   // saltar la tienda activa (vacía)
+        try {
+          var body = JSON.parse(localStorage.getItem(k) || "null");
+          if (!body || !Array.isArray(body.productos) || body.productos.length === 0) continue;
+          var score = body.productos.length * 100 + ((body.ubicaciones && body.ubicaciones.length) || 0);
+          if (score > mejorScore) { mejorScore = score; mejor = body; }
+        } catch (_) {}
+      }
+      if (!mejor) return false;
+      aplicarRespaldo(mejor);
+      _cargoBufferReal = true;
+      try { guardarEstadoLocal(); } catch (_) {}
+      try { console.warn("[auto-recuperar] inventario del dueño recuperado de otra tienda de este aparato (productos:", (mejor.productos || []).length + ")"); } catch (_) {}
+      return true;
+    } catch (_) { return false; }
+  }
   try {
     var _aparatoReal = false;
     try { _aparatoReal = !!((JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId); } catch (_) {}
     if (!_cargoBufferReal && (_aparatoReal || OC_STATE_SUFIJO)) {
-      _vaciarTiendaFresca();
-      console.warn("[guard-demo] aparato real sin buffer local: semilla de ejemplo vaciada, la tienda arranca limpia y se llena por sync.");
+      // 1) intentar recuperar el inventario del propio aparato; 2) si no hay, vaciar la semilla.
+      if (!_autoRecuperarInventario()) {
+        _vaciarTiendaFresca();
+        console.warn("[guard-demo] aparato real sin buffer local: semilla de ejemplo vaciada, la tienda arranca limpia y se llena por sync.");
+      }
     }
   } catch (_) {}
   /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).

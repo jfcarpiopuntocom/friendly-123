@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "El negocio de ejemplo (demo) ya no usa el nombre de ningun cliente real: todo es claramente de muestra. Sube shell a f123-shell-v279.",
+  "changelog": "Si tu aparato quedaba mostrando la tienda vacia despues de entrar tu licencia, ahora recupera SOLO tu inventario (que estaba guardado en el mismo aparato) al abrir, sin botones ni pasos. Sube shell a f123-shell-v280.",
   "requerida": false,
-  "shell": "f123-shell-v279",
+  "shell": "f123-shell-v280",
   "apagar": [],
   "releaseName": "v1.0"
 }

@@ -649,6 +649,7 @@
         window._ocSyncMinTimer = setInterval(_pintarSyncMin, 3000);
       } catch (_) {}
 
+
       /* TOGGLE "Device sync / Turn off sync" ELIMINADO (JFC 2026-09-15): era un
          DUPLICADO confuso de "Deactivate sync" (los dos apagan el sync para el
          usuario). El sync nuevo queda ON por defecto; si algún día hay que
