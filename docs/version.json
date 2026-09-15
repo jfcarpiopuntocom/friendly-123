@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Export (Forma B) ya funciona por WhatsApp: el boton descarga una copia de tus datos y abre WhatsApp con un mensaje listo para que la mandes (a ti mismo o a tu contador) adjuntando el archivo. Todo se queda en tu dispositivo. Sube shell a f123-shell-v271.",
+  "changelog": "Mover una copia por WhatsApp: ahora hay Export Y Import. Exportas una copia (sin tu PIN ni claves, que no deben viajar por WhatsApp) y la mandas; del otro lado, el boton Importar la trae de vuelta con confirmacion. Antes el archivo exportado no se podia importar; corregido. Sube shell a f123-shell-v272.",
   "requerida": false,
-  "shell": "f123-shell-v271",
+  "shell": "f123-shell-v272",
   "apagar": [],
   "releaseName": "v1.0"
 }

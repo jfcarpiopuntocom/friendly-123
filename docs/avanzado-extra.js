@@ -635,39 +635,71 @@
         if (typeof window.pintarSyncNuevoEstado === "function") window.pintarSyncNuevoEstado();
       } catch (_) {}
 
-      /* EXPORT — FORMA B: WHATSAPP (JFC 2026-09-15). Forma A = sync (arriba),
-         Forma B = exportar una copia y compartirla por WhatsApp, Forma C (a
-         futuro) = Loyverse. Soberano: descarga el respaldo (/respaldo/exportar)
-         como archivo local y abre WhatsApp con un mensaje listo; el dueño adjunta
-         el archivo recién bajado. NO toca ningún servidor nuestro (mismo espíritu
-         que backup-scheduler). El "Export backup" de la sección Backup sigue
-         igual; esto es el mismo dato pero con el atajo de compartir. */
+      /* EXPORT / IMPORT — FORMA B: WHATSAPP (JFC 2026-09-15, corregido). Forma A =
+         sync (arriba), Forma B = mover una copia por WhatsApp, Forma C (futuro) =
+         Loyverse. Par CASADO export<->import:
+         - Export: envuelve {schemaVersion:2, datos (de /respaldo/exportar),
+           fotosPerchas} y lo descarga; abre WhatsApp con un mensaje listo.
+           A PROPÓSITO no incluye oc_secure (hashes de PIN/correo): un archivo que
+           viaja por WhatsApp NO debe llevar tus claves. Por eso el import avisa
+           que restaura datos, no toca tus claves.
+         - Import: cajita de archivo + botón. Lee el mismo envoltorio (o cualquier
+           respaldo con .datos, incluido el de la sección Backup), CONFIRMA antes
+           de reemplazar, hace POST /respaldo/importar, restaura fotos y avisa a la
+           app para re-sincronizar la UI. Soberano: nada toca un servidor nuestro. */
       try {
         panel.insertAdjacentHTML("beforeend",
           '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">' +
-          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">Export a copy (WhatsApp)</h4>' +
-          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">Download a clean copy of your data and share it on WhatsApp with yourself or your accountant. It stays on your device: attach the file that just downloaded.</p>' +
-          '<button class="ir" id="btnExportarCopia">Download & share on WhatsApp</button>' +
-          '<p id="oc-exportcopia-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:#1a1a1a;"></p>' +
+          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">Move a copy (WhatsApp)</h4>' +
+          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">Export a clean copy of your data (products, sales, inventory, photos) and share it on WhatsApp, or import a copy someone sent you. Your PIN/keys are never included in the shared file. It stays on your device.</p>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<button class="ir" id="btnExportarCopia">Export &amp; share on WhatsApp</button>' +
+          '<button class="ir" id="btnImportarCopia" style="background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;border-color:var(--azul-medio,#2c4a68);">Import a copy</button>' +
+          '</div>' +
+          '<input id="btnImportarCopia-file" type="file" accept=".json,application/json" style="display:none;">' +
+          '<p id="oc-copia-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:#1a1a1a;"></p>' +
           '</div>');
+        // Helper: junta el envoltorio Forma B (datos + fotos, SIN claves).
+        var _copiaMsg = function (t, ok) { var m = document.getElementById("oc-copia-msg"); if (m) { m.style.color = ok ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)"; m.textContent = t; } };
+        var _fotosLocales = function () { var o = {}; try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("_foto_percha_") !== -1) o[k] = localStorage.getItem(k); } } catch (_) {} return o; };
         var _bx = document.getElementById("btnExportarCopia");
         if (_bx) _bx.addEventListener("click", async function () {
-          var _m = document.getElementById("oc-exportcopia-msg");
           try {
             var r = await fetch(API + "/respaldo/exportar");
             var datos = await r.json();
-            if (!r.ok) { if (_m) { _m.style.color = "var(--rojo,#a3392a)"; _m.textContent = datos.error || "Activate this device (PIN 789) to export."; } return; }
+            if (!r.ok) { _copiaMsg(datos.error || "Activate this device (PIN 789) to export.", false); return; }
             var stamp = new Date().toISOString().slice(0, 10);
-            var blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
+            var paquete = { schemaVersion: 2, fecha: new Date().toISOString(), _formaB: true, datos: datos, fotosPerchas: _fotosLocales() };
+            var blob = new Blob([JSON.stringify(paquete)], { type: "application/json" });
             var url = URL.createObjectURL(blob);
-            var a = document.createElement("a"); a.href = url; a.download = "friendly-backup-" + stamp + ".json";
+            var a = document.createElement("a"); a.href = url; a.download = "friendly-copy-" + stamp + ".json";
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(function () { try { URL.revokeObjectURL(url); } catch (_) {} }, 4000);
-            if (_m) { _m.style.color = "var(--sim-verde-dk,#1a6e3c)"; _m.textContent = "Copy downloaded. Opening WhatsApp — attach the file there."; }
-            var txt = encodeURIComponent("Here is my friendly-123 backup from " + stamp + ". I'm attaching the file that just downloaded.");
+            _copiaMsg("Copy downloaded. Opening WhatsApp — attach the file there.", true);
+            var txt = encodeURIComponent("Here is my friendly-123 copy from " + stamp + ". I'm attaching the file that just downloaded — open it in the app with Advanced > Move a copy > Import.");
             window.open("https://wa.me/?text=" + txt, "_blank");
-          } catch (e) { if (_m) { _m.style.color = "var(--rojo,#a3392a)"; _m.textContent = "Could not export — check your connection."; } }
+          } catch (e) { _copiaMsg("Could not export — check your connection.", false); }
         });
+        var _bi = document.getElementById("btnImportarCopia");
+        var _bif = document.getElementById("btnImportarCopia-file");
+        if (_bi && _bif) {
+          _bi.addEventListener("click", function () { _bif.value = ""; _bif.click(); });
+          _bif.addEventListener("change", async function (e) {
+            var file = e.target.files && e.target.files[0]; if (!file) return;
+            try {
+              var paquete = JSON.parse(await file.text());
+              if (!paquete || !paquete.datos) { _copiaMsg("This file does not look like a friendly-123 copy.", false); return; }
+              if ((paquete.schemaVersion || 1) > 2) { _copiaMsg("This copy is from a newer version — update the app first.", false); return; }
+              if (!confirm("This REPLACES your current products, sales and inventory with the copy. Your PIN and keys stay as they are. Continue?")) return;
+              var res = await fetch(API + "/respaldo/importar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
+              var rr = await res.json();
+              if (!res.ok) { _copiaMsg(rr.error || "Could not import the copy.", false); return; }
+              if (paquete.fotosPerchas) { try { Object.keys(paquete.fotosPerchas).forEach(function (k) { try { localStorage.setItem(k, paquete.fotosPerchas[k]); } catch (_) {} }); } catch (_) {} }
+              try { window.dispatchEvent(new CustomEvent("oc-datos-importados")); } catch (_) {}
+              _copiaMsg("Copy imported. The screen now shows the restored data.", true);
+            } catch (err) { _copiaMsg("Could not read the file — is it a valid copy?", false); }
+          });
+        }
       } catch (_) {}
 
       /* GATE DE SYNC PODADO (JFC 2026-09-15). Antes ocultaba/mostraba por rol un
