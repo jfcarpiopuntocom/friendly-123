@@ -11,8 +11,10 @@
 // MISMO esquema del sync actual (PBKDF2 del código de sala -> AES-GCM). El código
 // nunca viaja. El relay solo rebota bytes que no puede leer.
 //
-// NO ROMPE NADA: apagado por defecto. Solo hace algo si
-// localStorage["OC_YJS_FASE0"] === "1". Corre EN PARALELO al sync casero, en una
+// ENCENDIDO POR DEFECTO (JFC 2026-09-15): es el único motor que cruza los BYTES
+// de las fotos device-to-device (sala "-fotos"). Solo se apaga si el dueño guarda
+// localStorage["OC_YJS_FASE0"] === "0". NO cuesta nada al que trabaja solo:
+// arrancar() no hace nada sin cuaderno compartido. Corre EN PARALELO al sync casero, en una
 // SALA DISTINTA del relay (sufijo "-y"), así los updates binarios de Yjs jamás
 // llegan al handler JSON de sync-realtime.js.
 // FASE 1 (2026-09-10): sincroniza TODAS las colecciones del catálogo (productos,
@@ -21,8 +23,8 @@
 // store REAL de la app (mock-backend.js). store->Yjs con OCSync.catalogoPropio();
 // Yjs->store con OCSync.aplicarCatalogo() — el merge ADD-ONLY ya probado en
 // producción: nunca borra, nunca pierde, los merges son aditivos. Ver conectarStore().
-// Sigue detrás del flag OC_YJS_FASE0 (toggle en Avanzado), en paralelo al sync
-// casero y en sala de relay separada ("-y").
+// Flag OC_YJS_FASE0 (toggle en Avanzado) ahora es escotilla de APAGADO ("0");
+// corre en paralelo al sync casero y en sala de relay separada ("-y").
 (function () {
   "use strict";
 

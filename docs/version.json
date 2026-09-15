@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Sync nuevo (Yjs) ENCENDIDO por defecto: es el unico motor que cruza los BYTES de las fotos device-to-device, asi que las fotos por fin sincronizan sin tocar ningun toggle. Corre en paralelo al sync viejo (sin reemplazarlo) y NO cuesta nada al que trabaja solo (solo arranca si hay cuaderno compartido). Escotilla: se puede apagar en Avanzado. Ademas (v266): descuento / precio de casa (cerveza $5 publico / $3 artistas, un solo stock) + guard-demo. Sube shell a f123-shell-v267.",
+  "changelog": "Advanced: TODOS los items del menu llevan un icono monocromo que significa lo que es (empezar, sincronizar, equipo, bitacora, antifraude, en vivo, acceso, contable, respaldo, reporte, comparar perchas, ubicacion, zona horaria, gastos). Sin emojis. Ademas (v267): el sync nuevo (Yjs) queda ENCENDIDO por defecto, que es lo unico que cruza los BYTES de las fotos entre aparatos; en paralelo al sync viejo y sin costo para el que trabaja solo. Y (v266): descuento / precio de casa (cerveza $5 publico / $3 artistas, un solo stock). Sube shell a f123-shell-v268.",
   "requerida": false,
-  "shell": "f123-shell-v267",
+  "shell": "f123-shell-v268",
   "apagar": [],
   "releaseName": "v1.0"
 }

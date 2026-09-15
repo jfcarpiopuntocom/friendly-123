@@ -2191,24 +2191,32 @@ Keep it somewhere safe.`);
           "Fraud control": "Integrity of sensitive operations.",
           "Where the team has been": "Location pings while a session is open.",
         };
-        /* ICONOS DEL RIEL (2026-08-26, UX sweep H1): un carácter Unicode geométrico
-           antes de cada label mejora el escaneado vertical en desktop y horizontal
-           en mobile. Solo aquí en Advanced — no afecta al nav principal de la app.
-           Claves en inglés Y español para que funcione en ambos idiomas.
-           Unicode geométrico básico (BMP): renderiza igual en iOS, Android, Chrome y Safari. */
+        /* ICONOS DEL RIEL (2026-08-26; barrido completo JFC 2026-09-15). TODOS los
+           items llevan icono, y cada uno SIGNIFICA lo que es (pedido de JFC: "que
+           tengan sentido, no cualquier cosa"). Sin emojis (regla dura de JFC): se
+           usan glifos Unicode monocromos de presentación de texto por defecto, que
+           NO se vuelven emoji a color en iOS/Android/Safari/Chrome (por eso se
+           evitan ⚖/⚿/⏱, que iOS pinta como emoji). Claves en inglés Y español.
+           Mapa de significado:
+             ➊ empezar aquí · ⇄ sincronizar · ⧉ grupo/equipo · ≡ bitácora ·
+             ⊘ bloquear fraude · ◉ presencia en vivo · ◈ acceso/llave · Σ contable ·
+             ⤓ guardar/respaldo · ▤ reporte (renglones) · ◫ comparar perchas ·
+             ⌖ ubicación · ◷ reloj/zona horaria · ⊟ dinero que sale (gastos). */
         const ICONS = {
-          "First Steps": "◎", "Primeros Pasos": "◎",
+          "First Steps": "➊", "Primeros Pasos": "➊",
           "Sync your team": "⇄", "Sincronizar equipo": "⇄",
-          "Team": "⊕", "Equipo": "⊕",
+          "Team": "⧉", "Equipo": "⧉",
           "Activity log": "≡", "Actividad reciente": "≡", "Recent activity": "≡",
-          "Fraud control": "⊙", "Control antifraude": "⊙",
-          "Your team right now": "●", "Tu equipo ahora": "●",
+          "Fraud control": "⊘", "Control antifraude": "⊘",
+          "Your team right now": "◉", "Tu equipo ahora": "◉",
           "Access & recovery": "◈", "Acceso y recuperación": "◈",
-          "Accounting": "▤", "Contabilidad": "▤",
-          "Backup": "◉", "Respaldo": "◉",
-          "Accounting report": "▦", "Reporte contable": "▦",
-          "Location comparison (this month)": "▧", "Comparación de perchas": "▧",
-          "Where the team has been": "⊛",
+          "Accounting": "Σ", "Contabilidad": "Σ",
+          "Backup": "⤓", "Respaldo": "⤓",
+          "Accounting report": "▤", "Reporte contable": "▤",
+          "Location comparison (this month)": "◫", "Comparación de perchas": "◫",
+          "Where the team has been": "⌖", "Dónde ha estado el equipo": "⌖",
+          "Timezone": "◷", "Zona horaria": "◷",
+          "Monthly expenses": "⊟", "Gastos mensuales": "⊟",
         };
         function esComo(t) { t = (t || "").trim(); return /^¿?Cómo funciona/i.test(t) || /^How does it work/i.test(t); }
         function tituloDe(n) {
