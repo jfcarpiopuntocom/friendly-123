@@ -27,8 +27,13 @@
   "use strict";
 
   var FLAG = "OC_YJS_FASE0";
-  function activo() { try { return localStorage.getItem(FLAG) === "1"; } catch (_) { return false; } }
-  if (!activo()) return; // costo cero para todos los que no probamos el spike
+  /* SYNC NUEVO ENCENDIDO POR DEFECTO (JFC 2026-09-15). Antes estaba detrás del
+     flag apagado y por eso los BYTES de las fotos nunca cruzaban (solo este
+     motor los mueve, sala "-fotos"). Ahora corre para todos, EN PARALELO al
+     sync viejo (no lo reemplaza: menos riesgo). Escotilla de escape: si el
+     toggle de Avanzado guarda "0" explícito, se apaga. Sin clave (null) = ON. */
+  function activo() { try { return localStorage.getItem(FLAG) !== "0"; } catch (_) { return true; } }
+  if (!activo()) return; // solo se apaga si el dueño lo puso en "0" a mano
 
   // Mismos parámetros que sync-realtime.js (NO cambiar sin cambiar allá también).
   var ROOM_KEY = "f123_sync_room";

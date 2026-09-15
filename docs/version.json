@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Descuento / precio de casa (pedido de Belen, idiomARTE): un producto puede tener un segundo precio opcional para la gente de la casa (ej. cerveza $5 publico / $3 artistas) SIN partir el stock en dos. En la venta, 'Adjust price / discount' abre una cajita para cobrar otro precio en esa venta, con un boton que llena el precio de casa de un toque. Un solo stock. El precio de casa tambien se sincroniza entre aparatos. Ademas: guard-demo (un aparato real ya no arranca con el stock de ejemplo). Sube shell a f123-shell-v266.",
+  "changelog": "Sync nuevo (Yjs) ENCENDIDO por defecto: es el unico motor que cruza los BYTES de las fotos device-to-device, asi que las fotos por fin sincronizan sin tocar ningun toggle. Corre en paralelo al sync viejo (sin reemplazarlo) y NO cuesta nada al que trabaja solo (solo arranca si hay cuaderno compartido). Escotilla: se puede apagar en Avanzado. Ademas (v266): descuento / precio de casa (cerveza $5 publico / $3 artistas, un solo stock) + guard-demo. Sube shell a f123-shell-v267.",
   "requerida": false,
-  "shell": "f123-shell-v266",
+  "shell": "f123-shell-v267",
   "apagar": [],
   "releaseName": "v1.0"
 }
