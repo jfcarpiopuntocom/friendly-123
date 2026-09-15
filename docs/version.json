@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Unir un aparato que YA es tuyo (dueño activado) a tu licencia ahora CONSERVA tu inventario en vez de mandarte a un cuaderno vacío. Sube shell a f123-shell-v278.",
+  "changelog": "El negocio de ejemplo (demo) ya no usa el nombre de ningun cliente real: todo es claramente de muestra. Sube shell a f123-shell-v279.",
   "requerida": false,
-  "shell": "f123-shell-v278",
+  "shell": "f123-shell-v279",
   "apagar": [],
   "releaseName": "v1.0"
 }

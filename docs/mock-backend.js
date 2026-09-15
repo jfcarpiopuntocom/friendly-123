@@ -61,7 +61,7 @@
 
   // Perchas (unidades operativas). sucursalId -> agrupador backend.
   const ubicaciones = [
-    { "id": "galeria",  "nombre": "Galería idiomARTE",        "activa": true, "tipo": "propio",        "sucursalId": "suc01" },
+    { "id": "galeria",  "nombre": "Sample Gallery",        "activa": true, "tipo": "propio",        "sucursalId": "suc01" },
     { "id": "consigna", "nombre": "Consignación de artistas", "activa": true, "tipo": "consignacion",  "sucursalId": "suc01", "promotoraId": "pr01", "comisionSocio": 85, "metaMensual": 800, "lecturaPreferida": "asociado", "escalasComision": [ {"hasta":80,"comision":85}, {"hasta":120,"comision":88}, {"hasta":999,"comision":90} ] },
     { "id": "bar",      "nombre": "Bar & Café",               "activa": true, "tipo": "propio",        "sucursalId": "suc02" },
     { "id": "eventos",  "nombre": "Eventos culturales",       "activa": true, "tipo": "socio",         "sucursalId": "suc03", "promotoraId": "pr02", "comisionSocio": 10, "metaMensual": 500, "escalasComision": [] }
@@ -69,8 +69,8 @@
   // Sucursales: agrupadores backend de perchas (encabezados de sección en Inventario).
   // Asociados/as: artistas en consignación (modalidad artista 85/15) y quien trae público.
   const promotoras = [
-    { id: "pr01", nombre: "María Auquilla",  comisionBase: 85, comision: 85 },
-    { id: "pr02", nombre: "Carlos Mendoza",  comisionBase: 10, comision: 10 },
+    { id: "pr01", nombre: "Consignment Artist (sample)",  comisionBase: 85, comision: 85 },
+    { id: "pr02", nombre: "Event Partner (sample)",  comisionBase: 10, comision: 10 },
   ];
   const sucursales = [
     { id: "suc01", nombre: "Galería",    activa: true },
@@ -83,9 +83,9 @@
     {"id":"p02","nombre":"Acuarela original — Río Tomebamba","categoria":"Paintings","sku":"ART-WAT-002","estrella":true,"barcode":"7862000010028","ubicacionId":"galeria","precio":260,"costo":110,"stockActual":2,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Taller propio"},
     {"id":"p03","nombre":"Lámina — Serie Andes I","categoria":"Art & prints","sku":"ART-PRN-003","barcode":"7862000010035","ubicacionId":"galeria","precio":45,"costo":16,"stockActual":24,"umbralRojo":6,"umbralAmarillo":12,"proveedor":"Imprenta Fine Art"},
     {"id":"p04","nombre":"Lámina — Puertas coloniales","categoria":"Art & prints","sku":"ART-PRN-004","barcode":"7862000010042","ubicacionId":"galeria","precio":38,"costo":14,"stockActual":30,"umbralRojo":8,"umbralAmarillo":15,"proveedor":"Imprenta Fine Art"},
-    {"id":"p05","nombre":"Consignación — Tejedora (óleo)","categoria":"Paintings","sku":"CON-OIL-005","barcode":"7862000010059","ubicacionId":"consigna","precio":520,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"María Auquilla"},
-    {"id":"p06","nombre":"Consignación — Mañana de mercado","categoria":"Paintings","sku":"CON-OIL-006","estrella":true,"barcode":"7862000010066","ubicacionId":"consigna","precio":380,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"María Auquilla"},
-    {"id":"p07","nombre":"Consignación — Lámina Laguna del Cajas","categoria":"Art & prints","sku":"CON-PRN-007","barcode":"7862000010073","ubicacionId":"consigna","precio":60,"costo":0,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"María Auquilla"},
+    {"id":"p05","nombre":"Consignación — Tejedora (óleo)","categoria":"Paintings","sku":"CON-OIL-005","barcode":"7862000010059","ubicacionId":"consigna","precio":520,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Consignment Artist (sample)"},
+    {"id":"p06","nombre":"Consignación — Mañana de mercado","categoria":"Paintings","sku":"CON-OIL-006","estrella":true,"barcode":"7862000010066","ubicacionId":"consigna","precio":380,"costo":0,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Consignment Artist (sample)"},
+    {"id":"p07","nombre":"Consignación — Lámina Laguna del Cajas","categoria":"Art & prints","sku":"CON-PRN-007","barcode":"7862000010073","ubicacionId":"consigna","precio":60,"costo":0,"stockActual":12,"umbralRojo":3,"umbralAmarillo":6,"proveedor":"Consignment Artist (sample)"},
     {"id":"p08","nombre":"Brújula de latón antigua","categoria":"Antiques","sku":"ANT-BRS-008","barcode":"7862000010080","ubicacionId":"galeria","precio":145,"costo":70,"stockActual":3,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Anticuario del Centro"},
     {"id":"p09","nombre":"Máquina de escribir vintage","categoria":"Antiques","sku":"ANT-TYP-009","estrella":true,"barcode":"7862000010097","ubicacionId":"galeria","precio":320,"costo":160,"stockActual":1,"umbralRojo":1,"umbralAmarillo":2,"proveedor":"Anticuario del Centro"},
     {"id":"p10","nombre":"Reloj de pared antiguo","categoria":"Antiques","sku":"ANT-CLK-010","barcode":"7862000010103","ubicacionId":"galeria","precio":180,"costo":90,"stockActual":2,"umbralRojo":1,"umbralAmarillo":2,"dormidoDesde":"2026-06-10","proveedor":"Anticuario del Centro"},
