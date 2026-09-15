@@ -1333,7 +1333,7 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
   /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
      archivados: dashboards, resumen histórico, BCG y reportes financieros deben
@@ -1698,6 +1698,11 @@
       } else if (mandaElOtro) {
         if (esTextoCorto(String(p.nombre || ""), 240) && String(mio.nombre) !== String(p.nombre)) { mio.nombre = p.nombre; actualizados++; }
         if (Number.isFinite(Number(p.precio)) && Number(p.precio) >= 0 && Number(mio.precio) !== Number(p.precio)) { mio.precio = Number(p.precio); actualizados++; }
+        /* precioCasa (JFC/Belén 2026-09-15): el precio de casa también converge
+           entre aparatos. null explícito lo borra; un número >=0 lo fija. Así
+           Belén define "$3 artistas" en un aparato y aparece en los demás. */
+        if (p.precioCasa === null && mio.precioCasa != null) { mio.precioCasa = null; actualizados++; }
+        else if (Number.isFinite(Number(p.precioCasa)) && Number(p.precioCasa) >= 0 && Number(mio.precioCasa) !== Number(p.precioCasa)) { mio.precioCasa = Number(p.precioCasa); actualizados++; }
       }
     });
 
@@ -2061,7 +2066,7 @@
     catalogoPropio() {
       return {
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, fotoHash: u.fotoHash || null })),
-        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad })),
+        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad })),
         /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
            BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
            `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada
@@ -2114,7 +2119,7 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia })),
-        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
+        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
         huella: huellaCatalogo(),
@@ -2437,9 +2442,14 @@
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
-        const CAMPOS = ["nombre", "categoria", "precio", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "archivado"];
+        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "archivado"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
+      /* precioCasa (JFC/Belén 2026-09-15): nullable. "" o vacío => se borra el
+         precio de casa (null); si no, número >=0. Va ANTES del branch numérico
+         genérico, que convertiría null/"" en 0 y dejaría un precio de casa $0
+         fantasma. */
+      if (k === "precioCasa") { p[k] = (body[k] === "" || body[k] == null) ? null : Math.max(0, Number(body[k]) || 0); return; }
       if (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
       if (k === "servingMl" || k === "botellaMl") {
         const nuevo = Math.max(1, Number(body[k]) || (k === "servingMl" ? 50 : 750));
@@ -2762,6 +2772,12 @@
           // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
           // corrompía la valorización de inventario desde la creación.
           precio: Math.max(0, Number(body.precio) || 0), costo: Math.max(0, Number(body.costo) || 0), stockActual: Math.max(0, Number(body.stockInicial) || 0),
+          /* PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): segundo precio
+             OPCIONAL, más bajo, para la gente de la casa (ej. cerveza $5 al
+             público, $3 a artistas) SIN abrir un segundo producto que partiría
+             el stock en dos. null = no hay precio de casa (comportamiento de
+             siempre). "" o no-número => null. Ver precioEfectivo en /venta. */
+          precioCasa: (body.precioCasa === "" || body.precioCasa == null) ? null : Math.max(0, Number(body.precioCasa) || 0),
           umbralRojo: Number(body.umbralRojo) || 5, umbralAmarillo: Number(body.umbralAmarillo) || 10, proveedor: body.proveedor || "",
           perecible: !!body.perecible, fechaCaducidad: body.perecible ? (body.fechaCaducidad || null) : null,
           metodoCosteo: body.metodoCosteo === "LIFO" ? "LIFO" : "FIFO",
@@ -2836,7 +2852,21 @@
            repartir). Se marca cortesia:true en info para que reportes y la lista de
            ventas la distingan. */
         const _esCortesia = !!_infoPago.cortesia;
-        const precioEfectivo = _esCortesia ? 0 : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : p.precio);
+        /* PRECIO POR VENTA (JFC/Belén 2026-09-15). Prioridad:
+           1) cortesía => 0 (sin ingreso).
+           2) precioOverride: monto libre que el cajero puso en "Adjust price"
+              para ESTA venta (descuento puntual, o el precio de casa que se
+              llenó de un toque). Debe ser un número finito >= 0.
+           3) ticket con montoPagado => ese monto.
+           4) el precio de lista del producto.
+           El stock baja igual (una unidad es una unidad); solo cambia el
+           precioUnit registrado. No inventa un segundo producto. */
+        const _override = Number(_infoPago.precioOverride);
+        const precioEfectivo = _esCortesia
+          ? 0
+          : ((Number.isFinite(_override) && _override >= 0)
+              ? _override
+              : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : p.precio));
         const montoBruto = precioEfectivo * cant;
         const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
         const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null;

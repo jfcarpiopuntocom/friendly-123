@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "fecha": "2026-09-11",
-  "changelog": "Mi Equipo: TODOS los miembros salen con lapicitos por campo (nombre y correo editables al toque), y la ficha del dueno deja de ser estatica. Solo el dueno cierra la cuenta, cambia la licencia o quita/degrada admins. Sube shell a f123-shell-v265.",
+  "fecha": "2026-09-15",
+  "changelog": "Descuento / precio de casa (pedido de Belen, idiomARTE): un producto puede tener un segundo precio opcional para la gente de la casa (ej. cerveza $5 publico / $3 artistas) SIN partir el stock en dos. En la venta, 'Adjust price / discount' abre una cajita para cobrar otro precio en esa venta, con un boton que llena el precio de casa de un toque. Un solo stock. El precio de casa tambien se sincroniza entre aparatos. Ademas: guard-demo (un aparato real ya no arranca con el stock de ejemplo). Sube shell a f123-shell-v266.",
   "requerida": false,
-  "shell": "f123-shell-v265",
+  "shell": "f123-shell-v266",
   "apagar": [],
   "releaseName": "v1.0"
 }
