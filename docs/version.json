@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Se agrega una linea de estado del sync en Avanzado (conectado o no, y cuantos productos/perchas/fotos), para ver al instante por que dos aparatos muestran cosas distintas. Sube shell a f123-shell-v276.",
+  "changelog": "Al cambiar el nombre del negocio, ahora se reporta de inmediato (antes solo en el proximo inicio de sesion), asi el nombre nuevo aparece al toque en el panel de licencias. Sube shell a f123-shell-v277.",
   "requerida": false,
-  "shell": "f123-shell-v276",
+  "shell": "f123-shell-v277",
   "apagar": [],
   "releaseName": "v1.0"
 }

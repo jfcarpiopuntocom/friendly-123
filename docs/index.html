@@ -3888,6 +3888,18 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
       if (d && d.ok) {
         span.textContent = d.nombreNegocio || nuevo;
         try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o) { o.nombreNegocio = d.nombreNegocio || nuevo; localStorage.setItem("f123_owned", JSON.stringify(o)); } } catch (_) {}
+        /* HEARTBEAT AL RENOMBRAR (JFC 2026-09-15). Antes el nombre nuevo solo
+           llegaba al Worker (y al panel privado de licencias) en el PRÓXIMO login;
+           por eso JFC editaba "Unificada 15 de sept" y no aparecía en su lista de
+           licencias. Ahora se manda de inmediato un heartbeat con el nombre nuevo:
+           el panel se actualiza al toque, sin depender del sync device-to-device
+           (que es otro canal). */
+        try {
+          const o2 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          if (o2.instanceId && window.OCAuth && window.OCAuth.heartbeat) {
+            window.OCAuth.heartbeat({ instanceId: o2.instanceId, licenseCode: o2.licenseCode || "", email: o2.email || "", whatsapp: o2.whatsapp || "", nombre: o2.nombre || "", nombreNegocio: o2.nombreNegocio || "", accion: "rename" });
+          }
+        } catch (_) {}
       }
     } catch (_) {}
   });
