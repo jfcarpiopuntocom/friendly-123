@@ -1980,7 +1980,18 @@ Keep it somewhere safe.`);
           "Where the team has been": "⌖", "Dónde ha estado el equipo": "⌖",
           "Timezone": "◷", "Zona horaria": "◷",
           "Monthly expenses": "⊟", "Gastos mensuales": "⊟",
+          "Under observation": "⊙", "En observación": "⊙",
+          "Profit & loss (today)": "▦", "Pérdidas y ganancias (hoy)": "▦",
+          "Technical support": "⌥", "Soporte técnico": "⌥",
+          "Recent errors logged": "⊗", "Últimos errores registrados": "⊗",
+          "Privacy & data policy": "§", "Política de Privacidad y Manejo de Datos": "§",
         };
+        /* LOOKUP NORMALIZADO + color sólido (JFC 2026-09-15): compara en NFC+trim
+           (un título con acento compuesto/descompuesto o espacios SIEMPRE cuadra) y
+           el icono va en color SÓLIDO, nunca opacidad (regla dura de JFC: 0 opacidad
+           en texto). */
+        const ICONS_N = {}; for (const _ik in ICONS) { try { ICONS_N[_ik.normalize("NFC").trim()] = ICONS[_ik]; } catch (_) { ICONS_N[_ik] = ICONS[_ik]; } }
+        const iconoDe = (t) => { try { return ICONS_N[(t || "").normalize("NFC").trim()] || ""; } catch (_) { return ICONS[t] || ""; } };
         function esComo(t) { t = (t || "").trim(); return /^¿?Cómo funciona/i.test(t) || /^How does it work/i.test(t); }
         function tituloDe(n) {
           if (!n || n.nodeType !== 1) return null;
@@ -2104,7 +2115,7 @@ Keep it somewhere safe.`);
           const id = idDe(n, idx++); hint(n, t); secciones.push({ id, label: t });
         });
         rNav.innerHTML = secciones.map((s) => {
-          const ico = ICONS[s.label] ? `<span aria-hidden="true" style="display:inline-block;width:1.4em;text-align:center;opacity:.75;">${ICONS[s.label]}</span>` : "";
+          const _icg = iconoDe(s.label); const ico = _icg ? `<span aria-hidden="true" style="display:inline-block;width:1.4em;text-align:center;color:var(--azul-medio,#2c4a68);-webkit-text-fill-color:var(--azul-medio,#2c4a68);">${_icg}</span>` : "";
           return `<button type="button" data-riel-go="${s.id}" style="display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:9px 8px;margin:0;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">${ico}${s.label}</button>`;
         }).join("");
         fila.appendChild(rNav); fila.appendChild(contR); vista.appendChild(fila);
@@ -2146,7 +2157,7 @@ Keep it somewhere safe.`);
               const b = document.createElement("button"); b.type = "button"; b.setAttribute("data-riel-go", id);
               b.style.cssText = "display:block;width:100%;text-align:left;background:none;border:none;border-left:3px solid transparent;padding:9px 8px;margin:0;font-size:13px;font-weight:700;cursor:pointer;line-height:1.3;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;";
               /* Inyectar icono del mapa ICONS al botón agregado tardíamente (MutationObserver) */
-              const ico2 = ICONS[t] ? `<span aria-hidden="true" style="display:inline-block;width:1.4em;text-align:center;opacity:.75;">${ICONS[t]}</span>` : "";
+              const _icg2 = iconoDe(t); const ico2 = _icg2 ? `<span aria-hidden="true" style="display:inline-block;width:1.4em;text-align:center;color:var(--azul-medio,#2c4a68);-webkit-text-fill-color:var(--azul-medio,#2c4a68);">${_icg2}</span>` : "";
               b.innerHTML = ico2 + escHtml(t); rNav.appendChild(b);
               // B-11 (2026-08-26): re-aplicar estado activo después de agregar el
               // chip; de lo contrario el chip tardío aparece sin resaltar aunque
@@ -2177,12 +2188,17 @@ Keep it somewhere safe.`);
                  Y con tope de alto: 18 chips sin limite empujaban el contenido
                  tan abajo que parecia que la seccion estaba vacia. */
               rNav.style.cssText = "display:flex;flex:0 0 auto;width:100%;box-sizing:border-box;position:static;top:auto;max-height:34vh;overflow-y:auto;-webkit-overflow-scrolling:touch;flex-direction:row;flex-wrap:wrap;gap:6px;align-content:flex-start;border-right:none;border-bottom:2px solid var(--azul-suave,#dde5ec);padding:8px 0;margin:0 0 14px 0;background:var(--blanco-calido,#F8F9FB);";
-              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "auto"; b.style.flex = "0 0 auto"; b.style.borderLeft = "none"; b.style.margin = "0"; b.style.padding = "9px 12px"; b.style.whiteSpace = "nowrap"; });
+              /* CHIPS QUE SIEMPRE CABEN (JFC 2026-09-15): max-width 100% + wrap para
+                 que un rótulo largo no se pase del ancho en teléfonos de 320px. */
+              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "auto"; b.style.flex = "0 1 auto"; b.style.maxWidth = "100%"; b.style.borderLeft = "none"; b.style.margin = "0"; b.style.padding = "9px 12px"; b.style.whiteSpace = "normal"; });
             } else {
               fila.style.flexDirection = "row";
               fila.style.overflow = "";
               rNav.style.cssText = "flex:0 0 148px;width:148px;position:sticky;top:8px;align-self:flex-start;padding:0 10px 0 0;margin:0 14px 0 0;border-right:2px solid var(--azul-suave,#dde5ec);display:flex;flex-direction:column;max-height:calc(100vh - 24px);overflow-y:auto;background:var(--blanco-calido,#F8F9FB);z-index:3;box-sizing:border-box;";
-              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "100%"; b.style.padding = "9px 8px"; });
+              /* FIX (JFC 2026-09-15): resetear white-space a normal al volver a ancho;
+                 sin esto, tras rotar móvil->desktop los rótulos largos se salían de
+                 la columna en vez de envolver. */
+              rNav.querySelectorAll("[data-riel-go]").forEach((b) => { b.style.width = "100%"; b.style.padding = "9px 8px"; b.style.whiteSpace = "normal"; });
             }
           } catch (_) {}
         }

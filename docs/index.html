@@ -3941,15 +3941,27 @@ document.querySelectorAll("nav button").forEach(btn => {
   var header = document.querySelector("header");
   if (!header) return;
   function ajustar() {
-    var real = Math.ceil(header.offsetTop + header.offsetHeight) + 16;
+    // FIX (JFC 2026-09-15): medir SOLO el alto propio del header (rect.height), no
+    // offsetTop+offsetHeight. offsetTop sumaba lo que hubiera POR ENCIMA del header
+    // en el flujo (un aviso/banner que aparece al cargar), inflando --riel-top y
+    // dejando el menu principal "caido", con mucho espacio antes de los botones.
+    // rect.height ya captura el crecimiento del header al envolver (bug viejo "se
+    // tapa HOY"), asi que no regresa. Clamp de guarda contra runaway.
+    var real = Math.ceil(header.getBoundingClientRect().height) + 16;
+    if (real > 300) real = 300;
     if (!real) return;
     var actual = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--riel-top"), 10) || 0;
     if (Math.abs(real - actual) > 1) document.documentElement.style.setProperty("--riel-top", real + "px");
   }
   ajustar();
+  // Re-medir cuando el layout REALMENTE se asienta (fuentes, primer paint, load):
+  // evita el "se inicia caido" por medir antes de tiempo. Aditivo e idempotente.
+  try { requestAnimationFrame(function () { ajustar(); requestAnimationFrame(ajustar); }); } catch (_) {}
+  try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustar); } catch (_) {}
+  window.addEventListener("load", function () { ajustar(); setTimeout(ajustar, 250); setTimeout(ajustar, 900); });
   try { new ResizeObserver(ajustar).observe(header); } catch (_) { window.addEventListener("resize", ajustar); }
   window.addEventListener("orientationchange", function () { setTimeout(ajustar, 120); });
-  window.addEventListener("oc-login", function () { setTimeout(ajustar, 60); });
+  window.addEventListener("oc-login", function () { setTimeout(ajustar, 60); setTimeout(ajustar, 300); });
 })();
 
 // GUARDIA DE DOBLE PESTAÑA (portado de AMIGABLE, JFC 2026-08-05) — VITAL.
