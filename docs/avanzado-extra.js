@@ -1068,7 +1068,24 @@
              OCTienda.cambiar(). Si cambia de tienda, cambiar() recarga la página
              (el código de abajo no se ejecuta, correcto). Si ya estás en esa
              tienda (mismo:true), no recarga y mostramos el aviso de re-sync. */
-          const r2 = window.OCSyncControl.unirse(cod);
+          /* UNIFICAR SIN PERDER DATOS (JFC 2026-09-15, bug real en vivo). Si ESTE
+             aparato YA es un DUEÑO ACTIVADO con su propio negocio, meter una
+             licencia F123 NO debe tratarlo como un aparato ajeno que se une a un
+             store vacío (eso lo mandaba a la SEMILLA demo / vacío y "huerfanaba" su
+             inventario — justo lo que le pasó a JFC). Debe RECONCILIAR: apuntar
+             este aparato a la licencia canónica CONSERVANDO su data, para unificar
+             sus propios dispositivos. reconciliar() no vacía; el merge suma. Un
+             aparato NO-dueño o sin activar sí usa unirse() (llega a un negocio
+             ajeno de verdad). */
+          const _ow = (function () { try { return JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) { return {}; } })();
+          const _soyDuenoActivado = !!_ow.instanceId && !!(window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual() === "dueno");
+          let r2;
+          if (_soyDuenoActivado && /^F123-/i.test(cod) && window.OCTienda && window.OCTienda.reconciliar) {
+            r2 = window.OCTienda.reconciliar(cod);
+            if (r2 && r2.ok) r2 = { ok: true, mismo: true, error: "Este aparato ya quedó apuntado a tu licencia, conservando tu inventario. Se está sincronizando." };
+          } else {
+            r2 = window.OCSyncControl.unirse(cod);
+          }
           if (!r2.ok) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = r2.error; return; }
           m2.style.color = "var(--sim-verde-dk,#1a6e3c)";
           m2.textContent = r2.mismo ? r2.error : window.t("sync.panel.joined");

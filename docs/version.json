@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Al cambiar el nombre del negocio, ahora se reporta de inmediato (antes solo en el proximo inicio de sesion), asi el nombre nuevo aparece al toque en el panel de licencias. Sube shell a f123-shell-v277.",
+  "changelog": "Unir un aparato que YA es tuyo (dueño activado) a tu licencia ahora CONSERVA tu inventario en vez de mandarte a un cuaderno vacío. Sube shell a f123-shell-v278.",
   "requerida": false,
-  "shell": "f123-shell-v277",
+  "shell": "f123-shell-v278",
   "apagar": [],
   "releaseName": "v1.0"
 }
