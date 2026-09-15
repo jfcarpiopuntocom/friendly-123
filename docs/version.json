@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Advanced mas limpio: el panel de sync se podo — fuera los botones que aturdian y no servian (Resync, Merge inventory, Rotate license, Claim & merge), fuera la auto-ayuda naranja y el bloque de diagnostico tecnico. Quedan solo los que sirven: Activar, Compartir por WhatsApp, Unirse a un cuaderno, Desactivar. El interruptor del sync ahora es honesto ('Device sync', encendido por defecto). Ademas (v268): todos los items del menu Advanced con un icono monocromo que significa lo que es. Sube shell a f123-shell-v269.",
+  "changelog": "Export (Forma B): un boton 'Export a copy (soon)' en el area de sync, como via alternativa para sacar tus datos (viene pronto). Ademas se quito un emoji del boton de respaldo. Antes (v269) se limpio el panel de sync (solo Activar/Compartir/Unirse/Desactivar) y (v268) todos los items de Advanced tienen icono. Sube shell a f123-shell-v270.",
   "requerida": false,
-  "shell": "f123-shell-v269",
+  "shell": "f123-shell-v270",
   "apagar": [],
   "releaseName": "v1.0"
 }

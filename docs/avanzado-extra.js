@@ -381,7 +381,7 @@
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
         Download your full business data (products, sales, movements, costs, keys, and shelf photos) in one file. Save it to your email, Drive, or anywhere — it's your backup if the cache is cleared or the device fails.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button id="oc-exportar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">⬇️ Export backup</button>
+        <button id="oc-exportar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">⤓ Export backup</button>
         <label class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);display:inline-flex;align-items:center;cursor:pointer;">⬆️ Import backup
           <input id="oc-importar-file" type="file" accept=".json" style="display:none;">
         </label>
@@ -633,6 +633,21 @@
           '<button class="ir" id="btnSyncNuevo" onclick="toggleSyncNuevo();return false;">Turn off sync</button>' +
           '</div>');
         if (typeof window.pintarSyncNuevoEstado === "function") window.pintarSyncNuevoEstado();
+      } catch (_) {}
+
+      /* EXPORT — FORMA B (JFC 2026-09-15). Placeholder: "pon el botón y un (soon)
+         y ya". La idea de JFC: Forma A = sync (arriba), Forma B = exportar una
+         copia con un botón, Forma C (tal vez) = Loyverse. El export real todavía
+         no está pulido, así que por ahora es un botón deshabilitado con "(soon)".
+         NO conectar a nada hasta que JFC lo pida. (El "Export backup" de la
+         sección Backup es otra cosa: el respaldo crudo del dueño.) */
+      try {
+        panel.insertAdjacentHTML("beforeend",
+          '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">' +
+          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">Export a copy</h4>' +
+          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">Another way to move your data: export a clean copy you can keep or hand off. Coming soon.</p>' +
+          '<button class="ir" id="btnExportarCopia" disabled style="opacity:0.55;cursor:not-allowed;">Export a copy (soon)</button>' +
+          '</div>');
       } catch (_) {}
 
       /* GATE DE SYNC PODADO (JFC 2026-09-15). Antes ocultaba/mostraba por rol un
