@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Se devuelve el PIN 888 de dueño a idiomARTE (se rompio porque el sync lo trataba como PIN de fabrica y lo borraba). Ahora 888 es un PIN de dueño valido y protegido, y se restaura en los aparatos afectados. Sube shell a f123-shell-v275.",
+  "changelog": "Se agrega una linea de estado del sync en Avanzado (conectado o no, y cuantos productos/perchas/fotos), para ver al instante por que dos aparatos muestran cosas distintas. Sube shell a f123-shell-v276.",
   "requerida": false,
-  "shell": "f123-shell-v275",
+  "shell": "f123-shell-v276",
   "apagar": [],
   "releaseName": "v1.0"
 }

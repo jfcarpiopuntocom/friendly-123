@@ -618,8 +618,36 @@
             <button id="oc-sync-unirme" class="ir" style="min-height:44px;">Join this notebook</button>
           </div>
         </details>
+        <!-- ESTADO DE SYNC MÍNIMO (JFC 2026-09-15). Para VER al instante, en cada
+             aparato, si el sync está conectado y cuántos datos hay. Sirve para
+             diagnosticar "los dos aparatos muestran cosas distintas": si uno dice
+             "Sin conexión" o tiene conteos distintos, ahí está el problema. Se
+             refresca solo. NO es el panel viejo de diagnóstico (ese sí aturdía);
+             es una sola línea honesta. -->
+        <p id="oc-sync-estado-min" style="font-size:13px;font-weight:700;margin:10px 0 0;color:#1a1a1a;">Sync: …</p>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
+
+      /* Pinta el estado de sync mínimo cada 3s desde OCYjs._diag() (JFC 2026-09-15). */
+      try {
+        var _pintarSyncMin = function () {
+          var el = document.getElementById("oc-sync-estado-min"); if (!el) return;
+          try {
+            if (!window.OCYjs || !window.OCYjs._diag) { el.textContent = "Sync: off on this device"; return; }
+            var d = window.OCYjs._diag();
+            var conectado = d && d.ws && (d.ws.catalogo === 1);
+            var prod = (d && d.n && d.n.productos) || 0;
+            var perchas = (d && d.n && d.n.ubicaciones) || 0;
+            var fotos = (d && d.fotos) || 0;
+            el.textContent = "Sync: " + (conectado ? "connected" : "NOT connected") +
+              " · products " + prod + " · shelves " + perchas + " · photos " + fotos;
+            el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)";
+          } catch (_) { el.textContent = "Sync: —"; }
+        };
+        _pintarSyncMin();
+        if (window._ocSyncMinTimer) clearInterval(window._ocSyncMinTimer);
+        window._ocSyncMinTimer = setInterval(_pintarSyncMin, 3000);
+      } catch (_) {}
 
       /* TOGGLE "Device sync / Turn off sync" ELIMINADO (JFC 2026-09-15): era un
          DUPLICADO confuso de "Deactivate sync" (los dos apagan el sync para el
