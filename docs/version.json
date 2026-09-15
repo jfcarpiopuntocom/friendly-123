@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Advanced: TODOS los items del menu llevan un icono monocromo que significa lo que es (empezar, sincronizar, equipo, bitacora, antifraude, en vivo, acceso, contable, respaldo, reporte, comparar perchas, ubicacion, zona horaria, gastos). Sin emojis. Ademas (v267): el sync nuevo (Yjs) queda ENCENDIDO por defecto, que es lo unico que cruza los BYTES de las fotos entre aparatos; en paralelo al sync viejo y sin costo para el que trabaja solo. Y (v266): descuento / precio de casa (cerveza $5 publico / $3 artistas, un solo stock). Sube shell a f123-shell-v268.",
+  "changelog": "Advanced mas limpio: el panel de sync se podo — fuera los botones que aturdian y no servian (Resync, Merge inventory, Rotate license, Claim & merge), fuera la auto-ayuda naranja y el bloque de diagnostico tecnico. Quedan solo los que sirven: Activar, Compartir por WhatsApp, Unirse a un cuaderno, Desactivar. El interruptor del sync ahora es honesto ('Device sync', encendido por defecto). Ademas (v268): todos los items del menu Advanced con un icono monocromo que significa lo que es. Sube shell a f123-shell-v269.",
   "requerida": false,
-  "shell": "f123-shell-v268",
+  "shell": "f123-shell-v269",
   "apagar": [],
   "releaseName": "v1.0"
 }

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v268",
+  "shell": "f123-shell-v269",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-bc2a09c2ff0f5a88eefdb0dcf84a0c1d4bd0e833632bfd62a9d76e3cdf258266",
+    "./index.html": "sha256-b3bb819a8609dd0306f07510a962eaa1dd3cfa95f19f162bde58fdabc6f48e99",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-01cca524857852de4af14cc1aa439b513118c318d0e687c8599b507b0f6ba95d",
     "./404.html": "sha256-2b66d8b0c1e5f14b7e0d08cea8cf54c2813c3db36d86650fc95ee8935c1824da",
@@ -29,7 +29,7 @@
     "./email-recovery.js": "sha256-12475b470318661c8575f712fd8fff2f32c082629105a46f3b82d04c98ec884e",
     "./auth-ui.js": "sha256-c163108b122a8206e513d5e18d525301aeba0c9b3dfc0f9aff231cad6d6298a9",
     "./backup-scheduler.js": "sha256-a043573a011789d052c47977447fa4edf271053b7003cc5e5bef7efe31284174",
-    "./avanzado-extra.js": "sha256-3f0fde42af465f3fe05f37097744bf35fdada369c4e61289ffbde1f4a0199dd9",
+    "./avanzado-extra.js": "sha256-5188dc82a8c318a57b84b8b5aaf1d7c6f2711c15561de6f9a2a90d41ff21af41",
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
     "./geo-ping.js": "sha256-c0d673e5d1c18df4a5e8e6217e5fb16541000b91c86376c05e149157a77a2b52",
     "./novedades.js": "sha256-dfaf6c6bb76495e478e37d9ec48783d19e021c3d3c478b1f829ae7bd0adaa365",

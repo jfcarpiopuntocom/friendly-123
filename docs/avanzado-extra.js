@@ -565,27 +565,11 @@
         <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">${window.t("sync.panel.body")}</p>
         <p style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:0;">${window.t("sync.panel.privacy")}</p>
         <div id="oc-sync-estado" style="font-size:13px;font-weight:700;margin-bottom:10px;"></div>
-        <!-- REENGANCHE SELF-HELP (JFC 2026-08-28). Según el checkpoint del
-             autodiagnóstico, el botón del punto donde está trabado se pone
-             NARANJA (highlight = aquí se atascó) y es el desatorador/forzador;
-             los demás quedan inertes. Así el dueño/admin/encargado se desatasca
-             solo, sin llamar a soporte. -->
-        <div id="oc-sync-reenganche" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
-        <!-- DIAGNÓSTICO REAL (JFC 2026-08-26): hechos crudos del estado de sync,
-             para no adivinar. Solo el dueño lo ve (panel Avanzado). No es un popup
-             ni toca la UI del cliente. -->
-        <details id="oc-sync-diag-wrap" style="margin-bottom:12px;">
-          <summary style="font-size:13px;font-weight:700;color:var(--azul-medio);cursor:pointer;">Sync diagnostics (show the real state)</summary>
-          <div style="position:relative;margin-top:8px;">
-            <div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px;">
-              <button id="oc-sync-diag-fix" type="button" title="Align this device's identity to the license you entered"
-                style="font-size:11px;padding:4px 10px;border:1px solid #00805A;border-radius:5px;background:#fff;color:#00805A;cursor:pointer;">Fix split identity</button>
-              <button id="oc-sync-diag-copy" type="button" title="Copy diagnostics"
-                style="font-size:11px;padding:4px 10px;border:1px solid var(--azul-medio,#2c4a68);border-radius:5px;background:#fff;color:var(--azul-medio,#2c4a68);cursor:pointer;">Copy</button>
-            </div>
-            <pre id="oc-sync-diag" style="font-size:12px;line-height:1.5;background:var(--paper-deep,#E2E8ED);color:#0F1923;padding:10px 12px;border-radius:6px;margin:0;white-space:pre-wrap;word-break:break-word;">loading...</pre>
-          </div>
-        </details>
+        <!-- PODA DE RUIDO DE SYNC (JFC 2026-09-15): se quitaron el "reenganche"
+             (auto-ayuda) y el bloque "Sync diagnostics" (Fix split identity /
+             Copy). Aturdían y casi nadie los usaba. El sync nuevo se recupera
+             solo; para depurar de verdad está la consola. NO re-agregar sin pedido
+             explícito de JFC. -->
         <div id="oc-sync-apagado" style="display:${salaActiva ? "none" : "flex"};gap:8px;flex-wrap:wrap;align-items:center;">
           <input id="oc-sync-codigo" type="text" value="${escHtml(codigoPrecargado)}" placeholder="${window.t("sync.panel.codePlaceholder")}" maxlength="40"
             style="flex:1;min-width:220px;padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-size:14px;">
@@ -609,17 +593,11 @@
           <p style="font-size:13px;line-height:1.5;color:#7a4a00;background:#FFF4D6;border-left:4px solid #E8A33D;padding:10px 12px;border-radius:0 8px 8px 0;margin:10px 0 0;">Your license is the key to your business. Anyone who has it can open your notebook, so guard it like a password: only share it one-to-one with people on your team, and never post it publicly.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
             <button id="oc-sync-compartir" class="ir" style="background:#25D366;border-color:#1da851;">${window.t("sync.panel.share")}</button>
-            <!-- SIMPLIFICACION DE BOTONES (JFC 2026-08-28, pedido explicito):
-                 solo deben quedar visibles Share (WhatsApp) y Join notebook.
-                 Resync/Merge/Rotate/Deactivate NO se borraron del DOM ni de
-                 la logica (los handlers siguen atados mas abajo por getElementById,
-                 asi que si algun dia hace falta reactivarlos basta con quitar
-                 display:none) -- solo se ocultan/apagan para bajar el ruido
-                 visual del panel Advanced. -->
-            <button id="oc-sync-resincronizar" style="display:none;">${window.t("sync.panel.resync")}</button>
-            <button id="oc-sync-mergear" class="ir" style="display:none;background:#2C3E50;border-color:#0F1923;color:#FFFFFF;border-left:5px solid var(--azul-medio,#2c4a68);">Merge inventory with my team</button>
-            <button id="oc-sync-rotar" style="display:none;border-color:#E86040;color:#E86040;">Rotate team license</button>
-        <button id="oc-sync-desactivar" style="display:none;border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
+            <!-- BOTONES DE SYNC PODADOS (JFC 2026-09-15): se BORRARON Resync,
+                 Merge inventory, Rotate license y Claim & merge — nadie los usaba
+                 y aturdían. Quedan solo Share (WhatsApp), Join notebook, Activate
+                 y Deactivate. NO re-agregar sin pedido explícito de JFC. -->
+            <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
           </div>
         </div>
         <!-- UNIRSE — plegado a proposito (JFC 2026-08-21). Antes esto estaba
@@ -636,84 +614,34 @@
             <button id="oc-sync-unirme" class="ir" style="min-height:44px;">Join this notebook</button>
           </div>
         </details>
-        <!-- CLAIM / MERGE DE DISPOSITIVOS PROPIOS (JFC 2026-08-27). Cuando una
-             persona queda con dos aparatos sueltos (ej. "James Bond Store" en la
-             PC y "007 Store" en el cel), cada uno con su instanceId y a veces con
-             licenseCode/syncCode/sala divergentes, este bloque re-apunta ESTE
-             aparato a la licencia canónica SIN vaciar sus datos locales. Al
-             reconectar, el sync add-only junta los datos de ambos. -->
-        <details id="oc-sync-claim" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--azul-suave,#dde5ec);">
-          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">This is also MY device — claim it and merge its data</summary>
-          <p style="font-size:14px;color:var(--ink-soft);margin:8px 0;">Enter the license your OTHER device shows. Both will point to the same notebook and their data merges (nothing is deleted — merge only adds).</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input id="oc-sync-claim-cod" type="text" placeholder="F123-XXXX-XXXX-XXXX-XXXXX" maxlength="40" style="flex:1;min-width:220px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-size:15px;">
-            <button id="oc-sync-claim-btn" class="ir" style="min-height:44px;">Claim &amp; merge</button>
-          </div>
-        </details>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
 
-      /* TOGGLE DEL SYNC NUEVO (JFC 2026-09-10). Movido aquí, al pie del panel de
-         "Shared notebook" (la subsección de equipo/sync), desde su ubicación
-         anterior al fondo de Advanced. Es donde JFC lo espera: junto a todo lo de
-         sincronizar. Las funciones toggleSyncNuevo/pintarSyncNuevoEstado viven en
-         index.html (globales). Enciende/apaga OC_YJS_FASE0 y recarga. */
+      /* CONTROL DEL SYNC (JFC 2026-09-15). El sync nuevo (peer-to-peer, add-only)
+         quedó ENCENDIDO por defecto: es el que mantiene los datos a salvo y el
+         único que cruza las fotos entre aparatos. Ya no se llama "experimental"
+         ni pide prenderlo (era una alusión absurda: estaba on). Se deja un
+         interruptor honesto por si el dueño necesita apagarlo. Las funciones
+         toggleSyncNuevo/pintarSyncNuevoEstado (globales de index.html) pintan el
+         estado real y el label del botón. */
       try {
         panel.insertAdjacentHTML("beforeend",
           '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">' +
-          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">New sync (experimental)</h4>' +
-          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">A new peer-to-peer sync that keeps every device’s data safe and merges everything additively, so nothing is ever lost. Turn it on here on both devices, using the same team code, then reload each one.</p>' +
-          '<p id="ocSyncNuevoEstado" style="font-weight:700;color:#1a1a1a;margin:0 0 8px;">Status: off</p>' +
-          '<button class="ir" id="btnSyncNuevo" onclick="toggleSyncNuevo();return false;">Turn on new sync</button>' +
+          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">Device sync</h4>' +
+          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">Keeps every device on your team up to date, peer to peer, and merges everything additively so nothing is ever lost. It is on by default; you can turn it off here if you ever need to.</p>' +
+          '<p id="ocSyncNuevoEstado" style="font-weight:700;color:#1a1a1a;margin:0 0 8px;">Status: on</p>' +
+          '<button class="ir" id="btnSyncNuevo" onclick="toggleSyncNuevo();return false;">Turn off sync</button>' +
           '</div>');
         if (typeof window.pintarSyncNuevoEstado === "function") window.pintarSyncNuevoEstado();
       } catch (_) {}
 
-      /* M5 (2026-08-27, auditoría): las acciones de sync SENSIBLES (rotar la
-         licencia del negocio, re-emitir una licencia completa, claim/merge de
-         dispositivos, merge de inventario) son del DUEÑO. Un admin puede ver el
-         estado de sync y unirse a un notebook, pero NO debe poder rotar la
-         licencia del dueño ni re-apuntar la identidad del negocio. El botón
-         "avanzado" ya se oculta para empleados (auth-ui.js); esto cierra el
-         hueco del admin.
-         FIX (JFC 2026-08-28): el panel se construye ANTES del login, cuando
-         rolActual() es null, así que el gate ocultaba claim/merge/rotar/fixlic/
-         mergear para siempre. Ahora es una función re-ejecutable que se vuelve
-         a aplicar al hacer login (evento oc-login). */
-      function _aplicarGateSync() {
-        try {
-          var _rolSync = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
-          /* A2 (2026-08-28): JFC es el lord/master admin y su panel ya separa sus
-             aparatos con esMio. Antes el claim/merge se ocultaba si el rol no era
-             "dueno", así que JFC (que entra como lord/soporte) no veía el botón
-             para re-apuntar su propia PC a la canónica. El lord también puede
-             rotar/re-emitir licencias (es quien las emite). */
-          var _esLordSync = false;
-          try { _esLordSync = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
-          /* JFC 2026-08-28: rotar la licencia del equipo es SOLO del lord (o de
-             sus agentes AI). Un dueño de licencia normal NO debe poder rotar la
-             licencia de su negocio — eso es license handling, cosa del lord.
-             Claim/merge de dispositivos propios SÍ es del dueño (re-apuntar su
-             propio aparato a la canónica), así que esos dos siguen con la regla
-             de dueño/lord. */
-          var _ocultarRotar = !_esLordSync;
-          var _ocultarClaim = _rolSync !== "dueno" && !_esLordSync;
-          /* SIMPLIFICACION DE BOTONES (JFC 2026-08-28, pedido explicito): esta
-             funcion se re-ejecuta en cada login y ANTES pisaba el display:none
-             puesto en el HTML (linea ~611-614) apenas el usuario era dueno o
-             lord -- volvia a mostrar Resync/Merge/Rotate/Deactivate/Claim que
-             se querian ocultar siempre. Ahora esos 5 quedan SIEMPRE ocultos
-             (sin importar rol); _ocultarRotar/_ocultarClaim se conservan sin
-             usar por si se reactivan mas adelante. Solo Share queda SIEMPRE
-             visible cuando hay sala activa. */
-          ["oc-sync-rotar", "oc-sync-claim", "oc-sync-mergear", "oc-sync-resincronizar", "oc-sync-desactivar"].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (el) el.style.display = "none";
-          });
-          var _compartir = document.getElementById("oc-sync-compartir");
-          if (_compartir) _compartir.style.display = "";
-        } catch (_) {}
-      }
+      /* GATE DE SYNC PODADO (JFC 2026-09-15). Antes ocultaba/mostraba por rol un
+         montón de botones (Rotate/Claim/Merge/Resync/Deactivate). Esos botones se
+         BORRARON; el panel ahora solo tiene Activate / Share / Join / Deactivate,
+         todos visibles para quien puede ver Advanced. Se deja la función vacía y
+         su binding a oc-login por si a futuro hace falta un gate por rol, sin
+         tocar los call sites. */
+      function _aplicarGateSync() { /* sin gate: los botones sensibles ya no existen */ }
       _aplicarGateSync();
       try { window.addEventListener("oc-login", _aplicarGateSync); } catch (_) {}
 
@@ -723,7 +651,7 @@
          desde auth-ui.js: mayusculas y guiones al escribir Y al pegar. */
       try {
         if (window.OCAuth && window.OCAuth.mascaraCodigo) {
-          ["oc-sync-codigo", "oc-sync-codigo2", "oc-sync-claim-cod"].forEach(function (id) {
+          ["oc-sync-codigo", "oc-sync-codigo2"].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) { el.dataset.ocPrefijo = "F123"; window.OCAuth.mascaraCodigo(el); }
           });
@@ -770,240 +698,11 @@
       pintarEstado();
       window.OCSyncControl.onEstado(pintarEstado);
 
-      /* REENGANCHE SELF-HELP (JFC 2026-08-28). Determina el checkpoint actual
-         del autodiagnóstico y pinta una fila de botones: el del punto donde
-         está trabado se pone NARANJA (highlight) y es el desatorador/forzador;
-         los demás quedan inertes (grises, sin click). El naranja es a la vez
-         indicador ("aquí se atascó") y parámetro de acción ("púlsame para
-         desatascarte"). */
-      function pintarReenganche() {
-        const box = document.getElementById("oc-sync-reenganche");
-        if (!box) return;
-        const S = window.OCSyncControl || {};
-        const _estado = (S.estado && S.estado()) || "?";
-        const _sala = (S.salaActiva && S.salaActiva()) || "";
-        const _prob = !!(S.problemaPersistente && S.problemaPersistente());
-        const _relayOk = window.__f123RelayOk; // lo setea pintarDiag()
-        // Checkpoint actual: el punto donde está trabado.
-        let activo = "conectar"; // default
-        if (!_sala) activo = "activar";
-        else if (_relayOk === false) activo = "relay";
-        else if (_estado === "conectado") activo = "resincronizar";
-        else if (_prob) activo = "reingresar";
-        else activo = "conectar";
-        const defs = [
-          { id: "activar",      label: "🔑 Activate sync",        hint: "No room code yet — enter your license" },
-          { id: "relay",        label: "📡 Test relay",           hint: "Relay unreachable from this device" },
-          { id: "conectar",     label: "🔌 Reconnect now",        hint: "Not connected to the room yet" },
-          { id: "reingresar",   label: "✏️ Re-enter license",     hint: "Failing to connect — check the code" },
-          { id: "resincronizar",label: "🔄 Resync now",           hint: "Connected — force a fresh sync" },
-        ];
-        box.innerHTML = "";
-        defs.forEach(function (d) {
-          const esActivo = d.id === activo;
-          const b = document.createElement("button");
-          b.type = "button";
-          b.textContent = d.label;
-          b.title = d.hint;
-          b.style.cssText = "font-size:12px;font-weight:700;padding:8px 12px;border-radius:6px;cursor:" + (esActivo ? "pointer" : "not-allowed") + ";border:2px solid " + (esActivo ? "#E86040" : "#C9D2DA") + ";background:" + (esActivo ? "#E86040" : "#F0F3F6") + ";color:" + (esActivo ? "#FFFFFF" : "#9AA7B2") + ";opacity:" + (esActivo ? "1" : "0.6") + ";";
-          if (esActivo) {
-            b.addEventListener("click", function () {
-              if (d.id === "activar") {
-                const campo = document.getElementById("oc-sync-codigo");
-                if (campo) { campo.focus(); campo.scrollIntoView({ behavior: "smooth", block: "center" }); }
-                const btn = document.getElementById("oc-sync-activar");
-                if (btn) btn.style.boxShadow = "0 0 0 3px rgba(232,96,64,.5)";
-              } else if (d.id === "relay") {
-                const pre = document.getElementById("oc-sync-diag");
-                if (pre) pre.textContent = "Testing relay from this device...";
-                try { pintarDiag(); } catch (_) {}
-              } else if (d.id === "reingresar") {
-                const campo = document.getElementById("oc-sync-codigo");
-                if (campo) { campo.focus(); campo.scrollIntoView({ behavior: "smooth", block: "center" }); }
-              } else {
-                // conectar / resincronizar → forzar reconexión ya
-                if (S.resincronizar) { try { S.resincronizar(); } catch (_) {} }
-              }
-            });
-          }
-          box.appendChild(b);
-        });
-      }
-      try { pintarReenganche(); } catch (_) {}
-      try { window.OCSyncControl.onEstado(function () { try { pintarReenganche(); } catch (_) {} }); } catch (_) {}
-
-      /* DIAGNÓSTICO REAL DE SYNC (JFC 2026-08-26). Muestra los HECHOS crudos para
-         no adivinar: con qué licencia está activado ESTE aparato, en qué tienda
-         estás, a qué sala apunta el sync, si hay conexión y cuántos peers, y
-         cuántos datos hay. Así se ve al instante si "poner la licencia" cambió de
-         tienda o no, y si el relay está entregando algo. */
-      async function pintarDiag() {
-        const pre = document.getElementById("oc-sync-diag");
-        if (!pre) return;
-        const S = window.OCSyncControl || {};
-        const T = window.OCTienda || {};
-        let owned = {}; try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) {}
-        let marcador = ""; try { marcador = localStorage.getItem("f123_tienda_activa") || "(propia \"\")"; } catch (_) {}
-        let esLord = false; try { esLord = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
-        let accesos = []; try { accesos = JSON.parse(localStorage.getItem("f123_accesos") || "[]"); if (!Array.isArray(accesos)) accesos = []; } catch (_) { accesos = []; }
-        const cnt = async (u) => { try { const r = await fetch(u); const a = await r.json(); return Array.isArray(a) ? a.length : "?"; } catch (_) { return "err"; } };
-        const [nProd, nUbic, nCli, nUsu] = await Promise.all([cnt("/api/productos?todas=1"), cnt("/api/ubicaciones?todas=1"), cnt("/api/clientes"), cnt("/api/usuarios")]);
-        const ultAcceso = accesos.length ? accesos[accesos.length - 1] : null;
-        const _sala = (S.salaActiva && S.salaActiva()) || "";
-        const _lic = owned.licenseCode || "";
-        const _syncCode = owned.syncCode || "";
-        // Los tres deberían ser el MISMO código. Si divergen, el estado quedó
-        // enredado (típico tras probar/cambiar de tienda) y la UI muestra cosas
-        // incoherentes — se marca aquí para que se vea el porqué (JFC 2026-08-27).
-        const _norm = (x) => String(x || "").toUpperCase().replace(/\s+/g, "");
-        const _presentes = [_lic, _syncCode, _sala].filter(Boolean).map(_norm);
-        const _coherente = _presentes.length <= 1 || _presentes.every((x) => x === _presentes[0]);
-        /* AUTODIAGNÓSTICO EN VIVO (JFC 2026-08-28). El usuario lleva días con
-           dispositivos "desconectados entre sí" y el relay estaba bien. Para
-           saber QUÉ se rompe en cada aparato, este bloque prueba el relay DESDE
-           ESTE dispositivo (no desde el servidor) y cruza eso con el estado de
-           sync local. El veredicto dice en una línea qué falla y qué hacer. */
-        let relayOk = null; // null = probando, true/false = resultado
-        /* CHECK DEL RELAY POR WEBSOCKET (JFC 2026-08-28). Antes se usaba
-           fetch("/health"), pero el Worker no manda cabeceras CORS y el
-           navegador (github.io) bloqueaba el fetch → reportaba "RELAY
-           UNREACHABLE" en falso aunque el relay estuviera bien. Los WebSocket
-           NO están sujetos a CORS, así que este check abre una conexión real a
-           una sala de prueba: si abre, el relay es alcanzable desde ESTE
-           dispositivo (que es exactamente lo que el sync usa). */
-        try {
-          relayOk = await new Promise(function (res) {
-            let ws = null;
-            const t = setTimeout(function () { try { ws && ws.close(); } catch (_) {} res(false); }, 6000);
-            try {
-              ws = new WebSocket("wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/__diag__" + Math.random().toString(36).slice(2, 8));
-            } catch (_) { clearTimeout(t); res(false); return; }
-            ws.onopen = function () { clearTimeout(t); try { ws.close(); } catch (_) {} res(true); };
-            ws.onerror = function () { clearTimeout(t); try { ws.close(); } catch (_) {} res(false); };
-            ws.onclose = function () { clearTimeout(t); res(false); };
-          });
-        } catch (_) { relayOk = false; }
-        window.__f123RelayOk = relayOk; // lo consume pintarReenganche()
-        const _estado = (S.estado && S.estado()) || "?";
-        const _peers = (S.presencia && S.presencia()) || 0;
-        const _prob = !!(S.problemaPersistente && S.problemaPersistente());
-        // Última actividad de sync (check mutuo): la op más reciente del log,
-        // y si vino de OTRO dispositivo (prueba de que el equipo se habla).
-        let ultimaOp = null, ultimaOpAjena = null;
-        try {
-          const _log = JSON.parse(localStorage.getItem("f123_sync_log") || "[]");
-          if (Array.isArray(_log) && _log.length) {
-            const _miId = (S.deviceIdActual && S.deviceIdActual()) || "";
-            const _orden = _log.slice().sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
-            ultimaOp = _orden[0] || null;
-            ultimaOpAjena = _orden.find((o) => o.deviceId && o.deviceId !== _miId) || null;
-          }
-        } catch (_) {}
-        // Veredicto: una línea clara de qué está mal y qué hacer.
-        let veredicto;
-        if (!_sala) veredicto = "SYNC OFF: this device has no room code. Enter your license above and press Activate.";
-        else if (relayOk === false) veredicto = "RELAY UNREACHABLE from this device: check this device's internet / firewall. The relay itself is up (verified from the server).";
-        else if (_estado === "conectado") veredicto = "CONNECTED: this device is on the relay room. " + (_peers > 0 ? ("Peers online: " + _peers + ". " + (ultimaOpAjena ? "Last data from a teammate: " + (ultimaOpAjena.fecha || "?") + "." : "No data from a teammate yet — their device must be on and synced.")) : "No peers online right now — the other device(s) must be open and connected to sync.");
-        else if (_prob) veredicto = "FAILING: this device has tried to connect many times without success. Check the room code matches your other device exactly (F123-...).";
-        else veredicto = "NOT CONNECTED (" + _estado + "): this device is not on the relay yet. If it stays like this, check the room code and this device's internet.";
-        const lineas = [
-          "VERDICT: " + veredicto,
-          "",
-          "Relay reachable from THIS device: " + (relayOk === null ? "checking..." : (relayOk ? "YES" : "NO")),
-          "Connection:   " + _estado + "   (peers online: " + _peers + ")",
-          "Sync room (where data actually syncs): " + (_sala || "(off)"),
-          "License (this is your sync code & password): " + (_lic || "(none)"),
-          (_coherente ? "→ COHERENT: this device's identity, share code and sync room all match." :
-            "→ ⚠ SPLIT: this device's identity is split across different codes. Enter your true license in the field above, then press 'Fix split identity'."),
-          "Last sync activity: " + (ultimaOp ? (ultimaOp.fecha || "?") + (ultimaOp.deviceId === ((S.deviceIdActual && S.deviceIdActual()) || "") ? " (this device)" : " (teammate)") : "none yet"),
-          "Business name (this device): " + (owned.nombreNegocio || "(none)"),
-          "Active store:  " + (T.esUnida && T.esUnida() ? ("JOINED  " + ((T.licenciaActual && T.licenciaActual()) || "?")) : "OWN (\"\")") ,
-          "Store marker:  " + marcador,
-          "Data here:     products " + nProd + " · shelves " + nUbic + " · customers " + nCli + " · team " + nUsu,
-          (esLord ? ("Observed stores (audit log): " + accesos.length + (ultAcceso ? "  · last: " + ultAcceso.licencia + " @ " + ultAcceso.cuando : "")) : ""),
-          "",
-          "Reading this: if you paste another business's license and 'Active store' still says OWN and the counts are YOUR numbers, the switch did NOT happen (that license is being treated as this device's own). If it says JOINED but counts are 0, you switched but their data has not synced in yet (needs their device to have pushed to the relay).",
-        ];
-        pre.textContent = lineas.join("\n");
-        // Tras actualizar el diagnóstico (p. ej. prueba de relay), re-pintar el
-        // reenganche para que el botón naranja refleje el checkpoint real.
-        try { pintarReenganche(); } catch (_) {}
-      }
-      try { pintarDiag(); } catch (_) {}
-      /* AUTO-REFRESCO DEL DIAGNÓSTICO (JFC 2026-08-28): el estado de sync cambia
-         solo (reconexión, peers que entran/salen). Re-pintar cada 5s mantiene el
-         veredicto al día sin que el usuario tenga que abrir/cerrar el desplegable.
-         Solo se pinta si el desplegable está abierto (no malgastar fetchs). */
-      try {
-        setInterval(function () {
-          const _wrap = document.getElementById("oc-sync-diag-wrap");
-          if (_wrap && _wrap.open) { try { pintarDiag(); } catch (_) {} }
-        }, 5000);
-      } catch (_) {}
-      /* BOTÓN COPIAR (JFC 2026-08-28): copiar el diagnóstico a mano era
-         doloroso. Un clic copia todo el texto al portapapeles y avisa. */
-      try {
-        const _copyBtn = document.getElementById("oc-sync-diag-copy");
-        if (_copyBtn) _copyBtn.addEventListener("click", function () {
-          const pre = document.getElementById("oc-sync-diag");
-          if (!pre) return;
-          const txt = pre.textContent || "";
-          const _ok = function () { const o = _copyBtn.textContent; _copyBtn.textContent = "Copied ✓"; setTimeout(function () { _copyBtn.textContent = o; }, 1600); };
-          try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(txt).then(_ok, function () { _copiarFallback(pre, txt, _ok); });
-            } else { _copiarFallback(pre, txt, _ok); }
-          } catch (_) { _copiarFallback(pre, txt, _ok); }
-        });
-      } catch (_) {}
-      function _copiarFallback(pre, txt, ok) {
-        try {
-          const ta = document.createElement("textarea");
-          ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
-          document.body.appendChild(ta); ta.select();
-          try { document.execCommand("copy"); } catch (_) {}
-          document.body.removeChild(ta); ok();
-        } catch (_) { ok(); }
-      }
-      /* REPARAR IDENTIDAD PARTIDA (JFC 2026-08-28). Un clic alinea licenseCode,
-         syncCode y sala de sync al código que el usuario puso en el campo de
-         arriba. Reutiliza reconciliar(), que ya deja los tres campos en el MISMO
-         código sin vaciar datos locales.
-         JFC 2026-08-28: ANTES, si el campo estaba vacío, caía silenciosamente al
-         licenseCode actual — que puede ser el EQUIVOCADO (ej. una trunca vieja
-         como F123-5HSG-JENF) — y reconciliaba al código malo, empeorando el
-         SPLIT. Ahora exige la licencia verdadera en el campo: no reconciliar a
-         ciegas. */
-      try {
-        const _fixBtn = document.getElementById("oc-sync-diag-fix");
-        if (_fixBtn) _fixBtn.addEventListener("click", function () {
-          const campo = document.getElementById("oc-sync-codigo");
-          const cod = campo ? (campo.value || "").trim() : "";
-          if (!/^F123-/i.test(cod)) {
-            alert("Enter your true license in the field above first, then press 'Fix split identity'.");
-            return;
-          }
-          const msg = document.getElementById("oc-sync-msg");
-          try {
-            const r = (window.OCTienda && window.OCTienda.reconciliar) ? window.OCTienda.reconciliar(cod) : null;
-            if (msg) { msg.style.color = "#00805A"; msg.textContent = (r && r.ok) ? "Identity aligned to " + cod + ". Reconnecting..." : ((r && r.error) || "Could not fix."); }
-            if (r && r.ok) { setTimeout(function () { try { location.reload(); } catch (_) {} }, 1200); }
-          } catch (_) { if (msg) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not fix the identity."; } }
-        });
-      } catch (_) {}
-      /* Refrescar el diagnóstico cada 4s mientras el panel esté montado. Si el
-         usuario está seleccionando texto dentro del pre (para copiar a mano),
-         NO se pisa el contenido a mitad de selección — se espera al siguiente
-         tick. (JFC 2026-08-28: "no lo hagas que se cierre apenas hago select
-         text"). */
-      try { if (window._ocSyncDiagTimer) clearInterval(window._ocSyncDiagTimer); window._ocSyncDiagTimer = setInterval(() => {
-        const pre = document.getElementById("oc-sync-diag");
-        if (!pre) { clearInterval(window._ocSyncDiagTimer); return; }
-        const sel = window.getSelection && window.getSelection();
-        const dentro = sel && sel.rangeCount > 0 && pre.contains(sel.anchorNode) && pre.contains(sel.focusNode);
-        if (dentro) return; // hay selección activa dentro del pre: no pisar
-        pintarDiag();
-      }, 4000); } catch (_) {}
+      /* REENGANCHE + DIAGNÓSTICO DE SYNC BORRADOS (JFC 2026-09-15): eran ruido
+         (auto-ayuda naranja con emojis + panel "Sync diagnostics"). El sync
+         nuevo se recupera solo; para depurar de verdad está la consola. Se
+         quitaron pintarReenganche/pintarDiag, sus botones (Fix/Copy) y timers.
+         NO re-agregar sin pedido explícito de JFC. */
 
       /* QR DE UNIRSE — DORMANT (JFC 2026-08-21). NO BORRAR: ver el comentario
          en el HTML de arriba. Poner en true para re-encenderlo (y devolver el
@@ -1115,9 +814,6 @@
         document.getElementById("oc-sync-activo").style.display = "block";
         document.getElementById("oc-sync-codigo-actual").textContent = (window.OCSyncControl.paraMostrar ? window.OCSyncControl.paraMostrar(codigo.trim()) : codigo.trim());
         pintarQR(codigo.trim());
-        /* Refrescar el diagnóstico al instante para que el VERDICT deje de
-           mostrar el estado viejo (JFC 2026-08-28). */
-        try { pintarDiag(); } catch (_) {}
       });
       const btnCompartir = document.getElementById("oc-sync-compartir");
       if (btnCompartir) btnCompartir.addEventListener("click", () => {
