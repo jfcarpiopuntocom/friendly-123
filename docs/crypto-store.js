@@ -193,6 +193,20 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       } catch (_) {}
       try { localStorage.setItem("f123_restaurar_888_v1", "1"); } catch (_) {}
     }
+    /* RE-RESTAURAR 888 v2 (JFC 2026-09-15, "devuélveles el 888"). El v1 metió 888
+       en el SIDECAR (eq.owner), pero el merge del sync (mock-backend take(), ~1883)
+       sobreescribía eq.owner con el PIN remoto -> a Sarah/idiomARTE se le volvió a
+       borrar el 888 y le salía demo. Aquí se re-punza 888 en el sidecar UNA VEZ
+       MÁS (flag v2) en los mismos dispositivos que corrieron la migración vieja.
+       Ya con el fix del take() (888 = custom, y no clobbea un sidecar de dueño
+       real) no se debería volver a perder. ADITIVO: no pisa el 789 si estaba. */
+    if (localStorage.getItem("f123_migrado_888_a_789_default") && !localStorage.getItem("f123_restaurar_888_v2")) {
+      try {
+        const eq = leerPinsEquipo() || {};
+        if (eq.owner !== "888") { eq.owner = "888"; guardarPinsEquipo(eq); }
+      } catch (_) {}
+      try { localStorage.setItem("f123_restaurar_888_v2", "1"); } catch (_) {}
+    }
   }
 
   // Guardado resiliente (JFC 2026-08-04, Guard G1 — "no dañar lo que no debe

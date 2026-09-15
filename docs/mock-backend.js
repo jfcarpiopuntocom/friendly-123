@@ -1875,14 +1875,28 @@
             abrePin = rolAbre === "dueno" ? (abre.owner || "") : (rolAbre === "empleado" ? (abre.emp || "") : (abre.acct || ""));
           } catch (_) {}
           const local = String(localPin || abrePin || "");
-          const localEsCustom = !!(local && local !== fab && local !== "888" && local !== "456");
-          const remotoEsFabrica = (p === fab || p === "888");
-          /* Sidecar: el PIN del cuaderno TAMBIEN abre, sin borrar el de este aparato. */
+          /* FIX (JFC 2026-09-15): 888 es un PIN de dueño LIBRE y VÁLIDO (ver el
+             esquema en ~1621: 789=fábrica, 456=demo; 888 lo usan los usuarios,
+             p.ej. Sarah/idiomARTE). Antes se trataba 888 como PIN de fábrica, así
+             que NO se protegía como "custom" y un merge de otro aparato podía
+             SOBREESCRIBIR el 888 del dueño -> Sarah quedaba sin su PIN y le salía
+             demo. Ahora 888 cuenta como custom (se protege) y un 888 remoto SÍ se
+             adopta (es un PIN real, no fábrica). Solo 789 es fábrica. */
+          const localEsCustom = !!(local && local !== fab && local !== "456");
+          const remotoEsFabrica = (p === fab);
+          /* Sidecar: el PIN del cuaderno TAMBIEN abre, sin borrar el de este aparato.
+             FIX (JFC 2026-09-15): antes eq.owner = p PISABA el sidecar del dueño con
+             el PIN remoto; si el dueño local usaba 888 (Sarah/idiomARTE) y llegaba
+             un merge con otro PIN, se le borraba el 888. Ahora SOLO se rellena el
+             sidecar cuando está vacío o es un PIN de sistema (fábrica/demo): un PIN
+             custom real (p.ej. 888) NO se pisa. Así "no borra el de este aparato"
+             de verdad. */
           try {
             const eq = (window.OCSecure.leerPinsEquipo && window.OCSecure.leerPinsEquipo()) || {};
-            if (rolAbre === "dueno") eq.owner = p;
-            else if (rolAbre === "empleado") eq.emp = p;
-            else eq.acct = p;
+            const _libre = function (v, fab) { return !v || v === fab || v === "456"; };
+            if (rolAbre === "dueno") { if (_libre(eq.owner, "789")) eq.owner = p; }
+            else if (rolAbre === "empleado") { if (_libre(eq.emp, "260")) eq.emp = p; }
+            else { if (_libre(eq.acct, "357")) eq.acct = p; }
             if (window.OCSecure.guardarPinsEquipo) window.OCSecure.guardarPinsEquipo(eq);
           } catch (_) {}
           if (localEsCustom) return;

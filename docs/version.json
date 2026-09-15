@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Sync mas simple y claro: se quita el boton duplicado de apagar sync, y los botones de WhatsApp (Export via WhatsApp / Import from WhatsApp) quedan arriba en verde, sin ocupar espacio de mas. Sube shell a f123-shell-v274.",
+  "changelog": "Se devuelve el PIN 888 de dueño a idiomARTE (se rompio porque el sync lo trataba como PIN de fabrica y lo borraba). Ahora 888 es un PIN de dueño valido y protegido, y se restaura en los aparatos afectados. Sube shell a f123-shell-v275.",
   "requerida": false,
-  "shell": "f123-shell-v274",
+  "shell": "f123-shell-v275",
   "apagar": [],
   "releaseName": "v1.0"
 }
