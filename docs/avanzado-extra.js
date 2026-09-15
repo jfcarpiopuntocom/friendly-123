@@ -592,13 +592,17 @@
           <p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:10px 0 0;">Every device that activates with this license is the same shared notebook. They keep each other up to date on their own: there is no separate team code to hand out.</p>
           <p style="font-size:13px;line-height:1.5;color:#7a4a00;background:#FFF4D6;border-left:4px solid #E8A33D;padding:10px 12px;border-radius:0 8px 8px 0;margin:10px 0 0;">Your license is the key to your business. Anyone who has it can open your notebook, so guard it like a password: only share it one-to-one with people on your team, and never post it publicly.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-            <button id="oc-sync-compartir" class="ir" style="background:#25D366;border-color:#1da851;">${window.t("sync.panel.share")}</button>
-            <!-- BOTONES DE SYNC PODADOS (JFC 2026-09-15): se BORRARON Resync,
-                 Merge inventory, Rotate license y Claim & merge — nadie los usaba
-                 y aturdían. Quedan solo Share (WhatsApp), Join notebook, Activate
-                 y Deactivate. NO re-agregar sin pedido explícito de JFC. -->
+            <!-- WHATSAPP EXPORT/IMPORT en VERDE, aquí donde antes iba "Share with my
+                 team" (JFC 2026-09-15). Son el par para mover el cuaderno por
+                 WhatsApp entre aparatos. Se quitó "Share with my team" (redundante:
+                 activar con la MISMA licencia ya une los aparatos). Etiquetas
+                 literales pedidas por JFC. -->
+            <button id="btnExportarCopia" class="ir" style="background:#25D366;border-color:#1da851;">Export via WhatsApp</button>
+            <button id="btnImportarCopia" class="ir" style="background:#25D366;border-color:#1da851;">Import from WhatsApp</button>
             <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
           </div>
+          <input id="btnImportarCopia-file" type="file" accept=".json,application/json" style="display:none;">
+          <p id="oc-copia-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:#1a1a1a;"></p>
         </div>
         <!-- UNIRSE — plegado a proposito (JFC 2026-08-21). Antes esto estaba
              ABIERTO y arriba, asi que el panel PEDIA un codigo antes de
@@ -617,23 +621,11 @@
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
 
-      /* CONTROL DEL SYNC (JFC 2026-09-15). El sync nuevo (peer-to-peer, add-only)
-         quedó ENCENDIDO por defecto: es el que mantiene los datos a salvo y el
-         único que cruza las fotos entre aparatos. Ya no se llama "experimental"
-         ni pide prenderlo (era una alusión absurda: estaba on). Se deja un
-         interruptor honesto por si el dueño necesita apagarlo. Las funciones
-         toggleSyncNuevo/pintarSyncNuevoEstado (globales de index.html) pintan el
-         estado real y el label del botón. */
-      try {
-        panel.insertAdjacentHTML("beforeend",
-          '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">' +
-          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">Device sync</h4>' +
-          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">Keeps every device on your team up to date, peer to peer, and merges everything additively so nothing is ever lost. It is on by default; you can turn it off here if you ever need to.</p>' +
-          '<p id="ocSyncNuevoEstado" style="font-weight:700;color:#1a1a1a;margin:0 0 8px;">Status: on</p>' +
-          '<button class="ir" id="btnSyncNuevo" onclick="toggleSyncNuevo();return false;">Turn off sync</button>' +
-          '</div>');
-        if (typeof window.pintarSyncNuevoEstado === "function") window.pintarSyncNuevoEstado();
-      } catch (_) {}
+      /* TOGGLE "Device sync / Turn off sync" ELIMINADO (JFC 2026-09-15): era un
+         DUPLICADO confuso de "Deactivate sync" (los dos apagan el sync para el
+         usuario). El sync nuevo queda ON por defecto; si algún día hay que
+         apagarlo, es via localStorage OC_YJS_FASE0="0", no un botón más que
+         aturda. NO re-agregar. */
 
       /* EXPORT / IMPORT — FORMA B: WHATSAPP (JFC 2026-09-15, corregido). Forma A =
          sync (arriba), Forma B = mover una copia por WhatsApp, Forma C (futuro) =
@@ -647,18 +639,10 @@
            respaldo con .datos, incluido el de la sección Backup), CONFIRMA antes
            de reemplazar, hace POST /respaldo/importar, restaura fotos y avisa a la
            app para re-sincronizar la UI. Soberano: nada toca un servidor nuestro. */
+      /* Los botones Export/Import via WhatsApp YA viven arriba, en la fila verde
+         (JFC 2026-09-15): no se crea una sección aparte abajo (era ocupar más
+         espacio para nada). Aquí solo se enganchan sus handlers por id. */
       try {
-        panel.insertAdjacentHTML("beforeend",
-          '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">' +
-          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">Move a copy (WhatsApp)</h4>' +
-          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">Export a clean copy of your data (products, sales, inventory, photos) and share it on WhatsApp, or import a copy someone sent you. Your PIN/keys are never included in the shared file. It stays on your device.</p>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-          '<button class="ir" id="btnExportarCopia">Export &amp; share on WhatsApp</button>' +
-          '<button class="ir" id="btnImportarCopia" style="background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;border-color:var(--azul-medio,#2c4a68);">Import a copy</button>' +
-          '</div>' +
-          '<input id="btnImportarCopia-file" type="file" accept=".json,application/json" style="display:none;">' +
-          '<p id="oc-copia-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:#1a1a1a;"></p>' +
-          '</div>');
         // Helper: junta el envoltorio Forma B (datos + fotos, SIN claves).
         var _copiaMsg = function (t, ok) { var m = document.getElementById("oc-copia-msg"); if (m) { m.style.color = ok ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)"; m.textContent = t; } };
         var _fotosLocales = function () { var o = {}; try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("_foto_percha_") !== -1) o[k] = localStorage.getItem(k); } } catch (_) {} return o; };
@@ -676,7 +660,7 @@
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(function () { try { URL.revokeObjectURL(url); } catch (_) {} }, 4000);
             _copiaMsg("Copy downloaded. Opening WhatsApp — attach the file there.", true);
-            var txt = encodeURIComponent("Here is my friendly-123 copy from " + stamp + ". I'm attaching the file that just downloaded — open it in the app with Advanced > Move a copy > Import.");
+            var txt = encodeURIComponent("Here is my friendly-123 backup from " + stamp + ". I'm attaching the file that just downloaded — open it in the app with Advanced, button 'Import from WhatsApp'.");
             window.open("https://wa.me/?text=" + txt, "_blank");
           } catch (e) { _copiaMsg("Could not export — check your connection.", false); }
         });

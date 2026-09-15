@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Menu principal: se arregla el arranque 'caido' (a veces salia con mucho espacio vacio antes de los botones). Advanced: TODOS los items del menu llevan icono y los nombres largos caben bien hasta en telefonos de 320px. Sube shell a f123-shell-v273.",
+  "changelog": "Sync mas simple y claro: se quita el boton duplicado de apagar sync, y los botones de WhatsApp (Export via WhatsApp / Import from WhatsApp) quedan arriba en verde, sin ocupar espacio de mas. Sube shell a f123-shell-v274.",
   "requerida": false,
-  "shell": "f123-shell-v273",
+  "shell": "f123-shell-v274",
   "apagar": [],
   "releaseName": "v1.0"
 }
