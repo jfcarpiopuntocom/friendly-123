@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Export (Forma B): un boton 'Export a copy (soon)' en el area de sync, como via alternativa para sacar tus datos (viene pronto). Ademas se quito un emoji del boton de respaldo. Antes (v269) se limpio el panel de sync (solo Activar/Compartir/Unirse/Desactivar) y (v268) todos los items de Advanced tienen icono. Sube shell a f123-shell-v270.",
+  "changelog": "Export (Forma B) ya funciona por WhatsApp: el boton descarga una copia de tus datos y abre WhatsApp con un mensaje listo para que la mandes (a ti mismo o a tu contador) adjuntando el archivo. Todo se queda en tu dispositivo. Sube shell a f123-shell-v271.",
   "requerida": false,
-  "shell": "f123-shell-v270",
+  "shell": "f123-shell-v271",
   "apagar": [],
   "releaseName": "v1.0"
 }

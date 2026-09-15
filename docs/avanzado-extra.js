@@ -635,19 +635,39 @@
         if (typeof window.pintarSyncNuevoEstado === "function") window.pintarSyncNuevoEstado();
       } catch (_) {}
 
-      /* EXPORT — FORMA B (JFC 2026-09-15). Placeholder: "pon el botón y un (soon)
-         y ya". La idea de JFC: Forma A = sync (arriba), Forma B = exportar una
-         copia con un botón, Forma C (tal vez) = Loyverse. El export real todavía
-         no está pulido, así que por ahora es un botón deshabilitado con "(soon)".
-         NO conectar a nada hasta que JFC lo pida. (El "Export backup" de la
-         sección Backup es otra cosa: el respaldo crudo del dueño.) */
+      /* EXPORT — FORMA B: WHATSAPP (JFC 2026-09-15). Forma A = sync (arriba),
+         Forma B = exportar una copia y compartirla por WhatsApp, Forma C (a
+         futuro) = Loyverse. Soberano: descarga el respaldo (/respaldo/exportar)
+         como archivo local y abre WhatsApp con un mensaje listo; el dueño adjunta
+         el archivo recién bajado. NO toca ningún servidor nuestro (mismo espíritu
+         que backup-scheduler). El "Export backup" de la sección Backup sigue
+         igual; esto es el mismo dato pero con el atajo de compartir. */
       try {
         panel.insertAdjacentHTML("beforeend",
           '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">' +
-          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">Export a copy</h4>' +
-          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">Another way to move your data: export a clean copy you can keep or hand off. Coming soon.</p>' +
-          '<button class="ir" id="btnExportarCopia" disabled style="opacity:0.55;cursor:not-allowed;">Export a copy (soon)</button>' +
+          '<h4 style="margin:0 0 6px;font-size:15px;color:#1a1a1a;">Export a copy (WhatsApp)</h4>' +
+          '<p style="font-size:14px;color:#1a1a1a;margin:0 0 8px;">Download a clean copy of your data and share it on WhatsApp with yourself or your accountant. It stays on your device: attach the file that just downloaded.</p>' +
+          '<button class="ir" id="btnExportarCopia">Download & share on WhatsApp</button>' +
+          '<p id="oc-exportcopia-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:#1a1a1a;"></p>' +
           '</div>');
+        var _bx = document.getElementById("btnExportarCopia");
+        if (_bx) _bx.addEventListener("click", async function () {
+          var _m = document.getElementById("oc-exportcopia-msg");
+          try {
+            var r = await fetch(API + "/respaldo/exportar");
+            var datos = await r.json();
+            if (!r.ok) { if (_m) { _m.style.color = "var(--rojo,#a3392a)"; _m.textContent = datos.error || "Activate this device (PIN 789) to export."; } return; }
+            var stamp = new Date().toISOString().slice(0, 10);
+            var blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a"); a.href = url; a.download = "friendly-backup-" + stamp + ".json";
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function () { try { URL.revokeObjectURL(url); } catch (_) {} }, 4000);
+            if (_m) { _m.style.color = "var(--sim-verde-dk,#1a6e3c)"; _m.textContent = "Copy downloaded. Opening WhatsApp — attach the file there."; }
+            var txt = encodeURIComponent("Here is my friendly-123 backup from " + stamp + ". I'm attaching the file that just downloaded.");
+            window.open("https://wa.me/?text=" + txt, "_blank");
+          } catch (e) { if (_m) { _m.style.color = "var(--rojo,#a3392a)"; _m.textContent = "Could not export — check your connection."; } }
+        });
       } catch (_) {}
 
       /* GATE DE SYNC PODADO (JFC 2026-09-15). Antes ocultaba/mostraba por rol un
