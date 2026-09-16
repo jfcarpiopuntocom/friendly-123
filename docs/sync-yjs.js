@@ -107,14 +107,41 @@
         if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
       }).catch(function () {});
     }
-    canal.enviarUpdate = function (update) { enviar(0, update); };
+    /* PERSISTENCIA DEL SYNC NUEVO (JFC 2026-09-15, v285). EL BUG DE 3 SEMANAS: el
+       relay solo REBOTA los frames binarios de Yjs en vivo, NO los guarda. Así dos
+       aparatos solo convergían si estaban abiertos A LA VEZ; abiertos en momentos
+       distintos nunca se ponían al día (verificado: al conectar a una sala sin nadie
+       en línea llegan 0 mensajes). El relay SÍ sabe persistir, pero solo por el
+       protocolo de texto op/ckpt/pull (verificado: envías op, cierras, reconectas,
+       pull -> vuelve intacto). Aquí el cliente Yjs USA ese canal: cada update LOCAL
+       se guarda como {k:"op"} (el mismo frame binario cifrado, en base64) y al
+       conectar se pide {k:"pull"} para recibir todo lo persistido. El relay reenvía
+       cada op guardada como frame binario -> cae en manejar() -> tag 0 -> applyUpdate.
+       Los updates de Yjs son idempotentes y conmutativos, así que reaplicar todo en
+       cada conexión converge sin duplicar. Zero-knowledge intacto: el relay guarda
+       bytes cifrados, no entiende nada. */
+    var _lamCtr = 0;
+    function _b64(buf) { var u = new Uint8Array(buf), s = ""; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
+    canal.enviarUpdate = function (update) {
+      if (!API.clave) return;
+      cifrarBin(API.clave, _frame(0, update)).then(function (buf) {
+        // (a) en vivo, a quien esté conectado ahora
+        if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
+        // (b) persistente, para quien entre después aunque nadie esté en línea
+        try {
+          var op = JSON.stringify({ k: "op", id: (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8)), lam: Date.now() + (++_lamCtr), c: _b64(buf) });
+          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(op); else canal.pend.push(op);
+        } catch (_) {}
+      }).catch(function () {});
+    };
     function conectar() {
       var url = RELAY_URL + API.roomId + suffix;
       var ws; try { ws = new WebSocket(url); } catch (_) { reprogramar(); return; }
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
         reintentos = 0; // conexión buena: resetea el backoff
-        try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": pido lo que me falte
+        try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": a quien esté en vivo
+        try { ws.send(JSON.stringify({ k: "pull", lam: 0 })); } catch (_) {} // trae lo PERSISTIDO (async)
         while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
       };
       function manejar(buf) {
