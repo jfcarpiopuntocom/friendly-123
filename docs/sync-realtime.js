@@ -380,7 +380,12 @@
     // caen en salas distintas y el equipo nunca entiende por que no sincroniza.
     const codigoNorm = normalizarCodigo(sala.codigo);
     claveActual = await derivarClave(codigoNorm);
-    salaIdActual = await idDeSala(codigoNorm);
+    /* LIMPIEZA (2026-09-16): SOLO la licencia canonica de JFC estrena sala NUEVA,
+       tambien en el sync VIEJO, para que su checkpoint contaminado con semilla no
+       re-inyecte el catalogo tras la purga local. Gated EXACTO (idiomARTE y demas
+       NO cambian). La clave sigue de la licencia. Espeja el bump de sync-yjs. */
+    const _salaCod = (codigoNorm === "F123-A6YK-6V1J-BF2A-S2J24") ? (codigoNorm + "::limpio-2026-09-16") : codigoNorm;
+    salaIdActual = await idDeSala(_salaCod);
     try { ws = new WebSocket(RELAY_URL + salaIdActual); }
     catch (_) { return programarReintento(); }
 

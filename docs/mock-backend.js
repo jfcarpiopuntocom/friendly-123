@@ -258,7 +258,12 @@
      vez que sembraba -> "guerra de nombres" y nunca convergía (Unificada vs Tienda
      Consolidada). Se persiste en f123_owned.nombreNegocioTs y viaja en el catálogo. */
   let nombreNegocioTs = 0;
-  try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (_o && Number(_o.nombreNegocioTs)) nombreNegocioTs = Number(_o.nombreNegocioTs); } catch (_) {}
+  /* CONTADOR MONOTONICO DEL NOMBRE (v290, #2). El desempate por timestamp falla si
+     dos aparatos-dueño tienen relojes desfasados (el de reloj adelantado gana aunque
+     renombrara ANTES). Un contador estilo Lamport (sube +1 por rename, y al adoptar
+     un rev mayor se sincroniza) desempata deterministamente: gana (rev, luego ts). */
+  let nombreNegocioRev = 0;
+  try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (_o) { if (Number(_o.nombreNegocioTs)) nombreNegocioTs = Number(_o.nombreNegocioTs); if (Number(_o.nombreNegocioRev)) nombreNegocioRev = Number(_o.nombreNegocioRev); } } catch (_) {}
   // Cadena anti-tamper (2026-07-08): sello (hash) del último movimiento.
   let selloUltimo = "";
   // Item 1 (revisión JFC 2026-07-05): el estado vivía SOLO en memoria — al
@@ -311,6 +316,7 @@
       instanceId: instanceId,
       nombreNegocio: nombreNegocio,
       nombreNegocioTs: nombreNegocioTs,
+      nombreNegocioRev: nombreNegocioRev,
       selloUltimo: selloUltimo,
     };
   }
@@ -366,6 +372,7 @@
     if (typeof body.instanceId === "string" && body.instanceId) instanceId = body.instanceId;
     if (typeof body.nombreNegocio === "string") nombreNegocio = body.nombreNegocio;
     if (Number(body.nombreNegocioTs)) nombreNegocioTs = Number(body.nombreNegocioTs);
+    if (Number(body.nombreNegocioRev)) nombreNegocioRev = Number(body.nombreNegocioRev);
     // Cadena anti-tamper: cargar el sello persistido TAL CUAL (no recalcularlo del
     // array). Así, si alguien recorta el final del log sin arreglar este valor, la
     // verificación de cola lo detecta (prev !== selloUltimo). En respaldos viejos
@@ -2001,19 +2008,28 @@
        de dueño MÁS RECIENTE por su sello de tiempo: solo se adopta el nombre remoto
        de un dueño si su nombreNegocioTs es MAYOR que el local (o si el local no
        tiene sello). Así los dos aparatos convergen al mismo nombre de forma estable. */
+    /* DESEMPATE v290 (#2): PRIMARIO por rev monotónico (inmune a relojes
+       desfasados), SECUNDARIO por ts. Se adopta el nombre remoto de un dueño si su
+       rev es mayor, o si empatan en rev y su ts es mayor. */
     var _tsRemoto = Number(remoto && remoto.nombreNegocioTs) || 0;
+    var _revRemoto = Number(remoto && remoto.nombreNegocioRev) || 0;
     var _adoptaNombre = false;
     if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim()) {
       if (!String(nombreNegocio || "").trim()) _adoptaNombre = true;           // local vacío: adoptar
-      else if (rolRemoto === "dueno") _adoptaNombre = (!nombreNegocioTs || _tsRemoto > nombreNegocioTs); // dueño: solo si es más reciente
+      else if (rolRemoto === "dueno") {
+        _adoptaNombre = (_revRemoto > nombreNegocioRev) ||
+                        (_revRemoto === nombreNegocioRev && _tsRemoto > nombreNegocioTs);
+      }
     }
     if (_adoptaNombre) {
       nombreNegocio = remoto.nombreNegocio.trim().slice(0, 80);
       if (_tsRemoto) nombreNegocioTs = _tsRemoto;
+      if (_revRemoto > nombreNegocioRev) nombreNegocioRev = _revRemoto; // Lamport: sincroniza el contador
       try {
         const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
         _ow.nombreNegocio = nombreNegocio;
         if (_tsRemoto) _ow.nombreNegocioTs = _tsRemoto;
+        _ow.nombreNegocioRev = nombreNegocioRev;
         localStorage.setItem("f123_owned", JSON.stringify(_ow));
       } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
@@ -2287,7 +2303,8 @@
            receptor lo adopta si el suyo está vacío o si el remitente es el dueño
            (mayor jerarquía) — ver aplicarCatalogo. */
         nombreNegocio: nombreNegocio || "",
-        nombreNegocioTs: nombreNegocioTs || 0, // desempate: gana el rename de dueño más reciente
+        nombreNegocioTs: nombreNegocioTs || 0, // desempate secundario
+        nombreNegocioRev: nombreNegocioRev || 0, // desempate PRIMARIO (monotónico, v290)
         pinsRol: (function () {
           try {
             const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
@@ -2517,6 +2534,31 @@
       // sync/respaldo. No se mueve ni se adopta data de otros namespaces.
       _vaciarTiendaFresca();
       console.warn("[guard-demo] aparato real sin buffer local: semilla de ejemplo vaciada, la tienda arranca limpia y se llena por sync.");
+    }
+  } catch (_) {}
+  /* LIMPIEZA UNICA DE SEMILLA CONTAMINADA — SOLO LICENCIA JFC (2026-09-16, aprobado).
+     La sala de la licencia canonica de JFC quedo con ~60 productos de SEMILLA
+     (ids "p01".."pNN") mezclados con los reales. Aqui, SOLO en aparatos cuya
+     licencia activa es EXACTAMENTE la de JFC (idiomARTE y cualquier otra licencia
+     NO entran), se purgan del store local esos productos y sus ventas de ejemplo.
+     Blindaje: (a) gated a la licencia exacta; (b) snapshot completo antes
+     (f123_prelimpieza_jfc_v1, reversible); (c) SOLO ids de semilla: productos
+     "^p\d+$" (los reales son "p"+UUID con guiones, no matchean) y ventas "^vs-"
+     (las reales son "v"+UUID); (d) una sola vez (flag). El reseteo de la SALA para
+     que el relay no re-llene se hace en sync-yjs (bump de sala gated a esta licencia). */
+  try {
+    var _licJFC = "F123-A6YK-6V1J-BF2A-S2J24";
+    if (_licenciaPropia() === _licJFC && localStorage.getItem("f123_limpieza_demo_jfc_v1") !== "1") {
+      var _esSemillaProd = function (id) { return /^p\d+$/.test(String(id || "")); };
+      if (productos.some(function (p) { return _esSemillaProd(p.id); })) {
+        try { localStorage.setItem("f123_prelimpieza_jfc_v1", JSON.stringify({ ts: Date.now(), estado: estadoActualExportable() })); } catch (_) {}
+        var _antesP = productos.length, _antesV = ventas.length;
+        for (var _pi = productos.length - 1; _pi >= 0; _pi--) { if (_esSemillaProd(productos[_pi].id)) productos.splice(_pi, 1); }
+        for (var _vi = ventas.length - 1; _vi >= 0; _vi--) { if (/^vs-/.test(String((ventas[_vi] && ventas[_vi].id) || ""))) ventas.splice(_vi, 1); }
+        try { guardarEstadoLocal(); } catch (_) {}
+        try { console.warn("[limpieza-jfc] semilla purgada: productos " + _antesP + "->" + productos.length + ", ventas " + _antesV + "->" + ventas.length); } catch (_) {}
+      }
+      try { localStorage.setItem("f123_limpieza_demo_jfc_v1", "1"); } catch (_) {}
     }
   } catch (_) {}
   /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).
@@ -4004,8 +4046,9 @@
       // POST /api/instancia/nombre — el dueño edita el nombre de su negocio.
       if (path === "/api/instancia/nombre" && opts && opts.method === "POST") {
         nombreNegocio = String(body.nombre || "").trim().slice(0, 80);
-        nombreNegocioTs = Date.now(); // rename local: sella el momento para el desempate del sync
-        try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs; localStorage.setItem("f123_owned", JSON.stringify(_o)); } catch (_) {}
+        nombreNegocioTs = Date.now(); // sello secundario
+        nombreNegocioRev = (Number(nombreNegocioRev) || 0) + 1; // contador monotónico (v290): este rename gana a cualquiera con rev menor
+        try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs; _o.nombreNegocioRev = nombreNegocioRev; localStorage.setItem("f123_owned", JSON.stringify(_o)); } catch (_) {}
         guardarEstadoLocal();
         return J({ ok: true, nombreNegocio: nombreNegocio });
       }

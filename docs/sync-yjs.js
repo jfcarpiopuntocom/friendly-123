@@ -273,7 +273,14 @@
     // Plan C converge un negocio completo por sí solo, sin depender del sync casero.
     API.meta = API.doc.getMap("_meta");
     API.clave = await derivarClave(codigo);
-    API.roomId = await idDeSala(codigo);
+    /* LIMPIEZA (2026-09-16): SOLO la licencia canonica de JFC estrena sala NUEVA
+       para abandonar la sala de catalogo contaminada con semilla (la vieja queda
+       huerfana e hibernada, sin costo). Gated EXACTO: ninguna otra licencia
+       (idiomARTE incluida) cambia de sala. La CLAVE sigue derivada de la licencia,
+       asi los aparatos de JFC se entienden en la sala nueva. Ver la purga local
+       gated en mock-backend.js. */
+    var _salaId = (codigo === "F123-A6YK-6V1J-BF2A-S2J24") ? (codigo + "::limpio-2026-09-16") : codigo;
+    API.roomId = await idDeSala(_salaId);
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
     // Guardamos la referencia: al terminar de cargar de IndexedDB ("synced")
@@ -531,11 +538,17 @@
                era una guerra de nombres que nunca convergía. Ahora gana el rename
                de dueño MÁS RECIENTE por sello de tiempo: un dueño solo escribe el
                nombre si su ts es >= al del doc (o si el doc aún no es de dueño). */
+            // v290 (#2): desempate PRIMARIO por rev monotónico (inmune a relojes
+            // desfasados), secundario por ts.
+            var revMeta = Number(API.meta.get("nombreRev")) || 0;
+            var revMio = Number(cat.nombreNegocioRev) || 0;
             var tsMeta = Number(API.meta.get("nombreTs")) || 0;
             var tsMio = Number(cat.nombreNegocioTs) || 0;
             if (soyDueno) {
-              if (!yaEsDueno || tsMio >= tsMeta) {
+              var _gano = !yaEsDueno || revMio > revMeta || (revMio === revMeta && tsMio >= tsMeta);
+              if (_gano) {
                 if (API.meta.get("nombreNegocio") !== cat.nombreNegocio) API.meta.set("nombreNegocio", cat.nombreNegocio);
+                if (revMio) API.meta.set("nombreRev", revMio);
                 if (tsMio) API.meta.set("nombreTs", tsMio);
                 if (!yaEsDueno) API.meta.set("nombreEsDueno", true);
               }
@@ -558,7 +571,7 @@
       if (_aplicando) return;
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
-      var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, pinsRol: API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.meta.get("pinsRol") || null, deviceNombre: "sync" };
       var hay = false;
       COLECCIONES.forEach(function (c) { remoto[c] = valores(c); if (remoto[c].length) hay = true; });
       // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
