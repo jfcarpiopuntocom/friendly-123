@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Sync integral: una licencia = UN cuaderno compartido. Al abrir, tu aparato consolida (una sola vez, con respaldo previo y sin borrar nada) tu inventario en un unico cuaderno; se acabo el que cada dispositivo mostrara cosas distintas. El nombre del negocio ahora converge entre aparatos: gana tu cambio de nombre mas reciente. Sube shell a f123-shell-v283.",
+  "changelog": "Arreglo del v283: la consolidacion a un solo cuaderno ahora encuentra tu inventario este donde este guardado en el aparato (no solo bajo un nombre exacto de licencia) y vuelve a correr en aparatos donde antes quedo vacio. Fin del parpadeo vacio/nombre. Sube shell a f123-shell-v284.",
   "requerida": false,
-  "shell": "f123-shell-v283",
+  "shell": "f123-shell-v284",
   "apagar": [],
   "releaseName": "v1.0"
 }

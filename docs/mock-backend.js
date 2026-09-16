@@ -462,9 +462,16 @@
          red). Idempotente: corre una sola vez (flag f123_notebook_unificado_v1).
      _normLic/_licenciaPropia son hoisted y solo leen localStorage: seguro aquí. */
   try {
-    if (localStorage.getItem("f123_notebook_unificado_v1") !== "1") {
-      var _ownN = _licenciaPropia();
-      // Lee el mejor buffer válido (A/B según puntero) de un sufijo dado.
+    /* FLAG v2 (v284): la v283 tenía una trampa — solo miraba el buffer
+       "::<licenciaPropia>". Si en el aparato el buffer real estaba bajo OTRO sufijo
+       (la licencia con que se creó no coincidía byte a byte con _licenciaPropia()),
+       la migración NO lo encontraba pero IGUAL forzaba tienda_activa="" y marcaba
+       hecho -> el aparato quedaba apuntando al cuaderno VACÍO y la data huérfana.
+       v284 escanea TODOS los buffers del aparato (cualquier sufijo + legacy),
+       elige el que tiene el negocio real (más productos) y lo consolida en "".
+       El flag es NUEVO (v2) para que RE-CORRA en aparatos que ya sufrieron la v283. */
+    if (localStorage.getItem("f123_notebook_unificado_v2") !== "1") {
+      // Mejor buffer A/B válido de un sufijo dado.
       var _leerBuf = function (suf) {
         try {
           var base = OC_STATE_KEY + suf;
@@ -474,48 +481,58 @@
             var raw = localStorage.getItem(base + "_" + orden[i]);
             if (raw == null) continue;
             var b; try { b = JSON.parse(raw); } catch (_) { continue; }
-            if (b && typeof b === "object") return { body: b, raw: raw, ptr: orden[i] };
+            if (b && typeof b === "object") return { body: b, raw: raw, suf: suf };
           }
         } catch (_) {}
         return null;
       };
-      var _cero = _leerBuf("");
-      var _guest = _ownN ? _leerBuf("::" + _ownN) : null;
-      // Solo hay algo que consolidar si existe el buffer de la licencia propia.
-      if (_guest) {
-        var _nProd = function (r) { return (r && r.body && Array.isArray(r.body.productos)) ? r.body.productos.length : -1; };
-        // BASE = el cuaderno con el negocio real (más productos). El otro aporta
-        // add-only lo que le falte al base. Empate/ambos vacíos: base = "".
-        var _base, _extra;
-        if (_nProd(_guest) > _nProd(_cero)) { _base = _guest; _extra = _cero; }
-        else { _base = _cero || _guest; _extra = (_base === _guest) ? _cero : _guest; }
-        if (_base && _base.body) {
-          // Snapshot de seguridad ANTES de tocar nada (no destructivo).
+      // Recolectar TODOS los sufijos presentes en claves de buffer del aparato.
+      var _sufs = { "": true };
+      try {
+        for (var _i = 0; _i < localStorage.length; _i++) {
+          var _k = localStorage.key(_i); if (!_k) continue;
+          var _m = _k.match(/^f123_estado_v4(::.+)?_(A|B)$/);
+          if (_m) _sufs[_m[1] || ""] = true;
+        }
+      } catch (_) {}
+      var _bufs = [];
+      Object.keys(_sufs).forEach(function (s) { var b = _leerBuf(s); if (b) _bufs.push(b); });
+      // Candidato legacy: la clave de un solo buffer (aparatos muy viejos).
+      try {
+        var _lg = localStorage.getItem(OC_STATE_KEY);
+        if (_lg) { var _lb; try { _lb = JSON.parse(_lg); } catch (_) {} if (_lb && typeof _lb === "object") _bufs.push({ body: _lb, raw: _lg, suf: "" }); }
+      } catch (_) {}
+      var _nProd = function (r) { return (r && r.body && Array.isArray(r.body.productos)) ? r.body.productos.length : -1; };
+      if (_bufs.length) {
+        // GANADOR = el cuaderno con el negocio real (más productos). Un aparato
+        // hospeda UN negocio, así que el resto solo aporta catálogo add-only.
+        var _win = _bufs[0];
+        _bufs.forEach(function (b) { if (_nProd(b) > _nProd(_win)) _win = b; });
+        if (_nProd(_win) >= 0) {
+          // Snapshot de TODOS los buffers antes de tocar nada (no destructivo).
           try {
-            localStorage.setItem("f123_premigra_notebook_v1", JSON.stringify({
-              ts: Date.now(), lic: _ownN || "",
-              cero: _cero ? _cero.raw : null,
-              guest: _guest ? _guest.raw : null
+            localStorage.setItem("f123_premigra_notebook_v2", JSON.stringify({
+              ts: Date.now(), win: _win.suf,
+              bufs: _bufs.map(function (b) { return { suf: b.suf, raw: b.raw }; })
             }));
           } catch (_) {}
-          // Unión add-only por id (NO toca ventas/movimientos/sello del base).
-          var _res = JSON.parse(JSON.stringify(_base.body));
+          // Base = ganador COMPLETO (conserva su log financiero y su sello).
+          var _res = JSON.parse(JSON.stringify(_win.body));
           var _ADD = ["ubicaciones", "productos", "sucursales", "promotoras", "clientes", "usuarios"];
-          if (_extra && _extra.body) {
+          var _maxRev = Number(_win.body._rev) || 0;
+          _bufs.forEach(function (b) {
+            if (b === _win || !b.body) return;
+            _maxRev = Math.max(_maxRev, Number(b.body._rev) || 0);
             _ADD.forEach(function (col) {
               var bArr = Array.isArray(_res[col]) ? _res[col] : (_res[col] = []);
-              var eArr = Array.isArray(_extra.body[col]) ? _extra.body[col] : [];
+              var eArr = Array.isArray(b.body[col]) ? b.body[col] : [];
               var vistos = {};
               bArr.forEach(function (x) { if (x && x.id != null) vistos[String(x.id)] = true; });
               eArr.forEach(function (x) { if (x && x.id != null && !vistos[String(x.id)]) { bArr.push(x); vistos[String(x.id)] = true; } });
             });
-            // Nombre del negocio: conservar el del base si tiene; si no, el del otro.
-            if (!String(_res.nombreNegocio || "").trim() && _extra.body.nombreNegocio) {
-              _res.nombreNegocio = _extra.body.nombreNegocio;
-            }
-          }
-          // _rev por encima de ambos para que cargarEstadoLocal lo adopte.
-          _res._rev = (Math.max(Number(_cero && _cero.body._rev) || 0, Number(_guest && _guest.body._rev) || 0)) + 1;
+            if (!String(_res.nombreNegocio || "").trim() && b.body.nombreNegocio) _res.nombreNegocio = b.body.nombreNegocio;
+          });
+          _res._rev = _maxRev + 1;
           // Escribir el cuaderno consolidado en el namespace canónico "".
           try {
             localStorage.setItem(OC_STATE_KEY + "_A", JSON.stringify(_res));
@@ -525,7 +542,7 @@
       }
       // De aquí en adelante el aparato usa SIEMPRE el cuaderno único "".
       try { localStorage.setItem("f123_tienda_activa", ""); } catch (_) {}
-      try { localStorage.setItem("f123_notebook_unificado_v1", "1"); } catch (_) {}
+      try { localStorage.setItem("f123_notebook_unificado_v2", "1"); } catch (_) {}
     }
   } catch (_) {}
   const OC_STATE_SUFIJO = _sufijoTiendaActiva();
