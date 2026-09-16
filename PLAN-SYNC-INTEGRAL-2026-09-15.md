@@ -1,6 +1,25 @@
 # Plan — Cerrar el sync integral + cazar mis microerrores
 Fecha: 2026-09-15 · friendly-123 · Autor: Claude (para JFC)
 
+## CORRECCION DE FONDO (JFC 2026-09-15, tarde) — LA APP ES UN SHARED DIGITAL NOTEBOOK
+No puede haber "notebooks distintos". UNA licencia = UN cuaderno unico compartido.
+Los dispositivos son REPLICAS (se distinguen por instanceId), NO cuadernos aparte.
+El split de namespaces por dispositivo (`OC_STATE_SUFIJO`: `""` vs `"::licencia"`)
+ES la enfermedad de "salas vestigiales": hay que ELIMINARLO, no parcharlo. Mis
+v281/v282 (elegir el "cajon" con data) siguen asumiendo multiples cajones = mal.
+
+### Fix de fondo (el unico correcto)
+1. UN store por licencia, derivado de la licencia (no de un puntero que driftea).
+   Sin split `""`/`"::L"`.
+2. Migracion UNICA no destructiva: union add-only de lo disperso en `""` y `"::L"`
+   dentro del cuaderno unico. Union solo AGREGA por id, nunca borra -> no puede
+   perder inventario. Con respaldo previo. NO es el rogue de "mover el mas grande".
+3. Room de sync = licencia. Convergencia CRDT: nombre (gana rename de dueño mas
+   reciente), equipo/PIN add-only (los PIN de dueño de TODOS los aparatos abren),
+   inventario, fotos.
+4. Verificar en el panel privado JFC: UN nombre por licencia, sin devices sueltos.
+Ver memoria: arquitectura_shared_notebook_canonica.
+
 ## Principio rector (JFC, dicho hoy, IN STONE)
 - **UNA licencia = UN cuaderno (una "sala"). Nada de namespaces por
   aparato/por-join.** El concepto de "sala" separada es VESTIGIO del sync viejo
