@@ -414,7 +414,15 @@
     API.fotosMap.forEach(function (dataUrl, hash) { pend.push([hash, dataUrl]); });
     var i = 0;
     (function next() {
-      if (i >= pend.length) { if (hubo) { try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} } return; }
+      if (i >= pend.length) {
+        if (hubo) {
+          // v290: hidratar fotos de PRODUCTO (poner p.foto desde el hash recibido)
+          // para que la UI, que pinta p.foto, muestre la foto que cruzo.
+          try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
+          try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {}
+        }
+        return;
+      }
       var hash = pend[i][0], dataUrl = pend[i][1]; i++;
       Promise.resolve(window.OCFotos.tieneHash(hash)).then(function (ya) {
         if (ya) return next();
@@ -437,22 +445,27 @@
   var _fotosSembradas = {};
   function sembrarFotosAlRelay() {
     if (!window.OCFotos || !window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
-    var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
-    var hashes = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
-    hashes.forEach(function (hash) {
-      if (_fotosSembradas[hash]) return;
-      Promise.resolve(window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
-        if (!dataUrl) return;
-        try {
-          var d = new window.Y.Doc();
-          d.getMap("fotos").set(hash, dataUrl);
-          var u = window.Y.encodeStateAsUpdate(d);
-          _fotosSembradas[hash] = 1;
-          try { window.Y.applyUpdate(API.fotosDoc, u, "seed"); } catch (_) {}
-          API.fotosCanal.enviarUpdate(u); // persiste como op (<180KB) + en vivo
-        } catch (_) {}
-      }).catch(function () {});
-    });
+    // Primero: dar hash a las fotos de PRODUCTO que solo estaban inline (v290 fix:
+    // la foto de producto no cruzaba porque no tenia fotoHash ni iba por el canal).
+    Promise.resolve(window.OCSync.hashearFotosProductos ? window.OCSync.hashearFotosProductos() : 0).then(function () {
+      var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+      var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
+      var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean);
+      hUbic.concat(hProd).forEach(function (hash) {
+        if (_fotosSembradas[hash]) return;
+        Promise.resolve(window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
+          if (!dataUrl) return;
+          try {
+            var d = new window.Y.Doc();
+            d.getMap("fotos").set(hash, dataUrl);
+            var u = window.Y.encodeStateAsUpdate(d);
+            _fotosSembradas[hash] = 1;
+            try { window.Y.applyUpdate(API.fotosDoc, u, "seed"); } catch (_) {}
+            API.fotosCanal.enviarUpdate(u); // persiste como op (<180KB) + en vivo
+          } catch (_) {}
+        }).catch(function () {});
+      });
+    }).catch(function () {});
   }
 
   // OCFotos local -> Yjs(fotos). Publica los blobs de las fotos EN USO (las que
@@ -460,8 +473,9 @@
   function publicarFotosLocales() {
     if (!window.OCFotos || !API.fotosMap || !window.OCSync) return;
     var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
-    var hashes = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
-    hashes.forEach(function (hash) {
+    var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
+    var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean); // v290: fotos de producto tambien
+    hUbic.concat(hProd).forEach(function (hash) {
       if (API.fotosMap.get(hash)) return; // ya publicado
       Promise.resolve(window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
         if (dataUrl && !API.fotosMap.get(hash)) { try { API.fotosMap.set(hash, dataUrl); } catch (_) {} }
@@ -561,8 +575,14 @@
             API.meta.set("pinsRol", cat.pinsRol);
         }, "seed"); // origin "seed": estos updates no deben re-aplicarse al store
       } catch (e) { log("sembrar:", e && e.message); }
-      // B3: publicar al doc de fotos los blobs de las perchas que tienen foto.
-      try { publicarFotosLocales(); } catch (_) {}
+      // B3: publicar al doc de fotos los blobs de perchas Y productos que tienen
+      // foto. Antes se asegura que las fotos de PRODUCTO tengan hash (v290): una
+      // foto recien puesta se hashea y se publica sin esperar a reconectar.
+      try {
+        if (window.OCSync && window.OCSync.hashearFotosProductos) {
+          window.OCSync.hashearFotosProductos().then(function () { try { publicarFotosLocales(); } catch (_) {} }).catch(function () { try { publicarFotosLocales(); } catch (_) {} });
+        } else { publicarFotosLocales(); }
+      } catch (_) { try { publicarFotosLocales(); } catch (_) {} }
     }
 
     // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge

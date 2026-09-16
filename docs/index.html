@@ -7929,6 +7929,19 @@ window.addEventListener("oc-sync-merge", function (ev) {
   } catch (_) {}
 });
 
+/* v290: cuando llegan bytes de fotos por el sync (oc-fotos-actualizadas), re-pintar
+   la vista de inventario activa para que la foto de PRODUCTO que cruzo aparezca
+   (la de perchas ya la escucha vista-perchas.js). Debounce por vista. */
+window.addEventListener("oc-fotos-actualizadas", function () {
+  try {
+    var v = document.getElementById("vista-inventario");
+    if (v && v.classList.contains("activa") && typeof window.cargarInventario === "function") {
+      clearTimeout(window.__fotoInvT);
+      window.__fotoInvT = setTimeout(function () { try { window.cargarInventario(); } catch (_) {} }, 400);
+    }
+  } catch (_) {}
+});
+
 async function cargarAvanzado(){
   try { pintarSyncNuevoEstado(); } catch (_) {}
   inicializarSelectorTimezone();

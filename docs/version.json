@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "Limpieza de la tienda: se retiran los productos de ejemplo que se habian colado, dejando solo tu inventario real (con respaldo previo). El nombre del negocio converge de forma aun mas estable entre aparatos. Sube shell a f123-shell-v290.",
+  "changelog": "Las fotos de los PRODUCTOS ahora tambien cruzan entre aparatos (antes solo cruzaban las de las perchas). La foto que subes en un dispositivo aparece en el otro. Sube shell a f123-shell-v291.",
   "requerida": false,
-  "shell": "f123-shell-v290",
+  "shell": "f123-shell-v291",
   "apagar": [],
   "releaseName": "v1.0"
 }

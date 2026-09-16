@@ -1840,9 +1840,13 @@
            con stock 0 (filosofia "el stock es fisico de cada percha"). En un
            cuaderno COMPARTIDO el stock es dato del negocio y cruza: el articulo
            entra CON el stock del otro aparato. */
-        productos.push(Object.assign({}, p, { stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0 }));
+        productos.push(Object.assign({}, p, { stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0, fotoHash: p.fotoHash || null }));
         agregadosP++;
       } else {
+        // FOTO DE PRODUCTO por hash, ADD-ONLY (JFC 2026-09-16): si aca no hay foto
+        // y el otro aparato mando su fotoHash, se adopta; los bytes llegan por el
+        // canal de fotos y se hidratan en volcarFotosAlStore. No pisa una ya puesta.
+        if (p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; }
         /* STOCK LWW por stockTs (JFC 2026-09-16). Simetrico: gana la ULTIMA
            edicion de stock por su sello de tiempo, venga de quien venga. Asi
            "subir a 3 en el celu" aparece en la PC en segundos. Trade-off aceptado:
@@ -2263,6 +2267,45 @@
   };
 
   window.OCSync = {
+    /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). Antes solo las PERCHAS
+       sincronizaban foto (por hash). Los productos guardaban la foto INLINE
+       (p.foto), que no viajaba -> la foto de "Test sync unificado" salia en el
+       celu pero no en la PC. Estas dos funciones cierran el hueco reusando OCFotos:
+       - hashearFotosProductos(): para cada producto con foto inline y sin fotoHash,
+         calcula el hash, guarda los bytes en OCFotos y pone p.fotoHash. Asi la foto
+         viaja por el canal de fotos (como las perchas) y el catalogo solo lleva el
+         puntero. Corre al arrancar y cuando cambia una foto.
+       - hidratarFotosProductos(): en el receptor, cuando ya bajaron los bytes,
+         pone p.foto = OCFotos[fotoHash] para los productos que tienen puntero pero
+         no bytes inline, para que la UI (que pinta p.foto) los muestre. */
+    async hashearFotosProductos() {
+      if (!window.OCFotos || !window.OCFotos.hashDeDataUrl) return 0;
+      let n = 0;
+      for (const p of productos) {
+        try {
+          if (p && p.foto && String(p.foto).indexOf("data:") === 0 && !p.fotoHash) {
+            const h = await window.OCFotos.hashDeDataUrl(p.foto);
+            if (h) { await window.OCFotos.guardarPorHash(h, p.foto); p.fotoHash = h; n++; }
+          }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); } catch (_) {} }
+      return n;
+    },
+    async hidratarFotosProductos() {
+      if (!window.OCFotos || !window.OCFotos.leerPorHash) return 0;
+      let n = 0;
+      for (const p of productos) {
+        try {
+          if (p && p.fotoHash && !p.foto) {
+            const d = await window.OCFotos.leerPorHash(p.fotoHash);
+            if (d) { p.foto = d; n++; }
+          }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+      return n;
+    },
     /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
        DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
     catalogoPropio() {
@@ -2273,7 +2316,14 @@
              viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
              COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
              edicion de stock). Ver aplicarCatalogo y emitirOpStock. */
-          stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0 })),
+          stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0,
+          /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). La foto NO viaja inline
+             (un dataURL de ~180KB reventaria el frame del catalogo al agrupar
+             varios). Viaja solo el puntero fotoHash; los bytes van por el canal de
+             fotos (mismo camino que las perchas). El receptor resuelve la foto
+             desde OCFotos por ese hash. Ver sembrarFotosAlRelay (productos) y la
+             hidratacion en volcarFotosAlStore. */
+          fotoHash: p.fotoHash || null })),
         /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
            BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
            `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada
