@@ -236,7 +236,15 @@
   // se adivina sobre comisiones/plata). Las VENTAS y el dinero NO van por aquí: eso
   // lo maneja el sync de ops (sync-realtime) con orden causal; meterlo al add-only
   // ciego duplicaría plata. Ver aplicarCatalogo() en mock-backend.js.
-  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales"];
+  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas"];
+  /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el dinero
+     viajaba solo por el sync viejo (sync-realtime, frágil). Ahora las ventas cruzan
+     por Yjs, ADD-ONLY por id (cada venta una sola vez -> no se duplica plata). No
+     hay doble descuento de stock porque el stock es LWW ABSOLUTO aparte (v289), no
+     se re-deriva de estas ventas. Para NO reventar el frame de 256KB con historiales
+     grandes, las ventas NO van en el batch de sembrar(); se siembran como op
+     INDIVIDUAL (una mini-actualización por venta, igual que las fotos). */
+  var COLECCIONES_BATCH = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales"];
   var API = {
     estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, colecciones: COLECCIONES,
     // API genérica por colección (probar convergencia a mano o desde código).
@@ -468,6 +476,34 @@
     }).catch(function () {});
   }
 
+  /* SEMBRAR VENTAS (dinero) AL RELAY (v292, JFC 2026-09-16, aprobado). Cada venta
+     se manda como op INDIVIDUAL al canal de CATALOGO (mini Y.Doc con esa venta en
+     el map "ventas"), no en el batch de sembrar, para no reventar el frame de
+     256KB con historiales grandes. Add-only por id: el receptor la suma una sola
+     vez (aplicarCatalogo). No duplica plata ni stock (el stock es LWW aparte).
+     Guard de sesion para no re-mandar la misma venta. */
+  var _ventasSembradas = {};
+  function sembrarVentasAlRelay() {
+    if (!window.OCSync || !API.canal || !window.Y || !API.doc) return;
+    var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+    var ventas = (cat && cat.ventas) || [];
+    ventas.forEach(function (v) {
+      if (!v || v.id == null) return;
+      var id = String(v.id);
+      if (_ventasSembradas[id]) return;
+      // Si ya está en el map del doc (de un pull), no re-mandar.
+      try { if (API.mapas.ventas && API.mapas.ventas.get(id)) { _ventasSembradas[id] = 1; return; } } catch (_) {}
+      try {
+        var d = new window.Y.Doc();
+        d.getMap("ventas").set(id, JSON.parse(JSON.stringify(v)));
+        var u = window.Y.encodeStateAsUpdate(d);
+        _ventasSembradas[id] = 1;
+        try { window.Y.applyUpdate(API.doc, u, "seed"); } catch (_) {}
+        API.canal.enviarUpdate(u); // op individual pequeña: persiste + en vivo
+      } catch (_) {}
+    });
+  }
+
   // OCFotos local -> Yjs(fotos). Publica los blobs de las fotos EN USO (las que
   // alguna percha referencia por fotoHash) que aún no estén en el doc de fotos.
   function publicarFotosLocales() {
@@ -527,7 +563,7 @@
       var miRol = ""; try { if (window.OCAuth && OCAuth.rolActual) miRol = OCAuth.rolActual() || ""; } catch (_) {}
       try {
         API.doc.transact(function () {
-          COLECCIONES.forEach(function (col) {
+          COLECCIONES_BATCH.forEach(function (col) {
             var filas = cat[col] || [];
             filas.forEach(function (r) {
               if (!r || r.id == null) return;
@@ -583,6 +619,8 @@
           window.OCSync.hashearFotosProductos().then(function () { try { publicarFotosLocales(); } catch (_) {} }).catch(function () { try { publicarFotosLocales(); } catch (_) {} });
         } else { publicarFotosLocales(); }
       } catch (_) { try { publicarFotosLocales(); } catch (_) {} }
+      // v292: sembrar las ventas (dinero) como ops individuales (add-only).
+      try { sembrarVentasAlRelay(); } catch (_) {}
     }
 
     // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge
@@ -612,10 +650,10 @@
         // "Loading your business..."). La UI escucha oc-sync-merge en index.html.
         // v289: incluir r.actualizados -> una actualizacion SOLO de stock/precio
         // (sin altas) tambien re-pinta la UI: es el refresco "en segundos" del CDC.
-        if (r && r.ok && (r.agregadasU || r.agregadosP || r.actualizados || r.miembrosAgregados || r.clientesAgregados || r.promotorasAgregadas || r.sucursalesAgregadas)) {
+        if (r && r.ok && (r.agregadasU || r.agregadosP || r.actualizados || r.ventasAgregadas || r.miembrosAgregados || r.clientesAgregados || r.promotorasAgregadas || r.sucursalesAgregadas)) {
           try {
             window.dispatchEvent(new CustomEvent("oc-sync-merge", { detail: {
-              perchas: r.agregadasU || 0, productos: r.agregadosP || 0, actualizados: r.actualizados || 0,
+              perchas: r.agregadasU || 0, productos: r.agregadosP || 0, actualizados: r.actualizados || 0, ventas: r.ventasAgregadas || 0,
               miembros: r.miembrosAgregados || 0, clientes: r.clientesAgregados || 0,
               promotoras: r.promotorasAgregadas || 0, sucursales: r.sucursalesAgregadas || 0
             } }));

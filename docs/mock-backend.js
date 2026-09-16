@@ -1813,7 +1813,7 @@
     const dif = compararCatalogo(remoto, rolRemoto);
     if (!dif) return { ok: false, error: "The catalog received is not readable." };
     const mandaElOtro = dif.ganaElOtro;
-    let agregadasU = 0, agregadosP = 0, actualizados = 0;
+    let agregadasU = 0, agregadosP = 0, actualizados = 0, ventasAgregadas = 0;
 
     remoto.ubicaciones.forEach((u) => {
       if (!u || !u.id) return;
@@ -1865,6 +1865,20 @@
         }
       }
     });
+
+    /* VENTAS / DINERO ADD-ONLY (JFC 2026-09-16, aprobado). Cada venta se SUMA una
+       sola vez por id; nunca se pisa ni se borra una venta existente. No hay doble
+       descuento de stock porque el stock es LWW ABSOLUTO aparte (v289), no se
+       re-deriva de estas ventas. Asi el dinero (ventas, reportes) converge entre
+       aparatos por el sync nuevo, sin depender del sync viejo. */
+    if (Array.isArray(remoto.ventas)) {
+      remoto.ventas.forEach((v) => {
+        if (!v || v.id == null) return;
+        if (ventas.some((x) => String(x.id) === String(v.id))) return; // ya existe: no duplicar
+        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, origenRemoto: true });
+        ventasAgregadas++;
+      });
+    }
 
     /* EL EQUIPO (2026-08-21). Misma regla dura que el catalogo: SUMA, NUNCA
        BORRA. Un miembro que solo existe aqui se queda; nunca se elimina a
@@ -2092,7 +2106,7 @@
     } catch (_) {}
     mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
-    return { ok: true, agregadasU, agregadosP, actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo() };
+    return { ok: true, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo() };
   }
 
   /* ===================================================================
@@ -2348,6 +2362,11 @@
            integral"). Add-only en aplicarCatalogo: nunca se pisa una comision. */
         promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [] })),
         sucursales: sucursales.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa !== false })),
+        /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Cada venta
+           viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
+           no en el batch, para no reventar el frame). El receptor la SUMA una sola
+           vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
+        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null })),
         /* NOMBRE DE LA TIENDA VIAJA CON EL CATÁLOGO (JFC 2026-08-27 + 2026-08-28).
            Era estado local (nombreNegocio) que nunca se propagaba. Ahora viaja; el
            receptor lo adopta si el suyo está vacío o si el remitente es el dueño

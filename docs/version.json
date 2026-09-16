@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "Las fotos de los PRODUCTOS ahora tambien cruzan entre aparatos (antes solo cruzaban las de las perchas). La foto que subes en un dispositivo aparece en el otro. Sube shell a f123-shell-v291.",
+  "changelog": "El DINERO (ventas) ahora se sincroniza entre aparatos por el sync nuevo, confiable: cada venta cruza una sola vez (sin duplicar plata), y los reportes convergen. Sube shell a f123-shell-v292.",
   "requerida": false,
-  "shell": "f123-shell-v291",
+  "shell": "f123-shell-v292",
   "apagar": [],
   "releaseName": "v1.0"
 }
