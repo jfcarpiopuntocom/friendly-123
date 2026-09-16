@@ -33,7 +33,15 @@ export class SalaSync {
   constructor(state, env) {
     this.state = state;
     this.env = env;
-    this.sockets = new Set();
+    /* HIBERNATION (JFC 2026-09-16, world-class + fix "quema los Workers"). Antes
+       se usaba server.accept() y this.sockets: eso mantiene el Durable Object
+       ACTIVO todo el tiempo que haya UNA conexion WebSocket abierta, facturando
+       "duration" sin parar aunque nadie mande nada. Con 3 canales por aparato,
+       24/7, eso consumio el 90% del limite diario gratis de Durable Objects.
+       Ahora se usa la WebSocket Hibernation API (state.acceptWebSocket): las
+       conexiones siguen abiertas pero el DO se DUERME cuando no hay trafico y
+       DEJA DE facturar duration mientras esta idle. La lista de sockets ya no se
+       guarda en memoria (se pierde al hibernar): se lee con state.getWebSockets(). */
     /* BITACORA CIFRADA (JFC 2026-08-25). El relay guarda sobres CERRADOS para
        que un dispositivo nuevo se ponga al dia aunque no haya nadie en linea.
        No puede leer nada: `c` es ciphertext; `id` es aleatorio; `lam` un
@@ -108,7 +116,8 @@ export class SalaSync {
     if ((request.headers.get("Upgrade") || "").toLowerCase() !== "websocket") {
       return new Response("expected websocket", { status: 426 });
     }
-    if (this.sockets.size >= MAX_CLIENTES_SALA) {
+    // Con hibernacion la lista viva se lee del runtime, no de memoria del DO.
+    if (this.state.getWebSockets().length >= MAX_CLIENTES_SALA) {
       // Sala llena: no se acepta un cliente mas (evita que una sala crezca sin
       // fin y sirva de amplificador). El cliente reintenta con backoff.
       return new Response("room full", { status: 429 });
@@ -117,52 +126,63 @@ export class SalaSync {
     const par = new WebSocketPair();
     const cliente = par[0];
     const servidor = par[1];
-    servidor.accept();
-    this.sockets.add(servidor);
-
-    servidor.addEventListener("message", (evt) => {
-      const data = evt.data;
-      // Tope de tamano SIN mirar el contenido: bytes reales. En un string,
-      // .length son CARACTERES, no bytes — un texto multibyte podia colarse por
-      // encima del tope; se mide en UTF-8. (Importa para los frames base64 de la
-      // bitacora cifrada.) El relay sigue sin leer el contenido.
-      const tam = typeof data === "string"
-        ? new TextEncoder().encode(data).length
-        : (data && data.byteLength) || 0;
-      if (tam > MAX_FRAME_BYTES) {
-        try { servidor.close(1009, "frame too big"); } catch (_) {}
-        return;
-      }
-
-      /* Frames de CONTROL de la bitacora: viajan como texto JSON con una clave
-         `k`. El relay los CONSUME (no los retransmite): el envio en vivo va por
-         separado como frame binario. Cualquier otra cosa (binario en vivo, o un
-         texto que no reconozco) se retransmite tal cual a los demas, como antes
-         — asi un relay/cliente viejo sigue funcionando. */
-      if (typeof data === "string") {
-        let msg = null;
-        try { msg = JSON.parse(data); } catch (_) { msg = null; }
-        if (msg && typeof msg === "object" && msg.k) {
-          if (msg.k === "op") { this._guardarOp(msg.id, msg.lam, msg.c); return; }
-          if (msg.k === "ckpt") { this._guardarCkpt(msg.lam, msg.c); return; }
-          if (msg.k === "pull") { this._responderPull(servidor, msg.lam); return; }
-          // k desconocida: no se retransmite ni se guarda (evita amplificar).
-          return;
-        }
-      }
-
-      // Reenvio EN VIVO a los DEMAS de la sala. El relay no descifra ni inspecciona.
-      for (const s of this.sockets) {
-        if (s === servidor) continue;
-        try { if (s.readyState === 1 /* OPEN */) s.send(data); } catch (_) {}
-      }
-    });
-
-    const quitar = () => { this.sockets.delete(servidor); };
-    servidor.addEventListener("close", quitar);
-    servidor.addEventListener("error", quitar);
+    // HIBERNACION: acceptWebSocket (no servidor.accept()). El DO puede evacuarse
+    // de memoria entre mensajes sin cerrar la conexion, y NO factura duration
+    // mientras esta dormido. Los mensajes despiertan al DO y llegan por
+    // webSocketMessage(); el cierre por webSocketClose().
+    this.state.acceptWebSocket(servidor);
 
     return new Response(null, { status: 101, webSocket: cliente });
+  }
+
+  // === Handlers de la WebSocket Hibernation API ===
+  // El runtime los invoca al despertar el DO; NO hay estado en memoria entre
+  // mensajes (this.sockets ya no existe): la lista viva se obtiene siempre con
+  // this.state.getWebSockets().
+  async webSocketMessage(servidor, data) {
+    // Tope de tamano SIN mirar el contenido: bytes reales. En un string,
+    // .length son CARACTERES, no bytes — un texto multibyte podia colarse por
+    // encima del tope; se mide en UTF-8. (Importa para los frames base64 de la
+    // bitacora cifrada.) El relay sigue sin leer el contenido.
+    const tam = typeof data === "string"
+      ? new TextEncoder().encode(data).length
+      : (data && data.byteLength) || 0;
+    if (tam > MAX_FRAME_BYTES) {
+      try { servidor.close(1009, "frame too big"); } catch (_) {}
+      return;
+    }
+
+    /* Frames de CONTROL de la bitacora: viajan como texto JSON con una clave
+       `k`. El relay los CONSUME (no los retransmite): el envio en vivo va por
+       separado como frame binario. Cualquier otra cosa (binario en vivo, o un
+       texto que no reconozco) se retransmite tal cual a los demas, como antes
+       — asi un relay/cliente viejo sigue funcionando. */
+    if (typeof data === "string") {
+      let msg = null;
+      try { msg = JSON.parse(data); } catch (_) { msg = null; }
+      if (msg && typeof msg === "object" && msg.k) {
+        if (msg.k === "op") { this._guardarOp(msg.id, msg.lam, msg.c); return; }
+        if (msg.k === "ckpt") { this._guardarCkpt(msg.lam, msg.c); return; }
+        if (msg.k === "pull") { this._responderPull(servidor, msg.lam); return; }
+        // k desconocida: no se retransmite ni se guarda (evita amplificar).
+        return;
+      }
+    }
+
+    // Reenvio EN VIVO a los DEMAS de la sala. El relay no descifra ni inspecciona.
+    for (const s of this.state.getWebSockets()) {
+      if (s === servidor) continue;
+      try { if (s.readyState === 1 /* OPEN */) s.send(data); } catch (_) {}
+    }
+  }
+
+  async webSocketClose(servidor, code, reason, wasClean) {
+    // Con hibernacion el runtime gestiona la lista; solo cerramos limpio.
+    try { servidor.close(code, reason); } catch (_) {}
+  }
+
+  async webSocketError(servidor, err) {
+    try { servidor.close(1011, "error"); } catch (_) {}
   }
 }
 
