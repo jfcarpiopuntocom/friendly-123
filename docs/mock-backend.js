@@ -1872,10 +1872,14 @@
        re-deriva de estas ventas. Asi el dinero (ventas, reportes) converge entre
        aparatos por el sync nuevo, sin depender del sync viejo. */
     if (Array.isArray(remoto.ventas)) {
+      // FIX v293 (perf): Set de ids locales UNA vez, no ventas.some() por cada
+      // venta remota (era O(n*m); con historiales grandes trababa el merge).
+      const _idsVenta = new Set(ventas.map((x) => String(x.id)));
       remoto.ventas.forEach((v) => {
         if (!v || v.id == null) return;
-        if (ventas.some((x) => String(x.id) === String(v.id))) return; // ya existe: no duplicar
+        if (_idsVenta.has(String(v.id))) return; // ya existe: no duplicar
         ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, origenRemoto: true });
+        _idsVenta.add(String(v.id));
         ventasAgregadas++;
       });
     }
@@ -2505,6 +2509,20 @@
       if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
       const vistos = _cargarOpsAplicadas();
       if (vistos.has(op.opId)) return { ok: true, repetida: true };
+      /* NEUTRALIZADO (JFC 2026-09-16, v293) — EVITA DOBLE CONTEO DE PLATA/STOCK.
+         El stock y las ventas ahora los aplica el SYNC NUEVO (catálogo Yjs):
+         stock por LWW ABSOLUTO (stockTs, v289) y ventas ADD-ONLY por id (v292).
+         Si este puente (sync viejo / opsDoc) TAMBIÉN aplicara el delta y creara la
+         venta, la misma venta entraría DOS veces (aquí con uuid nuevo + por el
+         catálogo con su id real) y el stock se descontaría doble -> descuadre.
+         Por eso queda como NO-OP idempotente: solo marca el opId como visto.
+         DORMANT, NO BORRAR: para revertir al modelo de ops, quitar este bloque.
+         El código de abajo (aplicaba delta + creaba venta) queda intacto pero
+         inalcanzable a propósito. */
+      if (localStorage.getItem("f123_ops_delta_activo") !== "1") {
+        _marcarOpAplicada(op.opId);
+        return { ok: true, neutralizado: true };
+      }
       const pl = op.payload;
       try {
         /* A3 (2026-08-28): respaldo por NOMBRE si el id no coincide. Dos

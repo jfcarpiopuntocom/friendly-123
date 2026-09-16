@@ -465,11 +465,13 @@
           if (!dataUrl) return;
           try {
             var d = new window.Y.Doc();
-            d.getMap("fotos").set(hash, dataUrl);
+            d.getMap("blobs").set(hash, dataUrl); // FIX v293: el doc real usa "blobs" (no "fotos"); antes la foto caía en un mapa que nadie leía
             var u = window.Y.encodeStateAsUpdate(d);
             _fotosSembradas[hash] = 1;
+            // Aplicar con origin "seed" dispara el observador de -fotos (línea ~331)
+            // que YA hace enviarUpdate (op + en vivo). NO enviar explícito aparte:
+            // duplicaba la op (FIX v293).
             try { window.Y.applyUpdate(API.fotosDoc, u, "seed"); } catch (_) {}
-            API.fotosCanal.enviarUpdate(u); // persiste como op (<180KB) + en vivo
           } catch (_) {}
         }).catch(function () {});
       });
@@ -498,8 +500,10 @@
         d.getMap("ventas").set(id, JSON.parse(JSON.stringify(v)));
         var u = window.Y.encodeStateAsUpdate(d);
         _ventasSembradas[id] = 1;
+        // Aplicar con origin "seed" dispara el observador del catálogo (línea ~311)
+        // que YA hace enviarUpdate (op + en vivo). NO enviar explícito: duplicaba
+        // la op (FIX v293).
         try { window.Y.applyUpdate(API.doc, u, "seed"); } catch (_) {}
-        API.canal.enviarUpdate(u); // op individual pequeña: persiste + en vivo
       } catch (_) {}
     });
   }

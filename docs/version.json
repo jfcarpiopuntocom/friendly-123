@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "El DINERO (ventas) ahora se sincroniza entre aparatos por el sync nuevo, confiable: cada venta cruza una sola vez (sin duplicar plata), y los reportes convergen. Sube shell a f123-shell-v292.",
+  "changelog": "QA a fondo del sync: (1) se elimina el riesgo de contar doble el dinero y el stock entre aparatos; (2) las fotos ahora sí viajan por el canal correcto; (3) menos trafico y mas velocidad en la sincronizacion. Sube shell a f123-shell-v293.",
   "requerida": false,
-  "shell": "f123-shell-v292",
+  "shell": "f123-shell-v293",
   "apagar": [],
   "releaseName": "v1.0"
 }
