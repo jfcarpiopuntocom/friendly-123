@@ -252,6 +252,13 @@
   // Nombre editable del negocio (identidad de instancia, 2026-07-08). Viaja en
   // respaldos/sync. El header lo muestra; vacío = usa el título por defecto.
   let nombreNegocio = "";
+  /* SELLO DE TIEMPO DEL NOMBRE (JFC 2026-09-15, v283). Desempate determinista para
+     la convergencia entre dos aparatos DUEÑO: gana el rename de dueño MÁS RECIENTE.
+     Sin esto, cada aparato-dueño reescribía el nombre compartido con el suyo cada
+     vez que sembraba -> "guerra de nombres" y nunca convergía (Unificada vs Tienda
+     Consolidada). Se persiste en f123_owned.nombreNegocioTs y viaja en el catálogo. */
+  let nombreNegocioTs = 0;
+  try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (_o && Number(_o.nombreNegocioTs)) nombreNegocioTs = Number(_o.nombreNegocioTs); } catch (_) {}
   // Cadena anti-tamper (2026-07-08): sello (hash) del último movimiento.
   let selloUltimo = "";
   // Item 1 (revisión JFC 2026-07-05): el estado vivía SOLO en memoria — al
@@ -303,6 +310,7 @@
       usuarios: clonar(usuarios),
       instanceId: instanceId,
       nombreNegocio: nombreNegocio,
+      nombreNegocioTs: nombreNegocioTs,
       selloUltimo: selloUltimo,
     };
   }
@@ -357,6 +365,7 @@
     if (Array.isArray(body.usuarios)) { usuarios.length = 0; usuarios.push(...body.usuarios); }
     if (typeof body.instanceId === "string" && body.instanceId) instanceId = body.instanceId;
     if (typeof body.nombreNegocio === "string") nombreNegocio = body.nombreNegocio;
+    if (Number(body.nombreNegocioTs)) nombreNegocioTs = Number(body.nombreNegocioTs);
     // Cadena anti-tamper: cargar el sello persistido TAL CUAL (no recalcularlo del
     // array). Así, si alguien recorta el final del log sin arreglar este valor, la
     // verificación de cola lo detecta (prev !== selloUltimo). En respaldos viejos
@@ -432,22 +441,31 @@
   function _sufijoTiendaActiva() {
     try { return localStorage.getItem("f123_tienda_activa") || ""; } catch (_) { return ""; }
   }
-  /* ELEGIR EL CAJÓN CON TU DATA AL ARRANQUE (JFC 2026-09-15, v282). Regla dura:
-     una licencia = un cuaderno, y "no mover nada". El bug de "entro y sale vacío"
-     NO era que la data estuviera en "" — en aparatos que llevan semanas usados, la
-     data del dueño está guardada bajo "::<su-licencia>", y "" (legacy) está vacío.
-     Mi parche v281 (mandar el puntero a "") empeoró el teléfono: lo mandaba al
-     cajón VACÍO. Aquí, en vez de asumir dónde está la data, se ELIGE como tienda
-     activa el cajón —entre "" y "::<licencia-propia>"— que REALMENTE tiene más
-     productos. NO se copia ni se mueve ningún buffer: solo se apunta el puntero al
-     cajón correcto (leer el cajón bueno, no mover data). Solo cambia el puntero si
-     otro cajón tiene ESTRICTAMENTE más productos que el activo, así jamás te saca
-     de un cajón con data hacia uno vacío. _normLic/_licenciaPropia son hoisted y
-     solo leen localStorage: seguro llamarlas antes de fijar el sufijo. */
+  /* ═══ SHARED DIGITAL NOTEBOOK: UN SOLO CUADERNO POR LICENCIA (JFC 2026-09-15, v283) ═══
+     La app ES un cuaderno digital compartido: una licencia = UN cuaderno; los
+     aparatos son réplicas (se distinguen por instanceId), NO cuadernos aparte. El
+     split de namespaces por aparato ("" legacy vs "::<licencia>" unida) era el
+     vestigio de "salas" que fragmentaba al cliente: dos aparatos con la misma
+     licencia guardaban en cajones distintos y por eso mostraban nombre/inventario
+     distintos. Aquí se CONSOLIDA, UNA sola vez y sin destruir nada, todo el
+     cuaderno del dueño en el namespace canónico "" y de ahí en adelante el aparato
+     usa SIEMPRE "" (sufijo vacío). Ver memoria: arquitectura_shared_notebook_canonica.
+
+     Seguridad:
+       - Solo add-only: se UNEN por id las colecciones de catálogo/equipo (perchas,
+         productos, sucursales, promotoras, clientes, usuarios). El log financiero
+         (ventas/movimientos/transferencias/gastos) y su cadena anti-tamper
+         (selloUltimo) NO se fusionan a ciegas entre aparatos (rompería la cadena);
+         se conserva intacto el del cuaderno BASE (el que ya tiene el negocio real).
+       - Antes de escribir nada se guarda un snapshot de los buffers originales en
+         f123_premigra_notebook_v1 (y no se borran los buffers "::L": quedan como
+         red). Idempotente: corre una sola vez (flag f123_notebook_unificado_v1).
+     _normLic/_licenciaPropia son hoisted y solo leen localStorage: seguro aquí. */
   try {
-    var _own0 = _licenciaPropia();
-    if (_own0) {
-      var _prodEnSuf = function (suf) {
+    if (localStorage.getItem("f123_notebook_unificado_v1") !== "1") {
+      var _ownN = _licenciaPropia();
+      // Lee el mejor buffer válido (A/B según puntero) de un sufijo dado.
+      var _leerBuf = function (suf) {
         try {
           var base = OC_STATE_KEY + suf;
           var ptr = localStorage.getItem(base + "_ptr");
@@ -456,20 +474,58 @@
             var raw = localStorage.getItem(base + "_" + orden[i]);
             if (raw == null) continue;
             var b; try { b = JSON.parse(raw); } catch (_) { continue; }
-            if (b && Array.isArray(b.productos)) return b.productos.length;
+            if (b && typeof b === "object") return { body: b, raw: raw, ptr: orden[i] };
           }
         } catch (_) {}
-        return -1; // sin buffer válido en este cajón
+        return null;
       };
-      var _actual0 = localStorage.getItem("f123_tienda_activa") || "";
-      var _mejorSuf = _actual0, _mejorN = _prodEnSuf(_actual0);
-      ["", "::" + _own0].forEach(function (s) {
-        var n = _prodEnSuf(s);
-        if (n > _mejorN) { _mejorN = n; _mejorSuf = s; }
-      });
-      if (_mejorSuf !== _actual0 && _mejorN > 0) {
-        localStorage.setItem("f123_tienda_activa", _mejorSuf);
+      var _cero = _leerBuf("");
+      var _guest = _ownN ? _leerBuf("::" + _ownN) : null;
+      // Solo hay algo que consolidar si existe el buffer de la licencia propia.
+      if (_guest) {
+        var _nProd = function (r) { return (r && r.body && Array.isArray(r.body.productos)) ? r.body.productos.length : -1; };
+        // BASE = el cuaderno con el negocio real (más productos). El otro aporta
+        // add-only lo que le falte al base. Empate/ambos vacíos: base = "".
+        var _base, _extra;
+        if (_nProd(_guest) > _nProd(_cero)) { _base = _guest; _extra = _cero; }
+        else { _base = _cero || _guest; _extra = (_base === _guest) ? _cero : _guest; }
+        if (_base && _base.body) {
+          // Snapshot de seguridad ANTES de tocar nada (no destructivo).
+          try {
+            localStorage.setItem("f123_premigra_notebook_v1", JSON.stringify({
+              ts: Date.now(), lic: _ownN || "",
+              cero: _cero ? _cero.raw : null,
+              guest: _guest ? _guest.raw : null
+            }));
+          } catch (_) {}
+          // Unión add-only por id (NO toca ventas/movimientos/sello del base).
+          var _res = JSON.parse(JSON.stringify(_base.body));
+          var _ADD = ["ubicaciones", "productos", "sucursales", "promotoras", "clientes", "usuarios"];
+          if (_extra && _extra.body) {
+            _ADD.forEach(function (col) {
+              var bArr = Array.isArray(_res[col]) ? _res[col] : (_res[col] = []);
+              var eArr = Array.isArray(_extra.body[col]) ? _extra.body[col] : [];
+              var vistos = {};
+              bArr.forEach(function (x) { if (x && x.id != null) vistos[String(x.id)] = true; });
+              eArr.forEach(function (x) { if (x && x.id != null && !vistos[String(x.id)]) { bArr.push(x); vistos[String(x.id)] = true; } });
+            });
+            // Nombre del negocio: conservar el del base si tiene; si no, el del otro.
+            if (!String(_res.nombreNegocio || "").trim() && _extra.body.nombreNegocio) {
+              _res.nombreNegocio = _extra.body.nombreNegocio;
+            }
+          }
+          // _rev por encima de ambos para que cargarEstadoLocal lo adopte.
+          _res._rev = (Math.max(Number(_cero && _cero.body._rev) || 0, Number(_guest && _guest.body._rev) || 0)) + 1;
+          // Escribir el cuaderno consolidado en el namespace canónico "".
+          try {
+            localStorage.setItem(OC_STATE_KEY + "_A", JSON.stringify(_res));
+            localStorage.setItem(OC_STATE_KEY + "_ptr", "A");
+          } catch (_) {}
+        }
       }
+      // De aquí en adelante el aparato usa SIEMPRE el cuaderno único "".
+      try { localStorage.setItem("f123_tienda_activa", ""); } catch (_) {}
+      try { localStorage.setItem("f123_notebook_unificado_v1", "1"); } catch (_) {}
     }
   } catch (_) {}
   const OC_STATE_SUFIJO = _sufijoTiendaActiva();
@@ -1883,19 +1939,28 @@
       });
     }
 
-    /* NOMBRE DE LA TIENDA (JFC 2026-08-27 + 2026-08-28). Al unirse a un equipo,
-       el aparato adopta el nombre del negocio. Regla de jerarquía (JFC 2026-08-28:
-       "la jerarquía le pertenece al PIN, el nombre sale del PIN de mayor jerarquía"):
-       se adopta si el local está vacío O si el remitente es el DUEÑO (mayor
-       jerarquía). Así el nombre que puso el dueño se propaga a todos y pisa los
-       nombres locales de los demás dispositivos. Se persiste en f123_owned y se
-       avisa a la UI. */
-    if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim() &&
-        (!String(nombreNegocio || "").trim() || rolRemoto === "dueno")) {
+    /* NOMBRE DE LA TIENDA (JFC 2026-08-27 + 2026-08-28 + DESEMPATE v283 2026-09-15).
+       Al unirse a un equipo, el aparato adopta el nombre del negocio. Regla de
+       jerarquía (JFC 2026-08-28: "la jerarquía le pertenece al PIN, el nombre sale
+       del PIN de mayor jerarquía"): se adopta si el local está vacío O si el
+       remitente es el DUEÑO. DESEMPATE (v283): cuando AMBOS son dueño, ya no gana
+       "el último que sembró" (guerra de nombres, nunca convergía). Gana el rename
+       de dueño MÁS RECIENTE por su sello de tiempo: solo se adopta el nombre remoto
+       de un dueño si su nombreNegocioTs es MAYOR que el local (o si el local no
+       tiene sello). Así los dos aparatos convergen al mismo nombre de forma estable. */
+    var _tsRemoto = Number(remoto && remoto.nombreNegocioTs) || 0;
+    var _adoptaNombre = false;
+    if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim()) {
+      if (!String(nombreNegocio || "").trim()) _adoptaNombre = true;           // local vacío: adoptar
+      else if (rolRemoto === "dueno") _adoptaNombre = (!nombreNegocioTs || _tsRemoto > nombreNegocioTs); // dueño: solo si es más reciente
+    }
+    if (_adoptaNombre) {
       nombreNegocio = remoto.nombreNegocio.trim().slice(0, 80);
+      if (_tsRemoto) nombreNegocioTs = _tsRemoto;
       try {
         const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
         _ow.nombreNegocio = nombreNegocio;
+        if (_tsRemoto) _ow.nombreNegocioTs = _tsRemoto;
         localStorage.setItem("f123_owned", JSON.stringify(_ow));
       } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
@@ -2164,6 +2229,7 @@
            receptor lo adopta si el suyo está vacío o si el remitente es el dueño
            (mayor jerarquía) — ver aplicarCatalogo. */
         nombreNegocio: nombreNegocio || "",
+        nombreNegocioTs: nombreNegocioTs || 0, // desempate: gana el rename de dueño más reciente
         pinsRol: (function () {
           try {
             const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
@@ -3880,6 +3946,8 @@
       // POST /api/instancia/nombre — el dueño edita el nombre de su negocio.
       if (path === "/api/instancia/nombre" && opts && opts.method === "POST") {
         nombreNegocio = String(body.nombre || "").trim().slice(0, 80);
+        nombreNegocioTs = Date.now(); // rename local: sella el momento para el desempate del sync
+        try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs; localStorage.setItem("f123_owned", JSON.stringify(_o)); } catch (_) {}
         guardarEstadoLocal();
         return J({ ok: true, nombreNegocio: nombreNegocio });
       }

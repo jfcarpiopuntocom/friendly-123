@@ -428,9 +428,19 @@
           if (cat.nombreNegocio) {
             var soyDueno = miRol === "dueno";
             var yaEsDueno = API.meta.get("nombreEsDueno") === true;
+            /* DESEMPATE DETERMINISTA (v283, JFC 2026-09-15). Antes un dueño pisaba
+               el nombre compartido cada vez que sembraba -> con DOS aparatos dueño
+               era una guerra de nombres que nunca convergía. Ahora gana el rename
+               de dueño MÁS RECIENTE por sello de tiempo: un dueño solo escribe el
+               nombre si su ts es >= al del doc (o si el doc aún no es de dueño). */
+            var tsMeta = Number(API.meta.get("nombreTs")) || 0;
+            var tsMio = Number(cat.nombreNegocioTs) || 0;
             if (soyDueno) {
-              if (API.meta.get("nombreNegocio") !== cat.nombreNegocio) API.meta.set("nombreNegocio", cat.nombreNegocio);
-              if (!yaEsDueno) API.meta.set("nombreEsDueno", true);
+              if (!yaEsDueno || tsMio >= tsMeta) {
+                if (API.meta.get("nombreNegocio") !== cat.nombreNegocio) API.meta.set("nombreNegocio", cat.nombreNegocio);
+                if (tsMio) API.meta.set("nombreTs", tsMio);
+                if (!yaEsDueno) API.meta.set("nombreEsDueno", true);
+              }
             } else if (!yaEsDueno && !API.meta.get("nombreNegocio")) {
               API.meta.set("nombreNegocio", cat.nombreNegocio);
               API.meta.set("nombreEsDueno", false);
@@ -450,7 +460,7 @@
       if (_aplicando) return;
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
-      var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", pinsRol: API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, pinsRol: API.meta.get("pinsRol") || null, deviceNombre: "sync" };
       var hay = false;
       COLECCIONES.forEach(function (c) { remoto[c] = valores(c); if (remoto[c].length) hay = true; });
       // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Correccion del v281: si tu aparato salia vacio al entrar (o al refrescar), ahora abre en el cajon que REALMENTE tiene tu inventario, sin mover ningun dato. Antes el v281 podia mandarte a un cajon vacio. Sube shell a f123-shell-v282.",
+  "changelog": "Sync integral: una licencia = UN cuaderno compartido. Al abrir, tu aparato consolida (una sola vez, con respaldo previo y sin borrar nada) tu inventario en un unico cuaderno; se acabo el que cada dispositivo mostrara cosas distintas. El nombre del negocio ahora converge entre aparatos: gana tu cambio de nombre mas reciente. Sube shell a f123-shell-v283.",
   "requerida": false,
-  "shell": "f123-shell-v282",
+  "shell": "f123-shell-v283",
   "apagar": [],
   "releaseName": "v1.0"
 }
