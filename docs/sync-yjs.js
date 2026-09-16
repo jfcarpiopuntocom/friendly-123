@@ -577,10 +577,12 @@
         // (a) lo muestre como alerta dentro de "Today's alerts", no como banner
         // suelto, y (b) re-pinte la vista Hoy (si no, el hero se queda en
         // "Loading your business..."). La UI escucha oc-sync-merge en index.html.
-        if (r && r.ok && (r.agregadasU || r.agregadosP || r.miembrosAgregados || r.clientesAgregados || r.promotorasAgregadas || r.sucursalesAgregadas)) {
+        // v289: incluir r.actualizados -> una actualizacion SOLO de stock/precio
+        // (sin altas) tambien re-pinta la UI: es el refresco "en segundos" del CDC.
+        if (r && r.ok && (r.agregadasU || r.agregadosP || r.actualizados || r.miembrosAgregados || r.clientesAgregados || r.promotorasAgregadas || r.sucursalesAgregadas)) {
           try {
             window.dispatchEvent(new CustomEvent("oc-sync-merge", { detail: {
-              perchas: r.agregadasU || 0, productos: r.agregadosP || 0,
+              perchas: r.agregadasU || 0, productos: r.agregadosP || 0, actualizados: r.actualizados || 0,
               miembros: r.miembrosAgregados || 0, clientes: r.clientesAgregados || 0,
               promotoras: r.promotorasAgregadas || 0, sucursales: r.sucursalesAgregadas || 0
             } }));

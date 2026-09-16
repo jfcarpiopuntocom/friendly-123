@@ -1572,6 +1572,17 @@
     if (payload && payload.productoId && !payload.nombre) {
       try { const _pp = productos.find((x) => x.id === payload.productoId); if (_pp) payload.nombre = _pp.nombre; } catch (_) {}
     }
+    /* SELLO DE STOCK (JFC 2026-09-16). Punto UNICO por donde pasan TODAS las
+       mutaciones de stock (venta, ajuste, anulacion, transferencia...). Aqui se
+       sella stockTs para el LWW del sync nuevo: el cambio de stock viaja y gana el
+       mas reciente. Se dispara oc-catalogo-cambiado para que sembrar() publique ya. */
+    if (payload && payload.productoId) {
+      try {
+        const _sp = productos.find((x) => x.id === payload.productoId);
+        if (_sp) { _sp.stockTs = Date.now(); }
+      } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
+    }
     if (window.OCSyncEmit) { try { window.OCSyncEmit(tipo, payload); } catch (_) {} }
     // MYCELIUM PHASE B (2026-07-28). This is the only place where the stock
     // move has already happened AND the resulting stock is known. Emitting the
@@ -1818,20 +1829,29 @@
       if (!p || !p.id) return;
       const mio = productos.find((x) => String(x.id) === String(p.id));
       if (!mio) {
-        /* El producto llega con stock 0 A PROPOSITO. El stock es un hecho
-           fisico de CADA percha: copiar el del otro dispositivo inventaria
-           unidades que no estan aqui. Entra el articulo; las unidades las
-           cuenta quien las tiene delante. */
-        productos.push(Object.assign({}, p, { stockActual: 0 }));
+        /* STOCK COMPARTIDO (JFC 2026-09-16, aprobado). Antes el producto entraba
+           con stock 0 (filosofia "el stock es fisico de cada percha"). En un
+           cuaderno COMPARTIDO el stock es dato del negocio y cruza: el articulo
+           entra CON el stock del otro aparato. */
+        productos.push(Object.assign({}, p, { stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0 }));
         agregadosP++;
-      } else if (mandaElOtro) {
-        if (esTextoCorto(String(p.nombre || ""), 240) && String(mio.nombre) !== String(p.nombre)) { mio.nombre = p.nombre; actualizados++; }
-        if (Number.isFinite(Number(p.precio)) && Number(p.precio) >= 0 && Number(mio.precio) !== Number(p.precio)) { mio.precio = Number(p.precio); actualizados++; }
-        /* precioCasa (JFC/Belén 2026-09-15): el precio de casa también converge
-           entre aparatos. null explícito lo borra; un número >=0 lo fija. Así
-           Belén define "$3 artistas" en un aparato y aparece en los demás. */
-        if (p.precioCasa === null && mio.precioCasa != null) { mio.precioCasa = null; actualizados++; }
-        else if (Number.isFinite(Number(p.precioCasa)) && Number(p.precioCasa) >= 0 && Number(mio.precioCasa) !== Number(p.precioCasa)) { mio.precioCasa = Number(p.precioCasa); actualizados++; }
+      } else {
+        /* STOCK LWW por stockTs (JFC 2026-09-16). Simetrico: gana la ULTIMA
+           edicion de stock por su sello de tiempo, venga de quien venga. Asi
+           "subir a 3 en el celu" aparece en la PC en segundos. Trade-off aceptado:
+           2 ventas simultaneas del MISMO producto -> LWW pisa una (raro, 1 caja). */
+        const _tsR = Number(p.stockTs) || 0, _tsL = Number(mio.stockTs) || 0;
+        if (_tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
+          mio.stockActual = Math.max(0, Number(p.stockActual)); mio.stockTs = _tsR; actualizados++;
+        }
+        if (mandaElOtro) {
+          if (esTextoCorto(String(p.nombre || ""), 240) && String(mio.nombre) !== String(p.nombre)) { mio.nombre = p.nombre; actualizados++; }
+          if (Number.isFinite(Number(p.precio)) && Number(p.precio) >= 0 && Number(mio.precio) !== Number(p.precio)) { mio.precio = Number(p.precio); actualizados++; }
+          /* precioCasa (JFC/Belén 2026-09-15): converge entre aparatos. null lo
+             borra; un número >=0 lo fija. */
+          if (p.precioCasa === null && mio.precioCasa != null) { mio.precioCasa = null; actualizados++; }
+          else if (Number.isFinite(Number(p.precioCasa)) && Number(p.precioCasa) >= 0 && Number(mio.precioCasa) !== Number(p.precioCasa)) { mio.precioCasa = Number(p.precioCasa); actualizados++; }
+        }
       }
     });
 
@@ -2232,7 +2252,12 @@
     catalogoPropio() {
       return {
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, fotoHash: u.fotoHash || null })),
-        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad })),
+        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad,
+          /* STOCK EN EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el stock NO
+             viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
+             COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
+             edicion de stock). Ver aplicarCatalogo y emitirOpStock. */
+          stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0 })),
         /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
            BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
            `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada

@@ -7913,6 +7913,19 @@ window.addEventListener("oc-sync-merge", function (ev) {
       clearTimeout(window.__syncHoyT);
       window.__syncHoyT = setTimeout(function () { try { cargarHoy(); } catch (_) {} }, 400);
     }
+    /* REFRESCO EN SEGUNDOS (JFC 2026-09-16, "los datos se refrescan en segundos").
+       Si la vista de inventario o de perchas está activa, re-pintarla al llegar un
+       merge — así un cambio de stock del otro aparato aparece solo, sin navegar.
+       Debounce por vista para no re-pintar en tormenta. */
+    var _repintarVista = function (id, fn) {
+      var v = document.getElementById(id);
+      if (v && v.classList.contains("activa") && typeof window[fn] === "function") {
+        clearTimeout(window["__syncT_" + id]);
+        window["__syncT_" + id] = setTimeout(function () { try { window[fn](); } catch (_) {} }, 400);
+      }
+    };
+    _repintarVista("vista-inventario", "cargarInventario");
+    _repintarVista("vista-perchas", "cargarPerchas");
   } catch (_) {}
 });
 

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "Robustez interna de la consolidacion a un solo cuaderno (elige mejor el cuaderno real y no deja copias viejas). Sin cambios visibles. Sube shell a f123-shell-v288.",
+  "changelog": "El STOCK ahora se sincroniza entre aparatos en segundos: si subes o bajas unidades en un dispositivo, aparece en el otro solo (gana el ultimo cambio). Y la pantalla de inventario se refresca sola cuando llega un cambio de otro aparato. Sube shell a f123-shell-v289.",
   "requerida": false,
-  "shell": "f123-shell-v288",
+  "shell": "f123-shell-v289",
   "apagar": [],
   "releaseName": "v1.0"
 }
