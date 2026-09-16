@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "El inventario que ya tenías (no solo lo nuevo) ahora sí llega al otro aparato: al conectar se publica un resumen completo (checkpoint) que el que entra recibe. Mas robustez: no se manda un dato demasiado grande que cortaba la conexion. Sube shell a f123-shell-v286.",
+  "changelog": "Las fotos de tus perchas ahora tambien cruzan al otro aparato (antes solo se veian en el que las tomo). Cada foto viaja liviana y ya comprimida. Sube shell a f123-shell-v287.",
   "requerida": false,
-  "shell": "f123-shell-v286",
+  "shell": "f123-shell-v287",
   "apagar": [],
   "releaseName": "v1.0"
 }

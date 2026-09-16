@@ -89,7 +89,7 @@
   // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
-  function crearCanal(Y, doc, suffix, nombre, permiteCkpt) {
+  function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn) {
     var canal = { ws: null, pend: [] };
     var MAX_OP_BYTES = 250 * 1024; // guard: el relay cierra (1009) frames > 256KB
     var reintentos = 0; // backoff (fix B, JFC 2026-09-10): antes reconectaba fijo
@@ -179,6 +179,9 @@
         // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía
         // (aunque nunca haya cambiado desde v285) queda disponible para el que entre.
         if (permiteCkpt) { clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 2500); }
+        // Canal sin ckpt (fotos): sembrado propio al conectar (cada foto va como
+        // op individual, que sí cabe en el frame). Tras dar tiempo al pull.
+        if (seedFn) setTimeout(function () { try { seedFn(); } catch (_) {} }, 3200);
       };
       function manejar(buf) {
         descifrarBin(API.clave, buf).then(function (bytes) {
@@ -306,7 +309,7 @@
       API.fotosBc = new BroadcastChannel("f123-yjs-fotos-" + API.roomId);
       API.fotosBc.onmessage = function (ev) { try { Y.applyUpdate(API.fotosDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
-    API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false); // sin ckpt: fotos exceden 256KB
+    API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false, sembrarFotosAlRelay); // sin ckpt (fotos exceden 256KB); siembra c/foto como op individual
     API.fotosDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
       try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
@@ -411,6 +414,38 @@
         return Promise.resolve(window.OCFotos.guardarPorHash(hash, dataUrl)).then(function () { hubo = true; next(); });
       }).catch(next);
     })();
+  }
+
+  /* SEMBRAR FOTOS AL RELAY (v287, JFC 2026-09-16). El bug: publicarFotosLocales
+     salta las fotos que YA están en el fotosMap (línea "ya publicado"); pero una
+     foto que ya vivía en el Yjs-IDB de fotos nunca genera un update al reconectar
+     -> nunca se persiste como {k:op} -> el relay queda con 0 fotos y el otro
+     aparato no la recibe (verificado: sala -fotos vacía). Y el canal fotos no tiene
+     ckpt (su estado completo supera 256KB). Aquí, al conectar, se RE-manda cada
+     foto EN USO como una op INDIVIDUAL (cada dataURL <180KB por la compresión de
+     vista-perchas.js, así que cabe en el frame). Se arma un update mínimo (un
+     Y.Doc con solo esa foto) y se pasa por enviarUpdate del canal fotos: persiste
+     como op + va en vivo. Guard de sesión para no re-mandar la misma foto en cada
+     reconexión. */
+  var _fotosSembradas = {};
+  function sembrarFotosAlRelay() {
+    if (!window.OCFotos || !window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
+    var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+    var hashes = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
+    hashes.forEach(function (hash) {
+      if (_fotosSembradas[hash]) return;
+      Promise.resolve(window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
+        if (!dataUrl) return;
+        try {
+          var d = new window.Y.Doc();
+          d.getMap("fotos").set(hash, dataUrl);
+          var u = window.Y.encodeStateAsUpdate(d);
+          _fotosSembradas[hash] = 1;
+          try { window.Y.applyUpdate(API.fotosDoc, u, "seed"); } catch (_) {}
+          API.fotosCanal.enviarUpdate(u); // persiste como op (<180KB) + en vivo
+        } catch (_) {}
+      }).catch(function () {});
+    });
   }
 
   // OCFotos local -> Yjs(fotos). Publica los blobs de las fotos EN USO (las que
