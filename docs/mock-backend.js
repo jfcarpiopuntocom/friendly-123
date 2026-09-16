@@ -432,19 +432,44 @@
   function _sufijoTiendaActiva() {
     try { return localStorage.getItem("f123_tienda_activa") || ""; } catch (_) { return ""; }
   }
-  /* NORMALIZAR EL PUNTERO DE TIENDA AL ARRANQUE (JFC 2026-09-15). Regla dura:
-     una licencia = un cuaderno; la tienda PROPIA del dueño vive SIEMPRE en el
-     namespace legacy "". Si un join/reconcile viejo dejó f123_tienda_activa
-     apuntando a "::<mi propia licencia>", el aparato arrancaba sobre un namespace
-     VACÍO y el dueño veía "entro y sale vacío" — su inventario real seguía intacto
-     pero huérfano en "". Aquí, ANTES de fijar el sufijo del módulo, si el puntero
-     apunta a la licencia PROPIA se corrige a "". Se mueve el PUNTERO, no la data
-     (no se toca ningún buffer). _normLic y _licenciaPropia son declaraciones
-     hoisted y solo leen localStorage, así que es seguro llamarlas aquí. */
+  /* ELEGIR EL CAJÓN CON TU DATA AL ARRANQUE (JFC 2026-09-15, v282). Regla dura:
+     una licencia = un cuaderno, y "no mover nada". El bug de "entro y sale vacío"
+     NO era que la data estuviera en "" — en aparatos que llevan semanas usados, la
+     data del dueño está guardada bajo "::<su-licencia>", y "" (legacy) está vacío.
+     Mi parche v281 (mandar el puntero a "") empeoró el teléfono: lo mandaba al
+     cajón VACÍO. Aquí, en vez de asumir dónde está la data, se ELIGE como tienda
+     activa el cajón —entre "" y "::<licencia-propia>"— que REALMENTE tiene más
+     productos. NO se copia ni se mueve ningún buffer: solo se apunta el puntero al
+     cajón correcto (leer el cajón bueno, no mover data). Solo cambia el puntero si
+     otro cajón tiene ESTRICTAMENTE más productos que el activo, así jamás te saca
+     de un cajón con data hacia uno vacío. _normLic/_licenciaPropia son hoisted y
+     solo leen localStorage: seguro llamarlas antes de fijar el sufijo. */
   try {
-    var _suf0 = localStorage.getItem("f123_tienda_activa") || "";
-    if (_suf0.slice(0, 2) === "::" && _licenciaPropia() && _normLic(_suf0.slice(2)) === _licenciaPropia()) {
-      localStorage.setItem("f123_tienda_activa", "");
+    var _own0 = _licenciaPropia();
+    if (_own0) {
+      var _prodEnSuf = function (suf) {
+        try {
+          var base = OC_STATE_KEY + suf;
+          var ptr = localStorage.getItem(base + "_ptr");
+          var orden = ptr ? [ptr, ptr === "A" ? "B" : "A"] : ["A", "B"];
+          for (var i = 0; i < orden.length; i++) {
+            var raw = localStorage.getItem(base + "_" + orden[i]);
+            if (raw == null) continue;
+            var b; try { b = JSON.parse(raw); } catch (_) { continue; }
+            if (b && Array.isArray(b.productos)) return b.productos.length;
+          }
+        } catch (_) {}
+        return -1; // sin buffer válido en este cajón
+      };
+      var _actual0 = localStorage.getItem("f123_tienda_activa") || "";
+      var _mejorSuf = _actual0, _mejorN = _prodEnSuf(_actual0);
+      ["", "::" + _own0].forEach(function (s) {
+        var n = _prodEnSuf(s);
+        if (n > _mejorN) { _mejorN = n; _mejorSuf = s; }
+      });
+      if (_mejorSuf !== _actual0 && _mejorN > 0) {
+        localStorage.setItem("f123_tienda_activa", _mejorSuf);
+      }
     }
   } catch (_) {}
   const OC_STATE_SUFIJO = _sufijoTiendaActiva();
@@ -2032,7 +2057,7 @@
          licencia canónica _licenciaPropia() ya la devuelve y esta rama la ancla a
          "" (mismo:true, sin switch ni movimiento de data). */
       let sufDest;
-      if (norm === _licenciaPropia()) sufDest = "";              // mi casa: siempre el cuaderno legacy
+      if (norm === _licenciaPropia()) sufDest = OC_STATE_SUFIJO; // mi casa: quedarme en el cajón con data (elegido al arrancar), nunca forzar "" vacío
       else if (norm === desde) sufDest = OC_STATE_SUFIJO;        // ya estoy en esa tienda
       else if (norm in reg) sufDest = reg[norm];                 // tienda unida ya conocida
       else sufDest = "::" + norm;                                // tienda ajena nueva
