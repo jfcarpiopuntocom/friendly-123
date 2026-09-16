@@ -89,8 +89,9 @@
   // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
-  function crearCanal(Y, doc, suffix, nombre) {
+  function crearCanal(Y, doc, suffix, nombre, permiteCkpt) {
     var canal = { ws: null, pend: [] };
+    var MAX_OP_BYTES = 250 * 1024; // guard: el relay cierra (1009) frames > 256KB
     var reintentos = 0; // backoff (fix B, JFC 2026-09-10): antes reconectaba fijo
                         // cada 4s; si el relay cerraba (p.ej. frame grande), era una
                         // tormenta de upgrades -> límite diario del worker. Ahora
@@ -127,13 +128,44 @@
       cifrarBin(API.clave, _frame(0, update)).then(function (buf) {
         // (a) en vivo, a quien esté conectado ahora
         if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
-        // (b) persistente, para quien entre después aunque nadie esté en línea
+        // (b) persistente, para quien entre después aunque nadie esté en línea.
+        // GUARD DE TAMAÑO (v286, #8): si el frame cifrado supera el tope del relay
+        // (256KB -> cierra 1009 -> tormenta de reconexión), NO se persiste como op
+        // única. El catálogo/fotos ya viajan troceados; el estado completo se
+        // reconstruye vía el checkpoint (encodeStateAsUpdate) que sí cabe o se
+        // volverá a intentar. Se avisa en consola para diagnóstico.
+        if (buf.byteLength > MAX_OP_BYTES) { try { log("op grande (" + buf.byteLength + "B) no persistida; va en vivo + ckpt"); } catch (_) {} return; }
         try {
           var op = JSON.stringify({ k: "op", id: (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8)), lam: Date.now() + (++_lamCtr), c: _b64(buf) });
           if (canal.ws && canal.ws.readyState === 1) canal.ws.send(op); else canal.pend.push(op);
         } catch (_) {}
       }).catch(function () {});
     };
+    /* CHECKPOINT (v286, #1 + fix real "el catálogo viejo no cruza"). enviarUpdate
+       solo persiste CAMBIOS nuevos. Pero el catálogo que ya vivía en el IndexedDB
+       de Yjs (de antes de v285) nunca generó una op -> un aparato que hace pull no
+       lo recibía. Por eso el item nuevo cruzaba pero el inventario existente no.
+       Aquí, al conectar (tras dar tiempo al pull), se manda el ESTADO COMPLETO como
+       {k:"ckpt"}: el relay lo guarda como 'latest' y sirve al que entra, y de paso
+       poda las ops que resume (compactación). Guardas de seguridad:
+         - Solo si el doc tiene contenido real (no pisar el ckpt del relay con un
+           doc vacío recién arrancado). El relay además rechaza un ckpt de lam menor
+           (C1 guard), así que un aparato que ya hizo pull manda un ckpt superset.
+         - Solo en canales con permiteCkpt (catálogo y ops; NO fotos: su estado
+           completo supera el frame de 256KB). */
+    var _tCkpt = null;
+    function hacerCkpt() {
+      if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
+      var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
+      if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
+      cifrarBin(API.clave, _frame(0, full)).then(function (buf) {
+        if (buf.byteLength > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
+        try {
+          var ck = JSON.stringify({ k: "ckpt", lam: Date.now(), c: _b64(buf) });
+          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(ck);
+        } catch (_) {}
+      }).catch(function () {});
+    }
     function conectar() {
       var url = RELAY_URL + API.roomId + suffix;
       var ws; try { ws = new WebSocket(url); } catch (_) { reprogramar(); return; }
@@ -143,6 +175,10 @@
         try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": a quien esté en vivo
         try { ws.send(JSON.stringify({ k: "pull", lam: 0 })); } catch (_) {} // trae lo PERSISTIDO (async)
         while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
+        // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
+        // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía
+        // (aunque nunca haya cambiado desde v285) queda disponible para el que entre.
+        if (permiteCkpt) { clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 2500); }
       };
       function manejar(buf) {
         descifrarBin(API.clave, buf).then(function (bytes) {
@@ -250,7 +286,7 @@
 
     // Cada cambio local -> update binario -> (a) pestañas por BroadcastChannel,
     // (b) otros dispositivos por el relay cifrado. origin !== "bc"/"red" evita eco.
-    API.canal = crearCanal(Y, API.doc, "-y", "catalogo");
+    API.canal = crearCanal(Y, API.doc, "-y", "catalogo", true); // ckpt: catálogo cabe
     API.doc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") return;
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
@@ -270,7 +306,7 @@
       API.fotosBc = new BroadcastChannel("f123-yjs-fotos-" + API.roomId);
       API.fotosBc.onmessage = function (ev) { try { Y.applyUpdate(API.fotosDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
-    API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos");
+    API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false); // sin ckpt: fotos exceden 256KB
     API.fotosDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
       try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
@@ -292,7 +328,7 @@
       API.opsBc = new BroadcastChannel("f123-yjs-ops-" + API.roomId);
       API.opsBc.onmessage = function (ev) { try { Y.applyUpdate(API.opsDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
-    API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops");
+    API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops", true); // ckpt: ops es pequeño
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}

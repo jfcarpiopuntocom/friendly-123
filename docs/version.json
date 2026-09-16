@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "Sync de verdad entre dispositivos: ahora lo que guardas queda persistido en la sala, asi el otro aparato lo recibe aunque NO esten abiertos al mismo tiempo (antes solo cruzaba si ambos estaban en linea a la vez, por eso divergian). Verificado end-to-end. Sube shell a f123-shell-v285.",
+  "changelog": "El inventario que ya tenías (no solo lo nuevo) ahora sí llega al otro aparato: al conectar se publica un resumen completo (checkpoint) que el que entra recibe. Mas robustez: no se manda un dato demasiado grande que cortaba la conexion. Sube shell a f123-shell-v286.",
   "requerida": false,
-  "shell": "f123-shell-v285",
+  "shell": "f123-shell-v286",
   "apagar": [],
   "releaseName": "v1.0"
 }
