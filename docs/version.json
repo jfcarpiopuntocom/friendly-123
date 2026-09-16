@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-15",
-  "changelog": "Si tu aparato quedaba mostrando la tienda vacia despues de entrar tu licencia, ahora recupera SOLO tu inventario (que estaba guardado en el mismo aparato) al abrir, sin botones ni pasos. Sube shell a f123-shell-v280.",
+  "changelog": "Sync integral: una licencia = un cuaderno. Si tu aparato quedaba mostrando la tienda vacia despues de entrar tu licencia, ahora abre directo en TU inventario real (se corrige el puntero de tienda, sin mover ni un dato). Se quito el auto-recuperar que movia data entre namespaces. Sube shell a f123-shell-v281.",
   "requerida": false,
-  "shell": "f123-shell-v280",
+  "shell": "f123-shell-v281",
   "apagar": [],
   "releaseName": "v1.0"
 }

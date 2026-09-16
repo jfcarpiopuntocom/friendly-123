@@ -432,6 +432,21 @@
   function _sufijoTiendaActiva() {
     try { return localStorage.getItem("f123_tienda_activa") || ""; } catch (_) { return ""; }
   }
+  /* NORMALIZAR EL PUNTERO DE TIENDA AL ARRANQUE (JFC 2026-09-15). Regla dura:
+     una licencia = un cuaderno; la tienda PROPIA del dueño vive SIEMPRE en el
+     namespace legacy "". Si un join/reconcile viejo dejó f123_tienda_activa
+     apuntando a "::<mi propia licencia>", el aparato arrancaba sobre un namespace
+     VACÍO y el dueño veía "entro y sale vacío" — su inventario real seguía intacto
+     pero huérfano en "". Aquí, ANTES de fijar el sufijo del módulo, si el puntero
+     apunta a la licencia PROPIA se corrige a "". Se mueve el PUNTERO, no la data
+     (no se toca ningún buffer). _normLic y _licenciaPropia son declaraciones
+     hoisted y solo leen localStorage, así que es seguro llamarlas aquí. */
+  try {
+    var _suf0 = localStorage.getItem("f123_tienda_activa") || "";
+    if (_suf0.slice(0, 2) === "::" && _licenciaPropia() && _normLic(_suf0.slice(2)) === _licenciaPropia()) {
+      localStorage.setItem("f123_tienda_activa", "");
+    }
+  } catch (_) {}
   const OC_STATE_SUFIJO = _sufijoTiendaActiva();
   const OC_STATE_PTR = OC_STATE_KEY + OC_STATE_SUFIJO + "_ptr";
   function claveBuffer(letra) { return OC_STATE_KEY + OC_STATE_SUFIJO + "_" + letra; }
@@ -2006,7 +2021,21 @@
          devuelve el código NUEVO), sufDest siempre caería a "" y el switch de
          tienda nunca ocurriría. Con `desde`, unirse a una licencia distinta
          cambia a "::<lic>" (namespace aparte, sin pisar la tienda propia). */
-      let sufDest = (norm === desde) ? OC_STATE_SUFIJO : ((norm in reg) ? reg[norm] : ("::" + norm));
+      /* PRECEDENCIA DE LA LICENCIA PROPIA (JFC 2026-09-15, RESTAURADA). El
+         comentario de arriba dice que "¿es mi licencia propia?" debe evaluarse
+         ANTES que el registro, pero el CÓDIGO lo había perdido (quedó solo
+         norm===desde). Consecuencia: al entrar tu propia licencia canónica caías
+         a un namespace "::<lic>" VACÍO en vez de a TU cuaderno real (legacy ""),
+         y veías "entro y sale vacío". Regla dura: una licencia = un cuaderno; tu
+         casa es SIEMPRE "" y NO se mueve data. reconciliar()/unirse() escriben
+         ow.licenseCode=norm ANTES de llamar aquí, así que cuando norm es tu
+         licencia canónica _licenciaPropia() ya la devuelve y esta rama la ancla a
+         "" (mismo:true, sin switch ni movimiento de data). */
+      let sufDest;
+      if (norm === _licenciaPropia()) sufDest = "";              // mi casa: siempre el cuaderno legacy
+      else if (norm === desde) sufDest = OC_STATE_SUFIJO;        // ya estoy en esa tienda
+      else if (norm in reg) sufDest = reg[norm];                 // tienda unida ya conocida
+      else sufDest = "::" + norm;                                // tienda ajena nueva
       reg[norm] = sufDest;
       try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
       if (sufDest === OC_STATE_SUFIJO) {
@@ -2322,48 +2351,23 @@
      entra aquí y conserva su ejemplo. Solo puede vaciar la SEMILLA: los datos
      reales únicamente entran vía buffer cargado (que ya puso _cargoBufferReal)
      o vía sync (posterior a esto), así que esto jamás borra inventario real. */
-  /* AUTO-RECUPERAR INVENTARIO (JFC 2026-09-15, SIN BOTÓN). El bug: al entrar con
-     la licencia, el aparato quedaba parado sobre un namespace de tienda VACÍO y el
-     inventario real seguía guardado bajo OTRO namespace de ESTE MISMO aparato
-     (nunca se perdió, solo quedó "huérfano"). Antes se vaciaba y a esperar el sync.
-     Ahora, si la tienda activa arranca vacía, se busca el buffer con MÁS productos
-     entre las otras tiendas de este aparato y se ADOPTA a la tienda activa (se
-     persiste bajo la licencia actual). Así, con solo estar/entrar en la licencia,
-     el inventario aparece SOLO, sin tocar nada a mano. No borra: la otra tienda
-     conserva su copia; esto SUMA a la activa. */
-  function _autoRecuperarInventario() {
-    try {
-      if (productos.length > 0) return false;           // ya hay inventario cargado
-      var baseActiva = OC_STATE_KEY + OC_STATE_SUFIJO;  // prefijo de los buffers de la tienda ACTIVA
-      var mejor = null, mejorScore = -1;
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i); if (!k) continue;
-        var m = k.match(/^f123_estado_v4(.*)_(A|B)$/); if (!m) continue;
-        if ((OC_STATE_KEY + m[1]) === baseActiva) continue;   // saltar la tienda activa (vacía)
-        try {
-          var body = JSON.parse(localStorage.getItem(k) || "null");
-          if (!body || !Array.isArray(body.productos) || body.productos.length === 0) continue;
-          var score = body.productos.length * 100 + ((body.ubicaciones && body.ubicaciones.length) || 0);
-          if (score > mejorScore) { mejorScore = score; mejor = body; }
-        } catch (_) {}
-      }
-      if (!mejor) return false;
-      aplicarRespaldo(mejor);
-      _cargoBufferReal = true;
-      try { guardarEstadoLocal(); } catch (_) {}
-      try { console.warn("[auto-recuperar] inventario del dueño recuperado de otra tienda de este aparato (productos:", (mejor.productos || []).length + ")"); } catch (_) {}
-      return true;
-    } catch (_) { return false; }
-  }
+  /* NO MOVER DATA (JFC 2026-09-15). Antes aquí vivía _autoRecuperarInventario(),
+     que al arrancar escaneaba TODOS los namespaces del aparato y ADOPTABA el
+     buffer con más productos a la tienda activa. Eso movía data entre namespaces
+     y violaba la regla dura "no hay que mover nada". Se eliminó. La causa real del
+     "entro y sale vacío" se ataca donde corresponde: normalizando el PUNTERO de
+     tienda al arranque (arriba, junto a f123_tienda_activa) y restaurando la
+     precedencia de licencia propia en cambiar() — el dueño aterriza en su cuaderno
+     real ("") sin mover ni un buffer. */
   try {
     var _aparatoReal = false;
     try { _aparatoReal = !!((JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId); } catch (_) {}
     if (!_cargoBufferReal && (_aparatoReal || OC_STATE_SUFIJO)) {
-      // 1) intentar recuperar el inventario del propio aparato; 2) si no hay, vaciar la semilla.
-      if (!_autoRecuperarInventario()) {
-        _vaciarTiendaFresca();
-        console.warn("[guard-demo] aparato real sin buffer local: semilla de ejemplo vaciada, la tienda arranca limpia y se llena por sync.");
-      }
+      // Aparato real/unido sin NINGÚN buffer propio: solo tiene la SEMILLA de
+      // ejemplo. Se vacía para que la tienda arranque limpia y se llene por
+      // sync/respaldo. No se mueve ni se adopta data de otros namespaces.
+      _vaciarTiendaFresca();
+      console.warn("[guard-demo] aparato real sin buffer local: semilla de ejemplo vaciada, la tienda arranca limpia y se llena por sync.");
     }
   } catch (_) {}
   /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).
