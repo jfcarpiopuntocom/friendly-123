@@ -503,11 +503,22 @@
         if (_lg) { var _lb; try { _lb = JSON.parse(_lg); } catch (_) {} if (_lb && typeof _lb === "object") _bufs.push({ body: _lb, raw: _lg, suf: "" }); }
       } catch (_) {}
       var _nProd = function (r) { return (r && r.body && Array.isArray(r.body.productos)) ? r.body.productos.length : -1; };
+      var _nFin = function (r) { var b = (r && r.body) || {}; return (Array.isArray(b.ventas) ? b.ventas.length : 0) + (Array.isArray(b.movimientos) ? b.movimientos.length : 0); };
+      /* DESEMPATE DETERMINISTA DEL GANADOR (v288, #3). Antes en empate de #productos
+         se quedaba con el primer sufijo que enumeraba localStorage (no determinista)
+         y con él SU log financiero -> podía conservar las ventas equivocadas. Ahora:
+         más productos; empate -> más historial financiero (ventas+movimientos, para
+         no perder el log real); empate -> mayor _rev. */
+      var _gana = function (reta, campeon) {
+        if (_nProd(reta) !== _nProd(campeon)) return _nProd(reta) > _nProd(campeon);
+        if (_nFin(reta) !== _nFin(campeon)) return _nFin(reta) > _nFin(campeon);
+        return (Number(reta.body._rev) || 0) > (Number(campeon.body._rev) || 0);
+      };
       if (_bufs.length) {
-        // GANADOR = el cuaderno con el negocio real (más productos). Un aparato
-        // hospeda UN negocio, así que el resto solo aporta catálogo add-only.
+        // GANADOR = el cuaderno con el negocio real. Un aparato hospeda UN negocio,
+        // así que el resto solo aporta catálogo add-only.
         var _win = _bufs[0];
-        _bufs.forEach(function (b) { if (_nProd(b) > _nProd(_win)) _win = b; });
+        _bufs.forEach(function (b) { if (_gana(b, _win)) _win = b; });
         if (_nProd(_win) >= 0) {
           // Snapshot de TODOS los buffers antes de tocar nada (no destructivo).
           try {
@@ -533,9 +544,14 @@
             if (!String(_res.nombreNegocio || "").trim() && b.body.nombreNegocio) _res.nombreNegocio = b.body.nombreNegocio;
           });
           _res._rev = _maxRev + 1;
-          // Escribir el cuaderno consolidado en el namespace canónico "".
+          // Escribir el cuaderno consolidado en AMBOS buffers "" (v288, #4). Antes
+          // solo se escribía _A + ptr A y quedaba un _B viejo con posible _rev
+          // MAYOR; si un flujo posterior leyera _B, ganaría estado viejo. Se
+          // sobrescriben los dos con el consolidado para que ninguno esté rancio.
           try {
-            localStorage.setItem(OC_STATE_KEY + "_A", JSON.stringify(_res));
+            var _cs = JSON.stringify(_res);
+            localStorage.setItem(OC_STATE_KEY + "_A", _cs);
+            localStorage.setItem(OC_STATE_KEY + "_B", _cs);
             localStorage.setItem(OC_STATE_KEY + "_ptr", "A");
           } catch (_) {}
         }

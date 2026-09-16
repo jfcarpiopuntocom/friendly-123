@@ -178,7 +178,10 @@ export class SalaSync {
 
   async webSocketClose(servidor, code, reason, wasClean) {
     // Con hibernacion el runtime gestiona la lista; solo cerramos limpio.
-    try { servidor.close(code, reason); } catch (_) {}
+    // NO reenviar el `code` entrante: codigos reservados (1005/1006) LANZAN al
+    // pasarse a close() y el cierre limpio no ocurre. Se usa 1000 (normal) o
+    // ninguno. (v-relay 2026-09-16, auditoria #9.)
+    try { servidor.close(1000); } catch (_) {}
   }
 
   async webSocketError(servidor, err) {
