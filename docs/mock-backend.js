@@ -1864,6 +1864,10 @@
     });
     remoto.productos.forEach((p) => {
       if (!p || !p.id) return;
+      // NO ADOPTAR SEMILLA DEMO (v297): id "p"+DIGITOS = ejemplo; aunque la sala la
+      // tenga persistida, ningun aparato la vuelve a meter al store. Los reales son
+      // "p"+UUID, no matchean.
+      if (/^p\d+$/.test(String(p.id))) return;
       const mio = productos.find((x) => String(x.id) === String(p.id));
       if (!mio) {
         /* STOCK COMPARTIDO (JFC 2026-09-16, aprobado). Antes el producto entraba
@@ -2359,7 +2363,11 @@
     catalogoPropio() {
       return {
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, fotoHash: u.fotoHash || null })),
-        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad,
+        // NO PUBLICAR SEMILLA DEMO (v297, JFC 2026-09-16). Los productos de ejemplo
+        // tienen id "p"+DIGITOS (p01..p66); los reales son "p"+UUID (con guiones).
+        // Filtrar aqui evita que un aparato con demo re-contamine la sala (add-only
+        // no borra; la unica defensa robusta es no publicarla NI adoptarla).
+        productos: productos.filter((p) => p && !/^p\d+$/.test(String(p.id || ""))).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad,
           /* STOCK EN EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el stock NO
              viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
              COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
