@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "La pantalla del PIN consulta al service worker activo para mostrar su shell real, incluso cuando hay varias versiones en caché. Sube shell a f123-shell-v308.",
+  "changelog": "El nombre dentro de la app sigue al cuaderno activo y no se borra por una lectura tardía. Sube shell a f123-shell-v309.",
   "requerida": false,
-  "shell": "f123-shell-v308",
+  "shell": "f123-shell-v309",
   "apagar": [],
   "releaseName": "v1.0"
 }

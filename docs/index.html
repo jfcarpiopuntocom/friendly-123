@@ -3855,12 +3855,23 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   const btn = document.getElementById("oc-negocio-editar");
   if (!span || !btn) return;
   const TITULO_DEFECTO = (window.t && window.t("header.bizNameDefault")) || "My store or shelf(s)";
+  let lecturaNombre = 0;
+  function pintarNombreActivo() {
+    try {
+      const actual = window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo();
+      if (actual) span.textContent = actual;
+    } catch (_) {}
+  }
   async function cargarNombre() {
+    const lectura = ++lecturaNombre;
+    pintarNombreActivo();
     try {
       const inst = await (await fetch(`${API}/instancia`)).json();
+      if (lectura !== lecturaNombre) return; // un login/sync más reciente ya pintó otro cuaderno
       if (inst) {
-        const nom = inst.nombreNegocio || "";
-        if (nom) span.textContent = nom;
+        const nom = (window.OCTienda && window.OCTienda.nombreActivo)
+          ? window.OCTienda.nombreActivo() || "" : inst.nombreNegocio || "";
+        span.textContent = nom || TITULO_DEFECTO;
         /* Persistir el nombre en f123_owned para que el candado rotule la tienda
            ANTES del login la proxima vez (JFC 2026-08-25). FIX (JFC 2026-09-04):
            antes solo se sincronizaba cuando la tienda activa TENIA nombre; si la
