@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "La foto de un producto ahora aparece en el otro aparato aunque los datos y la imagen lleguen en distinto orden (se corrige una carrera que dejaba la foto sin mostrarse). Sube shell a f123-shell-v305.",
+  "changelog": "Garantia: el inventario de tu licencia nunca muestra los productos de ejemplo, aunque queden en un estado local viejo. Sube shell a f123-shell-v306.",
   "requerida": false,
-  "shell": "f123-shell-v305",
+  "shell": "f123-shell-v306",
   "apagar": [],
   "releaseName": "v1.0"
 }

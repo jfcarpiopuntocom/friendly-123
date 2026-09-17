@@ -3182,9 +3182,14 @@
         // archivados. Todo lo demás (dashboard, resumen, BCG, reportes) usa
         // filtrar() y SÍ los ve — archivar no borra del historial (JFC 2026-09-08).
         const soloArch = q.get("soloArchivados") === "1";
-        const fuente = soloArch
+        let fuente = soloArch
           ? productos.filter((p) => p.archivado && (!uid || uid === "todas" || p.ubicacionId === uid))
           : filtrar(uid).filter((p) => !p.archivado);
+        /* GARANTIA v306: para la licencia de JFC (prefijo), NUNCA mostrar la semilla
+           demo (ids "p"+digitos) en el listado, pase lo que pase con el estado local
+           o la purga. Los reales son "p"+UUID. idiomARTE (K7M2)/otros NO se filtran
+           (pueden tener ids p\d+ propios). Es cinturon + tirantes con la purga. */
+        try { var _lpF = String((_licenciaPropia && _licenciaPropia()) || "").toUpperCase().replace(/\s+/g, ""); if (_lpF.indexOf("F123-A6YK-6V1J-") === 0) fuente = fuente.filter((p) => !/^p\d+$/.test(String(p.id || ""))); } catch (_) {}
         let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", archivado: !!p.archivado }; });
         const est = q.get("estado");
         if (est) lista = lista.filter((x) => x.estado === est);
