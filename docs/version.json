@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "Una licencia = una sala, definitivo: la sincronizacion se ancla SOLO a tu licencia (se elimina la variable interna vieja que podia mandar un aparato a otra sala). Sube shell a f123-shell-v295.",
+  "changelog": "Corrige un caso puntual: un aparato habia quedado en una licencia mal tecleada (un caracter distinto) y por eso no se unia a tu cuaderno; ahora se corrige solo y se une a tu licencia canonica. Sube shell a f123-shell-v296.",
   "requerida": false,
-  "shell": "f123-shell-v295",
+  "shell": "f123-shell-v296",
   "apagar": [],
   "releaseName": "v1.0"
 }

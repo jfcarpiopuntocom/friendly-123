@@ -213,6 +213,36 @@
   // el gate del plan gratuito (!instanceId) volvia a capar a 25 productos a
   // alguien que ya activo. (licenciaLimitada solo dispara con "limitada"
   // deliberada desde el panel, no con el default del worker.)
+  /* FIX ONE-TIME: LICENCIA MAL TECLEADA S2324 -> S2J24 (JFC 2026-09-16, v296).
+     El observatorio (panel privado JFC) mostro DOS licencias del MISMO email que
+     difieren en UN caracter: el celular quedo activado bajo
+     F123-A6YK-6V1J-BF2A-S2324 (con "3") en vez de la canonica
+     F123-A6YK-6V1J-BF2A-S2J24 (con "J"). Trampa clasica J/3. Son la misma persona
+     (el panel lo detecta: "same email on 2 licenses - claim/merge"). Como la sala
+     de sync se deriva de la licencia (v295), estar en S2324 = sala distinta = nunca
+     converge con el PC. Aqui, en el aparato que tiene la licencia mal tecleada, se
+     reescribe a la canonica para que se una solo a la misma sala. Gated a la cadena
+     EXACTA equivocada (ningun otro aparato/licencia se toca). One-time (flag).
+     DORMANT/removible una vez que el celular quede unificado. */
+  try {
+    var _MAL = "F123-A6YK-6V1J-BF2A-S2324", _BIEN = "F123-A6YK-6V1J-BF2A-S2J24";
+    if (localStorage.getItem("f123_fix_lic_s2324") !== "1") {
+      var _o = JSON.parse(localStorage.getItem("f123_owned") || "null");
+      if (_o && typeof _o.licenseCode === "string" && _o.licenseCode.trim().toUpperCase().replace(/\s+/g, "") === _MAL) {
+        _o.licenseCode = _BIEN;
+        if (_o.syncCode) _o.syncCode = _BIEN;
+        localStorage.setItem("f123_owned", JSON.stringify(_o));
+        try { localStorage.setItem("f123_sync_room", JSON.stringify({ codigo: _BIEN })); } catch (_) {}
+        // El gate de la limpieza de semilla (v290) apuntaba a S2J24; en este aparato
+        // NO habia corrido (estaba en S2324) pero su flag pudo quedar puesto. Se
+        // limpia para que la purga corra este mismo arranque (ya con licencia S2J24)
+        // y el aparato no re-contamine la sala canonica con demo al unirse.
+        try { localStorage.removeItem("f123_limpieza_demo_jfc_v1"); } catch (_) {}
+        try { console.warn("[fix-lic] licencia S2324 (mal tecleada) reescrita a la canonica S2J24; el aparato se unira a la sala correcta."); } catch (_) {}
+      }
+      localStorage.setItem("f123_fix_lic_s2324", "1");
+    }
+  } catch (_) {}
   let instanceId = (function () { try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId || null; } catch (_) { return null; } })();
   // Mejora #2 (JFC 2026-07-16): "limitada" = JFC bajo el estado desde el panel
   // (ej. cliente moroso) sin bloquear del todo. Se comporta como si el
