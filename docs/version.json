@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "Una licencia = una sala: la sincronizacion ahora se ancla SIEMPRE a tu licencia (antes podia quedar en una sala distinta por un desajuste interno, y por eso un aparato se quedaba con un nombre viejo). Con esto los aparatos de una misma licencia convergen al mismo nombre y datos. Sube shell a f123-shell-v294.",
+  "changelog": "Una licencia = una sala, definitivo: la sincronizacion se ancla SOLO a tu licencia (se elimina la variable interna vieja que podia mandar un aparato a otra sala). Sube shell a f123-shell-v295.",
   "requerida": false,
-  "shell": "f123-shell-v294",
+  "shell": "f123-shell-v295",
   "apagar": [],
   "releaseName": "v1.0"
 }

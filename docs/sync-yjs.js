@@ -268,21 +268,17 @@
   function log(/*...*/) { try { console.log.apply(console, ["[OCYjs]"].concat([].slice.call(arguments))); } catch (_) {} }
 
   async function arrancar() {
-    var sala = leerSala();
-    /* UNA LICENCIA = UNA SALA (v294, JFC 2026-09-16). ANTES la sala salía de
-       f123_sync_room; si ese valor quedaba DESALINEADO de la licencia (mismatch
-       licenseCode vs syncCode, muy común tras joins/activaciones), el aparato
-       sincronizaba en una sala DISTINTA a la de su licencia -> el nombre y los
-       datos no convergían (síntoma: el celular seguía en "007 New Store" mientras
-       la sala de la licencia tenía "Unificada"). Ahora la sala se deriva de la
-       LICENCIA canónica (f123_owned.licenseCode) siempre que exista; f123_sync_room
-       queda solo como respaldo (demo/sin activar). Así TODOS los aparatos de una
-       licencia caen en la MISMA sala, pase lo que pase con f123_sync_room. */
+    /* UNA LICENCIA = UNA SALA (v295, JFC 2026-09-16). "salas"/f123_sync_room es
+       VESTIGIAL y ya NO decide nada: la sala es SIEMPRE la LICENCIA
+       (f123_owned.licenseCode). Antes f123_sync_room podía quedar desalineado de la
+       licencia y mandar el aparato a otra sala -> no convergía. Ya no se lee como
+       fuente de sala. Si el aparato no tiene licencia (demo/sin activar), no hay
+       sync. La CLAVE y la sala salen de la MISMA licencia, así todos los aparatos
+       de una licencia caen en la misma sala, siempre. */
     var _licProp = "";
     try { var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; if (_ow.licenseCode) _licProp = String(_ow.licenseCode); } catch (_) {}
-    var _codigoBase = _licProp || (sala && sala.codigo) || "";
-    if (!_codigoBase) { log("sin sala — Plan C en espera (esto es normal si el sync no está configurado)"); return; }
-    var codigo = normalizarCodigo(_codigoBase);
+    if (!_licProp) { log("sin licencia — sin sync (una licencia = una sala; f123_sync_room ya no decide)"); return; }
+    var codigo = normalizarCodigo(_licProp);
     try { await cargarBundle(); } catch (e) { log("bundle:", e && e.message); return; }
 
     var Y = window.Y;
