@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "QA a fondo del sync: (1) se elimina el riesgo de contar doble el dinero y el stock entre aparatos; (2) las fotos ahora sí viajan por el canal correcto; (3) menos trafico y mas velocidad en la sincronizacion. Sube shell a f123-shell-v293.",
+  "changelog": "Una licencia = una sala: la sincronizacion ahora se ancla SIEMPRE a tu licencia (antes podia quedar en una sala distinta por un desajuste interno, y por eso un aparato se quedaba con un nombre viejo). Con esto los aparatos de una misma licencia convergen al mismo nombre y datos. Sube shell a f123-shell-v294.",
   "requerida": false,
-  "shell": "f123-shell-v293",
+  "shell": "f123-shell-v294",
   "apagar": [],
   "releaseName": "v1.0"
 }
