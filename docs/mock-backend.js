@@ -2721,13 +2721,15 @@
      (las reales son "v"+UUID); (d) una sola vez (flag). El reseteo de la SALA para
      que el relay no re-llene se hace en sync-yjs (bump de sala gated a esta licencia). */
   try {
-    var _licJFC = "F123-A6YK-6V1J-BF2A-S2J24";
-    // CADA ARRANQUE (no una sola vez) para la licencia de JFC: la sala tenia demo
-    // persistido que un aparato podia re-jalar; purgar solo una vez dejaba la PC
-    // sucia. Ahora se auto-limpia cada arranque. SOLO su licencia (idiomARTE y otros
-    // pueden tener ids p\d+ legitimos de su propio catalogo — NO se tocan). Los
-    // reales de JFC son p+UUID, no matchean. (v300)
-    if (_licenciaPropia() === _licJFC) {
+    // v303: gated al PREFIJO de la licencia de JFC (primeros 3 grupos), NO a la
+    // cadena exacta. La PC quedaba sucia porque su licencia es una VARIANTE
+    // (BF2A/B2FA, S2J24/S2324) que no coincidia exacto -> el purgado no corria.
+    // El prefijo "F123-A6YK-6V1J-" cubre TODAS sus variantes y NO toca a idiomARTE
+    // (F123-K7M2-...) ni a Dr Diego (F123-FK0Q-...), que pueden tener ids p\d+
+    // legitimos. CADA arranque (auto-limpieza). Reales de JFC son p+UUID.
+    var _PREFIJO_JFC = "F123-A6YK-6V1J-";
+    var _licAct = String(_licenciaPropia() || "").trim().toUpperCase().replace(/\s+/g, "");
+    if (_licAct.indexOf(_PREFIJO_JFC) === 0) {
       var _esSemillaProd = function (id) { return /^p\d+$/.test(String(id || "")); };
       if (productos.some(function (p) { return _esSemillaProd(p.id); })) {
         // Snapshot solo la primera vez (reversible), no en cada arranque.

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "La sincronizacion entre aparatos baja a 2 segundos maximo (catalogo, stock, PIN, comisiones, todo). Sube shell a f123-shell-v303.",
+  "changelog": "La PC tambien limpia el inventario de ejemplo (antes solo lo hacia el celular por una diferencia de licencia). Sube shell a f123-shell-v304.",
   "requerida": false,
-  "shell": "f123-shell-v303",
+  "shell": "f123-shell-v304",
   "apagar": [],
   "releaseName": "v1.0"
 }
