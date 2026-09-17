@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "Los nombres de los aparatos (This device) ahora se sincronizan por el sync nuevo y aparecen en Advanced -> Your team right now para el dueno, sin depender del sync viejo. Sube shell a f123-shell-v298.",
+  "changelog": "Corrige mas variantes con errata de la misma licencia (generadas por el sistema) y las pliega a tu licencia canonica, para que todos tus aparatos queden en el mismo cuaderno. Sube shell a f123-shell-v299.",
   "requerida": false,
-  "shell": "f123-shell-v298",
+  "shell": "f123-shell-v299",
   "apagar": [],
   "releaseName": "v1.0"
 }

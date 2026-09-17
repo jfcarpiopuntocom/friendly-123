@@ -225,22 +225,30 @@
      EXACTA equivocada (ningun otro aparato/licencia se toca). One-time (flag).
      DORMANT/removible una vez que el celular quede unificado. */
   try {
-    var _MAL = "F123-A6YK-6V1J-BF2A-S2324", _BIEN = "F123-A6YK-6V1J-BF2A-S2J24";
-    if (localStorage.getItem("f123_fix_lic_s2324") !== "1") {
+    /* El observatorio (KV de licencias en produccion) mostro VARIAS variantes con
+       errata de la MISMA licencia canonica, generadas por codigo mio (rescate/
+       reconcile) a lo largo de las semanas: BF2A<->B2FA y S2J24<->S2324. Cada
+       variante = otra sala = no converge. Aqui se pliegan TODAS las variantes
+       conocidas (coincidencia EXACTA, para no tocar la licencia de otro usuario) a
+       la canonica. Flag v2 para que re-corra en aparatos que ya corrieron el fix v1
+       (que solo cubria S2324). One-time. DORMANT/removible cuando ya no queden
+       aparatos en variantes. */
+    var _BIEN = "F123-A6YK-6V1J-BF2A-S2J24";
+    var _VARIANTES = ["F123-A6YK-6V1J-BF2A-S2324", "F123-A6YK-6V1J-B2FA-S2J24", "F123-A6YK-6V1J-B2FA-S2324"];
+    if (localStorage.getItem("f123_fix_lic_v2") !== "1") {
       var _o = JSON.parse(localStorage.getItem("f123_owned") || "null");
-      if (_o && typeof _o.licenseCode === "string" && _o.licenseCode.trim().toUpperCase().replace(/\s+/g, "") === _MAL) {
+      var _lc = _o && typeof _o.licenseCode === "string" ? _o.licenseCode.trim().toUpperCase().replace(/\s+/g, "") : "";
+      if (_o && _VARIANTES.indexOf(_lc) !== -1) {
         _o.licenseCode = _BIEN;
         if (_o.syncCode) _o.syncCode = _BIEN;
         localStorage.setItem("f123_owned", JSON.stringify(_o));
         try { localStorage.setItem("f123_sync_room", JSON.stringify({ codigo: _BIEN })); } catch (_) {}
-        // El gate de la limpieza de semilla (v290) apuntaba a S2J24; en este aparato
-        // NO habia corrido (estaba en S2324) pero su flag pudo quedar puesto. Se
-        // limpia para que la purga corra este mismo arranque (ya con licencia S2J24)
-        // y el aparato no re-contamine la sala canonica con demo al unirse.
+        // Deja correr la purga de semilla en este aparato (ya en la canonica) para
+        // que no re-contamine la sala al unirse.
         try { localStorage.removeItem("f123_limpieza_demo_jfc_v1"); } catch (_) {}
-        try { console.warn("[fix-lic] licencia S2324 (mal tecleada) reescrita a la canonica S2J24; el aparato se unira a la sala correcta."); } catch (_) {}
+        try { console.warn("[fix-lic] variante " + _lc + " reescrita a la canonica " + _BIEN + "."); } catch (_) {}
       }
-      localStorage.setItem("f123_fix_lic_s2324", "1");
+      localStorage.setItem("f123_fix_lic_v2", "1");
     }
   } catch (_) {}
   let instanceId = (function () { try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId || null; } catch (_) { return null; } })();
