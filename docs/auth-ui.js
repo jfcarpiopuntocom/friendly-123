@@ -756,15 +756,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         const shell = shellServidor.replace("f123-shell-", "");
         const ver = String(vj.version || "");
         const normal = function () { el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  shell-" + shell) : ""); };
-        /* MEJORA #4 (JFC 2026-09-08, auditoría de versión): mostrar el shell que
-           el aparato REALMENTE corre, no solo el que declara version.json. Un
-           aparato atascado en un shell viejo debe VERLO y saber que el botón
-           "Purge & reload" de abajo es la salida. Aviso LEGIBLE (rojo del
-           semáforo a plena opacidad, nunca gris). Fail-safe: si algo falla,
-           deja la insignia normal. */
-        if (!("caches" in window)) { normal(); return; }
-        caches.keys().then(function (nombres) {
-          const activa = (nombres.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
+        /* The active Service Worker knows its shell. CacheStorage can contain
+           both old and newly downloaded shells; its last key is not evidence
+           of which worker controls this page. Ask the controller directly. */
+        const sw = navigator.serviceWorker;
+        if (!sw || !sw.controller) { normal(); return; }
+        let responded = false;
+        const onShell = function (event) {
+          if (!event.data || event.data.tipo !== "shell-actual" || responded) return;
+          responded = true;
+          clearTimeout(timeout);
+          sw.removeEventListener("message", onShell);
+          const activa = String(event.data.shell || "");
           if (activa && shellServidor && activa !== shellServidor) {
             const activaCorta = activa.replace("f123-shell-", "");
             el.style.opacity = "1";
@@ -774,7 +777,16 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           } else {
             normal();
           }
-        }).catch(normal);
+        };
+        sw.addEventListener("message", onShell);
+        const timeout = setTimeout(function () {
+          if (responded) return;
+          responded = true;
+          sw.removeEventListener("message", onShell);
+          el.textContent = (ver ? ("v" + ver + " · ") : "") + "shell sin verificar · última shell-" + shell;
+        }, 2000);
+        try { sw.controller.postMessage({ tipo: "que-shell" }); }
+        catch (_) { clearTimeout(timeout); sw.removeEventListener("message", onShell); normal(); }
       }).catch(() => {});
     } catch (_) {}
   }

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v307",
+  "shell": "f123-shell-v308",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-a9c23f2453db3b3d0e79cb3d9c4980a39bec5710634303ae9a258b1b68b05a5e",
@@ -27,7 +27,7 @@
     "./i18n.js": "sha256-c730691e36b50290d6955208a5836f8c17f0a0ed058493117b022976ef8b60d3",
     "./crypto-store.js": "sha256-b10ac02c69d1f6a926a129dbd804e354be1c3dbb47cfe6838c1106ec97f34ce3",
     "./email-recovery.js": "sha256-12475b470318661c8575f712fd8fff2f32c082629105a46f3b82d04c98ec884e",
-    "./auth-ui.js": "sha256-810691b3f803a763eb4f8ad4d8f3abf69cf460c2e1ac8f0db72e86cb5652a874",
+    "./auth-ui.js": "sha256-31b8a419bbcea734fde49f401f8e1847d773689d3d444729e9474f68dcabee96",
     "./backup-scheduler.js": "sha256-a043573a011789d052c47977447fa4edf271053b7003cc5e5bef7efe31284174",
     "./avanzado-extra.js": "sha256-ce30fb76e6e2253f36f0183dd96bdfc4a36af34fec73b36e4e9ec3c122d19b0a",
     "./soporte-visual.js": "sha256-028c939f42201a3f0f57916e7f4824a932452d6be1ad2151baff470b24227222",
