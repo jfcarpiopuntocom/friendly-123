@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "Garantia: el inventario de tu licencia nunca muestra los productos de ejemplo, aunque queden en un estado local viejo. Sube shell a f123-shell-v306.",
+  "changelog": "Mejora: el nombre del negocio se actualiza en la pantalla del PIN y las fotos reemplazadas o eliminadas ya no conservan su hash anterior. Sube shell a f123-shell-v307.",
   "requerida": false,
-  "shell": "f123-shell-v306",
+  "shell": "f123-shell-v307",
   "apagar": [],
   "releaseName": "v1.0"
 }
