@@ -2181,6 +2181,14 @@
     } catch (_) {}
     mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
+    /* HIDRATAR FOTOS TRAS SINCRONIZAR EL CATALOGO (v305). Arregla la CARRERA: el
+       blob de la foto llega por el canal -fotos y el fotoHash del producto por el
+       -y; si el blob llega ANTES de que el producto tenga su fotoHash, la
+       hidratacion (en volcarFotosAlStore) no encuentra a quien ponersela y no se
+       reintenta -> la foto no aparecia en la PC. Ahora, cada vez que el catalogo
+       sincroniza (el producto ya tiene fotoHash), se intenta poner p.foto desde el
+       blob ya guardado en OCFotos. */
+    try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
     return { ok: true, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo() };
   }
 

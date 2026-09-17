@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "La PC tambien limpia el inventario de ejemplo (antes solo lo hacia el celular por una diferencia de licencia). Sube shell a f123-shell-v304.",
+  "changelog": "La foto de un producto ahora aparece en el otro aparato aunque los datos y la imagen lleguen en distinto orden (se corrige una carrera que dejaba la foto sin mostrarse). Sube shell a f123-shell-v305.",
   "requerida": false,
-  "shell": "f123-shell-v304",
+  "shell": "f123-shell-v305",
   "apagar": [],
   "releaseName": "v1.0"
 }
