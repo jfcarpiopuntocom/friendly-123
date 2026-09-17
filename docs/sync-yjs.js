@@ -236,7 +236,7 @@
   // se adivina sobre comisiones/plata). Las VENTAS y el dinero NO van por aquí: eso
   // lo maneja el sync de ops (sync-realtime) con orden causal; meterlo al add-only
   // ciego duplicaría plata. Ver aplicarCatalogo() en mock-backend.js.
-  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas"];
+  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas", "dispositivos"];
   /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el dinero
      viajaba solo por el sync viejo (sync-realtime, frágil). Ahora las ventas cruzan
      por Yjs, ADD-ONLY por id (cada venta una sola vez -> no se duplica plata). No
@@ -244,7 +244,13 @@
      se re-deriva de estas ventas. Para NO reventar el frame de 256KB con historiales
      grandes, las ventas NO van en el batch de sembrar(); se siembran como op
      INDIVIDUAL (una mini-actualización por venta, igual que las fotos). */
-  var COLECCIONES_BATCH = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales"];
+  /* DISPOSITIVOS (apodos "This device") POR EL SYNC NUEVO (v298, JFC 2026-09-16).
+     Antes los apodos viajaban por micelio sobre el sync VIEJO (frágil) y no cruzaban
+     bien. Ahora cada aparato publica su entrada {id,apodo,rol} en la colección
+     "dispositivos" (add-only por id; el aparato es dueño de SU entrada). Al recibir,
+     aplicarCatalogo alimenta la lista de micelio (OCMicelio.recibir) para que el
+     dueño vea sus aparatos en Advanced. Va en el batch: es diminuto. */
+  var COLECCIONES_BATCH = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "dispositivos"];
   var API = {
     estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, colecciones: COLECCIONES,
     // API genérica por colección (probar convergencia a mano o desde código).

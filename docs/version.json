@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-16",
-  "changelog": "Los productos de ejemplo (demo) ya no reaparecen: ningun aparato los publica ni los adopta, asi que quedan fuera de tu inventario real en todos los dispositivos. Sube shell a f123-shell-v297.",
+  "changelog": "Los nombres de los aparatos (This device) ahora se sincronizan por el sync nuevo y aparecen en Advanced -> Your team right now para el dueno, sin depender del sync viejo. Sube shell a f123-shell-v298.",
   "requerida": false,
-  "shell": "f123-shell-v297",
+  "shell": "f123-shell-v298",
   "apagar": [],
   "releaseName": "v1.0"
 }

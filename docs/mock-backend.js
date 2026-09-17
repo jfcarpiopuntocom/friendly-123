@@ -1918,6 +1918,24 @@
       });
     }
 
+    /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Cada aparato publico su
+       entrada {id,apodo,rol}; aqui se alimenta la lista de micelio (misma que pinta
+       Advanced -> "Your team right now") para que el dueño vea SUS aparatos por el
+       sync nuevo, no por el viejo. No se cuenta como "agregado" (no dispara merge
+       de negocio); solo refresca la lista de dispositivos. */
+    if (Array.isArray(remoto.dispositivos) && window.OCMicelio && window.OCMicelio.recibir) {
+      remoto.dispositivos.forEach((d) => {
+        if (!d || !d.id) return;
+        try {
+          window.OCMicelio.recibir({
+            tipo: window.OCMicelio.TIPO_LATIDO,
+            payload: { id: String(d.id), apodo: String(d.apodo || "").slice(0, 28), rol: d.rol || "", visto: Date.now(), shell: "", huella: "" }
+          });
+        } catch (_) {}
+      });
+      try { window.dispatchEvent(new CustomEvent("oc-micelio-cambio")); } catch (_) {}
+    }
+
     /* EL EQUIPO (2026-08-21). Misma regla dura que el catalogo: SUMA, NUNCA
        BORRA. Un miembro que solo existe aqui se queda; nunca se elimina a
        nadie por un merge, porque quedarse sin acceso al cuaderno por
@@ -2409,6 +2427,18 @@
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
         ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null })),
+        /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Este aparato publica SU
+           propia entrada {id,apodo,rol}; el dueño de la entrada es autoritativo. Se
+           mergea en aplicarCatalogo alimentando la lista de micelio. Estable (no
+           cambia salvo que se renombre el aparato), así que no genera tráfico. */
+        dispositivos: (function () {
+          try {
+            if (!instanceId) return [];
+            var _ap = (window.OCMicelio && window.OCMicelio.miApodo) ? (window.OCMicelio.miApodo() || "") : "";
+            var _rol = (window.OCAuth && window.OCAuth.rolActual) ? (window.OCAuth.rolActual() || "") : "";
+            return [{ id: instanceId, apodo: String(_ap).slice(0, 28), rol: _rol }];
+          } catch (_) { return []; }
+        })(),
         /* NOMBRE DE LA TIENDA VIAJA CON EL CATÁLOGO (JFC 2026-08-27 + 2026-08-28).
            Era estado local (nombreNegocio) que nunca se propagaba. Ahora viaja; el
            receptor lo adopta si el suyo está vacío o si el remitente es el dueño
