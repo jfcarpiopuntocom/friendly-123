@@ -2115,6 +2115,17 @@
         localStorage.setItem("f123_owned", JSON.stringify(_ow));
       } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
+      /* HEARTBEAT AL ADOPTAR NOMBRE POR SYNC (v301, #9). Antes el nombre convergia
+         en el aparato pero el panel privado seguia mostrando el viejo hasta el
+         proximo login (el panel lee el heartbeat, no el _meta del sync). Ahora, al
+         adoptar un nombre nuevo, se manda un heartbeat para que el panel muestre un
+         solo nombre por licencia de inmediato. */
+      try {
+        var _oh = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        if (_oh.instanceId && window.OCAuth && window.OCAuth.heartbeat) {
+          window.OCAuth.heartbeat({ instanceId: _oh.instanceId, licenseCode: _oh.licenseCode || "", email: _oh.email || "", whatsapp: _oh.whatsapp || "", nombre: _oh.nombre || "", nombreNegocio: nombreNegocio, accion: "sync-nombre" });
+        }
+      } catch (_) {}
     }
     try {
       const pr = remoto && remoto.pinsRol;
@@ -3127,6 +3138,7 @@
         return J(arr);
       }
       if (path === "/api/dashboard") {
+       try {
         const ps = filtrar(uid), vh = ventasHoyDe(uid);
         const entra = vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
         const sale = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
@@ -3144,6 +3156,13 @@
         const vSemana = ventas.filter((v) => new Date(v.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || v.ubicacionId === uid));
         const entraSemana = vSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
         return J({ semaforoGeneral: sem, resumenDia: { entra: +entra.toFixed(2), sale: +sale.toFixed(2), gananciaHoy: +(entra - sale).toFixed(2), inventarioValorizado: +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas });
+       } catch (e) {
+        // FIX v301: el dashboard NUNCA debe lanzar (un producto con datos
+        // incompletos hacia 500 -> el hero se quedaba en "Loading"). Se responde
+        // un estado seguro y usable; el detalle se ve en consola.
+        try { console.error("[dashboard] fallo el calculo del dia:", e && e.message); } catch (_) {}
+        return J({ semaforoGeneral: "verde", resumenDia: { entra: 0, sale: 0, gananciaHoy: 0, inventarioValorizado: 0, ventasCount: 0 }, resumenSemana: { entra: 0, ventasCount: 0 }, alertas: [] });
+       }
       }
 
       if (path === "/api/productos" && (!opts || opts.method !== "POST")) {

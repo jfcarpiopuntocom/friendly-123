@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "La pantalla ya no se queda atascada en Loading your business aunque falle un calculo del dia. Y los productos de ejemplo dejan de mezclarse en la PC (se limpian solos en cada apertura). Sube shell a f123-shell-v300.",
+  "changelog": "El resumen del dia nunca vuelve a romper la pantalla (aunque un dato este incompleto). Y cuando el nombre del negocio se unifica por sync, tu panel lo refleja al instante. Sube shell a f123-shell-v301.",
   "requerida": false,
-  "shell": "f123-shell-v300",
+  "shell": "f123-shell-v301",
   "apagar": [],
   "releaseName": "v1.0"
 }
