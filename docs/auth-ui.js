@@ -731,7 +731,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          uno debe saber siempre a qué cuaderno está entrando (best practice:
          "you are entering: X"). JFC lo pidió de vuelta explícitamente. */
       const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      const nombre = (owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "";
+      // The active notebook is authoritative. f123_owned can retain a previous
+      // activation name while this notebook already has a newer synced name.
+      const nombre = (T && typeof T.nombreActivo === "function")
+        ? String(T.nombreActivo() || "").trim()
+        : ((owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "");
       if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
       _pintar(nombre);
       const licP = (owned && typeof owned.licenseCode === "string") ? owned.licenseCode : "";

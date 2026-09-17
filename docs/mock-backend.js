@@ -2381,12 +2381,18 @@
       for (const p of productos) {
         try {
           if (p && p.foto && String(p.foto).indexOf("data:") === 0 && !p.fotoHash) {
-            const h = await window.OCFotos.hashDeDataUrl(p.foto);
-            if (h) { await window.OCFotos.guardarPorHash(h, p.foto); p.fotoHash = h; n++; }
+            // Hash and bytes must describe the SAME snapshot. A user can replace
+            // or remove the photo while either asynchronous operation is pending.
+            const foto = p.foto;
+            const h = await window.OCFotos.hashDeDataUrl(foto);
+            if (h) {
+              await window.OCFotos.guardarPorHash(h, foto);
+              if (productos.includes(p) && p.foto === foto && !p.fotoHash) { p.fotoHash = h; n++; }
+            }
           }
         } catch (_) {}
       }
-      if (n) { try { guardarEstadoLocal(); } catch (_) {} }
+      if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
       return n;
     },
     async hidratarFotosProductos() {
@@ -2395,8 +2401,11 @@
       for (const p of productos) {
         try {
           if (p && p.fotoHash && !p.foto) {
-            const d = await window.OCFotos.leerPorHash(p.fotoHash);
-            if (d) { p.foto = d; n++; }
+            const hash = p.fotoHash;
+            const d = await window.OCFotos.leerPorHash(hash);
+            // Do not restore a removed image, overwrite a newer edit, or write
+            // into a record belonging to the store before an import/shop change.
+            if (d && productos.includes(p) && p.fotoHash === hash && !p.foto) { p.foto = d; n++; }
           }
         } catch (_) {}
       }
@@ -2879,6 +2888,10 @@
         const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "archivado"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
+      if (k === "foto") {
+        if (p.foto !== body[k]) { p.foto = body[k]; p.fotoHash = null; }
+        return;
+      }
       /* precioCasa (JFC/Belén 2026-09-15): nullable. "" o vacío => se borra el
          precio de casa (null); si no, número >=0. Va ANTES del branch numérico
          genérico, que convertiría null/"" en 0 y dejaría un precio de casa $0
@@ -4253,6 +4266,9 @@
         nombreNegocioRev = (Number(nombreNegocioRev) || 0) + 1; // contador monotónico (v290): este rename gana a cualquiera con rev menor
         try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs; _o.nombreNegocioRev = nombreNegocioRev; localStorage.setItem("f123_owned", JSON.stringify(_o)); } catch (_) {}
         guardarEstadoLocal();
+        // Refresh the PIN gate immediately and publish the rename through Yjs.
+        try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado")); } catch (_) {}
+        avisarCatalogoCambiado();
         return J({ ok: true, nombreNegocio: nombreNegocio });
       }
       // GET /api/integridad — verifica la cadena anti-tamper del historial.
