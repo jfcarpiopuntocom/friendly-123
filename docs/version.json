@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "El stock ahora cruza siempre entre aparatos (todo producto lleva sello de stock y hay una re-publicacion periodica de respaldo). El nombre del negocio se refresca tambien DENTRO de la app al sincronizar, no solo en la pantalla de PIN. Sube shell a f123-shell-v302.",
+  "changelog": "La sincronizacion entre aparatos baja a 2 segundos maximo (catalogo, stock, PIN, comisiones, todo). Sube shell a f123-shell-v303.",
   "requerida": false,
-  "shell": "f123-shell-v302",
+  "shell": "f123-shell-v303",
   "apagar": [],
   "releaseName": "v1.0"
 }

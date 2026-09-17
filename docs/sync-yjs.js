@@ -709,7 +709,11 @@
        un cambio local (stock por cualquier ruta, etc.) no disparo oc-catalogo-
        cambiado, igual se publica en <=10 s. Asi el stock y todo cambio cruzan sin
        depender de que cada ruta emita el evento. */
-    if (!API._tSembraPeriodica) API._tSembraPeriodica = setInterval(function () { try { if (API.estado === "activo") sembrar(); } catch (_) {} }, 10000);
+    // SLA JFC (2026-09-17): MAXIMO 2 segundos para que todos los aparatos tengan lo
+    // que cambio en otro (catalogo, stock, PIN/equipo, comisiones, todo). La ruta
+    // en vivo (cambio -> sembrar -> WebSocket) es casi instantanea; este respaldo a
+    // 2s cubre cualquier evento que no se haya disparado. Barato: solo manda si cambio.
+    if (!API._tSembraPeriodica) API._tSembraPeriodica = setInterval(function () { try { if (API.estado === "activo") sembrar(); } catch (_) {} }, 2000);
 
     API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual
   }
