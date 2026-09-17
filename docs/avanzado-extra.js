@@ -610,7 +610,7 @@
              Ahora primero se ve la licencia propia; esto es para el caso menos
              comun: un dispositivo que llega a un negocio que ya existe. -->
         <details id="oc-sync-unirse" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">
-          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">This device belongs to another business — enter its license</summary>
+          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">If This device belongs to another business — enter its license</summary>
           <p style="font-size:14px;color:var(--ink-soft);margin:8px 0;">Paste the license of the notebook you want to join. It is the same code the owner sees on their device.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input id="oc-sync-codigo2" type="text" placeholder="F123-XXXX-XXXX-XXXX-XXXXX" maxlength="40"
