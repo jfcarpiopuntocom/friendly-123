@@ -704,6 +704,12 @@
     else setTimeout(primerCruce, 800);
     // Red de seguridad si "synced" no llega (idb deshabilitado en algún navegador).
     setTimeout(function () { if (API.estado === "activo") sembrar(); }, 2500);
+    /* RE-PUBLICACION PERIODICA (v302). Barata: el batch de sembrar() solo escribe
+       al Y.Map "si cambió", asi que si nada cambio NO manda nada. Sirve de red: si
+       un cambio local (stock por cualquier ruta, etc.) no disparo oc-catalogo-
+       cambiado, igual se publica en <=10 s. Asi el stock y todo cambio cruzan sin
+       depender de que cada ruta emita el evento. */
+    if (!API._tSembraPeriodica) API._tSembraPeriodica = setInterval(function () { try { if (API.estado === "activo") sembrar(); } catch (_) {} }, 10000);
 
     API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual
   }

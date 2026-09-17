@@ -3905,6 +3905,10 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   });
   cargarNombre();
   window.addEventListener("oc-login", () => { cargarNombre(); actualizarLapiz(); pintarApodoHeader(); });
+  // FIX v302: cuando el sync adopta un nombre nuevo (aplicarCatalogo dispara
+  // oc-negocio-actualizado), refrescar el nombre DENTRO del header, no solo en el
+  // candado. Antes el header adentro se quedaba con el nombre viejo hasta recargar.
+  window.addEventListener("oc-negocio-actualizado", () => { try { cargarNombre(); } catch (_) {} });
   window.addEventListener("oc-logout", () => { btn.style.display = "none"; const w = document.getElementById("oc-header-apodo"); if (w) w.style.display = "none"; });
   function pintarApodoHeader() {
     const wrap = document.getElementById("oc-header-apodo");

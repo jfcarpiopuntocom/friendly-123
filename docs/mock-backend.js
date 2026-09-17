@@ -3204,6 +3204,7 @@
           // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
           // corrompía la valorización de inventario desde la creación.
           precio: Math.max(0, Number(body.precio) || 0), costo: Math.max(0, Number(body.costo) || 0), stockActual: Math.max(0, Number(body.stockInicial) || 0),
+          stockTs: Date.now(), // v302: todo producto nace con sello de stock para que el stock inicial cruce por LWW
           /* PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): segundo precio
              OPCIONAL, más bajo, para la gente de la casa (ej. cerveza $5 al
              público, $3 a artistas) SIN abrir un segundo producto que partiría
