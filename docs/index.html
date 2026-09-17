@@ -4087,6 +4087,12 @@ async function cargarHoy(){
   } catch (err) {
     const hero = document.getElementById('heroSemaforo');
     if (hero) hero.innerHTML = `<p style="font-size:15px;color:var(--rojo,#a3392a);margin:0;">${t("hoy.err")}</p>`;
+    // FIX (JFC 2026-09-17): si /dashboard falla, NO dejar el hero atascado en
+    // "Loading your business..." para siempre (bug que rompe la UI). Se pone el
+    // titulo por defecto para que la pantalla se vea usable aunque el calculo del
+    // dia haya fallado (ej. plan de pagos con datos incompletos).
+    try { const ht = document.getElementById("heroTitulo"); if (ht) ht.textContent = t("hoy.titulo.default"); } catch (_) {}
+    try { console.error("[cargarHoy] /dashboard fallo:", err && err.message); } catch (_) {}
     return;
   }
 

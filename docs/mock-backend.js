@@ -2711,17 +2711,22 @@
      que el relay no re-llene se hace en sync-yjs (bump de sala gated a esta licencia). */
   try {
     var _licJFC = "F123-A6YK-6V1J-BF2A-S2J24";
-    if (_licenciaPropia() === _licJFC && localStorage.getItem("f123_limpieza_demo_jfc_v1") !== "1") {
+    // CADA ARRANQUE (no una sola vez) para la licencia de JFC: la sala tenia demo
+    // persistido que un aparato podia re-jalar; purgar solo una vez dejaba la PC
+    // sucia. Ahora se auto-limpia cada arranque. SOLO su licencia (idiomARTE y otros
+    // pueden tener ids p\d+ legitimos de su propio catalogo — NO se tocan). Los
+    // reales de JFC son p+UUID, no matchean. (v300)
+    if (_licenciaPropia() === _licJFC) {
       var _esSemillaProd = function (id) { return /^p\d+$/.test(String(id || "")); };
       if (productos.some(function (p) { return _esSemillaProd(p.id); })) {
-        try { localStorage.setItem("f123_prelimpieza_jfc_v1", JSON.stringify({ ts: Date.now(), estado: estadoActualExportable() })); } catch (_) {}
+        // Snapshot solo la primera vez (reversible), no en cada arranque.
+        try { if (!localStorage.getItem("f123_prelimpieza_jfc_v1")) localStorage.setItem("f123_prelimpieza_jfc_v1", JSON.stringify({ ts: Date.now(), estado: estadoActualExportable() })); } catch (_) {}
         var _antesP = productos.length, _antesV = ventas.length;
         for (var _pi = productos.length - 1; _pi >= 0; _pi--) { if (_esSemillaProd(productos[_pi].id)) productos.splice(_pi, 1); }
         for (var _vi = ventas.length - 1; _vi >= 0; _vi--) { if (/^vs-/.test(String((ventas[_vi] && ventas[_vi].id) || ""))) ventas.splice(_vi, 1); }
         try { guardarEstadoLocal(); } catch (_) {}
-        try { console.warn("[limpieza-jfc] semilla purgada: productos " + _antesP + "->" + productos.length + ", ventas " + _antesV + "->" + ventas.length); } catch (_) {}
+        try { console.warn("[limpieza-jfc] semilla purgada: productos " + _antesP + "->" + productos.length); } catch (_) {}
       }
-      try { localStorage.setItem("f123_limpieza_demo_jfc_v1", "1"); } catch (_) {}
     }
   } catch (_) {}
   /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).

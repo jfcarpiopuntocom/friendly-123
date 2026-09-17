@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "fecha": "2026-09-16",
-  "changelog": "Corrige mas variantes con errata de la misma licencia (generadas por el sistema) y las pliega a tu licencia canonica, para que todos tus aparatos queden en el mismo cuaderno. Sube shell a f123-shell-v299.",
+  "fecha": "2026-09-17",
+  "changelog": "La pantalla ya no se queda atascada en Loading your business aunque falle un calculo del dia. Y los productos de ejemplo dejan de mezclarse en la PC (se limpian solos en cada apertura). Sube shell a f123-shell-v300.",
   "requerida": false,
-  "shell": "f123-shell-v299",
+  "shell": "f123-shell-v300",
   "apagar": [],
   "releaseName": "v1.0"
 }
