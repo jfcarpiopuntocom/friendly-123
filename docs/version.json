@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "Sync: ediciones y bajas versionadas, ventas y stock concurrentes conservados, identidad local de cada dispositivo. Sube shell a f123-shell-v310.",
+  "changelog": "Sync: ediciones y bajas de productos y perchas conservadas entre dispositivos, incluso tras reconexión. Sube shell a f123-shell-v311.",
   "requerida": false,
-  "shell": "f123-shell-v310",
+  "shell": "f123-shell-v311",
   "apagar": [],
   "releaseName": "v1.0"
 }

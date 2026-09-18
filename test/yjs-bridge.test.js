@@ -105,3 +105,18 @@ test('actual Yjs bridge carries sale price and quantity corrections', async () =
   assert.equal(sale.precioUnit, 17);
   assert.equal((await b.request('/api/respaldo/exportar')).productos.find(p => p.id === product.id).stockActual, 7);
 });
+
+test('actual Yjs bridge retains product and shelf tombstones through stale reseed', async () => {
+  const a = await peer(), b = await peer();
+  const shelf = await a.request('/api/ubicaciones', 'POST', { nombre: 'Bridge shelf' });
+  const product = await a.request('/api/productos', 'POST', { nombre: 'Bridge item', barcode: 'bridge-item', ubicacionId: shelf.id, umbralRojo: 1, umbralAmarillo: 3 });
+  a.OCYjs._store.sembrar(); transfer(a, b);
+  await a.request(`/api/ubicaciones/${shelf.id}`, 'DELETE', {});
+  a.OCYjs._store.sembrar();
+  b.OCYjs._store.sembrar(); transfer(b, a); transfer(a, b);
+  for (const w of [a, b]) {
+    assert.equal((await w.request('/api/ubicaciones?todas=1')).some(x => x.id === shelf.id), false);
+    assert.equal((await w.request('/api/productos')).some(x => x.id === product.id), false);
+    assert.equal(w.OCYjs.mapas.productos.get(product.id).borrado, true);
+  }
+});

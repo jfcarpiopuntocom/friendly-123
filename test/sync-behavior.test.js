@@ -52,6 +52,38 @@ test('deleted customer is not resurrected by an older peer snapshot', async () =
   assert.equal((await a.request('/api/clientes')).some(x => x.id === c.id), false);
 });
 
+test('product edit and deletion converge without reviving an old copy', async () => {
+  const a = browser(), b = browser();
+  const p = await a.request('/api/productos', 'POST', { nombre: 'Fixture item', barcode: 'fixture-1', precio: 4, umbralRojo: 1, umbralAmarillo: 3 });
+  b.receive(a);
+  await a.request(`/api/productos/${p.id}`, 'PATCH', { nombre: 'Renamed fixture', precio: 7, proveedor: 'Fixture maker' });
+  b.receive(a);
+  assert.equal((await b.request('/api/productos')).find(x => x.id === p.id).precio, 7);
+  a.receive(b);
+  await a.request(`/api/productos/${p.id}`, 'DELETE', {});
+  a.receive(b); b.receive(a);
+  for (const peer of [a, b]) {
+    assert.equal((await peer.request('/api/productos')).some(x => x.id === p.id), false);
+    assert.equal(peer.catalog().productos.find(x => x.id === p.id).borrado, true);
+  }
+});
+
+test('shelf edit and cascading deletion do not resurrect shelf or product', async () => {
+  const a = browser(), b = browser();
+  const u = await a.request('/api/ubicaciones', 'POST', { nombre: 'Fixture shelf' });
+  const p = await a.request('/api/productos', 'POST', { nombre: 'Fixture shelf item', barcode: 'fixture-2', ubicacionId: u.id, umbralRojo: 1, umbralAmarillo: 3 });
+  b.receive(a);
+  await a.request(`/api/ubicaciones/${u.id}`, 'PUT', { nombre: 'Renamed shelf', metaMensual: 11 });
+  b.receive(a);
+  assert.equal((await b.request('/api/ubicaciones')).find(x => x.id === u.id).nombre, 'Renamed shelf');
+  await a.request(`/api/ubicaciones/${u.id}`, 'DELETE', {});
+  a.receive(b); b.receive(a);
+  for (const peer of [a, b]) {
+    assert.equal((await peer.request('/api/ubicaciones?todas=1')).some(x => x.id === u.id), false);
+    assert.equal((await peer.request('/api/productos')).some(x => x.id === p.id), false);
+  }
+});
+
 test('two offline sales preserve both stock deductions as well as both sales', async () => {
   const a = browser(), b = browser();
   const fixture = await a.request('/api/respaldo/exportar');

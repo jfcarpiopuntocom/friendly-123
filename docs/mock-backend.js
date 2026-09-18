@@ -1516,7 +1516,7 @@
      seguir viéndolos (world's best practice — archivar NO borra del historial,
      JFC 2026-09-08). La exclusión de archivados vive SOLO en el grid de
      Inventario (endpoint GET /productos), que es la vista operacional. */
-  function filtrar(uid) { return !uid || uid === "todas" ? productos : productos.filter((p) => p.ubicacionId === uid); }
+  function filtrar(uid) { return productos.filter((p) => !p.borrado && (!uid || uid === "todas" || p.ubicacionId === uid)); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
   // ubicacion; con historial de dias anteriores el resumen del dia mentia.
   function ventasHoyDe(uid) { const hoy = hoyISO(); return ventasActivas().filter((v) => fechaLocalDe(v.fecha) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
@@ -1894,17 +1894,23 @@
       if (!u || !u.id) return;
       const mia = ubicaciones.find((x) => String(x.id) === String(u.id));
       if (!mia) {
-        ubicaciones.push(Object.assign({}, u, { activa: u.activa !== false }));
+        ubicaciones.push(Object.assign({}, u, { activa: !u.borrado && u.activa !== false }));
+        _observarRev(u.rev);
         agregadasU++;
       } else {
-        if (mandaElOtro && String(mia.nombre || "") !== String(u.nombre || "") && esTextoCorto(String(u.nombre || ""), 240)) {
-          mia.nombre = u.nombre; actualizados++;
+        const ganaU = _revDomina(u.rev, mia.rev);
+        if (ganaU === true || (ganaU === null && mandaElOtro)) {
+          if (!u.borrado && !esTextoCorto(String(u.nombre || ""), 240)) return;
+          const fotoAnterior = mia.fotoHash;
+          Object.keys(u).forEach((k) => { if (k !== "id") mia[k] = u[k]; });
+          if (fotoAnterior !== mia.fotoHash) mia.foto = null;
+          _observarRev(u.rev); actualizados++;
         }
         /* B2: puntero de foto ADD-ONLY. Si la percha de aca no tiene foto y la
            del otro aparato si, se adopta el hash (los bytes se traen despues, B3).
            No se pisa una foto ya puesta aqui: cada aparato conserva la suya hasta
            que haya una regla mas fina; asi nunca se pierde una asignacion. */
-        if (u.fotoHash && !mia.fotoHash) { mia.fotoHash = u.fotoHash; actualizados++; }
+        if (ganaU === null && u.fotoHash && !mia.fotoHash) { mia.fotoHash = u.fotoHash; actualizados++; }
       }
     });
     remoto.productos.forEach((p) => {
@@ -1920,12 +1926,14 @@
            cuaderno COMPARTIDO el stock es dato del negocio y cruza: el articulo
            entra CON el stock del otro aparato. */
         productos.push(Object.assign({}, p, { stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0, fotoHash: p.fotoHash || null }));
+        _observarRev(p.rev);
         agregadosP++;
       } else {
         // FOTO DE PRODUCTO por hash, ADD-ONLY (JFC 2026-09-16): si aca no hay foto
         // y el otro aparato mando su fotoHash, se adopta; los bytes llegan por el
         // canal de fotos y se hidratan en volcarFotosAlStore. No pisa una ya puesta.
-        if (p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; }
+        const ganaP = _revDomina(p.rev, mio.rev);
+        if (ganaP === null && p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; }
         /* STOCK LWW por stockTs (JFC 2026-09-16). Simetrico: gana la ULTIMA
            edicion de stock por su sello de tiempo, venga de quien venga. Asi
            "subir a 3 en el celu" aparece en la PC en segundos. Trade-off aceptado:
@@ -1953,7 +1961,14 @@
         } else if (_baseR !== null && _baseL !== null && _baseR !== _baseL) {
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
         }
-        if (mandaElOtro) {
+        if (ganaP === true) {
+          if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
+          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "chip", "archivado", "fotoHash", "borrado", "rev"];
+          const fotoAnterior = mio.fotoHash;
+          campos.forEach((k) => { if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
+          if (fotoAnterior !== mio.fotoHash) mio.foto = null;
+          _observarRev(p.rev); actualizados++;
+        } else if (ganaP === null && mandaElOtro) {
           if (esTextoCorto(String(p.nombre || ""), 240) && String(mio.nombre) !== String(p.nombre)) { mio.nombre = p.nombre; actualizados++; }
           if (Number.isFinite(Number(p.precio)) && Number(p.precio) >= 0 && Number(mio.precio) !== Number(p.precio)) { mio.precio = Number(p.precio); actualizados++; }
           /* precioCasa (JFC/Belén 2026-09-15): converge entre aparatos. null lo
@@ -2497,7 +2512,7 @@
        DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
     catalogoPropio() {
       return {
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, fotoHash: u.fotoHash || null })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, fotoHash: u.fotoHash || null, rev: u.rev || null, borrado: !!u.borrado })),
         // NO PUBLICAR SEMILLA DEMO (v297, JFC 2026-09-16). Los productos de ejemplo
         // tienen id "p"+DIGITOS (p01..p66); los reales son "p"+UUID (con guiones).
         // Filtrar aqui evita que un aparato con demo re-contamine la sala (add-only
@@ -2516,7 +2531,7 @@
              fotos (mismo camino que las perchas). El receptor resuelve la foto
              desde OCFotos por ese hash. Ver sembrarFotosAlRelay (productos) y la
              hidratacion en volcarFotosAlStore. */
-          fotoHash: p.fotoHash || null })),
+          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", archivado: !!p.archivado })),
         /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
            BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
            `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada
@@ -3005,6 +3020,7 @@
       p[k] = body[k];
     });
         if (Number(p.stockActual) !== stockAntesEdicion) emitirOpStock("conversion-bar", { productoId: p.id, delta: Number(p.stockActual) - stockAntesEdicion });
+        p.rev = _revNueva();
         mov("edicion", { producto: p.nombre, sku: p.sku, ubicacion: nombreUbic(p.ubicacionId) });
         avisarCatalogoCambiado(); // nombre/precio/percha del producto viajan al equipo (el stock no)
         return J(ficha(p));
@@ -3018,18 +3034,19 @@
         // siempre, sin rastro. Bloquear hasta que se confirme o resuelva.
         const enTransito = transferencias.find((t) => (t.estado === "en_transito" || t.estado === "solicitada") && (t.productoOrigenId === m[1] || t.productoDestinoId === m[1]));
         if (enTransito) return J({ error: `"${productos[i].nombre}" tiene una transferencia en tránsito (${enTransito.cantidad} unidades). Espera a que se confirme o se resuelva antes de borrarlo.` }, 400);
-        const borrado = productos.splice(i, 1)[0];
+        const borrado = productos[i]; borrado.borrado = true; borrado.rev = _revNueva();
         mov("baja", { producto: borrado.nombre, sku: borrado.sku, ubicacion: nombreUbic(borrado.ubicacionId) });
         return J({ ok: true });
       }
       if (path === "/api/modo") return J({ modo: "demo-estatico" });
       if (path === "/api/ubicaciones" && (!opts || opts.method !== "POST")) {
         const soloActivas = q.get("todas") !== "1";
-        return J(soloActivas ? ubicaciones.filter((u) => u.activa !== false) : ubicaciones);
+        return J(soloActivas ? ubicaciones.filter((u) => !u.borrado && u.activa !== false) : ubicaciones.filter((u) => !u.borrado));
       }
       if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "The location name is required." }, 400);
         const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria, lecturaPreferida: body.lecturaPreferida === "casa" ? "casa" : "asociado", minimoGarantizado: Math.max(0, Number(body.minimoGarantizado) || 0), contribFija: Math.max(0, Number(body.contribFija) || 0) };
+        nueva.rev = _revNueva();
         ubicaciones.push(nueva);
         // BUG FIX (2026-07-03): las perchas creadas en runtime no existian en
         // gastosMensuales, por lo que la suma "todas" las excluia hasta que se
@@ -3099,24 +3116,25 @@
            sin mover megas por el CRDT. Los bytes viajan aparte (a la nube del
            dueno, B3). null = quitar la foto. */
         if ("fotoHash" in body) u.fotoHash = body.fotoHash || null;
+        u.rev = _revNueva();
         guardarEstadoLocal();
         avisarCatalogoCambiado(); // cambios de la percha (nombre, trato, foto) viajan al equipo
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
-        u.activa = m[2] === "activar";
+        u.activa = m[2] === "activar"; u.rev = _revNueva();
         mov(u.activa ? "ubicacion-reactivada" : "ubicacion-desactivada", { ubicacion: u.nombre });
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "DELETE") {
         const idx = ubicaciones.findIndex((x) => x.id === m[1]); if (idx < 0) return J({ error: "Shelf not found." }, 404);
-        if (ubicaciones.length <= 1) return J({ error: "At least one shelf has to remain." }, 400);
+        if (ubicaciones.filter((x) => !x.borrado).length <= 1) return J({ error: "At least one shelf has to remain." }, 400);
         const u = ubicaciones[idx];
         // Borrado en cascada: la percha y TODOS sus productos. La UI ya lo advirtio.
-        const productosBorrados = productos.filter((p) => p.ubicacionId === u.id).length;
-        for (let i = productos.length - 1; i >= 0; i--) if (productos[i].ubicacionId === u.id) productos.splice(i, 1);
-        ubicaciones.splice(idx, 1);
+        const productosBorrados = productos.filter((p) => p.ubicacionId === u.id && !p.borrado).length;
+        for (const p of productos) if (p.ubicacionId === u.id && !p.borrado) { p.borrado = true; p.rev = _revNueva(); }
+        u.borrado = true; u.activa = false; u.rev = _revNueva();
         delete gastosMensuales[u.id];
         mov("ubicacion-borrada", { ubicacion: u.nombre, productosBorrados });
         return J({ ok: true, productosBorrados });
@@ -3347,6 +3365,7 @@
           comisionistaId: body.comisionistaId || null, // JFC 2026-08-27: comisionista asociado al producto
           creadoEn: new Date().toISOString(),
         };
+        nuevo.rev = _revNueva();
         productos.push(nuevo);
         mov("alta", { producto: nuevo.nombre, sku: nuevo.sku, ubicacion: nombreUbic(nuevo.ubicacionId) });
         avisarCatalogoCambiado(); // el producto nuevo viaja al resto del negocio (con stock 0; cada percha cuenta el suyo)

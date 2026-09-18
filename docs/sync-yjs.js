@@ -604,10 +604,14 @@
               }
               // Una réplica rezagada no debe volver a publicar una ficha anterior
               // encima de una edición o baja que ya llegó al documento común.
-              if (prev && (col === "clientes" || col === "promotoras" || col === "sucursales")) {
+              if (prev && (col === "clientes" || col === "promotoras" || col === "sucursales" || col === "ubicaciones" || col === "productos") &&
+                  (r.rev || prev.rev)) {
                 var a = r.rev || {}, b = prev.rev || {};
                 var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
-                if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) return;
+                if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) {
+                  if (col !== "productos") return;
+                  r = Object.assign({}, prev, { stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual, stockTs: Math.max(Number(prev.stockTs) || 0, Number(r.stockTs) || 0) });
+                }
               }
               var js = JSON.stringify(r);
               // Solo si cambió: evita tormenta de updates binarios por el relay.
