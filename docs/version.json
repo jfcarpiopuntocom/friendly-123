@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-18",
-  "changelog": "Nombre unificado entre candado, cuaderno y panel privado; login antiguo no revierte el rótulo. Sync PC/iPhone aún requiere medición física.",
+  "changelog": "Panel privado con formulario para unificar nombres de aparatos propios; conserva historial. Candado y Worker protegen el nombre al salir y volver a entrar.",
   "requerida": false,
-  "shell": "f123-shell-v320",
+  "shell": "f123-shell-v321",
   "apagar": [],
   "releaseName": "v1.0"
 }

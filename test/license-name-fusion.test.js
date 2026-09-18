@@ -47,7 +47,8 @@ test('passive login cannot revert the notebook name repaired in panel', async ()
 
 test('panel offers a reversible name-unification action only for JFC-owned group', () => {
   assert.match(panelSource, /const soloJfc = n > 1 && nMios === n && !!g\.cod/);
-  assert.match(panelSource, /async function licUnificarNombre\(codigo\)/);
+  assert.match(panelSource, /function licUnificarNombre\(codigo\)/);
+  assert.match(panelSource, /async function licAplicarNombre\(codigo\)/);
   assert.match(panelSource, /verificados\.some\(r => r\.nombreNegocio !== nombre\)/);
 });
 

@@ -970,17 +970,39 @@ function licToggleDisp(id) {
 // Reparación explícita de metadatos de APARATOS PROPIOS de JFC. No fusiona
 // inventario ni altera licencias: cada edición usa el endpoint con historial
 // recuperable y después vuelve a leer KV para comprobar el resultado.
-async function licUnificarNombre(codigo) {
+function licUnificarNombre(codigo) {
   const filas = _licData.filter(r => String(r.licenseCode || "").trim().toUpperCase() === codigo);
   if (filas.length < 2 || filas.some(r => String(r.email || "").trim().toLowerCase() !== "jfcarpio@gmail.com")) return;
   const sugerido = (filas.find(r => r.nombreNegocio === "17 de septiembre") || filas[0]).nombreNegocio || "";
-  const elegido = prompt("Nombre único para estos aparatos propios:", sugerido);
-  if (elegido === null) return;
-  const nombre = elegido.trim().slice(0, 80);
-  if (!nombre) { alert("El nombre no puede quedar vacío."); return; }
+  const anterior = document.getElementById("lic-unificar-form");
+  if (anterior) anterior.remove();
+  const form = document.createElement("div");
+  form.id = "lic-unificar-form";
+  form.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:20px";
+  form.innerHTML = '<div style="background:#202530;color:#FFFFFF;border:2px solid #F5B84D;border-radius:10px;padding:24px;max-width:440px;width:100%">' +
+    '<label for="lic-unificar-input" style="display:block;font-weight:700;margin-bottom:10px">Nombre único para tus aparatos</label>' +
+    '<input id="lic-unificar-input" maxlength="80" style="box-sizing:border-box;width:100%;padding:12px;background:#FFFFFF;color:#111111;border:2px solid #F5B84D;border-radius:6px;font-size:17px">' +
+    '<p id="lic-unificar-status" role="status" style="color:#FFFFFF;font-size:14px"></p>' +
+    '<div style="display:flex;gap:10px;justify-content:flex-end"><button type="button" id="lic-unificar-cancelar">Cancelar</button><button type="button" id="lic-unificar-guardar" style="background:#F5B84D;color:#111111;font-weight:700">Guardar en todos</button></div></div>';
+  document.body.appendChild(form);
+  const input = document.getElementById("lic-unificar-input");
+  input.value = sugerido;
+  input.focus(); input.select();
+  document.getElementById("lic-unificar-cancelar").addEventListener("click", () => form.remove());
+  document.getElementById("lic-unificar-guardar").addEventListener("click", () => licAplicarNombre(codigo));
+}
+async function licAplicarNombre(codigo) {
+  const form = document.getElementById("lic-unificar-form");
+  if (!form) return;
+  const filas = _licData.filter(r => String(r.licenseCode || "").trim().toUpperCase() === codigo);
+  if (filas.length < 2 || filas.some(r => String(r.email || "").trim().toLowerCase() !== "jfcarpio@gmail.com")) return;
+  const nombre = document.getElementById("lic-unificar-input").value.trim().slice(0, 80);
+  const status = document.getElementById("lic-unificar-status");
+  if (!nombre) { status.textContent = "El nombre no puede quedar vacío."; return; }
   const url = licWorkerUrl().replace(/\/+$/, "");
   const key = licMasterKey();
   if (!url || !key) return;
+  document.getElementById("lic-unificar-guardar").disabled = true;
   let hechos = 0;
   try {
     for (const fila of filas) {
@@ -992,8 +1014,9 @@ async function licUnificarNombre(codigo) {
     await licRecargar();
     const verificados = _licData.filter(r => String(r.licenseCode || "").trim().toUpperCase() === codigo);
     if (verificados.length !== filas.length || verificados.some(r => r.nombreNegocio !== nombre)) throw new Error("la lectura de verificación no coincide");
+    form.remove();
     mostrarConfirmacion("Nombre unificado en " + hechos + " aparatos; historial conservado");
-  } catch (e) { await licRecargar(); alert("Unificación parcial: " + e.message + ". Revisa la lista antes de repetir."); }
+  } catch (e) { await licRecargar(); status.textContent = "Unificación parcial: " + e.message + ". Revisa la lista antes de repetir."; document.getElementById("lic-unificar-guardar").disabled = false; }
 }
 
 // RE-ENGANCHAR OVEJA PERDIDA (JFC 2026-08-27). Un dispositivo quedó "rogue"
