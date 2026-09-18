@@ -7946,7 +7946,8 @@ window.addEventListener("oc-sync-merge", function (ev) {
       }
     };
     _repintarVista("vista-inventario", "cargarInventario");
-    _repintarVista("vista-perchas", "cargarPerchas");
+    // La vista visual de perchas tiene su propio cargador (VPerchas). No lanzar
+    // tambien el cargador legado: dos renders concurrentes saltan el scroll iOS.
     var perchasActiva = document.getElementById("vista-perchas");
     if (perchasActiva && perchasActiva.classList.contains("activa") && window.VPerchas && typeof window.VPerchas.cargar === "function") {
       clearTimeout(window.__syncVPerchasT);

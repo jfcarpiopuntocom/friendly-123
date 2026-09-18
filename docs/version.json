@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "Sync: el crédito llega en vivo aun si otro hecho sigue guardándose. Entrada de PIN con logo grande, iconos y acentos naranjas. Sube shell a f123-shell-v314.",
+  "changelog": "Perchas conserva el scroll al llegar cambios remotos; dashboard usa el relay correcto. Sube shell a f123-shell-v315.",
   "requerida": false,
-  "shell": "f123-shell-v314",
+  "shell": "f123-shell-v315",
   "apagar": [],
   "releaseName": "v1.0"
 }

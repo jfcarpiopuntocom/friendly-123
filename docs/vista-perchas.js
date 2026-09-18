@@ -269,11 +269,15 @@
     if (aCrear) aCrear.textContent = window.t('shelves.createRackBtn');
   });
 
+  let cargaEnCurso = 0;
   async function cargar() {
+    const estaCarga = ++cargaEnCurso;
     inyectarBotonAgregar(); // el botón general vive fuera del grid, no se borra al re-render
     const grid = $('vp-grid');
     if (!grid) return;
-    grid.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);padding:8px 0;">Cargando perchas…</p>';
+    // No colapsar el grid durante un refresh remoto: Safari reajusta el scroll
+    // al reducir súbitamente la altura de la página y deja la vista arriba.
+    if (!grid.children.length) grid.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);padding:8px 0;">Cargando perchas…</p>';
     try {
       await precargarFotos();
       const [perchas, liq, promotoras] = await Promise.all([
@@ -293,6 +297,7 @@
           }
         }));
       }
+      if (estaCarga !== cargaEnCurso) return;
       if (!Array.isArray(perchas) || !perchas.length) {
         grid.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noRacksYet'))}</p>`;
         return;
@@ -326,6 +331,7 @@
           diasSinVenta: f ? f.diasSinVenta : null,
         };
       }));
+      if (estaCarga !== cargaEnCurso) return;
       // Orden por defecto: semaforo de meta (rojo primero). Si el usuario
       // eligio otra columna ("Ordenar por"), esa manda en su lugar.
       if (_ordenPercha.col) {
@@ -345,6 +351,7 @@
       try { if (window.ocMontarTraslado) window.ocMontarTraslado('oc-traslado-perchas'); } catch (_) {} // mover ítems entre perchas (breezy)
       renderTransferencias(); // transfers entre perchas (movido de Advanced)
     } catch (err) {
+      if (estaCarga !== cargaEnCurso) return;
       console.error('[VPerchas]', err);
       grid.innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">No se pudo cargar: ${esc(err.message)}</p>`;
     }
