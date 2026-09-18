@@ -47,6 +47,31 @@ test('financial facts converge by ID across two real IndexedDB profiles', async 
     const tampered = { ...result.facts[0], datos: { monto: 999 } };
     await assert.rejects(() => b.evaluate(h => AMG.Hechos.importarRemoto(h), tampered));
     assert.equal((await b.evaluate(() => AMG.Cartera.saldoDeCliente('fixture-client'))).saldo, -19);
+
+    // A second update can arrive while the first IndexedDB import is pending.
+    await b.evaluate(() => {
+      const original = AMG.Hechos.importarRemoto;
+      let first = true;
+      AMG.Hechos.importarRemoto = async function (fact) {
+        if (first) {
+          first = false; window.__importStarted = true;
+          await new Promise(resolve => { window.__releaseImport = resolve; });
+        }
+        return original(fact);
+      };
+    });
+    await a.evaluate(() => AMG.Cartera.registrarMovimiento('fixture-client', 'abono', 4, 'first update'));
+    const firstUpdate = await a.evaluate(() => Array.from(Y.encodeStateAsUpdate(OCYjs.doc)));
+    await b.evaluate(bytes => Y.applyUpdate(OCYjs.doc, new Uint8Array(bytes), 'red'), firstUpdate);
+    await b.waitForFunction(() => window.__importStarted === true);
+    await a.evaluate(() => AMG.Cartera.registrarMovimiento('fixture-client', 'abono', 2, 'second update'));
+    const secondUpdate = await a.evaluate(() => Array.from(Y.encodeStateAsUpdate(OCYjs.doc)));
+    const started = Date.now();
+    await b.evaluate(bytes => Y.applyUpdate(OCYjs.doc, new Uint8Array(bytes), 'red'), secondUpdate);
+    await b.evaluate(() => window.__releaseImport());
+    await b.waitForFunction(async () => (await AMG.Hechos.contar()) === 4);
+    assert.ok(Date.now() - started < 2000, 'local receive-to-persist should stay below two seconds');
+    assert.equal((await b.evaluate(() => AMG.Cartera.saldoDeCliente('fixture-client'))).saldo, -13);
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

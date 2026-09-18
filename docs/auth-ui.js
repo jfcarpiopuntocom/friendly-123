@@ -338,11 +338,14 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   #oc-gate{position:fixed;inset:0;z-index:9999;background:var(--azul-oscuro,#1c3049);
     display:flex;align-items:center;justify-content:center;padding:20px;
     overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;overscroll-behavior-y:contain;}
-  #oc-gate .caja{background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);
+  #oc-gate .caja{background:#FFF8E8;border:2px solid var(--rust,#b2461f);
     border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;
     margin:auto;flex:0 0 auto;}
   #oc-gate h2{font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;}
-  #oc-gate .sub{font-size:14px;color:var(--ink-soft,#5d5340);margin-bottom:18px;}
+  #oc-gate .sub{font-size:15px;font-weight:700;color:var(--ink,#211c14);margin-bottom:18px;}
+  #oc-gate .oc-gate-logo img{width:min(70vw,280px);max-width:100%;height:auto;filter:drop-shadow(0 2px 5px rgba(178,70,31,.22));}
+  #oc-gate #oc-gate-tagline{font-weight:800;color:var(--rust,#b2461f) !important;-webkit-text-fill-color:var(--rust,#b2461f) !important;}
+  #oc-gate #oc-gate-negocio{border-left:4px solid var(--rust,#b2461f);background:#fff7e6;padding:9px 12px;border-radius:5px;}
   .oc-slots{display:flex;gap:10px;justify-content:center;margin-bottom:16px;}
   .oc-slots .slot{width:58px;height:58px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;
     display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--crema,#f3e8cd);color:var(--ink,#211c14);}
@@ -358,6 +361,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     box-shadow:0 2px 0 rgba(15,25,35,.55);
     transition:transform .07s ease, box-shadow .07s ease;}
   .oc-pad button .dig{font-family:var(--font-display,sans-serif);font-weight:700;font-size:20px;color:var(--ink,#211c14);line-height:1;}
+  .oc-pad button .emo{font-size:15px;line-height:1;}
+  #oc-gate .oc-pad button:nth-child(3n+1){border-color:var(--rust,#b2461f);}
+  #oc-gate .oc-pad button:focus-visible{outline:3px solid var(--rust,#b2461f);outline-offset:2px;}
   .oc-pad button:active{transform:translateY(2px); box-shadow:0 0 0 rgba(15,25,35,0);}
   /* La casilla llena se ve presionada hacia adentro (sombra interior sutil). */
   .oc-slots .slot.lleno{box-shadow:inset 0 2px 3px rgba(15,25,35,.22);}
@@ -445,11 +451,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     let entrada = [];
     let ultimoVisible = -1;
     let ocultarTimer = null;
+    // Como en amigable-123: iconos alegres, barajados en cada apertura.
+    // El digito visible sigue siendo la unica entrada y no cambia el PIN.
+    const iconos = ["💼", "📊", "📋", "📁", "🗂️", "📌", "📎", "📝", "🖊️", "✏️", "🔑", "💰", "📦", "🏷️", "⚖️", "🔍", "🖨️", "📞", "📱", "🏢", "💡", "⏰", "📅", "🗓️", "💳"];
+    for (let i = iconos.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [iconos[i], iconos[j]] = [iconos[j], iconos[i]];
+    }
     padEl.innerHTML = "";
     for (let d = 0; d <= 9; d++) {
       const b = document.createElement("button");
       b.dataset.d = String(d);
-      b.innerHTML = `<span class="dig">${d}</span>`;
+      b.innerHTML = `<span class="dig">${d}</span><span class="emo" aria-hidden="true">${iconos[d]}</span>`;
       padEl.appendChild(b);
     }
     const slots = () => slotsEl.querySelectorAll(".slot");
@@ -500,11 +513,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   gate.innerHTML = `
     <div class="caja">
       <div class="oc-gate-logo" style="text-align:center;margin-bottom:4px;">
-        <img src="./logo.png" alt="friendly-123" style="width:180px;max-width:70%;height:auto;display:inline-block;"
+        <img src="./logo.png" alt="friendly-123" style="width:min(70vw,280px);max-width:100%;height:auto;display:inline-block;"
              onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';">
         <h2 style="display:none;">friendly-123</h2>
       </div>
-      <p id="oc-gate-tagline" style="margin:6px 0 10px;font-size:13px;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">${window.t("auth.gate.tagline")}</p>
+      <p id="oc-gate-tagline" style="margin:6px 0 10px;font-size:13px;font-weight:800;color:#A83D1F !important;-webkit-text-fill-color:#A83D1F !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">${window.t("auth.gate.tagline")}</p>
       <div class="oc-lang-pill" role="group" aria-label="Language" style="display:inline-flex;border:1.5px solid var(--azul-medio,#2E6278);border-radius:999px;overflow:hidden;background:#fff;margin:0 auto 10px;">
         <button type="button" class="oc-lang-btn" data-lang="en">EN</button>
         <button type="button" class="oc-lang-btn" data-lang="es">ES</button>
@@ -526,7 +539,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       <!-- CODIGOS DEMO (2026-08-14). Sin esto el visitante ve un teclado y no
            sabe que teclear. Los mismos codigos que anuncia checklist.html: si
            se cambian aqui, cambiarlos alli tambien. -->
-      <div id="oc-gate-demo-pins" style="margin:14px 0 0;padding:12px;border:1px dashed var(--azul-medio,#2c4a68);border-radius:6px;text-align:center;">
+      <div id="oc-gate-demo-pins" style="margin:14px 0 0;padding:12px;border:2px dashed var(--rust,#b2461f);border-radius:6px;text-align:center;">
         <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;">First time? Try these codes</p>
         <p style="margin:0;font-size:13px;line-height:1.6;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;"><strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">456</strong> demo &middot; <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">260</strong> employee &middot; <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">357</strong> bookkeeper &mdash; or <strong style="color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">789</strong> to activate your own instance, free.</p>
         <p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--ink-soft,#5d5340) !important;-webkit-text-fill-color:var(--ink-soft,#5d5340) !important;">Each code shows the app the way that person sees it. The employee does not see the profits.</p>

@@ -383,7 +383,8 @@
   }
 
   function conectarHechos() {
-    var intentos = 0, importando = false;
+    var intentos = 0, importando = false, pendiente = false;
+    var conocidos = Object.create(null);
     function hechos() { return window.AMG && window.AMG.Hechos; }
     function publicar(h) {
       if (!h || !h.id || !API.hechosMap) return;
@@ -395,20 +396,27 @@
     }
     function importar() {
       var ledger = hechos();
-      if (!ledger || importando) return;
+      if (!ledger) return;
+      if (importando) { pendiente = true; return; }
       importando = true;
       var lista = [];
-      API.hechosMap.forEach(function (h) { lista.push(h); });
+      API.hechosMap.forEach(function (h) { if (h && h.id && !conocidos[h.id]) lista.push(h); });
       Promise.allSettled(lista.map(function (h) { return ledger.importarRemoto(h); }))
         .then(function (resultados) {
-          resultados.forEach(function (r) { if (r.status === "rejected") log("hecho remoto rechazado:", r.reason && r.reason.message); });
-        }).finally(function () { importando = false; });
+          resultados.forEach(function (r, i) {
+            if (r.status === "rejected") log("hecho remoto rechazado:", r.reason && r.reason.message);
+            else conocidos[lista[i].id] = true;
+          });
+        }).finally(function () {
+          importando = false;
+          if (pendiente) { pendiente = false; importar(); }
+        });
     }
     function arrancarPuente() {
       var ledger = hechos();
       if (!ledger) { if (++intentos < 20) setTimeout(arrancarPuente, 100); return; }
-      window.addEventListener("oc-hecho-local", function (ev) { publicar(ev.detail); });
-      ledger.todos().then(function (lista) { lista.forEach(publicar); importar(); })
+      window.addEventListener("oc-hecho-local", function (ev) { if (ev.detail && ev.detail.id) conocidos[ev.detail.id] = true; publicar(ev.detail); });
+      ledger.todos().then(function (lista) { lista.forEach(function (h) { conocidos[h.id] = true; publicar(h); }); importar(); })
         .catch(function (e) { log("hechos locales:", e && e.message); });
       API.doc.on("update", function (_update, origin) {
         if (origin === "red" || origin === "bc" || origin === "idb") importar();

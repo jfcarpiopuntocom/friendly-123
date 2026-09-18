@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "Sync: gastos, transferencias, liquidaciones, cartera y caja chica entre dispositivos, con refresco de las pantallas abiertas. Sube shell a f123-shell-v313.",
+  "changelog": "Sync: el crédito llega en vivo aun si otro hecho sigue guardándose. Entrada de PIN con logo grande, iconos y acentos naranjas. Sube shell a f123-shell-v314.",
   "requerida": false,
-  "shell": "f123-shell-v313",
+  "shell": "f123-shell-v314",
   "apagar": [],
   "releaseName": "v1.0"
 }

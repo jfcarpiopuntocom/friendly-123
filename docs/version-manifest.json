@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v313",
+  "shell": "f123-shell-v314",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-d46b07f801aa63a31cbdd05cd80c8df0b8a9df56edc3b84f5c1fa1403ddd28c8",
@@ -19,7 +19,7 @@
     "./storage-durabilidad.js": "sha256-f013cb48cd72b03cec5db92673653f7fcf0ea264d4a3298c325a9b299efa5d8d",
     "./sync-realtime.js": "sha256-9a287f4806e430df1ecbbad59c19a629697fcd599907d1640502465421b69fa6",
     "./sync-watchdog.js": "sha256-cd9123da8625f6daad517fdbd96c784fd1dec015327c6ba8c238049130d5b55e",
-    "./sync-yjs.js": "sha256-e4c4d4c614e7bb3b09a899c4cd3b6c265447376b7ea95c756b2153f9fb3287e0",
+    "./sync-yjs.js": "sha256-9f43d2d8513aba052f12b34aa7396ce84cd38f1e46eeec3306b068172403d650",
     "./vendor/yjs-bundle.min.js": "sha256-c43a513bae0acc69020997612f1a0f145f5481b1939320d97ff03330546053bc",
     "./lista-dinamica.js": "sha256-9757859c28498e2af7dfdc9507750fc6ed06ea9d7cdafb63f9bccb28b41c6937",
     "./vendor/ufuzzy.min.js": "sha256-310ef2b4e8a9233651561e21b5a5aca87a8d521d649ec04f7f7ecf62084826f0",
@@ -27,7 +27,7 @@
     "./i18n.js": "sha256-c730691e36b50290d6955208a5836f8c17f0a0ed058493117b022976ef8b60d3",
     "./crypto-store.js": "sha256-b10ac02c69d1f6a926a129dbd804e354be1c3dbb47cfe6838c1106ec97f34ce3",
     "./email-recovery.js": "sha256-12475b470318661c8575f712fd8fff2f32c082629105a46f3b82d04c98ec884e",
-    "./auth-ui.js": "sha256-31b8a419bbcea734fde49f401f8e1847d773689d3d444729e9474f68dcabee96",
+    "./auth-ui.js": "sha256-81e862e33751b4a8c285af72f7640fdc5873b00fb55c33abb4a29a105b92134c",
     "./backup-scheduler.js": "sha256-a043573a011789d052c47977447fa4edf271053b7003cc5e5bef7efe31284174",
     "./avanzado-extra.js": "sha256-ce30fb76e6e2253f36f0183dd96bdfc4a36af34fec73b36e4e9ec3c122d19b0a",
     "./soporte-visual.js": "sha256-028c939f42201a3f0f57916e7f4824a932452d6be1ad2151baff470b24227222",
