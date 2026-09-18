@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "Mobile: header compacto, reloj bajo el texto del minidashboard y menú al borde inferior. PC conserva su diseño. Sube shell a f123-shell-v316.",
+  "changelog": "Mobile: header compacto, reloj sin solaparse y menú sin franja inferior en Safari; conserva zona segura al instalar la app. Sube shell a f123-shell-v317.",
   "requerida": false,
-  "shell": "f123-shell-v316",
+  "shell": "f123-shell-v317",
   "apagar": [],
   "releaseName": "v1.0"
 }
