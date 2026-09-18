@@ -84,6 +84,7 @@
   const TIPO_CATALOGO_TROZO  = "__catalogo_trozo__";
   const TIPO_FOTO_PEDIDA = "__foto_pedida__";
   const TIPO_FOTO_TROZO = "__foto_trozo__";
+  const fotoAutorizadaHasta = Object.create(null);
   const FOTO_FILAS_POR_TROZO = 200;
   /* REDUNDANCIA (JFC 2026-08-27): mensajes efímeros del sync-watchdog para el
      snapshot entre pares. No son ops de negocio: no se loguean ni se deduplican
@@ -561,7 +562,7 @@
        todas y evitan que el tablero tenga que rehacer la cuenta del reparto por
        su cuenta — que es como dos pantallas terminan mostrando dos numeros
        distintos del mismo negocio. */
-    const [productos, clientes, ventas, resumen, liquidaciones, perchas, movimientos, promotoras] = await Promise.all([
+    const [productos, clientes, ventas, resumen, liquidaciones, perchas, movimientos, promotoras, gastos, transferencias, gastosMensuales, hechos] = await Promise.all([
       get("/productos?ubicacionId=todas"),
       get("/clientes"),
       get("/ventas/todas?ubicacionId=todas"),
@@ -576,6 +577,10 @@
          vigente si alguien los daba de alta o los editaba desde otro aparato.
          Ruta verificada contra el modulo de comisiones: GET /api/promotoras. */
       get("/promotoras"),
+      get("/gastos"),
+      get("/transferencias"),
+      get("/configuracion/gastos"),
+      window.AMG && window.AMG.Hechos ? window.AMG.Hechos.todos().catch(() => null) : Promise.resolve(null),
     ]);
     return {
       productos: productos || [],
@@ -586,6 +591,10 @@
       perchas: Array.isArray(perchas) ? perchas : [],
       movimientos: Array.isArray(movimientos) ? movimientos : [],
       promotoras: Array.isArray(promotoras) ? promotoras : [],
+      gastos: gastos && Array.isArray(gastos.gastos) ? gastos.gastos : [],
+      transferencias: Array.isArray(transferencias) ? transferencias : [],
+      gastosMensuales: gastosMensuales || {},
+      hechosFinancieros: Array.isArray(hechos) ? hechos.filter((h) => /^(cartera_|caja_chica_)/.test(h.tipo || "")) : [],
       negocio: (function () {
         try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || ""; }
         catch (_) { return ""; }
@@ -741,6 +750,9 @@
 
   async function responderFoto(pedido) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const permiso = pedido && fotoAutorizadaHasta[pedido.deviceId];
+    if (!permiso || permiso.hasta < Date.now() || !pedido.payload || pedido.payload.fotoToken !== permiso.token) return;
+    permiso.hasta = Date.now() + 30 * 60 * 1000;
     /* Un tablero no contesta a otro tablero: solo responde quien tiene backend. */
     if (!window.OCSync && !window.fetch) return;
     /* Jitter: si hay dos telefonos del mismo negocio conectados, no mandan la
@@ -749,6 +761,7 @@
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     let foto;
     try { foto = await armarFoto(); } catch (_) { return; }
+    const fotoId = deviceId() + ":" + foto.generadaEn + ":" + uuidCorto();
     const trozos = []
       .concat(trocear("productos", foto.productos))
       .concat(trocear("clientes", foto.clientes))
@@ -762,13 +775,17 @@
          propio dueño, por el mismo canal cifrado. */
       .concat(trocear("promotoras", foto.promotoras))
       .concat(trocear("movimientos", foto.movimientos))
+      .concat(trocear("gastos", foto.gastos))
+      .concat(trocear("transferencias", foto.transferencias))
+      .concat(trocear("hechosFinancieros", foto.hechosFinancieros))
+      .concat([{ tabla: "gastosMensuales", i: 0, total: 1, filas: [foto.gastosMensuales] }])
       .concat([{ tabla: "resumen", i: 0, total: 1, filas: [foto.resumen || {}] }]);
     for (let k = 0; k < trozos.length; k++) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_FOTO_TROZO,
         para: pedido.deviceId || null,
-        payload: Object.assign({ negocio: foto.negocio, generadaEn: foto.generadaEn, k: k, deTotal: trozos.length }, trozos[k]),
+        payload: Object.assign({ negocio: foto.negocio, generadaEn: foto.generadaEn, fotoId: fotoId, k: k, deTotal: trozos.length }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
       try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
@@ -819,6 +836,8 @@
     } catch (_) {}
 
     const ok = rol === "dueno" || rol === "admin";
+    const fotoToken = ok && op.deviceId ? uuidCorto() + uuidCorto() : "";
+    if (fotoToken) fotoAutorizadaHasta[op.deviceId] = { token: fotoToken, hasta: Date.now() + 30 * 60 * 1000 };
 
     /* BUG 2, y es el que rompia el caso real: en una sala con MAS DE UN
        dispositivo, todos contestaban, y el tablero se quedaba con la PRIMERA
@@ -836,7 +855,7 @@
     const r = {
       opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_RESPUESTA,
       payload: { pedido: (op.payload && op.payload.pedidoId) || op.opId, ok: ok,
-                 datos: ok ? { rol: rol } : { error: "Ese PIN no abre el tablero." } },
+                 datos: ok ? { rol: rol, fotoToken: fotoToken } : { error: "Ese PIN no abre el tablero." } },
       fecha: (new Date()).toISOString(),
     };
     try { ws.send(await cifrar(claveActual, r)); } catch (_) {}

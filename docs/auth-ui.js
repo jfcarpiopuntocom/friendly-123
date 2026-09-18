@@ -746,9 +746,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       // The active notebook is authoritative. f123_owned can retain a previous
       // activation name while this notebook already has a newer synced name.
-      const nombre = (T && typeof T.nombreActivo === "function")
-        ? String(T.nombreActivo() || "").trim()
-        : ((owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "");
+      const activo = (T && typeof T.nombreActivo === "function") ? String(T.nombreActivo() || "").trim() : "";
+      // Solo en la tienda PROPIA: si el store aun no cargo, conservar el ultimo
+      // nombre conocido de esta licencia. Nunca mostrarlo en una tienda unida.
+      const nombre = activo || ((owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "");
       if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
       _pintar(nombre);
       const licP = (owned && typeof owned.licenseCode === "string") ? owned.licenseCode : "";

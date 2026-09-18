@@ -240,7 +240,7 @@
     return abrirDB().then(function (db) {
       return new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE, "readwrite");
-        tx.objectStore(STORE).put(hecho);
+        tx.objectStore(STORE).add(hecho); // nunca sobrescribir un hecho existente
         tx.oncomplete = function () { resolve(hecho); };
         tx.onerror = function () { reject(tx.error); };
       });
@@ -399,6 +399,52 @@
     });
   }
 
+  // Comprueba TODAS las cadenas recibidas. Un hecho puede llegar antes de su
+  // antecesor: se conserva, pero el saldo queda marcado como no verificado.
+  // No repara ni descarta registros de clientes.
+  var _cadenaVerificada = { firma: "", resultado: null };
+  function verificarCadenas(lista) {
+    if (!Array.isArray(lista)) return { ok: false, razon: "sin lectura de hechos" };
+    // La UI consulta un saldo por cliente. Reutilizar la verificacion del MISMO
+    // conjunto evita recalcular todos los SHA por cada tarjeta, sin confiar en
+    // un cache si cualquier dato del conjunto cambia.
+    var firma = JSON.stringify(lista);
+    if (_cadenaVerificada.firma === firma && _cadenaVerificada.resultado) return _cadenaVerificada.resultado;
+    var grupos = Object.create(null);
+    for (var i = 0; i < lista.length; i++) {
+      var h = lista[i], origen = h && h.instanceId;
+      if (!origen || typeof h.id !== "string" || h.id.indexOf(origen + "-") !== 0) return { ok: false, razon: "identidad invalida", en: h && h.id };
+      var sec = Number(h.id.slice(origen.length + 1));
+      if (!Number.isSafeInteger(sec) || sec < 1) return { ok: false, razon: "secuencia invalida", en: h.id };
+      (grupos[origen] || (grupos[origen] = [])).push({ h: h, sec: sec });
+    }
+    var origenes = Object.keys(grupos);
+    for (var j = 0; j < origenes.length; j++) {
+      var filas = grupos[origenes[j]].sort(function (a, b) { return a.sec - b.sec; });
+      var previo = "", esperado = 1;
+      for (var k = 0; k < filas.length; k++) {
+        var f = filas[k];
+        if (f.sec !== esperado) return { ok: false, razon: "hueco de secuencia", en: f.h.id, esperaba: esperado };
+        if (f.h.hashPrevio !== previo) return { ok: false, razon: "enlace de hash roto", en: f.h.id };
+        previo = f.h.hash; esperado++;
+      }
+    }
+    var comprobacion = Promise.all(lista.map(function (h) {
+      var base = JSON.stringify({ id: h.id, instanceId: h.instanceId, autor: h.autor,
+        reloj: h.reloj, ts: h.ts, tipo: h.tipo, datos: h.datos, hashPrevio: h.hashPrevio });
+      if (String(h.hash).slice(0, 2) !== "w:" && !(global.crypto && global.crypto.subtle)) return null;
+      return String(h.hash).slice(0, 2) === "w:" ? hashDebil(base) : calcularHash(base);
+    })).then(function (hashes) {
+      for (var n = 0; n < hashes.length; n++) {
+        if (hashes[n] === null) return { ok: false, razon: "hash no verificable en este navegador" };
+        if (hashes[n] !== lista[n].hash) return { ok: false, razon: "hash alterado", en: lista[n].id };
+      }
+      return { ok: true, origenes: origenes.length, hechos: lista.length };
+    });
+    _cadenaVerificada = { firma: firma, resultado: comprobacion };
+    return comprobacion;
+  }
+
   // ---------------------------------------------------------------------------
   // Enganche pasivo al bus de eventos
   // ---------------------------------------------------------------------------
@@ -457,6 +503,7 @@
     todos: todos,
     contar: contar,
     verificarCadena: verificarCadena,
+    verificarCadenas: verificarCadenas,
     instanceId: instanceId,
     meta: leerMeta,
     _arrancar: arrancar

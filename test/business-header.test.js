@@ -31,3 +31,19 @@ test('header uses the active notebook name even if an older instance request res
   assert.equal(JSON.parse(storage.get('f123_owned')).nombreNegocio, '17 de septiembre');
   assert.ok(events.has('oc-negocio-actualizado'));
 });
+
+test('empty startup state keeps the last known name of the owned notebook', async () => {
+  const span = { textContent: 'My store or shelf(s)' };
+  const btn = { style: {}, addEventListener() {} };
+  const storage = new Map([['f123_owned', JSON.stringify({ nombreNegocio: 'Known fixture store' })]]);
+  const context = { window: { OCTienda: { nombreActivo: () => '', esUnida: () => false }, addEventListener() {} },
+    document: { getElementById: id => ({ 'oc-negocio-nombre': span, 'oc-negocio-editar': btn })[id] || null },
+    localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
+    sessionStorage: { getItem: () => null }, API: '/api',
+    fetch: async () => ({ json: async () => ({ nombreNegocio: '' }) }) };
+  vm.createContext(context);
+  vm.runInContext(block, context);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(span.textContent, 'Known fixture store');
+  assert.equal(JSON.parse(storage.get('f123_owned')).nombreNegocio, 'Known fixture store');
+});

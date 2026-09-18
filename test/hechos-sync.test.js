@@ -72,6 +72,24 @@ test('financial facts converge by ID across two real IndexedDB profiles', async 
     await b.waitForFunction(async () => (await AMG.Hechos.contar()) === 4);
     assert.ok(Date.now() - started < 2000, 'local receive-to-persist should stay below two seconds');
     assert.equal((await b.evaluate(() => AMG.Cartera.saldoDeCliente('fixture-client'))).saldo, -13);
+    const integrity = await b.evaluate(async () => {
+      const facts = await AMG.Hechos.todos();
+      const before = await AMG.Hechos.verificarCadenas(facts);
+      const db = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('f123_hechos_db');
+        req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error);
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('hechos', 'readwrite');
+        tx.objectStore('hechos').delete(facts[1].id);
+        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+      });
+      const after = await AMG.Cartera.saldoDeCliente('fixture-client');
+      return { before, after: after.integridad };
+    });
+    assert.equal(integrity.before.ok, true);
+    assert.equal(integrity.after.ok, false);
+    assert.match(integrity.after.razon, /hueco|enlace/);
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

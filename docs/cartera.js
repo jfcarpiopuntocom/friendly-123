@@ -91,6 +91,7 @@
        este aviso no puede volver a duplicar nada. */
     if (global.AMG && global.AMG.Hechos && global.AMG.Hechos.registrar) {
       return global.AMG.Hechos.registrar(TIPOS[tipo], payload).then(function (r) {
+        if (!r) throw new Error("cartera: no se pudo guardar el hecho");
         var eb = bus();
         if (eb) eb.emit(TIPOS[tipo] + ":registrado", { payload: payload });
         return r;
@@ -124,7 +125,9 @@
         };
       });
       movimientos.sort(function (a, b) { return a.fecha - b.fecha; });
-      return { saldo: +saldo.toFixed(2), movimientos: movimientos };
+      return Promise.resolve(global.AMG.Hechos.verificarCadenas(todos)).then(function (integridad) {
+        return { saldo: +saldo.toFixed(2), movimientos: movimientos, integridad: integridad };
+      });
     });
   }
 

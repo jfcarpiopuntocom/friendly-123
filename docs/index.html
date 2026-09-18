@@ -353,28 +353,14 @@
     text-rendering:optimizeLegibility;
   }
 
-  /* ---------- utilidad: tarjeta-etiqueta (esquina cortada + ojal) ---------- */
+  /* Tarjetas completas: mandato JFC 2026-09-18. Ninguna esquina rota. */
   .tag-card{
     position:relative;
     background:var(--blanco-calido);
     border:1.5px solid rgba(33,28,20,0.22);
-    clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    border-radius:8px;
     box-shadow:0 1px 2px rgba(33,28,20,0.06), 0 6px 16px -8px rgba(33,28,20,0.28);
     transition:box-shadow .2s ease, transform .2s ease;
-  }
-  .tag-card::before{
-    content:"";
-    position:absolute;
-    top:0; right:0;
-    width:18px; height:18px;
-    background:linear-gradient(135deg, transparent 49.5%, rgba(33,28,20,0.14) 50%, transparent 50.5%);
-    pointer-events:none;
-  }
-  .tag-card::after{
-    /* TRIANGULO DE ESQUINA — DORMANT (homologado de AMIGABLE, JFC 2026-07-22).
-       Se confundia con un indicador o un desplegable. NO BORRAR.
-       Para re-activar: restaurar la version previa de esta regla. */
-    content:none;
   }
   @media (hover:hover){
     .caja.tag-card:hover, .etiqueta-card.tag-card:hover{
@@ -872,15 +858,9 @@
      3 clases (>2) para ganarle a las reglas blancas de arriba. */
   /* 1 TONO (2026-08-05): n1 ya no es un tinte claro, es el color solido,
      asi que forzar tinta oscura aqui dejaba el texto ilegible. Se anula. */
-  /* La estrella de "promover" va ENGAZADA en la esquina rota (JFC 2026-08-28):
-     el usuario pidió que encaje JUSTO en el doblez, superimpuesta/engarzada,
-     NO como en Sold (esas cards no tienen esquina trunca). El clip-path de
-     .tag-card recorta la esquina superior derecha (18px). Poniendo la estrella
-     en top:0;right:0, el MISMO clip-path le recorta su propia esquina superior
-     derecha a lo largo de la diagonal → la estrella queda "engarzada" en el
-     corte, como una gema en su engaste, siguiendo la línea del doblez. */
+  /* Estrella visible dentro de la esquina completa de la tarjeta. */
   .caja .estrella-badge{
-    position:absolute; top:0; right:0; z-index:3;
+    position:absolute; top:5px; right:6px; z-index:3;
     font-size:20px; line-height:1;
     filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35));
   }
@@ -1319,30 +1299,36 @@
     nav button{font-size:13px;}
   }
 
-  /* Solo móvil: el header largo no debe quedar pegado cubriendo la app. La
-     rejilla mantiene juntos negocio/idioma, selector/usuario y accesos. */
+  /* Solo móvil: controles compactos en flujo; PC conserva el header original. */
   @media (max-width:767px){
     :root{--nav-h:62px;}
     header{
-      position:relative;top:auto;min-height:0;padding:10px 12px;
+      position:relative;top:auto;min-height:0;padding:6px 10px;
       display:grid;grid-template-columns:minmax(0,1fr) auto auto;
-      gap:6px 8px;align-items:center;
+      gap:3px 6px;align-items:center;
     }
     header .marca{grid-column:1/3;grid-row:1;min-width:0;}
-    header h1{font-size:clamp(18px,5vw,23px);line-height:1.1;}
-    header .sub{font-size:11px;line-height:1.2;letter-spacing:.02em;}
+    header h1{font-size:clamp(18px,5vw,23px);line-height:1.1;display:flex;align-items:center;min-width:0;}
+    header h1 #oc-negocio-nombre{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    header h1 #oc-negocio-editar{flex-shrink:0;}
+    header #oc-header-apodo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    header .sub{display:none;}
     header .oc-lang-wrap{grid-column:3;grid-row:1;align-self:start;}
     header .oc-bilingual{display:none;}
     header .selector-ubicacion{
       grid-column:1/3;grid-row:2;display:flex;flex-direction:row;
       align-items:center;gap:7px;min-width:0;
     }
-    header .selector-ubicacion label{font-size:11px;white-space:nowrap;letter-spacing:.02em;}
+    header .selector-ubicacion label{font-size:10px;white-space:nowrap;letter-spacing:0;}
     header .selector-ubicacion select{flex:1;min-width:0;max-width:none;width:100%;}
     header #oc-user-chip{grid-column:3;grid-row:2;margin:0 !important;max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     header #oc-rol-chip{grid-column:1;grid-row:3;justify-self:start;margin:0 !important;}
     header #oc-logout{grid-column:2;grid-row:3;justify-self:start;}
     header #oc-brand-help{grid-column:3;grid-row:3;margin:0 !important;justify-self:end;}
+    /* El logo grande permanece en el PIN y en PC. En móvil, ayuda y estado
+       ocupan esta esquina: un segundo logo inflaba toda la tercera fila. */
+    header #oc-brand-help img{display:none !important;}
+    header #oc-brand-help #oc-sync-mini{margin-top:0 !important;}
     nav{height:var(--nav-h);align-items:flex-end;padding-top:2px;padding-bottom:0;}
     #heroSemaforo{display:flex;flex-direction:column;align-items:flex-start;}
     #heroReloj{position:static !important;align-self:flex-end;margin-top:8px;max-width:100%;}
@@ -3332,6 +3318,10 @@ async function pintarSaldoCartera(clienteId) {
   if (!el) return;
   try {
     const info = await (await fetch(`${API}/clientes/${clienteId}/cartera`)).json();
+    if (info && info.integridad && !info.integridad.ok) {
+      el.textContent = "Balance pending verification — " + (info.integridad.razon || "sync incomplete");
+      return;
+    }
     if (!info || !info.saldo) { el.innerHTML = ""; return; }
     // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
@@ -3893,7 +3883,10 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   function pintarNombreActivo() {
     try {
       const actual = window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo();
-      if (actual) span.textContent = actual;
+      const unida = window.OCTienda && window.OCTienda.esUnida && window.OCTienda.esUnida();
+      const owned = !unida && JSON.parse(localStorage.getItem("f123_owned") || "null");
+      const conocido = owned && owned.nombreNegocio;
+      if (actual || conocido) span.textContent = actual || conocido;
     } catch (_) {}
   }
   async function cargarNombre() {
@@ -3903,17 +3896,14 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
       const inst = await (await fetch(`${API}/instancia`)).json();
       if (lectura !== lecturaNombre) return; // un login/sync más reciente ya pintó otro cuaderno
       if (inst) {
-        const nom = (window.OCTienda && window.OCTienda.nombreActivo)
-          ? window.OCTienda.nombreActivo() || "" : inst.nombreNegocio || "";
+        const unida = window.OCTienda && window.OCTienda.esUnida && window.OCTienda.esUnida();
+        const owned = !unida && JSON.parse(localStorage.getItem("f123_owned") || "null");
+        const nom = (window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo()) ||
+          (!unida && (inst.nombreNegocio || (owned && owned.nombreNegocio))) || "";
         span.textContent = nom || TITULO_DEFECTO;
-        /* Persistir el nombre en f123_owned para que el candado rotule la tienda
-           ANTES del login la proxima vez (JFC 2026-08-25). FIX (JFC 2026-09-04):
-           antes solo se sincronizaba cuando la tienda activa TENIA nombre; si la
-           activa estaba vacia, el candado se quedaba mostrando el nombre de la
-           tienda ANTERIOR (por eso "entro a una tienda y adentro sale otra").
-           Ahora se sincroniza SIEMPRE al nombre real de la tienda activa
-           (incluido vacio), asi candado y header nunca se contradicen. */
-        try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o && (o.nombreNegocio || "") !== nom) { o.nombreNegocio = nom; localStorage.setItem("f123_owned", JSON.stringify(o)); } } catch (_) {}
+        // El nombre vacio durante el arranque no es un rename oficial. No
+        // borrar la ultima identidad conocida ni copiar nombres de tiendas unidas.
+        try { if (!unida && nom) { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o && (o.nombreNegocio || "") !== nom) { o.nombreNegocio = nom; localStorage.setItem("f123_owned", JSON.stringify(o)); } } } catch (_) {}
       }
     } catch (_) {}
   }

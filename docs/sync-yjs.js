@@ -91,7 +91,9 @@
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn) {
     var canal = { ws: null, pend: [] };
-    var MAX_OP_BYTES = 250 * 1024; // guard: el relay cierra (1009) frames > 256KB
+    var MAX_OP_BYTES = 250 * 1024; // guard final, despues de base64
+    var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
+    var partesEntrantes = Object.create(null);
     var reintentos = 0; // backoff (fix B, JFC 2026-09-10): antes reconectaba fijo
                         // cada 4s; si el relay cerraba (p.ej. frame grande), era una
                         // tormenta de upgrades -> límite diario del worker. Ahora
@@ -104,9 +106,35 @@
     }
     function enviar(tag, payload) {
       if (!API.clave) return;
-      cifrarBin(API.clave, _frame(tag, payload)).then(function (buf) {
-        if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
-      }).catch(function () {});
+      publicar(tag, payload, false);
+    }
+    // Un update grande no cabe en el relay. Los trozos son frames cifrados
+    // independientes; se reconstruyen antes de aplicar Yjs, nunca parcialmente.
+    function publicar(tag, payload, persistir) {
+      var piezas = Math.max(1, Math.ceil(payload.length / CHUNK_BYTES));
+      if (piezas > 65535) { log("update Yjs excede limite de trozos"); return; }
+      var id = Date.now().toString(36).padStart(10, "0").slice(-10) + Math.random().toString(36).slice(2, 8).padEnd(6, "0");
+      for (var n = 0; n < piezas; n++) {
+        var pedazo = payload.subarray(n * CHUNK_BYTES, (n + 1) * CHUNK_BYTES);
+        var frame;
+        if (piezas === 1) frame = _frame(tag, pedazo);
+        else {
+          frame = new Uint8Array(22 + pedazo.length);
+          frame[0] = 3; frame[1] = tag;
+          for (var j = 0; j < 16; j++) frame[2 + j] = id.charCodeAt(j);
+          frame[18] = n >> 8; frame[19] = n & 255;
+          frame[20] = piezas >> 8; frame[21] = piezas & 255;
+          frame.set(pedazo, 22);
+        }
+        cifrarBin(API.clave, frame).then(function (buf) {
+          if (buf.byteLength > MAX_OP_BYTES) { log("trozo Yjs supera limite: " + buf.byteLength); return; }
+          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
+          if (!persistir) return;
+          var op = JSON.stringify({ k: "op", id: (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8)), lam: Date.now() + (++_lamCtr), c: _b64(buf) });
+          if (op.length > MAX_OP_BYTES) { log("op Yjs supera limite: " + op.length); return; }
+          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(op); else canal.pend.push(op);
+        }).catch(function () {});
+      }
     }
     /* PERSISTENCIA DEL SYNC NUEVO (JFC 2026-09-15, v285). EL BUG DE 3 SEMANAS: el
        relay solo REBOTA los frames binarios de Yjs en vivo, NO los guarda. Así dos
@@ -125,21 +153,7 @@
     function _b64(buf) { var u = new Uint8Array(buf), s = ""; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
     canal.enviarUpdate = function (update) {
       if (!API.clave) return;
-      cifrarBin(API.clave, _frame(0, update)).then(function (buf) {
-        // (a) en vivo, a quien esté conectado ahora
-        if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
-        // (b) persistente, para quien entre después aunque nadie esté en línea.
-        // GUARD DE TAMAÑO (v286, #8): si el frame cifrado supera el tope del relay
-        // (256KB -> cierra 1009 -> tormenta de reconexión), NO se persiste como op
-        // única. El catálogo/fotos ya viajan troceados; el estado completo se
-        // reconstruye vía el checkpoint (encodeStateAsUpdate) que sí cabe o se
-        // volverá a intentar. Se avisa en consola para diagnóstico.
-        if (buf.byteLength > MAX_OP_BYTES) { try { log("op grande (" + buf.byteLength + "B) no persistida; va en vivo + ckpt"); } catch (_) {} return; }
-        try {
-          var op = JSON.stringify({ k: "op", id: (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8)), lam: Date.now() + (++_lamCtr), c: _b64(buf) });
-          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(op); else canal.pend.push(op);
-        } catch (_) {}
-      }).catch(function () {});
+      publicar(0, update, true);
     };
     /* CHECKPOINT (v286, #1 + fix real "el catálogo viejo no cruza"). enviarUpdate
        solo persiste CAMBIOS nuevos. Pero el catálogo que ya vivía en el IndexedDB
@@ -159,7 +173,7 @@
       var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
       cifrarBin(API.clave, _frame(0, full)).then(function (buf) {
-        if (buf.byteLength > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
+        if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
         try {
           var ck = JSON.stringify({ k: "ckpt", lam: Date.now(), c: _b64(buf) });
           if (canal.ws && canal.ws.readyState === 1) canal.ws.send(ck);
@@ -186,12 +200,32 @@
       function manejar(buf) {
         descifrarBin(API.clave, buf).then(function (bytes) {
           var tag = bytes[0], payload = bytes.subarray(1);
+          if (tag === 3) {
+            if (bytes.length < 22) return;
+            var original = bytes[1], id = "";
+            for (var q = 2; q < 18; q++) id += String.fromCharCode(bytes[q]);
+            var indice = bytes[18] * 256 + bytes[19], total = bytes[20] * 256 + bytes[21];
+            if (!total || indice >= total) return;
+            var grupo = partesEntrantes[id];
+            if (!grupo) grupo = partesEntrantes[id] = { tag: original, total: total, piezas: [], cuenta: 0, creado: Date.now() };
+            if (grupo.total !== total || grupo.tag !== original) return;
+            if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; }
+            if (grupo.cuenta !== total) return;
+            delete partesEntrantes[id];
+            var largo = grupo.piezas.reduce(function (a, p) { return a + p.length; }, 0);
+            var unido = new Uint8Array(largo), cursor = 0;
+            grupo.piezas.forEach(function (p) { unido.set(p, cursor); cursor += p.length; });
+            tag = original; payload = unido;
+          }
           if (tag === 0) { Y.applyUpdate(doc, payload, "red"); }
           else if (tag === 1) { // me saludan: les mando lo que les falta + mi SV para pedir lo mío
             try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
             try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
           } else if (tag === 2) { // respuesta a mi SV: solo el diff, sin re-pedir (corta el loop)
             try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+          }
+          if (Object.keys(partesEntrantes).length > 64) {
+            Object.keys(partesEntrantes).forEach(function (k) { if (Date.now() - partesEntrantes[k].creado > 120000) delete partesEntrantes[k]; });
           }
         }).catch(function () {}); // basura o clave distinta -> se ignora
       }
