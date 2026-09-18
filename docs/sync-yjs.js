@@ -498,7 +498,6 @@
      256KB con historiales grandes. Add-only por id: el receptor la suma una sola
      vez (aplicarCatalogo). No duplica plata ni stock (el stock es LWW aparte).
      Guard de sesion para no re-mandar la misma venta. */
-  var _ventasSembradas = {};
   function sembrarVentasAlRelay() {
     if (!window.OCSync || !API.canal || !window.Y || !API.doc) return;
     var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
@@ -506,18 +505,16 @@
     ventas.forEach(function (v) {
       if (!v || v.id == null) return;
       var id = String(v.id);
-      if (_ventasSembradas[id]) return;
-      // Si ya está en el map del doc (de un pull), no re-mandar.
-      try { if (API.mapas.ventas && API.mapas.ventas.get(id)) { _ventasSembradas[id] = 1; return; } } catch (_) {}
+      var previo = API.mapas.ventas.get(id);
+      if (previo) {
+        var a = v.rev || {}, b = previo.rev || {};
+        var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
+        if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) return;
+      }
       try {
-        var d = new window.Y.Doc();
-        d.getMap("ventas").set(id, JSON.parse(JSON.stringify(v)));
-        var u = window.Y.encodeStateAsUpdate(d);
-        _ventasSembradas[id] = 1;
-        // Aplicar con origin "seed" dispara el observador del catálogo (línea ~311)
-        // que YA hace enviarUpdate (op + en vivo). NO enviar explícito: duplicaba
-        // la op (FIX v293).
-        try { window.Y.applyUpdate(API.doc, u, "seed"); } catch (_) {}
+        // Y.Map.set emite un delta pequeño por venta y permite publicar una
+        // corrección o anulación posterior sin re-enviar el historial entero.
+        API.doc.transact(function () { API.mapas.ventas.set(id, JSON.parse(JSON.stringify(v))); }, "seed");
       } catch (_) {}
     });
   }
@@ -587,6 +584,31 @@
               if (!r || r.id == null) return;
               var k = String(r.id);
               var prev = API.mapas[col].get(k);
+              if (prev && col === "productos") {
+                var basePrev = prev.stockBase == null ? null : Number(prev.stockBase);
+                var baseMia = r.stockBase == null ? null : Number(r.stockBase);
+                if (basePrev !== null && baseMia !== null && basePrev !== baseMia) return;
+                var base = baseMia !== null ? baseMia : basePrev;
+                if (base !== null && Number.isFinite(base)) {
+                  var pn = Object.assign({}, prev.stockPN || {});
+                  Object.keys(r.stockPN || {}).forEach(function (id) {
+                    var antes = pn[id] || {}, nuevo = r.stockPN[id] || {};
+                    pn[id] = { add: Math.max(Number(antes.add) || 0, Number(nuevo.add) || 0),
+                               sub: Math.max(Number(antes.sub) || 0, Number(nuevo.sub) || 0) };
+                  });
+                  r = Object.assign({}, r, { stockBase: base, stockPN: pn });
+                  r.stockActual = Math.max(0, base + Object.keys(pn).reduce(function (n, id) {
+                    return n + (Number(pn[id].add) || 0) - (Number(pn[id].sub) || 0);
+                  }, 0));
+                }
+              }
+              // Una réplica rezagada no debe volver a publicar una ficha anterior
+              // encima de una edición o baja que ya llegó al documento común.
+              if (prev && (col === "clientes" || col === "promotoras" || col === "sucursales")) {
+                var a = r.rev || {}, b = prev.rev || {};
+                var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
+                if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) return;
+              }
               var js = JSON.stringify(r);
               // Solo si cambió: evita tormenta de updates binarios por el relay.
               if (!prev || JSON.stringify(prev) !== js) API.mapas[col].set(k, JSON.parse(js));
@@ -669,6 +691,9 @@
         // v289: incluir r.actualizados -> una actualizacion SOLO de stock/precio
         // (sin altas) tambien re-pinta la UI: es el refresco "en segundos" del CDC.
         if (r && r.ok && (r.agregadasU || r.agregadosP || r.actualizados || r.ventasAgregadas || r.miembrosAgregados || r.clientesAgregados || r.promotorasAgregadas || r.sucursalesAgregadas)) {
+          // Una fusión de dos ledgers de stock debe volver al doc de inmediato;
+          // esperar al barrido de 2 s dejaría a un tercer aparato con una sola venta.
+          setTimeout(sembrar, 0);
           try {
             window.dispatchEvent(new CustomEvent("oc-sync-merge", { detail: {
               perchas: r.agregadasU || 0, productos: r.agregadosP || 0, actualizados: r.actualizados || 0, ventas: r.ventasAgregadas || 0,
