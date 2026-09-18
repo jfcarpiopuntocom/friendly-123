@@ -43,6 +43,20 @@ test('branch edits reach an existing record', async () => {
   assert.equal((await b.request('/api/sucursales')).find(x => x.id === s.id).nombre, 'Edited branch');
 });
 
+test('team PINs and removal converge so a removed PIN cannot authenticate elsewhere', async () => {
+  const a = browser(), b = browser();
+  const member = await a.request('/api/usuarios', 'POST', { nombre: 'Fixture staff', pin: '741', rol: 'empleado' });
+  b.receive(a);
+  assert.equal((await b.request('/api/usuarios/verificar', 'POST', { pin: '741' })).id, member.id);
+  await a.request(`/api/usuarios/${member.id}`, 'PATCH', { pin: '742' });
+  b.receive(a);
+  await assert.rejects(() => b.request('/api/usuarios/verificar', 'POST', { pin: '741' }));
+  assert.equal((await b.request('/api/usuarios/verificar', 'POST', { pin: '742' })).id, member.id);
+  await a.request(`/api/usuarios/${member.id}`, 'DELETE', {});
+  b.receive(a);
+  await assert.rejects(() => b.request('/api/usuarios/verificar', 'POST', { pin: '742' }));
+});
+
 test('deleted customer is not resurrected by an older peer snapshot', async () => {
   const a = browser(), b = browser();
   const c = await a.request('/api/clientes', 'POST', { nombre: 'Fixture removed' });
