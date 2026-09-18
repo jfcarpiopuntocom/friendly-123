@@ -1317,6 +1317,9 @@
           if (_codNorm && /^F123-/.test(_codNorm)) {
             _ow.licenseCode = _codNorm; // se vuelve device de ESE negocio (cuenta en el panel)
             _ow.syncCode = _codNorm;
+            // El siguiente checkin puede mover la fila del panel SOLO porque
+            // hubo un join deliberado. Un login pasivo jamás cambia licencia.
+            if (_ow.instanceId) localStorage.setItem("f123_join_pending_v1", JSON.stringify({ instanceId: _ow.instanceId, licenseCode: _codNorm }));
           }
           localStorage.setItem("f123_owned", JSON.stringify(_ow));
         }

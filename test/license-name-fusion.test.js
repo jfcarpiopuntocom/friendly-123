@@ -45,6 +45,43 @@ test('passive login cannot revert the notebook name repaired in panel', async ()
   assert.ok(JSON.parse(kv.get('hist:' + instanceId)).length >= 2);
 });
 
+test('passive checkin cannot move an existing device to another license', async () => {
+  const { kv, send } = fixture(await workerFrom(workerSource));
+  const instanceId = 'fixture-client-device';
+  await send('/checkin', { instanceId, licenseCode: 'F123-CLIENT-CANONICAL', nombreNegocio: 'Client fixture', accion: 'register' });
+  await send('/checkin', { instanceId, licenseCode: 'F123-OLD-LOCAL', nombreNegocio: 'Old local name', accion: 'login' });
+  const saved = JSON.parse(kv.get('inst:' + instanceId));
+  assert.equal(saved.licenseCode, 'F123-CLIENT-CANONICAL');
+  assert.equal(saved.nombreNegocio, 'Client fixture');
+  await send('/checkin', { instanceId, licenseCode: 'F123-DELIBERATE-ROTATION', accion: 'rotacion' });
+  assert.equal(JSON.parse(kv.get('inst:' + instanceId)).licenseCode, 'F123-DELIBERATE-ROTATION');
+  await send('/checkin', { instanceId, licenseCode: 'F123-EXPLICIT-JOIN', accion: 'join' });
+  assert.equal(JSON.parse(kv.get('inst:' + instanceId)).licenseCode, 'F123-EXPLICIT-JOIN');
+});
+
+test('soft reattach uses an explicit local join marker and clears it only after Worker confirmation', async () => {
+  const start = authSource.indexOf('  function heartbeatLogin(owned) {');
+  const source = authSource.slice(start, authSource.indexOf('  let rol = null;', start));
+  const entries = new Map([['f123_join_pending_v1', JSON.stringify({ instanceId: 'fixture-device', licenseCode: 'F123-TEAM' })]]);
+  const actions = [];
+  let reply = null;
+  const context = { localStorage: { getItem: k => entries.get(k) || null, removeItem: k => entries.delete(k) },
+    enviarHeartbeat: async payload => { actions.push(payload.accion); return reply; } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const owned = { instanceId: 'fixture-device', licenseCode: 'F123-TEAM' };
+  await context.heartbeatLogin(owned);
+  assert.equal(entries.has('f123_join_pending_v1'), true, 'offline marker survives');
+  reply = { licenseCode: 'F123-OTHER' };
+  await context.heartbeatLogin(owned);
+  assert.equal(entries.has('f123_join_pending_v1'), true, 'mismatched reply cannot acknowledge');
+  reply = { licenseCode: 'F123-TEAM' };
+  await context.heartbeatLogin(owned);
+  assert.equal(entries.has('f123_join_pending_v1'), false);
+  await context.heartbeatLogin(owned);
+  assert.deepEqual(actions, ['join', 'join', 'join', 'login']);
+});
+
 test('panel offers a reversible name-unification action only for JFC-owned group', () => {
   assert.match(panelSource, /const soloJfc = n > 1 && nMios === n && !!g\.cod/);
   assert.match(panelSource, /function licUnificarNombre\(codigo\)/);

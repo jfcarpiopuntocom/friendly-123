@@ -2458,6 +2458,7 @@
         ow.licenseCode = norm;
         ow.syncCode = norm;              // la cajita de compartir deja de mostrar residuo
         localStorage.setItem("f123_owned", JSON.stringify(ow));
+        if (ow.instanceId) localStorage.setItem("f123_join_pending_v1", JSON.stringify({ instanceId: ow.instanceId, licenseCode: norm }));
       } catch (_) {}
       try { if (window.OCSyncControl && window.OCSyncControl.fijarSala) window.OCSyncControl.fijarSala(norm); } catch (_) {}
       /* A5 (2026-08-27, auditoría de integridad): alinear el NAMESPACE de tienda

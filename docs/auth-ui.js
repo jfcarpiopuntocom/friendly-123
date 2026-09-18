@@ -157,12 +157,37 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             owned.licenseEstadoAt = Date.now();
             localStorage.setItem("f123_owned", JSON.stringify(owned));
           }
+          return r;
         }
       } catch (eRed) {
         _cbFallo();          // timeout, DNS caido, offline: cuenta como fallo
         throw eRed;
       } finally { clearTimeout(t); }
     } catch (_) { /* never block UI */ }
+  }
+
+  function heartbeatLogin(owned) {
+    if (!owned || !owned.instanceId) return;
+    let pendiente = null;
+    try { pendiente = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null"); } catch (_) {}
+    const codigo = String(owned.licenseCode || "").trim().toUpperCase();
+    const joinExplicito = !!(pendiente && pendiente.instanceId === owned.instanceId &&
+      String(pendiente.licenseCode || "").trim().toUpperCase() === codigo && /^F123-/.test(codigo));
+    const datos = { instanceId: owned.instanceId, licenseCode: codigo, email: owned.email || "",
+      whatsapp: owned.whatsapp || "", nombre: owned.nombre || "", nombreNegocio: owned.nombreNegocio || "",
+      accion: joinExplicito ? "join" : "login" };
+    return enviarHeartbeat(datos).then(function (respuesta) {
+      // Con red caída se conserva el marcador para el próximo login. Solo la
+      // confirmación del Worker para esta misma licencia cierra el reenganche.
+      if (joinExplicito && respuesta && String(respuesta.licenseCode || "").trim().toUpperCase() === codigo) {
+        try {
+          const actual = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null");
+          if (actual && actual.instanceId === owned.instanceId && String(actual.licenseCode || "").trim().toUpperCase() === codigo)
+            localStorage.removeItem("f123_join_pending_v1");
+        } catch (_) {}
+      }
+      return respuesta;
+    });
   }
 
 
@@ -1302,7 +1327,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
                esta rama no vuelve a correr. */
             try { setTimeout(function () { mostrarAvisoLicencia(ow3.licenseCode, true); }, 900); } catch (_) {}
           }
-          if (ow3.instanceId) enviarHeartbeat({ instanceId: ow3.instanceId, licenseCode: ow3.licenseCode || "", email: ow3.email || "", whatsapp: ow3.whatsapp || "", nombre: ow3.nombre || "", nombreNegocio: ow3.nombreNegocio || "", accion: "login" });
+          heartbeatLogin(ow3);
         } catch (_) {}
             window.dispatchEvent(new CustomEvent("oc-login", { detail: { rol, demo: esDemo } }));
     // El rol contador aterriza directo en su vista propia (creada al vuelo

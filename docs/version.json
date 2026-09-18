@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-18",
-  "changelog": "Panel privado con formulario para unificar nombres de aparatos propios; conserva historial. Candado y Worker protegen el nombre al salir y volver a entrar.",
+  "changelog": "v1.0 oficial: reenganche suave a la licencia correcta; un inicio de sesión antiguo no mueve aparatos a otro negocio.",
   "requerida": false,
-  "shell": "f123-shell-v321",
+  "shell": "f123-shell-v322",
   "apagar": [],
   "releaseName": "v1.0"
 }

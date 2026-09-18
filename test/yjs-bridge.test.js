@@ -7,7 +7,7 @@ const { webcrypto } = require('node:crypto');
 const { setTimeout: delay } = require('node:timers/promises');
 const { browser } = require('./helpers/browser.cjs');
 
-async function peer() {
+async function peer(licenseCode = 'SYNTHETIC-ISOLATED-FIXTURE') {
   const w = browser();
   // Keep JSON objects in the same realm as the vendored Yjs implementation.
   delete w.JSON;
@@ -17,12 +17,22 @@ async function peer() {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/vendor/yjs-bundle.min.js'), 'utf8'), w);
   // These tests exercise the actual store bridge and Yjs updates, not browser disk persistence.
   w.IndexeddbPersistence = class { once() {} };
-  w.localStorage.setItem('f123_owned', JSON.stringify({ licenseCode: 'SYNTHETIC-ISOLATED-FIXTURE' }));
+  w.localStorage.setItem('f123_owned', JSON.stringify({ licenseCode }));
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8'), w);
   for (let attempt = 0; attempt < 100 && w.OCYjs.estado !== 'activo'; attempt++) await delay(10);
   assert.equal(w.OCYjs.estado, 'activo');
   return w;
 }
+
+test('other businesses join only their own existing license room without rewriting identity', async () => {
+  const a = await peer('F123-SYNTHETIC-CLIENT');
+  const b = await peer('F123-SYNTHETIC-CLIENT');
+  const other = await peer('F123-SYNTHETIC-OTHER');
+  assert.equal(a.OCYjs.roomId, b.OCYjs.roomId);
+  assert.notEqual(a.OCYjs.roomId, other.OCYjs.roomId);
+  assert.equal(JSON.parse(a.localStorage.getItem('f123_owned')).licenseCode, 'F123-SYNTHETIC-CLIENT');
+  assert.equal(JSON.parse(other.localStorage.getItem('f123_owned')).licenseCode, 'F123-SYNTHETIC-OTHER');
+});
 
 function transfer(from, to) {
   const update = from.Y.encodeStateAsUpdate(from.OCYjs.doc);

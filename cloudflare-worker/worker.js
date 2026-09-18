@@ -124,7 +124,14 @@ async function handleCheckin(req, env) {
      dice de que app es. Si no hay licencia todavia (alta a medias), se cae al
      campo producto ya normalizado, y en ultimo caso al valor previo guardado
      para no degradar un registro que ya estaba bien clasificado. */
-  const _lic = String(body.licenseCode || existente.licenseCode || "").toUpperCase();
+  // El panel o una rotación explícita pueden cambiar la licencia. Un checkin
+  // pasivo NO: un navegador viejo con código local obsoleto no debe sacar al
+  // cliente de su cuaderno canónico ni reagruparlo bajo otra licencia.
+  const licenciaGuardada = String(existente.licenseCode || "").trim().toUpperCase();
+  const licenciaEntrante = String(body.licenseCode || "").trim().toUpperCase();
+  const licenciaFinal = (!licenciaGuardada || body.accion === "rotacion" || body.accion === "join")
+    ? (licenciaEntrante || licenciaGuardada) : licenciaGuardada;
+  const _lic = licenciaFinal;
   const _prod = String(body.producto || "").toLowerCase();
   const nombreEntrante = String(body.nombreNegocio || "").slice(0, 240).trim();
   const revEntrante = Number.isSafeInteger(body.nombreNegocioRev) && body.nombreNegocioRev >= 0 ? body.nombreNegocioRev : 0;
@@ -159,7 +166,7 @@ async function handleCheckin(req, env) {
     nombreNegocioRev: aceptaNombre ? revEntrante : revGuardada,
     nombreNegocioTs: aceptaNombre ? tsEntrante : tsGuardado,
     email: body.email || existente.email || "",
-    licenseCode: body.licenseCode || existente.licenseCode || "",
+    licenseCode: licenciaFinal,
     // Mejora #5 (JFC 2026-07-16): telefono de contacto del dueno, para el
     // link clickeable a wa.me en panel.html. Contacto deliberadamente
     // unidireccional (JFC -> dueno) — ver copy en avanzado-extra.js.
