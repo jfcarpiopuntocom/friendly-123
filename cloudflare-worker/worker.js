@@ -126,6 +126,14 @@ async function handleCheckin(req, env) {
      para no degradar un registro que ya estaba bien clasificado. */
   const _lic = String(body.licenseCode || existente.licenseCode || "").toUpperCase();
   const _prod = String(body.producto || "").toLowerCase();
+  const nombreEntrante = String(body.nombreNegocio || "").slice(0, 240).trim();
+  const revEntrante = Number.isSafeInteger(body.nombreNegocioRev) && body.nombreNegocioRev >= 0 ? body.nombreNegocioRev : 0;
+  const tsEntrante = Number.isSafeInteger(body.nombreNegocioTs) && body.nombreNegocioTs >= 0 ? body.nombreNegocioTs : 0;
+  const revGuardada = Number(existente.nombreNegocioRev) || 0;
+  const tsGuardado = Number(existente.nombreNegocioTs) || 0;
+  const nuevaVersionNombre = revEntrante > revGuardada || (revEntrante === revGuardada && tsEntrante > tsGuardado);
+  const aceptaNombre = !!nombreEntrante && (!existente.nombreNegocio ||
+    ((body.accion === "rename" || body.accion === "sync-nombre") && nuevaVersionNombre));
   let producto;
   if (_lic.startsWith("AMG-")) producto = "amigable-123";
   else if (_lic.startsWith("F123-")) producto = "friendly-123";
@@ -144,7 +152,12 @@ async function handleCheckin(req, env) {
     // deliberate: it must never be able to blank a field, only fill it in
     // when empty or bring a new non-empty value. Deliberately clearing a
     // field is the job of an explicit panel action (editar-correo).
-    nombreNegocio: body.nombreNegocio || existente.nombreNegocio || "",
+    // Un login puede traer un caché viejo antes de que Yjs hidrate el cuaderno.
+    // Solo un rename deliberado o la adopción confirmada por sync cambia un
+    // nombre ya registrado; así el panel no retrocede en cada entrada.
+    nombreNegocio: aceptaNombre ? nombreEntrante : (existente.nombreNegocio || ""),
+    nombreNegocioRev: aceptaNombre ? revEntrante : revGuardada,
+    nombreNegocioTs: aceptaNombre ? tsEntrante : tsGuardado,
     email: body.email || existente.email || "",
     licenseCode: body.licenseCode || existente.licenseCode || "",
     // Mejora #5 (JFC 2026-07-16): telefono de contacto del dueno, para el
@@ -353,7 +366,13 @@ async function handleEditarCorreo(req, env) {
   if (body.nombreNegocio !== undefined) {
     const nombreNegocio = String(body.nombreNegocio).slice(0, 240).trim();
     if (!nombreNegocio) return json({ error: "El nombre del negocio no puede quedar vacio." }, 400);
-    reg.nombreNegocio = nombreNegocio;
+    if (reg.nombreNegocio !== nombreNegocio) {
+      reg.nombreNegocio = nombreNegocio;
+      // El panel es una edición oficial. Aumenta el reloj de nombre para que
+      // un aparato con caché viejo no la revierta al sincronizarse después.
+      reg.nombreNegocioRev = (Number(reg.nombreNegocioRev) || 0) + 1;
+      reg.nombreNegocioTs = Date.now();
+    }
   }
 
   await guardarConHistorial(env, instanceId, reg);

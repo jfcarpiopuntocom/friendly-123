@@ -3903,7 +3903,15 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
         span.textContent = nom || TITULO_DEFECTO;
         // El nombre vacio durante el arranque no es un rename oficial. No
         // borrar la ultima identidad conocida ni copiar nombres de tiendas unidas.
-        try { if (!unida && nom) { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o && (o.nombreNegocio || "") !== nom) { o.nombreNegocio = nom; localStorage.setItem("f123_owned", JSON.stringify(o)); } } } catch (_) {}
+        try { if (!unida && nom) { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o && (o.nombreNegocio || "") !== nom) {
+          o.nombreNegocio = nom;
+          localStorage.setItem("f123_owned", JSON.stringify(o));
+          // El panel lee heartbeats, no Yjs: publicar el nombre ya confirmado
+          // por el cuaderno también cuando fue recuperado al entrar, no solo
+          // cuando el dueño pulsó el lápiz. El Worker guarda historial previo.
+          if (o.instanceId && window.OCAuth && window.OCAuth.heartbeat) window.OCAuth.heartbeat({ instanceId:o.instanceId, licenseCode:o.licenseCode || "", email:o.email || "", whatsapp:o.whatsapp || "", nombre:o.nombre || "", nombreNegocio:nom, accion:"sync-nombre" });
+          window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail:{ nombre:nom } }));
+        } } } catch (_) {}
       }
     } catch (_) {}
   }

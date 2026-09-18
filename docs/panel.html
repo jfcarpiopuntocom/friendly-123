@@ -907,7 +907,8 @@ function licRenderTabla(data) {
        detalle por si quieres ver cada aparato. */
     const nCliente = g.filas.filter(x => !esMio(x)).length;
     const nMios = n - nCliente;
-    const etiquetaDisp = nCliente + " device" + (nCliente === 1 ? "" : "s") + (nMios > 0 ? ` · +${nMios} tuyo${nMios === 1 ? "" : "s"}` : "");
+    const etiquetaDisp = nCliente ? (nCliente + " device" + (nCliente === 1 ? "" : "s") + (nMios > 0 ? ` · +${nMios} tuyo${nMios === 1 ? "" : "s"}` : "")) : (n + " device" + (n === 1 ? "" : "s") + " tuyos");
+    const soloJfc = n > 1 && nMios === n && !!g.cod;
     const tr = document.createElement("tr");
     tr.innerHTML =
       `<td><span class="lic-badge ${licEsc(licNormEstado(est))}">${licEsc(licNormEstado(est))}</span></td>` +
@@ -925,6 +926,7 @@ function licRenderTabla(data) {
       `<option value="full"${licNormEstado(est) === "full" ? " selected" : ""}>Full — uncapped</option>` +
       `<option value="bloqueada"${licNormEstado(est) === "bloqueada" ? " selected" : ""}>Blocked</option>` +
       `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button>` +
+      (soloJfc ? ` <button class="btn-ok" title="Unificar el nombre de estos aparatos propios; cada edición queda en el historial recuperable" onclick="licUnificarNombre('${licEsc(g.cod)}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Unificar nombre</button>` : "") +
       ` <button class="btn-ok" title="Re-enganchar esta oveja perdida a una licencia canónica (re-apunta su registro KV, reversible)" onclick="licReenganchar('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Re-enganchar</button>` +
       ` <button class="btn-ok" title="Delete this record (archived first, recoverable)" onclick="licBorrar('${id}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);margin-left:4px;">Delete</button></td>`;
     tb.appendChild(tr);
@@ -963,6 +965,35 @@ function licToggleDisp(id) {
   document.querySelectorAll(".lic-disp-" + id).forEach(f => {
     f.style.display = f.style.display === "none" ? "table-row" : "none";
   });
+}
+
+// Reparación explícita de metadatos de APARATOS PROPIOS de JFC. No fusiona
+// inventario ni altera licencias: cada edición usa el endpoint con historial
+// recuperable y después vuelve a leer KV para comprobar el resultado.
+async function licUnificarNombre(codigo) {
+  const filas = _licData.filter(r => String(r.licenseCode || "").trim().toUpperCase() === codigo);
+  if (filas.length < 2 || filas.some(r => String(r.email || "").trim().toLowerCase() !== "jfcarpio@gmail.com")) return;
+  const sugerido = (filas.find(r => r.nombreNegocio === "17 de septiembre") || filas[0]).nombreNegocio || "";
+  const elegido = prompt("Nombre único para estos aparatos propios:", sugerido);
+  if (elegido === null) return;
+  const nombre = elegido.trim().slice(0, 80);
+  if (!nombre) { alert("El nombre no puede quedar vacío."); return; }
+  const url = licWorkerUrl().replace(/\/+$/, "");
+  const key = licMasterKey();
+  if (!url || !key) return;
+  let hechos = 0;
+  try {
+    for (const fila of filas) {
+      if (fila.nombreNegocio === nombre) { hechos++; continue; }
+      const res = await fetch(url + "/editar-correo", { method:"POST", headers:{ "Content-Type":"application/json", "X-Master-Key":key }, body:JSON.stringify({ instanceId:fila.instanceId, nombreNegocio:nombre }) });
+      if (!res.ok) throw new Error("Worker " + res.status + " tras " + hechos + " registros");
+      hechos++;
+    }
+    await licRecargar();
+    const verificados = _licData.filter(r => String(r.licenseCode || "").trim().toUpperCase() === codigo);
+    if (verificados.length !== filas.length || verificados.some(r => r.nombreNegocio !== nombre)) throw new Error("la lectura de verificación no coincide");
+    mostrarConfirmacion("Nombre unificado en " + hechos + " aparatos; historial conservado");
+  } catch (e) { await licRecargar(); alert("Unificación parcial: " + e.message + ". Revisa la lista antes de repetir."); }
 }
 
 // RE-ENGANCHAR OVEJA PERDIDA (JFC 2026-08-27). Un dispositivo quedó "rogue"

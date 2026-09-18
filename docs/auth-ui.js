@@ -118,6 +118,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          Worker también protege, cinturón y tirantes). */
       if (datos.nombreNegocio && String(datos.nombreNegocio).trim()) {
         payload.nombreNegocio = trim(String(datos.nombreNegocio).trim(), 120);
+        try {
+          const ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          if (String(ow.nombreNegocio || "").trim() === payload.nombreNegocio) {
+            payload.nombreNegocioRev = Math.max(0, Number(ow.nombreNegocioRev) || 0);
+            payload.nombreNegocioTs = Math.max(0, Number(ow.nombreNegocioTs) || 0);
+          }
+        } catch (_) {}
       }
       // Solo se adjunta la licencia si es una F123 válida: jamás un "" que borre
       // la fila de un cliente real en el Worker (ver guard de arriba).
@@ -1356,6 +1363,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   } catch (_) {}
 
   function cerrarSesion(mensaje) {
+    // El candado se creó antes de que llegara el nombre sincronizado. Al salir,
+    // volver a leer el cuaderno activo: de otro modo reaparece su rótulo viejo.
+    try { pintarNegocioGate(); } catch (_) {}
     clearTimeout(temporizadorInactividad);
     // 2026-08-19, aprobado JFC: al cerrar sesion del app owner tambien se
     // limpia la sesion del panel maestro. Antes, cerrar la app dejaba

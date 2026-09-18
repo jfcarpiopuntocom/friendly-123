@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-18",
-  "changelog": "Tarjetas completas; header móvil más corto; guard de nombre, foto financiera del dashboard, cadena de hechos y updates Yjs grandes. Safari físico y latencia PC/iPhone pendientes.",
+  "changelog": "Nombre unificado entre candado, cuaderno y panel privado; login antiguo no revierte el rótulo. Sync PC/iPhone aún requiere medición física.",
   "requerida": false,
-  "shell": "f123-shell-v319",
+  "shell": "f123-shell-v320",
   "apagar": [],
   "releaseName": "v1.0"
 }
