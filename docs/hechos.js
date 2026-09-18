@@ -276,7 +276,10 @@
             st.add(hecho); nuevo = true;
           };
           tx.oncomplete = function () {
-            if (nuevo) try { global.dispatchEvent(new CustomEvent("oc-hecho-remoto", { detail: { id: hecho.id, tipo: hecho.tipo } })); } catch (_) {}
+            if (nuevo) try {
+              global.dispatchEvent(new CustomEvent("oc-hecho-remoto", { detail: { id: hecho.id, tipo: hecho.tipo } }));
+              global.dispatchEvent(new CustomEvent("oc-sync-merge", { detail: { hechos: 1 } }));
+            } catch (_) {}
             resolve(nuevo);
           };
           tx.onabort = function () { reject(new Error("colision de ID de hecho: " + hecho.id)); };

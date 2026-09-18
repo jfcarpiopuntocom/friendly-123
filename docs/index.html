@@ -7947,6 +7947,15 @@ window.addEventListener("oc-sync-merge", function (ev) {
     };
     _repintarVista("vista-inventario", "cargarInventario");
     _repintarVista("vista-perchas", "cargarPerchas");
+    var perchasActiva = document.getElementById("vista-perchas");
+    if (perchasActiva && perchasActiva.classList.contains("activa") && window.VPerchas && typeof window.VPerchas.cargar === "function") {
+      clearTimeout(window.__syncVPerchasT);
+      window.__syncVPerchasT = setTimeout(function () { try { window.VPerchas.cargar(); } catch (_) {} }, 400);
+    }
+    _repintarVista("vista-clientes", "cargarClientes");
+    _repintarVista("vista-gastos", "cargarGastos");
+    _repintarVista("vista-avanzado", "cargarAvanzado");
+    _repintarVista("vista-comisiones", "cargarComisiones");
   } catch (_) {}
 });
 

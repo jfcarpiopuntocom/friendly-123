@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v312",
+  "shell": "f123-shell-v313",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-f496ff544f92ee332d3a6b1ff2d3861e00bfa26157388644735ca396306dbffb",
+    "./index.html": "sha256-d46b07f801aa63a31cbdd05cd80c8df0b8a9df56edc3b84f5c1fa1403ddd28c8",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-01cca524857852de4af14cc1aa439b513118c318d0e687c8599b507b0f6ba95d",
     "./404.html": "sha256-2b66d8b0c1e5f14b7e0d08cea8cf54c2813c3db36d86650fc95ee8935c1824da",
@@ -57,7 +57,7 @@
     "./sync-outbox.js": "sha256-fcdaed467fb986c36d671830515a379ec6b2f5931cf35dacecd17e3ca9588c06",
     "./ui-actions.js": "sha256-81b996538df7f9e47976b25a8273595833a902aacc06bea09d143a36e6670b6c",
     "./salud-app.js": "sha256-7d89f4fd1e5421b7c200543dc613104dc83b31caceea76df3808e45c9e50ea8d",
-    "./hechos.js": "sha256-ceef2d8e3c7b520e0c2aef7433b780313cecbb5341b52c7f7bdf68aafea23db3",
+    "./hechos.js": "sha256-9f0308fd8d5844afa9df7726f5a4ec8d7dfa9713560da31d381baca82ba603f4",
     "./reconciliacion.js": "sha256-f5c9e16072dc6b9ffaa07416e57ff7ccfba4c93f59b82e573b21100ac616fd9f",
     "./cartera.js": "sha256-0eba23cd1f0ba8a515d9b31272d9509025c75056222e1303077f4596e6fd0943",
     "./plan-pagos.js": "sha256-35df2e75e9f16cf02a002cc561ea5885665d990addfefc012464972b1d286ee1",

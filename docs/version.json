@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "Sync: gastos, gastos mensuales, transferencias, liquidaciones, cartera y caja chica entre dispositivos. Sube shell a f123-shell-v312.",
+  "changelog": "Sync: gastos, transferencias, liquidaciones, cartera y caja chica entre dispositivos, con refresco de las pantallas abiertas. Sube shell a f123-shell-v313.",
   "requerida": false,
-  "shell": "f123-shell-v312",
+  "shell": "f123-shell-v313",
   "apagar": [],
   "releaseName": "v1.0"
 }
