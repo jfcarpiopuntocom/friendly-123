@@ -1890,19 +1890,40 @@
     const mandaElOtro = dif.ganaElOtro;
     let agregadasU = 0, agregadosP = 0, actualizados = 0, ventasAgregadas = 0;
 
+    if (Array.isArray(remoto.gastos)) remoto.gastos.forEach((g) => {
+      if (!g || !g.id || (!g.borrado && (!g.concepto || !(Number(g.monto) > 0)))) return;
+      _observarRev(g.rev);
+      const local = gastos.find((x) => String(x.id) === String(g.id));
+      if (!local) { gastos.push(Object.assign({}, g)); actualizados++; }
+      else if (_revDomina(g.rev, local.rev) === true) { Object.assign(local, g); actualizados++; }
+    });
+    if (Array.isArray(remoto.transferencias)) remoto.transferencias.forEach((t) => {
+      if (!t || !t.id || !t.productoOrigenId || !t.productoDestinoId) return;
+      _observarRev(t.rev);
+      const local = transferencias.find((x) => String(x.id) === String(t.id));
+      if (!local) { transferencias.push(Object.assign({}, t)); actualizados++; }
+      else if (_revDomina(t.rev, local.rev) === true) { Object.assign(local, t); actualizados++; }
+    });
+
     remoto.ubicaciones.forEach((u) => {
       if (!u || !u.id) return;
       const mia = ubicaciones.find((x) => String(x.id) === String(u.id));
       if (!mia) {
         ubicaciones.push(Object.assign({}, u, { activa: !u.borrado && u.activa !== false }));
+        if (Number.isFinite(Number(u.gastoMensual)) && Number(u.gastoMensual) >= 0) gastosMensuales[u.id] = Number(u.gastoMensual);
         _observarRev(u.rev);
+        _observarRev(u.gastoMensualRev);
         agregadasU++;
       } else {
+        if (u.gastoMensualRev && _revDomina(u.gastoMensualRev, mia.gastoMensualRev) === true && Number.isFinite(Number(u.gastoMensual)) && Number(u.gastoMensual) >= 0) {
+          gastosMensuales[mia.id] = Number(u.gastoMensual);
+          mia.gastoMensualRev = u.gastoMensualRev; _observarRev(u.gastoMensualRev); actualizados++;
+        }
         const ganaU = _revDomina(u.rev, mia.rev);
         if (ganaU === true || (ganaU === null && mandaElOtro)) {
           if (!u.borrado && !esTextoCorto(String(u.nombre || ""), 240)) return;
           const fotoAnterior = mia.fotoHash;
-          Object.keys(u).forEach((k) => { if (k !== "id") mia[k] = u[k]; });
+          Object.keys(u).forEach((k) => { if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev") mia[k] = u[k]; });
           if (fotoAnterior !== mia.fotoHash) mia.foto = null;
           _observarRev(u.rev); actualizados++;
         }
@@ -2512,7 +2533,7 @@
        DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
     catalogoPropio() {
       return {
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, fotoHash: u.fotoHash || null, rev: u.rev || null, borrado: !!u.borrado })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, fotoHash: u.fotoHash || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
         // NO PUBLICAR SEMILLA DEMO (v297, JFC 2026-09-16). Los productos de ejemplo
         // tienen id "p"+DIGITOS (p01..p66); los reales son "p"+UUID (con guiones).
         // Filtrar aqui evita que un aparato con demo re-contamine la sala (add-only
@@ -2561,6 +2582,8 @@
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
         ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, rev: v.rev || null })),
+        gastos: gastos.map((g) => Object.assign({}, g)),
+        transferencias: transferencias.map((t) => Object.assign({}, t)),
         /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Este aparato publica SU
            propia entrada {id,apodo,rol}; el dueño de la entrada es autoritativo. Se
            mergea en aplicarCatalogo alimentando la lista de micelio. Estable (no
@@ -3690,11 +3713,11 @@
       // GET /api/gastos — lista los gastos (más recientes primero) + totales.
       // POST /api/gastos — registra un gasto { concepto, monto, fecha, ubicacionId }.
       if (path === "/api/gastos" && (!opts || opts.method === "GET")) {
-        const lista = gastos.slice().reverse();
-        const total = gastos.reduce((a, g) => a + (Number(g.monto) || 0), 0);
+        const lista = gastos.filter((g) => !g.borrado).slice().reverse();
+        const total = lista.reduce((a, g) => a + (Number(g.monto) || 0), 0);
         // JFC 2026-09-02: totales por categoría para el tablero y el resumen.
         const porCategoria = {};
-        gastos.forEach((g) => { const k = g.categoria || "other"; porCategoria[k] = (porCategoria[k] || 0) + (Number(g.monto) || 0); });
+        lista.forEach((g) => { const k = g.categoria || "other"; porCategoria[k] = (porCategoria[k] || 0) + (Number(g.monto) || 0); });
         Object.keys(porCategoria).forEach((k) => { porCategoria[k] = +porCategoria[k].toFixed(2); });
         return J({ gastos: lista, total, porCategoria });
       }
@@ -3714,7 +3737,7 @@
           fecha: body.fecha || new Date().toISOString(),
           ubicacionId: body.ubicacionId || "todas",
           usuarioId: (window.OCCurrentUser && window.OCCurrentUser.id) || "sistema",
-          usuarioNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || "Sistema",
+          usuarioNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || "Sistema", rev: _revNueva(),
         };
         gastos.push(g);
         mov("gasto", { concepto, monto: g.monto, categoria, ubicacionId: g.ubicacionId });
@@ -3726,9 +3749,9 @@
       if (mGastoDel && opts && opts.method === "DELETE") {
         const _rDel = _rolLocal();
         if (_rDel !== "dueno" && _rDel !== "admin" && _rDel !== "contador") return J({ error: "Only the owner, an admin or the bookkeeper can delete expenses." }, 403);
-        const idx = gastos.findIndex((x) => x.id === mGastoDel[1]);
+        const idx = gastos.findIndex((x) => x.id === mGastoDel[1] && !x.borrado);
         if (idx < 0) return J({ error: "Expense not found." }, 404);
-        const [g] = gastos.splice(idx, 1);
+        const g = gastos[idx]; g.borrado = true; g.rev = _revNueva();
         mov("gasto-anulado", { concepto: g.concepto, monto: g.monto });
         guardarEstadoLocal();
         return J({ ok: true });
@@ -3737,7 +3760,7 @@
       if (mGastoDel && opts && opts.method === "PATCH") {
         const _rPat = _rolLocal();
         if (_rPat !== "dueno" && _rPat !== "admin" && _rPat !== "contador") return J({ error: "Only the owner, an admin or the bookkeeper can edit expenses." }, 403);
-        const g = gastos.find((x) => x.id === mGastoDel[1]);
+        const g = gastos.find((x) => x.id === mGastoDel[1] && !x.borrado);
         if (!g) return J({ error: "Expense not found." }, 404);
         if (body.concepto !== undefined) {
           const c = String(body.concepto).trim();
@@ -3754,6 +3777,7 @@
           const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
           g.categoria = CATS_GASTO.includes(String(body.categoria)) ? String(body.categoria) : (g.categoria || "other");
         }
+        g.rev = _revNueva();
         mov("gasto-editado", { concepto: g.concepto, monto: g.monto, categoria: g.categoria });
         guardarEstadoLocal();
         return J(g);
@@ -3860,7 +3884,7 @@
         const cant = Number(body.cantidad);
         if (!Number.isInteger(cant) || cant <= 0) return J({ error: "The quantity must be a whole number greater than 0." }, 400);
         if (origen.stockActual < cant) return J({ error: `"${origen.nombre}" solo tiene ${origen.stockActual} unidades en origen.` }, 400);
-        const t = { id: uuid("t"), productoOrigenId: origen.id, productoDestinoId: destino.id, sku: origen.sku, nombre: origen.nombre, desde: origen.ubicacionId, desdeNombre: nombreUbic(origen.ubicacionId), hacia: destino.ubicacionId, haciaNombre: nombreUbic(destino.ubicacionId), cantidad: cant, estado: "solicitada", fecha: new Date().toISOString() };
+        const t = { id: uuid("t"), productoOrigenId: origen.id, productoDestinoId: destino.id, sku: origen.sku, nombre: origen.nombre, desde: origen.ubicacionId, desdeNombre: nombreUbic(origen.ubicacionId), hacia: destino.ubicacionId, haciaNombre: nombreUbic(destino.ubicacionId), cantidad: cant, estado: "solicitada", fecha: new Date().toISOString(), rev: _revNueva() };
         transferencias.push(t);
         mov("transferencia-solicitada", { producto: t.nombre, cantidad: cant, desde: t.desdeNombre, hacia: t.haciaNombre });
         return J(t);
@@ -3871,7 +3895,7 @@
         const origen = productos.find((x) => x.id === t.productoOrigenId);
         if (!origen || origen.stockActual < t.cantidad) return J({ error: "There is no longer enough stock at the source to approve this transfer." }, 400);
         origen.stockActual -= t.cantidad;
-        t.estado = "en_transito";
+        t.estado = "en_transito"; t.rev = _revNueva();
         mov("transferencia-aprobada", { producto: t.nombre, cantidad: t.cantidad, desde: t.desdeNombre, hacia: t.haciaNombre });
         emitirOpStock("transferencia-aprobada", { productoId: origen.id, delta: -t.cantidad });
         return J(t);
@@ -3882,7 +3906,7 @@
         const destino = productos.find((x) => x.id === t.productoDestinoId);
         if (!destino) return J({ error: "Destination product not found." }, 404);
         destino.stockActual += t.cantidad;
-        t.estado = "recibida";
+        t.estado = "recibida"; t.rev = _revNueva();
         mov("transferencia-recibida", { producto: t.nombre, cantidad: t.cantidad, desde: t.desdeNombre, hacia: t.haciaNombre });
         emitirOpStock("transferencia-recibida", { productoId: destino.id, delta: t.cantidad });
         return J(t);
@@ -3890,7 +3914,8 @@
       if ((m = path.match(/^\/api\/transferencias\/([^/]+)\/rechazar$/))) {
         const t = transferencias.find((x) => x.id === m[1]); if (!t) return J({ error: "Transfer not found." }, 404);
         if (t.estado !== "solicitada") return J({ error: `Esta transferencia ya está en estado "${t.estado}".` }, 400);
-        t.estado = "rechazada";
+        t.estado = "rechazada"; t.rev = _revNueva();
+        avisarCatalogoCambiado();
         return J(t);
       }
 
@@ -3909,6 +3934,9 @@
         if (!ubicacionId || ubicacionId === "todas") return J({ error: "Pick a specific location to save its monthly expenses." }, 400);
         if (!isFinite(monto) || monto < 0) return J({ error: "The amount must be a number equal to or greater than 0." }, 400);
         gastosMensuales[ubicacionId] = +monto.toFixed(2);
+        const _uGasto = ubicaciones.find((x) => x.id === ubicacionId);
+        if (_uGasto) _uGasto.gastoMensualRev = _revNueva();
+        avisarCatalogoCambiado();
         return J({ ubicacionId, gastosMensuales: gastosMensuales[ubicacionId] });
       }
 

@@ -247,6 +247,45 @@
     });
   }
 
+  // Un hecho remoto nunca puede reemplazar otro con el mismo ID. Verificamos
+  // su contenido antes de importarlo y dejamos intacta la cadena local.
+  function importarRemoto(hecho) {
+    if (!hecho || typeof hecho.id !== "string" || !hecho.id ||
+        typeof hecho.instanceId !== "string" || typeof hecho.hash !== "string" ||
+        !hecho.hash || !hecho.reloj || !hecho.tipo || !Number.isFinite(Number(hecho.ts))) {
+      return Promise.reject(new Error("hecho remoto invalido"));
+    }
+    var base = JSON.stringify({
+      id: hecho.id, instanceId: hecho.instanceId, autor: hecho.autor,
+      reloj: hecho.reloj, ts: hecho.ts, tipo: hecho.tipo,
+      datos: hecho.datos, hashPrevio: hecho.hashPrevio
+    });
+    return (hecho.hash.slice(0, 2) === "w:" ? Promise.resolve(hashDebil(base)) : calcularHash(base)).then(function (hash) {
+      if (hash !== hecho.hash) throw new Error("hash remoto no coincide");
+      return abrirDB().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction(STORE, "readwrite");
+          var st = tx.objectStore(STORE), existente = null, nuevo = false;
+          var leer = st.get(hecho.id);
+          leer.onsuccess = function () {
+            existente = leer.result;
+            if (existente) {
+              if (JSON.stringify(existente) !== JSON.stringify(hecho)) tx.abort();
+              return;
+            }
+            st.add(hecho); nuevo = true;
+          };
+          tx.oncomplete = function () {
+            if (nuevo) try { global.dispatchEvent(new CustomEvent("oc-hecho-remoto", { detail: { id: hecho.id, tipo: hecho.tipo } })); } catch (_) {}
+            resolve(nuevo);
+          };
+          tx.onabort = function () { reject(new Error("colision de ID de hecho: " + hecho.id)); };
+          tx.onerror = function () { reject(tx.error || new Error("no se pudo importar hecho")); };
+        });
+      });
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Registrar un hecho
   // ---------------------------------------------------------------------------
@@ -292,6 +331,7 @@
           // perderia un eslabon de la cadena y todo lo siguiente pareceria
           // manipulado sin serlo.
           guardarMeta(meta);
+          try { global.dispatchEvent(new CustomEvent("oc-hecho-local", { detail: hecho })); } catch (_) {}
           return hecho;
         });
       });
@@ -410,6 +450,7 @@
   global.AMG.Hechos = {
     VERSION: "1.0.0-faseA",
     registrar: registrar,
+    importarRemoto: importarRemoto,
     todos: todos,
     contar: contar,
     verificarCadena: verificarCadena,

@@ -232,11 +232,10 @@
   // usuarios, clientes. Agregar aquí una colección nueva es una línea.
   // JFC 2026-09-10 ("sync integral, shared notebook"): se suman las entidades
   // definicionales que faltaban — promotoras (comisionistas) y sucursales. Son
-  // como el catálogo: se mergean add-only (nunca se pisa una ya existente, así no
-  // se adivina sobre comisiones/plata). Las VENTAS y el dinero NO van por aquí: eso
-  // lo maneja el sync de ops (sync-realtime) con orden causal; meterlo al add-only
-  // ciego duplicaría plata. Ver aplicarCatalogo() en mock-backend.js.
-  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas", "dispositivos"];
+  // Las fichas editables viajan con revision logica. Ventas, gastos y
+  // transferencias usan IDs estables y actualizaciones individuales; los hechos
+  // de cartera y caja chica van en un mapa inmutable aparte.
+  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas", "gastos", "transferencias", "dispositivos"];
   /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el dinero
      viajaba solo por el sync viejo (sync-realtime, frágil). Ahora las ventas cruzan
      por Yjs, ADD-ONLY por id (cada venta una sola vez -> no se duplica plata). No
@@ -290,6 +289,7 @@
     var Y = window.Y;
     API.doc = new Y.Doc();
     COLECCIONES.forEach(function (c) { API.mapas[c] = API.doc.getMap(c); });
+    API.hechosMap = API.doc.getMap("hechos_financieros");
     // FASE 2 (JFC 2026-09-09): mapa aparte para el nombre del negocio y los PINs
     // de rol, que viajan CON el catálogo pero no son una colección de ítems. Así
     // Plan C converge un negocio completo por sí solo, sin depender del sync casero.
@@ -373,12 +373,49 @@
     API.fotosCanal.conectar(); // bytes de las fotos — sala "-fotos"
     API.opsCanal.conectar();   // ventas/ops — sala "-ops"
     conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
+    conectarHechos();    // cartera y caja chica: hechos inmutables por ID
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
     if (API.fotosIdb && API.fotosIdb.once) API.fotosIdb.once("synced", pedirVolcarFotos);
     // Al cargar los eventos ya guardados, procesarlos (aplica los que falten).
     if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", pedirProcesarEventos);
     API.estado = "activo";
     log("Plan C activo (Fase 2 + fotos + ops). Sala:", API.roomId);
+  }
+
+  function conectarHechos() {
+    var intentos = 0, importando = false;
+    function hechos() { return window.AMG && window.AMG.Hechos; }
+    function publicar(h) {
+      if (!h || !h.id || !API.hechosMap) return;
+      var anterior = API.hechosMap.get(h.id);
+      if (anterior && JSON.stringify(anterior) !== JSON.stringify(h)) {
+        log("colision de hecho financiero:", h.id); return;
+      }
+      if (!anterior) API.hechosMap.set(h.id, h);
+    }
+    function importar() {
+      var ledger = hechos();
+      if (!ledger || importando) return;
+      importando = true;
+      var lista = [];
+      API.hechosMap.forEach(function (h) { lista.push(h); });
+      Promise.allSettled(lista.map(function (h) { return ledger.importarRemoto(h); }))
+        .then(function (resultados) {
+          resultados.forEach(function (r) { if (r.status === "rejected") log("hecho remoto rechazado:", r.reason && r.reason.message); });
+        }).finally(function () { importando = false; });
+    }
+    function arrancarPuente() {
+      var ledger = hechos();
+      if (!ledger) { if (++intentos < 20) setTimeout(arrancarPuente, 100); return; }
+      window.addEventListener("oc-hecho-local", function (ev) { publicar(ev.detail); });
+      ledger.todos().then(function (lista) { lista.forEach(publicar); importar(); })
+        .catch(function (e) { log("hechos locales:", e && e.message); });
+      API.doc.on("update", function (_update, origin) {
+        if (origin === "red" || origin === "bc" || origin === "idb") importar();
+      });
+      if (API.idb && API.idb.once) API.idb.once("synced", importar);
+    }
+    setTimeout(arrancarPuente, 0);
   }
 
   // ===================================================================
@@ -519,6 +556,21 @@
     });
   }
 
+  function sembrarFinanzas(cat) {
+    ["gastos", "transferencias"].forEach(function (col) {
+      (cat[col] || []).forEach(function (r) {
+        if (!r || r.id == null) return;
+        var id = String(r.id), previo = API.mapas[col].get(id);
+        if (previo) {
+          var a = r.rev || {}, b = previo.rev || {};
+          var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
+          if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) return;
+        }
+        try { API.doc.transact(function () { API.mapas[col].set(id, JSON.parse(JSON.stringify(r))); }, "seed"); } catch (_) {}
+      });
+    });
+  }
+
   // OCFotos local -> Yjs(fotos). Publica los blobs de las fotos EN USO (las que
   // alguna percha referencia por fotoHash) que aún no estén en el doc de fotos.
   function publicarFotosLocales() {
@@ -584,6 +636,12 @@
               if (!r || r.id == null) return;
               var k = String(r.id);
               var prev = API.mapas[col].get(k);
+              if (prev && col === "ubicaciones") {
+                var ar = r.gastoMensualRev || {}, br = prev.gastoMensualRev || {};
+                var newerMonthly = (Number(ar.c) || 0) > (Number(br.c) || 0) ||
+                  ((Number(ar.c) || 0) === (Number(br.c) || 0) && String(ar.d || "") > String(br.d || ""));
+                if (!newerMonthly) r = Object.assign({}, r, { gastoMensual: prev.gastoMensual, gastoMensualRev: prev.gastoMensualRev });
+              }
               if (prev && col === "productos") {
                 var basePrev = prev.stockBase == null ? null : Number(prev.stockBase);
                 var baseMia = r.stockBase == null ? null : Number(r.stockBase);
@@ -604,13 +662,14 @@
               }
               // Una réplica rezagada no debe volver a publicar una ficha anterior
               // encima de una edición o baja que ya llegó al documento común.
-              if (prev && (col === "clientes" || col === "promotoras" || col === "sucursales" || col === "ubicaciones" || col === "productos") &&
+              if (prev && (col === "clientes" || col === "promotoras" || col === "sucursales" || col === "ubicaciones" || col === "productos" || col === "gastos" || col === "transferencias") &&
                   (r.rev || prev.rev)) {
                 var a = r.rev || {}, b = prev.rev || {};
                 var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
                 if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) {
-                  if (col !== "productos") return;
-                  r = Object.assign({}, prev, { stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual, stockTs: Math.max(Number(prev.stockTs) || 0, Number(r.stockTs) || 0) });
+                  if (col === "productos") r = Object.assign({}, prev, { stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual, stockTs: Math.max(Number(prev.stockTs) || 0, Number(r.stockTs) || 0) });
+                  else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
+                  else return;
                 }
               }
               var js = JSON.stringify(r);
@@ -665,6 +724,7 @@
       } catch (_) { try { publicarFotosLocales(); } catch (_) {} }
       // v292: sembrar las ventas (dinero) como ops individuales (add-only).
       try { sembrarVentasAlRelay(); } catch (_) {}
+      try { sembrarFinanzas(cat); } catch (_) {}
     }
 
     // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge

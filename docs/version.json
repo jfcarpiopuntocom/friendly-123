@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "Sync: ediciones y bajas de productos y perchas conservadas entre dispositivos, incluso tras reconexión. Sube shell a f123-shell-v311.",
+  "changelog": "Sync: gastos, gastos mensuales, transferencias, liquidaciones, cartera y caja chica entre dispositivos. Sube shell a f123-shell-v312.",
   "requerida": false,
-  "shell": "f123-shell-v311",
+  "shell": "f123-shell-v312",
   "apagar": [],
   "releaseName": "v1.0"
 }

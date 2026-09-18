@@ -120,3 +120,62 @@ test('actual Yjs bridge retains product and shelf tombstones through stale resee
     assert.equal(w.OCYjs.mapas.productos.get(product.id).borrado, true);
   }
 });
+
+test('actual Yjs bridge carries expense edits, cancellation and monthly setting', async () => {
+  const a = await peer(), b = await peer();
+  a.OCAuth = { rolActual: () => 'dueno' };
+  const shelf = await a.request('/api/ubicaciones', 'POST', { nombre: 'Expense shelf' });
+  const expense = await a.request('/api/gastos', 'POST', { concepto: 'Bridge expense', monto: 12 });
+  await a.request('/api/configuracion/gastos', 'POST', { ubicacionId: shelf.id, gastosMensuales: 31 });
+  a.OCYjs._store.sembrar(); transfer(a, b);
+  assert.equal((await b.request('/api/gastos')).total, 12);
+  assert.equal((await b.request(`/api/configuracion/gastos?ubicacionId=${shelf.id}`)).gastosMensuales, 31);
+  await a.request(`/api/gastos/${expense.id}`, 'PATCH', { monto: 14 });
+  a.OCYjs._store.sembrar(); transfer(a, b);
+  assert.equal((await b.request('/api/gastos')).total, 14);
+  await a.request(`/api/gastos/${expense.id}`, 'DELETE', {});
+  a.OCYjs._store.sembrar(); b.OCYjs._store.sembrar(); transfer(b, a); transfer(a, b);
+  assert.equal((await b.request('/api/gastos')).total, 0);
+});
+
+test('actual Yjs bridge carries transfer stages and stock', async () => {
+  const a = await peer(), b = await peer();
+  const fixture = await a.request('/api/respaldo/exportar');
+  const origin = fixture.productos.find(p => p.stockActual >= 10);
+  const destination = { ...origin, id: 'p-yjs-destination', ubicacionId: 'yjs-destination', stockActual: 1 };
+  origin.id = 'p-yjs-origin'; origin.ubicacionId = 'yjs-origin'; origin.stockActual = 10;
+  fixture.productos = [origin, destination]; fixture.ubicaciones = [
+    { id: 'yjs-origin', nombre: 'Origin', activa: true },
+    { id: 'yjs-destination', nombre: 'Destination', activa: true }
+  ]; fixture.ventas = []; fixture.transferencias = []; fixture.movimientos = [];
+  await a.request('/api/respaldo/importar', 'POST', fixture);
+  await b.request('/api/respaldo/importar', 'POST', fixture);
+  const t = await a.request('/api/transferencias', 'POST', { productoOrigenId: origin.id, productoDestinoId: destination.id, cantidad: 2 });
+  a.OCYjs._store.sembrar(); transfer(a, b);
+  assert.equal((await b.request('/api/transferencias')).find(x => x.id === t.id).estado, 'solicitada');
+  await a.request(`/api/transferencias/${t.id}/aprobar`, 'POST', {});
+  a.OCYjs._store.sembrar(); transfer(a, b);
+  assert.equal((await b.request('/api/transferencias')).find(x => x.id === t.id).estado, 'en_transito');
+  assert.equal((await b.request('/api/respaldo/exportar')).productos.find(x => x.id === origin.id).stockActual, 8);
+  await a.request(`/api/transferencias/${t.id}/confirmar-recepcion`, 'POST', {});
+  a.OCYjs._store.sembrar(); transfer(a, b);
+  assert.equal((await b.request('/api/transferencias')).find(x => x.id === t.id).estado, 'recibida');
+  assert.equal((await b.request('/api/respaldo/exportar')).productos.find(x => x.id === destination.id).stockActual, 3);
+});
+
+test('actual Yjs bridge carries settlement of an existing sale', async () => {
+  const a = await peer(), b = await peer();
+  const fixture = await a.request('/api/respaldo/exportar');
+  const product = fixture.productos.find(p => p.stockActual >= 10);
+  product.id = 'p-yjs-settlement'; product.stockActual = 10;
+  fixture.productos = [product]; fixture.ventas = []; fixture.movimientos = [];
+  await a.request('/api/respaldo/importar', 'POST', fixture);
+  await b.request('/api/respaldo/importar', 'POST', fixture);
+  const sold = await a.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 2 });
+  a.OCYjs._store.sembrar(); transfer(a, b);
+  assert.equal((await b.request('/api/respaldo/exportar')).ventas.find(v => v.id === sold.ventaId).liquidada, false);
+  const result = await a.request(`/api/liquidaciones/${product.ubicacionId}/marcar-pagado`, 'POST', {});
+  assert.equal(result.ventasLiquidadas, 1);
+  a.OCYjs._store.sembrar(); transfer(a, b);
+  assert.equal((await b.request('/api/respaldo/exportar')).ventas.find(v => v.id === sold.ventaId).liquidada, true);
+});

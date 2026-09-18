@@ -57,6 +57,57 @@ test('team PINs and removal converge so a removed PIN cannot authenticate elsewh
   await assert.rejects(() => b.request('/api/usuarios/verificar', 'POST', { pin: '742' }));
 });
 
+test('expense create, edit and cancellation converge without reviving revenue', async () => {
+  const a = browser(), b = browser();
+  a.OCAuth = { rolActual: () => 'dueno' };
+  const g = await a.request('/api/gastos', 'POST', { concepto: 'Fixture expense', monto: 11, categoria: 'services' });
+  b.receive(a);
+  assert.equal((await b.request('/api/gastos')).total, 11);
+  await a.request(`/api/gastos/${g.id}`, 'PATCH', { monto: 13 });
+  b.receive(a);
+  assert.equal((await b.request('/api/gastos')).total, 13);
+  await a.request(`/api/gastos/${g.id}`, 'DELETE', {});
+  a.receive(b); b.receive(a);
+  assert.equal((await b.request('/api/gastos')).total, 0);
+});
+
+test('monthly expenses converge by shelf and retain the later edit', async () => {
+  const a = browser(), b = browser();
+  const shelf = await a.request('/api/ubicaciones', 'POST', { nombre: 'Fixture monthly shelf' });
+  b.receive(a);
+  await a.request('/api/configuracion/gastos', 'POST', { ubicacionId: shelf.id, gastosMensuales: 45 });
+  b.receive(a);
+  assert.equal((await b.request(`/api/configuracion/gastos?ubicacionId=${shelf.id}`)).gastosMensuales, 45);
+  await a.request('/api/configuracion/gastos', 'POST', { ubicacionId: shelf.id, gastosMensuales: 0 });
+  b.receive(a);
+  assert.equal((await b.request(`/api/configuracion/gastos?ubicacionId=${shelf.id}`)).gastosMensuales, 0);
+});
+
+test('transfer request and approval converge with stock on both shelves', async () => {
+  const a = browser(), b = browser();
+  const fixture = await a.request('/api/respaldo/exportar');
+  const origin = fixture.productos.find(p => p.stockActual >= 10);
+  const destination = { ...origin, id: 'p-transfer-destination', ubicacionId: 'fixture-destination', stockActual: 1 };
+  origin.id = 'p-transfer-origin'; origin.ubicacionId = 'fixture-origin'; origin.stockActual = 10;
+  fixture.productos = [origin, destination]; fixture.ubicaciones = [
+    { id: 'fixture-origin', nombre: 'Origin', activa: true },
+    { id: 'fixture-destination', nombre: 'Destination', activa: true }
+  ]; fixture.ventas = []; fixture.transferencias = []; fixture.movimientos = [];
+  await a.request('/api/respaldo/importar', 'POST', fixture);
+  await b.request('/api/respaldo/importar', 'POST', fixture);
+  const transfer = await a.request('/api/transferencias', 'POST', { productoOrigenId: origin.id, productoDestinoId: destination.id, cantidad: 2 });
+  b.receive(a);
+  assert.equal((await b.request('/api/transferencias')).find(x => x.id === transfer.id).estado, 'solicitada');
+  await a.request(`/api/transferencias/${transfer.id}/aprobar`, 'POST', {});
+  b.receive(a);
+  assert.equal((await b.request('/api/transferencias')).find(x => x.id === transfer.id).estado, 'en_transito');
+  assert.equal((await b.request('/api/respaldo/exportar')).productos.find(x => x.id === origin.id).stockActual, 8);
+  await a.request(`/api/transferencias/${transfer.id}/confirmar-recepcion`, 'POST', {});
+  b.receive(a);
+  assert.equal((await b.request('/api/transferencias')).find(x => x.id === transfer.id).estado, 'recibida');
+  assert.equal((await b.request('/api/respaldo/exportar')).productos.find(x => x.id === destination.id).stockActual, 3);
+});
+
 test('deleted customer is not resurrected by an older peer snapshot', async () => {
   const a = browser(), b = browser();
   const c = await a.request('/api/clientes', 'POST', { nombre: 'Fixture removed' });
