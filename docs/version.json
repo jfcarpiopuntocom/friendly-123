@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "Perchas conserva el scroll al llegar cambios remotos; dashboard usa el relay correcto. Sube shell a f123-shell-v315.",
+  "changelog": "Mobile: header compacto, reloj bajo el texto del minidashboard y menú al borde inferior. PC conserva su diseño. Sube shell a f123-shell-v316.",
   "requerida": false,
-  "shell": "f123-shell-v315",
+  "shell": "f123-shell-v316",
   "apagar": [],
   "releaseName": "v1.0"
 }
