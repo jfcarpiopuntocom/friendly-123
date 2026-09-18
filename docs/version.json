@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-17",
-  "changelog": "Mobile: header compacto, reloj sin solaparse y menú sin franja inferior en Safari; conserva zona segura al instalar la app. Sube shell a f123-shell-v317.",
+  "changelog": "Mobile: header compacto, reloj sin solaparse y menú ajustado al borde. Verificado en navegador móvil simulado; Safari iPhone pendiente. Sube shell a f123-shell-v318.",
   "requerida": false,
-  "shell": "f123-shell-v317",
+  "shell": "f123-shell-v318",
   "apagar": [],
   "releaseName": "v1.0"
 }
