@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-18",
-  "changelog": "El nombre del negocio aparece de inmediato en el cuaderno activo; las ráfagas de sync ya no aplazan el repintado.",
+  "changelog": "Relay optimizado para no barrer SQLite por operación; UI interior móvil más densa y dashboard vivo con ráfagas agrupadas.",
   "requerida": false,
-  "shell": "f123-shell-v327",
+  "shell": "f123-shell-v328",
   "apagar": [],
   "releaseName": "v1.0"
 }

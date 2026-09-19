@@ -463,6 +463,9 @@
   var TIPO_RESPUESTA = "__respuesta__";
   var TIPO_FOTO_PEDIDA = "__foto_pedida__";
   var TIPO_FOTO_TROZO = "__foto_trozo__";
+  var fotoTimer = null;
+  var reconexionTimer = null;
+  var reconexionMs = 1500;
 
   /* El logo real, embebido: este archivo se manda por WhatsApp y tiene que
      abrir igual sin depender de ningun servidor de imagenes. */
@@ -652,7 +655,13 @@
         /* Una op de negocio en vivo: se vuelve a pedir la foto para no
            reimplementar aqui la logica de aplicar cambios. El lienzo se
            repinta entero, que es barato y no puede quedar a medias. */
-        if (op && op.tipo && op.tipo.indexOf("__") !== 0) { pedirFoto(); }
+        if (op && op.tipo && op.tipo.indexOf("__") !== 0) {
+          /* Una venta puede generar varias ops seguidas. Pedir una foto por
+             cada una multiplicaba frames y trabajo del relay; 120 ms agrupa
+             la ráfaga y mantiene el tablero perceptiblemente instantáneo. */
+          clearTimeout(fotoTimer);
+          fotoTimer = setTimeout(pedirFoto, 120);
+        }
       } catch (_) { /* cifrado con otra clave: ruido, se ignora */ }
     };
     /* Al reconectar se vuelve a pedir la foto sin volver a pedir el PIN: la
@@ -661,9 +670,12 @@
        pierde todo, que es justo lo que tiene que pasar. */
     ws.onclose = function () {
       pulso("reconectando…");
-      setTimeout(function () {
+      clearTimeout(reconexionTimer);
+      var espera = reconexionMs / 2 + Math.random() * reconexionMs / 2;
+      reconexionMs = Math.min(30000, reconexionMs * 2);
+      reconexionTimer = setTimeout(function () {
         conectar(codigo).then(function () { if (autorizado) pedirFoto(); }).catch(function () {});
-      }, 3000);
+      }, espera);
     };
     ws.onerror = function () { try { ws.close(); } catch (_) {} };
     await abierto;
@@ -682,6 +694,8 @@
   /* --- La foto llega por partes. Se pinta lo que va llegando. --- */
   function recibirTrozo(p) {
     if (!p || !p.tabla) return;
+    // Ya llegó data válida: la conexión sí fue estable y puede reiniciar backoff.
+    reconexionMs = 1500;
     /* Foto nueva: se tira lo que habia a medias. Mezclar es peor que esperar.
 
        Y si dos dispositivos del equipo contestan a la vez, gana LA MAS

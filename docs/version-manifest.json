@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v327",
+  "shell": "f123-shell-v328",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-b50e25a973237870115c28cf9e63be57d0776efeada5d122c1d90f3073859f96",
+    "./index.html": "sha256-27d24023d4fa9886033d91155fa0ff9748c37d4fa4ce88b077f4ae5daeaba529",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-01cca524857852de4af14cc1aa439b513118c318d0e687c8599b507b0f6ba95d",
     "./404.html": "sha256-2b66d8b0c1e5f14b7e0d08cea8cf54c2813c3db36d86650fc95ee8935c1824da",
@@ -41,7 +41,7 @@
     "./micelio-vivo.js": "sha256-cdf2708d852a1eec9b39ed528bece8b9c07ffe92e000f76ca919bb5be7fef5e1",
     "./micelio-ui.js": "sha256-85b17a8f68ce2583376b88e01816356875eaebaaafc2b7fcd58c60fde28fc7b0",
     "./tablero.html": "sha256-a497a91886d86a58666d1c5fd330b58b80d8ded0d401a02c166cd49a50a37c94",
-    "./dashboard.html": "sha256-1db42e7eef539d935a7cb9f421cb4ddc1606aa041aa638897b460c4e8cdef821",
+    "./dashboard.html": "sha256-1bd99354c0b3c62ce7c64f233114860e0986a78e77d13f710ac5d79fea30340e",
     "./tablero-avanzado.js": "sha256-f1a7a6d904e3cb55359fce7b3e3a80e6aa6513165636502f483059ce52d49510",
     "./borradores.js": "sha256-330e3fe1e208767d2895f60b14c137f5894cc3df972c5672cff5472539338fb6",
     "./vista-perchas.js": "sha256-db8eb6706baa8ec78cdeadeb180842850c524ed1696904d21378c6ead88412bf",

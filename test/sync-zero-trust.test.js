@@ -86,6 +86,9 @@ test('el relay es zero-knowledge: guarda/mueve sobres pero NUNCA descifra', () =
   assert.match(RELAY, /MAX_CLIENTES_SALA/);
   assert.match(RELAY, /MAX_FRAME_BYTES/);
   assert.match(RELAY, /MAX_OPS_SALA/);
+  assert.match(RELAY, /CREATE INDEX IF NOT EXISTS ops_lam ON ops\(lam\)/);
+  assert.doesNotMatch(RELAY, /SELECT COUNT\(\*\) AS n FROM ops/);
+  assert.match(RELAY, /_opsDesdePoda >= 256/);
   // Sin KV de negocio: solo SQLite del Durable Object para los sobres cifrados.
   assert.ok(!/env\.\w*KV/i.test(RELAY), 'el relay no debe usar KV de negocio');
 });

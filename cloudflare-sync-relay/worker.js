@@ -47,10 +47,15 @@ export class SalaSync {
        No puede leer nada: `c` es ciphertext; `id` es aleatorio; `lam` un
        contador. Zero-knowledge del contenido. Durable Object + SQLite. */
     this.sql = state.storage && state.storage.sql ? state.storage.sql : null;
+    this._opsDesdePoda = 0;
     if (this.sql) {
       try {
         this.sql.exec("CREATE TABLE IF NOT EXISTS ops(id TEXT PRIMARY KEY, lam INTEGER, c TEXT)");
         this.sql.exec("CREATE TABLE IF NOT EXISTS ckpt(k TEXT PRIMARY KEY, lam INTEGER, c TEXT)");
+        /* Todas las lecturas de catch-up filtran y ordenan por lam. Sin este
+           índice SQLite recorría la tabla completa en cada pull; rows_read se
+           disparaba aunque hubiera muy pocos aparatos. */
+        this.sql.exec("CREATE INDEX IF NOT EXISTS ops_lam ON ops(lam)");
       } catch (_) { this.sql = null; }
     }
   }
@@ -59,11 +64,14 @@ export class SalaSync {
     if (!this.sql || !id || typeof c !== "string") return;
     try {
       this.sql.exec("INSERT OR IGNORE INTO ops(id, lam, c) VALUES (?, ?, ?)", String(id), Number(lam) || 0, c);
-      // Tope duro: si crece de mas, se borran las mas viejas (el checkpoint ya
-      // las resume). Barato y evita que una sala infle sin fin.
-      const n = this.sql.exec("SELECT COUNT(*) AS n FROM ops").one().n;
-      if (n > MAX_OPS_SALA) {
-        this.sql.exec("DELETE FROM ops WHERE id IN (SELECT id FROM ops ORDER BY lam ASC LIMIT ?)", n - MAX_OPS_SALA);
+      /* COUNT(*) por CADA op era el quemador: cada inserción leía todas las
+         filas de la sala y Cloudflare factura esas filas. Los checkpoints ya
+         podan normalmente; esta red de seguridad corre una vez cada 256 ops
+         de una instancia activa, con el índice, y conserva las 8.000 nuevas. */
+      this._opsDesdePoda++;
+      if (this._opsDesdePoda >= 256) {
+        this._opsDesdePoda = 0;
+        this.sql.exec("DELETE FROM ops WHERE id IN (SELECT id FROM ops ORDER BY lam DESC LIMIT -1 OFFSET ?)", MAX_OPS_SALA);
       }
     } catch (_) {}
   }
@@ -105,7 +113,7 @@ export class SalaSync {
         cursor = Number(ck[0].lam) || 0;
       }
       // 2) Las operaciones posteriores al cursor, en orden.
-      const filas = this.sql.exec("SELECT c FROM ops WHERE lam > ? ORDER BY lam ASC", cursor).toArray();
+      const filas = this.sql.exec("SELECT c FROM ops WHERE lam > ? ORDER BY lam ASC LIMIT ?", cursor, MAX_OPS_SALA).toArray();
       for (const f of filas) {
         try { if (sock.readyState === 1) sock.send(b64aBuf(f.c)); } catch (_) {}
       }

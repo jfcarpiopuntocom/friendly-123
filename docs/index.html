@@ -1310,6 +1310,37 @@
   /* Solo móvil: controles compactos en flujo; PC conserva el header original. */
   @media (max-width:767px){
     :root{--nav-h:62px;}
+    /* Densidad interior: referencia visual = filas de “Lista de compradores”.
+       Más información por pantalla, sin bajar inputs de 16px (Safari haría
+       auto-zoom) ni tocar la página de PIN. */
+    main{padding:12px 10px calc(var(--nav-h) + 16px);}
+    h3.seccion{font-size:16px;margin-top:20px;padding-bottom:6px;}
+    .grid-resumen{gap:8px;margin-bottom:14px;}
+    .tarjeta{padding:10px 12px;}
+    .tarjeta .etiqueta{font-size:11px;letter-spacing:.045em;}
+    .tarjeta .valor{font-size:21px;margin-top:2px;}
+    .lista-alertas li{font-size:13px;padding:9px 10px;margin-bottom:6px;}
+    .grid-cajas{grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px;}
+    .caja{padding:10px;border-width:3px !important;border-radius:8px;}
+    .caja .nombre{font-size:14px;line-height:1.2;}
+    .caja .detalle{font-size:11px;line-height:1.25;margin-top:3px;}
+    .caja .stock{font-size:26px;line-height:1;margin-top:3px;}
+    .caja .ajuste-rapido{margin-top:6px !important;gap:4px !important;}
+    .caja .ajuste-rapido button{width:32px !important;height:32px !important;font-size:15px !important;}
+    .panel-escaner{padding:16px 12px;}
+    .panel-escaner input{padding:9px 10px;font-size:16px;}
+    .panel-escaner button.ir{padding:9px 16px;min-height:40px;margin-top:8px;}
+    .ficha-resultado{margin-top:14px;}
+    .ficha-producto{padding:13px;}
+    .ficha-producto .titulo{font-size:18px;line-height:1.2;}
+    .ficha-producto .precio{font-size:22px;margin:2px 0 5px;}
+    .ficha-producto .linea{font-size:13px;margin:2px 0;}
+    .badge-estado{font-size:11px;padding:4px 9px;margin-top:6px;}
+    .acciones-rapidas{gap:6px;margin-top:9px;}
+    .acciones-rapidas button{padding:7px 10px;min-height:40px;font-size:12px;}
+    .grid-etiquetas{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+    .etiqueta-card{padding:10px;}
+    .etiqueta-card .precio-prod{font-size:20px;}
     header{
       position:relative;top:auto;min-height:0;padding:6px 10px;
       display:grid;grid-template-columns:minmax(0,1fr) auto auto;
