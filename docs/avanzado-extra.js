@@ -511,19 +511,6 @@
       <div id="oc-clave-block" style="margin-top:18px;">
         <p style="font-size:14px;color:var(--ink-soft);">PINs identify who does what (owner / staff / accounting). Not your business's security — your license is that.</p>
       </div>
-      <!-- PINs VISIBLES + APODO DEL DISPOSITIVO (JFC 2026-08-27). JFC (master
-           admin / soporte) necesita VER los PINs actuales y el apodo del
-           dispositivo, sin opacarlos, para controlar sus estructuras y equipo.
-           Los PINs se leen de las copias XOR (leerPinsVisibles); si el PIN se
-           fijó antes de este cambio, no hay copia y se avisa. El apodo usa
-           OCMicelio (ya se sincroniza con el equipo). -->
-      <div id="oc-pins-visibles" style="margin-top:18px;padding:12px;border:1px solid var(--hairline,#dde5ec);border-radius:8px;background:var(--paper-deep,#E2E8ED);">
-        <p style="font-size:14px;font-weight:700;color:var(--ink);margin:0 0 8px;">Current access codes (visible to you, the owner)</p>
-        <div id="oc-pins-visibles-cuerpo" style="font-size:14px;line-height:1.7;color:var(--ink);"></div>
-        <p style="font-size:13px;color:var(--ink-soft);margin:8px 0 0;">PINs are stored as hashes; the visible copy is only for your support. Codes set before this update can't be shown — re-save them above to make them visible.</p>
-        <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">PINs only identify a role in the activity log (who did what). They are not the security of your business — your license is. Anyone with the license can open the notebook.</p>
-        <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
-      </div>
       <div id="oc-apodo-device" style="margin-top:12px;font-size:14px;color:var(--ink);">
         <span id="oc-apodo-device-txt"></span>
         <button type="button" id="oc-apodo-device-btn" data-i18n-attr="title:device.name,aria-label:device.name" title="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;">✎</button>
@@ -591,7 +578,7 @@
           </div>
           <p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:10px 0 0;">Every device that activates with this license is the same shared notebook. They keep each other up to date on their own: there is no separate team code to hand out.</p>
           <p style="font-size:13px;line-height:1.5;color:#7a4a00;background:#FFF4D6;border-left:4px solid #E8A33D;padding:10px 12px;border-radius:0 8px 8px 0;margin:10px 0 0;">Your license is the key to your business. Anyone who has it can open your notebook, so guard it like a password: only share it one-to-one with people on your team, and never post it publicly.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+          <div style="display:none;gap:8px;flex-wrap:wrap;margin-top:12px;" aria-hidden="true">
             <!-- WHATSAPP EXPORT/IMPORT en VERDE, aquí donde antes iba "Share with my
                  team" (JFC 2026-09-15). Son el par para mover el cuaderno por
                  WhatsApp entre aparatos. Se quitó "Share with my team" (redundante:
@@ -1101,7 +1088,7 @@
           const pre = sessionStorage.getItem("f123_join_pendiente");
           if (pre) { document.getElementById("oc-sync-codigo2").value = pre; }
         } catch (_) {}
-      })(),
+      })();
       (function(){var _r=document.getElementById("oc-sync-rotar");if(_r&&!_r.dataset.listo){_r.dataset.listo="1";_r.addEventListener("click",ocRotarCodigoSala);}})(),
       /* CLAIM / MERGE (JFC 2026-08-27). Re-apunta ESTE aparato a la licencia
          canónica que muestra el otro aparato, conservando los datos locales.
@@ -1122,8 +1109,9 @@
           m3.style.color = "var(--sim-verde-dk,#1a6e3c)";
           m3.textContent = "Done. Open your other device online; the two notebooks are merging now.";
         });
-      })(),
-      document.getElementById("oc-sync-desactivar").addEventListener("click", () => {
+      })();
+      const _btnDesactivarSync = document.getElementById("oc-sync-desactivar");
+      if (_btnDesactivarSync) _btnDesactivarSync.addEventListener("click", () => {
         window.OCSyncControl.desactivar();
         document.getElementById("oc-sync-apagado").style.display = "flex";
         document.getElementById("oc-sync-activo").style.display = "none";
@@ -1144,11 +1132,17 @@
     equipoPanel.id = "oc-emp-panel";
     equipoPanel.style.cssText = "text-align:left;margin-top:22px;";
     equipoPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Team</h3>
+      <h3 class="seccion" style="margin-top:0;">Team &amp; access</h3>
       <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Each member has their own 3-digit PIN. Their sales, adjustments and movements are
-        recorded under their name in the history. The owner's PIN does not appear here.
+        One place for every role and PIN. Sales, adjustments and movements are recorded
+        under the person who made them.
       </p>
+      <div id="oc-pins-visibles" style="margin:0 0 16px;padding:12px;border:1px solid var(--hairline,#dde5ec);border-radius:8px;background:var(--paper-deep,#E2E8ED);">
+        <p style="font-size:14px;font-weight:700;color:var(--ink);margin:0 0 8px;">Built-in roles</p>
+        <div id="oc-pins-visibles-cuerpo" style="font-size:14px;line-height:1.7;color:var(--ink);"></div>
+        <p style="font-size:13px;color:var(--ink);margin:8px 0 0;">Use the pencil beside a role to change its PIN. Named admins and employees appear directly below.</p>
+        <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
+      </div>
       <!-- JERARQUIA VISIBLE (JFC 2026-08-21): "pon una jerarquia o se va a
            hacer mierda todo, y ponla visible en la lista donde sale el team,
            ellos necesitan saber quien tiene mas peso sobre los apuntes
@@ -1979,6 +1973,7 @@ Keep it somewhere safe.`);
           "Access & recovery": "Email, WhatsApp, PINs and password.",
           "Sync your team": "Live sync across every device on your team.",
           "Team": "Team members, roles and PINs for this business.",
+          "Team & access": "Every role and PIN in one list.",
           "Activity log": "Who did what, and when.",
           "Your team right now": "Who is synced and who is not.",
           "Fraud control": "Integrity of sensitive operations.",
@@ -1998,7 +1993,7 @@ Keep it somewhere safe.`);
         const ICONS = {
           "First Steps": "➊", "Primeros Pasos": "➊",
           "Sync your team": "⇄", "Sincronizar equipo": "⇄",
-          "Team": "⧉", "Equipo": "⧉",
+          "Team": "⧉", "Team & access": "⧉", "Equipo": "⧉",
           "Activity log": "≡", "Actividad reciente": "≡", "Recent activity": "≡",
           "Fraud control": "⊘", "Control antifraude": "⊘",
           "Your team right now": "◉", "Tu equipo ahora": "◉",
@@ -2119,7 +2114,7 @@ Keep it somewhere safe.`);
             if (n.id === "oc-firststeps") return 0;
             const q = (sel) => { try { return !!n.querySelector(sel); } catch (_) { return false; } };
             const th = (function () { const h = (n.querySelector && n.querySelector("h3,h4")); return h ? h.textContent.trim() : ""; })();
-            if (/^Team$/i.test(th)) return 10;                      // equipo: lo primero util
+            if (/^Team(?: & access)?$/i.test(th)) return 10;        // equipo y acceso: lo primero util
             if (q("#oc-sync-codigo") || q("#oc-sync-activar")) return 20; // Sync your team (traducido)
             if (/Access & recovery/i.test(th)) return 25;
             if (n.id === "oc-acct-lock" || n.id === "oc-contable") return 30; // Accounting
