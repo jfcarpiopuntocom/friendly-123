@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-18",
-  "changelog": "Creación robusta de variantes desde la ficha: datos compartidos precargados, identidad propia, stock seguro y protección contra duplicados.",
+  "changelog": "Labels ya no puede abrir otra app; impresión compatible con Safari y manual/Ayuda homologados al cuaderno compartido real.",
   "requerida": false,
-  "shell": "f123-shell-v325",
+  "shell": "f123-shell-v326",
   "apagar": [],
   "releaseName": "v1.0"
 }

@@ -3712,11 +3712,12 @@
         // Barcode y QR: ambos generados 100% locales (barcode128.js y
         // qrcode-local.js) — cero llamadas externas, funciona sin internet.
         const barcodeSvg = window.OCBarcode ? window.OCBarcode.code128SVG(p.barcode, { width: 300, height: 80 }) : "";
-        // FIX 2026-07-07: el QR antes codificaba JSON crudo ({id,sku,barcode}).
-        // Un telefono del cliente escaneaba eso y veia texto JSON -- no una pagina.
-        // Ahora codifica la URL publica con ?sku=XXX: el cliente escanea y abre
-        // la demo de la app con ese SKU como contexto. Funciona en cualquier camara.
-        const qrPayload = `https://jfcarpiopuntocom.github.io/AMIGABLE/?sku=${encodeURIComponent(p.sku)}`;
+        /* El QR representa el código del producto, no una URL. La URL heredada
+           apuntaba a AMIGABLE y Safari podía ofrecer abrir la app hermana al
+           detectar el QR. Además, friendly no consumía ?sku, así que la promesa
+           de "ver la ficha" era falsa. Un payload de código sirve en cualquier
+           lector y no puede sacar al usuario de esta app. */
+        const qrPayload = String(p.barcode || p.sku || "");
         return J({ producto: ficha(p), qrDataUrl: qrDataUrl(qrPayload), barcodeSvg });
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/))) {

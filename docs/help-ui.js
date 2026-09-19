@@ -71,10 +71,10 @@
     <span class="rolTag">Owner's guide</span>
     <h3>What friendly-123 actually is</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
-      Not a cash register. An inventory management system for vendors, promoters,
+      A shared digital notebook for inventory, sales, customers, vendors, promoters,
       and commission tracking — organized around <b>perchas</b> (your slots, racks,
-      or locations) as the essential unit. Colors replace spreadsheets. Your data
-      stays on your device: no subscription lock-in, no cloud required.
+      or locations) as the essential unit. Colors replace spreadsheets. Each device
+      keeps its own recoverable copy; devices on the same license synchronize it.
     </p>
     <h3>The color language (Simon system)</h3>
     <ul>
@@ -93,7 +93,7 @@
     </ul>
     <h3>Sold (not "sell")</h3>
     <ul>
-      <li>Tap a product in the grid — one unit logged as sold. Undo within 5 seconds.</li>
+      <li>Open a product, review the sale details and confirm. Use Undo if the sale was entered by mistake.</li>
       <li>Every movement is recorded with reason and who did it.</li>
       <li>Commissions calculate automatically per percha and per vendor.</li>
     </ul>
@@ -119,17 +119,14 @@
     </p>
     <h3>What data leaves this device?</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
-      Short answer: your business data never does. Products, sales, customers, inventory,
-      photos — all of it stays in this browser, on this device, always. The only thing
-      that's ever sent anywhere is your <b>license</b>: a random device ID, and (only if
-      you chose to enter them) your name, email, license code, and WhatsApp number — so
-      we can recover your access or reach you if needed. Nothing else, ever, under any
-      feature. See <a href="https://github.com/jfcarpiopuntocom/friendly-123/blob/main/PRIVACY.md" target="_blank" rel="noopener" style="color:#5294AC;">PRIVACY.md</a>
-      for the full detail, or just open DevTools → Network and watch for yourself.
+      When device sync is on, the business state needed to keep the shared notebook
+      equal — including products, stock, sales, customers and photos — travels encrypted
+      through the sync relay to the other devices on your license. Each device also keeps
+      a local copy. License contact details and device status go to the license service.
     </p>
     <h3>Ownership and updates</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
-      Your data lives on this device — no server has it, no subscription can take it away.
+      Your recoverable copy lives on your devices and can be exported at any time.
       Activation unlocks unlimited products and exports. Includes <b>2 years of patches
       and updates</b> (the industry standard is 1).
     </p>
@@ -138,18 +135,18 @@
       font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
       Take the guided tutorial
     </button>
+    <a href="./manual.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:9px;font-weight:700;color:#2E6278;">Open the full manual</a>
   `;
 
   const AYUDA_DUENO_ES = `
     <span class="rolTag">Guía del dueño</span>
     <h3>Qué es friendly-123 en realidad</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
-      No es una caja registradora. Es un sistema de gestión de inventario para
+      Es un cuaderno digital compartido para inventario, ventas, clientes,
       vendedores, promotoras y control de comisiones — organizado alrededor de
       <b>perchas</b> (tus espacios, racks o ubicaciones) como unidad esencial. Los
-      colores reemplazan a las hojas de cálculo. Tus datos se quedan en tu
-      dispositivo, sin suscripción atada. La nube es opcional y, cuando la
-      usas, es la TUYA: nosotros nunca la tocamos.
+      colores reemplazan a las hojas de cálculo. Cada aparato conserva su propia
+      copia recuperable y los aparatos de una misma licencia la sincronizan.
     </p>
     <h3>El lenguaje de colores (sistema Simon)</h3>
     <ul>
@@ -168,7 +165,7 @@
     </ul>
     <h3>Vendido (no "vender")</h3>
     <ul>
-      <li>Toca un producto en la grilla — una unidad se registra como vendida. Deshazlo en 5 segundos.</li>
+      <li>Abre un producto, revisa los datos de la venta y confirma. Usa Deshacer si la registraste por error.</li>
       <li>Cada movimiento queda registrado con motivo y quién lo hizo.</li>
       <li>Las comisiones se calculan automáticamente por percha y por vendedor.</li>
     </ul>
@@ -179,21 +176,18 @@
       <li><b>Claves y recuperación</b>: guarda tu correo antes de cambiar cualquier PIN. Sin correo registrado no hay recuperación posible.</li>
     </ul>
     <h3>¿Qué datos salen de este dispositivo?</h3>
+    <p style="font-size:14px;line-height:1.6;margin:0 0 10px;"><b>Una licencia es un solo cuaderno compartido.</b> Los PIN, roles, productos, ventas, clientes, gastos, perchas y fotos convergen entre los aparatos unidos a esa licencia. Para sumar otro aparato usa Avanzado → Cuaderno compartido.</p>
     <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
-      Respuesta corta: tus datos de negocio nunca salen. Productos, ventas, clientes,
-      inventario, fotos — todo se queda en este navegador, en este dispositivo, siempre.
-      Lo único que se envía alguna vez es tu <b>licencia</b>: un ID de dispositivo
-      aleatorio, y (solo si decidiste ingresarlos) tu nombre, correo, código de licencia
-      y número de WhatsApp — para poder recuperar tu acceso o contactarte si hace falta.
-      Nada más, nunca, en ninguna función. Ve <a href="https://github.com/jfcarpiopuntocom/friendly-123/blob/main/PRIVACY.md" target="_blank" rel="noopener" style="color:#5294AC;">PRIVACY.md</a>
-      para el detalle completo, o abre DevTools → Network y compruébalo tú mismo.
+      Cuando la sincronización está activa, el estado necesario para mantener igual
+      el cuaderno compartido —productos, stock, ventas, clientes y fotos— viaja cifrado
+      por el relay de sync hacia los otros aparatos de tu licencia. Cada aparato conserva
+      además una copia local. Los datos de contacto de la licencia y el estado de los
+      dispositivos llegan al servicio de licencias.
     </p>
     <h3>Propiedad y actualizaciones</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
-      Tus datos se quedan en este dispositivo — ningún servidor <b>nuestro</b> los
-      tiene, ninguna suscripción te los puede quitar. Si algún día enlazas una nube
-      para sincronizar, esa nube es tuya, no nuestra: nosotros solo hacemos el
-      programa. La activación desbloquea productos y
+      Tu copia recuperable vive en tus aparatos y puedes exportarla cuando quieras.
+      La activación desbloquea productos y
       exportaciones ilimitadas, con parches y actualizaciones incluidos durante
       toda la <b>licencia de 5 años</b>.
     </p>
@@ -202,6 +196,8 @@
       font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
       Hacer el tutorial guiado
     </button>
+    <a href="./manual.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:9px;font-weight:700;color:#2E6278;">Abrir el manual completo</a>
+    <a href="./manual.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:9px;font-weight:700;color:#2E6278;">Abrir el manual completo</a>
   `;
 
   // AYUDA_EMPLEADO: operational only — no mention of PINs, costs, or accounting.
@@ -216,7 +212,7 @@
     <h3>Your shift in 3 steps</h3>
     <ul>
       <li><b>Today</b>: check the daily summary when you arrive. Red means alert the owner.</li>
-      <li><b>Sold</b>: tap the product in the grid — one unit logged. Or scan / type the code if you can't find it fast.</li>
+      <li><b>Sold</b>: open the product, review the sale and confirm. Or scan / type the code if you can't find it fast.</li>
       <li><b>Adjust</b>: something broke, expired, or the count was off? Use Adjust and write the reason. It stays on record.</li>
     </ul>
     <h3>Labels</h3>
@@ -234,7 +230,7 @@
     <h3>Tu turno en 3 pasos</h3>
     <ul>
       <li><b>Hoy</b>: revisa el resumen diario al llegar. Rojo significa avisar al dueño.</li>
-      <li><b>Vendido</b>: toca el producto en la grilla — una unidad registrada. O escanea / escribe el código si no lo encuentras rápido.</li>
+      <li><b>Vendido</b>: abre el producto, revisa la venta y confirma. O escanea / escribe el código si no lo encuentras rápido.</li>
       <li><b>Ajustar</b>: ¿algo se rompió, venció o el conteo estaba mal? Usa Ajustar y escribe el motivo. Queda en el registro.</li>
     </ul>
     <h3>Etiquetas</h3>

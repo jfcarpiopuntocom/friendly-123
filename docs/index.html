@@ -1161,11 +1161,9 @@
   .oc-lang-btn.activo{ background:var(--azul-medio,#2E6278); color:#fff; }
   .oc-bilingual{ font-size:13px; font-weight:700; color:var(--rust,#E86040); letter-spacing:.3px; white-space:nowrap; }
 
-  /* ================= PRINT (red de seguridad) =================
-     Los prints reales se arman en un iframe aislado (imprimirEtiquetaCompleta /
-     imprimirSoloBarcode), así que el papel nunca lleva chrome. Este bloque es
-     un cinturón extra: si alguien hace Ctrl+P con el modal de etiqueta abierto,
-     solo sale la etiqueta — nunca el botón "Imprimir", la X ni el nav. */
+  /* ================= PRINT =================
+     Safari exige que print() conserve el gesto directo del usuario. Imprimimos
+     el modal actual en vez de esperar el load de un iframe invisible. */
   @media print {
     body * { visibility:hidden !important; }
     #modalEtiqueta.activo, #modalEtiqueta.activo * { visibility:visible !important; }
@@ -1175,6 +1173,9 @@
     #modalEtiqueta.activo #oc-print-completa,
     #modalEtiqueta.activo #barrasClicable + div,
     #modalEtiqueta.activo .no-print { display:none !important; }
+    body.oc-print-barcode-only #contenidoEtiqueta > * { display:none !important; }
+    body.oc-print-barcode-only #contenidoEtiqueta .codigo,
+    body.oc-print-barcode-only #contenidoEtiqueta .barras { display:block !important; visibility:visible !important; }
   }
 
   /* ================= AVANZADO ================= */
@@ -1655,16 +1656,16 @@
          El id vista-escanear se conserva: lo referencian el autofoco del
          lector y el nav; solo cambia lo que el usuario ve. -->
     <h3 class="seccion" style="margin-top:0;" data-i18n="sold.heading">Sold</h3>
-    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="sold.intro">Tap a product and you're done: one unit sold (you can undo within 5s). Scroll down to pick a customer or record the day's close.</p>
+    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="sold.intro">Open a product, review the sale details and confirm. Scroll down to pick a customer or record the day's close.</p>
     <!-- ¿Cómo usar Vender? Guía colapsable para el operador. -->
     <details style="margin:-4px 0 12px;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="sold.howToggle">How does it work? ▸</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step0">1. Search by name or filter by category, at the top.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step1">2. Pick the customer (if any) in the selector below.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step2">2. Tap the product: one unit is deducted from stock.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step3">3. A blue notice appears below: tap it within 5s if it was a mistake.</p>
-        <p style="margin:0;font-size:14px;color:var(--ink);" data-i18n-html="sold.step4html">4. If you don't ring up live, use <strong>Day close</strong> at the end.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step2">3. Open the product, review quantity, price, customer and payment, then confirm.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="sold.step3">4. A blue notice appears below: tap it within 5s if it was a mistake.</p>
+        <p style="margin:0;font-size:14px;color:var(--ink);" data-i18n-html="sold.step4html">5. If you don't ring up live, use <strong>Day close</strong> at the end.</p>
       </div>
     </details>
     <!-- Modo de venta: dos RUTAS, no una restricción. "Quick tap" (default,
@@ -1702,7 +1703,7 @@
         <span data-i18n="sold.showCustomers" style="margin-left:4px;">Show customers</span>
       </button>
     </div>
-    <p style="font-size:14px;font-weight:700;color:var(--ink-soft);margin:0 0 8px;" data-i18n="sold.nextStep">Next step: tap a product</p>
+    <p style="font-size:14px;font-weight:700;color:var(--ink-soft);margin:0 0 8px;" data-i18n="sold.nextStep">Next step: open a product and review the sale</p>
     <div id="gridVender" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px;"></div>
     <!-- Carrito de "Fill a basket": aparece solo en ese modo. Cada linea es
          editable (+/- y quitar). El cobro final es UNA sola accion clara,
@@ -1796,7 +1797,7 @@
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.1">1. Tap any product card to open its printable label.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.3">2. Tap the barcode itself to print or save just the barcode, for smaller labels.</p>
-        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.4">3. The QR code links straight to the product's full record for anyone who scans it.</p>
+        <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.lab.4">3. The QR contains the product code for compatible scanners; it does not publish or open the business record.</p>
       </div>
     </details>
     <div class="grid-etiquetas" id="gridEtiquetas"></div>
@@ -6614,11 +6615,11 @@ async function abrirEtiqueta(id){
     <h4>${escHtml(p.nombre)}</h4>
     <div class="precio-grande">${fmtMoney(p.precio)}</div>
     ${p.perecible && p.fechaCaducidad ? `<div style="font-size:13px;font-weight:700;color:var(--rust);">Vence: ${p.fechaCaducidad}</div>` : ""}
-    <div class="codigo">${p.barcode}</div>
+    <div class="codigo">${escHtml(p.barcode || "")}</div>
     <div class="barras" id="barrasClicable" style="cursor:pointer;position:relative;" title="Tap to print or save just the barcode">${data.barcodeSvg || ""}</div>
     <div style="font-size:13px;color:var(--azul-medio,#2c4a68);margin-top:-6px;">👆 Tap the barcode to print or save it alone</div>
     ${data.qrDataUrl ? `<img src="${data.qrDataUrl}" width="160" height="160" alt="Product QR code">
-    <div style="font-size:13px; color:var(--azul-medio);">Scan to see the full record</div>` : ""}
+    <div style="font-size:13px; color:var(--azul-medio);">${document.documentElement.lang === "es" ? "Escanea el código del producto" : "Scan the product code"}</div>` : ""}
   `;
   // Botón de impresión fuera de la etiqueta — no viaja al papel ni aparece en el preview
   const accionesEl = document.getElementById("oc-etiqueta-acciones");
@@ -6629,57 +6630,13 @@ async function abrirEtiqueta(id){
   document.getElementById("oc-print-completa").addEventListener("click", () => imprimirEtiquetaCompleta());
 }
 
-// v2.0 — Etiqueta completa impresa en iframe aislado: SOLO la etiqueta llega al
-// papel (sin botones, sin nav). Diseño estándar de retail para PYMEs: nombre,
-// precio, vencimiento (si aplica), código de barras Code128 escaneable con su
-// número legible, y QR opcional a la ficha. Estética conservada (precio ámbar,
-// tipografía display), pero autocontenida para imprimir en cualquier navegador.
+// Impresión directa: mantiene el gesto requerido por Safari/iOS. El @media print
+// de arriba deja visible solamente el modal activo y oculta controles/nav.
 function imprimirEtiquetaCompleta(){
   const cur = window._etiquetaActual;
   if (!cur || !cur.p) return;
-  const { data, p } = cur;
-  const nombre = escHtml(p.nombre || "");
-  const precio = fmtMoney(p.precio);
-  const barcode = escHtml(p.barcode || "");
-  const exp = (p.perecible && p.fechaCaducidad)
-    ? `<div class="exp">Vence: ${escHtml(p.fechaCaducidad)}</div>` : "";
-  const qr = data.qrDataUrl
-    ? `<div class="qr"><img src="${data.qrDataUrl}" alt="QR"><div class="qr-cap">Escanea para la ficha</div></div>` : "";
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(iframe);
-  const doc = iframe.contentWindow.document;
-  doc.open();
-  doc.write(`<!DOCTYPE html><html><head><title>${nombre}</title><meta charset="utf-8"><style>
-    @page { margin: 8mm; }
-    *{ box-sizing:border-box; }
-    body{ margin:0; font-family:"Space Grotesk","Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#0F1923; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .label{ width:300px; margin:0 auto; text-align:center; padding:16px 14px; border:1.5px solid #0F1923; border-radius:12px; }
-    .name{ font-weight:700; font-size:18px; line-height:1.2; margin:0 0 2px; }
-    .price{ font-weight:800; font-size:32px; color:#E86040; margin:6px 0; }
-    .exp{ font-size:13px; font-weight:700; color:#C05000; margin:0 0 6px; }
-    .barcode{ display:flex; justify-content:center; margin:10px 0 2px; }
-    .barcode svg{ max-width:100%; height:auto; }
-    .code{ font-family:"Courier New",monospace; font-size:14px; letter-spacing:3px; margin-top:2px; }
-    .qr{ margin-top:10px; }
-    .qr img{ width:120px; height:120px; }
-    .qr-cap{ font-size:13px; color:#2E6278; margin-top:2px; }
-  </style></head><body>
-    <div class="label">
-      <div class="name">${nombre}</div>
-      <div class="price">${precio}</div>
-      ${exp}
-      <div class="barcode">${data.barcodeSvg || ""}</div>
-      <div class="code">${barcode}</div>
-      ${qr}
-    </div>
-  </body></html>`);
-  doc.close();
-  iframe.onload = () => {
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
-    setTimeout(() => iframe.remove(), 1000);
-  };
+  document.body.classList.remove("oc-print-barcode-only");
+  window.print();
 }
 
 function mostrarMenuBarcode(e, svgBarcode, producto){
@@ -6709,22 +6666,12 @@ function mostrarMenuBarcode(e, svgBarcode, producto){
 }
 
 function imprimirSoloBarcode(svgBarcode, producto){
-  const iframe = document.createElement("iframe");
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(iframe);
-  const doc = iframe.contentWindow.document;
-  doc.open();
-  doc.write(`<!DOCTYPE html><html><head><title>${escHtml(producto.nombre)}</title><style>
-    body{margin:0;padding:24px;text-align:center;font-family:sans-serif;}
-    svg{max-width:100%;height:auto;}
-    p{font-size:14px;margin-top:8px;letter-spacing:2px;}
-  </style></head><body>${svgBarcode}<p>${producto.barcode}</p></body></html>`);
-  doc.close();
-  iframe.onload = () => {
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
-    setTimeout(() => iframe.remove(), 1000);
-  };
+  if (!svgBarcode || !producto) return;
+  document.body.classList.add("oc-print-barcode-only");
+  const limpiar = () => document.body.classList.remove("oc-print-barcode-only");
+  window.addEventListener("afterprint", limpiar, { once:true });
+  window.print();
+  setTimeout(limpiar, 1500); // Safari puede omitir afterprint al cancelar.
 }
 
 function guardarBarcodeComoImagen(svgBarcode, producto){
