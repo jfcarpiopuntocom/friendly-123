@@ -47,3 +47,22 @@ test('empty startup state keeps the last known name of the owned notebook', asyn
   assert.equal(span.textContent, 'Known fixture store');
   assert.equal(JSON.parse(storage.get('f123_owned')).nombreNegocio, 'Known fixture store');
 });
+
+test('joined notebook paints the name returned by its active namespace without refresh', async () => {
+  const span = { textContent: 'My store or shelf(s)' };
+  const btn = { style: {}, addEventListener() {} };
+  const events = new Map();
+  const context = {
+    window: { OCTienda: { nombreActivo: () => '', esUnida: () => true },
+      addEventListener(type, handler) { events.set(type, handler); } },
+    document: { getElementById: id => ({ 'oc-negocio-nombre': span, 'oc-negocio-editar': btn })[id] || null },
+    localStorage: { getItem: () => null, setItem() {} }, sessionStorage: { getItem: () => null }, API: '/api',
+    fetch: async () => ({ json: async () => ({ nombreNegocio: 'Joined fixture store' }) })
+  };
+  vm.createContext(context);
+  vm.runInContext(block, context);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(span.textContent, 'Joined fixture store');
+  events.get('oc-negocio-actualizado')({ detail: { nombre: 'Instant rename' } });
+  assert.equal(span.textContent, 'Instant rename');
+});

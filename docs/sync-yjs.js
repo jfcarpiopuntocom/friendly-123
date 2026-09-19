@@ -824,7 +824,14 @@
     // Los updates propios de sembrar() llevan origin "seed" y se ignoran aquí.
     API.doc.on("update", function (update, origin) {
       if (origin !== "red" && origin !== "bc") return;
-      clearTimeout(_tAplica); _tAplica = setTimeout(aplicar, 300);
+      /* Coalescer con espera máxima acotada. El debounce anterior reiniciaba
+         300 ms con CADA update y una ráfaga podía posponer indefinidamente el
+         nombre/stock visible. El primer update agenda una aplicación próxima;
+         los siguientes quedan incluidos en el mismo documento Yjs. */
+      if (!_tAplica) _tAplica = setTimeout(function () {
+        _tAplica = null;
+        aplicar();
+      }, 100);
     });
 
     // Arranque: cuando IndexedDB termina de cargar, primero APLICAMOS lo que ya

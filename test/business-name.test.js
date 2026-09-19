@@ -24,8 +24,8 @@ test('PIN gate reads the active store name when the activation cache is older', 
 test('renaming a business immediately notifies the PIN gate and sync publisher', async () => {
   const w = browser();
   const events = [];
-  for (const name of ['oc-negocio-actualizado', 'oc-catalogo-cambiado']) w.addEventListener(name, () => events.push(name));
+  for (const name of ['oc-negocio-actualizado', 'oc-catalogo-cambiado']) w.addEventListener(name, (event) => events.push({ name, detail: event.detail }));
   await w.request('/api/instancia/nombre', 'POST', { nombre: 'Updated fixture' });
-  assert.ok(events.includes('oc-negocio-actualizado'));
-  assert.ok(events.includes('oc-catalogo-cambiado'));
+  assert.equal(events.find(e => e.name === 'oc-negocio-actualizado').detail.nombre, 'Updated fixture');
+  assert.ok(events.some(e => e.name === 'oc-catalogo-cambiado'));
 });

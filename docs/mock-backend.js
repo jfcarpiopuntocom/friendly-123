@@ -301,7 +301,10 @@
      renombrara ANTES). Un contador estilo Lamport (sube +1 por rename, y al adoptar
      un rev mayor se sincroniza) desempata deterministamente: gana (rev, luego ts). */
   let nombreNegocioRev = 0;
-  try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (_o) { if (Number(_o.nombreNegocioTs)) nombreNegocioTs = Number(_o.nombreNegocioTs); if (Number(_o.nombreNegocioRev)) nombreNegocioRev = Number(_o.nombreNegocioRev); } } catch (_) {}
+  /* La revisión se carga del buffer namespaceado en aplicarRespaldo(). No leerla
+     de f123_owned: ese sidecar describe el aparato/negocio propio y contaminaba
+     el contador al abrir un cuaderno unido, pudiendo ganarle al nombre canónico
+     de esa otra licencia. */
   // Cadena anti-tamper (2026-07-08): sello (hash) del último movimiento.
   let selloUltimo = "";
   // Item 1 (revisión JFC 2026-07-05): el estado vivía SOLO en memoria — al
@@ -4453,7 +4456,7 @@
         try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs; _o.nombreNegocioRev = nombreNegocioRev; localStorage.setItem("f123_owned", JSON.stringify(_o)); } catch (_) {}
         guardarEstadoLocal();
         // Refresh the PIN gate immediately and publish the rename through Yjs.
-        try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado")); } catch (_) {}
+        try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
         avisarCatalogoCambiado();
         return J({ ok: true, nombreNegocio: nombreNegocio });
       }

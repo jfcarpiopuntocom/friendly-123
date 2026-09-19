@@ -3906,8 +3906,11 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
       if (inst) {
         const unida = window.OCTienda && window.OCTienda.esUnida && window.OCTienda.esUnida();
         const owned = !unida && JSON.parse(localStorage.getItem("f123_owned") || "null");
+        /* /api/instancia ya pertenece al namespace ACTIVO. También es válido
+           para una tienda unida; descartarlo aquí dejaba el header vacío hasta
+           que OCTienda recibiera y aplicara otra actualización de Yjs. */
         const nom = (window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo()) ||
-          (!unida && (inst.nombreNegocio || (owned && owned.nombreNegocio))) || "";
+          inst.nombreNegocio || (!unida && owned && owned.nombreNegocio) || "";
         span.textContent = nom || TITULO_DEFECTO;
         // El nombre vacio durante el arranque no es un rename oficial. No
         // borrar la ultima identidad conocida ni copiar nombres de tiendas unidas.
@@ -3959,7 +3962,15 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   // FIX v302: cuando el sync adopta un nombre nuevo (aplicarCatalogo dispara
   // oc-negocio-actualizado), refrescar el nombre DENTRO del header, no solo en el
   // candado. Antes el header adentro se quedaba con el nombre viejo hasta recargar.
-  window.addEventListener("oc-negocio-actualizado", () => { try { cargarNombre(); } catch (_) {} });
+  window.addEventListener("oc-negocio-actualizado", (ev) => {
+    try {
+      // El merge ya trae el nombre confirmado: pintarlo en el mismo tick y
+      // verificar después contra el namespace activo, sin exigir refresh.
+      const nombre = ev && ev.detail && String(ev.detail.nombre || "").trim();
+      if (nombre) span.textContent = nombre;
+      cargarNombre();
+    } catch (_) {}
+  });
   window.addEventListener("oc-logout", () => { btn.style.display = "none"; const w = document.getElementById("oc-header-apodo"); if (w) w.style.display = "none"; });
   function pintarApodoHeader() {
     const wrap = document.getElementById("oc-header-apodo");

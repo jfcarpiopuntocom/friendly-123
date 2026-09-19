@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-18",
-  "changelog": "Labels ya no puede abrir otra app; impresión compatible con Safari y manual/Ayuda homologados al cuaderno compartido real.",
+  "changelog": "El nombre del negocio aparece de inmediato en el cuaderno activo; las ráfagas de sync ya no aplazan el repintado.",
   "requerida": false,
-  "shell": "f123-shell-v326",
+  "shell": "f123-shell-v327",
   "apagar": [],
   "releaseName": "v1.0"
 }
