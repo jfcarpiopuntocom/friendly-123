@@ -173,6 +173,13 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       } catch (_) {}
       try { localStorage.setItem("f123_migrado_159_888", "1"); } catch (_) {}
     }
+    const _esLicenciaIdiomarte = (() => {
+      try {
+        const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        const lic = String(o.syncCode || o.licenseCode || "").trim().toUpperCase().replace(/\s+/g, "");
+        return lic.indexOf("F123-K7M2-") === 0;
+      } catch (_) { return false; }
+    })();
     /* ANULADA + CORREGIDA (JFC 2026-09-10). La migración "888→789" de 2026-08-31
        cambiaba EN SILENCIO el PIN de dueño a 789 si el actual era 888 — asumiendo
        que 888 era "fábrica". Pero dueños REALES usaban 888 a propósito
@@ -186,12 +193,23 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
           Los dispositivos NUEVOS no tienen ese flag → a ellos NO se les abre 888.
           888 era el default público histórico, así que reabrirlo no expone ningún
           secreto nuevo. Corre una sola vez (flag f123_restaurar_888_v1). */
-    if (localStorage.getItem("f123_migrado_888_a_789_default") && !localStorage.getItem("f123_restaurar_888_v1")) {
+    if (_esLicenciaIdiomarte && localStorage.getItem("f123_migrado_888_a_789_default") && !localStorage.getItem("f123_restaurar_888_v1")) {
       try {
         const eq = leerPinsEquipo() || {};
         if (eq.owner !== "888") { eq.owner = "888"; guardarPinsEquipo(eq); }
       } catch (_) {}
       try { localStorage.setItem("f123_restaurar_888_v1", "1"); } catch (_) {}
+    }
+    /* Reparación final v3: solo la licencia canónica de idiomARTE. Las versiones
+       anteriores eran demasiado amplias; ninguna otra licencia recibe un PIN. */
+    if (_esLicenciaIdiomarte && !localStorage.getItem("f123_reparar_idiomarte_888_v3")) {
+      try {
+        const eq = leerPinsEquipo() || {};
+        eq.owner = "888";
+        guardarPinsEquipo(eq);
+        await fijarOwnerPin("888");
+        localStorage.setItem("f123_reparar_idiomarte_888_v3", "1");
+      } catch (_) {}
     }
     /* RE-RESTAURAR 888 v2 (JFC 2026-09-15, "devuélveles el 888"). El v1 metió 888
        en el SIDECAR (eq.owner), pero el merge del sync (mock-backend take(), ~1883)
@@ -200,7 +218,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
        MÁS (flag v2) en los mismos dispositivos que corrieron la migración vieja.
        Ya con el fix del take() (888 = custom, y no clobbea un sidecar de dueño
        real) no se debería volver a perder. ADITIVO: no pisa el 789 si estaba. */
-    if (localStorage.getItem("f123_migrado_888_a_789_default") && !localStorage.getItem("f123_restaurar_888_v2")) {
+    if (_esLicenciaIdiomarte && localStorage.getItem("f123_migrado_888_a_789_default") && !localStorage.getItem("f123_restaurar_888_v2")) {
       try {
         const eq = leerPinsEquipo() || {};
         if (eq.owner !== "888") { eq.owner = "888"; guardarPinsEquipo(eq); }

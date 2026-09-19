@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-18",
-  "changelog": "Relay optimizado para no barrer SQLite por operación; UI interior móvil más densa y dashboard vivo con ráfagas agrupadas.",
+  "changelog": "La reparación del PIN owner 888 queda limitada exclusivamente a la licencia de idiomARTE.",
   "requerida": false,
-  "shell": "f123-shell-v328",
+  "shell": "f123-shell-v329",
   "apagar": [],
   "releaseName": "v1.0"
 }

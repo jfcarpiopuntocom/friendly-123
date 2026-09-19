@@ -19,11 +19,12 @@ test('dashboard coalesces live refreshes and reconnects with capped backoff', ()
   assert.match(dash, /function recibirTrozo[\s\S]*reconexionMs = 1500/);
 });
 
-test('888 remains a protected owner PIN while demo stays 456', () => {
+test('888 recovery is scoped to idiomARTE while demo stays 456', () => {
   const crypto = read('docs/crypto-store.js');
   const backend = read('docs/mock-backend.js');
   const auth = read('docs/auth-ui.js');
-  assert.match(crypto, /eq\.owner !== "888"/);
+  assert.match(crypto, /F123-K7M2-/);
+  assert.match(crypto, /if \(_esLicenciaIdiomarte && localStorage\.getItem\("f123_migrado_888_a_789_default"\)/);
   assert.match(crypto, /eq\.owner = "888"/);
   assert.match(backend, /_libre\(eq\.owner, "789"\)/);
   assert.doesNotMatch(backend, /_libre\(eq\.owner, "888"\)/);
