@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-18",
-  "changelog": "Inventario sin el botón ++ redundante; formularios y acciones interiores más compactos y armónicos, con accesibilidad reforzada.",
+  "changelog": "Creación robusta de variantes desde la ficha: datos compartidos precargados, identidad propia, stock seguro y protección contra duplicados.",
   "requerida": false,
-  "shell": "f123-shell-v324",
+  "shell": "f123-shell-v325",
   "apagar": [],
   "releaseName": "v1.0"
 }

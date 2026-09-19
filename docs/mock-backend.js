@@ -1509,7 +1509,7 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
   /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
      archivados: dashboards, resumen histórico, BCG y reportes financieros deben
@@ -1585,6 +1585,15 @@
     // Toda acción registrada puede cambiar una ficha, venta o comisión. El
     // puente Yjs compara el catálogo y solo envía los registros que cambiaron.
     avisarCatalogoCambiado();
+  }
+  /* Dos aparatos pueden crear la misma variante estando desconectados. Una
+     identidad determinista por familia+atributo+valor hace que al reconectar
+     converjan sobre el mismo registro en vez de dejar duplicados. Dos FNV con
+     semillas distintas reducen la posibilidad de colision accidental. */
+  function idVariante(familia, atributo, valor) {
+    const texto = [familia, atributo, valor].map((v) => String(v || "").trim().toLocaleLowerCase()).join("\u001f");
+    const fnv = (seed) => { let h = seed >>> 0; for (let i = 0; i < texto.length; i++) { h ^= texto.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16).padStart(8, "0"); };
+    return "pvar-" + fnv(2166136261) + fnv(3339675911);
   }
 
   // === PUENTE DE SYNC (homologado de AMIGABLE, 2026-07-23) ===================
@@ -2553,7 +2562,7 @@
              fotos (mismo camino que las perchas). El receptor resuelve la foto
              desde OCFotos por ese hash. Ver sembrarFotosAlRelay (productos) y la
              hidratacion en volcarFotosAlStore. */
-          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", archivado: !!p.archivado })),
+          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado })),
         /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
            BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
            `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada
@@ -2631,7 +2640,7 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia })),
-        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0) })),
+        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
         huella: huellaCatalogo(),
@@ -3340,7 +3349,7 @@
            o la purga. Los reales son "p"+UUID. idiomARTE (K7M2)/otros NO se filtran
            (pueden tener ids p\d+ propios). Es cinturon + tirantes con la purga. */
         try { var _lpF = String((_licenciaPropia && _licenciaPropia()) || "").toUpperCase().replace(/\s+/g, ""); if (_lpF.indexOf("F123-A6YK-6V1J-") === 0) fuente = fuente.filter((p) => !/^p\d+$/.test(String(p.id || ""))); } catch (_) {}
-        let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", archivado: !!p.archivado }; });
+        let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", familiaId: p.familiaId || "", varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado }; });
         const est = q.get("estado");
         if (est) lista = lista.filter((x) => x.estado === est);
         lista.sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado] || a.nombre.localeCompare(b.nombre, "es"));
@@ -3360,11 +3369,37 @@
         if (!estaLicenciado() && productos.length >= 25) {
           return J({ error: "You've reached the 25-product limit on the free plan. Activate this device (PIN 789) to unlock unlimited products.", codigo: "LIMITE_PRODUCTOS" }, 403);
         }
+        /* Variantes: guardas en la capa de datos, no solo en la pantalla. Esto
+           evita dos variantes identicas por doble toque o concurrencia. Los
+           productos historicos sin familia conservan su comportamiento. */
+        if (body.familiaId) {
+          const norm = (v) => String(v || "").trim().toLocaleLowerCase();
+          const fam = String(body.familiaId || "").trim().toUpperCase().slice(0, 80);
+          const atr = norm(body.varianteAtributo);
+          const val = String(body.varianteValor || "").trim().slice(0, 40);
+          if (!fam || !atr || !val || !body.productoBaseId) return J({ error: "Complete the variant attribute and value." }, 400);
+          const baseVariante = productos.find((p) => p.id === body.productoBaseId && !p.borrado);
+          if (!baseVariante) return J({ error: "The base product no longer exists." }, 409);
+          if (productos.some((p) => !p.borrado && norm(p.barcode) === norm(body.barcode))) return J({ error: "That barcode or internal code is already used by another product." }, 409);
+          if (productos.some((p) => !p.borrado && norm(p.sku) === norm(body.sku))) return J({ error: "That SKU is already used. Change the variant value." }, 409);
+          if (productos.some((p) => !p.borrado && norm(p.familiaId) === norm(fam) && norm(p.varianteAtributo) === atr && norm(p.varianteValor) === norm(val))) return J({ error: "That variant already exists in this product family." }, 409);
+          body.familiaId = fam; body.varianteValor = val; body.stockInicial = 0;
+          /* El producto base entra formalmente a la misma familia. Así el
+             resumen agrupa base+variantes incluso si su SKU histórico no
+             tenía guion. Es metadata aditiva; no toca dinero ni stock. */
+          if (!baseVariante.familiaId) { baseVariante.familiaId = fam; baseVariante.rev = _revNueva(); }
+          if (body.umbralRojo == null) body.umbralRojo = baseVariante.umbralRojo;
+          if (body.umbralAmarillo == null) body.umbralAmarillo = baseVariante.umbralAmarillo;
+        }
         const nuevo = {
           // M5 (2026-08-14): variante interna, hasta 12 caracteres. Vacio por
           // defecto: un producto sin variante se comporta igual que siempre.
           chip: String(body.chip || "").trim().slice(0, 12),
-          id: uuid("p"), nombre: String(body.nombre).trim(), categoria: body.categoria || "General",
+          familiaId: String(body.familiaId || "").trim().slice(0, 80),
+          productoBaseId: body.productoBaseId || null,
+          varianteAtributo: String(body.varianteAtributo || "").trim().slice(0, 24),
+          varianteValor: String(body.varianteValor || "").trim().slice(0, 40),
+          id: body.familiaId ? idVariante(body.familiaId, body.varianteAtributo, body.varianteValor) : uuid("p"), nombre: String(body.nombre).trim(), categoria: body.categoria || "General",
           sku: body.sku || body.barcode, barcode: body.barcode, ubicacionId: body.ubicacionId || "todas",
           // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
           // corrompía la valorización de inventario desde la creación.

@@ -4400,29 +4400,30 @@ function actualizarBotonesOrdenInventario(cont) {
 
 
 
-/* ============================================================================
-   M1 y M4 del plan de variantes (2026-08-14).
-   familiaDe() es una FUNCION PURA sobre el SKU: no lee ni escribe nada. La
-   familia de ALM5-V2 es ALM5. No hay tabla de familias que pueda quedar
-   huerfana, desincronizarse entre dispositivos o apuntar a productos borrados:
-   el prefijo vive DENTRO del producto que describe.
-   Un SKU sin guion simplemente no tiene familia, y su producto funciona igual.
-   ============================================================================ */
+/* Compatibilidad con variantes anteriores a v325: derivaban la familia del
+   prefijo del SKU (ALM5-V2 -> ALM5). Las nuevas guardan familiaId dentro de
+   cada producto, que es estable aunque luego se edite el SKU. */
 function familiaDe(sku) {
   var s = String(sku || "").trim();
   var i = s.indexOf("-");
   return i > 0 ? s.slice(0, i).toUpperCase() : "";
 }
 
+/* Las variantes nuevas llevan familiaId explicita y estable. El prefijo del
+   SKU queda como compatibilidad para las familias creadas antes de v325. */
+function familiaDeProducto(p) {
+  return String((p && p.familiaId) || familiaDe(p && p.sku) || "").trim().toUpperCase();
+}
+
 /* Eslabon 2 de la cadena de respaldo: la foto de otra variante de la misma
    familia. Solo mira el array que la cuadricula YA tiene cargado, no pide nada
    a la red ni a IndexedDB. Devuelve null si no hay, y ahi entra el eslabon 3. */
 function fotoDeLaFamilia(p, todos) {
-  var fam = familiaDe(p && p.sku);
+  var fam = familiaDeProducto(p);
   if (!fam || !Array.isArray(todos)) return null;
   for (var i = 0; i < todos.length; i++) {
     var o = todos[i];
-    if (o && o.foto && o.id !== p.id && familiaDe(o.sku) === fam) return o.foto;
+    if (o && o.foto && o.id !== p.id && familiaDeProducto(o) === fam) return o.foto;
   }
   return null;
 }
@@ -4480,7 +4481,7 @@ function fijarAgruparFamilias(v) {
 function resumenFamilias(productos) {
   var mapa = {};
   (productos || []).forEach(function (p) {
-    var f = familiaDe(p.sku);
+    var f = familiaDeProducto(p);
     if (!f) return;
     (mapa[f] = mapa[f] || []).push(p);
   });
@@ -4510,7 +4511,10 @@ function pintarResumenFamilias(productos) {
   }).join("");
 }
 
-/* M7: abre el alta con los campos ya copiados del producto de origen. */
+/* Alta robusta de variante (v325). Reutiliza el formulario probado de alta,
+   pero explicita la dimension y el valor. Nunca copia stock, barcode, ventas
+   ni foto. El backend vuelve a validar unicidad para cubrir doble toque y dos
+   dispositivos creando a la vez. */
 async function duplicarComoVariante(id) {
   try {
     var p = await (await fetch(API + "/productos/" + id)).json();
@@ -4518,16 +4522,54 @@ async function duplicarComoVariante(id) {
     await abrirAltaProducto();
     var scope = document.getElementById(fichaTargetActual) || document;
     var set = function (sel, v) { var e = scope.querySelector(sel); if (e) e.value = v; };
+    var es = document.documentElement.lang === "es";
+    var titulo = scope.querySelector(".ficha-producto .titulo");
+    if (titulo) titulo.textContent = es ? "Crear variante" : "Create variant";
+    var panel = document.createElement("div");
+    panel.className = "tag-card";
+    panel.style.cssText = "margin:10px 0;padding:12px;text-align:left;border:2px solid var(--azul-medio);";
+    panel.innerHTML = '<strong>' + (es ? 'Producto base: ' : 'Base product: ') + escHtml(p.nombre || '') + '</strong>' +
+      '<p style="margin:6px 0 10px;font-size:13px;">' + (es ? 'Copia precios y configuración. El código y el stock son propios de esta variante.' : 'Prices and settings are copied. This variant gets its own code and stock.') + '</p>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+        '<label style="flex:1;min-width:130px;font-size:14px;">' + (es ? 'Atributo' : 'Attribute') + '<br><select id="np-variante-atributo" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"><option value="color">Color</option><option value="size">' + (es ? 'Talla / tamaño' : 'Size') + '</option><option value="material">Material</option><option value="style">' + (es ? 'Estilo' : 'Style') + '</option><option value="flavor">' + (es ? 'Sabor' : 'Flavor') + '</option><option value="other">' + (es ? 'Otro' : 'Other') + '</option></select></label>' +
+        '<label style="flex:1;min-width:150px;font-size:14px;">' + (es ? 'Valor de la variante' : 'Variant value') + '<br><input id="np-chip" maxlength="40" autocomplete="off" placeholder="' + (es ? 'Ej: azul, mediana' : 'E.g. blue, medium') + '" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>' +
+      '</div><input id="np-familia-id" type="hidden"><input id="np-producto-base-id" type="hidden"><input id="np-sku" type="hidden">';
+    var card = scope.querySelector(".ficha-producto");
+    if (card && titulo) titulo.insertAdjacentElement("afterend", panel);
+    var familia = familiaDeProducto(p) || String(p.sku || p.barcode || p.id).trim().toUpperCase();
+    set("#np-familia-id", familia);
+    set("#np-producto-base-id", p.id);
     set("#np-nombre", p.nombre || "");
     set("#np-categoria", p.categoria || "");
     set("#np-precio", p.precio != null ? p.precio : "");
     set("#np-costo", p.costo != null ? p.costo : "");
     set("#np-proveedor", p.proveedor || "");
+    set("#np-precio-casa", p.precioCasa != null ? p.precioCasa : "");
+    set("#np-ubicacion", p.ubicacionId || "todas");
+    set("#np-tipo-proveedor", p.tipoProveedor || "compra");
+    set("#np-comisionista", p.comisionistaId || "");
+    set("#np-tipo-producto", p.tipoProducto || "normal");
+    set("#np-serving-ml", p.servingMl || 50);
+    set("#np-botella-ml", p.botellaMl || 750);
+    var tipo = scope.querySelector("#np-tipo-producto");
+    if (tipo) tipo.dispatchEvent(new Event("change"));
+    var perecible = scope.querySelector("#np-perecible");
+    if (perecible) { perecible.checked = !!p.perecible; perecible.dispatchEvent(new Event("change")); }
+    set("#np-fecha", p.fechaCaducidad || "");
+    set("#np-metodo", p.metodoCosteo || "FIFO");
     set("#np-stock", 0);              // el valor seguro, siempre
     set("#np-barcode", "");           // el codigo NO se duplica: es unico
     set("#np-chip", "");
     var chip = scope.querySelector("#np-chip");
-    if (chip) { chip.focus(); }
+    if (chip) {
+      chip.addEventListener("input", function () {
+        var valor = chip.value.trim();
+        var slug = valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24);
+        set("#np-nombre", valor ? (p.nombre + " — " + valor) : p.nombre);
+        set("#np-sku", slug ? (familia + "-" + slug) : "");
+      });
+      chip.focus();
+    }
   } catch (e) {
     try { console.error("duplicar variante:", e); } catch (_) {}
     const _msgVarFail = (typeof window.t === "function") ? window.t("inv.variantPrepFailed") : "Could not prepare the variant.";
@@ -5427,10 +5469,14 @@ async function crearProductoNuevo(codigoEscaneado){
     tipoProducto: el("np-tipo-producto") ? el("np-tipo-producto").value : "normal",
     servingMl: el("np-tipo-producto") && el("np-tipo-producto").value === "bar" ? Number(val("np-serving-ml")) || 50 : 50,
     botellaMl: el("np-tipo-producto") && el("np-tipo-producto").value === "bar" ? Number(val("np-botella-ml")) || 750 : 750,
+    familiaId: val("np-familia-id"), productoBaseId: val("np-producto-base-id"),
+    varianteAtributo: val("np-variante-atributo"), varianteValor: el("np-chip") ? val("np-chip").slice(0, 40) : "",
+    sku: val("np-sku"),
   };
   const msg = el("np-msg");
   if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
   if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.codeRequired"); return; }
+  if (body.familiaId && !body.varianteValor){ msg.style.color = "var(--rojo)"; msg.textContent = document.documentElement.lang === "es" ? "Escribe el valor que distingue esta variante." : "Enter the value that distinguishes this variant."; return; }
   if (Number(body.precio) === 0){ if (!(await ocConfirm(t("form.zeroPriceConfirm")))) return; }
   // Foto por producto en alta (homologado de AMIGABLE, 2026-07-22)
   const fotoNp = el("np-foto");
@@ -5784,6 +5830,7 @@ function pintarFicha(p){
       <div class="precio">${fmtMoney(p.precio)}</div>
       <div class="linea"><strong>SKU:</strong> ${escHtml(p.sku)}</div>
       <div class="linea"><strong>${t("ficha.code")}</strong> ${escHtml(p.barcode)}</div>
+      ${p.varianteValor ? `<div class="linea"><strong>${document.documentElement.lang === "es" ? "Variante:" : "Variant:"}</strong> ${escHtml(p.varianteAtributo || "")} · ${escHtml(p.varianteValor)}</div>` : ""}
       <div class="linea"><strong>${t("ficha.supplier")}</strong> ${escHtml(p.proveedor)}</div>
       <div class="linea"><strong>${t("ficha.currentStock")}</strong> ${p.stockActual} ${t("ficha.units")}</div>
       ${p.tipoProducto === "bar" ? `<div class="linea" id="bar-servings-line"><strong>Servings per bottle:</strong> ≈ ${Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50)))} (${escHtml(p.servingMl)} ml each)${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<button onclick="editarServings('${p.id}')" title="Adjust servings per bottle" style="font-size:12px;padding:2px 8px;margin-left:6px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}</div>` : ""}
@@ -5802,6 +5849,7 @@ function pintarFicha(p){
         <button onclick="abrirCompradores({productoId:'${p.id}'})" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
       </div>
       ${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<div class="acciones-rapidas" style="margin-top:8px;">
+        <button onclick="duplicarComoVariante('${p.id}')">${document.documentElement.lang === "es" ? "Crear variante" : "Create variant"}</button>
         <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
         <button style="border-color:var(--rust,#E86040);color:var(--rust,#E86040);" onclick="archivarProductoUI('${p.id}', ${p.archivado ? "false" : "true"}, this)">${p.archivado ? "Unarchive" : "Archive"}</button>
         <button style="border-color:var(--rojo);color:var(--rojo);" onclick="eliminarProductoUI('${p.id}', this)">${t("ficha.deleteBtn")}</button>
