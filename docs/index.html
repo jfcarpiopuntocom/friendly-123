@@ -781,11 +781,18 @@
     grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
     gap:14px;
   }
-  /* FIX 2026-07-07 (misma familia del bug de primera impresion): iOS hace
-     zoom forzoso al enfocar cualquier input con letra menor a 16px. Piso
-     global de 16px en campos de texto — nadie pierde la pantalla por tocar
-     el buscador de Escanear o un formulario. */
+  /* Tipografía de formularios compacta y coherente. En iPhone se conservan
+     16px: Safari amplía la página al enfocar campos menores y desarma la UI.
+     En tablet/PC 14px permite ver más datos sin aspecto sobredimensionado. */
   input, select, textarea{ font-size:16px !important; }
+  main input:not([type="file"]):not([type="checkbox"]):not([type="radio"]),
+  main select, main textarea{ padding:7px 9px !important; line-height:1.25; }
+  @media (min-width:768px){
+    main input, main select, main textarea{ font-size:14px !important; }
+  }
+  main h2, main h3, main h4{ text-wrap:balance; }
+  main p, main li, main label{ text-wrap:pretty; }
+  .valor, .precio, [id*="Monto"], [id*="Total"], [id*="subtotal"]{ font-variant-numeric:tabular-nums; }
 
   /* ============ TARJETAS INVENTARIO — SIMON-STYLE ============ */
   /* Colores vivos + esquinas redondeadas + hover. Portado de OC. */
@@ -1064,7 +1071,7 @@
     overflow:auto;
     padding:20px;
   }
-  .modal-fondo.activo{display:flex; align-items:center; justify-content:center;}
+  .modal-fondo.activo{display:flex; align-items:center; justify-content:center; overscroll-behavior:contain;}
   .etiqueta-imprimible{
     background:var(--blanco-calido);
     padding:30px;
@@ -2388,7 +2395,7 @@ function abrirGestorCategorias() {
     panel.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
         <strong style="font-size:14px;">${T("sold.catTitle", "Categories")}</strong>
-        <button type="button" data-cat-cerrar style="background:none;border:none;font-size:18px;line-height:1;cursor:pointer;color:var(--ink-soft);">✕</button>
+        <button type="button" data-cat-cerrar title="Close" aria-label="Close" style="background:none;border:none;font-size:18px;line-height:1;cursor:pointer;color:var(--ink-soft);">✕</button>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         <input id="oc-cat-nueva" type="text" placeholder="${T("sold.catAddPh", "New category name")}" style="flex:1;min-width:160px;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;">
@@ -4579,11 +4586,10 @@ async function cargarInventario(){
       </div>
       <!-- Ajuste rápido de stock sin escanear -->
       <div class="ajuste-rapido" onclick="event.stopPropagation()" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <button data-ajuste-menos="${p.id}" title="${t('inv.removeOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
-        <button data-ajuste-mas="${p.id}" title="${t('inv.addOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
-        ${esDuenoInv ? `<button data-estrella-toggle="${p.id}" title="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
-        ${esDuenoInv ? `<button data-variante="${p.id}" title="Agregar variante de este producto" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:17px;font-weight:700;cursor:pointer;">&#43;&#43;</button>` : ''}
-        ${esDuenoInv ? `<button data-editar-directo="${p.id}" title="${t('inv.editTooltip')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:15px;cursor:pointer;">✏️</button>` : ''}
+        <button data-ajuste-menos="${p.id}" title="${t('inv.removeOne')}" aria-label="${t('inv.removeOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+        <button data-ajuste-mas="${p.id}" title="${t('inv.addOne')}" aria-label="${t('inv.addOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+        ${esDuenoInv ? `<button data-estrella-toggle="${p.id}" title="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" aria-label="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
+        ${esDuenoInv ? `<button data-editar-directo="${p.id}" title="${t('inv.editTooltip')}" aria-label="${t('inv.editTooltip')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:15px;cursor:pointer;">✏️</button>` : ''}
       </div>
     </div>
   `).join("");
@@ -4780,7 +4786,7 @@ function _comisionFilaHtml(hasta, comision, idx){
   return `<div class="oc-com-fila" data-fila="${idx}" style="display:flex;gap:8px;align-items:center;margin-top:6px;">
     <label style="flex:1;font-size:14px;color:var(--ink-soft);">${window.t("comm.ed.uptoGoal")}<br><input type="number" min="1" step="1" class="oc-com-hasta" value="${hasta}" ${inp}></label>
     <label style="flex:1;font-size:14px;color:var(--ink-soft);">${window.t("comm.ed.pct")}<br><input type="number" min="0" max="100" step="1" class="oc-com-pct" value="${comision}" ${inp}></label>
-    <button type="button" class="oc-com-quitar" style="margin-top:14px;border:none;background:transparent;color:var(--rojo,#a3392a);font-size:18px;cursor:pointer;padding:4px 8px;" title="${window.t("comm.ed.removeTier")}">✕</button>
+    <button type="button" class="oc-com-quitar" style="margin-top:14px;border:none;background:transparent;color:var(--rojo,#a3392a);font-size:18px;cursor:pointer;padding:4px 8px;" title="${window.t("comm.ed.removeTier")}" aria-label="${window.t("comm.ed.removeTier")}">✕</button>
   </div>`;
 }
 function _comisionBarraHtml(escalas){
@@ -6771,7 +6777,7 @@ function tarjetaPromotora(pr){
         ${pr.direccion ? `<div style="font-size:14px;color:var(--ink-soft);">📍 ${escHtml(pr.direccion)}</div>` : ""}
         ${pr.notas ? `<div style="font-size:14px;color:var(--ink-soft);font-style:italic;margin-top:2px;">"${escHtml(pr.notas)}"</div>` : ""}
       </button>
-      <button data-archivar-promotora="${pr.id}" data-nombre-promotora="${escHtml(pr.nombre)}" style="font-size:14px;padding:8px 12px;border:2px solid var(--rojo,#a3392a);border-radius:4px;background:transparent;color:var(--rojo,#a3392a);cursor:pointer;">${window.t("comm.g.archive")}</button>
+      <button data-archivar-promotora="${pr.id}" data-nombre-promotora="${escHtml(pr.nombre)}" style="font-size:13px;padding:7px 11px;border:2px solid var(--rojo,#a3392a);border-radius:4px;background:transparent;color:var(--rojo,#a3392a);cursor:pointer;">${window.t("comm.g.archive")}</button>
     </div>`;
 }
 function renderListaPromotorasViva(query){

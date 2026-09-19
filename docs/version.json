@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-18",
-  "changelog": "Sold permite deshacer con ↶; Advanced reúne roles y PINs en una sola sección y deja visible solo el control de sync útil.",
+  "changelog": "Inventario sin el botón ++ redundante; formularios y acciones interiores más compactos y armónicos, con accesibilidad reforzada.",
   "requerida": false,
-  "shell": "f123-shell-v323",
+  "shell": "f123-shell-v324",
   "apagar": [],
   "releaseName": "v1.0"
 }
