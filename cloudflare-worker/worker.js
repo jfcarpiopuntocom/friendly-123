@@ -587,10 +587,18 @@ export default {
       }
 
       registros.forEach((r) => { r.estado = normalizarEstado(r.estado); });
-      registros._fuente = fuente; // diagnóstico: "do" = lectura fuertemente consistente
       registros.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
       anotarHermanos(registros);
-      return json(registros);
+      /* El diagnóstico va en CABECERA, no en el cuerpo, por dos razones:
+         1. el cuerpo es un ARRAY y JSON.stringify descarta las propiedades
+            sueltas de un array — una marca puesta ahí no llega nunca (fallo
+            real que tuve aquí mismo y que solo se ve al comprobarlo);
+         2. envolver la lista en un objeto para hacerle sitio ROMPERÍA
+            panel.html, que espera un array.
+         "do" = lectura fuertemente consistente; "kv" = camino de respaldo. */
+      const resp = json(registros);
+      resp.headers.set("X-Fuente-Registros", fuente);
+      return resp;
     }
 
     // Delete an instance (master only). Meant for cleaning up test records,
