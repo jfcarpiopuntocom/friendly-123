@@ -127,9 +127,10 @@
     <h3>Ownership and updates</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
       Your recoverable copy lives on your devices and can be exported at any time.
-      Activation unlocks unlimited products and exports. Includes <b>2 years of patches
+      Activation starts a full <span class="oc-prueba-dias">30</span>-day trial. Your license unlocks unlimited products and exports. Includes <b>2 years of patches
       and updates</b> (the industry standard is 1).
     </p>
+    <div id="oc-help-licencia"></div>
     <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
       border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
       font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
@@ -187,10 +188,11 @@
     <h3>Propiedad y actualizaciones</h3>
     <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
       Tu copia recuperable vive en tus aparatos y puedes exportarla cuando quieras.
-      La activación desbloquea productos y
+      La activación abre una prueba completa de <span class="oc-prueba-dias">30</span> días. Tu licencia desbloquea productos y
       exportaciones ilimitadas, con parches y actualizaciones incluidos durante
       toda la <b>licencia de 5 años</b>.
     </p>
+    <div id="oc-help-licencia"></div>
     <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
       border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
       font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
@@ -364,6 +366,9 @@
     const rol = window.OCAuth ? window.OCAuth.rolActual() : null;
     pintarTextosFijos();
     document.getElementById("oc-help-body").innerHTML = rol === "empleado" ? ayudaEmpleadoHTML() : ayudaDuenoHTML();
+    // Estado de la licencia + invitación a comprar (JFC 2026-09-22, en Ayuda y
+    // en el modal). Solo aparece en la guía del dueño, que trae el hueco.
+    try { if (window.OCPrueba) window.OCPrueba.pintarAyuda(document.getElementById("oc-help-body")); } catch (_) {}
     modal.classList.add("abierto");
   }
   btn.addEventListener("click", abrir);

@@ -3015,6 +3015,24 @@
       if (opts && opts.body) { try { body = (function () { try { return JSON.parse(opts.body); } catch (_) { return {}; } })(); } catch (_) { body = {}; } }
       const method = (opts && opts.method ? opts.method : "GET").toUpperCase();
       debePersistir = ["POST", "PUT", "PATCH", "DELETE"].includes(method) && !path.startsWith("/api/sync") && path !== "/api/respaldo/exportar";
+      /* PRUEBA VENCIDA = SOLO LECTURA (decisión JFC 2026-09-22; lógica en
+         docs/licencia-prueba.js). Una sola compuerta para TODA escritura, en el
+         único punto por el que pasan todas. Se bloquea solo con certeza (aparato
+         activado, sin pago, prueba vencida, no demo, ruta que escribe negocio).
+         FALLA ABIERTO: si OCPrueba no está cargado o algo lanza, NO bloquea.
+         Un bug aquí nunca puede dejar en solo lectura a un cliente que pagó.
+         Los datos no se tocan: solo se rechaza escribir algo NUEVO. */
+      if (debePersistir) {
+        let _bloquea = false;
+        try { _bloquea = !!(window.OCPrueba && window.OCPrueba.bloquea && window.OCPrueba.bloquea(path)); } catch (_) { _bloquea = false; }
+        if (_bloquea) {
+          debePersistir = false; // nada cambió: no hay estado que persistir
+          try { window.dispatchEvent(new CustomEvent("oc-prueba-vencida")); } catch (_) {}
+          let _msg = "Your trial has ended: the app is read-only.";
+          try { _msg = window.OCPrueba.mensajeError(); } catch (_) {}
+          return J({ error: _msg, codigo: "PRUEBA_VENCIDA" }, 402);
+        }
+      }
       const uid = q.get("ubicacionId");
 
       let m;
@@ -3392,7 +3410,7 @@
         if (ubicNueva && ubicNueva.activa === false) return J({ error: `"${ubicNueva.nombre}" está desactivada — reactívala en Avanzado antes de agregar productos ahí.` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 25 productos.
         if (!estaLicenciado() && productos.length >= 25) {
-          return J({ error: "You've reached the 25-product limit on the free plan. Activate this device (PIN 789) to unlock unlimited products.", codigo: "LIMITE_PRODUCTOS" }, 403);
+          return J({ error: `Without activation this device is limited to 25 products. Activate it (PIN 789) to start your full ${(window.OCPrueba && window.OCPrueba.PRUEBA_DIAS) || 30}-day trial.`, codigo: "LIMITE_PRODUCTOS" }, 403);
         }
         /* Variantes: guardas en la capa de datos, no solo en la pantalla. Esto
            evita dos variantes identicas por doble toque o concurrencia. Los
@@ -3492,7 +3510,7 @@
         if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
         if (!estaLicenciado() && ventasCountMesGlobal() >= 100) {
-          return J({ error: "You've reached the 100-sales/month limit on the free plan. Activate this device (PIN 789) to unlock unlimited sales.", codigo: "LIMITE_VENTAS" }, 403);
+          return J({ error: `Without activation this device is limited to 100 sales per month. Activate it (PIN 789) to start your full ${(window.OCPrueba && window.OCPrueba.PRUEBA_DIAS) || 30}-day trial.`, codigo: "LIMITE_VENTAS" }, 403);
         }
         /* BUG CRITICO reportado en vivo por una clienta (Idiomarte, 2026-07-29),
            arreglado en amigable-123 y portado aqui: "puse que la clase es de
@@ -4360,7 +4378,7 @@
            equipo existente se rompe con este cambio. */
         const staffActual = usuarios.filter((u) => !u.borrado && (u.rol === "empleado" || u.rol === "admin")).length;
         if (staffActual >= 1 && !estaLicenciado())
-          return J({ error: "The free plan includes 1 team member besides you, and that counts admins too. Activate this device (PIN 789) for an unlimited team.", codigo: "LIMITE_EMPLEADOS" }, 403);
+          return J({ error: `Without activation this device allows 1 team member besides you (admins count too). Activate it (PIN 789) to start your full ${(window.OCPrueba && window.OCPrueba.PRUEBA_DIAS) || 30}-day trial.`, codigo: "LIMITE_EMPLEADOS" }, 403);
         if (usuarios.some((u) => !u.borrado && u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
         const _ahoraU = new Date().toISOString();
         const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU, rev: _revNueva() };

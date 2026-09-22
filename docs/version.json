@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "Recuperación de acceso más segura y 10 arreglos de integridad en ventas, categorías e idioma.",
+  "changelog": "Nueva prueba completa de 30 días al activar; después, compra tu licencia por WhatsApp o correo. Tus datos nunca se borran.",
   "requerida": false,
-  "shell": "f123-shell-v341",
+  "shell": "f123-shell-v342",
   "apagar": [],
   "releaseName": "v1.0"
 }

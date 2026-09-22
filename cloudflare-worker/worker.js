@@ -181,6 +181,44 @@ async function borrarDeDO(env, instanceId) {
   } catch (_) { return false; }
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+   LICENCIA PAGADA = TODA LA LICENCIA (JFC 2026-09-22)
+
+   El estado vive POR APARATO (inst:<instanceId>). Pero un cliente paga SU
+   LICENCIA, no un aparato: idiomARTE tiene 3 aparatos bajo una licencia. Si
+   JFC marcaba "full" solo uno, los otros quedaban en la prueba y a los 30
+   días pasaban a solo lectura (friendly, licencia-prueba.js). Y un aparato
+   que se une después a una licencia ya pagada arrancaba con reloj.
+
+   Regla, MONÓTONA a propósito — solo puede DAR acceso, nunca quitarlo:
+     - Si un aparato de la licencia está en "full" (porque JFC lo marcó en el
+       panel o porque ya lo estaba de antes), se anota lic:<licencia> = full.
+     - Al hacer checkin, un aparato de esa licencia que esté en el estado POR
+       DEFECTO ("minima") hereda "full".
+     - NUNCA se toca un aparato "bloqueada": el bloqueo de un aparato puntual
+       (robado, abuso) sigue siendo una decisión de JFC por aparato.
+     - Nunca se escribe lic: con otro valor que "full", así que no hay forma de
+       que esta regla le quite acceso a nadie ni que dos aparatos se peleen.
+   Límite conocido: para "des-pagar" una licencia entera habría que borrar la
+   clave lic:<licencia> a mano. Es un caso raro y así se prefiere a propósito,
+   porque nunca castiga por error a un cliente que pagó.
+   Costo: 1 lectura de KV por checkin; la escritura solo ocurre una vez por
+   licencia. */
+async function aplicarLicenciaPagada(env, registro) {
+  try {
+    const codigo = String((registro && registro.licenseCode) || "").trim().toUpperCase();
+    if (!codigo) return;
+    const clave = `lic:${codigo}`;
+    let pagada = false;
+    try { const raw = await env.LICENCIAS.get(clave); pagada = !!raw && (JSON.parse(raw) || {}).estado === "full"; } catch (_) { pagada = false; }
+    if (registro.estado === "full" && !pagada) {
+      await env.LICENCIAS.put(clave, JSON.stringify({ estado: "full", ts: Date.now() }));
+    } else if (pagada && registro.estado === "minima") {
+      registro.estado = "full";
+    }
+  } catch (_) { /* nunca bloquea el checkin: en el peor caso queda como estaba */ }
+}
+
 async function guardarConHistorial(env, instanceId, registroNuevo) {
   const key = `inst:${instanceId}`;
   const anteriorRaw = await env.LICENCIAS.get(key);
@@ -315,6 +353,8 @@ async function handleCheckin(req, env) {
     lastSeen: Date.now(),
     lastAccion: body.accion || "checkin",
   };
+  // Pagado es de la licencia, no del aparato (ver aplicarLicenciaPagada).
+  await aplicarLicenciaPagada(env, registro);
   await guardarConHistorial(env, instanceId, registro);
   /* RESCATE DE LICENCIA (JFC 2026-08-19). La respuesta devuelve el licenseCode
      que el servidor tiene para esta instancia. Sirve para tres cosas con un
@@ -714,6 +754,9 @@ export default {
         return json({ error: "Invalid state" }, 400);
       }
       reg.estado = normalizarEstado(body.estado);
+      // Marcar "full" un aparato marca pagada su licencia entera: los demás
+      // aparatos lo heredan en su próximo checkin (aplicarLicenciaPagada).
+      await aplicarLicenciaPagada(env, reg);
       await guardarConHistorial(env, instanceId, reg);
       return json({ ok: true });
     }

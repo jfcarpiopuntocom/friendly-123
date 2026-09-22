@@ -64,6 +64,10 @@
 <!-- Capa bilingüe EN/ES (default inglés). Carga en el HEAD, antes del script
      principal, para que window.t() exista cuando las vistas se rendericen. -->
 <script src="./i18n.js"></script>
+<!-- Prueba de 30 días de friendly (decisión JFC 2026-09-22). Va antes de
+     mock-backend.js, que la consulta en cada escritura. Si no cargara, la app
+     NO se bloquea: la compuerta falla abierta. -->
+<script src="./licencia-prueba.js"></script>
 <!-- BUG FIX 2026-07-01: estos dos scripts FALTABAN en docs/ — la demo nunca
      interceptaba fetch() y todo /api/* devolvia 404 (selector de sucursal
      roto, hero de error). Deben cargar EN EL HEAD, antes del script principal,
