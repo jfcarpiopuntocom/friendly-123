@@ -634,33 +634,94 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         _purgeBtn.style.opacity = ".7";
         _purgeBtn.textContent = "Purging…";
         if (log) log.innerHTML = "";
+        /* FORTIFICADO (JFC 2026-09-22): telefonos viejos (Safari iOS 2015-2018,
+           WebViews Android viejos) se quedaban COLGADOS en "Purging..." porque
+           unregister()/caches.delete() a veces nunca resuelve en esos motores, y
+           ademas location.reload(true) ya no fuerza bypass del disco-cache HTTP
+           en navegadores modernos (el parametro esta deprecado/ignorado) -- ese
+           era un SEGUNDO nivel de cache (aparte de CacheStorage) que dejaba
+           sirviendo el index.html viejo aun despues de limpiar todo lo demas.
+           Fix: (a) cada paso async tiene timeout propio, asi nunca cuelga mas de
+           unos segundos aunque el motor este roto; (b) la recarga final usa una
+           URL con query cache-busting (?_purge=timestamp) en vez de
+           reload(true), que SI evita el disco-cache HTTP en todos los motores;
+           (c) si un paso falla igual se intenta la recarga -- media limpieza es
+           mejor que ninguna, y un fallo aislado no debe dejar al usuario
+           atrapado sin poder reintentar. Sigue sin tocar localStorage ni
+           sessionStorage (datos reales del negocio). */
+        function conTimeout(promesa, ms, etiqueta) {
+          return Promise.race([
+            promesa,
+            new Promise(function (_, rej) {
+              setTimeout(function () { rej(new Error(etiqueta + " timed out")); }, ms);
+            })
+          ]);
+        }
+        var huboError = false;
         try {
-          // 1) Desregistrar todos los service workers de este dominio.
+          // 1) Desregistrar todos los service workers de este dominio (con timeout
+          //    por si el motor viejo nunca resuelve la promesa).
           if ("serviceWorker" in navigator) {
-            var regs = await navigator.serviceWorker.getRegistrations();
-            if (regs && regs.length) {
-              for (var i = 0; i < regs.length; i++) { await regs[i].unregister(); }
-              linea("Service worker unregistered (" + regs.length + ").");
-            } else {
-              linea("No service worker to remove.");
+            try {
+              var regs = await conTimeout(navigator.serviceWorker.getRegistrations(), 4000, "getRegistrations");
+              if (regs && regs.length) {
+                var okUnreg = 0;
+                for (var i = 0; i < regs.length; i++) {
+                  try { await conTimeout(regs[i].unregister(), 4000, "unregister"); okUnreg++; }
+                  catch (eReg) { console.warn("[f123] purge: unregister fallo", eReg); }
+                }
+                linea("Service worker unregistered (" + okUnreg + "/" + regs.length + ").");
+              } else {
+                linea("No service worker to remove.");
+              }
+            } catch (eSw) {
+              huboError = true;
+              linea("Service worker step skipped (old browser).");
+              console.warn("[f123] purge: paso SW fallo/timeout", eSw);
             }
+          } else {
+            linea("This browser has no service worker (nothing to remove).");
           }
-          // 2) Borrar todo CacheStorage (los shells viejos f123-shell-vNN).
+          // 2) Borrar todo CacheStorage (los shells viejos f123-shell-vNN), con
+          //    timeout y borrado uno-por-uno para que un nombre atascado no frene
+          //    a los demas.
           if ("caches" in window) {
-            var nombres = await caches.keys();
-            for (var j = 0; j < nombres.length; j++) { await caches.delete(nombres[j]); }
-            linea("Cache cleared (" + nombres.length + ").");
+            try {
+              var nombres = await conTimeout(caches.keys(), 4000, "caches.keys");
+              var okCache = 0;
+              for (var j = 0; j < nombres.length; j++) {
+                try { await conTimeout(caches.delete(nombres[j]), 4000, "caches.delete"); okCache++; }
+                catch (eDel) { console.warn("[f123] purge: caches.delete fallo", nombres[j], eDel); }
+              }
+              linea("Cache cleared (" + okCache + "/" + nombres.length + ").");
+            } catch (eCache) {
+              huboError = true;
+              linea("Cache step skipped (old browser).");
+              console.warn("[f123] purge: paso caches fallo/timeout", eCache);
+            }
+          } else {
+            linea("This browser has no CacheStorage (nothing to clear here).");
           }
           // NO se toca localStorage ni sessionStorage: son los datos del cliente.
-          linea("Done. Reloading the newest version…");
-          console.log("[f123] purge failsafe: SW + caches cleared, localStorage preserved.");
-          setTimeout(function () { location.reload(true); }, 1000);
+          linea(huboError ? "Done (partial). Reloading the newest version…" : "Done. Reloading the newest version…");
+          console.log("[f123] purge failsafe: SW + caches cleared (best-effort), localStorage preserved.");
         } catch (err) {
-          linea("Could not finish: " + (err && err.message ? err.message : String(err)));
-          _purgeBtn.disabled = false;
-          _purgeBtn.style.opacity = "1";
-          _purgeBtn.textContent = "Stuck on an old version? Purge & reload";
+          huboError = true;
+          linea("Some cleanup failed, reloading anyway: " + (err && err.message ? err.message : String(err)));
           console.warn("[f123] purge failsafe error:", err);
+        } finally {
+          // Recarga SIEMPRE se intenta, con o sin error arriba: quedarse pegado
+          // en la pantalla del candado es peor que una recarga con limpieza
+          // parcial. cache-bust por query string evita el disco-cache HTTP que
+          // reload(true) ya no puede forzar en navegadores modernos.
+          setTimeout(function () {
+            try {
+              var url = location.pathname + "?_purge=" + Date.now() + location.hash;
+              location.replace(url);
+            } catch (eNav) {
+              try { location.reload(true); } catch (_) { location.reload(); }
+            }
+          }, 900);
         }
       });
     }
