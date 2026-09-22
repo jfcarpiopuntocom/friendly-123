@@ -2829,9 +2829,9 @@ Keep it somewhere safe.`);
     const cont = document.createElement("div");
     cont.className = "oc-subgate";
     cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido);border:2px solid var(--brass);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
-      <h2 style="font-family:var(--font-display);color:var(--ink);font-size:20px;margin:0 0 4px;">Master code</h2>
-      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:14px;">Only JFC has this. Verify the owner's identity in person or via video call before sharing it.</p>
-      <input id="mst-codigo" type="text" style="width:100%;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);text-align:center;">
+      <h2 style="font-family:var(--font-display);color:var(--ink);font-size:20px;margin:0 0 4px;">Recovery authorization</h2>
+      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:14px;">After verifying the owner's identity, JFC can issue a five-minute permit for this device. An existing device-specific master code also works offline.</p>
+      <input id="mst-codigo" type="text" autocomplete="off" aria-label="Recovery permit or device-specific master code" style="width:100%;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);text-align:center;">
       <div style="display:flex;gap:8px;margin-top:12px;">
         <button id="mst-cancelar" style="flex:1;padding:10px;border-radius:6px;border:2px solid var(--azul-medio);background:transparent;color:var(--azul-medio);cursor:pointer;">Cancel</button>
         <button id="mst-ok" class="ir" style="flex:1;">Verify</button>
@@ -2843,7 +2843,7 @@ Keep it somewhere safe.`);
     cont.querySelector("#mst-ok").addEventListener("click", async () => {
       const codigo = cont.querySelector("#mst-codigo").value.trim();
       const ok = await window.OCSecure.verificarMaestro(codigo);
-      if (!ok) { cont.querySelector("#mst-msg").textContent = "Incorrect master code."; return; }
+       if (!ok) { cont.querySelector("#mst-msg").textContent = "Invalid or expired authorization. Check the connection and try again."; return; }
       window.OCSecure.actualizarCorreo("");
       reasignacionViaMaestro = true;
       cont.remove();

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "Cambiar entre inglés y español conserva el nombre sincronizado del negocio; ubicaciones y etiquetas faltantes se traducen correctamente.",
+  "changelog": "Recuperación de acceso más segura y 10 arreglos de integridad en ventas, categorías e idioma.",
   "requerida": false,
-  "shell": "f123-shell-v340",
+  "shell": "f123-shell-v341",
   "apagar": [],
   "releaseName": "v1.0"
 }

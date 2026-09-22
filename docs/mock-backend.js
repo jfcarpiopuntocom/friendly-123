@@ -3018,6 +3018,24 @@
       const uid = q.get("ubicacionId");
 
       let m;
+      // Una categoría puede abarcar muchos productos. Cambiarla con PATCH por
+      // ficha dejaba una operación a medias si la red fallaba entre solicitudes.
+      // Validamos TODO primero y aplicamos en un único turno síncrono al store
+      // local; cada ficha recibe rev para converger por el catálogo cifrado.
+      if (path === "/api/categorias/cambiar" && method === "POST") {
+        const vieja = String(body.vieja || "").trim();
+        const nueva = String(body.nueva == null ? "" : body.nueva).trim();
+        if (!vieja || (!nueva && body.borrar !== true)) return J({ error: "A category name is required." }, 400);
+        if (nueva.length > 120) return J({ error: "The category name is too long." }, 400);
+        if (vieja.toLowerCase() === nueva.toLowerCase()) return J({ ok: true, actualizados: 0 });
+        const afectados = productos.filter((p) => p && !p.borrado && String(p.categoria || "").trim().toLowerCase() === vieja.toLowerCase());
+        afectados.forEach((p) => { p.categoria = nueva; p.rev = _revNueva(); });
+        if (afectados.length) {
+          mov("edicion-categoria", { antes: vieja, ahora: nueva, productosAfectados: afectados.length });
+          avisarCatalogoCambiado();
+        }
+        return J({ ok: true, actualizados: afectados.length });
+      }
       // Edicion libre de la ficha (nombre, foto, precios, codigo interno).
       // El gating por rol (encargado NO edita) vive en la UI; aca solo se aplica.
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {

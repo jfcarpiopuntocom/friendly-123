@@ -39,6 +39,80 @@ function requireMasterKey(req, env) {
   return env.MASTER_KEY && k === env.MASTER_KEY;
 }
 
+/* Recovery permits use the already-private panel credential as a signing key,
+   domain-separated from its normal license API use. No universal recovery
+   phrase is shipped to browsers. A permit is scoped to one instance and five
+   minutes; this only protects the ordinary UI flow, not a hostile local
+   browser profile whose storage and JavaScript can be changed with DevTools. */
+const RECOVERY_TTL_MS = 5 * 60 * 1000;
+const recoveryEncoder = new TextEncoder();
+const recoveryIdOk = (id) => typeof id === "string" && /^[A-Za-z0-9_-]{6,128}$/.test(id);
+function recoveryB64(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function recoveryBytes(s) {
+  if (!/^[A-Za-z0-9_-]+$/.test(s) || s.length > 1024) throw new Error("invalid token encoding");
+  const base = s.replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(base + "=".repeat((4 - base.length % 4) % 4)), c => c.charCodeAt(0));
+}
+async function recoveryKey(env) {
+  if (!env.MASTER_KEY) throw new Error("missing recovery signing key");
+  return crypto.subtle.importKey("raw", recoveryEncoder.encode("friendly-recovery-v1:" + env.MASTER_KEY),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+}
+function recoveryJson(obj, status = 200) {
+  const response = json(obj, status);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
+}
+async function issueRecovery(req, env) {
+  if (!requireMasterKey(req, env)) return recoveryJson({ ok: false }, 401);
+  let body;
+  try { body = await req.json(); } catch (_) { return recoveryJson({ ok: false }, 400); }
+  const instanceId = body && body.instanceId;
+  if (!recoveryIdOk(instanceId)) return recoveryJson({ ok: false }, 400);
+  const record = await env.LICENCIAS.get(`inst:${instanceId}`);
+  if (!record) return recoveryJson({ ok: false }, 404);
+  try {
+    const payload = recoveryB64(recoveryEncoder.encode(JSON.stringify({
+      v: 1, id: instanceId, exp: Date.now() + RECOVERY_TTL_MS,
+      nonce: recoveryB64(crypto.getRandomValues(new Uint8Array(16))),
+    })));
+    const signature = await crypto.subtle.sign("HMAC", await recoveryKey(env), recoveryEncoder.encode(payload));
+    return recoveryJson({ token: payload + "." + recoveryB64(new Uint8Array(signature)), expiresInSeconds: 300 });
+  } catch (_) { return recoveryJson({ ok: false }, 503); }
+}
+async function verifyRecovery(req, env) {
+  if (!env.MASTER_KEY || !env.MAESTRO_IP || !env.MAESTRO_INST) return recoveryJson({ ok: false }, 503);
+  let body;
+  try { body = await req.json(); } catch (_) { return recoveryJson({ ok: false }, 400); }
+  const id = body && body.instanceId;
+  const token = body && body.token;
+  if (!recoveryIdOk(id) || typeof token !== "string" || token.length > 1536) return recoveryJson({ ok: false }, 400);
+  try {
+    // The IP limit is deliberately generous: mobile carriers share addresses.
+    // The instance limit is the useful bound; HMAC entropy prevents guessing.
+    const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+    const [byIp, byInstance] = await Promise.all([
+      env.MAESTRO_IP.limit({ key: ip }), env.MAESTRO_INST.limit({ key: id }),
+    ]);
+    if (!byIp.success || !byInstance.success) return recoveryJson({ ok: false }, 429);
+    const parts = token.split(".");
+    if (parts.length !== 2) return recoveryJson({ ok: false }, 401);
+    const verified = await crypto.subtle.verify("HMAC", await recoveryKey(env),
+      recoveryBytes(parts[1]), recoveryEncoder.encode(parts[0]));
+    if (!verified) return recoveryJson({ ok: false }, 401);
+    const permit = JSON.parse(new TextDecoder().decode(recoveryBytes(parts[0])));
+    const now = Date.now();
+    if (permit.v !== 1 || permit.id !== id || !Number.isSafeInteger(permit.exp) ||
+        permit.exp < now || permit.exp > now + RECOVERY_TTL_MS ||
+        typeof permit.nonce !== "string" || permit.nonce.length < 20) {
+      return recoveryJson({ ok: false }, 401);
+    }
+    return recoveryJson({ ok: true });
+  } catch (_) { return recoveryJson({ ok: false }, 401); }
+}
+
 /* ─────────────────────────────────────────────────────────────────────
    VERSION CONTROL FOR LICENSES (homologado de amigable-123, JFC 2026-07-28)
 
@@ -522,6 +596,9 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
+
+    if (url.pathname === "/maestro/emitir" && req.method === "POST") return issueRecovery(req, env);
+    if (url.pathname === "/maestro/verificar" && req.method === "POST") return verifyRecovery(req, env);
 
     // Recuperación de PIN — público pero con validación de instanceId en KV
     if (url.pathname === "/recover-pin" && req.method === "POST") {

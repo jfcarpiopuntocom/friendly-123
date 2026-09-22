@@ -378,22 +378,60 @@
     try { if (window.OCLastProductos) refrescar(window.OCLastProductos); } catch (_) {}
     return true;
   }
+  /* Categorías afectan fichas reales. Un HTTP 4xx/5xx también RESUELVE fetch();
+     ignorarlo decía «actualizados» aunque un producto siguiera intacto. Si hay
+     fallo parcial no ocultamos la categoría vieja: ambos grupos quedan visibles
+     para poder inspeccionar y reintentar sin perder productos ni su inventario. */
+  async function _productosParaCategoria() {
+    var res = await fetch("/api/productos?todas=1");
+    if (!res.ok) throw new Error("Could not read the complete product list.");
+    var lista = await res.json();
+    if (!Array.isArray(lista)) throw new Error("The product list is incomplete.");
+    return lista;
+  }
+  async function _cambiarCategoria(afectados, nueva) {
+    var completados = 0;
+    for (var i = 0; i < afectados.length; i++) {
+      try {
+        var res = await fetch("/api/productos/" + encodeURIComponent(afectados[i].id), {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ categoria: nueva })
+        });
+        if (!res.ok) throw new Error("Product update rejected.");
+        completados++;
+      } catch (e) {
+        var fallo = new Error("Category update incomplete.");
+        fallo.completados = completados;
+        throw fallo;
+      }
+    }
+  }
+  async function _cambiarCategoriaSegura(vieja, nueva, borrar) {
+    // Shell nuevo: una sola operación local, sin mitad de productos movidos.
+    // Un backend viejo puede devolver 404 durante la transición de SW; el
+    // fallback conserva compatibilidad pero NUNCA anuncia éxito parcial.
+    var res = await fetch("/api/categorias/cambiar", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vieja: vieja, nueva: nueva, borrar: !!borrar }) });
+    if (res.status !== 404) {
+      if (!res.ok) throw new Error("Category change rejected.");
+      var data = await res.json();
+      if (!data || data.ok !== true || !Number.isInteger(data.actualizados))
+        throw new Error("Category change not confirmed.");
+      return data.actualizados;
+    }
+    var prods = await _productosParaCategoria();
+    var afectados = prods.filter(function (p) { return normalizar(p.categoria).toLowerCase() === vieja.toLowerCase(); });
+    await _cambiarCategoria(afectados, nueva);
+    return afectados.length;
+  }
   /* Renombrar una categoría en TODO el negocio: propaga a los productos que la
      usan (PATCH por producto) y actualiza la lista propia. Async; devuelve el
      número de productos actualizados. */
   async function renombrar(viejo, nuevo) {
     var vo = normalizar(viejo), nu = normalizar(nuevo);
     if (!vo || !nu || vo.toLowerCase() === nu.toLowerCase()) return 0;
-    var prods = [];
-    try { prods = await (await fetch("/api/productos?todas=1")).json(); } catch (_) { prods = []; }
-    var afectados = (prods || []).filter(function (p) { return normalizar(p.categoria).toLowerCase() === vo.toLowerCase(); });
-    for (var i = 0; i < afectados.length; i++) {
-      /* BUG FIX (JFC/Belén 2026-09-03): era PUT, pero el endpoint de editar
-         producto es PATCH (no existe PUT /api/productos/:id). Con PUT los
-         productos NO se movían, así que la categoría vieja seguía viva junto a la
-         nueva → "se aumenta en vez de reemplazar". PATCH sí mueve la categoría. */
-      try { await fetch("/api/productos/" + encodeURIComponent(afectados[i].id), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoria: nu }) }); } catch (_) {}
-    }
+    var n = await _cambiarCategoriaSegura(vo, nu, false);
     // Actualizar la lista propia: quitar el viejo, asegurar el nuevo.
     var cur = _leerCustom().filter(function (x) { return normalizar(x).toLowerCase() !== vo.toLowerCase(); });
     if (!cur.some(function (x) { return normalizar(x).toLowerCase() === nu.toLowerCase(); }) &&
@@ -404,7 +442,7 @@
     var oc = _leerOcultas().filter(function (x) { return normalizar(x).toLowerCase() !== nu.toLowerCase(); });
     if (!oc.some(function (x) { return normalizar(x).toLowerCase() === vo.toLowerCase(); })) oc.push(vo);
     _guardarOcultas(oc);
-    return afectados.length;
+    return n;
   }
   /* Borrar una categoría (JFC/Belén 2026-09-04: "puedo aumentar pero no borrar").
      REGLA 8c — JAMÁS perder productos: los productos de esa categoría se
@@ -413,17 +451,12 @@
      de productos reasignados. */
   async function borrar(nombre) {
     var vo = normalizar(nombre); if (!vo) return 0;
-    var prods = [];
-    try { prods = await (await fetch("/api/productos?todas=1")).json(); } catch (_) { prods = []; }
-    var afectados = (prods || []).filter(function (p) { return normalizar(p.categoria).toLowerCase() === vo.toLowerCase(); });
-    for (var i = 0; i < afectados.length; i++) {
-      try { await fetch("/api/productos/" + encodeURIComponent(afectados[i].id), { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ categoria: "" }) }); } catch (_) {}
-    }
+    var n = await _cambiarCategoriaSegura(vo, "", true);
     _guardarCustom(_leerCustom().filter(function (x) { return normalizar(x).toLowerCase() !== vo.toLowerCase(); }));
     var oc = _leerOcultas();
     if (!oc.some(function (x) { return normalizar(x).toLowerCase() === vo.toLowerCase(); })) { oc.push(vo); _guardarOcultas(oc); }
     try { if (window.OCLastProductos) refrescar(window.OCLastProductos); } catch (_) {}
-    return afectados.length;
+    return n;
   }
 
   window.OCCategorias = {

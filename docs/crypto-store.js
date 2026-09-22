@@ -45,17 +45,12 @@
 // registrado, cambiarlo exige este código maestro; si NO hay correo (primera
 // vez), el dueño lo registra libremente, sin necesitar a JFC.
 //
-// LIMITACIÓN HONESTA: como esta es una app 100% cliente sin servidor, este
-// código vive embebido en el JS — cualquiera que lea el código fuente puede
-// verlo (aunque solo se guarda su HASH, no en texto plano). Es la única forma
-// de tener un "candado maestro" sin backend. Por eso el default de abajo debe
-// cambiarse por negocio si JFC quiere aislar el riesgo entre clientes.
-//
-// CAMBIAR ESTE CÓDIGO: edita MASTER_CODE_DEFAULT antes de entregar la app a
-// cada nuevo negocio (o dile a JFC su código actual si no lo recuerda — sin
-// él, ni siquiera JFC puede reasignar un correo ya registrado en ese negocio).
+// El permiso temporal lo emite el panel privado y lo valida el Worker de
+// licencias. La app pública no guarda una llave universal. Si este aparato ya
+// tiene un masterHash propio, se preserva su recuperación local/offline.
+// Esto mitiga el código público, no convierte un navegador bajo control de
+// DevTools en una frontera de seguridad: allí se pueden manipular JS y storage.
 // ===========================================================================
-const MASTER_CODE_DEFAULT = "POSCUENCA-MAESTRO-2026";
 
 // Sal fija para ofuscar el PIN del dueño (no es un secreto fuerte — protege
 // solo de lectura casual de localStorage; el hash PBKDF2 es el verdadero
@@ -388,8 +383,25 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   async function verificarMaestro(codigo) {
     if (segundosBloqueo("maestro") > 0) return false;
     const guardado = leerHashMaestroGuardado();
-    const hashIngresado = await hashMaestro(codigo);
-    const ok = guardado ? hashIngresado === guardado : hashIngresado === (await hashMaestro(MASTER_CODE_DEFAULT));
+    let ok = false;
+    if (guardado) {
+      ok = (await hashMaestro(codigo)) === guardado;
+    } else {
+      // Anclado al Worker oficial: una URL local sobrescrita no puede emitir
+      // permisos de recuperación. En ausencia de red o instancia, falla cerrado.
+      let owned;
+      try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) {}
+      if (!owned || !owned.instanceId) return false;
+      try {
+        const res = await fetch("https://friendly123-licencias.jfcarpio.workers.dev/maestro/verificar", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ instanceId: owned.instanceId, token: String(codigo || "").trim() }),
+        });
+        if (res.status >= 500) return false; // red/Worker no consume intentos locales
+        const data = await res.json();
+        ok = res.ok && data && data.ok === true;
+      } catch (_) { return false; }
+    }
     ok ? registrarExito("maestro") : registrarFallo("maestro");
     /* MARCA DE LORD (JFC 2026-08-26). Quien verifica el código maestro ES el
        super-admin (JFC). Se marca el aparato como lord para que, al unirse a la

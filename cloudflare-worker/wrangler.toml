@@ -11,6 +11,30 @@ kv_namespaces = [
   { binding = "LICENCIAS", id = "f1599c69c4174cc2b38dd125c18ee3df" }
 ]
 
+# OJO TOML (JFC 2026-09-22, casi-incidente): todo lo que viene DESPUÉS de un
+# encabezado [tabla] pertenece a esa tabla hasta el siguiente encabezado.
+# [secrets] estaba ANTES de kv_namespaces y lo absorbía como
+# secrets.kv_namespaces: el Worker se quedaba SIN el KV de licencias (lo
+# detectó `wrangler deploy --dry-run`, que no listaba env.LICENCIAS). Toda
+# clave de nivel superior (name, main, kv_namespaces...) va ARRIBA de
+# cualquier [tabla]. Correr siempre el dry-run y confirmar que aparezca
+# env.LICENCIAS antes de desplegar.
+[secrets]
+required = ["MASTER_KEY"]
+
+# Abuso de permisos temporales de recuperacion. IP: limite amplio porque
+# operadores moviles comparten IP; instancia: limite mas estricto. Estos
+# contadores son por ubicacion de Cloudflare, no una barrera criptografica.
+[[ratelimits]]
+name = "MAESTRO_IP"
+namespace_id = "661217"
+simple = { limit = 30, period = 60 }
+
+[[ratelimits]]
+name = "MAESTRO_INST"
+namespace_id = "661218"
+simple = { limit = 5, period = 60 }
+
 # SLA <=2s EN EL PANEL (JFC 2026-09-22). KV es eventually consistent por
 # diseno: un cambio puede tardar decenas de segundos en verse entre regiones.
 # Este Durable Object es un ESPEJO DE LECTURA fuertemente consistente para que

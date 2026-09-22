@@ -360,6 +360,13 @@
       </div>
       <p id="lic-diag" style="font-size:13px;font-family:var(--mono);margin:10px 0 0;min-height:18px;line-height:1.5;"></p>
     </div>
+    <div id="lic-maestro-box" role="status" aria-live="polite" style="display:none;background:var(--surface);border:2px solid var(--gold);border-radius:10px;padding:16px 18px;margin-bottom:14px;">
+      <strong style="color:var(--ink);">Permiso temporal de recuperación</strong>
+      <p id="lic-maestro-msg" style="color:var(--ink);font-size:14px;line-height:1.5;"></p>
+      <input class="lic-input" id="lic-maestro-token" type="text" readonly autocomplete="off" aria-label="Permiso temporal" style="width:100%;margin-bottom:8px;">
+      <button class="btn btn-primary" type="button" onclick="licCopiarMaestro()">Copiar permiso</button>
+      <button class="btn btn-outline" type="button" onclick="licCerrarMaestro()">Cerrar y borrar de pantalla</button>
+    </div>
     <div class="stats-bar" id="lic-stats" style="margin-bottom:14px;"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <input class="lic-input" id="lic-filtro" placeholder="Buscar nombre, email, cédula o código…" oninput="licFiltrar()" style="flex:1;min-width:200px;">
@@ -695,6 +702,41 @@ function licSetCfg(obj) {
 }
 function licWorkerUrl() { return (licGetCfg().workerUrl || "").trim(); }
 function licMasterKey() { return (licGetCfg().masterKey || "").trim(); }
+let _licMaestroTimer = null;
+function licCerrarMaestro() {
+  if (_licMaestroTimer) clearTimeout(_licMaestroTimer);
+  _licMaestroTimer = null;
+  const input = document.getElementById("lic-maestro-token");
+  if (input) input.value = "";
+  const box = document.getElementById("lic-maestro-box");
+  if (box) box.style.display = "none";
+}
+async function licEmitirMaestro(instanceId) {
+  licCerrarMaestro();
+  if (!licMasterKey() || !licWorkerUrl()) { mostrarConfirmacion("Conecta primero el panel privado al Worker."); return; }
+  if (!confirm("¿Ya verificaste personalmente la identidad del dueño? El permiso durará cinco minutos y solo servirá en este aparato.")) return;
+  try {
+    const res = await fetch(licWorkerUrl().replace(/\/+$/, "") + "/maestro/emitir", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() },
+      body: JSON.stringify({ instanceId }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data || typeof data.token !== "string") { mostrarConfirmacion("No se pudo emitir el permiso; revisa conexión y autorización."); return; }
+    const box = document.getElementById("lic-maestro-box");
+    const input = document.getElementById("lic-maestro-token");
+    document.getElementById("lic-maestro-msg").textContent = "Permiso válido durante cinco minutos solo para el aparato seleccionado. Úsalo en Acceso y recuperación. No cambia PINs ni datos por sí mismo.";
+    input.value = data.token; // solo DOM efímero, nunca localStorage ni logs
+    box.style.display = "block";
+    input.focus(); input.select();
+    _licMaestroTimer = setTimeout(licCerrarMaestro, 5 * 60 * 1000);
+  } catch (_) { mostrarConfirmacion("No se pudo contactar al Worker; no se emitió ningún permiso."); }
+}
+async function licCopiarMaestro() {
+  const input = document.getElementById("lic-maestro-token");
+  if (!input || !input.value) return;
+  try { await navigator.clipboard.writeText(input.value); mostrarConfirmacion("Permiso copiado. Caduca en cinco minutos."); }
+  catch (_) { input.focus(); input.select(); mostrarConfirmacion("Seleccionado; cópialo manualmente."); }
+}
 
 /* URL de fabrica del Worker de friendly-123. Esta aqui y no solo en
    wrangler.toml para que el panel funcione en cualquier navegador sin que
@@ -927,6 +969,7 @@ function licRenderTabla(data) {
       `<option value="bloqueada"${licNormEstado(est) === "bloqueada" ? " selected" : ""}>Blocked</option>` +
       `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button>` +
       (soloJfc ? ` <button class="btn-ok" title="Unificar el nombre de estos aparatos propios; cada edición queda en el historial recuperable" onclick="licUnificarNombre('${licEsc(g.cod)}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Unificar nombre</button>` : "") +
+      ` <button class="btn-ok" title="Emitir un permiso de recuperación de cinco minutos para este aparato; no cambia datos" onclick="licEmitirMaestro('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Recuperación</button>` +
       ` <button class="btn-ok" title="Re-enganchar esta oveja perdida a una licencia canónica (re-apunta su registro KV, reversible)" onclick="licReenganchar('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Re-enganchar</button>` +
       ` <button class="btn-ok" title="Delete this record (archived first, recoverable)" onclick="licBorrar('${id}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);margin-left:4px;">Delete</button></td>`;
     tb.appendChild(tr);
