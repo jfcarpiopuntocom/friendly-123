@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "El botón Purge & reload del candado del PIN queda reforzado para teléfonos viejos: ya no se cuelga si el navegador es lento en limpiar, y siempre logra recargar la versión nueva.",
+  "changelog": "El borde del candado del PIN vuelve a ser azul, como en AMIGABLE.",
   "requerida": false,
-  "shell": "f123-shell-v330",
+  "shell": "f123-shell-v331",
   "apagar": [],
   "releaseName": "v1.0"
 }

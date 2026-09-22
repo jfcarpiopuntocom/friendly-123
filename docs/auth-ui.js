@@ -370,7 +370,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   #oc-gate{position:fixed;inset:0;z-index:9999;background:var(--azul-oscuro,#1c3049);
     display:flex;align-items:center;justify-content:center;padding:20px;
     overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;overscroll-behavior-y:contain;}
-  #oc-gate .caja{background:#FFF8E8;border:2px solid var(--rust,#b2461f);
+  /* Borde del candado AZUL (JFC 2026-09-22: prefiere el look de AMIGABLE, no
+     naranja). --brass en el :root de index.html es #5294AC (azul-teal), no
+     "bronce" pese al nombre de la variable; --rust es el naranja de marca
+     #E86040. NO cambiar a --rust sin pedirselo antes a JFC. */
+  #oc-gate .caja{background:#FFF8E8;border:2px solid var(--brass,#5294AC);
     border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;
     margin:auto;flex:0 0 auto;}
   #oc-gate h2{font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;}
