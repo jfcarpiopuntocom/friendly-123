@@ -3935,7 +3935,37 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   const span = document.getElementById("oc-negocio-nombre");
   const btn = document.getElementById("oc-negocio-editar");
   if (!span || !btn) return;
-  const TITULO_DEFECTO = (window.t && window.t("header.bizNameDefault")) || "My store or shelf(s)";
+  /* UN SOLO DUEÑO POR ELEMENTO (JFC 2026-09-22). BUG: "aprieto el botón de
+     idiomas y el header vuelve a 'My store or shelf(s)'". El <span> llevaba
+     data-i18n="header.bizNameDefault" FIJO, y i18n.applyStatic() reescribe el
+     textContent de TODO [data-i18n] al cambiar de idioma — sin distinguir una
+     etiqueta de un DATO DEL USUARIO. Dos sistemas se peleaban el mismo
+     elemento y ganaba el último: el nombre real (a veces recién llegado por
+     sync desde otro aparato) se borraba con un botón local.
+     REGLA: con nombre real, el span NO lleva data-i18n (i18n no lo toca); sin
+     nombre, SÍ lo lleva y i18n traduce el texto por defecto al idioma nuevo.
+     Todo pintado del nombre pasa por ponerNombre(). No asignar
+     span.textContent a mano en otro lado o el bug vuelve.
+     El typeof es a propósito: test/business-header aísla ESTE bloque con un
+     span simulado sin métodos de atributo, y eso es parte de su contrato. */
+  function tituloDefecto() { return (window.t && window.t("header.bizNameDefault")) || "My store or shelf(s)"; }
+  function ponerNombre(nom) {
+    const real = String(nom || "").trim();
+    if (real) {
+      if (typeof span.removeAttribute === "function") span.removeAttribute("data-i18n");
+      span.textContent = real;
+    } else {
+      if (typeof span.setAttribute === "function") span.setAttribute("data-i18n", "header.bizNameDefault");
+      span.textContent = tituloDefecto(); // en el idioma ACTUAL, no el del arranque
+    }
+  }
+  // "¿Está mostrando el texto por defecto?" se decide por el atributo, no
+  // comparando texto: la comparación fallaba tras cambiar de idioma, porque el
+  // texto por defecto de antes se capturaba una sola vez al cargar.
+  function esDefecto() {
+    if (typeof span.hasAttribute === "function") return span.hasAttribute("data-i18n");
+    return span.textContent.trim() === tituloDefecto();
+  }
   let lecturaNombre = 0;
   function pintarNombreActivo() {
     try {
@@ -3943,7 +3973,7 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
       const unida = window.OCTienda && window.OCTienda.esUnida && window.OCTienda.esUnida();
       const owned = !unida && JSON.parse(localStorage.getItem("f123_owned") || "null");
       const conocido = owned && owned.nombreNegocio;
-      if (actual || conocido) span.textContent = actual || conocido;
+      if (actual || conocido) ponerNombre(actual || conocido);
     } catch (_) {}
   }
   async function cargarNombre() {
@@ -3960,7 +3990,7 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
            que OCTienda recibiera y aplicara otra actualización de Yjs. */
         const nom = (window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo()) ||
           inst.nombreNegocio || (!unida && owned && owned.nombreNegocio) || "";
-        span.textContent = nom || TITULO_DEFECTO;
+        ponerNombre(nom);
         // El nombre vacio durante el arranque no es un rename oficial. No
         // borrar la ultima identidad conocida ni copiar nombres de tiendas unidas.
         try { if (!unida && nom) { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o && (o.nombreNegocio || "") !== nom) {
@@ -3985,11 +4015,11 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   btn.addEventListener("click", async () => {
     try {
       const actual = span.textContent.trim();
-      const nuevo = (prompt("Your business name (shown above):", actual === TITULO_DEFECTO ? "" : actual) || "").trim();
+      const nuevo = (prompt("Your business name (shown above):", esDefecto() ? "" : actual) || "").trim();
       if (!nuevo) return;
       const d = await (await fetch(`${API}/instancia/nombre`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nuevo }) })).json();
       if (d && d.ok) {
-        span.textContent = d.nombreNegocio || nuevo;
+        ponerNombre(d.nombreNegocio || nuevo);
         try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); if (o) { o.nombreNegocio = d.nombreNegocio || nuevo; localStorage.setItem("f123_owned", JSON.stringify(o)); } } catch (_) {}
         /* HEARTBEAT AL RENOMBRAR (JFC 2026-09-15). Antes el nombre nuevo solo
            llegaba al Worker (y al panel privado de licencias) en el PRÓXIMO login;
@@ -4016,7 +4046,7 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
       // El merge ya trae el nombre confirmado: pintarlo en el mismo tick y
       // verificar después contra el namespace activo, sin exigir refresh.
       const nombre = ev && ev.detail && String(ev.detail.nombre || "").trim();
-      if (nombre) span.textContent = nombre;
+      if (nombre) ponerNombre(nombre); // nombre llegado por sync: i18n ya no puede pisarlo
       cargarNombre();
     } catch (_) {}
   });
@@ -4222,7 +4252,7 @@ async function cargarHoy(){
     // "Loading your business..." para siempre (bug que rompe la UI). Se pone el
     // titulo por defecto para que la pantalla se vea usable aunque el calculo del
     // dia haya fallado (ej. plan de pagos con datos incompletos).
-    try { const ht = document.getElementById("heroTitulo"); if (ht) ht.textContent = t("hoy.titulo.default"); } catch (_) {}
+    try { const ht = document.getElementById("heroTitulo"); if (ht) { ht.setAttribute("data-i18n", "hoy.titulo.default"); ht.textContent = t("hoy.titulo.default"); } } catch (_) {}
     try { console.error("[cargarHoy] /dashboard fallo:", err && err.message); } catch (_) {}
     return;
   }
@@ -4230,7 +4260,11 @@ async function cargarHoy(){
   const hero = document.getElementById("heroSemaforo");
   hero.className = "hero-semaforo tag-card " + data.semaforoGeneral;
   const tKey = { verde: "hoy.titulo.verde", amarillo: "hoy.titulo.amarillo", rojo: "hoy.titulo.rojo" }[data.semaforoGeneral];
-  document.getElementById("heroTitulo").textContent = tKey ? t(tKey) : t("hoy.titulo.default");
+  /* JFC 2026-09-22: el data-i18n del héroe apunta a la clave VIGENTE. Antes
+     era fijo en "hoy.titulo.default", así que al cambiar de idioma el héroe
+     perdía el mensaje del estado del día y volvía al genérico. */
+  { const _ht = document.getElementById("heroTitulo"), _k = tKey || "hoy.titulo.default";
+    _ht.setAttribute("data-i18n", _k); _ht.textContent = t(_k); }
   // Plata del negocio (ganancia/entra/sale/inventario): SOLO dueño. El titular
   // tampoco le revela la ganancia al encargado — solo el conteo de ventas.
   const esDuenoHoy = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
@@ -8189,8 +8223,10 @@ async function cargarDashboardInicial(intento){
     const hero = document.getElementById("heroSemaforo");
     hero.className = "hero-semaforo tag-card amarillo";
     if (window.OC_DEMO) {
+      document.getElementById("heroTitulo").setAttribute("data-i18n", "hero.loadingDemo");
       document.getElementById("heroTitulo").textContent = t("hero.loadingDemo");
-      document.getElementById("heroSubtitulo").textContent = "If this doesn't change in a few seconds, reload the page.";
+      // Estaba en inglés duro: un usuario en español lo leía en inglés.
+      document.getElementById("heroSubtitulo").textContent = t("hero.loadingDemoHint");
     } else {
       document.getElementById("heroTitulo").textContent = "Could not connect to the server.";
       document.getElementById("heroSubtitulo").textContent = "Verify that the backend (server.js) is running and reload the page.";

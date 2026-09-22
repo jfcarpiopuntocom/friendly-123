@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "La medición de velocidad del sync ya no gasta nada mientras nadie usa la app.",
+  "changelog": "Cambiar de idioma ya no borra el nombre de tu negocio del encabezado.",
   "requerida": false,
-  "shell": "f123-shell-v337",
+  "shell": "f123-shell-v338",
   "apagar": [],
   "releaseName": "v1.0"
 }
