@@ -267,7 +267,25 @@
   // Se persisten local (sin nube; el relay sigue zero-knowledge).
   var CUSTOM_KEY = "f123_categorias_custom";
   function _leerCustom() { try { var a = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
-  function _guardarCustom(a) { try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(a)); } catch (_) {} }
+  /* SYNC DE LA CONFIGURACIÓN (v344, JFC 2026-09-22): cada cambio de las listas
+     se avisa al backend con su estado, que lo sella con revisión y lo publica.
+     Se calcula por diferencia (lo que entró / lo que salió), así cubre TODOS los
+     caminos que guardan: agregar, renombrar, borrar, ocultar. Si el backend no
+     está (OCSync ausente), todo sigue funcionando local como antes. */
+  function _registrarCambios(vieja, nueva, estadoEntra, estadoSale) {
+    try {
+      if (!window.OCSync || !window.OCSync.marcarCategoria) return;
+      var low = function (arr) { return arr.map(function (x) { return String(x).trim().toLowerCase(); }); };
+      var v = low(vieja), n = low(nueva);
+      nueva.forEach(function (x) { if (v.indexOf(String(x).trim().toLowerCase()) === -1) window.OCSync.marcarCategoria(x, estadoEntra); });
+      vieja.forEach(function (x) { if (n.indexOf(String(x).trim().toLowerCase()) === -1) window.OCSync.marcarCategoria(x, estadoSale); });
+    } catch (_) {}
+  }
+  function _guardarCustom(a) {
+    var antes = _leerCustom();
+    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(a)); } catch (_) {}
+    _registrarCambios(antes, a, "custom", "borrada");
+  }
   /* Tombstones de categorías ocultas (JFC/Belén 2026-09-03): al renombrar una
      categoría SEMILLA los productos se mueven bien, pero la semilla seguía en la
      lista (vacía) → "se aumenta en vez de reemplazar" para las default. Se marca
@@ -275,7 +293,18 @@
      inventario real). */
   var OCULTAS_KEY = "f123_categorias_ocultas";
   function _leerOcultas() { try { var a = JSON.parse(localStorage.getItem(OCULTAS_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
-  function _guardarOcultas(a) { try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(a)); } catch (_) {} }
+  function _guardarOcultas(a) {
+    var antes = _leerOcultas();
+    try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(a)); } catch (_) {}
+    _registrarCambios(antes, a, "oculta", "visible");
+  }
+  // Llegó configuración de categorías de otro aparato (o de un respaldo):
+  // repintar la lista con los productos ya cargados.
+  try {
+    window.addEventListener("oc-categorias-cambiadas", function () {
+      try { if (window.OCLastProductos) refrescar(window.OCLastProductos); } catch (_) {}
+    });
+  } catch (_) {}
 
   var SEMILLA = [
     "Bar", "Kitchen", "Soft drinks", "Snacks",

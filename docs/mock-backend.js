@@ -198,6 +198,26 @@
   // siembra falla, se arranca sin historial; el error queda en consola.
   try { sembrarVentasDemo(); } catch (e) { console.error("Seed de ventas fallo (la app arranca sin historial):", e); }
   const gastosMensuales = {"galeria":900,"consigna":0,"bar":1500,"eventos":350};
+  /* CONFIGURACIÓN DE CATEGORÍAS QUE VIAJA (JFC 2026-09-22, hallazgo #2 de Codex).
+     borradores.js guarda en localStorage las categorías PROPIAS (aunque estén
+     vacías) y las OCULTAS. Eso no viajaba ni por sync ni en el respaldo: un
+     aparato nuevo no las veía. (Los productos sí viajan con su categoría; lo que
+     se perdía era la configuración.)
+     Mapa id(nombre en minúsculas) -> { id, nombre, estado, rev }, con estado:
+       custom  = categoría propia (en la lista aunque esté vacía)
+       borrada = se quitó de las propias (LÁPIDA: no resucita)
+       oculta  = categoría semilla escondida
+       visible = dejó de estar oculta
+     Se fusiona como el resto del catálogo: gana la revisión mayor. NO se unen
+     listas a ciegas: eso resucitaría el nombre viejo de una categoría renombrada
+     (el "se aumenta en vez de reemplazar" que reportó Belén).
+     Las dos listas de localStorage siguen siendo lo que lee la pantalla; este
+     mapa solo las AJUSTA para las categorías que tienen registro. Una categoría
+     sin registro jamás se toca. */
+  const categoriasMeta = {};
+  const _CAT_ESTADOS = ["custom", "borrada", "oculta", "visible"];
+  const _CAT_KEY_CUSTOM = "f123_categorias_custom";
+  const _CAT_KEY_OCULTAS = "f123_categorias_ocultas";
   // Usuarios nombrados (encargados): hasta 49.
   // El dueno NO aparece aqui — su acceso es por PIN en crypto-store.
   // Cada entrada: { id, nombre, pin, rol:"empleado", activo, creadoEn }
@@ -352,7 +372,7 @@
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
       movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
-      configuracion: { gastosMensuales: clonar(gastosMensuales) },
+      configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta) },
       usuarios: clonar(usuarios),
       instanceId: instanceId,
       nombreNegocio: nombreNegocio,
@@ -430,6 +450,70 @@
     // de las perchas creadas en runtime).
     ubicaciones.forEach((u) => { if (!(u.id in gastosMensuales)) gastosMensuales[u.id] = 0; });
     cacheUltimaVenta = { n: -1, map: null }; // el respaldo trae OTRAS ventas: cache fuera
+    /* Categorías: un respaldo viejo no trae categoriasMeta y entonces NO se toca
+       nada (las listas locales siguen como estaban). Si lo trae, se carga y se
+       reflejan sus registros en las listas: es lo que hace que restaurar un
+       respaldo devuelva también las categorías propias vacías y las ocultas. */
+    const _cm = body.configuracion && body.configuracion.categoriasMeta;
+    if (_cm && typeof _cm === "object") {
+      Object.keys(categoriasMeta).forEach((k) => delete categoriasMeta[k]);
+      const validas = [];
+      Object.keys(_cm).forEach((k) => {
+        const r = _cm[k];
+        if (!r || !r.id || _CAT_ESTADOS.indexOf(r.estado) === -1) return;
+        categoriasMeta[String(r.id)] = { id: String(r.id), nombre: String(r.nombre || r.id).slice(0, 120), estado: r.estado, rev: r.rev || null };
+        validas.push(categoriasMeta[String(r.id)]);
+      });
+      _reflejarCategoriasEnListas(validas);
+    }
+  }
+  function _leerListaCat(clave) {
+    try { const a = JSON.parse(localStorage.getItem(clave) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; }
+  }
+  /* Aplica registros de categorías a las listas que lee la pantalla. SOLO toca
+     los nombres que vienen en `registros`: una categoría sin registro (creada
+     antes de este cambio, o de otro origen) nunca se quita. */
+  function _reflejarCategoriasEnListas(registros) {
+    try {
+      if (!registros || !registros.length) return;
+      let custom = _leerListaCat(_CAT_KEY_CUSTOM), ocultas = _leerListaCat(_CAT_KEY_OCULTAS);
+      const esta = (arr, n) => arr.some((x) => String(x).trim().toLowerCase() === n);
+      const sin = (arr, n) => arr.filter((x) => String(x).trim().toLowerCase() !== n);
+      registros.forEach((r) => {
+        const n = String(r.nombre || r.id).trim();
+        const id = n.toLowerCase();
+        if (!id) return;
+        if (r.estado === "custom" && !esta(custom, id)) custom.push(n);
+        else if (r.estado === "borrada") custom = sin(custom, id);
+        else if (r.estado === "oculta" && !esta(ocultas, id)) ocultas.push(n);
+        else if (r.estado === "visible") ocultas = sin(ocultas, id);
+      });
+      localStorage.setItem(_CAT_KEY_CUSTOM, JSON.stringify(custom));
+      localStorage.setItem(_CAT_KEY_OCULTAS, JSON.stringify(ocultas));
+      try { window.dispatchEvent(new CustomEvent("oc-categorias-cambiadas")); } catch (_) {}
+    } catch (_) {}
+  }
+  /* Siembra registros para las categorías que ya existían antes de este cambio
+     (listas sin registro), para que un aparato nuevo también las reciba.
+     Revisión MÍNIMA a propósito ({c:0}): cualquier cambio explícito posterior
+     (una lápida, un renombre) gana siempre. Si se sembraran con una revisión
+     normal, un aparato que estuvo offline y se actualiza tarde podría
+     resucitar una categoría que otro aparato ya borró. */
+  function _sembrarCategoriasLegado() {
+    try {
+      let d = "";
+      try { d = String(localStorage.getItem("f123_device_id") || ""); } catch (_) {}
+      let n = 0;
+      const sembrar = (lista, estado) => lista.forEach((x) => {
+        const nom = String(x).trim(), id = nom.toLowerCase();
+        if (!id || categoriasMeta[id]) return;
+        categoriasMeta[id] = { id, nombre: nom.slice(0, 120), estado, rev: { c: 0, d } };
+        n++;
+      });
+      sembrar(_leerListaCat(_CAT_KEY_CUSTOM), "custom");
+      sembrar(_leerListaCat(_CAT_KEY_OCULTAS), "oculta");
+      if (n) guardarEstadoLocal();
+    } catch (_) {}
   }
   // FIX 2026-07-07: si localStorage esta lleno, el dueno creia que guardaba
   // y un refresh le comia el dia. Ahora hay banda roja persistente.
@@ -2308,6 +2392,22 @@
         if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
       }
     } catch (_) {}
+    /* Categorías (ver categoriasMeta). Gana la revisión mayor; una entrada
+       nueva se agrega. Solo se reflejan en pantalla las que cambiaron. */
+    if (Array.isArray(remoto.categorias)) {
+      const cambiosCat = [];
+      remoto.categorias.forEach((r) => {
+        if (!r || !r.id || _CAT_ESTADOS.indexOf(r.estado) === -1) return;
+        const id = String(r.id).trim().toLowerCase();
+        if (!id) return;
+        _observarRev(r.rev);
+        const mia = categoriasMeta[id];
+        if (mia && _revDomina(r.rev, mia.rev) !== true) return;
+        categoriasMeta[id] = { id, nombre: String(r.nombre || id).slice(0, 120), estado: r.estado, rev: r.rev || null };
+        cambiosCat.push(categoriasMeta[id]);
+      });
+      if (cambiosCat.length) { _reflejarCategoriasEnListas(cambiosCat); actualizados += cambiosCat.length; }
+    }
     mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
     /* HIDRATAR FOTOS TRAS SINCRONIZAR EL CATALOGO (v305). Arregla la CARRERA: el
@@ -2542,9 +2642,23 @@
       if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
       return n;
     },
+    /* borradores.js avisa cada cambio de categoría (alta, renombre, borrado,
+       ocultar, mostrar). Se sella con revisión y se publica al sync. */
+    marcarCategoria(nombre, estado) {
+      try {
+        const nom = String(nombre || "").trim();
+        if (!nom || _CAT_ESTADOS.indexOf(estado) === -1) return false;
+        const id = nom.toLowerCase();
+        categoriasMeta[id] = { id, nombre: nom.slice(0, 120), estado, rev: _revNueva() };
+        guardarEstadoLocal();
+        avisarCatalogoCambiado();
+        return true;
+      } catch (_) { return false; }
+    },
     /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
        DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
     catalogoPropio() {
+      _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       return {
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, fotoHash: u.fotoHash || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
         // NO PUBLICAR SEMILLA DEMO (v297, JFC 2026-09-16). Los productos de ejemplo
@@ -2590,6 +2704,8 @@
            integral"). Add-only en aplicarCatalogo: nunca se pisa una comision. */
         promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [], rev: p.rev || null, borrado: !!p.borrado })),
         sucursales: sucursales.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa !== false, rev: s.rev || null, borrado: !!s.borrado })),
+        // Configuración de categorías (propias vacías y ocultas). Ver categoriasMeta.
+        categorias: Object.keys(categoriasMeta).map((k) => Object.assign({}, categoriasMeta[k])),
         /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Cada venta
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola

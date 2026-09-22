@@ -323,7 +323,7 @@
   // Las fichas editables viajan con revision logica. Ventas, gastos y
   // transferencias usan IDs estables y actualizaciones individuales; los hechos
   // de cartera y caja chica van en un mapa inmutable aparte.
-  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas", "gastos", "transferencias", "dispositivos"];
+  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas", "gastos", "transferencias", "dispositivos", "categorias"];
   /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el dinero
      viajaba solo por el sync viejo (sync-realtime, frágil). Ahora las ventas cruzan
      por Yjs, ADD-ONLY por id (cada venta una sola vez -> no se duplica plata). No
@@ -337,7 +337,7 @@
      "dispositivos" (add-only por id; el aparato es dueño de SU entrada). Al recibir,
      aplicarCatalogo alimenta la lista de micelio (OCMicelio.recibir) para que el
      dueño vea sus aparatos en Advanced. Va en el batch: es diminuto. */
-  var COLECCIONES_BATCH = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "dispositivos"];
+  var COLECCIONES_BATCH = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "dispositivos", "categorias"]; // categorias (v344): propias vacias y ocultas, con rev y lapida
   var API = {
     estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, colecciones: COLECCIONES,
     // API genérica por colección (probar convergencia a mano o desde código).
@@ -758,7 +758,7 @@
               }
               // Una réplica rezagada no debe volver a publicar una ficha anterior
               // encima de una edición o baja que ya llegó al documento común.
-              if (prev && (col === "clientes" || col === "promotoras" || col === "sucursales" || col === "ubicaciones" || col === "productos" || col === "gastos" || col === "transferencias") &&
+              if (prev && (col === "clientes" || col === "promotoras" || col === "sucursales" || col === "ubicaciones" || col === "productos" || col === "gastos" || col === "transferencias" || col === "categorias") &&
                   (r.rev || prev.rev)) {
                 var a = r.rev || {}, b = prev.rev || {};
                 var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
