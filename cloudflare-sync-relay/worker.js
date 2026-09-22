@@ -172,6 +172,41 @@ export class SalaSync {
         if (msg.k === "op") { this._guardarOp(msg.id, msg.lam, msg.c); return; }
         if (msg.k === "ckpt") { this._guardarCkpt(msg.lam, msg.c); return; }
         if (msg.k === "pull") { this._responderPull(servidor, msg.lam); return; }
+        /* MEDICION DE LATENCIA (JFC 2026-09-22). Dos frames de control nuevos.
+           NINGUNO toca el almacenamiento: son memoria y reenvio puros. Esto es
+           deliberado — el incidente de costo de v328 fue por un SELECT COUNT(*)
+           en el camino caliente, y una medicion jamas debe poder repetir eso.
+           El relay SIGUE sin abrir ni interpretar contenido de negocio: aqui
+           solo viajan numeros de reloj y una etiqueta corta. (Redaccion a
+           proposito: sync-zero-trust.test.js veta el infinitivo de la palabra
+           "descifr-ar" en el fuente como guard anti-cripto. Aqui seria un falso
+           positivo, pero el guard protege algo real y NO se relaja por mi
+           comodidad: se reescribe el comentario, no la prueba.)
+
+           k:"ts"  -> devuelve la hora DEL RELAY. Es el reloj de referencia con
+                      el que cada aparato calcula su desfase (estilo NTP). Se
+                      consume, no se retransmite.
+           k:"lat" -> marca de origen de un cambio, ya en hora del relay. SI se
+                      retransmite a los demas (es para ellos) y se le agrega la
+                      hora de reenvio, que permite separar la pata
+                      emisor->relay de la pata relay->receptor. */
+        if (msg.k === "ts") {
+          try { servidor.send(JSON.stringify({ k: "tsr", t0: msg.t0, t1: Date.now() })); } catch (_) {}
+          return;
+        }
+        if (msg.k === "lat") {
+          const eco = JSON.stringify({
+            k: "lat",
+            oTs: msg.oTs,
+            etq: typeof msg.etq === "string" ? msg.etq.slice(0, 24) : "",
+            rTs: Date.now(),
+          });
+          for (const s of this.state.getWebSockets()) {
+            if (s === servidor) continue;
+            try { if (s.readyState === 1) s.send(eco); } catch (_) {}
+          }
+          return;
+        }
         // k desconocida: no se retransmite ni se guarda (evita amplificar).
         return;
       }

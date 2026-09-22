@@ -626,8 +626,15 @@
             var prod = (d && d.n && d.n.productos) || 0;
             var perchas = (d && d.n && d.n.ubicaciones) || 0;
             var fotos = (d && d.fotos) || 0;
+            /* SLA DE 2 SEGUNDOS, MEDIDO (JFC 2026-09-22). Antes esta linea solo
+               decia si habia conexion; la promesa de los 2 s no se podia ni
+               confirmar ni desmentir desde la app. Ahora muestra el numero REAL
+               con su margen de error. Si todavia no hay reloj comun con el relay
+               o no hubo cambios, lo dice en vez de inventar una cifra. */
+            var lat = "";
+            try { if (window.OCLatencia) lat = " · " + window.OCLatencia.texto(); } catch (_) {}
             el.textContent = "Sync: " + (conectado ? "connected" : "NOT connected") +
-              " · products " + prod + " · shelves " + perchas + " · photos " + fotos;
+              " · products " + prod + " · shelves " + perchas + " · photos " + fotos + lat;
             el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)";
           } catch (_) { el.textContent = "Sync: —"; }
         };

@@ -108,9 +108,30 @@
       if (!API.clave) return;
       publicar(tag, payload, false);
     }
+    /* Marca de origen para medir el SLA (JFC 2026-09-22). Va en un frame de
+       CONTROL aparte, NO dentro del update de Yjs: meterla en el payload
+       obligaria a cambiar el formato binario que ya usan los aparatos en la
+       calle, y un aparato viejo dejaria de entender los cambios. Asi, un
+       cliente o un relay que no conozca k:"lat" simplemente lo ignora y el
+       sync sigue igual de bien; lo unico que no habria es medicion.
+       Solo se marcan los updates de contenido (tag 0): los saludos y los
+       intercambios de state-vector no son "un cambio que el otro deberia ver",
+       y contarlos ensuciaria la estadistica con numeros que no significan nada
+       para el usuario. */
+    function marcarSalida(tag, etiqueta) {
+      try {
+        if (tag !== 0 || !window.OCLatencia) return;
+        var oTs = window.OCLatencia.marcarOrigen();
+        if (oTs === null) return; // sin reloj comun: no se mide (mejor que medir mal)
+        if (canal.ws && canal.ws.readyState === 1) {
+          canal.ws.send(JSON.stringify({ k: "lat", oTs: oTs, etq: etiqueta || suffix || "catalogo" }));
+        }
+      } catch (_) {}
+    }
     // Un update grande no cabe en el relay. Los trozos son frames cifrados
     // independientes; se reconstruyen antes de aplicar Yjs, nunca parcialmente.
     function publicar(tag, payload, persistir) {
+      marcarSalida(tag); // medicion: fuera del payload, no puede alterar el dato
       var piezas = Math.max(1, Math.ceil(payload.length / CHUNK_BYTES));
       if (piezas > 65535) { log("update Yjs excede limite de trozos"); return; }
       var id = Date.now().toString(36).padStart(10, "0").slice(-10) + Math.random().toString(36).slice(2, 8).padEnd(6, "0");
@@ -188,6 +209,22 @@
         reintentos = 0; // conexión buena: resetea el backoff
         try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": a quien esté en vivo
         try { ws.send(JSON.stringify({ k: "pull", lam: 0 })); } catch (_) {} // trae lo PERSISTIDO (async)
+        /* Sincroniza el reloj con el relay al conectar y cada 60 s. Sin esto no
+           hay forma honesta de medir latencia entre dos aparatos: sus relojes
+           no estan sincronizados entre si (ver el comentario largo de
+           sync-latencia.js). Es un frame de texto diminuto y el relay lo
+           responde sin tocar almacenamiento, asi que no pesa ni cuesta.
+           Se repite porque el desfase de un reloj deriva, y salta de golpe
+           cuando el sistema operativo lo re-sincroniza. */
+        var _ping = function () {
+          try { if (ws.readyState === 1) ws.send(JSON.stringify({ k: "ts", t0: Date.now() })); } catch (_) {}
+        };
+        _ping();
+        clearInterval(canal._tPing);
+        canal._tPing = setInterval(function () {
+          if (!canal.ws || canal.ws.readyState !== 1) { clearInterval(canal._tPing); return; }
+          _ping();
+        }, 60000);
         while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
         // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
         // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía
@@ -238,6 +275,19 @@
         // frames de texto (que no son nuestros marcos binarios) se ignoran.
         if (d instanceof ArrayBuffer) manejar(d);
         else if (typeof Blob !== "undefined" && d instanceof Blob) { try { d.arrayBuffer().then(manejar).catch(function () {}); } catch (_) {} }
+        /* MEDICION DE LATENCIA (JFC 2026-09-22). Los frames de TEXTO hasta hoy
+           se ignoraban por completo, asi que engancharse aqui es 100% aditivo:
+           nada de lo que ya funciona depende de esta rama. Y sobre todo, esto
+           corre FUERA del camino de datos de Yjs — no lee ni escribe el doc, no
+           puede corromper ni retrasar un cambio real. Si algo falla, se pierde
+           el numero, nunca el dato. */
+        else if (typeof d === "string" && window.OCLatencia) {
+          try {
+            var c = JSON.parse(d);
+            if (c && c.k === "tsr") window.OCLatencia.anotarPing(c.t0, c.t1, Date.now());
+            else if (c && c.k === "lat") window.OCLatencia.anotarMuestra(c.oTs, c.etq);
+          } catch (_) {} // texto que no es nuestro: se ignora igual que antes
+        }
       };
       ws.onclose = function () { canal.ws = null; reprogramar(); };
       ws.onerror = function () { try { ws.close(); } catch (_) {} };

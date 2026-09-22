@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "El respaldo por WhatsApp ahora sí incluye tus fotos: antes salía sin ninguna y no avisaba.",
+  "changelog": "La app ahora MIDE cuánto tarda un cambio en llegar a otro aparato, y lo muestra con su margen de error en Advanced.",
   "requerida": false,
-  "shell": "f123-shell-v334",
+  "shell": "f123-shell-v335",
   "apagar": [],
   "releaseName": "v1.0"
 }

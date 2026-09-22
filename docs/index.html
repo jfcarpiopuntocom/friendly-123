@@ -8215,6 +8215,10 @@ setTimeout(() => {
      es el único motor que cruza los BYTES de las fotos (sala "-fotos"). Solo se
      apaga si localStorage["OC_YJS_FASE0"]==="0". Corre en paralelo al sync viejo.
      Carga su bundle vendorizado a demanda. -->
+<!-- Medicion del SLA de 2s. Va ANTES de sync-yjs.js porque este engancha
+     window.OCLatencia al conectar. Si no cargara, sync-yjs sigue funcionando
+     igual: lo unico que se pierde es el numero, nunca el dato. -->
+<script src="./sync-latencia.js"></script>
 <script src="./sync-yjs.js"></script>
 <script src="./ui-actions.js"></script>
 <script src="./feature-gate.js"></script>
