@@ -6333,14 +6333,32 @@ async function confirmarVentaConInfo(id, esTicket){
   // Comisionista elegido en Vendido (JFC 2026-09-04): se asigna a la percha ANTES
   // de registrar la venta, así el reparto ya lo incluye y Comisiones no queda
   // vacío. Idempotente (poner el mismo valor no hace daño).
-  try {
+  // FIX (JFC 2026-09-22): este PUT tragaba cualquier fallo (catch vacío) y la
+  // venta seguía de todos modos, así que el split podía calcularse con el
+  // acuerdo/comisionista VIEJO si la asignación no llegó a guardarse (offline,
+  // conflicto de red, etc.) — causa real de "Commissions no coincide entre
+  // dispositivos". Ahora, si el selector pide un comisionista y el PUT falla o
+  // el servidor no confirma, la venta se BLOQUEA con aviso claro en vez de
+  // registrarse con un reparto potencialmente equivocado.
+  {
     const _selCom = document.getElementById("vi-comisionista");
     const _p2 = _ventaInfoProductoCache;
     if (_selCom && _p2 && _p2.ubicacionId) {
-      await fetch(`${API}/ubicaciones/${encodeURIComponent(_p2.ubicacionId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ promotoraId: _selCom.value || null }) });
-      try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {}
+      try {
+        const _resAsign = await fetch(`${API}/ubicaciones/${encodeURIComponent(_p2.ubicacionId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ promotoraId: _selCom.value || null }) });
+        if (!_resAsign.ok) {
+          msg.style.color = "var(--rojo,#a3392a)";
+          msg.textContent = "Could not save the associate for this shelf. Try again before selling.";
+          return;
+        }
+        try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {}
+      } catch (_errAsign) {
+        msg.style.color = "var(--rojo,#a3392a)";
+        msg.textContent = "Could not reach the server to save the associate. The sale was NOT recorded.";
+        return;
+      }
     }
-  } catch (_) {}
+  }
   _ventasEnCurso.add(id);
   try {
     let res, data;

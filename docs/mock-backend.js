@@ -3253,8 +3253,12 @@
         const prb = promotoras[idxP];
         if (prb.borrado) return J({ error: "Associate not found." }, 404);
         prb.borrado = true; prb.activa = false; prb.rev = _revNueva();
-        // Desasignar de las perchas que lo tenian
-        ubicaciones.forEach((u) => { if (u.promotoraId === prb.id) u.promotoraId = null; });
+        // Desasignar de las perchas que lo tenian. FIX (JFC 2026-09-22): antes NO
+        // se subia u.rev aqui, asi que Yjs (que mergea perchas por rev mas alto)
+        // podia conservar el promotoraId VIEJO en otro aparato que ya tenia una
+        // revision mayor de esa percha por otro motivo -> Commissions mostraba
+        // distinto entre dispositivos tras archivar un comisionista.
+        ubicaciones.forEach((u) => { if (u.promotoraId === prb.id) { u.promotoraId = null; u.rev = _revNueva(); } });
         mov("promotora-baja", { promotora: prb.nombre });
         return J({ ok: true });
       }

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "El borde del candado del PIN vuelve a ser azul, como en AMIGABLE.",
+  "changelog": "Dos correcciones a la consistencia de Commissions entre dispositivos: revisión al desasignar un comisionista archivado, y la asignación antes de vender ya no falla en silencio.",
   "requerida": false,
-  "shell": "f123-shell-v331",
+  "shell": "f123-shell-v332",
   "apagar": [],
   "releaseName": "v1.0"
 }
