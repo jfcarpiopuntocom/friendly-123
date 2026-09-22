@@ -116,3 +116,70 @@ después. Nunca `sed` a ciegas en minificado.
   y el bug real.
 - No parar a mitad de una tarea aprobada para pedir permiso otra vez. No dejar
   commits sin pushear. No hacerle pedir la misma cosa tres veces.
+
+## JFC actualizacion 2026-09-18 — prevalece sobre notas antiguas
+
+Friendly tiene cliente real y datos de produccion: ya NO es un repo de testeo. La prioridad 1AAA es integridad de datos; la promesa de sincronizacion total en <=2 segundos entre aparatos online y activos solo puede anunciarse tras medicion fisica, persistencia y visualizacion. El relay Yjs cifra los datos de negocio de extremo a extremo: la frase antigua «jamás salen productos/ventas del aparato» ya no describe el sync opt-in actual. No publicar claves, PIN, licencias completas ni datos de clientes.
+
+Mandato visual de JFC: todas las cajas y tarjetas de Friendly, amigable-123 y consultorio-123 tienen las cuatro esquinas completas. No reintroducir clip-path diagonal, esquina rota, doblez ni ojal. El header de Friendly en móvil debe ser compacto sin perder nombre, dispositivo, selector, idioma, usuario/rol, salir, ayuda ni estado. El diseño de PC no se rediseña por esta correccion. Nunca usar texto gris de bajo contraste.
+
+Codex trabaja en C:\00 Projects\Codex-Friendly-20260917\release-v307; este checkout local de Claude no debe sobrescribir trabajo de Codex. Al coordinar, inspeccionar origin/master y la bitacora privada C:\00 Projects\Codex-Friendly-20260917\CONTINUAR.md antes de tocar sync o identidad. Shell v319 estaba en preparacion al escribir esta nota; verificar el version.json publico y git log antes de asumir que esta live. Un iPhone Safari en v318 mostró un nombre antiguo en PIN y ninguno en header: no cambiar nombres reales ni borrar namespaces para «arreglar» la pantalla; diagnosticar la licencia/sala y conservar el ultimo nombre conocido.
+
+---
+
+## CONSTITUCIÓN DE TRABAJO (JFC 2026-09-22) — destilada de sus últimos 20 prompts
+Esto NO es estilo, es cómo se trabaja aquí. Si algo de abajo se incumple, el
+trabajo está mal hecho aunque el código funcione.
+
+### 1. No detenerse. La misión ya se dio.
+- Un plan aprobado con N pasos son N autorizaciones. Se ejecutan del 1 al N
+  seguido, en el mismo turno.
+- **PROHIBIDO decir "voy con X" y cerrar el turno.** Si lo anuncio, lo hago ya.
+  Anunciar y parar es peor que callar: él cree que arranqué y en realidad está
+  esperándome.
+- Nunca cerrar con "¿sigo?", "¿voy por ese?" ni con una lista de pendientes
+  presentada como menú. Lo que quede fuera se dice como hecho consumado y con
+  su razón ("no toqué X porque cambia la forma de la API").
+- Se para SOLO si hay bloqueo real: falta un dato que solo él tiene, o la
+  acción es destructiva/irreversible y no estaba autorizada.
+
+### 2. Respaldar de más, siempre.
+- Antes de CADA lote de cambios: copia + `SHA256-LINES.txt` con bytes, líneas
+  y SHA-256 de cada archivo tocado, en `backups/<fecha_hora>_<motivo>/`.
+- Ante la duda, respaldar. Nunca ha sobrado un respaldo.
+- Tras restaurar un archivo, **verificar por SHA-256** que quedó idéntico.
+
+### 3. Verificar antes de afirmar. Evidencia, no aserciones.
+- Skills obligatorias, se invocan sin que él las pida:
+  `systematic-debugging` ante cualquier bug o test rojo, ANTES de proponer fix;
+  `verification-before-completion` antes de decir "listo/arreglado/pasa".
+- Un test verde no prueba nada si no se comprobó que falla sin el fix:
+  **rojo-verde contra el respaldo real** siempre que se corrija un bug.
+- Un test de fijación (comportamiento que ya era correcto) se rotula como tal.
+  No se vende como prueba de un arreglo.
+- Desplegar NO es verificar. Solo la URL viva cuenta, y se dice qué prueba y
+  qué no prueba.
+- Si no puedo comprobar algo, se dice: *"hice X, falta que verifiques Y en
+  iOS"*. Falsa confianza encima de un bug es peor que el bug.
+
+### 4. Aditivo. Jamás dañar lo que ya funciona.
+- Campo nuevo antes que cambiar el formato; rama nueva antes que reescribir la
+  vieja; flag reversible antes que cutover.
+- Compatibilidad en las DOS direcciones: una app vieja debe poder leer lo nuevo
+  y viceversa. Subir `schemaVersion` hace que una app vieja RECHACE el archivo:
+  pensarlo dos veces.
+- Antes de agregar un guard, revisar quién llama hoy: un guard que rompe al
+  único llamador real es un bug, no una mejora.
+- Reusar lo probado. No inventar un patrón nuevo si ya hay uno funcionando.
+
+### 5. Git y entrega.
+- Commit + push sin pedir permiso. Nada se queda en el disco.
+- **Dar la URL viva sin que la pida**, siempre, en cada entrega.
+- `check-sw.sh` 5/5 y suite completa en verde antes de publicar.
+
+### 6. Honestidad operativa.
+- Cachearme los propios errores y decirlos. Un diagnóstico silencioso que no
+  funciona es peor que no tenerlo.
+- No relajar un test para que pase mi código: se corrige el código o el
+  comentario, nunca el guard que protege algo real.
+- Nunca mentir un logro ni inflar lo verificado.

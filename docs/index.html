@@ -1822,6 +1822,24 @@
 
   <!-- VISTA: ETIQUETAS -->
   <section id="vista-etiquetas" class="vista">
+    <!-- ESCANEAR PRIMERO (JFC 2026-09-22). Va ARRIBA de la lista de impresion a
+         proposito: una etiqueta se imprime UNA vez y se escanea muchas, asi que
+         la accion frecuente es la que debe estar bajo el pulgar, no enterrada
+         debajo de una grilla. Ademas es el empujon para que el equipo escanee en
+         vez de teclear: teclear un codigo a mano es de donde salen las ventas
+         cargadas al producto equivocado.
+         NO se duplica la logica de navegacion: se dispara el click del boton del
+         nav que ya existe, asi el resaltado del menu y el cargador de la vista
+         quedan sincronizados solos (si algun dia cambia la navegacion, esto
+         sigue funcionando porque usa el mismo camino que el usuario). -->
+    <div id="labels-escanear-bloque" style="margin:0 0 18px;">
+      <button type="button" id="btnLabelsEscanear"
+        style="display:block;width:100%;min-height:56px;padding:15px 18px;border:2px solid #0A0A0F;border-radius:10px;background:var(--rust,#E86040);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-family:var(--font-display,sans-serif);font-size:18px;font-weight:800;letter-spacing:.01em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;"
+        data-i18n="labels.scanCta">Scan a label</button>
+      <p style="margin:8px 0 0;font-size:15px;line-height:1.45;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;text-align:center;"
+        data-i18n="labels.scanHint">Point the camera at a printed label to sell or restock it — faster than typing the code, and it can't go to the wrong product.</p>
+    </div>
+
     <h3 class="seccion" style="margin-top:0;" data-i18n="labels.viewHeading">Labels ready to print</h3>
     <details style="margin:-4px 0 12px;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
@@ -4037,6 +4055,22 @@ document.querySelectorAll("nav button").forEach(btn => {
     document.getElementById(`vista-${btn.dataset.vista}`).classList.add("activa");
     refrescarVistaActiva();
   });
+});
+
+/* Escanear desde Labels (JFC 2026-09-22). Vive AQUI, junto a la navegacion,
+   porque de eso se trata — y NO un bloque mas arriba: test/business-header
+   aisla el tramo que termina en el marcador "Navegación" con un document
+   simulado minimo, asi que codigo de navegacion puesto antes de ese marcador
+   revienta ese test. Se ubica por tema, no por cercania al boton.
+   Reusa el boton del nav en vez de re-implementar el cambio de vista: un solo
+   camino, imposible que el resaltado del menu y la vista mostrada se
+   desincronicen. Si el boton del nav no existiera (un rol sin acceso a
+   escanear), simplemente no pasa nada. */
+document.addEventListener("click", function (ev) {
+  var b = ev.target && ev.target.closest ? ev.target.closest("#btnLabelsEscanear") : null;
+  if (!b) return;
+  var navBtn = document.querySelector('nav button[data-vista="escanear"]');
+  if (navBtn) navBtn.click();
 });
 
 // --- Alto real del header -> --riel-top (JFC 2026-08-05) ---

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "La app ahora MIDE cuánto tarda un cambio en llegar a otro aparato, y lo muestra con su margen de error en Advanced.",
+  "changelog": "Labels ahora abre con un botón grande para escanear: más rápido que teclear el código y no se va al producto equivocado.",
   "requerida": false,
-  "shell": "f123-shell-v335",
+  "shell": "f123-shell-v336",
   "apagar": [],
   "releaseName": "v1.0"
 }
