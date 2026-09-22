@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v339",
+  "shell": "f123-shell-v340",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-52c9169de7afa7d5d2b3e759351d2b1645796e65b49cd9a9453ead93c41f75d3",
+    "./index.html": "sha256-ea0c8c7e219ef6bf2128f412f132d456dd288b2c537d98e105d04f0a92920e0e",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-01cca524857852de4af14cc1aa439b513118c318d0e687c8599b507b0f6ba95d",
     "./404.html": "sha256-2b66d8b0c1e5f14b7e0d08cea8cf54c2813c3db36d86650fc95ee8935c1824da",
@@ -25,7 +25,7 @@
     "./lista-dinamica.js": "sha256-9757859c28498e2af7dfdc9507750fc6ed06ea9d7cdafb63f9bccb28b41c6937",
     "./vendor/ufuzzy.min.js": "sha256-310ef2b4e8a9233651561e21b5a5aca87a8d521d649ec04f7f7ecf62084826f0",
     "./vendor/minisearch.min.js": "sha256-eb8044e0fe10938ade4b12a579d5733e25d23ffca315509b8ae58b0a885b649c",
-    "./i18n.js": "sha256-82a9e92385c97c7b4210fc56e37cdb0f31c567e6c54f18c1f81b82c47edc36b9",
+    "./i18n.js": "sha256-01dabe49c9a59784a712374182d93384548b3094223450695f85ba38d6045a90",
     "./crypto-store.js": "sha256-a2aedffb4d052f4335d67d3f1426a0c9c2812ec1b45a90da7c06209e6caf7991",
     "./email-recovery.js": "sha256-12475b470318661c8575f712fd8fff2f32c082629105a46f3b82d04c98ec884e",
     "./auth-ui.js": "sha256-111ecd414739612e7282cefbc2ac86818bff6c305efbaa0dbd36a41fb2347af9",

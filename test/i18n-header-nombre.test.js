@@ -18,6 +18,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
+const { chromium } = require('playwright');
+const { pathToFileURL } = require('node:url');
+const { browser: fixtureBrowser } = require('./helpers/browser.cjs');
 
 const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
 const bloque = html.slice(html.indexOf('// --- Nombre editable del negocio'), html.indexOf('// --- Navegación ---'));
@@ -106,12 +109,69 @@ test('with no business name yet, the placeholder DOES follow the language', () =
   assert.equal(enIngles, i18n.t('header.bizNameDefault'));
 });
 
-test('a rename back to empty hands the element back to i18n', () => {
-  // Ida y vuelta completa del dueño: nombre real -> sin nombre. El span debe
-  // volver a ser traducible, no quedarse "huérfano" sin data-i18n.
+test('a real business name is removed from static translation ownership', () => {
+  // Un nombre real no debe quedar como una etiqueta traducible.
   const { span, eventos, i18n } = montar();
   eventos.get('oc-negocio-actualizado')({ detail: { nombre: 'Tienda fixture' } });
   assert.equal(span.hasAttribute('data-i18n'), false, 'con nombre real, i18n no es dueño');
   i18n.setLang('es');
   assert.equal(span.textContent, 'Tienda fixture');
+});
+
+test('real language buttons preserve a synchronized name and translate the location selector after redraw', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(pathToFileURL(path.join(__dirname, '../docs/index.html')).href,
+      { waitUntil: 'networkidle' });
+    const result = await page.evaluate(async () => {
+      const name = 'Fixture synchronized business';
+      const originalName = window.OCTienda.nombreActivo;
+      const originalPrompt = window.prompt;
+      window.OCTienda.nombreActivo = () => name;
+      try {
+        window.dispatchEvent(new CustomEvent('oc-negocio-actualizado', { detail: { nombre: name } }));
+        document.querySelector('.oc-lang-btn[data-lang="es"]').click();
+        await cargarUbicaciones();
+        let renamePrompt = '';
+        window.prompt = message => { renamePrompt = message; return null; };
+        document.getElementById('oc-negocio-editar').click();
+        const spanish = {
+          header: document.getElementById('oc-negocio-nombre').textContent,
+          all: document.querySelector('#selectUbicacion option[value="todas"]').textContent,
+          lang: document.documentElement.lang,
+          saved: localStorage.getItem('f123_lang'),
+          renamePrompt
+        };
+        document.querySelector('.oc-lang-btn[data-lang="en"]').click();
+        return { spanish, englishHeader: document.getElementById('oc-negocio-nombre').textContent };
+      } finally {
+        window.OCTienda.nombreActivo = originalName;
+        window.prompt = originalPrompt;
+      }
+    });
+    assert.equal(result.spanish.header, 'Fixture synchronized business');
+    assert.equal(result.spanish.lang, 'es');
+    assert.equal(result.spanish.saved, 'es');
+    assert.equal(result.spanish.all, 'Todas las ubicaciones');
+    assert.equal(result.spanish.renamePrompt, 'Nombre de tu negocio (mostrado arriba):');
+    assert.equal(result.englishHeader, 'Fixture synchronized business');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('sync carries the business name while each device keeps its own language', async () => {
+  const englishDevice = fixtureBrowser();
+  const spanishDevice = fixtureBrowser();
+  englishDevice.localStorage.setItem('f123_lang', 'en');
+  spanishDevice.localStorage.setItem('f123_lang', 'es');
+
+  await englishDevice.request('/api/instancia/nombre', 'POST', { nombre: 'Fixture shared name' });
+  spanishDevice.receive(englishDevice);
+
+  const instance = await spanishDevice.request('/api/instancia');
+  assert.equal(instance.nombreNegocio, 'Fixture shared name');
+  assert.equal(spanishDevice.localStorage.getItem('f123_lang'), 'es',
+    'el idioma es una preferencia del aparato, no un dato que el sync reescribe');
 });

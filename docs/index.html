@@ -2096,7 +2096,9 @@ async function cargarUbicaciones(){
   ubicaciones = datos;
   const sel = document.getElementById("selectUbicacion");
   const valorPrevio = sel.value;
-  sel.innerHTML = `<option value="todas" data-i18n="header.allLocations">All locations</option>` +
+  // El selector se reconstruye tras cambios locales o recibidos por sync.
+  // Debe nacer en el idioma activo; applyStatic solo traduce nodos existentes.
+  sel.innerHTML = `<option value="todas" data-i18n="header.allLocations">${escHtml(t("header.allLocations"))}</option>` +
     ubicaciones.map(u => `<option value="${u.id}">${escHtml(u.nombre)}</option>`).join("");
   // Si la ubicación que estaba seleccionada ya no existe en la lista (ej. se
   // desactivó), vuelve a "todas" en vez de quedar en un valor fantasma.
@@ -4015,7 +4017,7 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
   btn.addEventListener("click", async () => {
     try {
       const actual = span.textContent.trim();
-      const nuevo = (prompt("Your business name (shown above):", esDefecto() ? "" : actual) || "").trim();
+      const nuevo = (prompt(window.t("header.bizNamePrompt"), esDefecto() ? "" : actual) || "").trim();
       if (!nuevo) return;
       const d = await (await fetch(`${API}/instancia/nombre`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nuevo }) })).json();
       if (d && d.ok) {

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "COUNTER SALE registra una venta pura de la casa, sin exigir associate ni asignar comisión.",
+  "changelog": "Cambiar entre inglés y español conserva el nombre sincronizado del negocio; ubicaciones y etiquetas faltantes se traducen correctamente.",
   "requerida": false,
-  "shell": "f123-shell-v339",
+  "shell": "f123-shell-v340",
   "apagar": [],
   "releaseName": "v1.0"
 }
