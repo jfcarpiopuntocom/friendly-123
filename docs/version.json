@@ -3,7 +3,7 @@
   "fecha": "2026-09-22",
   "changelog": "Nueva prueba completa de 30 días al activar; después, compra tu licencia por WhatsApp o correo. Tus datos nunca se borran.",
   "requerida": false,
-  "shell": "f123-shell-v342",
+  "shell": "f123-shell-v343",
   "apagar": [],
   "releaseName": "v1.0"
 }

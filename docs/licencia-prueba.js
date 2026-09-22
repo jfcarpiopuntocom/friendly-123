@@ -20,6 +20,9 @@
    directamente; la tendencia (7d 24%, 14d 19%, 30d 14%; Basecamp: 30 días
    convirtió 30% más que 60) sugiere que 45 convierte algo menos, así que 30.
    Cambiar SOLO la constante PRUEBA_DIAS: los textos de la UI la leen de aquí.
+   EXCEPCIÓN: dos páginas estáticas no pueden leerla y dicen "30" a mano:
+   docs/save.html (2 frases) y docs/checklist.html (el botón). Actualizarlas
+   junto con la constante.
 
    SEGURIDAD PARA EL CLIENTE QUE PAGA — la regla más importante del archivo:
    todo falla ABIERTO. Si este módulo no carga, si localStorage no se puede
