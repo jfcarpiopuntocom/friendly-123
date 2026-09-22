@@ -6112,9 +6112,9 @@ async function abrirPanelVentaInfo(id, esTicket){
         // Compacto (JFC 2026-09-04): un ✎ que expande el selector inline, sin
         // ocupar una linea fija. Se muestra siempre en el modal de venta.
         return `<div style="margin-top:8px;">
-          <button type="button" id="vi-com-toggle" style="background:none;border:none;padding:0;font-size:13px;color:var(--azul-medio,#2c4a68);cursor:pointer;text-decoration:underline;">✎ ${actualNom ? "Commissionist: " + escHtml(actualNom) : "Assign commissionist / associate"}</button>
+          <button type="button" id="vi-com-toggle" style="background:none;border:none;padding:0;font-size:13px;color:var(--azul-medio,#2c4a68);cursor:pointer;text-decoration:underline;">✎ ${actualNom ? "Commissionist: " + escHtml(actualNom) : "COUNTER SALE — house (no commission)"}</button>
           <select id="vi-comisionista" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
-            <option value="">— None —</option>
+            <option value="__counter__"${!actualNom ? " selected" : ""}>COUNTER SALE — house (no commission)</option>
             ${(_promsVenta || []).map(function(pr){ return `<option value="${escHtml(pr.id)}"${_perchaVenta && _perchaVenta.promotoraId === pr.id ? " selected" : ""}>${escHtml(pr.nombre)}</option>`; }).join("")}
           </select>
         </div>`;
@@ -6398,9 +6398,10 @@ async function confirmarVentaConInfo(id, esTicket){
   const _precioFiado = _tieneOverride ? _ovNum : ((_ventaInfoProductoCache && Number(_ventaInfoProductoCache.precio)) || 0);
   const _nombreFiado = (_ventaInfoProductoCache && _ventaInfoProductoCache.nombre) || "";
   const _cantVenta = _esBar ? _servings : _cantMostrador;
-  // Comisionista elegido en Vendido (JFC 2026-09-04): se asigna a la percha ANTES
-  // de registrar la venta, así el reparto ya lo incluye y Comisiones no queda
-  // vacío. Idempotente (poner el mismo valor no hace daño).
+  // DISEÑO JFC (2026-09-22): COUNTER SALE es una venta pura de la casa. Nunca
+  // exige associate/comisionista, no genera comisión y NO borra ni modifica el
+  // acuerdo permanente de la percha. Solo si el usuario elige una persona se
+  // guarda esa asignación antes de vender para calcular el reparto correcto.
   // FIX (JFC 2026-09-22): este PUT tragaba cualquier fallo (catch vacío) y la
   // venta seguía de todos modos, así que el split podía calcularse con el
   // acuerdo/comisionista VIEJO si la asignación no llegó a guardarse (offline,
@@ -6408,12 +6409,15 @@ async function confirmarVentaConInfo(id, esTicket){
   // dispositivos". Ahora, si el selector pide un comisionista y el PUT falla o
   // el servidor no confirma, la venta se BLOQUEA con aviso claro en vez de
   // registrarse con un reparto potencialmente equivocado.
+  let _modoComisionVenta = "counter";
   {
     const _selCom = document.getElementById("vi-comisionista");
     const _p2 = _ventaInfoProductoCache;
-    if (_selCom && _p2 && _p2.ubicacionId) {
+    const _comisionistaElegido = _selCom && _selCom.value !== "__counter__" ? _selCom.value : "";
+    if (_comisionistaElegido && _p2 && _p2.ubicacionId) {
+      _modoComisionVenta = "associate";
       try {
-        const _resAsign = await fetch(`${API}/ubicaciones/${encodeURIComponent(_p2.ubicacionId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ promotoraId: _selCom.value || null }) });
+        const _resAsign = await fetch(`${API}/ubicaciones/${encodeURIComponent(_p2.ubicacionId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ promotoraId: _comisionistaElegido }) });
         if (!_resAsign.ok) {
           msg.style.color = "var(--rojo,#a3392a)";
           msg.textContent = "Could not save the associate for this shelf. Try again before selling.";
@@ -6433,7 +6437,7 @@ async function confirmarVentaConInfo(id, esTicket){
     try {
       res = await fetch(`${API}/productos/${id}/venta`, {
         method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info })
+        body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info, modoComision: _modoComisionVenta })
       });
       data = await res.json();
     } catch (err) {

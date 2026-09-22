@@ -3510,7 +3510,14 @@
               : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : p.precio));
         const montoBruto = precioEfectivo * cant;
         const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
-        const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null;
+        /* DISEÑO JFC (2026-09-22): COUNTER SALE pertenece íntegramente a la
+           casa. Es una decisión por venta, no una edición de la percha: no se
+           exige comisionista, no se crea split y no se desasigna a nadie del
+           acuerdo permanente. Ausente conserva el contrato histórico. */
+        const modoComision = body && body.modoComision === "counter" ? "counter" : "acuerdo";
+        const split = modoComision === "counter"
+          ? null
+          : (ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null);
         p.stockActual -= cant;
         let clienteVenta = null;
         if (body.clienteId) {
@@ -3551,7 +3558,7 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, modoComision, liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
         emitirOpStock("venta", { productoId: p.id, delta: -cant });
         return J({ producto: ficha(p), ventaId });
@@ -4055,9 +4062,12 @@
           comisionPct: v.split ? v.split.comisionPct : null,
           comisionAsociado: v.split ? v.split.montoComisionSocio : 0,
           netoCasa: v.split ? v.split.montoNetoDueno : null,
+          modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
           comisionCorregida: !!(v.split && v.split.corregida),
           liquidada: !!v.liquidada,
-          asociadoNombre: pr ? pr.nombre : "",
+          // COUNTER SALE no se atribuye a la persona permanente de la percha:
+          // el nombre acompaña solo a ventas que realmente tienen reparto.
+          asociadoNombre: v.split && pr ? pr.nombre : "",
         };
       }));
     }

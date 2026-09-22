@@ -183,3 +183,13 @@ trabajo está mal hecho aunque el código funcione.
 - No relajar un test para que pase mi código: se corrige el código o el
   comentario, nunca el guard que protege algo real.
 - Nunca mentir un logro ni inflar lo verificado.
+
+### 7. COUNTER SALE es una venta pura de la casa (JFC 2026-09-22).
+- Al registrar una venta, **nunca** se puede exigir elegir associate o
+  comisionista. `COUNTER SALE` significa que vende la casa y no se asigna
+  comisión a nadie.
+- Es una elección por venta: no borra ni altera el associate permanente de la
+  percha. Si se elige una persona, se aplica su acuerdo; si se elige COUNTER
+  SALE, la venta queda sin split de comisión.
+- Esta regla es diseño deliberado de JFC. No convertirla en validación
+  obligatoria ni en una edición silenciosa de la percha en cambios futuros.
