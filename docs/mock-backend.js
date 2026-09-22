@@ -3877,7 +3877,16 @@
       if (r.error) return J({ error: r.error }, r.status || 400);
       return J(r);
     }
-      if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/))) {
+      /* GUARD DE METODO (JFC 2026-09-22): este endpoint SELLA ventas como
+         liquidadas — es una escritura de dinero y no debe poder dispararse con
+         un GET. Le faltaba el `opts.method` que si tienen sus 17 vecinos, asi
+         que la ruta matcheaba con cualquier verbo. Hoy el unico llamador real
+         (index.html ~L7758) ya manda POST, asi que agregar el guard NO cambia
+         el comportamiento de nada que funcione: solo cierra la puerta a que un
+         prefetch, un proxy o una herramienta de diagnostico liquide ventas sin
+         que nadie lo pidiera. Un verbo distinto cae al 404 del router (~L4490),
+         igual que en todos los demas endpoints. */
+      if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/)) && opts && opts.method === "POST") {
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
         const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMesActual(v.fecha) && !v.liquidada);
         pend.forEach((v) => { v.liquidada = true; v.rev = _revNueva(); });
@@ -4235,8 +4244,23 @@
         if (!c) return J({ error: "Customer not found." }, 404);
         const accion = mCliAct[2];
         c.despedido = accion === "despedir";
+        /* FIX (JFC 2026-09-22): faltaba el sello logico. El merge de clientes
+           (aplicarCatalogo, ~L2153) SOLO aplica el registro remoto si
+           _revDomina(remoto.rev, mio.rev) === true; sin subir rev aqui, despedir
+           o reactivar a un cliente NO viajaba nunca al otro aparato — quedaba
+           vivo en un dispositivo y despedido en el otro. El campo `despedido` ya
+           viaja en el catalogo (~L2588), asi que solo faltaba la revision.
+           Misma clase de bug que el de promotoras archivadas corregido en v332.
+           Sus endpoints vecinos (editar contacto ~L4193, borrar ~L4249) ya lo
+           hacian bien; este se habia quedado atras. */
+        c.rev = _revNueva();
         mov(accion === "despedir" ? "cliente-despedido" : "cliente-reactivado", { cliente: c.nombre, quien: body.quien || "Sistema" });
         guardarEstadoLocal();
+        /* La baja/alta operativa de un cliente se publica YA (rebote de 400 ms en
+           pedirSeed) en vez de esperar al re-sembrado periodico de 2 s. Mismo
+           patron que usa marcar-pagado (~L3885). Es idempotente: sembrar()
+           compara y reescribe por id, disparar de mas nunca duplica nada. */
+        avisarCatalogoCambiado();
         return J({ ok: true, despedido: c.despedido });
       }
       // DELETE /api/clientes/:id — borra el cliente por completo (solo dueño/admin).

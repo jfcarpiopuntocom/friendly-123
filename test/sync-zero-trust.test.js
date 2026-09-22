@@ -1,6 +1,17 @@
 // sync-zero-trust.test.js — Blindaje del Hybrid Proxy Tunnel Sync Engine.
 // Se corre con: npm test  (node --test).
 //
+// ALCANCE REAL DE ESTA SUITE (aviso agregado JFC 2026-09-22, no cambia ninguna
+// prueba): parte de las aserciones de abajo verifican el CIFRADO de verdad
+// (derivan la clave y descifran), pero otras solo comprueban que ciertos
+// simbolos EXISTEN en el codigo fuente. Esas ultimas no prueban que la funcion
+// llegue a ejecutarse ni que el dato termine bien guardado. No tratar un verde
+// de esta suite como evidencia de convergencia extremo a extremo.
+// Para comportamiento real de sync usar, en este mismo repo:
+//   test/yjs-bridge.test.js     — puente Yjs con el bundle real
+//   test/sync-behavior.test.js  — convergencia entre dos backends aislados
+//   test/sync-hardening.test.js — regresiones de rev/verbo HTTP (v332-v333)
+//
 // Garantiza lo que el relay NO debe poder hacer y lo que el cifrado SI debe
 // garantizar, replicando la MISMA derivacion que docs/sync-realtime.js:
 //   - Una sala equivocada NO descifra (aislamiento real).

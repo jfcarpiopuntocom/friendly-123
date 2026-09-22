@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "Dos correcciones a la consistencia de Commissions entre dispositivos: revisión al desasignar un comisionista archivado, y la asignación antes de vender ya no falla en silencio.",
+  "changelog": "Despedir o reactivar a un cliente ahora sí viaja al resto de tus aparatos, y sellar una liquidación exige una acción explícita.",
   "requerida": false,
-  "shell": "f123-shell-v332",
+  "shell": "f123-shell-v333",
   "apagar": [],
   "releaseName": "v1.0"
 }
