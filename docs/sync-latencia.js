@@ -50,6 +50,12 @@
 
   var TOPE_MUESTRAS = 200;   // buffer circular: memoria acotada en un teléfono
   var TOPE_EDAD_MS = 10 * 60 * 1000; // una muestra de hace 10 min ya no describe el ahora
+  /* LA PROMESA, con nombre. Es el numero mas importante del modulo y vivia
+     anonimo dentro de un ternario. Si JFC endurece el SLA, se cambia aqui y
+     en ningun otro lado. */
+  var SLA_MS = 2000;
+  var MIN_MUESTRAS_VEREDICTO = 5;   // con menos, un p95 es ruido: no se opina
+  var RTT_MAX_MS = 30000;           // ida y vuelta de 30 s no describe nada util
 
   var muestras = [];      // { ms, etiqueta, en }
   var mejorPing = null;   // { rtt, desfase, en } — la de MENOR rtt
@@ -62,7 +68,7 @@
     if (![t0, t1, t2].every(function (v) { return typeof v === "number" && isFinite(v); })) return false;
     var rtt = t2 - t0;
     if (rtt < 0) return false;            // reloj corrido a mitad del intercambio
-    if (rtt > 30000) return false;        // 30 s de ida y vuelta: no describe nada útil
+    if (rtt > RTT_MAX_MS) return false;
     var desfase = t1 - (t0 + t2) / 2;
     var ahora = Date.now();
     var caduco = mejorPing && (ahora - mejorPing.en) > TOPE_EDAD_MS;
@@ -122,7 +128,7 @@
       medible: hayReloj(),
       // El veredicto del SLA solo se emite con muestras suficientes; con pocas
       // se dice "sin datos" en vez de aprobar o reprobar a la ligera.
-      cumpleSLA: ms.length >= 5 ? (percentil(ms, 95) <= 2000) : null,
+      cumpleSLA: ms.length >= MIN_MUESTRAS_VEREDICTO ? (percentil(ms, 95) <= SLA_MS) : null,
     };
   }
 
@@ -139,5 +145,6 @@
   window.OCLatencia = {
     anotarPing: anotarPing, anotarMuestra: anotarMuestra, marcarOrigen: marcarOrigen,
     ahoraRelay: ahoraRelay, hayReloj: hayReloj, resumen: resumen, texto: texto, reiniciar: reiniciar,
+    SLA_MS: SLA_MS,
   };
 })();

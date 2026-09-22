@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "Labels ahora abre con un botón grande para escanear: más rápido que teclear el código y no se va al producto equivocado.",
+  "changelog": "La medición de velocidad del sync ya no gasta nada mientras nadie usa la app.",
   "requerida": false,
-  "shell": "f123-shell-v336",
+  "shell": "f123-shell-v337",
   "apagar": [],
   "releaseName": "v1.0"
 }

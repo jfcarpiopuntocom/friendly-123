@@ -136,3 +136,21 @@ test('the summary text never states a number it cannot back', () => {
   L.anotarMuestra(L.ahoraRelay() - 300, 'catalogo');
   assert.match(L.texto(), /±/, 'y cuando da un número, viene con su margen');
 });
+
+test('structural cost guard: the clock ping is never on a timer', () => {
+  /* GUARD ESTRUCTURAL, rotulado como tal: no prueba comportamiento, prueba la
+     AUSENCIA de un temporizador — que es justo lo que era el bug de v335. Aquí
+     un chequeo de fuente es la herramienta correcta, porque el defecto no es
+     un resultado equivocado sino una estructura que cuesta plata.
+     La v335 hacía ping cada 60 s en los TRES canales; el relay usa WebSocket
+     Hibernation y cada mensaje lo despierta: 3 despertares/min/aparato en
+     reposo. El ping ahora sale una vez al conectar y luego solo por actividad. */
+  const src = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'docs', 'sync-yjs.js'), 'utf8');
+  const bloquesPing = src.split('\n').filter(l => /k:\s*"ts"/.test(l));
+  assert.ok(bloquesPing.length >= 1, 'el ping existe');
+  assert.doesNotMatch(src, /_tPing/, 'no quedó el temporizador de ping por canal');
+  // Ningún setInterval puede enviar un ping de reloj.
+  const conIntervalo = src.match(/setInterval\([\s\S]{0,400}?\}\s*,\s*\d+\)/g) || [];
+  assert.ok(!conIntervalo.some(b => /k:\s*"ts"/.test(b)), 'ningún setInterval envía k:"ts"');
+});

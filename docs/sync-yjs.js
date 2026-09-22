@@ -122,7 +122,13 @@
       try {
         if (tag !== 0 || !window.OCLatencia) return;
         var oTs = window.OCLatencia.marcarOrigen();
-        if (oTs === null) return; // sin reloj comun: no se mide (mejor que medir mal)
+        if (oTs === null) {
+          /* Sin reloj comun (o caduco): este cambio viaja sin marca y se pide un
+             ping, para que el SIGUIENTE ya se pueda medir. Asi el reloj se
+             refresca solo cuando hay actividad real, nunca por temporizador. */
+          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(JSON.stringify({ k: "ts", t0: Date.now() }));
+          return;
+        }
         if (canal.ws && canal.ws.readyState === 1) {
           canal.ws.send(JSON.stringify({ k: "lat", oTs: oTs, etq: etiqueta || suffix || "catalogo" }));
         }
@@ -209,22 +215,20 @@
         reintentos = 0; // conexión buena: resetea el backoff
         try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": a quien esté en vivo
         try { ws.send(JSON.stringify({ k: "pull", lam: 0 })); } catch (_) {} // trae lo PERSISTIDO (async)
-        /* Sincroniza el reloj con el relay al conectar y cada 60 s. Sin esto no
-           hay forma honesta de medir latencia entre dos aparatos: sus relojes
-           no estan sincronizados entre si (ver el comentario largo de
-           sync-latencia.js). Es un frame de texto diminuto y el relay lo
-           responde sin tocar almacenamiento, asi que no pesa ni cuesta.
-           Se repite porque el desfase de un reloj deriva, y salta de golpe
-           cuando el sistema operativo lo re-sincroniza. */
-        var _ping = function () {
-          try { if (ws.readyState === 1) ws.send(JSON.stringify({ k: "ts", t0: Date.now() })); } catch (_) {}
-        };
-        _ping();
-        clearInterval(canal._tPing);
-        canal._tPing = setInterval(function () {
-          if (!canal.ws || canal.ws.readyState !== 1) { clearInterval(canal._tPing); return; }
-          _ping();
-        }, 60000);
+        /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
+           "catalogo". FIX de costo (JFC 2026-09-22, v337): la v335 hacia ping cada
+           60 s en LOS TRES canales (catalogo, fotos, ops). El relay usa WebSocket
+           Hibernation, cuyo unico proposito es no cobrar mientras esta quieto, y
+           cada mensaje entrante lo despierta: eran 3 despertares por minuto por
+           aparato, para siempre, aunque nadie tocara nada. Encima era redundante:
+           el desfase es del RELOJ DEL APARATO, no del canal, y OCLatencia lo
+           guarda una sola vez para todos. El refresco ya no es por reloj sino por
+           ACTIVIDAD: marcarSalida() pide un ping nuevo solo cuando va a sellar un
+           cambio y el reloj caduco. Costo en reposo: cero.
+           NO volver a poner un setInterval aqui. */
+        if (nombre === "catalogo") {
+          try { ws.send(JSON.stringify({ k: "ts", t0: Date.now() })); } catch (_) {}
+        }
         while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
         // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
         // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía

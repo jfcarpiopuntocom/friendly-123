@@ -742,6 +742,13 @@ export default {
    regla (normalizar estado, agrupar hermanos, revisiones del nombre) vive en
    el Worker, para que las dos rutas de lectura no puedan divergir.
    ───────────────────────────────────────────────────────────────────── */
+/* Tamano de pagina de storage.list(). Estaba escrito DOS veces (en el limit y
+   en la condicion de corte): si alguien cambiaba uno y no el otro, la
+   paginacion se cortaba antes o se desfasaba EN SILENCIO y el panel empezaba a
+   esconder aparatos. Un solo numero, un solo lugar. 1000 es el maximo que
+   admite storage.list() por llamada. */
+const PAGINA_DO = 1000;
+
 export class RegistroLicencias {
   constructor(state) { this.state = state; }
 
@@ -769,13 +776,13 @@ export class RegistroLicencias {
       const salida = [];
       let desde;
       for (;;) {
-        const opciones = { prefix: "inst:", limit: 1000 };
+        const opciones = { prefix: "inst:", limit: PAGINA_DO };
         if (desde) opciones.startAfter = desde;
         const pagina = await this.state.storage.list(opciones);
         if (!pagina || pagina.size === 0) break;
         let ultima;
         for (const [clave, valor] of pagina) { salida.push(valor); ultima = clave; }
-        if (pagina.size < 1000) break;
+        if (pagina.size < PAGINA_DO) break;
         desde = ultima;
       }
       return new Response(JSON.stringify(salida), { headers: { "Content-Type": "application/json" } });
