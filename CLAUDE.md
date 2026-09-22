@@ -50,6 +50,21 @@ Un archivo del SHELL es cualquiera listado en `const SHELL=[...]` de `docs/sw.js
 Saltarse esto deja a los aparatos ya instalados con una MEZCLA de shell viejo y
 nuevo (fue el bug del "Avanzado roto" / "la app corre distinto en cada aparato").
 
+> **⚠ TRAMPA ACTIVA EN WINDOWS (descubierta 2026-09-22, afecta a Claude y a
+> Codex por igual).** En este checkout `core.autocrlf=true` y no hay
+> `.gitattributes`: el disco queda en CRLF, pero GitHub Pages sirve el blob de
+> git en LF. `gen-manifest.js` hashea los bytes del DISCO, así que el
+> manifiesto guarda hashes CRLF que NO coinciden con producción. Y
+> `check-sw.sh` compara contra ese mismo disco: **da 5/5 OK aunque el
+> manifiesto esté mal para producción.** Un OK de check-sw en Windows NO
+> prueba nada sobre lo que descargan los aparatos.
+> Verificación real, contra lo que sirve Pages:
+> `curl -s https://jfcarpiopuntocom.github.io/friendly-123/<archivo> | sha256sum`
+> o sin red: `git show HEAD:docs/<archivo> | sha256sum`.
+> Pendiente de decisión de JFC: normalizar CRLF→LF en gen-manifest y
+> check-sw (o `.gitattributes` con `eol=lf`) y regenerar. El SRI del SW es
+> fail-open, así que esto no deja a nadie afuera ni pierde datos.
+
 ## SISTEMA DE INTEGRIDAD DE VERSIÓN (ya montado, no romper)
 
 - `version-manifest.json`: SHA-256 por archivo del shell.
