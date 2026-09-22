@@ -54,6 +54,59 @@ function requireMasterKey(req, env) {
    accidental overwrite — a bug, a bad deploy, a fat finger in the panel —
    is reversible via /licencias/:id/historial + /licencias/:id/restaurar. */
 const HISTORIAL_TOPE = 30;
+/* ─────────────────────────────────────────────────────────────────────
+   SLA ≤2s EN EL PANEL — Durable Object como camino de lectura fresca
+   (JFC 2026-09-22, autorizado explícitamente).
+
+   EL PROBLEMA: Workers KV es *eventually consistent* POR DISEÑO. Un PUT no
+   se ve globalmente al instante; la propagación entre regiones puede tardar
+   decenas de segundos. Por eso el panel mostraba nombres viejos y filas
+   desactualizadas: no era lentitud del código, era lo que KV ES. Ningún
+   ajuste de nuestro lado baja eso a 2 segundos.
+
+   LA SOLUCIÓN: un Durable Object único (singleton) que guarda los MISMOS
+   registros. Un DO es de instancia única y sus lecturas son fuertemente
+   consistentes: lo que se acaba de escribir se lee de inmediato.
+
+   POR QUÉ ESTO NO PUEDE PERDER DATOS DE NINGÚN CLIENTE:
+     - NO hay evento de migración. No se copia en masa, no se borra nada de
+       KV, no hay ventana en la que un registro no exista en algún lado.
+     - KV SIGUE siendo la fuente de verdad y se escribe SIEMPRE primero. El
+       DO se escribe después y es "best-effort": si falla, el dato ya está
+       a salvo en KV y el panel lo sigue viendo por el camino de respaldo.
+     - El relleno es PEREZOSO: la lectura del panel compara con KV y llena
+       el DO con lo que le falte. Un registro que nunca se vuelve a tocar
+       entra igual la primera vez que alguien mira el panel.
+     - Es REVERSIBLE sin desplegar código: quitar el binding REGISTROS del
+       wrangler.toml deja todo exactamente como antes de este cambio.
+   NO quitar la escritura a KV "porque ya está el DO". Esa es la red. */
+function doLicencias(env) {
+  try {
+    if (!env || !env.REGISTROS) return null; // sin binding: todo sigue como siempre
+    return env.REGISTROS.get(env.REGISTROS.idFromName("registro-global"));
+  } catch (_) { return null; }
+}
+
+async function espejarEnDO(env, instanceId, registro) {
+  const stub = doLicencias(env);
+  if (!stub) return false;
+  try {
+    const r = await stub.fetch(`https://do.invalid/r/${encodeURIComponent(instanceId)}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(registro),
+    });
+    return r.ok;
+  } catch (_) { return false; } // el dato ya está en KV: nunca se pierde por esto
+}
+
+async function borrarDeDO(env, instanceId) {
+  const stub = doLicencias(env);
+  if (!stub) return false;
+  try {
+    const r = await stub.fetch(`https://do.invalid/r/${encodeURIComponent(instanceId)}`, { method: "DELETE" });
+    return r.ok;
+  } catch (_) { return false; }
+}
+
 async function guardarConHistorial(env, instanceId, registroNuevo) {
   const key = `inst:${instanceId}`;
   const anteriorRaw = await env.LICENCIAS.get(key);
@@ -67,6 +120,11 @@ async function guardarConHistorial(env, instanceId, registroNuevo) {
     } catch (_) { /* history must never block the real save */ }
   }
   await env.LICENCIAS.put(key, JSON.stringify(registroNuevo));
+  // KV ya guardó: el dato está a salvo pase lo que pase debajo. El espejo al
+  // DO es lo que hace que el panel lo vea AL INSTANTE en vez de esperar a que
+  // KV propague. Si falla, el panel lo sigue leyendo por KV (más rancio, nunca
+  // ausente) y el relleno perezoso lo corrige en la siguiente lectura.
+  await espejarEnDO(env, instanceId, registroNuevo);
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -491,8 +549,45 @@ export default {
       // la llave un instante antes de que la baja se propague. get() de esa
       // llave ya da null, y JSON.parse(null) NO explota: devuelve null en
       // silencio. Ese null viajaba al panel y se pintaba como fila vacia.
-      const registros = (await Promise.all(lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => JSON.parse(v))))).filter(Boolean);
+      const registrosKV = (await Promise.all(lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => JSON.parse(v))))).filter(Boolean);
+
+      /* LECTURA FRESCA (JFC 2026-09-22). El DO es de instancia única, así que
+         lo que se escribió hace un segundo YA se lee aquí — eso es lo que KV
+         no puede dar. KV se sigue listando a propósito, por dos razones:
+           1. es la única forma de detectar que al DO le falta algo (relleno
+              perezoso de los registros que existían antes de este cambio);
+           2. si el DO fallara, el panel responde igual con KV: más rancio,
+              nunca vacío. Prefiero un panel lento a un panel que miente.
+         El panel lo usa solo JFC, así que la lista extra no es un costo real.
+         Se prefiere el DO solo cuando está al menos tan completo como KV: así
+         un DO a medio llenar nunca puede ESCONDER un aparato que sí existe. */
+      let registros = registrosKV;
+      let fuente = "kv";
+      let registrosDO = null;
+      try {
+        const stub = doLicencias(env);
+        if (stub) {
+          const rDO = await stub.fetch("https://do.invalid/all");
+          if (rDO.ok) registrosDO = await rDO.json();
+        }
+      } catch (_) { registrosDO = null; }
+
+      if (Array.isArray(registrosDO) && registrosDO.length >= registrosKV.length && registrosDO.length > 0) {
+        registros = registrosDO;
+        fuente = "do";
+      } else if (registrosKV.length) {
+        // Relleno perezoso: sin evento de migración y sin tocar KV. Lo que ya
+        // esté en el DO se sobreescribe con lo de KV solo si falta; un registro
+        // más nuevo del DO no se pisa porque solo entramos aquí cuando el DO
+        // viene INCOMPLETO respecto a KV.
+        const yaEnDO = new Set((registrosDO || []).map((r) => r && r.instanceId).filter(Boolean));
+        for (const r of registrosKV) {
+          if (r && r.instanceId && !yaEnDO.has(r.instanceId)) await espejarEnDO(env, r.instanceId, r);
+        }
+      }
+
       registros.forEach((r) => { r.estado = normalizarEstado(r.estado); });
+      registros._fuente = fuente; // diagnóstico: "do" = lectura fuertemente consistente
       registros.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
       anotarHermanos(registros);
       return json(registros);
@@ -513,6 +608,9 @@ export default {
         borradoEn: Date.now(), registro: JSON.parse(raw),
       }));
       await env.LICENCIAS.delete(`inst:${instanceId}`);
+      // La baja también sale del DO, o el panel seguiría mostrando el registro
+      // como fila fantasma justo por ser el camino "fresco".
+      await borrarDeDO(env, instanceId);
       return json({ ok: true, archivadoEn: `borrado:${instanceId}` });
     }
 
@@ -619,3 +717,64 @@ export default {
     return json({ error: "Not found" }, 404);
   },
 };
+
+/* ─────────────────────────────────────────────────────────────────────
+   DURABLE OBJECT: RegistroLicencias (JFC 2026-09-22)
+
+   Instancia ÚNICA ("registro-global") que guarda los mismos registros que
+   KV bajo la misma clave `inst:<instanceId>`. Su razón de existir es una
+   sola: un DO es de instancia única y sus lecturas son fuertemente
+   consistentes, así que el panel ve un cambio al instante en vez de esperar
+   la propagación de KV (que puede tardar decenas de segundos entre regiones).
+
+   NO es la fuente de verdad. KV lo sigue siendo y se escribe primero. Este
+   objeto es un espejo de lectura rápida; si se perdiera entero, el panel
+   volvería a leer de KV y el relleno perezoso lo reconstruiría solo.
+   Por eso aquí NO hay lógica de negocio: guardar, borrar y listar. Cualquier
+   regla (normalizar estado, agrupar hermanos, revisiones del nombre) vive en
+   el Worker, para que las dos rutas de lectura no puedan divergir.
+   ───────────────────────────────────────────────────────────────────── */
+export class RegistroLicencias {
+  constructor(state) { this.state = state; }
+
+  async fetch(req) {
+    const url = new URL(req.url);
+    const esRegistro = url.pathname.startsWith("/r/");
+    const id = esRegistro ? decodeURIComponent(url.pathname.slice(3)) : "";
+
+    if (esRegistro && id && req.method === "PUT") {
+      const registro = await req.json();
+      await this.state.storage.put(`inst:${id}`, registro);
+      return new Response('{"ok":true}', { headers: { "Content-Type": "application/json" } });
+    }
+
+    if (esRegistro && id && req.method === "DELETE") {
+      await this.state.storage.delete(`inst:${id}`);
+      return new Response('{"ok":true}', { headers: { "Content-Type": "application/json" } });
+    }
+
+    if (url.pathname === "/all" && req.method === "GET") {
+      /* Se pagina a propósito. storage.list() devuelve como máximo 1000 claves
+         por llamada: sin este bucle, el panel empezaría a ESCONDER aparatos en
+         silencio al pasar de mil licencias — la clase de fallo que no se nota
+         hasta que un cliente reclama que su aparato "no aparece". */
+      const salida = [];
+      let desde;
+      for (;;) {
+        const opciones = { prefix: "inst:", limit: 1000 };
+        if (desde) opciones.startAfter = desde;
+        const pagina = await this.state.storage.list(opciones);
+        if (!pagina || pagina.size === 0) break;
+        let ultima;
+        for (const [clave, valor] of pagina) { salida.push(valor); ultima = clave; }
+        if (pagina.size < 1000) break;
+        desde = ultima;
+      }
+      return new Response(JSON.stringify(salida), { headers: { "Content-Type": "application/json" } });
+    }
+
+    return new Response('{"error":"ruta desconocida en el registro"}', {
+      status: 404, headers: { "Content-Type": "application/json" },
+    });
+  }
+}

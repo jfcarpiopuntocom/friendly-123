@@ -11,6 +11,22 @@ kv_namespaces = [
   { binding = "LICENCIAS", id = "f1599c69c4174cc2b38dd125c18ee3df" }
 ]
 
+# SLA <=2s EN EL PANEL (JFC 2026-09-22). KV es eventually consistent por
+# diseno: un cambio puede tardar decenas de segundos en verse entre regiones.
+# Este Durable Object es un ESPEJO DE LECTURA fuertemente consistente para que
+# el panel vea los cambios al instante. KV sigue siendo la fuente de verdad y
+# se escribe primero; el DO se escribe despues y es best-effort.
+# REVERSIBLE: comentando este binding, el Worker vuelve exactamente al
+# comportamiento anterior (doLicencias() devuelve null y todo lee de KV).
+# NO borrar la KV ni su binding "porque ya esta el DO": esa es la red.
+[[durable_objects.bindings]]
+name = "REGISTROS"
+class_name = "RegistroLicencias"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RegistroLicencias"]
+
 [observability]
 enabled = true
 
