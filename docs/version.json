@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "Despedir o reactivar a un cliente ahora sí viaja al resto de tus aparatos, y sellar una liquidación exige una acción explícita.",
+  "changelog": "El respaldo por WhatsApp ahora sí incluye tus fotos: antes salía sin ninguna y no avisaba.",
   "requerida": false,
-  "shell": "f123-shell-v333",
+  "shell": "f123-shell-v334",
   "apagar": [],
   "releaseName": "v1.0"
 }

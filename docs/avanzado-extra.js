@@ -669,13 +669,43 @@
             var datos = await r.json();
             if (!r.ok) { _copiaMsg(datos.error || "Activate this device (PIN 789) to export.", false); return; }
             var stamp = new Date().toISOString().slice(0, 10);
-            var paquete = { schemaVersion: 2, fecha: new Date().toISOString(), _formaB: true, datos: datos, fotosPerchas: _fotosLocales() };
+            /* FIX DE PERDIDA SILENCIOSA DE FOTOS (JFC 2026-09-22).
+               _fotosLocales() lee claves "*_foto_percha_*" de localStorage, que
+               es el almacen VIEJO. Desde v244 las fotos viven por hash en
+               IndexedDB (docs/idb-fotos.js) y en localStorage ya SOLO quedan
+               BORRADOS de limpieza — o sea que este export venia entregando un
+               respaldo SIN NINGUNA foto y ademas diciendo "Copy downloaded",
+               como si estuviera completo. El dueno se enteraba al restaurar.
+
+               Se arregla de forma ADITIVA y compatible en las dos direcciones:
+                 - `fotosPerchas` (legacy) se conserva intacto;
+                 - se AGREGA `fotosIDB` con el almacen real;
+                 - schemaVersion se queda en 2 A PROPOSITO. Subirlo a 3 haria
+                   que una app vieja RECHAZARA el archivo ("copy from a newer
+                   version"); dejandolo en 2, una app vieja simplemente ignora
+                   el campo que no conoce y restaura lo de siempre.
+               Todo va en try/catch: si OCFotos no esta, el export sigue
+               funcionando exactamente como antes. */
+            var _fotosIDB = {};
+            try {
+              if (window.OCFotos && window.OCFotos.leerTodas) _fotosIDB = (await window.OCFotos.leerTodas()) || {};
+            } catch (_) { _fotosIDB = {}; }
+            var paquete = { schemaVersion: 2, fecha: new Date().toISOString(), _formaB: true, datos: datos, fotosPerchas: _fotosLocales(), fotosIDB: _fotosIDB };
             var blob = new Blob([JSON.stringify(paquete)], { type: "application/json" });
             var url = URL.createObjectURL(blob);
             var a = document.createElement("a"); a.href = url; a.download = "friendly-copy-" + stamp + ".json";
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(function () { try { URL.revokeObjectURL(url); } catch (_) {} }, 4000);
-            _copiaMsg("Copy downloaded. Opening WhatsApp — attach the file there.", true);
+            /* El mensaje dice QUE se llevo y CUANTO pesa. Antes decia solo "Copy
+               downloaded" y el dueno no tenia como saber que le faltaban las
+               fotos. Si el archivo sale muy pesado para WhatsApp se avisa, pero
+               NO se bloquea la descarga: el archivo ya esta en su disco y sirve
+               igual para restaurar a mano. */
+            var _nFotos = 0; try { _nFotos = Object.keys(_fotosIDB).length + Object.keys(paquete.fotosPerchas || {}).length; } catch (_) {}
+            var _mb = Math.round((blob.size / 1048576) * 10) / 10;
+            var _detalle = "Copy downloaded (" + _nFotos + " photo" + (_nFotos === 1 ? "" : "s") + ", " + _mb + " MB). Your PINs and keys are NOT in the file.";
+            if (blob.size > 45 * 1048576) _copiaMsg(_detalle + " It may be too big to send on WhatsApp — keep it somewhere safe instead.", true);
+            else _copiaMsg(_detalle + " Opening WhatsApp — attach the file there.", true);
             var txt = encodeURIComponent("Here is my friendly-123 backup from " + stamp + ". I'm attaching the file that just downloaded — open it in the app with Advanced, button 'Import from WhatsApp'.");
             window.open("https://wa.me/?text=" + txt, "_blank");
           } catch (e) { _copiaMsg("Could not export — check your connection.", false); }
@@ -695,8 +725,21 @@
               var rr = await res.json();
               if (!res.ok) { _copiaMsg(rr.error || "Could not import the copy.", false); return; }
               if (paquete.fotosPerchas) { try { Object.keys(paquete.fotosPerchas).forEach(function (k) { try { localStorage.setItem(k, paquete.fotosPerchas[k]); } catch (_) {} }); } catch (_) {} }
+              /* Contraparte del fix de fotos (JFC 2026-09-22): restaurar tambien
+                 el almacen REAL (IndexedDB por hash). Un respaldo viejo no trae
+                 `fotosIDB` y este bloque simplemente no corre — compatibilidad
+                 hacia atras sin condicionales extra. Se cuenta cuantas entraron
+                 para poder decir la verdad en el mensaje final en vez de un
+                 "listo" generico. */
+              var _fotosOk = 0;
+              if (paquete.fotosIDB && window.OCFotos && window.OCFotos.guardarFoto) {
+                for (var _idFoto in paquete.fotosIDB) {
+                  if (!Object.prototype.hasOwnProperty.call(paquete.fotosIDB, _idFoto)) continue;
+                  try { if (await window.OCFotos.guardarFoto(_idFoto, paquete.fotosIDB[_idFoto])) _fotosOk++; } catch (_) {}
+                }
+              }
               try { window.dispatchEvent(new CustomEvent("oc-datos-importados")); } catch (_) {}
-              _copiaMsg("Copy imported. The screen now shows the restored data.", true);
+              _copiaMsg("Copy imported" + (_fotosOk ? " with " + _fotosOk + " photo" + (_fotosOk === 1 ? "" : "s") : "") + ". The screen now shows the restored data.", true);
             } catch (err) { _copiaMsg("Could not read the file — is it a valid copy?", false); }
           });
         }
