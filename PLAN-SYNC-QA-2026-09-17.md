@@ -7,7 +7,7 @@ sucursales, ventas/dinero, fotos y apodos van por Yjs; demo filtrado por id
 `^p\d+$`). Quedan bugs concretos. Observatorio para verificar: KV de licencias en
 producción — `wrangler kv key list --namespace-id f1599c69c4174cc2b38dd125c18ee3df
 --remote` y `kv key get inst:<id> --remote` (OJO: SIEMPRE `--remote`). Éxito = bajo
-la licencia canónica `F123-A6YK-6V1J-BF2A-S2J24` un solo `nombreNegocio`, y stock/
+la licencia canónica `F123-A6YK-(privada)` un solo `nombreNegocio`, y stock/
 foto cruzan en segundos entre los 2 aparatos.
 
 Cómo verificar barato sin quemar tokens:

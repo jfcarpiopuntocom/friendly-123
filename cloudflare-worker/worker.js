@@ -211,9 +211,15 @@ async function aplicarLicenciaPagada(env, registro) {
     const clave = `lic:${codigo}`;
     let pagada = false;
     try { const raw = await env.LICENCIAS.get(clave); pagada = !!raw && (JSON.parse(raw) || {}).estado === "full"; } catch (_) { pagada = false; }
-    if (registro.estado === "full" && !pagada) {
+    /* v351 (code review #2): un aparato "full" solo marca pagada la licencia
+       en la que JFC lo pagó (fullLicencia). Si luego se re-apunta o se une a
+       otra licencia, sigue "full" él, pero NO regala "full" a la otra.
+       Registros de antes: se asume la licencia actual (la primera vez). */
+    if (registro.estado === "full" && !registro.fullLicencia) registro.fullLicencia = codigo;
+    if (registro.estado === "full" && registro.fullLicencia === codigo && !pagada) {
       await env.LICENCIAS.put(clave, JSON.stringify({ estado: "full", ts: Date.now() }));
-    } else if (pagada && registro.estado === "minima") {
+    } else if (pagada && registro.estado === "minima" && !registro.estadoFijadoPanel) {
+      // #1: un estado que JFC fijó a mano en el panel no se sobreescribe.
       registro.estado = "full";
     }
   } catch (_) { /* nunca bloquea el checkin: en el peor caso queda como estaba */ }
@@ -222,7 +228,14 @@ async function aplicarLicenciaPagada(env, registro) {
 async function guardarConHistorial(env, instanceId, registroNuevo) {
   const key = `inst:${instanceId}`;
   const anteriorRaw = await env.LICENCIAS.get(key);
-  if (anteriorRaw) {
+  /* v351 (code review #3): un latido que solo cambia lastSeen/ip/lastAccion NO
+     ocupa un lugar del historial (tope 30). Antes, cada login y cada
+     revalidación empujaba una versión y sacaba a las viejas, justo las que
+     sirven para recuperar un nombre o correo perdido. */
+  const _sinVolatiles = (o) => { try { const c = Object.assign({}, o); delete c.lastSeen; delete c.ip; delete c.lastAccion; return JSON.stringify(c); } catch (_) { return null; } };
+  let _soloLatido = false;
+  try { _soloLatido = !!anteriorRaw && _sinVolatiles(JSON.parse(anteriorRaw)) === _sinVolatiles(registroNuevo); } catch (_) {}
+  if (anteriorRaw && !_soloLatido) {
     try {
       const histKey = `hist:${instanceId}`;
       const histRaw = await env.LICENCIAS.get(histKey);
@@ -357,6 +370,9 @@ async function handleCheckin(req, env) {
      (/licencias/<id>/soporte). El checkin reconstruye el registro campo por
      campo, así que se conserva aquí o se perdería en el siguiente login. */
   if (typeof existente.soporteJfc === "boolean") registro.soporteJfc = existente.soporteJfc;
+  // v351: se conservan igual que soporteJfc (ver aplicarLicenciaPagada).
+  if (existente.fullLicencia) registro.fullLicencia = existente.fullLicencia;
+  if (existente.estadoFijadoPanel === true) registro.estadoFijadoPanel = true;
   // Pagado es de la licencia, no del aparato (ver aplicarLicenciaPagada).
   await aplicarLicenciaPagada(env, registro);
   await guardarConHistorial(env, instanceId, registro);
@@ -761,9 +777,15 @@ export default {
         return json({ error: "Invalid state" }, 400);
       }
       reg.estado = normalizarEstado(body.estado);
-      // Marcar "full" un aparato marca pagada su licencia entera: los demás
-      // aparatos lo heredan en su próximo checkin (aplicarLicenciaPagada).
-      await aplicarLicenciaPagada(env, reg);
+      /* v351 (code review #1): lo que JFC elige aquí queda FIJO. Antes, bajar
+         un aparato a "minima" en una licencia pagada volvía a "full" en la
+         misma solicitud y el panel decía OK. Marcar "full" sigue propagando
+         a toda la licencia (los demás aparatos lo heredan en su checkin). */
+      reg.estadoFijadoPanel = true;
+      if (reg.estado === "full") {
+        reg.fullLicencia = String(reg.licenseCode || "").trim().toUpperCase();
+        await aplicarLicenciaPagada(env, reg);
+      }
       await guardarConHistorial(env, instanceId, reg);
       return json({ ok: true });
     }
@@ -789,6 +811,7 @@ export default {
       const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
       if (!raw) return json({ error: "Instancia no encontrada" }, 404);
       const reg = JSON.parse(raw);
+      if (reg.estado === "full" && !reg.fullLicencia) reg.fullLicencia = String(reg.licenseCode || "").trim().toUpperCase(); // v351 #2
       reg.licenseCode = principal;
       await guardarConHistorial(env, instanceId, reg);
       return json({ ok: true });
@@ -819,6 +842,7 @@ export default {
       let body; try { body = await req.json(); } catch (_) { body = {}; }
       const nueva = String(body.licenseCode || "").trim().toUpperCase();
       if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(nueva)) return json({ error: "Licencia inválida" }, 400);
+      if (reg.estado === "full" && !reg.fullLicencia) reg.fullLicencia = String(reg.licenseCode || "").trim().toUpperCase(); // v351 #2
       reg.licenseCode = nueva;
       await guardarConHistorial(env, instanceId, reg);
       return json({ ok: true, licenseCode: reg.licenseCode });

@@ -398,8 +398,24 @@
     _leerCustom().forEach(add);
     return out.sort(function (a, b) { return a.localeCompare(b); });
   }
+  /* v351 (code review #4): con la prueba vencida (solo lectura) tampoco se
+     crean, renombran ni borran categorías: escriben negocio y viajan al sync
+     sin pasar por la compuerta del backend. Falla ABIERTO como licencia-prueba. */
+  function _bloqueoPrueba() {
+    try {
+      if (window.OCPrueba && window.OCPrueba.bloquea && window.OCPrueba.bloquea("/api/categorias/cambiar")) {
+        try { window.dispatchEvent(new CustomEvent("oc-prueba-vencida")); } catch (_) {}
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+  function _errorPrueba() {
+    try { return new Error(window.OCPrueba.mensajeError()); } catch (_) { return new Error("Read-only: the trial has ended."); }
+  }
   /* Agregar categoría propia. Devuelve false si vacía o ya existe. */
   function agregar(nombre) {
+    if (_bloqueoPrueba()) return false;
     var c = normalizar(nombre); if (!c) return false;
     var cur = _leerCustom();
     if (cur.some(function (x) { return normalizar(x).toLowerCase() === c.toLowerCase(); })) return false;
@@ -462,6 +478,7 @@
      usan (PATCH por producto) y actualiza la lista propia. Async; devuelve el
      número de productos actualizados. */
   async function renombrar(viejo, nuevo) {
+    if (_bloqueoPrueba()) throw _errorPrueba();
     var vo = normalizar(viejo), nu = normalizar(nuevo);
     if (!vo || !nu || vo.toLowerCase() === nu.toLowerCase()) return 0;
     var n = await _cambiarCategoriaSegura(vo, nu, false);
@@ -483,6 +500,7 @@
      se quita del custom y se marca oculta (cubre las SEMILLA). Devuelve el número
      de productos reasignados. */
   async function borrar(nombre) {
+    if (_bloqueoPrueba()) throw _errorPrueba();
     var vo = normalizar(nombre); if (!vo) return 0;
     var n = await _cambiarCategoriaSegura(vo, "", true);
     _guardarCustom(_leerCustom().filter(function (x) { return normalizar(x).toLowerCase() !== vo.toLowerCase(); }));

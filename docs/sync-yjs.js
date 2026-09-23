@@ -389,7 +389,7 @@
        (idiomARTE incluida) cambia de sala. La CLAVE sigue derivada de la licencia,
        asi los aparatos de JFC se entienden en la sala nueva. Ver la purga local
        gated en mock-backend.js. */
-    var _salaId = (codigo === "F123-A6YK-6V1J-BF2A-S2J24") ? (codigo + "::limpio-2026-09-16") : codigo;
+    var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::limpio-2026-09-16") : codigo;
     API.roomId = await idDeSala(_salaId);
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).

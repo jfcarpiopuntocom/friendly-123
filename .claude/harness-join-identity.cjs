@@ -17,8 +17,8 @@ let chromium;
 try { ({ chromium } = require(path.join(__dirname, "..", "node_modules", "playwright"))); }
 catch (_) { ({ chromium } = require("/opt/node22/lib/node_modules/playwright")); }
 const BASE = "http://localhost:8127/index.html";
-const OWN = "F123-JMES-BOND-0007-XXXXX";
-const IDIOMARTE = "F123-K7M2-9QRT-4XVB-P3W1D";
+const OWN = "F123-TEST-JAME-SBON-00002";
+const IDIOMARTE = "F123-TEST-IDIO-ARTE-00001";
 let fallos = [];
 const check = (n, c, e) => { if (c) console.log("  ok   " + n); else { console.log("  FALLA " + n + (e ? "  → " + JSON.stringify(e) : "")); fallos.push(n); } };
 

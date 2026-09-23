@@ -244,8 +244,8 @@
   /* FIX ONE-TIME: LICENCIA MAL TECLEADA S2324 -> S2J24 (JFC 2026-09-16, v296).
      El observatorio (panel privado JFC) mostro DOS licencias del MISMO email que
      difieren en UN caracter: el celular quedo activado bajo
-     F123-A6YK-6V1J-BF2A-S2324 (con "3") en vez de la canonica
-     F123-A6YK-6V1J-BF2A-S2J24 (con "J"). Trampa clasica J/3. Son la misma persona
+     F123-A6YK-(privada) (con "3") en vez de la canonica
+     F123-A6YK-(privada) (con "J"). Trampa clasica J/3. Son la misma persona
      (el panel lo detecta: "same email on 2 licenses - claim/merge"). Como la sala
      de sync se deriva de la licencia (v295), estar en S2324 = sala distinta = nunca
      converge con el PC. Aqui, en el aparato que tiene la licencia mal tecleada, se
@@ -261,12 +261,16 @@
        la canonica. Flag v2 para que re-corra en aparatos que ya corrieron el fix v1
        (que solo cubria S2324). One-time. DORMANT/removible cuando ya no queden
        aparatos en variantes. */
-    var _BIEN = "F123-A6YK-6V1J-BF2A-S2J24";
-    var _VARIANTES = ["F123-A6YK-6V1J-BF2A-S2324", "F123-A6YK-6V1J-B2FA-S2J24", "F123-A6YK-6V1J-B2FA-S2324"];
+    /* Huella (hash cyrb53) en vez del texto de la licencia (JFC 2026-09-22: el repo
+       es PÚBLICO; nunca escribir una licencia completa aquí). Mismo resultado. */
+    var _h53 = function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);}
+    var _H_BIEN = 6583453063440131;
+    var _H_VARIANTES = [7204376699570609, 5045741297197422, 3653161193443980];
     if (localStorage.getItem("f123_fix_lic_v2") !== "1") {
       var _o = JSON.parse(localStorage.getItem("f123_owned") || "null");
       var _lc = _o && typeof _o.licenseCode === "string" ? _o.licenseCode.trim().toUpperCase().replace(/\s+/g, "") : "";
-      if (_o && _VARIANTES.indexOf(_lc) !== -1) {
+      var _BIEN = _lc.replace("B2FA", "BF2A").replace("S2324", "S2J24"); // variante -> canónica
+      if (_o && _H_VARIANTES.indexOf(_h53(_lc)) !== -1 && _h53(_BIEN) === _H_BIEN) {
         _o.licenseCode = _BIEN;
         if (_o.syncCode) _o.syncCode = _BIEN;
         localStorage.setItem("f123_owned", JSON.stringify(_o));

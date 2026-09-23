@@ -482,3 +482,20 @@ test('#6 switching to Spanish with the sale panel open leaves no English label b
   assert.match(r.texto, /el fiado necesita cliente/);
   assert.equal(r.counterValue, '__counter__', 'el valor guardado no cambia');
 });
+
+test('#5 #6 the Customers list is fully Spanish and its notices use solid ink', async () => {
+  // v351 (code review #5 y #6).
+  const r = await withPage(page => page.evaluate(async () => {
+    window.OCAuth = Object.assign(window.OCAuth || {}, { rolActual: () => 'dueno' });
+    window.OCI18n.setLang('es');
+    await cargarClientes();
+    const cont = document.getElementById('listaClientes');
+    const out = { ph: cont.querySelector('input[type="text"]').placeholder, texto: cont.textContent,
+      tinta: getComputedStyle(cont.querySelector('p')).color };
+    window.OCI18n.setLang('en');
+    return out;
+  }));
+  assert.equal(r.ph, 'Buscar por nombre o código...');
+  for (const en of ['Name', 'Code', '90-day spend']) assert.equal(r.texto.includes(en), false, 'queda en inglés: ' + en);
+  assert.equal(r.tinta, 'rgb(15, 25, 35)', 'tinta sólida #0F1923, no café');
+});

@@ -218,7 +218,9 @@
 
     var lista = document.createElement("div");
     var mensaje = document.createElement("p");
-    mensaje.style.cssText = "font-size:14px;color:var(--ink-soft,#5d5340);margin:6px 0 0;";
+    // v351 (code review #6): tinta sólida, no café. Aquí salen avisos que
+    // importan ("no se pudo verificar el saldo de N clientes").
+    mensaje.style.cssText = "font-size:15px;font-weight:600;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;margin:6px 0 0;";
 
     cont.innerHTML = "";
     cont.appendChild(barra);

@@ -86,3 +86,47 @@ test('paying one license never touches another license', async () => {
   assert.equal(await marcar(w, e, 'fixture-aaaa', 'full'), 200, 'JFC pudo marcar el estado');
   assert.equal((await checkin(w, e, 'fixture-bbbb', 'F123-FIXTURE-BBBB')).estado, 'minima');
 });
+
+/* v351 — code review #1, #2, #3. */
+async function reapuntar(w, e, instanceId, licenseCode) {
+  const r = await w.default.fetch(new Request(`https://fixture.invalid/licencias/${instanceId}/reapuntar`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Master-Key': MASTER },
+    body: JSON.stringify({ licenseCode }),
+  }), e, { waitUntil() {} });
+  return r.status;
+}
+
+test('#1 JFC can set a device back to minima on a paid license, and it stays', async () => {
+  const w = await cargar(); const e = env();
+  const L = 'F123-FIXTURE-BAJAR-ESTADO';
+  for (const id of ['fixture-uno', 'fixture-dos']) await checkin(w, e, id, L);
+  assert.equal(await marcar(w, e, 'fixture-uno', 'full'), 200);
+  assert.equal(await marcar(w, e, 'fixture-dos', 'minima'), 200);
+  assert.equal(estadoDe(e, 'fixture-dos'), 'minima', 'el panel no miente: queda en minima');
+  await checkin(w, e, 'fixture-dos', L);
+  assert.equal(estadoDe(e, 'fixture-dos'), 'minima', 'y el siguiente login no lo vuelve a subir');
+});
+
+test('#2 re-pointing a paid device does not make the other license paid', async () => {
+  const w = await cargar(); const e = env();
+  const A = 'F123-FIXTURE-LICENCIA-A', B = 'F123-FIXTURE-LICENCIA-B';
+  await checkin(w, e, 'fixture-pagado', A);
+  await checkin(w, e, 'fixture-de-b', B);
+  assert.equal(await marcar(w, e, 'fixture-pagado', 'full'), 200);
+  assert.equal(await reapuntar(w, e, 'fixture-pagado', B), 200);
+  await checkin(w, e, 'fixture-pagado', B);
+  assert.equal(e.LICENCIAS.store.has(`lic:${B}`), false, 'la licencia B no queda marcada pagada');
+  assert.equal((await checkin(w, e, 'fixture-de-b', B)).estado, 'minima', 'y sus aparatos no heredan full');
+});
+
+test('#3 a heartbeat that changes nothing does not push a history version', async () => {
+  const w = await cargar(); const e = env();
+  const L = 'F123-FIXTURE-HISTORIAL';
+  await checkin(w, e, 'fixture-hist', L);
+  await checkin(w, e, 'fixture-hist', L);
+  const antes = JSON.parse(e.LICENCIAS.store.get('hist:fixture-hist') || '[]').length;
+  for (let i = 0; i < 5; i++) await checkin(w, e, 'fixture-hist', L);
+  assert.equal(JSON.parse(e.LICENCIAS.store.get('hist:fixture-hist') || '[]').length, antes, 'cinco latidos, cero versiones nuevas');
+  assert.equal(await marcar(w, e, 'fixture-hist', 'full'), 200);
+  assert.equal(JSON.parse(e.LICENCIAS.store.get('hist:fixture-hist')).length, antes + 1, 'un cambio real sí se guarda');
+});

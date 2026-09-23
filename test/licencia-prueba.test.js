@@ -141,3 +141,15 @@ test('#5 a license paid while the app is open unlocks writes without a new login
   const r = await w.request(`/api/productos/${p.id}/venta`, 'POST', { cantidad: 1 });
   assert.ok(r.ventaId, 'tras el pago, vende sin nuevo login');
 });
+
+test('#4 an expired trial cannot create, rename or delete categories either', async () => {
+  // v351 (code review #4): borradores.js escribía categorías sin pasar por la
+  // compuerta del backend; con la prueba vencida también quedan en solo lectura.
+  const w = aparato();
+  await vencer(w);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'docs', 'borradores.js'), 'utf8'), w);
+  assert.equal(w.OCCategorias.agregar('Nueva vencida'), false, 'no se crea');
+  assert.equal((w.localStorage.getItem('f123_categorias_custom') || '[]').includes('Nueva vencida'), false);
+  await assert.rejects(() => w.OCCategorias.renombrar('Toys', 'Juguetes'), 'renombrar se rechaza');
+  await assert.rejects(() => w.OCCategorias.borrar('Toys'), 'borrar se rechaza');
+});

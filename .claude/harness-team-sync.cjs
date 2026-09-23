@@ -199,14 +199,14 @@ const tiene = (lista, nombre) => lista.some((u) => u.nombre === nombre);
     await gp.goto(BASE, { waitUntil: "domcontentloaded" });
     await gp.waitForFunction(() => window.OCTienda && window.OCTienda.cambiar, null, { timeout: 15000 });
     // Este aparato es "James Bond Store": su licencia propia grabada.
-    await gp.evaluate(() => localStorage.setItem("f123_owned", JSON.stringify({ instanceId: "inst-G", licenseCode: "F123-JMES-BOND-0007-XXXXX", nombreNegocio: "James Bond Store" })));
+    await gp.evaluate(() => localStorage.setItem("f123_owned", JSON.stringify({ instanceId: "inst-G", licenseCode: "F123-TEST-JAME-SBON-00002", nombreNegocio: "James Bond Store" })));
     await gp.reload({ waitUntil: "domcontentloaded" });
     await gp.waitForFunction(() => window.OCTienda && window.OCTienda.cambiar, null, { timeout: 15000 });
     const estadoInicial = await gp.evaluate(() => ({ unida: window.OCTienda.esUnida(), lic: window.OCTienda.licenciaActual() }));
     check("G: arranca en su tienda propia (no unida)", estadoInicial.unida === false, estadoInicial);
 
     // Poner la licencia de idiomARTE (DISTINTA de la propia) → DEBE cambiar de tienda.
-    const IDIOMARTE = "F123-K7M2-9QRT-4XVB-P3W1D";
+    const IDIOMARTE = "F123-TEST-IDIO-ARTE-00001";
     const retCambio = await gp.evaluate((lic) => {
       const r = window.OCTienda.cambiar(lic); // dispara location.reload()
       return r;
@@ -225,7 +225,7 @@ const tiene = (lista, nombre) => lista.some((u) => u.nombre === nombre);
       Array.isArray(rosterUnida), rosterUnida);
 
     // Volver a la tienda propia debe funcionar (marcador vuelve a "").
-    await gp.evaluate((lic) => window.OCTienda.cambiar(lic), "F123-JMES-BOND-0007-XXXXX").catch(() => {});
+    await gp.evaluate((lic) => window.OCTienda.cambiar(lic), "F123-TEST-JAME-SBON-00002").catch(() => {});
     await gp.waitForFunction(() => window.OCTienda && window.OCTienda.cambiar, null, { timeout: 15000 }).catch(() => {});
     const volvio = await gp.evaluate(() => ({ unida: window.OCTienda.esUnida(), marcador: (localStorage.getItem("f123_tienda_activa")||"") }));
     check("G: volver a la licencia propia regresa a la tienda propia (no unida)",

@@ -59,7 +59,7 @@ cuando ambos aparatos apuntan a la misma sala y reconectan.
    enviar `""`, nunca pisar un valor bueno con basura), autocuración no.
 2. **Reversible siempre:** todo re-apunte pasa por el historial (`hist:`/`borrado:`).
 3. **Confirmar la licencia canónica con JFC antes de escribir la KV.** En este
-   caso JFC eligió `F123-A6YK-6V1J-BF2A-S2J24` (la que tenía anotada), no la
+   caso JFC eligió `F123-A6YK-(privada)` (la que tenía anotada), no la
    `F123-HPN2-...` que mencionó al inicio.
 4. **Dos tiendas del mismo dueño = misma licencia canónica.** James Bond Store
    (PC) y 007 Store (iPhone) son de JFC (jfcarpio@gmail.com) y deben apuntar a la

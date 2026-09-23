@@ -208,3 +208,12 @@ trabajo está mal hecho aunque el código funcione.
   SALE, la venta queda sin split de comisión.
 - Esta regla es diseño deliberado de JFC. No convertirla en validación
   obligatoria ni en una edición silenciosa de la percha en cambios futuros.
+
+## LICENCIAS: NUNCA EN EL REPO (JFC 2026-09-22) — el repo es PÚBLICO
+- Jamás escribir una licencia completa (F123-/AMG-/C123-) en código, docs, tests
+  ni commits. Una licencia da acceso a su cuaderno. Pasó con la licencia
+  principal de JFC y con la de idiomARTE; se escondieron el 2026-09-22.
+- En el código, comparar por huella (cyrb53), como sync-yjs.js. La licencia
+  principal del dueño es el secret LORD_LICENSE del Worker.
+- `check-sw.sh` G5 falla si aparece una. No relajar esa guarda.
+- JFC es el DUEÑO de la app (lord = su licencia principal), nunca "soporte".

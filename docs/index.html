@@ -3692,16 +3692,17 @@ async function cargarClientes(){
       restringido: !esDueno,
       minCaracteres: 2,
       limite: 8,
-      placeholderBusqueda: "Search by name or code...",
-      mensajeRestringido: "Type a name or code to look up a customer.",
-      mensajeVacio: "No clients yet. Add the first one above.",
+      // v351 (code review #5): el marco de la lista también en EN/ES.
+      placeholderBusqueda: (window.t && window.t("clientes.buscarPh")) || "Search by name or code...",
+      mensajeRestringido: (window.t && window.t("clientes.buscarRestringido")) || "Type a name or code to look up a customer.",
+      mensajeVacio: (window.t && window.t("clientes.vacio")) || "No clients yet. Add the first one above.",
       // "90-day spend" es dato financiero del cliente — mismo criterio que
       // el resto de la tarjeta (esDueno): ni siquiera se ofrece como opcion
       // de orden si no se va a mostrar el numero.
       columnas: [
-        { key: "nombre", label: "Name", ordenable: true },
-        { key: "codigo", label: "Code", ordenable: true },
-      ].concat(esDueno ? [{ key: "monto", label: "90-day spend", ordenable: true, valor: (c) => c.monto || 0 }] : []),
+        { key: "nombre", label: (window.t && window.t("clientes.colNombre")) || "Name", ordenable: true },
+        { key: "codigo", label: (window.t && window.t("clientes.colCodigo")) || "Code", ordenable: true },
+      ].concat(esDueno ? [{ key: "monto", label: (window.t && window.t("clientes.colGasto90")) || "90-day spend", ordenable: true, valor: (c) => c.monto || 0 }] : []),
       datos: () => todos,
       renderFila: (c) => tarjetaCliente(c, esDueno),
       /* PAGO PENDIENTE CON 1 TOQUE (pedido de Belén, JFC 2026-09-22). Solo

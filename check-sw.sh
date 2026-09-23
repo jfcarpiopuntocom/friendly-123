@@ -103,12 +103,26 @@ if [ -f docs/version-manifest.json ]; then
   fi
 fi
 
+# G5 — NINGUNA LICENCIA COMPLETA EN EL REPO (JFC 2026-09-22). El repo es PUBLICO:
+# una licencia F123 completa = acceso a ese cuaderno. Pasó con la licencia
+# principal de JFC y con la de idiomARTE; nunca más. Solo se permiten las de
+# ejemplo/ficticias (XXXX, AAAA..DDDD, TEST, SYNT). En el código, comparar por
+# huella (hash), como sync-yjs.js; la licencia principal vive en el secret
+# LORD_LICENSE del Worker.
+lic_expuestas=$(git grep -n -E "F123-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{5}" -- . ':!backups' 2>/dev/null   | grep -v -E "F123-(XXXX|AAAA|BBBB|CCCC|DDDD|TEST|SYNT)-" )
+if [ -n "$lic_expuestas" ]; then
+  echo "LICENCIA COMPLETA EN EL REPO PUBLICO (G5). Quitala antes de pushear:"
+  echo "$lic_expuestas" | sed -E 's/(F123-[A-Z0-9]{4})-[A-Z0-9-]+/-****/g' | cut -c1-160 | sed 's/^/  /'
+  falta=1
+fi
+
 if [ "$falta" = "0" ]; then
   echo "OK — todos los scripts de index.html estan en el SHELL del service worker."
   echo "OK — sw.js y version.json coinciden en $sw_ver."
   echo "OK — hashes reales del shell cuadran con version-manifest.json."
   echo "OK — sin claves de otra app hermana (G2)."
   echo "OK — todo data-vista del nav tiene su seccion (G4)."
+  echo "OK — ninguna licencia completa en el repo publico (G5)."
   grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1 | sed 's/^/CACHE actual: /'
   echo "Recuerda: si cambiaste el shell, el CACHE tiene que subir de numero o el"
   echo "telefono del cliente se queda con la version vieja para siempre."
