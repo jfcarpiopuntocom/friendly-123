@@ -969,6 +969,7 @@ function licRenderTabla(data) {
       `<option value="bloqueada"${licNormEstado(est) === "bloqueada" ? " selected" : ""}>Blocked</option>` +
       `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button>` +
       (soloJfc ? ` <button class="btn-ok" title="Unificar el nombre de estos aparatos propios; cada edición queda en el historial recuperable" onclick="licUnificarNombre('${licEsc(g.cod)}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Unificar nombre</button>` : "") +
+      ` <button class="btn-ok" title="${r.soporteJfc === true ? "Este aparato está marcado como tuyo (soporte). Tocar para quitar la marca." : "Marcar este aparato como tuyo (soporte): entra como invitado a tiendas ajenas. Se aplica en su próximo login."}" onclick="licMarcarSoporte('${id}', ${r.soporteJfc === true ? "false" : "true"})" style="background:${r.soporteJfc === true ? "#E8A020" : "transparent"};border:1px solid #E8A020;color:${r.soporteJfc === true ? "#111111" : "#E8A020"};margin-left:4px;">${r.soporteJfc === true ? "Aparato JFC ✓" : "Aparato JFC"}</button>` +
       ` <button class="btn-ok" title="Emitir un permiso de recuperación de cinco minutos para este aparato; no cambia datos" onclick="licEmitirMaestro('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Recuperación</button>` +
       ` <button class="btn-ok" title="Re-enganchar esta oveja perdida a una licencia canónica (re-apunta su registro KV, reversible)" onclick="licReenganchar('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Re-enganchar</button>` +
       ` <button class="btn-ok" title="Delete this record (archived first, recoverable)" onclick="licBorrar('${id}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);margin-left:4px;">Delete</button></td>`;
@@ -1067,6 +1068,32 @@ async function licAplicarNombre(codigo) {
 // Este botón re-apunta su registro KV a la licencia canónica que JFC elige.
 // Es reversible (pasa por el historial del Worker). Después, en el dispositivo,
 // se entra esa licencia por Avanzado → claim & merge para unir sus datos.
+/* APARATO DE JFC (v349, JFC 2026-09-22). Marca/quita en el Worker; el aparato
+   la adopta en su próximo login (o al volver a la app). Reversible: queda en el
+   historial de la licencia. */
+async function licMarcarSoporte(instanceId, marcar) {
+  const url = licWorkerUrl();
+  const key = licMasterKey();
+  if (!url || !key) { alert("Configura primero la URL del Worker y la Master Key."); return; }
+  const reg = (Array.isArray(_licTodos) ? _licTodos : []).find(r => String(r.instanceId) === String(instanceId));
+  const nombre = reg ? (reg.nombreNegocio || reg.nombre || reg.instanceId) : instanceId;
+  const pregunta = marcar
+    ? "¿Este aparato es TUYO?\n\n" + nombre + "\n\nEn su próximo login quedará como soporte: entra como invitado a las tiendas de clientes. Nunca marques el aparato de un cliente."
+    : "¿Quitar la marca de aparato tuyo?\n\n" + nombre + "\n\nEn su próximo login volverá a ser un aparato normal.";
+  if (!confirm(pregunta)) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/soporte", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Master-Key": key },
+      body: JSON.stringify({ soporte: !!marcar }),
+    });
+    const r = await res.json();
+    if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
+    alert(marcar ? "Listo. Se aplica cuando ese aparato entre de nuevo." : "Marca quitada. Se aplica cuando ese aparato entre de nuevo.");
+    licRecargar();
+  } catch (e) { alert("Fallo de red: " + (e && e.message)); }
+}
+
 async function licReenganchar(instanceId) {
   const url = licWorkerUrl();
   const key = licMasterKey();

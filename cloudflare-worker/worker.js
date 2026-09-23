@@ -353,6 +353,10 @@ async function handleCheckin(req, env) {
     lastSeen: Date.now(),
     lastAccion: body.accion || "checkin",
   };
+  /* APARATO DE JFC (v349, JFC 2026-09-22). La marca la pone SOLO el panel
+     (/licencias/<id>/soporte). El checkin reconstruye el registro campo por
+     campo, así que se conserva aquí o se perdería en el siguiente login. */
+  if (typeof existente.soporteJfc === "boolean") registro.soporteJfc = existente.soporteJfc;
   // Pagado es de la licencia, no del aparato (ver aplicarLicenciaPagada).
   await aplicarLicenciaPagada(env, registro);
   await guardarConHistorial(env, instanceId, registro);
@@ -367,7 +371,10 @@ async function handleCheckin(req, env) {
           una lo adopta sola cuando su dueno entra. Cero soporte uno a uno.
      Es SEGURO devolverlo: para llegar aqui hay que traer el instanceId, que es
      un uuid que solo tiene ese dispositivo. No se devuelve nada mas. */
-  return json({ ok: true, estado: registro.estado, licenseCode: registro.licenseCode || "" });
+  const resp = { ok: true, estado: registro.estado, licenseCode: registro.licenseCode || "" };
+  // Solo viaja si JFC la marcó o la quitó a propósito desde el panel.
+  if (typeof registro.soporteJfc === "boolean") resp.soporte = registro.soporteJfc;
+  return json(resp);
 }
 
 // /recover-pin — envía el PIN del dueño a su correo vía Resend.
@@ -769,6 +776,20 @@ export default {
     // NO toca syncCode (el KV no lo guarda) ni los datos locales del aparato:
     // el dueño entra la licencia canónica en el dispositivo (claim & merge) para
     // unir sus datos. Es el lado servidor del reensamblado.
+    // APARATO DE JFC (v349): marcar/quitar desde el panel. Reversible (historial).
+    const mSoporte = url.pathname.match(/^\/licencias\/([^/]+)\/soporte$/);
+    if (mSoporte && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      const instanceId = decodeURIComponent(mSoporte[1]);
+      const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+      if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+      let body; try { body = await req.json(); } catch (_) { body = {}; }
+      if (typeof body.soporte !== "boolean") return json({ error: "soporte debe ser true o false" }, 400);
+      const reg = JSON.parse(raw);
+      reg.soporteJfc = body.soporte;
+      await guardarConHistorial(env, instanceId, reg);
+      return json({ ok: true, soporte: reg.soporteJfc });
+    }
     const mReapuntar = url.pathname.match(/^\/licencias\/([^/]+)\/reapuntar$/);
     if (mReapuntar && req.method === "POST") {
       if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);

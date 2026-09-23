@@ -157,6 +157,23 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             owned.licenseEstadoAt = Date.now();
             localStorage.setItem("f123_owned", JSON.stringify(owned));
           }
+          /* APARATO DE JFC (v349). Lo decide JFC en su panel ("Aparato JFC").
+             true  -> se marca lord (entra como soporte/invitado a tiendas ajenas)
+                      y fija la licencia canónica del lord si aún no existe.
+             false -> JFC la quitó a propósito: se desmarca.
+             Ausente -> no se toca nada (aparatos ya marcados siguen igual). */
+          if (r && r.soporte === true) {
+            try {
+              localStorage.setItem("f123_lord", "1");
+              if (!localStorage.getItem("f123_lord_licencia_canonica")) {
+                var ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+                var cand = String(ow.syncCode || ow.licenseCode || "").trim().toUpperCase().replace(/\s+/g, "");
+                if (cand && /^F123-/i.test(cand)) localStorage.setItem("f123_lord_licencia_canonica", cand);
+              }
+            } catch (_) {}
+          } else if (r && r.soporte === false) {
+            try { localStorage.removeItem("f123_lord"); } catch (_) {}
+          }
           return r;
         }
       } catch (eRed) {
