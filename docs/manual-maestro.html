@@ -521,7 +521,7 @@
     </div>
     <div class="tarjeta tilt revela">
       <h4 style="margin-top:0;color:var(--sim-amarillo-dk);">Su filosofía</h4>
-      <p style="margin:0;font-size:16px;">Cada producto tiene un color y una intensidad. Tú no memorizas reportes: el color ya te dice si vender, reponer, promover o dejar dormir.</p>
+      <p style="margin:0;font-size:16px;">Cada producto tiene un color. Tú no memorizas reportes: el color ya te dice si vender, reponer, promover o dejar dormir.</p>
     </div>
     <div class="tarjeta tilt revela">
       <h4 style="margin-top:0;color:var(--sim-azul-dk);">Funciona sin internet</h4>
@@ -545,7 +545,7 @@
   </div>
 
   <div class="stat-grid">
-    <div class="stat"><div class="n" data-contar="6">0</div><div class="l">Colores de estado</div></div>
+    <div class="stat"><div class="n" data-contar="5">0</div><div class="l">Colores de estado</div></div>
     <div class="stat"><div class="n" data-contar="5">0</div><div class="l">Colores del semáforo</div></div>
     <div class="stat"><div class="n" data-contar="8">0</div><div class="l">Vistas principales</div></div>
     <div class="stat"><div class="n" data-contar="15">0</div><div class="l">% IVA Ecuador aplicado</div></div>
@@ -583,7 +583,7 @@
     <div class="txt"><h4>Haz tu primer respaldo</h4><p>Avanzado → Exportar respaldo, protegido con una clave. Guárdalo en tu WhatsApp o Drive. Repite esto cada semana como mínimo — la app te lo recuerda si pasa mucho tiempo.</p></div>
   </div>
 
-  <div class="tip"><strong>Recomendación JFC:</strong> el primer día, deja la app en modo demo (o con datos de prueba) y practica vender, ajustar stock y cerrar el día antes de cargar tu inventario real. Así aprendes sin miedo a "romper" nada.</div>
+  <div class="tip"><strong>Recomendación JFC:</strong> el primer día, entra a la tienda de muestra (PIN 456) y practica vender, ajustar stock y cerrar el día antes de cargar tu inventario real. Así aprendes sin miedo a "romper" nada.</div>
 
   <h3>Checklist de arranque</h3>
   <ul class="checklist">
@@ -602,7 +602,7 @@
 <section class="bloque revela" id="colores">
   <div class="eyebrow">Sección 3 — el corazón de la app</div>
   <h2>El lenguaje de colores: Sistema Simon</h2>
-  <p class="lead">Cada producto en friendly-123 está en uno de seis colores. El color nunca es decorativo: es un diagnóstico automático que combina tu stock, tus umbrales, tu margen y tus días sin vender. Aprende esta tabla una sola vez y ya sabrás leer cualquier percha de un vistazo, para siempre.</p>
+  <p class="lead">Cada producto en friendly-123 está en uno de cinco colores. El color nunca es decorativo: es un diagnóstico automático que combina tu stock, tus umbrales, tu margen y tus días sin vender. Aprende esta tabla una sola vez y ya sabrás leer cualquier percha de un vistazo, para siempre.</p>
 
   <div class="tabla-wrap">
     <table class="datos">
@@ -611,7 +611,6 @@
       <tr><td style="color:var(--sim-amarillo-dk);font-weight:700;">Amarillo</td><td>Oportunidad</td><td>Stock sano y no dormido (menos de 45 días sin ventas), y margen ≥ 50%</td><td>Empújalo: está dejando plata sobre la mesa</td></tr>
       <tr><td style="color:var(--sim-naranja-dk);font-weight:700;">🟠 Naranja</td><td>Urgente-pronto</td><td>Stock entre el umbral rojo y el amarillo, o vence en 4–7 días</td><td>Véndelo primero / prográmalo para reposición esta semana</td></tr>
       <tr><td style="color:var(--sim-rojo-dk);font-weight:700;">Rojo</td><td>Emergencia</td><td>Stock en cero o por debajo del umbral rojo, vencido o vence en ≤3 días</td><td>Actúa hoy: repón, transfiere o retira</td></tr>
-      <tr><td style="color:var(--sim-azul-dk);font-weight:700;">Azul</td><td>Dato contable</td><td>Margen mayor a 0% pero menor a 25% (precio pegado al costo)</td><td>Revisa el precio o negocia el costo con el proveedor</td></tr>
       <tr><td style="color:#FFFFFF;font-weight:700;background:var(--sim-negro);border-radius:4px;">Negro</td><td>Capital dormido</td><td>45 días o más sin ninguna venta, con stock sano</td><td>Libera ese dinero: descuento, combo o retíralo del catálogo</td></tr>
     </table>
   </div>
@@ -619,26 +618,19 @@
   <div class="tip"><strong>Nota importante:</strong> cuando un producto perecible está por vencer y además tiene poco stock, la app se queda siempre con la señal <em>más grave</em> de las dos. Un producto con stock sano pero que vence mañana se pinta rojo igual que uno sin stock.</div>
 
   <h3>Pruébalo tú mismo: simulador de estado</h3>
-  <p>Elige un color y luego un nivel de intensidad — así se comporta una tarjeta real de Inventario.</p>
+  <p>Elige un color: así se ve una tarjeta real de Inventario.</p>
   <div class="simulador">
     <div class="botones" id="simBotones">
       <button class="estado-btn activo" data-estado="verde" style="background:var(--sim-verde);border-color:var(--sim-verde-dk);color:#fff;">Verde</button>
       <button class="estado-btn" data-estado="amarillo" style="background:var(--sim-amarillo);border-color:var(--sim-amarillo-dk);">Amarillo</button>
       <button class="estado-btn" data-estado="naranja" style="background:var(--sim-naranja);border-color:var(--sim-naranja-dk);color:#fff;">Naranja</button>
       <button class="estado-btn" data-estado="rojo" style="background:var(--sim-rojo);border-color:var(--sim-rojo-dk);color:#fff;">Rojo</button>
-      <button class="estado-btn" data-estado="azul" style="background:var(--sim-azul);border-color:var(--sim-azul-dk);color:#fff;">Azul</button>
       <button class="estado-btn" data-estado="negro" style="background:var(--sim-negro);border-color:#000;color:#fff;">Negro</button>
     </div>
     <div class="demo-caja" id="demoCaja">
       <div class="dnombre" id="demoNombre">Camiseta Metallica — Master of Puppets</div>
       <div class="dstock" id="demoStock">8</div>
       <div class="dmsg" id="demoMsg">Stock saludable</div>
-    </div>
-    <div class="demo-nivel">
-      <span style="font-size:13px;font-weight:700;align-self:center;margin-right:4px;">Intensidad:</span>
-      <button class="nivel-btn activo" data-nivel="1">n1 tenue</button>
-      <button class="nivel-btn" data-nivel="2">n2 medio</button>
-      <button class="nivel-btn" data-nivel="3">n3 encendido</button>
     </div>
   </div>
 
@@ -654,7 +646,6 @@
     <li><strong>Rojo</strong> pregunta: "¿qué se me acaba o se me vence HOY?"</li>
     <li><strong>🟠 Naranja</strong> pregunta: "¿qué debo vender primero esta semana?"</li>
     <li><strong>Amarillo</strong> pregunta: "¿qué producto me está dejando más plata y debería empujar?"</li>
-    <li><strong>Azul</strong> pregunta: "¿qué precio o costo debo revisar porque casi no gano nada ahí?"</li>
     <li><strong>Negro</strong> pregunta: "¿qué plata tengo enterrada en una percha sin moverse?"</li>
     <li><strong>Verde</strong> no pregunta nada — es la ausencia de problema, y eso también es información.</li>
   </ul>
@@ -668,7 +659,7 @@
     <div class="tarjeta tilt">
       <h4 style="margin-top:0;">Qué ve el dueño</h4>
       <ul class="lista" style="margin:0;">
-        <li>Hero tri-estado del negocio: <strong>Verde</strong> = sin urgencias. <strong>Amarillo</strong> = hay productos naranja (revisar esta semana). <strong>Rojo</strong> = hay productos en emergencia. Productos negro, azul y amarillo-oportunidad no afectan el hero</li>
+        <li>Hero tri-estado del negocio: <strong>Verde</strong> = sin urgencias. <strong>Amarillo</strong> = hay productos naranja (revisar esta semana). <strong>Rojo</strong> = hay productos en emergencia. Productos negro y amarillo-oportunidad no afectan el hero</li>
         <li>Entró hoy / Salió hoy / Ganancia de hoy / Valor de tu inventario</li>
         <li>Ventas del día y venta promedio (ticket promedio)</li>
         <li>Lista de alertas rojas y naranjas ordenadas por urgencia</li>
@@ -691,7 +682,7 @@
 <section class="bloque revela" id="inventario">
   <div class="eyebrow">Sección 5</div>
   <h2>Inventario: la cuadrícula de tarjetas</h2>
-  <p class="lead">Cada producto es una tarjeta con su color y su nivel Bloom. Puedes filtrar por estado, ajustar stock sin escanear, marcar estrellas y dar de alta productos nuevos.</p>
+  <p class="lead">Cada producto es una tarjeta con su color. Puedes filtrar por estado, ajustar stock sin escanear, marcar estrellas y dar de alta productos nuevos.</p>
 
   <h3>Los campos de un producto</h3>
   <div class="tabla-wrap">
@@ -702,7 +693,7 @@
       <tr><td>SKU</td><td>CAM-ACDC-BIB</td><td>Código interno legible, no cambia al renombrar el producto</td></tr>
       <tr><td>Código de barras</td><td>7861000030033</td><td>Lo que lee el escáner en Vendido</td></tr>
       <tr><td>Precio de venta</td><td>$20.00</td><td>Lo que paga el cliente</td></tr>
-      <tr><td>Costo</td><td>$8.50</td><td>Define el margen y por tanto si el producto puede ser azul o amarillo</td></tr>
+      <tr><td>Costo</td><td>$8.50</td><td>Define el margen y por tanto si el producto puede ser amarillo (oportunidad)</td></tr>
       <tr><td>Umbral rojo / amarillo</td><td>8 / 16 unidades</td><td>Debajo de 8 se enciende rojo; entre 8 y 16, naranja</td></tr>
       <tr><td>Proveedor</td><td>Rock Import EC</td><td>Referencia para reposición</td></tr>
       <tr><td>Perecible + fecha de caducidad</td><td>Sí — vence 2026-07-08</td><td>Activa las alertas de vencimiento (rojo/naranja) sobre las de stock</td></tr>
@@ -719,7 +710,7 @@
   <h3>La estrella ⭐: el producto que quieres empujar hoy</h3>
   <p>El dueño puede marcar cualquier producto con una estrella. Ese producto aparece automáticamente en la sección "Para impulsar hoy" de la Vista Hoy y arriba del todo en la cuadrícula de Vendido — así el empleado sabe exactamente qué recomendar sin que el dueño tenga que estar presente.</p>
 
-  <div class="tip"><strong>Filtros de Inventario:</strong> Todos · Urgente (rojo) · Revisar (naranja) · Oportunidad (amarillo) · Sano (verde) · Dato (azul) · Dormido (negro). Úsalos cada mañana en este orden: primero Urgente, luego Revisar, y una vez a la semana revisa Dormido para liberar capital.</div>
+  <div class="tip"><strong>Filtros de Inventario:</strong> Todos · Urgente (rojo) · Revisar (naranja) · Oportunidad (amarillo) · Sano (verde) · Dormido (negro). Úsalos cada mañana en este orden: primero Urgente, luego Revisar, y una vez a la semana revisa Dormido para liberar capital.</div>
 </section>
 
 <section class="bloque revela" id="perchas">
@@ -815,7 +806,7 @@
     <li>Nombre del producto y precio grande (fácil de leer desde lejos en un mostrador)</li>
     <li>Fecha de vencimiento si el producto es perecible</li>
     <li>Código de barras Code128 escaneable por cualquier lector</li>
-    <li>Código QR que abre la app directamente en la ficha del producto — el cliente lo escanea con la cámara de su celular y llega a la demo con ese producto como contexto</li>
+    <li>Código QR que abre la app directamente en la ficha del producto — el cliente lo escanea con la cámara de su celular y llega a la tienda de muestra con ese producto como contexto</li>
     <li>Puedes tocar el código de barras para imprimir <em>solo</em> el código, o guardarlo como imagen PNG — ideal para pegatinas hechas por fuera</li>
   </ul>
   <div class="tip"><strong>Recomendación:</strong> imprime etiquetas en lote una vez por semana para todo lo que llegó nuevo. En micropymes de Cuenca, una hoja de 20 etiquetas autoadhesivas cuesta entre $0.50 y $1.20 en papelerías locales — rentabilízalo etiquetando solo lo que realmente rota.</div>
@@ -1106,10 +1097,10 @@ Carmen Ulloa,</pre>
 <section class="bloque revela" id="instancia-equipo">
   <div class="eyebrow">Sección 16 — lo más nuevo</div>
   <h2>Tu instancia, tu equipo y el control anti fraude</h2>
-  <p>Estas son las novedades que convierten friendly-123 de "una demo bonita" en <strong>tu</strong> negocio, con tu gente y tus reglas.</p>
+  <p>Estas son las novedades que convierten friendly-123 de "una maqueta bonita" en <strong>tu</strong> negocio, con tu gente y tus reglas.</p>
 
   <h3>Probar, activar y comprar</h3>
-  <p>Con el PIN <strong>456</strong> entras al <strong>demo</strong>: datos de ejemplo para practicar vender, ajustar stock y cerrar el día. El demo nunca vence.</p>
+  <p>Con el PIN <strong>456</strong> entras a la <strong>tienda de muestra</strong>: datos ficticios para practicar vender, ajustar stock y cerrar el día. La tienda de muestra nunca vence.</p>
   <p>Con el PIN <strong>789</strong> activas <strong>tu instancia</strong>: registras tu correo y tu WhatsApp, y el dispositivo pasa a ser tuyo, con un identificador único para que tus datos nunca se mezclen con los de otro negocio. Desde ese día tienes <strong>30 días de uso completo</strong>, sin topes.</p>
   <p>Al terminar la prueba sin licencia pagada, la app queda en <strong>solo lectura</strong>: puedes ver y exportar toda tu información, pero no registrar nada nuevo. <strong>Tus datos nunca se borran.</strong> Para seguir registrando, compra tu licencia por WhatsApp +593 99 990 5080 o en staff@jfcarpio.com. La licencia pagada vale para todos los dispositivos de tu negocio y se activa sola, sin volver a entrar.</p>
   <div class="tip"><strong>Tus datos son tuyos.</strong> Se guardan en tu dispositivo. Si activas el cuaderno compartido, viajan cifrados entre tus dispositivos y nadie más puede leerlos.</div>
@@ -1176,8 +1167,8 @@ Carmen Ulloa,</pre>
           <h3 style="margin-top:0;">Boutique de artesanía y ropa andina — Chordeleg / Gualaceo</h3>
           <p>Sombreros de paja toquilla, aretes de filigrana, bufandas y chales de alpaca, pulseras de mullos. Ticket promedio más alto que el resto de casos.</p>
           <ul class="lista">
-            <li><strong>Precios reales:</strong> Sombrero de paja toquilla $30, Aretes de filigrana $22 (estrella ⭐, margen 73% → amarillo intensidad 3), Bufanda de alpaca $25, Chal bordado Gualaceo $35.</li>
-            <li><strong>Uso del color amarillo:</strong> los aretes de filigrana tienen margen altísimo (costo $6 sobre precio $22) — la app los marca amarillo n3 automáticamente. El dueño los usa como "producto de entrada" en redes sociales porque cada venta deja mucha plata.</li>
+            <li><strong>Precios reales:</strong> Sombrero de paja toquilla $30, Aretes de filigrana $22 (estrella ⭐, margen 73% → amarillo), Bufanda de alpaca $25, Chal bordado Gualaceo $35.</li>
+            <li><strong>Uso del color amarillo:</strong> los aretes de filigrana tienen margen altísimo (costo $6 sobre precio $22) — la app los marca amarillo automáticamente. El dueño los usa como "producto de entrada" en redes sociales porque cada venta deja mucha plata.</li>
             <li><strong>Matriz de clientes:</strong> turistas ocasionales caen naturalmente en primavera o invierno; clientas locales frecuentes (bodas, eventos) llegan a verano ☀️ — la boutique les avisa primero de colecciones nuevas.</li>
           </ul>
         </div>
@@ -1194,9 +1185,9 @@ Carmen Ulloa,</pre>
 
         <div class="tab-panel">
           <h3 style="margin-top:0;">Tienda de barrio / minimarket — productos básicos</h3>
-          <p>Agua, pilas, cinta adhesiva, fundas de regalo, chicles. Márgenes ajustados por naturaleza del rubro — el terreno natural del color azul.</p>
+          <p>Agua, pilas, cinta adhesiva, fundas de regalo, chicles. Márgenes ajustados por naturaleza del rubro.</p>
           <ul class="lista">
-            <li><strong>Ejemplo azul:</strong> Agua sin gas 600ml cuesta $0.70 y se vende a $0.80 — margen de apenas 12.5%. La app la marca azul n3: "Margen 13% — revisa el precio o el costo". Es información honesta, no un error: en básicos de alta rotación el margen bajo es normal, pero vale la pena negociarlo con el distribuidor cada semestre.</li>
+            <li><strong>Margen bajo:</strong> Agua sin gas 600ml cuesta $0.70 y se vende a $0.80: margen de apenas 12.5%. En básicos de alta rotación es normal, pero vale la pena negociar con el distribuidor cada seis meses. Revisa estos márgenes en el reporte contable.</li>
             <li><strong>Alta rotación, ticket bajo:</strong> ideal para el modo Vendido por cuadrícula táctil — decenas de toques rápidos al día sin escribir nada.</li>
             <li><strong>Reporte contable:</strong> con márgenes tan ajustados, el dueño revisa el CSV contable cada semana (no solo mensual) para vigilar que el volumen sí compense el margen bajo.</li>
           </ul>
@@ -1254,7 +1245,7 @@ Carmen Ulloa,</pre>
 
     <div class="acordeon-item">
       <button class="preg">¿Cómo decide la app si un producto está "dormido" (negro)?<span class="flecha">⌄</span></button>
-      <div class="resp"><div class="inner"><p style="margin:0;">Cuando el stock está sano (por encima del umbral amarillo) pero no ha tenido ninguna venta en 45 días o más. A partir de ahí sube de intensidad: nivel 2 a los 60 días, nivel 3 a los 120 días sin vender.</p></div></div>
+      <div class="resp"><div class="inner"><p style="margin:0;">Cuando el stock está sano (por encima del umbral amarillo) pero no ha tenido ninguna venta en 45 días o más.</p></div></div>
     </div>
 
     <div class="acordeon-item">
@@ -1271,7 +1262,7 @@ Carmen Ulloa,</pre>
   <dl class="glosario">
     <dt>Percha</dt><dd>Unidad operativa real de venta: mostrador, stand, mesa de feria.</dd>
     <dt>Sucursal</dt><dd>Agrupador de perchas para reportes y organización.</dd>
-    <dt>Sistema Simon</dt><dd>Los seis colores de estado (verde, amarillo, naranja, rojo, azul, negro) que clasifican cada producto.</dd>
+    <dt>Sistema Simon</dt><dd>Los cinco colores de estado (verde, amarillo, naranja, rojo, negro) que clasifican cada producto.</dd>
     <dt>Semáforo de colores</dt><dd>Los cinco estados del inventario: verde, amarillo, naranja, rojo y negro. Un color plano por estado, sin niveles ni matices.</dd>
     <dt>Umbral rojo / amarillo</dt><dd>Cantidades de stock que activan cada alerta de reposición.</dd>
     <dt>Producto estrella ⭐</dt><dd>Producto marcado por el dueño para impulsar activamente hoy.</dd>
@@ -1352,7 +1343,7 @@ Carmen Ulloa,</pre>
     </div>
     <div class="tarjeta tilt revela">
       <h4 style="margin-top:0;color:var(--sim-amarillo-dk);">Its philosophy</h4>
-      <p style="margin:0;font-size:16px;">Every product has a color and an intensity. You don't memorize reports: the color already tells you whether to sell, restock, promote or let it rest.</p>
+      <p style="margin:0;font-size:16px;">Every product has a color. You don't memorize reports: the color already tells you whether to sell, restock, promote or let it rest.</p>
     </div>
     <div class="tarjeta tilt revela">
       <h4 style="margin-top:0;color:var(--sim-azul-dk);">Works without internet</h4>
@@ -1376,7 +1367,7 @@ Carmen Ulloa,</pre>
   </div>
 
   <div class="stat-grid">
-    <div class="stat"><div class="n" data-contar="6">0</div><div class="l">Status colors</div></div>
+    <div class="stat"><div class="n" data-contar="5">0</div><div class="l">Status colors</div></div>
     <div class="stat"><div class="n" data-contar="5">0</div><div class="l">Traffic light colors</div></div>
     <div class="stat"><div class="n" data-contar="8">0</div><div class="l">Main views</div></div>
     <div class="stat"><div class="n" data-contar="15">0</div><div class="l">% VAT Ecuador applied</div></div>
@@ -1414,7 +1405,7 @@ Carmen Ulloa,</pre>
     <div class="txt"><h4>Make your first backup</h4><p>Advanced → Export backup, protected with a key. Save it in your WhatsApp or Drive. Repeat this at least every week; the app reminds you if too much time goes by.</p></div>
   </div>
 
-  <div class="tip"><strong>JFC's recommendation:</strong> on day one, keep the app in demo mode (or with test data) and practice selling, adjusting stock and closing the day before loading your real inventory. That way you learn without fear of "breaking" anything.</div>
+  <div class="tip"><strong>JFC's recommendation:</strong> on day one, open the sample store (PIN 456) and practice selling, adjusting stock and closing the day before loading your real inventory. That way you learn without fear of "breaking" anything.</div>
 
   <h3>Startup checklist</h3>
   <ul class="checklist">
@@ -1433,7 +1424,7 @@ Carmen Ulloa,</pre>
 <section class="bloque revela" id="colores-en">
   <div class="eyebrow">Section 3: the heart of the app</div>
   <h2>The color language: the Simon System</h2>
-  <p class="lead">Every product in friendly-123 is in one of six colors. The color is never decorative: it is an automatic diagnosis that combines your stock, your thresholds, your margin and your days without a sale. Learn this table once and you will read any shelf at a glance, forever.</p>
+  <p class="lead">Every product in friendly-123 is in one of five colors. The color is never decorative: it is an automatic diagnosis that combines your stock, your thresholds, your margin and your days without a sale. Learn this table once and you will read any shelf at a glance, forever.</p>
 
   <div class="tabla-wrap">
     <table class="datos">
@@ -1442,7 +1433,6 @@ Carmen Ulloa,</pre>
       <tr><td style="color:var(--sim-amarillo-dk);font-weight:700;">Yellow</td><td>Opportunity</td><td>Healthy stock and not dormant (less than 45 days without sales), and margin ≥ 50%</td><td>Push it: it is leaving money on the table</td></tr>
       <tr><td style="color:var(--sim-naranja-dk);font-weight:700;">🟠 Orange</td><td>Urgent-soon</td><td>Stock between the red and yellow thresholds, or expires in 4–7 days</td><td>Sell it first / schedule it for restocking this week</td></tr>
       <tr><td style="color:var(--sim-rojo-dk);font-weight:700;">Red</td><td>Emergency</td><td>Stock at zero or below the red threshold, expired or expiring in ≤3 days</td><td>Act today: restock, transfer or withdraw</td></tr>
-      <tr><td style="color:var(--sim-azul-dk);font-weight:700;">Blue</td><td>Accounting data</td><td>Margin above 0% but below 25% (price stuck to cost)</td><td>Review the price or negotiate the cost with the supplier</td></tr>
       <tr><td style="color:#FFFFFF;font-weight:700;background:var(--sim-negro);border-radius:4px;">Black</td><td>Dormant capital</td><td>45 days or more without a single sale, with healthy stock</td><td>Free that money: discount, bundle or remove it from the catalog</td></tr>
     </table>
   </div>
@@ -1450,26 +1440,19 @@ Carmen Ulloa,</pre>
   <div class="tip"><strong>Important note:</strong> when a perishable product is about to expire and also has low stock, the app always keeps the <em>more serious</em> of the two signals. A product with healthy stock that expires tomorrow is painted red just like one with no stock.</div>
 
   <h3>Try it yourself: status simulator</h3>
-  <p>Pick a color and then an intensity level: this is how a real Inventory card behaves.</p>
+  <p>Pick a color: this is how a real Inventory card looks.</p>
   <div class="simulador">
     <div class="botones" id="simBotones">
       <button class="estado-btn activo" data-estado="verde" style="background:var(--sim-verde);border-color:var(--sim-verde-dk);color:#fff;">Green</button>
       <button class="estado-btn" data-estado="amarillo" style="background:var(--sim-amarillo);border-color:var(--sim-amarillo-dk);">Yellow</button>
       <button class="estado-btn" data-estado="naranja" style="background:var(--sim-naranja);border-color:var(--sim-naranja-dk);color:#fff;">Orange</button>
       <button class="estado-btn" data-estado="rojo" style="background:var(--sim-rojo);border-color:var(--sim-rojo-dk);color:#fff;">Red</button>
-      <button class="estado-btn" data-estado="azul" style="background:var(--sim-azul);border-color:var(--sim-azul-dk);color:#fff;">Blue</button>
       <button class="estado-btn" data-estado="negro" style="background:var(--sim-negro);border-color:#000;color:#fff;">Black</button>
     </div>
     <div class="demo-caja" id="demoCaja">
       <div class="dnombre" id="demoNombre">Metallica T-shirt — Master of Puppets</div>
       <div class="dstock" id="demoStock">8</div>
       <div class="dmsg" id="demoMsg">Healthy stock</div>
-    </div>
-    <div class="demo-nivel">
-      <span style="font-size:13px;font-weight:700;align-self:center;margin-right:4px;">Intensity:</span>
-      <button class="nivel-btn activo" data-nivel="1">n1 soft</button>
-      <button class="nivel-btn" data-nivel="2">n2 medium</button>
-      <button class="nivel-btn" data-nivel="3">n3 bright</button>
     </div>
   </div>
 
@@ -1485,7 +1468,6 @@ Carmen Ulloa,</pre>
     <li><strong>Red</strong> asks: "what is running out or expiring TODAY?"</li>
     <li><strong>🟠 Orange</strong> asks: "what should I sell first this week?"</li>
     <li><strong>Yellow</strong> asks: "which product is making me the most money and should be pushed?"</li>
-    <li><strong>Blue</strong> asks: "which price or cost should I review because I barely earn anything there?"</li>
     <li><strong>Black</strong> asks: "what money do I have buried on a shelf, not moving?"</li>
     <li><strong>Green</strong> asks nothing: it is the absence of a problem, and that is information too.</li>
   </ul>
@@ -1499,7 +1481,7 @@ Carmen Ulloa,</pre>
     <div class="tarjeta tilt">
       <h4 style="margin-top:0;">What the owner sees</h4>
       <ul class="lista" style="margin:0;">
-        <li>Three-state business hero: <strong>Green</strong> = no emergencies. <strong>Yellow</strong> = there are orange products (review this week). <strong>Red</strong> = there are products in an emergency. Black, blue and yellow-opportunity products do not affect the hero</li>
+        <li>Three-state business hero: <strong>Green</strong> = no emergencies. <strong>Yellow</strong> = there are orange products (review this week). <strong>Red</strong> = there are products in an emergency. Black and yellow-opportunity products do not affect the hero</li>
         <li>In today / Out today / Today's profit / Value of your inventory</li>
         <li>Sales of the day and average sale (average ticket)</li>
         <li>List of red and orange alerts sorted by urgency</li>
@@ -1522,7 +1504,7 @@ Carmen Ulloa,</pre>
 <section class="bloque revela" id="inventario-en">
   <div class="eyebrow">Section 5</div>
   <h2>Inventory: the card grid</h2>
-  <p class="lead">Each product is a card with its color and its Bloom level. You can filter by status, adjust stock without scanning, mark stars and add new products.</p>
+  <p class="lead">Each product is a card with its color. You can filter by status, adjust stock without scanning, mark stars and add new products.</p>
 
   <h3>The fields of a product</h3>
   <div class="tabla-wrap">
@@ -1533,7 +1515,7 @@ Carmen Ulloa,</pre>
       <tr><td>SKU</td><td>CAM-ACDC-BIB</td><td>Readable internal code, does not change when the product is renamed</td></tr>
       <tr><td>Barcode</td><td>7861000030033</td><td>What the scanner reads in Sold</td></tr>
       <tr><td>Sale price</td><td>$20.00</td><td>What the customer pays</td></tr>
-      <tr><td>Cost</td><td>$8.50</td><td>Sets the margin and therefore whether the product can be blue or yellow</td></tr>
+      <tr><td>Cost</td><td>$8.50</td><td>Sets the margin and therefore whether the product can be yellow (opportunity)</td></tr>
       <tr><td>Red / yellow threshold</td><td>8 / 16 units</td><td>Below 8 it turns red; between 8 and 16, orange</td></tr>
       <tr><td>Supplier</td><td>Rock Import EC</td><td>Reference for restocking</td></tr>
       <tr><td>Perishable + expiry date</td><td>Yes — expires 2026-07-08</td><td>Turns on expiry alerts (red/orange) above the stock ones</td></tr>
@@ -1550,7 +1532,7 @@ Carmen Ulloa,</pre>
   <h3>The star ⭐: the product you want to push today</h3>
   <p>The owner can mark any product with a star. That product automatically appears in the "Push today" section of the Today view and at the very top of the Sold grid, so the employee knows exactly what to recommend without the owner having to be there.</p>
 
-  <div class="tip"><strong>Inventory filters:</strong> All · Urgent (red) · Review (orange) · Opportunity (yellow) · Healthy (green) · Data (blue) · Dormant (black). Use them every morning in this order: first Urgent, then Review, and once a week check Dormant to free up capital.</div>
+  <div class="tip"><strong>Inventory filters:</strong> All · Urgent (red) · Review (orange) · Opportunity (yellow) · Healthy (green) · Dormant (black). Use them every morning in this order: first Urgent, then Review, and once a week check Dormant to free up capital.</div>
 </section>
 
 <section class="bloque revela" id="perchas-en">
@@ -1646,7 +1628,7 @@ Carmen Ulloa,</pre>
     <li>Product name and large price (easy to read from a distance on a counter)</li>
     <li>Expiry date if the product is perishable</li>
     <li>Code128 barcode scannable by any reader</li>
-    <li>QR code that opens the app straight on the product card: the customer scans it with their phone camera and lands on the demo with that product as context</li>
+    <li>QR code that opens the app straight on the product card: the customer scans it with their phone camera and lands on the sample store with that product as context</li>
     <li>You can tap the barcode to print <em>only</em> the code, or save it as a PNG image — ideal for stickers made outside</li>
   </ul>
   <div class="tip"><strong>Recommendation:</strong> print labels in batches once a week for everything that arrived new. In Cuenca micro businesses, a sheet of 20 self-adhesive labels costs between $0.50 and $1.20 at local stationery stores — make it worthwhile by labeling only what actually turns over.</div>
@@ -1913,10 +1895,10 @@ Carmen Ulloa,</pre>
 <section class="bloque revela" id="instancia-equipo-en">
   <div class="eyebrow">Section 16 — what's newest</div>
   <h2>Your instance, your team, and fraud control</h2>
-  <p>These are the new features that turn friendly-123 from "a pretty demo" into <strong>your</strong> business, with your people and your rules.</p>
+  <p>These are the new features that turn friendly-123 from "a pretty mockup" into <strong>your</strong> business, with your people and your rules.</p>
 
   <h3>Try it, activate it, and buy it</h3>
-  <p>With PIN <strong>456</strong> you enter the <strong>demo</strong>: sample data for practicing selling, adjusting stock, and closing the day. The demo never expires.</p>
+  <p>With PIN <strong>456</strong> you enter the <strong>sample store</strong>: fictitious data for practicing selling, adjusting stock, and closing the day. The sample store never expires.</p>
   <p>With PIN <strong>789</strong> you activate <strong>your instance</strong>: you register your email and your WhatsApp, and the device becomes yours, with a unique identifier so your data never gets mixed up with another business's. From that day you have <strong>30 days of full use</strong>, with no caps.</p>
   <p>When the trial ends without a paid license, the app switches to <strong>read-only</strong>: you can view and export all your information, but not record anything new. <strong>Your data is never deleted.</strong> To keep recording, buy your license via WhatsApp +593 99 990 5080 or at staff@jfcarpio.com. The paid license covers every device of your business and activates itself, with no need to log in again.</p>
   <div class="tip"><strong>Your data is yours.</strong> It's saved on your device. If you activate the shared notebook, it travels encrypted between your devices and no one else can read it.</div>
@@ -1983,8 +1965,8 @@ Carmen Ulloa,</pre>
           <h3 style="margin-top:0;">Andean crafts and clothing boutique — Chordeleg / Gualaceo</h3>
           <p>Toquilla straw hats, filigree earrings, alpaca scarves and shawls, beaded bracelets. Higher average ticket than the other cases.</p>
           <ul class="lista">
-            <li><strong>Real prices:</strong> Toquilla straw hat $30, filigree earrings $22 (star ⭐, 73% margin → yellow intensity 3), alpaca scarf $25, embroidered Gualaceo shawl $35.</li>
-            <li><strong>Using the color yellow:</strong> the filigree earrings have a very high margin (cost $6 against a $22 price) — the app automatically flags them yellow n3. The owner uses them as an "entry product" on social media because each sale leaves a lot of profit.</li>
+            <li><strong>Real prices:</strong> Toquilla straw hat $30, filigree earrings $22 (star ⭐, 73% margin → yellow), alpaca scarf $25, embroidered Gualaceo shawl $35.</li>
+            <li><strong>Using the color yellow:</strong> the filigree earrings have a very high margin (cost $6 against a $22 price) — the app automatically flags them yellow. The owner uses them as an "entry product" on social media because each sale leaves a lot of profit.</li>
             <li><strong>Customer matrix:</strong> occasional tourists naturally fall into spring or winter; frequent local customers (weddings, events) reach summer ☀️ — the boutique notifies them first about new collections.</li>
           </ul>
         </div>
@@ -2001,9 +1983,9 @@ Carmen Ulloa,</pre>
 
         <div class="tab-panel">
           <h3 style="margin-top:0;">Neighborhood store / minimarket — basic goods</h3>
-          <p>Water, batteries, tape, gift bags, gum. Tight margins by the nature of the category — blue's natural territory.</p>
+          <p>Water, batteries, tape, gift bags, gum. Tight margins by the nature of the category.</p>
           <ul class="lista">
-            <li><strong>Blue example:</strong> Still water 600ml costs $0.70 and sells for $0.80 — a margin of just 12.5%. The app flags it blue n3: "13% margin — check the price or the cost." It's honest information, not an error: in high-turnover basics a low margin is normal, but it's worth negotiating with the distributor every six months.</li>
+            <li><strong>Low margin:</strong> Still water 600ml costs $0.70 and sells for $0.80: a margin of just 12.5%. In high-turnover basics that is normal, but it's worth negotiating with the distributor every six months. Review these margins in the accounting report.</li>
             <li><strong>High turnover, low ticket:</strong> ideal for the touch-grid Sold mode — dozens of quick taps a day without typing anything.</li>
             <li><strong>Accounting report:</strong> with margins so tight, the owner checks the accounting CSV every week (not just monthly) to make sure volume really does make up for the low margin.</li>
           </ul>
@@ -2061,7 +2043,7 @@ Carmen Ulloa,</pre>
 
     <div class="acordeon-item">
       <button class="preg">How does the app decide if a product is "asleep" (black)?<span class="flecha">⌄</span></button>
-      <div class="resp"><div class="inner"><p style="margin:0;">When stock is healthy (above the yellow threshold) but hasn't had a single sale in 45 days or more. From there the intensity climbs: level 2 at 60 days, level 3 at 120 days without a sale.</p></div></div>
+      <div class="resp"><div class="inner"><p style="margin:0;">When stock is healthy (above the yellow threshold) but hasn't had a single sale in 45 days or more.</p></div></div>
     </div>
 
     <div class="acordeon-item">
@@ -2078,7 +2060,7 @@ Carmen Ulloa,</pre>
   <dl class="glosario">
     <dt>Shelf</dt><dd>The real operational sales unit: counter, stand, market table.</dd>
     <dt>Branch</dt><dd>A grouping of shelves for reports and organization.</dd>
-    <dt>Simon System</dt><dd>The six status colors (green, yellow, orange, red, blue, black) that classify each product.</dd>
+    <dt>Simon System</dt><dd>The five status colors (green, yellow, orange, red, black) that classify each product.</dd>
     <dt>Color traffic light</dt><dd>The five inventory states: green, yellow, orange, red, and black. One flat color per state, no levels or shades.</dd>
     <dt>Red / yellow threshold</dt><dd>Stock quantities that trigger each restock alert.</dd>
     <dt>Star product ⭐</dt><dd>A product the owner has marked to actively push today.</dd>
@@ -2187,7 +2169,6 @@ Carmen Ulloa,</pre>
     amarillo:{bg:'linear-gradient(135deg, #FFC700 0%, #B8860B 100%)', borde:'#B8860B', msg:EN?'Good margin: there is money waiting for you':'Buen margen — hay dinero esperándote', stock:9, tinta:'#0F1923'},
     naranja: {bg:'linear-gradient(135deg, #F97316 0%, #C05000 100%)', borde:'#C05000', msg:EN?'Few left: review soon':'Quedan pocas — revisar pronto', stock:5},
     rojo:    {bg:'linear-gradient(135deg, #E8365D 0%, #B0183E 100%)', borde:'#B0183E', msg:EN?'Out of stock: restock as soon as possible':'Sin stock — repón cuanto antes', stock:0},
-    azul:    {bg:'linear-gradient(135deg, #5294AC 0%, #2E6278 100%)', borde:'#2E6278', msg:EN?'13% margin: check the price or the cost':'Margen 13% — revisa el precio o el costo', stock:48},
     negro:   {bg:'#0A0A0F', borde:'#000000', msg:EN?'No sales in 82 days: your money is resting there':'Sin ventas hace 82 días — tu dinero está descansando ahí', stock:15}
   };
   var estadoActual = 'verde', nivelActual = 1;
@@ -2204,7 +2185,7 @@ Carmen Ulloa,</pre>
     demoCaja.style.boxShadow = nivelActual === 3 ? ('0 0 22px -2px ' + e.borde) : 'none';
     demoStock.textContent = e.stock;
     demoStock.style.color = e.tinta || '#FFFFFF';
-    demoMsg.textContent = e.msg + (EN?'  ·  intensity ':'  ·  intensidad ') + nivelActual + '/3';
+    demoMsg.textContent = e.msg;
     demoMsg.style.color = e.tinta || '#FFFFFF';
   }
   raiz.querySelectorAll('.simulador .estado-btn').forEach(function(btn){
