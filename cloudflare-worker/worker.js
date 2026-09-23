@@ -776,7 +776,26 @@ export default {
     // NO toca syncCode (el KV no lo guarda) ni los datos locales del aparato:
     // el dueño entra la licencia canónica en el dispositivo (claim & merge) para
     // unir sus datos. Es el lado servidor del reensamblado.
-    // APARATO DE JFC (v349): marcar/quitar desde el panel. Reversible (historial).
+    /* A MI LICENCIA PRINCIPAL (v350, JFC 2026-09-22). "O son de alguien o son
+       míos": re-apunta un aparato suelto a la licencia principal de JFC, dueño
+       de la app. La licencia es el secret LORD_LICENSE (nunca en el repo, que
+       es público). Mismo camino que reapuntar: reversible vía historial. */
+    const mPrincipal = url.pathname.match(/^\/licencias\/([^/]+)\/a-principal$/);
+    if (mPrincipal && req.method === "POST") {
+      if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+      const principal = String(env.LORD_LICENSE || "").trim().toUpperCase();
+      if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(principal)) return json({ error: "Falta configurar LORD_LICENSE en el Worker" }, 503);
+      const instanceId = decodeURIComponent(mPrincipal[1]);
+      const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+      if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+      const reg = JSON.parse(raw);
+      reg.licenseCode = principal;
+      await guardarConHistorial(env, instanceId, reg);
+      return json({ ok: true });
+    }
+
+    // APARATO DE JFC (v349) — DORMIDO v350: el panel ya no lo llama (ver
+    // a-principal). Se deja la ruta para no romper nada; NO BORRAR.
     const mSoporte = url.pathname.match(/^\/licencias\/([^/]+)\/soporte$/);
     if (mSoporte && req.method === "POST") {
       if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);

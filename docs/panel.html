@@ -969,7 +969,7 @@ function licRenderTabla(data) {
       `<option value="bloqueada"${licNormEstado(est) === "bloqueada" ? " selected" : ""}>Blocked</option>` +
       `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button>` +
       (soloJfc ? ` <button class="btn-ok" title="Unificar el nombre de estos aparatos propios; cada edición queda en el historial recuperable" onclick="licUnificarNombre('${licEsc(g.cod)}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Unificar nombre</button>` : "") +
-      ` <button class="btn-ok" title="${r.soporteJfc === true ? "Este aparato está marcado como tuyo (soporte). Tocar para quitar la marca." : "Marcar este aparato como tuyo (soporte): entra como invitado a tiendas ajenas. Se aplica en su próximo login."}" onclick="licMarcarSoporte('${id}', ${r.soporteJfc === true ? "false" : "true"})" style="background:${r.soporteJfc === true ? "#E8A020" : "transparent"};border:1px solid #E8A020;color:${r.soporteJfc === true ? "#111111" : "#E8A020"};margin-left:4px;">${r.soporteJfc === true ? "Aparato JFC ✓" : "Aparato JFC"}</button>` +
+      ` <button class="btn-ok" title="Enganchar este aparato a TU licencia principal (dueño de la app). Reversible: queda en el historial." onclick="licAMiLicencia('${id}')" style="background:transparent;border:1px solid #E8A020;color:#E8A020;margin-left:4px;">A mi licencia</button>` +
       ` <button class="btn-ok" title="Emitir un permiso de recuperación de cinco minutos para este aparato; no cambia datos" onclick="licEmitirMaestro('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Recuperación</button>` +
       ` <button class="btn-ok" title="Re-enganchar esta oveja perdida a una licencia canónica (re-apunta su registro KV, reversible)" onclick="licReenganchar('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Re-enganchar</button>` +
       ` <button class="btn-ok" title="Delete this record (archived first, recoverable)" onclick="licBorrar('${id}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);margin-left:4px;">Delete</button></td>`;
@@ -1068,7 +1068,32 @@ async function licAplicarNombre(codigo) {
 // Este botón re-apunta su registro KV a la licencia canónica que JFC elige.
 // Es reversible (pasa por el historial del Worker). Después, en el dispositivo,
 // se entra esa licencia por Avanzado → claim & merge para unir sus datos.
-/* APARATO DE JFC (v349, JFC 2026-09-22). Marca/quita en el Worker; el aparato
+/* A MI LICENCIA PRINCIPAL (v350, JFC 2026-09-22). JFC es el dueño de la app;
+   un aparato suyo es un aparato EN su licencia principal. Un toque re-apunta
+   el aparato suelto a ella (el Worker la conoce como secret, no está aquí).
+   Reversible: queda en el historial. */
+async function licAMiLicencia(instanceId) {
+  const url = licWorkerUrl();
+  const key = licMasterKey();
+  if (!url || !key) { alert("Configura primero la URL del Worker y la Master Key."); return; }
+  const reg = (Array.isArray(_licTodos) ? _licTodos : []).find(r => String(r.instanceId) === String(instanceId));
+  const nombre = reg ? (reg.nombreNegocio || reg.nombre || reg.instanceId) : instanceId;
+  const actual = reg ? String(reg.licenseCode || "").trim() : "";
+  if (!confirm("¿Este aparato es TUYO?\n\n" + nombre + "\nLicencia actual: " + (actual || "(ninguna)") +
+      "\n\nSe enganchará a tu licencia principal. Nunca lo hagas con el aparato de un cliente. Es reversible.")) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(instanceId) + "/a-principal", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": key }, body: "{}",
+    });
+    const r = await res.json();
+    if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
+    alert("Enganchado a tu licencia principal. En el aparato, entra tu licencia en Avanzado → Sync your team para que la adopte.");
+    licRecargar();
+  } catch (e) { alert("Fallo de red: " + (e && e.message)); }
+}
+
+/* DORMIDO v350 — reemplazado por licAMiLicencia. NO BORRAR.
+   APARATO DE JFC (v349, JFC 2026-09-22). Marca/quita en el Worker; el aparato
    la adopta en su próximo login (o al volver a la app). Reversible: queda en el
    historial de la licencia. */
 async function licMarcarSoporte(instanceId, marcar) {

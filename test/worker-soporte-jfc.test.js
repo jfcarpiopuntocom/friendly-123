@@ -37,3 +37,22 @@ test('the mark survives every login and reaches the device; removing it travels 
   await post(w, e, '/licencias/fixture-jfc-device/soporte', { soporte: false }, e.MASTER_KEY);
   assert.equal((await checkin(w, e)).data.soporte, false, 'quitar la marca también viaja');
 });
+
+// v350: "A mi licencia principal". La licencia principal es un secret del
+// Worker (LORD_LICENSE); aquí una sintética.
+test('"A mi licencia" re-points a loose device to the owner main license, only with the panel key', async () => {
+  const w = await load(), e = env();
+  e.LORD_LICENSE = 'F123-SYNTH-MAIN-0000-00000';
+  assert.equal((await post(w, e, '/licencias/fixture-jfc-device/a-principal', {})).status, 401);
+  const ok = await post(w, e, '/licencias/fixture-jfc-device/a-principal', {}, e.MASTER_KEY);
+  assert.equal(ok.data.ok, true);
+  assert.ok(!JSON.stringify(ok.data).includes('F123-SYNTH-MAIN'), 'la licencia principal no se devuelve');
+  assert.equal(JSON.parse(e._kv.get('inst:fixture-jfc-device')).licenseCode, 'F123-SYNTH-MAIN-0000-00000');
+  assert.ok(e._kv.get('hist:fixture-jfc-device'), 'reversible: el estado anterior queda en el historial');
+});
+
+test('"A mi licencia" refuses to run when the Worker has no main license configured', async () => {
+  const w = await load(), e = env();
+  assert.equal((await post(w, e, '/licencias/fixture-jfc-device/a-principal', {}, e.MASTER_KEY)).status, 503);
+  assert.equal(JSON.parse(e._kv.get('inst:fixture-jfc-device')).licenseCode, 'F123-SYNTH-JFCX-0001', 'nada cambió');
+});

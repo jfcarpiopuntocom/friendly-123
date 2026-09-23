@@ -102,9 +102,7 @@
        lord (código maestro), su latido reporta "soporte" (maintenance/support),
        no el rol del PIN. Así aparece como soporte en el panel del equipo de esa
        tienda, no como dueño. */
-    try {
-      if (localStorage.getItem("f123_lord") === "1") return "soporte";
-    } catch (_) {}
+    // RETIRADO v350 (JFC 2026-09-22: JFC es el DUEÑO de la app, no "soporte"; lo de lord/soporte/invitado era de cuando el sync viejo fallaba): el latido reporta el rol real del PIN.
     try {
       var r = window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual();
       return r || "";

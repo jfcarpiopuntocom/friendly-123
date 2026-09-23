@@ -162,7 +162,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
                       y fija la licencia canónica del lord si aún no existe.
              false -> JFC la quitó a propósito: se desmarca.
              Ausente -> no se toca nada (aparatos ya marcados siguen igual). */
-          if (r && r.soporte === true) {
+          /* DORMIDO v350 (JFC 2026-09-22: JFC es el DUEÑO de la app, no "soporte"; lo de lord/soporte/invitado era de cuando el sync viejo fallaba). El botón "Aparato JFC" se
+             reemplazó por "A mi licencia principal" en el panel: un aparato de
+             JFC es un aparato EN su licencia principal, sin marca aparte.
+             NO BORRAR. Para reactivar: quitar el "false &&" de abajo. */
+          if (false && r && r.soporte === true) {
             try {
               localStorage.setItem("f123_lord", "1");
               if (!localStorage.getItem("f123_lord_licencia_canonica")) {
@@ -171,7 +175,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
                 if (cand && /^F123-/i.test(cand)) localStorage.setItem("f123_lord_licencia_canonica", cand);
               }
             } catch (_) {}
-          } else if (r && r.soporte === false) {
+          } else if (false && r && r.soporte === false) {
             try { localStorage.removeItem("f123_lord"); } catch (_) {}
           }
           return r;
@@ -1375,9 +1379,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
        lord (código maestro), es maintenance/support: ve inventario y fotos
        para verificar integridad, pero NO precios/números ni datos de contacto
        de clientes. El CSS body.rol-soporte oculta esos selectores. */
-    var _esLord = false;
-    try { _esLord = localStorage.getItem("f123_lord") === "1"; } catch (_) {}
-    document.body.classList.toggle("rol-soporte", _esLord);
+    /* RETIRADO v350 (JFC 2026-09-22: JFC es el DUEÑO de la app, no "soporte"; lo de lord/soporte/invitado era de cuando el sync viejo fallaba). En los aparatos de JFC esto
+       ocultaba precios, montos y contactos incluso en SU tienda. Ya no se
+       aplica la clase; el CSS body.rol-soporte queda sin efecto. */
+    document.body.classList.remove("rol-soporte");
     gate.style.display = "none";
     document.body.style.overflow = ""; // reabre el scroll del fondo
     // Primera impresion controlada: foco fuera de cualquier boton fantasma

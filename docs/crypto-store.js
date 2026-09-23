@@ -418,7 +418,10 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
        maestro GUARDADO en el aparato (fijarCodigoMaestro), como antes.
        DECISIÓN DE JFC pendiente: cómo se marca como lord un aparato NUEVO de
        JFC que no tenga código guardado. */
-    if (ok && !viaPermiso) {
+    /* DORMIDO v350 (JFC 2026-09-22: JFC es el DUEÑO de la app, no "soporte"; lo de lord/soporte/invitado era de cuando el sync viejo fallaba). El código maestro autoriza SOLO la
+       acción en curso; ningún camino marca lord. NO BORRAR. Para reactivar:
+       quitar el "false &&". */
+    if (false && ok && !viaPermiso) {
       try { localStorage.setItem("f123_lord", "1"); } catch (_) {}
       /* Identidad canónica del Lord: UNA sola escritura, aquí, al verificar
          el código maestro. unirse()/activar() jamás la tocan. Si ya existe,

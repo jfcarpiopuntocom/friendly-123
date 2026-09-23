@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v349",
+  "shell": "f123-shell-v350",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-10600196ba4bd9cb0b2ded731c2289ca9ea4d23827e296b85177486a7ed55b3f",
@@ -27,9 +27,9 @@
     "./vendor/ufuzzy.min.js": "sha256-3eef8ba0ad55444c31f0e86f8375f25916515402cf2d4d7b5a2c01b4b67f2e19",
     "./vendor/minisearch.min.js": "sha256-8a05b42785db448f2c19e24a6a2107204c825565fe4f95aa69b79652baf26e82",
     "./i18n.js": "sha256-93f74f0314f4a5801ac3191432df9545b0ac10ffaa42690059136d8bf0950152",
-    "./crypto-store.js": "sha256-53c69f426609fdfdfae83b796c0d96e7f6b1825c95366c5b7a5b8dab2c847e97",
+    "./crypto-store.js": "sha256-444e741c8d05d73f0be3036a40cfb65c239610c963fa6fffc6d04930084bc7de",
     "./email-recovery.js": "sha256-12475b470318661c8575f712fd8fff2f32c082629105a46f3b82d04c98ec884e",
-    "./auth-ui.js": "sha256-f76ad8cfc1fc69b7025e1de2d454a470f92260b60c22445dcf4f42cacdd19713",
+    "./auth-ui.js": "sha256-70da9d1ec0af2674114fa6692b2dc4b1921825f7e789d104812fda443edba625",
     "./backup-scheduler.js": "sha256-a043573a011789d052c47977447fa4edf271053b7003cc5e5bef7efe31284174",
     "./avanzado-extra.js": "sha256-d73426b7402c76e30e9c40afdc006bd9e1d0f3ba989bdeb536eb8505301cf42c",
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
@@ -40,7 +40,7 @@
     "./idb-archivo.js": "sha256-7a973da43f5858675d472a9982af855e047ebe14ac16c93b4d89333c28da8963",
     "./simon-config.js": "sha256-31ac1f0b538528dfd441d67be8c90f588dc687cda495040783fc6443fa819fcf",
     "./percha-reposicion.js": "sha256-d0edcddc065099dd6bf3ccb74c4df29a1f82f5f2b98e99126bdfd52523fa21f7",
-    "./micelio-vivo.js": "sha256-cdf2708d852a1eec9b39ed528bece8b9c07ffe92e000f76ca919bb5be7fef5e1",
+    "./micelio-vivo.js": "sha256-95f6dbdd5834098c9f91bee29a9e37c792d63089568884ea67b8b4c1238da95a",
     "./micelio-ui.js": "sha256-85b17a8f68ce2583376b88e01816356875eaebaaafc2b7fcd58c60fde28fc7b0",
     "./tablero.html": "sha256-a497a91886d86a58666d1c5fd330b58b80d8ded0d401a02c166cd49a50a37c94",
     "./dashboard.html": "sha256-968e087cbda60aaceca49467c4a43243a2cb211548e4420711102a80b01337ae",

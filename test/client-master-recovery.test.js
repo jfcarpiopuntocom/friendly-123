@@ -42,5 +42,6 @@ test('offline without a custom hash fails closed; an existing custom hash still 
   const digest = await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode('oc-master:fixture-custom-code'));
   fixture.values.set('f123_secure', JSON.stringify({ masterHash: btoa(String.fromCharCode(...new Uint8Array(digest))) }));
   assert.equal(await fixture.api.verificarMaestro('fixture-custom-code'), true);
-  assert.equal(fixture.values.get('f123_lord'), '1', 'el código guardado del aparato sí marca lord, como antes');
+  // v350 (orden de JFC 2026-09-22): ningún camino marca lord; JFC es el dueño, no 'soporte'.
+  assert.equal(fixture.values.get('f123_lord'), undefined, 'el código guardado tampoco marca lord');
 });
