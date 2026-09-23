@@ -1347,7 +1347,9 @@
       // Access & recovery: ambos leen /api/usuarios (misma fuente de verdad).
       const _cardCss = "display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;padding:12px 14px;margin-bottom:8px;";
       const _badge = (txt, bg) => `<span style="font-size:12px;font-weight:700;background:${bg};color:#fff;padding:2px 8px;border-radius:10px;white-space:nowrap;">${txt}</span>`;
-      const _pinChip = (pin) => `<span title="PIN" style="font-size:13px;font-weight:700;font-family:var(--font-mono);letter-spacing:.12em;background:var(--paper-deep,#E2E8ED);color:var(--ink,#0F1923);padding:2px 8px;border-radius:6px;border:1px solid var(--azul-suave,#dde5ec);">PIN ${escHtml(pin)}</span>`;
+      /* v356 (JFC 2026-09-23, Team & access): el PIN se muestra oculto (•••) y
+         un toque lo revela; así no queda a la vista de quien mira la pantalla. */
+      const _pinChip = (pin) => `<button type="button" title="PIN" data-pin="${escHtml(pin)}" onclick="window.OCPinToggle&&window.OCPinToggle(this)" style="min-height:44px;font-size:14px;font-weight:700;font-family:var(--font-mono);letter-spacing:.12em;background:var(--paper-deep,#E2E8ED);color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;padding:4px 10px;border-radius:6px;border:1px solid var(--azul-suave,#dde5ec);cursor:pointer;">PIN •••</button>`;
       const cards = [];
       // Tarjeta del DUEÑO (encabeza; su PIN vive cifrado en crypto-store, no aquí).
       // JFC 2026-09-11: la fila del dueño deja de ser estática — gana los mismos
@@ -2406,10 +2408,10 @@
           ? '<button type="button" data-pin-edit="' + rol + '" title="' + _esc(window.t("team.changePin")) + '" aria-label="' + _esc(window.t("team.changePin")) + '" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;margin-left:4px;">✎</button>'
           : "";
       cuerpo.innerHTML =
-        '<div><strong>' + _esc(window.t("team.owner")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(owner) + "</code>" + _lapiz("owner", "fijarOwnerPin", owner) +
+        '<div><strong>' + _esc(window.t("team.owner")) + ':</strong> ' + window.OCPinOculto(owner) + "" + _lapiz("owner", "fijarOwnerPin", owner) +
         (owner === "789" && _puedeOwner ? ' <span style="font-size:13px;color:var(--ink,#211c14);">— ' + _esc(window.t("team.changeInitialOwnerPin")) + '</span>' : '') + "</div>" +
-        '<div><strong>' + _esc(window.t("team.staff")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(emp) + "</code>" + _lapiz("emp", "fijarEmpleadoPin", emp) + "</div>" +
-        '<div><strong>' + _esc(window.t("team.accounting")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(acct) + "</code>" + _lapiz("acct", "fijarAcctPin", acct) + "</div>" +
+        '<div><strong>' + _esc(window.t("team.staff")) + ':</strong> ' + window.OCPinOculto(emp) + "" + _lapiz("emp", "fijarEmpleadoPin", emp) + "</div>" +
+        '<div><strong>' + _esc(window.t("team.accounting")) + ':</strong> ' + window.OCPinOculto(acct) + "" + _lapiz("acct", "fijarAcctPin", acct) + "</div>" +
         /* Demo (JFC 2026-09-01): 456 es permanente y reservado — muestra la app
            completa con datos de ejemplo antes de comprar. No lleva lapicito
            porque no se cambia nunca. Faltaba en esta lista. */
@@ -3211,3 +3213,19 @@
   try { window.ocRotarCodigoSala = ocRotarCodigoSala; } catch (_) {}
 
 })();
+
+/* v356 (JFC 2026-09-23): mostrar/ocultar un PIN en Team & access. */
+window.OCPinToggle = function (b) {
+  try {
+    var p = b.getAttribute("data-pin") || "";
+    var visible = b.getAttribute("data-visible") === "1";
+    var pref = b.textContent.indexOf("PIN") === 0 ? "PIN " : "";
+    b.textContent = pref + (visible ? "•••" : p);
+    b.setAttribute("data-visible", visible ? "0" : "1");
+  } catch (_) {}
+};
+window.OCPinOculto = function (p) {
+  if (!p) return "<code>—</code>";
+  var e = String(p).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+  return '<button type="button" data-pin="' + e + '" onclick="window.OCPinToggle&&window.OCPinToggle(this)" style="min-height:44px;font-family:var(--font-mono);font-size:15px;font-weight:700;letter-spacing:.1em;padding:4px 10px;border-radius:6px;border:1px solid var(--azul-suave,#dde5ec);background:var(--paper-deep,#E2E8ED);color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;cursor:pointer;">•••</button>';
+};

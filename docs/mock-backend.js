@@ -4690,6 +4690,14 @@
         u.rev = _revNueva(); // sello lógico: decide el merge por causalidad, no por reloj de pared
         mov("usuario-editar", { id: uid2, antes, despues: { nombre: u.nombre, rol: u.rol, activo: u.activo !== false }, pinCambiado: np !== null && np !== pinAntes, correoCambiado: emailAntes !== (u.email || null) }, false);
         if (!(await _confirmarEquipoORevertir(fotoEquipo))) return J({ error: "Team change was not saved. Free device space and retry.", codigo: "EQUIPO_NO_GUARDADO" }, 507);
+        /* v356 (JFC 2026-09-23): si la persona se editó a SÍ MISMA, su sesión
+           adopta el sello nuevo. Sin esto, revalidarSesionEquipo (auth-ui) veía
+           un rev distinto y cerraba la sesión de quien acababa de guardar su
+           propia ficha. Se muta el MISMO objeto (auth-ui compara identidad). */
+        try {
+          const yo = window.OCCurrentUser;
+          if (yo && String(yo.id) === String(u.id)) { yo.rev = u.rev; yo.actualizadoEn = u.actualizadoEn; yo.nombre = u.nombre; }
+        } catch (_) {}
         return J({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn });
       }
       // DELETE /api/usuarios/:id — quitar por completo (distinto de desactivar:

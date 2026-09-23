@@ -446,7 +446,8 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const retirados = Array.isArray(s.retiredOwnerHashes) ? s.retiredOwnerHashes : [];
     if (s.ownerHash && s.ownerHash !== hashNuevo) retirados.push(s.ownerHash);
     // Solo hashes PBKDF2: nunca almacenar PINs retirados en claro.
-    s.retiredOwnerHashes = [...new Set(retirados)].filter((h) => h !== hashNuevo);
+    // v356: tope de 20 (los más recientes); siguen siendo solo hashes PBKDF2.
+    s.retiredOwnerHashes = [...new Set(retirados)].filter((h) => h !== hashNuevo).slice(-20);
     s.ownerHash = hashNuevo;
     s.ownerPinR = xorPin(nuevoPin);
     return guardarSecureResiliente(s);

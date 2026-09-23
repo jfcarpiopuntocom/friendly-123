@@ -499,3 +499,17 @@ test('#5 #6 the Customers list is fully Spanish and its notices use solid ink', 
   for (const en of ['Name', 'Code', '90-day spend']) assert.equal(r.texto.includes(en), false, 'queda en inglés: ' + en);
   assert.equal(r.tinta, 'rgb(15, 25, 35)', 'tinta sólida #0F1923, no café');
 });
+
+test('v356: Team & access PINs are hidden until tapped', async () => {
+  const r = await withPage(page => page.evaluate(() => {
+    const d = document.createElement('div');
+    d.innerHTML = window.OCPinOculto('482');
+    document.body.appendChild(d);
+    const b = d.querySelector('button');
+    const antes = b.textContent;
+    b.click(); const visto = b.textContent;
+    b.click(); const oculto = b.textContent;
+    return { antes, visto, oculto, alto: getComputedStyle(b).minHeight, html: d.innerHTML.includes('>482<') };
+  }));
+  assert.deepEqual(r, { antes: '•••', visto: '482', oculto: '•••', alto: '44px', html: false });
+});

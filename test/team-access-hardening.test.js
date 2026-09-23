@@ -117,3 +117,20 @@ test('an open named session closes after removal or credential revision', async 
     assert.equal(closed.length, 1);
   }
 });
+
+test('v356: an admin who edits her own card keeps her session (same rev as the store)', async () => {
+  // auth-ui revalidarSesionEquipo cierra la sesión si el rev de la ficha
+  // difiere del de la sesión. Editarse a sí misma no debe sacarla.
+  const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno' };
+  const admin = await w.request('/api/usuarios', 'POST', { nombre: 'Admin propia', pin: '761', rol: 'admin' });
+  const lista0 = await w.request('/api/usuarios');
+  const r0 = lista0.find(x => x.id === admin.id);
+  w.OCAuth.rolActual = () => 'admin';
+  const sesion = { id: admin.id, nombre: admin.nombre, rol: 'admin', rev: r0.rev, actualizadoEn: r0.actualizadoEn };
+  w.OCCurrentUser = sesion;
+  await w.request(`/api/usuarios/${admin.id}`, 'PATCH', { nombre: 'Admin renombrada' });
+  const ahora = (await w.request('/api/usuarios')).find(x => x.id === admin.id);
+  assert.equal(w.OCCurrentUser, sesion, 'es el mismo objeto de sesión');
+  assert.equal(JSON.stringify(sesion.rev), JSON.stringify(ahora.rev), 'la sesión adopta el rev nuevo: revalidar no la cierra (misma comparación que auth-ui)');
+});
