@@ -513,3 +513,21 @@ test('v356: Team & access PINs are hidden until tapped', async () => {
   }));
   assert.deepEqual(r, { antes: '•••', visto: '482', oculto: '•••', alto: '44px', html: false });
 });
+
+test('v359: the owner sees the tax setting and saving it changes the P&L', async () => {
+  const r = await withPage(page => page.evaluate(async () => {
+    window.OCAuth = Object.assign(window.OCAuth || {}, { rolActual: () => 'dueno' });
+    await pintarImpuestoCfg();
+    const box = document.getElementById('ocImpuestoCfg');
+    const antes = { casilla: !!box.querySelector('#ocImpActivo'), boton: !!box.querySelector('#ocImpGuardar') };
+    box.querySelector('#ocImpActivo').checked = true;
+    box.querySelector('#ocImpTasa').value = '10';
+    box.querySelector('#ocImpNombre').value = 'GST';
+    box.querySelector('#ocImpGuardar').click();
+    await new Promise(res => setTimeout(res, 400));
+    const cfg = await (await fetch('/api/config/impuesto')).json();
+    const alto = getComputedStyle(document.getElementById('ocImpTasa')).minHeight;
+    return { antes, activo: cfg.activo, tasa: cfg.tasa, nombre: cfg.nombre, alto };
+  }));
+  assert.deepEqual(r, { antes: { casilla: true, boton: true }, activo: true, tasa: 10, nombre: 'GST', alto: '44px' });
+});

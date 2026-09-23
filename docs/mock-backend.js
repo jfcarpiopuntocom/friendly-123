@@ -226,6 +226,21 @@
   const _CAT_BASE_CUSTOM = "f123_categorias_custom";
   const _CAT_BASE_OCULTAS = "f123_categorias_ocultas";
   function _catKey(base) { try { return base + (OC_STATE_SUFIJO || ""); } catch (_) { return base; } }
+  /* IMPUESTO CONFIGURABLE (JFC 2026-09-23): "no puede ser un given ni
+     inmutable... somos ante todo un SHARED digital NOTEBOOK". Es un ajuste DEL
+     CUADERNO: viaja a todos los aparatos de la licencia (colección "ajustes"
+     del sync, con rev) y en el respaldo. Por defecto APAGADO = precios netos
+     (estándar EE. UU.), que es lo que el P&G ya hacía desde 2026-07-15: nadie
+     ve cambiar sus números hasta que el dueño lo encienda. Encendido = el
+     precio INCLUYE el impuesto (IVA, VAT, GST…) y el P&G lo separa. */
+  let ajusteImpuesto = null; // { id: "impuesto", activo, tasa, nombre, rev }
+  function _normImpuesto(r) {
+    if (!r || r.id !== "impuesto") return null;
+    const t = Number(r.tasa);
+    if (!Number.isFinite(t) || t < 0 || t > 100) return null;
+    return { id: "impuesto", activo: !!r.activo, tasa: +t.toFixed(3), nombre: String(r.nombre || "Tax").trim().slice(0, 30) || "Tax", rev: r.rev || null };
+  }
+  function _impuestoVigente() { return ajusteImpuesto && ajusteImpuesto.activo && ajusteImpuesto.tasa > 0 ? ajusteImpuesto : null; }
   // Usuarios nombrados (encargados): hasta 49.
   // El dueno NO aparece aqui — su acceso es por PIN en crypto-store.
   // Cada entrada: { id, nombre, pin, rol:"empleado", activo, creadoEn }
@@ -408,7 +423,7 @@
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
       movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
-      configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta) },
+      configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null },
       usuarios: clonar(usuarios),
       instanceId: instanceId,
       nombreNegocio: nombreNegocio,
@@ -490,6 +505,9 @@
        nada (las listas locales siguen como estaban). Si lo trae, se carga y se
        reflejan sus registros en las listas: es lo que hace que restaurar un
        respaldo devuelva también las categorías propias vacías y las ocultas. */
+    // Impuesto (v359): un respaldo viejo no lo trae y no se toca nada.
+    const _imp = body.configuracion && _normImpuesto(body.configuracion.impuesto);
+    if (_imp) ajusteImpuesto = _imp;
     const _cm = body.configuracion && body.configuracion.categoriasMeta;
     if (_cm && typeof _cm === "object") {
       Object.keys(categoriasMeta).forEach((k) => delete categoriasMeta[k]);
@@ -2508,6 +2526,16 @@
     } catch (_) {}
     /* Categorías (ver categoriasMeta). Gana la revisión mayor; una entrada
        nueva se agrega. Solo se reflejan en pantalla las que cambiaron. */
+    // Ajustes del cuaderno (v359): hoy solo "impuesto". Gana la revisión mayor.
+    if (Array.isArray(remoto.ajustes)) {
+      remoto.ajustes.forEach((r) => {
+        const n = _normImpuesto(r);
+        if (!n) return;
+        _observarRev(n.rev);
+        if (ajusteImpuesto && _revDomina(n.rev, ajusteImpuesto.rev) !== true) return;
+        ajusteImpuesto = n; actualizados++;
+      });
+    }
     if (Array.isArray(remoto.categorias)) {
       const cambiosCat = [];
       remoto.categorias.forEach((r) => {
@@ -2825,6 +2853,7 @@
         sucursales: sucursales.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa !== false, rev: s.rev || null, borrado: !!s.borrado })),
         // Configuración de categorías (propias vacías y ocultas). Ver categoriasMeta.
         categorias: Object.keys(categoriasMeta).map((k) => Object.assign({}, categoriasMeta[k])),
+        ajustes: ajusteImpuesto ? [Object.assign({}, ajusteImpuesto)] : [],
         /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Cada venta
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
@@ -4267,6 +4296,22 @@
         return J({ ubicacionId, gastosMensuales: gastosMensuales[ubicacionId] });
       }
 
+      // Ajuste de impuesto del cuaderno (v359). Leer: cualquiera. Cambiar:
+      // dueño o admin. Es una escritura normal: pasa por la compuerta de la
+      // prueba vencida y se persiste/sincroniza como el resto.
+      if (path === "/api/config/impuesto" && method === "GET") {
+        return J(ajusteImpuesto ? Object.assign({}, ajusteImpuesto) : { id: "impuesto", activo: false, tasa: 0, nombre: "Sales tax", rev: null });
+      }
+      if (path === "/api/config/impuesto" && method === "PUT") {
+        const _r = _rolLocal();
+        if (_r !== "dueno" && _r !== "admin") return J({ error: "Only the owner or an admin can change the tax setting." }, 403);
+        const n = _normImpuesto({ id: "impuesto", activo: body.activo, tasa: body.tasa, nombre: body.nombre });
+        if (!n) return J({ error: "The tax rate must be between 0 and 100." }, 400);
+        n.rev = _revNueva();
+        ajusteImpuesto = n;
+        mov("config-impuesto", { activo: n.activo, tasa: n.tasa, nombre: n.nombre });
+        return J(Object.assign({}, n));
+      }
       if (path === "/api/reportes/pl") {
         // Precio de venta = precio neto, sin impuesto embebido (estandar USA:
         // el sales tax se calcula aparte en el checkout, no vive incluido en
@@ -4276,10 +4321,19 @@
         const vh = ventasHoyDe(uid);
         const ing = vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
         const cv = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
-        const ub = ing - cv;
+        /* v359: si el cuaderno tiene impuesto encendido, el precio lo INCLUYE
+           y aquí se separa. Apagado: precio neto, como antes. ingresosConIva e
+           ivaCobrado se mantienen como alias para los lectores existentes (antes
+           llegaban vacíos: la fila "VAT 15%" sin valor y Cash en $0). */
+        const imp = _impuestoVigente();
+        const neto = imp ? ing / (1 + imp.tasa / 100) : ing;
+        const impCobrado = ing - neto;
+        const ub = neto - cv;
         const gm = (!uid || uid === "todas") ? Object.values(gastosMensuales).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0);
         const go = +(gm / diasEnMesActual()).toFixed(2);
-        return J({ ingresos: +ing.toFixed(2), costoVentas: +cv.toFixed(2), utilidadBruta: +ub.toFixed(2), gastosOperativos: go, utilidadNeta: +(ub - go).toFixed(2) });
+        return J({ ingresos: +neto.toFixed(2), ingresosConIva: +ing.toFixed(2), ivaCobrado: +impCobrado.toFixed(2),
+          impuesto: imp ? { activo: true, tasa: imp.tasa, nombre: imp.nombre } : { activo: false },
+          costoVentas: +cv.toFixed(2), utilidadBruta: +ub.toFixed(2), gastosOperativos: go, utilidadNeta: +(ub - go).toFixed(2) });
       }
       if (path === "/api/reportes/balance") {
         const ps = filtrar(uid), vh = ventasHoyDe(uid);

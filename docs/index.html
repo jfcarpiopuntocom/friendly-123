@@ -2035,6 +2035,8 @@
     <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
 
     <h3 class="seccion" data-i18n="adv.pnlHeading">Profit &amp; loss (today)</h3>
+    <!-- v359 (JFC 2026-09-23): impuesto configurable del cuaderno compartido. -->
+    <div id="ocImpuestoCfg" style="margin:0 0 12px;"></div>
     <div class="tabla-wrap"><table class="reporte" id="tablaPL"></table></div>
     <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
 
@@ -8306,7 +8308,46 @@ window.addEventListener("oc-fotos-actualizadas", function () {
   } catch (_) {}
 });
 
+/* IMPUESTO DEL CUADERNO (v359, JFC 2026-09-23). Casilla + tasa + nombre.
+   Solo dueño/admin lo cambian; los demás lo ven. Se guarda en el cuaderno y
+   viaja a todos los aparatos de la licencia. Texto siempre en tinta sólida. */
+async function pintarImpuestoCfg(){
+  const box = document.getElementById("ocImpuestoCfg");
+  if (!box) return;
+  let cfg;
+  try { cfg = await (await fetch(`${API}/config/impuesto`)).json(); } catch (_) { box.innerHTML = ""; return; }
+  const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : "";
+  const puede = rol === "dueno" || rol === "admin";
+  const tinta = "color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;";
+  const campo = "min-height:44px;font-size:16px;padding:6px 10px;border:2px solid #2E6278;border-radius:6px;" + tinta;
+  box.innerHTML = `<div style="border:2px solid #5294AC;border-radius:8px;padding:12px 14px;background:#F8F9FB;">
+    <label style="display:flex;gap:10px;align-items:center;font-size:16px;font-weight:700;min-height:44px;${tinta}">
+      <input type="checkbox" id="ocImpActivo" ${cfg.activo ? "checked" : ""} ${puede ? "" : "disabled"} style="width:24px;height:24px;">
+      <span>${escHtml(t("adv.tax.enable"))}</span></label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+      <label style="font-size:15px;${tinta}">${escHtml(t("adv.tax.rate"))}<br><input id="ocImpTasa" type="number" min="0" max="100" step="0.01" value="${escHtml(String(cfg.tasa || 0))}" ${puede ? "" : "disabled"} style="width:110px;${campo}"></label>
+      <label style="font-size:15px;${tinta}">${escHtml(t("adv.tax.name"))}<br><input id="ocImpNombre" type="text" maxlength="30" value="${escHtml(cfg.nombre || "Sales tax")}" ${puede ? "" : "disabled"} style="width:160px;${campo}"></label>
+      ${puede ? `<button type="button" id="ocImpGuardar" class="ir" style="align-self:flex-end;min-height:44px;">${escHtml(t("adv.tax.save"))}</button>` : ""}
+    </div>
+    <p style="font-size:14px;margin:8px 0 0;${tinta}">${escHtml(t("adv.tax.hint"))}</p>
+    <p id="ocImpMsg" role="status" aria-live="polite" style="font-size:15px;font-weight:700;margin:6px 0 0;${tinta}"></p>
+  </div>`;
+  const btn = document.getElementById("ocImpGuardar");
+  if (btn) btn.addEventListener("click", async () => {
+    const msg = document.getElementById("ocImpMsg");
+    try {
+      const r = await fetch(`${API}/config/impuesto`, { method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activo: document.getElementById("ocImpActivo").checked,
+          tasa: Number(document.getElementById("ocImpTasa").value), nombre: document.getElementById("ocImpNombre").value }) });
+      const d = await r.json();
+      if (!r.ok) { msg.textContent = d.error || t("adv.tax.failed"); return; }
+      msg.textContent = t("adv.tax.saved");
+      cargarAvanzado();
+    } catch (_) { msg.textContent = t("adv.tax.failed"); }
+  });
+}
 async function cargarAvanzado(){
+  try { pintarImpuestoCfg(); } catch (_) {}
   try { pintarSyncNuevoEstado(); } catch (_) {}
   inicializarSelectorTimezone();
   await cargarGastosMensuales();
@@ -8336,6 +8377,8 @@ async function cargarAvanzado(){
   // en resultados positivos. Sin rojo — los gastos son normales, no alarma.
   document.getElementById("tablaPL").innerHTML = `
     <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
+    ${(pl.impuesto && pl.impuesto.activo) ? `<tr><td>${escHtml(t("adv.pl.grossSales").replace("{name}", pl.impuesto.nombre))}</td><td>${fmtMoney(pl.ingresosConIva)}</td></tr>
+    <tr><td>${escHtml(t("adv.pl.taxCollected").replace("{name}", pl.impuesto.nombre).replace("{rate}", pl.impuesto.tasa))}</td><td>${fmtMoney(pl.ivaCobrado)}</td></tr>` : ""}
     <tr><td>${t("adv.pl.revenue")}</td><td>${fmtMoney(pl.ingresos)}</td></tr>
     <tr><td>${t("adv.pl.cogs")}</td><td>${fmtMoney(pl.costoVentas)}</td></tr>
     <tr style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;"><td>${t("adv.pl.grossProfit")}</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>

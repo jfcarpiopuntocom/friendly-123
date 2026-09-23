@@ -2532,9 +2532,12 @@
         fila("NOTICE", "Input for your accountant. Not a valid tax declaration."),
         fila("", ""),
         fila("PROFIT & LOSS (today)", ""),
-        fila("Sales collected (incl. VAT)", money(pl.ingresosConIva)),
-        fila("VAT collected (15%, remitted to tax authority)", money(pl.ivaCobrado)),
-        fila("Net revenue (excl. VAT)", money(pl.ingresos)),
+        // v359: filas de impuesto solo si el cuaderno lo tiene encendido.
+        ...((pl.impuesto && pl.impuesto.activo) ? [
+          fila("Sales collected (incl. " + pl.impuesto.nombre + ")", money(pl.ingresosConIva)),
+          fila(pl.impuesto.nombre + " collected (" + pl.impuesto.tasa + "%, remitted to tax authority)", money(pl.ivaCobrado)),
+          fila("Net revenue (excl. " + pl.impuesto.nombre + ")", money(pl.ingresos)),
+        ] : [fila("Sales collected", money(pl.ingresos))]),
         fila("Cost of sales", money(pl.costoVentas)),
         fila("Gross profit", money(pl.utilidadBruta)),
         fila("Operating expenses", money(pl.gastosOperativos)),
@@ -2965,9 +2968,10 @@
     // cobrado NO es ingreso del negocio — es un pasivo (se le debe al SRI),
     // por eso tiene su propia cuenta en vez de mezclarse con Ventas.
     const cuentas = [
-      { nombre: "Cash (Asset)", debe: [["Collected today (incl. VAT)", pl.ingresosConIva]], haber: [["Operating expenses", pl.gastosOperativos]] },
+      { nombre: "Cash (Asset)", debe: [["Collected today", pl.ingresosConIva]], haber: [["Operating expenses", pl.gastosOperativos]] },
       { nombre: "Sales (Revenue)", debe: [], haber: [["Net revenue today", pl.ingresos]] },
-      { nombre: "VAT Payable (Liability)", debe: [], haber: [["VAT collected today (15%)", pl.ivaCobrado]] },
+      // v359: la cuenta del impuesto solo existe si el cuaderno lo tiene encendido.
+      ...((pl.impuesto && pl.impuesto.activo) ? [{ nombre: pl.impuesto.nombre + " Payable (Liability)", debe: [], haber: [[pl.impuesto.nombre + " collected today (" + pl.impuesto.tasa + "%)", pl.ivaCobrado]] }] : []),
       { nombre: "Cost of Sales (Expense)", debe: [["Cost of goods sold", pl.costoVentas]], haber: [] },
       { nombre: "Inventory (Asset)", debe: [["Valued balance", bal.activos.inventarioValorizado]], haber: [["Sold outflow", pl.costoVentas]] },
       { nombre: "Operating Expenses (Expense)", debe: [["Daily allocation", pl.gastosOperativos]], haber: [] },

@@ -270,9 +270,12 @@
         };
         c.innerHTML =
           '<h3 style="font-size:16px;margin:0 0 8px;">Pérdidas y ganancias (hoy)</h3>' +
-          linea("Ventas cobradas, con IVA", pl.ingresosConIva) +
-          linea("IVA cobrado, se liquida al SRI", pl.ivaCobrado) +
-          linea("Ingresos netos, sin IVA", pl.ingresos) +
+          // v359: impuesto configurable del cuaderno (apagado = precio neto).
+          ((pl.impuesto && pl.impuesto.activo)
+            ? linea("Ventas cobradas, con " + pl.impuesto.nombre, pl.ingresosConIva) +
+              linea(pl.impuesto.nombre + " cobrado (" + pl.impuesto.tasa + "%)", pl.ivaCobrado) +
+              linea("Ingresos netos, sin " + pl.impuesto.nombre, pl.ingresos)
+            : linea("Ventas cobradas", pl.ingresos)) +
           linea("Costo de ventas", pl.costoVentas) +
           linea("Utilidad bruta", pl.utilidadBruta, true) +
           linea("Gastos operativos", pl.gastosOperativos) +
