@@ -139,6 +139,7 @@
     var esEmpleado = rol === "empleado";
     return {
       saldo: saldoInfo.saldo,
+      integridad: saldoInfo.integridad,
       tienePendiente: saldoInfo.saldo < 0,
       // El encargado ve el saldo de ESTE cliente (case by case), pero nunca el
       // historial completo de movimientos ni la posibilidad de exportar.

@@ -761,25 +761,21 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       if (!old || typeof old.salt !== "string" || !Array.isArray(old.hashes)) continue;
       try { if (old.hashes.includes(await hashPin(p, old.salt, "owner"))) return null; } catch (_) {}
     }
-    try {
-      const vis = leerPinsVisibles();
-      if (vis && vis.owner === p) return "dueno";
-    } catch (_) {}
+    // El hash vigente es la única autoridad para dueño. Los sidecars y el
+    // directorio pueden sobrevivir a más de 20 rotaciones: son metadatos,
+    // nunca verificadores alternativos de privilegio.
     try {
       const abre = leerPinQueAbre();
-      if (abre.owner === p) return "dueno";
       if (abre.emp === p) return "empleado";
       if (abre.acct === p) return "contador";
     } catch (_) {}
     try {
       const dir = directorioNormalizado();
-      if (dir.owner && String(dir.owner.pin) === p) return "dueno";
       if (dir.acct && String(dir.acct.pin) === p) return "contador";
       if ((dir.empleados || []).some(function (e) { return e && String(e.pin) === p; })) return "empleado";
     } catch (_) {}
     try {
       const eq = leerPinsEquipo();
-      if (eq.owner === p) return "dueno";
       if (eq.acct === p) return "contador";
       if (eq.emp === p || (Array.isArray(eq.emps) && eq.emps.indexOf(p) >= 0)) return "empleado";
     } catch (_) {}

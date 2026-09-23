@@ -45,3 +45,13 @@ test('help does not claim synchronized business data never leaves one device', (
   assert.match(help, /travels encrypted|viaja cifrado/);
   assert.match(help, /manual\.html/);
 });
+
+test('manual describes QR payload truthfully in both languages and caches one shared image', () => {
+  const manual = fs.readFileSync(process.env.F123_MANUAL_TEST_SOURCE || path.join(docs, 'manual.html'), 'utf8');
+  assert.doesNotMatch(manual, /QR opcional que abre la ficha completa|QR that opens the full card/);
+  assert.doesNotMatch(manual, /leer la sinopsis completa en su celular|read the full synopsis on their phone/);
+  assert.equal((manual.match(/src="manual-logo\.png"/g) || []).length, 3);
+  assert.doesNotMatch(manual, /data:image\/png;base64/);
+  assert.ok(fs.statSync(path.join(docs, 'manual-logo.png')).size > 0);
+  assert.match(read('sw.js'), /"\.\/manual-logo\.png"/);
+});

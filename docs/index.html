@@ -2914,7 +2914,7 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
     else if (sel.indexOf("p:") === 0) {
       const pid = sel.slice(2);
       const v = _ventas.find((x) => x.productoId === pid);
-      tituloEl.textContent = t("sold.showCustomersForProduct").replace("{name}", (v && v.productoNombre) || pid);
+      tituloEl.textContent = t("sold.showCustomersForProduct").replace("{name}", (v && v.productoNombre) || filtro.selectedOptions[0]?.textContent || pid);
     }
     else if (sel.indexOf("e:") === 0) tituloEl.textContent = t("sold.showCustomersForEvent").replace("{name}", sel.slice(2));
   }
@@ -2933,7 +2933,16 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
     let presel = "__all__";
     if (opts.productoId) presel = "p:" + opts.productoId;
     else if (opts.eventoNombre) presel = "e:" + opts.eventoNombre;
-    if (optsF.some((o) => o.k === presel)) filtro.value = presel;
+    if (presel !== "__all__" && !optsF.some((o) => o.k === presel)) {
+      // Belén (2026-09-23): un producto sin coincidencia (p. ej. ventas aún
+      // sin sincronizar) jamás debe caer silenciosamente a "todos" y mostrar
+      // compradores ajenos. Conservar el filtro solicitado da una lista vacía.
+      const fallback = document.createElement("option");
+      fallback.value = presel;
+      fallback.textContent = opts.productoNombre || presel.slice(2);
+      filtro.appendChild(fallback);
+    }
+    filtro.value = presel;
     pintarTitulo();
     render();
   }
@@ -3434,11 +3443,12 @@ async function pintarSaldoCartera(clienteId) {
     // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
+    const es = window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es";
     const color = debe ? "#E8365D" : "#008a54";
     // BUG FIX (JFC 2026-09-02): esta línea se borró por accidente en v1.7.79, así
     // que `texto` quedaba indefinido → ReferenceError → el saldo NO se pintaba
     // (ni crédito a favor ni deuda). Restaurada.
-    const texto = debe ? `Debt ${fmtMoney(-info.saldo)}` : `Credit ${fmtMoney(info.saldo)}`;
+    const texto = debe ? `${es ? "Deuda" : "Debt"} ${fmtMoney(-info.saldo)}` : `${es ? "Crédito" : "Credit"} ${fmtMoney(info.saldo)}`;
     // #3 (JFC 2026-09-02): fecha coherente con el idioma activo en toda la app.
     const fmtFechaLoc = (ymd) => { try { const p = ymd.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || "en-US"); } catch (_) { return ymd; } };
     // Ítems y expiración del crédito (abono): "el credit solo se puede gastar en
@@ -3494,7 +3504,23 @@ async function pintarSaldoCartera(clienteId) {
       : "";
     // #9: crédito totalmente expirado → monto tachado (el dato NO se borra).
     const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}`;
+    // Belén (2026-09-23): la suma de compras fiadas NO es el saldo. Cargos
+    // manuales y pagos también cuentan; mostrar el libro que explica el neto,
+    // sin alterar ni recalcular ningún hecho monetario guardado.
+    const movimientos = Array.isArray(info.historial) ? info.historial : [];
+    const cargos = movimientos.filter((m) => m.tipo === "cargo").reduce((n, m) => n + Math.round((Number(m.monto) || 0) * 100), 0) / 100;
+    const abonos = movimientos.filter((m) => m.tipo === "abono").reduce((n, m) => n + Math.round((Number(m.monto) || 0) * 100), 0) / 100;
+    const desglose = debe
+      ? `${es ? "Cargos" : "Charges"} ${fmtMoney(cargos)} − ${es ? "pagos/créditos" : "payments/credits"} ${fmtMoney(abonos)} = ${es ? "deuda" : "amount owed"} ${fmtMoney(-info.saldo)}`
+      : `${es ? "Pagos/créditos" : "Payments/credits"} ${fmtMoney(abonos)} − ${es ? "cargos" : "charges"} ${fmtMoney(cargos)} = ${es ? "crédito" : "credit"} ${fmtMoney(info.saldo)}`;
+    const detalle = movimientos.length ? `<details style="margin-top:6px;font-size:13px;color:#19354B;">
+      <summary style="cursor:pointer;font-weight:700;">${es ? "Ver cargos y pagos que forman este saldo" : "See charges and payments behind this balance"}</summary>
+      <div style="margin:5px 0;font-weight:700;">${desglose}</div>
+      ${movimientos.map((m) => `<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid #D7E0E8;padding:5px 0;">
+        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}</span>
+        <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
+      </div>`).join("")}</details>` : "";
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${detalle}`;
   } catch (e) { console.error("[pintarSaldoCartera]", e); el.innerHTML = ""; }
 }
 /* Pagar una deuda (JFC 2026-09-02): abre el modal de plan-pagos ("Record a
@@ -3651,7 +3677,11 @@ if (!window.__ocCliComprasWired) {
           + '<div style="min-width:0;"><b>' + escHtml(v.productoNombre || "—") + '</b> ×' + (v.cantidad || 1) + '<div style="color:var(--ink-soft);font-size:12px;">' + escHtml(f) + '</div></div>'
           + '<div style="text-align:right;white-space:nowrap;"><b>' + fmtMoney(total) + '</b><br>' + chip + '</div></div>';
       }).join("");
-      if (fiadoTot > 0) html = '<div style="font-size:13px;font-weight:700;color:#B0183E;margin-bottom:2px;">Owes ' + fmtMoney(fiadoTot) + ' on account</div>' + html;
+      // Es volumen BRUTO de ventas fiadas, no deuda pendiente: pagos y
+      // cargos manuales se ven en el libro de saldo de la tarjeta.
+      if (fiadoTot > 0) html = '<div style="font-size:13px;font-weight:700;color:#B0183E;margin-bottom:2px;">'
+        + ((window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es") ? 'Ventas fiadas mostradas: ' : 'On-account sales shown: ')
+        + fmtMoney(fiadoTot) + '</div>' + html;
       cont.innerHTML = html;
     }).catch(function () { cont.innerHTML = '<span style="font-size:13px;color:var(--rojo,#a3392a);">Could not load purchases.</span>'; });
   }, true);
@@ -5641,15 +5671,15 @@ function mostrarFormNuevoProducto(codigoEscaneado){
       </div>
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br>
-          <input id="np-precio" type="number" min="0" step="0.01" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <input id="np-precio" type="number" min="0" step="any" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
         <label style="flex:1;font-size:14px;">${t("form.cost")}<br>
-          <input id="np-costo" type="number" min="0" step="0.01" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+          <input id="np-costo" type="number" min="0" step="any" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       </div>
       <!-- PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): segundo precio opcional
            y más bajo para la gente de la casa. En la venta aparece un botón que
            lo aplica de un toque. Vacío = no hay precio de casa. -->
       <label style="display:block;margin-top:10px;font-size:14px;">House / Artist price (optional)<br>
-        <input id="np-precio-casa" type="number" min="0" step="0.01" placeholder="Lower price for house people — leave empty if none" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+        <input id="np-precio-casa" type="number" min="0" step="any" placeholder="Lower price for house people — leave empty if none" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.initialStock")}<br>
         <input id="np-stock" type="number" min="0" step="1" value="0" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.supplier")}<br>
@@ -5799,12 +5829,12 @@ async function mostrarFormEditarProducto(id){
         <input id="ed-foto" type="file" accept="image/*" ${inp}></label>
       ${p.foto ? `<img src="${p.foto}" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin-top:6px;">` : ""}
       <div style="display:flex;gap:10px;margin-top:10px;">
-        <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br><input id="ed-precio" type="number" min="0" step="0.01" value="${p.precio}" ${inp}></label>
-        <label style="flex:1;font-size:14px;">${t("form.cost")}<br><input id="ed-costo" type="number" min="0" step="0.01" value="${p.costo || 0}" ${inp}></label>
+        <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br><input id="ed-precio" type="number" min="0" step="any" value="${p.precio}" ${inp}></label>
+        <label style="flex:1;font-size:14px;">${t("form.cost")}<br><input id="ed-costo" type="number" min="0" step="any" value="${p.costo || 0}" ${inp}></label>
       </div>
       <!-- PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): editable; vaciar el
            campo borra el precio de casa (vuelve a un solo precio). -->
-      <label style="display:block;margin-top:10px;font-size:14px;">House / Artist price (optional)<br><input id="ed-precio-casa" type="number" min="0" step="0.01" value="${p.precioCasa != null ? p.precioCasa : ""}" placeholder="Lower price for house people — leave empty if none" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">House / Artist price (optional)<br><input id="ed-precio-casa" type="number" min="0" step="any" value="${p.precioCasa != null ? p.precioCasa : ""}" placeholder="Lower price for house people — leave empty if none" ${inp}></label>
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">${t("form.supplier")}<br><input id="ed-proveedor" type="text" value="${q(p.proveedor)}" ${inp}></label>
         <label style="flex:1;font-size:14px;">${t("form.relationType")}<br>
@@ -6005,15 +6035,15 @@ async function abrirAltaProducto(){
       </div>
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">${t("form.salePrice")}<br>
-          <input id="np-precio" type="number" min="0" step="0.01" ${inp}></label>
+          <input id="np-precio" type="number" min="0" step="any" ${inp}></label>
         <label style="flex:1;font-size:14px;">${t("form.cost")}<br>
-          <input id="np-costo" type="number" min="0" step="0.01" ${inp}></label>
+          <input id="np-costo" type="number" min="0" step="any" ${inp}></label>
       </div>
       <!-- PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): ver la otra copia del
            alta arriba. Los IDs np-* están duplicados a propósito (dos plantillas
            de alta); guardarNuevoProducto lee por scope.querySelector el activo. -->
       <label style="display:block;margin-top:10px;font-size:14px;">House / Artist price (optional)<br>
-        <input id="np-precio-casa" type="number" min="0" step="0.01" placeholder="Lower price for house people — leave empty if none" ${inp}></label>
+        <input id="np-precio-casa" type="number" min="0" step="any" placeholder="Lower price for house people — leave empty if none" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.initialStock")}<br>
         <input id="np-stock" type="number" min="0" step="1" value="0" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.supplier")}<br>
@@ -6114,7 +6144,7 @@ function pintarFicha(p){
            Abre la lista de compradores de este producto (reemplaza a la antigua
            vista de mostrador fullscreen, JFC 2026-08-27). -->
       <div class="acciones-rapidas" style="margin-top:8px;">
-        <button onclick="abrirCompradores({productoId:'${p.id}'})" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
+        <button onclick="abrirCompradores({productoId:'${p.id}',productoNombre:${escHtml(JSON.stringify(p.nombre))}})" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
       </div>
       ${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="duplicarComoVariante('${p.id}')">${document.documentElement.lang === "es" ? "Crear variante" : "Create variant"}</button>
@@ -6684,12 +6714,19 @@ async function confirmarVentaConInfo(id, esTicket){
       const _montoFiado = +(_precioFiado * _cantVenta).toFixed(2);
       if (_montoFiado > 0) {
         try {
-          await fetch(`${API}/clientes/${clienteId}/fiar`, {
+          const deudaRes = await fetch(`${API}/clientes/${clienteId}/fiar`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ monto: _montoFiado, motivo: `Sale on credit: ${_nombreFiado}` })
           });
+          if (!deudaRes.ok) throw new Error(`Debt posting failed (${deudaRes.status})`);
           try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}
-        } catch (e) { console.error("[fiado] no se pudo registrar la deuda:", e); }
+        } catch (e) {
+          console.error("[fiado] no se pudo confirmar la deuda:", e);
+          const es = window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es";
+          alert(es
+            ? "La venta quedó registrada, pero no se pudo confirmar el fiado. Revisa primero el saldo del cliente; no repitas la venta."
+            : "The sale was recorded, but the debt could not be confirmed. Check the customer's balance first; do not repeat the sale.");
+        }
       }
     }
     // Túnel reactivo (JFC 2026-09-04): recalcular en vivo el ranking de

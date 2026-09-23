@@ -73,3 +73,12 @@ test('recovery with a new salt does not resurrect an old owner PIN from sidecars
   assert.equal(await f.secure.identificarPin('682'), null);
   assert.equal(await f.secure.identificarPin('734'), 'dueno');
 });
+
+test('owner PIN retired over 20 rotations cannot revive through a stale directory', async () => {
+  const f = secureFixture();
+  assert.equal(await f.secure.guardarSecreto('100', ['260'], '357', ''), true);
+  assert.equal(f.secure.guardarDirectorio({ owner: { pin: '100', nombre: 'Owner' } }), true);
+  for (let pin = 101; pin <= 121; pin++) assert.equal(await f.secure.fijarOwnerPin(String(pin)), true);
+  assert.equal(await f.secure.identificarPin('100'), null);
+  assert.equal(await f.secure.identificarPin('121'), 'dueno');
+});
