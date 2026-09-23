@@ -1655,7 +1655,7 @@
             <input id="perchaContrib" type="number" min="0" step="0.01" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
           <button id="perchaCrear" class="ir" style="padding:10px 16px;" data-i18n="shelves.addShelfBtn">+ Add shelf</button>
         </div>
-        <p id="perchaMsg" style="font-size:14px;margin-top:8px;"></p>
+        <p id="perchaMsg" role="status" aria-live="polite" style="font-size:14px;margin-top:8px;"></p>
       </div>
       <!-- Modo Feria de fin de semana (rec 10): percha de consignación temporal.
            Al cerrarla se archiva (conserva historial) y salta a Comisiones. -->
@@ -1907,7 +1907,7 @@
       <input id="cliEmail" type="email" inputmode="email" autocomplete="off" placeholder="Email (optional)" data-i18n-attr="placeholder:cust.emailPlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <button class="ir" id="btnAltaCliente" style="padding:10px 18px;" data-i18n="cust.addBtn">+ Add customer</button>
     </div>
-    <p id="cliMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
+    <p id="cliMsg" role="status" aria-live="polite" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
     <div id="listaClientes" style="margin-top:14px;"></div>
     <div id="matrizClientes" style="margin-top:26px;"></div>
 
@@ -6167,12 +6167,12 @@ async function abrirPanelVentaInfo(id, esTicket){
       <div class="titulo" style="font-family:var(--font-display);font-size:17px;font-weight:700;"><span data-i18n="${_kTitVenta}">${escHtml(t(_kTitVenta))}</span> — ${escHtml(p.nombre)}</div>
       <p style="font-size:14px;color:var(--ink-soft);" data-i18n="${_kSubVenta}">${escHtml(t(_kSubVenta))}</p>
       ${esBar ? `
-      <label style="display:block;margin-top:10px;font-size:14px;">Servings sold<br><input id="vi-servings" type="number" min="1" step="1" value="1" ${inp}></label>
+      <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblServings">${escHtml(t("sale.lblServings"))}</span><br><input id="vi-servings" type="number" min="1" step="1" value="1" ${inp}></label>
       <p id="vi-botellas" style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;"></p>` : ""}
-      <label style="display:block;margin-top:10px;font-size:14px;">Customer<br>
+      <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblCustomer">${escHtml(t("sale.lblCustomer"))}</span><br>
         <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
           <select id="vi-cliente" size="1" style="flex:1;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
-            <option value="">Counter sale (no customer)</option>
+            <option value="" data-i18n="sale.optCounter">${escHtml(t("sale.optCounter"))}</option>
             ${clientes.map(c => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("")}
           </select>
           <button type="button" id="vi-nuevo-cliente" title="New customer"
@@ -6188,7 +6188,7 @@ async function abrirPanelVentaInfo(id, esTicket){
           <input id="vi-newcli-nombre" type="text" placeholder="Customer name" style="flex:2;min-width:140px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
           <input id="vi-newcli-tel" type="tel" placeholder="Phone (optional)" style="flex:1;min-width:120px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
           <input id="vi-newcli-email" type="email" autocomplete="email" maxlength="120" aria-label="${escHtml(t("newcust.email"))}" placeholder="${escHtml(t("newcust.emailPlaceholder"))}" style="flex:1;min-width:150px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
-          <button type="button" id="vi-newcli-save" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--sim-verde,#00C87A);border-radius:6px;background:var(--sim-verde,#00C87A);color:#fff;cursor:pointer;">Save</button>
+          <button type="button" id="vi-newcli-save" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--sim-verde,#00C87A);border-radius:6px;background:var(--sim-verde,#00C87A);color:#fff;cursor:pointer;" data-i18n="sale.btnSaveCustomer">${escHtml(t("sale.btnSaveCustomer"))}</button>
           <button type="button" id="vi-newcli-cancel" title="Cancel" style="flex:0 0 auto;font-size:13px;padding:8px 10px;border:2px solid var(--ink-soft);border-radius:6px;background:transparent;color:var(--ink-soft);cursor:pointer;">✕</button>
         </div>
         <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
@@ -6209,7 +6209,7 @@ async function abrirPanelVentaInfo(id, esTicket){
       ${esTicket ? `
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;">
         <label style="flex:1;min-width:150px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
-        <label style="flex:1;min-width:150px;font-size:14px;">People in the reservation<br>
+        <label style="flex:1;min-width:150px;font-size:14px;"><span data-i18n="sale.lblPeople">${escHtml(t("sale.lblPeople"))}</span><br>
           <select id="vi-personas" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
             <option value="">—</option>
             ${Array.from({length:20},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join("")}
@@ -6220,7 +6220,7 @@ async function abrirPanelVentaInfo(id, esTicket){
           style="margin-left:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
         <input id="vi-pagador" type="text" placeholder="Group or reservation name" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
       <div style="display:flex;gap:10px;margin-top:10px;">
-        <label style="flex:1;font-size:14px;">Email<br><input id="vi-email" type="email" ${inp}></label>
+        <label style="flex:1;font-size:14px;"><span data-i18n="sale.lblEmail">${escHtml(t("sale.lblEmail"))}</span><br><input id="vi-email" type="email" ${inp}></label>
         <label style="flex:1;font-size:14px;">WhatsApp<br><input id="vi-whatsapp" type="text" ${inp}></label>
       </div>
       ${(!esBar && !esTicket) ? `
@@ -6229,13 +6229,13 @@ async function abrirPanelVentaInfo(id, esTicket){
       <!-- Compacto (JFC 2026-09-08): Payment method + Cortesía + Fiado en UNA
            línea, sin estirar el modal hacia abajo. -->
       <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-        <label style="font-size:14px;flex:1;min-width:150px;">Payment method<br>
-          <select id="vi-forma-pago" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"><option value="">—</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="card">Card</option><option value="other">Other</option></select></label>
+        <label style="font-size:14px;flex:1;min-width:150px;"><span data-i18n="sale.lblPayment">${escHtml(t("sale.lblPayment"))}</span><br>
+          <select id="vi-forma-pago" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"><option value="">—</option><option value="cash" data-i18n="sale.payCash">${escHtml(t("sale.payCash"))}</option><option value="transfer" data-i18n="sale.payTransfer">${escHtml(t("sale.payTransfer"))}</option><option value="card" data-i18n="sale.payCard">${escHtml(t("sale.payCard"))}</option><option value="other" data-i18n="sale.payOther">${escHtml(t("sale.payOther"))}</option></select></label>
         <div style="flex:1;min-width:165px;display:flex;flex-direction:column;gap:5px;">
           <label style="display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">
-            <input id="vi-cortesia" type="checkbox" style="width:auto;margin:0;">Courtesy (comp)</label>
+            <input id="vi-cortesia" type="checkbox" style="width:auto;margin:0;"><span data-i18n="sale.lblCourtesy">${escHtml(t("sale.lblCourtesy"))}</span></label>
           <label style="display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">
-            <input id="vi-fiado" type="checkbox" style="width:auto;margin:0;">On account (fiado)</label>
+            <input id="vi-fiado" type="checkbox" style="width:auto;margin:0;"><span data-i18n="sale.lblFiado">${escHtml(t("sale.lblFiado"))}</span></label>
         </div>
       </div>
       <p id="vi-cf-hint" style="font-size:12px;font-weight:700;margin:4px 0 0;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;"></p>
@@ -6258,14 +6258,14 @@ async function abrirPanelVentaInfo(id, esTicket){
         </div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;cursor:pointer;">
-        <input id="vi-add-factura" type="checkbox" style="width:auto;margin:0;">Add invoice</label>
-      <label id="vi-factura-wrap" style="display:none;margin-top:6px;font-size:14px;">Invoice number (optional)<br>
+        <input id="vi-add-factura" type="checkbox" style="width:auto;margin:0;"><span data-i18n="sale.lblAddInvoice">${escHtml(t("sale.lblAddInvoice"))}</span></label>
+      <label id="vi-factura-wrap" style="display:none;margin-top:6px;font-size:14px;"><span data-i18n="sale.lblInvoiceNo">${escHtml(t("sale.lblInvoiceNo"))}</span><br>
         <input id="vi-factura" type="text" placeholder="e.g. 001-002-000012345" ${inp}></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">Notes (optional)<br><textarea id="vi-notas" rows="2" placeholder="Anything worth remembering about this sale..." ${inp}></textarea></label>
-      <div id="vi-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
+      <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblNotes">${escHtml(t("sale.lblNotes"))}</span><br><textarea id="vi-notas" rows="2" data-i18n-attr="placeholder:sale.phNotes" placeholder="${escHtml(t("sale.phNotes"))}" ${inp}></textarea></label>
+      <div id="vi-msg" role="status" aria-live="polite" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div class="acciones-rapidas" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="vender" onclick="confirmarVentaConInfo('${p.id}', ${esTicket ? "true" : "false"})">Confirm sale</button>
-        <button onclick="cancelarPanelVentaInfo()">Cancel</button>
+        <button class="vender" onclick="confirmarVentaConInfo('${p.id}', ${esTicket ? "true" : "false"})" data-i18n="sale.btnConfirm">${escHtml(t("sale.btnConfirm"))}</button>
+        <button onclick="cancelarPanelVentaInfo()" data-i18n="sale.btnCancel">${escHtml(t("sale.btnCancel"))}</button>
       </div>
     </div>`;
   overlay.style.display = "flex";

@@ -298,3 +298,43 @@ test('sale details translate in place and preserve unsaved notes when switching 
   assert.doesNotMatch(result.title, /Sale details/i);
   assert.equal(result.notes, 'Unsent fixture note');
 });
+
+test('the whole sale panel translates in place without changing stored values or typed input', async () => {
+  /* v345 (Codex #8 completo): los 18 textos del panel de venta. Lo crítico no
+     es la traducción: es que traducir NO cambie datos. Los <option> de forma de
+     pago tienen value explícito, así que "Efectivo" sigue guardando "cash"; y
+     las etiquetas que envuelven inputs traducen solo su <span>, sin borrar el
+     input de adentro. */
+  const r = await withPage(page => page.evaluate(async () => {
+    const req = async (url, method = 'GET', body) => {
+      const res = await fetch(url, { method, headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined });
+      return res.json();
+    };
+    const shelf = await req('/api/ubicaciones', 'POST', { nombre: 'Panel i18n fixture' });
+    const product = await req('/api/productos', 'POST', { nombre: 'Panel item', sku: 'FIX-PANEL', barcode: 'FIX-PANEL',
+      precio: 5, costo: 2, stockInicial: 3, ubicacionId: shelf.id });
+    await abrirPanelVentaInfo(product.id, false);
+    document.getElementById('vi-notas').value = 'nota sin guardar';
+    document.getElementById('vi-forma-pago').value = 'cash';
+    document.querySelector('.oc-lang-btn[data-lang="es"]').click();
+    const caja = document.getElementById('oc-ventainfo-caja');
+    return {
+      texto: caja.textContent,
+      valores: [...document.querySelectorAll('#vi-forma-pago option')].map(o => o.value),
+      pago: document.getElementById('vi-forma-pago').value,
+      notas: document.getElementById('vi-notas').value,
+      inputsVivos: ['vi-email', 'vi-notas', 'vi-forma-pago'].every(id => !!document.getElementById(id)),
+      aria: document.getElementById('vi-msg').getAttribute('aria-live'),
+    };
+  }));
+  for (const es of ['Forma de pago', 'Efectivo', 'Confirmar venta', 'Cancelar', 'Notas (opcional)']) {
+    assert.ok(r.texto.includes(es), 'falta en español: ' + es);
+  }
+  assert.ok(!r.texto.includes('Payment method'), 'no queda inglés en el panel');
+  assert.deepEqual(r.valores, ['', 'cash', 'transfer', 'card', 'other'], 'los valores guardados NO cambian con el idioma');
+  assert.equal(r.pago, 'cash', 'la forma de pago elegida se conserva');
+  assert.equal(r.notas, 'nota sin guardar', 'lo escrito no se pierde');
+  assert.equal(r.inputsVivos, true, 'traducir una etiqueta no borra el input de adentro');
+  assert.equal(r.aria, 'polite', 'el mensaje de la venta se anuncia a lectores de pantalla');
+});

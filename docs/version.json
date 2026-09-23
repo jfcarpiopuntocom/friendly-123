@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "Tus categorías propias y las ocultas ahora pasan a tus otros aparatos y viajan en el respaldo.",
+  "changelog": "El panel de venta ahora está completo en español e inglés.",
   "requerida": false,
-  "shell": "f123-shell-v344",
+  "shell": "f123-shell-v345",
   "apagar": [],
   "releaseName": "v1.0"
 }
