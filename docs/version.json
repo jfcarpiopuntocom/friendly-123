@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "En Clientes, un botón muestra con un toque solo a quienes tienen pago pendiente.",
+  "changelog": "Team & access: permisos por rol, revocación en vivo, PIN sin colisiones, bajas y guardado confirmado; lista bilingüe.",
   "requerida": false,
-  "shell": "f123-shell-v351",
+  "shell": "f123-shell-v352",
   "apagar": [],
   "releaseName": "v1.0"
 }

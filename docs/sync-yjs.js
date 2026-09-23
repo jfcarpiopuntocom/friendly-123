@@ -850,14 +850,14 @@
         // "Loading your business..."). La UI escucha oc-sync-merge en index.html.
         // v289: incluir r.actualizados -> una actualizacion SOLO de stock/precio
         // (sin altas) tambien re-pinta la UI: es el refresco "en segundos" del CDC.
-        if (r && r.ok && (r.agregadasU || r.agregadosP || r.actualizados || r.ventasAgregadas || r.miembrosAgregados || r.clientesAgregados || r.promotorasAgregadas || r.sucursalesAgregadas)) {
+        if (r && r.ok && (r.agregadasU || r.agregadosP || r.actualizados || r.ventasAgregadas || r.miembrosAgregados || r.miembrosActualizados || r.miembrosQuitados || r.clientesAgregados || r.promotorasAgregadas || r.sucursalesAgregadas)) {
           // Una fusión de dos ledgers de stock debe volver al doc de inmediato;
           // esperar al barrido de 2 s dejaría a un tercer aparato con una sola venta.
           setTimeout(sembrar, 0);
           try {
             window.dispatchEvent(new CustomEvent("oc-sync-merge", { detail: {
               perchas: r.agregadasU || 0, productos: r.agregadosP || 0, actualizados: r.actualizados || 0, ventas: r.ventasAgregadas || 0,
-              miembros: r.miembrosAgregados || 0, clientes: r.clientesAgregados || 0,
+              miembros: (r.miembrosAgregados || 0) + (r.miembrosActualizados || 0) + (r.miembrosQuitados || 0), clientes: r.clientesAgregados || 0,
               promotoras: r.promotorasAgregadas || 0, sucursales: r.sucursalesAgregadas || 0
             } }));
           } catch (_) {}

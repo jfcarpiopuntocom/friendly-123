@@ -1176,21 +1176,29 @@
     // - Límite free: 1 encargado (admins exentos — son co-dueños, no personal).
     const isDueno = () => window.OCAuth && window.OCAuth.rolActual() === "dueno";
     const isAdmin = () => window.OCAuth && window.OCAuth.rolActual() === "admin";
+    function errorEquipo(data, fallback) {
+      if (data && data.codigo === "PIN_COLISION") return window.t("team.pinCollision");
+      if (data && data.codigo === "PIN_RESERVADO") return window.t("team.pinReserved");
+      if (data && data.codigo === "LIMITE_EMPLEADOS") return window.t("team.limitReached");
+      if (data && data.codigo === "EQUIPO_NO_GUARDADO") return window.t("team.notSaved");
+      if (window.OCI18n && window.OCI18n.getLang() === "es") return window.t(fallback);
+      return (data && data.error) || window.t(fallback);
+    }
 
     const equipoPanel = document.createElement("div");
     equipoPanel.className = "tag-card";
     equipoPanel.id = "oc-emp-panel";
     equipoPanel.style.cssText = "text-align:left;margin-top:22px;";
     equipoPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Team &amp; access</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        One place for every role and PIN. Sales, adjustments and movements are recorded
-        under the person who made them.
+      <h3 class="seccion" style="margin-top:0;" data-i18n="team.title">Team &amp; access</h3>
+      <p style="font-size:14px;color:var(--ink);margin-top:0;" data-i18n="team.intro">
+        One place for every role and PIN. Named members' actions carry their names;
+        shared-role actions carry the role and device.
       </p>
       <div id="oc-pins-visibles" style="margin:0 0 16px;padding:12px;border:1px solid var(--hairline,#dde5ec);border-radius:8px;background:var(--paper-deep,#E2E8ED);">
-        <p style="font-size:14px;font-weight:700;color:var(--ink);margin:0 0 8px;">Built-in roles</p>
+        <p style="font-size:14px;font-weight:700;color:var(--ink);margin:0 0 8px;" data-i18n="team.builtIn">Built-in roles</p>
         <div id="oc-pins-visibles-cuerpo" style="font-size:14px;line-height:1.7;color:var(--ink);"></div>
-        <p style="font-size:13px;color:var(--ink);margin:8px 0 0;">Use the pencil beside a role to change its PIN. Named admins and employees appear directly below.</p>
+        <p style="font-size:13px;color:var(--ink);margin:8px 0 0;" data-i18n="team.builtInHint">Use the pencil beside a role to change its PIN. Named admins and employees appear directly below.</p>
         <p id="oc-codes-msg" style="font-size:14px;margin-top:8px;"></p>
       </div>
       <!-- JERARQUIA VISIBLE (JFC 2026-08-21): "pon una jerarquia o se va a
@@ -1200,68 +1208,92 @@
            propone lo del rol mas alto: si eso no se ve en pantalla, el equipo
            no entiende por que gano un dato y no el otro. -->
       <div style="background:var(--paper-deep,#E2E8ED);border-left:4px solid var(--azul-medio,#2c4a68);border-radius:0 8px 8px 0;padding:12px 14px;margin:0 0 16px;">
-        <p style="font-size:14px;font-weight:700;color:#0F1923;margin:0 0 6px;">Who carries more weight on the shared notebook</p>
-        <p style="font-size:14px;line-height:1.6;color:#2C3E50;margin:0;">
+        <p style="font-size:14px;font-weight:700;color:#0F1923;margin:0 0 6px;" data-i18n="team.hierarchyTitle">Who carries more weight on the shared notebook</p>
+        <p style="font-size:14px;line-height:1.6;color:#2C3E50;margin:0;" data-i18n-html="team.hierarchyText">
           <strong>Owner</strong> &rarr; <strong>Admin</strong> &rarr; <strong>Employee</strong>.
           Everyone writes in the same notebook. When two devices change the same thing,
-          the higher role's version is the one proposed. Stock is never overwritten by
-          rank: it is a physical fact of each shelf, counted by whoever has it in front of them.
+          the higher role's version is the one proposed. Stock follows recorded
+          movements, not role rank.
         </p>
-        <p style="font-size:14px;line-height:1.6;color:#2C3E50;margin:6px 0 0;">
+        <p style="font-size:14px;line-height:1.6;color:#2C3E50;margin:6px 0 0;" data-i18n-html="team.adminScope">
           <strong>Admin</strong> does everything day to day: products, shelves, sales, customers.
           Only the <strong>owner</strong> handles the license, the recovery email, who is promoted
           or removed, and the commission splits.
         </p>
       </div>
+      <p id="oc-emp-load-error" role="alert" style="display:none;color:var(--rojo);font-size:14px;font-weight:700;"></p>
+      <div id="oc-emp-conflictos" role="alert" style="display:none;border:2px solid var(--rojo);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:var(--ink);"></div>
       <div id="oc-emp-lista" style="margin-bottom:18px;overflow-x:auto;-webkit-overflow-scrolling:touch;"></div>
       <details id="oc-emp-form-wrap" style="margin-bottom:6px;">
-        <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--azul-medio);margin-bottom:10px;">
+        <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--azul-medio);margin-bottom:10px;" data-i18n="team.add">
           + Add a team member
         </summary>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;margin-top:10px;">
-          <label style="font-size:13px;">Name
-            <input id="oc-emp-nombre" maxlength="60" placeholder="e.g. Maria Auquilla"
+          <label style="font-size:13px;"><span data-i18n="team.name">Name</span>
+            <input id="oc-emp-nombre" maxlength="60" placeholder="e.g. Maria Auquilla" autocomplete="off" name="team-member-name"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
-          <label style="font-size:13px;">Email (optional — for notifications)
-            <input id="oc-emp-email" type="email" maxlength="160" placeholder="name@example.com"
+          <label style="font-size:13px;"><span data-i18n="team.emailOptional">Email (optional — for notifications)</span>
+            <input id="oc-emp-email" type="email" maxlength="160" placeholder="name@example.com" autocomplete="off" name="team-member-email"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
-          <label style="font-size:13px;">PIN (3 digits)<!-- Microcirugia 7 (2026-07-08): aviso de colisión. El mock no puede verificar contra el PIN del dueño/contador (esos hashes viven en crypto-store). Si colisionan, el miembro queda bloqueado silenciosamente. -->
-            <span style="display:block;font-size:13px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;">
+          <label style="font-size:13px;"><span data-i18n="team.pinLabel">PIN (3 digits)</span>
+            <span style="display:block;font-size:13px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;" data-i18n="team.pinWarning">
               Do not reuse the PIN of the owner, the general staff login or the bookkeeper.
             </span>
-            <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="•••"
+            <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="•••" autocomplete="off" name="team-member-pin"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;text-align:center;font-family:var(--font-mono);
                      box-sizing:border-box;letter-spacing:.2em;">
           </label>
-          <label id="oc-emp-rol-label" style="font-size:13px;">Role
+          <label id="oc-emp-rol-label" style="font-size:13px;"><span data-i18n="team.role">Role</span>
             <select id="oc-emp-rol"
               style="display:block;width:100%;margin-top:4px;padding:8px;border:2px solid var(--azul-medio);
                      border-radius:5px;font-size:14px;box-sizing:border-box;background:var(--blanco-calido,#fbf5e8);">
-              <option value="empleado">Employee — day-to-day access (sales, inventory, shelves)</option>
-              <option value="admin">Admin — full access except the owner's credentials</option>
+              <option value="empleado" data-i18n="team.employeeOption">Employee — day-to-day access (sales, inventory, shelves)</option>
+              <option value="admin" data-i18n="team.adminOption">Admin — full access except the owner's credentials</option>
             </select>
-            <span style="display:block;font-size:13px;color:var(--ink-soft);margin-top:3px;">
+            <span style="display:block;font-size:13px;color:var(--ink);margin-top:3px;" data-i18n="team.onlyOwnerCreatesAdmins">
               Only the owner can create admins.
             </span>
           </label>
           <button id="oc-emp-agregar" class="ir"
             style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">
-            Add to the team
+            <span data-i18n="team.addButton">Add to the team</span>
           </button>
-          <p id="oc-emp-msg" style="font-size:14px;margin:0;font-weight:700;"></p>
+          <p id="oc-emp-msg" role="status" aria-live="polite" style="font-size:14px;margin:0;font-weight:700;"></p>
         </div>
       </details>`;
     vista.appendChild(equipoPanel);
+    if (window.OCI18n && window.OCI18n.applyStatic) window.OCI18n.applyStatic(equipoPanel);
 
     // Renderiza la tabla del equipo (llama al endpoint cada vez que hay cambio).
     // También actualiza la visibilidad del selector de rol (dueño vs admin),
     // porque init() corre antes del login y el rol real no está disponible aún.
+    let _renderEquipoSeq = 0;
+    function pintarConflictosEquipo() {
+      const box = document.getElementById("oc-emp-conflictos");
+      if (!box) return;
+      const pendientes = (window.OCSync && window.OCSync.conflictosEquipo && window.OCSync.conflictosEquipo()) || [];
+      box.replaceChildren();
+      box.style.display = pendientes.length ? "" : "none";
+      if (!pendientes.length) return;
+      const p = document.createElement("p");
+      p.style.cssText = "margin:0 0 8px;font-size:14px;font-weight:700;color:var(--ink);";
+      p.textContent = window.tf("team.conflictsPending", { names: pendientes.map((x) => x.nombre).join(", ") });
+      box.appendChild(p);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = window.t("team.retrySync");
+      btn.addEventListener("click", () => {
+        if (window.OCSyncControl && window.OCSyncControl.pedirCatalogo) window.OCSyncControl.pedirCatalogo();
+      });
+      box.appendChild(btn);
+    }
     async function renderEmpleados() {
+      const seq = ++_renderEquipoSeq;
       const rolLabel = document.getElementById("oc-emp-rol-label");
       if (rolLabel) rolLabel.style.display = isDueno() ? "" : "none";
       const lista = document.getElementById("oc-emp-lista");
@@ -1271,18 +1303,24 @@
       const msgElPre = document.getElementById("oc-emp-msg");
       const colisionPendiente = msgElPre && msgElPre.dataset.colisionPendiente ? msgElPre.dataset.colisionPendiente : null;
       let equipo = [];
+      let errorLectura = false;
       // ?pins=1 solo para owner/admin (JFC 2026-09-01): la lista unificada del
       // Team muestra los PINs para no repetirlos al crear otros. Es local.
       const _verPins = (isDueno() || isAdmin());
       try {
         const r = await fetch("/api/usuarios" + (_verPins ? "?pins=1" : ""));
-        if (r.ok) equipo = await r.json();
-      } catch (_) {}
-
-      if (!equipo.length) {
-        lista.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);margin:0;">${window.t("team.noMembers")}</p>`;
-        return;
+        if (!r.ok) throw new Error("team read failed");
+        equipo = await r.json();
+        if (!Array.isArray(equipo)) throw new Error("team response invalid");
+      } catch (_) { errorLectura = true; }
+      if (seq !== _renderEquipoSeq) return; // no repintar datos viejos sobre una lectura nueva
+      pintarConflictosEquipo();
+      const errorEl = document.getElementById("oc-emp-load-error");
+      if (errorEl) {
+        errorEl.style.display = errorLectura ? "" : "none";
+        errorEl.textContent = errorLectura ? window.t("team.readError") : "";
       }
+      if (errorLectura && lista.children.length) return; // conservar última lista válida
 
       // "Última ubicación" (JFC 2026-07-28): geo-ping.js es un archivo aparte
       // y opcional (ver ese archivo) — si no cargó, o no hay AMG.GeoPing, o
@@ -1332,40 +1370,42 @@
       try { _correoDueno = (window.OCSecure && window.OCSecure.leerCorreo && window.OCSecure.leerCorreo()) || ""; } catch (_) {}
       const _correoDuenoTxt = _correoDueno
         ? (window.OCAuth && window.OCAuth.enmascarar ? window.OCAuth.enmascarar(_correoDueno) : _correoDueno)
-        : "No recovery email yet";
+        : window.t("team.noRecoveryEmail");
       const _lapiz = (attrs) => `<button ${attrs} style="font-size:15px;padding:0 4px;border:none;background:none;color:var(--azul-medio,#2c4a68);cursor:pointer;vertical-align:middle;">✎</button>`;
       cards.push(`
         <div class="tag-card" style="${_cardCss}background:var(--paper-deep,#E2E8ED);">
           <div style="flex:1;min-width:160px;">
             <div style="font-weight:700;font-size:15px;">
-              ${_soyDueno ? "You" : "The owner"}${_nombreNegocio ? ` · ${escHtml(_nombreNegocio)}` : ""}${_soyDueno ? _lapiz(`data-edit-negocio="1" title="Edit business name" aria-label="Edit business name"`) : ""}
+              ${window.t(_soyDueno ? "team.ownerYou" : "team.ownerOther")}${_nombreNegocio ? ` · ${escHtml(_nombreNegocio)}` : ""}${_soyDueno ? _lapiz(`data-edit-negocio="1" title="${window.t("team.editBusinessName")}" aria-label="${window.t("team.editBusinessName")}"`) : ""}
             </div>
-            ${_soyDueno ? `<div style="font-size:13px;color:var(--ink);margin-top:2px;">${escHtml(_correoDuenoTxt)}${_lapiz(`data-edit-correo-dueno="1" title="Change recovery email" aria-label="Change recovery email"`)}</div>` : ""}
+            ${_soyDueno ? `<div style="font-size:13px;color:var(--ink);margin-top:2px;">${escHtml(_correoDuenoTxt)}${_lapiz(`data-edit-correo-dueno="1" title="${window.t("team.changeRecoveryEmail")}" aria-label="${window.t("team.changeRecoveryEmail")}"`)}</div>` : ""}
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
-              ${_badge("Owner", "#E87A10")}
-              <span style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">Active</span>
+              ${_badge(window.t("team.owner"), "#E87A10")}
+              <span style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">${window.t("team.active")}</span>
             </div>
             ${_soyDueno ? `
               <div id="oc-neg-row" style="display:none;background:var(--azul-suave,#EEF3F7);border-radius:8px;padding:10px 12px;margin-top:8px;">
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                  <span style="font-size:13px;font-weight:700;">Business name:</span>
+                  <label for="oc-neg-input" style="font-size:13px;font-weight:700;">${window.t("team.businessName")}</label>
                   <input id="oc-neg-input" maxlength="80" placeholder="e.g. Galería Cuenca" value="${escHtml(_nombreNegocio)}"
                     style="flex:1;min-width:160px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;">
                   <button id="oc-neg-save"
-                    style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">Save</button>
+                     style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">${window.t("team.save")}</button>
                   <span id="oc-neg-msg" style="font-size:13px;font-weight:700;"></span>
                 </div>
               </div>` : ""}
           </div>
-          <div style="font-size:13px;color:#4A5A6A;align-self:center;">Highest authority${_soyDueno ? " · only you can close the account, change the license, or promote/demote/remove admins" : ""}</div>
+          <div style="font-size:13px;color:#263747;align-self:center;">${window.t("team.highest")}${_soyDueno ? " · " + window.t("team.highestDetail") : ""}</div>
         </div>`);
+      if (!equipo.length && !errorLectura)
+        cards.push(`<p style="font-size:14px;color:var(--ink);margin:8px 0;">${window.t("team.noMembers")}</p>`);
 
       equipo.forEach((u) => {
         const estadoColor  = u.activo ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)";
-        const estadoTxt    = u.activo ? "Active" : "Inactive";
-        const btnEstLabel  = u.activo ? "Deactivate" : "Activate";
+        const estadoTxt    = window.t(u.activo ? "team.active" : "team.inactive");
+        const btnEstLabel  = window.t(u.activo ? "team.deactivate" : "team.activate");
         const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
-        const rolBadge     = _badge(u.rol === "admin" ? "Admin" : "Employee", "#E87A10");
+        const rolBadge     = _badge(window.t(u.rol === "admin" ? "team.admin" : "team.employee"), "#E87A10");
         const esMiFila = window.OCCurrentUser && String(window.OCCurrentUser.id) === String(u.id);
         const puedeEditar = isDueno() || (isAdmin() && (u.rol === "empleado" || esMiFila));
         const puedePromover = isDueno();
@@ -1375,8 +1415,8 @@
               ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">📍 ${window.tf("geo.emp.lastSeen", { when: hacetiempo(ping.ts) })}${
                   (ping.lat != null && ping.lon != null)
                     ? ` · <a href="https://www.google.com/maps?q=${ping.lat},${ping.lon}" target="_blank" rel="noopener" style="color:var(--azul-medio);">${window.t("geo.panel.viewMap")}</a>` +
-                      (ping.precision != null && ping.precision > 300
-                        ? ` <span style="color:#E8A020;">(approximate, ±${ping.precision}m — not exact)</span>`
+                  (ping.precision != null && ping.precision > 300
+                        ? ` <span style="color:#263747;">${window.tf("team.locationApproximate", { meters: ping.precision })}</span>`
                         : ping.precision != null ? ` (±${ping.precision}m)` : "")
                     : " · " + window.t("geo.emp.noLocationThatTime")
                 }</div>`
@@ -1389,21 +1429,22 @@
               <button data-cambiar-pin="${escHtml(u.id)}" title="${window.t ? window.t("team.editPin") : "Edit PIN"}" aria-label="${window.t ? window.t("team.editPin") : "Edit PIN"}"
                 style="font-size:15px;padding:5px 11px;border:2px solid var(--azul-medio);border-radius:6px;background:transparent;color:var(--azul-medio);cursor:pointer;">✎ PIN</button>
               ${puedePromover ? `
-                <select data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}" title="Change role"
+                <select data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}" aria-label="${window.t("team.changeRole")}" title="${window.t("team.changeRole")}"
                   style="font-size:13px;padding:6px 8px;border:2px solid #E87A10;border-radius:6px;background:#fff;color:#7a4a00;cursor:pointer;">
-                  <option value="empleado" ${u.rol === "empleado" ? "selected" : ""}>Employee</option>
-                  <option value="admin" ${u.rol === "admin" ? "selected" : ""}>Admin</option>
-                </select>` : ""}
-          ` : `<span style="font-size:13px;color:var(--ink-soft);align-self:center;">Owner only</span>`;
+                  <option value="empleado" ${u.rol === "empleado" ? "selected" : ""}>${window.t("team.employee")}</option>
+                  <option value="admin" ${u.rol === "admin" ? "selected" : ""}>${window.t("team.admin")}</option>
+                </select>
+                <button data-remove-id="${escHtml(u.id)}" style="font-size:13px;padding:6px 12px;border:2px solid var(--rojo);border-radius:6px;background:transparent;color:var(--rojo);cursor:pointer;">${window.t("team.removeAccess")}</button>` : ""}
+          ` : `<span style="font-size:13px;color:var(--ink);align-self:center;">${window.t("team.ownerOnly")}</span>`;
         const pinEditor = puedeEditar ? `
           <div id="oc-pin-row-${escHtml(u.id)}" style="display:none;flex-basis:100%;background:var(--azul-suave,#EEF3F7);border-radius:8px;padding:10px 12px;margin-top:4px;">
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <span style="font-size:13px;font-weight:700;">${window.t ? window.t("team.newPinFor") : "New PIN for"} ${escHtml(u.nombre)}:</span>
-              <input data-pin-input="${escHtml(u.id)}" maxlength="3" inputmode="numeric" placeholder="3 digits"
+              <input data-pin-input="${escHtml(u.id)}" maxlength="3" inputmode="numeric" aria-label="${window.t("team.newPinFor")} ${escHtml(u.nombre)}" placeholder="${window.t("team.pinPlaceholder")}" autocomplete="off"
                 style="width:80px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;text-align:center;font-family:var(--font-mono);letter-spacing:.15em;">
               <button data-guardar-pin="${escHtml(u.id)}"
                 style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">${window.t ? window.t("team.save") : "Save"}</button>
-              <span data-pin-msg="${escHtml(u.id)}" style="font-size:13px;font-weight:700;"></span>
+              <span data-pin-msg="${escHtml(u.id)}" role="status" aria-live="polite" style="font-size:13px;font-weight:700;"></span>
             </div>
           </div>` : "";
         cards.push(`
@@ -1414,25 +1455,25 @@
                    caller puede editar a esta persona (puedeEditar); el backend
                    PATCH /api/usuarios/:id vuelve a validar admin-vs-admin, así que
                    el ✎ oculto no es la seguridad, es solo la UI. -->
-              <div style="font-weight:700;font-size:15px;">${escHtml(u.nombre)}${puedeEditar ? _lapiz(`data-edit-campo="nombre" data-uid="${escHtml(u.id)}" title="${window.t ? window.t("team.editName", "Edit name") : "Edit name"}" aria-label="Edit name"`) : ""}</div>
-              <div style="font-size:13px;color:${u.email ? "var(--ink)" : "var(--ink-soft)"};">${u.email ? escHtml(u.email) : "No email"}${puedeEditar ? _lapiz(`data-edit-campo="email" data-uid="${escHtml(u.id)}" title="${window.t ? window.t("team.editEmail", "Edit email") : "Edit email"}" aria-label="Edit email"`) : ""}</div>
+              <div style="font-weight:700;font-size:15px;">${escHtml(u.nombre)}${puedeEditar ? _lapiz(`data-edit-campo="nombre" data-uid="${escHtml(u.id)}" title="${window.t("team.editName")}" aria-label="${window.t("team.editName")}"`) : ""}</div>
+              <div style="font-size:13px;color:var(--ink);">${u.email ? escHtml(u.email) : window.t("team.noEmail")}${puedeEditar ? _lapiz(`data-edit-campo="email" data-uid="${escHtml(u.id)}" title="${window.t("team.editEmail")}" aria-label="${window.t("team.editEmail")}"`) : ""}</div>
               ${puedeEditar ? `
                 <div id="oc-fld-nombre-${escHtml(u.id)}" style="display:none;background:var(--azul-suave,#EEF3F7);border-radius:8px;padding:10px 12px;margin-top:6px;">
                   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <input data-fld-input="nombre" data-uid="${escHtml(u.id)}" maxlength="60" placeholder="Name" value="${escHtml(u.nombre)}"
+                    <input data-fld-input="nombre" data-uid="${escHtml(u.id)}" maxlength="60" aria-label="${window.t("team.editName")} ${escHtml(u.nombre)}" value="${escHtml(u.nombre)}"
                       style="flex:1;min-width:140px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;">
-                    <button data-fld-save="nombre" data-uid="${escHtml(u.id)}"
-                      style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">Save</button>
-                    <span data-fld-msg="nombre" data-uid="${escHtml(u.id)}" style="font-size:13px;font-weight:700;"></span>
+                     <button data-fld-save="nombre" data-uid="${escHtml(u.id)}"
+                       style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">${window.t("team.save")}</button>
+                    <span data-fld-msg="nombre" data-uid="${escHtml(u.id)}" role="status" aria-live="polite" style="font-size:13px;font-weight:700;"></span>
                   </div>
                 </div>
                 <div id="oc-fld-email-${escHtml(u.id)}" style="display:none;background:var(--azul-suave,#EEF3F7);border-radius:8px;padding:10px 12px;margin-top:6px;">
                   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                    <input data-fld-input="email" data-uid="${escHtml(u.id)}" type="email" maxlength="160" placeholder="email@domain.com" value="${escHtml(u.email || "")}"
+                    <input data-fld-input="email" data-uid="${escHtml(u.id)}" type="email" maxlength="160" aria-label="${window.t("team.editEmail")} ${escHtml(u.nombre)}" value="${escHtml(u.email || "")}"
                       style="flex:1;min-width:160px;padding:7px 10px;border:2px solid var(--azul-medio);border-radius:6px;font-size:14px;">
                     <button data-fld-save="email" data-uid="${escHtml(u.id)}"
-                      style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">Save</button>
-                    <span data-fld-msg="email" data-uid="${escHtml(u.id)}" style="font-size:13px;font-weight:700;"></span>
+                       style="padding:7px 14px;border:2px solid var(--azul-medio);border-radius:6px;background:var(--azul-medio);color:var(--blanco-calido);font-size:13px;font-weight:700;cursor:pointer;">${window.t("team.save")}</button>
+                    <span data-fld-msg="email" data-uid="${escHtml(u.id)}" role="status" aria-live="polite" style="font-size:13px;font-weight:700;"></span>
                   </div>
                 </div>` : ""}
               <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
@@ -1448,7 +1489,19 @@
             ${pinEditor}
           </div>`);
       });
+      // Sync o cambio de idioma no debe borrar lo que alguien está escribiendo.
+      const borradoresUI = [];
+      lista.querySelectorAll("[data-fld-input], [data-pin-input], #oc-neg-input").forEach((input) => {
+        const row = input.closest('[id^="oc-fld-"], [id^="oc-pin-row-"], #oc-neg-row');
+        if (row && row.style.display !== "none") borradoresUI.push({ id: row.id, value: input.value });
+      });
       lista.innerHTML = cards.join("");
+      borradoresUI.forEach((d) => {
+        const row = document.getElementById(d.id);
+        if (!row) return;
+        const input = row.querySelector("input");
+        if (input) { input.value = d.value; row.style.display = ""; }
+      });
       // Alias para conservar TODOS los bindings existentes (antes era el <tbody>).
       const tbody = lista;
 
@@ -1457,14 +1510,31 @@
         btn.addEventListener("click", async () => {
           const id = btn.dataset.toggleId;
           const activo = btn.dataset.activo === "true";
+          if (activo && !confirm(window.t("team.confirmDeactivate"))) return;
           try {
             const r = await fetch("/api/usuarios/" + id, {
               method: "PATCH", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ activo: !activo }),
             });
-            if (!r.ok) { const e = await r.json(); alert(e.error || "Could not update."); return; }
+            if (!r.ok) { const e = await r.json(); alert(errorEquipo(e, "team.saveFailed")); return; }
             await renderEmpleados();
-          } catch (_) { alert("Error de red."); }
+          } catch (_) { alert(window.t("team.networkError")); }
+        });
+      });
+
+      // Baja lógica: conserva la ficha histórica y propaga el tombstone a otros
+      // aparatos. Solo el dueño ve el botón; la ruta vuelve a validar el rol.
+      tbody.querySelectorAll("[data-remove-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.removeId;
+          const miembro = equipo.find((x) => String(x.id) === String(id));
+          if (!miembro || !confirm(window.tf("team.confirmRemove", { name: miembro.nombre }))) return;
+          btn.disabled = true;
+          try {
+            const r = await fetch("/api/usuarios/" + encodeURIComponent(id), { method: "DELETE" });
+            if (!r.ok) { const e = await r.json().catch(() => ({})); alert(errorEquipo(e, "team.removeFailed")); btn.disabled = false; return; }
+            await renderEmpleados();
+          } catch (_) { alert(window.t("team.removeFailed")); btn.disabled = false; }
         });
       });
 
@@ -1479,9 +1549,9 @@
               method: "PATCH", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ rol: rolNuevo }),
             });
-            if (!r.ok) { const e = await r.json(); alert(e.error || "Could not change the role."); return; }
+            if (!r.ok) { const e = await r.json(); alert(errorEquipo(e, "team.roleFailed")); return; }
             await renderEmpleados();
-          } catch (_) { alert("Error de red."); }
+          } catch (_) { alert(window.t("team.networkError")); }
         });
       });
 
@@ -1515,8 +1585,8 @@
           const msg = tbody.querySelector(`[data-fld-msg="${campo}"][data-uid="${id}"]`);
           const val = (inp ? inp.value : "").trim();
           if (msg) msg.style.color = "var(--rojo,#a3392a)";
-          if (campo === "nombre" && !val) { if (msg) msg.textContent = "Name can't be empty."; return; }
-          if (campo === "email" && val && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)) { if (msg) msg.textContent = "Invalid email."; return; }
+          if (campo === "nombre" && !val) { if (msg) msg.textContent = window.t("team.nameEmpty"); return; }
+          if (campo === "email" && val && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)) { if (msg) msg.textContent = window.t("team.invalidEmail"); return; }
           try {
             const body = campo === "nombre" ? { nombre: val } : { email: val };
             const r = await fetch("/api/usuarios/" + id, {
@@ -1524,9 +1594,9 @@
               body: JSON.stringify(body),
             });
             const data = await r.json().catch(() => ({}));
-            if (!r.ok) { if (msg) msg.textContent = data.error || "Could not save."; return; }
+            if (!r.ok) { if (msg) msg.textContent = errorEquipo(data, "team.saveFailed"); return; }
             await renderEmpleados();
-          } catch (_) { if (msg) msg.textContent = "Network error."; }
+          } catch (_) { if (msg) msg.textContent = window.t("team.networkError"); }
         });
       });
 
@@ -1543,16 +1613,16 @@
           const msg = document.getElementById("oc-neg-msg");
           const v = (inp ? inp.value : "").trim();
           if (msg) msg.style.color = "var(--rojo,#a3392a)";
-          if (!v) { if (msg) msg.textContent = "Name can't be empty."; return; }
+          if (!v) { if (msg) msg.textContent = window.t("team.nameEmpty"); return; }
           try {
             const r = await fetch("/api/instancia/nombre", {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ nombre: v }),
             });
-            if (!r.ok) { if (msg) msg.textContent = "Could not save."; return; }
+            if (!r.ok) { if (msg) msg.textContent = window.t("team.saveFailed"); return; }
             try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: v } })); } catch (_) {}
             await renderEmpleados();
-          } catch (_) { if (msg) msg.textContent = "Network error."; }
+          } catch (_) { if (msg) msg.textContent = window.t("team.networkError"); }
         });
       }
 
@@ -1584,7 +1654,7 @@
               body: JSON.stringify({ pin }),
             });
             const data = await r.json();
-            if (!r.ok) { msg.textContent = data.error || "Could not save the PIN."; return; }
+            if (!r.ok) { msg.textContent = errorEquipo(data, "team.saveFailed"); return; }
             msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
             msg.textContent = window.t ? window.t("team.pinUpdated") : "PIN updated.";
             // Entrega por correo (JFC 2026-07-30): mailto abre EL PROPIO cliente
@@ -1593,17 +1663,17 @@
             // en ningún servidor; solo pasa por esta URL local hacia el mailer.
             const miembro = equipo.find((x) => x.id === id);
             if (miembro && miembro.email) {
-              const asunto = encodeURIComponent(`Tu PIN de acceso — ${miembro.nombre}`);
-              const cuerpo = encodeURIComponent(`Hola ${miembro.nombre},\n\nTu nuevo PIN de acceso es: ${pin}\n\nGuárdalo en un lugar seguro.`);
+              const asunto = encodeURIComponent(window.tf("team.mailSubject", { name: miembro.nombre }));
+              const cuerpo = encodeURIComponent(window.tf("team.mailBody", { name: miembro.nombre, pin }));
               const linkMail = document.createElement("a");
               linkMail.href = `mailto:${miembro.email}?subject=${asunto}&body=${cuerpo}`;
-              linkMail.textContent = " Enviar por correo";
+              linkMail.textContent = " " + window.t("team.sendEmail");
               linkMail.style.cssText = "margin-left:8px;color:var(--azul-medio);font-weight:700;";
               msg.appendChild(linkMail);
             }
             if (inp) inp.value = "";
             setTimeout(() => renderEmpleados(), 4000);
-          } catch (_) { msg.textContent = "Error de red."; }
+          } catch (_) { msg.textContent = window.t("team.networkError"); }
         });
       });
 
@@ -1632,7 +1702,7 @@
       const rol = (isDueno() && rolSel) ? (rolSel.value || "empleado") : "empleado";
       const msgEl = document.getElementById("oc-emp-msg");
       msgEl.style.color = "var(--rojo,#a3392a)";
-      if (!nombre) { msgEl.textContent = "El nombre es obligatorio."; return; }
+      if (!nombre) { msgEl.textContent = window.t("team.nameRequired"); return; }
       if (!/^\d{3}$/.test(pin)) { msgEl.textContent = window.t("team.pinMustBeExactly3Digits"); return; }
       try {
         const r = await fetch("/api/usuarios", {
@@ -1640,19 +1710,15 @@
           body: JSON.stringify({ nombre, pin, email: email || undefined, rol }),
         });
         const data = await r.json();
-        if (!r.ok) { msgEl.textContent = data.error || "Could not add the team member."; return; }
+        if (!r.ok) { msgEl.textContent = errorEquipo(data, "team.memberAddFailed"); return; }
         msgEl.style.color = "var(--sim-verde-dk,#1a6e3c)";
-        msgEl.textContent = `${data.rol === "admin" ? "Admin" : "Employee"} "${data.nombre}" added.`;
+        msgEl.textContent = window.tf("team.memberAdded", { role: window.t(data.rol === "admin" ? "team.admin" : "team.employee"), name: data.nombre });
         if (email) {
-          const asunto = encodeURIComponent(`Your access PIN — ${data.nombre}`);
-          const cuerpo = encodeURIComponent(`Hi ${data.nombre},
-
-Your access PIN is: ${pin}
-
-Keep it somewhere safe.`);
+          const asunto = encodeURIComponent(window.tf("team.mailSubject", { name: data.nombre }));
+          const cuerpo = encodeURIComponent(window.tf("team.mailBody", { name: data.nombre, pin }));
           const linkMail = document.createElement("a");
           linkMail.href = `mailto:${email}?subject=${asunto}&body=${cuerpo}`;
-          linkMail.textContent = " Enviar por correo";
+          linkMail.textContent = " " + window.t("team.sendEmail");
           linkMail.style.cssText = "margin-left:8px;color:var(--azul-medio);font-weight:700;";
           msgEl.appendChild(linkMail);
         }
@@ -1662,7 +1728,7 @@ Keep it somewhere safe.`);
         if (rolSel) rolSel.value = "empleado";
         document.getElementById("oc-emp-form-wrap").open = false;
         await renderEmpleados();
-      } catch (_) { msgEl.textContent = "Error de red."; }
+      } catch (_) { msgEl.textContent = window.t("team.networkError"); }
     });
 
     // Cargar equipo al montar la vista Avanzado + refrescar en cada login
@@ -1682,6 +1748,7 @@ Keep it somewhere safe.`);
       clearTimeout(_renderEmpDebTimer);
       _renderEmpDebTimer = setTimeout(() => renderEmpleados().catch(() => {}), 300);
     });
+    window.addEventListener("oc-equipo-conflictos", pintarConflictosEquipo);
 
     /* AVISO DE COLISIÓN DE PIN EN SYNC (2026-08-26, code-review finding #3b).
        aplicarCatalogo dispara oc-pin-colision cuando un miembro que llega
@@ -1696,7 +1763,7 @@ Keep it somewhere safe.`);
         /* B-01 (2026-08-26): nunca mostrar el PIN real — es una credencial.
            B-04: si el panel de equipo no está visible, usar un toast en vez de
            alert() bloqueante (que cortaría una venta en curso). */
-        const msg = `PIN conflict: ${d.nombre || "A team member"} uses a PIN that is already taken here. Change their PIN before syncing.`;
+        const msg = window.tf("team.conflictNotice", { name: d.nombre || window.t("team.employee") });
         const msgEl = document.getElementById("oc-emp-msg");
         if (msgEl) {
           msgEl.style.color = "var(--rojo,#a3392a)";
@@ -2024,6 +2091,7 @@ Keep it somewhere safe.`);
           "Sync your team": "Live sync across every device on your team.",
           "Team": "Team members, roles and PINs for this business.",
           "Team & access": "Every role and PIN in one list.",
+          "Equipo y acceso": "Cada rol y PIN en una sola lista.",
           "Activity log": "Who did what, and when.",
           "Your team right now": "Who is synced and who is not.",
           "Fraud control": "Integrity of sensitive operations.",
@@ -2043,7 +2111,7 @@ Keep it somewhere safe.`);
         const ICONS = {
           "First Steps": "➊", "Primeros Pasos": "➊",
           "Sync your team": "⇄", "Sincronizar equipo": "⇄",
-          "Team": "⧉", "Team & access": "⧉", "Equipo": "⧉",
+          "Team": "⧉", "Team & access": "⧉", "Equipo": "⧉", "Equipo y acceso": "⧉",
           "Activity log": "≡", "Actividad reciente": "≡", "Recent activity": "≡",
           "Fraud control": "⊘", "Control antifraude": "⊘",
           "Your team right now": "◉", "Tu equipo ahora": "◉",
@@ -2164,7 +2232,7 @@ Keep it somewhere safe.`);
             if (n.id === "oc-firststeps") return 0;
             const q = (sel) => { try { return !!n.querySelector(sel); } catch (_) { return false; } };
             const th = (function () { const h = (n.querySelector && n.querySelector("h3,h4")); return h ? h.textContent.trim() : ""; })();
-            if (/^Team(?: & access)?$/i.test(th)) return 10;        // equipo y acceso: lo primero util
+            if (/^Team(?: & access)?$|^Equipo(?: y acceso)?$/i.test(th)) return 10; // equipo primero en ambos idiomas
             if (q("#oc-sync-codigo") || q("#oc-sync-activar")) return 20; // Sync your team (traducido)
             if (/Access & recovery/i.test(th)) return 25;
             if (n.id === "oc-acct-lock" || n.id === "oc-contable") return 30; // Accounting
@@ -2335,30 +2403,30 @@ Keep it somewhere safe.`);
       const _puedeAcct = _rolPin === "dueno";
       const _lapiz = (rol, fn, actual) =>
         (_puedeOwner || (rol === "emp" && _puedeEmp) || (rol === "acct" && _puedeAcct))
-          ? '<button type="button" data-pin-edit="' + rol + '" title="Change this PIN" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;margin-left:4px;">✎</button>'
+          ? '<button type="button" data-pin-edit="' + rol + '" title="' + _esc(window.t("team.changePin")) + '" aria-label="' + _esc(window.t("team.changePin")) + '" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;margin-left:4px;">✎</button>'
           : "";
       cuerpo.innerHTML =
-        '<div><strong>Owner:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(owner) + "</code>" + _lapiz("owner", "fijarOwnerPin", owner) + "</div>" +
-        '<div><strong>Staff:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(emp) + "</code>" + _lapiz("emp", "fijarEmpleadoPin", emp) + "</div>" +
-        '<div><strong>Accounting:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(acct) + "</code>" + _lapiz("acct", "fijarAcctPin", acct) + "</div>" +
+        '<div><strong>' + _esc(window.t("team.owner")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(owner) + "</code>" + _lapiz("owner", "fijarOwnerPin", owner) + "</div>" +
+        '<div><strong>' + _esc(window.t("team.staff")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(emp) + "</code>" + _lapiz("emp", "fijarEmpleadoPin", emp) + "</div>" +
+        '<div><strong>' + _esc(window.t("team.accounting")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(acct) + "</code>" + _lapiz("acct", "fijarAcctPin", acct) + "</div>" +
         /* Demo (JFC 2026-09-01): 456 es permanente y reservado — muestra la app
            completa con datos de ejemplo antes de comprar. No lleva lapicito
            porque no se cambia nunca. Faltaba en esta lista. */
-        '<div><strong>Demo:</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">456</code> <span style="font-size:13px;color:var(--ink-soft);">— permanent demo (mock data), can\'t be changed</span></div>';
+        '<div><strong>' + _esc(window.t("team.demo")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">456</code> <span style="font-size:13px;color:var(--ink);">— ' + _esc(window.t("team.demoFixed")) + '</span></div>';
       /* Bind de los lapicitos. Se re-bindea en cada pintado (los botones son
          nuevos). */
       cuerpo.querySelectorAll("[data-pin-edit]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const rol = btn.dataset.pinEdit;
           const fn = rol === "owner" ? "fijarOwnerPin" : (rol === "emp" ? "fijarEmpleadoPin" : "fijarAcctPin");
-          const etiqueta = rol === "owner" ? "Owner" : (rol === "emp" ? "Staff" : "Accounting");
-          if (window.OCAuth.esDemo && window.OCAuth.esDemo()) { alert("Demo mode: PINs can't be changed here."); return; }
-          const nuevo = prompt("New " + etiqueta + " PIN (3 digits):");
+          const etiqueta = window.t(rol === "owner" ? "team.owner" : (rol === "emp" ? "team.staff" : "team.accounting"));
+          if (window.OCAuth.esDemo && window.OCAuth.esDemo()) { alert(window.t("team.demoPinLocked")); return; }
+          const nuevo = prompt(window.tf("team.newRolePin", { role: etiqueta }));
           if (nuevo == null) return;
           const v = String(nuevo).trim();
-          if (!/^[0-9]{3}$/.test(v)) { alert("The PIN must be 3 digits (0-9)."); return; }
-          if (["456", "789"].indexOf(v) !== -1) { alert("That PIN is reserved (demo or activation). Pick another one."); return; }
-          if (rol !== "owner" && ["260", "357"].indexOf(v) !== -1) { alert("That PIN is reserved. Pick another one."); return; }
+          if (!/^[0-9]{3}$/.test(v)) { alert(window.t("team.pinThreeDigits")); return; }
+          if (["456", "789"].indexOf(v) !== -1) { alert(window.t("team.pinReserved")); return; }
+          if (rol !== "owner" && ["260", "357"].indexOf(v) !== -1) { alert(window.t("team.pinReserved")); return; }
           /* RESGUARDOS DEL DUEÑO (JFC 2026-08-29, fusión de listas de PIN):
              el flujo viejo de "rotar los 3 a ciegas" exigía confirmación doble
              y correo de recuperación ANTES de cambiar el PIN del dueño — es la
@@ -2366,15 +2434,34 @@ Keep it somewhere safe.`);
              negocio. Se portan esos dos resguardos al editor individual,
              SOLO para "owner": Staff/Accounting no arriesgan sacar al dueño. */
           if (rol === "owner") {
-            const confirmacion = prompt("Confirm the new Owner PIN (type it again):");
+            const confirmacion = prompt(window.t("team.confirmOwnerPin"));
             if (confirmacion == null) return;
-            if (String(confirmacion).trim() !== v) { alert("The PINs don't match — nothing was changed."); return; }
+            if (String(confirmacion).trim() !== v) { alert(window.t("team.pinMismatch")); return; }
             const correoActual = window.OCSecure.leerCorreo();
-            if (!correoActual) { alert("Before changing the Owner PIN, register a recovery email above (without one, a forgotten PIN can't be recovered)."); return; }
+            if (!correoActual) { alert(window.t("team.ownerNeedsEmail")); return; }
           }
+          // Los PIN integrados y los personales comparten el mismo candado.
+          // Consultar los actuales, no solo la lista fija de códigos de fábrica.
+          try {
+            const usados = window.OCSecure.leerPinsVisibles() || { empleados: ["260"], acct: "357" };
+            const otrosIntegrados = rol === "owner" ? [usados.acct].concat(usados.empleados || [])
+              : rol === "acct" ? [usados.owner].concat(usados.empleados || [])
+              : [usados.owner, usados.acct];
+            const rEquipo = await fetch("/api/usuarios?pins=1");
+            if (!rEquipo.ok) throw new Error("team unavailable");
+            const miembros = await rEquipo.json();
+            const rolesAjenos = rol === "owner" ? ["emp", "acct"] : (rol === "acct" ? ["owner", "emp"] : ["owner", "acct"]);
+            let colisionHash = false;
+            if (window.OCSecure.coincidePin) {
+              for (const otroRol of rolesAjenos) if (await window.OCSecure.coincidePin(v, otroRol)) { colisionHash = true; break; }
+            }
+            if (colisionHash || otrosIntegrados.includes(v) || miembros.some((u) => u.pin === v)) {
+              alert(window.t("team.pinCollision")); return;
+            }
+          } catch (_) { alert(window.t("team.pinCheckFailed")); return; }
           try {
             const ok = await window.OCSecure[fn](v);
-            if (!ok) { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); return; }
+            if (!ok) { msg("oc-codes-msg", window.tf("team.pinUpdateFailed", { role: etiqueta }), "var(--rojo)"); return; }
             try {
               if (window.OCSecure.recordarPinQueAbre) {
                 window.OCSecure.recordarPinQueAbre(v, rol === "owner" ? "dueno" : (rol === "emp" ? "empleado" : "contador"));
@@ -2386,10 +2473,10 @@ Keep it somewhere safe.`);
                para "quién hizo qué" y el control de acceso de cada dueño. */
             try {
               const dir = window.OCSecure.directorioNormalizado();
-              const nombre = prompt("Who uses this " + etiqueta + " PIN? (name)", "");
+              const nombre = prompt(window.tf("team.pinPromptName", { role: etiqueta }), "");
               if (nombre != null) {
-                const correo = prompt("Their email (optional):", "");
-                const notas = prompt("Notes (optional, e.g. 'runs Shelf1', 'works Thursdays'):", "");
+                const correo = prompt(window.t("team.pinPromptEmail"), "");
+                const notas = prompt(window.t("team.pinPromptNotes"), "");
                 if (rol === "owner") { dir.owner.nombre = String(nombre).trim(); dir.owner.correo = String(correo || "").trim(); dir.owner.notas = String(notas || "").trim(); }
                 else if (rol === "acct") { dir.acct.nombre = String(nombre).trim(); dir.acct.correo = String(correo || "").trim(); dir.acct.notas = String(notas || "").trim(); }
                 else {
@@ -2401,8 +2488,8 @@ Keep it somewhere safe.`);
               }
             } catch (_) {}
             pintarPinsVisibles();
-            msg("oc-codes-msg", etiqueta + " PIN updated.", "var(--verde)");
-          } catch (_) { msg("oc-codes-msg", "Could not update the " + etiqueta + " PIN.", "var(--rojo)"); }
+            msg("oc-codes-msg", window.tf("team.pinUpdatedRole", { role: etiqueta }), "var(--verde)");
+          } catch (_) { msg("oc-codes-msg", window.tf("team.pinUpdateFailed", { role: etiqueta }), "var(--rojo)"); }
         });
       });
     }
@@ -2432,6 +2519,7 @@ Keep it somewhere safe.`);
        se renderizaban con rol vacío y NO aparecían nunca. Se re-pinta al hacer
        login (evento oc-login) para que el dueño/admin vea sus lapicitos. */
     try { window.addEventListener("oc-login", pintarPinsVisibles); } catch (_) {}
+    try { window.addEventListener("oc-lang-change", () => { pintarPinsVisibles(); renderEmpleados().catch(() => {}); }); } catch (_) {}
 
     $("oc-descargar-csv").addEventListener("click", async () => {
       const u = ubic();

@@ -708,6 +708,28 @@
   const OC_STATE_SUFIJO = _sufijoTiendaActiva();
   const OC_STATE_PTR = OC_STATE_KEY + OC_STATE_SUFIJO + "_ptr";
   function claveBuffer(letra) { return OC_STATE_KEY + OC_STATE_SUFIJO + "_" + letra; }
+  // Solo metadatos del conflicto, jamás el PIN remoto. El registro es por
+  // cuaderno y sobrevive a un refresh hasta que el miembro sí logra aplicarse.
+  const CONFLICTOS_EQUIPO_KEY = "f123_team_conflicts_v1" + OC_STATE_SUFIJO;
+  let conflictosEquipo = [];
+  try {
+    const guardados = JSON.parse(localStorage.getItem(CONFLICTOS_EQUIPO_KEY) || "[]");
+    if (Array.isArray(guardados)) conflictosEquipo = guardados.filter((x) => x && x.id && x.nombre).slice(-20);
+  } catch (_) {}
+  function _guardarConflictosEquipo() {
+    try { localStorage.setItem(CONFLICTOS_EQUIPO_KEY, JSON.stringify(conflictosEquipo)); } catch (_) {}
+    try { window.dispatchEvent(new CustomEvent("oc-equipo-conflictos")); } catch (_) {}
+  }
+  function _anotarConflictoEquipo(u) {
+    const id = String(u.id || "");
+    if (!id || conflictosEquipo.some((x) => x.id === id)) return;
+    conflictosEquipo = conflictosEquipo.concat([{ id, nombre: String(u.nombre || "Team member").slice(0, 60), fecha: new Date().toISOString() }]).slice(-20);
+    _guardarConflictosEquipo();
+  }
+  function _resolverConflictoEquipo(id) {
+    const n = conflictosEquipo.filter((x) => x.id !== String(id));
+    if (n.length !== conflictosEquipo.length) { conflictosEquipo = n; _guardarConflictosEquipo(); }
+  }
   /* Espejo en IndexedDB. Se dispara SIEMPRE, sin esperarlo: es la red que hace
      que "localStorage lleno" deje de significar "tus cambios se pierden".
      Ver estado-idb.js (JFC 2026-08-17, portado desde amigable-123).
@@ -722,21 +744,25 @@
       return window.OCEstadoIDB.guardar(completo).catch(() => false);
     } catch (_) { return Promise.resolve(false); }
   }
-  function guardarEstadoLocal() {
-    _localRev++;
-    /* #3 (JFC 2026-09-10): "los PIN de admin TAMBIEN deben abrir el dashboard".
+  /* #3 (JFC 2026-09-10): "los PIN de admin TAMBIEN deben abrir el dashboard".
        Los admin cuentan como "empleado" a nivel cripto (mismo employeeHashes), así
        que el dashboard (que juzga con OCSecure) no puede distinguirlos. Aquí la app
        publica los PINs de admin ACTIVOS en una clave local del MISMO origen; el
        dashboard la lee en su gate para dejarlos entrar. Se reescribe en cada
        guardado, así queda fresca (alta/baja/cambio de rol). Cada dispositivo la
-       arma de sus propios usuarios (que ya sincronizan), sin sync extra. */
+       arma de sus propios usuarios (que ya sincronizan), sin sync extra.
+       Publicar SOLO después de confirmar el estado, para no dejar accesos
+       fantasma si fallan localStorage e IndexedDB. */
+  function _publicarAdminPins() {
     try {
       const _adminPins = usuarios
         .filter((u) => u && !u.borrado && u.activo !== false && u.rol === "admin" && /^\d{3}$/.test(String(u.pin || "")))
         .map((u) => String(u.pin));
       localStorage.setItem("f123_admins_pins", JSON.stringify(_adminPins));
     } catch (_) {}
+  }
+  function guardarEstadoLocal(exigirCompleto = false) {
+    _localRev++;
     const completo = estadoActualExportable();
     const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
     const destino = activo === "A" ? "B" : "A";
@@ -745,7 +771,8 @@
       localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
       localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
       ocultarAvisoRecorte();
-      return;
+      _publicarAdminPins();
+      return true;
     } catch (_) {}
     // Fase 7 (2026-08-04): orden explicito de sacrificio de espacio. Antes de
     // tocar el log de ventas (irremplazable), ceder lo recuperable: fotos de
@@ -760,30 +787,35 @@
         localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
         localStorage.setItem(OC_STATE_PTR, destino);
         ocultarAvisoRecorte();
-        return;
+        _publicarAdminPins();
+        return true;
       }
     } catch (_) {}
-    // No cupo completo (ni liberando fotos): recortar el log a los ultimos 300 y archivar el resto.
-    const viejos = completo.movimientos.slice(0, -300);
-    const recortado = { ...completo, movimientos: completo.movimientos.slice(-300) };
-    try {
-      localStorage.setItem(claveBuffer(destino), JSON.stringify(recortado));
-      localStorage.setItem(OC_STATE_PTR, destino);
-      if (window.OCArchivo) window.OCArchivo.archivarLote(viejos).catch(() => {}); // fire-and-forget, idempotente, aislado del nucleo
-      avisoArchivado(viejos.length);
-      return;
-    } catch (_) {
-      /* NO MENTIR (JFC 2026-08-17). Que localStorage se llene no quiere decir
-         que el dispositivo este lleno: localStorage tiene un techo fijo de
-         ~5 MB por origen, aunque al disco le sobren 900 GB. Si el espejo de
-         IndexedDB —que si escala con el disco— acepto el estado, los cambios
-         SI se guardaron y el cartel rojo seria falso. Solo se avisa cuando de
-         verdad no entro en ningun lado. */
-      _idb.then((ok) => {
-        if (ok) { ocultarAvisoRecorte(); avisoEspacioJusto(); }
-        else avisoMemoriaLlena();
-      }).catch(() => avisoMemoriaLlena());
+    // Los cambios de acceso requieren TODO el historial: nunca confirmarlos
+    // con un recorte cuya escritura en el archivo aún no está comprobada.
+    if (!exigirCompleto) {
+      const viejos = completo.movimientos.slice(0, -300);
+      const recortado = { ...completo, movimientos: completo.movimientos.slice(-300) };
+      try {
+        localStorage.setItem(claveBuffer(destino), JSON.stringify(recortado));
+        localStorage.setItem(OC_STATE_PTR, destino);
+        if (window.OCArchivo) window.OCArchivo.archivarLote(viejos).catch(() => {}); // fire-and-forget, idempotente, aislado del nucleo
+        avisoArchivado(viejos.length);
+        _publicarAdminPins();
+        return true;
+      } catch (_) {}
     }
+    /* NO MENTIR (JFC 2026-08-17). Que localStorage se llene no quiere decir
+       que el dispositivo este lleno: localStorage tiene un techo fijo de
+       ~5 MB por origen, aunque al disco le sobren 900 GB. Si el espejo de
+       IndexedDB —que si escala con el disco— acepto el estado, los cambios
+       SI se guardaron y el cartel rojo seria falso. Solo se avisa cuando de
+       verdad no entro en ningun lado. */
+    return _idb.then((ok) => {
+      if (ok) { ocultarAvisoRecorte(); avisoEspacioJusto(); _publicarAdminPins(); }
+      else avisoMemoriaLlena();
+      return !!ok;
+    }).catch(() => { avisoMemoriaLlena(); return false; });
   }
   /* SOLO CONSOLA (JFC 2026-08-26): este aviso ("todo se guardó, la memoria
      rápida se llenó, ahora se usa la grande — no se perdió nada") NO fue
@@ -1656,8 +1688,12 @@
     try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
   }
 
-  function mov(tipo, detalle) {
-    const usr = window.OCCurrentUser;
+  function mov(tipo, detalle, avisar = true) {
+    // Una fusión entrante no fue ejecutada por quien tiene abierta esta sesión.
+    const usr = tipo === "merge-catalogo" ? null : window.OCCurrentUser;
+    const rolSesion = tipo === "merge-catalogo" ? "sistema" : _rolLocal();
+    const actorId = usr ? usr.id : (rolSesion || "sistema");
+    const actorNombre = usr ? usr.nombre : ({ dueno: "Owner", admin: "Admin", empleado: "Staff (general)", contador: "Accounting", demo: "Demo" }[rolSesion] || "Sistema");
     // JFC 2026-09-02: cada acción va al log con el responsable (usuario que entró
     // con su PIN — el PIN nunca se guarda en claro, REGLA 8) Y el dispositivo
     // (apodo + id del micelio), para defender al negocio de quejas injustas.
@@ -1671,9 +1707,9 @@
     } catch (_) {}
     const m = {
       id: uuid("m"), tipo, detalle, fecha: new Date().toISOString(),
-      usuarioId:     usr ? usr.id     : "sistema",
-      usuarioNombre: usr ? usr.nombre : "Sistema",
-      usuarioRol:    usr ? (usr.rol || "") : "",
+      usuarioId:     actorId,
+      usuarioNombre: actorNombre,
+      usuarioRol:    usr ? (usr.rol || "") : rolSesion,
       dispositivoApodo: dispApodo,
       dispositivoId:    dispId,
     };
@@ -1683,7 +1719,30 @@
     movimientos.push(m);
     // Toda acción registrada puede cambiar una ficha, venta o comisión. El
     // puente Yjs compara el catálogo y solo envía los registros que cambiaron.
-    avisarCatalogoCambiado();
+    if (avisar) avisarCatalogoCambiado();
+  }
+  function _fotoAntesDeEquipo() {
+    let adminPinsRaw = null;
+    try { adminPinsRaw = localStorage.getItem("f123_admins_pins"); } catch (_) {}
+    return { usuarios: usuarios.map((u) => ({ ...u })), movimientosLen: movimientos.length, sello: selloUltimo, adminPinsRaw };
+  }
+  async function _confirmarEquipoORevertir(foto) {
+    let guardado = false;
+    try { guardado = await guardarEstadoLocal(true); } catch (_) {}
+    if (!guardado) {
+      // No afirmar éxito ni publicar un cambio de acceso que no sobrevivirá
+      // al reinicio. El historial también vuelve al punto anterior.
+      usuarios.splice(0, usuarios.length, ...foto.usuarios);
+      movimientos.length = foto.movimientosLen;
+      selloUltimo = foto.sello;
+      try {
+        if (foto.adminPinsRaw == null) localStorage.removeItem("f123_admins_pins");
+        else localStorage.setItem("f123_admins_pins", foto.adminPinsRaw);
+      } catch (_) {}
+      return false;
+    }
+    avisarEquipoCambiado();
+    return true;
   }
   /* Dos aparatos pueden crear la misma variante estando desconectados. Una
      identidad determinista por familia+atributo+valor hace que al reconectar
@@ -1940,6 +1999,20 @@
        como PIN suyo ninguno de los códigos de sistema. */
   const PINS_RESERVADOS = ["456", "789", "260", "357"];
   function _pinReservado(pin) { return PINS_RESERVADOS.indexOf(String(pin || "")) !== -1; }
+  // La UI no es una frontera de autorización. Estas rutas se validan también
+  // aquí; JS local no sustituye una autoridad verificable entre aparatos.
+  function _puedeGestionarEquipo() { const r = _rolLocal(); return r === "dueno" || r === "admin"; }
+  async function _pinIntegradoEnUso(pin) {
+    try {
+      if (window.OCSecure && window.OCSecure.coincidePin) {
+        for (const rol of ["owner", "emp", "acct"]) {
+          if (await window.OCSecure.coincidePin(pin, rol)) return true; // hashes legados sin copia visible
+        }
+      }
+      const p = window.OCSecure && window.OCSecure.leerPinsVisibles && window.OCSecure.leerPinsVisibles();
+      return !!(p && [p.owner, p.acct].concat(p.empleados || []).some((x) => x === pin));
+    } catch (_) { return false; }
+  }
 
   /* RELOJ LÓGICO DEL ROSTER (JFC 2026-08-26, Camino A "terminar bien lo nuestro").
      Cada edición del equipo se sella con rev = { c: contador Lamport, d: deviceId }.
@@ -2197,7 +2270,8 @@
                "El PIN de [nombre] choca con uno que ya tienes — cámbiaselo antes de sincronizar."
                La política sigue siendo la misma: gana el PIN de casa (no se importa el remoto).
                El evento es informativo, no bloquea nada. */
-            try { window.dispatchEvent(new CustomEvent("oc-pin-colision", { detail: { nombre: u.nombre, pin: u.pin, id: u.id } })); } catch (_) {}
+            _anotarConflictoEquipo(u);
+            try { window.dispatchEvent(new CustomEvent("oc-pin-colision", { detail: { nombre: u.nombre, id: u.id } })); } catch (_) {}
             return;
           }
           usuarios.push({ id: u.id, nombre: String(u.nombre).slice(0, 60), pin: u.pin, rol: rolU,
@@ -2205,6 +2279,7 @@
                           creadoEn: u.creadoEn || new Date().toISOString(),
                           actualizadoEn: u.actualizadoEn || null, rev: u.rev || null });
           miembrosAgregados++;
+          _resolverConflictoEquipo(u.id);
           return;
         }
         // Ya existe aquí: decide el reloj lógico; si ninguno tiene rev, el de pared.
@@ -2220,7 +2295,7 @@
         if (!ganaSuyo) return; // lo de aquí gana o empata: no se pisa
         // El PIN entrante no debe chocar con OTRO miembro vivo (dejaría entrar a la
         // persona equivocada). Un tombstone no trae PIN activo, así que no aplica.
-        if (!esTomb && usuarios.some((x) => x.id !== mio.id && !x.borrado && x.pin === u.pin)) return;
+        if (!esTomb && usuarios.some((x) => x.id !== mio.id && !x.borrado && x.pin === u.pin)) { _anotarConflictoEquipo(u); return; }
         const estabaVivo = !mio.borrado;
         mio.nombre = String(u.nombre || mio.nombre).slice(0, 60);
         if (u.pin) mio.pin = u.pin;
@@ -2230,6 +2305,7 @@
         if (u.email !== undefined) mio.email = u.email || null;
         mio.actualizadoEn = u.actualizadoEn || mio.actualizadoEn;
         mio.rev = u.rev || mio.rev;
+        _resolverConflictoEquipo(u.id);
         if (esTomb && estabaVivo) miembrosQuitados++;
         else miembrosActualizados++;
       });
@@ -2422,6 +2498,11 @@
     }
     mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
     guardarEstadoLocal();
+    // Ambos caminos de sync (Yjs y realtime) pasan por aquí. Una baja debe
+    // cerrar sesiones abiertas aunque no haya altas ni ediciones en el lote.
+    if (miembrosAgregados || miembrosActualizados || miembrosQuitados) {
+      try { window.dispatchEvent(new CustomEvent("oc-equipo-sync", { detail: { miembrosAgregados, miembrosActualizados, miembrosQuitados } })); } catch (_) {}
+    }
     /* HIDRATAR FOTOS TRAS SINCRONIZAR EL CATALOGO (v305). Arregla la CARRERA: el
        blob de la foto llega por el canal -fotos y el fotoHash del producto por el
        -y; si el blob llega ANTES de que el producto tenga su fotoHash, la
@@ -2606,6 +2687,7 @@
   };
 
   window.OCSync = {
+    conflictosEquipo: () => conflictosEquipo.map((x) => ({ id: x.id, nombre: x.nombre, fecha: x.fecha })),
     /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). Antes solo las PERCHAS
        sincronizaban foto (por hash). Los productos guardaban la foto INLINE
        (p.foto), que no viajaba -> la foto de "Test sync unificado" salia en el
@@ -2863,11 +2945,7 @@
        que el merge manual, y todo queda anotado en movimientos. */
     aplicarEquipoRemoto(lista) {
       if (!Array.isArray(lista) || !lista.length) return { ok: false };
-      const r = aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: lista }, null);
-      if (r.ok && (r.miembrosAgregados || r.miembrosActualizados)) {
-        try { window.dispatchEvent(new CustomEvent("oc-equipo-sync", { detail: r })); } catch (_) {}
-      }
-      return r;
+      return aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: lista }, null);
     },
     /* La huella de ESTE dispositivo. La usan el latido del micelio, el panel
        del equipo y el codigo TEAM- al compartirse. */
@@ -4468,9 +4546,9 @@
       // del aparato: el relay sigue zero-knowledge. El gating por rol lo hace el
       // frontend (solo pide ?pins=1 si isDueno()/isAdmin()).
       if (path === "/api/usuarios" && (!opts || !opts.method || opts.method === "GET")) {
-        const conPin = q.get("pins") === "1";
+        const conPin = q.get("pins") === "1" && _puedeGestionarEquipo();
         return J(usuarios.filter((u) => !u.borrado).map((u) => {
-          const base = { id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn };
+          const base = { id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || null, rev: u.rev || null };
           if (conPin) base.pin = u.pin || "";
           return base;
         }));
@@ -4485,6 +4563,8 @@
       // admins, que es regalar el producto entero. El tope es de PERSONAS en
       // el equipo, no de un rol concreto.
       if (path === "/api/usuarios" && opts && opts.method === "POST") {
+        debePersistir = false; // la ruta espera confirmación durable propia
+        if (!_puedeGestionarEquipo()) return J({ error: "Only the owner or an admin can add team members." }, 403);
         const nombre = String(body.nombre || "").trim().slice(0, 60);
         const pin    = String(body.pin    || "").trim();
         const email  = String(body.email  || "").trim().slice(0, 160) || null;
@@ -4502,6 +4582,7 @@
         if (!nombre)                     return J({ error: "A name is required." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "The PIN must be exactly 3 digits." }, 400);
         if (_pinReservado(pin))          return J({ error: "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", codigo: "PIN_RESERVADO" }, 400);
+        if (await _pinIntegradoEnUso(pin)) return J({ error: "A built-in role already uses that PIN. Pick a different one.", codigo: "PIN_COLISION" }, 400);
         /* Limite free: 1 persona en el equipo ademas del dueno, sea encargado
            o admin. Se cuentan los dos roles y se bloquea la creacion de
            cualquiera de los dos. Esto SOLO afecta altas nuevas: a quien ya
@@ -4511,24 +4592,30 @@
         if (staffActual >= 1 && !estaLicenciado())
           return J({ error: `Without activation this device allows 1 team member besides you (admins count too). Activate it (PIN 789) to start your full ${(window.OCPrueba && window.OCPrueba.PRUEBA_DIAS) || 30}-day trial.`, codigo: "LIMITE_EMPLEADOS" }, 403);
         if (usuarios.some((u) => !u.borrado && u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
+        const fotoEquipo = _fotoAntesDeEquipo();
         const _ahoraU = new Date().toISOString();
         const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU, rev: _revNueva() };
         usuarios.push(nuevo);
         // B-07 (2026-08-26): si se demotó silenciosamente, dejar rastro en el log
         // para que el dueño pueda auditar intentos de escalada de privilegios.
         if (body.rol === "admin" && rolNuevo === "empleado") {
-          mov("intento-crear-admin-sin-permiso", { nombre, callerRol: _callerRolPost, rolAsignado: "empleado" });
+          mov("intento-crear-admin-sin-permiso", { nombre, callerRol: _callerRolPost, rolAsignado: "empleado" }, false);
         }
-        mov("usuario-alta", { nombre, rol: rolNuevo });
-        avisarEquipoCambiado(); // empuja el equipo al resto del negocio (sync en vivo)
+        mov("usuario-alta", { id: nuevo.id, nombre, rol: rolNuevo }, false);
+        if (!(await _confirmarEquipoORevertir(fotoEquipo))) return J({ error: "Team change was not saved. Free device space and retry.", codigo: "EQUIPO_NO_GUARDADO" }, 507);
         return J({ id: nuevo.id, nombre: nuevo.nombre, rol: nuevo.rol, email: nuevo.email, activo: nuevo.activo, creadoEn: nuevo.creadoEn });
       }
       // PATCH /api/usuarios/:id — editar nombre, activar/desactivar, cambiar PIN, actualizar email
       // El admin puede editar encargados pero NO a otros admins (ese control vive en la UI).
       if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "PATCH") {
+        debePersistir = false;
+        if (!_puedeGestionarEquipo()) return J({ error: "Only the owner or an admin can edit team members." }, 403);
         const uid2 = path.split("/").pop();
         const u = usuarios.find((x) => x.id === uid2 && !x.borrado);
         if (!u) return J({ error: "Team member not found." }, 404);
+        const antes = { nombre: u.nombre, rol: u.rol, activo: u.activo !== false };
+        const pinAntes = u.pin;
+        const emailAntes = u.email || null;
         /* GUARD: ADMIN NO PUEDE EDITAR OTRO ADMIN (2026-08-26, code-review finding #2b).
            La UI ya muestra "Owner only" para filas de admin cuando el caller es admin
            (puedeEditar = isDueno() || (isAdmin() && u.rol === "empleado")).
@@ -4547,24 +4634,30 @@
            error dejándose fuera). El dueño puede todo. */
         let _editandoOtroAdmin = _editandoAdmin && _callerRolPatch !== "dueno";
         try { if (_editandoOtroAdmin && window.OCCurrentUser && String(window.OCCurrentUser.id) === String(u.id)) _editandoOtroAdmin = false; } catch (_) {}
-        if (_editandoOtroAdmin &&
-            (body.nombre !== undefined || body.pin !== undefined || body.activo !== undefined)) {
-          return J({ error: "Only the owner can edit another admin's name, PIN or active status." }, 403);
-        }
+        if (_editandoOtroAdmin) return J({ error: "Only the owner can edit another admin." }, 403);
         // Aun editando su propia ficha, un admin no puede AUTODESACTIVARSE (se dejaría fuera).
         if (_editandoAdmin && _callerRolPatch !== "dueno" && body.activo === false) {
           return J({ error: "You can't deactivate your own admin access. Ask the owner." }, 403);
         }
+        // Validar todos los campos ANTES de tocar el registro: una solicitud
+        // nombre+rol prohibido no puede mutar parcialmente y luego devolver 403.
+        if (body.rol !== undefined && _callerRolPatch !== "dueno")
+          return J({ error: "Only the owner can change roles." }, 403);
+        if (body.rol !== undefined && body.rol !== "admin" && body.rol !== "empleado")
+          return J({ error: "Invalid team role." }, 400);
+        let np = null;
+        if (body.pin !== undefined) {
+          np = String(body.pin).trim();
+          if (!/^\d{3}$/.test(np)) return J({ error: "The new PIN must be 3 digits." }, 400);
+          if (_pinReservado(np)) return J({ error: "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", codigo: "PIN_RESERVADO" }, 400);
+          if (await _pinIntegradoEnUso(np)) return J({ error: "A built-in role already uses that PIN.", codigo: "PIN_COLISION" }, 400);
+          if (usuarios.some((x) => !x.borrado && x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
+        }
+        const fotoEquipo = _fotoAntesDeEquipo();
         if (body.nombre !== undefined) u.nombre = String(body.nombre).trim().slice(0, 60) || u.nombre;
         if (body.activo !== undefined) u.activo = !!body.activo;
         if (body.email  !== undefined) u.email  = String(body.email || "").trim().slice(0, 160) || null;
-        if (body.pin !== undefined) {
-          const np = String(body.pin).trim();
-          if (!/^\d{3}$/.test(np)) return J({ error: "The new PIN must be 3 digits." }, 400);
-          if (_pinReservado(np)) return J({ error: "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", codigo: "PIN_RESERVADO" }, 400);
-          if (usuarios.some((x) => !x.borrado && x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
-          u.pin = np;
-        }
+        if (np !== null) u.pin = np;
         // Promover/degradar rol (JFC 2026-07-30): admin<->encargado. Desde el
         // 2026-08-19 los dos roles cuentan igual contra el tope del plan gratis
         // (ver POST arriba), asi que promover o degradar NO cambia el cupo: es
@@ -4582,17 +4675,15 @@
            pero el backend ES la última línea independientemente de quién llame el fetch.
            _rolLocal() viene de window.OCAuth.rolActual() — mismo que usa la UI. */
         if (body.rol !== undefined) {
-          const callerRol = _rolLocal();
-          if (callerRol !== "dueno") return J({ error: "Only the owner can change roles." }, 403);
-          if (body.rol === "admin" || body.rol === "empleado") u.rol = body.rol;
+          u.rol = body.rol;
         }
         /* Sello de edicion (2026-08-21): es lo que decide quien gana cuando dos
            dispositivos editaron a la misma persona. Sin esto el merge no puede
            distinguir el dato nuevo del viejo y tendria que adivinar. */
         u.actualizadoEn = new Date().toISOString();
         u.rev = _revNueva(); // sello lógico: decide el merge por causalidad, no por reloj de pared
-        mov("usuario-editar", { id: uid2, nombre: u.nombre, rol: u.rol });
-        avisarEquipoCambiado(); // rol/PIN/nombre nuevos viajan al resto del negocio
+        mov("usuario-editar", { id: uid2, antes, despues: { nombre: u.nombre, rol: u.rol, activo: u.activo !== false }, pinCambiado: np !== null && np !== pinAntes, correoCambiado: emailAntes !== (u.email || null) }, false);
+        if (!(await _confirmarEquipoORevertir(fotoEquipo))) return J({ error: "Team change was not saved. Free device space and retry.", codigo: "EQUIPO_NO_GUARDADO" }, 507);
         return J({ id: u.id, nombre: u.nombre, rol: u.rol, email: u.email || null, activo: u.activo, creadoEn: u.creadoEn });
       }
       // DELETE /api/usuarios/:id — quitar por completo (distinto de desactivar:
@@ -4608,15 +4699,18 @@
       // rancio de un tercer aparato por el reloj lógico. Se filtra de todas las
       // lecturas (GET/verificar/conteos/UI), así que para el usuario ES una baja.
       if (/^\/api\/usuarios\/[^/]+$/.test(path) && opts && opts.method === "DELETE") {
+        debePersistir = false;
+        if (_rolLocal() !== "dueno") return J({ error: "Only the owner can remove team members." }, 403);
         const uid3 = path.split("/").pop();
         const u3 = usuarios.find((x) => x.id === uid3 && !x.borrado);
         if (!u3) return J({ error: "Team member not found." }, 404);
+        const fotoEquipo = _fotoAntesDeEquipo();
         u3.borrado = true;
         u3.activo = false;
         u3.actualizadoEn = new Date().toISOString();
         u3.rev = _revNueva();
-        mov("usuario-borrar", { nombre: u3.nombre, rol: u3.rol });
-        avisarEquipoCambiado(); // la baja (tombstone) viaja al resto del equipo y propaga
+        mov("usuario-borrar", { id: u3.id, nombre: u3.nombre, rol: u3.rol }, false);
+        if (!(await _confirmarEquipoORevertir(fotoEquipo))) return J({ error: "Team change was not saved. Free device space and retry.", codigo: "EQUIPO_NO_GUARDADO" }, 507);
         return J({ ok: true });
       }
       // POST /api/usuarios/verificar — recibe { pin }, devuelve { id, nombre, rol } o 401
@@ -4625,7 +4719,7 @@
         const pin = String(body.pin || "").trim();
         const u = usuarios.find((x) => !x.borrado && x.activo && x.pin === pin);
         if (!u) return J({ error: "That PIN does not match any active team member." }, 401);
-        return J({ id: u.id, nombre: u.nombre, rol: u.rol });
+        return J({ id: u.id, nombre: u.nombre, rol: u.rol, actualizadoEn: u.actualizadoEn || null, rev: u.rev || null });
       }
       // =========================================================================
 

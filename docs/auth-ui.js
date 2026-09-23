@@ -1457,21 +1457,27 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      bugs. Volver a entrar con su PIN toma dos segundos y deja el estado
      limpio. */
   try {
-    window.addEventListener("oc-equipo-sync", function () {
+    function revalidarSesionEquipo() {
       try {
         var yo = window.OCCurrentUser;
         if (!yo || !yo.id) return;                       // dueño/demo: no aplica
         if (rol !== "admin" && rol !== "empleado") return;
         fetch("/api/usuarios").then(function (r) { return r.json(); }).then(function (lista) {
+          if (window.OCCurrentUser !== yo) return; // respuesta tardía de una sesión anterior
           if (!Array.isArray(lista)) return;
           var ahora = lista.find(function (x) { return x.id === yo.id; });
-          if (!ahora) return;                            // el merge nunca borra; si no esta, no se toca nada
+          if (!ahora) { cerrarSesion("Your access was removed. Ask the owner."); return; }
           var rolAhora = ahora.rol === "admin" ? "admin" : "empleado";
           if (ahora.activo === false) { cerrarSesion("Your access was deactivated. Ask the owner."); return; }
-          if (rolAhora !== rol) cerrarSesion("Your role changed. Sign in again with your PIN.");
+          if (rolAhora !== rol ||
+              (yo.rev && JSON.stringify(ahora.rev) !== JSON.stringify(yo.rev)) ||
+              (!yo.rev && yo.actualizadoEn && ahora.actualizadoEn !== yo.actualizadoEn))
+            cerrarSesion("Your team access changed. Sign in again with your PIN.");
         }).catch(function () {});
       } catch (_) {}
-    });
+    }
+    window.addEventListener("oc-equipo-sync", revalidarSesionEquipo);
+    window.addEventListener("oc-equipo-cambiado", revalidarSesionEquipo);
   } catch (_) {}
 
   function cerrarSesion(mensaje) {

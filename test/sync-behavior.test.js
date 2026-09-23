@@ -45,6 +45,7 @@ test('branch edits reach an existing record', async () => {
 
 test('team PINs and removal converge so a removed PIN cannot authenticate elsewhere', async () => {
   const a = browser(), b = browser();
+  a.OCAuth = { rolActual: () => 'dueno' };
   const member = await a.request('/api/usuarios', 'POST', { nombre: 'Fixture staff', pin: '741', rol: 'empleado' });
   b.receive(a);
   assert.equal((await b.request('/api/usuarios/verificar', 'POST', { pin: '741' })).id, member.id);
