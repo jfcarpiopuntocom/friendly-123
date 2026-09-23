@@ -144,7 +144,8 @@
     input.type = "text";
     input.placeholder = opts.placeholderBusqueda || "Buscar...";
     input.value = estado.busqueda;
-    input.style.cssText = "flex:1;min-width:160px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;";
+    // v360 (Hugo/Paco/Luis #9): buscador a 44 px de toque.
+    input.style.cssText = "flex:1;min-width:160px;min-height:44px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;";
     barra.appendChild(input);
 
     var encabezados = null;
@@ -156,7 +157,9 @@
         var b = document.createElement("button");
         b.type = "button";
         b.dataset.ordCol = c.key || c.label;
-        b.style.cssText = "font-size:13px;padding:5px 10px;border-radius:6px;border:1.5px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;";
+        // v360 (Hugo/Paco/Luis #7 #8): misma altura que el botón de filtro
+        // (44 px): antes 29 px junto a uno de 44 se veía desproporcionado.
+        b.style.cssText = "font-size:13px;min-height:44px;padding:5px 12px;border-radius:6px;border:1.5px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;";
         b.textContent = c.label;
         encabezados.appendChild(b);
       });
@@ -176,7 +179,7 @@
         b.dataset.filtro = f.key;
         b.setAttribute("aria-pressed", "false");
         b.textContent = f.label;
-        b.style.cssText = "min-height:44px;font-size:14px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;" +
+        b.style.cssText = "min-height:44px;font-size:13px;font-weight:700;padding:5px 12px;border-radius:6px;cursor:pointer;" +
           "border:2px solid #B0183E;background:transparent;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important;";
         barraFiltros.appendChild(b);
       });

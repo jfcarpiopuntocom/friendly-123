@@ -337,16 +337,18 @@
       let dotBg, dotBorder, dotGlow, txtColor, etiqueta;
       if (e === "conectado") {
         dotBg = "#ffffff"; dotBorder = "#7f93a4"; dotGlow = "0 0 5px 1px rgba(255,255,255,.95), 0 0 0 2px rgba(127,147,164,.30)";
-        txtColor = "#3a3a3a"; etiqueta = _miniT("sync.mini.synced", "Synchronized");
+        txtColor = "#0F1923"; etiqueta = _miniT("sync.mini.synced", "Synchronized");
         const n = C && C.presencia ? C.presencia() : null;
         if (n != null && n > 1) etiqueta += " · " + n;
       } else if (e === "conectando" && !problema) {
-        dotBg = "#c8c8c8"; dotBorder = "#b0b0b0"; dotGlow = "none"; txtColor = "#7a7a7a"; etiqueta = _miniT("sync.mini.syncing", "Syncing…");
+        dotBg = "#c8c8c8"; dotBorder = "#b0b0b0"; dotGlow = "none"; txtColor = "#0F1923"; etiqueta = _miniT("sync.mini.syncing", "Syncing…");
       } else if (e === "reconectando" && !problema) {
-        dotBg = "#6a6a6a"; dotBorder = "#5a5a5a"; dotGlow = "none"; txtColor = "#7a7a7a"; etiqueta = _miniT("sync.mini.reconnecting", "Reconnecting…");
+        dotBg = "#6a6a6a"; dotBorder = "#5a5a5a"; dotGlow = "none"; txtColor = "#0F1923"; etiqueta = _miniT("sync.mini.reconnecting", "Reconnecting…");
       } else {
         // NEGRO = offline / apagado / lleva rato sin conectar.
-        dotBg = "#141414"; dotBorder = "#141414"; dotGlow = "none"; txtColor = "#8a8a8a"; etiqueta = _miniT("sync.mini.offline", "Offline");
+        dotBg = "#141414"; dotBorder = "#141414"; dotGlow = "none"; txtColor = "#0F1923"; etiqueta = _miniT("sync.mini.offline", "Offline");
+        // v360 (Hugo/Paco/Luis #3): en el demo no hay sync; "Offline" en negro asustaba.
+        try { if (window.OCAuth && window.OCAuth.esDemo && window.OCAuth.esDemo()) { dotBg = "#FFFFFF"; dotBorder = "#0F1923"; etiqueta = _miniT("sync.mini.demo", "Demo"); } } catch (_) {}
       }
       miniDot.style.background = dotBg;
       miniDot.style.borderColor = dotBorder;

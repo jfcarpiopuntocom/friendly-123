@@ -1373,7 +1373,7 @@
       const _correoDuenoTxt = _correoDueno
         ? (window.OCAuth && window.OCAuth.enmascarar ? window.OCAuth.enmascarar(_correoDueno) : _correoDueno)
         : window.t("team.noRecoveryEmail");
-      const _lapiz = (attrs) => `<button ${attrs} style="font-size:15px;padding:0 4px;border:none;background:none;color:var(--azul-medio,#2c4a68);cursor:pointer;vertical-align:middle;">✎</button>`;
+      const _lapiz = (attrs) => `<button ${attrs} style="font-size:17px;min-width:44px;min-height:44px;padding:0 4px;border:none;background:none;color:var(--azul-medio,#2c4a68);cursor:pointer;vertical-align:middle;">✎</button>`;
       cards.push(`
         <div class="tag-card" style="${_cardCss}background:var(--paper-deep,#E2E8ED);">
           <div style="flex:1;min-width:160px;">
@@ -2405,11 +2405,17 @@
       const _puedeAcct = _rolPin === "dueno";
       const _lapiz = (rol, fn, actual) =>
         (_puedeOwner || (rol === "emp" && _puedeEmp) || (rol === "acct" && _puedeAcct))
-          ? '<button type="button" data-pin-edit="' + rol + '" title="' + _esc(window.t("team.changePin")) + '" aria-label="' + _esc(window.t("team.changePin")) + '" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;margin-left:4px;">✎</button>'
+          ? '<button type="button" data-pin-edit="' + rol + '" title="' + _esc(window.t("team.changePin")) + '" aria-label="' + _esc(window.t("team.changePin")) + '" style="min-width:44px;min-height:44px;font-size:17px;background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;margin-left:4px;">✎</button>'
           : "";
+      // v360 (Hugo/Paco/Luis #18): cada fila es flex alineada al centro.
+      if (!document.getElementById("oc-roles-css")) {
+        const st = document.createElement("style"); st.id = "oc-roles-css";
+        st.textContent = "#oc-pins-visibles-cuerpo > div{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:48px;font-size:15px;}";
+        document.head.appendChild(st);
+      }
       cuerpo.innerHTML =
         '<div><strong>' + _esc(window.t("team.owner")) + ':</strong> ' + window.OCPinOculto(owner) + "" + _lapiz("owner", "fijarOwnerPin", owner) +
-        (owner === "789" && _puedeOwner ? ' <span style="font-size:13px;color:var(--ink,#211c14);">— ' + _esc(window.t("team.changeInitialOwnerPin")) + '</span>' : '') + "</div>" +
+        (owner === "789" && _puedeOwner && !(window.OCAuth && window.OCAuth.esDemo && window.OCAuth.esDemo()) ? ' <span style="font-size:13px;color:var(--ink,#211c14);">— ' + _esc(window.t("team.changeInitialOwnerPin")) + '</span>' : '') + "</div>" +
         '<div><strong>' + _esc(window.t("team.staff")) + ':</strong> ' + window.OCPinOculto(emp) + "" + _lapiz("emp", "fijarEmpleadoPin", emp) + "</div>" +
         '<div><strong>' + _esc(window.t("team.accounting")) + ':</strong> ' + window.OCPinOculto(acct) + "" + _lapiz("acct", "fijarAcctPin", acct) + "</div>" +
         /* Demo (JFC 2026-09-01): 456 es permanente y reservado — muestra la app

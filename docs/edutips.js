@@ -237,14 +237,14 @@
     if (tip.pin) { try { localStorage.setItem(K_PIN_VISTO, String(Date.now())); } catch (_) {} }
     var eyebrow = idioma() === "es" ? "PARA APROVECHAR MEJOR TU APP" : "TO GET MORE OUT OF YOUR APP";
     mount.innerHTML =
-      '<div style="font-size:.82rem;font-weight:700;letter-spacing:.04em;'
+      '<div style="font-size:13px;font-weight:700;letter-spacing:.04em;'
       + 'color:#2E6278 !important;-webkit-text-fill-color:#2E6278 !important;'
       + 'margin:0 0 6px;">' + esc(eyebrow) + '</div>'
-      + '<div style="font-family:Georgia,serif;font-size:17px;font-weight:700;'
+      + '<div style="font-family:var(--font-display,\'Space Grotesk\',sans-serif);font-size:17px;font-weight:700;'
       + 'color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;'
       + 'margin:0 0 6px;">' + esc(tip.t) + '</div>'
       + '<div style="font-size:16px;line-height:1.55;'
-      + 'color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;'
+      + 'color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;'
       + 'margin:0;">' + esc(tip.c) + '</div>';
   }
 

@@ -599,6 +599,16 @@
     scrollbar-width:none;
   }
   nav::-webkit-scrollbar{ display:none; }
+  /* v360 — Hugo/Paco/Luis corrida 1 (JFC 2026-09-23). Solo tamaños de toque
+     (>=44 px) y proporción; ninguna pieza cambia de lugar. Acotado por id. */
+  #oc-ventainfo-caja input:not([type="checkbox"]), #oc-ventainfo-caja select{ min-height:44px; box-sizing:border-box; }
+  #oc-ventainfo-caja input[type="checkbox"]{ width:22px !important; height:22px !important; flex:0 0 auto; }
+  #oc-ventainfo-caja label:has(> input[type="checkbox"]){ min-height:44px; }
+  #oc-ventainfo-caja .acciones-rapidas button{ font-size:16px !important; font-weight:700; min-height:48px; padding:10px 20px; }
+  #vi-precio-toggle, #vi-toggle-pagador, #vi-nuevo-cliente{ min-height:44px !important; min-width:44px; }
+  #vi-com-toggle{ min-height:44px; display:inline-flex !important; align-items:center; gap:5px; flex-wrap:wrap; text-transform:none !important; text-decoration:none !important; font-weight:700; }
+  #oc-gate-demo-pins strong{ color:#211c14 !important; -webkit-text-fill-color:#211c14 !important; }
+  #oc-gate-landing a{ color:#0F1923 !important; -webkit-text-fill-color:#0F1923 !important; font-weight:700; text-decoration:underline; }
   nav button{
     flex:0 0 auto;
     width:74px;
@@ -1903,7 +1913,7 @@
     </details>
     <div class="tag-card" style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <input id="cliNombre" type="text" placeholder="Customer name" data-i18n-attr="placeholder:cust.namePlaceholder" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
-      <input id="cliTelefono" type="text" placeholder="Phone (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:130px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <input id="cliTelefono" type="text" placeholder="Phone (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <input id="cliEmail" type="email" inputmode="email" autocomplete="off" placeholder="Email (optional)" data-i18n-attr="placeholder:cust.emailPlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <button class="ir" id="btnAltaCliente" style="padding:10px 18px;" data-i18n="cust.addBtn">+ Add customer</button>
     </div>
@@ -2084,7 +2094,11 @@ let ubicacionActual = "todas";
 let filtroEstadoActual = "";
 
 function fmtMoney(n){
-  return "$" + Number(n).toFixed(2);
+  // v360 (Hugo/Paco/Luis #1): separador de miles ("$21,913.00", antes
+  // "$21913.00"). Misma forma de siempre; solo agrega las comas.
+  const v = Number(n);
+  if (!isFinite(v)) return "$" + v;
+  return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 async function cargarUbicaciones(){
@@ -6288,7 +6302,7 @@ async function abrirPanelVentaInfo(id, esTicket){
            línea, sin estirar el modal hacia abajo. -->
       <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
         <label style="font-size:14px;flex:1;min-width:150px;"><span data-i18n="sale.lblPayment">${escHtml(t("sale.lblPayment"))}</span><br>
-          <select id="vi-forma-pago" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"><option value="">—</option><option value="cash" data-i18n="sale.payCash">${escHtml(t("sale.payCash"))}</option><option value="transfer" data-i18n="sale.payTransfer">${escHtml(t("sale.payTransfer"))}</option><option value="card" data-i18n="sale.payCard">${escHtml(t("sale.payCard"))}</option><option value="other" data-i18n="sale.payOther">${escHtml(t("sale.payOther"))}</option></select></label>
+          <select id="vi-forma-pago" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"><option value="">—</option><option value="cash" selected data-i18n="sale.payCash">${escHtml(t("sale.payCash"))}</option><option value="transfer" data-i18n="sale.payTransfer">${escHtml(t("sale.payTransfer"))}</option><option value="card" data-i18n="sale.payCard">${escHtml(t("sale.payCard"))}</option><option value="other" data-i18n="sale.payOther">${escHtml(t("sale.payOther"))}</option></select></label>
         <div style="flex:1;min-width:165px;display:flex;flex-direction:column;gap:5px;">
           <label style="display:flex;align-items:center;gap:7px;font-size:14px;cursor:pointer;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">
             <input id="vi-cortesia" type="checkbox" style="width:auto;margin:0;"><span data-i18n="sale.lblCourtesy">${escHtml(t("sale.lblCourtesy"))}</span></label>
@@ -8327,7 +8341,7 @@ async function pintarImpuestoCfg(){
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
       <label style="font-size:15px;${tinta}">${escHtml(t("adv.tax.rate"))}<br><input id="ocImpTasa" type="number" min="0" max="100" step="0.01" value="${escHtml(String(cfg.tasa || 0))}" ${puede ? "" : "disabled"} style="width:110px;${campo}"></label>
       <label style="font-size:15px;${tinta}">${escHtml(t("adv.tax.name"))}<br><input id="ocImpNombre" type="text" maxlength="30" value="${escHtml(cfg.nombre || "Sales tax")}" ${puede ? "" : "disabled"} style="width:160px;${campo}"></label>
-      ${puede ? `<button type="button" id="ocImpGuardar" class="ir" style="align-self:flex-end;min-height:44px;">${escHtml(t("adv.tax.save"))}</button>` : ""}
+      ${puede ? `<button type="button" id="ocImpGuardar" class="ir" style="align-self:flex-end;min-height:44px;height:44px;padding:0 18px;font-size:15px;">${escHtml(t("adv.tax.save"))}</button>` : ""}
     </div>
     <p style="font-size:14px;margin:8px 0 0;${tinta}">${escHtml(t("adv.tax.hint"))}</p>
     <p id="ocImpMsg" role="status" aria-live="polite" style="font-size:15px;font-weight:700;margin:6px 0 0;${tinta}"></p>

@@ -4307,6 +4307,8 @@
         if (_r !== "dueno" && _r !== "admin") return J({ error: "Only the owner or an admin can change the tax setting." }, 403);
         const n = _normImpuesto({ id: "impuesto", activo: body.activo, tasa: body.tasa, nombre: body.nombre });
         if (!n) return J({ error: "The tax rate must be between 0 and 100." }, 400);
+        // v360 (Hugo/Paco/Luis #23): encendido con tasa 0 decía "guardado" y no hacía nada.
+        if (n.activo && !(n.tasa > 0)) return J({ error: "Turn the tax on with a rate above 0 %.", codigo: "TASA_CERO" }, 400);
         n.rev = _revNueva();
         ajusteImpuesto = n;
         mov("config-impuesto", { activo: n.activo, tasa: n.tasa, nombre: n.nombre });
