@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-22",
-  "changelog": "El panel de venta ahora está completo en español e inglés.",
+  "changelog": "En Clientes, un botón muestra con un toque solo a quienes tienen pago pendiente.",
   "requerida": false,
-  "shell": "f123-shell-v345",
+  "shell": "f123-shell-v346",
   "apagar": [],
   "releaseName": "v1.0"
 }

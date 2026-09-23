@@ -95,6 +95,13 @@
    *  minCaracteres: minimo de caracteres para mostrar algo en modo restringido (default 2).
    *  limite: tope de resultados en modo restringido (default 8).
    *  placeholderBusqueda, mensajeVacio, mensajeRestringido: copy opcional.
+   *  filtros (OPCIONAL, v346): botones de UN toque que prediscriminan la lista
+   *           antes de la búsqueda. [{ key, label, prueba(item)=>bool,
+   *           preparar?: async () => {}, vacio?: "mensaje" }]. Uno activo a la
+   *           vez; tocarlo de nuevo lo apaga. Sin esta opción la lista queda
+   *           exactamente como antes.
+   *  alPintar (OPCIONAL, v346): (filasVisibles) => {} después de cada pintada,
+   *           para completar datos que se cargan aparte (ej. saldos).
    */
   function crear(opts) {
     var cont = document.getElementById(opts.contenedorId);
@@ -104,7 +111,8 @@
     var minCaracteres = opts.minCaracteres != null ? opts.minCaracteres : 2;
     var limite = opts.limite != null ? opts.limite : 8;
 
-    var estado = { busqueda: "", ordenPor: null, ordenAsc: true };
+    var estado = { busqueda: "", ordenPor: null, ordenAsc: true, filtro: null };
+    var filtros = Array.isArray(opts.filtros) ? opts.filtros : [];
 
     var barra = document.createElement("div");
     barra.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;";
@@ -130,12 +138,48 @@
       barra.appendChild(encabezados);
     }
 
+    /* Botones de filtro (v346, pedido de Belén: "pago pendiente" con 1 toque).
+       44px de alto (dedo), texto sólido; activo = relleno, con aria-pressed
+       para lectores de pantalla. */
+    var barraFiltros = null;
+    if (filtros.length) {
+      barraFiltros = document.createElement("div");
+      barraFiltros.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px;";
+      filtros.forEach(function (f) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.dataset.filtro = f.key;
+        b.setAttribute("aria-pressed", "false");
+        b.textContent = f.label;
+        b.style.cssText = "min-height:44px;font-size:14px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;" +
+          "border:2px solid #B0183E;background:transparent;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important;";
+        barraFiltros.appendChild(b);
+      });
+      barraFiltros.addEventListener("click", async function (e) {
+        var b = e.target.closest("[data-filtro]");
+        if (!b) return;
+        var f = filtros.find(function (x) { return x.key === b.dataset.filtro; });
+        var enciende = estado.filtro !== b.dataset.filtro;
+        estado.filtro = enciende ? b.dataset.filtro : null;
+        barraFiltros.querySelectorAll("[data-filtro]").forEach(function (x) {
+          var on = x.dataset.filtro === estado.filtro;
+          x.setAttribute("aria-pressed", on ? "true" : "false");
+          x.style.background = on ? "#B0183E" : "transparent";
+          x.style.setProperty("color", on ? "#FFFFFF" : "#B0183E", "important");
+          x.style.setProperty("-webkit-text-fill-color", on ? "#FFFFFF" : "#B0183E", "important");
+        });
+        if (enciende && f && f.preparar) { try { await f.preparar(); } catch (_) {} }
+        pintar();
+      });
+    }
+
     var lista = document.createElement("div");
     var mensaje = document.createElement("p");
     mensaje.style.cssText = "font-size:14px;color:var(--ink-soft,#5d5340);margin:6px 0 0;";
 
     cont.innerHTML = "";
     cont.appendChild(barra);
+    if (barraFiltros) cont.appendChild(barraFiltros);
     cont.appendChild(lista);
     cont.appendChild(mensaje);
 
@@ -145,6 +189,8 @@
 
     function pintar() {
       var datos = (opts.datos() || []).slice();
+      var fAct = estado.filtro ? filtros.find(function (x) { return x.key === estado.filtro; }) : null;
+      if (fAct) datos = datos.filter(function (it) { try { return !!fAct.prueba(it); } catch (_) { return false; } });
       var q = estado.busqueda.trim().toLowerCase();
 
       if (restringido && q.length < minCaracteres) {
@@ -176,11 +222,12 @@
         // BUG FIJADO (JFC 2026-08-19, caza produccion): fallbacks en espanol
         // en app cuyo default es ingles.
         var _es_l = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
-        mensaje.textContent = opts.mensajeVacio || (_es_l ? "Sin resultados." : "No results.");
+        mensaje.textContent = (fAct && fAct.vacio) || opts.mensajeVacio || (_es_l ? "Sin resultados." : "No results.");
         return;
       }
 
       lista.innerHTML = filtrados.map(opts.renderFila).join("");
+      if (opts.alPintar) { try { opts.alPintar(filtrados); } catch (_) {} }
       var _es_l2 = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
       mensaje.textContent = truncado
         ? (_es_l2 ? "Mostrando los primeros " + limite + " resultados — afina la búsqueda para ver otros."

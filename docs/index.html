@@ -3639,6 +3639,7 @@ if (!window.__ocCliComprasWired) {
   }, true);
 }
 
+const _saldoDeuda = {}; // filtro "pago pendiente": id -> debe (true/false)
 async function cargarClientes(){
   // dueño Y admin ven todo ("plenamente visibles", JFC 2026-07-29) — solo
   // encargado/contador quedan en modo restringido mas abajo.
@@ -3672,6 +3673,29 @@ async function cargarClientes(){
       ].concat(esDueno ? [{ key: "monto", label: "90-day spend", ordenable: true, valor: (c) => c.monto || 0 }] : []),
       datos: () => todos,
       renderFila: (c) => tarjetaCliente(c, esDueno),
+      /* PAGO PENDIENTE CON 1 TOQUE (pedido de Belén, JFC 2026-09-22). Solo
+         dueño/admin: es dato financiero, mismo criterio que "90-day spend".
+         Al encenderlo se consulta el saldo de TODOS los clientes, así el
+         resultado no depende de cuáles tarjetas alcanzaron a pintarse. Debe =
+         saldo negativo (la misma regla que pinta "Debt ... pending"). Un
+         saldo con integridad no verificada NO se cuenta como deuda. */
+      filtros: esDueno ? [{
+        key: "pendiente",
+        label: (window.t && window.t("clientes.filtroPendiente")) || "Pending payment",
+        vacio: (window.t && window.t("clientes.filtroPendienteVacio")) || "No customers with a pending payment.",
+        preparar: async () => {
+          await Promise.all(todos.map(async (c) => {
+            try {
+              const info = await (await fetch(`${API}/clientes/${c.id}/cartera`)).json();
+              _saldoDeuda[c.id] = !!(info && (!info.integridad || info.integridad.ok) && Number(info.saldo) < 0);
+            } catch (_) { _saldoDeuda[c.id] = false; }
+          }));
+        },
+        prueba: (c) => _saldoDeuda[c.id] === true,
+      }] : [],
+      // Tras cualquier repintado (búsqueda, orden, filtro) se vuelven a pintar
+      // los saldos de las tarjetas visibles.
+      alPintar: (visibles) => visibles.forEach((c) => pintarSaldoCartera(c.id)),
     });
   } else {
     // Respaldo si el script no cargó: comportamiento anterior, sin romper la pantalla.

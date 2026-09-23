@@ -338,3 +338,37 @@ test('the whole sale panel translates in place without changing stored values or
   assert.equal(r.inputsVivos, true, 'traducir una etiqueta no borra el input de adentro');
   assert.equal(r.aria, 'polite', 'el mensaje de la venta se anuncia a lectores de pantalla');
 });
+
+test('pending-payment filter shows only customers who owe, with one touch (Belen)', async () => {
+  /* v346: botón "Pago pendiente" en Clientes. Solo dueño/admin. Encendido =
+     solo los que deben (saldo < 0); tocarlo de nuevo = todos otra vez. */
+  const r = await withPage(page => page.evaluate(async () => {
+    const req = async (url, method = 'GET', body) => (await fetch(url, { method,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined })).json();
+    const debe = await req('/api/clientes', 'POST', { nombre: 'Fixture Deudor' });
+    const alDia = await req('/api/clientes', 'POST', { nombre: 'Fixture AlDia' });
+    await req(`/api/clientes/${debe.id}/fiar`, 'POST', { monto: 25, motivo: 'fixture' });
+    window.OCAuth = Object.assign(window.OCAuth || {}, { rolActual: () => 'dueno' });
+    await cargarClientes();
+    const cont = document.getElementById('listaClientes');
+    const btn = cont.querySelector('[data-filtro="pendiente"]');
+    const nombres = () => cont.textContent;
+    const antes = { d: nombres().includes('Fixture Deudor'), a: nombres().includes('Fixture AlDia') };
+    btn.click(); await new Promise(res => setTimeout(res, 400));
+    const con = { d: nombres().includes('Fixture Deudor'), a: nombres().includes('Fixture AlDia'), pressed: btn.getAttribute('aria-pressed'), alto: btn.getBoundingClientRect().height, minAlto: getComputedStyle(btn).minHeight, vistaVisible: !!cont.offsetParent };
+    btn.click(); await new Promise(res => setTimeout(res, 300));
+    const despues = { a: nombres().includes('Fixture AlDia') };
+    return { hay: !!btn, antes, con, despues };
+  }));
+  assert.equal(r.hay, true, 'el dueño ve el botón');
+  assert.deepEqual(r.antes, { d: true, a: true });
+  assert.equal(r.con.d, true, 'el que debe aparece');
+  assert.equal(r.con.a, false, 'el que está al día desaparece');
+  assert.equal(r.con.pressed, 'true');
+  // La vista de Clientes está oculta en esta página de prueba (offsetParent
+  // null) y un elemento oculto mide 0: se verifica el mínimo declarado aquí y
+  // el alto real se mide en el sitio vivo.
+  assert.equal(r.con.vistaVisible, false, 'confirmado: la vista está oculta en el fixture');
+  assert.equal(r.con.minAlto, '44px', 'botón de dedo (min-height 44px)');
+  assert.equal(r.despues.a, true, 'segundo toque: vuelven todos');
+});
