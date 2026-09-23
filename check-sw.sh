@@ -90,7 +90,11 @@ if [ -f docs/version-manifest.json ]; then
       if(typeof esp!=="string"||esp.indexOf("sha256-")!==0) continue;
       const p=path.join("docs", rel.replace(/^\.\//,""));
       if(!fs.existsSync(p)){ bad.push(rel+" (falta el archivo)"); continue; }
-      const real="sha256-"+crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");
+      let bytes=fs.readFileSync(p);
+      // Pages sirve LF desde Git aunque el checkout Windows use CRLF.
+      if([".html",".js",".json"].includes(path.extname(p).toLowerCase()))
+        bytes=Buffer.from(bytes.toString("utf8").replace(/\r\n/g,"\n"),"utf8");
+      const real="sha256-"+crypto.createHash("sha256").update(bytes).digest("hex");
       if(real!==esp) bad.push(rel);
     }
     if(bad.length) console.log(bad.join("\n"));

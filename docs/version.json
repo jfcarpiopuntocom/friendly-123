@@ -3,7 +3,7 @@
   "fecha": "2026-09-22",
   "changelog": "Team & access: permisos por rol, revocación en vivo, PIN sin colisiones, bajas y guardado confirmado; lista bilingüe.",
   "requerida": false,
-  "shell": "f123-shell-v352",
+  "shell": "f123-shell-v353",
   "apagar": [],
   "releaseName": "v1.0"
 }
