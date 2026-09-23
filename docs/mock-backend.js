@@ -2004,14 +2004,16 @@
   function _puedeGestionarEquipo() { const r = _rolLocal(); return r === "dueno" || r === "admin"; }
   async function _pinIntegradoEnUso(pin) {
     try {
-      if (window.OCSecure && window.OCSecure.coincidePin) {
-        for (const rol of ["owner", "emp", "acct"]) {
-          if (await window.OCSecure.coincidePin(pin, rol)) return true; // hashes legados sin copia visible
-        }
+      // Si no podemos comprobar, no asignar un PIN potencialmente ambiguo.
+      // null significa "no verificado", distinto de false (libre).
+      if (!window.OCSecure || !window.OCSecure.coincidePin) return null;
+      if (window.OCSecure.estadoSecreto && window.OCSecure.estadoSecreto() !== "ok") return null;
+      for (const rol of ["owner", "emp", "acct"]) {
+        if (await window.OCSecure.coincidePin(pin, rol)) return true; // hashes legados sin copia visible
       }
       const p = window.OCSecure && window.OCSecure.leerPinsVisibles && window.OCSecure.leerPinsVisibles();
       return !!(p && [p.owner, p.acct].concat(p.empleados || []).some((x) => x === pin));
-    } catch (_) { return false; }
+    } catch (_) { return null; }
   }
 
   /* RELOJ LÓGICO DEL ROSTER (JFC 2026-08-26, Camino A "terminar bien lo nuestro").
@@ -4582,7 +4584,9 @@
         if (!nombre)                     return J({ error: "A name is required." }, 400);
         if (!/^\d{3}$/.test(pin))        return J({ error: "The PIN must be exactly 3 digits." }, 400);
         if (_pinReservado(pin))          return J({ error: "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", codigo: "PIN_RESERVADO" }, 400);
-        if (await _pinIntegradoEnUso(pin)) return J({ error: "A built-in role already uses that PIN. Pick a different one.", codigo: "PIN_COLISION" }, 400);
+        const colisionIntegrado = await _pinIntegradoEnUso(pin);
+        if (colisionIntegrado === null) return J({ error: "Could not verify current PINs. Nothing changed; retry.", codigo: "PIN_NO_VERIFICADO" }, 503);
+        if (colisionIntegrado) return J({ error: "A built-in role already uses that PIN. Pick a different one.", codigo: "PIN_COLISION" }, 400);
         /* Limite free: 1 persona en el equipo ademas del dueno, sea encargado
            o admin. Se cuentan los dos roles y se bloquea la creacion de
            cualquiera de los dos. Esto SOLO afecta altas nuevas: a quien ya
@@ -4650,7 +4654,9 @@
           np = String(body.pin).trim();
           if (!/^\d{3}$/.test(np)) return J({ error: "The new PIN must be 3 digits." }, 400);
           if (_pinReservado(np)) return J({ error: "That PIN is reserved for the app (demo, activation, employee or accounting). Pick another one.", codigo: "PIN_RESERVADO" }, 400);
-          if (await _pinIntegradoEnUso(np)) return J({ error: "A built-in role already uses that PIN.", codigo: "PIN_COLISION" }, 400);
+          const colisionIntegrado = await _pinIntegradoEnUso(np);
+          if (colisionIntegrado === null) return J({ error: "Could not verify current PINs. Nothing changed; retry.", codigo: "PIN_NO_VERIFICADO" }, 503);
+          if (colisionIntegrado) return J({ error: "A built-in role already uses that PIN.", codigo: "PIN_COLISION" }, 400);
           if (usuarios.some((x) => !x.borrado && x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
         }
         const fotoEquipo = _fotoAntesDeEquipo();

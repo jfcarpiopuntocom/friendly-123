@@ -24,6 +24,9 @@ function browser(ls = storage()) {
       createElement: () => ({ style: {}, setAttribute() {}, addEventListener() {}, appendChild() {} }),
       addEventListener() {}, body: null, documentElement: { appendChild() {} } } };
   w.window = w; w.globalThis = w; w.self = w;
+  // The app loads crypto-store before mock-backend; model a healthy PIN
+  // verifier by default, while individual tests can override it to fail.
+  w.OCSecure = { estadoSecreto: () => 'ok', coincidePin: async () => false, leerPinsVisibles: () => null };
   vm.createContext(w);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/mock-backend.js'), 'utf8'), w);
   w.request = async (url, method = 'GET', body) => {

@@ -59,3 +59,17 @@ test('rotating owner PIN retires the former PIN even when directory and team sid
   assert.ok(secret.retiredOwnerHashes.length > 0);
   assert.ok(secret.retiredOwnerHashes.every((hash) => hash !== '789'));
 });
+
+test('recovery with a new salt does not resurrect an old owner PIN from sidecars', async () => {
+  const f = secureFixture();
+  assert.equal(await f.secure.guardarSecreto('789', ['260'], '357', ''), true);
+  f.secure.guardarDirectorio({ owner: { pin: '789', nombre: 'Owner' } });
+  f.secure.recordarPinQueAbre('789', 'dueno');
+  f.secure.guardarPinsEquipo({ owner: '789' });
+  assert.equal(await f.secure.fijarOwnerPin('682'), true);
+  const code = await f.secure.generarCodigoReset();
+  assert.equal((await f.secure.resetearConCodigo(code, '734')).ok, true);
+  assert.equal(await f.secure.identificarPin('789'), null);
+  assert.equal(await f.secure.identificarPin('682'), null);
+  assert.equal(await f.secure.identificarPin('734'), 'dueno');
+});

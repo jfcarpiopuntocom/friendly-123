@@ -232,7 +232,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     catch (_) { return false; }
   }
 
-  async function guardarSecreto(ownerPin, empleadosPins, acctPin, email) {
+  async function guardarSecreto(ownerPin, empleadosPins, acctPin, email, retiradosAnteriores) {
     const salt = randSalt();
     const ownerHash = await hashPin(ownerPin, salt, "owner");
     const employeeHashes = [];
@@ -250,7 +250,9 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const ownerPinR = xorPin(String(ownerPin));
     const empPinR = (empleadosPins || []).map((p) => xorPin(String(p)));
     const acctPinR = xorPin(String(acctPin));
-    return guardarSecureResiliente({ v: 1, salt, ownerHash, employeeHashes, acctHash, email: email || "", ownerPinR, empPinR, acctPinR });
+    return guardarSecureResiliente({ v: 1, salt, ownerHash, employeeHashes, acctHash,
+      email: email || "", ownerPinR, empPinR, acctPinR,
+      ...(retiradosAnteriores ? { retiredOwnerCredentials: retiradosAnteriores } : {}) });
   }
 
   // Lee los PINs visibles (copias XOR) para mostrarlos en Advanced/Team.
@@ -609,9 +611,19 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     }
     registrarExito("reset");
     const correoActual = leerCorreo();
+    // El reset rota el salt. Conservar hashes anteriores junto con SU salt
+    // impide que directorios/sidecars obsoletos vuelvan a dar acceso de dueño.
+    // Se escribe en el mismo registro que el PIN nuevo: sin segundo guardado
+    // que pueda fallar y dejar una ventana de privilegio.
+    const anterior = leerSecreto();
+    const retirados = anterior && anterior.salt && anterior.ownerHash
+      ? [...(Array.isArray(anterior.retiredOwnerCredentials) ? anterior.retiredOwnerCredentials : []),
+          { salt: anterior.salt, hashes: [anterior.ownerHash,
+            ...(Array.isArray(anterior.retiredOwnerHashes) ? anterior.retiredOwnerHashes : [])] }]
+      : [];
     const nuevoEmpleado = randDigits(3);
     const nuevoAcct = randDigits(3);
-    const guardado = await guardarSecreto(nuevoOwnerPin, [nuevoEmpleado], nuevoAcct, correoActual);
+    const guardado = await guardarSecreto(nuevoOwnerPin, [nuevoEmpleado], nuevoAcct, correoActual, retirados);
     // Guard G1 (JFC 2026-08-04): antes esto quemaba el código de reset y
     // mostraba PINs nuevos AUNQUE el guardado hubiera fallado (localStorage
     // lleno) — el dueño se quedaba con los PINs viejos que justo había
@@ -744,6 +756,10 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     // Un PIN de dueño retirado no puede recuperar privilegios desde copias
     // auxiliares antiguas. Los hashes actuales de otros roles ya se evaluaron.
     if (hashOwnerCandidato && Array.isArray(s.retiredOwnerHashes) && s.retiredOwnerHashes.includes(hashOwnerCandidato)) return null;
+    for (const old of (Array.isArray(s.retiredOwnerCredentials) ? s.retiredOwnerCredentials : [])) {
+      if (!old || typeof old.salt !== "string" || !Array.isArray(old.hashes)) continue;
+      try { if (old.hashes.includes(await hashPin(p, old.salt, "owner"))) return null; } catch (_) {}
+    }
     try {
       const vis = leerPinsVisibles();
       if (vis && vis.owner === p) return "dueno";

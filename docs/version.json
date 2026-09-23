@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-23",
-  "changelog": "El dueño puede cambiar el PIN inicial; el PIN anterior deja de abrir este aparato y una cuota llena no borra fotos. Recomendación breve en Advanced.",
+  "changelog": "PIN del dueño y acceso de equipo más seguros: un PIN retirado no revive tras recuperar, cambiar el PIN no exige correo y los errores de verificación no conceden accesos ambiguos. Avisos bilingües.",
   "requerida": false,
-  "shell": "f123-shell-v354",
+  "shell": "f123-shell-v355",
   "apagar": [],
   "releaseName": "v1.0"
 }

@@ -1466,13 +1466,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           if (window.OCCurrentUser !== yo) return; // respuesta tardía de una sesión anterior
           if (!Array.isArray(lista)) return;
           var ahora = lista.find(function (x) { return x.id === yo.id; });
-          if (!ahora) { cerrarSesion("Your access was removed. Ask the owner."); return; }
+          if (!ahora) { cerrarSesion(window.t("team.sessionRemoved")); return; }
           var rolAhora = ahora.rol === "admin" ? "admin" : "empleado";
-          if (ahora.activo === false) { cerrarSesion("Your access was deactivated. Ask the owner."); return; }
+          if (ahora.activo === false) { cerrarSesion(window.t("team.sessionDeactivated")); return; }
           if (rolAhora !== rol ||
               (yo.rev && JSON.stringify(ahora.rev) !== JSON.stringify(yo.rev)) ||
               (!yo.rev && yo.actualizadoEn && ahora.actualizadoEn !== yo.actualizadoEn))
-            cerrarSesion("Your team access changed. Sign in again with your PIN.");
+            cerrarSesion(window.t("team.sessionChanged"));
         }).catch(function () {});
       } catch (_) {}
     }

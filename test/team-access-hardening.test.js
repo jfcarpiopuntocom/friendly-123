@@ -45,10 +45,19 @@ test('remote team removal notifies the live session and list', async () => {
 test('team PIN cannot collide with a current built-in role PIN', async () => {
   const w = browser();
   w.OCAuth = { rolActual: () => 'dueno' };
-  w.OCSecure = { leerPinsVisibles: () => ({ owner: '741', empleados: ['743'], acct: '744' }) };
+  w.OCSecure = { coincidePin: async () => false,
+    leerPinsVisibles: () => ({ owner: '741', empleados: ['743'], acct: '744' }) };
   await assert.rejects(() => w.request('/api/usuarios', 'POST', { nombre: 'Collision', pin: '741' }));
   await assert.rejects(() => w.request('/api/usuarios', 'POST', { nombre: 'Collision', pin: '743' }));
   await assert.rejects(() => w.request('/api/usuarios', 'POST', { nombre: 'Collision', pin: '744' }));
+});
+
+test('team mutations fail closed when integrated PIN verification fails', async () => {
+  const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno' };
+  w.OCSecure.coincidePin = async () => { throw new Error('fixture crypto failure'); };
+  await assert.rejects(() => w.request('/api/usuarios', 'POST', { nombre: 'Unsafe', pin: '746' }), /PIN_NO_VERIFICADO/);
+  assert.equal((await w.request('/api/usuarios')).length, 0);
 });
 
 test('failed durable storage rejects and rolls back a team change', async () => {
@@ -99,7 +108,8 @@ test('an open named session closes after removal or credential revision', async 
   assert.ok(start > 0 && end > start);
   for (const list of [[], [{ id: 'fixture-u', rol: 'admin', activo: true, rev: { c: 2, d: 'a' } }]]) {
     const closed = [];
-    const w = { OCCurrentUser: { id: 'fixture-u', rol: 'admin', rev: { c: 1, d: 'a' } } };
+    const w = { t: key => key,
+      OCCurrentUser: { id: 'fixture-u', rol: 'admin', rev: { c: 1, d: 'a' } } };
     const context = { window: w, rol: 'admin', fetch: async () => ({ json: async () => list }),
       cerrarSesion: message => closed.push(message) };
     vm.runInNewContext(src.slice(start, end) + '\nrevalidarSesionEquipo();', context);

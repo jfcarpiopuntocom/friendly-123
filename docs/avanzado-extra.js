@@ -2428,18 +2428,13 @@
           if (!/^[0-9]{3}$/.test(v)) { alert(window.t("team.pinThreeDigits")); return; }
           if (["456", "789"].indexOf(v) !== -1) { alert(window.t("team.pinReserved")); return; }
           if (rol !== "owner" && ["260", "357"].indexOf(v) !== -1) { alert(window.t("team.pinReserved")); return; }
-          /* RESGUARDOS DEL DUEÑO (JFC 2026-08-29, fusión de listas de PIN):
-             el flujo viejo de "rotar los 3 a ciegas" exigía confirmación doble
-             y correo de recuperación ANTES de cambiar el PIN del dueño — es la
-             llave maestra, un typo aquí puede dejarlo fuera de su propio
-             negocio. Se portan esos dos resguardos al editor individual,
-             SOLO para "owner": Staff/Accounting no arriesgan sacar al dueño. */
+          /* Confirmación doble para el PIN de dueño: evita un typo sin imponer
+             correo como requisito. JFC decidió que el correo es un dato y que
+             la recuperación de un aparato perdido pasa por WhatsApp/panel. */
           if (rol === "owner") {
             const confirmacion = prompt(window.t("team.confirmOwnerPin"));
             if (confirmacion == null) return;
             if (String(confirmacion).trim() !== v) { alert(window.t("team.pinMismatch")); return; }
-            const correoActual = window.OCSecure.leerCorreo();
-            if (!correoActual) { alert(window.t("team.ownerNeedsEmail")); return; }
           }
           // Los PIN integrados y los personales comparten el mismo candado.
           // Consultar los actuales, no solo la lista fija de códigos de fábrica.
