@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v353",
+  "shell": "f123-shell-v354",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-a2976d03ebb4625c9461ac5d862d30d20c2b8be6583af09131c75187c8f20142",
@@ -26,12 +26,12 @@
     "./lista-dinamica.js": "sha256-7b400ee9939fbc217f743de93b737e93810abe4d5e4929af2336f571575d55f4",
     "./vendor/ufuzzy.min.js": "sha256-3eef8ba0ad55444c31f0e86f8375f25916515402cf2d4d7b5a2c01b4b67f2e19",
     "./vendor/minisearch.min.js": "sha256-8a05b42785db448f2c19e24a6a2107204c825565fe4f95aa69b79652baf26e82",
-    "./i18n.js": "sha256-adc2cabbe4b3a02a75bf03b538920c99e7a177cbf1a7debc2b0791de52c3ad0f",
-    "./crypto-store.js": "sha256-fdaf53a0ed0529c16cb15cebfbf869d478a699eace3bef14927414571a31af14",
+    "./i18n.js": "sha256-aee8eccb3f415995e7459dfb5d4c7b721e6eaaacd00b4d069f38e81c027ad446",
+    "./crypto-store.js": "sha256-384ed978e76bfa9cf43eb6a8413e643642557dc832ff622c70720e1b5dad746e",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
     "./auth-ui.js": "sha256-b8669c4c67352897d3a4c1beee710193c430e24df58ee7d9eec0813762240c4b",
     "./backup-scheduler.js": "sha256-869060f6e9edfcbf1052dea781c2953bce73d53958b7712b61974332df589330",
-    "./avanzado-extra.js": "sha256-2e209e82ff00584b6aa6662d485507fa6c46a7fcf347613fd1f84af352d179b9",
+    "./avanzado-extra.js": "sha256-04eba1390ffeec2350f096c87c71fe0a45126a96b7a2097facfb9b261fad83f3",
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
     "./geo-ping.js": "sha256-0ead39d09c652caeb07991401e33b61b7ef9b13e1de5ae367d401c8870c6fd56",
     "./novedades.js": "sha256-c85f26c537e877935e5f41bda9c88adbb8b2c1e4e5dde7d5b107fb3f08e91946",

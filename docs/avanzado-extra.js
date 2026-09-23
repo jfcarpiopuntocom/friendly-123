@@ -2406,7 +2406,8 @@
           ? '<button type="button" data-pin-edit="' + rol + '" title="' + _esc(window.t("team.changePin")) + '" aria-label="' + _esc(window.t("team.changePin")) + '" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;margin-left:4px;">✎</button>'
           : "";
       cuerpo.innerHTML =
-        '<div><strong>' + _esc(window.t("team.owner")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(owner) + "</code>" + _lapiz("owner", "fijarOwnerPin", owner) + "</div>" +
+        '<div><strong>' + _esc(window.t("team.owner")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(owner) + "</code>" + _lapiz("owner", "fijarOwnerPin", owner) +
+        (owner === "789" && _puedeOwner ? ' <span style="font-size:13px;color:var(--ink,#211c14);">— ' + _esc(window.t("team.changeInitialOwnerPin")) + '</span>' : '') + "</div>" +
         '<div><strong>' + _esc(window.t("team.staff")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(emp) + "</code>" + _lapiz("emp", "fijarEmpleadoPin", emp) + "</div>" +
         '<div><strong>' + _esc(window.t("team.accounting")) + ':</strong> <code style="font-family:var(--font-mono);letter-spacing:.1em;">' + _esc(acct) + "</code>" + _lapiz("acct", "fijarAcctPin", acct) + "</div>" +
         /* Demo (JFC 2026-09-01): 456 es permanente y reservado — muestra la app

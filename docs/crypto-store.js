@@ -223,28 +223,13 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   }
 
   // Guardado resiliente (JFC 2026-08-04, Guard G1 — "no dañar lo que no debe
-  // dañar"): si localStorage está lleno (fotos de percha en base64 son lo que
-  // más pesa), un setItem normal lanza QuotaExceededError y el guardado de
-  // PINs se pierde EN SILENCIO — hasta ahora, guardarSecreto/fijarOwnerPin/etc
-  // ignoraban por completo si esto pasaba. Antes de rendirse, purga las fotos
-  // de percha (recuperables re-tomando la foto; un PIN perdido deja al dueño
-  // fuera de su propio negocio) y reintenta una vez. Devuelve boolean para
-  // que cada llamador pueda decidir qué decirle al usuario si falla.
+  // Integridad 1AAA: un cambio de PIN nunca debe borrar fotos u otros datos
+  // para liberar cuota. Si no cabe el secreto nuevo, se conserva intacto el
+  // anterior y el llamador recibe false para informar que no se aplicó.
   function guardarSecureResiliente(s) {
     const payload = JSON.stringify(s);
     try { localStorage.setItem("f123_secure", payload); return true; }
-    catch (_) {
-      try {
-        const rm = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.indexOf("vp_foto_percha_") === 0) rm.push(k);
-        }
-        rm.forEach((kk) => { try { localStorage.removeItem(kk); } catch (_) {} });
-        localStorage.setItem("f123_secure", payload);
-        return true;
-      } catch (_) { return false; }
-    }
+    catch (_) { return false; }
   }
 
   async function guardarSecreto(ownerPin, empleadosPins, acctPin, email) {
@@ -452,7 +437,15 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // usuario "ya puedes entrar con tu PIN nuevo".
   async function fijarOwnerPin(nuevoPin) {
     const s = leerSecreto(); if (!s) return false;
-    s.ownerHash = await hashPin(nuevoPin, s.salt, "owner");
+    /* El directorio y el sidecar de sync pueden conservar el PIN anterior.
+       Retirarlo EN EL MISMO registro duradero que el nuevo hash impide que
+       identificarPin lo siga aceptando como dueño después de una rotación. */
+    const hashNuevo = await hashPin(nuevoPin, s.salt, "owner");
+    const retirados = Array.isArray(s.retiredOwnerHashes) ? s.retiredOwnerHashes : [];
+    if (s.ownerHash && s.ownerHash !== hashNuevo) retirados.push(s.ownerHash);
+    // Solo hashes PBKDF2: nunca almacenar PINs retirados en claro.
+    s.retiredOwnerHashes = [...new Set(retirados)].filter((h) => h !== hashNuevo);
+    s.ownerHash = hashNuevo;
     s.ownerPinR = xorPin(nuevoPin);
     return guardarSecureResiliente(s);
   }
@@ -740,12 +733,17 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     if (!/^\d{3}$/.test(p)) return null;
     const s = leerSecreto();
     if (!s) return null;
+    let hashOwnerCandidato = null;
     try {
-      if ((await hashPin(p, s.salt, "owner")) === s.ownerHash) return "dueno";
+      hashOwnerCandidato = await hashPin(p, s.salt, "owner");
+      if (hashOwnerCandidato === s.ownerHash) return "dueno";
       const hEmp = await hashPin(p, s.salt, "emp");
       if ((s.employeeHashes || []).includes(hEmp)) return "empleado";
       if ((await hashPin(p, s.salt, "acct")) === s.acctHash) return "contador";
     } catch (_) {}
+    // Un PIN de dueño retirado no puede recuperar privilegios desde copias
+    // auxiliares antiguas. Los hashes actuales de otros roles ya se evaluaron.
+    if (hashOwnerCandidato && Array.isArray(s.retiredOwnerHashes) && s.retiredOwnerHashes.includes(hashOwnerCandidato)) return null;
     try {
       const vis = leerPinsVisibles();
       if (vis && vis.owner === p) return "dueno";
