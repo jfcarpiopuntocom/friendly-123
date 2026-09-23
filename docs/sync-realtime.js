@@ -155,7 +155,10 @@
   const LORD_KEY = "f123_lord";
   const LORD_LIC_KEY = "f123_lord_licencia_canonica";
   const ACCESOS_KEY = "f123_accesos"; // bitácora local de accesos del lord a tiendas ajenas
-  function _esLord() { try { return localStorage.getItem(LORD_KEY) === "1"; } catch (_) { return false; } }
+  /* v358 (#14, JFC 2026-09-23): el lord como invitado/inspector era del sync
+     viejo. JFC es el dueño; su aparato es uno más de su licencia principal.
+     DORMIDO: siempre false. NO BORRAR. Para reactivar: volver a leer LORD_KEY. */
+  function _esLord() { return false; }
   function _licenciaCanonicaLord() {
     try {
       if (!_esLord()) return null;

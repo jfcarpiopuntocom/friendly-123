@@ -283,6 +283,30 @@
       localStorage.setItem("f123_fix_lic_v2", "1");
     }
   } catch (_) {}
+  /* RETIRO DEL LORD (#14, orden de JFC 2026-09-23: "hazlo ya"). JFC es el
+     DUEÑO de la app; un aparato suyo es simplemente un aparato EN su licencia
+     principal. La marca f123_lord y su "licencia canónica" eran del sync viejo.
+     Una sola vez, en un aparato que tenía la marca: su licencia guardada se
+     alinea con la canónica (la que _licenciaPropia ya usaba como su casa), se
+     guarda copia de la anterior en f123_owned_pre_lord_v1 y se quita la marca.
+     Un aparato sin marca (todos los de clientes) no se toca. */
+  try {
+    if (localStorage.getItem("f123_lord_retirado_v1") !== "1") {
+      if (localStorage.getItem("f123_lord") === "1") {
+        const _can = String(localStorage.getItem("f123_lord_licencia_canonica") || "").trim().toUpperCase().replace(/\s+/g, "");
+        const _raw = localStorage.getItem("f123_owned");
+        const _o = _raw ? JSON.parse(_raw) : null;
+        if (_o && /^F123-/.test(_can) && (_o.licenseCode !== _can || (_o.syncCode && _o.syncCode !== _can))) {
+          localStorage.setItem("f123_owned_pre_lord_v1", _raw);
+          _o.licenseCode = _can;
+          if (_o.syncCode) _o.syncCode = _can;
+          localStorage.setItem("f123_owned", JSON.stringify(_o));
+        }
+        localStorage.removeItem("f123_lord");
+      }
+      localStorage.setItem("f123_lord_retirado_v1", "1");
+    }
+  } catch (_) {}
   let instanceId = (function () { try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId || null; } catch (_) { return null; } })();
   // Mejora #2 (JFC 2026-07-16): "limitada" = JFC bajo el estado desde el panel
   // (ej. cliente moroso) sin bloquear del todo. Se comporta como si el
@@ -2527,12 +2551,8 @@
      cuyo sufijo es ""). =============================================== */
   function _normLic(c) { return String(c || "").trim().toUpperCase().replace(/\s+/g, ""); }
   function _licenciaPropia() {
-    try {
-      if (localStorage.getItem("f123_lord") === "1") {
-        const can = localStorage.getItem("f123_lord_licencia_canonica");
-        if (can) return _normLic(can);
-      }
-    } catch (_) {}
+    // v358 (#14): la licencia propia es SOLO la del aparato; el atajo de la
+    // "licencia canónica del lord" se retiró (ver RETIRO DEL LORD arriba).
     try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); return o && o.licenseCode ? _normLic(o.licenseCode) : ""; } catch (_) { return ""; }
   }
   function _licenciaActual() {

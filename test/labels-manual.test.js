@@ -23,14 +23,20 @@ test('label printing keeps the Safari user gesture and has a barcode-only print 
 });
 
 test('manual describes the current shared notebook and all current core flows', () => {
+  /* JFC 2026-09-23: manual.html es ahora el manual bilingüe (EN/ES). La
+     estructura cambió (secciones con nombre en vez de sec-1..9); la GUARDA de
+     contenido se mantiene: variantes, clientes, perchas, cuaderno compartido,
+     AirPrint y la meta de 2 s tienen que estar en los DOS idiomas. */
   const manual = read('manual.html');
-  for (const id of ['sec-1','sec-2','sec-3','sec-4','sec-5','sec-6','sec-7','sec-8','sec-9']) {
-    assert.equal((manual.match(new RegExp(`id="${id}"`, 'g')) || []).length, 1, `${id} must exist once`);
+  for (const id of ['que-es','primeros-pasos','colores','vista-hoy','inventario','perchas','vender','etiquetas','clientes','seguridad']) {
+    assert.equal((manual.match(new RegExp(`id="${id}"`, 'g')) || []).length, 1, `${id} must exist once (ES)`);
+    assert.equal((manual.match(new RegExp(`id="${id}-en"`, 'g')) || []).length, 1, `${id}-en must exist once (EN)`);
   }
-  for (const phrase of ['Crear variante', 'CLIENTES Y PERCHAS', 'CUADERNO COMPARTIDO', 'AirPrint', 'menos de 2 segundos']) {
+  for (const phrase of ['Crear variante', 'Create variant', 'Clientes', 'Perchas', 'Cuaderno compartido', 'Shared notebook', 'AirPrint', 'menos de 2 segundos', 'under 2 seconds']) {
     assert.match(manual, new RegExp(phrase));
   }
   assert.doesNotMatch(manual, /Toca el producto en la cuadrícula y listo/);
+  assert.doesNotMatch(manual, /QR que abre la app directamente/, 'el QR no abre la app');
 });
 
 test('help does not claim synchronized business data never leaves one device', () => {

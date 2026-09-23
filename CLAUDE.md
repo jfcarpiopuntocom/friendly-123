@@ -1,5 +1,8 @@
 # CLAUDE.md — léeme entero antes de planificar o tocar código
 
+> **PRIMERO lee `DECISIONES-JFC.md`** (raíz del repo): las decisiones y aclaraciones
+> vigentes de JFC, compartidas con Codex. Si JFC aclara algo nuevo, se anota allí.
+
 Este archivo se carga solo en cada sesión. Es la memoria persistente de este
 repo: lo crítico está aquí para no re-derivarlo (ni re-preguntarlo) cada vez.
 Si un dato cambia, se actualiza aquí en el mismo commit.
