@@ -3639,7 +3639,38 @@ if (!window.__ocCliComprasWired) {
   }, true);
 }
 
-const _saldoDeuda = {}; // filtro "pago pendiente": id -> debe (true/false)
+/* FILTRO "PAGO PENDIENTE" (v346; v347 corrige 3 hallazgos de la auditoría de Codex).
+   _saldoDeuda: id -> true (debe) | false (no debe) | null (NO SE PUDO VERIFICAR).
+   #3: antes un saldo ilegible se contaba como "no debe" y la lista podía decir
+       "ningún cliente con pago pendiente" sin saberlo. Ahora queda null y se
+       avisa cuántos no se pudieron verificar.
+   #7: antes cada toque lanzaba N lecturas a la vez, más N de las tarjetas.
+       Ahora van de a 8 como máximo, y el saldo de cada tarjeta ya no se lee
+       dos veces al cargar.
+   #4: la búsqueda/orden/filtro sobreviven a recrear la lista (idioma, editar). */
+const _saldoDeuda = {};
+let _pendNoVerif = 0;
+let _estadoListaClientes = null;
+function _deudaDe(info) {
+  if (!info || (info.integridad && !info.integridad.ok)) return null;
+  if (info.saldo == null) return false;
+  const n = Number(info.saldo);
+  return Number.isFinite(n) ? n < 0 : null;
+}
+async function _prepararPendientes(lista) {
+  const cola = lista.slice();
+  async function trabajador() {
+    while (cola.length) {
+      const c = cola.shift();
+      try {
+        const r = await fetch(`${API}/clientes/${c.id}/cartera`);
+        _saldoDeuda[c.id] = r.ok ? _deudaDe(await r.json()) : null;
+      } catch (_) { _saldoDeuda[c.id] = null; }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(8, cola.length) }, trabajador));
+  _pendNoVerif = lista.filter((c) => _saldoDeuda[c.id] === null).length;
+}
 async function cargarClientes(){
   // dueño Y admin ven todo ("plenamente visibles", JFC 2026-07-29) — solo
   // encargado/contador quedan en modo restringido mas abajo.
@@ -3683,16 +3714,15 @@ async function cargarClientes(){
         key: "pendiente",
         label: (window.t && window.t("clientes.filtroPendiente")) || "Pending payment",
         vacio: (window.t && window.t("clientes.filtroPendienteVacio")) || "No customers with a pending payment.",
-        preparar: async () => {
-          await Promise.all(todos.map(async (c) => {
-            try {
-              const info = await (await fetch(`${API}/clientes/${c.id}/cartera`)).json();
-              _saldoDeuda[c.id] = !!(info && (!info.integridad || info.integridad.ok) && Number(info.saldo) < 0);
-            } catch (_) { _saldoDeuda[c.id] = false; }
-          }));
-        },
+        cargando: (window.t && window.t("clientes.filtroPendienteCargando")) || "Checking balances...",
+        preparar: () => _prepararPendientes(todos),
         prueba: (c) => _saldoDeuda[c.id] === true,
+        nota: () => _pendNoVerif
+          ? ((window.t && window.t("clientes.filtroPendienteIncompleto")) || "Could not verify the balance of {n} customer(s); they are not listed.").replace("{n}", _pendNoVerif)
+          : "",
       }] : [],
+      estadoInicial: _estadoListaClientes,
+      alCambiarEstado: (e) => { _estadoListaClientes = e; },
       // Tras cualquier repintado (búsqueda, orden, filtro) se vuelven a pintar
       // los saldos de las tarjetas visibles.
       alPintar: (visibles) => visibles.forEach((c) => pintarSaldoCartera(c.id)),
@@ -3700,10 +3730,11 @@ async function cargarClientes(){
   } else {
     // Respaldo si el script no cargó: comportamiento anterior, sin romper la pantalla.
     document.getElementById("listaClientes").innerHTML = todos.map((c) => tarjetaCliente(c, esDueno)).join("") || '<p style="font-size:16px;">No clients yet. Add the first one above.</p>';
+    // Saldo de cartera: se pinta DESPUES del render (lectura async a IndexedDB
+    // via AMG.Hechos). Con ListaDinamica ya lo hace alPintar (v347, Codex #7:
+    // antes se leía dos veces por tarjeta).
+    todos.forEach((c) => pintarSaldoCartera(c.id));
   }
-  // Saldo de cartera: se pinta DESPUES del render (lectura async a IndexedDB
-  // via AMG.Hechos) para no bloquear la pintura de las tarjetas.
-  todos.forEach((c) => pintarSaldoCartera(c.id));
   // Matriz de estaciones 2x2 — solo dueno. Eje horizontal: qué tan reciente
   // compra. Eje vertical: cuánto valor deja. Es la lectura RFM en un vistazo.
   const mc = document.getElementById("matrizClientes");
@@ -6199,8 +6230,8 @@ async function abrirPanelVentaInfo(id, esTicket){
             <option value="" data-i18n="sale.optCounter">${escHtml(t("sale.optCounter"))}</option>
             ${clientes.map(c => `<option value="${c.id}">${escHtml(c.nombre)} (${escHtml(c.codigo)})</option>`).join("")}
           </select>
-          <button type="button" id="vi-nuevo-cliente" title="New customer"
-            style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">+ New</button>
+          <button type="button" id="vi-nuevo-cliente" data-i18n-attr="title:sale.newCustTitle" title="${escHtml(t("sale.newCustTitle"))}"
+            style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;"><span data-i18n="sale.btnNewCust">${escHtml(t("sale.btnNewCust"))}</span></button>
         </div>
       </label>
       <!-- JFC 2026-09-04: sin "Type to search" (o existe, o counter sale, o se
@@ -6209,11 +6240,11 @@ async function abrirPanelVentaInfo(id, esTicket){
            y queda seleccionado. -->
       <div id="vi-newcli-inline" style="display:none;margin-top:8px;padding:10px 12px;border:2px dashed var(--azul-medio,#2c4a68);border-radius:6px;">
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-          <input id="vi-newcli-nombre" type="text" placeholder="Customer name" style="flex:2;min-width:140px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
-          <input id="vi-newcli-tel" type="tel" placeholder="Phone (optional)" style="flex:1;min-width:120px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <input id="vi-newcli-nombre" type="text" data-i18n-attr="placeholder:sale.phCustName" placeholder="${escHtml(t("sale.phCustName"))}" style="flex:2;min-width:140px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
+          <input id="vi-newcli-tel" type="tel" data-i18n-attr="placeholder:sale.phPhone" placeholder="${escHtml(t("sale.phPhone"))}" style="flex:1;min-width:120px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
           <input id="vi-newcli-email" type="email" autocomplete="email" maxlength="120" aria-label="${escHtml(t("newcust.email"))}" placeholder="${escHtml(t("newcust.emailPlaceholder"))}" style="flex:1;min-width:150px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
           <button type="button" id="vi-newcli-save" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--sim-verde,#00C87A);border-radius:6px;background:var(--sim-verde,#00C87A);color:#fff;cursor:pointer;" data-i18n="sale.btnSaveCustomer">${escHtml(t("sale.btnSaveCustomer"))}</button>
-          <button type="button" id="vi-newcli-cancel" title="Cancel" style="flex:0 0 auto;font-size:13px;padding:8px 10px;border:2px solid var(--ink-soft);border-radius:6px;background:transparent;color:var(--ink-soft);cursor:pointer;">✕</button>
+          <button type="button" id="vi-newcli-cancel" data-i18n-attr="title:sale.btnCancel" title="${escHtml(t("sale.btnCancel"))}" style="flex:0 0 auto;font-size:13px;padding:8px 10px;border:2px solid var(--ink-soft);border-radius:6px;background:transparent;color:var(--ink-soft);cursor:pointer;">✕</button>
         </div>
         <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
       </div>
@@ -6223,32 +6254,32 @@ async function abrirPanelVentaInfo(id, esTicket){
         // Compacto (JFC 2026-09-04): un ✎ que expande el selector inline, sin
         // ocupar una linea fija. Se muestra siempre en el modal de venta.
         return `<div style="margin-top:8px;">
-          <button type="button" id="vi-com-toggle" style="background:none;border:none;padding:0;font-size:13px;color:var(--azul-medio,#2c4a68);cursor:pointer;text-decoration:underline;">✎ ${actualNom ? "Commissionist: " + escHtml(actualNom) : "COUNTER SALE — house (no commission)"}</button>
+          <button type="button" id="vi-com-toggle" style="background:none;border:none;padding:0;font-size:13px;color:var(--azul-medio,#2c4a68);cursor:pointer;text-decoration:underline;">✎ <span data-i18n="${actualNom ? "sale.comLabel" : "sale.comCounter"}">${escHtml(t(actualNom ? "sale.comLabel" : "sale.comCounter"))}</span>${actualNom ? " " + escHtml(actualNom) : ""}</button>
           <select id="vi-comisionista" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
-            <option value="__counter__"${!actualNom ? " selected" : ""}>COUNTER SALE — house (no commission)</option>
+            <option value="__counter__"${!actualNom ? " selected" : ""} data-i18n="sale.comCounter">${escHtml(t("sale.comCounter"))}</option>
             ${(_promsVenta || []).map(function(pr){ return `<option value="${escHtml(pr.id)}"${_perchaVenta && _perchaVenta.promotoraId === pr.id ? " selected" : ""}>${escHtml(pr.nombre)}</option>`; }).join("")}
           </select>
         </div>`;
       })()}
       ${esTicket ? `
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;">
-        <label style="flex:1;min-width:150px;font-size:14px;">Event/class date${req}<br><input id="vi-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <label style="flex:1;min-width:150px;font-size:14px;"><span data-i18n="sale.lblEventDate">${escHtml(t("sale.lblEventDate"))}</span>${req}<br><input id="vi-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
         <label style="flex:1;min-width:150px;font-size:14px;"><span data-i18n="sale.lblPeople">${escHtml(t("sale.lblPeople"))}</span><br>
           <select id="vi-personas" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
             <option value="">—</option>
             ${Array.from({length:20},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join("")}
           </select></label>
       </div>` : ""}
-      <label style="display:block;margin-top:10px;font-size:14px;">Group / Reservation name (optional)
-        <button type="button" id="vi-toggle-pagador" title="Add a group or reservation name"
+      <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblGroup">${escHtml(t("sale.lblGroup"))}</span>
+        <button type="button" id="vi-toggle-pagador" data-i18n-attr="title:sale.groupTitle" title="${escHtml(t("sale.groupTitle"))}"
           style="margin-left:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
-        <input id="vi-pagador" type="text" placeholder="Group or reservation name" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <input id="vi-pagador" type="text" data-i18n-attr="placeholder:sale.phGroup" placeholder="${escHtml(t("sale.phGroup"))}" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;"><span data-i18n="sale.lblEmail">${escHtml(t("sale.lblEmail"))}</span><br><input id="vi-email" type="email" ${inp}></label>
         <label style="flex:1;font-size:14px;">WhatsApp<br><input id="vi-whatsapp" type="text" ${inp}></label>
       </div>
       ${(!esBar && !esTicket) ? `
-      <label id="vi-cant-wrap" style="display:block;margin-top:10px;font-size:14px;">Quantity (counter sale — sell several at once)<br>
+      <label id="vi-cant-wrap" style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblQty">${escHtml(t("sale.lblQty"))}</span><br>
         <input id="vi-cantidad" type="number" min="1" step="1" value="1" ${inp}></label>` : ""}
       <!-- Compacto (JFC 2026-09-08): Payment method + Cortesía + Fiado en UNA
            línea, sin estirar el modal hacia abajo. -->
@@ -6390,11 +6421,10 @@ async function abrirPanelVentaInfo(id, esTicket){
     let txt = "";
     if (chkCort && chkCort.checked) {
       if (chkFia) chkFia.checked = false;
-      txt = "Courtesy: no charge (revenue $0), but the cost still counts. No commission.";
+      txt = t("sale.hintCourtesy");
     } else if (chkFia && chkFia.checked) {
       const cid = (document.getElementById("vi-cliente") || {}).value || "";
-      txt = cid ? "On account (fiado): this sale is added to the customer's debt in Customers."
-                : "Pick a customer above — on account needs a customer to record the debt.";
+      txt = cid ? t("sale.hintFiado") : t("sale.hintFiadoNoCust");
     }
     cfHint.textContent = txt;
   };
@@ -6435,7 +6465,7 @@ async function abrirPanelVentaInfo(id, esTicket){
       });
       if (match) {
         console.info(`[crédito] Este cliente tiene crédito vigente para "${p.nombre}" (saldo ${fmtMoney(info.saldo)}).`);
-        if (hintEl) hintEl.textContent = `Note: this customer has active store credit for ${p.nombre} (${fmtMoney(info.saldo)}).`;
+        if (hintEl) hintEl.textContent = t("sale.hintCredit").replace("{item}", p.nombre).replace("{monto}", fmtMoney(info.saldo));
       }
     } catch (_) {}
   };
@@ -6446,18 +6476,30 @@ async function abrirPanelVentaInfo(id, esTicket){
     const bEl = document.getElementById("vi-botellas");
     const actualizar = () => {
       const n = Math.max(1, Number(sInp.value) || 1);
-      bEl.textContent = `${n} servings ≈ ${(n / _servPorBotella).toFixed(2)} bottles (${_servPorBotella} servings/bottle)`;
+      bEl.textContent = t("sale.hintBottles").replace("{n}", n).replace("{b}", (n / _servPorBotella).toFixed(2)).replace("{x}", _servPorBotella);
     };
     sInp.addEventListener("input", actualizar);
     actualizar();
+    _viBarActualizar = actualizar;
   }
+  // Cambio de idioma con el panel abierto (auditoría Codex #6): los textos
+  // estáticos los traduce applyStatic; estos tres se calculan, así que se
+  // recalculan aquí. No toca ningún valor elegido ni escrito.
+  window._viRefrescarTextos = () => {
+    try { syncCortFia(); } catch (_) {}
+    try { avisarCredito(); } catch (_) {}
+    try { if (_viBarActualizar) _viBarActualizar(); } catch (_) {}
+  };
 }
+let _viBarActualizar = null;
+window.addEventListener("oc-lang-change", () => { if (window._viRefrescarTextos) window._viRefrescarTextos(); });
 function cancelarPanelVentaInfo(){
   const overlay = document.getElementById("oc-ventainfo-overlay");
   if (overlay) overlay.style.display = "none";
   const caja = document.getElementById("oc-ventainfo-caja");
   if (caja) caja.innerHTML = "";
   _ventaInfoProductoCache = null;
+  window._viRefrescarTextos = null; _viBarActualizar = null;
 }
 async function confirmarVentaConInfo(id, esTicket){
   if (_ventasEnCurso.has(id)) return;

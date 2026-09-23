@@ -372,3 +372,113 @@ test('pending-payment filter shows only customers who owe, with one touch (Belen
   assert.equal(r.con.minAlto, '44px', 'botón de dedo (min-height 44px)');
   assert.equal(r.despues.a, true, 'segundo toque: vuelven todos');
 });
+
+/* v347 — auditoría de Codex (#3, #4, #7) sobre el filtro "Pending payment".
+   Fixtures sintéticos; ningún dato real. */
+async function prepCartera(page, extra) {
+  return page.evaluate(async (extra) => {
+    const req = async (url, method = 'GET', body) => (await fetch(url, { method,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined })).json();
+    const debe = await req('/api/clientes', 'POST', { nombre: 'Fixture Deudor' });
+    await req(`/api/clientes/${debe.id}/fiar`, 'POST', { monto: 25, motivo: 'fixture' });
+    for (let i = 0; i < (extra || 0); i++) await req('/api/clientes', 'POST', { nombre: 'Fixture Relleno ' + i });
+    window.OCAuth = Object.assign(window.OCAuth || {}, { rolActual: () => 'dueno' });
+    window.__deudorId = debe.id;
+  }, extra);
+}
+
+test('#3 an unreadable balance is reported, never shown as "no pending payments"', async () => {
+  const r = await withPage(async (page) => {
+    await prepCartera(page, 0);
+    return page.evaluate(async () => {
+      const orig = window.fetch;
+      window.fetch = function (u, o) {
+        if (String(u).includes(`/clientes/${window.__deudorId}/cartera`)) return Promise.reject(new Error('fixture: lectura falla'));
+        return orig.apply(this, arguments);
+      };
+      await cargarClientes();
+      const cont = document.getElementById('listaClientes');
+      cont.querySelector('[data-filtro="pendiente"]').click();
+      await new Promise(res => setTimeout(res, 400));
+      return cont.textContent;
+    });
+  });
+  assert.equal(r.includes('No customers with a pending payment'), false, 'no afirma cero deudores sin saberlo');
+  assert.match(r, /Could not verify the balance of 1 customer/);
+});
+
+test('#4 search and filter survive the list being rebuilt (language switch, edit)', async () => {
+  const r = await withPage(async (page) => {
+    await prepCartera(page, 1);
+    return page.evaluate(async () => {
+      await cargarClientes();
+      let cont = document.getElementById('listaClientes');
+      cont.querySelector('[data-filtro="pendiente"]').click();
+      await new Promise(res => setTimeout(res, 400));
+      const input = cont.querySelector('input[type="text"]');
+      input.value = 'deud'; input.dispatchEvent(new Event('input'));
+      await cargarClientes(); // lo mismo que pasa al cambiar EN/ES o editar un cliente
+      await new Promise(res => setTimeout(res, 400));
+      cont = document.getElementById('listaClientes');
+      return { pressed: cont.querySelector('[data-filtro="pendiente"]').getAttribute('aria-pressed'),
+        busqueda: cont.querySelector('input[type="text"]').value,
+        deudor: cont.textContent.includes('Fixture Deudor'), relleno: cont.textContent.includes('Fixture Relleno') };
+    });
+  });
+  assert.deepEqual(r, { pressed: 'true', busqueda: 'deud', deudor: true, relleno: false });
+});
+
+test('#7 balance reads are bounded: at most 8 at once, and one per card on load', async () => {
+  const r = await withPage(async (page) => {
+    await prepCartera(page, 24);
+    return page.evaluate(async () => {
+      await new Promise(res => setTimeout(res, 1500)); // deja terminar recargas automáticas
+      const orig = window.fetch;
+      let enVuelo = 0, pico = 0, total = 0;
+      window.fetch = async function (u) {
+        if (!/\/cartera$/.test(String(u))) return orig.apply(this, arguments);
+        total++; enVuelo++; pico = Math.max(pico, enVuelo);
+        try { await new Promise(res => setTimeout(res, 5)); return await orig.apply(this, arguments); }
+        finally { enVuelo--; }
+      };
+      await cargarClientes();
+      await new Promise(res => setTimeout(res, 400));
+      const alCargar = total; total = 0; pico = 0;
+      const n = document.querySelectorAll('[id^="cartera-"]').length; // incluye los clientes demo de la página
+      document.getElementById('listaClientes').querySelector('[data-filtro="pendiente"]').click();
+      await new Promise(res => setTimeout(res, 800));
+      return { alCargar, picoFiltro: pico, n };
+    });
+  });
+  assert.equal(r.alCargar, r.n, 'una lectura por tarjeta al cargar, no dos');
+  assert.ok(r.picoFiltro <= 8, 'como máximo 8 lecturas simultáneas, hubo ' + r.picoFiltro);
+});
+
+test('#6 switching to Spanish with the sale panel open leaves no English label behind', async () => {
+  /* v347 (auditoría Codex #6). Se abre el panel, se marca fiado (pista
+     calculada en JS), se cambia a español CON EL PANEL ABIERTO y se busca
+     cada texto inglés que antes quedaba. Los value de las opciones no cambian. */
+  const r = await withPage(page => page.evaluate(async () => {
+    const req = async (url, method = 'GET', body) => (await fetch(url, { method,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined })).json();
+    const shelf = await req('/api/ubicaciones', 'POST', { nombre: 'I18n fixture' });
+    const prod = await req('/api/productos', 'POST', { nombre: 'I18n item', sku: 'FIX-I18N-6', barcode: 'FIX-I18N-6',
+      precio: 10, costo: 4, stockInicial: 3, ubicacionId: shelf.id });
+    await abrirPanelVentaInfo(prod.id, false);
+    const fia = document.getElementById('vi-fiado');
+    fia.checked = true; fia.dispatchEvent(new Event('change'));
+    window.OCI18n.setLang('es');
+    await new Promise(res => setTimeout(res, 200));
+    const caja = document.getElementById('oc-ventainfo-caja');
+    const attrs = [...caja.querySelectorAll('[placeholder],[title]')].map(e => (e.getAttribute('placeholder') || '') + '|' + (e.getAttribute('title') || '')).join(' ');
+    const out = { texto: caja.textContent, attrs, counterValue: caja.querySelector('#vi-comisionista option').value };
+    window.OCI18n.setLang('en');
+    return out;
+  }));
+  for (const en of ['Pick a customer above', 'COUNTER SALE — house', 'Quantity (counter sale', '+ New', 'Commissionist:'])
+    assert.equal(r.texto.includes(en), false, 'queda en inglés: ' + en);
+  for (const en of ['Customer name', 'Phone (optional)', 'New customer'])
+    assert.equal(r.attrs.includes(en), false, 'atributo en inglés: ' + en);
+  assert.match(r.texto, /el fiado necesita cliente/);
+  assert.equal(r.counterValue, '__counter__', 'el valor guardado no cambia');
+});
