@@ -3,7 +3,7 @@
   "fecha": "2026-09-22",
   "changelog": "En Clientes, un botón muestra con un toque solo a quienes tienen pago pendiente.",
   "requerida": false,
-  "shell": "f123-shell-v347",
+  "shell": "f123-shell-v348",
   "apagar": [],
   "releaseName": "v1.0"
 }

@@ -118,3 +118,26 @@ test('devices activated before this change start their clock today, not at their
   assert.equal(e.vencida, false, 'no nace vencido por una activación vieja');
   assert.equal(e.diasRestantes, w.OCPrueba.PRUEBA_DIAS);
 });
+
+test('#5 a license paid while the app is open unlocks writes without a new login', async () => {
+  /* v347, auditoría Codex #5. El Worker se simula: revalidarLicencia hace lo
+     mismo que el heartbeat real (escribe licenseEstado en f123_owned). La
+     primera escritura con la prueba vencida se rechaza y dispara la
+     revalidación; la siguiente pasa sin volver a entrar. */
+  const w = aparato();
+  const p = await productoConStock(w);
+  await vencer(w);
+  let llamadas = 0;
+  w.OCAuth.revalidarLicencia = async () => {
+    llamadas++;
+    const o = JSON.parse(w.localStorage.getItem('f123_owned'));
+    o.licenseEstado = 'full';
+    w.localStorage.setItem('f123_owned', JSON.stringify(o));
+  };
+  const antes = await w.fetch(`/api/productos/${p.id}/venta`, { method: 'POST', body: JSON.stringify({ cantidad: 1 }) });
+  assert.equal(antes.ok, false, 'con la prueba vencida y sin revalidar, se rechaza');
+  await new Promise(res => setImmediate(res));
+  assert.equal(llamadas, 1, 'el rechazo disparó una revalidación');
+  const r = await w.request(`/api/productos/${p.id}/venta`, 'POST', { cantidad: 1 });
+  assert.ok(r.ventaId, 'tras el pago, vende sin nuevo login');
+});

@@ -110,8 +110,30 @@
       if (window.OCAuth && window.OCAuth.esDemo && window.OCAuth.esDemo()) return false;
       if (rutaPermitida(path)) return false;
       var e = estado();
-      return !!(e && e.aplica && e.vencida);
+      var vencida = !!(e && e.aplica && e.vencida);
+      if (vencida) revalidar(); // en segundo plano; esta escritura igual se rechaza
+      return vencida;
     } catch (_) { return false; }
+  }
+
+  /* v347 (auditoría Codex #5): si la licencia se pagó con la app abierta, se
+     revalida contra el Worker sin esperar un nuevo login. Solo corre con la
+     prueba vencida; la frecuencia la limita OCAuth.revalidarLicencia (1/min).
+     Si vuelve "full", se cierra la invitación de compra y se avisa. */
+  function revalidar() {
+    try {
+      var e = estado();
+      if (!(e && e.aplica && e.vencida)) return;
+      if (!window.OCAuth || !window.OCAuth.revalidarLicencia) return;
+      window.OCAuth.revalidarLicencia().then(function () {
+        try {
+          if (!estado().pagada) return;
+          var m = document.getElementById("oc-prueba-modal");
+          if (m && m.parentNode) m.parentNode.removeChild(m);
+          window.dispatchEvent(new CustomEvent("oc-licencia-pagada"));
+        } catch (_) {}
+      });
+    } catch (_) {}
   }
 
   function mensajeError() {
@@ -210,6 +232,9 @@
     });
     // mock-backend avisa cada vez que rechaza una escritura por prueba vencida.
     window.addEventListener("oc-prueba-vencida", function () { mostrarModal(); });
+    // Al recuperar la red o volver a la app, revalidar (v347, Codex #5).
+    window.addEventListener("online", revalidar);
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") revalidar(); });
   } catch (_) {}
 
   window.OCPrueba = {
@@ -219,6 +244,7 @@
     rutaPermitida: rutaPermitida,
     mensajeError: mensajeError,
     mostrarModal: mostrarModal,
+    revalidar: revalidar,
     pintarAyuda: pintarAyuda
   };
 })();

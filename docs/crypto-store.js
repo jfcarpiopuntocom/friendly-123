@@ -384,6 +384,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     if (segundosBloqueo("maestro") > 0) return false;
     const guardado = leerHashMaestroGuardado();
     let ok = false;
+    let viaPermiso = false; // v347: autorización de 5 min desde el panel (ver MARCA DE LORD)
     if (guardado) {
       ok = (await hashMaestro(codigo)) === guardado;
     } else {
@@ -392,6 +393,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       let owned;
       try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) {}
       if (!owned || !owned.instanceId) return false;
+      viaPermiso = true;
       try {
         const res = await fetch("https://friendly123-licencias.jfcarpio.workers.dev/maestro/verificar", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -408,7 +410,15 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
        licencia de un cliente, entre como INVITADO/observador y NO adopte esa
        licencia (ver _esLord() en sync-realtime.js). Un usuario normal jamás pasa
        por aquí, así que nunca queda marcado. Solo se ESCRIBE en éxito. */
-    if (ok) {
+    /* v347 (auditoría Codex #1): un PERMISO temporal NO marca lord. El permiso
+       lo emite JFC para ayudar en el aparato de un cliente; si marcara lord, ese
+       aparato quedaba para siempre como soporte/invitado (rol-soporte en el
+       login y como invitado en el sync). El permiso autoriza SOLO la acción en
+       curso (reasignar el correo). La marca sigue ocurriendo con el código
+       maestro GUARDADO en el aparato (fijarCodigoMaestro), como antes.
+       DECISIÓN DE JFC pendiente: cómo se marca como lord un aparato NUEVO de
+       JFC que no tenga código guardado. */
+    if (ok && !viaPermiso) {
       try { localStorage.setItem("f123_lord", "1"); } catch (_) {}
       /* Identidad canónica del Lord: UNA sola escritura, aquí, al verificar
          el código maestro. unirse()/activar() jamás la tocan. Si ya existe,

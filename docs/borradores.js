@@ -266,7 +266,11 @@
   // derivadas de productos, el dueño/admin puede AGREGAR categorías desde Sold.
   // Se persisten local (sin nube; el relay sigue zero-knowledge).
   var CUSTOM_KEY = "f123_categorias_custom";
-  function _leerCustom() { try { var a = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+  // v347 (auditoría Codex #2): la clave real lleva el sufijo del cuaderno
+  // activo; la calcula el backend (OCSync.claveCategorias). Sin backend, la
+  // clave de siempre.
+  function _k(base) { try { return (window.OCSync && window.OCSync.claveCategorias) ? window.OCSync.claveCategorias(base) : base; } catch (_) { return base; } }
+  function _leerCustom() { try { var a = JSON.parse(localStorage.getItem(_k(CUSTOM_KEY)) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
   /* SYNC DE LA CONFIGURACIÓN (v344, JFC 2026-09-22): cada cambio de las listas
      se avisa al backend con su estado, que lo sella con revisión y lo publica.
      Se calcula por diferencia (lo que entró / lo que salió), así cubre TODOS los
@@ -283,7 +287,7 @@
   }
   function _guardarCustom(a) {
     var antes = _leerCustom();
-    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(a)); } catch (_) {}
+    try { localStorage.setItem(_k(CUSTOM_KEY), JSON.stringify(a)); } catch (_) {}
     _registrarCambios(antes, a, "custom", "borrada");
   }
   /* Tombstones de categorías ocultas (JFC/Belén 2026-09-03): al renombrar una
@@ -292,10 +296,10 @@
      oculta; listar() la esconde SOLO si ya no tiene productos (nunca oculta
      inventario real). */
   var OCULTAS_KEY = "f123_categorias_ocultas";
-  function _leerOcultas() { try { var a = JSON.parse(localStorage.getItem(OCULTAS_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+  function _leerOcultas() { try { var a = JSON.parse(localStorage.getItem(_k(OCULTAS_KEY)) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
   function _guardarOcultas(a) {
     var antes = _leerOcultas();
-    try { localStorage.setItem(OCULTAS_KEY, JSON.stringify(a)); } catch (_) {}
+    try { localStorage.setItem(_k(OCULTAS_KEY), JSON.stringify(a)); } catch (_) {}
     _registrarCambios(antes, a, "oculta", "visible");
   }
   // Llegó configuración de categorías de otro aparato (o de un respaldo):

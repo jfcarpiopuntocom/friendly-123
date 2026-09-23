@@ -29,7 +29,9 @@ test('server permit verifies the intended device without embedding a universal d
   assert.equal(await fixture.api.verificarMaestro('fixture-token'), true);
   assert.equal(fixture.calls.length, 1);
   assert.equal(fixture.calls[0].body.instanceId, 'fixture-device');
-  assert.equal(fixture.values.get('f123_lord'), '1');
+  // v347 (auditoría Codex #1): antes esta línea exigía '1'. Ese era el defecto:
+  // un permiso de 5 min para ayudar a un cliente dejaba su aparato como lord.
+  assert.equal(fixture.values.get('f123_lord'), undefined, 'un permiso temporal no marca lord');
   assert.doesNotMatch(source, /MASTER_CODE_DEFAULT/);
 });
 
@@ -40,4 +42,5 @@ test('offline without a custom hash fails closed; an existing custom hash still 
   const digest = await webcrypto.subtle.digest('SHA-256', new TextEncoder().encode('oc-master:fixture-custom-code'));
   fixture.values.set('f123_secure', JSON.stringify({ masterHash: btoa(String.fromCharCode(...new Uint8Array(digest))) }));
   assert.equal(await fixture.api.verificarMaestro('fixture-custom-code'), true);
+  assert.equal(fixture.values.get('f123_lord'), '1', 'el código guardado del aparato sí marca lord, como antes');
 });

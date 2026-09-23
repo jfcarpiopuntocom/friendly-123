@@ -216,8 +216,16 @@
      sin registro jamás se toca. */
   const categoriasMeta = {};
   const _CAT_ESTADOS = ["custom", "borrada", "oculta", "visible"];
-  const _CAT_KEY_CUSTOM = "f123_categorias_custom";
-  const _CAT_KEY_OCULTAS = "f123_categorias_ocultas";
+  /* v347 (auditoría Codex #2): las listas de categorías llevan el sufijo del
+     cuaderno activo (OC_STATE_SUFIJO), igual que el estado. En el cuaderno
+     propio el sufijo es "" y la clave es la de siempre: nada se mueve ni se
+     borra. Antes, un aparato que se unía a OTRA tienda (sufijo "::<licencia>")
+     leía las listas globales y _sembrarCategoriasLegado metía sus categorías
+     en el catálogo de esa tienda. Se evalúa al usarse (no al cargar): esta
+     línea corre antes de que exista OC_STATE_SUFIJO. */
+  const _CAT_BASE_CUSTOM = "f123_categorias_custom";
+  const _CAT_BASE_OCULTAS = "f123_categorias_ocultas";
+  function _catKey(base) { try { return base + (OC_STATE_SUFIJO || ""); } catch (_) { return base; } }
   // Usuarios nombrados (encargados): hasta 49.
   // El dueno NO aparece aqui — su acceso es por PIN en crypto-store.
   // Cada entrada: { id, nombre, pin, rol:"empleado", activo, creadoEn }
@@ -476,7 +484,7 @@
   function _reflejarCategoriasEnListas(registros) {
     try {
       if (!registros || !registros.length) return;
-      let custom = _leerListaCat(_CAT_KEY_CUSTOM), ocultas = _leerListaCat(_CAT_KEY_OCULTAS);
+      let custom = _leerListaCat(_catKey(_CAT_BASE_CUSTOM)), ocultas = _leerListaCat(_catKey(_CAT_BASE_OCULTAS));
       const esta = (arr, n) => arr.some((x) => String(x).trim().toLowerCase() === n);
       const sin = (arr, n) => arr.filter((x) => String(x).trim().toLowerCase() !== n);
       registros.forEach((r) => {
@@ -488,8 +496,8 @@
         else if (r.estado === "oculta" && !esta(ocultas, id)) ocultas.push(n);
         else if (r.estado === "visible") ocultas = sin(ocultas, id);
       });
-      localStorage.setItem(_CAT_KEY_CUSTOM, JSON.stringify(custom));
-      localStorage.setItem(_CAT_KEY_OCULTAS, JSON.stringify(ocultas));
+      localStorage.setItem(_catKey(_CAT_BASE_CUSTOM), JSON.stringify(custom));
+      localStorage.setItem(_catKey(_CAT_BASE_OCULTAS), JSON.stringify(ocultas));
       try { window.dispatchEvent(new CustomEvent("oc-categorias-cambiadas")); } catch (_) {}
     } catch (_) {}
   }
@@ -510,8 +518,8 @@
         categoriasMeta[id] = { id, nombre: nom.slice(0, 120), estado, rev: { c: 0, d } };
         n++;
       });
-      sembrar(_leerListaCat(_CAT_KEY_CUSTOM), "custom");
-      sembrar(_leerListaCat(_CAT_KEY_OCULTAS), "oculta");
+      sembrar(_leerListaCat(_catKey(_CAT_BASE_CUSTOM)), "custom");
+      sembrar(_leerListaCat(_catKey(_CAT_BASE_OCULTAS)), "oculta");
       if (n) guardarEstadoLocal();
     } catch (_) {}
   }
@@ -2644,6 +2652,9 @@
     },
     /* borradores.js avisa cada cambio de categoría (alta, renombre, borrado,
        ocultar, mostrar). Se sella con revisión y se publica al sync. */
+    /* Clave de localStorage de una lista de categorías para el cuaderno activo
+       (v347). borradores.js la usa para leer/guardar en el mismo lugar. */
+    claveCategorias(base) { return _catKey(base); },
     marcarCategoria(nombre, estado) {
       try {
         const nom = String(nombre || "").trim();

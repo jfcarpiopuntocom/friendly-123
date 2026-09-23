@@ -1842,7 +1842,26 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
 
   // Expuesto para la vista Avanzado (capa contable).
+  /* REVALIDAR LICENCIA CON LA APP ABIERTA (v347, auditoría Codex #5). El estado
+     pagado ("full") solo llegaba en el heartbeat del login/activación: si JFC
+     marcaba la licencia como pagada con la app abierta, la prueba vencida seguía
+     rechazando escrituras hasta volver a entrar. Esto repite el MISMO heartbeat
+     del login (solo actualiza f123_owned.licenseEstado; no toca datos del
+     negocio). Como máximo una vez por minuto; sin red no hace nada. */
+  let _revalidadoAt = 0;
+  function revalidarLicencia() {
+    try {
+      if (Date.now() - _revalidadoAt < 60000) return Promise.resolve(null);
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return Promise.resolve(null);
+      const ow = JSON.parse(localStorage.getItem("f123_owned") || "null");
+      if (!ow || !ow.instanceId) return Promise.resolve(null);
+      _revalidadoAt = Date.now();
+      return Promise.resolve(heartbeatLogin(ow)).catch(function () { return null; });
+    } catch (_) { return Promise.resolve(null); }
+  }
+
   window.OCAuth = {
+    revalidarLicencia: revalidarLicencia,
     generarCodigo: generarCodigoSync,
     /* La caja que se formatea sola: mayusculas y guiones puestos al escribir o
        al pegar. JFC, 2026-08-19: "es penoso tener que poner las - manualmente o
