@@ -27,7 +27,7 @@
     const v = Number(n || 0);
     try {
       const loc = (window.OCI18n && window.OCI18n.locale && window.OCI18n.locale()) || "en-US";
-      return new Intl.NumberFormat(loc, { style: "currency", currency: "USD" }).format(v);
+      return new Intl.NumberFormat(loc, { style: "currency", currency: (window.OCMoneda && window.OCMoneda.codigo()) || "USD" }).format(v);
     } catch (_) { return "$" + v.toFixed(2); }
   };
   const esc = (s) => String(s == null ? '' : s)

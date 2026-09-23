@@ -2098,6 +2098,8 @@ function fmtMoney(n){
   // "$21913.00"). Misma forma de siempre; solo agrega las comas.
   const v = Number(n);
   if (!isFinite(v)) return "$" + v;
+  // v361: moneda del cuaderno (USD por defecto = lo de siempre).
+  if (window.OCMoneda) return window.OCMoneda.formato(v);
   return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
@@ -4809,6 +4811,8 @@ async function duplicarComoVariante(id) {
     if (tipo) tipo.dispatchEvent(new Event("change"));
     var perecible = scope.querySelector("#np-perecible");
     if (perecible) { perecible.checked = !!p.perecible; perecible.dispatchEvent(new Event("change")); }
+    var exento = scope.querySelector("#np-exento");
+    if (exento) exento.checked = !!p.exentoImpuesto;
     set("#np-fecha", p.fechaCaducidad || "");
     set("#np-metodo", p.metodoCosteo || "FIFO");
     set("#np-stock", 0);              // el valor seguro, siempre
@@ -5658,6 +5662,9 @@ function mostrarFormNuevoProducto(codigoEscaneado){
         <input id="np-foto" type="file" accept="image/*" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
         <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
+      <!-- v361: producto exento de impuesto (comida, libros... según el país). -->
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;min-height:44px;font-size:15px;font-weight:700;">
+        <input id="np-exento" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.taxExempt")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
         <label style="display:block;font-size:14px;">${t("form.expiryDate")}<br>
           <input id="np-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
@@ -5717,6 +5724,7 @@ async function crearProductoNuevo(codigoEscaneado){
     comisionProveedorPct: el("np-tipo-proveedor") && el("np-tipo-proveedor").value === "consignacion" ? Number(val("np-comision-pct")) || 0 : 0,
     comisionistaId: el("np-comisionista") ? (el("np-comisionista").value || null) : null,
     perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
+    exentoImpuesto: !!(el("np-exento") && el("np-exento").checked),
     metodoCosteo: perecible ? el("np-metodo").value : "FIFO",
     /* Tipo de producto + campos de bar (JFC 2026-08-27): "bar" cuenta stock en
        servings; servingMl/botellaMl definen la conversión (default 50/750 ml). */
@@ -5824,6 +5832,8 @@ async function mostrarFormEditarProducto(id){
       </div>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
         <input id="ed-categoria" type="text" value="${q(p.categoria)}" ${inp}></label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;min-height:44px;font-size:15px;font-weight:700;">
+        <input id="ed-exento" type="checkbox" ${p.exentoImpuesto ? "checked" : ""} style="width:20px;height:20px;"> <span>${t("form.taxExempt")}</span></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
         <select id="ed-tipo-producto" ${inp}>
           <option value="normal"${p.tipoProducto !== "ticket" && p.tipoProducto !== "bar" ? " selected" : ""}>Normal</option>
@@ -5887,6 +5897,7 @@ async function guardarEdicionProducto(id){
   // OJO: el SKU no se toca aqui — solo el barcode si el dueno lo digito.
   const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })() };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
+  { const ex = document.getElementById("ed-exento"); if (ex) body.exentoImpuesto = ex.checked; } // v361
   const foto = await leerFotoRedimensionada(document.getElementById("ed-foto"));
   if (foto) body.foto = foto;
   const msg = document.getElementById("ed-msg");
@@ -6027,6 +6038,9 @@ async function abrirAltaProducto(){
         </select></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
         <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
+      <!-- v361: producto exento de impuesto (comida, libros... según el país). -->
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;min-height:44px;font-size:15px;font-weight:700;">
+        <input id="np-exento" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.taxExempt")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
         <label style="display:block;font-size:14px;">${t("form.expiryDate")}<br>
           <input id="np-fecha" type="date" ${inp}></label>
@@ -6334,6 +6348,7 @@ async function abrirPanelVentaInfo(id, esTicket){
       <label id="vi-factura-wrap" style="display:none;margin-top:6px;font-size:14px;"><span data-i18n="sale.lblInvoiceNo">${escHtml(t("sale.lblInvoiceNo"))}</span><br>
         <input id="vi-factura" type="text" placeholder="e.g. 001-002-000012345" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblNotes">${escHtml(t("sale.lblNotes"))}</span><br><textarea id="vi-notas" rows="2" data-i18n-attr="placeholder:sale.phNotes" placeholder="${escHtml(t("sale.phNotes"))}" ${inp}></textarea></label>
+      <p id="vi-impuesto" style="display:none;font-size:15px;font-weight:700;margin:10px 0 0;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;"></p>
       <div id="vi-msg" role="status" aria-live="polite" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div class="acciones-rapidas" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
         <button class="vender" onclick="confirmarVentaConInfo('${p.id}', ${esTicket ? "true" : "false"})" data-i18n="sale.btnConfirm">${escHtml(t("sale.btnConfirm"))}</button>
@@ -6488,6 +6503,30 @@ async function abrirPanelVentaInfo(id, esTicket){
   };
   selCli.addEventListener("change", avisarCredito);
   avisarCredito();
+  /* v361: impuesto de ESTA venta, con la configuración del cuaderno. Solo
+     informa; el cálculo que se guarda lo hace el backend al confirmar. */
+  let _viCfgImp = null;
+  const pintarImpuestoVenta = () => {
+    const el2 = document.getElementById("vi-impuesto");
+    if (!el2) return;
+    const c = _viCfgImp;
+    if (!c || !c.activo || !(c.tasa > 0) || p.exentoImpuesto) { el2.style.display = "none"; return; }
+    const g = (id) => document.getElementById(id);
+    const cant = Math.max(1, Number((g("vi-servings") || g("vi-cantidad") || {}).value) || 1);
+    const ov = g("vi-precio-override");
+    const precio = (ov && ov.value !== "" && isFinite(Number(ov.value))) ? Number(ov.value) : Number(p.precio) || 0;
+    const baseC = (g("vi-cortesia") && g("vi-cortesia").checked) ? 0 : Math.round(precio * cant * 100);
+    if (baseC <= 0) { el2.style.display = "none"; return; }
+    const montoC = c.modo === "agregado" ? Math.round(baseC * c.tasa / 100) : baseC - Math.round(baseC / (1 + c.tasa / 100));
+    el2.textContent = c.modo === "agregado"
+      ? t("sale.taxAdded").replace("{name}", c.nombre).replace("{rate}", c.tasa).replace("{tax}", fmtMoney(montoC / 100)).replace("{total}", fmtMoney((baseC + montoC) / 100))
+      : t("sale.taxIncluded").replace("{name}", c.nombre).replace("{rate}", c.tasa).replace("{tax}", fmtMoney(montoC / 100));
+    el2.style.display = "block";
+  };
+  fetch(`${API}/config/impuesto`).then((r) => r.json()).then((c) => { _viCfgImp = c; pintarImpuestoVenta(); }).catch(() => {});
+  ["vi-cantidad", "vi-servings", "vi-precio-override"].forEach((id) => { const e3 = document.getElementById(id); if (e3) e3.addEventListener("input", pintarImpuestoVenta); });
+  { const cc = document.getElementById("vi-cortesia"); if (cc) cc.addEventListener("change", pintarImpuestoVenta); }
+  _viPintarImpuesto = pintarImpuestoVenta;
   if (esBar) {
     const sInp = document.getElementById("vi-servings");
     const bEl = document.getElementById("vi-botellas");
@@ -6505,10 +6544,12 @@ async function abrirPanelVentaInfo(id, esTicket){
   window._viRefrescarTextos = () => {
     try { syncCortFia(); } catch (_) {}
     try { avisarCredito(); } catch (_) {}
+    try { if (_viPintarImpuesto) _viPintarImpuesto(); } catch (_) {}
     try { if (_viBarActualizar) _viBarActualizar(); } catch (_) {}
   };
 }
 let _viBarActualizar = null;
+let _viPintarImpuesto = null;
 window.addEventListener("oc-lang-change", () => { if (window._viRefrescarTextos) window._viRefrescarTextos(); });
 function cancelarPanelVentaInfo(){
   const overlay = document.getElementById("oc-ventainfo-overlay");
@@ -8325,36 +8366,83 @@ window.addEventListener("oc-fotos-actualizadas", function () {
 /* IMPUESTO DEL CUADERNO (v359, JFC 2026-09-23). Casilla + tasa + nombre.
    Solo dueño/admin lo cambian; los demás lo ven. Se guarda en el cuaderno y
    viaja a todos los aparatos de la licencia. Texto siempre en tinta sólida. */
+/* v361 (JFC 2026-09-23): valores SUGERIDOS por país. Solo rellenan la caja;
+   el dueño revisa y guarda. Tasas generales vigentes a 2026 hasta donde se
+   sabe: en EE. UU. y Canadá la tasa depende del estado/provincia, por eso va
+   vacía o con la federal. Si un país cambia su tasa, se edita aquí. */
+const OC_IMPUESTO_PAISES = [
+  { k: "US", n: "United States", nombre: "Sales tax", modo: "agregado", tasa: "", moneda: "USD" },
+  { k: "CA", n: "Canada (GST)", nombre: "GST", modo: "agregado", tasa: 5, moneda: "CAD" },
+  { k: "MX", n: "México", nombre: "IVA", modo: "incluido", tasa: 16, moneda: "MXN" },
+  { k: "GB", n: "United Kingdom", nombre: "VAT", modo: "incluido", tasa: 20, moneda: "GBP" },
+  { k: "ES", n: "España", nombre: "IVA", modo: "incluido", tasa: 21, moneda: "EUR" },
+  { k: "DE", n: "Deutschland", nombre: "MwSt", modo: "incluido", tasa: 19, moneda: "EUR" },
+  { k: "FR", n: "France", nombre: "TVA", modo: "incluido", tasa: 20, moneda: "EUR" },
+  { k: "AU", n: "Australia", nombre: "GST", modo: "incluido", tasa: 10, moneda: "AUD" },
+  { k: "CO", n: "Colombia", nombre: "IVA", modo: "incluido", tasa: 19, moneda: "COP" },
+  { k: "PE", n: "Perú", nombre: "IGV", modo: "incluido", tasa: 18, moneda: "PEN" },
+  { k: "CL", n: "Chile", nombre: "IVA", modo: "incluido", tasa: 19, moneda: "CLP" },
+  { k: "AR", n: "Argentina", nombre: "IVA", modo: "incluido", tasa: 21, moneda: "ARS" },
+  { k: "EC", n: "Ecuador", nombre: "IVA", modo: "incluido", tasa: 15, moneda: "USD" },
+];
+/* IMPUESTO Y MONEDA DEL CUADERNO (v359/v361, JFC 2026-09-23). Solo dueño/admin
+   cambian; los demás lo ven. Se guarda en el cuaderno y viaja a todos los
+   aparatos de la licencia. Texto siempre en tinta sólida; campos de 44 px. */
 async function pintarImpuestoCfg(){
   const box = document.getElementById("ocImpuestoCfg");
   if (!box) return;
-  let cfg;
-  try { cfg = await (await fetch(`${API}/config/impuesto`)).json(); } catch (_) { box.innerHTML = ""; return; }
+  let cfg, mon;
+  try {
+    [cfg, mon] = await Promise.all([fetch(`${API}/config/impuesto`).then((r) => r.json()), fetch(`${API}/config/moneda`).then((r) => r.json())]);
+  } catch (_) { box.innerHTML = ""; return; }
   const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : "";
   const puede = rol === "dueno" || rol === "admin";
+  const dis = puede ? "" : "disabled";
   const tinta = "color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;";
   const campo = "min-height:44px;font-size:16px;padding:6px 10px;border:2px solid #2E6278;border-radius:6px;" + tinta;
+  const lab = "font-size:15px;" + tinta;
   box.innerHTML = `<div style="border:2px solid #5294AC;border-radius:8px;padding:12px 14px;background:#F8F9FB;">
-    <label style="display:flex;gap:10px;align-items:center;font-size:16px;font-weight:700;min-height:44px;${tinta}">
-      <input type="checkbox" id="ocImpActivo" ${cfg.activo ? "checked" : ""} ${puede ? "" : "disabled"} style="width:24px;height:24px;">
+    ${puede ? `<label style="display:block;${lab}">${escHtml(t("adv.tax.preset"))}<br>
+      <select id="ocImpPais" style="width:100%;max-width:320px;${campo}"><option value="">—</option>${OC_IMPUESTO_PAISES.map((x) => `<option value="${x.k}">${escHtml(x.n)}</option>`).join("")}</select></label>` : ""}
+    <label style="display:flex;gap:10px;align-items:center;font-size:16px;font-weight:700;min-height:44px;margin-top:6px;${tinta}">
+      <input type="checkbox" id="ocImpActivo" ${cfg.activo ? "checked" : ""} ${dis} style="width:24px;height:24px;">
       <span>${escHtml(t("adv.tax.enable"))}</span></label>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
-      <label style="font-size:15px;${tinta}">${escHtml(t("adv.tax.rate"))}<br><input id="ocImpTasa" type="number" min="0" max="100" step="0.01" value="${escHtml(String(cfg.tasa || 0))}" ${puede ? "" : "disabled"} style="width:110px;${campo}"></label>
-      <label style="font-size:15px;${tinta}">${escHtml(t("adv.tax.name"))}<br><input id="ocImpNombre" type="text" maxlength="30" value="${escHtml(cfg.nombre || "Sales tax")}" ${puede ? "" : "disabled"} style="width:160px;${campo}"></label>
-      ${puede ? `<button type="button" id="ocImpGuardar" class="ir" style="align-self:flex-end;min-height:44px;height:44px;padding:0 18px;font-size:15px;">${escHtml(t("adv.tax.save"))}</button>` : ""}
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:flex-end;">
+      <label style="${lab}">${escHtml(t("adv.tax.rate"))}<br><input id="ocImpTasa" type="number" min="0" max="100" step="0.001" value="${escHtml(String(cfg.tasa || 0))}" ${dis} style="width:110px;${campo}"></label>
+      <label style="${lab}">${escHtml(t("adv.tax.name"))}<br><input id="ocImpNombre" type="text" maxlength="30" value="${escHtml(cfg.nombre || "Sales tax")}" ${dis} style="width:150px;${campo}"></label>
+      <label style="${lab}">${escHtml(t("adv.tax.mode"))}<br><select id="ocImpModo" ${dis} style="${campo}">
+        <option value="incluido" ${cfg.modo !== "agregado" ? "selected" : ""}>${escHtml(t("adv.tax.modeIncluded"))}</option>
+        <option value="agregado" ${cfg.modo === "agregado" ? "selected" : ""}>${escHtml(t("adv.tax.modeAdded"))}</option></select></label>
+      <label style="${lab}">${escHtml(t("adv.tax.currency"))}<br><input id="ocMoneda" type="text" maxlength="3" value="${escHtml(mon.codigo || "USD")}" ${dis} style="width:90px;text-transform:uppercase;${campo}"></label>
+      ${puede ? `<button type="button" id="ocImpGuardar" class="ir" style="min-height:44px;height:44px;padding:0 18px;font-size:15px;">${escHtml(t("adv.tax.save"))}</button>` : ""}
     </div>
     <p style="font-size:14px;margin:8px 0 0;${tinta}">${escHtml(t("adv.tax.hint"))}</p>
     <p id="ocImpMsg" role="status" aria-live="polite" style="font-size:15px;font-weight:700;margin:6px 0 0;${tinta}"></p>
   </div>`;
+  const pais = document.getElementById("ocImpPais");
+  if (pais) pais.addEventListener("change", () => {
+    const x = OC_IMPUESTO_PAISES.find((y) => y.k === pais.value);
+    if (!x) return;
+    document.getElementById("ocImpActivo").checked = x.tasa !== "";
+    document.getElementById("ocImpTasa").value = x.tasa;
+    document.getElementById("ocImpNombre").value = x.nombre;
+    document.getElementById("ocImpModo").value = x.modo;
+    document.getElementById("ocMoneda").value = x.moneda;
+    document.getElementById("ocImpMsg").textContent = t("adv.tax.presetFilled");
+  });
   const btn = document.getElementById("ocImpGuardar");
   if (btn) btn.addEventListener("click", async () => {
     const msg = document.getElementById("ocImpMsg");
     try {
       const r = await fetch(`${API}/config/impuesto`, { method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ activo: document.getElementById("ocImpActivo").checked,
+        body: JSON.stringify({ activo: document.getElementById("ocImpActivo").checked, modo: document.getElementById("ocImpModo").value,
           tasa: Number(document.getElementById("ocImpTasa").value), nombre: document.getElementById("ocImpNombre").value }) });
       const d = await r.json();
       if (!r.ok) { msg.textContent = d.error || t("adv.tax.failed"); return; }
+      const r2 = await fetch(`${API}/config/moneda`, { method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo: document.getElementById("ocMoneda").value }) });
+      const d2 = await r2.json();
+      if (!r2.ok) { msg.textContent = d2.error || t("adv.tax.failed"); return; }
       msg.textContent = t("adv.tax.saved");
       cargarAvanzado();
     } catch (_) { msg.textContent = t("adv.tax.failed"); }
@@ -8392,7 +8480,7 @@ async function cargarAvanzado(){
   document.getElementById("tablaPL").innerHTML = `
     <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
     ${(pl.impuesto && pl.impuesto.activo) ? `<tr><td>${escHtml(t("adv.pl.grossSales").replace("{name}", pl.impuesto.nombre))}</td><td>${fmtMoney(pl.ingresosConIva)}</td></tr>
-    <tr><td>${escHtml(t("adv.pl.taxCollected").replace("{name}", pl.impuesto.nombre).replace("{rate}", pl.impuesto.tasa))}</td><td>${fmtMoney(pl.ivaCobrado)}</td></tr>` : ""}
+    <tr><td>${escHtml(t("adv.pl.taxCollected").replace("{name}", pl.impuesto.nombre).replace(" ({rate}%)", pl.impuesto.tasa ? " (" + pl.impuesto.tasa + "%)" : ""))}</td><td>${fmtMoney(pl.ivaCobrado)}</td></tr>` : ""}
     <tr><td>${t("adv.pl.revenue")}</td><td>${fmtMoney(pl.ingresos)}</td></tr>
     <tr><td>${t("adv.pl.cogs")}</td><td>${fmtMoney(pl.costoVentas)}</td></tr>
     <tr style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;"><td>${t("adv.pl.grossProfit")}</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>

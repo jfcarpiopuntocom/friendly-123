@@ -273,7 +273,7 @@
           // v359: impuesto configurable del cuaderno (apagado = precio neto).
           ((pl.impuesto && pl.impuesto.activo)
             ? linea("Ventas cobradas, con " + pl.impuesto.nombre, pl.ingresosConIva) +
-              linea(pl.impuesto.nombre + " cobrado (" + pl.impuesto.tasa + "%)", pl.ivaCobrado) +
+              linea(pl.impuesto.nombre + " cobrado" + (pl.impuesto.tasa ? " (" + pl.impuesto.tasa + "%)" : ""), pl.ivaCobrado) +
               linea("Ingresos netos, sin " + pl.impuesto.nombre, pl.ingresos)
             : linea("Ventas cobradas", pl.ingresos)) +
           linea("Costo de ventas", pl.costoVentas) +

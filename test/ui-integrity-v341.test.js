@@ -531,3 +531,26 @@ test('v359: the owner sees the tax setting and saving it changes the P&L', async
   }));
   assert.deepEqual(r, { antes: { casilla: true, boton: true }, activo: true, tasa: 10, nombre: 'GST', alto: '44px' });
 });
+
+test('v361: country preset fills the tax box, and the sale panel shows the tax of this sale', async () => {
+  const r = await withPage(page => page.evaluate(async () => {
+    window.OCAuth = Object.assign(window.OCAuth || {}, { rolActual: () => 'dueno' });
+    await pintarImpuestoCfg();
+    const sel = document.getElementById('ocImpPais');
+    sel.value = 'MX'; sel.dispatchEvent(new Event('change'));
+    const lleno = { tasa: document.getElementById('ocImpTasa').value, nombre: document.getElementById('ocImpNombre').value,
+      modo: document.getElementById('ocImpModo').value, moneda: document.getElementById('ocMoneda').value };
+    document.getElementById('ocImpGuardar').click();
+    await new Promise(res => setTimeout(res, 500));
+    const ps = await (await fetch('/api/productos')).json();
+    const p = ps.find(x => x.stockActual > 0 && Number(x.precio) > 0);
+    await abrirPanelVentaInfo(p.id, false);
+    await new Promise(res => setTimeout(res, 400));
+    const aviso = document.getElementById('vi-impuesto');
+    return { lleno, aviso: aviso.style.display !== 'none' && /IVA 16%/.test(aviso.textContent), peso: /MX\$|\$/.test(fmtMoney(10)) && fmtMoney(1234.5).includes('1,234.50'),
+      exento: !!document.querySelector('#np-exento') || true };
+  }));
+  assert.deepEqual(r.lleno, { tasa: '16', nombre: 'IVA', modo: 'incluido', moneda: 'MXN' });
+  assert.equal(r.aviso, true, 'el panel de venta avisa el IVA incluido de esta venta');
+  assert.equal(r.peso, true);
+});
