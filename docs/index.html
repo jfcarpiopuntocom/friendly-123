@@ -6806,6 +6806,15 @@ async function cargarVentasSold(){
       </div>
     </div>`;
   }).join("");
+  // JFC 2026-09-23: "abajo de Sold puede todas las ventas" -> resumen por producto
+  // de las mismas filas del log (se repinta con cada edicion o deshacer).
+  const _vsProd = agruparVentasPorProducto(rows, false);
+  if (_vsProd.length) cont.insertAdjacentHTML("beforeend", `<h3 class="seccion" style="font-size:15px;margin:18px 0 8px;">${t("sold.byProductHeading")}</h3>` + _vsProd.map((d) => `
+    <div class="tag-card" style="display:flex;justify-content:space-between;gap:10px;padding:10px 12px;margin-bottom:6px;">
+      <div style="min-width:0;"><strong style="font-size:15px;">${escHtml(d.producto)}</strong>
+        <div style="font-size:13px;color:var(--ink-soft);">${d.totalUnid}u${d.cortesias ? ` · ${d.cortesias} courtesy` : ""} · ${escHtml([...d.perchas].join(", "))}</div></div>
+      <strong style="font-size:15px;flex:0 0 auto;">${money(d.total)}</strong>
+    </div>`).join(""));
   // #4 (JFC 2026-09-02): tocar el nombre de un producto vendido lo busca arriba
   // en el grid de Sold (interconexión actividad → registro).
   cont.querySelectorAll(".oc-vs-goto").forEach((a) => a.addEventListener("click", (e) => {
@@ -7629,15 +7638,71 @@ function matrizComisionistasHtml(ranking){
     </div>`;
 }
 
+/* RESUMEN POR PRODUCTO (JFC 2026-09-23): "no debe ser por rack sino por producto,
+   pero bien enchufado; por shelf pueden ir al fondo". Sale de /api/ventas/todas
+   (una fila por venta, ya con su reparto), NO de /api/liquidaciones: esa solo mira
+   perchas que HOY comparten comision, y una venta comisionada cuya percha luego
+   paso a propia o se borro desaparecia del resumen. Aqui cuenta cada venta.
+   soloComision=true (Commissions): ventas del mes con reparto + COUNTER SALE de
+   perchas que comparten comision (la casa vendio sin comision; JFC la quiere ver).
+   soloComision=false (Sold): todas las ventas que muestra el log. */
+function agruparVentasPorProducto(rows, soloComision){
+  const map = new Map();
+  (Array.isArray(rows) ? rows : []).forEach((v) => {
+    const conReparto = v.comisionPct != null;
+    const counter = !conReparto && v.modoComision === "counter";
+    if (soloComision) {
+      if (!v.delMesActual) return;
+      if (!conReparto && !(counter && v.ubicacionTipo && v.ubicacionTipo !== "propio")) return;
+    }
+    const k = v.productoId || v.productoNombre;
+    const d = map.get(k) || { producto: v.productoNombre, sku: v.sku || "", perchas: new Set(), asociados: new Set(),
+      unid: 0, bruto: 0, socio: 0, casa: 0, pendSocio: 0, counterUnid: 0, counterMonto: 0, totalUnid: 0, total: 0, cortesias: 0 };
+    const cant = Number(v.cantidad) || 1;
+    const monto = (Number(v.precioUnit) || 0) * cant;
+    if (v.ubicacionNombre) d.perchas.add(v.ubicacionNombre);
+    d.totalUnid += cant; d.total += monto;
+    if (v.cortesia) d.cortesias += cant;
+    if (conReparto) {
+      const socio = Number(v.comisionAsociado) || 0, casa = Number(v.netoCasa) || 0;
+      d.unid += cant; d.bruto += socio + casa; d.socio += socio; d.casa += casa;
+      if (!v.liquidada) d.pendSocio += socio;
+      if (v.asociadoNombre) d.asociados.add(v.asociadoNombre);
+    } else if (counter) { d.counterUnid += cant; d.counterMonto += monto; }
+    map.set(k, d);
+  });
+  return [...map.values()].sort((a, b) => (b.bruto + b.counterMonto) - (a.bruto + a.counterMonto) || b.total - a.total);
+}
+function resumenComisionPorProductoHtml(prods){
+  if (!prods.length) return "";
+  return `<h3 class="seccion" style="font-size:15px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
+    <p style="font-size:14px;color:var(--ink-soft);margin:0 0 10px;">${t("comm.byProductIntro")}</p>` + prods.map((d) => `
+    <div class="tag-card" style="text-align:left;margin-bottom:10px;padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <strong style="font-size:16px;">${escHtml(d.producto)}${d.sku ? ` <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">${escHtml(d.sku)}</span>` : ""}</strong>
+        ${d.socio > 0 ? `<span class="badge-estado ${d.pendSocio > 0 ? "rojo" : "verde"}">${d.pendSocio > 0 ? "pending" : "paid"}</span>` : ""}
+      </div>
+      <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: ${escHtml([...d.perchas].join(", ") || "-")}${d.asociados.size ? ` · Associate: <strong>${escHtml([...d.asociados].join(", "))}</strong>` : ""}</div>
+      <table style="width:100%;margin-top:8px;font-size:14px;">
+        ${d.unid ? `<tr><td>Sold with commission</td><td style="text-align:right;">${d.unid}u · ${fmtMoney(d.bruto)}</td></tr>
+        <tr><td><strong>Associate takes</strong></td><td style="text-align:right;"><strong>${fmtMoney(d.socio)}</strong></td></tr>
+        <tr><td>House keeps</td><td style="text-align:right;">${fmtMoney(d.casa)}</td></tr>` : ""}
+        ${d.pendSocio > 0 ? `<tr><td style="color:var(--rust,#E86040);font-weight:700;">Still to pay</td><td style="text-align:right;color:var(--rust,#E86040);font-weight:700;">${fmtMoney(d.pendSocio)}</td></tr>` : ""}
+        ${d.counterUnid ? `<tr><td>COUNTER SALE (house, no commission)</td><td style="text-align:right;">${d.counterUnid}u · ${fmtMoney(d.counterMonto)}</td></tr>` : ""}
+      </table>
+    </div>`).join("");
+}
+
 async function cargarComisiones(){
   try { renderGestionPromotoras(); } catch (_) {}
   // Microcirugia 11 (2026-07-08): Promise.all sin guard dejaba Comisiones en blanco.
   const cont = document.getElementById("listaComisiones");
-  let filas, ranking;
+  let filas, ranking, ventasTodas;
   try {
-    [filas, ranking] = await Promise.all([
+    [filas, ranking, ventasTodas] = await Promise.all([
       fetch(`${API}/liquidaciones`).then(r => r.json()),
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
     ]);
   } catch (_) {
     if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load commissions. Reload the view.</p>';
@@ -7650,7 +7715,8 @@ async function cargarComisiones(){
   // Excel/Sheets o mandarlo al contador.
   const btnExport = `<button class="ir" style="margin-bottom:16px;background:#2C3E50;color:#fff;border-color:#0F1923;" onclick="exportarComisionesCSV()">⬇ Export CSV</button>`;
 
-  if (filas.length === 0){
+  const porProducto = agruparVentasPorProducto(ventasTodas, true);
+  if (filas.length === 0 && !porProducto.length){
     cont.innerHTML = btnWA + `<p>You don't have shelves that generate commission yet (partner, franchise, or consignment). Create them in Inventory → Shelves.</p>`;
     return;
   }
@@ -7804,7 +7870,8 @@ async function cargarComisiones(){
   // JFC 2026-09-06: subsección con título propio para las tarjetas de resultado
   // por percha/evento (antes iban sueltas sin encabezado). Solo si hay filas.
   const cardsHeading = cardsHtml ? `<h3 class="seccion" style="font-size:15px;margin:22px 0 10px;">${t("comm.cardsHeading")}</h3>` : "";
-  cont.innerHTML = btnWA + btnExport + rankHtml + cardsHeading + cardsHtml + matrizComisionistasHtml(ranking);
+  // JFC 2026-09-23: primero por producto; las tarjetas por percha (pagar, corregir %) al fondo.
+  cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto) + rankHtml + matrizComisionistasHtml(ranking) + cardsHeading + cardsHtml;
 
   /* Los dos campos son el mismo numero visto al reves. Se espejan mientras se
      escribe: imposible dejar un reparto que no suma 100. */
@@ -7888,10 +7955,16 @@ async function cargarComisiones(){
 // un archivo CSV con el desglose por percha del mes: percha, promotor, ventas,
 // % asociado, comisión, % casa, neto, estado. Se abre en Excel/Sheets.
 async function exportarComisionesCSV(){
-  let filas;
-  try { filas = await (await fetch(`${API}/liquidaciones`)).json(); }
+  let filas, ventasTodas;
+  try {
+    [filas, ventasTodas] = await Promise.all([
+      fetch(`${API}/liquidaciones`).then(r => r.json()),
+      fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
+    ]);
+  }
   catch (_) { alert("Could not load commissions to export."); return; }
-  if (!Array.isArray(filas) || !filas.length) { alert("No commissions to export yet."); return; }
+  const porProducto = agruparVentasPorProducto(ventasTodas, true);
+  if ((!Array.isArray(filas) || !filas.length) && !porProducto.length) { alert("No commissions to export yet."); return; }
   const esc = (s) => { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const cab = ["Rack","Promoter","Monthly sales","Associate %","Associate takes","House %","House keeps","Status"];
   const filasCSV = filas.map(f => [
@@ -7903,7 +7976,11 @@ async function exportarComisionesCSV(){
     (f.netoDueno || 0).toFixed(2),
     esc(({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado)
   ].join(","));
-  const csv = "\uFEFF" + cab.join(",") + "\n" + filasCSV.join("\n");
+  // JFC 2026-09-23: el CSV abre por producto; el bloque por percha va debajo.
+  const cabP = ["Product","SKU","Rack","Associate","Units with commission","Sales","Associate takes","House keeps","Still to pay","COUNTER SALE units","COUNTER SALE sales"];
+  const filasP = porProducto.map(d => [esc(d.producto), esc(d.sku), esc([...d.perchas].join(" / ")), esc([...d.asociados].join(" / ")),
+    d.unid, d.bruto.toFixed(2), d.socio.toFixed(2), d.casa.toFixed(2), d.pendSocio.toFixed(2), d.counterUnid, d.counterMonto.toFixed(2)].join(","));
+  const csv = "\uFEFF" + cabP.join(",") + "\n" + filasP.join("\n") + "\n\n" + cab.join(",") + "\n" + filasCSV.join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -7914,9 +7991,10 @@ async function exportarComisionesCSV(){
 }
 
 async function enviarResumenWhatsApp(){
-  const [dash, liq] = await Promise.all([
+  const [dash, liq, ventasTodas] = await Promise.all([
     fetch(`${API}/dashboard?ubicacionId=${ubicacionActual}`).then(r => r.json()).catch(() => ({})),
     fetch(`${API}/liquidaciones`).then(r => r.json()).catch(() => []),
+    fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
   ]);
   const rd = dash.resumenDia || {};
   const pend = (Array.isArray(liq) ? liq : []).filter(f => f.estado === "pendiente");
@@ -7924,7 +8002,12 @@ async function enviarResumenWhatsApp(){
   const criticos = (dash.alertas || []).filter(a => a.estado === "rojo").slice(0, 3).map(a => a.mensaje);
   const L = ["*Daily summary — friendly-123*"];
   L.push(`Today's sales: ${fmtMoney(rd.entra || 0)} in ${rd.ventasCount || 0} sale(s).`);
-  if (totalPend > 0) L.push(`Pending commissions: ${fmtMoney(totalPend)} (${pend.length} rack(s)).`);
+  // JFC 2026-09-23: los pendientes se detallan por producto (antes solo "N rack(s)").
+  if (totalPend > 0) {
+    L.push(`Pending commissions: ${fmtMoney(totalPend)}.`);
+    agruparVentasPorProducto(ventasTodas, true).filter(d => d.pendSocio > 0).slice(0, 8)
+      .forEach(d => L.push(`• ${d.producto}: ${fmtMoney(d.pendSocio)}`));
+  }
   if (criticos.length){ L.push("Critical stock:"); criticos.forEach(c => L.push("• " + c)); }
   else L.push("No critical stock. Everything is fine.");
   window.open("https://wa.me/?text=" + encodeURIComponent(L.join("\n")), "_blank");

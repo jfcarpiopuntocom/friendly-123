@@ -4449,6 +4449,11 @@
           modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
           comisionCorregida: !!(v.split && v.split.corregida),
           liquidada: !!v.liquidada,
+          /* JFC 2026-09-23: el resumen por producto de Commissions usa el MISMO mes que
+             /api/liquidaciones (hora local del negocio) y sabe si la percha comparte
+             comision, sin que el front recalcule fechas ni cruce tablas. Aditivo. */
+          delMesActual: esDelMesActual(v.fecha),
+          ubicacionTipo: u ? (u.tipo || "propio") : "",
           // COUNTER SALE no se atribuye a la persona permanente de la percha:
           // el nombre acompaña solo a ventas que realmente tienen reparto.
           asociadoNombre: v.split && pr ? pr.nombre : "",
