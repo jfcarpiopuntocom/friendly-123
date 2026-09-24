@@ -220,3 +220,19 @@ trabajo está mal hecho aunque el código funcione.
   principal del dueño es el secret LORD_LICENSE del Worker.
 - `check-sw.sh` G5 falla si aparece una. No relajar esa guarda.
 - JFC es el DUEÑO de la app (lord = su licencia principal), nunca "soporte".
+
+## JEV + OMNIROUTE: REPARTO DE TRABAJO (JFC 2026-09-24, regla dura, las 3 apps)
+- Claude razona, depura, lee y escribe código y textos. Jev (TypeSafe, vía Vercel AI
+  Gateway) toma los juicios chicos y repetidos sobre el MISMO estado público:
+  clasificar, rankear, triar, sí/no sobre muchos ítems. El código hace cuentas,
+  fechas, dinero y todo lo determinista.
+- Skill: `~/.claude/skills/jev-jfc` (Claude) y `~/.codex/skills/jev-jfc` (Codex),
+  mismo ejecutor. Clave SOLO en la variable de usuario `AI_GATEWAY_API_KEY`, tope USD 1.
+- Solo se llama si ahorra más contexto del que gasta. Confianza baja o error ->
+  decide Claude o el flujo existente, sin reintentos.
+- JAMÁS mandar a Jev: datos de clientes, PIN, licencias, claves, datos del panel,
+  transcripts completos ni volcados del repo. Jev aconseja, no autoriza: dinero,
+  publicar y borrar siguen con sus guardas y con JFC.
+- Compactación de sesión con Jev: plugin `fast-jev-compaction` instalado en Claude
+  Code. Pendiente de clave TypeSafe y de decisión de JFC, porque manda la
+  conversación a api.typesafe.ai.
