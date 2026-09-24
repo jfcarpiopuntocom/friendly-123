@@ -74,3 +74,35 @@ test('B corrige el % de una venta que A ya pago (sin verlo): al converger manda 
   assert.equal(cents(b.split.montoComisionSocio), 2000);
   assert.equal(cents(b.split.montoComisionSocio) + cents(b.split.montoNetoDueno), cents(b.split.montoBruto));
 });
+
+test('A y B marcan pagado el mismo mes a la vez: al converger nada se paga dos veces ni queda pendiente', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 2 });
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await B.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  sync(A, B);
+  for (const X of [A, B]) {
+    const l = await liq(X, shelf);
+    assert.equal(l.estado, 'pagado'); assert.equal(l.ventasPendientes, 0);
+    const vs = (await X.request('/api/respaldo/exportar')).ventas.filter(v => v.ubicacionId === shelf.id);
+    assert.equal(vs.length, 2, 'dos ventas, no cuatro'); assert.ok(vs.every(v => v.liquidada));
+  }
+});
+
+test('B devuelve una venta pendiente mientras A le corrige el %: converge anulada, sin ajuste y sin comision pendiente', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/ubicaciones/${shelf.id}/comisiones-del-mes`, 'PATCH', { comisionPct: 60, quien: 'A', motivo: 'x' });
+  await B.request(`/api/ventas/${id}/devolucion`, 'POST', { motivo: 'race', quien: 'B' });
+  sync(A, B);
+  for (const X of [A, B]) {
+    const v = await venta(X, id);
+    assert.equal(v.anulada, true, 'la anulacion no se pierde');
+    assert.equal((await ajustes(X)).length, 0, 'no pagada => sin clawback');
+    assert.equal((await liq(X, shelf)).ventasPendientes, 0, 'una venta anulada no debe comision');
+  }
+});
