@@ -33,6 +33,10 @@ test("promoter management block uses the same type scale (v366 live left 15px an
   assert.ok(/data-abrir-promotora="\$\{[^}]+\}"[^>]*>\s*<strong style="font-size:16px;/.test(html), "promoter names inherit 13.33px");
 });
 
+test("status badges never shrink below 13px on phones (v367 live showed 11px)", () => {
+  for (const m of html.matchAll(/\.badge-estado\{[^}]*font-size:\s*([0-9.]+)px/g)) assert.ok(Number(m[1]) >= 13, "badge at " + m[1] + "px");
+});
+
 test("commissions has no medal emojis and no grey #8A8A8A", () => {
   const r = region();
   assert.ok(!/[\u{1F947}-\u{1F949}]/u.test(r), "medal emoji still present");
