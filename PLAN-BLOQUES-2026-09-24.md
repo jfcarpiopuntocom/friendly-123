@@ -30,7 +30,7 @@ estado.
   loading=lazy, 1:1, max 420px; figcaption bilingüe (clave clipSplit ya en
   copy.es). Verificar móvil 375px y escritorio; publicar website (backup a
   backups/YYYY-MM-DD_HH-mm-ss antes de push). **Solo desde la PC de JFC.**
-- [ ] 2. SEO con herramientas GRATIS (no pausar): Lighthouse CLI (npm i
+- [~] 2. ESTADO 2026-09-24 (Fable 5.1, shell v386): robots.txt, sitemap.xml, canonical y JSON-LD en index/save/visualize; contraste arreglado (chips/boton de save-visualize y li.naranja de la app a tinta oscura). Queda re-medir Lighthouse/PSI y validar el JSON-LD desde la PC: en NOTAS-PARA-OPUS-5.5-2026-09-24.md. 7 (Hallmark) tambien va ahi. SEO con herramientas GRATIS (no pausar): Lighthouse CLI (npm i
   lighthouse local, nunca npx), PageSpeed Insights API sin key, validar JSON-LD
   (schema.org validator), revisar hreflang/alt/headings. Aplicar fixes con Jev
   como juez. Reportar puntajes antes/después.

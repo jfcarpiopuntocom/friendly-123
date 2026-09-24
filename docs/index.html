@@ -115,6 +115,11 @@
      desde Advanced, sin tocar este meta. NO poner una URL aqui hasta que el
      canario diga "same shell" y "0 fell back" durante dias. -->
 <meta name="oc-origen-codigo" content="">
+<!-- Bloque 2 SEO (JFC 2026-09-24): canonical + datos estructurados de la app. -->
+<link rel="canonical" href="https://jfcarpiopuntocom.github.io/friendly-123/">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"friendly-123","url":"https://jfcarpiopuntocom.github.io/friendly-123/","applicationCategory":"BusinessApplication","operatingSystem":"Any (web, offline-capable)","inLanguage":["en","es"],"description":"Your store, in color. Inventory, one-tap sales, consignment shelves and commissions for small retail. Works offline.","offers":{"@type":"Offer","price":"399","priceCurrency":"USD","description":"One-time payment, 5-year license, support and updates included"}}
+</script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
@@ -839,7 +844,11 @@
   }
   .lista-alertas li.verde{background:var(--sim-verde); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-verde-dk);}
   .lista-alertas li.amarillo{background:var(--sim-amarillo); color:#1A1A1A !important; -webkit-text-fill-color:#1A1A1A !important; border:2px solid var(--sim-amarillo-dk);}
-  .lista-alertas li.naranja{background:var(--sim-naranja); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-naranja-dk);}
+  /* Bloque 2 (JFC 2026-09-24, legibilidad): blanco sobre el naranja SIMON da
+     2.8:1 y falla la regla. La alerta naranja conserva su borde y su fondo de
+     marca, pero el TEXTO va en tinta oscura del mismo naranja (#7C2D12 sobre
+     #FDD9BE: 8:1). El semaforo se sigue leyendo por el borde y el fondo. */
+  .lista-alertas li.naranja{background:#FDD9BE; color:#7C2D12 !important; -webkit-text-fill-color:#7C2D12 !important; border:2px solid var(--sim-naranja-dk);}
   .lista-alertas li.rojo{background:var(--sim-rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-rojo-dk);}
   .lista-alertas li.negro{background:var(--sim-negro-bg); color:#E0E0E2; border:2px solid var(--sim-negro);}
 

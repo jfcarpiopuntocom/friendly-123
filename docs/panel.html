@@ -1297,7 +1297,9 @@ async function licCambiarEstado(instanceId) {
     mostrarConfirmacion("Estado actualizado: " + estado);
     const r = _licData.find(x => x.instanceId === instanceId);
     if (r) r.estado = estado;
-    licRenderStats(_licData);
+    /* Lista v2 (2026-09-24): el estado del GRUPO se calcula al indexar, asi
+       que hay que reindexar o la fila y los totales quedarian viejos. */
+    if (typeof licReindexar === "function") licReindexar(); else licRenderStats(_licData);
   } catch (e) {
     mostrarConfirmacion("Error al actualizar: " + e.message);
   }

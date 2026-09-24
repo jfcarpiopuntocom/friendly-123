@@ -3,7 +3,7 @@
   "fecha": "2026-09-24",
   "changelog": "Commissions: a settled sale can no longer have its percentage edited (a return is the only way, as designed). Code loader (canary) with automatic fallback to github.io; nothing changes until it is switched on.",
   "requerida": false,
-  "shell": "f123-shell-v385",
+  "shell": "f123-shell-v386",
   "apagar": [],
   "releaseName": "v1.0"
 }
