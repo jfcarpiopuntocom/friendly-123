@@ -162,6 +162,18 @@
   // y los estados negro/BCG con datos creibles. REGLA: jamas darle ventas
   // "solo viejas" a un producto que deba verse verde/amarillo (se volveria
   // negro por dias-sin-venta), ni tocar los productos con dormidoDesde.
+  // Nombres originales de la semilla, antes de cargar nada guardado (ver FOTOS DEL DEMO).
+  const _DEMO_NOMBRES = new Map(productos.map((p) => [p.id, p.nombre]));
+  /* Ver FOTOS DEL DEMO (tras cargarEstadoLocal). Tambien corre al final de
+     aplicarRespaldo(): el estado del demo puede volver desde IndexedDB o de un
+     respaldo DESPUES del arranque, y ahi entra por esa puerta. */
+  function ponerFotosDemo() {
+    try {
+      productos.forEach((p) => {
+        if (p && !p.foto && _DEMO_NOMBRES.get(p.id) === p.nombre) p.foto = "./demo/" + p.id + ".webp";
+      });
+    } catch (_) {}
+  }
   function sembrarVentasDemo() {
     /* opts (JFC 2026-09-24, shell 372 "rellenar el demo para mostrar de lo que es
        capaz"): { impaga: true } deja la venta sin pagar al asociado aunque sea del
@@ -607,6 +619,7 @@
       });
       _reflejarCategoriasEnListas(validas);
     }
+    ponerFotosDemo(); // fotos de ejemplo solo en semilla intacta (shell 374)
   }
   function _leerListaCat(clave) {
     try { const a = JSON.parse(localStorage.getItem(clave) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; }
@@ -3214,6 +3227,14 @@
   // Al arrancar: si hay un estado persistido válido, reemplaza los datos
   // semilla (item 1 — persistencia local real).
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
+  /* FOTOS DEL DEMO (JFC 2026-09-24, shell 374: "sube buenas fotos de productos al
+     demo, seamos impresionantes"). 38 fotos CC0 (StockSnap/Openverse, uso comercial
+     sin atribucion; fuentes en docs/demo/CREDITOS.json), 480x480 WebP, ~20 KB c/u.
+     Solo se ponen a productos SEMILLA INTACTOS: mismo id, mismo nombre original y
+     sin foto propia. Un producto real (aunque comparta id) nunca recibe una foto
+     de ejemplo. Corre tras cargar el estado guardado para que un aparato que ya
+     habia abierto el demo antes tambien las vea. Aditivo: no quita ninguna foto. */
+  ponerFotosDemo();
   /* GUARD DEMO — NADIE QUE NO SEA DEMO VE STOCK DE EJEMPLO (JFC 2026-09-11).
      Bug real: en un navegador/PC nuevo la app arranca con la SEMILLA demo en
      memoria. Si el aparato está ACTIVADO (f123_owned con instanceId, o sea

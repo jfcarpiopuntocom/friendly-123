@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Los avisos de rutina (respaldo, resumen semanal) ya no aparecen al entrar a la app: solo en Advanced, para dueno o admin.",
+  "changelog": "El demo muestra fotos reales de cada producto.",
   "requerida": false,
-  "shell": "f123-shell-v373",
+  "shell": "f123-shell-v374",
   "apagar": [],
   "releaseName": "v1.0"
 }
