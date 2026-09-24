@@ -2501,8 +2501,48 @@
         _observarRev(v.rev);
         const local = _idsVenta.get(String(v.id));
         if (local) {
-          if (_revDomina(v.rev, local.rev) !== true) return;
-          Object.assign(local, v); actualizados++; return;
+          /* CARRERAS DE DINERO ENTRE APARATOS (JFC 2026-09-24, cazadas por
+             test/commissions-carreras-sync.test.js). Antes ganaba el registro
+             ENTERO con rev mas alto, y eso perdia plata en dos carreras reales:
+             (1) A paga y B, sin verlo, anula/devuelve la misma venta: segun el
+                 rev, A ignoraba la devolucion (socio cobra por algo que volvio)
+                 o A perdia "liquidada" (pagado que desaparece del registro).
+             (2) B corrige el % de una venta que A ya pago: la correccion
+                 "despagaba" la venta y cambiaba el monto sellado.
+             Ahora: las banderas liquidada/devuelta/anulada son MONOTONAS (una
+             vez puestas ningun merge las quita, gane quien gane el rev); el
+             split de una venta pagada se congela (manda el lado que la pago);
+             y si al converger la venta queda pagada Y anulada/devuelta sin su
+             clawback, se crea el ajuste negativo con id DETERMINISTA
+             (aj-dev-<ventaId>) para que los dos aparatos creen el mismo y el
+             merge add-only de ajustes lo deduplique. Aditivo: sin banderas en
+             juego, el comportamiento es el de siempre (rev manda). */
+          const domina = _revDomina(v.rev, local.rev) === true;
+          const pagadaLocal = !!local.liquidada, splitLocal = local.split;
+          const pagadaRemota = !!v.liquidada, splitRemoto = v.split;
+          if (domina) { Object.assign(local, v); actualizados++; }
+          local.liquidada = pagadaLocal || pagadaRemota;
+          local.devuelta = !!(local.devuelta || v.devuelta);
+          local.anulada = !!(local.anulada || v.anulada);
+          if (!local.devolucionId && v.devolucionId) local.devolucionId = v.devolucionId;
+          if (pagadaLocal && splitLocal) local.split = splitLocal;
+          else if (pagadaRemota && splitRemoto) local.split = splitRemoto;
+          if (local.liquidada && local.split && (local.anulada || local.devuelta)) {
+            const idAj = "aj-dev-" + String(local.id);
+            const yaHay = ajustesComision.some((a) => a && (String(a.id) === idAj || String(a.ventaId) === String(local.id)));
+            if (!yaHay) {
+              const sp = local.split;
+              ajustesComision.push({
+                id: idAj, tipo: "devolucion", ventaId: local.id, ubicacionId: local.ubicacionId, productoId: local.productoId,
+                cantidad: local.cantidad, fecha: new Date().toISOString(),
+                montoBruto: -(Number(sp.montoBruto) || 0), montoComisionSocio: -(Number(sp.montoComisionSocio) || 0), montoNetoDueno: -(Number(sp.montoNetoDueno) || 0),
+                reparto: Array.isArray(sp.reparto) ? sp.reparto.map((r) => Object.assign({}, r, { monto: -(Number(r.monto) || 0) })) : null,
+                quien: "sync", motivo: "Return recorded on another device after this sale was paid", liquidada: false, rev: _revNueva()
+              });
+              local.devuelta = true; local.devolucionId = idAj; actualizados++;
+            }
+          }
+          return;
         }
         ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);

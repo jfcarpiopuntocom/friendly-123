@@ -1051,9 +1051,9 @@
        aparatos: el dueño ve su equipo de comisionistas con su % vigente, venga
        el alta de donde venga. Usa datos.promotoras, que ya viaja en la foto. */
     comisionistas: {
-      nombre: "Promoters",
+      nombre: "Commissionists / artists / promoters",
       cols: [
-        { title: "Promoter", field: "nombre", minWidth: 180, widthGrow: 3 },
+        { title: "Commissionist/Artist/Promoter", field: "nombre", minWidth: 180, widthGrow: 3 },
         { title: "Commission", field: "comisionBase", width: 120, hozAlign: "right", cssClass: "num",
           formatter: function (c) { var v = c.getValue(); if (v == null) v = c.getRow().getData().comision; return (Number(v) || 0) + "%"; } },
         { title: "Monthly goal", field: "metaMensual", width: 130, hozAlign: "right", cssClass: "num",
