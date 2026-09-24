@@ -138,3 +138,38 @@ Las advertencias CSP/HSTS/COOP/XFO no se pueden fijar en GitHub Pages
 - Panel: falta probar en vivo emitir un lote y registrar un pago con el
   Worker desplegado (JFC lo hace desde panel.html; si algo falla, el error
   sale en la linea de mensaje del panel: copiarlo aqui).
+
+## BENCHMARK DE RIVALES (Opus 5.5, 2026-09-24) — qué sumar y qué ya ganamos
+Fuentes: puppetvendors.com (guías 2026 de consignación y Shopify), softwareadvice,
+fitsmallbusiness, technologyadvice, getcircular, resaleos, circle-hand, G2/Capterra
+(Loyverse). Rivales: Ricochet, ConsignCloud, SimpleConsign, Circle-Hand, Visceral
+(consignación); Loyverse, Square, Shopify POS (tienda chica).
+
+### Ya ganamos (decirlo en la landing, sin exagerar)
+- Pago unico con licencia de 5 anos frente a suscripciones mensuales.
+- Funciona sin internet de verdad; Loyverse es de los pocos que lo hacen y Square no del todo.
+- Semaforo de colores en vez de tablas; la competencia es de planilla.
+- Devolucion despues de pagar = ajuste negativo que nunca edita lo pagado; venta repartida
+  entre dos personas al centavo; COUNTER SALE; carreras entre aparatos probadas (v387).
+
+### Lo que tienen y nos falta, por impacto en ventas (dueño de la decision: JFC)
+1. **Portal o estado de cuenta para el comisionista/artista** (Ricochet y ConsignCloud lo
+   venden como diferencial): ver sus piezas sin vender, lo vendido y lo pendiente de pago.
+   Version sin servidor para nosotros: un enlace de solo lectura, firmado y con fecha de
+   vencimiento, generado desde Commissions, o el recibo de WhatsApp ampliado. ARQUITECTURA
+   Y SEGURIDAD = Fable 5.1. UI del recibo = Opus.
+2. **Aviso automatico al comisionista cuando se vende su pieza** (WhatsApp con mensaje listo,
+   como ya hacemos con el recibo). Barato y muy valorado.
+3. **Rebaja por antigüedad** (consignacion: -10 % a los 30 dias, -25 % a los 60, o devolver
+   al artista). Hoy tenemos umbrales de color; falta la regla de precio por dias en percha.
+   Toca dinero = Fable 5.1.
+4. **Medio de pago al liquidar** (efectivo, transferencia, credito en tienda) guardado en el
+   pago al comisionista. Hoy "marcar pagado" no dice como se pago. Aditivo, toca dinero = Fable.
+5. **Programa de lealtad simple** (Loyverse lo trae gratis): puntos o "la 10.a compra con
+   descuento" sobre clientes que ya existen. Opus puede hacer la UI; la regla de dinero, Fable.
+6. **El comisionista carga sus piezas e imprime etiquetas** (Ricochet). Para nosotros: un
+   rol "commissionist/artist" con solo alta de productos en su percha. Acceso = Fable.
+
+### Orden sugerido
+2 (aviso WhatsApp, 1 dia) → 4 (medio de pago, 1 dia) → 1 (estado de cuenta) → 3 (rebaja por
+dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo.
