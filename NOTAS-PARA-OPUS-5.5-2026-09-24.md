@@ -104,3 +104,27 @@ Las advertencias CSP/HSTS/COOP/XFO no se pueden fijar en GitHub Pages
    solo al origen de github.io, cargador solo https.
 5. Diagnostico de un cliente real (Belen/idiomARTE): leer bitacora y
    liquidaciones antes de tocar nada; nunca "arreglar" borrando namespaces.
+
+## Bloque 1 — clip del hero (Fable 5.1 hizo el clip; falta insertarlo, SOLO desde la PC de JFC)
+- Clip publicado: `website/friendly123/clips/clip1-split-fable.html` →
+  https://jfcarpio.com/friendly123/clips/clip1-split-fable.html
+  (1:1, 9 s, sin dependencias, reduced-motion con fotograma final).
+  El `clip1-split.html` local de JFC sigue intacto; el nuevo va al lado.
+- Insertar en el hero de `website/friendly123/index.html` (tiene cambios
+  locales sin commit en la PC: primero commit de eso, luego esto), como
+  tarjeta superpuesta abajo del arte, NUNCA reemplazando el sombrero y las
+  bolsas:
+  `<figure class="hero-clip"><iframe src="clips/clip1-split-fable.html" loading="lazy" title="One sale, split fairly" style="aspect-ratio:1/1;width:100%;max-width:420px;border:0;border-radius:14px;display:block"></iframe><figcaption data-copy="clipSplit"></figcaption></figure>`
+  La clave `clipSplit` ya existe en copy.es. Verificar 375 px y escritorio
+  con captura; el iframe no debe tapar el H1 ni el CTA.
+- Criterio estetico (no negociable): papel, tinta, UN acento, numeros
+  tabulares, sin degradados brillantes ni sombras blandas ni emojis. Si se
+  cambia algo del clip, mantener la historia (venta entra, se parte 60/40,
+  la percha pasa a verde) y las notas del propio archivo.
+
+## Higiene pendiente (chica)
+- `.claude/check-inline.cjs` aun marca "Unexpected identifier 'de'" en el
+  script inline #4 de `docs/index.html`: viene de antes de 2026-09-24. Es
+  un texto en español dentro de un bloque que el chequeo lee como JS.
+  Ubicarlo (numerar los <script> sin src) y arreglar SOLO el comentario o
+  el chequeo, nunca el codigo que corre.
