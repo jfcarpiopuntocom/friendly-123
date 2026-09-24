@@ -220,3 +220,9 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [x] PLAN-ESTADO-DE-CUENTA-COMISIONISTA-2026-09-24.md con revision de seguridad (enlace cifrado en el fragmento #, sin servidor, vence).
 - [ ] DECISION JFC: vencimiento del enlace, 7 dias (propuesto) o 30.
 - [ ] Paso 1 del plan: estado.html + estado-cifrado.js con tests (ida y vuelta, vencimiento, datos alterados, XSS).
+
+## AVANCE estado de cuenta — paso 1 HECHO (Opus 5.5, 2026-09-24)
+- [x] docs/estado-cifrado.js + docs/estado.html: AES-GCM con clave de 128 bits, todo en el fragmento #, vence (7 dias por defecto, constante VENCE_DIAS_DEFECTO), lista blanca, max 60 lineas, noindex + no-referrer, pinta solo con textContent. test/estado-cuenta.test.js 6/6. Chromium 375 px: se ve bien, XSS queda como texto, vencido no muestra datos, enlace ~600 caracteres.
+- [ ] Paso 2: boton "Send statement" en la tarjeta de Commissions (dueno/admin) que arma el JSON minimo del mes y abre WhatsApp al telefono del comisionista. Test: el JSON nunca trae claves prohibidas. Shell nuevo (toca index.html).
+- [ ] Paso 3: ayuda y manual (que ve la artista, cuanto dura, por que no se revoca).
+- [ ] DECISION JFC: 7 o 30 dias de vencimiento.

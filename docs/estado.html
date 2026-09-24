@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Commission statement</title>
+<!--
+  estado.html — Estado de cuenta del comisionista (JFC 2026-09-24, Opus 5.5).
+  NOTAS PARA QUIEN LO TOQUE:
+  - Pagina SEPARADA de la app: no carga mock-backend ni lee localStorage/IndexedDB.
+  - Los datos vienen cifrados en el fragmento (#) del enlace y se descifran aqui
+    (estado-cifrado.js). Nada viaja a ningun servidor.
+  - Se pinta SOLO con textContent (nunca innerHTML con datos): anti-XSS.
+  - Legibilidad: tinta de verdad, minimo 14 px, cuatro esquinas, sin gris.
+  - noindex + no-referrer: que ningun buscador ni sitio externo vea el enlace.
+-->
+<style>
+  :root{--paper:#F6F1E7;--ink:#17150F;--verde:#0B7A4B;--rojo:#B8123C;--linea:#17150F}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:"Source Sans 3","Segoe UI",system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.5;padding:20px 16px 40px}
+  main{max-width:640px;margin:0 auto}
+  h1{font-size:24px;line-height:1.2;margin-bottom:4px}
+  .sub{font-size:15px;font-weight:600;margin-bottom:18px}
+  .tot{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+  .caja{background:#fff;border:2px solid var(--linea);border-radius:12px;padding:12px 14px}
+  .caja .r{font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+  .caja .n{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:22px;font-weight:700}
+  .pend .n{color:var(--rojo)} .pag .n{color:var(--verde)}
+  h2{font-size:18px;margin:18px 0 8px}
+  ul{list-style:none}
+  li{background:#fff;border:1.5px solid var(--linea);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;gap:10px;font-size:15px}
+  li .m{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+  .estado{font-size:14px;font-weight:700}
+  .aviso{background:#fff;border:2px solid var(--linea);border-radius:12px;padding:16px;font-size:16px;font-weight:600}
+  footer{margin-top:22px;font-size:14px;font-weight:600}
+</style>
+</head>
+<body>
+<main id="app"><p class="aviso" id="msg">Opening your statement…</p></main>
+<script src="./estado-cifrado.js"></script>
+<script>
+(function () {
+  var app = document.getElementById("app");
+  var es = /^es\b/i.test(navigator.language || "");
+  var T = es ? { vencido: "Este estado de cuenta ya venció. Pídele uno nuevo al negocio.", enlace: "Este enlace no se puede abrir. Pídele al negocio que te lo envíe de nuevo.", navegador: "Tu navegador no puede abrir este estado. Prueba con uno más reciente.", vendido: "Vendido", comision: "Tu comisión", pagado: "Ya pagado", pendiente: "Por pagar", ventas: "Tus ventas", devol: "Devoluciones (se descuentan)", pagada: "pagada", porpagar: "por pagar", vence: "Este enlace vence el", recortado: "Se muestran las primeras 60 ventas.", medio: { efectivo: "efectivo", transferencia: "transferencia", "credito-tienda": "crédito en tienda", otro: "otro" } }
+               : { vencido: "This statement has expired. Ask the business for a new one.", enlace: "This link cannot be opened. Ask the business to send it again.", navegador: "Your browser cannot open this statement. Try a newer one.", vendido: "Sold", comision: "Your commission", pagado: "Already paid", pendiente: "Still to pay", ventas: "Your sales", devol: "Returns (deducted)", pagada: "paid", porpagar: "to pay", vence: "This link expires on", recortado: "Showing the first 60 sales.", medio: { efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" } };
+  function el(tag, cls, texto) { var e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; }
+  function dinero(n) { try { return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(n); } catch (_) { return "$" + Number(n).toFixed(2); } }
+  function aviso(t) { app.textContent = ""; app.appendChild(el("p", "aviso", t)); }
+  if (!window.OCEstado) { aviso(T.navegador); return; }
+  window.OCEstado.leer(location.hash).then(function (r) {
+    if (!r.ok) { aviso(T[r.motivo] || T.enlace); return; }
+    var d = r.datos; app.textContent = "";
+    app.appendChild(el("h1", null, d.n ? (es ? "Hola, " : "Hi, ") + d.n : (es ? "Tu estado de cuenta" : "Your statement")));
+    app.appendChild(el("p", "sub", [d.b, d.mes].filter(Boolean).join(" · ")));
+    var tot = el("div", "tot");
+    [[T.vendido, d.t.vendido, ""], [T.comision, d.t.comision, ""], [T.pagado, d.t.pagado, "pag"], [T.pendiente, d.t.pendiente, "pend"]].forEach(function (x) {
+      var c = el("div", "caja " + x[2]); c.appendChild(el("div", "r", x[0])); c.appendChild(el("div", "n", dinero(x[1]))); tot.appendChild(c);
+    });
+    app.appendChild(tot);
+    if (d.l.length) {
+      app.appendChild(el("h2", null, T.ventas)); var ul = el("ul");
+      d.l.forEach(function (l) {
+        var li = el("li"); var izq = el("span");
+        izq.appendChild(el("span", null, l.f + " · " + l.q + " × " + l.p));
+        izq.appendChild(document.createElement("br"));
+        izq.appendChild(el("span", "estado", l.pg ? T.pagada + (l.m ? " · " + T.medio[l.m] : "") : T.porpagar));
+        li.appendChild(izq); li.appendChild(el("span", "m", dinero(l.c))); ul.appendChild(li);
+      });
+      app.appendChild(ul);
+      if (d.recortado) app.appendChild(el("p", "estado", T.recortado));
+    }
+    if (d.a.length) {
+      app.appendChild(el("h2", null, T.devol)); var ua = el("ul");
+      d.a.forEach(function (a) { var li = el("li"); li.appendChild(el("span", null, a.f + " · " + a.p)); li.appendChild(el("span", "m", dinero(a.c))); ua.appendChild(li); });
+      app.appendChild(ua);
+    }
+    app.appendChild(el("footer", null, T.vence + " " + new Date(d.exp).toLocaleDateString(es ? "es" : undefined, { day: "numeric", month: "long", year: "numeric" }) + "."));
+  });
+})();
+</script>
+</body>
+</html>
