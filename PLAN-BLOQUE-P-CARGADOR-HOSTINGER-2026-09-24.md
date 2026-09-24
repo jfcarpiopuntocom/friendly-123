@@ -30,7 +30,20 @@ almacen es por ORIGEN). El codigo puede venir de un dominio que controla JFC
   URL.
 - `test/cargador.test.js` (7 pruebas, feature nueva, no bug).
 
-## Fase B — Hostinger sirve el repo (SOLO JFC, desde hPanel)
+## Fase B — Cloudflare Pages sirve el repo (SOLO JFC). Hostinger descartado
+## el 2026-09-24: jfcarpio.com es solo el dominio, no hay hosting.
+1. https://dash.cloudflare.com > Workers & Pages > Create > Pages >
+   Connect to Git > friendly-123.
+2. Build command: vacio. Build output directory: `docs`. Deploy.
+3. URL resultante: `https://friendly-123-XXXX.pages.dev/` (opcional: Custom
+   domain `code.jfcarpio.com`, con el DNS de Hostinger apuntando a Pages).
+   El origen del cargador es esa URL con `/` final: los archivos cuelgan de la
+   raiz, SIN `/docs/`.
+4. CORS: `docs/_headers` (Pages lo lee; el .htaccess queda por si algun dia
+   hay Apache). Comprobar:
+   `curl -sI https://<pages>/edutips.js | grep -i access-control`.
+
+## (Historico) Fase B con Hostinger — ya no aplica
 1. hPanel > Sitios web > (dominio) > Avanzado > GIT.
 2. Repositorio: `https://github.com/jfcarpiopuntocom/friendly-123`, rama
    `master`, carpeta de destino p. ej. `public_html/friendly-123`.
