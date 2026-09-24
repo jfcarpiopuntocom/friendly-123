@@ -119,3 +119,36 @@ test('tras la carrera pago (A) / devolucion (B), el STOCK converge: la unidad de
   assert.equal(pb.stockActual, 20, 'B devolvio la unidad: 20');
   assert.equal(pa.stockActual, pb.stockActual, 'A converge al mismo stock (no 19, no 21)');
 });
+
+test('devolver una venta pagada con asistente cuando el asistente ya fue archivado: el clawback conserva el reparto original', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  const helper = await A.request('/api/promotoras', 'POST', { nombre: 'Helper', comisionBase: 10 });
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1, asistenteId: helper.id, asistentePct: 25 });
+  const v = (await A.request('/api/respaldo/exportar')).ventas.pop();
+  assert.equal(v.split.reparto.length, 2);
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await A.request(`/api/promotoras/${helper.id}`, 'DELETE').catch(async () => A.request(`/api/promotoras/${helper.id}`, 'PUT', { borrado: true }).catch(() => {}));
+  const r = await A.request(`/api/ventas/${v.id}/devolucion`, 'POST', { motivo: 'archived helper', quien: 'A' });
+  assert.equal(r.ok, true);
+  assert.ok(Array.isArray(r.ajuste.reparto) && r.ajuste.reparto.length === 2, 'el ajuste reparte el negativo entre vendedor y asistente como se pago');
+  assert.equal(cents(r.ajuste.reparto.reduce((s, x) => s + x.monto, 0)), -cents(v.split.montoComisionSocio));
+});
+
+test('A paga el mes mientras B cambia la base a margen: lo pagado no se recalcula; solo las ventas nuevas usan margen', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await B.request(`/api/ubicaciones/${shelf.id}`, 'PUT', { baseComision: 'margen' });
+  sync(A, B);
+  for (const X of [A, B]) {
+    const v = await venta(X, id);
+    assert.equal(v.liquidada, true); assert.equal(v.split.baseComision, 'bruto'); assert.equal(cents(v.split.montoComisionSocio), 2000);
+    const u = await X.request(`/api/ubicaciones/${shelf.id}`).catch(() => null);
+    if (u) assert.equal(u.baseComision, 'margen', 'la percha converge a margen');
+  }
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const nueva = (await A.request('/api/respaldo/exportar')).ventas.pop();
+  assert.equal(nueva.split.baseComision, 'margen'); assert.equal(cents(nueva.split.montoComisionSocio), 1600, '40% de (50-10)');
+});

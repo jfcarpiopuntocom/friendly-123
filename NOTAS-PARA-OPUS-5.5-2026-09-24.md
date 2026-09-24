@@ -133,7 +133,7 @@ Las advertencias CSP/HSTS/COOP/XFO no se pueden fijar en GitHub Pages
 - Commissions: 6 carreras de dos aparatos + 11 casos Hugo/Paco/Luis en verde
   (`test/commissions-carreras-sync.test.js`, `test/commissions-hugo-paco-luis.test.js`).
   Cualquier cambio en ventas/liquidaciones/ajustes: correr esos dos PRIMERO.
-- Lo que NO se probo aun (Fable 5.1 futuro, no Opus): carreras con TRES
+- Probado tambien (8 carreras): asistente archivado y cambio de base durante el pago. Falta (Fable 5.1 futuro, no Opus): carreras con TRES
   aparatos y estado rancio (uno vuelve de una semana offline con ventas
   viejas); devolucion de una venta con asistente cuando el asistente ya fue
   archivado; pagar un mes en A mientras B cambia la base bruto/margen.
