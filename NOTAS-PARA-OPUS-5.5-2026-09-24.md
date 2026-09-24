@@ -73,18 +73,15 @@ Las advertencias CSP/HSTS/COOP/XFO no se pueden fijar en GitHub Pages
 - [ ] Validar el JSON-LD en validator.schema.org (pegar la URL viva).
 - [ ] hreflang: la app es EN con ES por i18n en la misma URL; NO poner
   hreflang a URLs que no existen. Solo `lang="en"` como esta.
-- [ ] `docs/manual.html`: title y description propios (hoy generico).
+- [x] `docs/manual.html`: ya tenia title y description propios (bilingue). Sin cambio. (Opus 5.5, 2026-09-24)
 
 ## Bloque 1 — Clip en el hero de la landing
 - [ ] Solo desde la PC de JFC (repo website, cambios locales sin commit).
   Detalle en PLAN-BLOQUES-2026-09-24.md.
 
 ## Panel de licencias — pulido de UI (la logica ya esta y tiene tests)
-- [ ] Modal de pago: probar en telefono (375 px) que los 6 campos se ven sin
-  scroll horizontal. Ajustar `.lic-modal-caja` si hace falta.
-- [ ] Tabla de lotes: boton "Ver activados" filtra por lote; falta un "Ver
-  sin usar" (codigos del lote que ningun aparato uso): la lista viene en
-  `_licLotes[i].codigos` y los usados en `_licData[].licenseCode`.
+- [x] Modal de pago a 375 px: cabe sin scroll horizontal (Chromium, 343 px). Se agregaron rotulos visibles a las dos fechas y el texto de ayuda pasa de gris a tinta. (Opus 5.5)
+- [x] Tabla de lotes: boton "Ver sin usar" muestra en la caja de codigos los que ningun aparato activo (solo lectura; se pueden bajar en CSV). (Opus 5.5)
 - [ ] Textos del panel mezclan espanol e ingles (heredado). Unificar en
   espanol (el panel lo usa solo JFC). No tocar nombres de funciones.
 
@@ -123,7 +120,8 @@ Las advertencias CSP/HSTS/COOP/XFO no se pueden fijar en GitHub Pages
   la percha pasa a verde) y las notas del propio archivo.
 
 ## Higiene pendiente (chica)
-- `.claude/check-inline.cjs` aun marca "Unexpected identifier 'de'" en el
+- [x] RESUELTO (Opus 5.5): el chequeo ahora quita comentarios HTML antes de buscar; la palabra <script> dentro del comentario del cargador abria un falso bloque. index.html sin tocar. Nota original:
+  `.claude/check-inline.cjs` aun marcaba "Unexpected identifier 'de'" en el
   script inline #4 de `docs/index.html`: viene de antes de 2026-09-24. Es
   un texto en español dentro de un bloque que el chequeo lee como JS.
   Ubicarlo (numerar los <script> sin src) y arreglar SOLO el comentario o

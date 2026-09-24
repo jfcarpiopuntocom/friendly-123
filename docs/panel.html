@@ -224,6 +224,9 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
 .lic-caja summary{cursor:pointer;font-size:15px;}
 .lic-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;}
 .lic-modal-caja{background:var(--bg,#0f1218);color:var(--ink);border:1px solid var(--gold);border-radius:12px;padding:20px;width:min(640px,100%);max-height:90vh;overflow:auto;}
+.lic-campo{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:700;color:var(--ink);}
+/* Legibilidad (Opus 5.5, 2026-09-24): el texto de ayuda de los campos salia en el gris por defecto del navegador. */
+.lic-barra .lic-input::placeholder,.lic-modal .lic-input::placeholder{color:var(--ink);opacity:1;}
 .lic-pagos-tabla{width:100%;border-collapse:collapse;font-size:13px;} .lic-pagos-tabla th,.lic-pagos-tabla td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--border);color:var(--ink);}
 </style>
 </head>
@@ -481,8 +484,8 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
           </select>
         </div>
         <div class="lic-barra" style="margin-top:8px;">
-          <input class="lic-input" id="lic-pago-fecha" type="date" aria-label="Fecha del pago">
-          <input class="lic-input" id="lic-pago-hasta" type="date" aria-label="Cubre hasta" title="Hasta cuándo cubre este pago (5 años por defecto)">
+          <label class="lic-campo">Fecha del pago<input class="lic-input" id="lic-pago-fecha" type="date"></label>
+          <label class="lic-campo">Cubre hasta (5 años por defecto)<input class="lic-input" id="lic-pago-hasta" type="date"></label>
           <input class="lic-input" id="lic-pago-ref" placeholder="Referencia / comprobante" maxlength="80" style="flex:1;min-width:160px;" aria-label="Referencia">
         </div>
         <input class="lic-input" id="lic-pago-nota" placeholder="Nota (opcional)" maxlength="200" style="width:100%;box-sizing:border-box;margin-top:8px;" aria-label="Nota">
@@ -1527,7 +1530,7 @@ function licPintarLotes() {
   tb.innerHTML = lotes.map(l => {
     const act = (l.codigos || []).filter(c => usados.has(String(c).toUpperCase())).length;
     return `<tr><td><strong>${licEsc(l.etiqueta)}</strong></td><td class="mono">${licEsc(l.prefijo || "—")}</td><td class="date">${licFmtDate(l.creado)}</td><td>${l.total}</td><td style="color:var(--green);font-weight:700;">${act}</td><td>${l.total - act}</td>` +
-      `<td><button type="button" class="btn-ok lic-mini" onclick="licBajarLoteCSV('${licEscAttr(l.etiqueta)}')">CSV</button> <button type="button" class="btn-ok lic-mini" onclick="document.getElementById('lic-filtro-lote').value='${licEscAttr(l.etiqueta)}';licFiltrar();">Ver activados</button></td></tr>`;
+      `<td><button type="button" class="btn-ok lic-mini" onclick="licBajarLoteCSV('${licEscAttr(l.etiqueta)}')">CSV</button> <button type="button" class="btn-ok lic-mini" onclick="document.getElementById('lic-filtro-lote').value='${licEscAttr(l.etiqueta)}';licFiltrar();">Ver activados</button> <button type="button" class="btn-ok lic-mini" onclick="licVerSinUsar('${licEscAttr(l.etiqueta)}')">Ver sin usar</button></td></tr>`;
   }).join("");
 }
 async function licEmitirLote() {
@@ -1551,6 +1554,21 @@ async function licEmitirLote() {
     msg.textContent = `${j.emitidos} código(s) emitidos para "${j.etiqueta}" (${j.totalLote} en total). Bájalos ahora: no se vuelven a mostrar juntos.`;
     licCargarLotes();
   } catch (e) { msg.textContent = "Error: " + e.message; }
+}
+/* "Ver sin usar" (Opus 5.5, 2026-09-24): codigos del lote que ningun aparato
+   activo todavia. Solo lectura: los muestra en la caja de codigos para
+   copiarlos o reenviarlos al gremio. No cambia nada en el Worker. */
+function licCodigosSinUsar(lote, datos) {
+  const usados = new Set((datos || []).map(r => String(r.licenseCode || "").trim().toUpperCase()).filter(Boolean));
+  return (lote && lote.codigos || []).filter(c => !usados.has(String(c).trim().toUpperCase()));
+}
+function licVerSinUsar(etiqueta) {
+  const l = (_licLotes || []).find(x => x.etiqueta === etiqueta); if (!l) return;
+  const libres = licCodigosSinUsar(l, _licData);
+  _licUltimoLote = { etiqueta: l.etiqueta + " (sin usar)", codigos: libres };
+  document.getElementById("lic-lote-texto").value = libres.join("\n");
+  document.getElementById("lic-lote-codigos").style.display = "block";
+  document.getElementById("lic-lote-msg").textContent = `${libres.length} de ${l.total} código(s) de "${l.etiqueta}" sin activar todavía.`;
 }
 function licBajarLoteCSV(etiqueta) {
   let codigos, nombre;
