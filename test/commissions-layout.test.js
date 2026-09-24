@@ -54,4 +54,9 @@ test("money comes first: totals by product, then promoter management at the end"
   const partes = orden[1].split("+").map((s) => s.trim());
   assert.ok(partes.indexOf("cardsHtml") === partes.length - 1, "rack cards must be the last block");
   assert.ok(partes[0].startsWith("resumenComisionPorProductoHtml"), "by-product summary must open the view");
+  // JFC 2026-09-23: ranking y matriz RFM "van al fondo, es lo que menos le interesa
+  // a nadie y menos con tan poca data": fuera del bloque del dinero, debajo del alta.
+  assert.ok(!partes.includes("rankHtml") && !partes.some((p) => p.startsWith("matrizComisionistasHtml")), "ranking/RFM must leave the money block");
+  assert.ok(vista.indexOf('id="gestionPromotoras"') < vista.indexOf('id="rankingComisiones"'), "ranking must sit below promoter management");
+  assert.ok(/rankingComisiones"\);[\s\S]{0,60}innerHTML = rankHtml \+ matrizComisionistasHtml\(ranking\)/.test(r), "ranking container not filled");
 });

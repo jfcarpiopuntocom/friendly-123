@@ -1947,6 +1947,8 @@
     <!-- JFC 2026-09-23: primero la plata (por producto), el alta de comisionistas al final. -->
     <div id="listaComisiones"></div>
     <div id="gestionPromotoras" style="margin-top:28px;"></div>
+    <!-- JFC 2026-09-23: ranking y matriz RFM al fondo de todo (lo que menos se mira, y hay poca data aun). -->
+    <div id="rankingComisiones" style="margin-top:28px;"></div>
   </section>
 
   <!-- Overlay del editor de comisión (portado de AMIGABLE 2026-09-01, Opción B):
@@ -7728,6 +7730,7 @@ async function cargarComisiones(){
 
   const porProducto = agruparVentasPorProducto(ventasTodas, true);
   if (filas.length === 0 && !porProducto.length){
+    { const rc = document.getElementById("rankingComisiones"); if (rc) rc.innerHTML = ""; }
     cont.innerHTML = btnWA + `<p>You don't have shelves that generate commission yet (partner, franchise, or consignment). Create them in Inventory → Shelves.</p>`;
     return;
   }
@@ -7882,7 +7885,10 @@ async function cargarComisiones(){
   // por percha/evento (antes iban sueltas sin encabezado). Solo si hay filas.
   const cardsHeading = cardsHtml ? `<h3 class="seccion" style="font-size:16px;margin:22px 0 10px;">${t("comm.cardsHeading")}</h3>` : "";
   // JFC 2026-09-23: primero por producto; las tarjetas por percha (pagar, corregir %) al fondo.
-  cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto) + rankHtml + matrizComisionistasHtml(ranking) + cardsHeading + cardsHtml;
+  cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto) + cardsHeading + cardsHtml;
+  // Ranking y RFM van en su propio contenedor, debajo del alta de comisionistas (no llevan listeners).
+  const rankCont = document.getElementById("rankingComisiones");
+  if (rankCont) rankCont.innerHTML = rankHtml + matrizComisionistasHtml(ranking);
 
   /* Los dos campos son el mismo numero visto al reves. Se espejan mientras se
      escribe: imposible dejar un reparto que no suma 100. */
