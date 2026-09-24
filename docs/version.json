@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Commissions abre por producto/SKU y permite alternar en vivo a la vista por percha o evento, sin perder cálculos ni contexto.",
+  "changelog": "Commissions: elegir el mes, ver y pagar meses anteriores; aviso de comisiones sin pagar de meses pasados.",
   "requerida": false,
-  "shell": "f123-shell-v370",
+  "shell": "f123-shell-v371",
   "apagar": [],
   "releaseName": "v1.0"
 }

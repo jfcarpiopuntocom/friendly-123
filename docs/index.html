@@ -7649,13 +7649,52 @@ function matrizComisionistasHtml(ranking){
    soloComision=true (Commissions): ventas del mes con reparto + COUNTER SALE de
    perchas que comparten comision (la casa vendio sin comision; JFC la quiere ver).
    soloComision=false (Sold): todas las ventas que muestra el log. */
-function agruparVentasPorProducto(rows, soloComision){
+/* PERIODO DE COMMISSIONS (JFC 2026-09-24, shell 371) — REGLA DURA, ver
+   DECISIONES-JFC.md "Commissions". Antes Commissions solo veia el mes en curso:
+   al cambiar de mes, lo no pagado quedaba invisible e impagable. Ahora:
+   - _ocMesComisiones = "YYYY-MM" elegido, o null = mes en curso (lo de siempre).
+   - Toda lectura de dinero de esta vista (liquidaciones, resumen por producto,
+     pagar, CSV) usa ESE mes. Si agregas otra, pasale el mismo mes.
+   - En un mes pasado se puede VER y PAGAR, pero no corregir % ni simular: el
+     corrector del backend trabaja sobre el mes en curso y cambiar porcentajes de
+     un mes cerrado reescribe dinero ya conversado con el asociado.
+   - Un mes invalido cae al mes en curso en el backend (mesValido), nunca a "todo". */
+let _ocMesComisiones = null;
+function _ocMesEtiqueta(mes){
+  const p = String(mes || "").split("-").map(Number);
+  if (p.length !== 2 || !p[0] || !p[1]) return String(mes || "");
+  try { return new Date(p[0], p[1] - 1, 15).toLocaleDateString(document.documentElement.lang === "es" ? "es" : "en", { month: "long", year: "numeric" }); }
+  catch (_) { return String(mes); }
+}
+function cambiarMesComisiones(mes){
+  _ocMesComisiones = /^\d{4}-\d{2}$/.test(String(mes || "")) ? String(mes) : null;
+  cargarComisiones();
+}
+function selectorMesComisionesHtml(meses){
+  const lista = Array.isArray(meses) ? meses : [];
+  const actual = (lista.find((x) => x.actual) || {}).mes || "";
+  const elegido = _ocMesComisiones || actual;
+  const opciones = lista.map((x) => `<option value="${escHtml(x.mes)}"${x.mes === elegido ? " selected" : ""}>${escHtml(_ocMesEtiqueta(x.mes))}${x.actual ? " " + t("comm.periodCurrent") : ""}${x.pendiente > 0 ? " · " + fmtMoney(x.pendiente) + " " + t("comm.periodUnpaid") : ""}</option>`).join("");
+  // Meses anteriores con plata sin pagar: aviso en rojo con acceso directo, para que nunca se olviden.
+  const atrasados = lista.filter((x) => !x.actual && x.pendiente > 0);
+  const aviso = atrasados.length ? `<div class="tag-card" style="text-align:left;padding:12px 14px;margin:0 0 14px;border:2px solid #C0392B;">
+      <div style="font-size:14px;font-weight:700;color:#C0392B;margin-bottom:8px;">${t("comm.periodPastUnpaid")}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">${atrasados.map((x) => `<button type="button" class="ir" data-commissions-jump="${escHtml(x.mes)}" onclick="cambiarMesComisiones('${escHtml(x.mes)}')" style="font-size:14px;min-height:44px;background:#FFFFFF;color:#C0392B;border:2px solid #C0392B;">${escHtml(_ocMesEtiqueta(x.mes))} · ${fmtMoney(x.pendiente)}</button>`).join("")}</div>
+    </div>` : "";
+  const nota = (_ocMesComisiones && _ocMesComisiones !== actual) ? `<p style="font-size:14px;color:var(--ink);margin:0 0 14px;">${t("comm.periodPastNote")}</p>` : "";
+  if (!opciones) return aviso;
+  return `<label style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;font-size:14px;font-weight:700;color:var(--ink);">${t("comm.periodLabel")}
+      <select data-commissions-month onchange="cambiarMesComisiones(this.value)" style="font-size:16px;min-height:44px;padding:6px 10px;border:2px solid #2C3E50;border-radius:8px;background:#FFFFFF;color:#0F1923;">${opciones}</select>
+    </label>` + aviso + nota;
+}
+function agruparVentasPorProducto(rows, soloComision, mes){
   const map = new Map();
   (Array.isArray(rows) ? rows : []).forEach((v) => {
     const conReparto = v.comisionPct != null;
     const counter = !conReparto && v.modoComision === "counter";
     if (soloComision) {
-      if (!v.delMesActual) return;
+      // Shell 371: con mes elegido se filtra por el mes local de la venta; sin mes, el mes en curso de siempre.
+      if (mes ? v.mes !== mes : !v.delMesActual) return;
       if (!conReparto && !(counter && v.ubicacionTipo && v.ubicacionTipo !== "propio")) return;
     }
     const k = v.productoId || v.productoNombre;
@@ -7710,7 +7749,7 @@ function resumenComisionPorProductoHtml(prods){
   const tile = (label, val, color) => `<div class="tag-card" style="padding:10px 12px;margin:0;text-align:left;">
       <div style="font-size:13px;font-weight:700;color:var(--ink);">${label}</div>
       <div style="font-size:16px;font-weight:700;color:${color};">${fmtMoney(val)}</div></div>`;
-  return apertura + `<h4 class="seccion" style="font-size:14px;margin:16px 0 8px;">${t("comm.totalsHeading")}</h4>
+  return apertura + `<h4 class="seccion" style="font-size:14px;margin:16px 0 8px;">${_ocMesComisiones ? escHtml(_ocMesEtiqueta(_ocMesComisiones)) : t("comm.totalsHeading")}</h4>
     <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:18px;">
       ${tile("Sales with commission", tot.bruto, "var(--ink)")}${tile("Associates take", tot.socio, "var(--ink)")}
       ${tile("House keeps", tot.casa, "#006B3C")}${tile("Still to pay", tot.pend, tot.pend > 0 ? "#C0392B" : "#006B3C")}
@@ -7735,12 +7774,13 @@ async function cargarComisiones(){
   try { renderGestionPromotoras(); } catch (_) {}
   // Microcirugia 11 (2026-07-08): Promise.all sin guard dejaba Comisiones en blanco.
   const cont = document.getElementById("listaComisiones");
-  let filas, ranking, ventasTodas;
+  let filas, ranking, ventasTodas, meses;
   try {
-    [filas, ranking, ventasTodas] = await Promise.all([
-      fetch(`${API}/liquidaciones`).then(r => r.json()),
+    [filas, ranking, ventasTodas, meses] = await Promise.all([
+      fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_ocMesComisiones || "")}`).then(r => r.json()),
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
       fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/liquidaciones/meses`).then(r => r.json()).catch(() => []),
     ]);
   } catch (_) {
     if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load commissions. Reload the view.</p>';
@@ -7753,7 +7793,7 @@ async function cargarComisiones(){
   // Excel/Sheets o mandarlo al contador.
   const btnExport = `<button class="ir" style="font-size:14px;margin-bottom:16px;background:#2C3E50;color:#fff;border-color:#0F1923;" onclick="exportarComisionesCSV()">⬇ Export CSV</button>`;
 
-  const porProducto = agruparVentasPorProducto(ventasTodas, true);
+  const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones);
   // Rec 04 + 09: ranking de asociados/as con su mejor SKU y alerta de dormido.
   const rankHtml = (Array.isArray(ranking) && ranking.length) ? `
     <h3 class="seccion" style="font-size:16px;margin-top:0;">${t("comm.rankingHeading")}</h3>
@@ -7886,7 +7926,7 @@ async function cargarComisiones(){
       </table>
       ${(f.avisosTrato && f.avisosTrato.length) ? f.avisosTrato.map(a => `<p style="font-size:13px;color:var(--rust,#E86040);margin:6px 0 0;">${escHtml(a)}</p>`).join("") : ""}
       ${f.ventasCorregidas ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ventasCorregidas} sale(s) this month have the percentage manually corrected.</p>` : ""}
-      ${editorComisionHtml(f)}
+      ${f.esMesActual === false ? "" : editorComisionHtml(f)}
       ${(f.detallePendientes && f.detallePendientes.length) ? `
       <details style="margin-top:8px;">
         <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);user-select:none;">Which sales does this payment cover? →</summary>
@@ -7894,8 +7934,8 @@ async function cargarComisiones(){
           ${f.detallePendientes.map(d => `<tr><td>${d.cantidad}× ${escHtml(d.producto)}</td><td style="text-align:right;">${fmtMoney(d.comisionSocio)}</td></tr>`).join("")}
         </table>
       </details>` : ""}
-      ${termometroMeta(f.cumplimientoMeta, f.metaMensual)}
-      ${simuladorHtml(f)}
+      ${f.esMesActual === false ? "" : termometroMeta(f.cumplimientoMeta, f.metaMensual)}
+      ${f.esMesActual === false ? "" : simuladorHtml(f)}
       ${f.estado === "pendiente" ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde,#00C87A);color:#fff;border-color:var(--sim-verde-dk,#009A5A);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
     </div>`;
   }).join("");
@@ -7908,6 +7948,9 @@ async function cargarComisiones(){
   </section>`;
   // JFC 2026-09-23: primero por producto; las tarjetas por percha (pagar, corregir %) al fondo.
   cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto) + cardsSection;
+  // Shell 371: el selector de mes (y el aviso de meses sin pagar) va encima de todo,
+  // como control de la vista; el orden del dinero de la linea anterior no cambia.
+  cont.insertAdjacentHTML("afterbegin", selectorMesComisionesHtml(meses));
   cambiarVistaComisiones("product");
   // Ranking y RFM van en su propio contenedor, debajo del alta de comisionistas (no llevan listeners).
   const rankCont = document.getElementById("rankingComisiones");
@@ -7998,12 +8041,13 @@ async function exportarComisionesCSV(){
   let filas, ventasTodas;
   try {
     [filas, ventasTodas] = await Promise.all([
-      fetch(`${API}/liquidaciones`).then(r => r.json()),
+      fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_ocMesComisiones || "")}`).then(r => r.json()),
       fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
     ]);
   }
   catch (_) { alert("Could not load commissions to export."); return; }
-  const porProducto = agruparVentasPorProducto(ventasTodas, true);
+  // Shell 371: el CSV exporta el MISMO mes que se esta viendo.
+  const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones);
   if ((!Array.isArray(filas) || !filas.length) && !porProducto.length) { alert("No commissions to export yet."); return; }
   const esc = (s) => { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const cab = ["Rack","Promoter","Monthly sales","Associate %","Associate takes","House %","House keeps","Status"];
@@ -8025,7 +8069,7 @@ async function exportarComisionesCSV(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "comisiones-" + new Date().toISOString().slice(0, 10) + ".csv";
+  a.download = "comisiones-" + ((filas && filas[0] && filas[0].mes) || _ocMesComisiones || new Date().toISOString().slice(0, 7)) + ".csv";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
@@ -8204,7 +8248,10 @@ async function reactivarCliente(clienteId, nombre) {
 }
 
 async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
-  if (!(await ocConfirm("Confirm you have already paid the promoter what is owed this month?"))) return;
+  // Shell 371: se paga el mes que se esta viendo; el mismo mes va al backend y al recibo.
+  const _mesPago = _ocMesComisiones || "";
+  const _mesPagoTxt = _mesPago ? _ocMesEtiqueta(_mesPago) : "this month";
+  if (!(await ocConfirm(`Confirm you have already paid the promoter what is owed for ${_mesPagoTxt}?`))) return;
   // #19: capturamos el desglose ANTES de sellar (marcar-pagado deja pendientes en 0).
   const detalle = (window._ocLiqDet && window._ocLiqDet[ubicacionId]) || [];
   // try/catch (homologado de AMIGABLE, auditoria 2026-07-23): antes un fallo
@@ -8212,7 +8259,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   // con error, fallaba en silencio total sin avisar nada al dueño.
   let res, r;
   try {
-    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST" });
+    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST", body: JSON.stringify({ mes: _mesPago }) });
     r = await res.json();
   } catch (err) {
     console.error("[marcarComisionPagada]", err);
@@ -8224,7 +8271,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   // Recibo para WhatsApp: solo se ofrece si hay nombre de asociado/a y monto > 0.
   if (promotorNombre && monto > 0) {
     const neg = (function(){ try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch(_){ return ""; } })();
-    const mes = new Date().toLocaleDateString("es", { month: "long", year: "numeric" });
+    const mes = _mesPago ? _ocMesEtiqueta(_mesPago) : new Date().toLocaleDateString("es", { month: "long", year: "numeric" });
     // #19: lineas del desglose — "de qué ventas exactas". Cada producto con
     // unidades y comisión, para que el socio concilie sin preguntar.
     const lineasDet = detalle.map(d =>

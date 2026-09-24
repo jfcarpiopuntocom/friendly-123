@@ -1156,6 +1156,31 @@
   // ---- Reparto de comisiones (espejo de data.js) ----
   function mesActualISO() { return hoyISO().slice(0, 7); }
   function esDelMesActual(fechaISO) { return !!fechaISO && fechaLocalDe(fechaISO).slice(0, 7) === mesActualISO(); }
+  /* PERIODO DE COMMISSIONS (JFC 2026-09-24, shell 371). Antes todo lo de
+     comisiones miraba solo el mes en curso: al cambiar de mes, lo que no se
+     pago quedaba invisible e impagable. mesValido() acepta SOLO "YYYY-MM" con
+     mes 01-12; cualquier otra cosa (vacio, basura, "todo") cae al mes actual,
+     nunca a "todos los meses": un parametro malo no puede abrir otro periodo
+     ni liquidar ventas que nadie eligio. Decision: DECISIONES-JFC.md. */
+  function mesValido(mes) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(mes || "")) ? String(mes) : mesActualISO(); }
+  function esDelMes(fechaISO, mes) { return !!fechaISO && fechaLocalDe(fechaISO).slice(0, 7) === mesValido(mes); }
+  /* Meses con ventas comisionadas, del mas nuevo al mas viejo, con lo que aun
+     falta pagar al asociado. El mes actual va siempre, aunque este vacio. Solo
+     lectura: no cambia ninguna venta. */
+  function mesesConComision() {
+    const actual = mesActualISO();
+    const map = new Map([[actual, { mes: actual, actual: true, ventas: 0, comision: 0, pendiente: 0 }]]);
+    ventasActivas().forEach((v) => {
+      if (!v.split || !v.fecha) return;
+      const mes = fechaLocalDe(v.fecha).slice(0, 7);
+      const d = map.get(mes) || { mes, actual: mes === actual, ventas: 0, comision: 0, pendiente: 0 };
+      const c = Number(v.split.montoComisionSocio) || 0;
+      d.ventas += 1; d.comision += c; if (!v.liquidada) d.pendiente += c;
+      map.set(mes, d);
+    });
+    return [...map.values()].sort((a, b) => (a.mes < b.mes ? 1 : -1))
+      .map((d) => ({ ...d, comision: +d.comision.toFixed(2), pendiente: +d.pendiente.toFixed(2) }));
+  }
   // Conteo global de ventas del mes actual, TODAS las ubicaciones (free-tier
   // gating, 2026-07-15) — distinto de ventasMesAcumuladas (suma montos por
   // una sola ubicacion, para comisiones). Usado para el tope de 100/mes.
@@ -1332,9 +1357,11 @@
     });
     return [...map.values()].map((d) => ({ ...d, montoBruto: +d.montoBruto.toFixed(2), comisionSocio: +d.comisionSocio.toFixed(2) }));
   }
-  function getLiquidaciones() {
+  /* mes opcional "YYYY-MM" (shell 371). Sin mes = mes en curso, igual que antes. */
+  function getLiquidaciones(mes) {
+    const _mes = mesValido(mes);
     return ubicaciones.filter((u) => u.tipo && u.tipo !== "propio").map((u) => {
-      const ventasMes = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMesActual(v.fecha) && v.split);
+      const ventasMes = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes) && v.split);
       const ventasBrutas = ventasMes.reduce((a, v) => a + v.split.montoBruto, 0);
       const comisionSocio = ventasMes.reduce((a, v) => a + v.split.montoComisionSocio, 0);
       const netoDueno = ventasMes.reduce((a, v) => a + v.split.montoNetoDueno, 0);
@@ -1354,6 +1381,7 @@
       const _meta = Number(_trato.metaMensual) || Number(u.metaMensual) || 0;
       return {
         ubicacionId: u.id, ubicacion: u.nombre, tipo: u.tipo, metaMensual: _meta,
+        mes: _mes, esMesActual: _mes === mesActualISO(),
         cumplimientoMeta: _meta ? +((ventasBrutas / _meta) * 100).toFixed(1) : null,
         ventasBrutas: +ventasBrutas.toFixed(2), comisionSocio: +comisionSocio.toFixed(2), netoDueno: +netoDueno.toFixed(2),
         estado: ventasMes.length === 0 ? "sin ventas" : pendientes.length === 0 ? "pagado" : "pendiente",
@@ -4206,7 +4234,8 @@
         } catch (e) { return J({ error: "Could not import: " + String(e) }, 400); }
       }
 
-      if (path === "/api/liquidaciones") return J(getLiquidaciones());
+      if (path === "/api/liquidaciones") return J(getLiquidaciones(q.get("mes")));
+      if (path === "/api/liquidaciones/meses") return J(mesesConComision());
     if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/panorama$/))) {
       const pan = getPanoramaPercha(m[1]);
       if (!pan) return J({ error: "Shelf not found." }, 404);
@@ -4233,9 +4262,13 @@
          igual que en todos los demas endpoints. */
       if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/)) && opts && opts.method === "POST") {
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
-        const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMesActual(v.fecha) && !v.liquidada);
+        /* Shell 371: paga el mes que se pide (body.mes o ?mes=); sin mes, el
+           mes en curso como siempre. mesValido() impide que un valor raro
+           liquide otro periodo. El mes queda en el log de la liquidacion. */
+        const _mesPago = mesValido(body.mes || q.get("mes"));
+        const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMes(v.fecha, _mesPago) && !v.liquidada);
         pend.forEach((v) => { v.liquidada = true; v.rev = _revNueva(); });
-        mov("liquidacion", { ubicacion: u.nombre, ventasLiquidadas: pend.length });
+        mov("liquidacion", { ubicacion: u.nombre, ventasLiquidadas: pend.length, mes: _mesPago });
         if (pend.length) avisarCatalogoCambiado();
         return J({ ok: true, ventasLiquidadas: pend.length });
       }
@@ -4453,6 +4486,8 @@
              /api/liquidaciones (hora local del negocio) y sabe si la percha comparte
              comision, sin que el front recalcule fechas ni cruce tablas. Aditivo. */
           delMesActual: esDelMesActual(v.fecha),
+          // Shell 371: el mes local de la venta, para que Commissions filtre por el mes elegido.
+          mes: v.fecha ? fechaLocalDe(v.fecha).slice(0, 7) : "",
           ubicacionTipo: u ? (u.tipo || "propio") : "",
           // COUNTER SALE no se atribuye a la persona permanente de la percha:
           // el nombre acompaña solo a ventas que realmente tienen reparto.
