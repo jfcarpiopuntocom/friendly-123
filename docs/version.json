@@ -3,7 +3,7 @@
   "fecha": "2026-09-24",
   "changelog": "Commissions mas clara: perchas sin ventas del mes agrupadas, perchas de ejemplo antiguas marcadas y explicacion cuando no hay ventas con comision.",
   "requerida": false,
-  "shell": "f123-shell-v381",
+  "shell": "f123-shell-v382",
   "apagar": [],
   "releaseName": "v1.0"
 }

@@ -34,11 +34,15 @@
     .replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   // Colores Simon exactos — mismos que .caja en index.html
+  /* PALETA SIMON EXACTA (JFC 2026-09-24, fix): este archivo usaba tonos
+     parecidos (#1DB954, #FFB300, #E53935, #2196F3) que no eran el semaforo de
+     la app. reglas-friendly: los mismos hex en alertas, hero, filtros y bordes.
+     Texto sobre verde/amarillo/azul en tinta (contraste >= 5:1); sobre rojo, blanco. */
   const SIMON = {
-    verde:    { bg: '#1DB954', border: '#17a347', tx: '#ffffff', txs: '#e0ffe8' },
-    amarillo: { bg: '#FFB300', border: '#E6A100', tx: '#1e1a12', txs: '#5d5340' },
-    rojo:     { bg: '#E53935', border: '#C62828', tx: '#ffffff', txs: '#ffe0e0' },
-    azul:     { bg: '#2196F3', border: '#1976D2', tx: '#ffffff', txs: '#daeeff' },
+    verde:    { bg: '#00C87A', border: '#00C87A', tx: '#0F1923', txs: '#0F1923' },
+    amarillo: { bg: '#FFC700', border: '#FFC700', tx: '#0F1923', txs: '#0F1923' },
+    rojo:     { bg: '#E8365D', border: '#E8365D', tx: '#ffffff', txs: '#ffffff' },
+    azul:     { bg: '#5294AC', border: '#5294AC', tx: '#0F1923', txs: '#0F1923' },
   };
   const ORDEN = { rojo: 0, amarillo: 1, verde: 2, azul: 3 };
 
@@ -79,7 +83,10 @@
         const b = document.createElement('button');
         b.type = 'button';
         b.dataset.ordPerchaCol = c.key;
-        b.style.cssText = 'font-size:13px;padding:4px 10px;border-radius:6px;border:1.5px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;';
+        /* JFC 2026-09-24: las pastillas de orden son teclas del case (.tecla), la
+           activa se hunde. Mismo idioma que Commissions y el nav. */
+        b.className = 'tecla';
+        b.style.cssText = 'font-size:13px;min-height:36px;padding:4px 10px;margin:0;';
         cont.appendChild(b);
       });
       cont.addEventListener('click', (e) => {
@@ -91,12 +98,12 @@
         cargar();
       });
     }
+    /* El boton Agregar (si existe) siempre al final de la barra, a la derecha. */
+    { const add = document.getElementById('vp-btn-agregar'); if (add && add.parentNode === cont) cont.appendChild(add); }
     cont.querySelectorAll('[data-ord-percha-col]').forEach((b) => {
       const c = COLUMNAS_PERCHA.find((x) => x.key === b.dataset.ordPerchaCol);
       const activo = _ordenPercha.col === b.dataset.ordPerchaCol;
-      b.style.background = activo ? 'var(--azul-medio,#2c4a68)' : 'transparent';
-      b.style.color = activo ? '#fbf5e8' : 'var(--azul-medio,#2c4a68)';
-      b.style.setProperty('-webkit-text-fill-color', activo ? '#fbf5e8' : 'var(--azul-medio,#2c4a68)');
+      b.classList.toggle('hundida', activo);
       b.textContent = c.label + (activo ? (_ordenPercha.asc ? ' ↑' : ' ↓') : '');
     });
   }
@@ -169,8 +176,12 @@
 
     const visual = foto
       ? `<img src="${foto}" alt="" style="width:100%;height:170px;object-fit:cover;display:block;">`
+      /* Sin foto (JFC 2026-09-24): fondo BLANCO con la inicial en tinta, no un
+         bloque pintado del color del semaforo (lucia roto). El semaforo ya vive
+         en el borde de 3px y en el punto de estado; no hace falta repetirlo. */
       : `<div style="width:100%;height:170px;display:flex;align-items:center;justify-content:center;
-           background:${c.bg};color:${c.tx};font-family:var(--font-display);font-size:64px;font-weight:700;">
+           background:#FFFFFF;color:var(--ink,#0F1923);font-family:var(--font-display);font-size:56px;font-weight:700;
+           box-shadow:inset 0 0 0 2px var(--hairline,#E8ECF2);">
            ${esc((p.nombre || '?').trim().charAt(0).toUpperCase())}</div>`;
 
     const badgeMeta = p.cumplimiento === null ? window.t('shelves.noTarget') : p.cumplimiento.toFixed(0) + window.t('shelves.ofTargetMet');
@@ -203,7 +214,7 @@
           <!-- Abrir carpeta: pista visual -->
           <span style="position:absolute;bottom:10px;right:${esDueno ? '52px' : '10px'};font-family:var(--font-mono);font-size:13px;font-weight:700;background:#152840;color:#fff;padding:4px 9px;border-radius:20px;">${window.t('shelves.open')} ▸</span>
           ${esDueno ? `<button data-vp-foto="${esc(p.id)}" title="Cambiar foto" style="position:absolute;bottom:10px;right:10px;font-size:16px;line-height:1;
-            background:rgba(0,0,0,.55);border:none;padding:6px 8px;border-radius:8px;color:#fff;cursor:pointer;">📷</button>` : ''}
+            background:rgba(0,0,0,.55);border:none;padding:6px 8px;border-radius:8px;color:#fff;cursor:pointer;" aria-label="Cambiar foto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>` : ''}
         </div>
         <div style="padding:10px 14px ${esDueno ? '0' : '12px'};background:var(--blanco-calido,#fbf5e8);display:flex;align-items:center;gap:8px;">
           <strong style="font-family:var(--font-display);font-size:17px;color:var(--ink);flex:1;">${esc(p.nombre)}</strong>
@@ -231,12 +242,15 @@
     const btnAgregar = document.createElement('button');
     btnAgregar.id = 'vp-btn-agregar';
     btnAgregar.textContent = window.t('shelves.addRackBtn');
-    btnAgregar.style.cssText = 'display:inline-block;margin:0 0 16px;padding:10px 18px;' +
+    /* JFC 2026-09-24: el boton vive en la misma barra que el orden (a la derecha),
+       no en una linea propia. Mismo color de siempre. */
+    btnAgregar.style.cssText = 'display:inline-block;margin:0 0 0 auto;padding:8px 16px;min-height:40px;' +
       'border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);' +
       'color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;' +
-      'font-size:15px;font-weight:700;cursor:pointer;';
+      'font-size:14px;font-weight:700;cursor:pointer;';
     btnAgregar.addEventListener('click', abrirAgregar);
-    seccion.insertBefore(btnAgregar, grid);
+    const barra = document.getElementById('vp-orden');
+    if (barra) barra.appendChild(btnAgregar); else seccion.insertBefore(btnAgregar, grid);
   }
 
   // Re-pinta los textos fijos que se construyen UNA sola vez al cargar el

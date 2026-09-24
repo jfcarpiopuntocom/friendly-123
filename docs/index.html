@@ -1921,17 +1921,19 @@
        tomarla con la camara (se guarda en localStorage, resize 640px). -->
   <section id="vista-perchas" class="vista">
     <h3 class="seccion" style="margin-top:0;" data-i18n="shelves.myShelvesHeading">My shelves</h3>
-    <p style="font-size:14px;color:var(--ink-soft);margin-top:0;" data-i18n="shelves.myShelvesIntro">Real photos of each shelf with its target status. Tap a photo to update it.</p>
-    <details style="margin:-4px 0 12px;font-size:14px;">
+    <!-- JFC 2026-09-24: la UI se aparta. La intro vive dentro de "How does it work?";
+         orden + Agregar comparten UNA barra (vp-orden). Mas espacio para las fotos. -->
+    <details style="margin:0 0 10px;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 8px;font-size:14px;color:var(--ink);font-weight:700;" data-i18n="shelves.myShelvesIntro">Real photos of each shelf with its target status. Tap a photo to update it.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.shelf.1">1. Tap a shelf's photo to update it with a new one — resized automatically, no bulky files.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.shelf.2">2. The colored ring around each photo shows how close that shelf is to its monthly target.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.shelf.3html">3. Owner only: manage shelves, branches and weekend pop-ups from <strong>Inventory → Shelves</strong>, further down.</p>
       </div>
     </details>
-    <div id="vp-orden" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 12px;">
-      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;" data-i18n="inv.sortBy">Sort by:</span>
+    <div id="vp-orden" class="tag-card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px;padding:10px 14px;text-align:left;">
+      <span style="font-size:14px;font-weight:700;color:var(--ink);align-self:center;" data-i18n="inv.sortBy">Sort by:</span>
     </div>
     <div id="vp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;"></div>
     <!-- TRANSFERS ENTRE PERCHAS (JFC 2026-08-28). Movido de Advanced a Perchas:
