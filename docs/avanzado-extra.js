@@ -586,7 +586,7 @@
                  literales pedidas por JFC. -->
             <button id="btnExportarCopia" class="ir" style="background:#25D366;border-color:#1da851;">Export via WhatsApp</button>
             <button id="btnImportarCopia" class="ir" style="background:#25D366;border-color:#1da851;">Import from WhatsApp</button>
-            <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo);">${window.t("sync.panel.deactivate")}</button>
+            <button id="oc-sync-desactivar" style="border-color:var(--rojo);color:var(--rojo-ink);">${window.t("sync.panel.deactivate")}</button>
           </div>
           <input id="btnImportarCopia-file" type="file" accept=".json,application/json" style="display:none;">
           <p id="oc-copia-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:#1a1a1a;"></p>
@@ -675,7 +675,7 @@
             try { if (window.OCLatencia) lat = " · " + window.OCLatencia.texto(); } catch (_) {}
             el.textContent = "Sync: " + (conectado ? "connected" : "NOT connected") +
               " · products " + prod + " · shelves " + perchas + " · photos " + fotos + lat;
-            el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)";
+            el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
           } catch (_) { el.textContent = "Sync: —"; }
         };
         _pintarSyncMin();
@@ -707,7 +707,7 @@
          espacio para nada). Aquí solo se enganchan sus handlers por id. */
       try {
         // Helper: junta el envoltorio Forma B (datos + fotos, SIN claves).
-        var _copiaMsg = function (t, ok) { var m = document.getElementById("oc-copia-msg"); if (m) { m.style.color = ok ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo,#a3392a)"; m.textContent = t; } };
+        var _copiaMsg = function (t, ok) { var m = document.getElementById("oc-copia-msg"); if (m) { m.style.color = ok ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)"; m.textContent = t; } };
         var _fotosLocales = function () { var o = {}; try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("_foto_percha_") !== -1) o[k] = localStorage.getItem(k); } } catch (_) {} return o; };
         var _bx = document.getElementById("btnExportarCopia");
         if (_bx) _bx.addEventListener("click", async function () {
@@ -940,7 +940,7 @@
            de la app hermana metia este negocio en la sala de otro. */
         if (codigo.trim() && !/^(TEAM|F123)-/i.test(codigo.trim())) {
           const m0 = document.getElementById("oc-sync-msg");
-          m0.style.color = "var(--rojo,#a3392a)";
+          m0.style.color = "var(--rojo-ink,#a3392a)";
           m0.textContent = window.t("sync.panel.badCode");
           btn.disabled = false;
           return;
@@ -962,7 +962,7 @@
         } else {
           r = window.OCSyncControl.activar(codigo);
         }
-        if (!r.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error; return; }
+        if (!r.ok) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = r.error; return; }
         /* AVISO, NO BLOQUEO (JFC 2026-08-27, refuerzo P1): si la licencia es
            corta o no pasa el checksum, se acepta igual pero se informa. */
         if (r.warning) { msg.style.color = "var(--gold,#9c7a35)"; msg.textContent = r.warning; }
@@ -1041,7 +1041,7 @@
             ok.disabled = true;
             const r = window.OCSync.aplicarCatalogo(cat, rolRemoto);
             const msg = document.getElementById("oc-merge-msg");
-            if (!r.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error; ok.disabled = false; return; }
+            if (!r.ok) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = r.error; ok.disabled = false; return; }
             msg.style.color = "var(--sim-verde-dk,#1a6e3c)";
             /* El recibo del paso 3: si la huella quedo igual a la del que
                mando, el merge esta verificado y se puede decir. */
@@ -1056,7 +1056,7 @@
         btnM.addEventListener("click", function () {
           const msg = document.getElementById("oc-sync-msg");
           if (!window.OCSyncControl.pedirCatalogo || !window.OCSync || !window.OCSync.compararCatalogo) {
-            msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "This device cannot merge catalogs yet."; return;
+            msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = "This device cannot merge catalogs yet."; return;
           }
           piezas = { ubicaciones: [], productos: [], usuarios: [], rol: "", huella: "", esperados: 0, vistos: 0, porDev: {} };
           msg.style.color = "var(--ink-soft)";
@@ -1068,12 +1068,12 @@
             const devs = Object.keys(piezas.porDev || {});
             const todosCompletos = devs.length > 0 && devs.every((d) => piezas.porDev[d].recibidos >= piezas.porDev[d].total);
             if (!piezas.vistos) {
-              msg.style.color = "var(--rojo,#a3392a)";
+              msg.style.color = "var(--rojo-ink,#a3392a)";
               msg.textContent = "No other device answered. Open the app on the other device, activated with this same license, and try again.";
             } else if (!todosCompletos) {
               /* A3: algún dispositivo empezó a mandar su inventario pero no terminó
                  (se desconectó a mitad). No disparar el preview con datos a medias. */
-              msg.style.color = "var(--rojo,#a3392a)";
+              msg.style.color = "var(--rojo-ink,#a3392a)";
               msg.textContent = "Some devices did not finish sending their inventory. Try again.";
             }
           }, 9000);
@@ -1135,8 +1135,8 @@
         bu.addEventListener("click", () => {
           const m2 = document.getElementById("oc-sync-msg");
           const cod = (document.getElementById("oc-sync-codigo2").value || "").trim();
-          if (!cod) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = window.t("sync.panel.pasteCodeFirst"); return; }
-          if (!/^(TEAM|F123)-/i.test(cod)) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = window.t("sync.panel.badCode"); return; }
+          if (!cod) { m2.style.color = "var(--rojo-ink,#a3392a)"; m2.textContent = window.t("sync.panel.pasteCodeFirst"); return; }
+          if (!/^(TEAM|F123)-/i.test(cod)) { m2.style.color = "var(--rojo-ink,#a3392a)"; m2.textContent = window.t("sync.panel.badCode"); return; }
           /* A4 (2026-08-27, auditoría de integridad): antes usaba activar(), que
              solo guarda la sala y conecta — el aparato sincronizaba a la sala
              correcta pero NO adoptaba la licencia ni cambiaba de tienda (quedaba
@@ -1164,7 +1164,7 @@
           } else {
             r2 = window.OCSyncControl.unirse(cod);
           }
-          if (!r2.ok) { m2.style.color = "var(--rojo,#a3392a)"; m2.textContent = r2.error; return; }
+          if (!r2.ok) { m2.style.color = "var(--rojo-ink,#a3392a)"; m2.textContent = r2.error; return; }
           m2.style.color = "var(--sim-verde-dk,#1a6e3c)";
           m2.textContent = r2.mismo ? r2.error : window.t("sync.panel.joined");
           document.getElementById("oc-sync-apagado").style.display = "none";
@@ -1190,12 +1190,12 @@
           const m3 = document.getElementById("oc-sync-msg");
           const lic = (document.getElementById("oc-sync-claim-cod").value || "").trim();
           if (!/^F123-/i.test(lic)) {
-            m3.style.color = "var(--rojo,#a3392a)";
+            m3.style.color = "var(--rojo-ink,#a3392a)";
             m3.textContent = "Enter the full license of your other device (F123-XXXX-XXXX-XXXX-XXXXX).";
             return;
           }
           const r3 = window.OCTienda.reconciliar(lic);
-          if (!r3.ok) { m3.style.color = "var(--rojo,#a3392a)"; m3.textContent = r3.error; return; }
+          if (!r3.ok) { m3.style.color = "var(--rojo-ink,#a3392a)"; m3.textContent = r3.error; return; }
           m3.style.color = "var(--sim-verde-dk,#1a6e3c)";
           m3.textContent = "Done. Open your other device online; the two notebooks are merging now.";
         });
@@ -1261,7 +1261,7 @@
           or removed, and the commission splits.
         </p>
       </div>
-      <p id="oc-emp-load-error" role="alert" style="display:none;color:var(--rojo);font-size:14px;font-weight:700;"></p>
+      <p id="oc-emp-load-error" role="alert" style="display:none;color:var(--rojo-ink);font-size:14px;font-weight:700;"></p>
       <div id="oc-emp-conflictos" role="alert" style="display:none;border:2px solid var(--rojo);border-radius:8px;padding:10px 12px;margin-bottom:12px;color:var(--ink);"></div>
       <div id="oc-emp-lista" style="margin-bottom:18px;overflow-x:auto;-webkit-overflow-scrolling:touch;"></div>
       <details id="oc-emp-form-wrap" style="margin-bottom:6px;">
@@ -1280,7 +1280,7 @@
                      border-radius:5px;font-size:14px;box-sizing:border-box;">
           </label>
           <label style="font-size:13px;"><span data-i18n="team.pinLabel">PIN (3 digits)</span>
-            <span style="display:block;font-size:13px;color:var(--rojo,#a3392a);margin-top:3px;font-weight:400;" data-i18n="team.pinWarning">
+            <span style="display:block;font-size:13px;color:var(--rojo-ink,#a3392a);margin-top:3px;font-weight:400;" data-i18n="team.pinWarning">
               Do not reuse the PIN of the owner, the general staff login or the bookkeeper.
             </span>
             <input id="oc-emp-pin" maxlength="3" inputmode="numeric" placeholder="•••" autocomplete="off" name="team-member-pin"
@@ -1476,7 +1476,7 @@
                   <option value="empleado" ${u.rol === "empleado" ? "selected" : ""}>${window.t("team.employee")}</option>
                   <option value="admin" ${u.rol === "admin" ? "selected" : ""}>${window.t("team.admin")}</option>
                 </select>
-                <button data-remove-id="${escHtml(u.id)}" style="font-size:13px;padding:6px 12px;border:2px solid var(--rojo);border-radius:6px;background:transparent;color:var(--rojo);cursor:pointer;">${window.t("team.removeAccess")}</button>` : ""}
+                <button data-remove-id="${escHtml(u.id)}" style="font-size:13px;padding:6px 12px;border:2px solid var(--rojo);border-radius:6px;background:transparent;color:var(--rojo-ink);cursor:pointer;">${window.t("team.removeAccess")}</button>` : ""}
           ` : `<span style="font-size:13px;color:var(--ink);align-self:center;">${window.t("team.ownerOnly")}</span>`;
         const pinEditor = puedeEditar ? `
           <div id="oc-pin-row-${escHtml(u.id)}" style="display:none;flex-basis:100%;background:var(--azul-suave,#EEF3F7);border-radius:8px;padding:10px 12px;margin-top:4px;">
@@ -1626,7 +1626,7 @@
           const inp = tbody.querySelector(`[data-fld-input="${campo}"][data-uid="${id}"]`);
           const msg = tbody.querySelector(`[data-fld-msg="${campo}"][data-uid="${id}"]`);
           const val = (inp ? inp.value : "").trim();
-          if (msg) msg.style.color = "var(--rojo,#a3392a)";
+          if (msg) msg.style.color = "var(--rojo-ink,#a3392a)";
           if (campo === "nombre" && !val) { if (msg) msg.textContent = window.t("team.nameEmpty"); return; }
           if (campo === "email" && val && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)) { if (msg) msg.textContent = window.t("team.invalidEmail"); return; }
           try {
@@ -1654,7 +1654,7 @@
           const inp = document.getElementById("oc-neg-input");
           const msg = document.getElementById("oc-neg-msg");
           const v = (inp ? inp.value : "").trim();
-          if (msg) msg.style.color = "var(--rojo,#a3392a)";
+          if (msg) msg.style.color = "var(--rojo-ink,#a3392a)";
           if (!v) { if (msg) msg.textContent = window.t("team.nameEmpty"); return; }
           try {
             const r = await fetch("/api/instancia/nombre", {
@@ -1688,7 +1688,7 @@
           const inp = tbody.querySelector(`[data-pin-input="${id}"]`);
           const msg = tbody.querySelector(`[data-pin-msg="${id}"]`);
           const pin = (inp ? inp.value : "").trim();
-          msg.style.color = "var(--rojo,#a3392a)";
+          msg.style.color = "var(--rojo-ink,#a3392a)";
           if (!/^\d{3}$/.test(pin)) { msg.textContent = window.t("team.pinMustBe3Digits"); return; }
           try {
             const r = await fetch("/api/usuarios/" + id, {
@@ -1726,7 +1726,7 @@
         try {
           const msgElPost = document.getElementById("oc-emp-msg");
           if (msgElPost && !msgElPost.textContent) {
-            msgElPost.style.color = "var(--rojo,#a3392a)";
+            msgElPost.style.color = "var(--rojo-ink,#a3392a)";
             msgElPost.textContent = colisionPendiente;
             msgElPost.dataset.colisionPendiente = colisionPendiente;
           }
@@ -1743,7 +1743,7 @@
       // Admin que llega aquí solo puede crear encargados; dueño puede elegir admin
       const rol = (isDueno() && rolSel) ? (rolSel.value || "empleado") : "empleado";
       const msgEl = document.getElementById("oc-emp-msg");
-      msgEl.style.color = "var(--rojo,#a3392a)";
+      msgEl.style.color = "var(--rojo-ink,#a3392a)";
       if (!nombre) { msgEl.textContent = window.t("team.nameRequired"); return; }
       if (!/^\d{3}$/.test(pin)) { msgEl.textContent = window.t("team.pinMustBeExactly3Digits"); return; }
       try {
@@ -1808,7 +1808,7 @@
         const msg = window.tf("team.conflictNotice", { name: d.nombre || window.t("team.employee") });
         const msgEl = document.getElementById("oc-emp-msg");
         if (msgEl) {
-          msgEl.style.color = "var(--rojo,#a3392a)";
+          msgEl.style.color = "var(--rojo-ink,#a3392a)";
           msgEl.textContent = msg;
           // B-02: marcar el aviso con atributo para que renderEmpleados lo restaure.
           msgEl.dataset.colisionPendiente = msg;
@@ -1854,7 +1854,7 @@
       logBody.innerHTML = '<p style="font-size:13px;color:var(--ink-soft);">Cargando...</p>';
       try {
         const r = await fetch("/api/actividad");
-        if (!r.ok) { logBody.innerHTML = '<p style="color:var(--rojo,#a3392a);">No se pudo cargar el historial.</p>'; return; }
+        if (!r.ok) { logBody.innerHTML = '<p style="color:var(--rojo-ink,#a3392a);">No se pudo cargar el historial.</p>'; return; }
         const movs = await r.json();
         if (!movs.length) { logBody.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">${window.t("log.noMovementsYet")}</p>`; return; }
         const tipoLabel = (t) => {
@@ -1899,7 +1899,7 @@
               </tr>`;
             }).join("")}</tbody>
           </table></div>`;
-      } catch (_) { logBody.innerHTML = '<p style="color:var(--rojo,#a3392a);">Error de red.</p>'; }
+      } catch (_) { logBody.innerHTML = '<p style="color:var(--rojo-ink,#a3392a);">Error de red.</p>'; }
     });
     // === FIN LOG ===========================================================
 
@@ -2619,7 +2619,7 @@
         const b = $("oc-exportar");
         if (b) { b.disabled = true; b.title = "Activate this device (PIN 789) to export backups."; b.style.opacity = "0.5"; b.style.cursor = "not-allowed"; }
         const p = $("oc-respaldo-free");
-        if (p) { p.style.display = "block"; p.style.color = "var(--rojo,#a3392a)"; p.textContent = "Activate this device (PIN 789) to enable backup export."; }
+        if (p) { p.style.display = "block"; p.style.color = "var(--rojo-ink,#a3392a)"; p.textContent = "Activate this device (PIN 789) to enable backup export."; }
       }
     }).catch(() => {});
 
@@ -2817,9 +2817,9 @@
       const ultimo = Number(localStorage.getItem("f123_ultimo_export_manual") || 0);
       const el = $("oc-caja-alerta");
       if (!el) return;
-      if (!ultimo) { el.textContent = "You have not made a manual backup yet (the one above) — do it at least once."; el.style.color = "var(--rust)"; return; }
+      if (!ultimo) { el.textContent = "You have not made a manual backup yet (the one above) — do it at least once."; el.style.color = "var(--rust-ink)"; return; }
       const dias = Math.floor((Date.now() - ultimo) / 86400000);
-      if (dias >= CAJA_ALERTA_DIAS) { el.textContent = `Your last manual backup is ${dias} days old — consider making a new one.`; el.style.color = "var(--rust)"; }
+      if (dias >= CAJA_ALERTA_DIAS) { el.textContent = `Your last manual backup is ${dias} days old — consider making a new one.`; el.style.color = "var(--rust-ink)"; }
       else { el.textContent = `Last manual backup: ${dias} day(s) ago.`; el.style.color = "var(--verde)"; }
     }
     cajaPintarAlerta();
@@ -2971,7 +2971,7 @@
         <button id="mst-cancelar" style="flex:1;padding:10px;border-radius:6px;border:2px solid var(--azul-medio);background:transparent;color:var(--azul-medio);cursor:pointer;">Cancel</button>
         <button id="mst-ok" class="ir" style="flex:1;">Verify</button>
       </div>
-      <p id="mst-msg" style="font-size:14px;margin-top:10px;font-weight:700;color:var(--rojo);"></p>
+      <p id="mst-msg" style="font-size:14px;margin-top:10px;font-weight:700;color:var(--rojo-ink);"></p>
     </div>`;
     document.body.appendChild(cont);
     cont.querySelector("#mst-cancelar").addEventListener("click", () => cont.remove());
@@ -3007,7 +3007,7 @@
       ]);
     } catch (err) {
       console.error("[render/oc-taccounts]", err);
-      $("oc-taccounts").innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">Could not load. Check your connection and try again.</p>`;
+      $("oc-taccounts").innerHTML = `<p style="color:var(--rojo-ink,#a3392a);font-size:14px;">Could not load. Check your connection and try again.</p>`;
       return;
     }
     // Cuentas T derivadas del día (partida doble simplificada). El IVA
@@ -3040,7 +3040,7 @@
       filas = await (await fetch(`${API}/liquidaciones`)).json();
     } catch (err) {
       console.error("[renderChart]", err);
-      box.innerHTML = `<p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load. Check your connection and try again.</p>`;
+      box.innerHTML = `<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load. Check your connection and try again.</p>`;
       return;
     }
     if (!filas.length) { box.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">No partner/franchise/consignment locations yet.</p>`; return; }

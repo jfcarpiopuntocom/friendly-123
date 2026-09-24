@@ -178,7 +178,7 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [x] Carrera de TRES aparatos con estado rancio: verde sin cambios de codigo (9 carreras en test/commissions-carreras-sync.test.js).
 - [x] Legibilidad movil: 11 -> 13 px (Hoy, Inventario, reportes). Contraste: boton del escaner, "abrir feria", precio de etiquetas, aviso de Avanzado.
       Auditoria Chromium 375 px: textos chicos 80 -> 1; bajo contraste en Etiquetas 47 -> 9.
-- [ ] QUEDA contraste: Commissions 7, Avanzado 8, Etiquetas 9, Gastos 2, Inventario 1. Causa: rojo #E8365D, naranja #E86040 y verde #00C87A como TEXTO
+- [x] Contraste de texto HECHO en shell v389 (tintas solo-texto --rojo-ink y --rust-ink; semaforo intacto). Auditoria 375 px: 0 textos oscuros-sobre-claro fallando. Nota original: Causa: rojo #E8365D, naranja #E86040 y verde #00C87A como TEXTO
       en estilos inline. Arreglo: tintas (--rojo-ink #B8123C, --rust-deep #C05000, verde #0B7A4B) solo donde son texto; nunca en fondos ni bordes del semaforo.
 - [ ] JFC: probar 1 lote y 1 pago en el panel; Belen abre la app online y el candado debe decir shell-v388.
 - [ ] Benchmark: responder cada "pero ellos tienen X" con funcion propia; primero el aviso por WhatsApp al comisionista.
@@ -188,8 +188,14 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [x] Carrera de TRES aparatos con estado rancio: verde sin cambios de codigo (9 carreras en test/commissions-carreras-sync.test.js).
 - [x] Legibilidad movil: 11 -> 13 px (Hoy, Inventario, reportes). Contraste: boton del escaner, "abrir feria", precio de etiquetas, aviso de Avanzado.
       Auditoria Chromium 375 px: textos chicos 80 -> 1; bajo contraste en Etiquetas 47 -> 9.
-- [ ] QUEDA contraste: Commissions 7, Avanzado 8, Etiquetas 9, Gastos 2, Inventario 1. Causa: rojo #E8365D, naranja #E86040 y verde #00C87A como TEXTO
+- [x] Contraste de texto HECHO en shell v389 (tintas solo-texto --rojo-ink y --rust-ink; semaforo intacto). Auditoria 375 px: 0 textos oscuros-sobre-claro fallando. Nota original: Causa: rojo #E8365D, naranja #E86040 y verde #00C87A como TEXTO
       en estilos inline. Arreglo: tintas (--rojo-ink #B8123C, --rust-deep #C05000, verde #0B7A4B) solo donde son texto; nunca en fondos ni bordes del semaforo.
 - [ ] JFC: probar 1 lote y 1 pago en el panel; Belen abre la app online y el candado debe decir shell-v388.
 - [ ] Benchmark: responder cada "pero ellos tienen X" con funcion propia; primero el aviso por WhatsApp al comisionista.
 - Desde ahora todo lo hace Opus 5.5, con las mismas guardas que estaban marcadas para Fable 5.1.
+
+## AVANCE shell v389 (Opus 5.5, 2026-09-24 noche) — lo que sigue
+- [x] Contraste de texto: rojo/naranja de marca como LETRA pasan a --rojo-ink #B8123C y --rust-ink #A84300 (solo color:, nunca fondos). Commissions, Gastos, Inventario, Etiquetas, Avanzado, aviso de respaldo.
+- [ ] Decision JFC: botones con texto blanco sobre naranja de marca ("Scan a label", "First Steps", "Save", "View accounting layer"). Pasan el umbral de texto grande (3.2:1 >= 3:1) pero no el de texto normal (4.5:1). Si JFC los quiere 4.5:1: fondo --rust-deep #C05000 en esos botones.
+- [ ] Siguiente feature: aviso por WhatsApp al comisionista cuando se vende su pieza (benchmark #2). Plan en .md, test de dos aparatos: solo lo dispara el aparato que hizo la venta.
+- [ ] JFC: probar 1 lote y 1 pago en el panel; Belen: candado debe decir shell-v389.

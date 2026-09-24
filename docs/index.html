@@ -156,6 +156,10 @@
     --ink-soft:#2C3E50;
     --rust:#E86040;
     --rust-deep:#C05000;
+    /* TINTAS SOLO PARA TEXTO (JFC 2026-09-24, auditoria de contraste): el rojo y el naranja de marca
+       dan 3.2-3.9:1 como letra sobre blanco. Fondos y bordes del semaforo NO cambian. */
+    --rojo-ink:#B8123C;   /* 6.4:1 sobre blanco */
+    --rust-ink:#A84300;   /* 5.9:1 sobre blanco */
     --brass:#5294AC;
     --font-display:"Space Grotesk", "Avenir Next Condensed", sans-serif;
     --font-body:"Source Sans 3", "Segoe UI", sans-serif;
@@ -329,7 +333,7 @@
 
   .lista-alertas li.verde   {background:#C0F5E0;color:#009A5A;border:2px solid #00C87A;}
   .lista-alertas li.amarillo{background:#FFF3C2;color:#8A6800;border:2px solid #FFC700;}
-  .lista-alertas li.naranja {background:#FDD9BE;color:#C05000;border:2px solid #F97316;}
+  .lista-alertas li.naranja {background:#FDD9BE;color:#A84300;border:2px solid #F97316;}
   .lista-alertas li.rojo    {background:#FAD5DE;color:#B0183E;border:2px solid #E8365D;}
   .lista-alertas li.negro   {background:#17171D;color:#E0E0E2;border:2px solid #000000;}
 
@@ -1053,7 +1057,7 @@
   .ficha-producto .precio{
     font-family:var(--font-serif);
     font-size:26px;
-    color:var(--ambar);
+    color:var(--rust-ink);
     font-weight:400;
     font-style:italic;
     margin:4px 0 8px;
@@ -1198,7 +1202,7 @@
   .etiqueta-imprimible .precio-grande{
     font-family:var(--font-display);
     font-size:34px;
-    color:var(--ambar);
+    color:var(--rust-ink);
     font-weight:700;
     margin:8px 0;
   }
@@ -1236,7 +1240,7 @@
   .oc-lang-pill{ display:inline-flex; border:1.5px solid var(--azul-medio,#2E6278); border-radius:999px; overflow:hidden; background:#fff; }
   .oc-lang-btn{ font-family:var(--font-body); font-size:13px; font-weight:700; padding:5px 12px; min-height:32px; border:none; background:transparent; color:var(--azul-medio,#2E6278); cursor:pointer; letter-spacing:1px; }
   .oc-lang-btn.activo{ background:var(--azul-medio,#2E6278); color:#fff; }
-  .oc-bilingual{ font-size:13px; font-weight:700; color:var(--rust,#E86040); letter-spacing:.3px; white-space:nowrap; }
+  .oc-bilingual{ font-size:13px; font-weight:700; color:var(--rust-ink,#E86040); letter-spacing:.3px; white-space:nowrap; }
 
   /* ================= PRINT =================
      Safari exige que print() conserve el gesto directo del usuario. Imprimimos
@@ -1496,8 +1500,8 @@
     <!-- NO logoHeader aquí — logo friendly-123 va SOLO encima de Help(?), en brandWrap (help-ui.js).
          Misma decisión que AMIGABLE (2026-07-15, JFC). NO AGREGAR sello/logoHeader de vuelta. -->
     <div>
-      <h1><span id="oc-negocio-nombre" data-i18n="header.bizNameDefault">My store or shelf(s)</span><button id="oc-negocio-editar" type="button" data-i18n-attr="title:header.editBizName,aria-label:header.editBizName" title="Edit your business name" aria-label="Edit your business name" style="display:none;margin-left:6px;font-size:18px;line-height:1;min-width:32px;min-height:32px;background:transparent;border:none;color:var(--rust,#E86040);cursor:pointer;vertical-align:middle;padding:4px 6px;">✎</button></h1>
-      <p id="oc-negocio-estado" data-i18n="header.bizNameSaveError" role="alert" style="display:none;color:var(--rojo,#a3392a);font-size:13px;font-weight:700;margin:4px 0;">Could not save the business name. The previous name is kept; try again.</p>
+      <h1><span id="oc-negocio-nombre" data-i18n="header.bizNameDefault">My store or shelf(s)</span><button id="oc-negocio-editar" type="button" data-i18n-attr="title:header.editBizName,aria-label:header.editBizName" title="Edit your business name" aria-label="Edit your business name" style="display:none;margin-left:6px;font-size:18px;line-height:1;min-width:32px;min-height:32px;background:transparent;border:none;color:var(--rust-ink,#E86040);cursor:pointer;vertical-align:middle;padding:4px 6px;">✎</button></h1>
+      <p id="oc-negocio-estado" data-i18n="header.bizNameSaveError" role="alert" style="display:none;color:var(--rojo-ink,#a3392a);font-size:13px;font-weight:700;margin:4px 0;">Could not save the business name. The previous name is kept; try again.</p>
       <div id="oc-header-apodo" style="display:none;margin-top:2px;font-size:13px;line-height:1.3;color:var(--ink-soft,#5d5340);">
         <span id="oc-header-apodo-txt"></span>
         <button type="button" id="oc-header-apodo-btn" data-i18n-attr="title:device.name,aria-label:device.name" title="Name this device" aria-label="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;font-size:13px;padding:0 2px;vertical-align:middle;">✎</button>
@@ -1518,7 +1522,7 @@
   <div class="selector-ubicacion">
     <label for="selectUbicacion" data-i18n="header.locationLabel">Store / shelf</label>
     <select id="selectUbicacion"></select>
-    <span id="oc-ubicacion-estado" data-i18n="header.locationsLoadError" role="status" aria-live="polite" style="display:none;color:var(--rojo,#a3392a);font-size:13px;font-weight:700;">Could not refresh locations. Previous selection is kept.</span>
+    <span id="oc-ubicacion-estado" data-i18n="header.locationsLoadError" role="status" aria-live="polite" style="display:none;color:var(--rojo-ink,#a3392a);font-size:13px;font-weight:700;">Could not refresh locations. Previous selection is kept.</span>
   </div>
 </header>
 
@@ -2520,16 +2524,16 @@ async function ocMontarTraslado(hostId) {
   });
   host.querySelector("[data-move-go]").addEventListener("click", async () => {
     const pid = selItem.value, to = selTo.value;
-    if (!pid || !to) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = T("move.pick", "Pick an item and a destination shelf."); return; }
-    if (to === selFrom.value) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = T("move.same", "That's the same shelf."); return; }
+    if (!pid || !to) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = T("move.pick", "Pick an item and a destination shelf."); return; }
+    if (to === selFrom.value) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = T("move.same", "That's the same shelf."); return; }
     try {
       const res = await fetch(`${API}/productos/${encodeURIComponent(pid)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ubicacionId: to }) });
-      if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || T("move.fail", "Could not move it."); return; }
+      if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = r.error || T("move.fail", "Could not move it."); return; }
       msg.style.color = "var(--verde,#2f7a4f)"; msg.textContent = T("move.done", "Item moved.");
       try { if (typeof cargarInventario === "function") cargarInventario(); } catch (_) {}
       try { if (window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
       setTimeout(() => ocMontarTraslado(hostId), 400);
-    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = T("move.fail", "Could not move it."); }
+    } catch (_) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = T("move.fail", "Could not move it."); }
   });
 }
 function abrirGestorCategorias() {
@@ -2563,7 +2567,7 @@ function abrirGestorCategorias() {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span style="flex:1;min-width:120px;font-size:14px;">${escHtml(c)}</span>
             <button type="button" data-cat-rename="${escHtml(c)}" data-i18n-attr="title:sold.catRename,aria-label:sold.catRename" title="${T("sold.catRename", "Rename")}" aria-label="${T("sold.catRename", "Rename")}" style="font-size:14px;padding:4px 10px;border:2px solid var(--azul-medio);border-radius:6px;background:transparent;color:var(--azul-medio);cursor:pointer;">✎</button>
-            <button type="button" data-cat-del="${escHtml(c)}" data-i18n-attr="title:sold.catDelete,aria-label:sold.catDelete" title="${T("sold.catDelete", "Delete")}" aria-label="${T("sold.catDelete", "Delete")}" style="font-size:14px;padding:4px 10px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">🗑</button>
+            <button type="button" data-cat-del="${escHtml(c)}" data-i18n-attr="title:sold.catDelete,aria-label:sold.catDelete" title="${T("sold.catDelete", "Delete")}" aria-label="${T("sold.catDelete", "Delete")}" style="font-size:14px;padding:4px 10px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo-ink,#E8365D);cursor:pointer;">🗑</button>
           </div>`).join("")}
       </div>
       <p id="oc-cat-msg" role="status" aria-live="polite" style="font-size:13px;font-weight:700;margin:8px 0 0;"></p>`;
@@ -2576,7 +2580,7 @@ function abrirGestorCategorias() {
       const v = (inp.value || "").trim();
       if (!v) return;
       const ok = window.OCCategorias.agregar(v);
-      msg.style.color = ok ? "var(--verde,#2f7a4f)" : "var(--rojo,#a3392a)";
+      msg.style.color = ok ? "var(--verde,#2f7a4f)" : "var(--rojo-ink,#a3392a)";
       msg.textContent = ok ? T("sold.catAdded", "Category added.") : T("sold.catExists", "That category already exists.");
       if (ok) { inp.value = ""; try { window.OCReactivo && window.OCReactivo.emitir("categorias"); } catch (_) {} montarBuscadorVender(window._productosVenderCache || []); pintar(); }
     });
@@ -2599,7 +2603,7 @@ function abrirGestorCategorias() {
         let n;
         try { n = await window.OCCategorias.renombrar(viejo, nuevo); }
         catch (e) {
-          msg.style.color = "var(--rojo,#a3392a)";
+          msg.style.color = "var(--rojo-ink,#a3392a)";
           msg.textContent = window.tf("sold.catUpdateFailed", { n: e && e.completados || 0 });
           row.querySelector("[data-cat-rn-save]").disabled = false;
           try { cargarGridVender(); } catch (_) {}
@@ -2622,7 +2626,7 @@ function abrirGestorCategorias() {
       let n;
       try { n = await window.OCCategorias.borrar(cat); }
       catch (e) {
-        msg.style.color = "var(--rojo,#a3392a)";
+        msg.style.color = "var(--rojo-ink,#a3392a)";
         msg.textContent = window.tf("sold.catUpdateFailed", { n: e && e.completados || 0 });
         try { cargarGridVender(); } catch (_) {}
         return;
@@ -2829,13 +2833,13 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
     }
     const email = (document.getElementById("oc-ncli-email") || {}).value || "";
     const msg = document.getElementById("oc-ncli-msg");
-    if (!nombre) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("newcust.nameRequired"); return; }
+    if (!nombre) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = t("newcust.nameRequired"); return; }
     const btn2 = document.getElementById("oc-ncli-crear");
     btn2.disabled = true;
     try {
       const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono, email: (email || "").trim() }) });
       const r = await res.json();
-      if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || t("newcust.createError"); btn2.disabled = false; return; }
+      if (!res.ok) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = r.error || t("newcust.createError"); btn2.disabled = false; return; }
       // Agregar al selector y seleccionarlo automáticamente
       const sel = document.getElementById("ventaCliente");
       if (sel) {
@@ -2858,7 +2862,7 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
       if (window._ocNuevoClienteCb) { try { window._ocNuevoClienteCb(r); } catch (_) {} window._ocNuevoClienteCb = null; }
       try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {} // túnel: aparece enseguida en el select de venta
       cerrar();
-    } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = t("newcust.networkError"); btn2.disabled = false; }
+    } catch (_) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = t("newcust.networkError"); btn2.disabled = false; }
   });
 
   // Ambos idiomas (JFC 2026-08-25): el modal se arma una vez, asi que si el
@@ -3144,7 +3148,7 @@ async function mostrarInvitados() {
               ? `<span style="font-size:12px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">${escHtml(t("guests.settled"))}</span>`
               : `<button class="oc-book-name oc-edit-btn" data-id="${escHtml(r.id)}" data-nombre="${escHtml((r.pagador || "").trim())}" title="${escHtml(t("guests.editBuyer"))}" style="padding:4px 8px;">✎</button>
                  <button class="oc-book-cancel" data-id="${escHtml(r.id)}" data-monto="${monto.toFixed(2)}"
-                  style="font-size:12px;font-weight:700;padding:5px 10px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">${escHtml(t("guests.cancelBooking"))}</button>`}
+                  style="font-size:12px;font-weight:700;padding:5px 10px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo-ink,#E8365D);cursor:pointer;">${escHtml(t("guests.cancelBooking"))}</button>`}
           </div>`;
         }).join("")}</div>
       </div>`
@@ -3445,7 +3449,7 @@ function tarjetaCliente(c, esDueno){
   const carteraHtml = `
     <div id="cartera-${c.id}" style="margin-top:8px;"></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
-      <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #E8365D;border-radius:6px;color:#E8365D !important;-webkit-text-fill-color:#E8365D !important;cursor:pointer;"
+      <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #E8365D;border-radius:6px;color:#B8123C !important;-webkit-text-fill-color:#B8123C !important;cursor:pointer;"
         onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record debt (fiado)</button>
       <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#008a54 !important;-webkit-text-fill-color:#008a54 !important;cursor:pointer;"
         onclick="ocRegistrarCredito('${c.id}','${escHtml(c.nombre)}')">Record credit (abono)</button>
@@ -3551,7 +3555,7 @@ async function pintarSaldoCartera(clienteId) {
         restringido = ` <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">— only for: ${escHtml(items.join(", "))}</span>`;
         if (proxExp) {
           if (expirado) {
-            restringido += ` <span style="font-size:12px;font-weight:700;color:#E8365D;">EXPIRED (${escHtml(fmtFechaLoc(proxExp))})</span>`;
+            restringido += ` <span style="font-size:12px;font-weight:700;color:#B8123C;">EXPIRED (${escHtml(fmtFechaLoc(proxExp))})</span>`;
           } else if (diasRest != null && diasRest <= 3) {
             restringido += ` <span style="font-size:12px;font-weight:700;color:#F97316;">expires soon (${escHtml(fmtFechaLoc(proxExp))})</span>`;
           } else {
@@ -3668,7 +3672,7 @@ async function ocRegistrarCredito(clienteId, nombre) {
     <label style="display:block;font-size:14px;margin-top:10px;">Valid through <span style="color:var(--ink-soft);font-weight:400;">(the credit expires the next day)</span><br>
       <input id="oc-abono-exp" type="date" value="${new Date().toLocaleDateString("en-CA")}" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
     <label style="display:block;font-size:14px;margin-top:10px;">Reason (optional)<br><input id="oc-abono-motivo" type="text" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
-    <p id="oc-abono-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:var(--rojo,#a3392a);"></p>
+    <p id="oc-abono-msg" style="font-size:13px;font-weight:700;margin:8px 0 0;color:var(--rojo-ink,#a3392a);"></p>
     <div style="display:flex;gap:10px;margin-top:14px;">
       <button id="oc-abono-ok" class="ir" style="flex:1;padding:9px;">Save credit</button>
       <button id="oc-abono-cancel" style="padding:9px 16px;border:2px solid var(--linea,#D7E0E8);border-radius:8px;background:transparent;cursor:pointer;">Cancel</button>
@@ -3756,7 +3760,7 @@ if (!window.__ocCliComprasWired) {
         + ((window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es") ? 'Ventas fiadas mostradas: ' : 'On-account sales shown: ')
         + fmtMoney(fiadoTot) + '</div>' + html;
       cont.innerHTML = html;
-    }).catch(function () { cont.innerHTML = '<span style="font-size:13px;color:var(--rojo,#a3392a);">Could not load purchases.</span>'; });
+    }).catch(function () { cont.innerHTML = '<span style="font-size:13px;color:var(--rojo-ink,#a3392a);">Could not load purchases.</span>'; });
   }, true);
 }
 
@@ -4495,7 +4499,7 @@ async function cargarHoy(){
     data = await res.json();
   } catch (err) {
     const hero = document.getElementById('heroSemaforo');
-    if (hero) hero.innerHTML = `<p style="font-size:15px;color:var(--rojo,#a3392a);margin:0;">${t("hoy.err")}</p>`;
+    if (hero) hero.innerHTML = `<p style="font-size:15px;color:var(--rojo-ink,#a3392a);margin:0;">${t("hoy.err")}</p>`;
     // FIX (JFC 2026-09-17): si /dashboard falla, NO dejar el hero atascado en
     // "Loading your business..." para siempre (bug que rompe la UI). Se pone el
     // titulo por defecto para que la pantalla se vea usable aunque el calculo del
@@ -4970,7 +4974,7 @@ async function cargarInventario(){
   const grid = document.getElementById("gridInventario");
   // Barra de alternancia archivados (alta legibilidad, tinta sobre naranja de precaución).
   const _toggleArch = `<div style="grid-column:1/-1;margin:0 0 10px;">
-    <button type="button" onclick="toggleVerArchivados()" style="font-size:13px;font-weight:700;padding:7px 14px;border:2px solid var(--rust,#E86040);border-radius:6px;background:${_verArchivados ? "var(--rust,#E86040)" : "transparent"};color:${_verArchivados ? "#fff" : "var(--rust,#E86040)"};cursor:pointer;">${_verArchivados ? "← Back to inventory" : "Show archived"}</button>
+    <button type="button" onclick="toggleVerArchivados()" style="font-size:13px;font-weight:700;padding:7px 14px;border:2px solid var(--rust,#E86040);border-radius:6px;background:${_verArchivados ? "var(--rust,#E86040)" : "transparent"};color:${_verArchivados ? "#fff" : "var(--rust-ink,#A84300)"};cursor:pointer;">${_verArchivados ? "← Back to inventory" : "Show archived"}</button>
     ${_verArchivados ? '<span style="margin-left:10px;font-size:13px;font-weight:700;color:var(--ink,#211c14);">Archived products &amp; events — tap one, then “Unarchive” to restore.</span>' : ""}
   </div>`;
   let productos;
@@ -5205,7 +5209,7 @@ function _comisionFilaHtml(hasta, comision, idx){
   return `<div class="oc-com-fila" data-fila="${idx}" style="display:flex;gap:8px;align-items:center;margin-top:6px;">
     <label style="flex:1;font-size:14px;color:var(--ink-soft);">${window.t("comm.ed.uptoGoal")}<br><input type="number" min="1" step="1" class="oc-com-hasta" value="${hasta}" ${inp}></label>
     <label style="flex:1;font-size:14px;color:var(--ink-soft);">${window.t("comm.ed.pct")}<br><input type="number" min="0" max="100" step="1" class="oc-com-pct" value="${comision}" ${inp}></label>
-    <button type="button" class="oc-com-quitar" style="margin-top:14px;border:none;background:transparent;color:var(--rojo,#a3392a);font-size:18px;cursor:pointer;padding:4px 8px;" title="${window.t("comm.ed.removeTier")}" aria-label="${window.t("comm.ed.removeTier")}">✕</button>
+    <button type="button" class="oc-com-quitar" style="margin-top:14px;border:none;background:transparent;color:var(--rojo-ink,#a3392a);font-size:18px;cursor:pointer;padding:4px 8px;" title="${window.t("comm.ed.removeTier")}" aria-label="${window.t("comm.ed.removeTier")}">✕</button>
   </div>`;
 }
 function _comisionBarraHtml(escalas){
@@ -5378,12 +5382,12 @@ function renderPerchaCard(u, sucursalesDisp, promotorasDisp) {
   ).join('');
   return `<div class="tag-card" style="text-align:left;padding:14px;margin-bottom:8px;${inactiva ? 'background:#E7E9E5;border-color:#9DA29B;' : ''}">
     <strong style="font-size:16px;color:var(--ink);">${escHtml(u.nombre)}</strong>
-    <div style="font-size:13px;color:var(--ink-soft);margin:4px 0 10px;">${tipoLabel}${comLabel}${u.esFeria ? ' · <strong style="color:var(--rust,#E86040);">FERIA</strong>' : ''}${inactiva ? ' · DESACTIVADA' : ''}</div>
+    <div style="font-size:13px;color:var(--ink-soft);margin:4px 0 10px;">${tipoLabel}${comLabel}${u.esFeria ? ' · <strong style="color:var(--rust-ink,#E86040);">FERIA</strong>' : ''}${inactiva ? ' · DESACTIVADA' : ''}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
       <button data-percha-renombrar="${u.id}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Rename</button>
       ${tipo !== 'propio' ? `<button data-percha-comision="${u.id}" style="font-size:13px;padding:6px 10px;border:2px solid #B8860B;border-radius:5px;background:transparent;color:#7a5510;cursor:pointer;">Commission</button>` : ""}
-      <button data-percha-toggle="${u.id}" data-activa="${u.activa !== false}" data-feria="${u.esFeria ? '1' : ''}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust);border-radius:5px;background:transparent;color:var(--rust);cursor:pointer;">${inactiva ? 'Reactivate' : (u.esFeria ? 'Close and settle' : 'Deactivate')}</button>
-      <button data-percha-borrar="${u.id}" data-nombre="${escHtml(u.nombre)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo,#E8365D);border-radius:5px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">Delete</button>
+      <button data-percha-toggle="${u.id}" data-activa="${u.activa !== false}" data-feria="${u.esFeria ? '1' : ''}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust);border-radius:5px;background:transparent;color:var(--rust-ink);cursor:pointer;">${inactiva ? 'Reactivate' : (u.esFeria ? 'Close and settle' : 'Deactivate')}</button>
+      <button data-percha-borrar="${u.id}" data-nombre="${escHtml(u.nombre)}" style="font-size:13px;padding:6px 10px;border:2px solid var(--rojo,#E8365D);border-radius:5px;background:transparent;color:var(--rojo-ink,#E8365D);cursor:pointer;">Delete</button>
       <label style="font-size:13px;color:var(--ink-soft);">Move to:
         <select data-percha-mover="${u.id}" style="font-size:13px;padding:4px 6px;border:1px solid var(--azul-medio);border-radius:4px;margin-left:4px;">
           <option value="">— Sin sucursal —</option>${optsS}
@@ -5411,7 +5415,7 @@ async function cargarPerchas(){
     promotorasDisp = await resProm.json();
   } catch (_) {
     const g = document.getElementById('gridPerchas');
-    if (g) g.innerHTML = '<p style="color:var(--rojo,#a3392a);font-size:14px;">' + window.t("err.racksLoad") + '</p>';
+    if (g) g.innerHTML = '<p style="color:var(--rojo-ink,#a3392a);font-size:14px;">' + window.t("err.racksLoad") + '</p>';
     return;
   }
   const grid = document.getElementById('gridPerchas');
@@ -5436,7 +5440,7 @@ async function cargarPerchas(){
   sucursalesDisp.forEach(s => {
     const ps = porSucursal[s.id] || [];
     const btnBorrarSuc = ps.length === 0
-      ? `<button data-suc-borrar="${s.id}" data-nombre="${escHtml(s.nombre)}" style="font-size:13px;padding:3px 8px;border:1px solid var(--rojo,#E8365D);border-radius:4px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">Delete</button>`
+      ? `<button data-suc-borrar="${s.id}" data-nombre="${escHtml(s.nombre)}" style="font-size:13px;padding:3px 8px;border:1px solid var(--rojo,#E8365D);border-radius:4px;background:transparent;color:var(--rojo-ink,#E8365D);cursor:pointer;">Delete</button>`
       : '';
     html += `<div style="margin-bottom:20px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;border-bottom:1px solid var(--azul-medio,#4a7fa5);padding-bottom:4px;">
@@ -5475,7 +5479,7 @@ async function cargarPerchas(){
           `<h4 style="font-size:14px;margin:0 0 8px;color:var(--ink-soft);">${window.t("fair.archived")}</h4>` +
           cerradas.map(u => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid #9DA29B;border-radius:5px;background:#E7E9E5;margin-bottom:6px;">
             <span style="font-size:14px;color:var(--ink);">${escHtml(u.nombre)}</span>
-            ${navComis ? `<button data-feria-liq="1" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust,#E86040);border-radius:5px;background:transparent;color:var(--rust,#E86040);cursor:pointer;">${window.t("fair.viewSettlement")}</button>` : ''}
+            ${navComis ? `<button data-feria-liq="1" style="font-size:13px;padding:6px 10px;border:2px solid var(--rust,#E86040);border-radius:5px;background:transparent;color:var(--rust-ink,#E86040);cursor:pointer;">${window.t("fair.viewSettlement")}</button>` : ''}
           </div>`).join('');
         cajaArch.querySelectorAll('[data-feria-liq]').forEach(b => b.addEventListener('click', () => {
           if (navComis) navComis.click();
@@ -5660,13 +5664,13 @@ async function ejecutarEscaneo(){
     });
   } catch (err) {
     console.error("[ejecutarEscaneo]", err);
-    contenedor.innerHTML = `<p style="color:var(--rojo); font-weight:bold;">${window.t("err.serverReach")}</p>`;
+    contenedor.innerHTML = `<p style="color:var(--rojo-ink); font-weight:bold;">${window.t("err.serverReach")}</p>`;
     return;
   }
   if (!res.ok){
     const err = await res.json();
     const puedeCrear = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
-    contenedor.innerHTML = `<p style="color:var(--rojo); font-weight:bold;">${err.error}</p>` +
+    contenedor.innerHTML = `<p style="color:var(--rojo-ink); font-weight:bold;">${err.error}</p>` +
       (puedeCrear ? `<button class="ir" style="margin-top:10px;" onclick="mostrarFormNuevoProducto('${escHtml(codigo).replace(/'/g, "\\'")}')">+ Dar de alta este producto</button>` : "");
     return;
   }
@@ -5866,9 +5870,9 @@ async function crearProductoNuevo(codigoEscaneado){
     sku: val("np-sku"),
   };
   const msg = el("np-msg");
-  if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
-  if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.codeRequired"); return; }
-  if (body.familiaId && !body.varianteValor){ msg.style.color = "var(--rojo)"; msg.textContent = document.documentElement.lang === "es" ? "Escribe el valor que distingue esta variante." : "Enter the value that distinguishes this variant."; return; }
+  if (!body.nombre){ msg.style.color = "var(--rojo-ink)"; msg.textContent = t("form.nameRequired"); return; }
+  if (!body.barcode){ msg.style.color = "var(--rojo-ink)"; msg.textContent = t("form.codeRequired"); return; }
+  if (body.familiaId && !body.varianteValor){ msg.style.color = "var(--rojo-ink)"; msg.textContent = document.documentElement.lang === "es" ? "Escribe el valor que distingue esta variante." : "Enter the value that distinguishes this variant."; return; }
   if (Number(body.precio) === 0){ if (!(await ocConfirm(t("form.zeroPriceConfirm")))) return; }
   // Foto por producto en alta (homologado de AMIGABLE, 2026-07-22)
   const fotoNp = el("np-foto");
@@ -5879,10 +5883,10 @@ async function crearProductoNuevo(codigoEscaneado){
     data = await res.json();
   } catch (err) {
     console.error("[crearProductoNuevo]", err);
-    msg.style.color = "var(--rojo)"; msg.textContent = "Could not reach the server. Check your connection and try again.";
+    msg.style.color = "var(--rojo-ink)"; msg.textContent = "Could not reach the server. Check your connection and try again.";
     return;
   }
-  if (!res.ok){ msg.style.color = "var(--rojo)"; msg.textContent = data.error; return; }
+  if (!res.ok){ msg.style.color = "var(--rojo-ink)"; msg.textContent = data.error; return; }
   // Guardado de verdad: el borrador ya cumplio y estorbaria en el proximo alta.
   try { if (window.OCBorradores) window.OCBorradores.limpiar("alta-producto"); } catch (_) {}
   pintarFicha(data);
@@ -5977,7 +5981,7 @@ async function mostrarFormEditarProducto(id){
         </div>
         <p style="font-size:13px;color:var(--ink-soft);margin:6px 0 0;">Stock is counted in servings. 1 bottle (750 ml) ≈ 15 servings at 50 ml.</p>
       </div>
-      <label style="display:block;margin-top:14px;font-size:14px;color:var(--rust,#E86040);font-weight:700;">${t("form.internalCode")}<br>
+      <label style="display:block;margin-top:14px;font-size:14px;color:var(--rust-ink,#E86040);font-weight:700;">${t("form.internalCode")}<br>
         <input id="ed-barcode" type="text" value="${q(p.barcode)}" ${inp}></label>
       <div id="ed-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
@@ -6031,18 +6035,18 @@ async function guardarEdicionProducto(id){
   const foto = await leerFotoRedimensionada(document.getElementById("ed-foto"));
   if (foto) body.foto = foto;
   const msg = document.getElementById("ed-msg");
-  if (!body.nombre){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.nameRequired"); return; }
-  if (!body.barcode){ msg.style.color = "var(--rojo)"; msg.textContent = t("form.codeCannotBeEmpty"); return; }
+  if (!body.nombre){ msg.style.color = "var(--rojo-ink)"; msg.textContent = t("form.nameRequired"); return; }
+  if (!body.barcode){ msg.style.color = "var(--rojo-ink)"; msg.textContent = t("form.codeCannotBeEmpty"); return; }
   let res, data;
   try {
     res = await fetch(`${API}/productos/${id}`, { method: "PATCH", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
     data = await res.json();
   } catch (err) {
     console.error("[guardarEdicionProducto]", err);
-    msg.style.color = "var(--rojo)"; msg.textContent = "Could not reach the server. Check your connection and try again.";
+    msg.style.color = "var(--rojo-ink)"; msg.textContent = "Could not reach the server. Check your connection and try again.";
     return;
   }
-  if (!res.ok){ msg.style.color = "var(--rojo)"; msg.textContent = data.error; return; }
+  if (!res.ok){ msg.style.color = "var(--rojo-ink)"; msg.textContent = data.error; return; }
   pintarFicha(data);
   cargarInventario();
 }
@@ -6249,8 +6253,8 @@ function pintarFicha(p){
       ${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<div class="acciones-rapidas" style="margin-top:8px;">
         <button onclick="duplicarComoVariante('${p.id}')">${document.documentElement.lang === "es" ? "Crear variante" : "Create variant"}</button>
         <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
-        <button style="border-color:var(--rust,#E86040);color:var(--rust,#E86040);" onclick="archivarProductoUI('${p.id}', ${p.archivado ? "false" : "true"}, this)">${p.archivado ? "Unarchive" : "Archive"}</button>
-        <button style="border-color:var(--rojo);color:var(--rojo);" onclick="eliminarProductoUI('${p.id}', this)">${t("ficha.deleteBtn")}</button>
+        <button style="border-color:var(--rust,#E86040);color:var(--rust-ink,#E86040);" onclick="archivarProductoUI('${p.id}', ${p.archivado ? "false" : "true"}, this)">${p.archivado ? "Unarchive" : "Archive"}</button>
+        <button style="border-color:var(--rojo);color:var(--rojo-ink);" onclick="eliminarProductoUI('${p.id}', this)">${t("ficha.deleteBtn")}</button>
       </div>` : ""}
     </div>
     <div id="oc-transfer-banner"></div>
@@ -6360,7 +6364,7 @@ async function abrirPanelVentaInfo(id, esTicket){
   const overlay = document.getElementById("oc-ventainfo-overlay");
   const caja = document.getElementById("oc-ventainfo-caja");
   const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"';
-  const req = esTicket ? ' <span style="color:var(--rojo,#a3392a);">*</span>' : '';
+  const req = esTicket ? ' <span style="color:var(--rojo-ink,#a3392a);">*</span>' : '';
   const esBar = p.tipoProducto === "bar";
   const _servPorBotella = esBar ? Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50))) : 0;
   /* TÍTULO DEL PANEL DE VENTA TRADUCIBLE EN VIVO (JFC 2026-09-22, cierra el
@@ -6522,13 +6526,13 @@ async function abrirPanelVentaInfo(id, esTicket){
   const btnSaveNew = document.getElementById("vi-newcli-save");
   async function guardarInline() {
     const nombre = (inNom && inNom.value || "").trim();
-    if (!nombre) { if (inMsg) { inMsg.style.color = "var(--rojo,#a3392a)"; inMsg.textContent = "Enter a customer name."; } if (inNom) inNom.focus(); return; }
-    if (inEmail && !inEmail.checkValidity()) { if (inMsg) { inMsg.style.color = "var(--rojo,#a3392a)"; inMsg.textContent = t("newcust.emailInvalid"); } inEmail.focus(); return; }
+    if (!nombre) { if (inMsg) { inMsg.style.color = "var(--rojo-ink,#a3392a)"; inMsg.textContent = "Enter a customer name."; } if (inNom) inNom.focus(); return; }
+    if (inEmail && !inEmail.checkValidity()) { if (inMsg) { inMsg.style.color = "var(--rojo-ink,#a3392a)"; inMsg.textContent = t("newcust.emailInvalid"); } inEmail.focus(); return; }
     if (btnSaveNew) btnSaveNew.disabled = true;
     try {
       const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nombre, telefono: (inTel && inTel.value || "").trim(), email: (inEmail && inEmail.value || "").trim() }) });
       const r = await res.json();
-      if (!res.ok) { if (inMsg) { inMsg.style.color = "var(--rojo,#a3392a)"; inMsg.textContent = r.error || "Could not create the customer."; } if (btnSaveNew) btnSaveNew.disabled = false; return; }
+      if (!res.ok) { if (inMsg) { inMsg.style.color = "var(--rojo-ink,#a3392a)"; inMsg.textContent = r.error || "Could not create the customer."; } if (btnSaveNew) btnSaveNew.disabled = false; return; }
       const opt = document.createElement("option");
       opt.value = r.id; opt.textContent = `${r.nombre}${r.codigo ? " (" + r.codigo + ")" : ""}`;
       selCli.appendChild(opt); selCli.value = r.id;
@@ -6536,7 +6540,7 @@ async function abrirPanelVentaInfo(id, esTicket){
       try { if (typeof poblarSelectClientes === "function") poblarSelectClientes(); } catch (_) {}
       try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}
       cerrarInline();
-    } catch (_) { if (inMsg) { inMsg.style.color = "var(--rojo,#a3392a)"; inMsg.textContent = "Network error — try again."; } if (btnSaveNew) btnSaveNew.disabled = false; }
+    } catch (_) { if (inMsg) { inMsg.style.color = "var(--rojo-ink,#a3392a)"; inMsg.textContent = "Network error — try again."; } if (btnSaveNew) btnSaveNew.disabled = false; }
   }
   if (btnSaveNew) btnSaveNew.addEventListener("click", guardarInline);
   if (inTel) inTel.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); guardarInline(); } });
@@ -6747,18 +6751,18 @@ async function confirmarVentaConInfo(id, esTicket){
   };
   const msg = document.getElementById("vi-msg");
   if (_ovInvalido) {
-    msg.style.color = "var(--rojo,#a3392a)";
+    msg.style.color = "var(--rojo-ink,#a3392a)";
     msg.textContent = t("sold.invalidSalePrice");
     _ovEl.focus();
     return;
   }
   if (esTicket && !info.fechaEvento){
-    msg.style.color = "var(--rojo,#a3392a)";
+    msg.style.color = "var(--rojo-ink,#a3392a)";
     msg.textContent = "For tickets/events you need the event/class date.";
     return;
   }
   if (_fiadoOn && !clienteId){
-    msg.style.color = "var(--rojo,#a3392a)";
+    msg.style.color = "var(--rojo-ink,#a3392a)";
     msg.textContent = "On credit needs a customer — pick one above (or use New).";
     return;
   }
@@ -6787,13 +6791,13 @@ async function confirmarVentaConInfo(id, esTicket){
       try {
         const _resAsign = await fetch(`${API}/ubicaciones/${encodeURIComponent(_p2.ubicacionId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ promotoraId: _comisionistaElegido }) });
         if (!_resAsign.ok) {
-          msg.style.color = "var(--rojo,#a3392a)";
+          msg.style.color = "var(--rojo-ink,#a3392a)";
           msg.textContent = "Could not save the associate for this shelf. Try again before selling.";
           return;
         }
         try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {}
       } catch (_errAsign) {
-        msg.style.color = "var(--rojo,#a3392a)";
+        msg.style.color = "var(--rojo-ink,#a3392a)";
         msg.textContent = "Could not reach the server to save the associate. The sale was NOT recorded.";
         return;
       }
@@ -6812,10 +6816,10 @@ async function confirmarVentaConInfo(id, esTicket){
       data = await res.json();
     } catch (err) {
       console.error("[confirmarVentaConInfo]", err);
-      msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not reach the server. The sale was NOT recorded.";
+      msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = "Could not reach the server. The sale was NOT recorded.";
       return;
     }
-    if (!res.ok){ msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = data.error; return; }
+    if (!res.ok){ msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = data.error; return; }
     cancelarPanelVentaInfo();
     if (document.getElementById(fichaTargetActual)) pintarFicha(data.producto);
     if (document.getElementById("gridVender")) cargarGridVender();
@@ -6861,7 +6865,7 @@ async function cargarVentasSold(){
   cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Loading…</p>';
   let rows = [];
   try { rows = await (await fetch(`${API}/ventas/todas?ubicacionId=${ubicacionActual}`)).json(); }
-  catch (_) { cont.innerHTML = '<p style="color:var(--rojo,#a3392a);font-size:14px;">Could not load sales.</p>'; return; }
+  catch (_) { cont.innerHTML = '<p style="color:var(--rojo-ink,#a3392a);font-size:14px;">Could not load sales.</p>'; return; }
   if (!Array.isArray(rows) || !rows.length) {
     cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">No sales recorded yet.</p>'; return;
   }
@@ -6896,9 +6900,9 @@ async function cargarVentasSold(){
           ${(bloqueada || !_puedeGestionarVenta) ? "" : `<button type="button" class="oc-vs-edit oc-edit-btn oc-edit-btn--warn" title="Edit (changes a recorded sale)"
             style="margin-top:6px;">✎</button>
           <button type="button" class="oc-vs-cancel" title="Undo sale" aria-label="Undo sale"
-            style="margin-top:6px;margin-left:4px;font-size:18px;font-weight:700;padding:2px 8px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">↶</button>`}
+            style="margin-top:6px;margin-left:4px;font-size:18px;font-weight:700;padding:2px 8px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo-ink,#E8365D);cursor:pointer;">↶</button>`}
           ${(bloqueada && !v.devuelta && _puedeGestionarVenta) ? `<button type="button" class="oc-vs-return" title="Return (the commission is deducted from the next payment)"
-            style="margin-top:6px;font-size:14px;font-weight:700;padding:4px 10px;border:2px solid var(--rust,#E86040);border-radius:6px;background:transparent;color:var(--rust,#E86040);cursor:pointer;">Return</button>` : ""}
+            style="margin-top:6px;font-size:14px;font-weight:700;padding:4px 10px;border:2px solid var(--rust,#E86040);border-radius:6px;background:transparent;color:var(--rust-ink,#E86040);cursor:pointer;">Return</button>` : ""}
         </div>
       </div>
       <div class="oc-vs-editor" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--linea,#D7E0E8);">
@@ -6965,10 +6969,10 @@ async function cargarVentasSold(){
       try {
         const res = await fetch(`${API}/ventas/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await res.json();
-        if (!res.ok) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = data.error || "Could not save."; return; }
+        if (!res.ok) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = data.error || "Could not save."; return; }
         cargarVentasSold();
         if (document.getElementById("gridVender")) cargarGridVender();
-      } catch (_) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Could not reach the server."; }
+      } catch (_) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = "Could not reach the server."; }
     });
     const btnCancel = row.querySelector(".oc-vs-cancel");
     if (btnCancel) btnCancel.addEventListener("click", async () => {
@@ -7126,7 +7130,7 @@ async function cargarEtiquetas(){
       <div class="nombre-prod">${escHtml(p.nombre)}</div>
       <div class="precio-prod">${fmtMoney(p.precio)}</div>
       <div class="sku-prod">${escHtml(p.sku)}</div>
-      ${p.perecible ? `<div style="font-size:13px;font-weight:700;color:var(--rust);margin-top:4px;">🕓 Perecible</div>` : ""}
+      ${p.perecible ? `<div style="font-size:13px;font-weight:700;color:var(--rust-ink);margin-top:4px;">🕓 Perecible</div>` : ""}
     </div>
   `).join("");
 }
@@ -7153,7 +7157,7 @@ async function abrirEtiqueta(id){
     <button class="cerrar" id="cerrarModal2">✕</button>
     <h4>${escHtml(p.nombre)}</h4>
     <div class="precio-grande">${fmtMoney(p.precio)}</div>
-    ${p.perecible && p.fechaCaducidad ? `<div style="font-size:13px;font-weight:700;color:var(--rust);">Vence: ${p.fechaCaducidad}</div>` : ""}
+    ${p.perecible && p.fechaCaducidad ? `<div style="font-size:13px;font-weight:700;color:var(--rust-ink);">Vence: ${p.fechaCaducidad}</div>` : ""}
     <div class="codigo">${escHtml(p.barcode || "")}</div>
     <div class="barras" id="barrasClicable" style="cursor:pointer;position:relative;" title="Tap to print or save just the barcode">${data.barcodeSvg || ""}</div>
     <div style="font-size:13px;color:var(--azul-medio,#2c4a68);margin-top:-6px;">👆 Tap the barcode to print or save it alone</div>
@@ -7311,7 +7315,7 @@ function tarjetaPromotora(pr){
         ${pr.direccion ? `<div style="font-size:14px;color:var(--ink-soft);">📍 ${escHtml(pr.direccion)}</div>` : ""}
         ${pr.notas ? `<div style="font-size:14px;color:var(--ink-soft);font-style:italic;margin-top:2px;">"${escHtml(pr.notas)}"</div>` : ""}
       </button>
-      <button data-archivar-promotora="${pr.id}" data-nombre-promotora="${escHtml(pr.nombre)}" style="font-size:13px;padding:7px 11px;border:2px solid var(--rojo,#a3392a);border-radius:4px;background:transparent;color:var(--rojo,#a3392a);cursor:pointer;">${window.t("comm.g.archive")}</button>
+      <button data-archivar-promotora="${pr.id}" data-nombre-promotora="${escHtml(pr.nombre)}" style="font-size:13px;padding:7px 11px;border:2px solid var(--rojo,#a3392a);border-radius:4px;background:transparent;color:var(--rojo-ink,#a3392a);cursor:pointer;">${window.t("comm.g.archive")}</button>
     </div>`;
 }
 function renderListaPromotorasViva(query){
@@ -7352,7 +7356,7 @@ async function renderGestionPromotoras(){
   try {
     lista = await (await fetch(`${API}/promotoras`)).json();
   } catch (_) {
-    box.innerHTML = `<p style="font-size:14px;color:var(--rojo,#a3392a);">${window.t("comm.g.loadFail")}</p>`;
+    box.innerHTML = `<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">${window.t("comm.g.loadFail")}</p>`;
     return;
   }
   try { encargados = await (await fetch(`${API}/usuarios`)).json(); } catch (_) { encargados = []; }
@@ -7441,7 +7445,7 @@ async function renderGestionPromotoras(){
     const nombre = ((inputTexto.value || "").trim() || (selectNombre.value || "")).trim();
     const comision = document.getElementById("promComision").value;
     const msgEl = document.getElementById("promMsg");
-    if (!nombre){ msgEl.textContent = window.t("comm.g.needName"); msgEl.style.color = "var(--rojo,#a3392a)"; return; }
+    if (!nombre){ msgEl.textContent = window.t("comm.g.needName"); msgEl.style.color = "var(--rojo-ink,#a3392a)"; return; }
     const body = {
       nombre, comision,
       telefono: document.getElementById("promTelefono").value.trim(),
@@ -7458,10 +7462,10 @@ async function renderGestionPromotoras(){
       res = await fetch(`${API}/promotoras`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
       r = await res.json();
     } catch (_) {
-      msgEl.textContent = window.t("comm.g.addFail"); msgEl.style.color = "var(--rojo,#a3392a)"; btn.disabled = false; return;
+      msgEl.textContent = window.t("comm.g.addFail"); msgEl.style.color = "var(--rojo-ink,#a3392a)"; btn.disabled = false; return;
     }
     btn.disabled = false;
-    if (!res.ok){ msgEl.textContent = r.error || window.t("comm.g.addFailShort"); msgEl.style.color = "var(--rojo,#a3392a)"; return; }
+    if (!res.ok){ msgEl.textContent = r.error || window.t("comm.g.addFailShort"); msgEl.style.color = "var(--rojo-ink,#a3392a)"; return; }
     msgEl.textContent = window.t("comm.g.added"); msgEl.style.color = "var(--verde)";
     try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {} // túnel: aparece enseguida en los pulldowns
     renderGestionPromotoras();
@@ -7576,7 +7580,7 @@ async function cargarGastos(){
   if (fechaEl && !fechaEl.value) fechaEl.value = new Date().toISOString().slice(0, 10);
   let data;
   try { data = await (await fetch(`${API}/gastos`)).json(); }
-  catch (_) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load expenses. Reload the view.</p>'; return; }
+  catch (_) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load expenses. Reload the view.</p>'; return; }
   const gastos = (data && data.gastos) || [];
   // Ingresos del mes (ventas) para el neto.
   let ventasMes = 0;
@@ -7600,11 +7604,11 @@ async function cargarGastos(){
   const _rolG = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
   const _verIngresos = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
   if (resumen) resumen.innerHTML =
-    tarjeta("Expenses this month", gastosMes, "var(--dinero-rojo)") +
-    tarjeta("Expenses (all time)", totalGastos, "var(--dinero-rojo)") +
+    tarjeta("Expenses this month", gastosMes, "var(--rojo-ink)") +
+    tarjeta("Expenses (all time)", totalGastos, "var(--rojo-ink)") +
     (_verIngresos
       ? tarjeta("Sales this month", ventasMes, "var(--dinero-verde-dk)") +
-        tarjeta("Net", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--dinero-rojo)")
+        tarjeta("Net", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)")
       : "");
   // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
   const catDelMes = {};
@@ -7641,7 +7645,7 @@ async function cargarGastos(){
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
         <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${new Date(g.fecha).toLocaleDateString()}${g.factura ? " · Invoice " + escHtml(g.factura) : ""}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
-      <strong style="color:var(--dinero-rojo);font-size:16px;">-${fmtMoney(g.monto)}</strong>
+      <strong style="color:var(--rojo-ink);font-size:16px;">-${fmtMoney(g.monto)}</strong>
       ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" class="oc-edit-btn oc-edit-btn--warn">✎</button>` : ""}
       ${_puedeEditarGasto ? `<button onclick="anularGasto('${g.id}')" title="Delete this expense" style="font-size:13px;padding:3px 8px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">✕</button>` : ""}
     </div>`).join("");
@@ -7653,14 +7657,14 @@ async function registrarGasto(){
   const msg = document.getElementById("gastoMsg");
   const concepto = (conceptoEl.value || "").trim();
   const monto = Number(montoEl.value);
-  if (!concepto) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Enter a description for the expense."; return; }
-  if (!Number.isFinite(monto) || monto <= 0) { msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = "Enter a valid amount."; return; }
+  if (!concepto) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = "Enter a description for the expense."; return; }
+  if (!Number.isFinite(monto) || monto <= 0) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = "Enter a valid amount."; return; }
   const catEl = document.getElementById("gastoCategoria");
   const categoria = catEl ? catEl.value : "other";
   const facturaEl = document.getElementById("gastoFactura");
   const factura = facturaEl ? (facturaEl.value || "").trim() : "";
   const res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, factura: factura || undefined, fecha: fechaEl.value ? new Date(fechaEl.value).toISOString() : undefined, ubicacionId: ubicacionActual }) });
-  if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo,#a3392a)"; msg.textContent = r.error || "Could not save the expense."; return; }
+  if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = r.error || "Could not save the expense."; return; }
   conceptoEl.value = ""; montoEl.value = ""; if (facturaEl) facturaEl.value = "";
   msg.style.color = "var(--sim-verde-dk,#1a6e3c)"; msg.textContent = "Expense recorded.";
   cargarGastos();
@@ -7753,13 +7757,13 @@ function matrizComisionistasHtml(ranking){
     const altoValor = (r.ventasBrutas || 0) >= mediana;
     const activo = (r.diasSinVenta == null || r.diasSinVenta < 7);
     if (altoValor && activo) return { k: "campeon", t: "Champions", c: "#006B3C", d: "High value, active. Protect and reward." };
-    if (altoValor && !activo) return { k: "riesgo", t: "At risk", c: "#E86040", d: "High value but dormant. Re-engage now." };
+    if (altoValor && !activo) return { k: "riesgo", t: "At risk", c: "#A84300", d: "High value but dormant. Re-engage now." };
     if (!altoValor && activo) return { k: "promesa", t: "Promising", c: "#2E6278", d: "Active but low value. Nurture to grow." };
     return { k: "dormido", t: "Dormant", c: "#2C3E50", d: "Low value and inactive. Consider re-activating or releasing." };
   };
   const grupos = { campeon: [], riesgo: [], promesa: [], dormido: [] };
   ranking.forEach(r => grupos[cuadrante(r).k].push(r));
-  const orden = [["campeon","Champions","#006B3C","High value, active. Protect and reward."],["riesgo","At risk","#E86040","High value but dormant. Re-engage now."],["promesa","Promising","#2E6278","Active but low value. Nurture to grow."],["dormido","Dormant","#2C3E50","Low value and inactive. Consider re-activating or releasing."]];
+  const orden = [["campeon","Champions","#006B3C","High value, active. Protect and reward."],["riesgo","At risk","#A84300","High value but dormant. Re-engage now."],["promesa","Promising","#2E6278","Active but low value. Nurture to grow."],["dormido","Dormant","#2C3E50","Low value and inactive. Consider re-activating or releasing."]];
   return `
     <h3 class="seccion" style="font-size:16px;margin-top:26px;">${t("comm.rfmHeading")}</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
@@ -7934,7 +7938,7 @@ async function cargarComisiones(){
       fetch(`${API}/liquidaciones/meses`).then(r => r.json()).catch(() => []),
     ]);
   } catch (_) {
-    if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo,#a3392a);">Could not load commissions. Reload the view.</p>';
+    if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load commissions. Reload the view.</p>';
     return;
   }
   // Rec 03: botón que arma el resumen del día y lo abre en WhatsApp listo.
@@ -7957,7 +7961,7 @@ async function cargarComisiones(){
         <span style="font-size:16px;font-weight:700;line-height:1;min-width:22px;">${med}</span>
         <div style="flex:1;"><strong>${escHtml(r.nombre)}</strong>${dormido}
           <div style="font-size:13px;color:var(--ink-soft);">${r.ventasCount} sold · gross ${fmtMoney(r.ventasBrutas)}${top}</div></div>
-        <strong style="color:var(--verde,#2f7a4f);font-size:16px;">${fmtMoney(r.comision)}</strong>
+        <strong style="color:#0B7A4B;font-size:16px;">${fmtMoney(r.comision)}</strong>
       </div>`;
     }).join("")}</div>` : "";
 
@@ -8033,7 +8037,7 @@ async function cargarComisiones(){
     const actual = f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0);
     return `
       <details style="margin-top:10px;">
-        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--rust,#E86040);user-select:none;">Was the percentage wrong? Fix it →</summary>
+        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--rust-ink,#E86040);user-select:none;">Was the percentage wrong? Fix it →</summary>
         <div style="padding:10px 0 4px;">
           <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">Recalculates the split for this month's sales on this shelf. The sale, the product and the stock stay the same — only the split changes. There's a record of what it said before.</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
@@ -8052,7 +8056,7 @@ async function cargarComisiones(){
             Also fix the ones I already marked as paid this month</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
             <button type="button" data-corregir="${escHtml(f.ubicacionId)}" data-uid="${uid}" data-nombre="${escHtml(f.ubicacion)}"
-              style="font-size:14px;padding:8px 14px;border-color:var(--rust,#E86040);color:var(--rust,#E86040);">Apply fix</button>
+              style="font-size:14px;padding:8px 14px;border-color:var(--rust,#E86040);color:var(--rust-ink,#E86040);">Apply fix</button>
           </div>
           <p id="cor-msg-${uid}" style="font-size:13px;font-weight:700;margin:8px 0 0;"></p>
         </div>
@@ -8082,9 +8086,9 @@ async function cargarComisiones(){
         <div><div class="rotulo">Associate takes <small style="text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:400;">(${f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0)}%)</small></div><div class="cifra">${fmtMoney(f.comisionSocio)}</div></div>
         <div><div class="rotulo">House keeps <small style="text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:400;">(${f.pctEfectivo != null ? (100 - f.pctEfectivo).toFixed(2).replace(/\.00$/,"") : (f.pctQuedaEnCasa || 0)}%)</small></div><div class="cifra">${fmtMoney(f.netoDueno)}</div></div>
       </div>
-      ${(f.avisosTrato && f.avisosTrato.length) ? f.avisosTrato.map(a => `<p style="font-size:13px;color:var(--rust,#E86040);margin:6px 0 0;">${escHtml(a)}</p>`).join("") : ""}
-      ${f.ventasCorregidas ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ventasCorregidas} sale(s) this month have the percentage manually corrected.</p>` : ""}
-      ${(f.ajustes && f.ajustes.length) ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ajustes.length} return(s) of already-paid sales this month: ${fmtMoney(f.ajustes.reduce((a, x) => a + x.montoComisionSocio, 0))} deducted${f.ajustes.some(x => !x.liquidada) ? " from the next payment" : ""}.</p>
+      ${(f.avisosTrato && f.avisosTrato.length) ? f.avisosTrato.map(a => `<p style="font-size:13px;color:var(--rust-ink,#E86040);margin:6px 0 0;">${escHtml(a)}</p>`).join("") : ""}
+      ${f.ventasCorregidas ? `<p style="font-size:13px;color:var(--rust-ink,#E86040);font-weight:700;margin:6px 0 0;">${f.ventasCorregidas} sale(s) this month have the percentage manually corrected.</p>` : ""}
+      ${(f.ajustes && f.ajustes.length) ? `<p style="font-size:13px;color:var(--rust-ink,#E86040);font-weight:700;margin:6px 0 0;">${f.ajustes.length} return(s) of already-paid sales this month: ${fmtMoney(f.ajustes.reduce((a, x) => a + x.montoComisionSocio, 0))} deducted${f.ajustes.some(x => !x.liquidada) ? " from the next payment" : ""}.</p>
       <details style="margin-top:4px;"><summary style="font-size:13px;cursor:pointer;color:var(--azul-medio,#2c4a68);">Who returned what →</summary>
         <table style="width:100%;margin-top:4px;font-size:13px;">${f.ajustes.map(x => `<tr><td>${(() => { try { return new Date(x.fecha).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || undefined); } catch (_) { return String(x.fecha).slice(0, 10); } })()} · ${escHtml(x.quien || "")}${x.motivo ? " · " + escHtml(x.motivo) : ""}</td><td style="text-align:right;">${fmtMoney(x.montoComisionSocio)}${x.liquidada ? " (deducted)" : ""}</td></tr>`).join("")}</table></details>` : ""}
       ${(f.repartoPersonas && f.repartoPersonas.length > 1) ? `<table style="width:100%;margin-top:8px;font-size:14px;"><tr><td colspan="2" style="font-weight:700;">Split between people this month</td></tr>${f.repartoPersonas.map(p => `<tr><td>${escHtml(p.nombre)}</td><td style="text-align:right;">${fmtMoney(p.monto)}</td></tr>`).join("")}</table>` : ""}
@@ -8155,7 +8159,7 @@ async function cargarComisiones(){
     btn.addEventListener("click", async () => {
       const pct = Number(inAso ? inAso.value : NaN);
       if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
-        msg.style.color = "var(--rojo)"; msg.textContent = "The percentage must be between 0 and 100.";
+        msg.style.color = "var(--rojo-ink)"; msg.textContent = "The percentage must be between 0 and 100.";
         return;
       }
       const motivo = (document.getElementById(`cor-mot-${uid}`) || {}).value || "";
@@ -8179,12 +8183,12 @@ async function cargarComisiones(){
       } catch (err) {
         console.error("[corregirComision]", err);
         btn.disabled = false;
-        msg.style.color = "var(--rojo)"; msg.textContent = "Could not reach the server. NOTHING was changed.";
+        msg.style.color = "var(--rojo-ink)"; msg.textContent = "Could not reach the server. NOTHING was changed.";
         return;
       }
       if (!res.ok) {
         btn.disabled = false;
-        msg.style.color = "var(--rojo)"; msg.textContent = data.error || "Could not apply the fix.";
+        msg.style.color = "var(--rojo-ink)"; msg.textContent = data.error || "Could not apply the fix.";
         return;
       }
       msg.style.color = "var(--verde,#2f7a4f)";
@@ -8547,7 +8551,7 @@ async function cargarGastosMensuales(){
     data = await res.json();
   } catch (err) {
     console.error("[cargarGastosMensuales]", err);
-    msg.style.color = "var(--rojo)";
+    msg.style.color = "var(--rojo-ink)";
     msg.textContent = "Could not load expenses. Check your connection and try again.";
     return;
   }
@@ -8588,7 +8592,7 @@ document.getElementById("btnGuardarGastos").addEventListener("click", async () =
   });
   const data = await res.json();
   if (!res.ok){
-    msg.style.color = "var(--rojo)";
+    msg.style.color = "var(--rojo-ink)";
     msg.textContent = data.error;
     return;
   }
@@ -8884,7 +8888,7 @@ async function cargarAvanzado(){
     ]);
   } catch (err) {
     console.error("[cargarAvanzado]", err);
-    const aviso = `<tr><td colspan="5" style="color:var(--rojo);padding:12px;">Could not load. Check your connection and try again.</td></tr>`;
+    const aviso = `<tr><td colspan="5" style="color:var(--rojo-ink);padding:12px;">Could not load. Check your connection and try again.</td></tr>`;
     document.getElementById("tablaPL").innerHTML = aviso;
     document.getElementById("tablaBalance").innerHTML = aviso;
     document.getElementById("tablaValorizado").innerHTML = aviso;
@@ -9337,7 +9341,7 @@ function _ocModalMostrar(mensaje, botonesConfig) {
     botonesConfig.forEach(cfg => {
       const b = document.createElement("button");
       b.textContent = cfg.label;
-      if (cfg.danger) b.style.cssText = "border-color:var(--rojo,#a3392a);color:var(--rojo,#a3392a);";
+      if (cfg.danger) b.style.cssText = "border-color:var(--rojo,#a3392a);color:var(--rojo-ink,#a3392a);";
       b.addEventListener("click", () => {
         overlay.style.display = "none";
         _ocModalResolve = null;

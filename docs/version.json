@@ -3,7 +3,7 @@
   "fecha": "2026-09-24",
   "changelog": "Commissions between devices: a paid sale stays paid and a return made on another device is never lost; the clawback is created once on both devices. Labels now say Commissionist/Artist/Promoter.",
   "requerida": false,
-  "shell": "f123-shell-v388",
+  "shell": "f123-shell-v389",
   "apagar": [],
   "releaseName": "v1.0"
 }
