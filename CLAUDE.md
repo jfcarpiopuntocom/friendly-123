@@ -236,3 +236,14 @@ trabajo está mal hecho aunque el código funcione.
 - Compactación de sesión con Jev: plugin `fast-jev-compaction@fast-jev-compaction-jfc`
   (fork local de JFC que va por Vercel AI Gateway y censura licencias, claves y PIN antes de
   enviar). Si falla, Claude Code hace el resumen normal.
+
+## CLOUDFLARE = CAPA PRIVADA DE LAS APPS (JFC 2026-09-24, regla dura, las 3 apps)
+- Todo lo privado o semipublico (Worker de licencias, relay de sync, y el
+  origen del codigo para el cargador anti-clon) vive en la cuenta Cloudflare
+  de JFC, con 2FA activada. GitHub Pages sigue siendo la PUERTA (ahi estan los
+  datos por origen); Cloudflare Pages sirve el codigo.
+- Hostinger hoy es SOLO el dominio jfcarpio.com (sin hosting). No se planifica
+  nada sobre Hostinger salvo que JFC contrate hosting o sea vital; el DNS de
+  jfcarpio.com puede apuntar subdominios a Cloudflare (ej. code.jfcarpio.com).
+- Ningun modelo cambia de proveedor, borra un Worker/Pages ni mueve el origen
+  del codigo sin orden expresa de JFC. Runbook: PLAN-BLOQUE-P-CARGADOR-HOSTINGER-2026-09-24.md.
