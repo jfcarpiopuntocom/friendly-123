@@ -51,7 +51,7 @@ estado.
   personas (vendedor+asistente), suma exacta al centavo; COUNTER SALE intacto.
   Persona-testing (Hugo/Paco/Luis) antes de publicar. Coordinar con Codex
   (CONTINUAR.md) antes de tocar mock-backend.
-- [ ] 5. DESIGN.md único (refs: github.com/VoltAgent/awesome-claude-design,
+- [~] 5. DESIGN.md único (BORRADOR 2026-09-24, Fable 5.1: tokens inventariados de los 5 html; falta que JFC elija el look A/B/C de la seccion 0 para cerrarlo) (refs: github.com/VoltAgent/awesome-claude-design,
   github.com/nutlope/hallmark): tokens de color/tipo/espaciado/esquinas/estados
   de TODAS las htmls; reglas duras (sin gris bajo, sin opacidad en texto, 4
   esquinas, min 12-13px, azul permitido).
@@ -67,6 +67,11 @@ estado.
   clic": hPanel > Avanzado > GIT (conectar repo + webhook); para repo privado
   Hostinger da una deploy key que JFC pega en GitHub (único paso manual).
   Claude nunca teclea claves.
+
+## Escala (JFC 2026-09-24: 1.000-10.000 usuarios por gremios/asociaciones, licencias bulk)
+- Todo estatico (GitHub Pages hoy, Hostinger despues) + relay en Cloudflare Worker: costo marginal por usuario ~0; el dato vive en cada aparato.
+- Licencia bulk = lote de codigos F123- emitido por asociacion desde el panel privado, con prefijo/etiqueta del gremio para contar y renovar en bloque. No se guarda nada de sus clientes en nuestro lado.
+- Cualquier feature nueva se disena sin servidor con estado (regla vigente del relay).
 
 ## Presupuesto
 - Semana al 88% (reset 2026-09-29 07:00 UTC). Extra usage apagado: solo JFC lo activa.
