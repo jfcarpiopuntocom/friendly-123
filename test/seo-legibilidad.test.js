@@ -62,3 +62,12 @@ test('save.html: FAQ de 5 preguntas con hechos ya publicados (fijacion, Bloque 7
   assert.match(faq, /within 24 hours/);
   assert.doesNotMatch(faq, /guarantee|refund|money back/i, 'la FAQ no promete nada que JFC no haya decidido');
 });
+
+test('save.html: embudo limpio y prueba social con permiso (fijacion, JFC 2026-09-24)', () => {
+  const html = leer('save.html');
+  assert.ok(!html.includes('href="./checklist.html"'), 'ningun enlace saca al visitante a la encuesta');
+  assert.match(html, /Belén — idiomARTE, Cuenca/);
+  assert.match(html, /José — Olimpo Chess Club, Cuenca, Ecuador/);
+  assert.ok(html.includes('id="btn-comprar-paypal"'), 'el boton de compra sigue');
+  assert.ok(html.includes('id="calc-wa"'), 'enviar el calculo por WhatsApp sigue (decision de JFC)');
+});
