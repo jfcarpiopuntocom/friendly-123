@@ -37,7 +37,7 @@
   .am-welcome-overlay h2{font-family:var(--font-display,sans-serif);font-size:27px;font-weight:700;line-height:1.15;
     color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;margin:0 0 12px;}
   .am-welcome-overlay .tagline{font-family:var(--font-display,sans-serif);font-size:22px;font-weight:700;
-    color:#E86040 !important;-webkit-text-fill-color:#E86040 !important;margin:0 0 4px;}
+    color:#A84300 !important;-webkit-text-fill-color:#A84300 !important;margin:0 0 4px;}
   .am-welcome-overlay .formal{font-family:var(--font-mono,monospace);font-size:14px;
     color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;margin:0 0 18px;}
   .am-welcome-overlay .cuerpo{font-family:var(--font-body,sans-serif);font-size:16px;line-height:1.5;
@@ -54,7 +54,7 @@
     .am-welcome-overlay .marca, .am-welcome-overlay .formal{color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;}
     .am-welcome-overlay .marca{color:#2E6278 !important;-webkit-text-fill-color:#2E6278 !important;}
     .am-welcome-overlay h2, .am-welcome-overlay .cuerpo{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;}
-    .am-welcome-overlay .tagline{color:#E86040 !important;-webkit-text-fill-color:#E86040 !important;}
+    .am-welcome-overlay .tagline{color:#A84300 !important;-webkit-text-fill-color:#A84300 !important;}
     .am-welcome-overlay button{color:#F8F9FB !important;-webkit-text-fill-color:#F8F9FB !important;}
     .am-welcome-overlay button#am-welcome-guia{color:#2E6278 !important;-webkit-text-fill-color:#2E6278 !important;}
   }

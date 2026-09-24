@@ -480,7 +480,7 @@
       const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       if (!owned.instanceId) {
         mount.innerHTML = `<div style="border:2px solid #E86040;border-radius:12px;padding:14px 16px;background:#FFF3EE;margin-top:16px;">
-          <p style="margin:0;font-size:15px;font-weight:700;color:#C05000;">${_bkT("bk.activateTitle")}</p>
+          <p style="margin:0;font-size:15px;font-weight:700;color:#A84300;">${_bkT("bk.activateTitle")}</p>
           <p style="margin:8px 0 0;font-size:14px;color:#2C3E50;">${_bkT("bk.activateBody")}</p>
         </div>`;
         return;
