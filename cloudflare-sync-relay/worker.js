@@ -21,6 +21,7 @@ const MAX_FRAME_BYTES = 256 * 1024; // 256 KB por frame; el catalogo va a trozos
 const MAX_OPS_SALA = 8000; // tope duro de operaciones guardadas por sala
 const PULL_PAGE_DEFAULT = 64;
 const PULL_PAGE_MAX = 128;
+const LEGACY_PULL_MAX = 128; // fusible: un shell viejo no puede releer 8.000 por reconexion
 
 // Muestreo determinista para la poda. El contador anterior vivia en memoria y
 // volvia a cero cada vez que el DO hibernaba; una sala con trafico intermitente
@@ -149,9 +150,12 @@ export class SalaSync {
       /* Tras un checkpoint v2, ops solo contiene filas concurrentes/posteriores
          a ese estado. Un shell viejo debe recibirlas TODAS: su reloj no es un
          cursor confiable y puede estar adelantado o atrasado. */
+      /* El protocolo viejo no sabe paginar. Se le da una ventana acotada para
+         mantener compatibilidad sin permitir otra tormenta de 8.000 lecturas;
+         el shell v364 reanuda todas las paginas con el protocolo v2. */
       const filas = ck.length && Number(ck[0].v) >= 2
-        ? this.sql.exec("SELECT c FROM ops ORDER BY rowid ASC LIMIT ?", MAX_OPS_SALA).toArray()
-        : this.sql.exec("SELECT c FROM ops WHERE lam > ? ORDER BY lam ASC LIMIT ?", cursor, MAX_OPS_SALA).toArray();
+        ? this.sql.exec("SELECT c FROM ops ORDER BY rowid ASC LIMIT ?", LEGACY_PULL_MAX).toArray()
+        : this.sql.exec("SELECT c FROM ops WHERE lam > ? ORDER BY lam ASC LIMIT ?", cursor, LEGACY_PULL_MAX).toArray();
       for (const f of filas) {
         try { if (sock.readyState === 1) sock.send(b64aBuf(f.c)); } catch (_) {}
       }

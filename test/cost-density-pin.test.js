@@ -12,6 +12,9 @@ test('relay avoids per-operation table scans and indexes catch-up cursor', () =>
   assert.doesNotMatch(relay, /SELECT COUNT\(\*\) AS n FROM ops/);
   assert.match(relay, /debePodar\(id\)/);
   assert.doesNotMatch(relay, /_opsDesdePoda/);
+  assert.match(relay, /const LEGACY_PULL_MAX = 128/);
+  assert.match(relay, /cursor, LEGACY_PULL_MAX/);
+  assert.doesNotMatch(relay, /cursor, MAX_OPS_SALA/);
 });
 
 test('dashboard coalesces live refreshes and reconnects with capped backoff', () => {
