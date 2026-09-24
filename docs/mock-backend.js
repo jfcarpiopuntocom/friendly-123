@@ -129,6 +129,12 @@
   // Se guardan en su propio array para listarlos y sumarlos sin mezclarlos con
   // la actividad operativa. Viajan por el sync como el resto del estado.
   const gastos = [];
+  /* AJUSTES DE COMISION (JFC 2026-09-24, Bloque 4, aprobado). Append-only.
+     Devolver una venta YA PAGADA al asociado no toca lo pagado (esa plata ya
+     cambio de manos y el papel ya se firmo): se agrega un registro NEGATIVO
+     fechado hoy, con quien/motivo, que se descuenta del proximo pago. Nunca
+     se edita ni se borra un ajuste; si hubo error, se agrega otro. */
+  const ajustesComision = [];
 
   // ==========================================================================
   // CLIENTES (JFC 2026-07-07) — cada cliente tiene un CODIGO UNICO (C-####) y
@@ -550,7 +556,7 @@
       _rev: _localRev,
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
-      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos),
+      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
       configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
       usuarios: clonar(usuarios),
@@ -592,6 +598,7 @@
     if (body.movimientos && !Array.isArray(body.movimientos)) return "The activity section is corrupt.";
     if (body.transferencias && !Array.isArray(body.transferencias)) return "The transfers section is corrupt.";
     if (body.gastos && !Array.isArray(body.gastos)) return "The expenses section is corrupt.";
+    if (body.ajustesComision && !Array.isArray(body.ajustesComision)) return "The commission adjustments section is corrupt.";
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
@@ -602,6 +609,7 @@
     movimientos.length = 0; movimientos.push(...(Array.isArray(body.movimientos) ? body.movimientos : []));
     transferencias.length = 0; transferencias.push(...(Array.isArray(body.transferencias) ? body.transferencias : []));
     gastos.length = 0; gastos.push(...(Array.isArray(body.gastos) ? body.gastos : []));
+    ajustesComision.length = 0; ajustesComision.push(...(Array.isArray(body.ajustesComision) ? body.ajustesComision : []));
     if (Array.isArray(body.sucursales)) { sucursales.length = 0; sucursales.push(...body.sucursales); }
     if (Array.isArray(body.promotoras)) { promotoras.length = 0; promotoras.push(...body.promotoras); }
     if (Array.isArray(body.clientes)) {
@@ -1274,6 +1282,14 @@
       d.ventas += 1; d.comision += c; if (!v.liquidada) d.pendiente += c;
       map.set(mes, d);
     });
+    ajustesComision.forEach((a) => {
+      if (!a || !a.fecha) return;
+      const mes = fechaLocalDe(a.fecha).slice(0, 7);
+      const d = map.get(mes) || { mes, actual: mes === actual, ventas: 0, comision: 0, pendiente: 0 };
+      const c = Number(a.montoComisionSocio) || 0;
+      d.comision += c; if (!a.liquidada) d.pendiente += c;
+      map.set(mes, d);
+    });
     return [...map.values()].sort((a, b) => (a.mes < b.mes ? 1 : -1))
       .map((d) => ({ ...d, comision: +d.comision.toFixed(2), pendiente: +d.pendiente.toFixed(2) }));
   }
@@ -1461,6 +1477,28 @@
     const t = resolverTrato(u);
     return t ? pctDeLaVenta(t, acumuladoConEsta) : 0;
   }
+  /* SPLIT ENTRE DOS PERSONAS (JFC 2026-09-24, Bloque 4). La comision total de
+     la casa NO cambia: se parte entre quien vendio (el asociado de la percha) y
+     un asistente, con un % de la comision para el asistente. Las dos partes
+     suman EXACTO al centavo: el asistente se redondea y el vendedor recibe el
+     resto, nunca dos redondeos independientes. Sin asistente valido, no hay
+     reparto (y se quita uno viejo). */
+  function aplicarRepartoAsistente(split, u, asistenteId, asistentePct) {
+    if (!split) return split;
+    var pr = asistenteId ? promotoras.find(function (x) { return x.id === asistenteId && !x.borrado; }) : null;
+    if (!pr) { delete split.reparto; return split; }
+    var pct = Number(asistentePct);
+    if (!Number.isFinite(pct)) pct = 50;
+    pct = Math.max(0, Math.min(100, pct));
+    var total = Number(split.montoComisionSocio) || 0;
+    var asi = +(total * pct / 100).toFixed(2);
+    var ven = +(total - asi).toFixed(2);
+    split.reparto = [
+      { rol: "vendedor", promotoraId: (u && u.promotoraId) || null, monto: ven },
+      { rol: "asistente", promotoraId: pr.id, pct: pct, monto: asi }
+    ];
+    return split;
+  }
   function calcularSplitVenta(u, montoBruto, acumuladoPrevio, costoTotal) {
     return repartir(resolverTrato(u), montoBruto, acumuladoPrevio, costoTotal);
   }
@@ -1482,15 +1520,28 @@
     const _mes = mesValido(mes);
     return ubicaciones.filter((u) => u.tipo && u.tipo !== "propio").map((u) => {
       const ventasMes = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes) && v.split);
-      const ventasBrutas = ventasMes.reduce((a, v) => a + v.split.montoBruto, 0);
-      const comisionSocio = ventasMes.reduce((a, v) => a + v.split.montoComisionSocio, 0);
-      const netoDueno = ventasMes.reduce((a, v) => a + v.split.montoNetoDueno, 0);
+      /* Bloque 4: los ajustes (devoluciones de ventas ya pagadas) entran al mes
+         de SU fecha, no al de la venta original: lo pagado no se reescribe. */
+      const ajustesMes = ajustesComision.filter((a) => a && a.ubicacionId === u.id && esDelMes(a.fecha, _mes));
+      const ajPend = ajustesMes.filter((a) => !a.liquidada);
+      const ventasBrutas = ventasMes.reduce((a, v) => a + v.split.montoBruto, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoBruto) || 0), 0);
+      const comisionSocio = ventasMes.reduce((a, v) => a + v.split.montoComisionSocio, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoComisionSocio) || 0), 0);
+      const netoDueno = ventasMes.reduce((a, v) => a + v.split.montoNetoDueno, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoNetoDueno) || 0), 0);
       const pendientes = ventasMes.filter((v) => !v.liquidada);
+      /* Bloque 4: cuanto le toca a cada persona cuando hay ventas repartidas. */
+      const _porPersona = new Map();
+      const _sumar = (pid, monto) => { const k = pid || "__percha__"; _porPersona.set(k, (_porPersona.get(k) || 0) + (Number(monto) || 0)); };
+      const _hayReparto = ventasMes.some((v) => v.split && v.split.reparto) || ajustesMes.some((x) => x.reparto);
+      if (_hayReparto) {
+        ventasMes.forEach((v) => { if (v.split.reparto) v.split.reparto.forEach((r) => _sumar(r.promotoraId, r.monto)); else _sumar(u.promotoraId || null, v.split.montoComisionSocio); });
+        ajustesMes.forEach((x) => { if (x.reparto) x.reparto.forEach((r) => _sumar(r.promotoraId, r.monto)); else _sumar(u.promotoraId || null, x.montoComisionSocio); });
+      }
+      const repartoPersonas = [..._porPersona.entries()].map(([k, monto]) => { const pr = k !== "__percha__" ? promotoras.find((x) => x.id === k) : null; return { promotoraId: k === "__percha__" ? null : k, nombre: pr ? pr.nombre : (k === "__percha__" ? u.nombre : "(removed)"), monto: +monto.toFixed(2) }; });
       // #19 Desglose de liquidacion: el socio necesita saber DE QUE ventas exactas
       // es el "te debo $X". Agrupamos las ventas pendientes por producto para armar
       // un recibo itemizado (producto, unidades, bruto, comision). Sin esto el pago
       // es un numero suelto y genera desconfianza. Ver marcarComisionPagada() en index.html.
-      const detallePendientes = agruparPendientesPorProducto(pendientes);
+      const detallePendientes = agruparPendientesPorProducto(pendientes).concat(ajPend.map((x) => { const pp = productos.find((q) => q.id === x.productoId); return { producto: "Return: " + (pp ? pp.nombre : "product"), sku: pp ? pp.sku : "", cantidad: -(Number(x.cantidad) || 0), montoBruto: +(Number(x.montoBruto) || 0).toFixed(2), comisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), ajusteId: x.id }; }));
       // Dias desde la ultima venta de esta percha (rec 05: asociado/a dormida).
       const ultima = ventasActivas().filter((v) => v.ubicacionId === u.id).reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
       const diasSinVenta = ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000) : null;
@@ -1504,8 +1555,10 @@
         mes: _mes, esMesActual: _mes === mesActualISO(),
         cumplimientoMeta: _meta ? +((ventasBrutas / _meta) * 100).toFixed(1) : null,
         ventasBrutas: +ventasBrutas.toFixed(2), comisionSocio: +comisionSocio.toFixed(2), netoDueno: +netoDueno.toFixed(2),
-        estado: ventasMes.length === 0 ? "sin ventas" : pendientes.length === 0 ? "pagado" : "pendiente",
+        estado: (ventasMes.length === 0 && ajustesMes.length === 0) ? "sin ventas" : (pendientes.length === 0 && ajPend.length === 0) ? "pagado" : "pendiente",
         ventasPendientes: pendientes.length, detallePendientes,
+        ajustes: ajustesMes.map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
+        repartoPersonas,
         diasSinVenta, promotorNombre: prom ? prom.nombre : null,
         promotoraId: u.promotoraId || null,
         asociadoNombre: prom ? prom.nombre : null,
@@ -1581,6 +1634,9 @@
     /* Marca permanente: esta venta ya no dice lo que dijo el dia que se hizo, y
        quien la mire dentro de seis meses tiene derecho a saberlo. */
     v.split.corregida = true;
+    /* Bloque 4: si la venta se repartia entre dos personas, se re-parte con el
+       mismo % del asistente sobre la comision nueva (sigue sumando exacto). */
+    if (v.split.reparto) aplicarRepartoAsistente(v.split, ubicaciones.find((x) => x.id === v.ubicacionId), v.asistenteId || (v.split.reparto[1] || {}).promotoraId, v.asistentePct != null ? v.asistentePct : (v.split.reparto[1] || {}).pct);
     v.split.correcciones = Array.isArray(v.split.correcciones) ? v.split.correcciones : [];
     v.split.correcciones.push({
       fecha: new Date().toISOString(),
@@ -2310,6 +2366,14 @@
       if (!local) { gastos.push(Object.assign({}, g)); actualizados++; }
       else if (_revDomina(g.rev, local.rev) === true) { Object.assign(local, g); actualizados++; }
     });
+    /* Bloque 4: ajustes de comision, add-only por id (nunca se borran). */
+    if (Array.isArray(remoto.ajustesComision)) remoto.ajustesComision.forEach((a) => {
+      if (!a || !a.id || !a.ventaId) return;
+      _observarRev(a.rev);
+      const local = ajustesComision.find((x) => String(x.id) === String(a.id));
+      if (!local) { ajustesComision.push(Object.assign({}, a)); actualizados++; }
+      else if (_revDomina(a.rev, local.rev) === true) { Object.assign(local, a); actualizados++; }
+    });
     if (Array.isArray(remoto.transferencias)) remoto.transferencias.forEach((t) => {
       if (!t || !t.id || !t.productoOrigenId || !t.productoDestinoId) return;
       _observarRev(t.rev);
@@ -2430,7 +2494,7 @@
           if (_revDomina(v.rev, local.rev) !== true) return;
           Object.assign(local, v); actualizados++; return;
         }
-        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, origenRemoto: true });
+        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
         ventasAgregadas++;
       });
@@ -3052,8 +3116,9 @@
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
-        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null })),
+        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
+        ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
         /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Este aparato publica SU
            propia entrada {id,apodo,rol}; el dueño de la entrada es autoritativo. Se
@@ -4028,6 +4093,8 @@
         const split = modoComision === "counter"
           ? null
           : (ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant) : null);
+        /* Bloque 4: asistente opcional por venta. COUNTER SALE lo ignora (split null). */
+        if (split && body && body.asistenteId) aplicarRepartoAsistente(split, ubicP, String(body.asistenteId), body.asistentePct);
         p.stockActual -= cant;
         let clienteVenta = null;
         if (body.clienteId) {
@@ -4068,7 +4135,7 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, modoComision, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, modoComision, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
         emitirOpStock("venta", { productoId: p.id, delta: -cant });
         return J({ producto: ficha(p), ventaId });
@@ -4103,6 +4170,44 @@
          cuando hubo un error. Protege la plata ya liquidada a un socio: si la
          venta ya se pagó a la casa/artista, NO se puede cancelar aquí (habría que
          corregir la liquidación). Todo queda en el log con usuario + dispositivo. */
+      /* DEVOLUCION / CLAWBACK (JFC 2026-09-24, Bloque 4, aprobado). Una venta
+         ya PAGADA al asociado no se edita ni se anula: se agrega un ajuste
+         NEGATIVO fechado hoy (ciclo abierto) que se descuenta del proximo pago,
+         con quien y motivo. La mercaderia vuelve al stock. Si la venta aun no
+         se pago, devolver = cancelar de siempre (no hay nada que descontar). */
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)\/devolucion$/)) && opts && opts.method === "POST") {
+        const _rD = _rolLocal();
+        if (_rD !== "dueno" && _rD !== "admin" && _rD !== "empleado") return J({ error: "Sign in to record a return." }, 403);
+        const venta = ventas.find((v) => v.id === m[1] && !v.anulada);
+        if (!venta) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
+        if (venta.devuelta) return J({ error: "This sale was already returned." }, 400);
+        const p = productos.find((x) => x.id === venta.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
+        const quien = String((body && body.quien) || "").trim().slice(0, 80) || "unidentified";
+        if (!venta.liquidada || !venta.split) {
+          p.stockActual += venta.cantidad;
+          venta.anulada = true; venta.rev = _revNueva();
+          mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "return", quien });
+          emitirOpStock("cancelacion-ex-post", { productoId: p.id, delta: venta.cantidad });
+          return J({ ok: true, ajuste: null, producto: ficha(p) });
+        }
+        const sp = venta.split;
+        const aj = {
+          id: uuid("aj"), tipo: "devolucion", ventaId: venta.id, ubicacionId: venta.ubicacionId, productoId: p.id,
+          cantidad: venta.cantidad, fecha: new Date().toISOString(),
+          montoBruto: -(Number(sp.montoBruto) || 0), montoComisionSocio: -(Number(sp.montoComisionSocio) || 0), montoNetoDueno: -(Number(sp.montoNetoDueno) || 0),
+          reparto: Array.isArray(sp.reparto) ? sp.reparto.map((r) => Object.assign({}, r, { monto: -(Number(r.monto) || 0) })) : null,
+          quien, motivo, liquidada: false, rev: _revNueva()
+        };
+        ajustesComision.push(aj);
+        venta.devuelta = true; venta.devolucionId = aj.id; venta.rev = _revNueva();
+        p.stockActual += venta.cantidad;
+        mov("devolucion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), comisionDevuelta: aj.montoComisionSocio, quien, motivo });
+        emitirOpStock("devolucion", { productoId: p.id, delta: venta.cantidad });
+        avisarCatalogoCambiado();
+        return J({ ok: true, ajuste: aj, producto: ficha(p) });
+      }
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/cancelar$/)) && opts && opts.method === "POST") {
         // JFC 2026-09-03: el encargado TAMBIÉN puede corregir errores (cancelar).
         // La defensa contra abusos es el log (cada acción queda con usuario+rol+
@@ -4154,6 +4259,7 @@
               const montoBruto = (venta.precioUnit || 0) * nueva;
               const acumuladoPrevio = ventasMesAcumuladasExcl(ubicP.id, venta.id);
               venta.split = calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(venta.costoUnit) || 0) * nueva);
+              if (venta.asistenteId) aplicarRepartoAsistente(venta.split, ubicP, venta.asistenteId, venta.asistentePct);
             }
           }
         }
@@ -4170,6 +4276,7 @@
             if (ubicP2 && venta.split) {
               const montoBruto2 = precioRedondo * (venta.cantidad || 1);
               venta.split = calcularSplitVenta(ubicP2, montoBruto2, ventasMesAcumuladasExcl(ubicP2.id, venta.id), (Number(venta.costoUnit) || 0) * (venta.cantidad || 1));
+              if (venta.asistenteId) aplicarRepartoAsistente(venta.split, ubicP2, venta.asistenteId, venta.asistentePct);
             }
           }
         }
@@ -4412,9 +4519,12 @@
         const _mesPago = mesValido(body.mes || q.get("mes"));
         const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMes(v.fecha, _mesPago) && !v.liquidada);
         pend.forEach((v) => { v.liquidada = true; v.rev = _revNueva(); });
-        mov("liquidacion", { ubicacion: u.nombre, ventasLiquidadas: pend.length, mes: _mesPago });
-        if (pend.length) avisarCatalogoCambiado();
-        return J({ ok: true, ventasLiquidadas: pend.length });
+        /* Bloque 4: los ajustes pendientes del mes se descuentan en este pago. */
+        const ajPago = ajustesComision.filter((a) => a && a.ubicacionId === m[1] && esDelMes(a.fecha, _mesPago) && !a.liquidada);
+        ajPago.forEach((a) => { a.liquidada = true; a.rev = _revNueva(); });
+        mov("liquidacion", { ubicacion: u.nombre, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length, mes: _mesPago });
+        if (pend.length || ajPago.length) avisarCatalogoCambiado();
+        return J({ ok: true, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length });
       }
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/hermanos$/))) {
@@ -4626,6 +4736,9 @@
           modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
           comisionCorregida: !!(v.split && v.split.corregida),
           liquidada: !!v.liquidada,
+          devuelta: !!v.devuelta,
+          reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
+          asistenteNombre: (v.split && v.split.reparto) ? ((promotoras.find((x) => x.id === v.split.reparto[1].promotoraId) || {}).nombre || "") : "",
           /* JFC 2026-09-23: el resumen por producto de Commissions usa el MISMO mes que
              /api/liquidaciones (hora local del negocio) y sabe si la percha comparte
              comision, sin que el front recalcule fechas ni cruce tablas. Aditivo. */
