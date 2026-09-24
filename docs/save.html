@@ -22,6 +22,12 @@
     forced-color-adjust: none;
     --verde:#00C87A;
     --verde-dk:#00975C;
+    /* Bloque 2 (JFC 2026-09-24, legibilidad): blanco sobre #00C87A da 2.2:1 y
+       sobre #F97316 2.8:1. Donde hay TEXTO blanco se usa la tinta oscura del
+       mismo color (5.0:1 y 4.9:1). Puntos, barras y bordes siguen con el
+       color de marca: no llevan texto. */
+    --verde-ink:#0B7A4B;
+    --naranja-ink:#C2410C;
     --amarillo:#FFC700;
     --amarillo-dk:#8A5A00;
     --azul:#5294AC;
@@ -148,7 +154,7 @@
   }
   .btn:active{ transform:scale(.97); }
   .btn-primary{
-    background:var(--verde) !important;color:var(--on-primary) !important;-webkit-text-fill-color:var(--on-primary) !important;
+    background:var(--verde-ink) !important;color:var(--on-primary) !important;-webkit-text-fill-color:var(--on-primary) !important;
   }
   .btn-ghost{
     background:transparent !important;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;
@@ -291,9 +297,9 @@
     font-family:var(--font-mono); font-size:14px; font-weight:700;
     letter-spacing:.03em; padding:7px 13px; border-radius:8px;
   }
-  .tchip-verde{ background:var(--verde); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .tchip-verde{ background:var(--verde-ink); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
   .tchip-dorado{ background:var(--amarillo); color:#3D2E00 !important; -webkit-text-fill-color:#3D2E00 !important; }
-  .tchip-naranja{ background:var(--naranja); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .tchip-naranja{ background:var(--naranja-ink); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
   .tchip-rojo{ background:var(--rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
   .tchip-negro{ background:var(--negro); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
   @media (prefers-color-scheme: dark){
@@ -562,6 +568,11 @@
   a,button,input,select{ min-height:44px; }
   .hero .cta-row .btn{ min-height:48px; }
 </style>
+<!-- Bloque 2 SEO (JFC 2026-09-24): canonical + datos estructurados. -->
+<link rel="canonical" href="https://jfcarpiopuntocom.github.io/friendly-123/save.html">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":"How much time are you losing counting by hand? friendly-123","url":"https://jfcarpiopuntocom.github.io/friendly-123/save.html","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"friendly-123","url":"https://jfcarpiopuntocom.github.io/friendly-123/"},"about":{"@type":"SoftwareApplication","name":"friendly-123","applicationCategory":"BusinessApplication","operatingSystem":"Any (web, offline-capable)","offers":{"@type":"Offer","price":"399","priceCurrency":"USD","description":"One-time payment, 5-year license, support and updates included"}}}
+</script>
 </head>
 <body>
 

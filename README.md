@@ -10,14 +10,6 @@ That's the Simon system. It's the core idea this whole thing is built around.
 
 ---
 
-## What it is
-
-A serverless PWA — progressive web app — that runs entirely in the browser. No server to pay for. No monthly subscription. No account to create. Share a link, open it on any phone, and you have a working store dashboard.
-
-It replaces the notebook. The whiteboard. The "let me check the back room" ritual. The WhatsApp message to the owner asking if something is low on stock.
-
----
-
 ## What it does
 
 **Inventory with a heartbeat.** Every product carries a live status — calculated automatically from thresholds the owner sets once. The colors change as stock moves.
@@ -32,7 +24,7 @@ It replaces the notebook. The whiteboard. The "let me check the back room" ritua
 
 **Tamper-evident history.** Every stock movement is hash-chained. If someone tries to edit the log, it shows.
 
-**Fully offline.** Service worker + local storage. The app works without connectivity and syncs when it reconnects.
+**Fully offline.** The app works without connectivity and reconciles when it reconnects.
 
 **Bilingual (EN/ES).** Switch between English and Spanish. Every string, every label, every alert.
 
@@ -52,8 +44,6 @@ The notebook is not charming. It's a liability. It gets lost, it gets wet, it ca
 
 We're replacing it — not with enterprise software that requires a consultant, but with something that fits in a browser tab and feels like it was made by someone who actually worked a counter.
 
-If you're a developer who's ever watched a small business owner struggle with a tool that wasn't built for them, this is the project you've been looking for.
-
 ---
 
 ## Pricing
@@ -62,53 +52,21 @@ If you're a developer who's ever watched a small business owner struggle with a 
 
 ---
 
-## Run it locally
+## A word on the plumbing
 
-```bash
-npm install
-npm start
-```
+People ask what this "runs on". The honest answer is: on the device, and on a few conventions that took three months of long nights to get right.
 
-Or serve the static demo directly (no Node required):
+What you see here is the **vestibule**. The published surface is a door, and a door is not a house. The furniture arrives through a **loader** from a place the owner controls, is verified against a **shell manifest** before it is trusted, and is held in a **per-origin vault** that never crosses the street. The ledger is a **hash-chained journal**; every entry carries a fingerprint of the one before it, so the past cannot be quietly rewritten. Devices that belong together talk through an **encrypted relay** that stores nothing and understands nothing. Access is by **fingerprint, never by key**: the code compares digests, so nothing in this tree opens anything.
 
-```bash
-python -m http.server 8736 --directory docs
-```
+There is a **Simon lattice** (the colors), a **consignment engine** (the shelves), a **clawback line** (returns after settlement, append-only), and a **build gate** (the lock screen knows which shell it is wearing). Each of them has a reason, a date, and a bug that made it necessary. Those reasons are written where they matter, in the language of the people who wrote them, and they are not summarized here on purpose.
 
-Then open `http://localhost:8736`.
-
----
-
-## Architecture
-
-The app is a single HTML file with vanilla JS — no frameworks, no build step required to read or modify it. The full source lives in `docs/`. The backend is a service worker + localStorage, with an optional Node/PocketBase layer for multi-device sync.
-
-The demo runs entirely offline using `docs/mock-backend.js` as an in-browser API. The production version points to a real backend (`server.js` / PocketBase).
-
-```
-docs/
-├── index.html          — the entire app
-├── i18n.js             — all strings, EN + ES
-├── mock-backend.js     — in-browser demo API
-├── sw.js               — service worker (offline support)
-├── auth-ui.js          — PIN gate and role switching
-├── help-ui.js          — contextual help overlay
-└── vista-perchas.js    — partner shelf view
-```
-
----
-
-## Contributing
-
-The codebase is intentionally simple — no framework, no bundler required. If you want to contribute, read `docs/index.html` from the top. The architecture is linear and commented throughout.
-
-Open an issue before opening a PR. The roadmap is opinionated.
+If you are looking for a tutorial, a tree of modules, or an invitation to fork: this is not that. Seasoned readers will find the shape of things on their own. Everyone else is better served by the demo, which is the whole product with sample data and no obligations.
 
 ---
 
 ## Data & Privacy
 
-See [PRIVACY.md](./PRIVACY.md) — short version: your business data never leaves your device, the only thing we track is your license, and you can verify it yourself by reading the code.
+See [PRIVACY.md](./PRIVACY.md) — short version: your business data stays with you, the only thing we track is your license, and you can verify that promise yourself.
 
 ---
 

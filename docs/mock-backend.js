@@ -1614,6 +1614,16 @@
     const v = ventas.find((x) => x.id === ventaId && !x.anulada);
     if (!v) return { error: "That sale no longer exists.", status: 404 };
     if (!v.split) return { error: "This sale doesn't split a commission with anyone: it was made on an owned shelf.", status: 400 };
+    /* PASADA HUGO/PACO/LUIS (JFC 2026-09-24, cazado por test/commissions-hugo-paco-luis.test.js):
+       esta ruta cambiaba el % de una venta YA PAGADA (liquidada) y reescribia
+       la comision sellada (13.33 -> 30.00). Rompe la regla del Bloque 4: lo
+       pagado jamas se edita; una devolucion va como ajuste negativo nuevo.
+       Tambien una venta ya devuelta: su clawback registro el monto viejo, y
+       corregirla dejaria el ajuste y la venta diciendo cosas distintas.
+       Ningun llamador real usa esta ruta con ventas pagadas: la UI corrige por
+       /comisiones-del-mes con soloPendientes=true. */
+    if (v.liquidada) return { error: "This sale is already settled: what was paid is never edited. Record a return instead.", status: 409 };
+    if (v.devuelta) return { error: "This sale was returned: its commission was already clawed back and stays as recorded.", status: 409 };
     /* null, undefined o "" NO son 0%: son "no mandaste el dato", y Number() los
        convierte en 0 alegremente. Dejar pasar eso pondria la comision de
        alguien en cero por un campo vacio. El 0% escrito a proposito si vale. */

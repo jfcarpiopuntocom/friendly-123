@@ -1,0 +1,15 @@
+# friendly-123 (Bloque 2 SEO, JFC 2026-09-24)
+# Se indexan las paginas publicas. La app en si (index.html) tambien es publica
+# (demo), pero el panel maestro, el dashboard del dueno y los manuales internos
+# no son para buscadores.
+User-agent: *
+Allow: /
+Disallow: /panel.html
+Disallow: /dashboard.html
+Disallow: /tablero.html
+Disallow: /manual-maestro.html
+Disallow: /informe-ejecutivo.html
+Disallow: /version-manifest.json
+Disallow: /demo/
+
+Sitemap: https://jfcarpiopuntocom.github.io/friendly-123/sitemap.xml

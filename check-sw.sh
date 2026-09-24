@@ -120,8 +120,28 @@ if [ -n "$lic_expuestas" ]; then
   falta=1
 fi
 
+# G6 — LISTA DEL CARGADOR (Bloque P, JFC 2026-09-24). Los scripts que pide
+# cargador.js ya no son <script src> en index.html, asi que el chequeo de
+# arriba no los ve. Tienen que seguir en el SHELL de sw.js (son el fallback
+# local y el precache) y NO pueden aparecer ademas como <script src> (doble
+# carga). La lista va en UN renglon marcado /* OC-CARGADOR-LISTA */.
+lista_cargador=$(grep -E 'OC-CARGADOR-LISTA' docs/index.html | grep -oE '"\./[^"]+"' | tr -d '"')
+if [ -z "$lista_cargador" ]; then
+  echo "FALTA la lista del cargador (G6): no hay renglon OC-CARGADOR-LISTA en index.html"
+  falta=1
+fi
+for s in $lista_cargador; do
+  if ! grep -q "\"$s\"" docs/sw.js; then echo "FALTA en sw.js (G6, lista del cargador): $s"; falta=1; fi
+  if grep -qE "<script[^>]+src=\"$s\"" docs/index.html; then echo "DOBLE CARGA (G6): $s esta en la lista del cargador Y como <script src>"; falta=1; fi
+done
+if ! grep -q '"./cargador.js"' docs/sw.js; then echo "FALTA en sw.js (G6): ./cargador.js"; falta=1; fi
+if grep -qE '<meta name="oc-origen-codigo" content="[^"]+"' docs/index.html; then
+  echo "AVISO (G6): el meta oc-origen-codigo tiene una URL: TODOS los aparatos cargaran remoto. Solo con orden expresa de JFC."
+fi
+
 if [ "$falta" = "0" ]; then
   echo "OK — todos los scripts de index.html estan en el SHELL del service worker."
+  echo "OK — lista del cargador en el SHELL y sin doble carga (G6)."
   echo "OK — sw.js y version.json coinciden en $sw_ver."
   echo "OK — hashes reales del shell cuadran con version-manifest.json."
   echo "OK — sin claves de otra app hermana (G2)."

@@ -30,7 +30,7 @@ estado.
   loading=lazy, 1:1, max 420px; figcaption bilingüe (clave clipSplit ya en
   copy.es). Verificar móvil 375px y escritorio; publicar website (backup a
   backups/YYYY-MM-DD_HH-mm-ss antes de push). **Solo desde la PC de JFC.**
-- [ ] 2. SEO con herramientas GRATIS (no pausar): Lighthouse CLI (npm i
+- [~] 2. ESTADO 2026-09-24 (Fable 5.1, shell v386): robots.txt, sitemap.xml, canonical y JSON-LD en index/save/visualize; contraste arreglado (chips/boton de save-visualize y li.naranja de la app a tinta oscura). Queda re-medir Lighthouse/PSI y validar el JSON-LD desde la PC: en NOTAS-PARA-OPUS-5.5-2026-09-24.md. 7 (Hallmark) tambien va ahi. SEO con herramientas GRATIS (no pausar): Lighthouse CLI (npm i
   lighthouse local, nunca npx), PageSpeed Insights API sin key, validar JSON-LD
   (schema.org validator), revisar hreflang/alt/headings. Aplicar fixes con Jev
   como juez. Reportar puntajes antes/después.
@@ -61,12 +61,42 @@ estado.
   dueño (no periscopio, no cross-tenant).
 - [ ] 7. Hallmark aplicado a landing y save.html (conversión; promesa 24 h ya puesta).
 - [ ] P. Protección anti-clon (JFC eligió: cargador + Hostinger, SISTEMÁTICO,
-  sin riesgo). Seguir .cowork/CLAUDE OUTPUTS/PROMPT-2-MIGRACION-SEMIPUBLICA-
+  sin riesgo). ESTADO 2026-09-24 (Fable 5.1): fase A HECHA en shell v384
+  (cargador.js + canario en Advanced + .htaccess + guarda G6 + 7 tests; meta
+  vacio, nadie carga remoto todavia). Fases B-E y pasos de JFC en
+  PLAN-BLOQUE-P-CARGADOR-HOSTINGER-2026-09-24.md. README de las 3 apps en
+  jerga indirecta (pedido de JFC 2026-09-24). Seguir .cowork/CLAUDE OUTPUTS/PROMPT-2-MIGRACION-SEMIPUBLICA-
   2026-09-22.md por fases con canario. TRAMPA: los datos viven por ORIGEN
   (github.io); la URL de github.io debe seguir siendo la puerta. Hostinger "1
   clic": hPanel > Avanzado > GIT (conectar repo + webhook); para repo privado
   Hostinger da una deploy key que JFC pega en GitHub (único paso manual).
   Claude nunca teclea claves.
+
+## Pasada Hugo/Paco/Luis de Commissions — HECHA 2026-09-24 (Fable 5.1, shell v385)
+- `test/commissions-hugo-paco-luis.test.js`: 11 casos por el camino REAL
+  (mock-backend + merge de dos aparatos): % con coma/letras/150/-5, pagar dos
+  veces, devolver dos veces, corregir % de venta pagada, cambiar % a mitad de
+  mes, COUNTER SALE con asistente, margen con costo > precio, pagar el mes
+  anterior, A vende / B paga / A devuelve con merge doble, reparto 33.33 al
+  centavo, 40 ventas + 10 devoluciones + 3 pagos en desorden.
+- BUG REAL cazado y arreglado: PATCH /api/ventas/:id/comision reescribia la
+  comision de una venta YA PAGADA (13.33 -> 30.00). Ahora 409 (liquidada o
+  devuelta). Rojo contra el respaldo, verde con el fix. Ningun flujo de UI lo
+  usaba con ventas pagadas.
+- UI en Chromium real: dashboard-comisiones, counter-sale, commissions-switch
+  y devoluciones verdes (Playwright apuntado al Chromium preinstalado).
+
+## Panel de licencias v2 — HECHO 2026-09-24 (escala 1.000-10.000)
+- `docs/panel-licencias.js` + `test/panel-licencias.test.js` (10.000 licencias
+  indexadas en ~200 ms; 100 por pagina; filtros texto/estado/pago/lote/
+  inactividad; orden por columna; seleccion multiple + estado masivo con
+  concurrencia 4 y reporte de fallos; CSV de lo filtrado; sin texto gris).
+- Worker: `POST /licencias/lote` (N codigos con etiqueta y prefijo, nacen full),
+  `GET /lotes`, `POST|GET /licencias/:id/pagos` (asientos append-only, resumen
+  en el aparato, marca full). `test/worker-lotes-pagos.test.js`. **Falta que
+  JFC despliegue el Worker (wrangler) para que el panel vivo lo use.**
+- panel.html: fuera la tarjeta y fila de AMIGABLE y el "Apps 2" (POSCuenca no
+  estaba en el panel; el repo POSCuenca lo archiva JFC en GitHub > Settings).
 
 ## Escala (JFC 2026-09-24: 1.000-10.000 usuarios por gremios/asociaciones, licencias bulk)
 - Todo estatico (GitHub Pages hoy, Hostinger despues) + relay en Cloudflare Worker: costo marginal por usuario ~0; el dato vive en cada aparato.

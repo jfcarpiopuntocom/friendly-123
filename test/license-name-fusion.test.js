@@ -83,7 +83,10 @@ test('soft reattach uses an explicit local join marker and clears it only after 
 });
 
 test('panel offers a reversible name-unification action only for JFC-owned group', () => {
-  assert.match(panelSource, /const soloJfc = n > 1 && nMios === n && !!g\.cod/);
+  // Desde 2026-09-24 la tabla la pinta docs/panel-licencias.js; la guarda vive alli.
+  const listaSource = fs.readFileSync(path.join(__dirname, '../docs/panel-licencias.js'), 'utf8');
+  assert.match(listaSource, /g\.soloJfc = g\.n > 1 && g\.nMios === g\.n && !!g\.cod/);
+  assert.match(listaSource, /g\.soloJfc \? '<button[^']*licUnificarNombre/);
   assert.match(panelSource, /function licUnificarNombre\(codigo\)/);
   assert.match(panelSource, /async function licAplicarNombre\(codigo\)/);
   assert.match(panelSource, /verificados\.some\(r => r\.nombreNegocio !== nombre\)/);
