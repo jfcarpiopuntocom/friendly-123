@@ -5196,6 +5196,16 @@ async function abrirEditorComision(id, u){
         <label style="display:block;margin-top:10px;font-size:14px;">${window.t("comm.ed.fixedContrib")} <span style="font-weight:400;color:var(--ink-soft);">${window.t("comm.ed.fixedContribHint")}</span><br><input id="oc-com-fija" type="number" min="0" step="1" value="${Number(u.contribFija)||0}" ${inp}></label>
         <p style="font-size:13px;color:var(--ink-soft);margin:4px 0 0;">${window.t("comm.ed.fixedVsTiers")}</p>
         <label style="display:block;margin-top:10px;font-size:14px;">${window.t("comm.ed.minGuaranteed")} <span style="font-weight:400;color:var(--ink-soft);">${window.t("comm.ed.minGuaranteedHint")}</span><br><input id="oc-com-minimo" type="number" min="0" step="1" value="${Number(u.minimoGarantizado)||0}" ${inp}></label>
+        <!-- Bloque 3 (JFC 2026-09-24): base de la comision. null = hereda de la
+             persona; "bruto"/"margen" explicito manda. El motor (repartir) decide
+             y deja baseComision + montoBaseComision en cada split. -->
+        <label style="display:block;margin-top:10px;font-size:14px;">${window.t("comm.ed.base")}<br>
+          <select id="oc-com-base-tipo" ${inp}>
+            <option value="" ${!u.baseComision ? "selected" : ""}>${window.t("comm.ed.baseInherit")}</option>
+            <option value="bruto" ${u.baseComision === "bruto" ? "selected" : ""}>${window.t("comm.ed.baseGross")}</option>
+            <option value="margen" ${u.baseComision === "margen" ? "selected" : ""}>${window.t("comm.ed.baseMargin")}</option>
+          </select></label>
+        <p style="font-size:13px;color:var(--ink-soft);margin:4px 0 0;">${window.t("comm.ed.baseHint")}</p>
         <div id="oc-com-modalidad" style="margin-top:12px;padding:10px;border-radius:6px;background:var(--paper-deep,#E2E8ED);font-size:14px;"></div>
         <div style="margin-top:14px;font-size:14px;font-weight:700;">${window.t("comm.ed.tiers")}</div>
         <div id="oc-com-barra">${_comisionBarraHtml(escalas)}</div>
@@ -5263,6 +5273,7 @@ async function abrirEditorComision(id, u){
       lecturaPreferida: _ocLecturaPreferida,
       metaMensual: document.getElementById('oc-com-meta').value,
       contribFija: document.getElementById('oc-com-fija').value,
+      baseComision: (document.getElementById('oc-com-base-tipo') || {}).value || null,
       escalasComision: filas
     };
     if (chkPropia) body.usarComisionPropia = chkPropia.checked;

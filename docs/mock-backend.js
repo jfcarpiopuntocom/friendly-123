@@ -280,7 +280,7 @@
         if (!u || !u.tipo || u.tipo === "propio" || v.modoComision === "counter") return;
         const mes = mesDe(v.fecha), k = u.id + "|" + mes;
         const bruto = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
-        const split = repartir(resolverTrato(u), bruto, acum[k] || 0);
+        const split = repartir(resolverTrato(u), bruto, acum[k] || 0, (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 1));
         acum[k] = (acum[k] || 0) + bruto;
         if (!split) return;
         v.split = split; v.modoComision = "acuerdo";
@@ -1336,6 +1336,9 @@
      los dos, manda la escala y el fijo se ignora — se dice en `avisos`, no en
      silencio.
      ========================================================================== */
+  /* null = "esta percha no lo dice" (manda la persona, o bruto). "bruto" escrito
+     a proposito SI manda sobre la persona: lo explicito gana, como con el %. */
+  function _baseComisionValida(b) { return (b === "margen" || b === "bruto") ? b : null; }
   function resolverTrato(u, opciones) {
     opciones = opciones || {};
     var avisos = [];
@@ -1387,6 +1390,11 @@
       escalas: tieneEscalas ? escalas.slice() : [],
       metaMensual: meta,
       minimoGarantizado: Math.max(0, Number(u.minimoGarantizado) || 0),
+      /* BASE DE LA COMISION (JFC 2026-09-24, Bloque 3, aprobado): "bruto"
+         (precio x cantidad, lo de siempre) o "margen" (precio - costo). La
+         percha que lo declara manda; si no, la persona; si nadie, bruto.
+         Aditivo: un aparato viejo no manda el campo y todo sigue en bruto. */
+      base: _baseComisionValida(u.baseComision) || (origen === "comisionista" ? _baseComisionValida(fuente.baseComision) : null) || "bruto",
       avisos: avisos
     };
   }
@@ -1404,15 +1412,28 @@
 
   /* El reparto de UNA venta. Invariante que nunca se rompe:
      comision + neto == bruto, siempre, hasta el centavo. */
-  function repartir(trato, montoBruto, acumuladoPrevio) {
+  function repartir(trato, montoBruto, acumuladoPrevio, costoTotal) {
     if (!trato) return null;
     var bruto = Math.max(0, Number(montoBruto) || 0);
     var pct = pctDeLaVenta(trato, (Number(acumuladoPrevio) || 0) + bruto);
 
+    /* Bloque 3 (JFC 2026-09-24): sobre que plata se aplica el %. Con "margen"
+       y costo conocido, sobre (bruto - costo). Sin costo (0 o no informado) se
+       cae a bruto Y SE DICE (avisoBase): pagar sobre un margen inventado seria
+       peor que pagar sobre el bruto. El acumulado de metas sigue en bruto: la
+       meta del mes es de VENTAS, no de ganancia. */
+    var costo = Math.max(0, Number(costoTotal) || 0);
+    var baseTipo = "bruto", avisoBase = null;
+    if (trato.base === "margen") {
+      if (costo > 0) baseTipo = "margen";
+      else avisoBase = "Commission was set on margin, but this product has no cost recorded: the gross amount was used.";
+    }
+    var montoBase = baseTipo === "margen" ? Math.max(0, +(bruto - costo).toFixed(2)) : bruto;
+
     /* El aporte fijo sale ANTES del %: es lo que el asociado pone para estar
        ahi, no parte de lo que vendio. Si el aporte supera la venta, la base es
        cero y no negativa — nadie le debe plata a la casa por vender poco. */
-    var base = trato.contribFija > 0 ? Math.max(0, bruto - trato.contribFija) : bruto;
+    var base = trato.contribFija > 0 ? Math.max(0, montoBase - trato.contribFija) : montoBase;
     var comision = +(base * (pct / 100)).toFixed(2);
 
     if (trato.minimoGarantizado > 0 && comision < trato.minimoGarantizado) {
@@ -1424,6 +1445,9 @@
       comisionPct: pct,
       origenComision: trato.origen,
       montoBruto: +bruto.toFixed(2),
+      baseComision: baseTipo,
+      montoBaseComision: +montoBase.toFixed(2),
+      avisoBase: avisoBase,
       contribFijaAplicada: trato.contribFija > 0 ? +Math.min(trato.contribFija, bruto).toFixed(2) : 0,
       montoComisionSocio: comision,
       montoNetoDueno: +(bruto - comision).toFixed(2)
@@ -1437,8 +1461,8 @@
     const t = resolverTrato(u);
     return t ? pctDeLaVenta(t, acumuladoConEsta) : 0;
   }
-  function calcularSplitVenta(u, montoBruto, acumuladoPrevio) {
-    return repartir(resolverTrato(u), montoBruto, acumuladoPrevio);
+  function calcularSplitVenta(u, montoBruto, acumuladoPrevio, costoTotal) {
+    return repartir(resolverTrato(u), montoBruto, acumuladoPrevio, costoTotal);
   }
   // #19: agrupa ventas pendientes por producto -> lineas del recibo de liquidacion.
   function agruparPendientesPorProducto(pend) {
@@ -1506,6 +1530,7 @@
             origenComision: t.origen || "percha",
             contribFija: t.contribFija || 0,
             minimoGarantizado: t.minimoGarantizado || 0,
+            baseComision: t.base || "bruto",
             tieneEscalas: !!(t.escalas && t.escalas.length),
             avisosTrato: t.avisos || [],
             modalidad: (t.pct || 0) >= 50 ? "artista" : "vendedor",
@@ -1544,8 +1569,11 @@
     if (!Number.isFinite(pct) || pct < 0 || pct > 100) return { error: "The percentage must be between 0 and 100.", status: 400 };
 
     const bruto = Number(v.split.montoBruto) || 0;
+    /* Bloque 3: si la venta se repartio sobre el margen, la correccion del %
+       se aplica sobre ESA misma base; nunca se cambia de base al corregir. */
+    const baseCorr = Number.isFinite(Number(v.split.montoBaseComision)) && v.split.montoBaseComision !== null ? Number(v.split.montoBaseComision) : bruto;
     const antes = { comisionPct: v.split.comisionPct, montoComisionSocio: v.split.montoComisionSocio, montoNetoDueno: v.split.montoNetoDueno };
-    const comision = +(bruto * (pct / 100)).toFixed(2);
+    const comision = Math.min(bruto, +(baseCorr * (pct / 100)).toFixed(2));
 
     v.split.comisionPct = pct;
     v.split.montoComisionSocio = comision;
@@ -2973,7 +3001,7 @@
     catalogoPropio() {
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       return {
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, fotoHash: u.fotoHash || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, fotoHash: u.fotoHash || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
         // NO PUBLICAR SEMILLA DEMO (v297, JFC 2026-09-16). Los productos de ejemplo
         // tienen id "p"+DIGITOS (p01..p66); los reales son "p"+UUID (con guiones).
         // Filtrar aqui evita que un aparato con demo re-contamine la sala (add-only
@@ -3015,7 +3043,7 @@
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "", despedido: !!c.despedido, borrado: !!c.borrado, rev: c.rev || null, evaluacion: c.evaluacion || null })),
         /* COMISIONISTAS + SUCURSALES viajan con el catálogo (JFC 2026-09-10, "sync
            integral"). Add-only en aplicarCatalogo: nunca se pisa una comision. */
-        promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [], rev: p.rev || null, borrado: !!p.borrado })),
+        promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, baseComision: _baseComisionValida(p.baseComision) || "bruto", telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [], rev: p.rev || null, borrado: !!p.borrado })),
         sucursales: sucursales.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa !== false, rev: s.rev || null, borrado: !!s.borrado })),
         // Configuración de categorías (propias vacías y ocultas). Ver categoriasMeta.
         categorias: Object.keys(categoriasMeta).map((k) => Object.assign({}, categoriasMeta[k])),
@@ -3072,7 +3100,7 @@
     estadoParaCheckpoint() {
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null })),
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
@@ -3228,7 +3256,7 @@
           const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
           const montoBruto = p.precio * cant;
           const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
-          const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null;
+          const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant) : null;
           ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
         }
         mov(op.tipo + "-remoto", { producto: p.nombre, delta: pl.delta, dispositivo: op.deviceNombre || op.deviceId || "otro dispositivo" });
@@ -3561,7 +3589,7 @@
       }
       if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "The location name is required." }, 400);
-        const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria, lecturaPreferida: body.lecturaPreferida === "casa" ? "casa" : "asociado", minimoGarantizado: Math.max(0, Number(body.minimoGarantizado) || 0), contribFija: Math.max(0, Number(body.contribFija) || 0) };
+        const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria, lecturaPreferida: body.lecturaPreferida === "casa" ? "casa" : "asociado", minimoGarantizado: Math.max(0, Number(body.minimoGarantizado) || 0), contribFija: Math.max(0, Number(body.contribFija) || 0), baseComision: _baseComisionValida(body.baseComision) || null };
         nueva.rev = _revNueva();
         ubicaciones.push(nueva);
         // BUG FIX (2026-07-03): las perchas creadas en runtime no existian en
@@ -3625,6 +3653,7 @@
         }
         if ("minimoGarantizado" in body) u.minimoGarantizado = Math.max(0, Number(body.minimoGarantizado) || 0);
         if ("usarComisionPropia" in body) u.usarComisionPropia = !!body.usarComisionPropia;
+        if ("baseComision" in body) u.baseComision = _baseComisionValida(body.baseComision) || "bruto";
         if ("escalasComision" in body) u.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision : [];
         /* B2 (JFC 2026-09-10): puntero de la foto. La foto (bytes) se guarda por
            su hash SHA-256 en idb-fotos; aqui solo viaja el HASH en el catalogo,
@@ -3696,7 +3725,7 @@
            Se acepta `comision` como alias de entrada y se guarda `comision`
            espejo para compatibilidad con datos/lectores viejos. */
         const _base = Math.max(0, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0);
-        const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim().slice(0, 80), comisionBase: _base, comision: _base,
+        const nuevaProm = { id: uuid("pr"), nombre: body.nombre.trim().slice(0, 80), comisionBase: _base, comision: _base, baseComision: _baseComisionValida(body.baseComision) || "bruto",
           telefono: _s(body.telefono), cedula: _s(body.cedula), banco: _s(body.banco), cuenta: _s(body.cuenta),
           direccion: _s(body.direccion), notas: _s(body.notas), activa: true, creadoEn: new Date().toISOString(),
           /* JFC 2026-08-27 (portado de amigable-123): meta mensual y tramos/escalas
@@ -3720,6 +3749,7 @@
           pr.comisionBase = b; pr.comision = b;
         }
         if (body.metaMensual !== undefined) pr.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
+        if (body.baseComision !== undefined) pr.baseComision = _baseComisionValida(body.baseComision) || "bruto";
         // Escalas {hasta,comision} — el mismo formato que lee pctDeLaVenta (antes {desde,pct}).
         if (body.escalasComision !== undefined) pr.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ hasta: Math.max(0, Number(e.hasta) || 0), comision: Math.max(0, Math.min(100, Number(e.comision) || 0)) })).filter((e) => e.hasta > 0) : [];
         ["telefono", "cedula", "banco", "cuenta", "direccion", "notas"].forEach((k) => { if (body[k] !== undefined) pr[k] = String(body[k] || "").trim().slice(0, 160); });
@@ -3997,7 +4027,7 @@
         const modoComision = body && body.modoComision === "counter" ? "counter" : "acuerdo";
         const split = modoComision === "counter"
           ? null
-          : (ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio) : null);
+          : (ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant) : null);
         p.stockActual -= cant;
         let clienteVenta = null;
         if (body.clienteId) {
@@ -4123,7 +4153,7 @@
             if (ubicP && venta.split) {
               const montoBruto = (venta.precioUnit || 0) * nueva;
               const acumuladoPrevio = ventasMesAcumuladasExcl(ubicP.id, venta.id);
-              venta.split = calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio);
+              venta.split = calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(venta.costoUnit) || 0) * nueva);
             }
           }
         }
@@ -4139,7 +4169,7 @@
             const ubicP2 = ubicaciones.find((x) => x.id === venta.ubicacionId);
             if (ubicP2 && venta.split) {
               const montoBruto2 = precioRedondo * (venta.cantidad || 1);
-              venta.split = calcularSplitVenta(ubicP2, montoBruto2, ventasMesAcumuladasExcl(ubicP2.id, venta.id));
+              venta.split = calcularSplitVenta(ubicP2, montoBruto2, ventasMesAcumuladasExcl(ubicP2.id, venta.id), (Number(venta.costoUnit) || 0) * (venta.cantidad || 1));
             }
           }
         }
@@ -4633,7 +4663,7 @@
           if (p.stockActual < cant) { errores.push(`${p.nombre}: solo hay ${p.stockActual} en stock.`); continue; }
           const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
           const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
-          const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado) : null;
+          const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant) : null;
           p.stockActual -= cant;
           ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
           emitirOpStock("cierre-dia", { productoId: p.id, delta: -cant });
