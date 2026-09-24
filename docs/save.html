@@ -467,6 +467,13 @@
   .bcg-gris{ background:#5C6B7A; }
   .bcg-gris *{ color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
 
+  /* FAQ (Opus 5.5, 2026-09-24): tinta de verdad, 4 esquinas, 15-17 px, sin JS. */
+  .faq{ max-width:640px; margin:0 auto; padding:8px 16px 48px; box-sizing:border-box; }
+  .faq h2{ font-size:24px; font-size:clamp(22px,5vw,28px); text-align:center; margin-bottom:18px; }
+  .faq details{ background:var(--card); border:1px solid var(--hairline); border-radius:12px; padding:14px 18px; margin-bottom:10px; }
+  .faq summary{ cursor:pointer; font-weight:700; font-size:17px; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; list-style-position:inside; }
+  .faq details p{ font-size:16px; line-height:1.6; margin-top:10px; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+  .faq details a{ color:var(--verde-ink) !important; -webkit-text-fill-color:var(--verde-ink) !important; font-weight:700; text-decoration:underline; }
   .oferta{ text-align:center; padding:56px 0; }
   .oferta h2{ font-size:28px; font-size:clamp(24px,6vw,36px); margin-bottom:14px; }
   .oferta .lead{ font-size:17px; max-width:500px; margin:0 auto 28px; }
@@ -947,6 +954,33 @@
       <p class="inversion-cupo">I personally walk the first businesses of each month through setup. For as long as I am the only one giving support, that one-to-one time has a real limit.</p>
       <p class="inversion-garantia">If something does not add up, you message me and we sort it out. You deal directly with <a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a>, not with a call center.</p>
     </div>
+  </section>
+
+  <!-- FAQ (Bloque 7, Opus 5.5, 2026-09-24). Solo hechos que ya dice esta pagina o la app
+       (precio, licencia de 5 anos, prueba de 30 dias -> solo lectura sin borrar nada (shell 342),
+       datos en el aparato, entrega en 24 h). No agregar promesas nuevas aqui sin decision de JFC. -->
+  <section class="faq wrap" id="faq">
+    <h2>Questions people ask before paying</h2>
+    <details>
+      <summary>Is it really a single payment?</summary>
+      <p>Yes. $399 once, for a 5-year license. No subscription, no monthly payments and no per-user fees.</p>
+    </details>
+    <details>
+      <summary>What do the 5 years include?</summary>
+      <p>Every update for the full 5 years, and support by WhatsApp and email directly with me. No help desk and no tickets.</p>
+    </details>
+    <details>
+      <summary>What happens when the 30-day trial ends?</summary>
+      <p>If you have not bought a license, the app switches to read-only: you can still see and export everything. Nothing is deleted.</p>
+    </details>
+    <details>
+      <summary>Where is my business data kept?</summary>
+      <p>On your own device. You can export an encrypted backup whenever you want, to your own messages or email.</p>
+    </details>
+    <details>
+      <summary>How do I get my license after paying?</summary>
+      <p>By WhatsApp or email within 24 hours. Questions before that? <a href="https://wa.me/593999905080?text=Hola%2C%20tengo%20una%20pregunta%20sobre%20friendly-123" target="_blank" rel="noopener">Write me on WhatsApp</a>.</p>
+    </details>
   </section>
 
   <section class="checklist-cta wrap">

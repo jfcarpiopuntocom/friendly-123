@@ -52,3 +52,13 @@ test('legibilidad: ningun chip con texto blanco usa el verde o naranja claros; l
   assert.doesNotMatch(app, /li\.naranja\{background:var\(--sim-naranja\); color:#FFFFFF/);
   assert.match(app, /li\.naranja\{background:#FDD9BE; color:#7C2D12/);
 });
+
+test('save.html: FAQ de 5 preguntas con hechos ya publicados (fijacion, Bloque 7)', () => {
+  const html = leer('save.html');
+  const faq = html.slice(html.indexOf('<section class="faq wrap"'), html.indexOf('</section>', html.indexOf('<section class="faq wrap"')));
+  assert.equal((faq.match(/<details>/g) || []).length, 5);
+  assert.match(faq, /\$399 once, for a 5-year license/);
+  assert.match(faq, /read-only/);
+  assert.match(faq, /within 24 hours/);
+  assert.doesNotMatch(faq, /guarantee|refund|money back/i, 'la FAQ no promete nada que JFC no haya decidido');
+});
