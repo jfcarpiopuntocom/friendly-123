@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v380",
+  "shell": "f123-shell-v382",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-59bb5fc7806489cc6e330f27fe94cec5591b8330e166e55c039163e951621179",
+    "./index.html": "sha256-93ce2960f5f5920434eaa8a99584d10fc05e211c4ce55f2ee4f102a538d86541",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-70633c7a2fb8630ecd5678d180edb818aeec807c6ed79b93727f1e7636abee2f",
     "./404.html": "sha256-ca1c148400c0daf46db5c8217191e350b978638029cbec562f4d2abef8350554",
@@ -47,7 +47,7 @@
     "./dashboard.html": "sha256-a2dea9f32b7811c799fbc9276f71d5987122c7cdd8fa7659d31cd183ed223779",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-204be1a4c8288a6c8ee41bc85d4f3a4bdb2d01ddec020c1e3fef7d0d0031a060",
-    "./vista-perchas.js": "sha256-54f871f8dbdd9a0247395aa495f11313529643567c2e516dbbede98f44e7444c",
+    "./vista-perchas.js": "sha256-6026d8cde4aa56b808f32e5eea418c557146ffaaebb365fba43e628bccb11b63",
     "./welcome-ui.js": "sha256-41c9e8912a43b35bc7be73abace4882f208c741927f74c68b13cb835e7099dc0",
     "./ganchos-demo.js": "sha256-b89fe6992ff0a621e0c6ba612e352f657787f150021a9bb77e220aced50c4022",
     "./tutorial-ui.js": "sha256-356f6732038ab6cd6f109ac7c749efb4c40dc59650a793fc4e6c6061b7497756",
