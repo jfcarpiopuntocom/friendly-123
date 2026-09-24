@@ -7170,7 +7170,7 @@ function tarjetaPromotora(pr){
   return `
     <div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;">
       <button type="button" data-abrir-promotora="${pr.id}" style="flex:1;text-align:left;background:transparent;border:none;padding:0;cursor:pointer;">
-        <strong style="color:var(--azul-medio,#2c4a68);text-decoration:underline;">${escHtml(pr.nombre)}</strong>
+        <strong style="font-size:16px;color:var(--azul-medio,#2c4a68);text-decoration:underline;">${escHtml(pr.nombre)}</strong>
         <div style="font-size:14px;color:var(--ink-soft);">${window.tf("comm.g.pctCommission", {pct: Number(pr.comisionBase)||0})}${tramos} — ${window.t("comm.g.tapToEdit")}</div>
         ${datos ? `<div style="font-size:14px;color:var(--ink-soft);margin-top:2px;">${datos}</div>` : ""}
         ${pr.direccion ? `<div style="font-size:14px;color:var(--ink-soft);">📍 ${escHtml(pr.direccion)}</div>` : ""}
@@ -7228,7 +7228,7 @@ async function renderGestionPromotoras(){
     proveedoresConsig = [...nombres].sort((a,b) => a.localeCompare(b));
   } catch (_) { proveedoresConsig = []; }
   box.innerHTML = `
-    <h3 class="seccion" style="font-size:15px;margin-top:0;">${window.t("comm.g.heading")}</h3>
+    <h3 class="seccion" style="font-size:16px;margin-top:0;">${window.t("comm.g.heading")}</h3>
     <div class="tag-card" style="padding:14px;display:flex;flex-direction:column;gap:10px;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:5px;font-size:14px;font-weight:600;cursor:pointer;"><input type="radio" name="promOrigen" value="libre" checked> ${window.t("comm.g.originFree")}</label>
@@ -7256,18 +7256,18 @@ async function renderGestionPromotoras(){
           <textarea id="promNotas" placeholder="${window.t("comm.g.notes")}" style="flex:2;min-width:200px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;min-height:40px;font-family:inherit;"></textarea>
         </div>
       </details>
-      <div style="margin-top:10px;"><button class="ir" id="btnAltaPromotora" style="padding:10px 18px;">${window.t("comm.g.addBtn")}</button></div>
+      <div style="margin-top:10px;"><button class="ir" id="btnAltaPromotora" style="font-size:14px;padding:10px 18px;">${window.t("comm.g.addBtn")}</button></div>
       <p style="font-size:14px;color:var(--ink-soft);margin:0;">${window.t("comm.g.dualRoleNote")}</p>
     </div>
     <p id="promMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
-    <h3 class="seccion" style="font-size:15px;margin:22px 0 0;">${window.t("comm.g.listHeading")}</h3>
+    <h3 class="seccion" style="font-size:16px;margin:22px 0 0;">${window.t("comm.g.listHeading")}</h3>
     <div class="tag-card" style="padding:10px 14px;display:flex;align-items:center;gap:12px;margin-top:12px;">
       <svg width="26" height="26" viewBox="0 0 16 16" aria-hidden="true" style="flex-shrink:0;">
         <circle cx="6.6" cy="6.6" r="4.8" fill="none" stroke="var(--azul-medio,#2E6278)" stroke-width="2.2"/>
         <path d="M10.2 10.2L15 15" stroke="var(--azul-medio,#2E6278)" stroke-width="2.6" stroke-linecap="round"/>
       </svg>
       <input id="promBuscar" type="search" inputmode="search" autocomplete="off" placeholder="${window.t("comm.g.searchPh")}"
-        style="flex:1;min-width:0;padding:10px 12px;font-size:15px;border:2px solid var(--azul-medio);border-radius:4px;">
+        style="flex:1;min-width:0;padding:10px 12px;font-size:16px;border:2px solid var(--azul-medio);border-radius:4px;">
     </div>
     <p id="promBuscarConteo" style="font-size:14px;color:var(--ink-soft);margin:6px 2px 0;"></p>
     <div id="listaPromotoras" style="margin-top:10px;"></div>`;

@@ -23,6 +23,16 @@ test("commissions uses a 3-step type scale (13/14/16px) and nothing below 13px",
   for (const s of sizes) assert.ok([13, 14, 16].includes(s), "unexpected font-size " + s + "px");
 });
 
+test("promoter management block uses the same type scale (v366 live left 15px and 13.33px)", () => {
+  const a = html.indexOf("async function renderGestionPromotoras(");
+  const b = html.indexOf("\nasync function ", a + 10);
+  const r = html.slice(a, b > a ? b : a + 20000);
+  const sizes = new Set([...r.matchAll(/font-size:\s*([0-9.]+)px/g)].map((m) => Number(m[1])));
+  for (const s of sizes) assert.ok([13, 14, 16].includes(s), "unexpected font-size " + s + "px");
+  assert.ok(/id="btnAltaPromotora" style="[^"]*font-size:14px/.test(html), "Save agent button has no real size");
+  assert.ok(/data-abrir-promotora="\$\{[^}]+\}"[^>]*>\s*<strong style="font-size:16px;/.test(html), "promoter names inherit 13.33px");
+});
+
 test("commissions has no medal emojis and no grey #8A8A8A", () => {
   const r = region();
   assert.ok(!/[\u{1F947}-\u{1F949}]/u.test(r), "medal emoji still present");
