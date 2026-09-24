@@ -205,3 +205,9 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [ ] Siguiente del benchmark: #4 medio de pago al liquidar (efectivo / transferencia / credito en tienda) guardado en el pago al comisionista. Toca dinero: aditivo, test de dos aparatos rojo-verde.
 - [ ] Idea chica derivada: mismo aviso desde la venta rapida del grid (hoy solo desde el panel de venta completo).
 - [ ] JFC: probar 1 lote y 1 pago en el panel; candado de Belen debe decir shell-v390.
+
+## AVANCE shell v391 (Opus 5.5) — benchmark #4 HECHO
+- [x] Medio de pago al liquidar: dialogo de 5 botones, sellado solo en lo que ese pago liquida, viaja por sync, recibo con "Paid by". Chromium real + test rojo-verde (0/3 en v390, 3/3 con el cambio). Carreras de dinero siguen verdes.
+- [ ] Siguiente del benchmark: #1 estado de cuenta del comisionista (enlace de solo lectura, firmado y con vencimiento; SOLO sus ventas). Requiere plan .md y revision de seguridad antes de codigo.
+- [ ] Pequeño: mostrar el medio de pago en la tarjeta de Commissions de meses pagados y en dashboard.html.
+- [ ] JFC: candado de Belen debe decir shell-v391; probar 1 lote y 1 pago en el panel.
