@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "La barra de Inventario se traduce completa: agrupar por familia, ordenar y columnas.",
+  "changelog": "Commissions mas clara: perchas sin ventas del mes agrupadas, perchas de ejemplo antiguas marcadas y explicacion cuando no hay ventas con comision.",
   "requerida": false,
-  "shell": "f123-shell-v376",
+  "shell": "f123-shell-v377",
   "apagar": [],
   "releaseName": "v1.0"
 }

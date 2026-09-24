@@ -7754,13 +7754,18 @@ function cambiarVistaComisiones(vista){
     boton.style.color = activo ? "#FFFFFF" : "#0F1923";
   });
 }
-function resumenComisionPorProductoHtml(prods){
+/* Perchas de la semilla VIEJA del demo (julio-agosto 2026) que quedaron en tiendas
+   reales (caso Belen, 2026-09-24): se ROTULAN, jamas se borran desde aqui. Si la
+   duena no las usa, las apaga ella desde la lista de perchas. */
+const PERCHAS_SEMILLA_VIEJA = ["bookshelf", "fairbooth", "smokeshop"];
+function esPerchaSemillaVieja(id) { return PERCHAS_SEMILLA_VIEJA.indexOf(String(id || "")) !== -1; }
+function resumenComisionPorProductoHtml(prods, unidadesPropias){
   // JFC 2026-09-24: esta seccion no desaparece si el mes aun no tiene filas.
   // Asi Commissions conserva siempre el orden mental: producto primero, pago por percha despues.
   const apertura = selectorVistaComisionesHtml() + `<section id="comm-panel-product" role="tabpanel" data-commissions-section="by-product" aria-labelledby="comm-tab-product comm-by-product-heading">
     <h3 id="comm-by-product-heading" class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
     <p style="font-size:14px;color:var(--ink-soft);margin:0 0 10px;">${t("comm.byProductIntro")}</p>`;
-  if (!prods.length) return apertura + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}</div></section>`;
+  if (!prods.length) return apertura + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}${unidadesPropias > 0 ? `<p style="margin:8px 0 0;font-size:14px;color:var(--ink);">${window.tf("comm.byProductOwnSales", { n: unidadesPropias })}</p>` : ""}</div></section>`;
   // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
   const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
   const tile = (label, val, color) => `<div class="tag-card" style="padding:10px 12px;margin:0;text-align:left;">
@@ -7924,13 +7929,20 @@ async function cargarComisiones(){
         </div>
       </details>`;
   }
-  const cardsHtml = filas.map(f => {
+  /* TIENDA REAL DE BELEN (JFC 2026-09-24): las perchas SIN ventas en el mes se
+     pintaban como tarjetas completas en $0 (meta, %, simulador) y parecian relleno.
+     Ahora: las que vendieron van arriba; las demas, plegadas en un solo bloque.
+     Nada se borra ni se oculta del todo: dentro del bloque siguen sus tarjetas
+     para ver o corregir su trato. */
+  const conVentas = filas.filter(f => f.estado !== "sin ventas");
+  const sinVentas = filas.filter(f => f.estado === "sin ventas");
+  const tarjetaPercha = f => {
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
       ? `<span class="badge-estado rojo" style="font-size:13px;">dormant ${f.diasSinVenta}d</span>` : "";
     return `
     <div class="tag-card" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <strong style="font-size:16px;">${escHtml(f.ubicacion)}</strong>
+        <strong style="font-size:16px;">${escHtml(f.ubicacion)}${esPerchaSemillaVieja(f.ubicacionId) ? ` <span class="badge-estado amarillo" style="font-size:13px;">${t("comm.sampleRack")}</span>` : ""}</strong>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado}</span></div>
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
@@ -7955,7 +7967,14 @@ async function cargarComisiones(){
       ${f.esMesActual === false ? "" : simuladorHtml(f)}
       ${f.estado === "pendiente" ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde,#00C87A);color:#fff;border-color:var(--sim-verde-dk,#009A5A);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
     </div>`;
-  }).join("");
+  };
+
+  const cardsHtml = conVentas.map(tarjetaPercha).join("") + (sinVentas.length ? `
+    <details data-commissions-idle class="tag-card" style="text-align:left;margin:0 0 12px;padding:14px 16px;">
+      <summary style="cursor:pointer;font-size:16px;font-weight:700;color:var(--ink);min-height:44px;display:flex;align-items:center;">${window.tf("comm.idleRacks", { n: sinVentas.length })}: ${sinVentas.map(f => escHtml(f.ubicacion)).join(", ")}</summary>
+      <p style="font-size:14px;color:var(--ink);margin:8px 0 12px;">${t("comm.idleRacksNote")}</p>
+      ${sinVentas.map(tarjetaPercha).join("")}
+    </details>` : "");
 
   // JFC 2026-09-06: subsección con título propio para las tarjetas de resultado
   // por percha/evento (antes iban sueltas sin encabezado). Solo si hay filas.
@@ -7964,7 +7983,11 @@ async function cargarComisiones(){
     ${cardsHtml || `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.rackEmpty")}</div>`}
   </section>`;
   // JFC 2026-09-23: primero por producto; las tarjetas por percha (pagar, corregir %) al fondo.
-  cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto) + cardsSection;
+  /* Ventas del mes en perchas PROPIAS (sin comision): solo para explicar un "by product" vacio. */
+  const unidadesPropiasMes = (Array.isArray(ventasTodas) ? ventasTodas : []).filter(v =>
+    (_ocMesComisiones ? v.mes === _ocMesComisiones : v.delMesActual) && v.comisionPct == null && (!v.ubicacionTipo || v.ubicacionTipo === "propio"))
+    .reduce((a, v) => a + (Number(v.cantidad) || 1), 0);
+  cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto, unidadesPropiasMes) + cardsSection;
   // Shell 371: el selector de mes (y el aviso de meses sin pagar) va encima de todo,
   // como control de la vista; el orden del dinero de la linea anterior no cambia.
   cont.insertAdjacentHTML("afterbegin", selectorMesComisionesHtml(meses));
