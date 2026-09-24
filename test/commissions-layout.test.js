@@ -52,11 +52,39 @@ test("money comes first: totals by product, then promoter management at the end"
   const orden = r.match(/cont\.innerHTML = btnWA \+ btnExport \+ ([^;]+);/);
   assert.ok(orden, "commissions render line not found");
   const partes = orden[1].split("+").map((s) => s.trim());
-  assert.ok(partes.indexOf("cardsHtml") === partes.length - 1, "rack cards must be the last block");
+  assert.ok(partes.indexOf("cardsSection") === partes.length - 1, "rack cards must be the last block");
   assert.ok(partes[0].startsWith("resumenComisionPorProductoHtml"), "by-product summary must open the view");
   // JFC 2026-09-23: ranking y matriz RFM "van al fondo, es lo que menos le interesa
   // a nadie y menos con tan poca data": fuera del bloque del dinero, debajo del alta.
   assert.ok(!partes.includes("rankHtml") && !partes.some((p) => p.startsWith("matrizComisionistasHtml")), "ranking/RFM must leave the money block");
   assert.ok(vista.indexOf('id="gestionPromotoras"') < vista.indexOf('id="rankingComisiones"'), "ranking must sit below promoter management");
   assert.ok(/rankingComisiones"\);[\s\S]{0,60}innerHTML = rankHtml \+ matrizComisionistasHtml\(ranking\)/.test(r), "ranking container not filled");
+});
+
+test("Summary by product is an always-visible section before Summary by rack / event", () => {
+  const r = region();
+  assert.ok(r.includes('data-commissions-section="by-product"'),
+    "by-product must have its own visible section");
+  assert.ok(r.includes('data-commissions-section="by-rack-event"'),
+    "rack/event must have its own later section");
+  assert.ok(!r.includes('if (!prods.length) return "";'),
+    "by-product heading must not disappear when the month has no product rows");
+
+  const render = r.match(/cont\.innerHTML = btnWA \+ btnExport \+ ([^;]+);/);
+  assert.ok(render, "commissions render line not found");
+  const expression = render[1];
+  assert.ok(expression.indexOf("resumenComisionPorProductoHtml") < expression.indexOf("cardsSection"),
+    "Summary by product must render before Summary by rack / event");
+});
+
+test("commissions opens on a live product/SKU view switchable to rack/event", () => {
+  const r = region();
+  assert.ok(r.includes('role="tablist"'), "commissions view switch is missing");
+  assert.ok(r.includes('data-commissions-view="${vista}"') && r.includes('boton("product"'),
+    "product/SKU tab is missing");
+  assert.ok(r.includes('boton("rack"'), "rack/event tab is missing");
+  assert.ok(r.includes('function cambiarVistaComisiones('), "live view switch handler is missing");
+  assert.ok(r.includes('cambiarVistaComisiones("product")'), "product/SKU must be the default live view");
+  assert.ok(r.includes('data-commissions-section="by-rack-event"') && r.includes(' hidden>'),
+    "rack/event panel must start hidden while product/SKU is selected");
 });

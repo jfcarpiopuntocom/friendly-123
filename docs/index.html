@@ -7676,20 +7676,45 @@ function agruparVentasPorProducto(rows, soloComision){
   });
   return [...map.values()].sort((a, b) => (b.bruto + b.counterMonto) - (a.bruto + a.counterMonto) || b.total - a.total);
 }
+function selectorVistaComisionesHtml(){
+  const boton = (vista, texto, activo) => `<button type="button" role="tab" id="comm-tab-${vista}"
+    data-commissions-view="${vista}" aria-controls="comm-panel-${vista}" aria-selected="${activo ? "true" : "false"}"
+    tabindex="${activo ? "0" : "-1"}" onclick="cambiarVistaComisiones('${vista}')"
+    style="font-size:14px;font-weight:700;padding:9px 14px;border:2px solid #2C3E50;border-radius:8px;background:${activo ? "#2C3E50" : "#FFFFFF"};color:${activo ? "#FFFFFF" : "#0F1923"};">${texto}</button>`;
+  return `<div role="tablist" aria-label="Commissions summary view" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;">
+    ${boton("product", t("comm.viewProduct"), true)}${boton("rack", t("comm.viewRack"), false)}
+  </div>`;
+}
+function cambiarVistaComisiones(vista){
+  const elegida = vista === "rack" ? "rack" : "product";
+  document.querySelectorAll("[data-commissions-section]").forEach((panel) => {
+    panel.hidden = panel.dataset.commissionsSection !== (elegida === "rack" ? "by-rack-event" : "by-product");
+  });
+  document.querySelectorAll("[data-commissions-view]").forEach((boton) => {
+    const activo = boton.dataset.commissionsView === elegida;
+    boton.setAttribute("aria-selected", activo ? "true" : "false");
+    boton.tabIndex = activo ? 0 : -1;
+    boton.style.background = activo ? "#2C3E50" : "#FFFFFF";
+    boton.style.color = activo ? "#FFFFFF" : "#0F1923";
+  });
+}
 function resumenComisionPorProductoHtml(prods){
-  if (!prods.length) return "";
+  // JFC 2026-09-24: esta seccion no desaparece si el mes aun no tiene filas.
+  // Asi Commissions conserva siempre el orden mental: producto primero, pago por percha despues.
+  const apertura = selectorVistaComisionesHtml() + `<section id="comm-panel-product" role="tabpanel" data-commissions-section="by-product" aria-labelledby="comm-tab-product comm-by-product-heading">
+    <h3 id="comm-by-product-heading" class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
+    <p style="font-size:14px;color:var(--ink-soft);margin:0 0 10px;">${t("comm.byProductIntro")}</p>`;
+  if (!prods.length) return apertura + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}</div></section>`;
   // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
   const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
   const tile = (label, val, color) => `<div class="tag-card" style="padding:10px 12px;margin:0;text-align:left;">
       <div style="font-size:13px;font-weight:700;color:var(--ink);">${label}</div>
       <div style="font-size:16px;font-weight:700;color:${color};">${fmtMoney(val)}</div></div>`;
-  return `<h3 class="seccion" style="font-size:16px;margin:0 0 8px;">${t("comm.totalsHeading")}</h3>
+  return apertura + `<h4 class="seccion" style="font-size:14px;margin:16px 0 8px;">${t("comm.totalsHeading")}</h4>
     <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:18px;">
       ${tile("Sales with commission", tot.bruto, "var(--ink)")}${tile("Associates take", tot.socio, "var(--ink)")}
       ${tile("House keeps", tot.casa, "#006B3C")}${tile("Still to pay", tot.pend, tot.pend > 0 ? "#C0392B" : "#006B3C")}
-    </div>
-    <h3 class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
-    <p style="font-size:14px;color:var(--ink-soft);margin:0 0 10px;">${t("comm.byProductIntro")}</p>` + prods.map((d) => `
+    </div>` + prods.map((d) => `
     <div class="tag-card" style="text-align:left;margin-bottom:10px;padding:14px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(d.producto)}${d.sku ? ` <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">${escHtml(d.sku)}</span>` : ""}</strong>
@@ -7703,7 +7728,7 @@ function resumenComisionPorProductoHtml(prods){
         ${d.pendSocio > 0 ? `<tr><td style="color:var(--rust,#E86040);font-weight:700;">Still to pay</td><td style="text-align:right;color:var(--rust,#E86040);font-weight:700;">${fmtMoney(d.pendSocio)}</td></tr>` : ""}
         ${d.counterUnid ? `<tr><td>COUNTER SALE (house, no commission)</td><td style="text-align:right;">${d.counterUnid}u · ${fmtMoney(d.counterMonto)}</td></tr>` : ""}
       </table>
-    </div>`).join("");
+    </div>`).join("") + `</section>`;
 }
 
 async function cargarComisiones(){
@@ -7729,12 +7754,6 @@ async function cargarComisiones(){
   const btnExport = `<button class="ir" style="font-size:14px;margin-bottom:16px;background:#2C3E50;color:#fff;border-color:#0F1923;" onclick="exportarComisionesCSV()">⬇ Export CSV</button>`;
 
   const porProducto = agruparVentasPorProducto(ventasTodas, true);
-  if (filas.length === 0 && !porProducto.length){
-    { const rc = document.getElementById("rankingComisiones"); if (rc) rc.innerHTML = ""; }
-    cont.innerHTML = btnWA + `<p>You don't have shelves that generate commission yet (partner, franchise, or consignment). Create them in Inventory → Shelves.</p>`;
-    return;
-  }
-
   // Rec 04 + 09: ranking de asociados/as con su mejor SKU y alerta de dormido.
   const rankHtml = (Array.isArray(ranking) && ranking.length) ? `
     <h3 class="seccion" style="font-size:16px;margin-top:0;">${t("comm.rankingHeading")}</h3>
@@ -7883,9 +7902,13 @@ async function cargarComisiones(){
 
   // JFC 2026-09-06: subsección con título propio para las tarjetas de resultado
   // por percha/evento (antes iban sueltas sin encabezado). Solo si hay filas.
-  const cardsHeading = cardsHtml ? `<h3 class="seccion" style="font-size:16px;margin:22px 0 10px;">${t("comm.cardsHeading")}</h3>` : "";
+  const cardsSection = `<section id="comm-panel-rack" role="tabpanel" data-commissions-section="by-rack-event" aria-labelledby="comm-tab-rack comm-by-rack-heading" hidden>
+    <h3 id="comm-by-rack-heading" class="seccion" style="font-size:16px;margin:22px 0 10px;">${t("comm.cardsHeading")}</h3>
+    ${cardsHtml || `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.rackEmpty")}</div>`}
+  </section>`;
   // JFC 2026-09-23: primero por producto; las tarjetas por percha (pagar, corregir %) al fondo.
-  cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto) + cardsHeading + cardsHtml;
+  cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto) + cardsSection;
+  cambiarVistaComisiones("product");
   // Ranking y RFM van en su propio contenedor, debajo del alta de comisionistas (no llevan listeners).
   const rankCont = document.getElementById("rankingComisiones");
   if (rankCont) rankCont.innerHTML = rankHtml + matrizComisionistasHtml(ranking);
