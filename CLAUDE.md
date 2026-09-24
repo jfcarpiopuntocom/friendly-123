@@ -247,3 +247,14 @@ trabajo está mal hecho aunque el código funcione.
   jfcarpio.com puede apuntar subdominios a Cloudflare (ej. code.jfcarpio.com).
 - Ningun modelo cambia de proveedor, borra un Worker/Pages ni mueve el origen
   del codigo sin orden expresa de JFC. Runbook: PLAN-BLOQUE-P-CARGADOR-HOSTINGER-2026-09-24.md.
+
+## REGLAS DURAS JFC 2026-09-24 (tarde)
+- **Un solo modelo: Opus 5.5.** Lo que los apuntes marcaban "Fable 5.1" (dinero, sync,
+  acceso, seguridad) lo hace Opus 5.5 con esas MISMAS guardas: plan, respaldo SHA-256,
+  test rojo-verde contra el respaldo, dos aparatos, shell nuevo.
+- **Apuntes siempre hacia adelante, y tambien en el chat**: al cerrar cada paso, marcar
+  en NOTAS-PARA-OPUS-5.5-2026-09-24.md lo hecho y lo que queda, y decirlo en el chat.
+- **Jev + research online antes de decidir** (ahorro de tokens y rigor): skill jev-jfc
+  para juicios repetidos; research online para benchmark y dudas de mercado.
+- **Benchmark sin violar PI**: aprender funciones de los rivales, nunca copiar su codigo,
+  textos ni diseno; tener respuesta propia para cada "pero ellos tienen X".
