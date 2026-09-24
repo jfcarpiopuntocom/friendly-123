@@ -51,11 +51,11 @@ estado.
   personas (vendedor+asistente), suma exacta al centavo; COUNTER SALE intacto.
   Persona-testing (Hugo/Paco/Luis) antes de publicar. Coordinar con Codex
   (CONTINUAR.md) antes de tocar mock-backend.
-- [~] 5. DESIGN.md único (BORRADOR 2026-09-24, Fable 5.1: tokens inventariados de los 5 html; falta que JFC elija el look A/B/C de la seccion 0 para cerrarlo) (refs: github.com/VoltAgent/awesome-claude-design,
+- [x] 5. DESIGN.md único. CERRADO 2026-09-24: JFC eligio el look A (Commissions: holgura, 13/14/16, color moderado para no competir con SIMON; PIN y panel privado intactos; reportes exportables sin logo). (refs: github.com/VoltAgent/awesome-claude-design,
   github.com/nutlope/hallmark): tokens de color/tipo/espaciado/esquinas/estados
   de TODAS las htmls; reglas duras (sin gris bajo, sin opacidad en texto, 4
   esquinas, min 12-13px, azul permitido).
-- [ ] 6. dashboard.html (dueños/admin): reorganización mayor con DESIGN.md;
+- [~] 6. (6a HECHO en shell v380: Commissions en la app con la UI apartada, barra unica, teclas del case y ventanas de estado; deep-link #editar=comisiones:<id> listo para el dashboard. 6b PENDIENTE: la seccion estrella en dashboard.html.) dashboard.html (dueños/admin): reorganización mayor con DESIGN.md;
   Commissions = feature estrella (por producto/SKU y por percha, meses,
   pendiente, pagar, recibo, tramos, ranking al fondo). Solo datos del propio
   dueño (no periscopio, no cross-tenant).
