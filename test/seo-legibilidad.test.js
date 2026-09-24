@@ -40,6 +40,13 @@ test('legibilidad: ningun chip con texto blanco usa el verde o naranja claros; l
     assert.match(css, /--verde-ink:#0B7A4B/);
     assert.doesNotMatch(css, /\.tchip-(verde|naranja)\{ background:var\(--(verde|naranja)\); color:#FFFFFF/, f + ': chip blanco sobre color claro');
     assert.match(css, /\.btn-primary\{\s*background:var\(--verde-ink\)/, f + ': boton principal con verde tinta');
+    // PageSpeed 2026-09-24 (Accessibility 94 por contraste): ninguna regla que pinte
+    // TEXTO blanco puede usar los colores claros de marca; solo sus tintas.
+    for (const c of ['verde', 'naranja', 'rojo', 'azul']) {
+      assert.doesNotMatch(css, new RegExp('\\.(tchip|mini|bcg)-' + c + '\\{ background:var\\(--' + c + '\\)'), f + ': .' + c + ' con fondo claro bajo texto blanco');
+    }
+    assert.doesNotMatch(css, /background:#25D366 !important; color:#FFFFFF/, f + ': WhatsApp blanco sobre #25D366 (2.4:1)');
+    assert.match(css, /<img class="logo" alt="friendly-123" width="2088" height="427"/, f + ': logo con medidas (CLS)');
   }
   const app = leer('index.html');
   assert.doesNotMatch(app, /li\.naranja\{background:var\(--sim-naranja\); color:#FFFFFF/);
