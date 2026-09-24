@@ -199,6 +199,40 @@
   .tabulator .tabulator-col-title{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase}
   .tabulator-row.tabulator-row-even{background:#FCFDFE}
   .num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  /* COMMISSIONS, LA ESTRELLA (JFC 2026-09-24, Bloque 6b). Mismo lenguaje que la
+     app (DESIGN.md, look A): tarjeta blanca borde 2px radio 6px, rotulos mono en
+     mayusculas 13px, cifras tabulares, escala 13/14/16. Color solo en cifras y
+     chips; nunca tarjetas pintadas (eso es de SIMON). */
+  #cm{margin:0 0 22px}
+  .cm-card{background:var(--card);border:2px solid var(--hairline);border-radius:6px;padding:14px 16px;margin:0 0 12px}
+  .cm-bar{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
+  .cm-bar label{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;flex:1 1 240px;min-width:0}
+  .cm-bar select{flex:1 1 180px;min-width:0;max-width:100%;min-height:40px;font-size:14px;font-weight:700;padding:4px 10px;border:2px solid var(--body-c);border-radius:6px;background:#FFFFFF;color:var(--ink)}
+  .cm-key{min-height:40px;padding:6px 12px;border:2px solid var(--body-c);border-radius:6px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:14px;cursor:pointer;color:var(--ink)}
+  .cm-key.on{background:var(--body-c);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+  .cm-key.rojo{border-color:#B0183E;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important}
+  .cm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;margin:0 0 14px}
+  .cm-k .et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .cm-k .n{font-family:var(--font-mono);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+  .cm-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px;margin-top:10px}
+  .cm-stats .et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .cm-stats .n{font-family:var(--font-mono);font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+  .cm-stats .n small{font-family:var(--font-body);font-size:13px;font-weight:400}
+  .cm-chip{display:inline-block;font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:4px 10px;border-radius:6px}
+  .cm-chip.pend{background:#FAD5DE;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important}
+  .cm-chip.ok{background:#C0F5E0;color:#086944 !important;-webkit-text-fill-color:#086944 !important}
+  .cm-chip.none{background:#E8ECF2;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important}
+  .cm-verde{color:#086944 !important;-webkit-text-fill-color:#086944 !important}
+  .cm-rojo{color:#B0183E !important;-webkit-text-fill-color:#B0183E !important}
+  .cm-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cm-actions a,.cm-actions button{min-height:40px;padding:6px 12px;border:2px solid var(--ink);border-radius:6px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer}
+  .cm-actions a.pagar{background:var(--rust);border-color:#C05000;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px}
+  .cm-h{font-family:var(--font-display);font-size:16px;font-weight:700;margin:0}
+  .cm-sub{font-size:13px;margin:2px 0 0}
+  #cm details summary{cursor:pointer;font-size:14px;font-weight:700;color:#2E6278 !important;-webkit-text-fill-color:#2E6278 !important}
+  #cm table{width:100%;font-size:14px;border-collapse:collapse}
+  #cm td{padding:4px 0;vertical-align:top}
+  #cm td.num{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
   mark{background:#FFF3C2;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;padding:0 2px;border-radius:3px}
 </style>
 </head>
@@ -294,6 +328,15 @@
 
 <main id="tablero"><div class="wrap">
   <div class="kpis" id="kpis"></div>
+
+  <!-- COMMISSIONS, LA ESTRELLA DEL TABLERO (JFC 2026-09-24, Bloque 6b).
+       Se calcula aqui, en el lienzo, a partir de la foto que manda la app
+       (datos.ventas ya trae comisionPct/comisionAsociado/liquidada/mes por venta;
+       datos.liquidaciones trae el mes en curso por percha con meta, tramos,
+       devoluciones y reparto por persona). El tablero NO escribe dinero: pagar,
+       corregir y devolver se hacen en la app via deep-link #editar=comisiones:<id>.
+       Solo datos del propio dueno (la foto llega de sus aparatos). -->
+  <section id="cm" aria-labelledby="cm-titulo"></section>
 
   <div class="barra">
     <div class="tabsel" id="tabsel"></div>
@@ -1239,11 +1282,142 @@
     }).sort(function (a, b) { return b.comision - a.comision; });
   }
 
+  /* ---------------------------------------------------------- COMMISSIONS */
+  var cmMes = null, cmVista = "producto";
+  function cmMesActual() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+  function cmEtiquetaMes(m) {
+    var p = String(m || "").split("-").map(Number);
+    if (p.length !== 2 || !p[0] || !p[1]) return String(m || "");
+    try { return new Date(p[0], p[1] - 1, 15).toLocaleDateString(undefined, { month: "long", year: "numeric" }); } catch (_) { return String(m); }
+  }
+  function cmFilas(mes) {
+    return (datos.ventas || []).filter(function (v) {
+      if (!v || v.mes !== mes) return false;
+      var con = v.comisionPct != null;
+      var counter = !con && v.modoComision === "counter" && v.ubicacionTipo && v.ubicacionTipo !== "propio";
+      return con || counter;
+    });
+  }
+  function cmMeses() {
+    var set = {}; set[cmMesActual()] = 1;
+    (datos.ventas || []).forEach(function (v) { if (v && v.mes && v.comisionPct != null) set[v.mes] = 1; });
+    return Object.keys(set).sort().reverse();
+  }
+  function cmPendienteDe(mes) {
+    return cmFilas(mes).reduce(function (a, v) { return a + ((v.comisionPct != null && !v.liquidada) ? (Number(v.comisionAsociado) || 0) : 0); }, 0);
+  }
+  function cmAgrupar(filas, por) {
+    var map = {};
+    filas.forEach(function (v) {
+      var k = por === "producto" ? (v.productoId || v.productoNombre) : (v.ubicacionId || v.ubicacionNombre);
+      var g = map[k] || (map[k] = { id: k, nombre: por === "producto" ? v.productoNombre : v.ubicacionNombre, sku: v.sku || "", ubicacionId: v.ubicacionId || "", perchas: {}, personas: {}, unid: 0, bruto: 0, socio: 0, casa: 0, pend: 0, counterUnid: 0, counterMonto: 0, devueltas: 0 });
+      var monto = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
+      if (v.comisionPct != null) {
+        g.unid += Number(v.cantidad) || 1; g.bruto += monto; g.socio += Number(v.comisionAsociado) || 0;
+        g.casa += v.netoCasa != null ? Number(v.netoCasa) : (monto - (Number(v.comisionAsociado) || 0));
+        if (!v.liquidada) g.pend += Number(v.comisionAsociado) || 0;
+        if (v.devuelta) g.devueltas++;
+        if (v.asociadoNombre) g.personas[v.asociadoNombre] = 1;
+        if (v.asistenteNombre) g.personas[v.asistenteNombre] = 1;
+      } else { g.counterUnid += Number(v.cantidad) || 1; g.counterMonto += monto; }
+      if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (b.bruto + b.counterMonto) - (a.bruto + a.counterMonto); });
+  }
+  function cmRanking(filas) {
+    var map = {};
+    filas.forEach(function (v) {
+      if (v.comisionPct == null) return;
+      var partes = Array.isArray(v.reparto) && v.reparto.length ? v.reparto.map(function (r, i) { return { n: i === 1 ? (v.asistenteNombre || "") : (v.asociadoNombre || ""), m: Number(r.monto) || 0 }; }) : [{ n: v.asociadoNombre || "", m: Number(v.comisionAsociado) || 0 }];
+      partes.forEach(function (p) { if (!p.n) return; var g = map[p.n] || (map[p.n] = { nombre: p.n, monto: 0, ventas: 0 }); g.monto += p.m; g.ventas++; });
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.monto - a.monto; });
+  }
+  function cmRecibo(ubicacionId, mes) {
+    /* Recibo imprimible SIN logo nuestro (JFC): es el papel del cliente para su asociado. */
+    var filas = cmFilas(mes).filter(function (v) { return v.ubicacionId === ubicacionId && v.comisionPct != null; });
+    var liq = (datos.liquidaciones || []).find(function (l) { return l.ubicacionId === ubicacionId; }) || {};
+    var neg = (datos.resumen && datos.resumen.nombreNegocio) || ($("neg-nombre") && $("neg-nombre").textContent) || "";
+    var porProd = cmAgrupar(filas, "producto");
+    var tot = filas.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
+    var html = "<!doctype html><html><head><meta charset=utf-8><title>Commission receipt</title><style>body{font-family:Inter,Arial,sans-serif;color:#0F1923;margin:32px;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px}table{width:100%;border-collapse:collapse}td,th{padding:6px 0;border-bottom:1px solid #E8ECF2;text-align:left}td.n,th.n{text-align:right;font-family:'JetBrains Mono',Consolas,monospace}tfoot td{font-weight:700;border-top:2px solid #0F1923}</style></head><body>" +
+      "<h1>" + esc(neg || "Commission receipt") + "</h1><div>" + esc(liq.ubicacion || "") + (liq.asociadoNombre ? " · " + esc(liq.asociadoNombre) : "") + " · " + esc(cmEtiquetaMes(mes)) + "</div>" +
+      "<h2>Sales with commission</h2><table><thead><tr><th>Product</th><th class=n>Units</th><th class=n>Sold</th><th class=n>Commission</th></tr></thead><tbody>" +
+      porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + d.unid + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + money(d.socio) + "</td></tr>"; }).join("") +
+      "</tbody><tfoot><tr><td colspan=3>Total commission</td><td class=n>" + money(tot) + "</td></tr></tfoot></table>" +
+      ((liq.ajustes && liq.ajustes.length) ? "<h2>Returns of already-paid sales</h2><table>" + liq.ajustes.map(function (x) { return "<tr><td>" + esc(String(x.fecha || "").slice(0, 10)) + " · " + esc(x.quien || "") + (x.motivo ? " · " + esc(x.motivo) : "") + "</td><td class=n>" + money(x.montoComisionSocio) + "</td></tr>"; }).join("") + "</table>" : "") +
+      "<p style='margin-top:24px'>Signature: ____________________________</p></body></html>";
+    var w = window.open("", "_blank"); if (!w) return;
+    w.document.open(); w.document.write(html); w.document.close();
+    try { w.focus(); w.print(); } catch (_) {}
+  }
+  function pintarComisiones() {
+    var cont = $("cm"); if (!cont) return;
+    var meses = cmMeses(); var actual = cmMesActual();
+    if (!cmMes || meses.indexOf(cmMes) < 0) cmMes = actual;
+    var filas = cmFilas(cmMes);
+    var conCom = filas.filter(function (v) { return v.comisionPct != null; });
+    var liqs = (cmMes === actual) ? (datos.liquidaciones || []) : [];
+    var ajustes = liqs.reduce(function (a, l) { return a.concat(l.ajustes || []); }, []);
+    var bruto = conCom.reduce(function (a, v) { return a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1); }, 0);
+    var socio = conCom.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0) + ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0);
+    var pend = conCom.reduce(function (a, v) { return a + (v.liquidada ? 0 : (Number(v.comisionAsociado) || 0)); }, 0) + ajustes.reduce(function (a, x) { return a + (x.liquidada ? 0 : (Number(x.montoComisionSocio) || 0)); }, 0);
+    var casa = bruto - socio;
+    var atrasados = meses.filter(function (m) { return m !== actual && cmPendienteDe(m) > 0; });
+    var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + money(n) + "</div></div>"; };
+    var grupos = cmAgrupar(filas, cmVista);
+    var tarjeta = function (g) {
+      var l = cmVista === "percha" ? (liqs.find(function (x) { return x.ubicacionId === g.id; }) || null) : null;
+      var estado = g.socio > 0 || (l && (l.ajustes || []).length) ? (g.pend > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
+      var sub = cmVista === "producto"
+        ? "Rack: " + esc(Object.keys(g.perchas).join(", ") || "-") + (Object.keys(g.personas).length ? " · Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : "")
+        : (l && l.asociadoNombre ? "Associate: <strong>" + esc(l.asociadoNombre) + "</strong>" + (l.pctEfectivo != null ? " · " + l.pctEfectivo + "%" : "") + (l.baseComision === "margen" ? " · on margin" : "") : (Object.keys(g.personas).length ? "Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : ""));
+      var stats = '<div class="cm-stats">' +
+        (g.unid ? '<div><div class="et">Sold with commission</div><div class="n">' + money(g.bruto) + " <small>" + g.unid + "u</small></div></div>" +
+          '<div><div class="et">Associate takes</div><div class="n">' + money(g.socio) + "</div></div>" +
+          '<div><div class="et">House keeps</div><div class="n">' + money(g.casa) + "</div></div>" : "") +
+        (g.pend > 0 ? '<div><div class="et cm-rojo">Still to pay</div><div class="n cm-rojo">' + money(g.pend) + "</div></div>" : "") +
+        (g.counterUnid ? '<div><div class="et">COUNTER SALE (house, no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + g.counterUnid + "u</small></div></div>" : "") +
+        "</div>";
+      var extra = "";
+      if (l) {
+        if (l.metaMensual) extra += '<div class="cm-sub">Target ' + money(l.metaMensual) + " · " + (l.cumplimientoMeta != null ? l.cumplimientoMeta + "% met" : "") + (l.tieneEscalas ? " · goal-based tiers" : "") + "</div>";
+        if ((l.ajustes || []).length) extra += '<div class="cm-sub cm-rojo"><strong>' + l.ajustes.length + " return(s) of already-paid sales: " + money(l.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + " deducted</strong></div>";
+        if ((l.repartoPersonas || []).length > 1) extra += "<details><summary>Split between people</summary><table>" + l.repartoPersonas.map(function (p) { return "<tr><td>" + esc(p.nombre) + '</td><td class="num">' + money(p.monto) + "</td></tr>"; }).join("") + "</table></details>";
+        if ((l.detallePendientes || []).length) extra += "<details><summary>Which sales does this payment cover?</summary><table>" + l.detallePendientes.map(function (d) { return "<tr><td>" + d.cantidad + "× " + esc(d.producto) + '</td><td class="num">' + money(d.comisionSocio) + "</td></tr>"; }).join("") + "</table></details>";
+        if (l.ventasCorregidas) extra += '<div class="cm-sub cm-rojo"><strong>' + l.ventasCorregidas + " sale(s) with the percentage manually corrected.</strong></div>";
+      }
+      var acciones = cmVista === "percha" && g.ubicacionId ? '<div class="cm-actions">' +
+        (g.pend > 0 ? '<a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(g.ubicacionId) + '">Pay in the app</a>' : "") +
+        '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(g.ubicacionId) + '">Adjust the deal</a>' +
+        '<button type="button" data-cm-recibo="' + esc(g.ubicacionId) + '">Receipt</button></div>' : "";
+      return '<div class="cm-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><div><h3 class="cm-h">' + esc(g.nombre) + (g.sku ? ' <span style="font-weight:400;font-size:13px;">' + esc(g.sku) + "</span>" : "") + "</h3>" + (sub ? '<div class="cm-sub">' + sub + "</div>" : "") + "</div>" + estado + "</div>" + stats + extra + acciones + "</div>";
+    };
+    var rank = cmRanking(conCom);
+    cont.innerHTML =
+      '<h2 id="cm-titulo" style="font-family:var(--font-display);font-size:22px;margin:0 0 8px;">Commissions</h2>' +
+      '<div class="cm-card cm-bar">' +
+        '<label>Month <select id="cm-mes">' + meses.map(function (m) { var p = cmPendienteDe(m); return '<option value="' + m + '"' + (m === cmMes ? " selected" : "") + ">" + esc(cmEtiquetaMes(m)) + (m === actual ? " (current)" : "") + (p > 0 ? " · " + money(p) + " still to pay" : "") + "</option>"; }).join("") + "</select></label>" +
+        atrasados.map(function (m) { return '<button type="button" class="cm-key rojo" data-cm-mes="' + m + '" title="Commissions still unpaid from earlier months">' + esc(cmEtiquetaMes(m)) + " · " + money(cmPendienteDe(m)) + "</button>"; }).join("") +
+        '<div style="display:flex;gap:6px;"><button type="button" class="cm-key' + (cmVista === "producto" ? " on" : "") + '" data-cm-vista="producto">By product / SKU</button><button type="button" class="cm-key' + (cmVista === "percha" ? " on" : "") + '" data-cm-vista="percha">By rack / event</button></div>' +
+      "</div>" +
+      '<div class="cm-grid">' + k("Sales with commission", bruto) + k("Associates take", socio) + k("House keeps", casa, "cm-verde") + k("Still to pay", pend, pend > 0 ? "cm-rojo" : "cm-verde") + "</div>" +
+      (grupos.length ? grupos.map(tarjeta).join("") : '<div class="cm-card">No commissioned sales this month. Partner, consignment and event racks appear here on their own as soon as they sell.</div>') +
+      (rank.length ? '<details class="cm-card" style="padding:10px 16px;"><summary>Ranking · who earned the most this month</summary><table style="margin-top:8px;">' + rank.map(function (r, i) { return "<tr><td>" + (i + 1) + ". " + esc(r.nombre) + " <small>(" + r.ventas + " sale" + (r.ventas === 1 ? "" : "s") + ")</small></td><td class=\"num\">" + money(r.monto) + "</td></tr>"; }).join("") + "</table></details>" : "");
+    var sel = $("cm-mes"); if (sel) sel.addEventListener("change", function () { cmMes = sel.value; pintarComisiones(); });
+    cont.querySelectorAll("[data-cm-mes]").forEach(function (b) { b.addEventListener("click", function () { cmMes = b.getAttribute("data-cm-mes"); pintarComisiones(); }); });
+    cont.querySelectorAll("[data-cm-vista]").forEach(function (b) { b.addEventListener("click", function () { cmVista = b.getAttribute("data-cm-vista"); pintarComisiones(); }); });
+    cont.querySelectorAll("[data-cm-recibo]").forEach(function (b) { b.addEventListener("click", function () { cmRecibo(b.getAttribute("data-cm-recibo"), cmMes); }); });
+  }
+  /* Para pruebas de navegador: pintar con una foto dada, sin pasar por la puerta. */
+  window.OCDashComisiones = { pintarConDatos: function (d) { datos = d || datos; pintarComisiones(); }, meses: cmMeses };
+
   function mostrar() {
     $("puerta").style.display = "none";
     $("cabecera").style.display = "block";
     $("tablero").style.display = "block";
     pintarKpis();
+    try { pintarComisiones(); } catch (e) { console.warn("[dashboard] comisiones", e); }
     if (!$("tabsel").children.length) pintarSelector();
     try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {}
     pintarTabla();

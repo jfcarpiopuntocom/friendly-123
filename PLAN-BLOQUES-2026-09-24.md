@@ -55,7 +55,7 @@ estado.
   github.com/nutlope/hallmark): tokens de color/tipo/espaciado/esquinas/estados
   de TODAS las htmls; reglas duras (sin gris bajo, sin opacidad en texto, 4
   esquinas, min 12-13px, azul permitido).
-- [~] 6. (6a HECHO en shell v380: Commissions en la app con la UI apartada, barra unica, teclas del case y ventanas de estado; deep-link #editar=comisiones:<id> listo para el dashboard. 6b PENDIENTE: la seccion estrella en dashboard.html.) dashboard.html (dueños/admin): reorganización mayor con DESIGN.md;
+- [x] 6. HECHO 2026-09-24 (Fable 5.1). 6a shells 380-382: Commissions en la app con la UI apartada (barra unica, teclas del case, ventanas de estado, fila de stats, meses sin pagar como tecla roja); Shelves con paleta SIMON exacta y hueco de foto en blanco. 6b shell 383: seccion estrella en dashboard.html bajo los KPIs (mes, producto/percha, meta/tramos, devoluciones, reparto, recibo sin logo, Pay in the app por deep-link, ranking al fondo). Test: test/dashboard-comisiones.test.js. Falta URL viva y pasada Hugo/Paco/Luis desde la PC. dashboard.html (dueños/admin): reorganización mayor con DESIGN.md;
   Commissions = feature estrella (por producto/SKU y por percha, meses,
   pendiente, pagar, recibo, tramos, ranking al fondo). Solo datos del propio
   dueño (no periscopio, no cross-tenant).
