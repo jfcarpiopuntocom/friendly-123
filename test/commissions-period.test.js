@@ -21,6 +21,8 @@ function mesAnterior() {
 
 async function ventaDelMesPasado() {
   const app = fixtureBrowser();
+  // Desde shell 372 el demo ya trae comisiones del mes pasado: se mide contra esa base.
+  const base = ((await app.request('/api/liquidaciones/meses')).find(x => x.mes === mesAnterior()) || { pendiente: 0 }).pendiente;
   const shelf = await app.request('/api/ubicaciones', 'POST', { nombre: 'Fixture period shelf', tipo: 'socio', comisionSocio: 40 });
   const product = await app.request('/api/productos', 'POST', {
     nombre: 'Fixture period product', sku: 'FIX-PERIOD', barcode: 'FIX-PERIOD',
@@ -32,11 +34,11 @@ async function ventaDelMesPasado() {
   const prev = mesAnterior();
   backup.ventas.forEach(v => { if (v.productoId === product.id) v.fecha = `${prev}-15T17:00:00.000Z`; });
   await app.request('/api/respaldo/importar', 'POST', backup);
-  return { app, shelf, prev };
+  return { app, shelf, prev, base };
 }
 
 test('liquidations of a past month stay visible and payable', async () => {
-  const { app, shelf, prev } = await ventaDelMesPasado();
+  const { app, shelf, prev, base } = await ventaDelMesPasado();
 
   const actual = (await app.request('/api/liquidaciones')).find(f => f.ubicacionId === shelf.id);
   assert.equal(actual.estado, 'sin ventas', 'sin ?mes sigue siendo el mes en curso (compatibilidad)');
@@ -49,7 +51,7 @@ test('liquidations of a past month stay visible and payable', async () => {
   const meses = await app.request('/api/liquidaciones/meses');
   const fila = meses.find(x => x.mes === prev);
   assert.ok(fila, 'el mes pasado aparece en la lista de meses');
-  assert.equal(fila.pendiente, 20, 'y dice cuanto falta pagar');
+  assert.equal(+(fila.pendiente - base).toFixed(2), 20, 'y dice cuanto falta pagar');
   assert.ok(meses.some(x => x.actual), 'el mes en curso siempre esta en la lista');
 
   const sinMes = await app.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
@@ -59,7 +61,7 @@ test('liquidations of a past month stay visible and payable', async () => {
   assert.equal(pago.ventasLiquidadas, 1);
   const despues = (await app.request(`/api/liquidaciones?mes=${prev}`)).find(f => f.ubicacionId === shelf.id);
   assert.equal(despues.estado, 'pagado');
-  assert.equal((await app.request('/api/liquidaciones/meses')).find(x => x.mes === prev).pendiente, 0);
+  assert.equal((await app.request('/api/liquidaciones/meses')).find(x => x.mes === prev).pendiente, base, 'solo se pago esta percha; el resto sigue pendiente');
 
   const filas = await app.request('/api/ventas/todas?ubicacionId=todas');
   assert.ok(filas.every(v => /^\d{4}-\d{2}$/.test(v.mes)), 'cada venta dice su mes local');

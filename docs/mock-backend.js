@@ -69,7 +69,9 @@
   // Sucursales: agrupadores backend de perchas (encabezados de sección en Inventario).
   // Asociados/as: artistas en consignación (modalidad artista 85/15) y quien trae público.
   const promotoras = [
-    { id: "pr01", nombre: "Consignment Artist (sample)",  comisionBase: 85, comision: 85 },
+    // JFC 2026-09-24 (shell 372): la artista demo lleva su meta y sus tramos 85/88/90. Su trato manda sobre el
+    // de la percha (motor unico), asi que sin esto los tramos de la percha nunca se veian en el demo.
+    { id: "pr01", nombre: "Consignment Artist (sample)",  comisionBase: 85, comision: 85, metaMensual: 800, escalasComision: [ {"hasta":80,"comision":85}, {"hasta":120,"comision":88}, {"hasta":999,"comision":90} ] },
     { id: "pr02", nombre: "Event Partner (sample)",  comisionBase: 10, comision: 10 },
   ];
   const sucursales = [
@@ -161,11 +163,18 @@
   // "solo viejas" a un producto que deba verse verde/amarillo (se volveria
   // negro por dias-sin-venta), ni tocar los productos con dormidoDesde.
   function sembrarVentasDemo() {
-    const gen = (pid, dias, cli, cant) => {
+    /* opts (JFC 2026-09-24, shell 372 "rellenar el demo para mostrar de lo que es
+       capaz"): { impaga: true } deja la venta sin pagar al asociado aunque sea del
+       mes pasado (asi el demo muestra el aviso rojo de meses con saldo);
+       { counter: true } = COUNTER SALE, la casa vende sin comision. El reparto
+       (split) se calcula DESPUES, en comisionarVentasDemo(), con el MISMO motor
+       que usa una venta real; aqui nunca se inventa un porcentaje. */
+    const gen = (pid, dias, cli, cant, opts) => {
       const p = productos.find((x) => x.id === pid);
       if (!p) return;
       dias.forEach((d, i) => {
-        ventas.push({ id: "vs-" + pid + "-" + d + "-" + i, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant || 1, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date(Date.now() - d * 86400000).toISOString(), split: null, liquidada: true, clienteId: cli || null });
+        ventas.push({ id: "vs-" + pid + "-" + d + "-" + i, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant || 1, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date(Date.now() - d * 86400000).toISOString(), split: null, liquidada: true, clienteId: cli || null,
+          ...(opts && opts.counter ? { modoComision: "counter" } : {}), ...(opts && opts.impaga ? { _demoImpaga: true } : {}) });
       });
     };
     // Bar & café: alto volumen, tickets chicos (lo que sostiene el día a día).
@@ -192,6 +201,48 @@
     gen("p35", [8], "c03", 1);                            // taller de acuarela
     // c07 invierno (última compra vieja), c08 nunca compró.
     gen("p16", [95, 110], "c07", 1);
+    // COMMISSIONS en el demo (JFC 2026-09-24, shell 372). Tres meses de historia
+    // para que se vea todo lo que hace la vista: mes en curso por pagar, mes
+    // pasado con saldo pendiente (aviso rojo + pagar desde el selector de mes),
+    // meses viejos ya pagados, tramos por meta de la artista (85/88/90) y una
+    // COUNTER SALE de la casa en eventos.
+    gen("p07", [2, 9, 15], "c01", 1);                     // mes en curso: laminas de la artista
+    gen("p07", [5], null, 3);                             // una tanda de 3 laminas (sube el tramo)
+    gen("p35", [3], "c04", 2);                            // taller: lo trae el partner de eventos
+    gen("p34", [1], null, 2, { counter: true });          // COUNTER SALE: la casa vende el jazz sin comision
+    gen("p07", [28, 36], "c02", 2, { impaga: true });     // mes pasado, aun sin pagar a la artista
+    gen("p33", [30], "c03", 2, { impaga: true });         // mes pasado, aun sin pagar al partner
+    gen("p06", [44], "c05", 1);                           // mes pasado, ya pagado
+    gen("p07", [62, 75], null, 2);                        // hace dos meses, pagado
+    gen("p34", [66], "c01", 4);                           // hace dos meses, pagado
+    comisionarVentasDemo();
+  }
+  /* Reparto de las ventas demo en perchas que comparten comision, con el motor
+     unico (resolverTrato + repartir), en orden de fecha y acumulando por percha
+     y mes, igual que una venta real (asi los tramos por meta salen verdaderos).
+     Pagado: meses anteriores al pasado siempre; mes pasado salvo _demoImpaga;
+     mes en curso nunca. COUNTER SALE y perchas propias quedan sin split.
+     Si algo falla, el demo arranca igual sin comisiones (nunca tumba el boot). */
+  function comisionarVentasDemo() {
+    try {
+      const mesDe = (f) => fechaLocalDe(f).slice(0, 7);
+      const actual = mesActualISO();
+      const [ay, am] = actual.split("-").map(Number);
+      const pasado = am === 1 ? (ay - 1) + "-12" : ay + "-" + String(am - 1).padStart(2, "0");
+      const acum = {};
+      ventas.filter((v) => String(v.id).startsWith("vs-")).sort((a, b) => (a.fecha < b.fecha ? -1 : 1)).forEach((v) => {
+        const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+        const impaga = !!v._demoImpaga; delete v._demoImpaga;
+        if (!u || !u.tipo || u.tipo === "propio" || v.modoComision === "counter") return;
+        const mes = mesDe(v.fecha), k = u.id + "|" + mes;
+        const bruto = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
+        const split = repartir(resolverTrato(u), bruto, acum[k] || 0);
+        acum[k] = (acum[k] || 0) + bruto;
+        if (!split) return;
+        v.split = split; v.modoComision = "acuerdo";
+        v.liquidada = mes < pasado || (mes === pasado && !impaga);
+      });
+    } catch (e) { try { console.error("Demo: comisiones de ejemplo no calculadas:", e); } catch (_) {} }
   }
   // Microcirugia 1 (2026-07-07): el arranque JAMAS puede tumbar el
   // interceptor — sin el, la app abre sin backend (pantallas vacias). Si la
