@@ -330,6 +330,7 @@
   }
 
   function mostrarAssurance() {
+    if (!enAvanzado()) return;
     if (document.getElementById("f123-backup-assurance")) return;
     if (!esDuenoReal()) return;
     const wrap = document.createElement("div");
@@ -413,7 +414,17 @@
     }, 4000);
   }
 
+  /* REGLA DURA JFC 2026-09-24 (DECISIONES-JFC.md "Modales y avisos rutinarios"):
+     los avisos rutinarios de respaldo solo aparecen con Advanced EN PANTALLA.
+     El chequeo lo dispara cargarAvanzado() via avisosRutinariosDeAvanzado();
+     si el usuario ya salio de Advanced cuando vence el retardo, no se muestra. */
+  function enAvanzado() {
+    try { const v = document.getElementById("vista-avanzado"); return !!(v && v.classList.contains("activa")); }
+    catch (_) { return false; }
+  }
+
   function mostrarRecordatorioRespaldo() {
+    if (!enAvanzado()) return;
     if (document.getElementById("f123-backup-remind")) return;
     if (!esDuenoReal()) return;
     const wrap = document.createElement("div");
@@ -597,8 +608,11 @@
     _mostrarAssurance: mostrarAssurance,
   };
 
-  // Auto-boot: when owner logs in, start the startup check.
-  window.addEventListener("oc-login", () => {
-    chequearAlArrancar();
-  });
+  /* Auto-boot en el login: DORMANT (JFC 2026-09-24, "odio los modales de
+     notificaciones de backup"). NO REACTIVAR sin orden de JFC. El chequeo ahora
+     corre al entrar a Advanced (index.html, avisosRutinariosDeAvanzado). Nota:
+     la auto-configuracion del minimo mensual (arriba) tambien espera a esa
+     primera visita a Advanced; la regla nueva de JFC manda sobre la de 2026-07-21.
+     Lo que habia aqui: un listener del evento de login que llamaba al chequeo.
+     Para reactivarlo (solo con orden de JFC) volver a registrar ese listener. */
 })();

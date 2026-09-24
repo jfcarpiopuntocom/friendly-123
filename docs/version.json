@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "El demo muestra Commissions completa: tres meses de ventas con comision, saldo pendiente del mes pasado, tramos por meta y COUNTER SALE.",
+  "changelog": "Los avisos de rutina (respaldo, resumen semanal) ya no aparecen al entrar a la app: solo en Advanced, para dueno o admin.",
   "requerida": false,
-  "shell": "f123-shell-v372",
+  "shell": "f123-shell-v373",
   "apagar": [],
   "releaseName": "v1.0"
 }

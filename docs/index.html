@@ -8145,7 +8145,31 @@ function ofrecerResumenSemanalSiToca(){
   toast.querySelector("#oc-resumen-sem-si").addEventListener("click", () => { try { localStorage.setItem("f123_resumen_semanal_ofrecido", String(Date.now())); } catch (_) {} enviarResumenSemanalWhatsApp(); toast.remove(); });
   toast.querySelector("#oc-resumen-sem-no").addEventListener("click", () => { try { localStorage.setItem("f123_resumen_semanal_ofrecido", String(Date.now())); } catch (_) {} toast.remove(); });
 }
-window.addEventListener("oc-login", () => setTimeout(ofrecerResumenSemanalSiToca, 1200));
+/* DORMANT (JFC 2026-09-24): la oferta semanal ya no salta al hacer login. Se ofrece
+   al entrar a Advanced (avisosRutinariosDeAvanzado). NO volver a colgarla del login:
+   test/modales-advanced.test.js lo vigila. Lo que habia: un listener del evento de
+   login que llamaba a ofrecerResumenSemanalSiToca con 1,2 s de retardo. */
+
+/* AVISOS RUTINARIOS SOLO EN ADVANCED — REGLA DURA JFC 2026-09-24 (DECISIONES-JFC.md
+   "Modales y avisos rutinarios"). Recordatorio/confirmacion de respaldo y oferta de
+   resumen semanal se ofrecen SOLO cuando el usuario entra a Advanced (pidio mas
+   profundidad) y su rol tiene clearance (dueno o admin/encargado nombrado). Cada
+   aviso ademas se calla si Advanced ya no esta en pantalla. Agregar aqui cualquier
+   aviso rutinario nuevo; nunca en oc-login ni al arrancar. */
+function avisosRutinariosDeAvanzado(){
+  try {
+    const rol = window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual();
+    if (rol !== "dueno" && rol !== "admin") return;
+    // Una vez por sesion: cargarAvanzado tambien corre al repintar (idioma, sync) y no debe re-ofrecer.
+    if (window._ocAvisosAvanzadoHechos) return;
+    window._ocAvisosAvanzadoHechos = true;
+    try { if (window.OCBackupScheduler && window.OCBackupScheduler.chequearAlArrancar) window.OCBackupScheduler.chequearAlArrancar(); } catch (_) {}
+    setTimeout(() => {
+      const v = document.getElementById("vista-avanzado");
+      if (v && v.classList.contains("activa")) ofrecerResumenSemanalSiToca();
+    }, 1200);
+  } catch (_) {}
+}
 
 // MEJORA 3 — Recibo instantáneo al pagar comisión.
 // Después de marcar como pagado, la app arma un mini-recibo en WhatsApp listo
@@ -8656,6 +8680,7 @@ async function pintarImpuestoCfg(){
   });
 }
 async function cargarAvanzado(){
+  try { avisosRutinariosDeAvanzado(); } catch (_) {}
   try { pintarImpuestoCfg(); } catch (_) {}
   try { pintarSyncNuevoEstado(); } catch (_) {}
   inicializarSelectorTimezone();
