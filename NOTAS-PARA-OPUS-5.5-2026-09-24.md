@@ -17,7 +17,7 @@ plan esta en PLAN-BLOQUE-P-CARGADOR-HOSTINGER-2026-09-24.md).
 - [ ] Referencia: github.com/nutlope/hallmark (estructura de landing que
   convierte: promesa en 1 linea, prueba social, 3 beneficios, precio claro,
   1 CTA repetido, FAQ corta, sin muros de texto).
-- [~] `docs/save.html` (Opus 5.5, 2026-09-24): FAQ de 5 preguntas HECHA (solo hechos ya publicados, <details> sin JS, 375 px verificado, fijada en test/seo-legibilidad.test.js). QUEDA para decision de JFC: (a) un solo CTA por pantalla implica quitar o bajar botones que hoy existen; (b) prueba social necesita permiso escrito de una tienda real. Pendiente tecnico chico: JSON-LD FAQPage con las mismas 5 respuestas. Nota original:
+- [~] `docs/save.html` (Opus 5.5, 2026-09-24): FAQ de 5 preguntas HECHA (solo hechos ya publicados, <details> sin JS, 375 px verificado, fijada en test/seo-legibilidad.test.js). DECIDIDO por JFC 2026-09-24 y HECHO: prueba social con nombres (Belen de idiomARTE y Jose de Olimpo Chess Club, con permiso); fuera los enlaces a la encuesta (hero y seccion bajo la oferta) y el WhatsApp duplicado de soporte. Embudo unico: calculadora -> demo -> prueba 30 dias -> comprar. Se conserva 'Send me this calculation on WhatsApp' (decision previa de JFC). Pendiente tecnico chico: JSON-LD FAQPage con las mismas 5 respuestas. Nota original:
   un solo CTA visible por pantalla (hoy compiten varios), FAQ de 5 preguntas
   (precio unico, 5 anos, que pasa al vencer, datos en el aparato, WhatsApp),
   y una prueba social honesta (una tienda real con permiso; si no hay
