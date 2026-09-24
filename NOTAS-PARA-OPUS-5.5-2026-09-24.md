@@ -173,3 +173,23 @@ fitsmallbusiness, technologyadvice, getcircular, resaleos, circle-hand, G2/Capte
 ### Orden sugerido
 2 (aviso WhatsApp, 1 dia) → 4 (medio de pago, 1 dia) → 1 (estado de cuenta) → 3 (rebaja por
 dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo.
+
+## AVANCE 2026-09-24 noche (Opus 5.5, shell v388) — lo que sigue
+- [x] Carrera de TRES aparatos con estado rancio: verde sin cambios de codigo (9 carreras en test/commissions-carreras-sync.test.js).
+- [x] Legibilidad movil: 11 -> 13 px (Hoy, Inventario, reportes). Contraste: boton del escaner, "abrir feria", precio de etiquetas, aviso de Avanzado.
+      Auditoria Chromium 375 px: textos chicos 80 -> 1; bajo contraste en Etiquetas 47 -> 9.
+- [ ] QUEDA contraste: Commissions 7, Avanzado 8, Etiquetas 9, Gastos 2, Inventario 1. Causa: rojo #E8365D, naranja #E86040 y verde #00C87A como TEXTO
+      en estilos inline. Arreglo: tintas (--rojo-ink #B8123C, --rust-deep #C05000, verde #0B7A4B) solo donde son texto; nunca en fondos ni bordes del semaforo.
+- [ ] JFC: probar 1 lote y 1 pago en el panel; Belen abre la app online y el candado debe decir shell-v388.
+- [ ] Benchmark: responder cada "pero ellos tienen X" con funcion propia; primero el aviso por WhatsApp al comisionista.
+- Todo es Opus 5.5 desde ahora (CLAUDE.md, reglas duras 2026-09-24 tarde).
+
+## AVANCE 2026-09-24 noche (Opus 5.5, shell v388) — lo que sigue
+- [x] Carrera de TRES aparatos con estado rancio: verde sin cambios de codigo (9 carreras en test/commissions-carreras-sync.test.js).
+- [x] Legibilidad movil: 11 -> 13 px (Hoy, Inventario, reportes). Contraste: boton del escaner, "abrir feria", precio de etiquetas, aviso de Avanzado.
+      Auditoria Chromium 375 px: textos chicos 80 -> 1; bajo contraste en Etiquetas 47 -> 9.
+- [ ] QUEDA contraste: Commissions 7, Avanzado 8, Etiquetas 9, Gastos 2, Inventario 1. Causa: rojo #E8365D, naranja #E86040 y verde #00C87A como TEXTO
+      en estilos inline. Arreglo: tintas (--rojo-ink #B8123C, --rust-deep #C05000, verde #0B7A4B) solo donde son texto; nunca en fondos ni bordes del semaforo.
+- [ ] JFC: probar 1 lote y 1 pago en el panel; Belen abre la app online y el candado debe decir shell-v388.
+- [ ] Benchmark: responder cada "pero ellos tienen X" con funcion propia; primero el aviso por WhatsApp al comisionista.
+- Desde ahora todo lo hace Opus 5.5, con las mismas guardas que estaban marcadas para Fable 5.1.

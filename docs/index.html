@@ -1031,7 +1031,7 @@
     font-size:15px;
     padding:14px 26px;
     margin-top:14px;
-    background:var(--rust);
+    background:var(--rust-deep); /* blanco sobre --rust daba 3.2:1; --rust-deep 5:1 (2026-09-24) */
     color:var(--blanco-calido);
     border-color:var(--rust-deep);
     min-height:48px;
@@ -1125,7 +1125,7 @@
     color:var(--ink);
   }
   .etiqueta-card .precio-prod{
-    color:var(--ambar);
+    color:var(--rust-deep); /* el ambar/naranja claro daba 3.2:1 como texto (2026-09-24) */
     font-family:var(--font-serif);
     font-weight:400;
     font-style:italic;
@@ -1258,7 +1258,7 @@
   /* ================= AVANZADO ================= */
   .avanzado-aviso{
     background:var(--azul-op-claro);
-    color:var(--azul-op);
+    color:#2F6F86; /* --azul-op sobre su fondo claro daba ~3:1 (2026-09-24) */
     padding:14px 16px;
     border-radius:5px;
     margin-bottom:18px;
@@ -1375,7 +1375,7 @@
   @media (max-width:600px){
     table.reporte{ min-width:0; width:100%; }
     table.reporte th, table.reporte td{ padding:7px 8px; font-size:12px; }
-    table.reporte th{ font-size:11px; }
+    table.reporte th{ font-size:13px; }
   }
 
   @media (max-width:380px){
@@ -1394,13 +1394,13 @@
     h3.seccion{font-size:16px;margin-top:20px;padding-bottom:6px;}
     .grid-resumen{gap:8px;margin-bottom:14px;}
     .tarjeta{padding:10px 12px;}
-    .tarjeta .etiqueta{font-size:11px;letter-spacing:.045em;}
+    .tarjeta .etiqueta{font-size:13px;letter-spacing:.045em;} /* 11->13 px: regla de legibilidad (auditoria Chromium 2026-09-24) */
     .tarjeta .valor{font-size:21px;margin-top:2px;}
     .lista-alertas li{font-size:13px;padding:9px 10px;margin-bottom:6px;}
     .grid-cajas{grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px;}
     .caja{padding:10px;border-width:3px !important;border-radius:8px;}
     .caja .nombre{font-size:14px;line-height:1.2;}
-    .caja .detalle{font-size:11px;line-height:1.25;margin-top:3px;}
+    .caja .detalle{font-size:13px;line-height:1.25;margin-top:3px;} /* 11->13 px */
     .caja .stock{font-size:26px;line-height:1;margin-top:3px;}
     .caja .ajuste-rapido{margin-top:6px !important;gap:4px !important;}
     .caja .ajuste-rapido button{width:32px !important;height:32px !important;font-size:15px !important;}
@@ -1741,7 +1741,7 @@
             <input id="feriaNombre" type="text" placeholder="e.g. Farmers Market" data-i18n-attr="placeholder:fair.namePlaceholder" style="padding:8px;border:2px solid var(--rust);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
           <label style="font-size:13px;"><span data-i18n="common.commissionPct">Commission %</span><br>
             <input id="feriaComision" type="number" min="0" max="100" placeholder="e.g. 30" data-i18n-attr="placeholder:common.phCommission30" style="padding:8px;border:2px solid var(--rust);border-radius:5px;width:90px;"></label>
-          <button id="feriaAbrir" class="ir" style="padding:10px 16px;background:var(--rust,#E86040);color:#fff;border-color:var(--rust-deep,#C05000);" data-i18n="fair.open">Open pop-up</button>
+          <button id="feriaAbrir" class="ir" style="padding:10px 16px;background:var(--rust-deep,#C05000);color:#fff;border-color:var(--rust-deep,#C05000);" data-i18n="fair.open">Open pop-up</button>
         </div>
         <p id="feriaMsg" style="font-size:14px;margin-top:8px;"></p>
         <!-- Eventos archivados (JFC/Belén 2026-09-03): las ferias cerradas ya
@@ -2033,7 +2033,7 @@
       <div style="width:6px;height:38px;border-radius:3px;background:linear-gradient(180deg,#C0392B,#F97316);flex:none;"></div>
       <div>
         <h3 class="seccion" style="margin:0;" data-i18n="exp.heading">Expenses</h3>
-        <div style="font-size:11px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.1em;margin-top:1px;">Cash out · under control</div>
+        <div style="font-size:13px;font-family:var(--font-mono);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.1em;margin-top:1px;">Cash out · under control</div>
       </div>
     </div>
     <p style="font-size:14px;color:var(--ink-soft);margin:8px 0 0;max-width:600px;" data-i18n="exp.intro">Record what you spend and see it against what you earn — no spreadsheets, no surprises.</p>
