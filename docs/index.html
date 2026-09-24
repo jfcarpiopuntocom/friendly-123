@@ -7684,7 +7684,7 @@ function selectorMesComisionesHtml(meses){
   const nota = (_ocMesComisiones && _ocMesComisiones !== actual) ? `<p style="font-size:14px;color:var(--ink);margin:0 0 14px;">${t("comm.periodPastNote")}</p>` : "";
   if (!opciones) return aviso;
   return `<label style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;font-size:14px;font-weight:700;color:var(--ink);">${t("comm.periodLabel")}
-      <select data-commissions-month onchange="cambiarMesComisiones(this.value)" style="font-size:16px;min-height:44px;padding:6px 10px;border:2px solid #2C3E50;border-radius:8px;background:#FFFFFF;color:#0F1923;">${opciones}</select>
+      <select data-commissions-month onchange="cambiarMesComisiones(this.value)" style="max-width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:6px 10px;border:2px solid #2C3E50;border-radius:8px;background:#FFFFFF;color:#0F1923;">${opciones}</select>
     </label>` + aviso + nota;
 }
 function agruparVentasPorProducto(rows, soloComision, mes){
@@ -8821,6 +8821,8 @@ setTimeout(() => {
 <script src="./vista-perchas.js"></script>
 <script src="./welcome-ui.js"></script>
 <script src="./tutorial-ui.js"></script>
+<!-- Ganchos del embudo SOLO en el demo (JFC 2026-09-24, shell 375). Tarjetas en linea, nunca modales. Ver ganchos-demo.js. -->
+<script src="./ganchos-demo.js"></script>
 <!-- MICELIO (homologado de AMIGABLE, 2026-07-28). El bus va primero:
      hechos.js se engancha a el al cargar. Ver docs/reconciliacion.js. -->
 <script src="./event-bus.js"></script>

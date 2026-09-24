@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "El demo muestra fotos reales de cada producto.",
+  "changelog": "El demo invita, sin ventanas emergentes, a empezar la prueba de 30 dias o ver el precio; quien ya lo habia abierto ve el demo nuevo.",
   "requerida": false,
-  "shell": "f123-shell-v374",
+  "shell": "f123-shell-v375",
   "apagar": [],
   "releaseName": "v1.0"
 }

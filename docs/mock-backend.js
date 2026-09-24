@@ -167,6 +167,38 @@
   /* Ver FOTOS DEL DEMO (tras cargarEstadoLocal). Tambien corre al final de
      aplicarRespaldo(): el estado del demo puede volver desde IndexedDB o de un
      respaldo DESPUES del arranque, y ahi entra por esa puerta. */
+  /* REFRESCO DEL DEMO (JFC 2026-09-24, shell 375). Un visitante que ya habia
+     abierto el demo guarda su copia; sin esto seguiria viendo la semilla VIEJA
+     (sin comisiones de 3 meses, sin fotos) para siempre. Si la version de la
+     semilla subio, el demo vuelve a la semilla nueva UNA vez.
+     GUARDAS (las tres, para no tocar jamas un negocio real):
+       1) aparato NO activado (sin f123_owned) y SIN cuaderno unido (sufijo);
+       2) lo guardado contiene ventas semilla del demo (ids "vs-"): un negocio
+          real las purga al activarse, asi que su estado nunca las tiene;
+       3) version de semilla guardada < DEMO_SEED_VERSION.
+     Para forzar otro refresco en el futuro: subir DEMO_SEED_VERSION. */
+  const DEMO_SEED_VERSION = 375;
+  // Version con la que ARRANCO este aparato (antes de marcarla): la usa tambien el
+  // rescate asincrono de IndexedDB para no resucitar un demo de semilla vieja.
+  let _demoSeedVAlArrancar = 0;
+  try { _demoSeedVAlArrancar = Number(localStorage.getItem("f123_demo_seed_v") || 0); } catch (_) {}
+  function _esAparatoDemo() {
+    try { return !OC_STATE_SUFIJO && !localStorage.getItem("f123_owned"); } catch (_) { return false; }
+  }
+  function refrescarDemoSiViejo() {
+    try {
+      if (OC_STATE_SUFIJO) return;
+      if (localStorage.getItem("f123_owned")) return;
+      if (Number(localStorage.getItem("f123_demo_seed_v") || 0) >= DEMO_SEED_VERSION) return;
+      if (_cargoBufferReal && !ventas.some((v) => /^vs-/.test(String(v && v.id)))) return; // no parece demo: no se toca
+      localStorage.setItem("f123_demo_seed_v", String(DEMO_SEED_VERSION));
+      if (!_cargoBufferReal || !_semillaDemo) return; // nada guardado: ya es la semilla nueva
+      aplicarRespaldo(JSON.parse(JSON.stringify(_semillaDemo)));
+      _demoRefrescado = true;
+      guardarEstadoLocal();
+      try { console.warn("[demo] semilla del demo actualizada a v" + DEMO_SEED_VERSION); } catch (_) {}
+    } catch (_) {}
+  }
   function ponerFotosDemo() {
     try {
       productos.forEach((p) => {
@@ -3226,6 +3258,10 @@
 
   // Al arrancar: si hay un estado persistido válido, reemplaza los datos
   // semilla (item 1 — persistencia local real).
+  /* Foto de la semilla ANTES de cargar nada guardado: la usa refrescarDemoSiViejo(). */
+  let _semillaDemo = null;
+  try { _semillaDemo = JSON.parse(JSON.stringify(estadoActualExportable())); } catch (_) { _semillaDemo = null; }
+  let _demoRefrescado = false;
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
   /* FOTOS DEL DEMO (JFC 2026-09-24, shell 374: "sube buenas fotos de productos al
      demo, seamos impresionantes"). 38 fotos CC0 (StockSnap/Openverse, uso comercial
@@ -3235,6 +3271,7 @@
      de ejemplo. Corre tras cargar el estado guardado para que un aparato que ya
      habia abierto el demo antes tambien las vea. Aditivo: no quita ninguna foto. */
   ponerFotosDemo();
+  refrescarDemoSiViejo();
   /* GUARD DEMO — NADIE QUE NO SEA DEMO VE STOCK DE EJEMPLO (JFC 2026-09-11).
      Bug real: en un navegador/PC nuevo la app arranca con la SEMILLA demo en
      memoria. Si el aparato está ACTIVADO (f123_owned con instanceId, o sea
@@ -3312,6 +3349,11 @@
       const espejo = await window.OCEstadoIDB.leer();
       if (!espejo || typeof espejo._rev !== "number") return;
       if (espejo._rev <= _localRev) return;
+      if (_demoRefrescado) return; // el demo acaba de volver a la semilla nueva: no resucitar la vieja
+      /* Demo de semilla vieja guardado solo en IndexedDB (p. ej. localStorage borrado): se ignora
+         con las mismas guardas del refresco (aparato demo + ventas semilla "vs-"). */
+      if (_esAparatoDemo() && _demoSeedVAlArrancar < DEMO_SEED_VERSION &&
+          Array.isArray(espejo.ventas) && espejo.ventas.some((v) => /^vs-/.test(String(v && v.id)))) return;
       if (validarRespaldo(espejo)) return;
       _localRev = espejo._rev;
       aplicarRespaldo(espejo);
