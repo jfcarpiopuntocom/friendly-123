@@ -428,6 +428,21 @@
      ("STORE / SHELF") y la cifra en tabular. Solo tipografia, misma tarjeta. */
   .ventana-estado .rotulo{ font-family:var(--font-mono); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink); }
   .ventana-estado .cifra{ font-family:var(--font-mono); font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:2px; }
+  /* FILA DE STATS (JFC 2026-09-24): las mismas cuatro cifras de siempre, en el
+     mismo orden y con las mismas palabras, pero en una fila (como la ficha de un
+     personaje) en vez de cuatro renglones de tabla. En movil envuelve a 2x2. */
+  .stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px 14px; margin-top:10px; }
+  .stats .rotulo{ font-family:var(--font-mono); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink); }
+  .stats .cifra{ font-family:var(--font-mono); font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .stats .cifra small{ font-family:var(--font-body); font-size:13px; font-weight:400; }
+  /* Barra de Commissions en telefono: las acciones comparten fila en vez de
+     caer una por linea (el texto de WhatsApp es largo a proposito). */
+  [data-commissions-toolbar] .acciones{ display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+  @media (max-width:640px){
+    [data-commissions-toolbar] .acciones{ width:100%; margin-left:0; }
+    [data-commissions-toolbar] .acciones button{ flex:1 1 140px; }
+    [data-commissions-toolbar] [role="tablist"] button{ flex:1 1 140px; }
+  }
 
   /* ================= HEADER ================= */
   header{
@@ -1970,10 +1985,10 @@
     <!-- JFC 2026-09-24 (Bloque 6): la UI se aparta. Intro y "como funciona" comparten
          una linea; el control de la vista (mes, vista, acciones) es UNA barra. -->
     <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:0 0 10px;">
-    <p style="font-size:14px;color:var(--ink-soft);margin:0;" data-i18n="comm.intro">What you owe each promoter this month, calculated sale by sale — no spreadsheets, no surprises.</p>
     <details style="margin:0;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
+        <p style="margin:0 0 8px;font-size:14px;color:var(--ink);font-weight:700;" data-i18n="comm.intro">What you owe each promoter this month, calculated sale by sale — no spreadsheets, no surprises.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.1">1. Each partner/promoter shelf shows what they've sold this month and what you owe them.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.comm.2html">2. Tap <strong>“What if I sell more?”</strong> to simulate a bigger month and see the commission change live.</p>
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n-html="how.comm.3html">3. When you pay, tap <strong>“Mark as paid”</strong> — it seals the month's sales and offers an itemized WhatsApp receipt.</p>
@@ -7779,8 +7794,11 @@ function selectorMesComisionesHtml(meses){
   const atrasados = lista.filter((x) => !x.actual && x.pendiente > 0);
   /* Bloque 6 (JFC 2026-09-24): el aviso de meses sin pagar es UNA linea dentro de la
      barra, no una tarjeta aparte. Mismo rojo, mismos botones de salto. */
-  const aviso = atrasados.length ? `<div data-commissions-unpaid style="display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;font-size:14px;font-weight:700;color:#B0183E;">${t("comm.periodPastUnpaid")}
-      ${atrasados.map((x) => `<button type="button" class="ir" data-commissions-jump="${escHtml(x.mes)}" onclick="cambiarMesComisiones('${escHtml(x.mes)}')" style="font-size:14px;min-height:36px;padding:4px 10px;margin:0;background:#FFFFFF;color:#B0183E;border:2px solid #B0183E;">${escHtml(_ocMesEtiqueta(x.mes))} · ${fmtMoney(x.pendiente)}</button>`).join("")}</div>` : "";
+  /* JFC 2026-09-24: sin linea propia. Cada mes sin pagar es una tecla ROJA en la
+     misma fila del selector (mes · monto); la frase completa queda como tooltip y
+     para lectores de pantalla. Rojo = sin pagar, igual que siempre. */
+  const aviso = atrasados.length ? `<span data-commissions-unpaid style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      ${atrasados.map((x) => `<button type="button" class="ir" data-commissions-jump="${escHtml(x.mes)}" onclick="cambiarMesComisiones('${escHtml(x.mes)}')" title="${escHtml(t("comm.periodPastUnpaid"))}" aria-label="${escHtml(t("comm.periodPastUnpaid"))} ${escHtml(_ocMesEtiqueta(x.mes))} ${fmtMoney(x.pendiente)}" style="font-size:14px;min-height:40px;padding:4px 10px;margin:0;background:#FFFFFF;color:#B0183E;border:2px solid #B0183E;">${escHtml(_ocMesEtiqueta(x.mes))} · ${fmtMoney(x.pendiente)}</button>`).join("")}</span>` : "";
   const nota = (_ocMesComisiones && _ocMesComisiones !== actual) ? `<p style="font-size:14px;color:var(--ink);margin:0;">${t("comm.periodPastNote")}</p>` : "";
   const control = opciones ? `<label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;flex:1 1 260px;min-width:0;font-size:14px;font-weight:700;color:var(--ink);">${t("comm.periodLabel")}
       <select data-commissions-month onchange="cambiarMesComisiones(this.value)" style="flex:1 1 200px;min-width:0;max-width:100%;box-sizing:border-box;font-size:14px;min-height:40px;padding:4px 10px;border:2px solid #2C3E50;border-radius:6px;background:#FFFFFF;color:#0F1923;font-weight:700;">${opciones}</select>
@@ -7792,9 +7810,9 @@ function selectorMesComisionesHtml(meses){
    de meses sin pagar. Antes cada cosa ocupaba su propia linea y la UI estorbaba. */
 function barraComisionesHtml(meses, acciones){
   const sel = selectorMesComisionesHtml(meses);
-  const filas = [sel.aviso, sel.nota].filter(Boolean).map((x) => `<div style="margin-top:8px;">${x}</div>`).join("");
+  const filas = [sel.nota].filter(Boolean).map((x) => `<div style="margin-top:8px;">${x}</div>`).join("");
   return `<div class="tag-card" data-commissions-toolbar style="text-align:left;padding:10px 14px;margin:0 0 14px;">
-    <div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">${sel.control}${selectorVistaComisionesHtml()}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">${acciones}</div></div>${filas}
+    <div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">${sel.control}${sel.aviso}${selectorVistaComisionesHtml()}<div class="acciones">${acciones}</div></div>${filas}
   </div>`;
 }
 function agruparVentasPorProducto(rows, soloComision, mes){
@@ -7856,7 +7874,8 @@ function resumenComisionPorProductoHtml(prods, unidadesPropias){
   // Asi Commissions conserva siempre el orden mental: producto primero, pago por percha despues.
   const apertura = `<section id="comm-panel-product" role="tabpanel" data-commissions-section="by-product" aria-labelledby="comm-tab-product comm-by-product-heading">
     <h3 id="comm-by-product-heading" class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
-    <p style="font-size:14px;color:var(--ink-soft);margin:0 0 10px;">${t("comm.byProductIntro")}</p>`;
+    <details style="margin:0 0 10px;font-size:14px;"><summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;">${t("how.toggle")}</summary>
+      <p style="font-size:14px;color:var(--ink);margin:6px 0 0;">${t("comm.byProductIntro")}</p></details>`;
   if (!prods.length) return apertura + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}${unidadesPropias > 0 ? `<p style="margin:8px 0 0;font-size:14px;color:var(--ink);">${window.tf("comm.byProductOwnSales", { n: unidadesPropias })}</p>` : ""}</div></section>`;
   // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
   const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
@@ -7864,7 +7883,7 @@ function resumenComisionPorProductoHtml(prods, unidadesPropias){
       <div class="rotulo">${label}</div>
       <div class="cifra" style="color:${color};">${fmtMoney(val)}</div></div>`;
   return apertura + `<h4 class="seccion" style="font-size:14px;margin:16px 0 8px;">${_ocMesComisiones ? escHtml(_ocMesEtiqueta(_ocMesComisiones)) : t("comm.totalsHeading")}</h4>
-    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:18px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:18px;">
       ${tile("Sales with commission", tot.bruto, "var(--ink)")}${tile("Associates take", tot.socio, "var(--ink)")}
       ${tile("House keeps", tot.casa, "#006B3C")}${tile("Still to pay", tot.pend, tot.pend > 0 ? "#C0392B" : "#006B3C")}
     </div>` + prods.map((d) => `
@@ -7874,13 +7893,13 @@ function resumenComisionPorProductoHtml(prods, unidadesPropias){
         ${d.socio > 0 ? `<span class="badge-estado ${d.pendSocio > 0 ? "rojo" : "verde"}">${d.pendSocio > 0 ? "pending" : "paid"}</span>` : ""}
       </div>
       <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: ${escHtml([...d.perchas].join(", ") || "-")}${d.asociados.size ? ` · Associate: <strong>${escHtml([...d.asociados].join(", "))}</strong>` : ""}</div>
-      <table style="width:100%;margin-top:8px;font-size:14px;">
-        ${d.unid ? `<tr><td>Sold with commission</td><td style="text-align:right;">${d.unid}u · ${fmtMoney(d.bruto)}</td></tr>
-        <tr><td><strong>Associate takes</strong></td><td style="text-align:right;"><strong>${fmtMoney(d.socio)}</strong></td></tr>
-        <tr><td>House keeps</td><td style="text-align:right;">${fmtMoney(d.casa)}</td></tr>` : ""}
-        ${d.pendSocio > 0 ? `<tr><td style="color:var(--rust,#E86040);font-weight:700;">Still to pay</td><td style="text-align:right;color:var(--rust,#E86040);font-weight:700;">${fmtMoney(d.pendSocio)}</td></tr>` : ""}
-        ${d.counterUnid ? `<tr><td>COUNTER SALE (house, no commission)</td><td style="text-align:right;">${d.counterUnid}u · ${fmtMoney(d.counterMonto)}</td></tr>` : ""}
-      </table>
+      <div class="stats">
+        ${d.unid ? `<div><div class="rotulo">Sold with commission</div><div class="cifra">${fmtMoney(d.bruto)} <small>${d.unid}u</small></div></div>
+        <div><div class="rotulo">Associate takes</div><div class="cifra">${fmtMoney(d.socio)}</div></div>
+        <div><div class="rotulo">House keeps</div><div class="cifra">${fmtMoney(d.casa)}</div></div>` : ""}
+        ${d.pendSocio > 0 ? `<div><div class="rotulo" style="color:var(--rust-deep,#C05000);">Still to pay</div><div class="cifra" style="color:var(--rust-deep,#C05000);">${fmtMoney(d.pendSocio)}</div></div>` : ""}
+        ${d.counterUnid ? `<div><div class="rotulo">COUNTER SALE (house, no commission)</div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
+      </div>
     </div>`).join("") + `</section>`;
 }
 
@@ -8039,12 +8058,12 @@ async function cargarComisiones(){
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
       ${f.origenComision === "comisionista" ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
-      <table style="width:100%;margin-top:10px;font-size:14px;">
-        <tr><td>Monthly sales</td><td style="text-align:right;">${fmtMoney(f.ventasBrutas)}</td></tr>
-        ${f.contribFija ? `<tr><td>Fixed contribution</td><td style="text-align:right;">-${fmtMoney(f.contribFija)}</td></tr>` : ""}
-        <tr><td><strong>Associate takes</strong> <span style="color:var(--ink-soft);font-weight:400;">(${f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0)}%)</span></td><td style="text-align:right;"><strong>${fmtMoney(f.comisionSocio)}</strong></td></tr>
-        <tr><td>House keeps <span style="color:var(--ink-soft);">(${f.pctEfectivo != null ? (100 - f.pctEfectivo).toFixed(2).replace(/\.00$/,"") : (f.pctQuedaEnCasa || 0)}%)</span></td><td style="text-align:right;">${fmtMoney(f.netoDueno)}</td></tr>
-      </table>
+      <div class="stats">
+        <div><div class="rotulo">Monthly sales</div><div class="cifra">${fmtMoney(f.ventasBrutas)}</div></div>
+        ${f.contribFija ? `<div><div class="rotulo">Fixed contribution</div><div class="cifra">-${fmtMoney(f.contribFija)}</div></div>` : ""}
+        <div><div class="rotulo">Associate takes <small style="text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:400;">(${f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0)}%)</small></div><div class="cifra">${fmtMoney(f.comisionSocio)}</div></div>
+        <div><div class="rotulo">House keeps <small style="text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:400;">(${f.pctEfectivo != null ? (100 - f.pctEfectivo).toFixed(2).replace(/\.00$/,"") : (f.pctQuedaEnCasa || 0)}%)</small></div><div class="cifra">${fmtMoney(f.netoDueno)}</div></div>
+      </div>
       ${(f.avisosTrato && f.avisosTrato.length) ? f.avisosTrato.map(a => `<p style="font-size:13px;color:var(--rust,#E86040);margin:6px 0 0;">${escHtml(a)}</p>`).join("") : ""}
       ${f.ventasCorregidas ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ventasCorregidas} sale(s) this month have the percentage manually corrected.</p>` : ""}
       ${(f.ajustes && f.ajustes.length) ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ajustes.length} return(s) of already-paid sales this month: ${fmtMoney(f.ajustes.reduce((a, x) => a + x.montoComisionSocio, 0))} deducted${f.ajustes.some(x => !x.liquidada) ? " from the next payment" : ""}.</p>
