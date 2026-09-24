@@ -233,6 +233,6 @@ trabajo está mal hecho aunque el código funcione.
 - JAMÁS mandar a Jev: datos de clientes, PIN, licencias, claves, datos del panel,
   transcripts completos ni volcados del repo. Jev aconseja, no autoriza: dinero,
   publicar y borrar siguen con sus guardas y con JFC.
-- Compactación de sesión con Jev: plugin `fast-jev-compaction` instalado en Claude
-  Code. Pendiente de clave TypeSafe y de decisión de JFC, porque manda la
-  conversación a api.typesafe.ai.
+- Compactación de sesión con Jev: plugin `fast-jev-compaction@fast-jev-compaction-jfc`
+  (fork local de JFC que va por Vercel AI Gateway y censura licencias, claves y PIN antes de
+  enviar). Si falla, Claude Code hace el resumen normal.
