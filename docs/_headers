@@ -1,0 +1,10 @@
+# _headers — friendly-123/docs servido desde Cloudflare Pages (Bloque P, JFC 2026-09-24)
+# Hostinger quedo descartado: jfcarpio.com es solo el dominio, no hay hosting.
+# Cloudflare Pages (gratis, ya en la cuenta del Worker) hace el mismo papel.
+# GitHub Pages IGNORA este archivo. En Cloudflare Pages permite que la puerta
+# (github.io) pida los scripts con CORS; sin esto el cargador cae a github.io.
+/*
+  Access-Control-Allow-Origin: https://jfcarpiopuntocom.github.io
+  Cross-Origin-Resource-Policy: cross-origin
+  Cache-Control: public, max-age=300, must-revalidate
+  X-Content-Type-Options: nosniff
