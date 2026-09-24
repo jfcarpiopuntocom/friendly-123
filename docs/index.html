@@ -8511,7 +8511,19 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   // Shell 371: se paga el mes que se esta viendo; el mismo mes va al backend y al recibo.
   const _mesPago = _ocMesComisiones || "";
   const _mesPagoTxt = _mesPago ? _ocMesEtiqueta(_mesPago) : "this month";
-  if (!(await ocConfirm(`Confirm you have already paid the promoter what is owed for ${_mesPagoTxt}?`))) return;
+  /* MEDIO DE PAGO (JFC 2026-09-24, benchmark #4): la misma confirmacion de siempre,
+     pero pregunta COMO se pago. Cancelar sigue sin sellar nada. */
+  const _esP = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+  const medioPago = await _ocModalMostrar(
+    _esP ? `¿Ya le pagaste a ${promotorNombre || "la persona"} lo de ${_mesPagoTxt}? ¿Cómo?` : `Already paid ${promotorNombre || "them"} what is owed for ${_mesPagoTxt}? How?`,
+    [
+      { label: t("common.cancel"), value: false },
+      { label: _esP ? "Efectivo" : "Cash", value: "efectivo" },
+      { label: _esP ? "Transferencia" : "Transfer", value: "transferencia" },
+      { label: _esP ? "Crédito en tienda" : "Store credit", value: "credito-tienda" },
+      { label: _esP ? "Otro" : "Other", value: "otro" }
+    ]);
+  if (!medioPago) return;
   // #19: capturamos el desglose ANTES de sellar (marcar-pagado deja pendientes en 0).
   const detalle = (window._ocLiqDet && window._ocLiqDet[ubicacionId]) || [];
   // try/catch (homologado de AMIGABLE, auditoria 2026-07-23): antes un fallo
@@ -8519,7 +8531,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   // con error, fallaba en silencio total sin avisar nada al dueño.
   let res, r;
   try {
-    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST", body: JSON.stringify({ mes: _mesPago }) });
+    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST", body: JSON.stringify({ mes: _mesPago, medioPago }) });
     r = await res.json();
   } catch (err) {
     console.error("[marcarComisionPagada]", err);
@@ -8541,6 +8553,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
       `*Commission payment confirmed*`,
       `Asociado/a: ${promotorNombre}`,
       `Monto: ${fmtMoney(monto)}`,
+      `Paid by: ${({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[medioPago] || medioPago}`,
       `Mes: ${mes}`,
       neg ? `Negocio: ${neg}` : "",
       lineasDet.length ? `` : "",

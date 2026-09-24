@@ -2520,7 +2520,11 @@
           const domina = _revDomina(v.rev, local.rev) === true;
           const pagadaLocal = !!local.liquidada, splitLocal = local.split;
           const pagadaRemota = !!v.liquidada, splitRemoto = v.split;
+          const medioLocal = local.medioPagoComision || null;
           if (domina) { Object.assign(local, v); actualizados++; }
+          /* Medio de pago (2026-09-24): una vez sellado, manda el del lado que pago. */
+          local.medioPagoComision = medioLocal || v.medioPagoComision || local.medioPagoComision || undefined;
+          if (local.medioPagoComision === undefined) delete local.medioPagoComision;
           local.liquidada = pagadaLocal || pagadaRemota;
           local.devuelta = !!(local.devuelta || v.devuelta);
           local.anulada = !!(local.anulada || v.anulada);
@@ -2544,7 +2548,7 @@
           }
           return;
         }
-        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, origenRemoto: true });
+        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
         ventasAgregadas++;
       });
@@ -3166,7 +3170,7 @@
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
-        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null })),
+        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
@@ -4567,14 +4571,21 @@
            mes en curso como siempre. mesValido() impide que un valor raro
            liquide otro periodo. El mes queda en el log de la liquidacion. */
         const _mesPago = mesValido(body.mes || q.get("mes"));
+        /* MEDIO DE PAGO (JFC 2026-09-24, benchmark #4, aditivo): como se le pago al
+           comisionista. Opcional: sin el campo, todo igual que antes (null). Un
+           valor fuera de la lista cae a "otro" (nunca se guarda texto libre ajeno).
+           Se sella SOLO en lo que este pago liquida; lo ya pagado no se toca. */
+        const _MEDIOS = ["efectivo", "transferencia", "credito-tienda", "otro"];
+        const _medio = (body.medioPago === undefined || body.medioPago === null || body.medioPago === "") ? null
+          : (_MEDIOS.includes(String(body.medioPago)) ? String(body.medioPago) : "otro");
         const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMes(v.fecha, _mesPago) && !v.liquidada);
-        pend.forEach((v) => { v.liquidada = true; v.rev = _revNueva(); });
+        pend.forEach((v) => { v.liquidada = true; if (_medio) v.medioPagoComision = _medio; v.rev = _revNueva(); });
         /* Bloque 4: los ajustes pendientes del mes se descuentan en este pago. */
         const ajPago = ajustesComision.filter((a) => a && a.ubicacionId === m[1] && esDelMes(a.fecha, _mesPago) && !a.liquidada);
-        ajPago.forEach((a) => { a.liquidada = true; a.rev = _revNueva(); });
-        mov("liquidacion", { ubicacion: u.nombre, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length, mes: _mesPago });
+        ajPago.forEach((a) => { a.liquidada = true; if (_medio) a.medioPagoComision = _medio; a.rev = _revNueva(); });
+        mov("liquidacion", { ubicacion: u.nombre, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length, mes: _mesPago, medioPago: _medio });
         if (pend.length || ajPago.length) avisarCatalogoCambiado();
-        return J({ ok: true, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length });
+        return J({ ok: true, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length, medioPago: _medio });
       }
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/hermanos$/))) {

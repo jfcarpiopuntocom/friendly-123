@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "After a commissioned sale, one tap sends the commissionist a ready WhatsApp message: what sold, where, for how much, and their commission.",
+  "changelog": "When you mark a commission as paid, the app asks how you paid (cash, transfer, store credit) and puts it on the WhatsApp receipt.",
   "requerida": false,
-  "shell": "f123-shell-v390",
+  "shell": "f123-shell-v391",
   "apagar": [],
   "releaseName": "v1.0"
 }
