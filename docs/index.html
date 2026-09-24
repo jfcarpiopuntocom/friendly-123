@@ -1944,8 +1944,9 @@
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.4">4. The ranking shows who's selling the most — and flags anyone who's gone quiet.</p>
       </div>
     </details>
-    <div id="gestionPromotoras" style="margin-bottom:22px;"></div>
+    <!-- JFC 2026-09-23: primero la plata (por producto), el alta de comisionistas al final. -->
     <div id="listaComisiones"></div>
+    <div id="gestionPromotoras" style="margin-top:28px;"></div>
   </section>
 
   <!-- Overlay del editor de comisión (portado de AMIGABLE 2026-09-01, Opción B):
@@ -7619,19 +7620,19 @@ function matrizComisionistasHtml(ranking){
     if (altoValor && activo) return { k: "campeon", t: "Champions", c: "#006B3C", d: "High value, active. Protect and reward." };
     if (altoValor && !activo) return { k: "riesgo", t: "At risk", c: "#E86040", d: "High value but dormant. Re-engage now." };
     if (!altoValor && activo) return { k: "promesa", t: "Promising", c: "#2E6278", d: "Active but low value. Nurture to grow." };
-    return { k: "dormido", t: "Dormant", c: "#8A8A8A", d: "Low value and inactive. Consider re-activating or releasing." };
+    return { k: "dormido", t: "Dormant", c: "#2C3E50", d: "Low value and inactive. Consider re-activating or releasing." };
   };
   const grupos = { campeon: [], riesgo: [], promesa: [], dormido: [] };
   ranking.forEach(r => grupos[cuadrante(r).k].push(r));
-  const orden = [["campeon","Champions","#006B3C","High value, active. Protect and reward."],["riesgo","At risk","#E86040","High value but dormant. Re-engage now."],["promesa","Promising","#2E6278","Active but low value. Nurture to grow."],["dormido","Dormant","#8A8A8A","Low value and inactive. Consider re-activating or releasing."]];
+  const orden = [["campeon","Champions","#006B3C","High value, active. Protect and reward."],["riesgo","At risk","#E86040","High value but dormant. Re-engage now."],["promesa","Promising","#2E6278","Active but low value. Nurture to grow."],["dormido","Dormant","#2C3E50","Low value and inactive. Consider re-activating or releasing."]];
   return `
-    <h3 class="seccion" style="font-size:15px;margin-top:26px;">${t("comm.rfmHeading")}</h3>
+    <h3 class="seccion" style="font-size:16px;margin-top:26px;">${t("comm.rfmHeading")}</h3>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
       ${orden.map(([k, titulo, color, desc]) => {
         const lista = grupos[k];
         return `<div style="border:2px solid ${color};border-radius:10px;padding:12px;background:#fff;">
-          <div style="font-size:14px;font-weight:700;color:${color};">${titulo} <span style="font-weight:400;font-size:12px;">(${lista.length})</span></div>
-          <div style="font-size:12px;color:var(--ink-soft);margin:2px 0 8px;">${desc}</div>
+          <div style="font-size:14px;font-weight:700;color:${color};">${titulo} <span style="font-weight:400;font-size:13px;">(${lista.length})</span></div>
+          <div style="font-size:13px;color:var(--ink-soft);margin:2px 0 8px;">${desc}</div>
           ${lista.length ? lista.map(r => `<div style="font-size:13px;padding:3px 0;border-top:1px solid var(--linea,#E8E0D4);">${escHtml(r.nombre)} <span style="color:var(--ink-soft);">· ${fmtMoney(r.ventasBrutas)}${r.diasSinVenta != null ? ` · ${r.diasSinVenta}d` : ""}</span></div>`).join("") : `<div style="font-size:13px;color:var(--ink-soft);">—</div>`}
         </div>`;
       }).join("")}
@@ -7675,7 +7676,17 @@ function agruparVentasPorProducto(rows, soloComision){
 }
 function resumenComisionPorProductoHtml(prods){
   if (!prods.length) return "";
-  return `<h3 class="seccion" style="font-size:15px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
+  // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
+  const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
+  const tile = (label, val, color) => `<div class="tag-card" style="padding:10px 12px;margin:0;text-align:left;">
+      <div style="font-size:13px;font-weight:700;color:var(--ink);">${label}</div>
+      <div style="font-size:16px;font-weight:700;color:${color};">${fmtMoney(val)}</div></div>`;
+  return `<h3 class="seccion" style="font-size:16px;margin:0 0 8px;">${t("comm.totalsHeading")}</h3>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:18px;">
+      ${tile("Sales with commission", tot.bruto, "var(--ink)")}${tile("Associates take", tot.socio, "var(--ink)")}
+      ${tile("House keeps", tot.casa, "#006B3C")}${tile("Still to pay", tot.pend, tot.pend > 0 ? "#C0392B" : "#006B3C")}
+    </div>
+    <h3 class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
     <p style="font-size:14px;color:var(--ink-soft);margin:0 0 10px;">${t("comm.byProductIntro")}</p>` + prods.map((d) => `
     <div class="tag-card" style="text-align:left;margin-bottom:10px;padding:14px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
@@ -7709,11 +7720,11 @@ async function cargarComisiones(){
     return;
   }
   // Rec 03: botón que arma el resumen del día y lo abre en WhatsApp listo.
-  const btnWA = `<button class="ir" style="margin-bottom:16px;background:#25D366;color:#fff;border-color:#1da851;" onclick="enviarResumenWhatsApp()">${t("comm.sendWhatsappDaily")}</button>`;
+  const btnWA = `<button class="ir" style="font-size:14px;margin-bottom:16px;background:#25D366;color:#fff;border-color:#1da851;" onclick="enviarResumenWhatsApp()">${t("comm.sendWhatsappDaily")}</button>`;
   // Exportar comisiones a CSV (2026-08-27, portado de amigable-123): descarga
   // un CSV con el desglose por percha del mes. El dueño lo puede abrir en
   // Excel/Sheets o mandarlo al contador.
-  const btnExport = `<button class="ir" style="margin-bottom:16px;background:#2C3E50;color:#fff;border-color:#0F1923;" onclick="exportarComisionesCSV()">⬇ Export CSV</button>`;
+  const btnExport = `<button class="ir" style="font-size:14px;margin-bottom:16px;background:#2C3E50;color:#fff;border-color:#0F1923;" onclick="exportarComisionesCSV()">⬇ Export CSV</button>`;
 
   const porProducto = agruparVentasPorProducto(ventasTodas, true);
   if (filas.length === 0 && !porProducto.length){
@@ -7723,17 +7734,17 @@ async function cargarComisiones(){
 
   // Rec 04 + 09: ranking de asociados/as con su mejor SKU y alerta de dormido.
   const rankHtml = (Array.isArray(ranking) && ranking.length) ? `
-    <h3 class="seccion" style="font-size:15px;margin-top:0;">${t("comm.rankingHeading")}</h3>
+    <h3 class="seccion" style="font-size:16px;margin-top:0;">${t("comm.rankingHeading")}</h3>
     <div style="margin-bottom:20px;">${ranking.map((r, i) => {
-      const med = ["🥇","🥈","🥉"][i] || `${i + 1}.`;
+      const med = `${i + 1}.`; // JFC 2026-09-23: sin medallas emoji (regla sin-emojis en la UI)
       const dormido = (r.diasSinVenta != null && r.diasSinVenta >= 7)
         ? `<span class="badge-estado rojo" style="margin-left:8px;font-size:13px;">dormant ${r.diasSinVenta}d</span>` : "";
       const top = r.topSku ? ` · top SKU: ${escHtml(r.topSku.sku)} (${r.topSku.unidades}u)` : "";
       return `<div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;">
-        <span style="font-size:20px;line-height:1;">${med}</span>
+        <span style="font-size:16px;font-weight:700;line-height:1;min-width:22px;">${med}</span>
         <div style="flex:1;"><strong>${escHtml(r.nombre)}</strong>${dormido}
           <div style="font-size:13px;color:var(--ink-soft);">${r.ventasCount} sold · gross ${fmtMoney(r.ventasBrutas)}${top}</div></div>
-        <strong style="color:var(--verde,#2f7a4f);font-size:17px;">${fmtMoney(r.comision)}</strong>
+        <strong style="color:var(--verde,#2f7a4f);font-size:16px;">${fmtMoney(r.comision)}</strong>
       </div>`;
     }).join("")}</div>` : "";
 
@@ -7844,14 +7855,14 @@ async function cargarComisiones(){
         <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado}</span></div>
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
-      ${f.origenComision === "comisionista" ? `<div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:12px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
+      ${f.origenComision === "comisionista" ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
       <table style="width:100%;margin-top:10px;font-size:14px;">
         <tr><td>Monthly sales</td><td style="text-align:right;">${fmtMoney(f.ventasBrutas)}</td></tr>
         ${f.contribFija ? `<tr><td>Fixed contribution</td><td style="text-align:right;">-${fmtMoney(f.contribFija)}</td></tr>` : ""}
         <tr><td><strong>Associate takes</strong> <span style="color:var(--ink-soft);font-weight:400;">(${f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0)}%)</span></td><td style="text-align:right;"><strong>${fmtMoney(f.comisionSocio)}</strong></td></tr>
         <tr><td>House keeps <span style="color:var(--ink-soft);">(${f.pctEfectivo != null ? (100 - f.pctEfectivo).toFixed(2).replace(/\.00$/,"") : (f.pctQuedaEnCasa || 0)}%)</span></td><td style="text-align:right;">${fmtMoney(f.netoDueno)}</td></tr>
       </table>
-      ${(f.avisosTrato && f.avisosTrato.length) ? f.avisosTrato.map(a => `<p style="font-size:12px;color:var(--rust,#E86040);margin:6px 0 0;">${escHtml(a)}</p>`).join("") : ""}
+      ${(f.avisosTrato && f.avisosTrato.length) ? f.avisosTrato.map(a => `<p style="font-size:13px;color:var(--rust,#E86040);margin:6px 0 0;">${escHtml(a)}</p>`).join("") : ""}
       ${f.ventasCorregidas ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ventasCorregidas} sale(s) this month have the percentage manually corrected.</p>` : ""}
       ${editorComisionHtml(f)}
       ${(f.detallePendientes && f.detallePendientes.length) ? `
@@ -7863,13 +7874,13 @@ async function cargarComisiones(){
       </details>` : ""}
       ${termometroMeta(f.cumplimientoMeta, f.metaMensual)}
       ${simuladorHtml(f)}
-      ${f.estado === "pendiente" ? `<button class="ir" style="margin-top:12px;background:var(--sim-verde,#00C87A);color:#fff;border-color:var(--sim-verde-dk,#009A5A);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
+      ${f.estado === "pendiente" ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde,#00C87A);color:#fff;border-color:var(--sim-verde-dk,#009A5A);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
     </div>`;
   }).join("");
 
   // JFC 2026-09-06: subsección con título propio para las tarjetas de resultado
   // por percha/evento (antes iban sueltas sin encabezado). Solo si hay filas.
-  const cardsHeading = cardsHtml ? `<h3 class="seccion" style="font-size:15px;margin:22px 0 10px;">${t("comm.cardsHeading")}</h3>` : "";
+  const cardsHeading = cardsHtml ? `<h3 class="seccion" style="font-size:16px;margin:22px 0 10px;">${t("comm.cardsHeading")}</h3>` : "";
   // JFC 2026-09-23: primero por producto; las tarjetas por percha (pagar, corregir %) al fondo.
   cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto) + rankHtml + matrizComisionistasHtml(ranking) + cardsHeading + cardsHtml;
 
