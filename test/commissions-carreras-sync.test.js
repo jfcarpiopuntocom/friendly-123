@@ -183,3 +183,18 @@ test('TRES aparatos: C vuelve de dias offline con estado rancio; no despaga, no 
   const stocks = await Promise.all([A, B, C].map(async X => (await X.request(`/api/productos/${product.id}`)).stockActual));
   assert.equal(new Set(stocks).size, 1, 'los tres convergen al mismo stock: ' + stocks.join(','));
 });
+
+test('un ajuste de devolucion ya descontado no vuelve a pendiente aunque llegue una copia con rev mas alto sin la marca', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await A.request(`/api/ventas/${id}/devolucion`, 'POST', { motivo: 'x', quien: 'A' });
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {}); // descuenta el ajuste
+  const aj = (await ajustes(A))[0];
+  assert.equal(aj.liquidada, true);
+  const rancio = Object.assign({}, aj, { liquidada: false, rev: { c: 999999, d: 'zz-rancio' } });
+  A.receive({ catalog: () => ({ ubicaciones: [], productos: [], ajustesComision: [rancio] }) });
+  assert.equal((await ajustes(A))[0].liquidada, true, 'lo descontado no se "desdescuenta"');
+  assert.equal((await liq(A, shelf)).ajustes.filter(x => !x.liquidada).length, 0, 'no reaparece como pendiente de descontar');
+});

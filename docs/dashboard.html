@@ -970,8 +970,10 @@
         { title: "Status", field: "estado", width: 120, formatter: function (c) {
             var v = String(c.getValue() || "");
             var bg = v === "pagado" ? "#00C87A" : "#E8A020";
+            /* v391: junto a "pagado", como se pago (si se registro). */
+            var medio = ({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[(c.getRow().getData() || {}).medioPago] || "";
             return '<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:13px;' +
-              'font-weight:700;background:' + bg + ';color:#0F1923;">' + esc(v) + "</span>";
+              'font-weight:700;background:' + bg + ';color:#0F1923;">' + esc(v) + (v === "pagado" && medio ? " · " + esc(medio) : "") + "</span>";
           } },
         { title: "Corrected", field: "corregidas", width: 120, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return Number(c.getValue()) ? c.getValue() : "—"; } },
@@ -1262,6 +1264,7 @@
       g.casa += l.netoDueno != null ? l.netoDueno : ((l.ventasBrutas || 0) - (l.comisionSocio || 0));
       g.pendientes += l.ventasPendientes || 0;
       g.corregidas += l.ventasCorregidas || 0;
+      if (l.medioPago) g.medioPago = l.medioPago;
     });
     return Object.keys(porQuien).map(function (k) {
       var g = porQuien[k];
@@ -1276,6 +1279,7 @@
         comision: +g.comision.toFixed(2),
         casa: +g.casa.toFixed(2),
         estado: g.pendientes ? "pendiente" : "pagado",
+        medioPago: g.pendientes ? null : (g.medioPago || null),
         pendientes: g.pendientes,
         corregidas: g.corregidas,
       };
@@ -2023,6 +2027,7 @@
         netoCasa: v.split ? v.split.montoNetoDueno : null,
         comisionCorregida: !!(v.split && v.split.corregida),
         liquidada: !!v.liquidada,
+        medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
         asociadoNombre: asoc[v.ubicacionId] || "",
       };
     });
@@ -2051,6 +2056,7 @@
       g.netoDueno += Number(v.netoCasa) || 0;
       g.transacciones++;
       if (!v.liquidada) g.ventasPendientes++;
+      if (v.liquidada && v.medioPagoComision) g.medioPago = v.medioPagoComision;
       if (v.comisionCorregida) g.ventasCorregidas++;
     });
     var liquidaciones = Object.keys(liqPorPercha).map(function (k) {

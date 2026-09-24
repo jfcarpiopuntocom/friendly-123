@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "When you mark a commission as paid, the app asks how you paid (cash, transfer, store credit) and puts it on the WhatsApp receipt.",
+  "changelog": "Paid months now show how they were paid. A returned sale that was already deducted can no longer come back as pending when devices sync.",
   "requerida": false,
-  "shell": "f123-shell-v391",
+  "shell": "f123-shell-v392",
   "apagar": [],
   "releaseName": "v1.0"
 }
