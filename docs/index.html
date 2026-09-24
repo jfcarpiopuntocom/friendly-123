@@ -108,6 +108,13 @@
      mejora opcional para quienes prefieren el ícono en la pantalla principal.
      FEATURE — ACTIVO (JFC 2026-07-08). Para desactivar: quitar esta línea. -->
 <link rel="manifest" href="./manifest.json">
+<!-- ORIGEN DEL CODIGO (Bloque P, JFC 2026-09-24). Vacio = todo desde github.io,
+     como siempre. Con una URL https://.../docs/ el cargador (cargador.js) pide
+     los scripts de su lista a ese origen (Hostinger) y cae a github.io si falla.
+     Un aparato puede probarlo solo (canario) con localStorage f123_origen_codigo
+     desde Advanced, sin tocar este meta. NO poner una URL aqui hasta que el
+     canario diga "same shell" y "0 fell back" durante dias. -->
+<meta name="oc-origen-codigo" content="">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
@@ -9029,10 +9036,24 @@ setTimeout(() => {
      el buscador cae al filtro por substring que ya existia. -->
 <script src="./vendor/minisearch.min.js"></script>
 <script src="./respaldo-empleado.js"></script>
-<script src="./edutips.js"></script>
-<script src="./workshop-brand.js"></script>
-<script src="./inspector.js"></script>
-<script src="./inspector-ui.js"></script>
+<!-- CARGADOR DE CODIGO (Bloque P, fase A canario, JFC 2026-09-24). Los cuatro
+     scripts de abajo ya no son <script src>: los pide cargador.js, en orden,
+     desde el origen remoto si hay uno (Hostinger) y desde github.io si no o
+     si falla. Son los ULTIMOS de la pagina y se cuidan solos con readyState,
+     por eso son el canario: si algo sale mal solo se pierde edutips, la marca
+     del workshop o el inspector, nunca ventas ni inventario.
+     La lista de un solo renglon la lee check-sw.sh (G6): cada archivo tiene
+     que seguir en el SHELL de sw.js. Si cargador.js no cargara, el inline de
+     abajo escribe los <script> locales de siempre (document.write mismo
+     origen, permitido). -->
+<script src="./cargador.js"></script>
+<script>
+(function () {
+  var lista = ["./edutips.js", "./workshop-brand.js", "./inspector.js", "./inspector-ui.js"]; /* OC-CARGADOR-LISTA */
+  if (window.OCCargador && window.OCCargador.cargar) { window.OCCargador.cargar(lista); return; }
+  for (var i = 0; i < lista.length; i++) document.write('<script src="' + lista[i] + '"><\/script>');
+})();
+</script>
 <script>
 // Item 4 (revision JFC 2026-07-05): capa PWA minima — cachea el shell
 // (HTML/JS/CSS/assets propios) para que la app abra sin conexion. Nunca

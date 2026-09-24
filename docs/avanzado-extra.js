@@ -612,8 +612,48 @@
              refresca solo. NO es el panel viejo de diagnóstico (ese sí aturdía);
              es una sola línea honesta. -->
         <p id="oc-sync-estado-min" style="font-size:13px;font-weight:700;margin:10px 0 0;color:#1a1a1a;">Sync: …</p>
+        <!-- ORIGEN DEL CODIGO (Bloque P, JFC 2026-09-24): una linea honesta de
+             cargador.js (de donde vino el codigo, cuantos cayeron a github.io,
+             si el shell remoto cuadra) y un canario por aparato: pegar la URL
+             https://.../docs/ y recargar. "Back to github.io" borra el canario.
+             Solo dueno/admin ven los botones; la linea la ve cualquiera. -->
+        <p id="oc-codigo-estado" style="font-size:13px;font-weight:700;margin:6px 0 0;color:#1a1a1a;">Code: …</p>
+        <div id="oc-codigo-canario" style="display:none;margin-top:6px;flex-wrap:wrap;gap:6px;align-items:center;">
+          <input id="oc-codigo-url" type="url" placeholder="https://your-domain/friendly-123/docs/" style="flex:1 1 220px;min-width:0;font-size:14px;padding:6px 8px;color:#1a1a1a;">
+          <button type="button" class="tecla" id="oc-codigo-usar" style="font-size:13px;">Try this origin on this device</button>
+          <button type="button" class="tecla" id="oc-codigo-local" style="font-size:13px;">Back to github.io</button>
+        </div>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
+
+      /* Linea del cargador + canario por aparato (Bloque P). Nada aqui escribe datos. */
+      try {
+        var _pintarCodigo = function () {
+          var el = document.getElementById("oc-codigo-estado"); if (!el) return;
+          try { el.textContent = window.OCCargador ? window.OCCargador.texto() : "Code: github.io (loader not present)"; } catch (_) { el.textContent = "Code: —"; }
+        };
+        _pintarCodigo();
+        document.addEventListener("oc:cargador-listo", _pintarCodigo);
+        setTimeout(_pintarCodigo, 4000);
+        var rolCod = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+        var cajaCod = document.getElementById("oc-codigo-canario");
+        if (cajaCod && (rolCod === "dueno" || rolCod === "admin") && window.OCCargador) {
+          cajaCod.style.display = "flex";
+          var inCod = document.getElementById("oc-codigo-url");
+          try { var actual = localStorage.getItem(window.OCCargador.CLAVE) || ""; if (actual && actual !== "0") inCod.value = actual; } catch (_) {}
+          document.getElementById("oc-codigo-usar").addEventListener("click", function () {
+            var u = window.OCCargador.normalizar(inCod.value);
+            var msg = document.getElementById("oc-sync-msg");
+            if (!u) { if (msg) msg.textContent = "The origin must start with https:// and end in /docs/."; return; }
+            if (window.OCCargador.fijarCanario(u) && msg) msg.textContent = "Saved for this device only. Reload the app to load from " + u;
+          });
+          document.getElementById("oc-codigo-local").addEventListener("click", function () {
+            window.OCCargador.quitarCanario();
+            var msg = document.getElementById("oc-sync-msg");
+            if (msg) msg.textContent = "This device goes back to github.io on the next reload.";
+          });
+        }
+      } catch (_) {}
 
       /* Pinta el estado de sync mínimo cada 3s desde OCYjs._diag() (JFC 2026-09-15). */
       try {

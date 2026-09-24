@@ -61,7 +61,11 @@ estado.
   dueño (no periscopio, no cross-tenant).
 - [ ] 7. Hallmark aplicado a landing y save.html (conversión; promesa 24 h ya puesta).
 - [ ] P. Protección anti-clon (JFC eligió: cargador + Hostinger, SISTEMÁTICO,
-  sin riesgo). Seguir .cowork/CLAUDE OUTPUTS/PROMPT-2-MIGRACION-SEMIPUBLICA-
+  sin riesgo). ESTADO 2026-09-24 (Fable 5.1): fase A HECHA en shell v384
+  (cargador.js + canario en Advanced + .htaccess + guarda G6 + 7 tests; meta
+  vacio, nadie carga remoto todavia). Fases B-E y pasos de JFC en
+  PLAN-BLOQUE-P-CARGADOR-HOSTINGER-2026-09-24.md. README de las 3 apps en
+  jerga indirecta (pedido de JFC 2026-09-24). Seguir .cowork/CLAUDE OUTPUTS/PROMPT-2-MIGRACION-SEMIPUBLICA-
   2026-09-22.md por fases con canario. TRAMPA: los datos viven por ORIGEN
   (github.io); la URL de github.io debe seguir siendo la puerta. Hostinger "1
   clic": hPanel > Avanzado > GIT (conectar repo + webhook); para repo privado

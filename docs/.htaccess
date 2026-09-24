@@ -1,0 +1,17 @@
+# .htaccess — friendly-123/docs servido desde Hostinger (Bloque P, JFC 2026-09-24)
+# GitHub Pages IGNORA este archivo (no es Apache): aqui no hace nada.
+# En Hostinger (Apache/LiteSpeed) hace lo unico que el cargador necesita:
+# permitir que la puerta (github.io) pida estos scripts con CORS. Sin la
+# cabecera Access-Control-Allow-Origin el navegador rechaza el script y el
+# cargador cae a github.io (falla abierta): en Advanced se vera "fell back".
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|mjs|json|css)$">
+    Header set Access-Control-Allow-Origin "https://jfcarpiopuntocom.github.io"
+    Header set Cross-Origin-Resource-Policy "cross-origin"
+    Header set Cache-Control "public, max-age=300, must-revalidate"
+  </FilesMatch>
+</IfModule>
+AddType application/javascript .js .mjs
+AddType application/json .json
+AddCharset utf-8 .js .mjs .json .css .html
+Options -Indexes
