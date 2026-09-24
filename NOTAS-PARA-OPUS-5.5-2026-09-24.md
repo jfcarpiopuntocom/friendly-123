@@ -128,3 +128,15 @@ Las advertencias CSP/HSTS/COOP/XFO no se pueden fijar en GitHub Pages
   un texto en español dentro de un bloque que el chequeo lee como JS.
   Ubicarlo (numerar los <script> sin src) y arreglar SOLO el comentario o
   el chequeo, nunca el codigo que corre.
+
+## Estado al cierre de Fable 5.1 (2026-09-24, shell v387 en vivo)
+- Commissions: 6 carreras de dos aparatos + 11 casos Hugo/Paco/Luis en verde
+  (`test/commissions-carreras-sync.test.js`, `test/commissions-hugo-paco-luis.test.js`).
+  Cualquier cambio en ventas/liquidaciones/ajustes: correr esos dos PRIMERO.
+- Lo que NO se probo aun (Fable 5.1 futuro, no Opus): carreras con TRES
+  aparatos y estado rancio (uno vuelve de una semana offline con ventas
+  viejas); devolucion de una venta con asistente cuando el asistente ya fue
+  archivado; pagar un mes en A mientras B cambia la base bruto/margen.
+- Panel: falta probar en vivo emitir un lote y registrar un pago con el
+  Worker desplegado (JFC lo hace desde panel.html; si algo falla, el error
+  sale en la linea de mensaje del panel: copiarlo aqui).

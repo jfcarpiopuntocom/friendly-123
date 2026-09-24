@@ -106,3 +106,16 @@ test('B devuelve una venta pendiente mientras A le corrige el %: converge anulad
     assert.equal((await liq(X, shelf)).ventasPendientes, 0, 'una venta anulada no debe comision');
   }
 });
+
+test('tras la carrera pago (A) / devolucion (B), el STOCK converge: la unidad devuelta vuelve una sola vez en los dos aparatos', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' }; B.receive(A);
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  await B.request(`/api/ventas/${id}/devolucion`, 'POST', { motivo: 'race', quien: 'B' });
+  sync(A, B); sync(A, B);
+  const pa = await A.request(`/api/productos/${product.id}`), pb = await B.request(`/api/productos/${product.id}`);
+  assert.equal(pb.stockActual, 20, 'B devolvio la unidad: 20');
+  assert.equal(pa.stockActual, pb.stockActual, 'A converge al mismo stock (no 19, no 21)');
+});
