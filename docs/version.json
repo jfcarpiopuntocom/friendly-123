@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-23",
-  "changelog": "Saldos de clientes explicados con cargos y pagos; compradores filtrados por producto; precios avanzan por dólares sin prohibir centavos. PIN de dueño retirado y manual QR corregidos.",
+  "changelog": "Sincronización de fotos protegida contra reconexiones repetidas: recuperación paginada, cursor reanudable y backoff estable para mantener el servicio dentro de los límites de producción.",
   "requerida": false,
-  "shell": "f123-shell-v363",
+  "shell": "f123-shell-v364",
   "apagar": [],
   "releaseName": "v1.0"
 }

@@ -89,15 +89,52 @@
   // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
-  function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn) {
+  function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
     var canal = { ws: null, pend: [] };
     var MAX_OP_BYTES = 250 * 1024; // guard final, despues de base64
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
+    /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
+       mantienen cada rafaga acotada; catalogo/ops, mucho mas chicos, usan 64. */
+    var PULL_PAGE_SIZE = nombre === "fotos" ? 4 : 64;
+    var T_CONEXION_ESTABLE_MS = 30000;
     var partesEntrantes = Object.create(null);
     var reintentos = 0; // backoff (fix B, JFC 2026-09-10): antes reconectaba fijo
                         // cada 4s; si el relay cerraba (p.ej. frame grande), era una
                         // tormenta de upgrades -> límite diario del worker. Ahora
                         // exponencial con jitter y tope 30s, como el sync viejo.
+    var _tEstable = null;
+    var _colaRecepcion = Promise.resolve();
+    var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;
+    var _pullCursor = { rev: -1, seq: 0 };
+    var _pullCursorReady = Promise.resolve();
+    if (persistencia && typeof persistencia.get === "function") {
+      _pullCursorReady = persistencia.get(_pullCursorKey).then(function (guardado) {
+        if (guardado && Number.isFinite(Number(guardado.rev)) && Number.isFinite(Number(guardado.seq))) {
+          _pullCursor = { rev: Math.trunc(Number(guardado.rev)), seq: Math.max(0, Math.trunc(Number(guardado.seq) || 0)) };
+        }
+      }).catch(function () {});
+    }
+    function guardarPullCursor(cursor) {
+      var siguiente = {
+        rev: Number.isFinite(Number(cursor.rev)) ? Math.trunc(Number(cursor.rev)) : -1,
+        seq: Math.max(0, Math.trunc(Number(cursor.seq) || 0))
+      };
+      if (siguiente.rev < _pullCursor.rev ||
+          (siguiente.rev === _pullCursor.rev && siguiente.seq <= _pullCursor.seq)) return Promise.resolve();
+      _pullCursor = siguiente;
+      if (!persistencia || typeof persistencia.set !== "function") return Promise.resolve();
+      /* IndexeddbPersistence encola este write DESPUES de los updates Yjs que
+         acabamos de aplicar. Cursor y estado viven en la misma base: si se
+         borra la base, tambien se borra el cursor y el aparato vuelve desde 0. */
+      return persistencia.set(_pullCursorKey, _pullCursor).catch(function () {});
+    }
+    function pedirPagina(sock, estado) {
+      estado.enCurso = true; estado.fallos = 0;
+      return _pullCursorReady.then(function () {
+        if (sock !== canal.ws || sock.readyState !== 1) return;
+        sock.send(JSON.stringify({ k: "pull", v: 2, rev: _pullCursor.rev, seq: _pullCursor.seq, limit: PULL_PAGE_SIZE }));
+      }).catch(function () {});
+    }
     function reprogramar() {
       reintentos++;
       var base = Math.min(30000, 1000 * Math.pow(2, Math.min(reintentos, 5))); // 2,4,8,16,32->30s
@@ -202,7 +239,9 @@
       cifrarBin(API.clave, _frame(0, full)).then(function (buf) {
         if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
         try {
-          var ck = JSON.stringify({ k: "ckpt", lam: Date.now(), c: _b64(buf) });
+          /* rev+seq prueban exactamente hasta que fila persistida contiene este
+             estado. El relay nunca poda una operacion concurrente posterior. */
+          var ck = JSON.stringify({ k: "ckpt", v: 2, rev: _pullCursor.rev, seq: _pullCursor.seq, lam: Date.now(), c: _b64(buf) });
           if (canal.ws && canal.ws.readyState === 1) canal.ws.send(ck);
         } catch (_) {}
       }).catch(function () {});
@@ -210,11 +249,19 @@
     function conectar() {
       var url = RELAY_URL + API.roomId + suffix;
       var ws; try { ws = new WebSocket(url); } catch (_) { reprogramar(); return; }
+      var pullEstado = { enCurso: false, fallos: 0 };
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
-        reintentos = 0; // conexión buena: resetea el backoff
+        /* Un upgrade que abre y cae enseguida NO es una conexion sana. Antes
+           reseteaba el backoff aqui y el canal de fotos podia reconectar cada
+           pocos segundos para repetir un pull enorme. Solo una conexion que
+           sigue viva 30 s vuelve el backoff a cero. */
+        clearTimeout(_tEstable);
+        _tEstable = setTimeout(function () {
+          if (canal.ws === ws && ws.readyState === 1) reintentos = 0;
+        }, T_CONEXION_ESTABLE_MS);
         try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": a quien esté en vivo
-        try { ws.send(JSON.stringify({ k: "pull", lam: 0 })); } catch (_) {} // trae lo PERSISTIDO (async)
+        pedirPagina(ws, pullEstado); // trae lo persistido por paginas y reanuda desde el cursor local
         /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
            "catalogo". FIX de costo (JFC 2026-09-22, v337): la v335 hacia ping cada
            60 s en LOS TRES canales (catalogo, fotos, ops). El relay usa WebSocket
@@ -239,19 +286,19 @@
         if (seedFn) setTimeout(function () { try { seedFn(); } catch (_) {} }, 3200);
       };
       function manejar(buf) {
-        descifrarBin(API.clave, buf).then(function (bytes) {
+        return descifrarBin(API.clave, buf).then(function (bytes) {
           var tag = bytes[0], payload = bytes.subarray(1);
           if (tag === 3) {
-            if (bytes.length < 22) return;
+            if (bytes.length < 22) return false;
             var original = bytes[1], id = "";
             for (var q = 2; q < 18; q++) id += String.fromCharCode(bytes[q]);
             var indice = bytes[18] * 256 + bytes[19], total = bytes[20] * 256 + bytes[21];
-            if (!total || indice >= total) return;
+            if (!total || indice >= total) return false;
             var grupo = partesEntrantes[id];
             if (!grupo) grupo = partesEntrantes[id] = { tag: original, total: total, piezas: [], cuenta: 0, creado: Date.now() };
-            if (grupo.total !== total || grupo.tag !== original) return;
+            if (grupo.total !== total || grupo.tag !== original) return false;
             if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; }
-            if (grupo.cuenta !== total) return;
+            if (grupo.cuenta !== total) return true; // trozo valido; faltan sus hermanos
             delete partesEntrantes[id];
             var largo = grupo.piezas.reduce(function (a, p) { return a + p.length; }, 0);
             var unido = new Uint8Array(largo), cursor = 0;
@@ -268,7 +315,8 @@
           if (Object.keys(partesEntrantes).length > 64) {
             Object.keys(partesEntrantes).forEach(function (k) { if (Date.now() - partesEntrantes[k].creado > 120000) delete partesEntrantes[k]; });
           }
-        }).catch(function () {}); // basura o clave distinta -> se ignora
+          return true;
+        }).catch(function () { return false; }); // basura o clave distinta -> no se confirma el cursor
       }
       ws.onmessage = function (ev) {
         if (!API.clave) return;
@@ -276,24 +324,52 @@
         // ROBUSTEZ (JFC 2026-09-10, world-class): normalmente con binaryType
         // "arraybuffer" llega un ArrayBuffer, pero algunos navegadores/proxies
         // entregan un Blob aunque se pida ArrayBuffer. Se aceptan AMBOS. Los
-        // frames de texto (que no son nuestros marcos binarios) se ignoran.
-        if (d instanceof ArrayBuffer) manejar(d);
-        else if (typeof Blob !== "undefined" && d instanceof Blob) { try { d.arrayBuffer().then(manejar).catch(function () {}); } catch (_) {} }
+        // frames se encadenan: el cursor de una pagina se confirma DESPUES de
+        // aplicar todos sus binarios, nunca antes.
+        if (d instanceof ArrayBuffer) {
+          _colaRecepcion = _colaRecepcion.then(function () { return manejar(d); }).then(function (ok) {
+            if (pullEstado.enCurso && !ok) pullEstado.fallos++;
+          });
+        }
+        else if (typeof Blob !== "undefined" && d instanceof Blob) {
+          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(manejar).then(function (ok) {
+            if (pullEstado.enCurso && !ok) pullEstado.fallos++;
+          }).catch(function () { if (pullEstado.enCurso) pullEstado.fallos++; });
+        }
         /* MEDICION DE LATENCIA (JFC 2026-09-22). Los frames de TEXTO hasta hoy
            se ignoraban por completo, asi que engancharse aqui es 100% aditivo:
            nada de lo que ya funciona depende de esta rama. Y sobre todo, esto
            corre FUERA del camino de datos de Yjs — no lee ni escribe el doc, no
            puede corromper ni retrasar un cambio real. Si algo falla, se pierde
            el numero, nunca el dato. */
-        else if (typeof d === "string" && window.OCLatencia) {
+        else if (typeof d === "string") {
           try {
             var c = JSON.parse(d);
-            if (c && c.k === "tsr") window.OCLatencia.anotarPing(c.t0, c.t1, Date.now());
-            else if (c && c.k === "lat") window.OCLatencia.anotarMuestra(c.oTs, c.etq);
+            if (c && c.k === "pull-page") {
+              _colaRecepcion = _colaRecepcion.then(function () {
+                if (pullEstado.fallos) {
+                  pullEstado.enCurso = false;
+                  try { log("pagina de catch-up no confirmada en " + nombre); } catch (_) {}
+                  return;
+                }
+                return guardarPullCursor(c).then(function () {
+                  if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado);
+                  pullEstado.enCurso = false;
+                });
+              });
+            }
+            else if (c && c.k === "tsr" && window.OCLatencia) window.OCLatencia.anotarPing(c.t0, c.t1, Date.now());
+            else if (c && c.k === "lat" && window.OCLatencia) window.OCLatencia.anotarMuestra(c.oTs, c.etq);
           } catch (_) {} // texto que no es nuestro: se ignora igual que antes
         }
       };
-      ws.onclose = function () { canal.ws = null; reprogramar(); };
+      ws.onclose = function () {
+        if (canal.ws !== ws) return; // cierre tardio de un socket reemplazado
+        clearTimeout(_tEstable); _tEstable = null;
+        pullEstado.enCurso = false;
+        canal.ws = null;
+        reprogramar();
+      };
       ws.onerror = function () { try { ws.close(); } catch (_) {} };
     }
     canal.conectar = conectar;
@@ -406,7 +482,7 @@
 
     // Cada cambio local -> update binario -> (a) pestañas por BroadcastChannel,
     // (b) otros dispositivos por el relay cifrado. origin !== "bc"/"red" evita eco.
-    API.canal = crearCanal(Y, API.doc, "-y", "catalogo", true); // ckpt: catálogo cabe
+    API.canal = crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb); // ckpt: catálogo cabe
     API.doc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") return;
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
@@ -426,7 +502,7 @@
       API.fotosBc = new BroadcastChannel("f123-yjs-fotos-" + API.roomId);
       API.fotosBc.onmessage = function (ev) { try { Y.applyUpdate(API.fotosDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
-    API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false, sembrarFotosAlRelay); // sin ckpt (fotos exceden 256KB); siembra c/foto como op individual
+    API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false, sembrarFotosAlRelay, API.fotosIdb); // sin ckpt (fotos exceden 256KB); siembra c/foto como op individual
     API.fotosDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
       try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
@@ -448,7 +524,7 @@
       API.opsBc = new BroadcastChannel("f123-yjs-ops-" + API.roomId);
       API.opsBc.onmessage = function (ev) { try { Y.applyUpdate(API.opsDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
-    API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops", true); // ckpt: ops es pequeño
+    API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops", true, null, API.opsIdb); // ckpt: ops es pequeño
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red") { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}

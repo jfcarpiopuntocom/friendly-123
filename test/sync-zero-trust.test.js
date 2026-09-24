@@ -27,6 +27,7 @@ const path = require('path');
 
 const RAIZ = path.join(__dirname, '..');
 const SYNC = fs.readFileSync(path.join(RAIZ, 'docs', 'sync-realtime.js'), 'utf8');
+const YJS = fs.readFileSync(path.join(RAIZ, 'docs', 'sync-yjs.js'), 'utf8');
 const RELAY = fs.readFileSync(path.join(RAIZ, 'cloudflare-sync-relay', 'worker.js'), 'utf8');
 const MOCK = fs.readFileSync(path.join(RAIZ, 'docs', 'mock-backend.js'), 'utf8');
 
@@ -98,8 +99,10 @@ test('el relay es zero-knowledge: guarda/mueve sobres pero NUNCA descifra', () =
   assert.match(RELAY, /MAX_FRAME_BYTES/);
   assert.match(RELAY, /MAX_OPS_SALA/);
   assert.match(RELAY, /CREATE INDEX IF NOT EXISTS ops_lam ON ops\(lam\)/);
+  assert.match(RELAY, /CREATE INDEX IF NOT EXISTS ops_lam_id ON ops\(lam, id\)/);
   assert.doesNotMatch(RELAY, /SELECT COUNT\(\*\) AS n FROM ops/);
-  assert.match(RELAY, /_opsDesdePoda >= 256/);
+  assert.match(RELAY, /debePodar\(id\)/);
+  assert.doesNotMatch(RELAY, /_opsDesdePoda/);
   // Sin KV de negocio: solo SQLite del Durable Object para los sobres cifrados.
   assert.ok(!/env\.\w*KV/i.test(RELAY), 'el relay no debe usar KV de negocio');
 });
@@ -182,6 +185,104 @@ test('el cliente persiste ops, sube checkpoint y jala del relay al conectar', ()
   assert.match(SYNC, /k:\s*"pull"/);   // pide lo que le falta al conectar
   assert.match(SYNC, /subirCheckpoint\(true\)/);
   assert.match(SYNC, /pullDelRelay\(\)/);
+});
+
+test('el catch-up Yjs pagina y reanuda: una reconexion no relee miles de filas', () => {
+  assert.match(RELAY, /k:\s*"pull-page"/);
+  assert.match(RELAY, /WHERE rowid > \? ORDER BY rowid ASC LIMIT \?/);
+  assert.match(RELAY, /SELECT rowid AS seq, c FROM ops/);
+  assert.match(YJS, /f123_yjs_pull_cursor_/);
+  assert.match(YJS, /persistencia\.get\(_pullCursorKey\)/);
+  assert.match(YJS, /persistencia\.set\(_pullCursorKey, _pullCursor\)/);
+  assert.match(YJS, /k:\s*"pull",\s*v:\s*2/);
+  assert.match(YJS, /nombre === "fotos" \? 4 : 64/);
+  assert.match(YJS, /k\s*===\s*"pull-page"/);
+  assert.match(YJS, /grupo\.cuenta !== total\) return true/,
+    'un trozo valido no debe impedir confirmar la pagina que lo contiene');
+  assert.doesNotMatch(YJS, /ws\.send\(JSON\.stringify\(\{\s*k:\s*"pull",\s*lam:\s*0\s*\}\)\)/);
+});
+
+test('el cursor del relay pagina por orden de llegada aunque los relojes de los aparatos difieran', () => {
+  const filas = [
+    { seq: 1, lam: 9000, id: 'a' }, { seq: 2, lam: 10, id: 'b' },
+    { seq: 3, lam: 5000, id: 'c' }, { seq: 4, lam: 9, id: 'd' },
+  ];
+  let cursor = 0, recibidas = [];
+  for (;;) {
+    const pagina = filas.filter((f) => f.seq > cursor).slice(0, 2);
+    if (!pagina.length) break;
+    recibidas = recibidas.concat(pagina.map((f) => f.id));
+    cursor = pagina[pagina.length - 1].seq;
+  }
+  assert.deepEqual(recibidas, ['a', 'b', 'c', 'd']);
+});
+
+test('el relay v2 ejecuta paginas reales y devuelve un cursor reanudable', async () => {
+  const modulo = await import('data:text/javascript;base64,' + Buffer.from(RELAY).toString('base64'));
+  const filas = Array.from({ length: 18 }, (_, i) => ({
+    seq: i + 1,
+    lam: i < 17 ? 10 : 11,
+    id: String(i).padStart(2, '0'),
+    c: Buffer.from(String(i)).toString('base64'),
+  }));
+  const sql = {
+    exec(query, ...args) {
+      if (/SELECT lam, c, rev FROM ckpt/.test(query)) return { toArray: () => [] };
+      if (/SELECT rowid AS seq, c FROM ops/.test(query)) {
+        const [seq, limit] = args;
+        const page = filas.filter((f) => f.seq > seq).slice(0, limit);
+        return { toArray: () => page };
+      }
+      return { toArray: () => [] };
+    },
+  };
+  const sala = new modulo.SalaSync({ storage: { sql } }, {});
+  const enviados = [];
+  const sock = { readyState: 1, send: (dato) => enviados.push(dato) };
+
+  sala._responderPullV2(sock, { rev: -1, seq: 0, limit: 16 });
+  const marca1 = JSON.parse(enviados.at(-1));
+  assert.deepEqual({ rev: marca1.rev, seq: marca1.seq, more: marca1.more, n: marca1.n },
+    { rev: 0, seq: 16, more: true, n: 16 });
+
+  enviados.length = 0;
+  sala._responderPullV2(sock, { rev: marca1.rev, seq: marca1.seq, limit: 16 });
+  const marca2 = JSON.parse(enviados.at(-1));
+  assert.deepEqual({ rev: marca2.rev, seq: marca2.seq, more: marca2.more, n: marca2.n },
+    { rev: 0, seq: 18, more: false, n: 2 });
+});
+
+test('el checkpoint v2 poda solo la secuencia confirmada y rechaza carreras', async () => {
+  const modulo = await import('data:text/javascript;base64,' + Buffer.from(RELAY + '\n//ckpt-test').toString('base64'));
+  let ckpt = { lam: 100, rev: 3, v: 2, c: 'viejo' };
+  const podas = [];
+  const sql = {
+    exec(query, ...args) {
+      if (/SELECT lam, rev, v FROM ckpt/.test(query)) return { toArray: () => [ckpt] };
+      if (/INSERT INTO ckpt\(k, lam, c, rev, v\)/.test(query)) {
+        ckpt = { lam: args[0], c: args[1], rev: args[2], v: 2 };
+      }
+      if (/DELETE FROM ops WHERE rowid <= \?/.test(query)) podas.push(args[0]);
+      return { toArray: () => [] };
+    },
+  };
+  const sala = new modulo.SalaSync({ storage: { sql } }, {});
+
+  sala._guardarCkpt(200, 'nuevo', 2, 3, 42);
+  assert.deepEqual(ckpt, { lam: 200, c: 'nuevo', rev: 4, v: 2 });
+  assert.deepEqual(podas, [42]);
+
+  sala._guardarCkpt(300, 'carrera', 2, 3, 99);
+  sala._guardarCkpt(400, 'legacy', 1, 0, 0);
+  assert.deepEqual(ckpt, { lam: 200, c: 'nuevo', rev: 4, v: 2 });
+  assert.deepEqual(podas, [42]);
+});
+
+test('el backoff Yjs solo se reinicia tras una conexion estable', () => {
+  assert.doesNotMatch(YJS, /ws\.onopen\s*=\s*function\s*\(\)\s*\{\s*reintentos\s*=\s*0/,
+    'abrir el socket no basta: un socket que cae enseguida no debe reiniciar el backoff');
+  assert.match(YJS, /T_CONEXION_ESTABLE_MS/);
+  assert.match(YJS, /setTimeout\(function\s*\(\)\s*\{[\s\S]*reintentos\s*=\s*0;[\s\S]*T_CONEXION_ESTABLE_MS/);
 });
 
 test('el checkpoint solo se restaura en un dispositivo FRESCO (sin ventas propias)', () => {

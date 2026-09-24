@@ -19,6 +19,18 @@ const MAX_CLIENTES_SALA = 12;      // tope por sala (coincide con el cliente)
 const MAX_FRAME_BYTES = 256 * 1024; // 256 KB por frame; el catalogo va a trozos
 
 const MAX_OPS_SALA = 8000; // tope duro de operaciones guardadas por sala
+const PULL_PAGE_DEFAULT = 64;
+const PULL_PAGE_MAX = 128;
+
+// Muestreo determinista para la poda. El contador anterior vivia en memoria y
+// volvia a cero cada vez que el DO hibernaba; una sala con trafico intermitente
+// podia crecer para siempre sin alcanzar 256 en una misma encarnacion.
+function debePodar(id) {
+  let h = 2166136261;
+  const s = String(id || "");
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return (h >>> 0) % 256 === 0;
+}
 
 // Base64 -> ArrayBuffer (para reenviar lo guardado como frame binario, tal
 // cual lo espera el cliente). El relay NO descifra: solo mueve bytes.
@@ -47,15 +59,20 @@ export class SalaSync {
        No puede leer nada: `c` es ciphertext; `id` es aleatorio; `lam` un
        contador. Zero-knowledge del contenido. Durable Object + SQLite. */
     this.sql = state.storage && state.storage.sql ? state.storage.sql : null;
-    this._opsDesdePoda = 0;
     if (this.sql) {
       try {
         this.sql.exec("CREATE TABLE IF NOT EXISTS ops(id TEXT PRIMARY KEY, lam INTEGER, c TEXT)");
         this.sql.exec("CREATE TABLE IF NOT EXISTS ckpt(k TEXT PRIMARY KEY, lam INTEGER, c TEXT)");
+        /* Migracion aditiva. rev cambia cada vez que un checkpoint v2 compacta
+           la bitacora; el cliente reinicia entonces su cursor SQLite. v impide
+           que un shell viejo vuelva a pisar un checkpoint confirmado por v2. */
+        try { this.sql.exec("ALTER TABLE ckpt ADD COLUMN rev INTEGER NOT NULL DEFAULT 0"); } catch (_) {}
+        try { this.sql.exec("ALTER TABLE ckpt ADD COLUMN v INTEGER NOT NULL DEFAULT 1"); } catch (_) {}
         /* Todas las lecturas de catch-up filtran y ordenan por lam. Sin este
            índice SQLite recorría la tabla completa en cada pull; rows_read se
            disparaba aunque hubiera muy pocos aparatos. */
         this.sql.exec("CREATE INDEX IF NOT EXISTS ops_lam ON ops(lam)");
+        this.sql.exec("CREATE INDEX IF NOT EXISTS ops_lam_id ON ops(lam, id)");
       } catch (_) { this.sql = null; }
     }
   }
@@ -64,22 +81,39 @@ export class SalaSync {
     if (!this.sql || !id || typeof c !== "string") return;
     try {
       this.sql.exec("INSERT OR IGNORE INTO ops(id, lam, c) VALUES (?, ?, ?)", String(id), Number(lam) || 0, c);
-      /* COUNT(*) por CADA op era el quemador: cada inserción leía todas las
-         filas de la sala y Cloudflare factura esas filas. Los checkpoints ya
-         podan normalmente; esta red de seguridad corre una vez cada 256 ops
-         de una instancia activa, con el índice, y conserva las 8.000 nuevas. */
-      this._opsDesdePoda++;
-      if (this._opsDesdePoda >= 256) {
-        this._opsDesdePoda = 0;
+      /* COUNT(*) por CADA op era el quemador. Se muestrea por hash del id en
+         vez de contar en memoria: la hibernacion ya no desactiva la poda y no
+         agregamos una lectura/escritura de metadata por cada operacion. */
+      if (debePodar(id)) {
         this.sql.exec("DELETE FROM ops WHERE id IN (SELECT id FROM ops ORDER BY lam DESC LIMIT -1 OFFSET ?)", MAX_OPS_SALA);
       }
     } catch (_) {}
   }
 
-  _guardarCkpt(lam, c) {
+  _guardarCkpt(lam, c, protocolo, cursorRev, cursorSeq) {
     if (!this.sql || typeof c !== "string") return;
     try {
       const lamN = Number(lam) || 0;
+      const existente = this.sql.exec("SELECT lam, rev, v FROM ckpt WHERE k = 'latest'").toArray();
+
+      if (Number(protocolo) === 2) {
+        const revActual = existente.length ? (Number(existente[0].rev) || 0) : 0;
+        const revCliente = Number(cursorRev);
+        const seqCliente = Math.max(0, Math.trunc(Number(cursorSeq) || 0));
+        /* CAS: el estado solo puede compactar la generacion que el cliente ya
+           termino de aplicar. Una op concurrente tiene rowid mayor y sobrevive. */
+        if (!Number.isFinite(revCliente) || revCliente !== revActual) return;
+        this.sql.exec(
+          "INSERT INTO ckpt(k, lam, c, rev, v) VALUES ('latest', ?, ?, ?, 2) " +
+          "ON CONFLICT(k) DO UPDATE SET lam = excluded.lam, c = excluded.c, rev = excluded.rev, v = 2",
+          lamN, c, revActual + 1
+        );
+        this.sql.exec("DELETE FROM ops WHERE rowid <= ?", seqCliente);
+        return;
+      }
+
+      // Un shell viejo no puede degradar un checkpoint ya confirmado por v2.
+      if (existente.length && Number(existente[0].v) >= 2) return;
       /* C1 (2026-08-27, auditoría de integridad): NUNCA sobreescribir un
          checkpoint con uno MÁS VIEJO. Antes, un dispositivo atrasado que
          reconectaba subía su estado rancio y pisaba el checkpoint bueno del
@@ -90,7 +124,6 @@ export class SalaSync {
          que solo se acepta si el entrante es >= al guardado. Igual se deja
          pasar (último en subir gana) para no congelar el checkpoint en el
          primer aparato que conecte. */
-      const existente = this.sql.exec("SELECT lam FROM ckpt WHERE k = 'latest'").toArray();
       if (existente.length && (Number(existente[0].lam) || 0) > lamN) return;
       this.sql.exec(
         "INSERT INTO ckpt(k, lam, c) VALUES ('latest', ?, ?) ON CONFLICT(k) DO UPDATE SET lam = excluded.lam, c = excluded.c",
@@ -107,16 +140,65 @@ export class SalaSync {
       let cursor = Number(desdeLam) || 0;
       // 1) Si hay checkpoint mas nuevo que lo que el cliente tiene, se lo mando
       //    primero (como frame binario, lo descifra y lo aplica como catalogo).
-      const ck = this.sql.exec("SELECT lam, c FROM ckpt WHERE k = 'latest'").toArray();
+      const ck = this.sql.exec("SELECT lam, c, v FROM ckpt WHERE k = 'latest'").toArray();
       if (ck.length && (Number(ck[0].lam) || 0) > cursor) {
         try { if (sock.readyState === 1) sock.send(b64aBuf(ck[0].c)); } catch (_) {}
         cursor = Number(ck[0].lam) || 0;
       }
       // 2) Las operaciones posteriores al cursor, en orden.
-      const filas = this.sql.exec("SELECT c FROM ops WHERE lam > ? ORDER BY lam ASC LIMIT ?", cursor, MAX_OPS_SALA).toArray();
+      /* Tras un checkpoint v2, ops solo contiene filas concurrentes/posteriores
+         a ese estado. Un shell viejo debe recibirlas TODAS: su reloj no es un
+         cursor confiable y puede estar adelantado o atrasado. */
+      const filas = ck.length && Number(ck[0].v) >= 2
+        ? this.sql.exec("SELECT c FROM ops ORDER BY rowid ASC LIMIT ?", MAX_OPS_SALA).toArray()
+        : this.sql.exec("SELECT c FROM ops WHERE lam > ? ORDER BY lam ASC LIMIT ?", cursor, MAX_OPS_SALA).toArray();
       for (const f of filas) {
         try { if (sock.readyState === 1) sock.send(b64aBuf(f.c)); } catch (_) {}
       }
+    } catch (_) {}
+  }
+
+  /* Protocolo paginado v2. El incidente del 23-sep-2026 fue un bucle de
+     reconexion del canal de fotos: cada apertura repetia un pull de miles de
+     filas, la respuesta grande volvia a cortar el stream y 2.075 reaperturas
+     terminaron leyendo 9,48 M filas en un dia. El cursor es el rowid de SQLite,
+     no el reloj del telefono. rev lo invalida tras cada compactacion. */
+  _responderPullV2(sock, msg) {
+    if (!this.sql) return;
+    try {
+      let cursorRev = Number.isFinite(Number(msg.rev)) ? Math.trunc(Number(msg.rev)) : -1;
+      let cursorSeq = Math.max(0, Math.trunc(Number(msg.seq) || 0));
+      const pageSize = Math.max(1, Math.min(PULL_PAGE_MAX, Math.trunc(Number(msg.limit) || PULL_PAGE_DEFAULT)));
+
+      const ck = this.sql.exec("SELECT lam, c, rev FROM ckpt WHERE k = 'latest'").toArray();
+      const revActual = ck.length ? (Number(ck[0].rev) || 0) : 0;
+      if (cursorRev !== revActual) {
+        /* Una generacion distinta significa que hubo compactacion. El ckpt
+           resume lo anterior y las ops que queden se leen desde rowid cero. */
+        if (ck.length) {
+        try { if (sock.readyState === 1) sock.send(b64aBuf(ck[0].c)); } catch (_) { return; }
+        }
+        cursorRev = revActual;
+        cursorSeq = 0;
+      }
+
+      const filas = this.sql.exec(
+        "SELECT rowid AS seq, c FROM ops WHERE rowid > ? ORDER BY rowid ASC LIMIT ?",
+        cursorSeq, pageSize
+      ).toArray();
+      for (const f of filas) {
+        try { if (sock.readyState === 1) sock.send(b64aBuf(f.c)); else return; } catch (_) { return; }
+      }
+      if (filas.length) {
+        const ultima = filas[filas.length - 1];
+        cursorSeq = Number(ultima.seq) || 0;
+      }
+      try {
+        if (sock.readyState === 1) sock.send(JSON.stringify({
+          k: "pull-page", v: 2, rev: cursorRev, seq: cursorSeq,
+          more: filas.length === pageSize, n: filas.length,
+        }));
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -170,8 +252,12 @@ export class SalaSync {
       try { msg = JSON.parse(data); } catch (_) { msg = null; }
       if (msg && typeof msg === "object" && msg.k) {
         if (msg.k === "op") { this._guardarOp(msg.id, msg.lam, msg.c); return; }
-        if (msg.k === "ckpt") { this._guardarCkpt(msg.lam, msg.c); return; }
-        if (msg.k === "pull") { this._responderPull(servidor, msg.lam); return; }
+        if (msg.k === "ckpt") { this._guardarCkpt(msg.lam, msg.c, msg.v, msg.rev, msg.seq); return; }
+        if (msg.k === "pull") {
+          if (Number(msg.v) === 2) this._responderPullV2(servidor, msg);
+          else this._responderPull(servidor, msg.lam); // compatibilidad con shells viejos
+          return;
+        }
         /* MEDICION DE LATENCIA (JFC 2026-09-22). Dos frames de control nuevos.
            NINGUNO toca el almacenamiento: son memoria y reenvio puros. Esto es
            deliberado — el incidente de costo de v328 fue por un SELECT COUNT(*)

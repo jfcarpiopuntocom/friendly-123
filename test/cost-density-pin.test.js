@@ -8,8 +8,10 @@ const read = name => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
 test('relay avoids per-operation table scans and indexes catch-up cursor', () => {
   const relay = read('cloudflare-sync-relay/worker.js');
   assert.match(relay, /CREATE INDEX IF NOT EXISTS ops_lam ON ops\(lam\)/);
+  assert.match(relay, /CREATE INDEX IF NOT EXISTS ops_lam_id ON ops\(lam, id\)/);
   assert.doesNotMatch(relay, /SELECT COUNT\(\*\) AS n FROM ops/);
-  assert.match(relay, /_opsDesdePoda >= 256/);
+  assert.match(relay, /debePodar\(id\)/);
+  assert.doesNotMatch(relay, /_opsDesdePoda/);
 });
 
 test('dashboard coalesces live refreshes and reconnects with capped backoff', () => {

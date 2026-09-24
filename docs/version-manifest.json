@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v363",
+  "shell": "f123-shell-v364",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-dc80c2e5e3eff3418927a20574e9d40bbfe67d745eb466aae481a539c29cd8c9",
@@ -20,7 +20,7 @@
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
     "./sync-realtime.js": "sha256-4d616ecf563151d6c9d05314fbbc7a1ffb829d1cda05b98d5c82363ef8627b2c",
     "./sync-watchdog.js": "sha256-d894dcd64788881148b90d8205db529d6aee45961fc71eec106a7e50fcf349d0",
-    "./sync-yjs.js": "sha256-adc2aae832f45a0714ab4ffe1af11e048ec981d41afa450f54fe932a46a8d60c",
+    "./sync-yjs.js": "sha256-535af1400eb6fe33528e035d8ca3c98483b980f985d903dad6bb5accf6a665ae",
     "./sync-latencia.js": "sha256-7b0bedc8802877cfcec87df0c653b46dcfc61b91c55b90706bd39cc6552d39b9",
     "./licencia-prueba.js": "sha256-1c967bde35eb8bb20c9a160946548e2bed7b89cbfe1e04de93f32186ee780c4b",
     "./vendor/yjs-bundle.min.js": "sha256-a723f1618428ef38937626e8b72165a31ac41894fe7ab07f83d9bbb6cdd0176a",
