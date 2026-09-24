@@ -152,3 +152,34 @@ test('A paga el mes mientras B cambia la base a margen: lo pagado no se recalcul
   const nueva = (await A.request('/api/respaldo/exportar')).ventas.pop();
   assert.equal(nueva.split.baseComision, 'margen'); assert.equal(cents(nueva.split.montoComisionSocio), 1600, '40% de (50-10)');
 });
+
+test('TRES aparatos: C vuelve de dias offline con estado rancio; no despaga, no revive devoluciones, no duplica ajustes', async () => {
+  const A = browser(); const { shelf, product } = await tienda(A);
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
+  await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 2 });
+  const [v1, v2] = (await A.request('/api/respaldo/exportar')).ventas.slice(-2).map(v => v.id);
+  const B = browser(); B.OCAuth = { rolActual: () => 'dueno' };
+  const C = browser(); C.OCAuth = { rolActual: () => 'dueno' };
+  B.receive(A); C.receive(A);           // C se desconecta aqui (foto rancia: nada pagado)
+  await A.request(`/api/liquidaciones/${shelf.id}/marcar-pagado`, 'POST', {});
+  sync(A, B);
+  await B.request(`/api/ventas/${v1}/devolucion`, 'POST', { motivo: 'volvio', quien: 'B' });
+  sync(A, B);
+  await C.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 }); // venta nueva offline en C
+  const v3 = (await C.request('/api/respaldo/exportar')).ventas.pop().id;
+  // C vuelve y mergea en cualquier orden, dos veces
+  sync(C, A); sync(B, C); sync(A, B); sync(C, A);
+  for (const [X, n] of [[A, 'A'], [B, 'B'], [C, 'C']]) {
+    const e = await X.request('/api/respaldo/exportar');
+    const a = e.ventas.find(v => v.id === v1), b = e.ventas.find(v => v.id === v2), c = e.ventas.find(v => v.id === v3);
+    assert.ok(a && b && c, n + ': tiene las tres ventas');
+    assert.equal(a.liquidada, true, n + ': v1 sigue pagada'); assert.equal(a.devuelta, true, n + ': v1 sigue devuelta');
+    assert.equal(b.liquidada, true, n + ': v2 sigue pagada (C rancio no la despaga)');
+    assert.equal(!!c.liquidada, false, n + ': v3 (nueva de C) queda pendiente');
+    assert.equal(e.ajustesComision.length, 1, n + ': un solo clawback');
+    const p = e.productos.find(x => x.id === product.id);
+    assert.ok(p, n + ': producto presente');
+  }
+  const stocks = await Promise.all([A, B, C].map(async X => (await X.request(`/api/productos/${product.id}`)).stockActual));
+  assert.equal(new Set(stocks).size, 1, 'los tres convergen al mismo stock: ' + stocks.join(','));
+});
