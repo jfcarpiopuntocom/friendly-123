@@ -8010,7 +8010,7 @@ async function cargarComisiones(){
               document.getElementById('sim-net-${uid}').textContent=fmtMoney(neto);
             })(+this.value)">
           <div style="display:flex;gap:16px;font-size:14px;margin-top:4px;">
-            <span>Promoter commission: <strong id="sim-com-${uid}" style="color:#C0392B;">${fmtMoney(f.comisionSocio)}</strong></span>
+            <span>Commissionist/artist/promoter commission: <strong id="sim-com-${uid}" style="color:#C0392B;">${fmtMoney(f.comisionSocio)}</strong></span>
             <span>Your net: <strong id="sim-net-${uid}" style="color:#009A5A;">${fmtMoney(f.netoDueno)}</strong></span>
           </div>
         </div>
@@ -8074,7 +8074,7 @@ async function cargarComisiones(){
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}${esPerchaSemillaVieja(f.ubicacionId) ? ` <span class="badge-estado amarillo" style="font-size:13px;">${t("comm.sampleRack")}</span>` : ""}</strong>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado}</span></div>
       </div>
-      ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
+      ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Commissionist/artist/promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
       ${f.origenComision === "comisionista" ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
       <div class="stats">
         <div><div class="rotulo">Monthly sales</div><div class="cifra">${fmtMoney(f.ventasBrutas)}</div></div>
@@ -8220,7 +8220,7 @@ async function exportarComisionesCSV(){
   const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones);
   if ((!Array.isArray(filas) || !filas.length) && !porProducto.length) { alert("No commissions to export yet."); return; }
   const esc = (s) => { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const cab = ["Rack","Promoter","Monthly sales","Associate %","Associate takes","House %","House keeps","Status"];
+  const cab = ["Rack","Commissionist/Artist/Promoter","Monthly sales","Associate %","Associate takes","House %","House keeps","Status"];
   const filasCSV = filas.map(f => [
     esc(f.ubicacion), esc(f.promotorNombre || ""),
     (f.ventasBrutas || 0).toFixed(2),
