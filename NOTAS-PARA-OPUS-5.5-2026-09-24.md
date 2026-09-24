@@ -211,3 +211,12 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [ ] Siguiente del benchmark: #1 estado de cuenta del comisionista (enlace de solo lectura, firmado y con vencimiento; SOLO sus ventas). Requiere plan .md y revision de seguridad antes de codigo.
 - [ ] Pequeño: mostrar el medio de pago en la tarjeta de Commissions de meses pagados y en dashboard.html.
 - [ ] JFC: candado de Belen debe decir shell-v391; probar 1 lote y 1 pago en el panel.
+
+## AVANCE shell v392 (Opus 5.5) — errores propios pescados + medio visible + plan del estado de cuenta
+- [x] Error MIO v391: recibo de WhatsApp con "Paid by" en ingles dentro de un recibo en espanol -> "Pagado con".
+- [x] Error MIO v390 verificado: el flujo real pasa ubicacionId (la ficha lo trae); estaba bien.
+- [x] Bug HEREDADO v379: ajustes de devolucion podian volver a pendiente con una copia rancia (descuento doble). Monotono ahora; rojo-verde.
+- [x] Medio de pago visible en Commissions ("paid · cash") y en la tabla de dashboard.html.
+- [x] PLAN-ESTADO-DE-CUENTA-COMISIONISTA-2026-09-24.md con revision de seguridad (enlace cifrado en el fragmento #, sin servidor, vence).
+- [ ] DECISION JFC: vencimiento del enlace, 7 dias (propuesto) o 30.
+- [ ] Paso 1 del plan: estado.html + estado-cifrado.js con tests (ida y vuelta, vencimiento, datos alterados, XSS).

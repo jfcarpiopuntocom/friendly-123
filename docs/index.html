@@ -8138,7 +8138,7 @@ async function cargarComisiones(){
     <div class="tag-card" data-liq-ubic="${escHtml(f.ubicacionId || "")}" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}${esPerchaSemillaVieja(f.ubicacionId) ? ` <span class="badge-estado amarillo" style="font-size:13px;">${t("comm.sampleRack")}</span>` : ""}</strong>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado}${f.estado === "pagado" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span></div>
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Commissionist/artist/promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
       ${f.origenComision === "comisionista" ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
@@ -8553,7 +8553,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
       `*Commission payment confirmed*`,
       `Asociado/a: ${promotorNombre}`,
       `Monto: ${fmtMoney(monto)}`,
-      `Paid by: ${({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[medioPago] || medioPago}`,
+      `Pagado con: ${({ efectivo: "efectivo", transferencia: "transferencia", "credito-tienda": "crédito en tienda", otro: "otro" })[medioPago] || medioPago}`,
       `Mes: ${mes}`,
       neg ? `Negocio: ${neg}` : "",
       lineasDet.length ? `` : "",

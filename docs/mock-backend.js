@@ -1556,6 +1556,8 @@
         cumplimientoMeta: _meta ? +((ventasBrutas / _meta) * 100).toFixed(1) : null,
         ventasBrutas: +ventasBrutas.toFixed(2), comisionSocio: +comisionSocio.toFixed(2), netoDueno: +netoDueno.toFixed(2),
         estado: (ventasMes.length === 0 && ajustesMes.length === 0) ? "sin ventas" : (pendientes.length === 0 && ajPend.length === 0) ? "pagado" : "pendiente",
+        /* Como se pago (v391): el medio del ultimo pago sellado en el mes; null si no se registro. Solo lectura. */
+        medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
         ventasPendientes: pendientes.length, detallePendientes,
         ajustes: ajustesMes.map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
         repartoPersonas,
@@ -2382,7 +2384,17 @@
       _observarRev(a.rev);
       const local = ajustesComision.find((x) => String(x.id) === String(a.id));
       if (!local) { ajustesComision.push(Object.assign({}, a)); actualizados++; }
-      else if (_revDomina(a.rev, local.rev) === true) { Object.assign(local, a); actualizados++; }
+      else {
+        /* MONOTONO (JFC 2026-09-24, cazado por test/commissions-carreras-sync.test.js):
+           antes ganaba la copia con rev mas alto entera, y una copia rancia podia
+           volver a poner "pendiente" un ajuste ya descontado (se descontaria dos
+           veces). Mismo criterio que las ventas en v387: liquidada nunca se quita
+           y el medio de pago del lado que pago se conserva. */
+        const liqLocal = !!local.liquidada, medioLocal = local.medioPagoComision || null;
+        if (_revDomina(a.rev, local.rev) === true) { Object.assign(local, a); actualizados++; }
+        local.liquidada = liqLocal || !!a.liquidada;
+        if (medioLocal) local.medioPagoComision = medioLocal;
+      }
     });
     if (Array.isArray(remoto.transferencias)) remoto.transferencias.forEach((t) => {
       if (!t || !t.id || !t.productoOrigenId || !t.productoDestinoId) return;
