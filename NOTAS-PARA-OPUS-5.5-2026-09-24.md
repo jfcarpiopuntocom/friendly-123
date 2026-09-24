@@ -29,6 +29,40 @@ plan esta en PLAN-BLOQUE-P-CARGADOR-HOSTINGER-2026-09-24.md).
 - Comprobar: Lighthouse local (`npm i lighthouse` local, nunca npx) SEO y
   Accessibility >= 95 en save y visualize; screenshot 375 px y escritorio.
 
+## GUARDAS DE DATOS — leer antes de tocar nada (estamos LIVE con clientes)
+- NO tocar: `docs/mock-backend.js`, `docs/sync-yjs.js`, `docs/sync-*.js`,
+  `docs/estado-idb.js`, `docs/idb-*.js`, `docs/crypto-store.js`,
+  `docs/auth-ui.js`, `cloudflare-worker/`, `cloudflare-sync-relay/`. Si una
+  tarea de esta lista parece necesitarlo, se PARA y se anota aqui para
+  Fable 5.1. Dinero, sync, licencias y acceso son de Fable 5.1.
+- Nunca datos de clientes, PIN, licencias completas ni claves en codigo,
+  tests, commits, capturas ni prompts. `check-sw.sh` G5 lo vigila.
+- Cada cambio a un archivo del SHELL (lista `const SHELL` en `docs/sw.js`):
+  subir `f123-shell-vNNN` en sw.js y version.json, `node
+  scripts/gen-manifest.js`, `bash check-sw.sh` con TODO OK. save.html,
+  visualize.html, robots, sitemap y panel.html NO son shell.
+- Antes de cada lote: copia + SHA-256 en `backups/<fecha>_<motivo>/`.
+- Suite: `PLAYWRIGHT_BROWSERS_PATH=... node --test` (o `npm test`); 283 en
+  verde el 2026-09-24. Un test nuevo de UI se rotula como fijacion.
+- Aditivo siempre: campo nuevo antes que cambiar formato; nada de
+  schemaVersion; compatibilidad en las dos direcciones.
+- Legibilidad: sin gris, sin opacidad en texto, minimo 13 px, cuatro esquinas,
+  texto blanco SOLO sobre `--verde-ink #0B7A4B`, `--naranja-ink #C2410C`,
+  `--rojo-ink #B8123C`, `--azul-ink #2F6F86`, `--negro`, `#0F7A6C`
+  (WhatsApp). `test/seo-legibilidad.test.js` lo fija.
+- Commit + push + PR en rama `claude/...` desde `origin/master` fresco;
+  mergear solo con la suite verde y check-sw OK.
+
+## PageSpeed de referencia (save.html, movil, 2026-09-24 21:18 UTC, ANTES de v386)
+Performance 88 · Accessibility 94 (contraste) · Best Practices 100 · SEO 100.
+FCP 3.1 s · LCP 3.1 s · TBT 20 ms · CLS 0 · Speed Index 3.1 s.
+Hallazgos: imagen sin width/height (arreglado: logo con medidas), minificar
+CSS (3 KiB), 1 tarea larga, DOM grande, contraste (arreglado: chips, cards,
+boton WhatsApp, rojo y azul a tintas). Re-medir DESPUES y anotar aqui.
+Las advertencias CSP/HSTS/COOP/XFO no se pueden fijar en GitHub Pages
+(no hay cabeceras); cuando el codigo sirva desde Hostinger, ahi van en el
+.htaccess (tarea de Fable 5.1, es seguridad).
+
 ## Bloque 2 — SEO, lo que queda
 - [x] robots.txt, sitemap.xml, canonical y JSON-LD en index/save/visualize
   (Fable 5.1, 2026-09-24, `test/seo-legibilidad.test.js`).

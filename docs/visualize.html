@@ -32,6 +32,8 @@
        color de marca: no llevan texto. */
     --verde-ink:#0B7A4B;
     --naranja-ink:#C2410C;
+    --rojo-ink:#B8123C;   /* blanco sobre #E8365D daba 3.9:1; aqui 6.4:1 */
+    --azul-ink:#2F6F86;   /* blanco sobre #5294AC daba 3.3:1; aqui 5.4:1 */
     --amarillo:#FFC700;
     --amarillo-dk:#8A5A00;
     --azul:#5294AC;
@@ -172,8 +174,8 @@
   .tchip-verde{ background:var(--verde-ink); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
   .tchip-dorado{ background:var(--amarillo); color:#3D2E00 !important; -webkit-text-fill-color:#3D2E00 !important; }
   .tchip-naranja{ background:var(--naranja-ink); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
-  .tchip-rojo{ background:var(--rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
-  .tchip-azul{ background:var(--azul); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .tchip-rojo{ background:var(--rojo-ink); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
+  .tchip-azul{ background:var(--azul-ink); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; }
 
   /* ---------- Sección de dolores (patrón .problema de save) ---------- */
   .problema{ background:var(--card); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline); }
@@ -277,7 +279,7 @@
 
 <header class="top">
   <div class="inner">
-    <img class="logo" alt="friendly-123" src="./logo.png">
+    <img class="logo" alt="friendly-123" width="2088" height="427" src="./logo.png">
     <span class="word">friendly-123</span>
     <nav>
       <a href="index.html">App</a>
