@@ -199,3 +199,9 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [ ] Decision JFC: botones con texto blanco sobre naranja de marca ("Scan a label", "First Steps", "Save", "View accounting layer"). Pasan el umbral de texto grande (3.2:1 >= 3:1) pero no el de texto normal (4.5:1). Si JFC los quiere 4.5:1: fondo --rust-deep #C05000 en esos botones.
 - [ ] Siguiente feature: aviso por WhatsApp al comisionista cuando se vende su pieza (benchmark #2). Plan en .md, test de dos aparatos: solo lo dispara el aparato que hizo la venta.
 - [ ] JFC: probar 1 lote y 1 pago en el panel; Belen: candado debe decir shell-v389.
+
+## AVANCE shell v390 (Opus 5.5) — benchmark #2 HECHO
+- [x] Aviso por WhatsApp al comisionista tras la venta (tarjeta en linea, enlace wa.me, nunca envia solo, solo el aparato que vendio). Probado en Chromium real; test/aviso-comisionista.test.js fija las reglas.
+- [ ] Siguiente del benchmark: #4 medio de pago al liquidar (efectivo / transferencia / credito en tienda) guardado en el pago al comisionista. Toca dinero: aditivo, test de dos aparatos rojo-verde.
+- [ ] Idea chica derivada: mismo aviso desde la venta rapida del grid (hoy solo desde el panel de venta completo).
+- [ ] JFC: probar 1 lote y 1 pago en el panel; candado de Belen debe decir shell-v390.

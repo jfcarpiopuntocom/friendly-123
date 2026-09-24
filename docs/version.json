@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Commissions between devices: a paid sale stays paid and a return made on another device is never lost; the clawback is created once on both devices. Labels now say Commissionist/Artist/Promoter.",
+  "changelog": "After a commissioned sale, one tap sends the commissionist a ready WhatsApp message: what sold, where, for how much, and their commission.",
   "requerida": false,
-  "shell": "f123-shell-v389",
+  "shell": "f123-shell-v390",
   "apagar": [],
   "releaseName": "v1.0"
 }

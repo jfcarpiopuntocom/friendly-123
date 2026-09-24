@@ -6826,6 +6826,7 @@ async function confirmarVentaConInfo(id, esTicket){
     if (document.getElementById("cierreDia") && document.getElementById("cierreDia").open) cargarCierreLista();
     if (document.getElementById("ventasSold") && document.getElementById("ventasSold").open) cargarVentasSold();
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
+    if (data.ventaId) ofrecerAvisoComisionista(data.ventaId, data.producto && data.producto.ubicacionId);
     // FIADO → deuda en Clientes (JFC 2026-09-08). La venta ya quedó asentada
     // (es ingreso, aunque impago); aquí se cuelga la deuda al cliente con el
     // endpoint que ya existe. Si falla, la venta NO se pierde: se avisa a consola.
@@ -7061,6 +7062,67 @@ function mostrarToastDeshacerCancelacion(snap){
 // toast antes de que expire el primero (evita que el interval huérfano borre el
 // toast nuevo cuando llega a 0). Fix del bug detectado en code-review 2026-07-03.
 let toastVentaIntervalo = null;
+/* AVISO AL COMISIONISTA POR WHATSAPP (JFC 2026-09-24, benchmark #2: Ricochet y
+   ConsignCloud avisan al consignador cuando se vende su pieza).
+   - Solo en el aparato que HIZO la venta: se llama desde el flujo de venta, nunca
+     desde el merge del sync, asi que otro aparato jamas lo repite.
+   - Nunca envia solo: muestra una tarjeta en linea (no modal) con un boton que
+     abre WhatsApp con el mensaje listo; la persona decide tocar "enviar".
+   - Solo lectura: usa /api/ventas/todas y /api/promotoras; no escribe nada.
+   - Sin telefono, sin comision o COUNTER SALE: no aparece nada.
+   - La tarjeta se va sola a los 20 s o al tocarla. */
+async function ofrecerAvisoComisionista(ventaId, ubicacionId){
+  try {
+    if (!ventaId) return;
+    const [ventas, proms, ubics] = await Promise.all([
+      fetch(`${API}/ventas/todas?ubicacionId=${encodeURIComponent(ubicacionId || "todas")}`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/promotoras`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/ubicaciones`).then(r => r.ok ? r.json() : [])
+    ]);
+    const v = (Array.isArray(ventas) ? ventas : []).find(x => x.id === ventaId);
+    if (!v || !(Number(v.comisionAsociado) > 0) || v.modoComision === "counter") return;
+    /* El comisionista se resuelve por la percha de la venta (la lista de ventas
+       solo trae su nombre; el id vive en la ubicacion). */
+    const u = (Array.isArray(ubics) ? ubics : []).find(x => x.id === v.ubicacionId);
+    const pr = u && u.promotoraId ? (Array.isArray(proms) ? proms : []).find(x => x.id === u.promotoraId) : null;
+    const tel = String((pr && pr.telefono) || "").replace(/\D/g, "");
+    if (!pr || tel.length < 7) return;
+    const es = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+    const _neg = document.getElementById("oc-negocio-nombre"); const negocio = (_neg && !_neg.hasAttribute("data-i18n")) ? (_neg.textContent || "") : "";
+    const total = fmtMoney((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0));
+    const comision = fmtMoney(v.comisionAsociado);
+    const primer = String(pr.nombre || "").trim().split(/\s+/)[0] || "";
+    const msg = es
+      ? `Hola ${primer}, se vendió ${v.cantidad} × ${v.productoNombre} en ${v.ubicacionNombre || ""} por ${total}. Tu comisión: ${comision}.${negocio ? " — " + negocio.trim() : ""}`
+      : `Hi ${primer}, ${v.cantidad} × ${v.productoNombre} just sold at ${v.ubicacionNombre || ""} for ${total}. Your commission: ${comision}.${negocio ? " — " + negocio.trim() : ""}`;
+    const url = "https://wa.me/" + tel + "?text=" + encodeURIComponent(msg);
+    let caja = document.getElementById("oc-aviso-comisionista");
+    if (caja) caja.remove();
+    caja = document.createElement("div");
+    caja.id = "oc-aviso-comisionista";
+    caja.setAttribute("role", "status");
+    caja.style.cssText = "position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h,78px) + 84px);z-index:401;background:#FFFFFF;color:var(--ink,#1a1a1a);border:2px solid #0F7A6C;border-radius:10px;padding:12px 14px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;font-size:15px;font-weight:700;";
+    const txt = document.createElement("span");
+    txt.textContent = es ? `¿Avisar a ${primer} que se vendió su pieza?` : `Tell ${primer} their piece sold?`;
+    const a = document.createElement("a");
+    a.href = url; a.target = "_blank"; a.rel = "noopener";
+    a.textContent = es ? "Avisar por WhatsApp" : "Tell on WhatsApp";
+    a.style.cssText = "background:#0F7A6C;color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;border-radius:8px;padding:10px 14px;text-decoration:none;font-size:15px;font-weight:700;";
+    const cerrar = document.createElement("button");
+    cerrar.type = "button"; cerrar.textContent = es ? "Ahora no" : "Not now";
+    cerrar.style.cssText = "background:transparent;border:2px solid var(--ink,#1a1a1a);color:var(--ink,#1a1a1a);border-radius:8px;padding:8px 12px;font-size:14px;font-weight:700;cursor:pointer;";
+    const quitar = () => { try { caja.remove(); } catch (_) {} };
+    a.addEventListener("click", () => setTimeout(quitar, 300));
+    cerrar.addEventListener("click", quitar);
+    const botones = document.createElement("span");
+    botones.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
+    botones.appendChild(a); botones.appendChild(cerrar);
+    caja.appendChild(txt); caja.appendChild(botones);
+    document.body.appendChild(caja);
+    setTimeout(quitar, 20000);
+  } catch (e) { console.warn("[aviso comisionista]", e && e.message); }
+}
+
 function mostrarToastAnular(ventaId, productoId){
   const cont = document.getElementById("oc-toast-venta");
   if (!cont) return;
