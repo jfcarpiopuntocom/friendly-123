@@ -5,18 +5,31 @@
 > fecha y motivo) y después se usa. Vale para index.html, dashboard.html, save.html,
 > visualize.html, manual.html y la landing del website.
 
-## 0. DECISIÓN PENDIENTE DE JFC — qué "look" manda
-Hoy conviven TRES looks (capturas enviadas el 2026-09-24). JFC elige uno y a ESO se
-uniforma todo lo demás. Hasta que elija, no se hace trabajo visual (Bloque 6 espera).
+## 0. DECISIÓN DE JFC (2026-09-24): manda el look A, el de Commissions
+JFC eligió **A: la app por dentro, tal como se ve Commissions (shell 366+)**: holgura,
+mucha información en pantalla sin que la UI estorbe, escala de letra 13/14/16 ("la
+gente puede agrandar con el dedo; mi trabajo es darles oxígeno para respirar"), y
+**color con moderación**: el color pleno es de SIMON (el semáforo), crucial para la app
+y su marketing, y nada debe confundirse con él.
 
-| Opción | Dónde se ve hoy | Carácter | Qué cambiaría en el resto |
-|---|---|---|---|
-| **A. App por dentro** (index.html) | Today, Commissions, Sold | Herramienta: gris frío de fondo (#E2E8ED), tarjetas blancas con borde de 2px, esquinas 4–6px, botones sólidos, mono en cifras | save/visualize pierden píldoras (999px) y esquinas 12px; dashboard adopta el borde 2px y las esquinas chicas |
-| **B. Landing / save.html** | save.html, visualize.html | Marketing: lienzo #F8F9FB, tarjetas 12px, píldoras, chips de color pleno con texto blanco | La app suaviza esquinas a 12px, botones píldora, header más aireado; hay que arreglar el contraste blanco-sobre-verde (2.2:1) antes de copiarlo |
-| **C. Manual / dashboard** (manual.html, dashboard.html) | Manual maestro, portada del dashboard | Editorial: blanco puro, Space Grotesk grande, esquinas 8px, franjas de color a la izquierda, mucho aire | La app gana aire y títulos más grandes; la landing baja el color pleno a franjas |
+Qué se uniforma y qué no:
+- **SÍ**: todo lo que ve el cliente ADENTRO (index.html, dashboard.html interior) y
+  los **reportes exportables** (CSV, PDF, WhatsApp, recibos).
+- **NO se toca**: la pantalla del PIN (candado) y la entrada del panel privado de JFC.
+  Están perfectas.
+- **Reportes exportables sin nuestro logo.** Un PDF con logo ajeno se lo arruina al
+  cliente. Excepción futura: un reporte "by friendly-123" (firma, muestra o gratuito)
+  solo si Jev mide que sube la conversión (metodología de búsqueda de la verdad).
 
-Lo que **NO cambia** con ninguna opción (ya es idéntico en los cinco archivos y se
-queda): tinta, lienzo, semáforo, fuentes display y mono. Ver §1.
+Parámetros del look A (los que usa Commissions hoy):
+- Fondo de página `--paper-deep` (#E2E8ED) en la app; en el dashboard `--canvas` (#F8F9FB).
+- Tarjeta blanca, borde 2px `--hairline`, radio **6px**, padding 16px, separación 12px.
+- Letra: 13px notas, 14px texto, 16px títulos de tarjeta, 22–24px título de sección.
+  Cifras en mono 24–32px para totales y 14px en tablas.
+- Botones: display 700, 14–16px, borde 2px, radio 6px, alto ≥44px en móvil.
+- Estado como chip pequeño (fondo `--sim-*-bg`, texto `--sim-*-dk`), nunca tarjetas
+  enteras pintadas. El rojo/verde de dinero solo en cifras y en un chip.
+- Ranking y matrices al fondo; lo que se paga arriba.
 
 ## 1. Tokens ya compartidos (fijos, no se discuten)
 ```css
@@ -64,7 +77,7 @@ les cambia el valor por separado.
 2. **Tamaño mínimo 13px** (14px en móvil para cualquier cosa que se lea de corrido).
    index.html tiene 30 usos de 10–12px: se suben al migrar, no se copian.
 3. **Cuatro esquinas completas.** Nada de clip-path diagonal, esquina rota, doblez ni
-   ojal. Radio único por look (A: 6px, B: 12px, C: 8px). Píldoras (999px) solo si gana B.
+   ojal. Radio único: **6px** (look A). Sin píldoras 999px dentro de la app ni en el dashboard.
 4. **Sin emojis en la UI.** Iconos = glifos de texto monocromos o SVG inline.
 5. **Texto sobre color pleno:** sobre verde #00C87A, naranja #F97316 y azul #5294AC el
    texto va en `--ink` (8.1 / 6.3 / 5.2 : 1). Blanco solo sobre rojo #E8365D en ≥14px
@@ -87,7 +100,7 @@ les cambia el valor por separado.
 
 ## 4. Espaciado y componentes
 - Escala de espacio: 4 / 8 / 12 / 16 / 24 / 32 px. Nada fuera de escala.
-- Tarjeta: fondo `--card`, borde 2px `--hairline` (look A) o 1px (B/C), padding 14–16px,
+- Tarjeta: fondo `--card`, borde 2px `--hairline`, radio 6px, padding 14–16px,
   margen inferior 12px. Borde de color = estado del semáforo, nunca fondo pleno en
   tarjetas grandes.
 - Chip de estado: fondo `--sim-*-bg`, texto `--sim-*-dk`, 13px bold. (Nunca fondo pleno

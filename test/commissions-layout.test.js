@@ -49,7 +49,9 @@ test("money comes first: totals by product, then promoter management at the end"
     "promoter form must come after the money");
   const r = region();
   assert.ok(r.includes("comm.totalsHeading"), "month totals strip missing");
-  const orden = r.match(/cont\.innerHTML = btnWA \+ btnExport \+ ([^;]+);/);
+  // Bloque 6 (JFC 2026-09-24): los botones viven en la barra de control (barraComisionesHtml);
+  // la guarda real (producto primero, tarjetas al final, ranking fuera) no cambia.
+  const orden = r.match(/cont\.innerHTML = (?:btnWA \+ btnExport \+ |barraComisionesHtml\(meses, btnWA \+ btnExport\) \+ )([^;]+);/);
   assert.ok(orden, "commissions render line not found");
   const partes = orden[1].split("+").map((s) => s.trim());
   assert.ok(partes.indexOf("cardsSection") === partes.length - 1, "rack cards must be the last block");
@@ -70,7 +72,7 @@ test("Summary by product is an always-visible section before Summary by rack / e
   assert.ok(!r.includes('if (!prods.length) return "";'),
     "by-product heading must not disappear when the month has no product rows");
 
-  const render = r.match(/cont\.innerHTML = btnWA \+ btnExport \+ ([^;]+);/);
+  const render = r.match(/cont\.innerHTML = (?:btnWA \+ btnExport \+ |barraComisionesHtml\(meses, btnWA \+ btnExport\) \+ )([^;]+);/);
   assert.ok(render, "commissions render line not found");
   const expression = render[1];
   assert.ok(expression.indexOf("resumenComisionPorProductoHtml") < expression.indexOf("cardsSection"),

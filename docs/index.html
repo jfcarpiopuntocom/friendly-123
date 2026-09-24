@@ -397,6 +397,38 @@
     box-shadow:0 0 0 rgba(33,28,20,0);
   }
 
+  /* TECLA DEL CASE, REUTILIZABLE (JFC 2026-09-24, Bloque 6): la misma tecla
+     metalica del header y del nav (luz arriba, cuerpo plata, canto oscuro) para
+     los controles de las secciones de adentro. Asi el interior habla el mismo
+     idioma que el case "metalico ochentero" sin cambiar nada del case. Estado
+     .hundida = tecla apretada (igual que la de idioma). Cero opacidad. */
+  .tecla{
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 45%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
+    border-radius:8px;
+    color:#14181C;
+    box-shadow:0 2px 0 var(--plata-canto), 0 2px 4px rgba(0,0,0,.16);
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    min-height:40px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .tecla:active:not(:disabled){ transform:translateY(2px); box-shadow:0 0 0 var(--plata-canto); }
+  .tecla.hundida{
+    background-image:linear-gradient(180deg, var(--plata-media) 0%, var(--plata-honda) 100%);
+    color:#FFFFFF;
+    box-shadow:inset 0 2px 3px rgba(0,0,0,.35);
+  }
+  /* Ventana de estado (RPG): rotulo en mono mayusculas como los del header
+     ("STORE / SHELF") y la cifra en tabular. Solo tipografia, misma tarjeta. */
+  .ventana-estado .rotulo{ font-family:var(--font-mono); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink); }
+  .ventana-estado .cifra{ font-family:var(--font-mono); font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:2px; }
+
   /* ================= HEADER ================= */
   header{
     /* Panel de teclado de la Timex Sinclair 2068: charcoal con veta y biseles. */
@@ -1935,8 +1967,11 @@
 
   <section id="vista-comisiones" class="vista">
     <h3 class="seccion" style="margin-top:0;" data-i18n="comm.heading">Commissions</h3>
-    <p style="font-size:14px;color:var(--ink-soft);margin-top:0;" data-i18n="comm.intro">What you owe each promoter this month, calculated sale by sale — no spreadsheets, no surprises.</p>
-    <details style="margin:-4px 0 12px;font-size:14px;">
+    <!-- JFC 2026-09-24 (Bloque 6): la UI se aparta. Intro y "como funciona" comparten
+         una linea; el control de la vista (mes, vista, acciones) es UNA barra. -->
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:0 0 10px;">
+    <p style="font-size:14px;color:var(--ink-soft);margin:0;" data-i18n="comm.intro">What you owe each promoter this month, calculated sale by sale — no spreadsheets, no surprises.</p>
+    <details style="margin:0;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.1">1. Each partner/promoter shelf shows what they've sold this month and what you owe them.</p>
@@ -1945,6 +1980,7 @@
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.comm.4">4. The ranking shows who's selling the most — and flags anyone who's gone quiet.</p>
       </div>
     </details>
+    </div>
     <!-- JFC 2026-09-23: primero la plata (por producto), el alta de comisionistas al final. -->
     <div id="listaComisiones"></div>
     <div id="gestionPromotoras" style="margin-top:28px;"></div>
@@ -7741,15 +7777,25 @@ function selectorMesComisionesHtml(meses){
   const opciones = lista.map((x) => `<option value="${escHtml(x.mes)}"${x.mes === elegido ? " selected" : ""}>${escHtml(_ocMesEtiqueta(x.mes))}${x.actual ? " " + t("comm.periodCurrent") : ""}${x.pendiente > 0 ? " · " + fmtMoney(x.pendiente) + " " + t("comm.periodUnpaid") : ""}</option>`).join("");
   // Meses anteriores con plata sin pagar: aviso en rojo con acceso directo, para que nunca se olviden.
   const atrasados = lista.filter((x) => !x.actual && x.pendiente > 0);
-  const aviso = atrasados.length ? `<div class="tag-card" style="text-align:left;padding:12px 14px;margin:0 0 14px;border:2px solid #C0392B;">
-      <div style="font-size:14px;font-weight:700;color:#C0392B;margin-bottom:8px;">${t("comm.periodPastUnpaid")}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">${atrasados.map((x) => `<button type="button" class="ir" data-commissions-jump="${escHtml(x.mes)}" onclick="cambiarMesComisiones('${escHtml(x.mes)}')" style="font-size:14px;min-height:44px;background:#FFFFFF;color:#C0392B;border:2px solid #C0392B;">${escHtml(_ocMesEtiqueta(x.mes))} · ${fmtMoney(x.pendiente)}</button>`).join("")}</div>
-    </div>` : "";
-  const nota = (_ocMesComisiones && _ocMesComisiones !== actual) ? `<p style="font-size:14px;color:var(--ink);margin:0 0 14px;">${t("comm.periodPastNote")}</p>` : "";
-  if (!opciones) return aviso;
-  return `<label style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;font-size:14px;font-weight:700;color:var(--ink);">${t("comm.periodLabel")}
-      <select data-commissions-month onchange="cambiarMesComisiones(this.value)" style="max-width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:6px 10px;border:2px solid #2C3E50;border-radius:8px;background:#FFFFFF;color:#0F1923;">${opciones}</select>
-    </label>` + aviso + nota;
+  /* Bloque 6 (JFC 2026-09-24): el aviso de meses sin pagar es UNA linea dentro de la
+     barra, no una tarjeta aparte. Mismo rojo, mismos botones de salto. */
+  const aviso = atrasados.length ? `<div data-commissions-unpaid style="display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;font-size:14px;font-weight:700;color:#B0183E;">${t("comm.periodPastUnpaid")}
+      ${atrasados.map((x) => `<button type="button" class="ir" data-commissions-jump="${escHtml(x.mes)}" onclick="cambiarMesComisiones('${escHtml(x.mes)}')" style="font-size:14px;min-height:36px;padding:4px 10px;margin:0;background:#FFFFFF;color:#B0183E;border:2px solid #B0183E;">${escHtml(_ocMesEtiqueta(x.mes))} · ${fmtMoney(x.pendiente)}</button>`).join("")}</div>` : "";
+  const nota = (_ocMesComisiones && _ocMesComisiones !== actual) ? `<p style="font-size:14px;color:var(--ink);margin:0;">${t("comm.periodPastNote")}</p>` : "";
+  const control = opciones ? `<label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;flex:1 1 260px;min-width:0;font-size:14px;font-weight:700;color:var(--ink);">${t("comm.periodLabel")}
+      <select data-commissions-month onchange="cambiarMesComisiones(this.value)" style="flex:1 1 200px;min-width:0;max-width:100%;box-sizing:border-box;font-size:14px;min-height:40px;padding:4px 10px;border:2px solid #2C3E50;border-radius:6px;background:#FFFFFF;color:#0F1923;font-weight:700;">${opciones}</select>
+    </label>` : "";
+  return { control, aviso, nota };
+}
+/* Bloque 6 (JFC 2026-09-24): UNA barra de control para Commissions: mes + vista +
+   acciones en una fila que envuelve en movil; debajo, solo si hace falta, la linea
+   de meses sin pagar. Antes cada cosa ocupaba su propia linea y la UI estorbaba. */
+function barraComisionesHtml(meses, acciones){
+  const sel = selectorMesComisionesHtml(meses);
+  const filas = [sel.aviso, sel.nota].filter(Boolean).map((x) => `<div style="margin-top:8px;">${x}</div>`).join("");
+  return `<div class="tag-card" data-commissions-toolbar style="text-align:left;padding:10px 14px;margin:0 0 14px;">
+    <div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">${sel.control}${selectorVistaComisionesHtml()}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">${acciones}</div></div>${filas}
+  </div>`;
 }
 function agruparVentasPorProducto(rows, soloComision, mes){
   const map = new Map();
@@ -7783,8 +7829,8 @@ function selectorVistaComisionesHtml(){
   const boton = (vista, texto, activo) => `<button type="button" role="tab" id="comm-tab-${vista}"
     data-commissions-view="${vista}" aria-controls="comm-panel-${vista}" aria-selected="${activo ? "true" : "false"}"
     tabindex="${activo ? "0" : "-1"}" onclick="cambiarVistaComisiones('${vista}')"
-    style="font-size:14px;font-weight:700;padding:9px 14px;border:2px solid #2C3E50;border-radius:8px;background:${activo ? "#2C3E50" : "#FFFFFF"};color:${activo ? "#FFFFFF" : "#0F1923"};">${texto}</button>`;
-  return `<div role="tablist" aria-label="Commissions summary view" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;">
+    class="tecla${activo ? " hundida" : ""}">${texto}</button>`;
+  return `<div role="tablist" aria-label="Commissions summary view" style="display:flex;gap:6px;flex-wrap:wrap;margin:0;">
     ${boton("product", t("comm.viewProduct"), true)}${boton("rack", t("comm.viewRack"), false)}
   </div>`;
 }
@@ -7797,8 +7843,7 @@ function cambiarVistaComisiones(vista){
     const activo = boton.dataset.commissionsView === elegida;
     boton.setAttribute("aria-selected", activo ? "true" : "false");
     boton.tabIndex = activo ? 0 : -1;
-    boton.style.background = activo ? "#2C3E50" : "#FFFFFF";
-    boton.style.color = activo ? "#FFFFFF" : "#0F1923";
+    boton.classList.toggle("hundida", activo);
   });
 }
 /* Perchas de la semilla VIEJA del demo (julio-agosto 2026) que quedaron en tiendas
@@ -7809,15 +7854,15 @@ function esPerchaSemillaVieja(id) { return PERCHAS_SEMILLA_VIEJA.indexOf(String(
 function resumenComisionPorProductoHtml(prods, unidadesPropias){
   // JFC 2026-09-24: esta seccion no desaparece si el mes aun no tiene filas.
   // Asi Commissions conserva siempre el orden mental: producto primero, pago por percha despues.
-  const apertura = selectorVistaComisionesHtml() + `<section id="comm-panel-product" role="tabpanel" data-commissions-section="by-product" aria-labelledby="comm-tab-product comm-by-product-heading">
+  const apertura = `<section id="comm-panel-product" role="tabpanel" data-commissions-section="by-product" aria-labelledby="comm-tab-product comm-by-product-heading">
     <h3 id="comm-by-product-heading" class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
     <p style="font-size:14px;color:var(--ink-soft);margin:0 0 10px;">${t("comm.byProductIntro")}</p>`;
   if (!prods.length) return apertura + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}${unidadesPropias > 0 ? `<p style="margin:8px 0 0;font-size:14px;color:var(--ink);">${window.tf("comm.byProductOwnSales", { n: unidadesPropias })}</p>` : ""}</div></section>`;
   // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
   const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
-  const tile = (label, val, color) => `<div class="tag-card" style="padding:10px 12px;margin:0;text-align:left;">
-      <div style="font-size:13px;font-weight:700;color:var(--ink);">${label}</div>
-      <div style="font-size:16px;font-weight:700;color:${color};">${fmtMoney(val)}</div></div>`;
+  const tile = (label, val, color) => `<div class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;">
+      <div class="rotulo">${label}</div>
+      <div class="cifra" style="color:${color};">${fmtMoney(val)}</div></div>`;
   return apertura + `<h4 class="seccion" style="font-size:14px;margin:16px 0 8px;">${_ocMesComisiones ? escHtml(_ocMesEtiqueta(_ocMesComisiones)) : t("comm.totalsHeading")}</h4>
     <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:18px;">
       ${tile("Sales with commission", tot.bruto, "var(--ink)")}${tile("Associates take", tot.socio, "var(--ink)")}
@@ -7856,11 +7901,11 @@ async function cargarComisiones(){
     return;
   }
   // Rec 03: botón que arma el resumen del día y lo abre en WhatsApp listo.
-  const btnWA = `<button class="ir" style="font-size:14px;margin-bottom:16px;background:#25D366;color:#fff;border-color:#1da851;" onclick="enviarResumenWhatsApp()">${t("comm.sendWhatsappDaily")}</button>`;
+  const btnWA = `<button class="ir" style="font-size:14px;min-height:40px;padding:6px 12px;margin:0;background:#25D366;color:#0F1923;border-color:#1da851;" onclick="enviarResumenWhatsApp()">${t("comm.sendWhatsappDaily")}</button>`;
   // Exportar comisiones a CSV (2026-08-27, portado de amigable-123): descarga
   // un CSV con el desglose por percha del mes. El dueño lo puede abrir en
   // Excel/Sheets o mandarlo al contador.
-  const btnExport = `<button class="ir" style="font-size:14px;margin-bottom:16px;background:#2C3E50;color:#fff;border-color:#0F1923;" onclick="exportarComisionesCSV()">⬇ Export CSV</button>`;
+  const btnExport = `<button class="tecla" style="margin:0;" onclick="exportarComisionesCSV()">⤓ Export CSV</button>`;
 
   const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones);
   // Rec 04 + 09: ranking de asociados/as con su mejor SKU y alerta de dormido.
@@ -7987,7 +8032,7 @@ async function cargarComisiones(){
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
       ? `<span class="badge-estado rojo" style="font-size:13px;">dormant ${f.diasSinVenta}d</span>` : "";
     return `
-    <div class="tag-card" style="text-align:left;margin-bottom:12px;padding:16px;">
+    <div class="tag-card" data-liq-ubic="${escHtml(f.ubicacionId || "")}" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}${esPerchaSemillaVieja(f.ubicacionId) ? ` <span class="badge-estado amarillo" style="font-size:13px;">${t("comm.sampleRack")}</span>` : ""}</strong>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado}</span></div>
@@ -8038,10 +8083,7 @@ async function cargarComisiones(){
   const unidadesPropiasMes = (Array.isArray(ventasTodas) ? ventasTodas : []).filter(v =>
     (_ocMesComisiones ? v.mes === _ocMesComisiones : v.delMesActual) && v.comisionPct == null && (!v.ubicacionTipo || v.ubicacionTipo === "propio"))
     .reduce((a, v) => a + (Number(v.cantidad) || 1), 0);
-  cont.innerHTML = btnWA + btnExport + resumenComisionPorProductoHtml(porProducto, unidadesPropiasMes) + cardsSection;
-  // Shell 371: el selector de mes (y el aviso de meses sin pagar) va encima de todo,
-  // como control de la vista; el orden del dinero de la linea anterior no cambia.
-  cont.insertAdjacentHTML("afterbegin", selectorMesComisionesHtml(meses));
+  cont.innerHTML = barraComisionesHtml(meses, btnWA + btnExport) + resumenComisionPorProductoHtml(porProducto, unidadesPropiasMes) + cardsSection;
   cambiarVistaComisiones("product");
   // Ranking y RFM van en su propio contenedor, debajo del alta de comisionistas (no llevan listeners).
   const rankCont = document.getElementById("rankingComisiones");
@@ -8576,6 +8618,20 @@ async function procesarDeepLinkEditar() {
     var navP = document.querySelector('nav button[data-vista="perchas"]');
     if (navP) navP.click();
     setTimeout(function () { try { if (typeof abrirEditorComisionPercha === "function") abrirEditorComisionPercha(id); } catch (_) {} }, 600);
+  } else if (tipo === "comisiones") {
+    /* Bloque 6 (JFC 2026-09-24): el dashboard manda aqui con #editar=comisiones:<ubicacionId>
+       para PAGAR o revisar una percha. El tablero no escribe dinero: la app lo hace
+       con su boton probado. Se abre Commissions y se resalta la tarjeta. */
+    var navC = document.querySelector('nav button[data-vista="comisiones"]');
+    if (navC) navC.click();
+    (function buscar(i) {
+      var card = document.querySelector('[data-liq-ubic="' + sel + '"]');
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.style.outline = "3px solid var(--sim-amarillo,#E8A020)";
+        setTimeout(function () { try { card.style.outline = ""; } catch (_) {} }, 4000);
+      } else if (i < 40) setTimeout(function () { buscar(i + 1); }, 250);
+    })(0);
   } else if (tipo === "producto") {
     var navI = document.querySelector('nav button[data-vista="inventario"]');
     if (navI) navI.click();
