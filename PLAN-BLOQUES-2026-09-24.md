@@ -72,6 +72,32 @@ estado.
   Hostinger da una deploy key que JFC pega en GitHub (único paso manual).
   Claude nunca teclea claves.
 
+## Pasada Hugo/Paco/Luis de Commissions — HECHA 2026-09-24 (Fable 5.1, shell v385)
+- `test/commissions-hugo-paco-luis.test.js`: 11 casos por el camino REAL
+  (mock-backend + merge de dos aparatos): % con coma/letras/150/-5, pagar dos
+  veces, devolver dos veces, corregir % de venta pagada, cambiar % a mitad de
+  mes, COUNTER SALE con asistente, margen con costo > precio, pagar el mes
+  anterior, A vende / B paga / A devuelve con merge doble, reparto 33.33 al
+  centavo, 40 ventas + 10 devoluciones + 3 pagos en desorden.
+- BUG REAL cazado y arreglado: PATCH /api/ventas/:id/comision reescribia la
+  comision de una venta YA PAGADA (13.33 -> 30.00). Ahora 409 (liquidada o
+  devuelta). Rojo contra el respaldo, verde con el fix. Ningun flujo de UI lo
+  usaba con ventas pagadas.
+- UI en Chromium real: dashboard-comisiones, counter-sale, commissions-switch
+  y devoluciones verdes (Playwright apuntado al Chromium preinstalado).
+
+## Panel de licencias v2 — HECHO 2026-09-24 (escala 1.000-10.000)
+- `docs/panel-licencias.js` + `test/panel-licencias.test.js` (10.000 licencias
+  indexadas en ~200 ms; 100 por pagina; filtros texto/estado/pago/lote/
+  inactividad; orden por columna; seleccion multiple + estado masivo con
+  concurrencia 4 y reporte de fallos; CSV de lo filtrado; sin texto gris).
+- Worker: `POST /licencias/lote` (N codigos con etiqueta y prefijo, nacen full),
+  `GET /lotes`, `POST|GET /licencias/:id/pagos` (asientos append-only, resumen
+  en el aparato, marca full). `test/worker-lotes-pagos.test.js`. **Falta que
+  JFC despliegue el Worker (wrangler) para que el panel vivo lo use.**
+- panel.html: fuera la tarjeta y fila de AMIGABLE y el "Apps 2" (POSCuenca no
+  estaba en el panel; el repo POSCuenca lo archiva JFC en GitHub > Settings).
+
 ## Escala (JFC 2026-09-24: 1.000-10.000 usuarios por gremios/asociaciones, licencias bulk)
 - Todo estatico (GitHub Pages hoy, Hostinger despues) + relay en Cloudflare Worker: costo marginal por usuario ~0; el dato vive en cada aparato.
 - Licencia bulk = lote de codigos F123- emitido por asociacion desde el panel privado, con prefijo/etiqueta del gremio para contar y renovar en bloque. No se guarda nada de sus clientes en nuestro lado.

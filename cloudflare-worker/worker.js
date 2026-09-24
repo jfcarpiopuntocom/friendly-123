@@ -655,6 +655,128 @@ async function handleDesarchivar(env, instanceId) {
   return json({ ok: true, restaurado: reg });
 }
 
+/* ============================================================================
+   LOTES + PAGOS (JFC 2026-09-24). Escala: 1.000-10.000 licencias por gremios y
+   asociaciones, con licencias bulk.
+   - Un LOTE son N codigos F123- emitidos de una vez con una ETIQUETA (el
+     gremio) y un prefijo corto. Cada codigo queda en lic:<codigo> =
+     {estado, lote, emitida}: es la MISMA llave que ya lee
+     aplicarLicenciaPagada, asi que el primer aparato que entre con ese codigo
+     hereda "full" sin que JFC toque nada. lote:<etiqueta> guarda la lista.
+     Los codigos se devuelven UNA vez en la respuesta; JFC los baja en CSV.
+   - Un PAGO es un asiento append-only en pagos:<codigo> (fecha, monto, moneda,
+     medio, referencia, hasta, nota, quien). Marca la licencia pagada (lic:) y
+     deja un resumen chico (pagoResumen) en el inst: del aparato para que el
+     listado NO necesite una lectura extra por fila. Lo pagado nunca se edita
+     ni se borra: un error se corrige con otro asiento (monto negativo).
+   Nada de esto toca datos de clientes: solo codigos, fechas y montos.
+   ========================================================================= */
+const LOTE_TOPE = 500;
+const ALFABETO_CODIGO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I: se dictan por telefono
+function trozoAleatorio(n) {
+  const b = new Uint8Array(n); crypto.getRandomValues(b);
+  let s = ""; for (let i = 0; i < n; i++) s += ALFABETO_CODIGO[b[i] % ALFABETO_CODIGO.length];
+  return s;
+}
+function codigoDeLote(prefijo) {
+  const p = String(prefijo || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  return `F123-${p}${trozoAleatorio(4 - p.length)}-${trozoAleatorio(4)}-${trozoAleatorio(4)}-${trozoAleatorio(5)}`;
+}
+const etiquetaOk = (s) => /^[A-Za-z0-9 _.-]{2,40}$/.test(String(s || ""));
+
+async function handleEmitirLote(req, env) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  let body = {}; try { body = await req.json(); } catch (_) { return json({ error: "JSON invalido" }, 400); }
+  const etiqueta = String(body.etiqueta || "").trim();
+  if (!etiquetaOk(etiqueta)) return json({ error: "Etiqueta del lote: 2 a 40 letras, numeros, espacio, punto, guion" }, 400);
+  const cantidad = Math.floor(Number(body.cantidad));
+  if (!Number.isFinite(cantidad) || cantidad < 1 || cantidad > LOTE_TOPE) return json({ error: `Cantidad: entre 1 y ${LOTE_TOPE} por lote` }, 400);
+  const estado = normalizarEstado(body.estado || "full");
+  const prefijo = String(body.prefijo || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  const claveLote = `lote:${etiqueta.toLowerCase()}`;
+  let lote = null;
+  try { const raw = await env.LICENCIAS.get(claveLote); lote = raw ? JSON.parse(raw) : null; } catch (_) { lote = null; }
+  if (!lote) lote = { etiqueta, prefijo, creado: Date.now(), codigos: [] };
+  if (lote.codigos.length + cantidad > LOTE_TOPE * 20) return json({ error: "Ese lote ya es demasiado grande; abre otra etiqueta" }, 400);
+  const nuevos = [];
+  const ahora = Date.now();
+  for (let i = 0; i < cantidad; i++) {
+    let codigo = codigoDeLote(prefijo);
+    for (let intento = 0; intento < 5; intento++) {
+      const existe = await env.LICENCIAS.get(`lic:${codigo}`);
+      if (!existe) break;
+      codigo = codigoDeLote(prefijo);
+    }
+    await env.LICENCIAS.put(`lic:${codigo}`, JSON.stringify({ estado, ts: ahora, lote: etiqueta, emitida: ahora }));
+    nuevos.push(codigo);
+  }
+  lote.codigos = lote.codigos.concat(nuevos);
+  lote.actualizado = ahora;
+  await env.LICENCIAS.put(claveLote, JSON.stringify(lote));
+  return json({ ok: true, etiqueta, prefijo, estado, emitidos: nuevos.length, totalLote: lote.codigos.length, codigos: nuevos });
+}
+
+async function handleListarLotes(req, env) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  const lista = await env.LICENCIAS.list({ prefix: "lote:" });
+  const lotes = (await Promise.all(lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => { try { return JSON.parse(v); } catch (_) { return null; } })))).filter(Boolean);
+  lotes.sort((a, b) => (b.creado || 0) - (a.creado || 0));
+  return json(lotes.map((l) => ({ etiqueta: l.etiqueta, prefijo: l.prefijo, creado: l.creado, actualizado: l.actualizado || l.creado, total: l.codigos.length, codigos: l.codigos })));
+}
+
+const MEDIOS_PAGO = ["transferencia", "efectivo", "tarjeta", "paypal", "stripe", "wise", "otro"];
+async function handleListarPagos(req, env, instanceId) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+  if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+  const reg = JSON.parse(raw);
+  const codigo = normCodigoLic(reg.licenseCode);
+  if (!codigo) return json({ codigo: "", pagos: [] });
+  const pRaw = await env.LICENCIAS.get(`pagos:${codigo}`);
+  return json({ codigo, pagos: pRaw ? JSON.parse(pRaw) : [] });
+}
+
+function resumirPagos(pagos) {
+  const total = +pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0).toFixed(2);
+  const ultimo = pagos.length ? pagos[pagos.length - 1] : null;
+  const hasta = pagos.map((p) => p.hasta).filter(Boolean).sort().pop() || null;
+  return { n: pagos.length, total, moneda: ultimo ? ultimo.moneda : "USD", ultimo: ultimo ? ultimo.fecha : null, hasta };
+}
+
+async function handleRegistrarPago(req, env, instanceId) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  let body = {}; try { body = await req.json(); } catch (_) { return json({ error: "JSON invalido" }, 400); }
+  const raw = await env.LICENCIAS.get(`inst:${instanceId}`);
+  if (!raw) return json({ error: "Instancia no encontrada" }, 404);
+  const reg = JSON.parse(raw);
+  const codigo = normCodigoLic(reg.licenseCode);
+  if (!codigo) return json({ error: "Este aparato no tiene licencia: activa una antes de registrar el pago" }, 400);
+  const monto = Number(body.monto);
+  if (!Number.isFinite(monto) || monto === 0 || Math.abs(monto) > 1000000) return json({ error: "Monto invalido (distinto de 0; negativo = correccion)" }, 400);
+  const moneda = String(body.moneda || "USD").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || "USD";
+  const medio = MEDIOS_PAGO.includes(String(body.medio || "").toLowerCase()) ? String(body.medio).toLowerCase() : "otro";
+  const hasta = /^\d{4}-\d{2}-\d{2}$/.test(String(body.hasta || "")) ? String(body.hasta) : null;
+  const fecha = /^\d{4}-\d{2}-\d{2}/.test(String(body.fecha || "")) ? String(body.fecha).slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const asiento = {
+    id: `pg-${Date.now().toString(36)}-${trozoAleatorio(4)}`, ts: Date.now(), fecha, monto: +monto.toFixed(2), moneda, medio,
+    referencia: String(body.referencia || "").slice(0, 80), hasta, nota: String(body.nota || "").slice(0, 200),
+    quien: String(body.quien || "panel").slice(0, 40), instanceId
+  };
+  const clavePagos = `pagos:${codigo}`;
+  let pagos = []; try { const pr = await env.LICENCIAS.get(clavePagos); pagos = pr ? JSON.parse(pr) : []; } catch (_) { pagos = []; }
+  pagos.push(asiento);
+  await env.LICENCIAS.put(clavePagos, JSON.stringify(pagos));
+  const resumen = resumirPagos(pagos);
+  if (resumen.total > 0) {
+    let lic = {}; try { const lr = await env.LICENCIAS.get(`lic:${codigo}`); lic = lr ? JSON.parse(lr) : {}; } catch (_) { lic = {}; }
+    await env.LICENCIAS.put(`lic:${codigo}`, JSON.stringify(Object.assign({}, lic, { estado: "full", ts: Date.now(), pagada: true })));
+    reg.estado = "full"; reg.estadoFijadoPanel = true; reg.fullLicencia = codigo;
+  }
+  reg.pagoResumen = resumen;
+  await guardarConHistorial(env, instanceId, reg);
+  return json({ ok: true, codigo, asiento, resumen, pagos });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -680,6 +802,15 @@ export default {
     }
 
     // Full instance list for panel
+    /* LOTES DE LICENCIAS y REGISTRO DE PAGOS (JFC 2026-09-24, escala 1.000-10.000
+       por gremios). Van ANTES de /licencias/:id para que "lote" no se lea como
+       un instanceId. Ver handleEmitirLote / handleRegistrarPago abajo. */
+    if (url.pathname === "/licencias/lote" && req.method === "POST") return handleEmitirLote(req, env);
+    if (url.pathname === "/lotes" && req.method === "GET") return handleListarLotes(req, env);
+    const mPagos = url.pathname.match(/^\/licencias\/([^/]+)\/pagos$/);
+    if (mPagos && req.method === "GET") return handleListarPagos(req, env, decodeURIComponent(mPagos[1]));
+    if (mPagos && req.method === "POST") return handleRegistrarPago(req, env, decodeURIComponent(mPagos[1]));
+
     if (url.pathname === "/licencias" && req.method === "GET") {
       if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
       const lista = await env.LICENCIAS.list({ prefix: "inst:" });

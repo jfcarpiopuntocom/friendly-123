@@ -206,6 +206,25 @@
     main{padding:18px 12px 48px;}
     #gate-box{padding:28px 20px 22px;}
   }
+/* ── LISTA DINAMICA v2 (JFC 2026-09-24). Tinta de verdad, nada gris, min 13px,
+   cuatro esquinas. Ver panel-licencias.js. ── */
+.lic-barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+.lic-th{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline dotted;}
+.lic-th:hover,.lic-th:focus{color:var(--gold);outline:none;}
+.lic-sub{font-size:13px;font-weight:600;color:var(--ink);}
+.lic-chip{display:inline-block;font-size:13px;font-weight:700;color:var(--ink);background:var(--surface);border:1px solid var(--gold);border-radius:6px;padding:1px 6px;margin-top:2px;}
+.lic-mini{font-size:13px;padding:3px 8px;margin-top:4px;background:transparent;border:1px solid var(--gold);color:var(--gold);}
+.lic-peligro{border-color:var(--red,#E8365D);color:var(--red,#E8365D);}
+.lic-lapiz{background:none;border:1px solid var(--border);color:var(--ink);border-radius:6px;font-size:13px;padding:0 5px;cursor:pointer;}
+tr.lic-sel td{background:rgba(255,200,0,.10);}
+.lic-check{width:18px;height:18px;cursor:pointer;}
+.lic-mas{margin-top:6px;font-size:13px;} .lic-mas summary{cursor:pointer;color:var(--ink);font-weight:700;}
+.lic-paginacion{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px;margin:10px 0 18px;color:var(--ink);}
+.lic-caja{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin:14px 0;font-size:14px;color:var(--ink);}
+.lic-caja summary{cursor:pointer;font-size:15px;}
+.lic-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;}
+.lic-modal-caja{background:var(--bg,#0f1218);color:var(--ink);border:1px solid var(--gold);border-radius:12px;padding:20px;width:min(640px,100%);max-height:90vh;overflow:auto;}
+.lic-pagos-tabla{width:100%;border-collapse:collapse;font-size:13px;} .lic-pagos-tabla th,.lic-pagos-tabla td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--border);color:var(--ink);}
 </style>
 </head>
 <body>
@@ -311,12 +330,6 @@
     </div>
     <!-- STATS -->
     <div class="sec-head"><h2>Resumen</h2><span class="hint" id="fecha-panel"></span></div>
-    <div class="stats-bar">
-      <div class="stat-box"><div class="stat-value">2</div><div class="stat-label">Apps</div></div>
-      <div class="stat-box"><div class="stat-value" style="color:var(--gold);">1</div><div class="stat-label">Main / demo pública</div></div>
-      <div class="stat-box"><div class="stat-value" style="color:var(--blue);">1</div><div class="stat-label">Relacionado</div></div>
-      <div class="stat-box"><div class="stat-value" style="color:var(--gold);">v1.2.0</div><div class="stat-label">Versión estable</div></div>
-    </div>
 
     <!-- LICENCIAS — conectado a un Cloudflare Worker externo (config vacía por defecto) -->
     <div class="sec-head"><h2>Licencias · instancias activas</h2><span class="hint" id="lic-meta">configura el Worker →</span></div>
@@ -368,21 +381,118 @@
       <button class="btn btn-outline" type="button" onclick="licCerrarMaestro()">Cerrar y borrar de pantalla</button>
     </div>
     <div class="stats-bar" id="lic-stats" style="margin-bottom:14px;"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <input class="lic-input" id="lic-filtro" placeholder="Buscar nombre, email, cédula o código…" oninput="licFiltrar()" style="flex:1;min-width:200px;">
-      <select class="lic-input" id="lic-filtro-estado" onchange="licFiltrar()" style="cursor:pointer;">
+    <!-- LISTA DINAMICA v2 (JFC 2026-09-24, escala 1.000-10.000). Filtros
+         combinables, orden por columna (click en el encabezado), 100 por
+         pagina, seleccion multiple con acciones masivas, pagos por licencia y
+         lotes por gremio. La logica esta en panel-licencias.js. -->
+    <div class="lic-barra">
+      <input class="lic-input" id="lic-filtro" placeholder="Buscar: negocio, nombre, email, WhatsApp, cédula, código, lote…" oninput="licFiltrarDebounce()" style="flex:2;min-width:220px;" aria-label="Buscar">
+      <select class="lic-input" id="lic-filtro-estado" onchange="licFiltrar()" aria-label="Estado">
         <option value="">Todos los estados</option>
         <option value="full">Full</option>
         <option value="minima">Minimal</option>
         <option value="bloqueada">Bloqueada</option>
       </select>
+      <select class="lic-input" id="lic-filtro-pago" onchange="licFiltrar()" aria-label="Pago">
+        <option value="">Pago: todos</option>
+        <option value="con">Con pago registrado</option>
+        <option value="sin">Sin pago</option>
+        <option value="vencido">Pago vencido</option>
+      </select>
+      <select class="lic-input" id="lic-filtro-lote" onchange="licFiltrar()" aria-label="Lote"><option value="">Lote: todos</option></select>
+      <select class="lic-input" id="lic-filtro-inactivo" onchange="licFiltrar()" aria-label="Inactividad">
+        <option value="">Actividad: toda</option>
+        <option value="30">Sin entrar 30+ días</option>
+        <option value="90">Sin entrar 90+ días</option>
+      </select>
+      <button class="btn btn-outline" type="button" onclick="licLimpiarFiltros()">Limpiar</button>
+      <button class="btn btn-outline" type="button" onclick="licExportCSV()" title="Exporta lo que está filtrado">CSV</button>
+    </div>
+    <div class="lic-barra" id="lic-bulk" style="display:none;">
+      <strong data-n>0 selected</strong>
+      <button class="btn btn-outline" type="button" onclick="licSeleccionarTodos(true)">Seleccionar todo lo filtrado</button>
+      <button class="btn btn-outline" type="button" onclick="licSeleccionarTodos(false)">Quitar selección</button>
+      <select class="lic-input" id="lic-bulk-estado" aria-label="Estado masivo">
+        <option value="full">→ Full</option>
+        <option value="minima">→ Minimal</option>
+        <option value="bloqueada">→ Bloqueada</option>
+      </select>
+      <button class="btn btn-primary" type="button" onclick="licBulkEstado()">Aplicar a la selección</button>
+      <span id="lic-bulk-progreso" role="status" aria-live="polite"></span>
     </div>
     <div class="tabla-wrap">
-      <div id="lic-empty" style="padding:34px 20px;text-align:center;color:var(--ink-soft);font-size:14px;display:none;">Aún no hay instancias. Cuando tengas el Worker configurado, aparecerán aquí.</div>
+      <div id="lic-empty" style="padding:34px 20px;text-align:center;color:var(--ink);font-size:14px;display:none;">Aún no hay instancias. Cuando tengas el Worker configurado, aparecerán aquí.</div>
       <table class="versiones" id="lic-tabla" style="display:none;">
-        <thead><tr><th>Estado</th><th>Código f123</th><th>Negocio</th><th>Nombre</th><th>Email</th><th>WhatsApp</th><th>Cédula</th><th>Activado</th><th>Última vez</th><th>Acción</th></tr></thead>
+        <thead><tr>
+          <th><input type="checkbox" id="lic-check-pagina" aria-label="Seleccionar página" onchange="licSeleccionarPagina(this.checked)"></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('estado')">Estado</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('codigo')">Código f123 · lote</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('negocio')">Negocio</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('nombre')">Nombre</button></th>
+          <th>Email</th><th>WhatsApp</th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('pago')">Pago</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('activatedAt')">Activado</button></th>
+          <th><button type="button" class="lic-th" onclick="licOrdenar('lastSeen')">Última vez</button></th>
+          <th>Acción</th>
+        </tr></thead>
         <tbody id="lic-tbody"></tbody>
       </table>
+    </div>
+    <div id="lic-paginacion" class="lic-paginacion" role="navigation" aria-label="Páginas"></div>
+
+    <!-- LOTES POR GREMIO (JFC 2026-09-24): N códigos de una vez con etiqueta y
+         prefijo. El Worker los guarda como pagados ("full"): el primer aparato
+         que entre con uno queda activado solo. Los códigos se muestran UNA vez;
+         bájalos en CSV. -->
+    <details class="lic-caja" id="lic-lotes">
+      <summary><strong>Lotes de licencias por gremio</strong> <span id="lic-lotes-resumen" class="lic-sub"></span></summary>
+      <div class="lic-barra" style="margin-top:10px;">
+        <input class="lic-input" id="lic-lote-etiqueta" placeholder="Etiqueta (gremio / asociación)" maxlength="40" style="flex:2;min-width:200px;" aria-label="Etiqueta">
+        <input class="lic-input" id="lic-lote-prefijo" placeholder="Prefijo (2-4)" maxlength="4" style="width:120px;" aria-label="Prefijo">
+        <input class="lic-input" id="lic-lote-cantidad" type="number" min="1" max="500" value="50" style="width:110px;" aria-label="Cantidad">
+        <select class="lic-input" id="lic-lote-estado" aria-label="Estado inicial"><option value="full">Nacen Full (pagadas por el gremio)</option><option value="minima">Nacen Minimal</option></select>
+        <button class="btn btn-primary" type="button" onclick="licEmitirLote()">Emitir lote</button>
+      </div>
+      <p id="lic-lote-msg" role="status" aria-live="polite" style="font-size:14px;margin:10px 0 0;"></p>
+      <div id="lic-lote-codigos" style="display:none;margin-top:10px;">
+        <textarea id="lic-lote-texto" readonly rows="6" style="width:100%;box-sizing:border-box;font-family:var(--mono);font-size:13px;color:var(--ink);"></textarea>
+        <button class="btn btn-outline" type="button" onclick="licBajarLoteCSV()">Bajar CSV de este lote</button>
+      </div>
+      <div class="tabla-wrap" style="margin-top:10px;">
+        <table class="versiones" id="lic-lotes-tabla" style="display:none;">
+          <thead><tr><th>Lote</th><th>Prefijo</th><th>Creado</th><th>Emitidos</th><th>Activados</th><th>Sin usar</th><th></th></tr></thead>
+          <tbody id="lic-lotes-tbody"></tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- PAGO (modal): asiento append-only por licencia. Un error se corrige con
+         otro asiento negativo, nunca editando. -->
+    <div id="lic-pago-modal" class="lic-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="lic-pago-titulo">
+      <div class="lic-modal-caja">
+        <h3 id="lic-pago-titulo" style="margin:0 0 6px;font-size:18px;">Registrar pago</h3>
+        <p id="lic-pago-quien" style="margin:0 0 12px;font-size:14px;"></p>
+        <div class="lic-barra">
+          <input class="lic-input" id="lic-pago-monto" type="number" step="0.01" placeholder="Monto (negativo = corrección)" style="flex:1;min-width:160px;" aria-label="Monto">
+          <input class="lic-input" id="lic-pago-moneda" value="USD" maxlength="3" style="width:80px;" aria-label="Moneda">
+          <select class="lic-input" id="lic-pago-medio" aria-label="Medio">
+            <option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="tarjeta">Tarjeta</option>
+            <option value="paypal">PayPal</option><option value="stripe">Stripe</option><option value="wise">Wise</option><option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="lic-barra" style="margin-top:8px;">
+          <input class="lic-input" id="lic-pago-fecha" type="date" aria-label="Fecha del pago">
+          <input class="lic-input" id="lic-pago-hasta" type="date" aria-label="Cubre hasta" title="Hasta cuándo cubre este pago (5 años por defecto)">
+          <input class="lic-input" id="lic-pago-ref" placeholder="Referencia / comprobante" maxlength="80" style="flex:1;min-width:160px;" aria-label="Referencia">
+        </div>
+        <input class="lic-input" id="lic-pago-nota" placeholder="Nota (opcional)" maxlength="200" style="width:100%;box-sizing:border-box;margin-top:8px;" aria-label="Nota">
+        <p id="lic-pago-msg" role="status" aria-live="polite" style="font-size:14px;min-height:20px;margin:10px 0;"></p>
+        <div id="lic-pago-historial" style="font-size:13px;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+          <button class="btn btn-outline" type="button" onclick="licCerrarPago()">Cerrar</button>
+          <button class="btn btn-primary" type="button" id="lic-pago-guardar" onclick="licGuardarPago()">Guardar asiento</button>
+        </div>
+      </div>
     </div>
 
     <!-- INSTANCIAS — detalle por proyecto -->
@@ -417,26 +527,6 @@
         </div>
       </div>
 
-      <!-- ══ AMIGABLE — proyecto relacionado (panel propio aparte) ══ -->
-      <div class="pcard otro">
-        <div class="pcard-top">
-          <div>
-            <div class="pcard-nombre">AMIGABLE</div>
-            <div class="pcard-sub">Proyecto relacionado · panel propio</div>
-          </div>
-          <span class="badge badge-otro">Related</span>
-        </div>
-        <div class="pcard-desc">Repo hermano de <strong style="color:var(--ink)">friendly-123</strong>. Tiene su propio panel maestro (aún con PIN de 3 dígitos — migración a 6 pendiente, JFC la hará en tarea aparte).</div>
-        <dl class="datos">
-          <dt>repo</dt><dd>AMIGABLE</dd>
-          <dt>rama</dt><dd>main</dd>
-          <dt>último</dt><dd>3b3d65c · 07-15 13:12</dd>
-        </dl>
-        <div class="pcard-actions">
-          <a class="btn btn-primary" href="https://jfcarpiopuntocom.github.io/AMIGABLE/panel.html" target="_blank" rel="noopener">Abrir su panel</a>
-          <a class="btn btn-outline" href="https://github.com/jfcarpiopuntocom/AMIGABLE" target="_blank" rel="noopener">Repo</a>
-        </div>
-      </div>
 
     </div>
 
@@ -453,10 +543,6 @@
           <tr>
             <td class="nom">friendly-123</td><td>friendly-123</td><td>master</td><td>v1.2.0</td>
             <td>0bc3621 · 07-15 13:20</td><td><span class="pill gold">Main</span></td>
-          </tr>
-          <tr>
-            <td class="nom">AMIGABLE</td><td>AMIGABLE</td><td>main</td><td>—</td>
-            <td>3b3d65c · 07-15 13:12</td><td><span class="pill blue">Related</span></td>
           </tr>
         </tbody>
       </table>
@@ -861,150 +947,10 @@ function licWaHref(tel) {
   const digits = String(tel || "").replace(/\D/g, "");
   return digits ? "https://wa.me/" + digits : "";
 }
-function licRenderTabla(data) {
-  if (!data.length) { licMostrarVacio(); return; }
-  document.getElementById("lic-empty").style.display = "none";
-  document.getElementById("lic-tabla").style.display = "table";
-  const tb = document.getElementById("lic-tbody");
-  tb.innerHTML = "";
-
-  // ONE LICENSE = ONE BUSINESS = ONE ROW (JFC 2026-07-28).
-  // Every device makes its own instanceId, so activating the same license on a
-  // second phone used to add a second row and look like a second customer. The
-  // most recent device heads the row (data arrives sorted by lastSeen) and the
-  // rest fold underneath. Instances with no code are NOT grouped: those are
-  // independent demos, and lumping them under "" would mix strangers together.
-  const grupos = [];
-  const idx = {};
-  data.forEach(r => {
-    const cod = String(r.licenseCode || "").trim().toUpperCase();
-    if (!cod) { grupos.push({ cod: "", filas: [r] }); return; }
-    if (idx[cod] === undefined) { idx[cod] = grupos.length; grupos.push({ cod: cod, filas: [] }); }
-    grupos[idx[cod]].filas.push(r);
-  });
-
-  /* SEÑAL DE CLAIM (JFC 2026-08-27). Cuando DOS licencias distintas comparten
-     el mismo email, es muy probable que sean los aparatos sueltos de la misma
-     persona (ej. "James Bond Store" en la PC y "007 Store" en el cel). Se marca
-     la fila para que el dueño sepa que puede unirlas con "claim & merge" desde
-     la app. Es solo señalización visual; el claim se hace en la app, no aquí. */
-  const porEmail = {};
-  _licData.forEach(r => {
-    const e = String(r.email || "").trim().toLowerCase();
-    if (e) { (porEmail[e] = porEmail[e] || new Set()).add(String(r.licenseCode || "").trim().toUpperCase()); }
-  });
-  const chipClaim = (email) => {
-    const e = String(email || "").trim().toLowerCase();
-    const n = porEmail[e] ? porEmail[e].size : 0;
-    if (n < 2) return "";
-    return ` <span style="font-size:11px;color:#B8860B;" title="Same email on ${n} licenses — likely the same person. Use 'claim & merge' in the app to join them.">⚠ same email on ${n} licenses — likely the same person (claim/merge)</span>`;
-  };
-
-  /* QUIÉN ENCABEZA LA FILA (JFC 2026-08-27: "sigue sin salir Sarah"). El teléfono
-     de pruebas de JFC (jfcarpio@gmail.com) adoptó la licencia K7M2 de idiomARTE y,
-     por checar más reciente, encabezaba la fila con el correo de JFC — el cliente
-     quedaba plegado e invisible. En ESTE panel maestro, un aparato con el correo
-     del propio JFC es SUYO, no del cliente: se manda al fondo del grupo para que
-     encabece el CLIENTE. No cambia ningún dato; es solo orden de presentación.
-     (De aquí en adelante el modo lord evita que el aparato de pruebas adopte la
-     licencia del cliente; esto ordena lo que ya quedó mezclado.) */
-  const MI_CORREO = "jfcarpio@gmail.com";
-  const esMio = (r) => String(r && r.email || "").trim().toLowerCase() === MI_CORREO;
-  /* PUNTUACIÓN DE IDENTIDAD (JFC 2026-08-28: "idiomARTE CUE / Sarah HB debe
-     estar en la primera fila"). La fila la encabeza el device con la identidad
-     más completa (nombreNegocio + nombre/apellido), no solo el más reciente.
-     Antes, si el device más reciente no tenía nombre de negocio, el cliente
-     real (idiomARTE / Sarah HB) quedaba plegado e invisible. Es solo orden de
-     presentación; no toca datos ni agrupamiento. */
-  const puntajeIdentidad = (r) => {
-    let p = 0;
-    if (String(r && r.nombreNegocio || "").trim()) p += 2;
-    if (String(r && r.nombre || "").trim()) p += 1;
-    if (String(r && r.apellido || "").trim()) p += 1;
-    if (String(r && r.email || "").trim()) p += 1;
-    return p;
-  };
-  _licTodos = [];
-  grupos.forEach(g => { g.filas.forEach(f => _licTodos.push(f)); });
-  grupos.forEach(g => {
-    if (g.filas.length > 1) {
-      const cliente = g.filas.filter(x => !esMio(x));
-      const mios = g.filas.filter(x => esMio(x));
-      // El cliente con la identidad más completa encabeza; desempata por lastSeen.
-      cliente.sort((a, b) => (puntajeIdentidad(b) - puntajeIdentidad(a)) || (new Date(b.lastSeen || 0) - new Date(a.lastSeen || 0)));
-      g.filas = cliente.concat(mios);
-    }
-  });
-
-  grupos.forEach(g => {
-    const r = g.filas[0];
-    const est = r.estado || "minima";
-    const id = licEsc(r.instanceId);
-    const waHref = licWaHref(r.whatsapp);
-    const n = g.filas.length;
-    /* CONTADOR DE DEVICES (JFC 2026-08-27: "es un counter de cuántos devices/PINs
-       activos tiene la licencia, realmente"). Se cuentan por separado los del
-       CLIENTE y los TUYOS de pruebas, para que el número refleje los aparatos
-       reales del negocio y no se infle con tu teléfono. El botón sigue abriendo el
-       detalle por si quieres ver cada aparato. */
-    const nCliente = g.filas.filter(x => !esMio(x)).length;
-    const nMios = n - nCliente;
-    const etiquetaDisp = nCliente ? (nCliente + " device" + (nCliente === 1 ? "" : "s") + (nMios > 0 ? ` · +${nMios} tuyo${nMios === 1 ? "" : "s"}` : "")) : (n + " device" + (n === 1 ? "" : "s") + " tuyos");
-    const soloJfc = n > 1 && nMios === n && !!g.cod;
-    const tr = document.createElement("tr");
-    tr.innerHTML =
-      `<td><span class="lic-badge ${licEsc(licNormEstado(est))}">${licEsc(licNormEstado(est))}</span></td>` +
-      `<td class="mono" style="color:var(--gold);">${licEsc(r.licenseCode || "—")}` +
-      (n > 1 ? `<br><button onclick="licToggleDisp('${id}')" title="Ver cada aparato con esta licencia" style="margin-top:4px;background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-size:13px;cursor:pointer;">${etiquetaDisp}</button>` : "") + `</td>` +
-      `<td>${r.nombreNegocio ? `<strong>${licEsc(r.nombreNegocio)}</strong>` : `<span style="color:var(--ink-soft);">—</span>`} <button onclick="licEditarCampo('${id}','negocio')" title="Editar el nombre del negocio" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;padding:0 2px;">✎</button></td>` +
-      `<td>${licEsc(((r.nombre || "") + " " + (r.apellido || "")).trim() || `—`)} <button onclick="licEditarCampo('${id}','nombre')" title="Editar el nombre del dueño/a" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;padding:0 2px;">✎</button></td>` +
-      `<td style="font-size:13px;">${licEsc(r.email || "—")}${esMio(r) ? ` <span style="font-size:11px;color:#F97316;">(tu aparato)</span>` : ""}${chipClaim(r.email)}</td>` +
-      `<td style="font-size:13px;">${waHref ? `<a href="${waHref}" target="_blank" style="color:#25D366;">${licEsc(r.whatsapp)}</a>` : "—"}</td>` +
-      `<td style="font-size:13px;">${licEsc(r.cedula || "—")}</td>` +
-      `<td class="date">${licFmtDate(r.activatedAt)}</td>` +
-      `<td class="date">${licFmtDate(r.lastSeen)}</td>` +
-      `<td><select id="lic-sel-${id}">` +
-      `<option value="minima"${licNormEstado(est) === "minima" ? " selected" : ""}>Minimal — free (25 items · 100 sales/mo · 1 employee)</option>` +
-      `<option value="full"${licNormEstado(est) === "full" ? " selected" : ""}>Full — uncapped</option>` +
-      `<option value="bloqueada"${licNormEstado(est) === "bloqueada" ? " selected" : ""}>Blocked</option>` +
-      `</select><button class="btn-ok" onclick="licCambiarEstado('${id}')">OK</button>` +
-      (soloJfc ? ` <button class="btn-ok" title="Unificar el nombre de estos aparatos propios; cada edición queda en el historial recuperable" onclick="licUnificarNombre('${licEsc(g.cod)}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Unificar nombre</button>` : "") +
-      ` <button class="btn-ok" title="Enganchar este aparato a TU licencia principal (dueño de la app). Reversible: queda en el historial." onclick="licAMiLicencia('${id}')" style="background:transparent;border:1px solid #E8A020;color:#E8A020;margin-left:4px;">A mi licencia</button>` +
-      ` <button class="btn-ok" title="Emitir un permiso de recuperación de cinco minutos para este aparato; no cambia datos" onclick="licEmitirMaestro('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Recuperación</button>` +
-      ` <button class="btn-ok" title="Re-enganchar esta oveja perdida a una licencia canónica (re-apunta su registro KV, reversible)" onclick="licReenganchar('${id}')" style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:4px;">Re-enganchar</button>` +
-      ` <button class="btn-ok" title="Delete this record (archived first, recoverable)" onclick="licBorrar('${id}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);margin-left:4px;">Delete</button></td>`;
-    tb.appendChild(tr);
-
-    // Extra devices of the same business: same license, different hardware.
-    // Folded, with their own buttons, because what you delete is one DEVICE,
-    // never the whole license.
-    g.filas.slice(1).forEach(h => {
-      const hid = licEsc(h.instanceId);
-      const trh = document.createElement("tr");
-      trh.className = "lic-disp lic-disp-" + id;
-      trh.style.display = "none";
-      trh.style.background = "rgba(255,255,255,.03)";
-      // Se muestra la MISMA identidad que la fila principal (correo, nombre,
-      // WhatsApp) — no un instanceId críptico (JFC 2026-08-27: "sigue sin salir
-      // Sarah"). idiomARTE compartía la licencia K7M2 con el teléfono de pruebas
-      // de JFC; plegada solo salía el id y parecía que el cliente no estaba.
-      const hWa = licWaHref(h.whatsapp);
-      trh.innerHTML =
-        `<td style="font-size:12px;color:#8a94a6;">↳ device</td>` +
-        `<td class="mono" style="font-size:12px;color:#8a94a6;">${licEsc(h.licenseCode || "—")}</td>` +
-        `<td style="font-size:12px;color:#8a94a6;">${licEsc(h.nombreNegocio || "—")}</td>` +
-        `<td>${licEsc(((h.nombre || "") + " " + (h.apellido || "")).trim() || "—")}</td>` +
-        `<td style="font-size:13px;">${licEsc(h.email || "—")}${esMio(h) ? ` <span style="font-size:11px;color:#F97316;">(tu aparato)</span>` : ""}</td>` +
-        `<td style="font-size:13px;">${hWa ? `<a href="${hWa}" target="_blank" style="color:#25D366;">${licEsc(h.whatsapp)}</a>` : "—"}</td>` +
-        `<td style="font-size:13px;">${licEsc(h.cedula || "—")}</td>` +
-        `<td class="date">${licFmtDate(h.activatedAt)}</td><td class="date">${licFmtDate(h.lastSeen)}</td>` +
-        `<td><button class="btn-ok" onclick="licReenganchar('${hid}')" title="Re-enganchar esta oveja perdida a una licencia canónica" style="background:transparent;border:1px solid var(--gold);color:var(--gold);">Re-enganchar</button> ` +
-        `<button class="btn-ok" onclick="licBorrar('${hid}')" style="background:transparent;border:1px solid var(--red,#E8365D);color:var(--red,#E8365D);">Delete</button></td>`;
-      tb.appendChild(trh);
-    });
-  });
-}
-
+/* Bloque licencias (JFC 2026-09-24): la tabla la pinta docs/panel-licencias.js
+   (indexado, filtros, orden, paginacion de 100, seleccion multiple, pagos y lotes).
+   Aqui solo queda el enchufe. */
+function licRenderTabla(data) { licPintar(); }
 function licToggleDisp(id) {
   document.querySelectorAll(".lic-disp-" + id).forEach(f => {
     f.style.display = f.style.display === "none" ? "table-row" : "none";
@@ -1322,15 +1268,18 @@ async function licDesarchivar(instanceId) {
   } catch (e) { alert("Network error: " + e.message); }
 }
 
-function licFiltrar() {
-  const q = document.getElementById("lic-filtro").value.toLowerCase();
-  const est = document.getElementById("lic-filtro-estado").value;
-  licRenderTabla(_licData.filter(r => {
-    const okEst = !est || licNormEstado(r.estado) === est;
-    const okQ = !q || (r.licenseCode || "").toLowerCase().includes(q) || (r.email || "").toLowerCase().includes(q) ||
-      (r.cedula || "").toLowerCase().includes(q) || ((r.nombre || "") + " " + (r.apellido || "")).toLowerCase().includes(q);
-    return okEst && okQ;
-  }));
+/* Filtros (JFC 2026-09-24): se leen de la barra y los aplica panel-licencias.js
+   sobre el indice ya armado; nunca se re-indexa por tecla. */
+function licFiltrosActuales() {
+  const v = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+  return { q: v("lic-filtro"), estado: v("lic-filtro-estado"), pago: v("lic-filtro-pago"), lote: v("lic-filtro-lote"), inactivoDias: v("lic-filtro-inactivo") };
+}
+function licFiltrar() { PanelLic.ui.pagina = 1; licPintar(); }
+let _licDebounce = null;
+function licFiltrarDebounce() { clearTimeout(_licDebounce); _licDebounce = setTimeout(licFiltrar, 120); }
+function licLimpiarFiltros() {
+  ["lic-filtro", "lic-filtro-estado", "lic-filtro-pago", "lic-filtro-lote", "lic-filtro-inactivo"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  licFiltrar();
 }
 async function licCambiarEstado(instanceId) {
   const sel = document.getElementById("lic-sel-" + instanceId);
@@ -1353,19 +1302,18 @@ async function licCambiarEstado(instanceId) {
     mostrarConfirmacion("Error al actualizar: " + e.message);
   }
 }
-function licExportCSV() {
-  if (!_licData.length) { mostrarConfirmacion("No hay instancias que exportar todavía"); return; }
-  const cols = ["licenseCode", "nombre", "apellido", "email", "whatsapp", "cedula", "estado", "activatedAt", "lastSeen", "instanceId"];
-  const rows = _licData.map(r => cols.map(c => {
-    let v = r[c] != null ? String(r[c]) : "";
-    if (c.endsWith("At") && r[c]) v = licFmtDate(r[c]);
-    return '"' + v.replace(/"/g, '""') + '"';
-  }).join(","));
-  const csv = [cols.join(","), ...rows].join("\n");
+/* CSV (JFC 2026-09-24): exporta lo FILTRADO y agrupado (una fila por licencia,
+   con lote, pagos y hasta cuando cubre). Lo que ves es lo que bajas. */
+function licBajarArchivo(texto, nombre) {
   const a = document.createElement("a");
-  a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
-  a.download = "friendly123-licencias-" + (new Date()).toISOString().slice(0, 10) + ".csv";
+  a.href = "data:text/csv;charset=utf-8,﻿" + encodeURIComponent(texto);
+  a.download = nombre;
   a.click();
+}
+function licExportCSV() {
+  const lista = PanelLic.ui.ultimaLista || [];
+  if (!lista.length) { mostrarConfirmacion("No hay licencias que exportar con este filtro"); return; }
+  licBajarArchivo(PanelLic.csv(lista, t => t ? new Date(t).toISOString() : ""), "friendly123-licencias-" + (new Date()).toISOString().slice(0, 10) + ".csv");
 }
 
 // ── MODAL — segundo PIN ──
@@ -1425,6 +1373,190 @@ function mostrarConfirmacion(texto) {
 
 // ── INIT ──
 initGate();
+</script>
+<!-- LISTA DINAMICA v2 (JFC 2026-09-24): logica pura y pintado en panel-licencias.js;
+     aqui van los enchufes con el Worker (estado masivo, pagos, lotes). Las
+     funciones con el mismo nombre que arriba (licRenderStats) REEMPLAZAN a las
+     viejas a proposito: la nueva cuenta licencias, no aparatos. -->
+<script src="./panel-licencias.js"></script>
+<script>
+let _licIndice = null, _licIndiceDe = null, _licLotes = null, _licPagoActual = null, _licUltimoLote = null;
+
+function licIndice() {
+  if (!_licIndice || _licIndiceDe !== _licData) {
+    _licIndice = PanelLic.indexar(_licData, { lotes: _licLotes || [] });
+    _licIndiceDe = _licData;
+    licLlenarSelectLotes();
+  }
+  return _licIndice;
+}
+function licReindexar() { _licIndice = null; licPintar(); }
+function licPintar() {
+  if (_licLotes === null) { _licLotes = []; licCargarLotes(); }
+  const idx = licIndice();
+  PanelLic.pintar(idx, licFiltrosActuales());
+  licRenderStats(_licData);
+  const cp = document.getElementById("lic-check-pagina"); if (cp) cp.checked = false;
+}
+function licPagina(n) { PanelLic.ui.pagina = n; licPintar(); }
+function licOrdenar(campo) {
+  if (PanelLic.ui.orden === campo) PanelLic.ui.dir = PanelLic.ui.dir === "asc" ? "desc" : "asc";
+  else { PanelLic.ui.orden = campo; PanelLic.ui.dir = (campo === "negocio" || campo === "nombre" || campo === "codigo") ? "asc" : "desc"; }
+  licPintar();
+}
+function licRenderStats() {
+  const s = PanelLic.stats(licIndice().grupos);
+  const box = (v, l, color) => `<div class="stat-box"><div class="stat-value"${color ? ` style="color:${color};"` : ""}>${v}</div><div class="stat-label">${l}</div></div>`;
+  document.getElementById("lic-stats").innerHTML =
+    box(s.licencias, "Licencias") + box(s.dispositivos, "Aparatos") + box(s.demos, "Demos sin código") +
+    box(s.full, "Full", "var(--green)") + box(s.minima, "Minimal", "var(--amber)") + box(s.bloqueada, "Bloqueadas", "var(--red)") +
+    box(s.pagadas, "Con pago") + box(s.vencidas, "Pago vencido", s.vencidas ? "var(--red)" : "") + box(s.inactivas30, "Sin entrar 30 días") +
+    box("USD " + s.totalCobrado.toFixed(2), "Cobrado (asientos)", "var(--gold)");
+}
+function licLlenarSelectLotes() {
+  const sel = document.getElementById("lic-filtro-lote"); if (!sel) return;
+  const actual = sel.value;
+  const etiquetas = [...new Set((_licLotes || []).map(l => l.etiqueta).concat((_licIndice ? _licIndice.grupos : []).map(g => g.lote).filter(Boolean)))].sort();
+  sel.innerHTML = '<option value="">Lote: todos</option>' + etiquetas.map(e => `<option value="${licEscAttr(e)}"${e === actual ? " selected" : ""}>${licEsc(e)}</option>`).join("");
+}
+
+/* ── SELECCION + ESTADO MASIVO ── */
+function licSeleccionarTodos(valor) { PanelLic.seleccionar(PanelLic.ui.ultimaLista || [], valor); licPintar(); }
+function licSeleccionarPagina(valor) {
+  document.querySelectorAll("#lic-tbody .lic-check").forEach(cb => { if (cb.checked !== valor) { cb.checked = valor; cb.dispatchEvent(new Event("change")); } });
+}
+async function licBulkEstado() {
+  const ids = PanelLic.seleccionados();
+  const estado = document.getElementById("lic-bulk-estado").value;
+  const prog = document.getElementById("lic-bulk-progreso");
+  if (!ids.length) { mostrarConfirmacion("No hay nada seleccionado"); return; }
+  const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  if (!confirm(`Cambiar ${ids.length} aparato(s) a "${estado}". ¿Seguro?`)) return;
+  prog.textContent = "0 / " + ids.length;
+  const r = await PanelLic.ejecutarEnLotes(ids, async (iid) => {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(iid) + "/estado", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify({ estado }) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const reg = _licData.find(x => x.instanceId === iid); if (reg) reg.estado = estado;
+  }, { concurrencia: 4, onProgreso: (h, t, f) => { prog.textContent = `${h} / ${t}` + (f ? ` · ${f} con error` : ""); } });
+  prog.textContent = `Listo: ${r.ok.length} ok` + (r.fallos.length ? `, ${r.fallos.length} con error (${r.fallos.slice(0, 3).map(f => f.item + ": " + f.error).join("; ")})` : "");
+  if (!r.fallos.length) PanelLic.limpiarSeleccion();
+  licReindexar();
+}
+
+/* ── PAGOS (asientos append-only por licencia) ── */
+function licAbrirPago(iid) {
+  const r = _licData.find(x => x.instanceId === iid); if (!r) return;
+  _licPagoActual = iid;
+  const hoy = new Date(); const hasta = new Date(hoy); hasta.setFullYear(hasta.getFullYear() + 5);
+  document.getElementById("lic-pago-quien").textContent = (r.nombreNegocio || "—") + " · " + (r.licenseCode || "sin código") + " · " + (r.email || "");
+  document.getElementById("lic-pago-monto").value = "";
+  document.getElementById("lic-pago-ref").value = ""; document.getElementById("lic-pago-nota").value = "";
+  document.getElementById("lic-pago-fecha").value = hoy.toISOString().slice(0, 10);
+  document.getElementById("lic-pago-hasta").value = hasta.toISOString().slice(0, 10);
+  document.getElementById("lic-pago-msg").textContent = r.licenseCode ? "" : "Este aparato no tiene licencia: activa una antes de registrar el pago.";
+  document.getElementById("lic-pago-guardar").disabled = !r.licenseCode;
+  document.getElementById("lic-pago-historial").innerHTML = "";
+  document.getElementById("lic-pago-modal").style.display = "flex";
+  licVerPagos(iid, true);
+  setTimeout(() => document.getElementById("lic-pago-monto").focus(), 50);
+}
+function licCerrarPago() { document.getElementById("lic-pago-modal").style.display = "none"; _licPagoActual = null; }
+async function licVerPagos(iid, dentroDelModal) {
+  const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  if (!dentroDelModal) licAbrirPago(iid);
+  const cont = document.getElementById("lic-pago-historial");
+  cont.innerHTML = '<span class="lic-sub">Cargando historial…</span>';
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(iid) + "/pagos", { headers: { "X-Master-Key": licMasterKey() } });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || ("HTTP " + res.status));
+    const pagos = j.pagos || [];
+    if (!pagos.length) { cont.innerHTML = '<span class="lic-sub">Sin pagos registrados para ' + licEsc(j.codigo || "esta licencia") + '.</span>'; return; }
+    const total = pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0);
+    cont.innerHTML = '<table class="lic-pagos-tabla"><thead><tr><th>Fecha</th><th>Monto</th><th>Medio</th><th>Referencia</th><th>Cubre hasta</th><th>Nota</th></tr></thead><tbody>' +
+      pagos.map(p => `<tr><td>${licEsc(p.fecha)}</td><td>${licEsc(p.moneda)} ${Number(p.monto).toFixed(2)}</td><td>${licEsc(p.medio)}</td><td>${licEsc(p.referencia || "—")}</td><td>${licEsc(p.hasta || "—")}</td><td>${licEsc(p.nota || "")}</td></tr>`).join("") +
+      `</tbody></table><p style="margin:8px 0 0;font-size:14px;"><strong>Total: ${licEsc(pagos[pagos.length - 1].moneda)} ${total.toFixed(2)}</strong> en ${pagos.length} asiento(s). Lo asentado no se edita: un error se corrige con un asiento negativo.</p>`;
+  } catch (e) { cont.innerHTML = '<span class="lic-sub">No se pudo leer el historial: ' + licEsc(e.message) + '</span>'; }
+}
+async function licGuardarPago() {
+  const iid = _licPagoActual; if (!iid) return;
+  const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  const msg = document.getElementById("lic-pago-msg");
+  const monto = Number(document.getElementById("lic-pago-monto").value);
+  if (!Number.isFinite(monto) || monto === 0) { msg.textContent = "Monto inválido (distinto de 0; negativo = corrección)."; return; }
+  const body = { monto, moneda: document.getElementById("lic-pago-moneda").value, medio: document.getElementById("lic-pago-medio").value,
+    fecha: document.getElementById("lic-pago-fecha").value, hasta: document.getElementById("lic-pago-hasta").value,
+    referencia: document.getElementById("lic-pago-ref").value, nota: document.getElementById("lic-pago-nota").value, quien: "panel" };
+  const btn = document.getElementById("lic-pago-guardar"); btn.disabled = true; msg.textContent = "Guardando…";
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(iid) + "/pagos", {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify(body) });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || ("HTTP " + res.status));
+    msg.textContent = `Asiento guardado. Total ${j.resumen.moneda} ${Number(j.resumen.total).toFixed(2)} en ${j.resumen.n} asiento(s).`;
+    const reg = _licData.find(x => x.instanceId === iid);
+    if (reg) { reg.pagoResumen = j.resumen; if (j.resumen.total > 0) reg.estado = "full"; }
+    document.getElementById("lic-pago-monto").value = "";
+    licVerPagos(iid, true);
+    licReindexar();
+  } catch (e) { msg.textContent = "Error: " + e.message; }
+  btn.disabled = false;
+}
+
+/* ── LOTES ── */
+async function licCargarLotes() {
+  const url = licWorkerUrl(); if (!url || !licMasterKey()) return;
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/lotes", { headers: { "X-Master-Key": licMasterKey() } });
+    if (!res.ok) return;
+    _licLotes = await res.json();
+    licPintarLotes();
+    licReindexar();
+  } catch (_) {}
+}
+function licPintarLotes() {
+  const tb = document.getElementById("lic-lotes-tbody"), tabla = document.getElementById("lic-lotes-tabla"), res = document.getElementById("lic-lotes-resumen");
+  if (!tb) return;
+  const lotes = _licLotes || [];
+  const usados = new Set((_licData || []).map(r => String(r.licenseCode || "").trim().toUpperCase()).filter(Boolean));
+  res.textContent = lotes.length ? `${lotes.length} lote(s) · ${lotes.reduce((s, l) => s + l.total, 0)} códigos` : "ninguno todavía";
+  tabla.style.display = lotes.length ? "table" : "none";
+  tb.innerHTML = lotes.map(l => {
+    const act = (l.codigos || []).filter(c => usados.has(String(c).toUpperCase())).length;
+    return `<tr><td><strong>${licEsc(l.etiqueta)}</strong></td><td class="mono">${licEsc(l.prefijo || "—")}</td><td class="date">${licFmtDate(l.creado)}</td><td>${l.total}</td><td style="color:var(--green);font-weight:700;">${act}</td><td>${l.total - act}</td>` +
+      `<td><button type="button" class="btn-ok lic-mini" onclick="licBajarLoteCSV('${licEscAttr(l.etiqueta)}')">CSV</button> <button type="button" class="btn-ok lic-mini" onclick="document.getElementById('lic-filtro-lote').value='${licEscAttr(l.etiqueta)}';licFiltrar();">Ver activados</button></td></tr>`;
+  }).join("");
+}
+async function licEmitirLote() {
+  const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
+  const etiqueta = document.getElementById("lic-lote-etiqueta").value.trim();
+  const prefijo = document.getElementById("lic-lote-prefijo").value.trim();
+  const cantidad = Number(document.getElementById("lic-lote-cantidad").value);
+  const estado = document.getElementById("lic-lote-estado").value;
+  const msg = document.getElementById("lic-lote-msg");
+  if (!etiqueta) { msg.textContent = "Ponle etiqueta al lote (el gremio o asociación)."; return; }
+  if (!(cantidad >= 1 && cantidad <= 500)) { msg.textContent = "Cantidad entre 1 y 500 por lote."; return; }
+  if (!confirm(`Emitir ${cantidad} código(s) "${estado}" para "${etiqueta}". Los códigos se muestran una sola vez. ¿Seguro?`)) return;
+  msg.textContent = "Emitiendo…";
+  try {
+    const res = await fetch(url.replace(/\/+$/, "") + "/licencias/lote", { method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify({ etiqueta, prefijo, cantidad, estado }) });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || ("HTTP " + res.status));
+    _licUltimoLote = j;
+    document.getElementById("lic-lote-texto").value = j.codigos.join("\n");
+    document.getElementById("lic-lote-codigos").style.display = "block";
+    msg.textContent = `${j.emitidos} código(s) emitidos para "${j.etiqueta}" (${j.totalLote} en total). Bájalos ahora: no se vuelven a mostrar juntos.`;
+    licCargarLotes();
+  } catch (e) { msg.textContent = "Error: " + e.message; }
+}
+function licBajarLoteCSV(etiqueta) {
+  let codigos, nombre;
+  if (etiqueta) { const l = (_licLotes || []).find(x => x.etiqueta === etiqueta); if (!l) return; codigos = l.codigos; nombre = etiqueta; }
+  else if (_licUltimoLote) { codigos = _licUltimoLote.codigos; nombre = _licUltimoLote.etiqueta; }
+  else return;
+  licBajarArchivo(PanelLic.csvCodigos(codigos, nombre), "friendly123-lote-" + nombre.replace(/[^A-Za-z0-9_-]+/g, "_") + "-" + (new Date()).toISOString().slice(0, 10) + ".csv");
+}
 </script>
 </body>
 </html>
