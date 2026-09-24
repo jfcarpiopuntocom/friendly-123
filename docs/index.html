@@ -1591,12 +1591,13 @@
          la busqueda de arriba, la complementa. Todos los roles la ven: el
          inventario es operativo, no dato personal de cliente. -->
     <div id="ordenInventario" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 10px;">
-      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;">Sort by:</span>
+      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;" data-i18n="inv.sortBy">Sort by:</span>
     </div>
     <!-- M6: resumen por familia. Vive ARRIBA del grid y no lo altera: si
          esta seccion fallara, la cuadricula sigue igual. -->
     <label id="invAgruparWrap" style="display:none;align-items:center;gap:9px;min-height:44px;font-size:15px;font-weight:700;cursor:pointer;margin:2px 0 6px;">
-      <input type="checkbox" id="invAgrupar" style="width:22px;height:22px;"> Agrupar por familia
+      <!-- i18n (JFC 2026-09-24, shell 376): antes "Agrupar por familia" fijo en espanol en la UI inglesa. -->
+      <input type="checkbox" id="invAgrupar" style="width:22px;height:22px;"> <span data-i18n="inv.groupByFamily">Group by family</span>
     </label>
     <div id="invFamilias" style="display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;"></div>
     <div class="grid-cajas" id="gridInventario"></div>
@@ -1883,7 +1884,7 @@
       </div>
     </details>
     <div id="vp-orden" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 12px;">
-      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;">Sort by:</span>
+      <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;" data-i18n="inv.sortBy">Sort by:</span>
     </div>
     <div id="vp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;"></div>
     <!-- TRANSFERS ENTRE PERCHAS (JFC 2026-08-28). Movido de Advanced a Perchas:
@@ -4662,7 +4663,7 @@ function pintarBotonesOrdenInventario() {
     const b = document.createElement("button");
     b.type = "button";
     b.dataset.ordInvCol = c.key;
-    b.textContent = c.label;
+    b.textContent = etiquetaOrdenInv(c);
     b.style.cssText = "font-size:13px;padding:4px 10px;border-radius:6px;border:1.5px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;";
     cont.appendChild(b);
   });
@@ -4676,6 +4677,11 @@ function pintarBotonesOrdenInventario() {
   });
   actualizarBotonesOrdenInventario(cont);
 }
+/* i18n (JFC 2026-09-24, shell 376): etiqueta de la columna desde i18n.js; c.label
+   (ingles) queda de respaldo si faltara la clave. */
+function etiquetaOrdenInv(c) {
+  try { var k = "inv.sort." + c.key, v = window.t(k); return v && v !== k ? v : c.label; } catch (_) { return c.label; }
+}
 function actualizarBotonesOrdenInventario(cont) {
   cont.querySelectorAll("[data-ord-inv-col]").forEach((b) => {
     const c = COLUMNAS_INVENTARIO.find((x) => x.key === b.dataset.ordInvCol);
@@ -4683,7 +4689,7 @@ function actualizarBotonesOrdenInventario(cont) {
     b.style.background = activo ? "var(--azul-medio,#2c4a68)" : "transparent";
     b.style.color = activo ? "#fbf5e8" : "var(--azul-medio,#2c4a68)";
     b.style.setProperty("-webkit-text-fill-color", activo ? "#fbf5e8" : "var(--azul-medio,#2c4a68)");
-    b.textContent = c.label + (activo ? (_ordenInv.asc ? " ↑" : " ↓") : "");
+    b.textContent = etiquetaOrdenInv(c) + (activo ? (_ordenInv.asc ? " ↑" : " ↓") : "");
   });
 }
 
@@ -4792,13 +4798,24 @@ function pintarResumenFamilias(productos) {
   var cont = document.getElementById("invFamilias");
   if (!cont) return;
   if (!agruparFamiliasActivo()) { cont.innerHTML = ""; return; }
+  _ultimosProductosFam = productos;
   var fams = resumenFamilias(productos);
   if (!fams.length) { cont.innerHTML = ""; return; }
+  // i18n (shell 376): antes "variantes · u." fijo en espanol.
   cont.innerHTML = fams.map(function (f) {
     return '<button type="button" class="fam-chip" data-fam="' + escHtml(f.familia) + '">' +
-      escHtml(f.familia) + " · " + f.variantes + " variantes · " + f.unidades + " u.</button>";
+      escHtml(f.familia) + " · " + escHtml(window.tf("inv.famChip", { n: f.variantes, u: f.unidades })) + "</button>";
   }).join("");
 }
+var _ultimosProductosFam = null;
+/* Al cambiar de idioma: re-etiquetar botones de orden (se crean una sola vez) y chips de familia. */
+window.addEventListener("oc-lang-change", function () {
+  try {
+    var ord = document.getElementById("ordenInventario");
+    if (ord && ord.dataset.listo) actualizarBotonesOrdenInventario(ord);
+    if (_ultimosProductosFam) pintarResumenFamilias(_ultimosProductosFam);
+  } catch (_) {}
+});
 
 /* Alta robusta de variante (v325). Reutiliza el formulario probado de alta,
    pero explicita la dimension y el valor. Nunca copia stock, barcode, ventas
