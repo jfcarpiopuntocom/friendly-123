@@ -6351,6 +6351,19 @@ async function abrirPanelVentaInfo(id, esTicket){
             <option value="__counter__"${!actualNom ? " selected" : ""} data-i18n="sale.comCounter">${escHtml(t("sale.comCounter"))}</option>
             ${(_promsVenta || []).map(function(pr){ return `<option value="${escHtml(pr.id)}"${_perchaVenta && _perchaVenta.promotoraId === pr.id ? " selected" : ""}>${escHtml(pr.nombre)}</option>`; }).join("")}
           </select>
+          <!-- Bloque 4 (JFC 2026-09-24): asistente opcional POR VENTA. Parte la
+               comision del asociado (no la de la casa) con otra persona; el motor
+               (aplicarRepartoAsistente) garantiza suma exacta al centavo. Se
+               ignora en COUNTER SALE. -->
+          <div id="vi-asistente-wrap" style="display:none;margin-top:6px;">
+            <label style="display:block;font-size:14px;"><span data-i18n="sale.assistant">${escHtml(t("sale.assistant"))}</span>
+              <select id="vi-asistente" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
+                <option value="" data-i18n="sale.assistantNone">${escHtml(t("sale.assistantNone"))}</option>
+                ${(_promsVenta || []).map(function(pr){ return `<option value="${escHtml(pr.id)}">${escHtml(pr.nombre)}</option>`; }).join("")}
+              </select></label>
+            <label style="display:block;font-size:14px;margin-top:6px;"><span data-i18n="sale.assistantPct">${escHtml(t("sale.assistantPct"))}</span>
+              <input id="vi-asistente-pct" type="number" min="0" max="100" step="1" value="50" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+          </div>
         </div>`;
       })()}
       ${esTicket ? `
@@ -6471,7 +6484,7 @@ async function abrirPanelVentaInfo(id, esTicket){
   }
   // ✎ Comisionista: expande el selector inline sin ocupar una línea fija.
   { const _cT = document.getElementById("vi-com-toggle"); const _cS = document.getElementById("vi-comisionista");
-    if (_cT && _cS) _cT.addEventListener("click", () => { _cS.style.display = _cS.style.display === "none" ? "block" : "none"; if (_cS.style.display !== "none") _cS.focus(); }); }
+    if (_cT && _cS) _cT.addEventListener("click", () => { _cS.style.display = _cS.style.display === "none" ? "block" : "none"; const _aw = document.getElementById("vi-asistente-wrap"); if (_aw) _aw.style.display = _cS.style.display; if (_cS.style.display !== "none") _cS.focus(); }); }
   // JFC 2026-09-02: checkbox "Add invoice" (default off) → muestra la caja
   // opcional de número de factura. Nunca obligatorio.
   const chkFac = document.getElementById("vi-add-factura");
@@ -6723,7 +6736,9 @@ async function confirmarVentaConInfo(id, esTicket){
     try {
       res = await fetch(`${API}/productos/${id}/venta`, {
         method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info, modoComision: _modoComisionVenta })
+        body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info, modoComision: _modoComisionVenta,
+          asistenteId: (_modoComisionVenta === "associate" && document.getElementById("vi-asistente")) ? (document.getElementById("vi-asistente").value || null) : null,
+          asistentePct: (document.getElementById("vi-asistente-pct") || {}).value })
       });
       data = await res.json();
     } catch (err) {
@@ -6804,7 +6819,8 @@ async function cargarVentasSold(){
           <div style="font-weight:700;font-size:15px;"><a href="#" class="oc-vs-goto" data-nombre="${escHtml(v.productoNombre)}" title="Find this product above" style="color:var(--azul-medio,#2c4a68);text-decoration:none;">${escHtml(v.productoNombre)}</a> <span style="color:var(--ink-soft);font-weight:400;">×${v.cantidad}</span></div>
           <div style="font-size:13px;color:var(--ink-soft);">${fmtFecha(v.fecha)} · ${cli}${chips.length ? " · " + chips.join(" · ") : ""}</div>
           ${v.notas ? `<div style="font-size:13px;color:var(--ink-soft);font-style:italic;">“${escHtml(v.notas)}”</div>` : ""}
-          ${bloqueada ? `<div style="font-size:12px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:2px;">Settled — locked</div>` : ""}
+          ${bloqueada ? `<div style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;margin-top:2px;">Settled — locked${v.devuelta ? " · Returned (deducted from the next payment)" : ""}</div>` : ""}
+          ${(v.reparto && v.asistenteNombre) ? `<div style="font-size:13px;color:var(--ink-soft);">Split with ${escHtml(v.asistenteNombre)} (${v.reparto[1].pct}% of the commission)</div>` : ""}
         </div>
         <div style="text-align:right;flex:0 0 auto;">
           <div style="font-weight:700;font-size:15px;">${money(total)}</div>
@@ -6812,6 +6828,8 @@ async function cargarVentasSold(){
             style="margin-top:6px;">✎</button>
           <button type="button" class="oc-vs-cancel" title="Undo sale" aria-label="Undo sale"
             style="margin-top:6px;margin-left:4px;font-size:18px;font-weight:700;padding:2px 8px;border:2px solid var(--rojo,#E8365D);border-radius:6px;background:transparent;color:var(--rojo,#E8365D);cursor:pointer;">↶</button>`}
+          ${(bloqueada && !v.devuelta && _puedeGestionarVenta) ? `<button type="button" class="oc-vs-return" title="Return (the commission is deducted from the next payment)"
+            style="margin-top:6px;font-size:14px;font-weight:700;padding:4px 10px;border:2px solid var(--rust,#E86040);border-radius:6px;background:transparent;color:var(--rust,#E86040);cursor:pointer;">Return</button>` : ""}
         </div>
       </div>
       <div class="oc-vs-editor" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--linea,#D7E0E8);">
@@ -6900,6 +6918,24 @@ async function cargarVentasSold(){
         // deshacer se re-registra una venta equivalente (mismo producto, cantidad,
         // cliente e info). Sin banner nuevo: usa el mismo toast de "deshacer".
         if (snap) mostrarToastDeshacerCancelacion(snap);
+      } catch (_) { await ocAlert("Could not reach the server."); }
+    });
+    /* Bloque 4 (JFC 2026-09-24): devolver una venta YA PAGADA. No se edita ni
+       se anula: el motor agrega un ajuste negativo al mes en curso. */
+    const btnReturn = row.querySelector(".oc-vs-return");
+    if (btnReturn) btnReturn.addEventListener("click", async () => {
+      const ok = await ocConfirm("Return this sale? The goods go back to stock and the commission already paid is deducted from the next payment. Nothing already paid is edited.");
+      if (!ok) return;
+      let motivo = "";
+      try { motivo = (await ocPrompt("Reason (optional):")) || ""; } catch (_) {}
+      const quien = (window.OCCurrentUser && window.OCCurrentUser.nombre) || "";
+      try {
+        const res = await fetch(`${API}/ventas/${id}/devolucion`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ motivo, quien }) });
+        const data = await res.json();
+        if (!res.ok) { await ocAlert(data.error || "Could not record the return."); return; }
+        cargarVentasSold();
+        if (document.getElementById("gridVender")) cargarGridVender();
+        if (typeof cargarComisiones === "function") cargarComisiones();
       } catch (_) { await ocAlert("Could not reach the server."); }
     });
   });
@@ -7966,6 +8002,10 @@ async function cargarComisiones(){
       </table>
       ${(f.avisosTrato && f.avisosTrato.length) ? f.avisosTrato.map(a => `<p style="font-size:13px;color:var(--rust,#E86040);margin:6px 0 0;">${escHtml(a)}</p>`).join("") : ""}
       ${f.ventasCorregidas ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ventasCorregidas} sale(s) this month have the percentage manually corrected.</p>` : ""}
+      ${(f.ajustes && f.ajustes.length) ? `<p style="font-size:13px;color:var(--rust,#E86040);font-weight:700;margin:6px 0 0;">${f.ajustes.length} return(s) of already-paid sales this month: ${fmtMoney(f.ajustes.reduce((a, x) => a + x.montoComisionSocio, 0))} deducted${f.ajustes.some(x => !x.liquidada) ? " from the next payment" : ""}.</p>
+      <details style="margin-top:4px;"><summary style="font-size:13px;cursor:pointer;color:var(--azul-medio,#2c4a68);">Who returned what →</summary>
+        <table style="width:100%;margin-top:4px;font-size:13px;">${f.ajustes.map(x => `<tr><td>${(() => { try { return new Date(x.fecha).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || undefined); } catch (_) { return String(x.fecha).slice(0, 10); } })()} · ${escHtml(x.quien || "")}${x.motivo ? " · " + escHtml(x.motivo) : ""}</td><td style="text-align:right;">${fmtMoney(x.montoComisionSocio)}${x.liquidada ? " (deducted)" : ""}</td></tr>`).join("")}</table></details>` : ""}
+      ${(f.repartoPersonas && f.repartoPersonas.length > 1) ? `<table style="width:100%;margin-top:8px;font-size:14px;"><tr><td colspan="2" style="font-weight:700;">Split between people this month</td></tr>${f.repartoPersonas.map(p => `<tr><td>${escHtml(p.nombre)}</td><td style="text-align:right;">${fmtMoney(p.monto)}</td></tr>`).join("")}</table>` : ""}
       ${f.esMesActual === false ? "" : editorComisionHtml(f)}
       ${(f.detallePendientes && f.detallePendientes.length) ? `
       <details style="margin-top:8px;">

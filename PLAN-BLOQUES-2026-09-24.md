@@ -45,7 +45,7 @@ estado.
   montoBaseComision si existe. Aditivo, sin schemaVersion. Sync: baseComision
   en catalogoPropio y estadoParaCheckpoint. UI: select en editor de comisión
   de percha. Tests de dinero + invariante comisión+neto=bruto.
-- [ ] 4. Commissions: clawback + split (aprobado). Devolución de venta YA
+- [x] 4. Commissions: clawback + split (aprobado). ESTADO 2026-09-24 (Fable 5.1): hecho en shell v379. test/commissions-clawback-split.test.js 6/6 rojo->verde, suite 246/246, check-sw OK. JFC retiro a Codex (2026-09-24), asi que no hubo coordinacion con CONTINUAR.md. Persona-testing Hugo/Paco/Luis NO corrido (la skill no esta en el contenedor): falta esa pasada y la URL viva desde la PC. Devolución de venta YA
   liquidada = registro NUEVO negativo en el próximo ciclo abierto (append-only,
   quién/cuándo/motivo); nunca editar lo pagado. Split por venta entre 2
   personas (vendedor+asistente), suma exacta al centavo; COUNTER SALE intacto.
