@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Commissions now shows everything sold this month, adding up to the same total as Sold: sales with commission, house COUNTER SALES and your own racks, plus returns and the fixed contribution actually deducted. The balance values your own inventory at cost; consignment is shown apart.",
+  "changelog": "Choosing a commissionist on a sale now earns their commission on any rack, including your own. Commissions and Sold update as soon as a sale arrives from another device, and each sale keeps the person who made it.",
   "requerida": false,
-  "shell": "f123-shell-v398",
+  "shell": "f123-shell-v399",
   "apagar": [],
   "releaseName": "v1.0"
 }
