@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Money and stock now match across Sold, Today, reports and Commissions: a rejected sale or edit no longer changes stock, an edited sale keeps the commission rate of its day, a paid sale cannot be voided, a returned paid sale leaves the day's income, and COUNTER SALES are marked clearly in Sold.",
+  "changelog": "Commissions now shows everything sold this month, adding up to the same total as Sold: sales with commission, house COUNTER SALES and your own racks, plus returns and the fixed contribution actually deducted. The balance values your own inventory at cost; consignment is shown apart.",
   "requerida": false,
-  "shell": "f123-shell-v396",
+  "shell": "f123-shell-v397",
   "apagar": [],
   "releaseName": "v1.0"
 }

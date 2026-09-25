@@ -267,3 +267,12 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [ ] DECISION JFC: linea de COUNTER SALES (casa) en la tarjeta de Commissions (Square lo hace como "Unattributed").
 - [ ] DECISION JFC: balance cuenta inventario a PRECIO DE VENTA e incluye piezas en consignacion (no son de la tienda).
 - [ ] DECISION JFC: aporte fijo y minimo garantizado se aplican POR VENTA; confirmar si el trato es por venta o por mes.
+
+## AVANCE shell v397 (Opus 5.5, 2026-09-24) — CIERRE: "nada fuera de vista" (JFC eligio mejores practicas)
+- [x] Commissions abre con "Everything sold this month": con comision + COUNTER SALES (casa) en perchas compartidas + perchas propias = Sold, al centavo. Devoluciones y neto, aporte fijo descontado. Fuente unica /api/comisiones/cuadre.
+- [x] "Still to pay" de arriba ahora incluye devoluciones pendientes (antes difería de las tarjetas).
+- [x] Tarjeta de percha: COUNTER SALES (casa) y total real (= Sold); percha con solo ventas de la casa ya no va a "sin ventas".
+- [x] Balance a mejor practica: activo = inventario PROPIO a COSTO; a precio de venta y consignacion (de las consignadoras) quedan como referencia. La capa contable ya no mezcla precio de venta con costo.
+- [x] Aporte fijo / minimo: NO se recalculo nada (dinero sellado). La pantalla decia "per event" y restaba una vez; el motor lo aplica por venta. Etiquetas "por venta" y la tarjeta muestra lo descontado de verdad.
+- [x] Pruebas C1-C4: rojo 0/4 en v396, verde 4/4. commissions-belen: regex actualizada a la nueva expresion, misma guarda (sin ventas = plegada).
+- [ ] Opcion futura si alguien la pide: aporte fijo POR MES (renta de espacio). Requiere plan de dinero; no construido.

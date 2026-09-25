@@ -1647,6 +1647,21 @@
             modalidad: (t.pct || 0) >= 50 ? "artista" : "vendedor",
           };
         })(),
+        /* NADA FUERA DE VISTA (JFC 2026-09-24, pedido de Belen). Las COUNTER SALES
+           de la percha (de la casa, sin comision) no entran al bruto con
+           comision, pero SI se muestran aparte: bruto con comision + casa =
+           total real de la percha, igual que en Sold. contribFijaMes es lo que
+           el motor DE VERDAD desconto este mes (se aplica por venta);
+           contribFija sigue siendo el valor configurado. Solo lectura. */
+        ...(function () {
+          const casa = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes) && !v.split);
+          const casaMonto = casa.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0), 0);
+          return {
+            ventasCasa: { monto: +casaMonto.toFixed(2), ventas: casa.length },
+            totalPercha: +(ventasMes.reduce((a, v) => a + v.split.montoBruto, 0) + casaMonto).toFixed(2),
+            contribFijaMes: +ventasMes.reduce((a, v) => a + (Number(v.split.contribFijaAplicada) || 0), 0).toFixed(2),
+          };
+        })(),
         pctEfectivo: ventasBrutas > 0 ? +((comisionSocio / ventasBrutas) * 100).toFixed(2) : (Number(u.comisionSocio) || 0),
         /* Ventas de este mes cuyo % se corrigio despues: quien liquida tiene que
            verlo, porque el papel que imprimio la semana pasada decia otra cosa. */
@@ -4786,6 +4801,46 @@
       }
 
       if (path === "/api/liquidaciones") return J(getLiquidaciones(q.get("mes")));
+      /* CUADRE DEL MES (JFC 2026-09-24: "todo debe cuadrar, nada debe quedar
+         fuera de vista"). TODAS las ventas activas del mes, repartidas en cubos
+         que suman exacto al total (en centavos): con comision, COUNTER SALE en
+         perchas compartidas, perchas propias, y sin trato. Aparte: devoluciones
+         de ventas pagadas (por la fecha del ajuste), cortesias, aporte fijo
+         descontado y lo que falta pagar (ventas + ajustes pendientes). Solo
+         lectura; no cambia ningun calculo. test/cuadre-hugo-paco-luis.test.js */
+      if (path === "/api/comisiones/cuadre" && method === "GET") {
+        const _mes = mesValido(q.get("mes"));
+        const ce = (n) => Math.round((Number(n) || 0) * 100);
+        const bruto = (v) => ce((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0));
+        const tipoDe = (id) => { const u = ubicaciones.find((x) => x.id === id); return u && u.tipo ? u.tipo : "propio"; };
+        const vm = ventasActivas().filter((v) => esDelMes(v.fecha, _mes));
+        const cubo = () => ({ c: 0, ventas: 0 });
+        const k = { conComision: cubo(), casaCompartida: cubo(), perchasPropias: cubo(), sinTrato: cubo() };
+        let comAsoc = 0, porPagar = 0, contribMes = 0, cortesias = 0;
+        vm.forEach((v) => {
+          const b = bruto(v);
+          let dest;
+          if (v.split) { dest = k.conComision; comAsoc += ce(v.split.montoComisionSocio); contribMes += ce(v.split.contribFijaAplicada); if (!v.liquidada) porPagar += ce(v.split.montoComisionSocio); }
+          else if (tipoDe(v.ubicacionId) === "propio") dest = k.perchasPropias;
+          /* Sin reparto en percha compartida = venta de la casa, con o sin la marca
+             "counter" (ventas viejas no la tienen). Misma regla que Sold, que las
+             muestra como COUNTER SALE. sinTrato queda en 0 por compatibilidad. */
+          else dest = k.casaCompartida;
+          dest.c += b; dest.ventas++;
+          if (v.info && v.info.cortesia) cortesias += Number(v.cantidad) || 0;
+        });
+        const aj = ajustesComision.filter((a) => a && esDelMes(a.fecha, _mes));
+        let devBruto = 0, ajCom = 0;
+        aj.forEach((a) => { devBruto += ce(a.montoBruto); ajCom += ce(a.montoComisionSocio); if (!a.liquidada) porPagar += ce(a.montoComisionSocio); });
+        const d = (n) => +(n / 100).toFixed(2);
+        const total = k.conComision.c + k.casaCompartida.c + k.perchasPropias.c + k.sinTrato.c;
+        const salida = { mes: _mes, totalVentas: d(total), ventas: vm.length,
+          devoluciones: { monto: d(devBruto), cantidad: aj.filter((a) => a.tipo === "devolucion").length },
+          netoDelMes: d(total + devBruto), comisionAsociados: d(comAsoc + ajCom), porPagar: d(porPagar),
+          contribFijaDescontada: d(contribMes), cortesiasUnidades: cortesias };
+        Object.keys(k).forEach((n) => { salida[n] = { monto: d(k[n].c), ventas: k[n].ventas }; });
+        return J(salida);
+      }
       if (path === "/api/liquidaciones/meses") return J(mesesConComision());
     if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/panorama$/))) {
       const pan = getPanoramaPercha(m[1]);
@@ -5018,8 +5073,21 @@
         // v361: lo cobrado incluye el impuesto que se SUMÓ al cobrar (modo agregado).
         const _cobrado = (v) => v.precioUnit * v.cantidad + (v.impuesto && v.impuesto.modo === "agregado" ? (Number(v.impuesto.monto) || 0) : 0);
         const ef = vh.reduce((a, v) => a + _cobrado(v), 0) - devolucionesHoyDe(uid).reduce((a, v) => a + _cobrado(v), 0); // B6
-        const inv = ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
-        return J({ activos: { efectivoEstimado: +ef.toFixed(2), inventarioValorizado: +inv.toFixed(2), total: +(ef + inv).toFixed(2) } });
+        /* BALANCE A MEJOR PRACTICA (JFC 2026-09-24, "elijo world's best practices").
+           Antes el activo era stock x PRECIO DE VENTA e incluia las piezas en
+           consignacion, que son de la consignadora, no de la tienda (demo: $21,899
+           contra $8,023 a costo). Ahora el activo es inventario PROPIO a COSTO
+           (criterio contable estandar, y el mismo que usa el costo de lo vendido
+           en la capa contable). Nada queda fuera de vista: 'memo' trae el propio a
+           precio de venta y lo consignado (a precio de venta, no es activo).
+           Consignado = producto tipoProveedor consignacion o percha tipo consignacion. */
+        const _esConsig = (p) => p.tipoProveedor === "consignacion" || ((ubicaciones.find((u) => u.id === p.ubicacionId) || {}).tipo === "consignacion");
+        const _propios = ps.filter((p) => !_esConsig(p)), _consig = ps.filter(_esConsig);
+        const inv = _propios.reduce((a, p) => a + (Number(p.costo) || 0) * p.stockActual, 0);
+        const invVenta = _propios.reduce((a, p) => a + (Number(p.precio) || 0) * p.stockActual, 0);
+        const consigVenta = _consig.reduce((a, p) => a + (Number(p.precio) || 0) * p.stockActual, 0);
+        return J({ activos: { efectivoEstimado: +ef.toFixed(2), inventarioValorizado: +inv.toFixed(2), total: +(ef + inv).toFixed(2) },
+          memo: { criterioInventario: "costo", inventarioPropioPrecioVenta: +invVenta.toFixed(2), consignacionPrecioVenta: +consigVenta.toFixed(2), piezasConsignacion: _consig.reduce((a, p) => a + (Number(p.stockActual) || 0), 0) } });
       }
       if (path === "/api/reportes/valorizado") {
         const filas = filtrar(uid).map((p) => ({ nombre: p.nombre, stockActual: p.stockActual, valorCosto: +(p.costo * p.stockActual).toFixed(2), valorVenta: +(p.precio * p.stockActual).toFixed(2), utilidadPotencial: +((p.precio - p.costo) * p.stockActual).toFixed(2) }));

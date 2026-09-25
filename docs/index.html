@@ -7981,14 +7981,35 @@ function cambiarVistaComisiones(vista){
    duena no las usa, las apaga ella desde la lista de perchas. */
 const PERCHAS_SEMILLA_VIEJA = ["bookshelf", "fairbooth", "smokeshop"];
 function esPerchaSemillaVieja(id) { return PERCHAS_SEMILLA_VIEJA.indexOf(String(id || "")) !== -1; }
-function resumenComisionPorProductoHtml(prods, unidadesPropias){
+/* CUADRE DEL MES (JFC 2026-09-24: "todo debe cuadrar, nada debe quedar fuera
+   de vista"). Todas las ventas del mes, en cubos que suman el mismo total que
+   Sold: con comision + COUNTER SALES de la casa + perchas propias (+ sin trato).
+   Debajo: devoluciones de ventas ya pagadas, neto, y el aporte fijo que de
+   verdad se desconto. Numeros de /api/comisiones/cuadre, sin cuentas aqui. */
+function cuadreMesHtml(c){
+  if (!c || c.totalVentas == null) return "";
+  const fila = (label, monto, n, fuerte) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid #D7E0E8;${fuerte ? "font-weight:700;" : ""}">
+      <span style="font-size:16px;color:var(--ink);">${label}${n != null ? ` <span style="font-size:13px;">(${window.tf("comm.q.nSales", { n })})</span>` : ""}</span>
+      <span style="font-size:16px;color:var(--ink);white-space:nowrap;">${fmtMoney(monto)}</span></div>`;
+  return `<section class="tag-card" data-commissions-cuadre style="text-align:left;padding:14px 16px;margin:0 0 16px;">
+    <h3 class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.q.heading")}</h3>
+    ${fila(t("comm.q.withCommission"), c.conComision.monto, c.conComision.ventas)}
+    ${fila(t("comm.q.houseShared"), c.casaCompartida.monto, c.casaCompartida.ventas)}
+    ${fila(t("comm.q.ownRacks"), c.perchasPropias.monto, c.perchasPropias.ventas)}
+    ${c.sinTrato.ventas ? fila(t("comm.q.noDeal"), c.sinTrato.monto, c.sinTrato.ventas) : ""}
+    ${fila(t("comm.q.allSales"), c.totalVentas, c.ventas, true)}
+    ${c.devoluciones.cantidad ? fila(t("comm.q.returns"), c.devoluciones.monto, null) + fila(t("comm.q.net"), c.netoDelMes, null, true) : ""}
+    ${c.contribFijaDescontada > 0 ? fila(t("comm.q.fixedContrib"), -c.contribFijaDescontada, null) : ""}
+  </section>`;
+}
+function resumenComisionPorProductoHtml(prods, unidadesPropias, cuadre){
   // JFC 2026-09-24: esta seccion no desaparece si el mes aun no tiene filas.
   // Asi Commissions conserva siempre el orden mental: producto primero, pago por percha despues.
   const apertura = `<section id="comm-panel-product" role="tabpanel" data-commissions-section="by-product" aria-labelledby="comm-tab-product comm-by-product-heading">
     <h3 id="comm-by-product-heading" class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
     <details style="margin:0 0 10px;font-size:14px;"><summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;">${t("how.toggle")}</summary>
       <p style="font-size:14px;color:var(--ink);margin:6px 0 0;">${t("comm.byProductIntro")}</p></details>`;
-  if (!prods.length) return apertura + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}${unidadesPropias > 0 ? `<p style="margin:8px 0 0;font-size:14px;color:var(--ink);">${window.tf("comm.byProductOwnSales", { n: unidadesPropias })}</p>` : ""}</div></section>`;
+  if (!prods.length) return apertura + cuadreMesHtml(cuadre) + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}${unidadesPropias > 0 ? `<p style="margin:8px 0 0;font-size:14px;color:var(--ink);">${window.tf("comm.byProductOwnSales", { n: unidadesPropias })}</p>` : ""}</div></section>`;
   // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
   const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
   const tile = (label, val, color) => `<div class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;">
@@ -7997,8 +8018,8 @@ function resumenComisionPorProductoHtml(prods, unidadesPropias){
   return apertura + `<h4 class="seccion" style="font-size:14px;margin:16px 0 8px;">${_ocMesComisiones ? escHtml(_ocMesEtiqueta(_ocMesComisiones)) : t("comm.totalsHeading")}</h4>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:18px;">
       ${tile("Sales with commission", tot.bruto, "var(--ink)")}${tile("Associates take", tot.socio, "var(--ink)")}
-      ${tile("House keeps", tot.casa, "#006B3C")}${tile("Still to pay", tot.pend, tot.pend > 0 ? "#C0392B" : "#006B3C")}
-    </div>` + prods.map((d) => `
+      ${tile("House keeps", tot.casa, "#006B3C")}${(() => { /* Por pagar incluye devoluciones pendientes de descontar (mismo numero que las tarjetas). */ const pp = cuadre && cuadre.porPagar != null ? cuadre.porPagar : tot.pend; return tile("Still to pay", pp, pp > 0 ? "#C0392B" : "#006B3C"); })()}
+    </div>` + cuadreMesHtml(cuadre) + prods.map((d) => `
     <div class="tag-card" style="text-align:left;margin-bottom:10px;padding:14px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(d.producto)}${d.sku ? ` <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">${escHtml(d.sku)}</span>` : ""}</strong>
@@ -8019,13 +8040,15 @@ async function cargarComisiones(){
   try { renderGestionPromotoras(); } catch (_) {}
   // Microcirugia 11 (2026-07-08): Promise.all sin guard dejaba Comisiones en blanco.
   const cont = document.getElementById("listaComisiones");
-  let filas, ranking, ventasTodas, meses;
+  let filas, ranking, ventasTodas, meses, cuadreMes;
   try {
-    [filas, ranking, ventasTodas, meses] = await Promise.all([
+    [filas, ranking, ventasTodas, meses, cuadreMes] = await Promise.all([
       fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_ocMesComisiones || "")}`).then(r => r.json()),
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
       fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
       fetch(`${API}/liquidaciones/meses`).then(r => r.json()).catch(() => []),
+      // Cuadre del mes (JFC 2026-09-24): una sola fuente para "nada fuera de vista". Si falla, la vista sigue sin el bloque.
+      fetch(`${API}/comisiones/cuadre?mes=${encodeURIComponent(_ocMesComisiones || "")}`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
   } catch (_) {
     if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load commissions. Reload the view.</p>';
@@ -8157,8 +8180,10 @@ async function cargarComisiones(){
      Ahora: las que vendieron van arriba; las demas, plegadas en un solo bloque.
      Nada se borra ni se oculta del todo: dentro del bloque siguen sus tarjetas
      para ver o corregir su trato. */
-  const conVentas = filas.filter(f => f.estado !== "sin ventas");
-  const sinVentas = filas.filter(f => f.estado === "sin ventas");
+  // 2026-09-24: una percha que solo vendio de la casa (COUNTER SALES) SI tuvo ventas: no va a "sin ventas".
+  const _tuvoVentas = (f) => f.estado !== "sin ventas" || (f.ventasCasa && f.ventasCasa.ventas > 0);
+  const conVentas = filas.filter(_tuvoVentas);
+  const sinVentas = filas.filter(f => !_tuvoVentas(f));
   const tarjetaPercha = f => {
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
       ? `<span class="badge-estado rojo" style="font-size:13px;">dormant ${f.diasSinVenta}d</span>` : "";
@@ -8166,13 +8191,15 @@ async function cargarComisiones(){
     <div class="tag-card" data-liq-ubic="${escHtml(f.ubicacionId || "")}" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}${esPerchaSemillaVieja(f.ubicacionId) ? ` <span class="badge-estado amarillo" style="font-size:13px;">${t("comm.sampleRack")}</span>` : ""}</strong>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado}${f.estado === "pagado" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${((f.estado === "sin ventas" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : (({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado))}${f.estado === "pagado" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span></div>
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Commissionist/artist/promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
       ${f.origenComision === "comisionista" ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
       <div class="stats">
-        <div><div class="rotulo">Monthly sales</div><div class="cifra">${fmtMoney(f.ventasBrutas)}</div></div>
-        ${f.contribFija ? `<div><div class="rotulo">Fixed contribution</div><div class="cifra">-${fmtMoney(f.contribFija)}</div></div>` : ""}
+        <div><div class="rotulo">${t("comm.q.withCommission")}</div><div class="cifra">${fmtMoney(f.ventasBrutas)}</div></div>
+        ${(f.ventasCasa && f.ventasCasa.ventas) ? `<div><div class="rotulo">${t("comm.card.house")}</div><div class="cifra">${fmtMoney(f.ventasCasa.monto)} <small>${window.tf("comm.q.nSales", { n: f.ventasCasa.ventas })}</small></div></div>
+        <div><div class="rotulo">${t("comm.card.rackTotal")}</div><div class="cifra">${fmtMoney(f.totalPercha)}</div></div>` : ""}
+        ${(f.contribFijaMes != null ? f.contribFijaMes : f.contribFija) ? `<div><div class="rotulo">${t("comm.card.fixedContrib")}</div><div class="cifra">-${fmtMoney(f.contribFijaMes != null ? f.contribFijaMes : f.contribFija)}</div></div>` : ""}
         <div><div class="rotulo">Associate takes <small style="text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:400;">(${f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0)}%)</small></div><div class="cifra">${fmtMoney(f.comisionSocio)}</div></div>
         <div><div class="rotulo">House keeps <small style="text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:400;">(${f.pctEfectivo != null ? (100 - f.pctEfectivo).toFixed(2).replace(/\.00$/,"") : (f.pctQuedaEnCasa || 0)}%)</small></div><div class="cifra">${fmtMoney(f.netoDueno)}</div></div>
       </div>
@@ -8215,7 +8242,7 @@ async function cargarComisiones(){
   const unidadesPropiasMes = (Array.isArray(ventasTodas) ? ventasTodas : []).filter(v =>
     (_ocMesComisiones ? v.mes === _ocMesComisiones : v.delMesActual) && v.comisionPct == null && (!v.ubicacionTipo || v.ubicacionTipo === "propio"))
     .reduce((a, v) => a + (Number(v.cantidad) || 1), 0);
-  cont.innerHTML = barraComisionesHtml(meses, btnWA + btnExport) + resumenComisionPorProductoHtml(porProducto, unidadesPropiasMes) + cardsSection;
+  cont.innerHTML = barraComisionesHtml(meses, btnWA + btnExport) + resumenComisionPorProductoHtml(porProducto, unidadesPropiasMes, cuadreMes) + cardsSection;
   cambiarVistaComisiones("product");
   // Ranking y RFM van en su propio contenedor, debajo del alta de comisionistas (no llevan listeners).
   const rankCont = document.getElementById("rankingComisiones");
@@ -9133,6 +9160,8 @@ async function cargarAvanzado(){
     <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
     <tr><td>${t("adv.bal.estCash")}</td><td>${fmtMoney(balance.activos.efectivoEstimado)}</td></tr>
     <tr><td>${t("adv.bal.valuedInv")}</td><td>${fmtMoney(balance.activos.inventarioValorizado)}</td></tr>
+    ${balance.memo ? `<tr><td>${t("adv.bal.memoRetail")}</td><td>${fmtMoney(balance.memo.inventarioPropioPrecioVenta)}</td></tr>
+    <tr><td>${t("adv.bal.memoConsign")}</td><td>${fmtMoney(balance.memo.consignacionPrecioVenta)}</td></tr>` : ""}
     <tr style="background:var(--sim-azul);"><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${t("adv.bal.totalAssets")}</strong></td><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoney(balance.activos.total)}</strong></td></tr>
   `;
 

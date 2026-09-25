@@ -2591,7 +2591,8 @@
         fila("", ""),
         fila("SIMPLIFIED BALANCE", ""),
         fila("Estimated daily revenue", money(bal.activos.efectivoEstimado)),
-        fila("Valued inventory", money(bal.activos.inventarioValorizado)),
+        fila("Your inventory at cost", money(bal.activos.inventarioValorizado)),
+        ...(bal.memo ? [fila("At sale price (not an asset)", money(bal.memo.inventarioPropioPrecioVenta)), fila("Consignment (belongs to consignors)", money(bal.memo.consignacionPrecioVenta))] : []), // 2026-09-24: nada fuera de vista
         fila("Total assets", money(bal.activos.total)),
         fila("", ""),
         fila("VALUED INVENTORY BY PRODUCT", ""),
