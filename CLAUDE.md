@@ -258,3 +258,23 @@ trabajo está mal hecho aunque el código funcione.
   para juicios repetidos; research online para benchmark y dudas de mercado.
 - **Benchmark sin violar PI**: aprender funciones de los rivales, nunca copiar su codigo,
   textos ni diseno; tener respuesta propia para cada "pero ellos tienen X".
+
+## MODALES SOLO EN ADVANCED + EMBUDO (JFC 2026-09-24) — REGLA DURA
+- Modales/avisos RUTINARIOS (respaldo, recordatorios) solo al ENTRAR a Advanced
+  y con rol dueño/admin/encargado. Jamás al abrir la app ni en una venta.
+- Demo + landing (jfcarpio.com/friendly123/) = un embudo hacia save.html/PayPal.
+  Ganchos elegantes dentro del producto; sin nombrar frameworks. Jev puntúa
+  variantes de copy con criterios explícitos. Detalle en DECISIONES-JFC.md.
+
+## MARCA Y DUEÑO (JFC 2026-09-25) — REGLA DURA, LAS 3 APPS
+- La línea de apps se llama **Made In Cuenca: intuitive business apps**
+  (friendly-123, amigable-123, consultorio-123). Nombre exacto, sin parafrasear
+  ni traducir.
+- Es identidad de la línea. En la UI va solo donde JFC lo pida (hoy, la línea de
+  crédito del pie); no se riega por pantallas ni se explica en el producto.
+- JFC es el DUEÑO de la app: el LORD OF SOFTWARE. "Lord" es correcto y se queda.
+  Lo que JFC pidió quitar fue tratarlo como "soporte", nunca el lord. La
+  licencia lord se reconoce por huella cyrb53, jamás escrita en el repo.
+- friendly v401: el diagnóstico de Advanced (Sync, Code, origen del código) solo
+  se ve en el aparato lord entrando como dueño, o con canario puesto. La
+  medición sigue corriendo para todos.
