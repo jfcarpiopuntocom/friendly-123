@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Paid months now show how they were paid. A returned sale that was already deducted can no longer come back as pending when devices sync.",
+  "changelog": "Send statement: each commissionist can receive a private link with their month (sales, commission, paid and owed). You choose 7 or 30 days; nothing is stored on any server.",
   "requerida": false,
-  "shell": "f123-shell-v392",
+  "shell": "f123-shell-v393",
   "apagar": [],
   "releaseName": "v1.0"
 }

@@ -4810,6 +4810,7 @@
           comisionCorregida: !!(v.split && v.split.corregida),
           liquidada: !!v.liquidada,
           devuelta: !!v.devuelta,
+          medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
           reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
           asistenteNombre: (v.split && v.split.reparto) ? ((promotoras.find((x) => x.id === v.split.reparto[1].promotoraId) || {}).nombre || "") : "",
           /* JFC 2026-09-23: el resumen por producto de Commissions usa el MISMO mes que
