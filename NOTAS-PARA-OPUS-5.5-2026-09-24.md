@@ -387,8 +387,11 @@ NO se decidio; se hizo research y se repregunto.
   Trampa encontrada: la 1a subida iba en CRLF (autocrlf de Windows) y no cuadraba con github.io. Arreglo y regla:
   desplegar SOLO con `bash scripts/deploy-f123-code.sh` (export LF + compara byte a byte + CORS, falla si no cuadra).
   Probado en la app viva: 4 scripts remotos, 0 fell back, same shell v400; origen muerto -> cae a github.io entero.
-- Tras CADA shell nuevo: correr scripts/deploy-f123-code.sh (si no, el canario dice "shell differs").
-- LE TOCA A JFC (fase C, 1 aparato suyo): Advanced > pegar https://f123-code.jfcarpio.workers.dev/ >
+- Con el origen automatico no hay paso manual por shell; si Advanced dice "shell differs", mirar el check
+  "Workers Builds: friendly-123" del ultimo commit de master.
+- ORIGEN ELEGIDO: https://friendly-123.jfcarpio.workers.dev/ (Worker conectado al repo, se despliega solo en cada
+  merge a master, en LF; probado igual que f123-code: identico, 4 remotos, 0 fell back). f123-code queda de respaldo.
+- LE TOCA A JFC (fase C, 1 aparato suyo): Advanced > pegar https://friendly-123.jfcarpio.workers.dev/ >
   "Try this origin on this device" > recargar. Debe decir "same shell" y ninguna "fell back". Dias de uso real.
 - Siguiente de Claude (fase D, tras dias de C en verde): sumar el host a HOSTS_PERMITIDOS del SW y ampliar la lista.
 - Evaluadas TypeLLM y CLM: no se adoptan (piden GPU local; Jev ya cubre). Opcion futura.
