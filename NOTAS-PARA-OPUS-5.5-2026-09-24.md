@@ -312,3 +312,21 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [ ] JFC en Cloudflare: www en nube naranja, SSL Full strict, Bot Fight Mode, WAF + rate limit, DNSSEC.
 - [ ] Backlinks entre sitios propios: descartado (poco valor, riesgo de esquema). Buscar enlaces AJENOS: gremios, prensa, directorios de software.
 - [ ] Siguen pendientes: Jev bien usado, reconversion jfcarpio.com (testimonio Peñaherra: confirmar "Dieño" o "Diego"), pelicula WebGL2.
+
+## JEV EN USO REAL + EMBUDO jfcarpio.com (2026-09-25)
+Jev funciona (skill jev-jfc, 4 llamadas, ~USD 0.00014 en total). Regla aplicada: con confianza baja (0.48)
+NO se decidio; se hizo research y se repregunto.
+- Causa de 6 anos sin clientes: demasiadas ofertas a la vez (0.99). Arreglo: inicio con UNA oferta pagada (0.99).
+- Oferta que encabeza: research macro/sectorial a medida de Ecuador para planificar 2026-2027 (1.0, con research).
+- Entrada gratis: brief macro de 1 pagina del sector a cambio del correo (0.90).
+- friendly-123 en jfcarpio.com: enlace secundario / doodle hacia su landing (0.64, moderado).
+- Criterios Hormozi/Brunson/Kennedy: oferta chica = informe sectorial 2026-2027 (0.95); garantia = si no responde
+  la pregunta acordada, reembolso total (0.97); escasez honesta = N estudios por trimestre (0.88);
+  gancho = "Planifica 2026-2027 con los numeros de Ecuador que tu directorio te va a pedir" (0.97).
+- DECISIONES DE JFC PENDIENTES: precios (informe sectorial ~USD 97 fue propuesta mia, no dato), cuantos estudios
+  por trimestre, precio del estudio a medida, y confirmar nombre del testimonio ("Dieño" o "Diego" Peñaherra).
+- Research usado: mercado LatAm de capacitacion corporativa USD 24.8B (2025); Ecuador crece ~2% en 2026,
+  subio a B- (feb 2026), inversion en mineria/construccion/energia; buenas practicas de landing de consultor
+  (quien y que problema en 5 s, testimonio con nombre/cargo/resultado bajo el titular, formulario de 3 campos).
+- Siguiente sesion: construir el nuevo inicio de jfcarpio.com con esto (deploy limpio con worktree) y la
+  pelicula WebGL2 (clic -> landing friendly-123 en friendly; en jfcarpio.com, doodle hacia friendly-123).
