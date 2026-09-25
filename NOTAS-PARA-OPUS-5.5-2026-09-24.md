@@ -377,3 +377,21 @@ NO se decidio; se hizo research y se repregunto.
 - [x] Search Console: sitemap https://jfcarpio.com/sitemap.xml enviado OK (16 URLs, todas 200); indexacion solicitada para /friendly123/ y /friendly123/es/ (2026-09-25).
 - WIP AJENO en website/friendly123/index.html ("clipSplit" ES, clips/clip1-split.html sin rastrear): no es de ninguna
   sesion; se aparta con stash para editar y se devuelve intacto. Decision pendiente de JFC: incluir o descartar.
+
+## AVANCE 2026-09-25 (noche 2) — v399/v400 + ANTI-COPIA fase B HECHA
+- v399/v400 (live): el comisionista elegido en una venta cobra en cualquier percha (bug "Spray de la verdad");
+  la venta ya no reescribe la percha antes de vender; terminos US (Walk-in customer, House sale en cursiva,
+  Sales associate, consignor); Commissions/Sold se repintan al llegar una venta de otro aparato (250 ms).
+  Pruebas: test/comision-percha-propia.test.js (6) y test/commissions-ui-hpl.test.js (Paco/Hugo/Luis POR LA UI).
+- ANTI-COPIA fase B HECHA: origen https://f123-code.jfcarpio.workers.dev/ (Worker static assets; Pages ya no sirve).
+  Trampa encontrada: la 1a subida iba en CRLF (autocrlf de Windows) y no cuadraba con github.io. Arreglo y regla:
+  desplegar SOLO con `bash scripts/deploy-f123-code.sh` (export LF + compara byte a byte + CORS, falla si no cuadra).
+  Probado en la app viva: 4 scripts remotos, 0 fell back, same shell v400; origen muerto -> cae a github.io entero.
+- Tras CADA shell nuevo: correr scripts/deploy-f123-code.sh (si no, el canario dice "shell differs").
+- LE TOCA A JFC (fase C, 1 aparato suyo): Advanced > pegar https://f123-code.jfcarpio.workers.dev/ >
+  "Try this origin on this device" > recargar. Debe decir "same shell" y ninguna "fell back". Dias de uso real.
+- Siguiente de Claude (fase D, tras dias de C en verde): sumar el host a HOSTS_PERMITIDOS del SW y ampliar la lista.
+- Evaluadas TypeLLM y CLM: no se adoptan (piden GPU local; Jev ya cubre). Opcion futura.
+- Pendientes en cola: lapicito + boton directo de blacklist en clientes; los 2 clips en el hero de la landing;
+  terminos US en manual.html (9) y dashboard.html (2); mosaico "mal hecho" (despues); modelo de autoridad para
+  jfcarpio.com ("Trust replaced attention") -> buscar mas modelos con Jev.
