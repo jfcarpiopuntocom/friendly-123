@@ -30,18 +30,25 @@ almacen es por ORIGEN). El codigo puede venir de un dominio que controla JFC
   URL.
 - `test/cargador.test.js` (7 pruebas, feature nueva, no bug).
 
-## Fase B — Cloudflare Pages sirve el repo (SOLO JFC). Hostinger descartado
-## el 2026-09-24: jfcarpio.com es solo el dominio, no hay hosting.
-1. https://dash.cloudflare.com > Workers & Pages > Create > Pages >
-   Connect to Git > friendly-123.
-2. Build command: vacio. Build output directory: `docs`. Deploy.
-3. URL resultante: `https://friendly-123-XXXX.pages.dev/` (opcional: Custom
-   domain `code.jfcarpio.com`, con el DNS de Hostinger apuntando a Pages).
-   El origen del cargador es esa URL con `/` final: los archivos cuelgan de la
-   raiz, SIN `/docs/`.
-4. CORS: `docs/_headers` (Pages lo lee; el .htaccess queda por si algun dia
-   hay Apache). Comprobar:
-   `curl -sI https://<pages>/edutips.js | grep -i access-control`.
+## Fase B — HECHA 2026-09-25 (Claude). Cloudflare sirve docs/ en un Worker
+Origen del cargador: **`https://f123-code.jfcarpio.workers.dev/`** (Worker
+"f123-code", static assets, cuenta Cloudflare de JFC). Pages "Connect to Git"
+ya no se usa: Cloudflare fusiono Pages dentro de Workers y
+`wrangler pages project create` falla; se despliega con
+`wrangler deploy --assets=./docs --name f123-code`.
+- Desplegar SIEMPRE con `bash scripts/deploy-f123-code.sh`: exporta el blob de
+  origin/master en LF (trampa CRLF de Windows: la primera subida salio en CRLF
+  y no cuadraba con github.io), despliega y compara byte a byte contra
+  github.io + CORS. Sale con error si algo no cuadra.
+- Tras CADA shell nuevo en master hay que correr el script; si no, Advanced
+  dira "shell differs" en el aparato canario (nada se rompe, solo avisa).
+- Verificado 2026-09-25 en la app viva (github.io, navegador aislado):
+  canario puesto -> 4 scripts "remoto", 0 fell back, "same shell
+  (f123-shell-v400)", OCEdutips e Inspector corriendo, PIN visible, 0 errores.
+  Origen muerto -> "4 fell back to github.io", app entera (fail-open probado).
+- `/index.html` en el Worker responde 307 a `/` (comportamiento de Cloudflare);
+  no afecta: la pagina sigue viniendo de github.io, el Worker solo da scripts.
+- Pendiente opcional: dominio propio `code.jfcarpio.com` (DNS en Cloudflare).
 
 ## (Historico) Fase B con Hostinger — ya no aplica
 1. hPanel > Sitios web > (dominio) > Avanzado > GIT.
@@ -61,12 +68,12 @@ almacen es por ORIGEN). El codigo puede venir de un dominio que controla JFC
 
 ## Fase C — canario en UN aparato de JFC (SOLO JFC)
 1. En la app (github.io) > Advanced > panel de sync > pegar
-   `https://<dominio>/friendly-123/docs/` > "Try this origin on this device".
+   `https://f123-code.jfcarpio.workers.dev/` > "Try this origin on this device".
 2. Recargar. La linea tiene que decir:
    `Code: remote https://… · 4 scripts · same shell (f123-shell-vNNN)`.
-   - "N fell back to github.io" = CORS o archivo faltante en Hostinger: nada
+   - "N fell back to github.io" = CORS o archivo faltante en Cloudflare: nada
      se rompio (cayo a github.io), pero la fase no esta lista.
-   - "shell differs" = Hostinger va atras: esperar el webhook o desplegar a mano.
+   - "shell differs" = Cloudflare va atras: correr scripts/deploy-f123-code.sh.
 3. Dejarlo dias con uso real. Criterio de salida: 0 fell back y same shell.
    Si algo raro: "Back to github.io" y recargar. Nunca borra datos.
 
