@@ -330,3 +330,12 @@ NO se decidio; se hizo research y se repregunto.
   (quien y que problema en 5 s, testimonio con nombre/cargo/resultado bajo el titular, formulario de 3 campos).
 - Siguiente sesion: construir el nuevo inicio de jfcarpio.com con esto (deploy limpio con worktree) y la
   pelicula WebGL2 (clic -> landing friendly-123 en friendly; en jfcarpio.com, doodle hacia friendly-123).
+
+## INICIO jfcarpio.com (2026-09-25) — traspasado al fork
+- WIP en rama home-embudo del repo website (dea2f74): bloque de oferta unica arriba, trayectoria plegable
+  (foto siempre visible), boton del brief -> openWAMessage(). NO esta en main ni desplegado.
+- El fork "Carga de piezas en percha propia (fork)" toma el nuevo balance por orden de JFC: producto central = las
+  3 apps; talleres y reports = prioridad 1B; ni demasiado vendedor ni cero conversion.
+  Testimonio: Diego Peñaherrera.
+- Error mio atrapado antes de publicar: un apostrofo en el texto EN rompia TODO el script de la pagina. Revisar cada
+  <script> con new Function antes de publicar. El script 1 ya traia un error de sintaxis en la version publicada (no es mio).
