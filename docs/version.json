@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-25",
-  "changelog": "Groundwork for safer updates: new versions are checked on the owner's devices before they reach every store.",
+  "changelog": "Safer updates: each new version runs first on the owner's devices and reaches every store only after it passes its checks.",
   "requerida": false,
-  "shell": "f123-shell-v402",
+  "shell": "f123-shell-v403",
   "apagar": [],
   "releaseName": "v1.0"
 }

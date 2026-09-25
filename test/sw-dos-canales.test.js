@@ -15,8 +15,9 @@ const TIPOS = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'applic
 function servidor() {
   return http.createServer((req, res) => {
     let u = decodeURIComponent(req.url.split('?')[0]);
-    let canario = false;
+    let canario = false, previo = false;
     if (u.startsWith('/friendly-123/next/')) { canario = true; u = u.slice('/friendly-123/next'.length); }
+    else if (u.startsWith('/friendly-123/previo/')) { previo = true; u = u.slice('/friendly-123/previo'.length); }
     else if (u.startsWith('/friendly-123/')) u = u.slice('/friendly-123'.length);
     else { res.writeHead(404); return res.end(); }
     if (u === '/') u = '/index.html';
@@ -24,6 +25,8 @@ function servidor() {
     if (!f.startsWith(DOCS) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); }
     let cuerpo = fs.readFileSync(f);
     // El canario va un shell ADELANTE (el caso real: master por delante de estable).
+    // El previo va un shell ATRAS (el estable anterior, para el rewind).
+    if (previo && u === '/sw.js') cuerpo = Buffer.from(cuerpo.toString('utf8').replace(/const CACHE = "f123-shell-v(\d+)"/, (m, n) => `const CACHE = "f123-shell-v${Number(n) - 1}"`));
     if (canario && u === '/sw.js') cuerpo = Buffer.from(cuerpo.toString('utf8').replace(/const CACHE = "f123-shell-v(\d+)"/, (m, n) => `const CACHE = "f123-shell-v${Number(n) + 1}"`));
     res.writeHead(200, { 'Content-Type': TIPOS[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(cuerpo);
@@ -70,5 +73,33 @@ test('estable y canario conviven: el canario mas nuevo NO borra la cache de los 
       setTimeout(() => res('sin respuesta'), 3000);
     }));
     assert.match(shell, /^f123-shell-v\d+$/);
+  } finally { await web.close(); srv.close(); }
+});
+
+test('tres canales (previo, estable, next) conviven: ninguno borra la cache de otro', async () => {
+  const srv = servidor();
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${srv.address().port}/friendly-123/`;
+  const web = await chromium.launch({ headless: true });
+  try {
+    const ctx = await web.newContext();
+    for (const [ruta, re] of [['', null], ['next/', /\/next\/sw\.js$/], ['previo/', /\/previo\/sw\.js$/]]) {
+      const p = await ctx.newPage();
+      await p.goto(base + ruta, { waitUntil: 'load' });
+      if (re) await p.waitForFunction((src) => navigator.serviceWorker.controller && new RegExp(src).test(navigator.serviceWorker.controller.scriptURL), re.source, { timeout: 30000 });
+      else await esperarSW(p);
+      await p.waitForTimeout(2000);
+    }
+    const p = await ctx.newPage();
+    await p.goto(base + 'previo/', { waitUntil: 'load' });
+    const nombres = await p.evaluate(() => caches.keys());
+    assert.ok(nombres.some((n) => /^f123-shell-v\d+$/.test(n)), 'estable: ' + nombres.join(','));
+    assert.ok(nombres.some((n) => /^f123-shell-v\d+-next$/.test(n)), 'next: ' + nombres.join(','));
+    assert.ok(nombres.some((n) => /^f123-shell-v\d+-previo$/.test(n)), 'previo: ' + nombres.join(','));
+    const offline = await p.evaluate(async (b) => {
+      const est = (await caches.keys()).find((n) => /^f123-shell-v\d+$/.test(n));
+      return !!(await (await caches.open(est)).match(b + 'index.html'));
+    }, base);
+    assert.ok(offline, 'la copia offline del estable sigue entera');
   } finally { await web.close(); srv.close(); }
 });

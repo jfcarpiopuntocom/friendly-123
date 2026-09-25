@@ -242,7 +242,10 @@
           var fin = function () { try { location.reload(); } catch (_) {} };
           try {
             caches.keys().then(function (ns) {
-              return Promise.all(ns.filter(function (n) { return n.indexOf("f123-shell-") === 0; })
+              /* 2026-09-25 (canarios): solo las caches de ESTE canal; las de /next/ o
+                 /previo/ son la copia offline de las otras versiones del aparato. */
+              var suf = (/\/(next|previo)\//.exec(location.pathname) || [])[1];
+              return Promise.all(ns.filter(function (n) { var m = /-(next|previo)$/.exec(n); return n.indexOf("f123-shell-") === 0 && (suf ? (m && m[1] === suf) : !m); })
                                    .map(function (n) { return caches.delete(n); }));
             }).then(fin, fin);
           } catch (_) { fin(); }
@@ -267,7 +270,7 @@
           canal.port1.onmessage = function (e) {
             respondio = true;
             var sirviendo = e.data && e.data.shell;
-            if (sirviendo && sirviendo !== v.shell) ofrecerRecarga(v.shell, sirviendo);
+            if (sirviendo && sirviendo !== v.shell) { window.__ocMezcla = true; ofrecerRecarga(v.shell, sirviendo); }
           };
           try { ctrl.postMessage({ tipo: "que-shell" }, [canal.port2]); } catch (_) {}
           /* Respaldo: un SW viejo no conoce el mensaje y no contesta nunca.
@@ -386,3 +389,65 @@
     else window.addEventListener("load", function () { setTimeout(correr, 4000); });
   } catch (_) { /* la verificacion de integridad es un extra: jamas puede tumbar la app */ }
 })();
+
+/* ============================================================================
+   CANARIO DE LA APP (plan canarios F3, JFC 2026-09-25)
+   Resumen de salud que viaja en el latido (auth-ui.js) y alimenta el Sonar de
+   Canarios del panel de JFC. SOLO numeros y codigos, armados aqui campo por
+   campo: shell, canal, errores de ESTA sesion, scripts caidos a github.io,
+   origen retenido, mezcla de versiones y, en el aparato lord entrando como
+   dueno, si Commissions cuadra contra Sold. Cero datos del negocio.
+   El chequeo de cuadre compara DOS rutas independientes del mismo dinero
+   (/api/ventas/todas vs /api/comisiones/cuadre), ambas sobre ventasActivas.
+   Si falla, el canario del Worker se pone en rojo y el shell no llega a los
+   clientes (promover.yml). Solo lee: nunca corrige nada.
+   ============================================================================ */
+(function (global) {
+  "use strict";
+  var h53 = function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);};
+  var erroresSesion = 0;
+  try {
+    global.addEventListener("error", function () { erroresSesion++; });
+    global.addEventListener("unhandledrejection", function () { erroresSesion++; });
+  } catch (_) {}
+  var shell = "";
+  try {
+    fetch("version.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (v) { if (v && v.shell) shell = String(v.shell); }).catch(function () {});
+  } catch (_) {}
+  function canal() { var m = /\/(next|previo)\//.exec(global.location ? global.location.pathname : ""); return m ? m[1] : "estable"; }
+  function norm(x) { return typeof x === "string" ? x.trim().toUpperCase().replace(/\s+/g, "") : ""; }
+  function esLord() {
+    try {
+      var o = JSON.parse(global.localStorage.getItem("f123_owned") || "null") || {};
+      return [norm(o.licenseCode), norm(o.syncCode)].some(function (l) { return l && h53(l) === 6583453063440131; });
+    } catch (_) { return false; }
+  }
+  function rolActual() { try { return global.OCAuth && global.OCAuth.rolActual ? global.OCAuth.rolActual() : ""; } catch (_) { return ""; } }
+  var cuadre = null;
+  function medirCuadre() {
+    if (!esLord() || rolActual() !== "dueno") return Promise.resolve(cuadre);
+    var leer = function (u) { return fetch(u).then(function (r) { return r.json(); }); };
+    return Promise.all([leer("/api/ventas/todas"), leer("/api/comisiones/cuadre")]).then(function (par) {
+      var ventas = Array.isArray(par[0]) ? par[0] : [], c = par[1] || {};
+      var ce = function (n) { return Math.round((Number(n) || 0) * 100); };
+      var delMes = ventas.filter(function (v) { return v.delMesActual; });
+      var total = delMes.reduce(function (a, v) { return a + ce((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)); }, 0);
+      var ok = total === ce(c.totalVentas) && delMes.length === Number(c.ventas);
+      // Cada venta: comision + neto de la casa = bruto (misma regla R1 del verificador de pruebas).
+      ventas.forEach(function (v) {
+        if (v.netoCasa === null || v.netoCasa === undefined) return;
+        if (ce(v.comisionAsociado) + ce(v.netoCasa) !== ce((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0))) ok = false;
+      });
+      cuadre = ok ? "ok" : "fallo";
+      return cuadre;
+    }).catch(function () { return cuadre; });
+  }
+  function resumen() {
+    var e = {};
+    try { e = global.OCCargador && global.OCCargador.estado ? global.OCCargador.estado() : {}; } catch (_) {}
+    return { shell: shell, canal: canal(), errores: erroresSesion, caidas: Number(e.caidas) || 0,
+      retenido: !!e.retenido, mezcla: global.__ocMezcla === true, cuadre: cuadre };
+  }
+  global.OCSalud = { resumen: resumen, medirCuadre: medirCuadre, esLord: esLord, canal: canal };
+})(typeof window !== "undefined" ? window : this);

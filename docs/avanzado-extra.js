@@ -623,6 +623,18 @@
           <button type="button" class="tecla" id="oc-codigo-usar" style="font-size:13px;">Try this origin on this device</button>
           <button type="button" class="tecla" id="oc-codigo-local" style="font-size:13px;">Back to github.io</button>
         </div>
+        <!-- FRANJA DEL CANARIO (plan canarios F5, JFC 2026-09-25). Solo en un
+             aparato de la licencia lord entrando como dueno. Dice en que canal
+             corre este aparato, que shell, y que ve el Sonar del Worker para ese
+             shell (reportes y rojos). Los rojos frenan la promocion a clientes. -->
+        <div id="oc-canario-franja" style="display:none;margin-top:10px;padding:10px 12px;border:3px solid #28ECAA;border-radius:8px;background:#FFFFFF;">
+          <p id="oc-canario-linea" style="font-size:15px;font-weight:700;margin:0;color:#1a1a1a;">Canary: …</p>
+          <p id="oc-canario-rojos" style="display:none;font-size:15px;font-weight:700;margin:6px 0 0;color:#B42318;"></p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+            <button type="button" class="tecla" id="oc-canal-next" style="font-size:14px;min-height:44px;">Use canary (next) on this device</button>
+            <button type="button" class="tecla" id="oc-canal-estable" style="font-size:14px;min-height:44px;">Use stable on this device</button>
+          </div>
+        </div>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
 
@@ -653,6 +665,52 @@
       if (_verDiag) {
         ["oc-sync-estado-min", "oc-codigo-estado"].forEach(function (id) { var n = document.getElementById(id); if (n) n.style.display = ""; });
       }
+
+      /* Franja del canario (F5). Solo lord + dueno (OCSalud.esLord y rol). Lee
+         /canario/estado del Worker: numeros y codigos, nada de clientes. */
+      try {
+        var _rolFr = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+        var _fr = document.getElementById("oc-canario-franja");
+        if (_fr && window.OCSalud && window.OCSalud.esLord() && _rolFr === "dueno") {
+          _fr.style.display = "";
+          var _raiz = location.pathname.replace(/(next|previo)\/[^/]*$/, "").replace(/[^/]*$/, "");
+          document.getElementById("oc-canal-estable").addEventListener("click", function () {
+            try { localStorage.setItem("f123_canal_propio", "estable"); } catch (_) {}
+            location.href = _raiz;
+          });
+          document.getElementById("oc-canal-next").addEventListener("click", function () {
+            try { localStorage.removeItem("f123_canal_propio"); } catch (_) {}
+            location.href = _raiz + "next/";
+          });
+          var _reintentosFr = 0;
+          var _pintarFr = function () {
+            var r = window.OCSalud.resumen();
+            /* El panel se arma al cargar la pagina, antes de que llegue version.json:
+               sin shell todavia, reintenta pronto (tope 10) en vez de esperar al minuto. */
+            if (!r.shell && _reintentosFr < 10) { _reintentosFr++; setTimeout(_pintarFr, 1500); }
+            var linea = document.getElementById("oc-canario-linea"), rojos = document.getElementById("oc-canario-rojos");
+            var nombreCanal = r.canal === "next" ? "CANARY (next)" : (r.canal === "previo" ? "PREVIOUS (rewind)" : "STABLE (clients)");
+            var base = "This device: " + nombreCanal + " · " + (r.shell || "?") + " · errors this session: " + r.errores + (r.cuadre ? " · money check: " + r.cuadre : "");
+            linea.textContent = base;
+            var wu = window.OCAuth && window.OCAuth.workerUrl ? window.OCAuth.workerUrl() : "";
+            if (!wu || !r.shell) return;
+            fetch(wu + "/canario/estado?shell=" + encodeURIComponent(r.shell), { cache: "no-store" })
+              .then(function (x) { return x.ok ? x.json() : null; })
+              .then(function (e) {
+                if (!e) return;
+                linea.textContent = base + " · sonar: " + e.reportes + " lord reports, " + e.aparatos + " devices, " + e.aparatosConProblemas + " with problems" + (e.detenido ? " · promotion STOPPED" : "");
+                if (e.rojo) {
+                  _fr.style.borderColor = "#E86040";
+                  rojos.style.display = "";
+                  rojos.textContent = "RED: " + e.rojos.map(function (x) { return x.motivos.join("+") + " (" + x.canal + ")"; }).join(", ") + ". This shell will not reach clients.";
+                } else { _fr.style.borderColor = "#28ECAA"; rojos.style.display = "none"; }
+              }).catch(function () {});
+          };
+          _pintarFr();
+          setInterval(_pintarFr, 60000);
+          document.addEventListener("click", function (ev) { if (ev.target && ev.target.closest && ev.target.closest('nav button[data-vista="avanzado"]')) setTimeout(_pintarFr, 300); }, true);
+        }
+      } catch (_) {}
 
       /* Linea del cargador + canario por aparato (Bloque P). Nada aqui escribe datos. */
       try {
