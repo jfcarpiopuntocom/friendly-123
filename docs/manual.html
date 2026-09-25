@@ -866,7 +866,7 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
   <p style="font-size:15px;">Al aplicar, la app descuenta el stock de las 3 obras y suma esas ventas al resumen del día — como si se hubiera registrado en vivo.</p>
 
   <h3>Venta de la casa, cortesía y fiado</h3>
-  <p><strong>COUNTER SALE</strong> es una venta pura de la casa: no se asigna comisión a nadie y no cambia al comisionista de la percha. Se elige venta por venta; nunca es obligatorio escoger comisionista.</p>
+  <p><strong><em>Venta de la casa</em></strong> es una venta pura de la casa: no se asigna comisión a nadie y no cambia al comisionista de la percha. Se elige venta por venta; nunca es obligatorio escoger comisionista.</p>
   <p><strong>Cortesía</strong>: el cliente no paga (ingreso $0), pero el costo sí cuenta. <strong>Fiado</strong>: la venta se suma a la deuda del cliente en Clientes; necesita un cliente elegido.</p>
 </section>
 
@@ -1605,7 +1605,7 @@ Carmen Ulloa,</pre>
       <tr><td>Supplier</td><td>Rock Import EC</td><td>Reference for restocking</td></tr>
       <tr><td>Perishable + expiry date</td><td>Yes — expires 2026-07-08</td><td>Turns on expiry alerts (red/orange) above the stock ones</td></tr>
       <tr><td>Costing method</td><td>FIFO (recommended)</td><td>Suggested selling order for perishables: what expires first goes first</td></tr>
-      <tr><td>Commissionist</td><td>María Auquilla</td><td>Links the product to a commissionist/promoter (optional). Chosen from a dropdown when adding or editing the product</td></tr>
+      <tr><td>Sales associate</td><td>María Auquilla</td><td>Links the product to a sales associate or promoter (optional). Chosen from a dropdown when adding or editing the product</td></tr>
     </table>
   </div>
 
@@ -1651,7 +1651,7 @@ Carmen Ulloa,</pre>
   </div>
   <p style="font-size:15px;color:var(--ink-soft);">That way the promoter has a direct incentive: the more she sells, the higher the percentage she takes on the total, not only on the excess.</p>
 
-  <p>On every partner, franchise or consignment shelf there is a <strong>Commission</strong> button that opens the deal editor: associate %, monthly goal, tiers, fixed contribution, guaranteed minimum, preferred reading (associate/house) and the switch <strong>"use this shelf's own commission"</strong> (to ignore the commissionist's deal when you want the shelf's to rule).</p>
+  <p>On every partner, franchise or consignment shelf there is a <strong>Commission</strong> button that opens the deal editor: associate %, monthly goal, tiers, fixed contribution, guaranteed minimum, preferred reading (associate/house) and the switch <strong>"use this shelf's own commission"</strong> (to ignore the sales associate's deal when you want the shelf's to rule).</p>
 
   <h3>Weekend fair: temporary shelf</h3>
   <p>For 2–3 day events (a craft fair, a Christmas bazaar) create a shelf marked as <strong>Fair</strong> with its own commission. When you close it, it is archived with its whole history and you jump straight to Commissions to see its settlement, without mixing its numbers with the rest of the year.</p>
@@ -1699,7 +1699,7 @@ Carmen Ulloa,</pre>
   <p style="font-size:15px;">When applied, the app deducts the stock of the 3 books and adds those sales to the day's summary, as if they had been recorded live.</p>
 
   <h3>House sale, courtesy and on account</h3>
-  <p><strong>COUNTER SALE</strong> is a pure house sale: no commission is assigned to anyone and the shelf's commissionist does not change. It is chosen sale by sale; picking a commissionist is never required.</p>
+  <p><strong><em>House sale</em></strong> is a pure house sale: no commission is assigned to anyone and the shelf's sales associate does not change. It is chosen sale by sale; picking a sales associate is never required.</p>
   <p><strong>Courtesy</strong>: the customer does not pay (revenue $0), but the cost still counts. <strong>On account (fiado)</strong>: the sale is added to the customer's debt in Customers; it needs a chosen customer.</p>
 </section>
 
@@ -1788,17 +1788,17 @@ Carmen Ulloa,</pre>
     <li>Monthly goal achievement, if the shelf has one defined</li>
     <li>Alert if the shelf has gone 7+ days without a single sale ("sleeping shelf")</li>
     <li>"Mark as paid" button once you transfer or hand over their commission</li>
-    <li>Where the % comes from: if the commissionist has their own deal, the card says so ("using the commissionist's own deal"); if not, it uses the shelf's standard rate</li>
+    <li>Where the % comes from: if the sales associate has their own deal, the card says so ("using the sales associate's own deal"); if not, it uses the shelf's standard rate</li>
     <li>Fixed contribution and deal notices (for example, if the fixed contribution is ignored because the shelf uses goal-based tiers)</li>
   </ul>
 
-  <h3>Telling the commissionist: sale notice, payment method and statement</h3>
-  <p><strong>After a sale.</strong> When a sale carries a commission, a card appears for 20 seconds: <strong>"Tell Ana their piece sold?"</strong>. Tapping it opens WhatsApp with the message ready (what sold, where, for how much, and their commission). Nothing is sent until you tap send. It does not appear for a COUNTER SALE or if the person has no phone saved.</p>
+  <h3>Telling the sales associate: sale notice, payment method and statement</h3>
+  <p><strong>After a sale.</strong> When a sale carries a commission, a card appears for 20 seconds: <strong>"Tell Ana their piece sold?"</strong>. Tapping it opens WhatsApp with the message ready (what sold, where, for how much, and their commission). Nothing is sent until you tap send. It does not appear for a house sale or if the person has no phone saved.</p>
   <p><strong>When you pay.</strong> <strong>Mark as paid</strong> asks how you paid (cash, transfer, store credit or other). The paid month then shows it, for example "paid · cash", and the WhatsApp receipt says "Pagado con".</p>
   <p><strong>Their statement.</strong> <strong>Send statement</strong> on the shelf card sends the person a link with their month: what sold, their commission, what is paid and what is still owed, plus any returns. You choose whether the link works for <strong>7 or 30 days</strong>. The link carries the data encrypted inside itself: it is not stored on any server, it shows only that person's sales (never your customers or your costs), and it stops opening when it expires. Because nothing is stored on a server, a link already sent cannot be cancelled; that is why it expires.</p>
 
   <h3>Everything sold this month adds up</h3>
-  <p>At the top of <strong>Commissions</strong>, <strong>Everything sold this month</strong> splits every sale into: sales with commission, COUNTER SALES (house) on shared racks, and your own racks. The total is the same number as <strong>Sold</strong>. Returns of already-paid sales and the fixed contribution that was deducted appear below it, so no money is left out of view. Each rack card also shows its COUNTER SALES and the rack total.</p>
+  <p>At the top of <strong>Commissions</strong>, <strong>Everything sold this month</strong> splits every sale into: sales with commission, house sales on shared racks, and your own racks. The total is the same number as <strong>Sold</strong>. Returns of already-paid sales and the fixed contribution that was deducted appear below it, so no money is left out of view. Each rack card also shows its house sales and the rack total.</p>
   <p><strong>Fixed contribution and guaranteed minimum</strong> apply to each sale. The rack card shows what was actually deducted this month.</p>
   <p><strong>Balance.</strong> Your inventory counts as an asset at <strong>cost</strong>, and only what is yours. The same stock at sale price and the pieces on consignment (they belong to the consignors) are shown below it, for reference.</p>
 
@@ -1807,15 +1807,15 @@ Carmen Ulloa,</pre>
   <h3>Customer loyalty</h3>
   <p>In <strong>Advanced</strong>, <strong>Customer loyalty</strong> lets you reward regulars: every N purchases, the next one gets a discount. It is off until you turn it on. Purchases are counted from the sales recorded for that customer, so every device shows the same number; voided, returned and courtesy sales do not count. When you pick the customer in a sale, the app tells you if the discount applies and offers a button to apply it. It never applies it on its own.</p>
   <h3>Consignor artists add their own pieces</h3>
-  <p>An artist who leaves pieces with you on consignment (the consignor: the pieces are theirs) can add those pieces to their own shelf, on a device of your store, with a PIN of their own. This is not for a commissionist who sells for you: a commissionist earns a commission but does not own the pieces. Open that person's editor in Commissions (✎), go to <strong>Artist access</strong>, type a 3-digit PIN and tap <strong>Save artist access</strong>. The shelf is the one assigned to that person; without one, they cannot add pieces.</p>
+  <p>An artist who leaves pieces with you on consignment (the consignor: the pieces are theirs) can add those pieces to their own shelf, on a device of your store, with a PIN of their own. This is not for a sales associate who sells for you: a sales associate earns a commission but does not own the pieces. Open that person's editor in Commissions (✎), go to <strong>Artist access</strong>, type a 3-digit PIN and tap <strong>Save artist access</strong>. The shelf is the one assigned to that person; without one, they cannot add pieces.</p>
   <p><strong>What the artist can do.</strong> Add a piece with its name, price, how many and a photo; see their pieces with how many are left; and print the label of each one. <strong>What they cannot do.</strong> Change or remove a piece after saving it (you or an admin can), see sales, money, customers, other shelves or any other screen. What sold and what you owe them still reaches them through <strong>Send statement</strong>.</p>
   <p>The PIN cannot match anyone else's PIN. <strong>Turn off access</strong> closes it on every device of the notebook. A device that has not updated yet does not know artists: there, the artist PIN simply does not open.</p>
 
-  <h3>Editing a commissionist (✎)</h3>
-  <p>Tap the <strong>✎ Edit</strong> button on a commissionist's card (or the promoter's name inside a settlement) to open their editor. There you can change their name, base %, <strong>monthly goal</strong>, <strong>tiers/scales</strong>, payment details (phone, ID number, bank, account), and <strong>notes</strong>. If the commissionist has their own goal and tiers, these override the shelf's.</p>
+  <h3>Editing a sales associate (✎)</h3>
+  <p>Tap the <strong>✎ Edit</strong> button on a sales associate's card (or the promoter's name inside a settlement) to open their editor. There you can change their name, base %, <strong>monthly goal</strong>, <strong>tiers/scales</strong>, payment details (phone, ID number, bank, account), and <strong>notes</strong>. If the sales associate has their own goal and tiers, these override the shelf's.</p>
 
   <h3>Goal-based commission tiers</h3>
-  <p>In the commissionist's editor (or the <strong>Commission</strong> button on a shelf) you can define tiers: the % rises the more they sell in the month. Example with a $300 goal: up to $80 → 25%, up to $100 → 30%, up to $120 → 35%, $999+ → 40%. The % applies to the total sold, not just the amount over the previous tier.</p>
+  <p>In the sales associate's editor (or the <strong>Commission</strong> button on a shelf) you can define tiers: the % rises the more they sell in the month. Example with a $300 goal: up to $80 → 25%, up to $100 → 30%, up to $120 → 35%, $999+ → 40%. The % applies to the total sold, not just the amount over the previous tier.</p>
 
   <h3>RFM matrix for promoters</h3>
   <p>At the bottom of Commissions, a 4-quadrant matrix classifies each promoter by value (monthly sales) and recency (days since their last sale): <strong>Champions</strong> (high value and active), <strong>At risk</strong> (high value but asleep), <strong>Promising</strong> (active but low value), and <strong>Asleep</strong>. Same logic as the customer matrix, applied to your sales team.</p>
