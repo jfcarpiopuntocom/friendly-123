@@ -245,3 +245,15 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - Benchmark restante: #6 rol "commissionist/artist" que carga sus piezas en SU percha (toca acceso: plan + test de permisos por rol antes de codigo).
 - [x] Prueba intermitente hallada y arreglada (no era azar): worker-master-recovery alteraba el ULTIMO caracter base64 del token; si era A-D solo tocaba relleno y el token seguia valido. Medido 26/400 (6.5 %). Ahora altera el medio de la firma (0/400). Worker sin cambios.
 - LECCION (error mio): nunca copiar un *.test.js a backups/ con ese nombre: node --test lo ejecuta. Usar sufijo .bak.
+
+## AVANCE shell v395 (Opus 5.5, 2026-09-24) — benchmark #6 CULMINADO: el artista carga sus piezas en SU percha
+- [x] Decisiones JFC (AskUserQuestion): solo AGREGAR piezas (no edita ni borra despues); ve solo sus piezas y stock; imprime solo sus etiquetas; el tope de personas ya no existe como concepto (30 dias de uso completo; sin licencia se pierden funciones, nunca datos).
+- [x] Plan: PLAN-ARTISTA-CARGA-SU-PERCHA-2026-09-24.md. Pruebas ANTES del codigo: test/artista-permisos.test.js (rojo 1/12 en v394, la 1 es de fijacion; verde 13/13).
+- [x] Diseno: el PIN de artista NO va en `usuarios` (auth-ui haria entrar como EMPLEADO a cualquier rol no-admin en un aparato viejo). Va en promotoras[].accesoArtista; un aparato viejo no lo conoce y falla cerrado.
+- [x] Compuerta deny-by-default en mock-backend para rol "artista": solo GET productos/ubicaciones (propios, sin costo), POST productos (forzado a su percha y a el), etiqueta propia. Todo lo demas 403, incluidas rutas futuras.
+- [x] PINs sin choque en las dos direcciones (equipo, integrados, reservados, otro artista); si chocan por sync, el PIN de artista no abre.
+- [x] FIX heredado: la foto elegida al CREAR un producto se perdia (POST no la guardaba). Rojo-verde.
+- [x] BUG MIO pescado en Chromium: tras recargar, la vista del artista no se montaba (evento oc-login perdido). Ahora sigue la clase body.rol-artista.
+- Limite conocido (no nuevo): el DOM que pinto la sesion anterior queda detras de la vista del artista, igual que hoy detras del candado. Las rutas le dan 403.
+- Fuera de este trabajo: quitar LIMITE_EMPLEADOS del codigo (JFC dijo que el tope ya no existe); prueba de tiempo de panel-licencias es inestable con la suite en paralelo.
+- [ ] JFC: probar en su tienda: editor del comisionista -> Artist access -> PIN; entrar con ese PIN.

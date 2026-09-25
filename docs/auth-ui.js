@@ -1000,6 +1000,20 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     if (code === DEMO_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return entrar("demo"); }
     const uNombrado = await verificarUsuarioNombrado(code);
     if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, uNombrado.rol === "admin" ? "admin" : "empleado"); }
+    /* ARTISTA (benchmark #6, JFC 2026-09-24). Va al final a proposito: un PIN
+       integrado o de equipo gana siempre. Si el PIN de artista choca con otro
+       (p. ej. llego asi por sync), el backend responde conflicto y NO se abre
+       nada: falla cerrado. El artista entra con rol propio "artista", nunca
+       como empleado; la compuerta deny-by-default vive en mock-backend.js. */
+    const art = await verificarArtista(code);
+    if (art && art.conflicto) { error(window.t ? window.t("artist.gate.conflict") : "This artist PIN clashes with another PIN. Ask the owner to change it."); return; }
+    if (art && art.id) {
+      window.OCCurrentUser = null;
+      window.OCCurrentArtista = { id: art.id, nombre: art.nombre };
+      try { sessionStorage.setItem("f123_sesion_artista", JSON.stringify(window.OCCurrentArtista)); } catch (_) {}
+      registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
+      return entrar("artista");
+    }
     const sb = window.OCSecure.segundosBloqueo ? (window.OCSecure.segundosBloqueo("login") || 0) : 0;
     if (sb > 0) { error(window.tf("auth.gate.tooManyAttemptsRetry", {s: sb})); return; }
     registrarFallo();
@@ -1079,6 +1093,20 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       });
       if (!r.ok) return null;
       return await r.json(); // { id, nombre, rol }
+    } catch (_) { return null; }
+  }
+  // PIN de artista (benchmark #6). { id, nombre } si abre; { conflicto: true }
+  // si choca con otro PIN; null si no es de nadie o si algo falla.
+  async function verificarArtista(pin) {
+    try {
+      const r = await fetch("/api/artistas/verificar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      const d = await r.json();
+      if (r.status === 409 && d && d.codigo === "ARTISTA_PIN_CONFLICTO") return { conflicto: true };
+      return r.ok ? d : null;
     } catch (_) { return null; }
   }
   // ===========================================================================
@@ -1377,6 +1405,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     document.body.classList.toggle("rol-demo", esDemo);
     document.body.classList.toggle("rol-contador", rol === "contador");
     document.body.classList.toggle("rol-admin", rol === "admin");
+    document.body.classList.toggle("rol-artista", rol === "artista"); // benchmark #6: artista.js tapa la app con su vista
     /* ROL SOPORTE (JFC 2026-08-27): cuando JFC entra a una tienda ajena como
        lord (código maestro), es maintenance/support: ve inventario y fotos
        para verificar integridad, pero NO precios/números ni datos de contacto
@@ -1496,6 +1525,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     rol = null;
     demoSesion = false;
     window.OCCurrentUser = null; // borrar sesion de encargado nombrado
+    window.OCCurrentArtista = null; // benchmark #6
+    try { sessionStorage.removeItem("f123_sesion_artista"); } catch (_) {}
+    document.body.classList.remove("rol-artista");
     document.body.classList.remove("rol-empleado", "rol-dueno", "rol-demo", "rol-contador", "rol-admin");
     nuevoTeclado();
     gate.style.display = "flex";
@@ -1900,6 +1932,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     mascaraCodigo: _ocMascaraCodigo,
     heartbeat: enviarHeartbeat,
     rolActual: () => rol,
+    salir: (m) => cerrarSesion(m), // benchmark #6: la vista del artista tapa el header y necesita su propio "Log out"
     /* JERARQUIA: dueño > admin > encargado (JFC 2026-08-21).
        El admin habia quedado como un encargado con otra insignia: no podia
        crear productos ni perchas, que es justo el trabajo del dia. Debe poder
@@ -1965,6 +1998,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         // Ocultar el candado YA, antes de esperar listo, para que no haya flash.
         try { gate.style.display = "none"; document.body.style.overflow = ""; } catch (_) {}
         await listo;
+        if (ses.rol === "artista") {
+          let a = null;
+          try { a = JSON.parse(sessionStorage.getItem("f123_sesion_artista") || "null"); } catch (_) {}
+          if (!a || !a.id) { try { sessionStorage.removeItem("f123_sesion"); } catch (_) {} gate.style.display = ""; return; }
+          window.OCCurrentArtista = a;
+        }
         entrar(ses.rol);
       }
     } catch (_) {}

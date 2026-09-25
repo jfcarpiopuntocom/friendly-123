@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Optional markdown by time on the shelf (per shelf, with a heads-up in Today) and optional customer loyalty (every N purchases, a discount the app suggests at the sale).",
+  "changelog": "Artists and commissionists can add their own pieces to their own rack with their own PIN, and print those labels. They never see sales, money or customers. Also fixed: the photo chosen when creating a product is now kept.",
   "requerida": false,
-  "shell": "f123-shell-v394",
+  "shell": "f123-shell-v395",
   "apagar": [],
   "releaseName": "v1.0"
 }
