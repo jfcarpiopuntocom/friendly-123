@@ -1813,7 +1813,7 @@
       <label style="font-size:16px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
         <span data-i18n="sold.customerLabel">Customer:</span>
         <select id="ventaCliente" style="flex:1;min-width:140px;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;font-size:15px;">
-          <option value="" data-i18n="sold.counterSale">Counter sale (no customer)</option>
+          <option value="" data-i18n="sold.counterSale">Walk-in customer</option>
         </select>
       </label>
       <button id="btnNuevoCliente" type="button"
@@ -6818,22 +6818,11 @@ async function confirmarVentaConInfo(id, esTicket){
     const _selCom = document.getElementById("vi-comisionista");
     const _p2 = _ventaInfoProductoCache;
     const _comisionistaElegido = _selCom && _selCom.value !== "__counter__" ? _selCom.value : "";
-    if (_comisionistaElegido && _p2 && _p2.ubicacionId) {
-      _modoComisionVenta = "associate";
-      try {
-        const _resAsign = await fetch(`${API}/ubicaciones/${encodeURIComponent(_p2.ubicacionId)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ promotoraId: _comisionistaElegido }) });
-        if (!_resAsign.ok) {
-          msg.style.color = "var(--rojo-ink,#a3392a)";
-          msg.textContent = "Could not save the associate for this shelf. Try again before selling.";
-          return;
-        }
-        try { window.OCReactivo && window.OCReactivo.emitir("comisionistas"); } catch (_) {}
-      } catch (_errAsign) {
-        msg.style.color = "var(--rojo-ink,#a3392a)";
-        msg.textContent = "Could not reach the server to save the associate. The sale was NOT recorded.";
-        return;
-      }
-    }
+    /* 2026-09-25: ya NO se reasigna la percha antes de vender. La persona viaja con la
+       venta (promotoraId) y el servidor aplica su trato. Ese PUT previo era un paso extra
+       que podia fallar y bloquear la venta ("no deja registrar un instante"), y ademas
+       cambiaba en silencio el asociado FIJO de la percha en cada venta. */
+    if (_comisionistaElegido && _p2) _modoComisionVenta = "associate";
   }
   _ventasEnCurso.add(id);
   try {
@@ -8048,7 +8037,7 @@ function resumenComisionPorProductoHtml(prods, unidadesPropias, cuadre){
         <div><div class="rotulo">Associate takes</div><div class="cifra">${fmtMoney(d.socio)}</div></div>
         <div><div class="rotulo">House keeps</div><div class="cifra">${fmtMoney(d.casa)}</div></div>` : ""}
         ${d.pendSocio > 0 ? `<div><div class="rotulo" style="color:var(--rust-deep,#C05000);">Still to pay</div><div class="cifra" style="color:var(--rust-deep,#C05000);">${fmtMoney(d.pendSocio)}</div></div>` : ""}
-        ${d.counterUnid ? `<div><div class="rotulo"><em>Counter sale</em> (house, no commission)</div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
+        ${d.counterUnid ? `<div><div class="rotulo"><em>House sale</em> (no commission)</div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
       </div>
     </div>`).join("") + `</section>`;
 }
@@ -8370,7 +8359,7 @@ async function exportarComisionesCSV(){
     esc(({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado)
   ].join(","));
   // JFC 2026-09-23: el CSV abre por producto; el bloque por percha va debajo.
-  const cabP = ["Product","SKU","Rack","Associate","Units with commission","Sales","Associate takes","House keeps","Still to pay","Counter sale units","Counter sale sales"];
+  const cabP = ["Product","SKU","Rack","Associate","Units with commission","Sales","Associate takes","House keeps","Still to pay","House sale units","House sale sales"];
   const filasP = porProducto.map(d => [esc(d.producto), esc(d.sku), esc([...d.perchas].join(" / ")), esc([...d.asociados].join(" / ")),
     d.unid, d.bruto.toFixed(2), d.socio.toFixed(2), d.casa.toFixed(2), d.pendSocio.toFixed(2), d.counterUnid, d.counterMonto.toFixed(2)].join(","));
   const csv = "\uFEFF" + cabP.join(",") + "\n" + filasP.join("\n") + "\n\n" + cab.join(",") + "\n" + filasCSV.join("\n");

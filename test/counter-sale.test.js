@@ -114,7 +114,7 @@ test('sale UI offers COUNTER SALE and sends it without rewriting the shelf', asy
       };
     });
 
-    assert.match(result.optionText, /COUNTER SALE.*house.*no commission/i);
+    assert.match(result.optionText, /house sale.*no commission/i);
     assert.equal(result.initialValue, result.originalAssociate,
       'un acuerdo existente sigue preseleccionado, pero se puede cambiar a COUNTER SALE');
     assert.equal(result.split, null);

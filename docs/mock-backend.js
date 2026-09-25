@@ -4402,8 +4402,13 @@
            a quien la hizo, no a quien este asignado despues. */
         const _prVenta = (modoComision !== "counter" && body && body.promotoraId)
           ? promotoras.find((x) => String(x.id) === String(body.promotoraId) && !x.borrado) : null;
-        const _ubicTrato = (ubicP && _prVenta && (!ubicP.tipo || ubicP.tipo === "propio"))
-          ? Object.assign({}, ubicP, { tipo: "socio", promotoraId: _prVenta.id, usarComisionPropia: false }) : ubicP;
+        // Percha propia: trato de la persona. Percha compartida: la persona elegida en la venta,
+        // con las reglas de la percha (mismo resultado que el viejo PUT previo, sin tocar la percha).
+        const _ubicTrato = (ubicP && _prVenta)
+          ? ((!ubicP.tipo || ubicP.tipo === "propio")
+              ? Object.assign({}, ubicP, { tipo: "socio", promotoraId: _prVenta.id, usarComisionPropia: false })
+              : Object.assign({}, ubicP, { promotoraId: _prVenta.id }))
+          : ubicP;
         const split = modoComision === "counter"
           ? null
           : (_ubicTrato ? calcularSplitVenta(_ubicTrato, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant) : null);

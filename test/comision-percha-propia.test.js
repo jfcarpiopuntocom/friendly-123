@@ -67,3 +67,15 @@ test('dos aparatos: la persona de la venta viaja por el sync', async () => {
   assert.equal(v.comisionAsociado, 2);
   assert.ok((await b.request('/api/liquidaciones')).some((x) => x.ubicacionId === t.propia.id), 'el otro aparato tambien ve la tarjeta');
 });
+
+test('percha compartida: la persona elegida cobra y el asociado FIJO de la percha no cambia', async () => {
+  const t = await tienda();
+  const rack = await t.w.request('/api/ubicaciones', 'POST', { nombre: 'Compartida', tipo: 'socio' });
+  await t.w.request(`/api/ubicaciones/${rack.id}`, 'PUT', { promotoraId: t.otra.id }); // fija: Otra (50 %)
+  const p = await t.w.request('/api/productos', 'POST', { nombre: 'Vela', barcode: 'V-1', precio: 10, stockInicial: 5, ubicacionId: rack.id, umbralRojo: 1, umbralAmarillo: 2 });
+  const { ventaId } = await t.w.request(`/api/productos/${p.id}/venta`, 'POST', { cantidad: 1, modoComision: 'associate', promotoraId: t.pepoe.id });
+  const v = (await t.w.request('/api/ventas/todas')).find((x) => x.id === ventaId);
+  assert.equal(v.asociadoNombre, 'PEpoe');
+  assert.equal(v.comisionAsociado, 2, 'trato de PEpoe (20 %)');
+  assert.equal((await t.w.request('/api/ubicaciones')).find((u) => u.id === rack.id).promotoraId, t.otra.id, 'la percha sigue con Otra');
+});
