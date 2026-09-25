@@ -8164,7 +8164,8 @@ async function cargarComisiones(){
       </details>` : ""}
       ${f.esMesActual === false ? "" : termometroMeta(f.cumplimientoMeta, f.metaMensual)}
       ${f.esMesActual === false ? "" : simuladorHtml(f)}
-      ${f.estado === "pendiente" ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde,#00C87A);color:#fff;border-color:var(--sim-verde-dk,#009A5A);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
+      ${f.estado === "pendiente" ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde-dk,#086944);color:#fff;border-color:var(--sim-verde-dk,#086944);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
+      ${f.promotoraId && f.estado !== "sin ventas" ? `<button type="button" class="tecla" style="font-size:14px;margin-top:12px;margin-left:8px;" onclick="enviarEstadoComisionista('${f.ubicacionId}')">Send statement</button>` : ""}
     </div>`;
   };
 
@@ -8505,6 +8506,63 @@ async function reactivarCliente(clienteId, nombre) {
     await fetch(`${API}/clientes/${clienteId}/reactivar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quien }) });
     cargarClientes();
   } catch(e) { console.error("Error reactivando cliente:", e); }
+}
+
+/* ESTADO DE CUENTA DEL COMISIONISTA, paso 2 (JFC 2026-09-24, benchmark #1).
+   Ver PLAN-ESTADO-DE-CUENTA-COMISIONISTA-2026-09-24.md y docs/estado-cifrado.js.
+   - Solo dueno/admin. Arma el mes que se esta viendo, SOLO de esa percha/persona.
+   - Lista blanca en OCEstado.armar: nunca clientes, costos, PIN ni licencia.
+   - Vencimiento a eleccion en cada envio (7 o 30 dias): sin disyuntiva fija.
+   - Abre WhatsApp con el enlace listo; la persona toca enviar. Sin telefono,
+     abre WhatsApp para elegir el contacto. Si el navegador bloquea la ventana,
+     copia el enlace y lo dice. Nada viaja a un servidor. */
+async function enviarEstadoComisionista(ubicacionId){
+  const es = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+  try {
+    const rol = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+    if (rol !== "dueno" && rol !== "admin") { await ocAlert(es ? "Solo el dueño o un admin puede enviar estados de cuenta." : "Only the owner or an admin can send statements."); return; }
+    if (!window.OCEstado) { await ocAlert(es ? "Este navegador no puede generar el estado de cuenta." : "This browser cannot build the statement."); return; }
+    const mesQ = _ocMesComisiones ? "?mes=" + encodeURIComponent(_ocMesComisiones) : "";
+    const [liqs, ventas, proms] = await Promise.all([
+      fetch(`${API}/liquidaciones${mesQ}`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/ventas/todas?ubicacionId=${encodeURIComponent(ubicacionId)}`).then(r => r.ok ? r.json() : []),
+      fetch(`${API}/promotoras`).then(r => r.ok ? r.json() : [])
+    ]);
+    const f = (Array.isArray(liqs) ? liqs : []).find(x => x.ubicacionId === ubicacionId);
+    const pr = f && f.promotoraId ? (Array.isArray(proms) ? proms : []).find(x => x.id === f.promotoraId) : null;
+    if (!f || !pr) { await ocAlert(es ? "Esta percha no tiene comisionista asignado." : "This shelf has no commissionist assigned."); return; }
+    const vs = (Array.isArray(ventas) ? ventas : []).filter(v => v.mes === f.mes && Number(v.comisionAsociado) > 0 && v.modoComision !== "counter");
+    const nombreProd = {}; vs.forEach(v => { nombreProd[v.id] = v.productoNombre; });
+    const lineas = vs.map(v => ({ fecha: String(v.fecha || "").slice(0, 10), producto: v.productoNombre, cantidad: v.cantidad, comision: v.comisionAsociado, pagada: !!v.liquidada, medio: v.medioPagoComision || null }));
+    const ajustes = (f.ajustes || []).map(a => ({ fecha: String(a.fecha || "").slice(0, 10), producto: nombreProd[a.ventaId] || (es ? "Devolución" : "Return"), comision: a.montoComisionSocio, pagada: !!a.liquidada }));
+    const r2 = (n) => Math.round(n * 100) / 100;
+    const sumaCom = vs.reduce((s, v) => s + (Number(v.comisionAsociado) || 0), 0) + ajustes.reduce((s, a) => s + (Number(a.comision) || 0), 0);
+    const pendiente = vs.filter(v => !v.liquidada).reduce((s, v) => s + (Number(v.comisionAsociado) || 0), 0) + ajustes.filter(a => !a.pagada).reduce((s, a) => s + (Number(a.comision) || 0), 0);
+    const dias = await _ocModalMostrar(
+      es ? `Estado de cuenta de ${pr.nombre} (${_ocMesEtiqueta(f.mes)}). ¿Cuánto tiempo funciona el enlace?` : `Statement for ${pr.nombre} (${_ocMesEtiqueta(f.mes)}). How long should the link work?`,
+      [{ label: t("common.cancel"), value: false }, { label: es ? "7 días" : "7 days", value: 7 }, { label: es ? "30 días" : "30 days", value: 30 }]);
+    if (!dias) return;
+    const _neg = document.getElementById("oc-negocio-nombre");
+    const negocio = (_neg && !_neg.hasAttribute("data-i18n")) ? _neg.textContent.trim() : "";
+    const frag = await window.OCEstado.cifrar({
+      nombre: String(pr.nombre || "").trim().split(/\s+/)[0], negocio, mes: f.mes, lineas, ajustes,
+      totalVendido: vs.reduce((s, v) => s + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0), 0),
+      totalComision: r2(sumaCom), totalPendiente: r2(pendiente), totalPagado: r2(sumaCom - pendiente), venceDias: dias
+    });
+    const link = new URL("estado.html", location.href).href.split("#")[0] + "#" + frag;
+    const primer = String(pr.nombre || "").trim().split(/\s+/)[0] || "";
+    const msg = es ? `Hola ${primer}, tu estado de cuenta de ${_ocMesEtiqueta(f.mes)}: ${link} (el enlace vence en ${dias} días)`
+                   : `Hi ${primer}, your statement for ${_ocMesEtiqueta(f.mes)}: ${link} (the link expires in ${dias} days)`;
+    const tel = String(pr.telefono || "").replace(/\D/g, "");
+    const w = window.open("https://wa.me/" + (tel.length >= 7 ? tel : "") + "?text=" + encodeURIComponent(msg), "_blank", "noopener");
+    if (!w) {
+      try { await navigator.clipboard.writeText(link); } catch (_) {}
+      await ocAlert(es ? "El navegador bloqueó WhatsApp. Copié el enlace: pégalo en el chat de " + primer + "." : "The browser blocked WhatsApp. The link is copied: paste it in your chat with " + primer + ".");
+    }
+  } catch (e) {
+    console.warn("[estado de cuenta]", e && e.message);
+    await ocAlert(es ? "No se pudo generar el estado de cuenta. No se envió nada." : "Could not build the statement. Nothing was sent.");
+  }
 }
 
 async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
@@ -9134,6 +9192,7 @@ setTimeout(() => {
      que seguir en el SHELL de sw.js. Si cargador.js no cargara, el inline de
      abajo escribe los <script> locales de siempre (document.write mismo
      origen, permitido). -->
+<script src="./estado-cifrado.js"></script>
 <script src="./cargador.js"></script>
 <script>
 (function () {

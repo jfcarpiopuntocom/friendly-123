@@ -226,3 +226,12 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [ ] Paso 2: boton "Send statement" en la tarjeta de Commissions (dueno/admin) que arma el JSON minimo del mes y abre WhatsApp al telefono del comisionista. Test: el JSON nunca trae claves prohibidas. Shell nuevo (toca index.html).
 - [ ] Paso 3: ayuda y manual (que ve la artista, cuanto dura, por que no se revoca).
 - [ ] DECISION JFC: 7 o 30 dias de vencimiento.
+
+## AVANCE shell v393 (Opus 5.5, 2026-09-25) — estado de cuenta CULMINADO (benchmark #1)
+- [x] Paso 2: boton "Send statement" (dueno/admin). Sin disyuntiva cruel: el dueno elige 7 o 30 dias EN CADA ENVIO. Sin telefono, WhatsApp abre para elegir contacto; si el navegador bloquea la ventana, copia el enlace y lo dice.
+- [x] Paso 3: manual.html, seccion "Telling the commissionist" (aviso, medio de pago, estado; por que no se revoca).
+- [x] Contraste pescado: "Mark as paid" era blanco sobre verde claro (3.3:1) -> verde oscuro.
+- Prueba en Chromium de punta a punta: $150 vendido, $60 comision, $20 pagado por transferencia, $40 por pagar, vence en 30 dias; enlace ~500 caracteres.
+- [ ] Siguiente del benchmark: #3 rebaja por antiguedad (apagada por defecto, por percha, aviso previo; cada venta congela su precio). Plan + test Hugo/Paco/Luis antes de codigo.
+- [ ] Siguiente: #5 lealtad simple derivada de las ventas (no contador aparte, asi el sync la cuadra).
+- [ ] Botones blanco sobre naranja de marca (3.2:1, texto grande): se dejan; si JFC quiere 4.5:1, --rust-deep.
