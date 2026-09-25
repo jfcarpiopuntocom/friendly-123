@@ -1,0 +1,72 @@
+# sonar.yml — EJECUTA LAS ORDENES DEL SONAR DE CANARIOS (JFC 2026-09-25).
+# JFC aprieta PUSH o REWIND en su panel privado -> el Worker guarda la orden (con su
+# Master Key) -> este flujo la lee cada 5 min (GitHub puede atrasar el cron unos
+# minutos) y la ejecuta UNA sola vez (marca con la etiqueta sonar-<id>):
+#   PUSH   : previo <- estable, estable <- master (lo que hay en /next/).
+#   REWIND : estable <- previo (los clientes vuelven a la version anterior).
+# Los DATOS de los clientes no se tocan nunca: solo cambia que interfaz ven.
+# Claude tambien puede lanzarlo a mano: gh workflow run sonar.yml
+name: sonar
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: sonar
+  cancel-in-progress: false
+
+jobs:
+  orden:
+    runs-on: ubuntu-latest
+    outputs:
+      hecho: ${{ steps.o.outputs.hecho }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: o
+        name: Leer y ejecutar la orden pendiente
+        run: |
+          set -euo pipefail
+          WORKER="https://friendly123-licencias.jfcarpio.workers.dev"
+          J=$(curl -s --max-time 20 "$WORKER/canario/orden" || echo '{}')
+          ID=$(echo "$J" | jq -r '.orden.id // empty')
+          ACCION=$(echo "$J" | jq -r '.orden.accion // empty')
+          AT=$(echo "$J" | jq -r '.orden.at // 0')
+          echo "hecho=no" >> "$GITHUB_OUTPUT"
+          if [ -z "$ID" ]; then echo "sin ordenes"; exit 0; fi
+          if ! echo "$ID" | grep -Eq '^[a-z0-9]{4,20}$'; then echo "id invalido"; exit 0; fi
+          # Ordenes de mas de 24 h no se ejecutan (una orden vieja no debe sorprender a nadie).
+          if [ $(( $(date +%s) * 1000 - AT )) -gt 86400000 ]; then echo "orden vieja, se ignora"; exit 0; fi
+          git fetch -q --tags origin estable master previo || git fetch -q --tags origin estable master
+          if git rev-parse -q --verify "refs/tags/sonar-$ID" >/dev/null; then echo "orden $ID ya ejecutada"; exit 0; fi
+          ESTABLE=$(git rev-parse origin/estable)
+          if [ "$ACCION" = "push" ]; then
+            MASTER=$(git rev-parse origin/master)
+            if [ "$ESTABLE" != "$MASTER" ]; then
+              git push origin "$ESTABLE:refs/heads/previo" --force
+              git push origin "$MASTER:refs/heads/estable" --force
+            fi
+            echo "PUSH: previo=$ESTABLE estable=$MASTER"
+          elif [ "$ACCION" = "rewind" ]; then
+            if ! git rev-parse -q --verify origin/previo >/dev/null; then echo "no hay version previa"; exit 1; fi
+            PREVIO=$(git rev-parse origin/previo)
+            git push origin "$PREVIO:refs/heads/estable" --force
+            echo "REWIND: estable=$PREVIO (antes $ESTABLE)"
+          else
+            echo "accion desconocida: $ACCION"; exit 0
+          fi
+          git tag "sonar-$ID" && git push -q origin "refs/tags/sonar-$ID"
+          echo "hecho=si" >> "$GITHUB_OUTPUT"
+
+  publicar:
+    needs: orden
+    if: needs.orden.outputs.hecho == 'si'
+    uses: ./.github/workflows/publicar.yml

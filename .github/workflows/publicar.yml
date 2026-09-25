@@ -1,0 +1,78 @@
+# publicar.yml — GitHub Pages con TRES CANALES (plan canarios F2, JFC 2026-09-25).
+#   Raiz  /friendly-123/       = rama `estable`  -> CLIENTES REALES.
+#   /friendly-123/next/        = rama `master`   -> CANARIO (aparatos lord de JFC).
+#   /friendly-123/previo/      = rama `previo`   -> estable anterior (rewind; se omite si no existe).
+# Mismo origen = mismos datos: el aparato lord usa /next/ con sus datos reales.
+# El codigo se sigue editando en docs/ en master, como siempre. Un push a master
+# SOLO cambia /next/; los clientes cambian cuando se mueve `estable`
+# (promover.yml, ventana de 33 min, regla dura de JFC).
+# Vuelta atras (si algun dia hiciera falta): en Settings > Pages, fuente =
+# "Deploy from a branch", master /docs. Queda exactamente como antes.
+name: publicar
+
+# Solo desde master: el entorno github-pages acepta despliegues de la rama por
+# defecto. Mover `estable`/`previo` NO dispara esto: lo llaman promover.yml y
+# sonar.yml (workflow_call) o Claude con `gh workflow run publicar.yml`.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      solo_construir:
+        description: "Ensayo: construir el sitio sin desplegar"
+        type: boolean
+        default: false
+  workflow_call: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Armar sitio (estable en la raiz, master en /next/)
+        run: |
+          set -euo pipefail
+          git fetch -q origin estable master
+          git fetch -q origin previo || true
+          rm -rf sitio e n p && mkdir -p sitio/next e n p
+          # git archive saca el blob tal cual (LF en Linux): los mismos bytes que servia Pages.
+          git archive origin/estable docs | tar -x -C e
+          git archive origin/master docs | tar -x -C n
+          cp -a e/docs/. sitio/
+          cp -a n/docs/. sitio/next/
+          if git rev-parse -q --verify origin/previo >/dev/null; then
+            git archive origin/previo docs | tar -x -C p
+            mkdir -p sitio/previo && cp -a p/docs/. sitio/previo/
+            echo "previo:  $(git rev-parse --short origin/previo) $(grep -o 'f123-shell-v[0-9]*' sitio/previo/version.json)"
+          else
+            echo "previo:  todavia no existe (se crea en la primera promocion)"
+          fi
+          # Ningun canal lleva canales anidados (por si algun dia docs/next o docs/previo existieran).
+          rm -rf sitio/next/next sitio/next/previo sitio/previo/next sitio/previo/previo
+          echo "estable: $(git rev-parse --short origin/estable) $(grep -o 'f123-shell-v[0-9]*' sitio/version.json)"
+          echo "canario: $(git rev-parse --short origin/master) $(grep -o 'f123-shell-v[0-9]*' sitio/next/version.json)"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: sitio
+
+  desplegar:
+    needs: construir
+    if: ${{ !inputs.solo_construir }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - id: despliegue
+        uses: actions/deploy-pages@v4

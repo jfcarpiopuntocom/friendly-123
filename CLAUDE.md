@@ -278,3 +278,28 @@ trabajo está mal hecho aunque el código funcione.
 - friendly v401: el diagnóstico de Advanced (Sync, Code, origen del código) solo
   se ve en el aparato lord entrando como dueño, o con canario puesto. La
   medición sigue corriendo para todos.
+
+## CANARIOS Y TRES CANALES (JFC 2026-09-25) — REGLA DURA, LEER ANTES DE PUBLICAR
+Friendly tiene clientes reales. Desde el shell v403 los clientes ya NO reciben
+master directo. GitHub Pages publica con GitHub Actions (`.github/workflows/`):
+- `/friendly-123/`        = rama `estable` -> CLIENTES REALES.
+- `/friendly-123/next/`   = rama `master`  -> CANARIO (aparatos en la licencia
+  lord de JFC; un aparato lord que abre la raiz pasa solo a /next/).
+- `/friendly-123/previo/` = rama `previo`  -> estable anterior (rewind).
+Mismo origen = mismos datos: las tres versiones leen el MISMO cuaderno, asi que
+la compatibilidad de datos en las dos direcciones es obligatoria.
+
+Flujo: merge a master -> sale en /next/ -> `promover.yml` espera 33 min mirando
+el Sonar del Worker (`/canario/estado`) -> si no hay rojo ni "Detener", mueve
+previo <- estable <- master y publica. Regla de JFC: 33 minutos MAXIMO desde
+cada push; JFC es parte del equipo de prueba.
+Emergencias (panel privado de JFC, seccion "Sonar de Canarios", aparte de la
+lista de licencias): PUSH (next a clientes ya), REWIND (clientes a previo),
+Detener/Reanudar. Las ejecuta `sonar.yml` (cron cada 5 min).
+Claude en sesion puede hacerlo directo: mover ramas y `gh workflow run publicar.yml`.
+
+Checklist de release (se suma al de arriba): tras el merge, verificar la URL
+VIVA de `/next/` (no la raiz), decirle a JFC que el shell esta en /next/ y a que
+hora llega a clientes; a los 33 min verificar la raiz.
+Vuelta atras total: Settings > Pages > "Deploy from a branch" master /docs.
+Plan completo: PLAN-CANARIOS-2026-09-25.md.

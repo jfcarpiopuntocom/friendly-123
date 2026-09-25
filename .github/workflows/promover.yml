@@ -1,0 +1,72 @@
+# promover.yml — VENTANA DE 33 MINUTOS (regla dura de JFC, 2026-09-25).
+# "33 minutos maximo, es el tiempo que me doy para testear desde cada commit/push tuyo".
+# Cada push a master que toque docs/ ya esta en /next/ (publicar.yml). Aqui se espera
+# 33 min mirando el Sonar del Worker cada minuto:
+#   - rojo en el canario de ese shell (errores, scripts caidos, mezcla, descuadre) -> NO se promueve;
+#   - JFC apreto "Detener" en su panel                                            -> NO se promueve;
+#   - si no, a los 33 min: previo <- estable, estable <- este commit, y se publica.
+# Un push nuevo cancela la espera anterior y reinicia la ventana (concurrency).
+# Nada aqui toca datos: solo mueve que version de la interfaz ven los clientes.
+name: promover
+
+on:
+  push:
+    branches: [master]
+    paths: ["docs/**"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: promover
+  cancel-in-progress: true
+
+jobs:
+  ventana:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      promover: ${{ steps.v.outputs.promover }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: v
+        name: Esperar 33 min mirando el Sonar
+        run: |
+          set -uo pipefail
+          WORKER="https://friendly123-licencias.jfcarpio.workers.dev"
+          SHELL_NUEVO=$(grep -o 'f123-shell-v[0-9]*' docs/version.json)
+          echo "shell en /next/: $SHELL_NUEVO"
+          revisar() {
+            E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$SHELL_NUEVO" || echo '{}')
+            if echo "$E" | jq -e '.rojo == true' >/dev/null 2>&1; then echo "ROJO: $(echo "$E" | jq -c '.rojos')"; return 1; fi
+            if echo "$E" | jq -e '.detenido == true' >/dev/null 2>&1; then echo "DETENIDO por JFC"; return 1; fi
+            return 0
+          }
+          FIN=$(( $(date +%s) + 33 * 60 ))
+          while [ "$(date +%s)" -lt "$FIN" ]; do
+            if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 60
+          done
+          if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "promover=si" >> "$GITHUB_OUTPUT"
+      - name: Mover ramas (previo <- estable, estable <- este commit)
+        if: steps.v.outputs.promover == 'si'
+        run: |
+          set -euo pipefail
+          git fetch -q origin estable
+          ESTABLE=$(git rev-parse origin/estable)
+          if [ "$ESTABLE" = "$GITHUB_SHA" ]; then echo "estable ya esta en este commit"; exit 0; fi
+          # Solo hacia adelante: una ventana vieja jamas retrocede a los clientes.
+          if ! git merge-base --is-ancestor "$ESTABLE" "$GITHUB_SHA"; then echo "estable no es ancestro de este commit: no se mueve"; exit 1; fi
+          git push origin "$ESTABLE:refs/heads/previo" --force
+          git push origin "$GITHUB_SHA:refs/heads/estable" --force
+          echo "previo=$ESTABLE estable=$GITHUB_SHA"
+
+  publicar:
+    needs: ventana
+    if: needs.ventana.outputs.promover == 'si'
+    uses: ./.github/workflows/publicar.yml
