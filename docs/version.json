@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Choosing a commissionist on a sale now earns their commission on any rack, including your own. Commissions and Sold update as soon as a sale arrives from another device, and each sale keeps the person who made it.",
+  "changelog": "Clearer words: Walk-in customer, House sale, Sales associate and Consignor. Choosing a sales associate on a sale no longer changes who is assigned to the rack, and a sale no longer waits on that extra step.",
   "requerida": false,
-  "shell": "f123-shell-v399",
+  "shell": "f123-shell-v400",
   "apagar": [],
   "releaseName": "v1.0"
 }
