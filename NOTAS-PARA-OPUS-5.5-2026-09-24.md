@@ -339,3 +339,18 @@ NO se decidio; se hizo research y se repregunto.
   Testimonio: Diego Peñaherrera.
 - Error mio atrapado antes de publicar: un apostrofo en el texto EN rompia TODO el script de la pagina. Revisar cada
   <script> con new Function antes de publicar. El script 1 ya traia un error de sintaxis en la version publicada (no es mio).
+
+## AVANCE 2026-09-25 tarde — INICIO jfcarpio.com v2 PUBLICADO
+- Decision JFC: producto central = las 3 apps; talleres y reports = 1B; tono ni salesy ni cero conversion.
+  Testimonio: Diego Peñaherrera, CEO, Quito 2022 (grafia confirmada por JFC).
+- Jev con research (4 llamadas mas, ~USD 0.00004 c/u): primera pantalla = proposito + 3 tarjetas (1.0);
+  cada tarjeta a su landing (0.98); linea de confianza "economista, 20 anos" (0.89). Plegar lo intelectual (0.39: se
+  dejo plegado en la misma pagina por pedido de JFC de no perder nada visible).
+- Publicado (PR #10, deploy limpio): arriba "Herramientas simples para negocios reales, hechas por un economista" +
+  friendly-123 / amigable-123 / consultorio-123; debajo bloque 1B (research + talleres, testimonio, brief gratis por
+  WhatsApp, garantia). Portada, paneles y trayectoria intactos, plegados donde ya estaban.
+- Coordinacion: la sesion original (30fb5c) hizo el WIP v1 (commit dea2f74) y me cedio el archivo. Nunca 2 sesiones en el mismo index.html.
+- CSP bloqueaba Cloudflare Web Analytics (cero datos de visitas). Arreglado (PR #11). Ya se puede medir conversion.
+- amigable-123 y consultorio-123 no tienen landing propia: sus tarjetas van a la app. PENDIENTE: landings propias.
+- Pendiente JFC: pasos de Cloudflare (www nube naranja, SSL Full strict, Bot Fight, WAF+rate limit, DNSSEC).
+- Pendiente: pelicula WebGL2 (mosaico vidrio + pan de oro, logo friendly-123) como doodle clickeable.
