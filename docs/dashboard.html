@@ -1053,9 +1053,9 @@
        aparatos: el dueño ve su equipo de comisionistas con su % vigente, venga
        el alta de donde venga. Usa datos.promotoras, que ya viaja en la foto. */
     comisionistas: {
-      nombre: "Commissionists / artists / promoters",
+      nombre: "Sales associates and consignors",
       cols: [
-        { title: "Commissionist/Artist/Promoter", field: "nombre", minWidth: 180, widthGrow: 3 },
+        { title: "Sales associate / consignor", field: "nombre", minWidth: 180, widthGrow: 3 },
         { title: "Commission", field: "comisionBase", width: 120, hozAlign: "right", cssClass: "num",
           formatter: function (c) { var v = c.getValue(); if (v == null) v = c.getRow().getData().comision; return (Number(v) || 0) + "%"; } },
         { title: "Monthly goal", field: "metaMensual", width: 130, hozAlign: "right", cssClass: "num",
@@ -1381,7 +1381,7 @@
           '<div><div class="et">Associate takes</div><div class="n">' + money(g.socio) + "</div></div>" +
           '<div><div class="et">House keeps</div><div class="n">' + money(g.casa) + "</div></div>" : "") +
         (g.pend > 0 ? '<div><div class="et cm-rojo">Still to pay</div><div class="n cm-rojo">' + money(g.pend) + "</div></div>" : "") +
-        (g.counterUnid ? '<div><div class="et">COUNTER SALE (house, no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + g.counterUnid + "u</small></div></div>" : "") +
+        (g.counterUnid ? '<div><div class="et">House sale (no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + g.counterUnid + "u</small></div></div>" : "") +
         "</div>";
       var extra = "";
       if (l) {

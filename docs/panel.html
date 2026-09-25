@@ -331,6 +331,29 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
         </div>
       </div>
     </div>
+    <!-- SONAR DE CANARIOS (plan canarios F5, JFC 2026-09-25). Seccion APARTE de la
+         lista de licencias, a pedido de JFC. Tres versiones vivas en el mismo
+         origen (mismos datos): previo (rewind), estable (clientes) y next
+         (canario, aparatos lord). Lee version.json de cada canal y el Sonar del
+         Worker (/canario/estado: solo numeros). Los botones escriben una orden
+         en el Worker con la Master Key; la ejecuta sonar.yml en GitHub. -->
+    <div class="sec-head" style="margin-top:0;"><h2>Sonar de Canarios</h2><span class="hint" id="sonar-meta">cargando…</span></div>
+    <div id="sonar" style="margin-bottom:26px;">
+      <div id="sonar-canales" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;"></div>
+      <p id="sonar-rojos" style="display:none;margin:12px 0 0;font-size:16px;font-weight:700;color:#FF8A6B;"></p>
+      <p id="sonar-orden" style="margin:10px 0 0;font-size:15px;color:var(--ink);"></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button class="btn" id="sonar-push" style="min-height:44px;font-size:15px;background:#28ECAA;color:#0B0F14;font-weight:800;">PUSH · next a clientes ya</button>
+        <button class="btn" id="sonar-rewind" style="min-height:44px;font-size:15px;background:#E86040;color:#FFFFFF;font-weight:800;">REWIND · clientes a la previa</button>
+        <button class="btn btn-outline" id="sonar-detener" style="min-height:44px;font-size:15px;">Detener promoción automática</button>
+        <button class="btn btn-outline" id="sonar-refrescar" style="min-height:44px;font-size:15px;">Actualizar</button>
+      </div>
+      <p style="margin:10px 0 0;font-size:15px;color:var(--ink);line-height:1.5;">
+        Regla: cada push a master llega primero a <strong>next</strong> (tus aparatos). Si en 33 minutos no hay rojos ni lo detienes, pasa solo a los clientes y la versión anterior queda en <strong>previo</strong>.
+        Push y Rewind se ejecutan en GitHub en 1 a 10 minutos.
+      </p>
+    </div>
+
     <!-- STATS -->
     <div class="sec-head"><h2>Resumen</h2><span class="hint" id="fecha-panel"></span></div>
 
@@ -763,6 +786,7 @@ function mostrarPanel() {
   document.getElementById("gate").style.display = "none";
   document.getElementById("panel").classList.add("visible");
   initPanel();
+  sonarArrancar(); // 2026-09-25: Sonar de Canarios arriba de todo
 }
 
 // ── PANEL ──
@@ -790,6 +814,8 @@ function licSetCfg(obj) {
   localStorage.setItem("f123_master_cfg", JSON.stringify({ ...prev, ...obj }));
 }
 function licWorkerUrl() { return (licGetCfg().workerUrl || "").trim(); }
+let _sonarTimer = null;
+function sonarArrancar() { try { sonarPintar(); if (!_sonarTimer) _sonarTimer = setInterval(sonarPintar, 60000); } catch (_) {} }
 function licMasterKey() { return (licGetCfg().masterKey || "").trim(); }
 let _licMaestroTimer = null;
 function licCerrarMaestro() {
@@ -832,6 +858,76 @@ async function licCopiarMaestro() {
    nadie tenga que recordarla. NO es un secreto: sin el seed del secret value este
    endpoint devuelve 401 a todo el mundo. */
 const LIC_WORKER_POR_DEFECTO = "https://friendly123-licencias.jfcarpio.workers.dev";
+
+/* ── SONAR DE CANARIOS (plan canarios F5, JFC 2026-09-25) ──────────────────
+   Tres canales en el mismo origen: raiz = estable (clientes), next/ = canario,
+   previo/ = estable anterior. Se lee version.json de cada uno (sin cache) y el
+   Sonar del Worker por shell. Las ordenes (push / rewind / detener / reanudar)
+   van al Worker con la Master Key; las ejecuta .github/workflows/sonar.yml. */
+function sonarRaiz() { return location.pathname.replace(/(next|previo)\/[^/]*$/, "").replace(/[^/]*$/, ""); }
+function sonarEsc(t) { return String(t == null ? "" : t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+async function sonarVersion(sub) {
+  try { const r = await fetch(sonarRaiz() + sub + "version.json?z=" + Date.now(), { cache: "no-store" }); return r.ok ? await r.json() : null; } catch (_) { return null; }
+}
+async function sonarEstado(shell) {
+  const url = (licWorkerUrl() || LIC_WORKER_POR_DEFECTO).replace(/\/+$/, "");
+  if (!shell) return null;
+  try { const r = await fetch(url + "/canario/estado?shell=" + encodeURIComponent(shell), { cache: "no-store" }); return r.ok ? await r.json() : null; } catch (_) { return null; }
+}
+function sonarHora(ms) { if (!ms) return "—"; const d = new Date(ms); return d.toLocaleString("es-EC", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }); }
+async function sonarPintar() {
+  const meta = document.getElementById("sonar-meta");
+  const canales = [["previo/", "PREVIO · rewind", "#E8A020"], ["", "ESTABLE · clientes", "#28ECAA"], ["next/", "NEXT · canario", "#FFFFFF"]];
+  const versiones = await Promise.all(canales.map((c) => sonarVersion(c[0])));
+  const estados = await Promise.all(versiones.map((v) => sonarEstado(v && v.shell)));
+  document.getElementById("sonar-canales").innerHTML = canales.map((c, i) => {
+    const v = versiones[i], e = estados[i];
+    const shell = v ? v.shell : (c[0] ? "no publicado todavía" : "—");
+    const salud = e ? `${e.reportes} reportes lord · ${e.aparatos} aparatos · ${e.aparatosConProblemas} con problemas` : "sin datos del Sonar";
+    const rojo = e && e.rojo;
+    return `<div style="background:var(--surface);border:3px solid ${rojo ? "#E86040" : c[2]};border-radius:10px;padding:12px 14px;">
+      <div style="font-size:14px;font-weight:800;color:${c[2]};">${c[1]}</div>
+      <div style="font-size:18px;font-weight:800;color:#FFFFFF;margin-top:4px;">${sonarEsc(shell)}</div>
+      <div style="font-size:14px;color:#FFFFFF;margin-top:6px;">${sonarEsc(salud)}</div>
+      <div style="font-size:14px;font-weight:800;margin-top:6px;color:${rojo ? "#FF8A6B" : "#28ECAA"};">${rojo ? "EN ROJO" : "sin rojos"}</div>
+    </div>`;
+  }).join("");
+  const next = estados[2];
+  const rojos = document.getElementById("sonar-rojos");
+  if (next && next.rojo) {
+    rojos.style.display = "";
+    rojos.textContent = "Next en rojo, no pasará a clientes: " + next.rojos.map((r) => r.motivos.join("+") + " (" + r.canal + ", " + sonarHora(r.at) + ")").join(" · ");
+  } else rojos.style.display = "none";
+  const e0 = estados.find((x) => x) || {};
+  const o = e0.orden;
+  document.getElementById("sonar-orden").textContent =
+    (e0.detenido ? "Promoción automática DETENIDA. " : "Promoción automática activa (33 min). ") +
+    (o ? "Última orden: " + (o.accion === "push" ? "PUSH" : "REWIND") + " · " + sonarHora(o.at) : "Sin órdenes todavía.");
+  document.getElementById("sonar-detener").textContent = e0.detenido ? "Reanudar promoción automática" : "Detener promoción automática";
+  document.getElementById("sonar-detener").dataset.accion = e0.detenido ? "reanudar" : "detener";
+  meta.textContent = "actualizado " + sonarHora(Date.now());
+}
+async function sonarOrden(accion) {
+  const avisos = {
+    push: "PUSH: la versión NEXT pasa a TODOS los clientes ahora, sin esperar los 33 minutos. ¿Seguro?",
+    rewind: "REWIND: los clientes vuelven a la versión PREVIA. Sus datos no se tocan. ¿Seguro?",
+  };
+  if (avisos[accion] && !confirm(avisos[accion])) return;
+  const url = (licWorkerUrl() || LIC_WORKER_POR_DEFECTO).replace(/\/+$/, "");
+  try {
+    const r = await fetch(url + "/canario/orden", { method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify({ accion }) });
+    const j = await r.json().catch(() => ({}));
+    mostrarConfirmacion(r.ok ? "Orden registrada: " + accion.toUpperCase() : "No se pudo: " + (j.error || r.status));
+  } catch (_) { mostrarConfirmacion("Sin conexión con el Worker"); }
+  sonarPintar();
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const b = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener("click", fn); };
+  b("sonar-push", () => sonarOrden("push"));
+  b("sonar-rewind", () => sonarOrden("rewind"));
+  b("sonar-detener", (ev) => sonarOrden(ev.currentTarget.dataset.accion || "detener"));
+  b("sonar-refrescar", () => sonarPintar());
+});
 
 function licInit() {
   const cfg = licGetCfg();

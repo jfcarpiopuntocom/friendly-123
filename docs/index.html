@@ -27,6 +27,35 @@
      otros scripts leen/escriben sin namespace y el aislamiento se rompe. -->
 <script src="./aislamiento.js"></script>
 <script>
+/* CANAL CANARIO PARA LOS APARATOS DEL LORD (plan canarios F3, JFC 2026-09-25).
+   Un aparato en la licencia lord de JFC (huella cyrb53, la licencia nunca va al
+   repo) que abre la direccion de los clientes pasa solo a ./next/: ahi prueba
+   cada shell nuevo con SUS datos reales (mismo origen = mismos datos) antes de
+   que llegue a los clientes. Salidas:
+   - ?estable=1 en la URL, o "Use stable on this device" en Advanced: este
+     aparato se queda en el estable (f123_canal_propio = "estable").
+   - Si ./next/ no existe (Pages vuelto a modo carpeta), no se mueve nada:
+     primero se confirma que ./next/version.json responde.
+   Los aparatos de clientes no hacen nada aqui. */
+(function(){
+  try{
+    /* SEO (2026-09-25): /next/ y /previo/ son copias de la app para canarios y
+       rewind; el canonical ya apunta a la raiz y ademas no se indexan. */
+    if(/\/(next|previo)\//.test(location.pathname)){var mr=document.createElement("meta");mr.name="robots";mr.content="noindex,nofollow";document.head.appendChild(mr);return;}
+    var q=location.search||"";
+    if(/[?&]estable=1(&|$)/.test(q)){localStorage.setItem("f123_canal_propio","estable");return;}
+    if(localStorage.getItem("f123_canal_propio")==="estable")return;
+    var h=function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);};
+    var n=function(x){return typeof x==="string"?x.trim().toUpperCase().replace(/\s+/g,""):"";};
+    var o=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+    if(![n(o.licenseCode),n(o.syncCode)].some(function(l){return l&&h(l)===6583453063440131;}))return;
+    fetch("./next/version.json",{cache:"no-store"}).then(function(r){
+      if(r&&r.ok)location.replace("./next/"+q+location.hash);
+    }).catch(function(){});
+  }catch(_){}
+})();
+</script>
+<script>
 // SW nuke: flag va PRIMERO para no hacer loop si el reload falla (ej: Waterfox/Gecko).
 // El nuke solo dispara una vez por dispositivo. Si no hay SW, no hace nada.
 (function(){

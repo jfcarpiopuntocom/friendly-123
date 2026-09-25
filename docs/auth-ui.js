@@ -136,6 +136,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         var _err = window.AMG && window.AMG.Salud ? window.AMG.Salud.paraEnviar() : null;
         if (_err && _err.length) payload.errores = _err;
       } catch (_) {}
+      /* Plan canarios F3 (JFC 2026-09-25): resumen de salud por lista blanca
+         (salud-app.js OCSalud). Solo numeros y codigos. */
+      try { if (window.OCSalud) payload.salud = window.OCSalud.resumen(); } catch (_) {}
       var ctrl = new AbortController();
       var t = setTimeout(function () { ctrl.abort(); }, 8000);
       try {
@@ -186,6 +189,22 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       } finally { clearTimeout(t); }
     } catch (_) { /* never block UI */ }
   }
+
+  /* LATIDO DE SALUD DEL CANARIO (plan canarios F3, JFC 2026-09-25). Solo en un
+     aparato de la licencia lord, entrando como dueno, en /next/: cada 3 min
+     mide el cuadre y manda la salud, para que un rojo llegue dentro de la
+     ventana de 33 min y frene la promocion a los clientes. Los clientes NO
+     hacen esto: ellos mandan salud solo en su latido de login. */
+  setInterval(function () {
+    try {
+      if (!rol || rol !== "dueno" || !window.OCSalud || !window.OCSalud.esLord() || window.OCSalud.canal() !== "next") return;
+      var ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (!ow.instanceId) return;
+      window.OCSalud.medirCuadre().then(function () {
+        enviarHeartbeat({ instanceId: ow.instanceId, licenseCode: String(ow.licenseCode || "").trim().toUpperCase(), accion: "salud" }).catch(function () {});
+      });
+    } catch (_) {}
+  }, 3 * 60 * 1000);
 
   function heartbeatLogin(owned) {
     if (!owned || !owned.instanceId) return;
@@ -1931,6 +1950,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
        codigo de la app usen la MISMA, en vez de cada pantalla la suya. */
     mascaraCodigo: _ocMascaraCodigo,
     heartbeat: enviarHeartbeat,
+    // 2026-09-25 (canarios F5): la franja del canario en Advanced lee el Sonar del Worker.
+    workerUrl: function () { try { return ((localStorage.getItem("f123_cf_worker_url") || "").trim() || OC_WORKER_URL || "").replace(/\/+$/, ""); } catch (_) { return ""; } },
     rolActual: () => rol,
     salir: (m) => cerrarSesion(m), // benchmark #6: la vista del artista tapa el header y necesita su propio "Log out"
     /* JERARQUIA: dueño > admin > encargado (JFC 2026-08-21).
