@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v403",
+  "shell": "f123-shell-v404",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-ff703808d066a5080562a70325ef442b70bf7bb9250c5434ca7b88f7b1d4d8b9",
@@ -61,7 +61,7 @@
     "./sync-queue.js": "sha256-66a8e102d49297390314cda3e6e2d5e8dec5932ad4de995a412f1daa08da243e",
     "./sync-outbox.js": "sha256-928457788fa4200067beccf0aff15e2e6588e09cf92a839292024f57c7d84166",
     "./ui-actions.js": "sha256-165e3160b83e5b11ed2bc3beeb9e217d5f61a14ce7a1ac3829fc4e4cb7ea7d54",
-    "./salud-app.js": "sha256-443424966c41fbe9ff0e5c496ddac25c7364f469c07071d004287774138049e0",
+    "./salud-app.js": "sha256-a1127ffac6f3d193bbb005aec2ff6c50acb3c3e555282589a9582174ec8ef075",
     "./hechos.js": "sha256-1edc61700576531849dfcaab79ff1be5ad4702158766c74b266b12f7be680b77",
     "./reconciliacion.js": "sha256-35784952295346fe932f3b6f03faeec6d677724df0a4bc506a75ffe83423a07e",
     "./cartera.js": "sha256-7517346a85e104b9b5c388644857201be815b8d79415f6290d31e1f36253f10d",
