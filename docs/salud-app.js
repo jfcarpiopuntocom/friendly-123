@@ -406,9 +406,19 @@
   "use strict";
   var h53 = function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);};
   var erroresSesion = 0;
+  /* NODOS DEL SONAR (JFC 2026-09-25: "el sonar muestra la app y sus nodos ... rojos si
+     algo se rompio, para saber donde"). Cada error se anota en la SECCION donde estaba
+     la persona (id fijo de la lista blanca), nunca con datos del negocio. */
+  var NODOS = ["hoy", "escanear", "inventario", "perchas", "clientes", "comisiones", "gastos", "etiquetas", "avanzado", "arranque"];
+  var porNodo = {};
+  function nodoActual() {
+    try { var b = global.document.querySelector("nav button.activo"); var v = b && b.dataset ? b.dataset.vista : ""; return NODOS.indexOf(v) >= 0 ? v : "arranque"; }
+    catch (_) { return "arranque"; }
+  }
+  function anotar() { erroresSesion++; var n = nodoActual(); porNodo[n] = (porNodo[n] || 0) + 1; }
   try {
-    global.addEventListener("error", function () { erroresSesion++; });
-    global.addEventListener("unhandledrejection", function () { erroresSesion++; });
+    global.addEventListener("error", anotar);
+    global.addEventListener("unhandledrejection", anotar);
   } catch (_) {}
   var shell = "";
   try {
@@ -447,7 +457,8 @@
     var e = {};
     try { e = global.OCCargador && global.OCCargador.estado ? global.OCCargador.estado() : {}; } catch (_) {}
     return { shell: shell, canal: canal(), errores: erroresSesion, caidas: Number(e.caidas) || 0,
-      retenido: !!e.retenido, mezcla: global.__ocMezcla === true, cuadre: cuadre };
+      retenido: !!e.retenido, mezcla: global.__ocMezcla === true, cuadre: cuadre,
+      nodos: NODOS.reduce(function (o, k) { if (porNodo[k]) o[k] = porNodo[k]; return o; }, {}) };
   }
   global.OCSalud = { resumen: resumen, medirCuadre: medirCuadre, esLord: esLord, canal: canal };
 })(typeof window !== "undefined" ? window : this);

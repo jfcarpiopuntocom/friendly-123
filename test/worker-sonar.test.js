@@ -21,7 +21,7 @@ function kvFalsa() {
   };
 }
 const cargar = () => import(pathToFileURL(path.join(__dirname, '..', 'cloudflare-worker', 'worker.js')).href);
-const LORD = 'F123-FIXTURE-LORD';
+const LORD = 'F123-DOBLE-DE-PRUEBA';
 const entorno = () => ({ LICENCIAS: kvFalsa(), MASTER_KEY: 'fixture-master-key-not-real', LORD_LICENSE: LORD });
 async function llamar(w, env, ruta, { metodo = 'GET', body, clave } = {}) {
   const headers = { 'Content-Type': 'application/json' };
@@ -35,7 +35,7 @@ const contactoTope = { email: 'e'.repeat(150) + '@fixture.io', nombre: 'n'.repea
 
 test('latido con 10 errores largos (>4 KB) se acepta y guarda los errores', async () => {
   const w = await cargar(); const env = entorno();
-  const body = { ...contactoTope, instanceId: 'inst-muchos-errores', licenseCode: 'F123-FIXTURE-CLIENTE', accion: 'login',
+  const body = { ...contactoTope, instanceId: 'inst-muchos-errores', licenseCode: 'F123-CLIENTE-DE-PRUEBA', accion: 'login',
     errores: Array.from({ length: 10 }, (_, i) => errorLargo(i)), salud: { shell: 'f123-shell-v403', canal: 'estable', errores: 10 } };
   assert.ok(JSON.stringify(body).length > 4096, 'el payload de prueba supera el tope viejo');
   const r = await llamar(w, env, '/checkin', { metodo: 'POST', body });
@@ -47,17 +47,17 @@ test('latido con 10 errores largos (>4 KB) se acepta y guarda los errores', asyn
 
 test('la salud pasa por lista blanca: un campo extra nunca se guarda', async () => {
   const w = await cargar(); const env = entorno();
-  await llamar(w, env, '/checkin', { metodo: 'POST', body: { instanceId: 'inst-lista-blanca', licenseCode: 'F123-FIXTURE-CLIENTE',
+  await llamar(w, env, '/checkin', { metodo: 'POST', body: { instanceId: 'inst-lista-blanca', licenseCode: 'F123-CLIENTE-DE-PRUEBA',
     salud: { shell: 'f123-shell-v403', canal: 'estable', errores: 0, cliente: 'Maria', monto: 99 } } });
   const reg = JSON.parse(await env.LICENCIAS.get('inst:inst-lista-blanca'));
-  assert.deepEqual(Object.keys(reg.salud).sort(), ['at', 'caidas', 'canal', 'cuadre', 'errores', 'mezcla', 'retenido', 'shell']);
+  assert.deepEqual(Object.keys(reg.salud).sort(), ['at', 'caidas', 'canal', 'cuadre', 'errores', 'mezcla', 'nodos', 'retenido', 'shell']);
   assert.ok(!JSON.stringify(reg).includes('Maria'));
 });
 
 test('solo la licencia lord pone en rojo al canario; los clientes cuentan en el sonar', async () => {
   const w = await cargar(); const env = entorno();
   const shell = 'f123-shell-v404';
-  await llamar(w, env, '/checkin', { metodo: 'POST', body: { instanceId: 'inst-cliente-1', licenseCode: 'F123-FIXTURE-CLIENTE', salud: { shell, canal: 'estable', errores: 2 } } });
+  await llamar(w, env, '/checkin', { metodo: 'POST', body: { instanceId: 'inst-cliente-1', licenseCode: 'F123-CLIENTE-DE-PRUEBA', salud: { shell, canal: 'estable', errores: 2 } } });
   let e = (await llamar(w, env, '/canario/estado?shell=' + shell)).json;
   assert.equal(e.rojo, false, 'un cliente con errores no frena el canario');
   assert.equal(e.aparatos, 1); assert.equal(e.aparatosConProblemas, 1);

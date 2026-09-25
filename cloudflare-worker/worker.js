@@ -814,8 +814,25 @@ function sanearSalud(x) {
     errores: n(x.errores), caidas: n(x.caidas),
     mezcla: x.mezcla === true, retenido: x.retenido === true,
     cuadre: x.cuadre === "ok" || x.cuadre === "fallo" ? x.cuadre : null,
+    nodos: sanearNodos(x.nodos),
     at: Date.now(),
   };
+}
+/* Nodos del Sonar: secciones de la app por lista blanca -> numero de errores. */
+const NODOS_APP = ["hoy", "escanear", "inventario", "perchas", "clientes", "comisiones", "gastos", "etiquetas", "avanzado", "arranque"];
+function sanearNodos(o) {
+  const r = {};
+  if (!o || typeof o !== "object") return r;
+  NODOS_APP.forEach((k) => { const v = Math.max(0, Math.min(100000, Math.floor(Number(o[k]) || 0))); if (v) r[k] = v; });
+  return r;
+}
+/* Nodos en rojo de un reporte: secciones con errores + organos internos. */
+function nodosEnRojo(s) {
+  const n = Object.keys(s.nodos || {});
+  if (s.cuadre === "fallo") n.push("dinero");
+  if (s.mezcla) n.push("version");
+  if (s.caidas > 0) n.push("codigo");
+  return n;
 }
 function sanearErrores(l) {
   if (!Array.isArray(l) || !l.length) return null;
@@ -841,7 +858,7 @@ async function registrarSonar(env, instanceId, registro) {
   const motivos = motivosDe(s);
   const TTL = { expirationTtl: 60 * 60 * 24 * 90 };
   const son = (await leerJSON(env, "sonar:" + s.shell)) || { shell: s.shell, aparatos: {} };
-  son.aparatos[id8] = { c: s.canal, m: motivos, at: s.at };
+  son.aparatos[id8] = { c: s.canal, m: motivos, n: nodosEnRojo(s), at: s.at };
   const ids = Object.keys(son.aparatos);
   if (ids.length > 600) ids.sort((a, b) => son.aparatos[a].at - son.aparatos[b].at).slice(0, ids.length - 600).forEach((k) => delete son.aparatos[k]);
   await env.LICENCIAS.put("sonar:" + s.shell, JSON.stringify(son), TTL);
@@ -866,6 +883,8 @@ async function handleCanarioEstado(req, env, url) {
     orden: await leerJSON(env, "canario:orden"),
     aparatos: ap.length,
     aparatosConProblemas: ap.filter((a) => a.m && a.m.length).length,
+    // Mapa de la app: por nodo, cuantos aparatos lo tienen en rojo (ultimo reporte de cada uno).
+    nodos: ap.reduce((o, a) => { (a.n || []).forEach((k) => { o[k] = (o[k] || 0) + 1; }); return o; }, {}),
   });
 }
 async function handleCanarioOrden(req, env) {
