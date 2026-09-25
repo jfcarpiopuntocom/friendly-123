@@ -86,7 +86,8 @@ test("commissions opens on a live product/SKU view switchable to rack/event", ()
     "product/SKU tab is missing");
   assert.ok(r.includes('boton("rack"'), "rack/event tab is missing");
   assert.ok(r.includes('function cambiarVistaComisiones('), "live view switch handler is missing");
-  assert.ok(r.includes('cambiarVistaComisiones("product")'), "product/SKU must be the default live view");
+  // 2026-09-25 (shell v401): el repintado respeta la pestana elegida; sin eleccion, sigue abriendo en product.
+  assert.ok(r.includes('cambiarVistaComisiones(window._ocVistaComisiones || "product")'), "product/SKU must be the default live view");
   assert.ok(r.includes('data-commissions-section="by-rack-event"') && r.includes(' hidden>'),
     "rack/event panel must start hidden while product/SKU is selected");
 });

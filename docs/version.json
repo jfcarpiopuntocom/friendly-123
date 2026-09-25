@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "fecha": "2026-09-24",
-  "changelog": "Clearer words: Walk-in customer, House sale, Sales associate and Consignor. Choosing a sales associate on a sale no longer changes who is assigned to the rack, and a sale no longer waits on that extra step.",
+  "fecha": "2026-09-25",
+  "changelog": "Reloading the page keeps you where you were: same section, same open lists, same scroll. Commissions remembers By rack when new sales arrive.",
   "requerida": false,
-  "shell": "f123-shell-v400",
+  "shell": "f123-shell-v401",
   "apagar": [],
   "releaseName": "v1.0"
 }
