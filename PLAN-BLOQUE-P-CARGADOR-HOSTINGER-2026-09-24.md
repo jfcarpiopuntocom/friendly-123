@@ -31,17 +31,23 @@ almacen es por ORIGEN). El codigo puede venir de un dominio que controla JFC
 - `test/cargador.test.js` (7 pruebas, feature nueva, no bug).
 
 ## Fase B — HECHA 2026-09-25 (Claude). Cloudflare sirve docs/ en un Worker
-Origen del cargador: **`https://f123-code.jfcarpio.workers.dev/`** (Worker
-"f123-code", static assets, cuenta Cloudflare de JFC). Pages "Connect to Git"
+Origen del cargador: **`https://friendly-123.jfcarpio.workers.dev/`** — Worker
+"friendly-123" conectado al repo (Workers Builds): se despliega SOLO en cada
+merge a master, en Linux (LF), asi que nunca queda atras del shell. Verificado
+2026-09-25: 9 archivos identicos a github.io, CORS ok, canario en la app viva
+4 remotos / 0 fell back / same shell v400. Los builds de ramas (vista previa)
+fallan; los de master pasan: es lo unico que importa.
+Respaldo manual: Worker "f123-code" (`https://f123-code.jfcarpio.workers.dev/`),
+creado por Claude el mismo dia; no se borra sin orden de JFC. Pages "Connect to Git"
 ya no se usa: Cloudflare fusiono Pages dentro de Workers y
 `wrangler pages project create` falla; se despliega con
 `wrangler deploy --assets=./docs --name f123-code`.
-- Desplegar SIEMPRE con `bash scripts/deploy-f123-code.sh`: exporta el blob de
+- El respaldo f123-code se despliega SOLO con `bash scripts/deploy-f123-code.sh`: exporta el blob de
   origin/master en LF (trampa CRLF de Windows: la primera subida salio en CRLF
   y no cuadraba con github.io), despliega y compara byte a byte contra
   github.io + CORS. Sale con error si algo no cuadra.
-- Tras CADA shell nuevo en master hay que correr el script; si no, Advanced
-  dira "shell differs" en el aparato canario (nada se rompe, solo avisa).
+- Si alguna vez se usa f123-code como canario: correr el script tras cada
+  shell nuevo, o Advanced dira "shell differs" (nada se rompe, solo avisa).
 - Verificado 2026-09-25 en la app viva (github.io, navegador aislado):
   canario puesto -> 4 scripts "remoto", 0 fell back, "same shell
   (f123-shell-v400)", OCEdutips e Inspector corriendo, PIN visible, 0 errores.
@@ -68,12 +74,13 @@ ya no se usa: Cloudflare fusiono Pages dentro de Workers y
 
 ## Fase C — canario en UN aparato de JFC (SOLO JFC)
 1. En la app (github.io) > Advanced > panel de sync > pegar
-   `https://f123-code.jfcarpio.workers.dev/` > "Try this origin on this device".
+   `https://friendly-123.jfcarpio.workers.dev/` > "Try this origin on this device".
 2. Recargar. La linea tiene que decir:
    `Code: remote https://… · 4 scripts · same shell (f123-shell-vNNN)`.
    - "N fell back to github.io" = CORS o archivo faltante en Cloudflare: nada
      se rompio (cayo a github.io), pero la fase no esta lista.
-   - "shell differs" = Cloudflare va atras: correr scripts/deploy-f123-code.sh.
+   - "shell differs" = el build de Cloudflare fallo o va atras: mirar el check
+     "Workers Builds: friendly-123" del ultimo commit de master.
 3. Dejarlo dias con uso real. Criterio de salida: 0 fell back y same shell.
    Si algo raro: "Back to github.io" y recargar. Nunca borra datos.
 
