@@ -39,7 +39,9 @@
    Los aparatos de clientes no hacen nada aqui. */
 (function(){
   try{
-    if(/\/(next|previo)\//.test(location.pathname))return;
+    /* SEO (2026-09-25): /next/ y /previo/ son copias de la app para canarios y
+       rewind; el canonical ya apunta a la raiz y ademas no se indexan. */
+    if(/\/(next|previo)\//.test(location.pathname)){var mr=document.createElement("meta");mr.name="robots";mr.content="noindex,nofollow";document.head.appendChild(mr);return;}
     var q=location.search||"";
     if(/[?&]estable=1(&|$)/.test(q)){localStorage.setItem("f123_canal_propio","estable");return;}
     if(localStorage.getItem("f123_canal_propio")==="estable")return;
