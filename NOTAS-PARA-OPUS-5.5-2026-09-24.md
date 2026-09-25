@@ -276,3 +276,29 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [x] Aporte fijo / minimo: NO se recalculo nada (dinero sellado). La pantalla decia "per event" y restaba una vez; el motor lo aplica por venta. Etiquetas "por venta" y la tarjeta muestra lo descontado de verdad.
 - [x] Pruebas C1-C4: rojo 0/4 en v396, verde 4/4. commissions-belen: regex actualizada a la nueva expresion, misma guarda (sin ventas = plegada).
 - [ ] Opcion futura si alguien la pide: aporte fijo POR MES (renta de espacio). Requiere plan de dinero; no construido.
+
+## APUNTES PARA MANANA (2026-09-25, cierre de ventana 5h)
+### URGENTE 1 — jfcarpio.com expone archivos internos
+- Publicos hoy (HTTP 200): /CLAUDE.md, /AGENTS.md, /CLAUDE_CONSTITUTION.md, /wrangler.toml, /worker.js.
+- Causa: repo "website" -> wrangler.toml con [assets] directory="./" y SIN .assetsignore: cada deploy sube el repo entero.
+- Arreglo: .assetsignore (CLAUDE*.md, AGENTS.md, *.toml, worker.js, backups/, codex-backups/, *.txt, *.mjs, node_modules/)
+  y deploy desde un checkout LIMPIO de HEAD (git worktree), nunca desde la carpeta con WIP.
+  Wrangler con sesion: C:\00 Projects\Codex-Friendly-20260917\commissions-product-first-v370\node_modules\wrangler\bin\wrangler.js
+### URGENTE 2 — las 5 URLs SEO nuevas dan 500 (error 1101) en jfcarpio.com
+- Existen en git y en www.jfcarpio.com (200). El apex sirve la COPIA del ultimo wrangler deploy; ruta nueva -> Worker
+  pide a www -> www redirige a apex -> ciclo -> 1101. Se arregla con el deploy limpio de arriba.
+- El sitemap vivo aun es el viejo (no anuncia las URLs rotas): no hay dano en Google todavia.
+- Generador: website/friendly123/generar-urls-seo.mjs (dominio en ORIGEN/RUTA para la mudanza a friendly123.com).
+- friendly123/index.html tiene un cambio SIN commitear que NO es mio (texto ES "clipSplit"): no tocar ni desplegar a ciegas.
+### PEDIDOS DE JFC SIN EMPEZAR (hacer en este orden)
+1. Jev bien usado: auditar skill jev-jfc (llamada real, costo, confianza) y dejar prueba de uso en una decision real.
+2. Reconversion de jfcarpio.com ("6 anos sin UN cliente"): pre-mortem de cero conversion + research + Jev;
+   agregar testimonio: "Obtuve el research macroeconomico nacional que estaba buscando" — Dieño Peñaherra, CEO, Quito 2022
+   (verificar grafia del nombre con JFC antes de publicar).
+3. Pelicula WebGL2 10 s cuadrada, un solo HTML sin librerias ni archivos: mosaico de vidrio y pan de oro con el LOGO
+   friendly-123 y escenas friendly (percha, semaforo, cuaderno compartido, consignacion). Clickeable -> embudo
+   (save.html o lo que el pre-mortem diga). Para la landing friendly-123 Y como doodle en jfcarpio.com. Sin QR.
+   Info base de los afiches: $399 / 5 anos, sin mensualidad, demo PIN 456, EN/ES, offline, consignacion por WhatsApp.
+### YA HECHO HOY
+- friendly v397 (cuadre Commissions, balance a costo), AMIGABLE v119 (hotfix anular pagada + plan de igualacion),
+  consultorio v67 (B1, foto, balance). Todo verificado en vivo.
