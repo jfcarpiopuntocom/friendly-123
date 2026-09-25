@@ -354,3 +354,14 @@ NO se decidio; se hizo research y se repregunto.
 - amigable-123 y consultorio-123 no tienen landing propia: sus tarjetas van a la app. PENDIENTE: landings propias.
 - Pendiente JFC: pasos de Cloudflare (www nube naranja, SSL Full strict, Bot Fight, WAF+rate limit, DNSSEC).
 - Pendiente: pelicula WebGL2 (mosaico vidrio + pan de oro, logo friendly-123) como doodle clickeable.
+
+## AVANCE 2026-09-25 (noche) — jfcarpio.com
+- [x] Mosaico WebGL2 (website/friendly123/mosaico.html, URL /friendly123/mosaico): 10 s, vidrio + pan de oro, logo ->
+      semaforo -> logo, clickable a /friendly123/. ?t=segundos congela un cuadro. Incrustado en el inicio de jfcarpio.com.
+- [x] SEO inicio: titulo/description/og = las 3 apps; JSON-LD ItemList de SoftwareApplication. App friendly v398: og:image absoluta.
+- [x] Peso de color (60-30-10 + Jev 0.98): oro solo en botones principales; tarjetas de apps en azul acero.
+- [x] Tres bandas (Jev 0.9): options-strip y stakes-section pasaron a claro (#F5F4F2) con tinta oscura.
+- OJO tres index.html distintos: website/index.html (jfcarpio.com), website/friendly123/index.html (landing, WIP ajeno),
+  friendly-123/docs/index.html (app / PIN).
+- [ ] JFC en Cloudflare: www, blog y dashboard a Proxied; Workers route www.jfcarpio.com/* -> website; SSL Full (strict)
+      + Always Use HTTPS; Bot Fight Mode; DNSSEC (copiar DS en Hostinger). No tocar MX/TXT.
