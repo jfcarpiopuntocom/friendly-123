@@ -1538,6 +1538,26 @@
   function calcularSplitVenta(u, montoBruto, acumuladoPrevio, costoTotal) {
     return repartir(resolverTrato(u), montoBruto, acumuladoPrevio, costoTotal);
   }
+  /* B3 (corrida Hugo/Paco/Luis, 2026-09-24). REGLA DURA de JFC: la comision se
+     sella en la venta el dia que se hace; cambiar el trato despues NUNCA
+     recalcula ventas pasadas. Editar cantidad o precio de una venta recalculaba
+     con el trato ACTUAL de la percha (si el % habia subido de 30 a 50, la venta
+     vieja pasaba a 50 en silencio). Ahora se reparte con lo que la propia venta
+     guardo: su % (comisionPct), su base (bruto/margen) y su aporte fijo. Sin
+     campos nuevos: todo sale de venta.split. Minimo garantizado: si la comision
+     original quedo por encima del % (se aplico un minimo), ese monto se conserva
+     como minimo. */
+  function _splitConTratoSellado(venta, montoBruto, costoTotal) {
+    const s = venta.split || {};
+    const pct = Math.max(0, Math.min(100, Number(s.comisionPct) || 0));
+    const contrib = Math.max(0, Number(s.contribFijaAplicada) || 0);
+    const baseOrig = Math.max(0, (Number(s.montoBaseComision != null ? s.montoBaseComision : s.montoBruto) || 0) - contrib);
+    const calcOrig = +(baseOrig * pct / 100).toFixed(2);
+    const minimo = (Number(s.montoComisionSocio) || 0) > calcOrig + 0.005 ? Number(s.montoComisionSocio) : 0;
+    const trato = { pct, escalas: [], metaMensual: 0, contribFija: contrib, minimoGarantizado: minimo,
+      base: s.baseComision === "margen" ? "margen" : "bruto", origen: s.origenComision || null };
+    return repartir(trato, montoBruto, 0, costoTotal);
+  }
   // #19: agrupa ventas pendientes por producto -> lineas del recibo de liquidacion.
   function agruparPendientesPorProducto(pend) {
     const map = new Map();
@@ -1985,6 +2005,17 @@
   function filtrar(uid) { return productos.filter((p) => !p.borrado && (!uid || uid === "todas" || p.ubicacionId === uid)); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
   // ubicacion; con historial de dias anteriores el resumen del dia mentia.
+  /* B6 (2026-09-24): una venta YA PAGADA que se devuelve queda en la lista
+     (devuelta:true) y Commissions la compensa con un ajuste negativo fechado el
+     dia de la devolucion. Today, P&L y balance la seguian contando como
+     ingreso: la pieza habia vuelto al stock y la plata seguia "entrando". La
+     devolucion resta el dia en que se devuelve (no reescribe el dia de la
+     venta), igual que Commissions. Devuelve las VENTAS originales devueltas hoy. */
+  function devolucionesHoyDe(uid) {
+    const hoy = hoyISO();
+    return ajustesComision.filter((a) => a && a.tipo === "devolucion" && fechaLocalDe(a.fecha) === hoy && (!uid || uid === "todas" || a.ubicacionId === uid))
+      .map((a) => ventas.find((v) => v.id === a.ventaId)).filter(Boolean);
+  }
   function ventasHoyDe(uid) { const hoy = hoyISO(); return ventasActivas().filter((v) => fechaLocalDe(v.fecha) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
   // Multi-usuario (2026-07-07): cada movimiento captura automaticamente
   // quien estaba logueado (window.OCCurrentUser). Si no hay usuario nombrado
@@ -4126,9 +4157,9 @@
       }
       if (path === "/api/dashboard") {
        try {
-        const ps = filtrar(uid), vh = ventasHoyDe(uid);
-        const entra = vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
-        const sale = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
+        const ps = filtrar(uid), vh = ventasHoyDe(uid), dh = devolucionesHoyDe(uid);
+        const entra = vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0); // B6
+        const sale = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
         const inv = ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
         const alertas = ps.map((p) => ({ p, ...estadoDe(p) })).filter((e) => e.estado === "rojo" || e.estado === "naranja").sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]).map((e) => ({ estado: e.estado, mensaje: `${e.p.nombre}: ${e.mensaje}` }));
         // El hero de HOY es tri-estado (verde/amarillo/rojo, como el manual):
@@ -4141,7 +4172,10 @@
         // (weekly-summary en index.html). Ultimos 7 dias, misma ubicacion filtrada.
         const hace7dias = new Date(hoyISO()).getTime() - 6 * 86400000; // Fix-8: ZONA-aware boundary, not UTC epoch
         const vSemana = ventasActivas().filter((v) => new Date(v.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || v.ubicacionId === uid));
-        const entraSemana = vSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
+        // B6: las devoluciones de la semana (por la fecha del ajuste) restan.
+        const devSemana = ajustesComision.filter((a) => a && a.tipo === "devolucion" && new Date(a.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || a.ubicacionId === uid))
+          .map((a) => ventas.find((v) => v.id === a.ventaId)).filter(Boolean);
+        const entraSemana = vSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - devSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
         /* AVISO PREVIO DE REBAJA (benchmark #3, 2026-09-25): productos con stock cuya
            rebaja por antiguedad cambia en 3 dias o menos. Campo APARTE de alertas para
            no mover el semaforo general. Solo lectura. */
@@ -4343,13 +4377,18 @@
           : (ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant) : null);
         /* Bloque 4: asistente opcional por venta. COUNTER SALE lo ignora (split null). */
         if (split && body && body.asistenteId) aplicarRepartoAsistente(split, ubicP, String(body.asistenteId), body.asistentePct);
-        p.stockActual -= cant;
         let clienteVenta = null;
         if (body.clienteId) {
           clienteVenta = clientes.find((c) => c.id === body.clienteId);
           if (!clienteVenta) return J({ error: "Customer not found." }, 404);
           if (clienteVenta.despedido) return J({ error: `"${clienteVenta.nombre}" is fired — no new sales allowed. Reactivate them from Customers if this was a mistake.` }, 400);
         }
+        /* B1 (corrida Hugo/Paco/Luis, 2026-09-24): el stock bajaba ANTES de
+           validar el cliente. Una venta rechazada (cliente borrado en otro
+           aparato, o despedido) devolvia error pero el stock ya habia bajado y
+           se guardaba: mercaderia perdida sin venta. Toda validacion va antes;
+           esta es la primera linea que muta. test/cuadre-hugo-paco-luis.test.js */
+        p.stockActual -= cant;
         const ventaId = uuid("v");
         /* DATOS DEL EVENTO (portado de amigable-123, JFC 2026-08-18). Sin
            guardarlos, las ventas de una funcion o una clase quedan
@@ -4392,6 +4431,11 @@
         const idx = ventas.findIndex((v) => v.id === m[1] && !v.anulada);
         if (idx === -1) return J({ error: "This sale can no longer be voided (the window passed, or it was already voided)." }, 400);
         const venta = ventas[idx];
+        /* B4 (2026-09-24): dentro de los 30 s se podia anular una venta que ya
+           se habia PAGADO al asociado: la plata salio y la venta desaparecia.
+           Lo pagado se corrige con una devolucion (ajuste negativo), nunca
+           borrando. */
+        if (venta.liquidada && venta.split) return J({ error: "This sale was already paid to the partner. Record a return instead.", codigo: "VENTA_PAGADA" }, 400);
         // BUG FIJADO 2026-07-03: la UI muestra 5s de cuenta regresiva para
         // anular y luego oculta el botón, pero este endpoint aceptaba anular
         // cualquier venta pasada sin límite de tiempo (podía borrar ventas
@@ -4466,7 +4510,8 @@
         const idx = ventas.findIndex((v) => v.id === m[1] && !v.anulada);
         if (idx === -1) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
         const venta = ventas[idx];
-        if (venta.liquidada) return J({ error: "This sale was already settled to a partner. Fix the settlement in Commissions instead of cancelling." }, 400);
+        // B5: una COUNTER SALE no tiene comision que proteger (split null): se puede cancelar aunque la percha ya se haya pagado.
+        if (venta.liquidada && venta.split) return J({ error: "This sale was already settled to a partner. Fix the settlement in Commissions instead of cancelling." }, 400);
         const p = productos.find((x) => x.id === venta.productoId);
         if (!p) return J({ error: "Product not found." }, 404);
         const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
@@ -4488,13 +4533,23 @@
         if (_rE !== "dueno" && _rE !== "admin" && _rE !== "empleado") return J({ error: "Sign in to edit a recorded sale." }, 403);
         const venta = ventas.find((v) => v.id === m[1] && !v.anulada);
         if (!venta) return J({ error: "Sale not found." }, 404);
-        if (venta.liquidada) return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
+        if (venta.liquidada && venta.split) return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
         const p = productos.find((x) => x.id === venta.productoId);
         if (!p) return J({ error: "Product not found." }, 404);
         const cambios = {};
+        /* B2 (2026-09-24): TODO se valida antes de tocar stock o montos. Antes
+           la cantidad se aplicaba al stock y DESPUES se rechazaba un precio
+           invalido o un cliente inexistente: error en pantalla, pero el stock y
+           la cantidad ya habian cambiado y se guardaban. */
+        const _hayCant = body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "";
+        const _hayPrecio = body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "";
+        if (_hayCant && !(Number.isInteger(Number(body.cantidad)) && Number(body.cantidad) >= 1)) return J({ error: "The quantity must be a whole number, 1 or more." }, 400);
+        if (_hayPrecio && !(Number.isFinite(Number(body.precioUnit)) && Number(body.precioUnit) >= 0)) return J({ error: "Enter a valid unit price." }, 400);
+        if (_hayPrecio && venta.info && venta.info.cortesia && Number(body.precioUnit) > 0) return J({ error: "A courtesy sale has no price. Cancel it and record a normal sale." }, 400);
+        if (body.clienteId && !clientes.find((x) => x.id === body.clienteId)) return J({ error: "Customer not found." }, 404);
         // Cantidad: ajusta stock (delta) y recalcula split.
         if (body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "") {
-          const nueva = Math.max(1, Math.floor(Number(body.cantidad) || 1));
+          const nueva = Number(body.cantidad); // validada arriba (B2): entero >= 1
           const delta = nueva - venta.cantidad; // >0 = vender más (baja stock)
           if (delta > 0 && p.stockActual < delta) return J({ error: `Not enough stock to raise the quantity (only ${p.stockActual} left).` }, 400);
           if (delta !== 0) {
@@ -4503,10 +4558,8 @@
             cambios.cantidad = { antes: venta.cantidad, ahora: nueva };
             venta.cantidad = nueva;
             const ubicP = ubicaciones.find((x) => x.id === venta.ubicacionId);
-            if (ubicP && venta.split) {
-              const montoBruto = (venta.precioUnit || 0) * nueva;
-              const acumuladoPrevio = ventasMesAcumuladasExcl(ubicP.id, venta.id);
-              venta.split = calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(venta.costoUnit) || 0) * nueva);
+            if (venta.split) {
+              venta.split = _splitConTratoSellado(venta, (venta.precioUnit || 0) * nueva, (Number(venta.costoUnit) || 0) * nueva);
               if (venta.asistenteId) aplicarRepartoAsistente(venta.split, ubicP, venta.asistenteId, venta.asistentePct);
             }
           }
@@ -4521,9 +4574,8 @@
             cambios.precioUnit = { antes: venta.precioUnit, ahora: precioRedondo };
             venta.precioUnit = precioRedondo;
             const ubicP2 = ubicaciones.find((x) => x.id === venta.ubicacionId);
-            if (ubicP2 && venta.split) {
-              const montoBruto2 = precioRedondo * (venta.cantidad || 1);
-              venta.split = calcularSplitVenta(ubicP2, montoBruto2, ventasMesAcumuladasExcl(ubicP2.id, venta.id), (Number(venta.costoUnit) || 0) * (venta.cantidad || 1));
+            if (venta.split) {
+              venta.split = _splitConTratoSellado(venta, precioRedondo * (venta.cantidad || 1), (Number(venta.costoUnit) || 0) * (venta.cantidad || 1));
               if (venta.asistenteId) aplicarRepartoAsistente(venta.split, ubicP2, venta.asistenteId, venta.asistentePct);
             }
           }
@@ -4772,7 +4824,10 @@
         const _MEDIOS = ["efectivo", "transferencia", "credito-tienda", "otro"];
         const _medio = (body.medioPago === undefined || body.medioPago === null || body.medioPago === "") ? null
           : (_MEDIOS.includes(String(body.medioPago)) ? String(body.medioPago) : "otro");
-        const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMes(v.fecha, _mesPago) && !v.liquidada);
+        /* B5 (2026-09-24): solo se sellan ventas CON comision (split). Antes el
+           pago marcaba tambien las COUNTER SALES de la percha, que no tienen a
+           quien pagarle, y despues ya no se podian cancelar ni editar. */
+        const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMes(v.fecha, _mesPago) && !v.liquidada && v.split);
         pend.forEach((v) => { v.liquidada = true; if (_medio) v.medioPagoComision = _medio; v.rev = _revNueva(); });
         /* Bloque 4: los ajustes pendientes del mes se descuentan en este pago. */
         const ajPago = ajustesComision.filter((a) => a && a.ubicacionId === m[1] && esDelMes(a.fecha, _mesPago) && !a.liquidada);
@@ -4932,9 +4987,8 @@
         // el precio listado como el IVA ecuatoriano). Fix 2026-07-15: antes
         // esto restaba un 15% fijo de IVA-Ecuador sobre CUALQUIER venta,
         // corrompiendo el P&L en cualquier tienda fuera de Ecuador.
-        const vh = ventasHoyDe(uid);
-        const ing = vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
-        const cv = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
+        const vh = ventasHoyDe(uid), dh = devolucionesHoyDe(uid); // B6
+        const cv = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
         /* v359: si el cuaderno tiene impuesto encendido, el precio lo INCLUYE
            y aquí se separa. Apagado: precio neto, como antes. ingresosConIva e
            ivaCobrado se mantienen como alias para los lectores existentes (antes
@@ -4942,13 +4996,15 @@
         const imp = _impuestoVigente();
         // v361: cada venta trae su impuesto congelado (ver _impuestoDeVenta).
         let netoC = 0, impC = 0, cobradoC = 0;
-        vh.forEach((v) => {
-          const linC = Math.round((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0) * 100);
-          const im = v.impuesto && Number(v.impuesto.monto) > 0 ? Math.round(Number(v.impuesto.monto) * 100) : 0;
+        const _linea = (v, signo) => {
+          const linC = signo * Math.round((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0) * 100);
+          const im = v.impuesto && Number(v.impuesto.monto) > 0 ? signo * Math.round(Number(v.impuesto.monto) * 100) : 0;
           if (!im) { netoC += linC; cobradoC += linC; }
           else if (v.impuesto.modo === "agregado") { netoC += linC; impC += im; cobradoC += linC + im; }
           else { netoC += linC - im; impC += im; cobradoC += linC; }
-        });
+        };
+        vh.forEach((v) => _linea(v, 1));
+        dh.forEach((v) => _linea(v, -1)); // B6: lo devuelto hoy (con su impuesto) sale del P&L de hoy
         const neto = netoC / 100, impCobrado = impC / 100;
         const ub = neto - cv;
         const gm = (!uid || uid === "todas") ? Object.values(gastosMensuales).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0);
@@ -4960,7 +5016,8 @@
       if (path === "/api/reportes/balance") {
         const ps = filtrar(uid), vh = ventasHoyDe(uid);
         // v361: lo cobrado incluye el impuesto que se SUMÓ al cobrar (modo agregado).
-        const ef = vh.reduce((a, v) => a + v.precioUnit * v.cantidad + (v.impuesto && v.impuesto.modo === "agregado" ? (Number(v.impuesto.monto) || 0) : 0), 0);
+        const _cobrado = (v) => v.precioUnit * v.cantidad + (v.impuesto && v.impuesto.modo === "agregado" ? (Number(v.impuesto.monto) || 0) : 0);
+        const ef = vh.reduce((a, v) => a + _cobrado(v), 0) - devolucionesHoyDe(uid).reduce((a, v) => a + _cobrado(v), 0); // B6
         const inv = ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
         return J({ activos: { efectivoEstimado: +ef.toFixed(2), inventarioValorizado: +inv.toFixed(2), total: +(ef + inv).toFixed(2) } });
       }

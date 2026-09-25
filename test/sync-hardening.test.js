@@ -58,7 +58,8 @@ test('reactivating a customer converges back, so rev keeps advancing', async () 
 test('marking a settlement paid ignores a non-POST verb but still works with POST', async () => {
   const a = browser();
   const fixture = await a.request('/api/respaldo/exportar');
-  const product = fixture.productos.find(p => p.stockActual >= 5);
+  // Percha CON comision: desde 2026-09-24 (B5) pagar solo sella ventas que tienen algo que pagar.
+  const product = fixture.productos.find(p => p.stockActual >= 5 && (fixture.ubicaciones.find(u => u.id === p.ubicacionId) || {}).tipo !== 'propio');
   product.id = 'p-fixture-liq'; product.stockActual = 5;
   fixture.productos = [product]; fixture.ventas = []; fixture.movimientos = [];
   await a.request('/api/respaldo/importar', 'POST', fixture);

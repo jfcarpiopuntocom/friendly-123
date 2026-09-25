@@ -257,3 +257,13 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - Limite conocido (no nuevo): el DOM que pinto la sesion anterior queda detras de la vista del artista, igual que hoy detras del candado. Las rutas le dan 403.
 - Fuera de este trabajo: quitar LIMITE_EMPLEADOS del codigo (JFC dijo que el tope ya no existe); prueba de tiempo de panel-licencias es inestable con la suite en paralelo.
 - [ ] JFC: probar en su tienda: editor del comisionista -> Artist access -> PIN; entrar con ese PIN.
+
+## AVANCE shell v396 (Opus 5.5, 2026-09-24) — corrida Hugo/Paco/Luis: CUADRE en Sold y Commissions
+- [x] Arnes nuevo test/helpers/cuadre.cjs: cruza Sold (ventas/todas), Today, P&L, Commissions, valorizado y stock esperado. test/cuadre-hugo-paco-luis.test.js: rojo 6/9 en v395 (3 de fijacion), verde 9/9.
+- [x] B1 venta rechazada (cliente borrado/despedido) bajaba stock. B2 edicion rechazada dejaba stock/cantidad cambiados. B3 editar venta vieja aplicaba el % ACTUAL (rompia la regla dura). B4 se podia anular lo ya pagado. B5 pagar sellaba COUNTER SALES. B6 devolucion de venta pagada seguia como ingreso en Today/P&L/balance/semana.
+- [x] Sold: toda venta sin cliente decia "Counter sale" (aunque pagara comision). Ahora "No customer", chip COUNTER SALE · house, y comision por fila.
+- [x] Dos pruebas de sync vendian en percha PROPIA y esperaban "pagado": se apuntaron a percha con comision; aserciones intactas.
+- [x] Terminologia (JFC): commissionist = vende/embajador; consignor = artista duena de piezas. Manual v395 corregido.
+- [ ] DECISION JFC: linea de COUNTER SALES (casa) en la tarjeta de Commissions (Square lo hace como "Unattributed").
+- [ ] DECISION JFC: balance cuenta inventario a PRECIO DE VENTA e incluye piezas en consignacion (no son de la tienda).
+- [ ] DECISION JFC: aporte fijo y minimo garantizado se aplican POR VENTA; confirmar si el trato es por venta o por mes.
