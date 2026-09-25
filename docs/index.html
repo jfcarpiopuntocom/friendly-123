@@ -4542,6 +4542,12 @@ async function cargarHoy(){
       `<li class="${a.estado}">${puntito()}${a.mensaje}</li>`
     ).join("");
   }
+  /* Aviso previo de rebaja por antiguedad (benchmark #3): tinta sobre claro, no mueve el semaforo. */
+  if (Array.isArray(data.avisosRebaja) && data.avisosRebaja.length) {
+    const _esR = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+    lista.insertAdjacentHTML("beforeend", data.avisosRebaja.map(a =>
+      `<li style="background:#FFF6D6;color:#3D2E00;-webkit-text-fill-color:#3D2E00;border:2px solid #C9A100;">${puntito()}${escHtml(a.nombre)}: ${_esR ? (a.enDias <= 0 ? "hoy" : a.enDias === 1 ? "mañana" : "en " + a.enDias + " días") + " baja " + a.pct + " % (" + fmtMoney(a.precioLista) + " → " + fmtMoney(a.precioNuevo) + ")" : (a.enDias <= 0 ? "today" : a.enDias === 1 ? "tomorrow" : "in " + a.enDias + " days") + " it drops " + a.pct + " % (" + fmtMoney(a.precioLista) + " → " + fmtMoney(a.precioNuevo) + ")"}</li>`).join(""));
+  }
   /* AVISO DE MERGE POR SYNC (A2, JFC 2026-09-10). Va DENTRO de Today's alerts,
      arriba del todo, con estilo verde. Se guarda en window.__syncMergeAviso al
      recibir oc-sync-merge y se pinta aquí para que sobreviva a cada re-pintado.
@@ -5279,6 +5285,14 @@ async function abrirEditorComision(id, u){
             <option value="margen" ${u.baseComision === "margen" ? "selected" : ""}>${window.t("comm.ed.baseMargin")}</option>
           </select></label>
         <p style="font-size:13px;color:var(--ink-soft);margin:4px 0 0;">${window.t("comm.ed.baseHint")}</p>
+        ${(function () { /* REBAJA POR ANTIGUEDAD (benchmark #3, 2026-09-25): apagada por defecto. */
+          const es = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+          const rb = u.rebajaEdad || {}; const ps = (rb.pasos && rb.pasos.length) ? rb.pasos : [{ dias: 30, pct: 10 }, { dias: 60, pct: 25 }];
+          const fila = (i) => `<span style="display:inline-flex;gap:6px;align-items:center;margin:4px 12px 0 0;font-size:14px;">${es ? "a los" : "after"} <input id="oc-rb-d${i}" type="number" min="1" max="3650" value="${(ps[i] || {}).dias || ""}" style="width:70px;padding:6px;"> ${es ? "días" : "days"} −<input id="oc-rb-p${i}" type="number" min="1" max="90" value="${(ps[i] || {}).pct || ""}" style="width:60px;padding:6px;">%</span>`;
+          return `<label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-size:14px;font-weight:700;"><input type="checkbox" id="oc-rb-activa" ${rb.activa ? "checked" : ""}> ${es ? "Rebajar por antigüedad en percha" : "Mark down by time on the shelf"}</label>
+            <div style="margin-top:2px;">${fila(0)}${fila(1)}${fila(2)}</div>
+            <p style="font-size:13px;color:var(--ink);margin:4px 0 0;">${es ? "El precio de lista no cambia: la rebaja se aplica al vender y cada venta guarda su precio. Today avisa 3 días antes." : "The list price never changes: the markdown applies at the sale and each sale keeps its price. Today warns 3 days before."}</p>`;
+        })()}
         <div id="oc-com-modalidad" style="margin-top:12px;padding:10px;border-radius:6px;background:var(--paper-deep,#E2E8ED);font-size:14px;"></div>
         <div style="margin-top:14px;font-size:14px;font-weight:700;">${window.t("comm.ed.tiers")}</div>
         <div id="oc-com-barra">${_comisionBarraHtml(escalas)}</div>
@@ -5347,6 +5361,7 @@ async function abrirEditorComision(id, u){
       metaMensual: document.getElementById('oc-com-meta').value,
       contribFija: document.getElementById('oc-com-fija').value,
       baseComision: (document.getElementById('oc-com-base-tipo') || {}).value || null,
+      rebajaEdad: { activa: !!(document.getElementById('oc-rb-activa') || {}).checked, pasos: [0, 1, 2].map(i => ({ dias: (document.getElementById('oc-rb-d' + i) || {}).value, pct: (document.getElementById('oc-rb-p' + i) || {}).value })).filter(x => x.dias && x.pct) },
       escalasComision: filas
     };
     if (chkPropia) body.usarComisionPropia = chkPropia.checked;
@@ -6471,7 +6486,7 @@ async function abrirPanelVentaInfo(id, esTicket){
             <input id="vi-fiado" type="checkbox" style="width:auto;margin:0;"><span data-i18n="sale.lblFiado">${escHtml(t("sale.lblFiado"))}</span></label>
         </div>
       </div>
-      <p id="vi-cf-hint" style="font-size:12px;font-weight:700;margin:4px 0 0;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;"></p>
+      <p id="vi-cf-hint" style="font-size:13px;font-weight:700;margin:4px 0 0;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;"></p>
       <!-- DESCUENTO / PRECIO DE ESTA VENTA (JFC/Belén 2026-09-15). Un solo stock,
            precio variable por venta. "Adjust price" abre una cajita con el precio
            que se cobra en ESTA venta (descuento puntual). Si el producto tiene
@@ -6479,11 +6494,13 @@ async function abrirPanelVentaInfo(id, esTicket){
            $5 público / $3 artistas, sin partir el stock en dos productos). Vacío
            = se cobra el precio de lista. Cortesía manda: si está marcada, el
            precio es 0 y esto se ignora. -->
+      ${p.rebajaPct ? `<p style="margin:10px 0 0;font-size:14px;font-weight:700;color:#3D2E00;background:#FFF6D6;border:2px solid #C9A100;border-radius:8px;padding:8px 10px;">${(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es") ? "Rebaja por antigüedad −" + p.rebajaPct + " %: se cobra " + fmtMoney(p.precioRebajado) + " (lista " + fmtMoney(p.precio) + ")" : "Aged markdown −" + p.rebajaPct + " %: charging " + fmtMoney(p.precioRebajado) + " (list " + fmtMoney(p.precio) + ")"}</p>` : ""}
+      <p id="vi-lealtad" data-precio="${Number(p.precioRebajado || p.precio) || 0}" role="status" style="display:none;margin:10px 0 0;font-size:14px;font-weight:700;color:var(--ink,#211c14);"></p>
       <div id="vi-precio-wrap" style="margin-top:10px;">
         <button type="button" id="vi-precio-toggle" style="background:none;border:none;padding:0;font-size:14px;font-weight:700;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;text-decoration:underline;">✎ Adjust price / discount</button>
         <div id="vi-precio-box" style="display:none;margin-top:6px;">
           <label style="display:block;font-size:14px;">Price charged for this sale ($)<br>
-            <input id="vi-precio-override" type="number" min="0" step="0.01" placeholder="${Number(p.precio).toFixed(2)}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+            <input id="vi-precio-override" type="number" min="0" step="0.01" placeholder="${Number(p.precioRebajado || p.precio).toFixed(2)}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
             ${p.precioCasa != null ? `<button type="button" id="vi-precio-casa-btn" style="font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">House price (${fmtMoney(p.precioCasa)})</button>` : ""}
             <button type="button" id="vi-precio-lista-btn" style="font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;">List price (${fmtMoney(p.precio)})</button>
@@ -9000,9 +9017,69 @@ async function pintarImpuestoCfg(){
     } catch (_) { msg.textContent = t("adv.tax.failed"); }
   });
 }
+/* LEALTAD (benchmark #5, 2026-09-25). Regla global apagada por defecto: cada N
+   compras de un cliente, la siguiente lleva X %. Las compras se cuentan de las
+   ventas (no hay contador), asi todos los aparatos dan lo mismo. La app SUGIERE
+   el descuento en el panel de venta; nunca lo aplica sola. */
+async function pintarLealtadCfg(){
+  const imp = document.getElementById("ocImpuestoCfg"); if (!imp) return;
+  let box = document.getElementById("ocLealtadCfg");
+  if (!box) { box = document.createElement("div"); box.id = "ocLealtadCfg"; box.style.marginTop = "12px"; imp.insertAdjacentElement("afterend", box); }
+  let cfg; try { cfg = await (await fetch(`${API}/lealtad`)).json(); } catch (_) { box.innerHTML = ""; return; }
+  const es = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+  const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : "";
+  const puede = rol === "dueno" || rol === "admin";
+  const dis = puede ? "" : "disabled";
+  box.innerHTML = `<div style="border:2px solid #5294AC;border-radius:8px;padding:12px 14px;background:#F8F9FB;color:var(--ink,#1a1a1a);">
+    <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${es ? "Lealtad de clientes" : "Customer loyalty"}</div>
+    <label style="display:flex;gap:8px;align-items:center;font-size:14px;font-weight:700;"><input type="checkbox" id="ocLealActiva" ${cfg.activa ? "checked" : ""} ${dis}> ${es ? "Activar" : "Turn on"}</label>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px;font-size:14px;">
+      ${es ? "Cada" : "Every"} <input id="ocLealCada" type="number" min="2" max="50" value="${cfg.cada}" style="width:70px;padding:8px;min-height:44px;" ${dis}> ${es ? "compras, la siguiente lleva" : "purchases, the next one gets"}
+      <input id="ocLealPct" type="number" min="1" max="50" value="${cfg.pct}" style="width:70px;padding:8px;min-height:44px;" ${dis}> % ${es ? "de descuento" : "off"}
+    </div>
+    <p style="font-size:13px;margin:6px 0 0;">${es ? "Se cuenta con las ventas registradas a nombre del cliente. La app lo sugiere al vender; tú decides." : "Counted from the sales recorded for that customer. The app suggests it at the sale; you decide."}</p>
+    ${puede ? `<button type="button" id="ocLealGuardar" style="margin-top:8px;min-height:44px;">${es ? "Guardar" : "Save"}</button>` : ""}
+    <p id="ocLealMsg" role="status" style="font-size:14px;font-weight:700;margin:6px 0 0;"></p></div>`;
+  const b = document.getElementById("ocLealGuardar"); if (!b) return;
+  b.addEventListener("click", async () => {
+    const msg = document.getElementById("ocLealMsg");
+    try {
+      const r = await fetch(`${API}/lealtad`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ activa: document.getElementById("ocLealActiva").checked, cada: document.getElementById("ocLealCada").value, pct: document.getElementById("ocLealPct").value }) });
+      const d = await r.json();
+      if (!r.ok) { msg.textContent = d.error || "Error"; return; }
+      document.getElementById("ocLealCada").value = d.cada; document.getElementById("ocLealPct").value = d.pct;
+      msg.textContent = es ? "Guardado. Viaja a todos los aparatos." : "Saved. It travels to all devices.";
+    } catch (_) { msg.textContent = es ? "No se pudo guardar." : "Could not save."; }
+  });
+}
+/* Sugerencia de lealtad en el panel de venta: al elegir cliente, si le toca, un
+   boton llena "Adjust price" con el descuento. Delegado: sirve para cualquier panel. */
+document.addEventListener("change", async (ev) => {
+  const sel = ev.target; if (!sel || sel.id !== "vi-cliente") return;
+  const p = document.getElementById("vi-lealtad"); if (!p) return;
+  p.style.display = "none"; p.textContent = "";
+  if (!sel.value) return;
+  let l; try { l = await (await fetch(`${API}/clientes/${encodeURIComponent(sel.value)}/lealtad`)).json(); } catch (_) { return; }
+  if (!l || !l.activa) return;
+  const es = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+  const base = Number(p.dataset.precio) || 0;
+  p.style.display = "block";
+  if (!l.tocaDescuento) { p.textContent = es ? `Lealtad: ${l.faltan} compra(s) más y la siguiente lleva ${l.pct} %.` : `Loyalty: ${l.faltan} more purchase(s), then the next one gets ${l.pct} % off.`; return; }
+  const nuevo = +(base * (1 - l.pct / 100)).toFixed(2);
+  p.textContent = es ? `Lealtad: esta es su compra n.º ${l.compras + 1}. ` : `Loyalty: this is purchase #${l.compras + 1}. `;
+  const b = document.createElement("button"); b.type = "button";
+  b.textContent = es ? `Aplicar −${l.pct} % (${fmtMoney(nuevo)})` : `Apply −${l.pct} % (${fmtMoney(nuevo)})`;
+  b.style.cssText = "min-height:40px;font-weight:700;margin-left:4px;";
+  b.addEventListener("click", () => {
+    const box = document.getElementById("vi-precio-box"); if (box) box.style.display = "block";
+    const inp = document.getElementById("vi-precio-override"); if (inp) { inp.value = nuevo.toFixed(2); inp.dispatchEvent(new Event("input", { bubbles: true })); }
+    b.disabled = true; b.textContent = es ? "Aplicado" : "Applied";
+  });
+  p.appendChild(b);
+});
 async function cargarAvanzado(){
   try { avisosRutinariosDeAvanzado(); } catch (_) {}
-  try { pintarImpuestoCfg(); } catch (_) {}
+  try { pintarImpuestoCfg().then(() => pintarLealtadCfg()); } catch (_) {}
   try { pintarSyncNuevoEstado(); } catch (_) {}
   inicializarSelectorTimezone();
   await cargarGastosMensuales();

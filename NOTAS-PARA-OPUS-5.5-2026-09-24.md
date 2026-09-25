@@ -235,3 +235,13 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 - [ ] Siguiente del benchmark: #3 rebaja por antiguedad (apagada por defecto, por percha, aviso previo; cada venta congela su precio). Plan + test Hugo/Paco/Luis antes de codigo.
 - [ ] Siguiente: #5 lealtad simple derivada de las ventas (no contador aparte, asi el sync la cuadra).
 - [ ] Botones blanco sobre naranja de marca (3.2:1, texto grande): se dejan; si JFC quiere 4.5:1, --rust-deep.
+
+## AVANCE shell v394 (Opus 5.5, 2026-09-25) — benchmark #3 y #5 CULMINADOS
+- [x] Rebaja por antiguedad: por percha, apagada por defecto, lista intacta, cada venta congela su precio, comision sobre lo cobrado, override/cortesia mandan, aviso previo en Today, editor en la percha. Chromium real verificado.
+- [x] FIX de sync hallado de paso: creadoEn del producto no viajaba; ahora viaja y converge a la mas antigua (si no, cada aparato cobraba otra rebaja).
+- [x] Lealtad: regla global (viaja), compras derivadas de las ventas, sugerencia con boton en el panel de venta (nunca automatica), caja en Advanced. Chromium: sugiere -10 % sobre el precio ya rebajado; venta a $40.50 con cliente.
+- [x] test/rebaja-lealtad.test.js 8 casos Hugo/Paco/Luis (rojo 1/8 en v393: la 1 es de fijacion; verde 8/8). Carreras de dinero siguen verdes.
+- [x] Manual: secciones de rebaja y lealtad.
+- Benchmark restante: #6 rol "commissionist/artist" que carga sus piezas en SU percha (toca acceso: plan + test de permisos por rol antes de codigo).
+- [x] Prueba intermitente hallada y arreglada (no era azar): worker-master-recovery alteraba el ULTIMO caracter base64 del token; si era A-D solo tocaba relleno y el token seguia valido. Medido 26/400 (6.5 %). Ahora altera el medio de la firma (0/400). Worker sin cambios.
+- LECCION (error mio): nunca copiar un *.test.js a backups/ con ese nombre: node --test lo ejecuta. Usar sufijo .bak.

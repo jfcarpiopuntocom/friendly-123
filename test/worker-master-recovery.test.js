@@ -48,7 +48,12 @@ test('tampered and expired tokens fail closed without revealing signing material
   const issued = await post(worker, env, '/maestro/emitir', { instanceId: 'fixture-device' }, env.MASTER_KEY);
   assert.equal(issued.status, 200);
   const token = issued.data.token;
-  const tampered = await post(worker, env, '/maestro/verificar', { instanceId: 'fixture-device', token: token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A') });
+  /* 2026-09-25: antes se alteraba el ULTIMO caracter. En base64 ese caracter lleva
+     2 bits de relleno: si era A-D, cambiarlo por A/B no cambiaba ningun byte y el
+     token seguia valido (medido: 26 de 400 = 6.5 % de corridas rojas sin bug real).
+     Ahora se altera el MEDIO de la firma, que siempre cambia bytes. Mas estricto. */
+  const _d = token.lastIndexOf('.'); const _i = _d + 1 + Math.floor((token.length - _d - 1) / 2);
+  const tampered = await post(worker, env, '/maestro/verificar', { instanceId: 'fixture-device', token: token.slice(0, _i) + (token[_i] === 'A' ? 'B' : 'A') + token.slice(_i + 1) });
   assert.equal(tampered.data.ok, false);
   const realNow = Date.now;
   Date.now = () => realNow() + 10 * 60 * 1000;
