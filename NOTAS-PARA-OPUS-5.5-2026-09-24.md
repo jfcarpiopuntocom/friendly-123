@@ -365,3 +365,15 @@ NO se decidio; se hizo research y se repregunto.
   friendly-123/docs/index.html (app / PIN).
 - [ ] JFC en Cloudflare: www, blog y dashboard a Proxied; Workers route www.jfcarpio.com/* -> website; SSL Full (strict)
       + Always Use HTTPS; Bot Fight Mode; DNSSEC (copiar DS en Hostinger). No tocar MX/TXT.
+
+## AVANCE 2026-09-25 (cierre) — SEO y seguridad
+- [x] Cloudflare completo (lo hizo JFC con guia): www/blog/dashboard Proxied, SSL Full strict + Always HTTPS,
+      Bot Fight Mode, DNSSEC validado (DS en Hostinger), regla vieja "Blog" borrada.
+- [x] blog.jfcarpio.com -> jfcarpio.com/blog/ (Worker, rutas explicitas en wrangler.toml).
+- [x] IndexNow: llave c2d8b4e084c5a6e9498a037240f5da45.txt publicada; avisos aceptados (Bing, Yandex, etc.).
+- [x] Landing friendly-123: botones "leer" con URL real de cada articulo; hreflang propio por pagina.
+- [x] Inicio: un solo H1 (portada vieja pasa a H2, mismo aspecto); descripcion 137 car. Landing ES: titulo/desc cortos.
+- [x] Google Search Console: JFC agrego la propiedad de dominio jfcarpio.com (TXT autorizado por Google).
+- [ ] JFC: en Search Console, enviar sitemap.xml y pedir indexacion de /friendly123/ y /friendly123/es/.
+- WIP AJENO en website/friendly123/index.html ("clipSplit" ES, clips/clip1-split.html sin rastrear): no es de ninguna
+  sesion; se aparta con stash para editar y se devuelve intacto. Decision pendiente de JFC: incluir o descartar.
