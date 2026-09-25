@@ -302,3 +302,13 @@ dias) → 5 → 6. Cada uno: plan en .md, respaldo, test rojo-verde, shell nuevo
 ### YA HECHO HOY
 - friendly v397 (cuadre Commissions, balance a costo), AMIGABLE v119 (hotfix anular pagada + plan de igualacion),
   consultorio v67 (B1, foto, balance). Todo verificado en vivo.
+
+## AVANCE 2026-09-25 (sitio jfcarpio.com)
+- [x] Archivos privados (CLAUDE.md, AGENTS.md, wrangler.toml, worker.js) ya dan 404: .assetsignore.
+- [x] Worker v4: sirve el sitio desde Cloudflare (static assets), ya no pide a www. Las 5 URLs SEO de friendly123 dan 200.
+- [x] 404 propia que recomienda blog, Substack y friendly-123 (noindex).
+- [x] DEPLOY SIEMPRE ASI: git worktree add --detach /tmp/wsclean origin/main ; cd alli ; node <wrangler.js> deploy.
+      (Error mio 2026-09-25: un deploy salio de la carpeta con WIP; se corrigio en minutos con deploy limpio.)
+- [ ] JFC en Cloudflare: www en nube naranja, SSL Full strict, Bot Fight Mode, WAF + rate limit, DNSSEC.
+- [ ] Backlinks entre sitios propios: descartado (poco valor, riesgo de esquema). Buscar enlaces AJENOS: gremios, prensa, directorios de software.
+- [ ] Siguen pendientes: Jev bien usado, reconversion jfcarpio.com (testimonio Peñaherra: confirmar "Dieño" o "Diego"), pelicula WebGL2.
