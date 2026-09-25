@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-25",
-  "changelog": "Reloading the page keeps you where you were: same section, same open lists, same scroll. Commissions remembers By rack when new sales arrive.",
+  "changelog": "Groundwork for safer updates: new versions are checked on the owner's devices before they reach every store.",
   "requerida": false,
-  "shell": "f123-shell-v401",
+  "shell": "f123-shell-v402",
   "apagar": [],
   "releaseName": "v1.0"
 }
