@@ -1485,6 +1485,8 @@
     .tag-card, button, nav button svg{transition:none;}
     .caja.rojo{animation:none;}
   }
+/* JFC 2026-09-25: "Counter sale" en tipo normal y cursiva, aunque la etiqueta que lo contiene vaya en mayusculas. */
+.rotulo em,.cifra em{text-transform:none;letter-spacing:0;font-style:italic}
 </style>
 </head>
 <body>
@@ -4042,7 +4044,16 @@ window.OCReactivo = (function () {
   // de Promoters/commissionists (antes solo se recalculaba al re-entrar a la vista;
   // Belén ponía un Sold y la comisión del comisionista no aparecía). Solo refresca
   // si la vista está activa, para no pegarle al backend de balde.
+  /* 2026-09-25 (JFC: "vendo en un aparato y Commissions del otro no se entera"): el evento
+     "ventas" solo lo emitian las ventas LOCALES. Ahora tambien lo emite el sync al aplicar
+     algo remoto (op de venta u otra fusion), con un pequeno retardo para agrupar rafagas. */
+  (function () {
+    var t = null; var pedir = function () { clearTimeout(t); t = setTimeout(function () { try { var b = bus(); if (b) b.emit("oc:datos:ventas", {}); } catch (_) {} }, 250); };
+    window.addEventListener("oc-sync-op-remota", pedir);
+    window.addEventListener("oc-sync-merge", function (ev) { var d = (ev && ev.detail) || {}; if (d.ventas || d.actualizados || d.promotoras || d.perchas) pedir(); });
+  })();
   on("ventas", function () {
+    try { var vs = document.getElementById("ventasSold"); if (vs && vs.open && typeof cargarVentasSold === "function") cargarVentasSold(); } catch (_) {}
     try { var vc = document.getElementById("vista-comisiones"); if (vc && vc.classList.contains("activa") && typeof cargarComisiones === "function") cargarComisiones(); } catch (_) {}
     try { var vp = document.getElementById("vista-perchas"); if (vp && vp.classList.contains("activa") && window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
   });
@@ -6831,6 +6842,8 @@ async function confirmarVentaConInfo(id, esTicket){
       res = await fetch(`${API}/productos/${id}/venta`, {
         method: "POST", headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info, modoComision: _modoComisionVenta,
+          // 2026-09-25: la persona elegida viaja con la venta (en una percha propia es la unica fuente del trato).
+          promotoraId: (_modoComisionVenta === "associate" && document.getElementById("vi-comisionista")) ? (document.getElementById("vi-comisionista").value || null) : null,
           asistenteId: (_modoComisionVenta === "associate" && document.getElementById("vi-asistente")) ? (document.getElementById("vi-asistente").value || null) : null,
           asistentePct: (document.getElementById("vi-asistente-pct") || {}).value })
       });
@@ -6910,7 +6923,7 @@ async function cargarVentasSold(){
     const bloqueada = !!v.liquidada && _tieneComision;
     const cli = v.clienteNombre ? escHtml(v.clienteNombre) : t("sold.noCustomer");
     const chips = [];
-    if (v.modoComision === "counter") chips.push(t("sold.chipCounter"));
+    if (v.modoComision === "counter") chips.push("<em>" + t("sold.chipCounter") + "</em>");
     else if (Number(v.comisionAsociado) > 0) chips.push(v.asociadoNombre ? window.tf("sold.chipCommission", { monto: money(v.comisionAsociado), nombre: escHtml(v.asociadoNombre) }) : window.tf("sold.chipCommissionNoName", { monto: money(v.comisionAsociado) }));
     if (v.cortesia) chips.push("Courtesy");                          // JFC 2026-09-08
     if (v.formaPago === "fiado") chips.push("On account (fiado)");   // JFC 2026-09-08
@@ -7998,7 +8011,7 @@ function cuadreMesHtml(c){
   return `<section class="tag-card" data-commissions-cuadre style="text-align:left;padding:14px 16px;margin:0 0 16px;">
     <h3 class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.q.heading")}</h3>
     ${fila(t("comm.q.withCommission"), c.conComision.monto, c.conComision.ventas)}
-    ${fila(t("comm.q.houseShared"), c.casaCompartida.monto, c.casaCompartida.ventas)}
+    ${fila("<em>" + t("comm.q.houseShared") + "</em>", c.casaCompartida.monto, c.casaCompartida.ventas)}
     ${fila(t("comm.q.ownRacks"), c.perchasPropias.monto, c.perchasPropias.ventas)}
     ${c.sinTrato.ventas ? fila(t("comm.q.noDeal"), c.sinTrato.monto, c.sinTrato.ventas) : ""}
     ${fila(t("comm.q.allSales"), c.totalVentas, c.ventas, true)}
@@ -8035,7 +8048,7 @@ function resumenComisionPorProductoHtml(prods, unidadesPropias, cuadre){
         <div><div class="rotulo">Associate takes</div><div class="cifra">${fmtMoney(d.socio)}</div></div>
         <div><div class="rotulo">House keeps</div><div class="cifra">${fmtMoney(d.casa)}</div></div>` : ""}
         ${d.pendSocio > 0 ? `<div><div class="rotulo" style="color:var(--rust-deep,#C05000);">Still to pay</div><div class="cifra" style="color:var(--rust-deep,#C05000);">${fmtMoney(d.pendSocio)}</div></div>` : ""}
-        ${d.counterUnid ? `<div><div class="rotulo">COUNTER SALE (house, no commission)</div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
+        ${d.counterUnid ? `<div><div class="rotulo"><em>Counter sale</em> (house, no commission)</div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
       </div>
     </div>`).join("") + `</section>`;
 }
@@ -8201,7 +8214,7 @@ async function cargarComisiones(){
       ${f.origenComision === "comisionista" ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
       <div class="stats">
         <div><div class="rotulo">${t("comm.q.withCommission")}</div><div class="cifra">${fmtMoney(f.ventasBrutas)}</div></div>
-        ${(f.ventasCasa && f.ventasCasa.ventas) ? `<div><div class="rotulo">${t("comm.card.house")}</div><div class="cifra">${fmtMoney(f.ventasCasa.monto)} <small>${window.tf("comm.q.nSales", { n: f.ventasCasa.ventas })}</small></div></div>
+        ${(f.ventasCasa && f.ventasCasa.ventas) ? `<div><div class="rotulo"><em>${t("comm.card.house")}</em></div><div class="cifra">${fmtMoney(f.ventasCasa.monto)} <small>${window.tf("comm.q.nSales", { n: f.ventasCasa.ventas })}</small></div></div>
         <div><div class="rotulo">${t("comm.card.rackTotal")}</div><div class="cifra">${fmtMoney(f.totalPercha)}</div></div>` : ""}
         ${(f.contribFijaMes != null ? f.contribFijaMes : f.contribFija) ? `<div><div class="rotulo">${t("comm.card.fixedContrib")}</div><div class="cifra">-${fmtMoney(f.contribFijaMes != null ? f.contribFijaMes : f.contribFija)}</div></div>` : ""}
         <div><div class="rotulo">Associate takes <small style="text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:400;">(${f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0)}%)</small></div><div class="cifra">${fmtMoney(f.comisionSocio)}</div></div>
@@ -8357,7 +8370,7 @@ async function exportarComisionesCSV(){
     esc(({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado)
   ].join(","));
   // JFC 2026-09-23: el CSV abre por producto; el bloque por percha va debajo.
-  const cabP = ["Product","SKU","Rack","Associate","Units with commission","Sales","Associate takes","House keeps","Still to pay","COUNTER SALE units","COUNTER SALE sales"];
+  const cabP = ["Product","SKU","Rack","Associate","Units with commission","Sales","Associate takes","House keeps","Still to pay","Counter sale units","Counter sale sales"];
   const filasP = porProducto.map(d => [esc(d.producto), esc(d.sku), esc([...d.perchas].join(" / ")), esc([...d.asociados].join(" / ")),
     d.unid, d.bruto.toFixed(2), d.socio.toFixed(2), d.casa.toFixed(2), d.pendSocio.toFixed(2), d.counterUnid, d.counterMonto.toFixed(2)].join(","));
   const csv = "\uFEFF" + cabP.join(",") + "\n" + filasP.join("\n") + "\n\n" + cab.join(",") + "\n" + filasCSV.join("\n");

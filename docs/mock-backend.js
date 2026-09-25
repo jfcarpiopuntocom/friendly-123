@@ -1574,7 +1574,11 @@
   /* mes opcional "YYYY-MM" (shell 371). Sin mes = mes en curso, igual que antes. */
   function getLiquidaciones(mes) {
     const _mes = mesValido(mes);
-    return ubicaciones.filter((u) => u.tipo && u.tipo !== "propio").map((u) => {
+    /* 2026-09-25: una percha PROPIA entra si tuvo ventas con comision (persona elegida en la
+       venta) o ajustes en el mes: sin tarjeta no habria donde ver ni pagar esa comision. */
+    const _conComisionEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && v.split && esDelMes(v.fecha, _mes))
+      || ajustesComision.some((a) => a && a.ubicacionId === id && esDelMes(a.fecha, _mes));
+    return ubicaciones.filter((u) => (u.tipo && u.tipo !== "propio") || _conComisionEnMes(u.id)).map((u) => {
       const ventasMes = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes) && v.split);
       /* Bloque 4: los ajustes (devoluciones de ventas ya pagadas) entran al mes
          de SU fecha, no al de la venta original: lo pagado no se reescribe. */
@@ -2680,7 +2684,7 @@
           }
           return;
         }
-        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
+        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
         ventasAgregadas++;
       });
@@ -3310,7 +3314,7 @@
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
-        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
+        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
@@ -4150,19 +4154,24 @@
       // Desempeno por asociado/a: agrega las perchas que tiene asignadas,
       // suma comision y ventas del mes, y saca su mejor SKU (rec 04 + 09).
       if (path === "/api/promotores/desempeno") {
+        /* 2026-09-25: se atribuye cada venta a su persona (v.promotoraId); las ventas
+           viejas sin ese campo caen a la persona actual de la percha, como antes. */
         const byId = {};
-        ubicaciones.filter((u) => u.promotoraId).forEach((u) => {
-          const pr = promotoras.find((x) => x.id === u.promotoraId); if (!pr) return;
+        promotoras.filter((pr) => !pr.borrado && ubicaciones.some((u) => u.promotoraId === pr.id)).forEach((pr) => {
+          byId[pr.id] = { id: pr.id, nombre: pr.nombre, ventasBrutas: 0, ventasCount: 0, comision: 0, ultima: "", porSku: {} };
+        });
+        ventasActivas().filter((v) => esDelMesActual(v.fecha) && v.split).forEach((v) => {
+          const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+          const pid = v.promotoraId || (u && u.promotoraId) || null;
+          const pr = pid ? promotoras.find((x) => x.id === pid) : null; if (!pr) return;
           const g = byId[pr.id] || (byId[pr.id] = { id: pr.id, nombre: pr.nombre, ventasBrutas: 0, ventasCount: 0, comision: 0, ultima: "", porSku: {} });
-          ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMesActual(v.fecha) && v.split).forEach((v) => {
-            g.ventasBrutas += v.split.montoBruto;
-            g.comision += v.split.montoComisionSocio;
-            g.ventasCount += v.cantidad;
-            if (v.fecha > g.ultima) g.ultima = v.fecha;
-            const prod = productos.find((x) => x.id === v.productoId);
-            const sku = prod ? prod.sku : v.productoId;
-            g.porSku[sku] = (g.porSku[sku] || 0) + v.cantidad;
-          });
+          g.ventasBrutas += v.split.montoBruto;
+          g.comision += v.split.montoComisionSocio;
+          g.ventasCount += v.cantidad;
+          if (v.fecha > g.ultima) g.ultima = v.fecha;
+          const prod = productos.find((x) => x.id === v.productoId);
+          const sku = prod ? prod.sku : v.productoId;
+          g.porSku[sku] = (g.porSku[sku] || 0) + v.cantidad;
         });
         const arr = Object.values(byId).map((g) => {
           const top = Object.entries(g.porSku).sort((a, b) => b[1] - a[1])[0];
@@ -4239,9 +4248,7 @@
         const ubicNueva = body.ubicacionId && body.ubicacionId !== "todas" ? ubicaciones.find((x) => x.id === body.ubicacionId) : null;
         if (ubicNueva && ubicNueva.activa === false) return J({ error: `"${ubicNueva.nombre}" está desactivada — reactívala en Avanzado antes de agregar productos ahí.` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 25 productos.
-        if (!estaLicenciado() && productos.length >= 25) {
-          return J({ error: `Without activation this device is limited to 25 products. Activate it (PIN 789) to start your full ${(window.OCPrueba && window.OCPrueba.PRUEBA_DIAS) || 30}-day trial.`, codigo: "LIMITE_PRODUCTOS" }, 403);
-        }
+        /* Tope del viejo plan gratis QUITADO (JFC 2026-09-25): el modelo vigente es 30 dias de uso completo sin topes (licencia-prueba.js). */
         /* Variantes: guardas en la capa de datos, no solo en la pantalla. Esto
            evita dos variantes identicas por doble toque o concurrencia. Los
            productos historicos sin familia conservan su comportamiento. */
@@ -4345,9 +4352,7 @@
         }
         if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
         // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
-        if (!estaLicenciado() && ventasCountMesGlobal() >= 100) {
-          return J({ error: `Without activation this device is limited to 100 sales per month. Activate it (PIN 789) to start your full ${(window.OCPrueba && window.OCPrueba.PRUEBA_DIAS) || 30}-day trial.`, codigo: "LIMITE_VENTAS" }, 403);
-        }
+        /* Tope del viejo plan gratis QUITADO (JFC 2026-09-25): el modelo vigente es 30 dias de uso completo sin topes (licencia-prueba.js). */
         /* BUG CRITICO reportado en vivo por una clienta (Idiomarte, 2026-07-29),
            arreglado en amigable-123 y portado aqui: "puse que la clase es de
            $150 pero me hace la comision sobre $20". Para un producto tipo
@@ -4387,11 +4392,24 @@
            exige comisionista, no se crea split y no se desasigna a nadie del
            acuerdo permanente. Ausente conserva el contrato histórico. */
         const modoComision = body && body.modoComision === "counter" ? "counter" : "acuerdo";
+        /* PERSONA DE LA VENTA (JFC 2026-09-25, "el Spray de la verdad", shell v398).
+           La pantalla deja elegir comisionista en CUALQUIER percha, pero el reparto
+           solo usaba el trato de la percha, y una percha PROPIA no reparte con nadie:
+           la venta quedaba sin comision aunque se eligiera a alguien. Ahora, si la
+           venta trae promotoraId y la percha es propia, se aplica el trato de esa
+           persona. En perchas compartidas sigue mandando la percha (como siempre).
+           La venta guarda promotoraId (campo nuevo): el ranking y Sold la atribuyen
+           a quien la hizo, no a quien este asignado despues. */
+        const _prVenta = (modoComision !== "counter" && body && body.promotoraId)
+          ? promotoras.find((x) => String(x.id) === String(body.promotoraId) && !x.borrado) : null;
+        const _ubicTrato = (ubicP && _prVenta && (!ubicP.tipo || ubicP.tipo === "propio"))
+          ? Object.assign({}, ubicP, { tipo: "socio", promotoraId: _prVenta.id, usarComisionPropia: false }) : ubicP;
         const split = modoComision === "counter"
           ? null
-          : (ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant) : null);
+          : (_ubicTrato ? calcularSplitVenta(_ubicTrato, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant) : null);
         /* Bloque 4: asistente opcional por venta. COUNTER SALE lo ignora (split null). */
-        if (split && body && body.asistenteId) aplicarRepartoAsistente(split, ubicP, String(body.asistenteId), body.asistentePct);
+        if (split && body && body.asistenteId) aplicarRepartoAsistente(split, _ubicTrato, String(body.asistenteId), body.asistentePct);
+        const _promotoraVenta = split ? ((_prVenta && _prVenta.id) || (_ubicTrato && _ubicTrato.promotoraId) || null) : null;
         let clienteVenta = null;
         if (body.clienteId) {
           clienteVenta = clientes.find((c) => c.id === body.clienteId);
@@ -4437,7 +4455,7 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, modoComision, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, modoComision, promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
         emitirOpStock("venta", { productoId: p.id, delta: -cant });
         return J({ producto: ficha(p), ventaId });
@@ -5107,7 +5125,9 @@
         const p = productos.find((x) => x.id === v.productoId);
         const c = clientes.find((x) => x.id === v.clienteId);
         const u = ubicaciones.find((x) => x.id === v.ubicacionId);
-        const pr = u && u.promotoraId ? promotoras.find((x) => x.id === u.promotoraId) : null;
+        // Persona de la venta primero (campo nuevo); ventas viejas caen a la percha.
+        const _pid = v.promotoraId || (u && u.promotoraId) || null;
+        const pr = _pid ? promotoras.find((x) => x.id === _pid) : null;
         return {
           id: v.id, fecha: v.fecha,
           productoId: v.productoId,
@@ -5426,8 +5446,7 @@
            esta creado no se le toca ni se le desactiva nada, asi que ningun
            equipo existente se rompe con este cambio. */
         const staffActual = usuarios.filter((u) => !u.borrado && (u.rol === "empleado" || u.rol === "admin")).length;
-        if (staffActual >= 1 && !estaLicenciado())
-          return J({ error: `Without activation this device allows 1 team member besides you (admins count too). Activate it (PIN 789) to start your full ${(window.OCPrueba && window.OCPrueba.PRUEBA_DIAS) || 30}-day trial.`, codigo: "LIMITE_EMPLEADOS" }, 403);
+        /* Tope del viejo plan gratis QUITADO (JFC 2026-09-25): el modelo vigente es 30 dias de uso completo sin topes (licencia-prueba.js). */
         if (usuarios.some((u) => !u.borrado && u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
         if (_pinDeArtista(pin)) return J({ error: "An artist already uses that PIN. Pick a different one.", codigo: "PIN_COLISION" }, 409); // benchmark #6
         const fotoEquipo = _fotoAntesDeEquipo();
