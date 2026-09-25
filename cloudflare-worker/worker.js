@@ -285,7 +285,10 @@ async function handleCheckin(req, env) {
   // Hardening (2026-07-16): endpoint publico — cap de tamano y validacion de formato
   // para que un bot no pueda llenar el KV con basura ni payloads gigantes.
   const raw = await req.text();
-  if (raw.length > 4096) return json({ error: "Payload too large" }, 413);
+  /* 2026-09-25: 4096 cortaba el latido ENTERO de un aparato con varios errores
+     (la app adjunta hasta 10, ~300 bytes cada uno): justo el aparato que mas
+     necesitabamos ver desaparecia. 12 KB alcanza con holgura y sigue topado. */
+  if (raw.length > 12288) return json({ error: "Payload too large" }, 413);
   let body;
   try { body = JSON.parse(raw); } catch (_) { return json({ error: "Invalid JSON" }, 400); }
   const instanceId = String(body.instanceId || "").slice(0, 120);
@@ -373,9 +376,18 @@ async function handleCheckin(req, env) {
   // v351: se conservan igual que soporteJfc (ver aplicarLicenciaPagada).
   if (existente.fullLicencia) registro.fullLicencia = existente.fullLicencia;
   if (existente.estadoFijadoPanel === true) registro.estadoFijadoPanel = true;
+  /* SALUD DEL APARATO (plan canarios F4, JFC 2026-09-25). Solo numeros y
+     codigos por lista blanca (sanearSalud / sanearErrores): cero datos del
+     negocio. Antes la app ya mandaba "errores" y este Worker los tiraba. */
+  const salud = sanearSalud(body.salud);
+  if (salud) registro.salud = salud; else if (existente.salud) registro.salud = existente.salud;
+  const errs = sanearErrores(body.errores);
+  if (errs) registro.errores = errs;
+  else if (!(salud && salud.errores === 0) && existente.errores) registro.errores = existente.errores;
   // Pagado es de la licencia, no del aparato (ver aplicarLicenciaPagada).
   await aplicarLicenciaPagada(env, registro);
   await guardarConHistorial(env, instanceId, registro);
+  try { await registrarSonar(env, instanceId, registro); } catch (_) { /* el sonar nunca tumba un latido */ }
   /* RESCATE DE LICENCIA (JFC 2026-08-19). La respuesta devuelve el licenseCode
      que el servidor tiene para esta instancia. Sirve para tres cosas con un
      solo mecanismo:
@@ -777,6 +789,98 @@ async function handleRegistrarPago(req, env, instanceId) {
   return json({ ok: true, codigo, asiento, resumen, pagos });
 }
 
+/* ===== SONAR DE CANARIOS (plan canarios F4, JFC 2026-09-25) =====
+   Tres canales en github.io, mismo origen y mismos datos:
+     /friendly-123/        estable  (clientes)
+     /friendly-123/next/   canario  (aparatos en la licencia lord de JFC)
+     /friendly-123/previo/ estable anterior (rewind de emergencia)
+   - canario:<shell>  lo que reportan los aparatos LORD en ese shell. Un rojo
+     (errores, scripts caidos, mezcla de versiones, descuadre) frena la
+     promocion automatica de 33 min (promover.yml).
+   - sonar:<shell>    resumen de TODOS los aparatos en ese shell: por aparato
+     (8 primeros caracteres del instanceId) si tiene errores/mezcla/caidas.
+   - canario:orden    ultima orden de JFC desde su panel (push / rewind). La
+     ejecuta sonar.yml en GitHub; no hace falta ningun token aqui.
+   - canario:detenido "1" = JFC congelo la promocion automatica.
+   Las lecturas son publicas porque solo devuelven numeros y codigos; escribir
+   ordenes exige la Master Key del panel. */
+function sanearSalud(x) {
+  if (!x || typeof x !== "object") return null;
+  const n = (v) => Math.max(0, Math.min(100000, Math.floor(Number(v) || 0)));
+  const shell = String(x.shell || "").slice(0, 40);
+  return {
+    shell: /^f123-shell-v\d{1,5}$/.test(shell) ? shell : "",
+    canal: ["estable", "next", "previo"].includes(x.canal) ? x.canal : "estable",
+    errores: n(x.errores), caidas: n(x.caidas),
+    mezcla: x.mezcla === true, retenido: x.retenido === true,
+    cuadre: x.cuadre === "ok" || x.cuadre === "fallo" ? x.cuadre : null,
+    at: Date.now(),
+  };
+}
+function sanearErrores(l) {
+  if (!Array.isArray(l) || !l.length) return null;
+  return l.slice(-10).map((e) => ({
+    msg: String((e && e.msg) || "").slice(0, 200), archivo: String((e && e.archivo) || "").slice(0, 60),
+    linea: Math.floor(Number(e && e.linea) || 0), ver: String((e && e.ver) || "").slice(0, 24),
+    cuando: String((e && e.cuando) || "").slice(0, 30), veces: Math.floor(Number(e && e.veces) || 1),
+  }));
+}
+function motivosDe(s) {
+  const m = [];
+  if (s.errores > 0) m.push("errores");
+  if (s.caidas > 0) m.push("caidas");
+  if (s.mezcla) m.push("mezcla");
+  if (s.cuadre === "fallo") m.push("cuadre");
+  return m;
+}
+async function leerJSON(env, k) { try { return JSON.parse((await env.LICENCIAS.get(k)) || "null"); } catch (_) { return null; } }
+async function registrarSonar(env, instanceId, registro) {
+  const s = registro.salud;
+  if (!s || !s.shell || s.at < Date.now() - 60000) return; // sin salud fresca en este latido
+  const id8 = instanceId.slice(0, 8);
+  const motivos = motivosDe(s);
+  const TTL = { expirationTtl: 60 * 60 * 24 * 90 };
+  const son = (await leerJSON(env, "sonar:" + s.shell)) || { shell: s.shell, aparatos: {} };
+  son.aparatos[id8] = { c: s.canal, m: motivos, at: s.at };
+  const ids = Object.keys(son.aparatos);
+  if (ids.length > 600) ids.sort((a, b) => son.aparatos[a].at - son.aparatos[b].at).slice(0, ids.length - 600).forEach((k) => delete son.aparatos[k]);
+  await env.LICENCIAS.put("sonar:" + s.shell, JSON.stringify(son), TTL);
+  const lord = String(env.LORD_LICENSE || "").trim().toUpperCase();
+  if (!lord || String(registro.licenseCode || "").trim().toUpperCase() !== lord) return;
+  const c = (await leerJSON(env, "canario:" + s.shell)) || { shell: s.shell, primero: Date.now(), reportes: 0, rojos: [], canales: {} };
+  c.reportes += 1; c.ultimo = Date.now(); c.canales[s.canal] = Date.now();
+  if (motivos.length) c.rojos = c.rojos.concat([{ at: Date.now(), motivos, canal: s.canal }]).slice(-20);
+  await env.LICENCIAS.put("canario:" + s.shell, JSON.stringify(c), TTL);
+}
+async function handleCanarioEstado(req, env, url) {
+  const shell = String(url.searchParams.get("shell") || "").slice(0, 40);
+  if (!/^f123-shell-v\d{1,5}$/.test(shell)) return json({ error: "shell invalido" }, 400);
+  const c = (await leerJSON(env, "canario:" + shell)) || { shell, reportes: 0, rojos: [], canales: {} };
+  const son = (await leerJSON(env, "sonar:" + shell)) || { aparatos: {} };
+  const ap = Object.values(son.aparatos || {});
+  return json({
+    shell, reportes: c.reportes || 0, primero: c.primero || null, ultimo: c.ultimo || null,
+    canales: c.canales || {}, rojos: (c.rojos || []).map((r) => ({ at: r.at, motivos: r.motivos, canal: r.canal })),
+    rojo: (c.rojos || []).length > 0,
+    detenido: (await env.LICENCIAS.get("canario:detenido")) === "1",
+    orden: await leerJSON(env, "canario:orden"),
+    aparatos: ap.length,
+    aparatosConProblemas: ap.filter((a) => a.m && a.m.length).length,
+  });
+}
+async function handleCanarioOrden(req, env) {
+  if (req.method === "GET") return json({ orden: await leerJSON(env, "canario:orden"), detenido: (await env.LICENCIAS.get("canario:detenido")) === "1" });
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  let body = {}; try { body = JSON.parse((await req.text()).slice(0, 1000)); } catch (_) {}
+  const accion = String(body.accion || "");
+  if (accion === "detener") { await env.LICENCIAS.put("canario:detenido", "1"); return json({ ok: true, detenido: true }); }
+  if (accion === "reanudar") { await env.LICENCIAS.delete("canario:detenido"); return json({ ok: true, detenido: false }); }
+  if (accion !== "push" && accion !== "rewind") return json({ error: "accion invalida" }, 400);
+  const orden = { id: Date.now().toString(36), accion, at: Date.now() };
+  await env.LICENCIAS.put("canario:orden", JSON.stringify(orden), { expirationTtl: 60 * 60 * 24 * 30 });
+  return json({ ok: true, orden });
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -797,6 +901,8 @@ export default {
     }
 
     // Public checkin (activation + login heartbeat)
+    if (url.pathname === "/canario/estado" && req.method === "GET") return handleCanarioEstado(req, env, url);
+    if (url.pathname === "/canario/orden" && (req.method === "GET" || req.method === "POST")) return handleCanarioOrden(req, env);
     if ((url.pathname === "/checkin" || url.pathname === "/register") && req.method === "POST") {
       return handleCheckin(req, env);
     }
