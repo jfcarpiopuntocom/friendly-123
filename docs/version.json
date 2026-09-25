@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Artists and commissionists can add their own pieces to their own rack with their own PIN, and print those labels. They never see sales, money or customers. Also fixed: the photo chosen when creating a product is now kept.",
+  "changelog": "Money and stock now match across Sold, Today, reports and Commissions: a rejected sale or edit no longer changes stock, an edited sale keeps the commission rate of its day, a paid sale cannot be voided, a returned paid sale leaves the day's income, and COUNTER SALES are marked clearly in Sold.",
   "requerida": false,
-  "shell": "f123-shell-v395",
+  "shell": "f123-shell-v396",
   "apagar": [],
   "releaseName": "v1.0"
 }

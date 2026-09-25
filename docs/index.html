@@ -6896,9 +6896,18 @@ async function cargarVentasSold(){
   const fmtFecha = (iso) => { try { return new Date(iso).toLocaleString((window.OCI18n && window.OCI18n.locale()) || "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return iso; } };
   cont.innerHTML = rows.map((v) => {
     const total = (v.precioUnit || 0) * (v.cantidad || 1);
-    const bloqueada = !!v.liquidada;
-    const cli = v.clienteNombre ? escHtml(v.clienteNombre) : "Counter sale";
+    /* Corrida Hugo/Paco/Luis (2026-09-24). "Settled" solo tiene sentido si la venta
+       pago comision (netoCasa != null): una COUNTER SALE no se le paga a nadie (B5).
+       Antes toda venta SIN cliente decia "Counter sale", aunque pagara comision:
+       la pantalla llamaba "de la casa" a ventas de una comisionista y la COUNTER
+       SALE real no tenia marca. Ahora: sin cliente = "No customer"; la counter
+       lleva su chip; y si hubo comision, cuanto y a quien (dato que ya existia). */
+    const _tieneComision = v.netoCasa !== null && v.netoCasa !== undefined;
+    const bloqueada = !!v.liquidada && _tieneComision;
+    const cli = v.clienteNombre ? escHtml(v.clienteNombre) : t("sold.noCustomer");
     const chips = [];
+    if (v.modoComision === "counter") chips.push(t("sold.chipCounter"));
+    else if (Number(v.comisionAsociado) > 0) chips.push(v.asociadoNombre ? window.tf("sold.chipCommission", { monto: money(v.comisionAsociado), nombre: escHtml(v.asociadoNombre) }) : window.tf("sold.chipCommissionNoName", { monto: money(v.comisionAsociado) }));
     if (v.cortesia) chips.push("Courtesy");                          // JFC 2026-09-08
     if (v.formaPago === "fiado") chips.push("On account (fiado)");   // JFC 2026-09-08
     else if (v.formaPago) chips.push(escHtml(v.formaPago));

@@ -176,7 +176,8 @@ test('actual Yjs bridge carries transfer stages and stock', async () => {
 test('actual Yjs bridge carries settlement of an existing sale', async () => {
   const a = await peer(), b = await peer();
   const fixture = await a.request('/api/respaldo/exportar');
-  const product = fixture.productos.find(p => p.stockActual >= 10);
+  // Percha CON comision: desde 2026-09-24 (B5) pagar solo sella ventas que tienen algo que pagar.
+  const product = fixture.productos.find(p => p.stockActual >= 10 && (fixture.ubicaciones.find(u => u.id === p.ubicacionId) || {}).tipo !== 'propio');
   product.id = 'p-yjs-settlement'; product.stockActual = 10;
   fixture.productos = [product]; fixture.ventas = []; fixture.movimientos = [];
   await a.request('/api/respaldo/importar', 'POST', fixture);
