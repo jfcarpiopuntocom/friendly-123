@@ -611,13 +611,13 @@
              "Sin conexión" o tiene conteos distintos, ahí está el problema. Se
              refresca solo. NO es el panel viejo de diagnóstico (ese sí aturdía);
              es una sola línea honesta. -->
-        <p id="oc-sync-estado-min" style="font-size:13px;font-weight:700;margin:10px 0 0;color:#1a1a1a;">Sync: …</p>
+        <p id="oc-sync-estado-min" style="display:none;font-size:13px;font-weight:700;margin:10px 0 0;color:#1a1a1a;">Sync: …</p>
         <!-- ORIGEN DEL CODIGO (Bloque P, JFC 2026-09-24): una linea honesta de
              cargador.js (de donde vino el codigo, cuantos cayeron a github.io,
              si el shell remoto cuadra) y un canario por aparato: pegar la URL
              https://.../docs/ y recargar. "Back to github.io" borra el canario.
              Solo dueno/admin ven los botones; la linea la ve cualquiera. -->
-        <p id="oc-codigo-estado" style="font-size:13px;font-weight:700;margin:6px 0 0;color:#1a1a1a;">Code: …</p>
+        <p id="oc-codigo-estado" style="display:none;font-size:13px;font-weight:700;margin:6px 0 0;color:#1a1a1a;">Code: …</p>
         <div id="oc-codigo-canario" style="display:none;margin-top:6px;flex-wrap:wrap;gap:6px;align-items:center;">
           <input id="oc-codigo-url" type="url" placeholder="https://your-domain/friendly-123/docs/" style="flex:1 1 220px;min-width:0;font-size:14px;padding:6px 8px;color:#1a1a1a;">
           <button type="button" class="tecla" id="oc-codigo-usar" style="font-size:13px;">Try this origin on this device</button>
@@ -625,6 +625,34 @@
         </div>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
       vista.appendChild(panel);
+
+      /* DIAGNOSTICO SOLO PARA JFC (JFC 2026-09-25: "puede causar horribles problemas
+         a los usuarios que no sean yo, a menos que solo me salga a mi"). La linea
+         "Sync: ...", la linea "Code: ..." y la caja del origen del codigo nacen
+         OCULTAS (display:none en el markup) y solo se muestran si:
+           a) el aparato esta en la licencia PRINCIPAL de JFC (comparada por huella
+              cyrb53, la misma de sync-yjs.js / sync-realtime.js / mock-backend.js;
+              la licencia jamas se escribe en el repo) Y se entro como dueno, o
+           b) este aparato tiene un canario de origen puesto: salida de emergencia
+              para poder volver a github.io aunque (a) fallara.
+         Las mediciones NO se apagan: los pintores de abajo siguen escribiendo en
+         esos nodos ocultos y sync-latencia.js sigue midiendo. Para mostrarlo a
+         todos otra vez: hacer que _verDiag devuelva true. */
+      var _verDiag = (function () {
+        try {
+          var h53 = function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);};
+          var norm = function (x) { return typeof x === "string" ? x.trim().toUpperCase().replace(/\s+/g, "") : ""; };
+          var o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          var rol = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+          var principal = [norm(o.licenseCode), norm(o.syncCode)].some(function (l) { return l && h53(l) === 6583453063440131; });
+          if (principal && rol === "dueno") return true;
+          var can = window.OCCargador ? (localStorage.getItem(window.OCCargador.CLAVE) || "") : "";
+          return !!(can && can !== "0");
+        } catch (_) { return false; }
+      })();
+      if (_verDiag) {
+        ["oc-sync-estado-min", "oc-codigo-estado"].forEach(function (id) { var n = document.getElementById(id); if (n) n.style.display = ""; });
+      }
 
       /* Linea del cargador + canario por aparato (Bloque P). Nada aqui escribe datos. */
       try {
@@ -637,7 +665,7 @@
         setTimeout(_pintarCodigo, 4000);
         var rolCod = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
         var cajaCod = document.getElementById("oc-codigo-canario");
-        if (cajaCod && (rolCod === "dueno" || rolCod === "admin") && window.OCCargador) {
+        if (cajaCod && _verDiag && window.OCCargador) { // 2026-09-25: antes dueno/admin de CUALQUIER negocio
           cajaCod.style.display = "flex";
           var inCod = document.getElementById("oc-codigo-url");
           try { var actual = localStorage.getItem(window.OCCargador.CLAVE) || ""; if (actual && actual !== "0") inCod.value = actual; } catch (_) {}

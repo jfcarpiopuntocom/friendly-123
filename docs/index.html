@@ -4354,6 +4354,99 @@ document.querySelectorAll("nav button").forEach(btn => {
   });
 });
 
+/* F5 CONSERVA LA POSICION (JFC 2026-09-25, regla dura: "dejemos de parecer UX
+   amateur"). F5 ya conservaba la sesion (sessionStorage f123_sesion); ahora
+   conserva tambien la seccion, la pestana de Commissions, los desplegables
+   <details> abiertos y el scroll.
+   - Se guarda en sessionStorage "f123_ui_pos": vive solo en ESTA pestana, como
+     la sesion. Otra pestana u otro aparato arrancan en su sitio normal.
+   - Solo se restaura si la sesion YA existia al cargar la pagina (camino F5 /
+     recarga por version). Un login nuevo con PIN aterriza donde siempre.
+   - Cerrar sesion (oc-logout) borra la posicion. Mismo rol obligatorio: si el
+     rol no coincide, no se restaura nada.
+   - Un deep link #editar=... manda sobre la posicion guardada.
+   - Una seccion oculta para el rol (display:none en el nav) no se restaura.
+   - El scroll se reintenta ~3 s mientras la vista termina de cargar datos, y
+     se corta en cuanto la persona toca, rueda o teclea: nunca pelea con ella.
+   - Desplegables: por id si lo tienen; si no, por el texto de su <summary>.
+   Nada de esto toca datos del negocio. Para desactivarlo: no llamar
+   restaurarPosicion() en el listener oc-login de abajo. */
+(function () {
+  var CLAVE = "f123_ui_pos";
+  var MAX_EDAD_MS = 12 * 60 * 60 * 1000;
+  var restaurando = false;
+  var sesAlCargar = null;
+  try { sesAlCargar = JSON.parse(sessionStorage.getItem("f123_sesion") || "null"); } catch (_) {}
+  try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch (_) {}
+
+  function vistaActual() { var b = document.querySelector("nav button.activo"); return b && b.dataset ? b.dataset.vista : ""; }
+  function llaveDetalle(d) {
+    if (d.id) return "#" + d.id;
+    var sm = d.querySelector("summary");
+    var txt = sm ? String(sm.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80) : "";
+    return txt ? "s:" + txt : "";
+  }
+  function buscarDetalle(cont, llave) {
+    if (llave.charAt(0) === "#") { try { return cont.querySelector(llave); } catch (_) { return null; } }
+    var ds = cont.querySelectorAll("details");
+    for (var i = 0; i < ds.length; i++) if (llaveDetalle(ds[i]) === llave) return ds[i];
+    return null;
+  }
+  function guardar() {
+    if (restaurando) return;
+    try {
+      var ses = JSON.parse(sessionStorage.getItem("f123_sesion") || "null");
+      if (!ses || !ses.rol) return;
+      var v = vistaActual(); if (!v) return;
+      var cont = document.getElementById("vista-" + v);
+      var abiertos = [];
+      if (cont) cont.querySelectorAll("details").forEach(function (d) { if (d.open) { var k = llaveDetalle(d); if (k) abiertos.push(k); } });
+      sessionStorage.setItem(CLAVE, JSON.stringify({ v: v, y: Math.round(window.scrollY || 0), d: abiertos,
+        c: window._ocVistaComisiones || "product", rol: ses.rol, t: Date.now() }));
+    } catch (_) {}
+  }
+  var tGuardar = null;
+  function guardarPronto() { clearTimeout(tGuardar); tGuardar = setTimeout(guardar, 300); }
+  window.addEventListener("scroll", guardarPronto, { passive: true });
+  document.addEventListener("toggle", guardarPronto, true); // <details> abre/cierra (toggle no burbujea: captura)
+  document.addEventListener("click", function (ev) { if (ev.target && ev.target.closest && ev.target.closest("nav button, [data-commissions-view]")) guardarPronto(); }, true);
+  window.addEventListener("pagehide", guardar);
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") guardar(); });
+  window.addEventListener("oc-logout", function () { try { sessionStorage.removeItem(CLAVE); } catch (_) {} });
+
+  function restaurarPosicion() {
+    var p = null;
+    try { p = JSON.parse(sessionStorage.getItem(CLAVE) || "null"); } catch (_) {}
+    if (!p || !p.v || !sesAlCargar || sesAlCargar.rol !== p.rol) return;
+    if (Date.now() - (Number(p.t) || 0) > MAX_EDAD_MS) return;
+    if (/#editar=/i.test(location.hash || "")) return;
+    var btn = document.querySelector('nav button[data-vista="' + p.v + '"]');
+    if (!btn || getComputedStyle(btn).display === "none") return;
+    restaurando = true;
+    if (!btn.classList.contains("activo")) btn.click();
+    var cortar = false, intentos = 0, y = Math.max(0, Number(p.y) || 0);
+    var parar = function () { cortar = true; };
+    ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (e) { window.addEventListener(e, parar, { once: true, passive: true }); });
+    (function paso() {
+      if (!cortar) {
+        var cont = document.getElementById("vista-" + p.v);
+        if (cont) (p.d || []).forEach(function (k) { var d = buscarDetalle(cont, String(k)); if (d && !d.open) d.open = true; });
+        if (p.v === "comisiones" && p.c === "rack" && window._ocVistaComisiones !== "rack"
+            && typeof cambiarVistaComisiones === "function" && document.querySelector('[data-commissions-view="rack"]')) cambiarVistaComisiones("rack");
+        window.scrollTo(0, y);
+        intentos++;
+        var llego = Math.abs((window.scrollY || 0) - y) <= 2;
+        if (!(llego && intentos >= 4) && intentos < 25) { setTimeout(paso, 120); return; }
+      }
+      restaurando = false;
+      guardar();
+    })();
+  }
+  /* Tras entrar(): el login ya hizo su aterrizaje por rol (Hoy / contable con
+     setTimeout 0); la posicion guardada va despues y gana. */
+  window.addEventListener("oc-login", function () { setTimeout(restaurarPosicion, 80); });
+})();
+
 /* Escanear desde Labels (JFC 2026-09-22). Vive AQUI, junto a la navegacion,
    porque de eso se trata — y NO un bloque mas arriba: test/business-header
    aisla el tramo que termina en el marcador "Navegación" con un document
@@ -7972,6 +8065,7 @@ function selectorVistaComisionesHtml(){
 }
 function cambiarVistaComisiones(vista){
   const elegida = vista === "rack" ? "rack" : "product";
+  window._ocVistaComisiones = elegida; // 2026-09-25: recordada para repintados y para F5
   document.querySelectorAll("[data-commissions-section]").forEach((panel) => {
     panel.hidden = panel.dataset.commissionsSection !== (elegida === "rack" ? "by-rack-event" : "by-product");
   });
@@ -8249,7 +8343,9 @@ async function cargarComisiones(){
     (_ocMesComisiones ? v.mes === _ocMesComisiones : v.delMesActual) && v.comisionPct == null && (!v.ubicacionTipo || v.ubicacionTipo === "propio"))
     .reduce((a, v) => a + (Number(v.cantidad) || 1), 0);
   cont.innerHTML = barraComisionesHtml(meses, btnWA + btnExport) + resumenComisionPorProductoHtml(porProducto, unidadesPropiasMes, cuadreMes) + cardsSection;
-  cambiarVistaComisiones("product");
+  /* 2026-09-25: antes forzaba "product" en CADA repintado (una venta de otro
+     aparato te sacaba de "by rack"). Ahora respeta la pestana elegida. */
+  cambiarVistaComisiones(window._ocVistaComisiones || "product");
   // Ranking y RFM van en su propio contenedor, debajo del alta de comisionistas (no llevan listeners).
   const rankCont = document.getElementById("rankingComisiones");
   if (rankCont) rankCont.innerHTML = rankHtml + matrizComisionistasHtml(ranking);
