@@ -398,3 +398,15 @@ NO se decidio; se hizo research y se repregunto.
 - Pendientes en cola: lapicito + boton directo de blacklist en clientes; los 2 clips en el hero de la landing;
   terminos US en manual.html (9) y dashboard.html (2); mosaico "mal hecho" (despues); modelo de autoridad para
   jfcarpio.com ("Trust replaced attention") -> buscar mas modelos con Jev.
+
+## AVANCE 2026-09-25 (noche 3) — CANARIOS ANTES DE CLIENTES (plan PLAN-CANARIOS-2026-09-25.md)
+- EN VIVO: v401 (F5 conserva seccion/scroll; diagnostico de Advanced solo en aparato lord), v402 (cargador nunca
+  mezcla shells; cache del SW por canal). Worker con Sonar (/canario/estado, /canario/orden) y tope de latido 12 KB.
+- LISTO SIN MERGEAR: rama canarios-v403 (salud en el latido, cuadre Sold vs Commissions en aparato lord, desvio lord a
+  /next/, franja en Advanced, Sonar en panel.html) y rama local canarios-flujos (publicar/promover/sonar.yml + CLAUDE.md).
+- BLOQUEO: el token de gh no tiene scope "workflow"; JFC debe autorizar en https://github.com/login/device.
+- ORDEN AL DESTRABAR: push canarios-flujos -> PR/merge -> gh api PUT pages build_type=workflow -> gh workflow run
+  publicar.yml -> verificar raiz = v402 identica y /next/ -> merge canarios-v403 -> /next/ = v403, raiz v402 ->
+  a los 33 min promover.yml lo pasa a clientes (verificar raiz v403 y /previo/ v402).
+- Reglas nuevas en memoria: ventana 33 min (JFC tester), Sonar de Canarios con PUSH/REWIND y 3 versiones vivas.
+
