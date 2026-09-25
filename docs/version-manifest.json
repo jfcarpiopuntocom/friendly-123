@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v401",
+  "shell": "f123-shell-v402",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-f74f8a158e490f129b43ce1d4dce3b78b82338616a970fa2bd2136e0bdf845f1",
@@ -71,7 +71,7 @@
     "./respaldo-empleado.js": "sha256-52620b8851003f435300e64d8649812bcd69f9efd3c082b2970d36f0675f4ac7",
     "./estado-cifrado.js": "sha256-0c136cd3de2a0bc3f86cac19c02513cabf1470cc4bcc57ca855add3d04bfc4bd",
     "./estado.html": "sha256-cd13964fd3830ea1cfd702bf3da5a15e1b987469b060892abd9e775fa42dcc32",
-    "./cargador.js": "sha256-1e623702aaa9f070538e22195d8aaba665fd41ed28181aed2d0ab773cc0f7f76",
+    "./cargador.js": "sha256-705af7a9f97e82661677a6b7db56891e6bc4a29260c9130869461d0f476eae11",
     "./edutips.js": "sha256-d54e47ba1be51f7ce9d0def52fab9c9b5e26509a2b79ead1a2626a9536c5a996",
     "./workshop-brand.js": "sha256-c94848891eb4a20d821393946777ab352e99bf4a9a40301d50bbb1d40e166b1b",
     "./inspector.js": "sha256-2f5c01bf853b766344ab4c432ba51c842b5d34f852beb207dc159c5a0b7598f5",

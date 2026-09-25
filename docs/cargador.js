@@ -145,14 +145,45 @@
   }
 
   function estadoCopia() {
-    return { origen: estado.origen, modo: estado.modo, cargados: estado.cargados.slice(), caidas: estado.caidas, desfase: estado.desfase, listo: estado.listo, error: estado.error };
+    return { origen: estado.origen, retenido: estado.retenido || "", modo: estado.modo, cargados: estado.cargados.slice(), caidas: estado.caidas, desfase: estado.desfase, listo: estado.listo, error: estado.error };
+  }
+
+  /* CANDADO DE SHELL (JFC 2026-09-25, plan canarios F0). Con dos canales
+     (/friendly-123/ estable y /friendly-123/next/ canario) el origen remoto
+     puede ir en OTRO shell que la pagina: cargar sus scripts seria la mezcla
+     de versiones. Antes de usar el remoto se leen los dos version.json; solo
+     si dicen el MISMO shell se carga remoto. Si difieren o el remoto no
+     responde (o no hay fetch), todo local: falla abierta, nadie se queda
+     afuera. Solo cuesta en aparatos con canario/meta; el resto no pide nada. */
+  var TIMEOUT_SHELL_MS = 2500;
+  function mismoShell(origen) {
+    if (!global.fetch) { estado.desfase = "held: cannot check remote shell"; return Promise.resolve(false); }
+    var leer = function (url) {
+      return global.fetch(url, { cache: "no-store", mode: "cors" })
+        .then(function (r) { return r && r.ok ? r.json() : null; })
+        .catch(function () { return null; });
+    };
+    var tope = new Promise(function (res) { try { global.setTimeout(function () { res("tope"); }, TIMEOUT_SHELL_MS); } catch (_) { res("tope"); } });
+    return Promise.race([Promise.all([leer("./version.json"), leer(rutaRemota(origen, "version.json"))]), tope]).then(function (pares) {
+      if (pares === "tope" || !pares[1]) { estado.desfase = "held: remote version.json unreachable"; return false; }
+      var a = (pares[0] && pares[0].shell) || "?", b = pares[1].shell || "?";
+      if (a !== b || a === "?") { estado.desfase = "held: shell differs (here " + a + " vs remote " + b + ")"; return false; }
+      return true;
+    }).catch(function () { estado.desfase = "held: remote shell check failed"; return false; });
   }
 
   /* Carga la lista en orden. Devuelve una promesa que resuelve al terminar. */
   function cargar(lista, opciones) {
-    var origen = "";
-    try { origen = resolverOrigen(); } catch (_) { origen = ""; }
+    var pedido = "";
+    try { pedido = resolverOrigen(); } catch (_) { pedido = ""; }
+    return (pedido ? mismoShell(pedido) : Promise.resolve(false)).then(function (ok) {
+      return cargarLista(lista, opciones, ok ? pedido : "", pedido);
+    });
+  }
+
+  function cargarLista(lista, opciones, origen, pedido) {
     estado.origen = origen;
+    estado.retenido = (pedido && !origen) ? pedido : "";
     estado.modo = origen ? "remoto" : "local";
     var cadena = Promise.resolve();
     (lista || []).forEach(function (archivo) {
