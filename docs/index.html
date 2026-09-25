@@ -7626,6 +7626,8 @@ async function abrirEditorComisionista(id, pr){
     if (typeof cargarComisiones === "function") cargarComisiones();
   });
   _atarFilasComision(caja);
+  // Acceso de artista (benchmark #6): solo dueno/admin; bloque y guardado propios en artista.js.
+  try { if (window.OCArtista && window.OCAuth && window.OCAuth.puedeGestionar()) window.OCArtista.pintarAccesoEnEditor(caja, pr); } catch (_) {}
 }
 
 /* Ir a la tarjeta de un cliente y resaltarla (JFC 2026-09-02). Navega a My
@@ -9199,6 +9201,8 @@ setTimeout(() => {
   <script src="./soporte-visual.js"></script>
   <script src="./backup-scheduler.js"></script>
 <script src="./avanzado-extra.js"></script>
+<!-- Vista del artista (benchmark #6, JFC 2026-09-24): solo con PIN de artista. La frontera real es la compuerta de mock-backend.js. -->
+<script src="./artista.js"></script>
 <script src="./geo-ping.js"></script>
 <!-- Novedades: experimental employee gamification (EXPERIMENTAL FEATURE,
      JFC 2026-07-22). Separate module, ON by DEFAULT (owner can turn it off

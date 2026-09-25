@@ -2337,6 +2337,40 @@
   // La UI no es una frontera de autorización. Estas rutas se validan también
   // aquí; JS local no sustituye una autoridad verificable entre aparatos.
   function _puedeGestionarEquipo() { const r = _rolLocal(); return r === "dueno" || r === "admin"; }
+  /* ACCESO DE ARTISTA (benchmark #6, JFC 2026-09-24; plan en
+     PLAN-ARTISTA-CARGA-SU-PERCHA-2026-09-24.md). El artista/comisionista entra
+     con su PIN a un aparato de la tienda y SOLO agrega piezas a SU percha, ve
+     sus piezas con stock e imprime sus etiquetas. Decision JFC: no edita ni
+     borra despues de crear; no ve ventas, plata ni clientes.
+     POR QUE NO VA EN `usuarios`: auth-ui hace entrar como "empleado" a toda
+     persona del equipo cuyo rol no sea "admin". Un aparato sin actualizar
+     dejaria entrar al artista como empleado. Por eso el PIN vive en un campo
+     NUEVO de su ficha de comisionista (promotoras[].accesoArtista = { pin,
+     activo, actualizadoEn }): un aparato viejo no lo conoce y el PIN no abre
+     nada (falla cerrado). Sin schemaVersion; el merge viejo (Object.assign)
+     conserva el campo.
+     SU percha = ubicaciones con promotoraId === id del artista. */
+  function _artistaSesion() {
+    try {
+      const a = window.OCCurrentArtista;
+      if (!a || !a.id) return null;
+      const pr = promotoras.find((x) => String(x.id) === String(a.id) && !x.borrado && x.activa !== false);
+      return (pr && pr.accesoArtista && pr.accesoArtista.activo) ? pr : null;
+    } catch (_) { return null; }
+  }
+  function _perchasDeArtista(prId) {
+    return ubicaciones.filter((u) => !u.borrado && u.activa !== false && String(u.promotoraId || "") === String(prId));
+  }
+  // PIN de 3 digitos ya usado como acceso de artista. excluirId = la ficha que se edita.
+  function _pinDeArtista(pin, excluirId) {
+    return promotoras.some((x) => !x.borrado && x.accesoArtista && x.accesoArtista.pin === pin && String(x.id) !== String(excluirId || ""));
+  }
+  // Lo que el artista ve de una pieza: sin costo, sin datos de proveedor ni de otras perchas.
+  function _piezaParaArtista(p) {
+    return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, barcode: p.barcode, precio: p.precio,
+      stockActual: p.stockActual, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId),
+      foto: p.foto || null, creadoEn: p.creadoEn || null };
+  }
   async function _pinIntegradoEnUso(pin) {
     try {
       // Si no podemos comprobar, no asignar un PIN potencialmente ambiguo.
@@ -2765,7 +2799,9 @@
           direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false,
           metaMensual: Math.max(0, Number(p.metaMensual) || 0),
           escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [],
-          creadoEn: p.creadoEn || new Date().toISOString(), rev: p.rev || null, borrado: !!p.borrado });
+          creadoEn: p.creadoEn || new Date().toISOString(), rev: p.rev || null, borrado: !!p.borrado,
+          // benchmark #6: el acceso de artista viaja cifrado igual que el PIN del equipo.
+          ...(p.accesoArtista && /^\d{3}$/.test(String(p.accesoArtista.pin || "")) ? { accesoArtista: { pin: String(p.accesoArtista.pin), activo: !!p.accesoArtista.activo, actualizadoEn: p.accesoArtista.actualizadoEn || null } } : {}) });
         promotorasAgregadas++;
       });
     }
@@ -3219,7 +3255,7 @@
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "", despedido: !!c.despedido, borrado: !!c.borrado, rev: c.rev || null, evaluacion: c.evaluacion || null })),
         /* COMISIONISTAS + SUCURSALES viajan con el catálogo (JFC 2026-09-10, "sync
            integral"). Add-only en aplicarCatalogo: nunca se pisa una comision. */
-        promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, baseComision: _baseComisionValida(p.baseComision) || "bruto", telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [], rev: p.rev || null, borrado: !!p.borrado })),
+        promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, baseComision: _baseComisionValida(p.baseComision) || "bruto", telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [], rev: p.rev || null, borrado: !!p.borrado, ...(p.accesoArtista ? { accesoArtista: { pin: String(p.accesoArtista.pin || ""), activo: !!p.accesoArtista.activo, actualizadoEn: p.accesoArtista.actualizadoEn || null } } : {}) })),
         sucursales: sucursales.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa !== false, rev: s.rev || null, borrado: !!s.borrado })),
         // Configuración de categorías (propias vacías y ocultas). Ver categoriasMeta.
         categorias: Object.keys(categoriasMeta).map((k) => Object.assign({}, categoriasMeta[k])),
@@ -3682,6 +3718,44 @@
           return J({ error: _msg, codigo: "PRUEBA_VENCIDA" }, 402);
         }
       }
+      /* COMPUERTA DEL ARTISTA (benchmark #6, JFC 2026-09-24). DENY-BY-DEFAULT:
+         con rol "artista" solo existen las rutas de esta lista; todo lo demas
+         (ventas, clientes, plata, equipo, rutas futuras) responde 403 sin
+         llegar a su manejador. NO convertir en lista negra: una ruta nueva
+         quedaria abierta sin que nadie se entere. test/artista-permisos.test.js */
+      if (_rolLocal() === "artista") {
+        const art = _artistaSesion();
+        if (!art) { debePersistir = false; return J({ error: "Artist access is not active. Ask the owner.", codigo: "ARTISTA_SIN_ACCESO" }, 403); }
+        const racks = _perchasDeArtista(art.id);
+        const idsRack = racks.map((u) => String(u.id));
+        const mEt = method === "GET" ? path.match(/^\/api\/productos\/([^/]+)\/etiqueta$/) : null;
+        if (method === "GET" && path === "/api/productos") {
+          return J(productos.filter((p) => !p.borrado && !p.archivado && idsRack.includes(String(p.ubicacionId)))
+            .map(_piezaParaArtista).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), "es")));
+        }
+        if (method === "GET" && path === "/api/ubicaciones") return J(racks.map((u) => ({ id: u.id, nombre: u.nombre })));
+        if (method === "GET" && path === "/api/config/moneda") { /* solo lectura: simbolo de moneda para pintar precios */ }
+        else if (mEt) {
+          const p = productos.find((x) => x.id === mEt[1] && !x.borrado);
+          if (!p || !idsRack.includes(String(p.ubicacionId))) return J({ error: "That piece is not on your rack." }, 403);
+          const barcodeSvg = window.OCBarcode ? window.OCBarcode.code128SVG(p.barcode, { width: 300, height: 80 }) : "";
+          return J({ producto: _piezaParaArtista(p), qrDataUrl: qrDataUrl(String(p.barcode || p.sku || "")), barcodeSvg });
+        }
+        else if (method === "POST" && path === "/api/productos") {
+          if (!racks.length) { debePersistir = false; return J({ error: "You do not have a rack yet. Ask the owner to assign you one.", codigo: "ARTISTA_SIN_PERCHA" }, 403); }
+          const pedida = body.ubicacionId && body.ubicacionId !== "todas" ? String(body.ubicacionId) : null;
+          if (pedida && !idsRack.includes(pedida)) { debePersistir = false; return J({ error: "You can only add pieces to your own rack.", codigo: "ARTISTA_PERCHA_AJENA" }, 403); }
+          /* Lista blanca de campos: el artista no fija costo, precio de casa,
+             variantes, tipo de producto ni comisionista. La pieza queda atada a
+             el y a SU percha, pase lo que pase en el body. */
+          const limpio = { nombre: body.nombre, barcode: body.barcode, sku: body.sku, categoria: body.categoria, precio: body.precio,
+            stockInicial: body.stockInicial, foto: body.foto, ubicacionId: pedida || idsRack[0], comisionistaId: art.id,
+            umbralRojo: 1, umbralAmarillo: 2, altaPorArtista: art.nombre };
+          Object.keys(body).forEach((k) => { delete body[k]; });
+          Object.assign(body, limpio);
+        }
+        else { debePersistir = false; return J({ error: "Artists can only add and see their own pieces.", codigo: "ARTISTA_SIN_PERMISO" }, 403); }
+      }
       const uid = q.get("ubicacionId");
 
       let m;
@@ -3891,7 +3965,56 @@
       }
 
       // ---- Asociados/as (comision por traer gente) ----
-      if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras.filter((p) => !p.borrado));
+      /* El PIN del artista NUNCA sale por aqui (lo ve cualquiera que abra la
+         lista). Se expone solo si tiene acceso activo. (benchmark #6) */
+      if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras.filter((p) => !p.borrado).map((p) => {
+        const { accesoArtista, ...resto } = p;
+        return { ...resto, tieneAccesoArtista: !!(accesoArtista && accesoArtista.activo), tienePercha: _perchasDeArtista(p.id).length > 0 };
+      }));
+      /* PUT /api/promotoras/:id/acceso { pin?, activo } — solo dueno/admin.
+         Fija, cambia o quita el PIN de artista. El PIN no choca con equipo,
+         PINs integrados, reservados ni otro artista (si chocara con el del
+         dueno, el artista entraria como DUENO: el integrado se revisa primero). */
+      const mAcc = path.match(/^\/api\/promotoras\/([^/]+)\/acceso$/);
+      if (mAcc && method === "PUT") {
+        if (!_puedeGestionarEquipo()) { debePersistir = false; return J({ error: "Only the owner or an admin can manage artist access." }, 403); }
+        const pr = promotoras.find((x) => x.id === mAcc[1] && !x.borrado);
+        if (!pr) { debePersistir = false; return J({ error: "Associate not found." }, 404); }
+        const prev = pr.accesoArtista || null;
+        let pin = prev ? prev.pin : "";
+        if (body.pin !== undefined && body.pin !== null && body.pin !== "") {
+          pin = String(body.pin).trim();
+          if (!/^\d{3}$/.test(pin)) { debePersistir = false; return J({ error: "The PIN must be exactly 3 digits." }, 400); }
+          if (_pinReservado(pin)) { debePersistir = false; return J({ error: "That PIN is reserved for the app. Pick another one.", codigo: "PIN_RESERVADO" }, 400); }
+          const integ = await _pinIntegradoEnUso(pin);
+          if (integ === null) { debePersistir = false; return J({ error: "Could not verify current PINs. Nothing changed; retry.", codigo: "PIN_NO_VERIFICADO" }, 503); }
+          if (integ) { debePersistir = false; return J({ error: "A built-in role already uses that PIN.", codigo: "PIN_COLISION" }, 409); }
+          if (usuarios.some((u) => !u.borrado && u.pin === pin)) { debePersistir = false; return J({ error: "A team member already uses that PIN.", codigo: "PIN_COLISION" }, 409); }
+          if (_pinDeArtista(pin, pr.id)) { debePersistir = false; return J({ error: "Another artist already uses that PIN.", codigo: "PIN_COLISION" }, 409); }
+        }
+        const activo = body.activo === undefined ? !!(prev && prev.activo) : !!body.activo;
+        if (activo && !pin) { debePersistir = false; return J({ error: "Set a 3-digit PIN first." }, 400); }
+        pr.accesoArtista = { pin, activo, actualizadoEn: new Date().toISOString() };
+        pr.rev = _revNueva();
+        // Nunca el PIN en la bitacora: solo si cambio.
+        mov("artista-acceso", { promotora: pr.nombre, activo, pinCambiado: !prev || prev.pin !== pin }, false);
+        avisarCatalogoCambiado();
+        return J({ id: pr.id, tieneAccesoArtista: activo, tienePercha: _perchasDeArtista(pr.id).length > 0 });
+      }
+      /* POST /api/artistas/verificar { pin } — lo llama auth-ui en el candado.
+         Falla cerrado: si el PIN tambien es de alguien del equipo, de otro
+         artista o de un rol integrado (p. ej. llego asi por sync), NO abre. */
+      if (path === "/api/artistas/verificar" && method === "POST") {
+        debePersistir = false;
+        const pin = String(body.pin || "").trim();
+        if (!/^\d{3}$/.test(pin)) return J({ error: "That PIN does not match any artist." }, 401);
+        const pr = promotoras.find((x) => !x.borrado && x.activa !== false && x.accesoArtista && x.accesoArtista.activo && x.accesoArtista.pin === pin);
+        if (!pr) return J({ error: "That PIN does not match any artist." }, 401);
+        const integ = await _pinIntegradoEnUso(pin);
+        if (integ !== false || usuarios.some((u) => !u.borrado && u.pin === pin) || _pinDeArtista(pin, pr.id))
+          return J({ error: "This artist PIN clashes with another PIN. Ask the owner to change it.", codigo: "ARTISTA_PIN_CONFLICTO" }, 409);
+        return J({ id: pr.id, nombre: pr.nombre, tienePercha: _perchasDeArtista(pr.id).length > 0 });
+      }
       if (path === "/api/promotoras" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "A name is required." }, 400);
         /* Datos de contacto/pago opcionales (paridad con amigable-123, JFC
@@ -4124,10 +4247,16 @@
           botellaMl: Math.max(1, Number(body.botellaMl) || 750),
           comisionistaId: body.comisionistaId || null, // JFC 2026-08-27: comisionista asociado al producto
           creadoEn: new Date().toISOString(),
+          /* FIX 2026-09-24 (hallado con benchmark #6): el formulario de alta manda
+             body.foto desde 2026-07-22, pero esta ruta nunca la guardaba y la foto
+             elegida al crear se perdia. Mismo tratamiento que PATCH: foto nueva,
+             fotoHash null (el hashing/puntero lo completa el sistema de fotos). */
+          foto: (typeof body.foto === "string" && body.foto.indexOf("data:image/") === 0) ? body.foto : null,
+          fotoHash: null,
         };
         nuevo.rev = _revNueva();
         productos.push(nuevo);
-        mov("alta", { producto: nuevo.nombre, sku: nuevo.sku, ubicacion: nombreUbic(nuevo.ubicacionId) });
+        mov("alta", { producto: nuevo.nombre, sku: nuevo.sku, ubicacion: nombreUbic(nuevo.ubicacionId), ...(body.altaPorArtista ? { porArtista: String(body.altaPorArtista).slice(0, 80) } : {}) });
         avisarCatalogoCambiado(); // el producto nuevo viaja al resto del negocio (con stock 0; cada percha cuenta el suyo)
         return J(ficha(nuevo));
       }
@@ -5175,6 +5304,7 @@
         if (staffActual >= 1 && !estaLicenciado())
           return J({ error: `Without activation this device allows 1 team member besides you (admins count too). Activate it (PIN 789) to start your full ${(window.OCPrueba && window.OCPrueba.PRUEBA_DIAS) || 30}-day trial.`, codigo: "LIMITE_EMPLEADOS" }, 403);
         if (usuarios.some((u) => !u.borrado && u.pin === pin)) return J({ error: "Another team member already uses that PIN. Pick a different one." }, 400);
+        if (_pinDeArtista(pin)) return J({ error: "An artist already uses that PIN. Pick a different one.", codigo: "PIN_COLISION" }, 409); // benchmark #6
         const fotoEquipo = _fotoAntesDeEquipo();
         const _ahoraU = new Date().toISOString();
         const nuevo = { id: uuid("u"), nombre, pin, rol: rolNuevo, email, activo: true, creadoEn: _ahoraU, actualizadoEn: _ahoraU, rev: _revNueva() };
@@ -5237,6 +5367,7 @@
           if (colisionIntegrado === null) return J({ error: "Could not verify current PINs. Nothing changed; retry.", codigo: "PIN_NO_VERIFICADO" }, 503);
           if (colisionIntegrado) return J({ error: "A built-in role already uses that PIN.", codigo: "PIN_COLISION" }, 400);
           if (usuarios.some((x) => !x.borrado && x.id !== uid2 && x.pin === np)) return J({ error: "Another team member already uses that PIN." }, 400);
+          if (_pinDeArtista(np)) return J({ error: "An artist already uses that PIN.", codigo: "PIN_COLISION" }, 409); // benchmark #6
         }
         const fotoEquipo = _fotoAntesDeEquipo();
         if (body.nombre !== undefined) u.nombre = String(body.nombre).trim().slice(0, 60) || u.nombre;

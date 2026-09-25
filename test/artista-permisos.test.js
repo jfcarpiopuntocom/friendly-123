@@ -167,3 +167,17 @@ test('10. PINNING (not a fix): owner, admin and staff keep today\'s access', asy
     assert.ok(await w.request(`/api/productos/${pBeto.id}/etiqueta`), rol);
   }
 });
+
+test('11. FIX: the photo chosen when creating a product is kept (owner and artist)', async () => {
+  const { w, ana } = await tienda();
+  const foto = 'data:image/webp;base64,UklGRg==';
+  const p1 = await w.request('/api/productos', 'POST', pieza({ foto }));
+  assert.equal((await w.request('/api/productos')).find((x) => x.id === p1.id).foto, foto);
+  comoArtista(w, ana);
+  const p2 = await w.request('/api/productos', 'POST', pieza({ foto }));
+  assert.equal((await w.request('/api/productos')).find((x) => x.id === p2.id).foto, foto);
+  // Anything that is not an image data URL is not stored.
+  w.OCAuth.rolActual = () => 'dueno';
+  const p3 = await w.request('/api/productos', 'POST', pieza({ foto: 'javascript:alert(1)' }));
+  assert.equal((await w.request('/api/productos')).find((x) => x.id === p3.id).foto, null);
+});
