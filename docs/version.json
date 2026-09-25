@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-24",
-  "changelog": "Send statement: each commissionist can receive a private link with their month (sales, commission, paid and owed). You choose 7 or 30 days; nothing is stored on any server.",
+  "changelog": "Optional markdown by time on the shelf (per shelf, with a heads-up in Today) and optional customer loyalty (every N purchases, a discount the app suggests at the sale).",
   "requerida": false,
-  "shell": "f123-shell-v393",
+  "shell": "f123-shell-v394",
   "apagar": [],
   "releaseName": "v1.0"
 }

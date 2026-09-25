@@ -347,6 +347,16 @@
   /* MONEDA DEL CUADERNO (v361, JFC 2026-09-23: app global). Código ISO 4217;
      por defecto USD (lo que la app mostraba siempre). Viaja como "ajustes". */
   let ajusteMoneda = null; // { id: "moneda", codigo, rev }
+  /* LEALTAD (JFC 2026-09-25, benchmark #5): regla global, apagada por defecto.
+     Las compras NO se guardan en un contador: se cuentan de las ventas del cliente
+     (lealtadDe), asi dos aparatos siempre dan el mismo numero tras sincronizar. */
+  let ajusteLealtad = null; // { id: "lealtad", activa, cada, pct, rev }
+  function _normLealtad(r) {
+    if (!r || r.id !== "lealtad") return null;
+    const cada = Math.min(50, Math.max(2, Math.floor(Number(r.cada) || 10)));
+    const pct = Math.min(50, Math.max(1, Math.round(Number(r.pct) || 10)));
+    return { id: "lealtad", activa: !!r.activa, cada, pct, rev: r.rev || null };
+  }
   function _normMoneda(r) {
     if (!r || r.id !== "moneda") return null;
     const c = String(r.codigo || "").trim().toUpperCase();
@@ -558,7 +568,7 @@
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
       movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
-      configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
+      configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
       usuarios: clonar(usuarios),
       instanceId: instanceId,
       nombreNegocio: nombreNegocio,
@@ -647,6 +657,8 @@
     if (_imp) ajusteImpuesto = _imp;
     const _mon = body.configuracion && _normMoneda(body.configuracion.moneda);
     if (_mon) ajusteMoneda = _mon;
+    const _leal = body.configuracion && _normLealtad(body.configuracion.lealtad);
+    if (_leal) ajusteLealtad = _leal;
     const _cm = body.configuracion && body.configuracion.categoriasMeta;
     if (_cm && typeof _cm === "object") {
       Object.keys(categoriasMeta).forEach((k) => delete categoriasMeta[k]);
@@ -1355,6 +1367,30 @@
   /* null = "esta percha no lo dice" (manda la persona, o bruto). "bruto" escrito
      a proposito SI manda sobre la persona: lo explicito gana, como con el %. */
   function _baseComisionValida(b) { return (b === "margen" || b === "bruto") ? b : null; }
+  /* REBAJA POR ANTIGUEDAD (JFC 2026-09-25, benchmark #3). Regla POR PERCHA, apagada
+     por defecto: {activa, pasos:[{dias,pct}]}. Maximo 3 pasos, dias 1-3650, pct 1-90.
+     El precio de LISTA nunca cambia: la rebaja se calcula al vender (rebajaDe) y cada
+     venta congela su precioUnit. La antiguedad sale de creadoEn del producto, que
+     viaja por sync y converge a la fecha mas antigua (ver aplicarCatalogo). */
+  function _rebajaValida(r) {
+    if (!r || typeof r !== "object") return null;
+    const pasos = (Array.isArray(r.pasos) ? r.pasos : []).map((x) => ({ dias: Math.floor(Number(x && x.dias)), pct: Math.round(Number(x && x.pct)) }))
+      .filter((x) => Number.isFinite(x.dias) && Number.isFinite(x.pct) && x.dias >= 1 && x.dias <= 3650 && x.pct >= 1 && x.pct <= 90)
+      .sort((a, b) => a.dias - b.dias).slice(0, 3);
+    return { activa: !!r.activa && pasos.length > 0, pasos };
+  }
+  function rebajaDe(p, ahora) {
+    const base = { pct: 0, dias: null, precio: Number(p && p.precio) || 0, proxima: null };
+    if (!p) return base;
+    const u = ubicaciones.find((x) => x.id === p.ubicacionId);
+    const r = u && u.rebajaEdad;
+    const t = Date.parse(p.creadoEn || "");
+    if (!r || !r.activa || !Array.isArray(r.pasos) || !r.pasos.length || !Number.isFinite(t)) return base;
+    const dias = Math.max(0, Math.floor(((ahora || Date.now()) - t) / 86400000));
+    let pct = 0, proxima = null;
+    r.pasos.forEach((st) => { if (dias >= st.dias) pct = st.pct; else if (!proxima) proxima = { pct: st.pct, enDias: st.dias - dias }; });
+    return { pct, dias, precio: +(base.precio * (1 - pct / 100)).toFixed(2), proxima };
+  }
   function resolverTrato(u, opciones) {
     opciones = opciones || {};
     var avisos = [];
@@ -1938,7 +1974,8 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+    const _rb = rebajaDe(p);
+    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
   /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
      archivados: dashboards, resumen histórico, BCG y reportes financieros deben
@@ -2453,6 +2490,9 @@
         // y el otro aparato mando su fotoHash, se adopta; los bytes llegan por el
         // canal de fotos y se hidratan en volcarFotosAlStore. No pisa una ya puesta.
         const ganaP = _revDomina(p.rev, mio.rev);
+        /* Fecha de alta (2026-09-25, rebaja por antiguedad): converge a la MAS ANTIGUA,
+           gane quien gane el rev; asi dos aparatos calculan la misma antiguedad. */
+        if (p.creadoEn && Number.isFinite(Date.parse(p.creadoEn)) && (!mio.creadoEn || Date.parse(p.creadoEn) < Date.parse(mio.creadoEn))) { mio.creadoEn = p.creadoEn; actualizados++; }
         if (ganaP === null && p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; }
         /* STOCK LWW por stockTs (JFC 2026-09-16). Simetrico: gana la ULTIMA
            edicion de stock por su sello de tiempo, venga de quien venga. Asi
@@ -2847,6 +2887,12 @@
     // Ajustes del cuaderno (v359): hoy solo "impuesto". Gana la revisión mayor.
     if (Array.isArray(remoto.ajustes)) {
       remoto.ajustes.forEach((r) => {
+        const lz = _normLealtad(r);
+        if (lz) {
+          _observarRev(lz.rev);
+          if (ajusteLealtad && _revDomina(lz.rev, ajusteLealtad.rev) !== true) return;
+          ajusteLealtad = lz; actualizados++; return;
+        }
         const m = _normMoneda(r);
         if (m) {
           _observarRev(m.rev);
@@ -3131,12 +3177,12 @@
     catalogoPropio() {
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       return {
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, fotoHash: u.fotoHash || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
         // NO PUBLICAR SEMILLA DEMO (v297, JFC 2026-09-16). Los productos de ejemplo
         // tienen id "p"+DIGITOS (p01..p66); los reales son "p"+UUID (con guiones).
         // Filtrar aqui evita que un aparato con demo re-contamine la sala (add-only
         // no borra; la unica defensa robusta es no publicarla NI adoptarla).
-        productos: productos.filter((p) => p && !/^p\d+$/.test(String(p.id || ""))).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad,
+        productos: productos.filter((p) => p && !/^p\d+$/.test(String(p.id || ""))).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad,
           /* STOCK EN EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el stock NO
              viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
              COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
@@ -3177,7 +3223,7 @@
         sucursales: sucursales.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa !== false, rev: s.rev || null, borrado: !!s.borrado })),
         // Configuración de categorías (propias vacías y ocultas). Ver categoriasMeta.
         categorias: Object.keys(categoriasMeta).map((k) => Object.assign({}, categoriasMeta[k])),
-        ajustes: [ajusteImpuesto, ajusteMoneda].filter(Boolean).map((a) => Object.assign({}, a)),
+        ajustes: [ajusteImpuesto, ajusteMoneda, ajusteLealtad].filter(Boolean).map((a) => Object.assign({}, a)),
         /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Cada venta
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
@@ -3231,8 +3277,8 @@
     estadoParaCheckpoint() {
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null })),
-        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
+        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
         huella: huellaCatalogo(),
@@ -3785,6 +3831,7 @@
         if ("minimoGarantizado" in body) u.minimoGarantizado = Math.max(0, Number(body.minimoGarantizado) || 0);
         if ("usarComisionPropia" in body) u.usarComisionPropia = !!body.usarComisionPropia;
         if ("baseComision" in body) u.baseComision = _baseComisionValida(body.baseComision) || "bruto";
+        if ("rebajaEdad" in body) u.rebajaEdad = _rebajaValida(body.rebajaEdad); // benchmark #3
         if ("escalasComision" in body) u.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision : [];
         /* B2 (JFC 2026-09-10): puntero de la foto. La foto (bytes) se guarda por
            su hash SHA-256 en idb-fotos; aqui solo viaja el HASH en el catalogo,
@@ -3972,7 +4019,13 @@
         const hace7dias = new Date(hoyISO()).getTime() - 6 * 86400000; // Fix-8: ZONA-aware boundary, not UTC epoch
         const vSemana = ventasActivas().filter((v) => new Date(v.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || v.ubicacionId === uid));
         const entraSemana = vSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
-        return J({ semaforoGeneral: sem, resumenDia: { entra: +entra.toFixed(2), sale: +sale.toFixed(2), gananciaHoy: +(entra - sale).toFixed(2), inventarioValorizado: +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas });
+        /* AVISO PREVIO DE REBAJA (benchmark #3, 2026-09-25): productos con stock cuya
+           rebaja por antiguedad cambia en 3 dias o menos. Campo APARTE de alertas para
+           no mover el semaforo general. Solo lectura. */
+        const avisosRebaja = ps.filter((p) => (Number(p.stockActual) || 0) > 0).map((p) => ({ p, r: rebajaDe(p) }))
+          .filter((x) => x.r.proxima && x.r.proxima.enDias <= 3)
+          .map((x) => ({ productoId: x.p.id, nombre: x.p.nombre, enDias: x.r.proxima.enDias, pct: x.r.proxima.pct, precioLista: x.p.precio, precioNuevo: +(x.p.precio * (1 - x.r.proxima.pct / 100)).toFixed(2) }));
+        return J({ semaforoGeneral: sem, resumenDia: { entra: +entra.toFixed(2), sale: +sale.toFixed(2), gananciaHoy: +(entra - sale).toFixed(2), inventarioValorizado: +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas, avisosRebaja });
        } catch (e) {
         // FIX v301: el dashboard NUNCA debe lanzar (un producto con datos
         // incompletos hacia 500 -> el hero se quedaba en "Loading"). Se responde
@@ -4148,7 +4201,7 @@
           ? 0
           : ((Number.isFinite(_override) && _override >= 0)
               ? _override
-              : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : p.precio));
+              : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : rebajaDe(p).precio));
         const montoBruto = precioEfectivo * cant;
         const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
         /* DISEÑO JFC (2026-09-22): COUNTER SALE pertenece íntegramente a la
@@ -4715,6 +4768,24 @@
         ajusteImpuesto = n;
         mov("config-impuesto", { activo: n.activo, tasa: n.tasa, nombre: n.nombre, modo: n.modo });
         return J(Object.assign({}, n));
+      }
+      /* LEALTAD (benchmark #5). GET/PUT de la regla global y cuenta por cliente
+         derivada de las ventas (no hay contador que pueda divergir). */
+      if (path === "/api/lealtad" && method === "GET") return J(Object.assign({ id: "lealtad", activa: false, cada: 10, pct: 10 }, ajusteLealtad || {}));
+      if (path === "/api/lealtad" && method === "PUT") {
+        const _rl = _rolLocal();
+        if (_rl !== "dueno" && _rl !== "admin") return J({ error: "Only the owner or an admin can change loyalty." }, 403);
+        const n = _normLealtad(Object.assign({}, body, { id: "lealtad" }));
+        n.rev = _revNueva(); ajusteLealtad = n;
+        mov("config-lealtad", { activa: n.activa, cada: n.cada, pct: n.pct });
+        avisarCatalogoCambiado();
+        return J(Object.assign({}, n));
+      }
+      if ((m = path.match(/^\/api\/clientes\/([^/]+)\/lealtad$/))) {
+        const cfg = ajusteLealtad || { activa: false, cada: 10, pct: 10 };
+        const compras = ventasActivas().filter((v) => v.clienteId === m[1] && !v.devuelta && !(v.info && v.info.cortesia)).length;
+        const faltan = cfg.cada - (compras % cfg.cada) - 1;
+        return J({ activa: !!cfg.activa, cada: cfg.cada, pct: cfg.pct, compras, faltan: Math.max(0, faltan), tocaDescuento: !!cfg.activa && faltan === 0 });
       }
       if (path === "/api/config/moneda" && method === "GET") return J({ id: "moneda", codigo: window.OCMoneda.codigo() });
       if (path === "/api/config/moneda" && method === "PUT") {
