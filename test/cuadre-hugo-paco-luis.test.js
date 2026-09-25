@@ -141,3 +141,64 @@ test('B6 Hugo: devolucion de una venta pagada: vuelve el stock Y sale del ingres
   assert.equal(l.comisionSocio, 0, 'Commissions: +127.5 pagado y -127.5 a descontar');
   await t.sinDescuadre('Hugo devolucion');
 });
+
+// ---- Cierre (JFC 2026-09-24): "todo debe cuadrar, nada debe quedar fuera de vista" ----
+const cent = (n) => Math.round((Number(n) || 0) * 100);
+
+test('C1 Belen: la tarjeta de la percha muestra las COUNTER SALES y su total real = Sold', async () => {
+  const t = await tienda();
+  await t.vender(t.libro, { cantidad: 2 });
+  await t.vender(t.taza, { modoComision: 'counter' });
+  await t.vender(t.taza, { modoComision: 'counter', cantidad: 2 });
+  const l = (await t.w.request('/api/liquidaciones')).find((x) => x.ubicacionId === t.rackV.id);
+  assert.deepEqual(l.ventasCasa, { monto: 37.5, ventas: 2 });
+  assert.equal(l.ventasBrutas, 40);
+  assert.equal(l.totalPercha, 77.5);
+  const sold = (await t.w.request('/api/ventas/todas')).filter((v) => v.ubicacionId === t.rackV.id && v.mes === l.mes);
+  assert.equal(cent(l.totalPercha), sold.reduce((a, v) => a + cent(v.precioUnit * v.cantidad), 0));
+  await t.sinDescuadre('Belen');
+});
+
+test('C2 cuadre del mes: los cubos suman el total de Sold al centavo y "por pagar" incluye devoluciones', async () => {
+  const t = await tienda();
+  await t.vender(t.libro, { cantidad: 3 });
+  await t.vender(t.taza, { modoComision: 'counter' });
+  const id = await t.vender(t.cuadro);
+  await t.w.request(`/api/liquidaciones/${t.rackC.id}/marcar-pagado`, 'POST', {});
+  await t.w.request(`/api/ventas/${id}/devolucion`, 'POST', { motivo: 'x' }); t.stock[t.cuadro.id] += 1;
+  const c = await t.w.request('/api/comisiones/cuadre');
+  const sold = (await t.w.request('/api/ventas/todas')).filter((v) => v.mes === c.mes);
+  const cubos = ['conComision', 'casaCompartida', 'perchasPropias', 'sinTrato'];
+  assert.equal(cubos.reduce((a, k) => a + cent(c[k].monto), 0), cent(c.totalVentas), 'los cubos suman el total');
+  assert.equal(cent(c.totalVentas), sold.reduce((a, v) => a + cent(v.precioUnit * v.cantidad), 0), 'total = Sold del mes');
+  assert.equal(cubos.reduce((a, k) => a + c[k].ventas, 0), sold.length);
+  assert.equal(c.devoluciones.monto, -150);
+  assert.equal(cent(c.netoDelMes), cent(c.totalVentas) - 15000);
+  const liq = await t.w.request('/api/liquidaciones');
+  const pendTarjetas = liq.reduce((a, l) => a + (l.detallePendientes || []).reduce((b, d) => b + cent(d.comisionSocio), 0), 0);
+  assert.equal(cent(c.porPagar), pendTarjetas, 'por pagar arriba = suma de lo pendiente en las tarjetas');
+  await t.sinDescuadre('cuadre del mes');
+});
+
+test('C3 aporte fijo: la tarjeta dice lo que de verdad se desconto en el mes (se aplica por venta)', async () => {
+  const t = await tienda();
+  await t.w.request(`/api/ubicaciones/${t.rackC.id}`, 'PUT', { contribFija: 10 });
+  await t.vender(t.cuadro); await t.vender(t.cuadro);
+  const l = (await t.w.request('/api/liquidaciones')).find((x) => x.ubicacionId === t.rackC.id);
+  assert.equal(l.contribFija, 10, 'valor configurado');
+  assert.equal(l.contribFijaMes, 20, 'descontado de verdad: 2 ventas x 10');
+  const c = await t.w.request('/api/comisiones/cuadre');
+  assert.equal(c.contribFijaDescontada, 20);
+});
+
+test('C4 balance: activo = inventario PROPIO a COSTO; lo consignado queda aparte, a la vista', async () => {
+  const t = await tienda();
+  const b = await t.w.request('/api/reportes/balance');
+  const ps = await t.w.request('/api/productos');
+  const racks = await t.w.request('/api/ubicaciones');
+  const consig = (p) => p.tipoProveedor === 'consignacion' || (racks.find((u) => u.id === p.ubicacionId) || {}).tipo === 'consignacion';
+  assert.equal(cent(b.activos.inventarioValorizado), ps.filter((p) => !consig(p)).reduce((a, p) => a + cent((p.costo || 0) * p.stockActual), 0));
+  assert.equal(cent(b.memo.consignacionPrecioVenta), ps.filter(consig).reduce((a, p) => a + cent(p.precio * p.stockActual), 0));
+  assert.ok(b.memo.consignacionPrecioVenta >= 450 + 90, 'las piezas de Ana (consignadora) no son activo de la tienda');
+  assert.equal(b.memo.criterioInventario, 'costo');
+});

@@ -13,7 +13,11 @@ const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8')
 const i18n = fs.readFileSync(path.join(__dirname, '../docs/i18n.js'), 'utf8');
 
 test('racks with no sales this month are folded, not painted as $0 cards', () => {
-  assert.match(html, /const conVentas = filas\.filter\(f => f\.estado !== "sin ventas"\)/);
+  // 2026-09-24 ("nada fuera de vista"): una percha que solo vendio de la casa (COUNTER SALES)
+  // SI tuvo ventas; las que no vendieron nada siguen plegadas.
+  assert.match(html, /const _tuvoVentas = \(f\) => f\.estado !== "sin ventas" \|\| \(f\.ventasCasa && f\.ventasCasa\.ventas > 0\);/);
+  assert.match(html, /const conVentas = filas\.filter\(_tuvoVentas\);/);
+  assert.match(html, /const sinVentas = filas\.filter\(f => !_tuvoVentas\(f\)\);/);
   assert.match(html, /data-commissions-idle/, 'bloque plegado de perchas sin ventas');
 });
 
