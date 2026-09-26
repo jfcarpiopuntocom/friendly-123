@@ -1,8 +1,10 @@
 # friendly-123 v1.0 — release notes
 
-Borrador listo el 2026-09-26 (shell v413). Se sella con el tag `v1.0` cuando JFC dé por
-buena la prueba en su iPhone en modo oscuro. La versión pública ya dice v1.0: declarar es
-sellarla, no subir el número.
+**SELLADA 2026-09-26** con el visto bueno de JFC desde su iPhone. Commit `e25c830`
+(shell f123-shell-v413), fijado en la rama `release-v1.0`. El tag `v1.0` del 2026-09-22
+(shell v337) queda como la declaración interna y no se movió. El tag `v1.0-release` no
+se pudo subir desde la nube (el proxy solo deja subir la rama de trabajo): la primera
+sesión con salida a GitHub lo crea sobre `e25c830`.
 
 ## English
 
