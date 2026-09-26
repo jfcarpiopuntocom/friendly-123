@@ -75,11 +75,12 @@ JFC autorizó usar su clave local. La sesión de laptop, sola y sin preguntarle:
 3. Anota aquí "HECHO" con la fecha. Orden de JFC: usar Jev SIEMPRE.
 
 ## PRIORIDAD 1 — el build del Worker `friendly-123` falla en cada PR
-> **RESUELTO 2026-09-26 (nube):** en master el build sale VERDE (c9a815f, 18:36 UTC,
-> "Workers Builds: friendly-123" = success; ningún archivo de docs/ cambió desde v410, así que
-> el origen sirve v410). El rojo es solo en ramas de PR (vista previa, falla en 0 s sin
-> construir). No bloquea nada. Para que salga verde en los PR, JFC tendría que apagar
-> "builds de ramas que no son producción" en el panel de Cloudflare (opcional).
+> **RESUELTO DE VERDAD 2026-09-26 (PR #215):** causa raíz = los builds de RAMA corren
+> `npx wrangler versions upload` sin flags y no había config en la raíz ("Missing entry-point to
+> Worker script or to assets directory", reproducido en Linux). Arreglo: `wrangler.jsonc` en la
+> raíz. Verificado en vivo: el build de rama del PR #215 salió verde (el primero) y el de master
+> siguió verde con Version ID. (La nota anterior decía "falla en 0 s": error de lectura; Cloudflare
+> publica el check al final, esas horas no miden la duración.)
 
 El check "Workers Builds: friendly-123" sale en rojo desde el PR #201 como mínimo. Ese Worker
 es el ORIGEN anti-copia (`https://friendly-123.jfcarpio.workers.dev/`) y se despliega solo en

@@ -25,9 +25,10 @@ LICENCIAS). Aquí va solo lo nuevo.
 ## 3. Origen anti-copia
 - `https://friendly-123.jfcarpio.workers.dev/` = Worker "friendly-123" conectado al repo;
   se despliega solo en cada merge a master.
-- El check "Workers Builds: friendly-123" sale ROJO en las ramas de PR (vista previa, falla
-  en 0 s) y VERDE en master. Comprobado el 26-09: master c9a815f = success. El rojo de
-  los PR no bloquea nada.
+- "Workers Builds: friendly-123" ARREGLADO el 26-09 (PR #215): las ramas fallaban porque Cloudflare
+  corre `npx wrangler versions upload` sin flags y no habia config en la raiz ("Missing entry-point").
+  Ahora `wrangler.jsonc` en la raiz (name friendly-123, assets ./docs). Ramas y master en verde.
+  No cambiar el "name" de ese archivo.
 - Respaldo manual: Worker "f123-code" (`bash scripts/deploy-f123-code.sh`). No borrar.
 
 ## 4. Revisión Linus (v405–v410), todo en producción
