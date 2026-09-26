@@ -1,5 +1,6 @@
 # MUDANZA A LA NUBE (JFC 2026-09-26) — léeme entero antes de tocar nada
 
+Modo HÍBRIDO (elegido por JFC): friendly-123 en la nube; Cloudflare y jfcarpio.com en la laptop.
 JFC trabaja ahora desde la app de Claude en su iPhone (5G), sin depender de la laptop
 ni del wifi de la casa. Esta sesión corre en la nube, sobre Linux, con este repo.
 Leer en este orden: `CLAUDE.md` → `DECISIONES-JFC.md` → este archivo → las últimas
@@ -8,8 +9,21 @@ secciones de `NOTAS-PARA-OPUS-5.5-2026-09-24.md`.
 ## Qué NO existe en la nube (y qué hacer en su lugar)
 - **OmniRoute** (`localhost:20128`): no existe. El trabajo pesado se hace aquí mismo; decirle
   a JFC en una línea cuando algo se habría delegado.
-- **Jev** (skill `jev-jfc`) y la compactación con Jev: solo si el entorno de la nube tiene la
-  variable `AI_GATEWAY_API_KEY`. Si no está, decide Claude y se compacta de forma normal.
+- **Jev y la compactación con Jev: SÍ van a la nube** (JFC, 2026-09-26: "debe ser todo de la
+  misma calidad y skills"). Las versiones de JFC (censuran licencias, claves y PIN antes de
+  enviar) están en repos PRIVADOS: `jfcarpiopuntocom/fast-jev-compaction-jfc` y
+  `jfcarpiopuntocom/jev-pruner-jfc` (rama `main` = `jfc-vercel` de la laptop). Se declaran en
+  `.claude/settings.json` de este repo. La skill `jev-jfc` va versionada en `.claude/skills/`
+  y lee la clave de la variable de entorno. **La clave `AI_GATEWAY_API_KEY` la pone JFC en la
+  configuración del entorno de la nube; nunca se escribe en el repo.**
+  PRIMER PASO en la nube: comprobar que los dos plugins cargaron y que Jev responde (una llamada
+  chica con la skill). Si la compactación no corre, decírselo a JFC de inmediato.
+- **Skills versionadas** en `.claude/skills/`: jev-jfc, systematic-debugging,
+  verification-before-completion, ship, persona-testing, bitacora, beautiful-code,
+  webapp-testing. Los comandos reglas-friendly, qa-sync, verificar-ui, modus-operandi y
+  make-plan ya estaban en `.claude/commands/`.
+- El hook global `security-precheck.sh` de la laptop no se trae: usa un formato viejo (lee
+  variables que Claude Code ya no pasa) y en la práctica no bloquea nada.
 - **wrangler con sesión de Cloudflare**: vive en la laptop. Desde aquí NO se despliega el
   Worker de licencias, ni f123-code, ni jfcarpio.com. El Worker `friendly-123` (origen
   anti-copia) SÍ se despliega solo con cada merge a master (build de Cloudflare conectado al repo).
