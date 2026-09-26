@@ -30,6 +30,17 @@
   #oc-help-sheet h3{font-family:var(--font-display,sans-serif);color:var(--ink,#0F1923);font-size:16px;margin:18px 0 6px;}
   #oc-help-sheet p, #oc-help-sheet li{font-size:15px;color:var(--ink-soft,#2C3E50);line-height:1.5;}
   #oc-help-sheet ul{margin:0 0 4px;padding-left:20px;}
+  /* Ayuda por rol (2026-09-26): pasos numerados, punto de color con tinta oscura, lo
+     semanal plegado. Tinta real y 15px: nada gris ni chico. */
+  #oc-help-sheet ol.oc-h-pasos{margin:0 0 4px;padding-left:22px;}
+  #oc-help-sheet ol.oc-h-pasos li{margin:0 0 6px;color:#0F1923;}
+  #oc-help-sheet ul.oc-h-colores{list-style:none;padding-left:0;}
+  #oc-help-sheet ul.oc-h-colores li{color:#0F1923;margin:0 0 4px;}
+  .oc-h-punto{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px;border:1.5px solid #0F1923;}
+  #oc-help-sheet .oc-h-nota{font-size:14px;color:#0F1923;margin:4px 0 8px;}
+  #oc-help-sheet details.oc-h-mas{border:2px solid #C9CFC7;border-radius:8px;padding:10px 12px;margin:10px 0;background:#FFFFFF;}
+  #oc-help-sheet details.oc-h-mas summary{cursor:pointer;font-family:var(--font-display,sans-serif);font-weight:700;font-size:15px;color:#0F1923;min-height:28px;}
+  #oc-help-sheet details.oc-h-mas[open] summary{margin-bottom:6px;}
   
   #oc-help-sheet{position:relative;}
   #oc-help-x{position:sticky; top:0; float:right; margin:-6px -4px 0 0;
@@ -74,190 +85,220 @@
   `;
   document.head.appendChild(css);
 
-  // AYUDA_DUENO/AYUDA_EMPLEADO — updated 2026-07-15 per JFC: reflects true product
-  // identity. This is NOT a POS. It is inventory management for vendors, promoters,
-  // and commission tracking — built around "perchas" (slots/racks) as the core unit,
-  // color-coded for instant interpretation, data always local (you own it).
-  // 2 years of patches and updates included — vs the industry standard of 1.
-  // Bilingual (2026-07-17 fix): content is picked per current i18n.js language —
-  // see ayudaDuenoHTML()/ayudaEmpleadoHTML() below.
-  const AYUDA_DUENO_EN = `
-    <span class="rolTag">Owner's guide</span>
-    <h3>What friendly-123 actually is</h3>
-    <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
-      A shared digital notebook for inventory, sales, customers, vendors, promoters,
-      and commission tracking — organized around <b>perchas</b> (your slots, racks,
-      or locations) as the essential unit. Colors replace spreadsheets. Each device
-      keeps its own recoverable copy; devices on the same license synchronize it.
-    </p>
-    <h3>The color language (Simon system)</h3>
-    <ul>
-      <li><b style="color:#00C87A;">Green</b>: healthy — keep going.</li>
-      <li><b style="color:#E8A020;">Gold</b>: money sitting there — act on it.</li>
-      <li><b style="color:#F97316;">Orange</b>: running low — restock before it becomes a problem.</li>
-      <li><b style="color:#E8365D;">Red</b>: emergency — act now.</li>
-      <li><b style="color:#0A0A0F;">Black</b>: dead stock — your money isn't moving. Fix that.</li>
-    </ul>
-    <p style="font-size:14px;color:var(--ink-soft);"><b style="color:#5294AC;">Blue</b> is different on purpose: it's never a stock signal. It only shows up in calm sections — accounting notes and short financial reflections.</p>
-    <h3>Today: your daily signal</h3>
-    <ul>
-      <li>One glance at Today tells you what needs attention before you open.</li>
-      <li>The header color reflects the overall state of the day.</li>
-      <li>Didn't log sales live? Use Day Close to record everything at once.</li>
-    </ul>
-    <h3>Sold (not "sell")</h3>
-    <ul>
-      <li>Open a product, review the sale details and confirm. Use Undo if the sale was entered by mistake.</li>
-      <li>Every movement is recorded with reason and who did it.</li>
-      <li>Commissions calculate automatically per percha and per vendor.</li>
-    </ul>
-    <h3>Advanced (your lock, your rules)</h3>
-    <ul>
-      <li><b>Fixed costs</b>: rent, utilities, payroll — divided across 30 days so you know the real cost of opening tomorrow.</li>
-      <li><b>Accounting layer</b>: T-accounts, P&amp;L, balance sheet. Separate PIN — your accountant or partner can access it directly without seeing the full system.</li>
-      <li><b>Keys and recovery</b>: save your email before changing any PIN. No email on file = no recovery possible.</li>
-      <li><b>Your team and who outranks whom</b>: Owner &rarr; Admin &rarr; Staff. An admin does everything day to day (products, shelves, sales, customers); only you handle the license, the recovery email, promotions and the commission splits. When two devices change the same thing, the higher role's version is the one proposed &mdash; except stock, which is never overwritten by rank.</li>
-      <!-- El geotagging vive AQUI y no en un popup del flujo (JFC 2026-08-21):
-           "me parece innecesario un popup en el flujo". Va apagado por
-           defecto; el aviso de permiso solo le sale a cada persona si el dueño
-           lo enciende de verdad. -->
-      <li><b>Where the team was</b>: off by default. If you turn it on in Advanced, the app notes where each person was during their shift. Each person is asked for permission once on their own device, and nothing is recorded until they accept.</li>
-    </ul>
-    <h3>One license, one shared notebook</h3>
-    <p style="font-size:15px;line-height:1.6;margin:0 0 10px;">
-      There is no separate "team code" to hand out. Your <b>license</b> is the trunk:
-      every device you activate with it is the same notebook, and they keep each other
-      up to date on their own &mdash; PINs, roles, and who is on the team included.
-      Add someone on one device and they can sign in on any other with the same PIN.
-      To bring a new device in, share your license from <b>Advanced &rarr; Sync</b>.
-    </p>
-    <h3>What data leaves this device?</h3>
-    <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
-      When device sync is on, the business state needed to keep the shared notebook
-      equal — including products, stock, sales, customers and photos — travels encrypted
-      through the sync relay to the other devices on your license. Each device also keeps
-      a local copy. License contact details and device status go to the license service.
-    </p>
-    <h3>Ownership and updates</h3>
-    <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
-      Your recoverable copy lives on your devices and can be exported at any time.
-      Activation starts a full <span class="oc-prueba-dias">30</span>-day trial. Your license unlocks unlimited products and exports. Includes <b>2 years of patches
-      and updates</b> (the industry standard is 1).
-    </p>
-    <div id="oc-help-licencia"></div>
+  /* AYUDA POR ROL (JFC 2026-09-26: "buena info, util y en el orden en que se necesita por
+     rol y para uso real intenso"). LEER ANTES DE TOCAR:
+     - Arriba, lo DIARIO en el orden real del turno (abrir Hoy, vender, corregir, ajustar,
+       cerrar). Lo semanal/mensual va PLEGADO en <details>: no estorba al que esta vendiendo.
+     - Una guia por rol: dueno/admin/demo, empleado, contador, artista. Antes el contador y
+       el artista veian la guia del dueno (cosas que no pueden hacer).
+     - Nombres de botones y secciones = los de la app (i18n.js). Colores con nombre de la
+       app (Yellow, no "Gold") y punto de color + tinta oscura: nada de texto de color claro
+       (el verde #00C87A sobre blanco era 2.3:1).
+     - Datos verificados: licencia de 5 anos con actualizaciones los 5 anos (save.html; antes
+       el ingles decia "2 years"). Los ids oc-help-licencia, oc-prueba-dias y
+       oc-help-ver-bienvenida los usan licencia-prueba.js y el tutorial: no renombrarlos.
+     - test/labels-manual.test.js exige "travels encrypted"/"viaja cifrado" y manual.html. */
+  const PUNTO = (c) => `<span class="oc-h-punto" style="background:${c};" aria-hidden="true"></span>`;
+  const T = {
+    en: {
+      tag: { dueno: "Owner's guide", admin: "Admin guide", demo: "Demo guide", empleado: "Staff guide", contador: "Bookkeeper guide", artista: "Artist guide" },
+      adminNota: `<p class="oc-h-nota">You run the day-to-day like the owner. Only the owner handles the license, the recovery email and the commission deals.</p>`,
+      diaTit: "Every day, in this order",
+      dia: [
+        "<b>Today</b>: open it first. The big light says if anything needs you; the alerts below are sorted by urgency.",
+        "<b>Sold</b>: tap a product and each tap is one unit sold. Can't find it? Scan or type the code.",
+        "On each sale, pick the <b>Sales associate</b> or <b>House sale (no commission)</b>. It is never required.",
+        "A mistake? <b>Sold &rarr; Sales log</b>: the pencil fixes it, &#8630; undoes it. Every change records who and from which device.",
+        "Stock off, broken or expired? <b>Inventory</b> &rarr; &minus; / + on the card, with a short reason.",
+        "Didn't ring up live? Use <b>Day close</b> in Sold at the end of the day."
+      ],
+      colTit: "What the colors mean",
+      col: [
+        ["#E8365D", "Red", "emergency: out of stock or expiring. Act today."],
+        ["#F97316", "Orange", "soon: sell it first or restock this week."],
+        ["#FFC700", "Yellow", "opportunity: good margin, push it."],
+        ["#00C87A", "Green", "healthy: nothing to do."],
+        ["#0A0A0F", "Black", "money not moving: no sale in 45 days or more."]
+      ],
+      azul: "Blue is never a stock signal: it only marks calm notes and the interface itself.",
+      comTit: "Commissions (weekly or monthly)",
+      com: [
+        "Each person earns on the sales where they were chosen, even on someone else's shelf. The shelf card shows the <b>split between people</b>.",
+        "When you pay, tap <b>Mark as paid</b>. <b>Send statement</b> opens WhatsApp with a link that works 7 or 30 days.",
+        "A return of a sale already paid comes off that person's next amount."
+      ],
+      cliTit: "Customers",
+      cli: [
+        "<b>Record debt (fiado)</b> and <b>Record credit (abono)</b> keep what each customer owes or has in favor.",
+        "Rate reliability (stars) and manner (hearts) from 1 to 5. A low rating lets you note the incident time, for cameras or audio.",
+        "Owner and admin: fix an incident's date, time and note with the pencil in <b>Incidents</b>, and <b>Fire client</b> to blacklist. You can reactivate them later."
+      ],
+      equTit: "Team, devices and roles",
+      equ: [
+        "One license is one shared notebook: every device you activate with it stays up to date on its own, PINs and roles included.",
+        "To add a device: <b>Advanced &rarr; Shared notebook</b>.",
+        "Owner &rarr; Admin &rarr; Staff. The bookkeeper has a separate PIN for the accounting layer and expenses."
+      ],
+      segTit: "Keep it safe",
+      seg: [
+        "Save your recovery email in Advanced before changing any PIN. No email, no recovery.",
+        "Export a backup from Advanced from time to time.",
+        "The dot at the top: white = up to date, gray = syncing, black = offline. Offline you keep selling; it syncs when the signal is back.",
+        "The sun/moon button switches light or dark on this device."
+      ],
+      datTit: "Your data and license",
+      dat: `When device sync is on, the business state needed to keep the shared notebook equal (products, stock, sales, customers and photos) travels encrypted through the sync relay to the other devices on your license. Each device keeps a local copy you can export any time. Activation starts a full <span class="oc-prueba-dias">30</span>-day trial. The license lasts <b>5 years</b>, with updates included for all 5.`,
+      tutorial: "Take the guided tutorial",
+      manual: "Open the full manual",
+      emp: {
+        turnoTit: "Your shift, in this order",
+        turno: [
+          "<b>Today</b>: open it when you arrive. Red means tell the owner now.",
+          "<b>Sold</b>: tap a product and each tap is one unit sold. Can't find it? Scan or type the code.",
+          "On each sale, pick the <b>Sales associate</b> or <b>House sale (no commission)</b>. It is never required.",
+          "A mistake? <b>Sold &rarr; Sales log</b>: the pencil fixes it, &#8630; undoes it.",
+          "Broken, expired or the count is off? <b>Inventory</b> &rarr; &minus; / + with a short reason. It stays on record.",
+          "Didn't ring up live? <b>Day close</b> in Sold at the end."
+        ],
+        colAccion: "Red or orange: let the owner know. Black: mention it, it isn't selling.",
+        cliTit: "Customers",
+        cli: ["<b>Record debt (fiado)</b> when a customer takes something to pay later; <b>Record credit (abono)</b> when they pay ahead."],
+        etiTit: "Labels",
+        eti: ["Reprint a lost or damaged label: find it by name or code in <b>Labels</b>."],
+        senTit: "If the dot at the top turns black",
+        sen: ["You are offline. Keep selling: everything saves on this device and syncs when the signal is back."]
+      },
+      con: {
+        tit: "What you do here",
+        items: [
+          "<b>Accounting</b>: T-accounts, P&amp;L and balance sheet, from the real sales and expenses.",
+          "<b>Expenses</b>: add, edit or delete an expense. Every change is logged with who made it.",
+          "A full backup can be exported by the owner and the bookkeeper, from Advanced."
+        ]
+      },
+      art: {
+        tit: "What you can do",
+        items: [
+          "You see only the pieces on your own shelf, without costs.",
+          "Add your pieces to your shelf with name, price and stock.",
+          "Sales, customers and money screens are closed to this access. For anything else, ask the owner.",
+          "No shelf yet? Ask the owner to assign you one."
+        ]
+      }
+    },
+    es: {
+      tag: { dueno: "Guía del dueño", admin: "Guía del admin", demo: "Guía de la demo", empleado: "Guía del encargado/a", contador: "Guía del contador/a", artista: "Guía del artista" },
+      adminNota: `<p class="oc-h-nota">Llevas el día a día igual que el dueño. Solo el dueño maneja la licencia, el correo de recuperación y los tratos de comisión.</p>`,
+      diaTit: "Todos los días, en este orden",
+      dia: [
+        "<b>Hoy</b>: ábrelo primero. La luz grande dice si algo te necesita; las alertas de abajo van ordenadas por urgencia.",
+        "<b>Vendido</b>: toca un producto y cada toque es una unidad vendida. ¿No lo encuentras? Escanea o escribe el código.",
+        "En cada venta elige al <b>Comisionista</b> o <b>Venta de la casa (sin comisión)</b>. Nunca es obligatorio.",
+        "¿Un error? <b>Vendido &rarr; Registro de ventas</b>: el lápiz lo corrige, &#8630; lo deshace. Cada cambio guarda quién y desde qué aparato.",
+        "¿Stock mal, roto o vencido? <b>Inventario</b> &rarr; &minus; / + en la tarjeta, con un motivo corto.",
+        "¿No registraste en vivo? Usa <b>Cierre del día</b> en Vendido al final del día."
+      ],
+      colTit: "Qué significan los colores",
+      col: [
+        ["#E8365D", "Rojo", "emergencia: sin stock o por vencer. Actúa hoy."],
+        ["#F97316", "Naranja", "pronto: véndelo primero o reabastece esta semana."],
+        ["#FFC700", "Amarillo", "oportunidad: buen margen, empújalo."],
+        ["#00C87A", "Verde", "saludable: nada que hacer."],
+        ["#0A0A0F", "Negro", "plata quieta: 45 días o más sin vender."]
+      ],
+      azul: "El azul nunca es una señal de stock: solo marca notas serenas y la propia interfaz.",
+      comTit: "Comisiones (cada semana o cada mes)",
+      com: [
+        "Cada persona cobra las ventas donde se la eligió, aunque sean en la percha de otra. La tarjeta de la percha muestra el <b>reparto entre personas</b>.",
+        "Cuando pagues, toca <b>Mark as paid</b>. <b>Send statement</b> abre WhatsApp con un enlace que dura 7 o 30 días.",
+        "La devolución de una venta ya pagada se descuenta del próximo pago de esa persona."
+      ],
+      cliTit: "Clientes",
+      cli: [
+        "<b>Record debt (fiado)</b> y <b>Record credit (abono)</b> llevan lo que cada cliente debe o tiene a favor.",
+        "Califica confiabilidad (estrellas) y trato (corazones) de 1 a 5. Una calificación baja te deja anotar la hora del incidente, para cámaras o audios.",
+        "Dueño y admin: corrigen fecha, hora y nota de un incidente con el lápiz en <b>Incidents</b>, y mandan a la lista negra con <b>Fire client</b>. Se puede reactivar después."
+      ],
+      equTit: "Equipo, aparatos y roles",
+      equ: [
+        "Una licencia es un solo cuaderno compartido: cada aparato activado con ella se mantiene al día solo, PIN y roles incluidos.",
+        "Para sumar un aparato: <b>Avanzado &rarr; Cuaderno compartido</b>.",
+        "Dueño &rarr; Admin &rarr; Encargado. El contador tiene un PIN aparte para la capa contable y los gastos."
+      ],
+      segTit: "Para no perder nada",
+      seg: [
+        "Guarda tu correo de recuperación en Avanzado antes de cambiar cualquier PIN. Sin correo no hay recuperación.",
+        "Exporta un respaldo desde Avanzado de vez en cuando.",
+        "El punto de arriba: blanco = al día, gris = sincronizando, negro = sin conexión. Sin conexión sigues vendiendo; se sincroniza al volver la señal.",
+        "El botón de sol/luna cambia a claro u oscuro en este aparato."
+      ],
+      datTit: "Tus datos y tu licencia",
+      dat: `Cuando la sincronización está activa, el estado necesario para mantener igual el cuaderno compartido (productos, stock, ventas, clientes y fotos) viaja cifrado por el relay de sync hacia los otros aparatos de tu licencia. Cada aparato conserva una copia local que puedes exportar cuando quieras. La activación abre una prueba completa de <span class="oc-prueba-dias">30</span> días. La licencia dura <b>5 años</b>, con actualizaciones incluidas los 5.`,
+      tutorial: "Hacer el tutorial guiado",
+      manual: "Abrir el manual completo",
+      emp: {
+        turnoTit: "Tu turno, en este orden",
+        turno: [
+          "<b>Hoy</b>: ábrelo al llegar. Rojo significa avisar al dueño ya.",
+          "<b>Vendido</b>: toca un producto y cada toque es una unidad vendida. ¿No lo encuentras? Escanea o escribe el código.",
+          "En cada venta elige al <b>Comisionista</b> o <b>Venta de la casa (sin comisión)</b>. Nunca es obligatorio.",
+          "¿Un error? <b>Vendido &rarr; Registro de ventas</b>: el lápiz lo corrige, &#8630; lo deshace.",
+          "¿Roto, vencido o el conteo no cuadra? <b>Inventario</b> &rarr; &minus; / + con un motivo corto. Queda en el registro.",
+          "¿No registraste en vivo? <b>Cierre del día</b> en Vendido al final."
+        ],
+        colAccion: "Rojo o naranja: avisa al dueño. Negro: coméntalo, no se está vendiendo.",
+        cliTit: "Clientes",
+        cli: ["<b>Record debt (fiado)</b> cuando un cliente se lleva algo para pagar después; <b>Record credit (abono)</b> cuando paga por adelantado."],
+        etiTit: "Etiquetas",
+        eti: ["Reimprime una etiqueta perdida o dañada: búscala por nombre o código en <b>Etiquetas</b>."],
+        senTit: "Si el punto de arriba se pone negro",
+        sen: ["Estás sin conexión. Sigue vendiendo: todo se guarda en este aparato y se sincroniza al volver la señal."]
+      },
+      con: {
+        tit: "Lo que haces aquí",
+        items: [
+          "<b>Contabilidad</b>: cuentas T, P&amp;G y balance, a partir de las ventas y gastos reales.",
+          "<b>Gastos</b>: agrega, edita o borra un gasto. Cada cambio queda registrado con quién lo hizo.",
+          "El respaldo completo lo pueden exportar el dueño y el contador, desde Avanzado."
+        ]
+      },
+      art: {
+        tit: "Lo que puedes hacer",
+        items: [
+          "Ves solo las piezas de tu propia percha, sin costos.",
+          "Agrega tus piezas a tu percha con nombre, precio y stock.",
+          "Las pantallas de ventas, clientes y dinero están cerradas para este acceso. Para lo demás, pregúntale al dueño.",
+          "¿Aún no tienes percha? Pídele al dueño que te asigne una."
+        ]
+      }
+    }
+  };
+  const _ol = (xs) => `<ol class="oc-h-pasos">${xs.map((x) => `<li>${x}</li>`).join("")}</ol>`;
+  const _ul = (xs) => `<ul>${xs.map((x) => `<li>${x}</li>`).join("")}</ul>`;
+  const _plegado = (tit, cuerpo) => `<details class="oc-h-mas"><summary>${tit}</summary>${cuerpo}</details>`;
+  const _colores = (t, extra) => `<h3>${t.colTit}</h3><ul class="oc-h-colores">${t.col.map((c) => `<li>${PUNTO(c[0])}<b>${c[1]}</b>: ${c[2]}</li>`).join("")}</ul><p class="oc-h-nota">${extra}</p>`;
+  const _pie = (t) => `<div id="oc-help-licencia"></div>
     <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
       border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
-      font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
-      Take the guided tutorial
-    </button>
-    <a href="./manual.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:9px;font-weight:700;color:#2E6278;">Open the full manual</a>
-  `;
+      font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">${t.tutorial}</button>
+    <a href="./manual.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:9px;font-weight:700;color:#2E6278;">${t.manual}</a>`;
 
-  const AYUDA_DUENO_ES = `
-    <span class="rolTag">Guía del dueño</span>
-    <h3>Qué es friendly-123 en realidad</h3>
-    <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
-      Es un cuaderno digital compartido para inventario, ventas, clientes,
-      vendedores, promotoras y control de comisiones — organizado alrededor de
-      <b>perchas</b> (tus espacios, racks o ubicaciones) como unidad esencial. Los
-      colores reemplazan a las hojas de cálculo. Cada aparato conserva su propia
-      copia recuperable y los aparatos de una misma licencia la sincronizan.
-    </p>
-    <h3>El lenguaje de colores (sistema Simon)</h3>
-    <ul>
-      <li><b style="color:#00C87A;">Verde</b>: saludable — sigue así.</li>
-      <li><b style="color:#E8A020;">Dorado</b>: plata quieta ahí — actúa.</li>
-      <li><b style="color:#F97316;">Naranja</b>: se está agotando — reabastece antes de que sea problema.</li>
-      <li><b style="color:#E8365D;">Rojo</b>: emergencia — actúa ya.</li>
-      <li><b style="color:#0A0A0F;">Negro</b>: stock muerto — tu plata no se mueve. Arregla eso.</li>
-    </ul>
-    <p style="font-size:14px;color:var(--ink-soft);">El <b style="color:#5294AC;">azul</b> es distinto a propósito: nunca es una señal de stock. Solo aparece en secciones serenas — notas contables y reflexiones financieras breves.</p>
-    <h3>Hoy: tu señal diaria</h3>
-    <ul>
-      <li>Un vistazo a Hoy te dice qué necesita atención antes de abrir.</li>
-      <li>El color del encabezado refleja el estado general del día.</li>
-      <li>¿No registraste ventas en vivo? Usa Cierre de día para anotar todo de una vez.</li>
-    </ul>
-    <h3>Vendido (no "vender")</h3>
-    <ul>
-      <li>Abre un producto, revisa los datos de la venta y confirma. Usa Deshacer si la registraste por error.</li>
-      <li>Cada movimiento queda registrado con motivo y quién lo hizo.</li>
-      <li>Las comisiones se calculan automáticamente por percha y por vendedor.</li>
-    </ul>
-    <h3>Avanzado (tu clave, tus reglas)</h3>
-    <ul>
-      <li><b>Gastos fijos</b>: alquiler, servicios, planilla — divididos entre los días reales del mes para que sepas el costo real de abrir mañana.</li>
-      <li><b>Capa contable</b>: cuentas T, P&amp;G, balance. PIN separado — tu contador o socio puede entrar directo sin ver todo el sistema.</li>
-      <li><b>Claves y recuperación</b>: guarda tu correo antes de cambiar cualquier PIN. Sin correo registrado no hay recuperación posible.</li>
-    </ul>
-    <h3>¿Qué datos salen de este dispositivo?</h3>
-    <p style="font-size:14px;line-height:1.6;margin:0 0 10px;"><b>Una licencia es un solo cuaderno compartido.</b> Los PIN, roles, productos, ventas, clientes, gastos, perchas y fotos convergen entre los aparatos unidos a esa licencia. Para sumar otro aparato usa Avanzado → Cuaderno compartido.</p>
-    <p style="font-size:14px;line-height:1.6;margin:0 0 10px;">
-      Cuando la sincronización está activa, el estado necesario para mantener igual
-      el cuaderno compartido —productos, stock, ventas, clientes y fotos— viaja cifrado
-      por el relay de sync hacia los otros aparatos de tu licencia. Cada aparato conserva
-      además una copia local. Los datos de contacto de la licencia y el estado de los
-      dispositivos llegan al servicio de licencias.
-    </p>
-    <h3>Propiedad y actualizaciones</h3>
-    <p style="font-size:14px;line-height:1.6;margin:0 0 14px;">
-      Tu copia recuperable vive en tus aparatos y puedes exportarla cuando quieras.
-      La activación abre una prueba completa de <span class="oc-prueba-dias">30</span> días. Tu licencia desbloquea productos y
-      exportaciones ilimitadas, con parches y actualizaciones incluidos durante
-      toda la <b>licencia de 5 años</b>.
-    </p>
-    <div id="oc-help-licencia"></div>
-    <button id="oc-help-ver-bienvenida" style="width:100%;min-height:44px;padding:10px;border-radius:8px;
-      border:2px solid var(--azul-medio,#2E6278);background:transparent;color:var(--azul-medio,#2E6278);
-      font-family:var(--font-display,sans-serif);font-size:14px;font-weight:700;cursor:pointer;">
-      Hacer el tutorial guiado
-    </button>
-    <a href="./manual.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:9px;font-weight:700;color:#2E6278;">Abrir el manual completo</a>
-    <a href="./manual.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:9px;font-weight:700;color:#2E6278;">Abrir el manual completo</a>
-  `;
-
-  // AYUDA_EMPLEADO: operational only — no mention of PINs, costs, or accounting.
-  const AYUDA_EMPLEADO_EN = `
-    <span class="rolTag">Employee guide</span>
-    <h3>Colors tell you what's happening</h3>
-    <ul>
-      <li><b style="color:#00C87A;">Green</b>: good. <b style="color:#E8A020;">Gold</b>: money waiting. <b style="color:#F97316;">Orange</b>: alert the owner soon. <b style="color:#E8365D;">Red</b>: alert now.</li>
-      <li><b style="color:#0A0A0F;">Black</b>: not moving — flag it to the owner.</li>
-      <li>You don't need to interpret anything — the color does the work.</li>
-    </ul>
-    <h3>Your shift in 3 steps</h3>
-    <ul>
-      <li><b>Today</b>: check the daily summary when you arrive. Red means alert the owner.</li>
-      <li><b>Sold</b>: open the product, review the sale and confirm. Or scan / type the code if you can't find it fast.</li>
-      <li><b>Adjust</b>: something broke, expired, or the count was off? Use Adjust and write the reason. It stays on record.</li>
-    </ul>
-    <h3>Labels</h3>
-    <p>Need to reprint a lost or damaged label? Find it by name or code in the Labels tab.</p>
-  `;
-
-  const AYUDA_EMPLEADO_ES = `
-    <span class="rolTag">Guía del encargado/a</span>
-    <h3>Los colores te dicen qué está pasando</h3>
-    <ul>
-      <li><b style="color:#00C87A;">Verde</b>: bien. <b style="color:#E8A020;">Dorado</b>: plata esperando. <b style="color:#F97316;">Naranja</b>: avisa al dueño pronto. <b style="color:#E8365D;">Rojo</b>: avisa ya.</li>
-      <li><b style="color:#0A0A0F;">Negro</b>: no se mueve — repórtalo al dueño.</li>
-      <li>No necesitas interpretar nada — el color hace el trabajo.</li>
-    </ul>
-    <h3>Tu turno en 3 pasos</h3>
-    <ul>
-      <li><b>Hoy</b>: revisa el resumen diario al llegar. Rojo significa avisar al dueño.</li>
-      <li><b>Vendido</b>: abre el producto, revisa la venta y confirma. O escanea / escribe el código si no lo encuentras rápido.</li>
-      <li><b>Ajustar</b>: ¿algo se rompió, venció o el conteo estaba mal? Usa Ajustar y escribe el motivo. Queda en el registro.</li>
-    </ul>
-    <h3>Etiquetas</h3>
-    <p>¿Necesitas reimprimir una etiqueta perdida o dañada? Búscala por nombre o código en la pestaña Etiquetas.</p>
-  `;
-
-  function ayudaDuenoHTML() {
-    return (window.OCI18n && window.OCI18n.getLang() === "es") ? AYUDA_DUENO_ES : AYUDA_DUENO_EN;
-  }
-  function ayudaEmpleadoHTML() {
-    return (window.OCI18n && window.OCI18n.getLang() === "es") ? AYUDA_EMPLEADO_ES : AYUDA_EMPLEADO_EN;
+  function ayudaPorRol(rol) {
+    const t = T[(window.OCI18n && window.OCI18n.getLang() === "es") ? "es" : "en"];
+    const r = (rol && t.tag[rol]) ? rol : "dueno";
+    let h = `<span class="rolTag">${t.tag[r]}</span>`;
+    if (r === "empleado") {
+      const e = t.emp;
+      return h + `<h3>${e.turnoTit}</h3>` + _ol(e.turno) + _colores(t, e.colAccion)
+        + _plegado(e.cliTit, _ul(e.cli)) + _plegado(e.etiTit, _ul(e.eti)) + _plegado(e.senTit, _ul(e.sen))
+        + `<a href="./manual.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:14px;font-weight:700;color:#2E6278;">${t.manual}</a>`;
+    }
+    if (r === "contador") return h + `<h3>${t.con.tit}</h3>` + _ul(t.con.items) + _plegado(t.datTit, `<p>${t.dat}</p>`) + `<a href="./manual.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:14px;font-weight:700;color:#2E6278;">${t.manual}</a>`;
+    if (r === "artista") return h + `<h3>${t.art.tit}</h3>` + _ul(t.art.items);
+    if (r === "admin") h += t.adminNota;
+    return h + `<h3>${t.diaTit}</h3>` + _ol(t.dia) + _colores(t, t.azul)
+      + _plegado(t.comTit, _ul(t.com)) + _plegado(t.cliTit, _ul(t.cli)) + _plegado(t.equTit, _ul(t.equ))
+      + _plegado(t.segTit, _ul(t.seg)) + _plegado(t.datTit, `<p>${t.dat}</p>`) + _pie(t);
   }
 
   const modal = document.createElement("div");
@@ -266,9 +307,9 @@
     <button id="oc-help-x" aria-label="Cerrar" title="Cerrar">&times;</button>
     <h2 id="oc-help-titulo">How does friendly-123 work?</h2>
     <!-- Tagline (JFC 2026-07-15): "Manage your business, in color" — marketing promise, not description. -->
-    <p id="oc-help-tagline" style="font-family:var(--font-display,sans-serif);color:#E8A020;font-size:15px;font-weight:700;margin:0 0 14px;">Manage your business, in color</p>
+    <p id="oc-help-tagline" style="font-family:var(--font-display,sans-serif);color:#A83D1F;font-size:15px;font-weight:700;margin:0 0 14px;">Manage your business, in color</p>
     <div id="oc-help-body"></div>
-    <div id="oc-help-credito">Made in Cuenca :apps y herramientas: &mdash; powered by <a href="https://jfcarpio.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">avatiun.com</a></div>
+    <div id="oc-help-credito">Made In Cuenca: intuitive business apps &mdash; powered by <a href="https://jfcarpio.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">jfcarpio.com</a> &middot; <a href="https://avatiun.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">avatiun.com</a></div>
     <button id="oc-help-cerrar">Got it</button>
   </div>`;
   document.body.appendChild(modal);
@@ -278,7 +319,7 @@
   btn.textContent = "Help (?)";
 
   // Bilingue (2026-07-17): re-pinta los textos fijos del modal/boton al cambiar
-  // de idioma con window.t(); AYUDA_DUENO/EMPLEADO se re-seleccionan en abrir().
+  // de idioma con window.t(); la guia por rol (ayudaPorRol) se arma en cada abrir().
   function pintarTextosFijos() {
     if (!window.t) return;
     btn.textContent = window.t("help.btnLabel");
@@ -408,7 +449,7 @@
   function abrir() {
     const rol = window.OCAuth ? window.OCAuth.rolActual() : null;
     pintarTextosFijos();
-    document.getElementById("oc-help-body").innerHTML = rol === "empleado" ? ayudaEmpleadoHTML() : ayudaDuenoHTML();
+    document.getElementById("oc-help-body").innerHTML = ayudaPorRol(rol);
     // Estado de la licencia + invitación a comprar (JFC 2026-09-22, en Ayuda y
     // en el modal). Solo aparece en la guía del dueño, que trae el hueco.
     try { if (window.OCPrueba) window.OCPrueba.pintarAyuda(document.getElementById("oc-help-body")); } catch (_) {}
