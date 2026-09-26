@@ -1,13 +1,13 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v414",
+  "shell": "f123-shell-v415",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-88c86f3ec296e4d5a2885b67b51ca8c43d54d08031ea934f730c8e18289ab47f",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./aislamiento.js": "sha256-70633c7a2fb8630ecd5678d180edb818aeec807c6ed79b93727f1e7636abee2f",
     "./404.html": "sha256-ca1c148400c0daf46db5c8217191e350b978638029cbec562f4d2abef8350554",
-    "./manual.html": "sha256-838b61458b9b35d7857707cbf03cc0ef57b260a5fe108f474d325c120b7d4400",
+    "./manual.html": "sha256-4d755672a37af6bb14750ad98fec58b61f4762e956baf1c3400c06a0148bdd81",
     "./manual-logo.png": "sha256-85217f325b15841f3f84aae632db217008a555610181bd1b92a7cadee991c74b",
     "./barcode128.js": "sha256-185bb74ed44927af1ac25711603581da511ecb178f6519d539fc165eada9ddbe",
     "./qrcode-local.js": "sha256-daf0a5865d24958c7945e2fa961acf6e1a0f005302b2b0821472a87721614942",

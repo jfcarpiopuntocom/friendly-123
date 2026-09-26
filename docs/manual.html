@@ -473,6 +473,27 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
   header.top h1{font-size:16px !important;white-space:nowrap !important;}
   #btnIdioma{min-height:44px;padding:6px 10px !important;font-size:13px !important;margin-left:auto;}
 }
+/* CONSISTENCIA VISUAL (JFC 2026-09-26: "no hay consistencia en emojis, iconos y colores").
+   1) UNA sola forma de recuadro: la caja punteada del candado (.tip, 2026-09-23). Antes
+      .alerta/.oportunidad/.exito seguian con barra lateral y fondo de color: 4 formas.
+      Ahora cambia solo el COLOR del borde segun el significado.
+   2) Estados: punto de color + nombre, igual para los cinco (antes solo Naranja tenia emoji
+      y Negro era una etiqueta negra).
+   3) Estrella: el icono dorado de la app, no el emoji. Sin emojis decorativos; se quedan
+      solo glifos que son la etiqueta real de un boton (el lapiz de Edit). */
+.alerta,.oportunidad,.exito{background:#FFFFFF !important;border:2px dashed var(--sim-rojo-dk) !important;border-left-width:2px !important;border-radius:6px !important;color:#0F1923 !important;}
+.oportunidad{border-color:var(--sim-amarillo-dk) !important;}
+.exito{border-color:var(--sim-verde-dk) !important;}
+/* Contraste >= 4.5 sobre blanco (regla de legibilidad de JFC): el amarillo y el verde oscuros
+   de la paleta (#B8860B 3.3:1, #009A5A 3.6:1) no alcanzaban; mismos tonos que ya usa la app. */
+.oportunidad{border-color:#8A5A00 !important;} .oportunidad strong{color:#8A5A00 !important;}
+.exito{border-color:#006B3C !important;} .exito strong{color:#006B3C !important;}
+.tip strong{color:var(--oxido-dk) !important;}
+td.estado{font-weight:700;color:#0F1923;white-space:nowrap;}
+.punto{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px;border:1.5px solid #0F1923;}
+.p-verde{background:var(--sim-verde);} .p-amarillo{background:var(--sim-amarillo);} .p-naranja{background:var(--sim-naranja);}
+.p-rojo{background:var(--sim-rojo);} .p-negro{background:var(--sim-negro);}
+.ico-estrella{display:inline-block;width:1em;height:1em;vertical-align:-2px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z' fill='%23FFC700' stroke='%238A5A00' stroke-width='1.4' stroke-linejoin='round'/%3E%3C/svg%3E");}
 @media (prefers-reduced-motion: reduce){.revela{transform:none !important;transition:none !important;}}
 </style>
 </head>
@@ -681,11 +702,11 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
   <div class="tabla-wrap">
     <table class="datos">
       <tr><th>Color</th><th>Significa</th><th>Se enciende cuando…</th><th>Acción del dueño</th></tr>
-      <tr><td style="color:var(--sim-verde-dk);font-weight:700;">Verde</td><td>Saludable</td><td>Stock por encima del umbral amarillo, margen normal, se ha vendido recientemente</td><td>Sigue así, no requiere atención</td></tr>
-      <tr><td style="color:var(--sim-amarillo-dk);font-weight:700;">Amarillo</td><td>Oportunidad</td><td>Stock sano y no dormido (menos de 45 días sin ventas), y margen ≥ 50%</td><td>Empújalo: está dejando plata sobre la mesa</td></tr>
-      <tr><td style="color:var(--sim-naranja-dk);font-weight:700;">🟠 Naranja</td><td>Urgente-pronto</td><td>Stock entre el umbral rojo y el amarillo, o vence en 4–7 días</td><td>Véndelo primero / prográmalo para reposición esta semana</td></tr>
-      <tr><td style="color:var(--sim-rojo-dk);font-weight:700;">Rojo</td><td>Emergencia</td><td>Stock en cero o por debajo del umbral rojo, vencido o vence en ≤3 días</td><td>Actúa hoy: repón, transfiere o retira</td></tr>
-      <tr><td style="color:#FFFFFF;font-weight:700;background:var(--sim-negro);border-radius:4px;">Negro</td><td>Capital dormido</td><td>45 días o más sin ninguna venta, con stock sano</td><td>Libera ese dinero: descuento, combo o retíralo del catálogo</td></tr>
+      <tr><td class="estado"><span class="punto p-verde" aria-hidden="true"></span>Verde</td><td>Saludable</td><td>Stock por encima del umbral amarillo, margen normal, se ha vendido recientemente</td><td>Sigue así, no requiere atención</td></tr>
+      <tr><td class="estado"><span class="punto p-amarillo" aria-hidden="true"></span>Amarillo</td><td>Oportunidad</td><td>Stock sano y no dormido (menos de 45 días sin ventas), y margen ≥ 50%</td><td>Empújalo: está dejando plata sobre la mesa</td></tr>
+      <tr><td class="estado"><span class="punto p-naranja" aria-hidden="true"></span>Naranja</td><td>Urgente-pronto</td><td>Stock entre el umbral rojo y el amarillo, o vence en 4–7 días</td><td>Véndelo primero / prográmalo para reposición esta semana</td></tr>
+      <tr><td class="estado"><span class="punto p-rojo" aria-hidden="true"></span>Rojo</td><td>Emergencia</td><td>Stock en cero o por debajo del umbral rojo, vencido o vence en ≤3 días</td><td>Actúa hoy: repón, transfiere o retira</td></tr>
+      <tr><td class="estado"><span class="punto p-negro" aria-hidden="true"></span>Negro</td><td>Capital dormido</td><td>45 días o más sin ninguna venta, con stock sano</td><td>Libera ese dinero: descuento, combo o retíralo del catálogo</td></tr>
     </table>
   </div>
 
@@ -717,11 +738,11 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
   <h3>La regla de oro: nunca memorices, solo mira el color</h3>
   <p>Todo el diseño de friendly-123 parte de una convicción de Juan Fernando Carpio: el dueño de un pequeño negocio no tiene tiempo de leer reportes de 12 columnas cada mañana. Sí tiene tiempo de mirar una pantalla 8 segundos y saber, sin pensar, qué hacer primero. Por eso cada color tiene siempre la misma pregunta implícita:</p>
   <ul class="lista">
-    <li><strong>Rojo</strong> pregunta: "¿qué se me acaba o se me vence HOY?"</li>
-    <li><strong>🟠 Naranja</strong> pregunta: "¿qué debo vender primero esta semana?"</li>
-    <li><strong>Amarillo</strong> pregunta: "¿qué producto me está dejando más plata y debería empujar?"</li>
-    <li><strong>Negro</strong> pregunta: "¿qué plata tengo enterrada en una percha sin moverse?"</li>
-    <li><strong>Verde</strong> no pregunta nada — es la ausencia de problema, y eso también es información.</li>
+    <li><strong><span class="punto p-rojo" aria-hidden="true"></span>Rojo</strong> pregunta: "¿qué se me acaba o se me vence HOY?"</li>
+    <li><strong><span class="punto p-naranja" aria-hidden="true"></span>Naranja</strong> pregunta: "¿qué debo vender primero esta semana?"</li>
+    <li><strong><span class="punto p-amarillo" aria-hidden="true"></span>Amarillo</strong> pregunta: "¿qué producto me está dejando más plata y debería empujar?"</li>
+    <li><strong><span class="punto p-negro" aria-hidden="true"></span>Negro</strong> pregunta: "¿qué plata tengo enterrada en una percha sin moverse?"</li>
+    <li><strong><span class="punto p-verde" aria-hidden="true"></span>Verde</strong> no pregunta nada — es la ausencia de problema, y eso también es información.</li>
   </ul>
 </section>
 
@@ -745,7 +766,7 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
       <ul class="lista" style="margin:0;">
         <li>El mismo semáforo y las mismas alertas de stock</li>
         <li>Cantidad de ventas del día (sin montos de plata ni ganancia)</li>
-        <li>Los productos <strong>estrella ⭐</strong> que el dueño marcó para impulsar hoy</li>
+        <li>Los productos <strong>estrella <span class="ico-estrella" role="img" aria-label="estrella"></span></strong> que el dueño marcó para impulsar hoy</li>
       </ul>
       <p style="font-size:14px;margin:10px 0 0;color:var(--ink-soft);">Esta separación es intencional: el empleado sabe qué vender y cuánto se ha vendido, pero la rentabilidad queda solo para el dueño.</p>
     </div>
@@ -781,7 +802,7 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
   <h3>Ajuste rápido de stock (sin escanear)</h3>
   <p>Cada tarjeta tiene botones <strong>−</strong> y <strong>+</strong> para mover 1 unidad sin pasar por el escáner — perfecto para conteos físicos, mermas o ingresos de mercadería. La app siempre pide un motivo corto ("Merma", "Conteo físico", "Regalo a cliente") y lo guarda en el log de movimientos, visible solo para el dueño — el candado natural contra descuadres.</p>
 
-  <h3>La estrella ⭐: el producto que quieres empujar hoy</h3>
+  <h3>La estrella <span class="ico-estrella" role="img" aria-label="estrella"></span>: el producto que quieres empujar hoy</h3>
   <p>El dueño puede marcar cualquier producto con una estrella. Ese producto aparece automáticamente en la sección "Para impulsar hoy" de la Vista Hoy y arriba del todo en la cuadrícula de Vendido — así el empleado sabe exactamente qué recomendar sin que el dueño tenga que estar presente.</p>
 
   <div class="tip"><strong>Filtros de Inventario:</strong> Todos · Urgente (rojo) · Revisar (naranja) · Oportunidad (amarillo) · Sano (verde) · Dormido (negro). Úsalos cada mañana en este orden: primero Urgente, luego Revisar, y una vez a la semana revisa Dormido para liberar capital.</div>
@@ -858,7 +879,7 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
     <table class="datos">
       <tr><th>Producto</th><th>Unidades vendidas hoy</th><th>Precio</th><th>Subtotal</th></tr>
       <tr><td>Kentukis — Samanta Schweblin</td><td>2</td><td>$19.00</td><td>$38.00</td></tr>
-      <tr><td>Pelea de gallos — M. F. Ampuero ⭐</td><td>1</td><td>$18.00</td><td>$18.00</td></tr>
+      <tr><td>Pelea de gallos — M. F. Ampuero <span class="ico-estrella" role="img" aria-label="estrella"></span></td><td>1</td><td>$18.00</td><td>$18.00</td></tr>
       <tr><td>Cometierra — Dolores Reyes</td><td>1</td><td>$21.00</td><td>$21.00</td></tr>
       <tr><td colspan="3" style="text-align:right;font-weight:700;">Total del cierre</td><td style="font-weight:700;">$77.00</td></tr>
     </table>
@@ -930,12 +951,12 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
     <div class="txt"><h4>Revisa la matriz una vez por semana</h4><p>El cuadrante Otoño es tu lista de reactivación prioritaria: son clientes que ya demostraron que compran fuerte, solo hace falta un empujón.</p></div>
   </div>
 
-  <div class="oportunidad"><strong>Caso real:</strong> en la boutique de ropa andina, "Doña Carmen" compró 4 veces en 60 días por un total de $145 (verano ☀️), pero "Sr. Andrade" compró 3 veces por $210 hace más de 70 días — cayó a otoño 🍂. Un mensaje de WhatsApp con la nueva colección de bufandas de alpaca ($25–35) puede recuperarlo antes de que llegue a invierno.</div>
+  <div class="oportunidad"><strong>Caso real:</strong> en la boutique de ropa andina, "Doña Carmen" compró 4 veces en 60 días por un total de $145 (verano), pero "Sr. Andrade" compró 3 veces por $210 hace más de 70 días — cayó a otoño. Un mensaje de WhatsApp con la nueva colección de bufandas de alpaca ($25–35) puede recuperarlo antes de que llegue a invierno.</div>
 
   <h3>Importar tu cartera de golpe (CSV)</h3>
   <p>Si ya tienes una lista de clientes, el dueño puede subirla toda de una vez desde el bloque <strong>"Importar tu cartera desde un archivo"</strong>, al fondo de esta misma sección. Necesita un CSV con dos columnas —nombre y teléfono— y cada cliente recibe su código único automáticamente. El formato exacto, con ejemplo y reglas, está en la <a href="#csv-respaldo">Sección 13</a>. <strong>El empleado no ve este botón:</strong> para él existe solo el registro manual de arriba.</p>
 
-  <div class="tip"><strong>Editar y borrar clientes:</strong> el dueño y el admin pueden editar el contacto y las notas de cualquier cliente (botón ✎) y también <strong>borrarlo por completo</strong> (botón 🗑). El borrado es definitivo — el cliente sale de la lista y del selector de ventas — pero <strong>siempre queda constancia en el registro de actividad</strong>: quién lo borró, a quién y cuándo. El empleado no ve el botón de borrar.</div>
+  <div class="tip"><strong>Editar y borrar clientes:</strong> el dueño y el admin pueden editar el contacto y las notas de cualquier cliente (botón ✎) y también <strong>borrarlo por completo</strong> (botón <strong>Delete</strong>). El borrado es definitivo — el cliente sale de la lista y del selector de ventas — pero <strong>siempre queda constancia en el registro de actividad</strong>: quién lo borró, a quién y cuándo. El empleado no ve el botón de borrar.</div>
 
   <h3>Fiado, abono y pago pendiente</h3>
   <p><strong>Fiado</strong> es lo que el cliente te debe. <strong>Abono</strong> es crédito a su favor: puede ser para un producto o «sin determinar». El saldo de cada cliente se calcula siempre de su historial, nunca se escribe a mano.</p>
@@ -969,7 +990,7 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
   <p>Al final de Comisiones, una matriz de 4 cuadrantes clasifica a cada promotor según su valor (ventas del mes) y su recencia (días sin vender): <strong>Campeones</strong> (alto valor y activos), <strong>En riesgo</strong> (alto valor pero dormidos), <strong>Promesa</strong> (activos pero de bajo valor) y <strong>Dormidos</strong>. Es la misma lógica de la matriz de clientes, aplicada a tu equipo de ventas.</p>
 
   <h3>Ranking de promotores/as</h3>
-  <p>Un medallero automático (🥇🥈🥉) que muestra unidades vendidas, ventas brutas, su SKU más fuerte y una alerta si algún promotor lleva más de 7 días sin vender nada — útil para detectar a tiempo si alguien necesita apoyo o capacitación.</p>
+  <p>Un medallero automático que muestra unidades vendidas, ventas brutas, su SKU más fuerte y una alerta si algún promotor lleva más de 7 días sin vender nada — útil para detectar a tiempo si alguien necesita apoyo o capacitación.</p>
 
   <div class="tip"><strong>Enviar resumen por WhatsApp:</strong> un botón arma automáticamente el resumen del día (ventas, comisiones pendientes, stock crítico) y abre WhatsApp listo para enviarlo a quien tú elijas — sin copiar y pegar números a mano.</div>
 </section>
@@ -981,15 +1002,15 @@ nav.tocMovil a.activo,nav.toc a.activo{background:#E2E8ED !important;border-colo
 
   <div class="matriz2x2">
     <div class="celda-matriz" style="background:var(--sim-azul-bg);border-color:var(--sim-azul);">
-      <h4 style="color:var(--sim-azul-dk);">❓ Promesas</h4>
+      <h4 style="color:var(--sim-azul-dk);">Promesas</h4>
       <p>Venden poco pero van subiendo. Dales vitrina y espacio para crecer.</p>
     </div>
     <div class="celda-matriz" style="background:var(--sim-verde-bg);border-color:var(--sim-verde);">
-      <h4 style="color:var(--sim-verde-dk);">⭐ Estrellas</h4>
+      <h4 style="color:var(--sim-verde-dk);">Estrellas</h4>
       <p>Venden mucho y van subiendo. Protege su stock — son tu futuro inmediato.</p>
     </div>
     <div class="celda-matriz" style="background:var(--sim-plata-bg);border-color:var(--sim-plata-dk);">
-      <h4 style="color:var(--ink-soft);">💤 Pesos muertos</h4>
+      <h4 style="color:var(--ink-soft);">Pesos muertos</h4>
       <p>Sin movimiento en 60 días. Libera ese capital con descuentos o combos.</p>
     </div>
     <div class="celda-matriz" style="background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);">
@@ -1250,9 +1271,9 @@ Carmen Ulloa,</pre>
           <h3 style="margin-top:0;">Boutique de artesanía y ropa andina — Santa Fe</h3>
           <p>Sombreros de paja toquilla, aretes de filigrana, bufandas y chales de alpaca, pulseras de mullos. Ticket promedio más alto que el resto de casos.</p>
           <ul class="lista">
-            <li><strong>Precios reales:</strong> Sombrero de paja toquilla $30, Aretes de filigrana $22 (estrella ⭐, margen 73% → amarillo), Bufanda de alpaca $25, Chal bordado $35.</li>
+            <li><strong>Precios reales:</strong> Sombrero de paja toquilla $30, Aretes de filigrana $22 (estrella <span class="ico-estrella" role="img" aria-label="estrella"></span>, margen 73% → amarillo), Bufanda de alpaca $25, Chal bordado $35.</li>
             <li><strong>Uso del color amarillo:</strong> los aretes de filigrana tienen margen altísimo (costo $6 sobre precio $22) — la app los marca amarillo automáticamente. El dueño los usa como "producto de entrada" en redes sociales porque cada venta deja mucha plata.</li>
-            <li><strong>Matriz de clientes:</strong> turistas ocasionales caen naturalmente en primavera o invierno; clientas locales frecuentes (bodas, eventos) llegan a verano ☀️ — la boutique les avisa primero de colecciones nuevas.</li>
+            <li><strong>Matriz de clientes:</strong> turistas ocasionales caen naturalmente en primavera o invierno; clientas locales frecuentes (bodas, eventos) llegan a verano — la boutique les avisa primero de colecciones nuevas.</li>
           </ul>
         </div>
 
@@ -1348,7 +1369,7 @@ Carmen Ulloa,</pre>
     <dt>Sistema Simon</dt><dd>Los cinco colores de estado (verde, amarillo, naranja, rojo, negro) que clasifican cada producto.</dd>
     <dt>Semáforo de colores</dt><dd>Los cinco estados del inventario: verde, amarillo, naranja, rojo y negro. Un color plano por estado, sin niveles ni matices.</dd>
     <dt>Umbral rojo / amarillo</dt><dd>Cantidades de stock que activan cada alerta de reposición.</dd>
-    <dt>Producto estrella ⭐</dt><dd>Producto marcado por el dueño para impulsar activamente hoy.</dd>
+    <dt>Producto estrella <span class="ico-estrella" role="img" aria-label="estrella"></span></dt><dd>Producto marcado por el dueño para impulsar activamente hoy.</dd>
     <dt>Matriz de estaciones (RFM)</dt><dd>Clasificación de clientes en primavera, verano, otoño e invierno según frecuencia y monto de compra.</dd>
     <dt>Matriz BCG</dt><dd>Clasificación de productos en estrellas, vacas lecheras, promesas y pesos muertos según ventas de 60 días.</dd>
     <dt>Cierre del día</dt><dd>Registro por lote de todas las ventas del día cuando no se registraron en vivo.</dd>
@@ -1514,11 +1535,11 @@ Carmen Ulloa,</pre>
   <div class="tabla-wrap">
     <table class="datos">
       <tr><th>Color</th><th>Means</th><th>Turns on when…</th><th>Owner's action</th></tr>
-      <tr><td style="color:var(--sim-verde-dk);font-weight:700;">Green</td><td>Healthy</td><td>Stock above the yellow threshold, normal margin, sold recently</td><td>Keep going, no attention needed</td></tr>
-      <tr><td style="color:var(--sim-amarillo-dk);font-weight:700;">Yellow</td><td>Opportunity</td><td>Healthy stock and not dormant (less than 45 days without sales), and margin ≥ 50%</td><td>Push it: it is leaving money on the table</td></tr>
-      <tr><td style="color:var(--sim-naranja-dk);font-weight:700;">🟠 Orange</td><td>Urgent-soon</td><td>Stock between the red and yellow thresholds, or expires in 4–7 days</td><td>Sell it first / schedule it for restocking this week</td></tr>
-      <tr><td style="color:var(--sim-rojo-dk);font-weight:700;">Red</td><td>Emergency</td><td>Stock at zero or below the red threshold, expired or expiring in ≤3 days</td><td>Act today: restock, transfer or withdraw</td></tr>
-      <tr><td style="color:#FFFFFF;font-weight:700;background:var(--sim-negro);border-radius:4px;">Black</td><td>Dormant capital</td><td>45 days or more without a single sale, with healthy stock</td><td>Free that money: discount, bundle or remove it from the catalog</td></tr>
+      <tr><td class="estado"><span class="punto p-verde" aria-hidden="true"></span>Green</td><td>Healthy</td><td>Stock above the yellow threshold, normal margin, sold recently</td><td>Keep going, no attention needed</td></tr>
+      <tr><td class="estado"><span class="punto p-amarillo" aria-hidden="true"></span>Yellow</td><td>Opportunity</td><td>Healthy stock and not dormant (less than 45 days without sales), and margin ≥ 50%</td><td>Push it: it is leaving money on the table</td></tr>
+      <tr><td class="estado"><span class="punto p-naranja" aria-hidden="true"></span>Orange</td><td>Urgent-soon</td><td>Stock between the red and yellow thresholds, or expires in 4–7 days</td><td>Sell it first / schedule it for restocking this week</td></tr>
+      <tr><td class="estado"><span class="punto p-rojo" aria-hidden="true"></span>Red</td><td>Emergency</td><td>Stock at zero or below the red threshold, expired or expiring in ≤3 days</td><td>Act today: restock, transfer or withdraw</td></tr>
+      <tr><td class="estado"><span class="punto p-negro" aria-hidden="true"></span>Black</td><td>Dormant capital</td><td>45 days or more without a single sale, with healthy stock</td><td>Free that money: discount, bundle or remove it from the catalog</td></tr>
     </table>
   </div>
 
@@ -1550,11 +1571,11 @@ Carmen Ulloa,</pre>
   <h3>The golden rule: never memorize, just look at the color</h3>
   <p>The whole design of friendly-123 starts from a conviction of Juan Fernando Carpio: a small-business owner has no time to read 12-column reports every morning. They do have time to look at a screen for 8 seconds and know, without thinking, what to do first. That is why each color always carries the same implicit question:</p>
   <ul class="lista">
-    <li><strong>Red</strong> asks: "what is running out or expiring TODAY?"</li>
-    <li><strong>🟠 Orange</strong> asks: "what should I sell first this week?"</li>
-    <li><strong>Yellow</strong> asks: "which product is making me the most money and should be pushed?"</li>
-    <li><strong>Black</strong> asks: "what money do I have buried on a shelf, not moving?"</li>
-    <li><strong>Green</strong> asks nothing: it is the absence of a problem, and that is information too.</li>
+    <li><strong><span class="punto p-rojo" aria-hidden="true"></span>Red</strong> asks: "what is running out or expiring TODAY?"</li>
+    <li><strong><span class="punto p-naranja" aria-hidden="true"></span>Orange</strong> asks: "what should I sell first this week?"</li>
+    <li><strong><span class="punto p-amarillo" aria-hidden="true"></span>Yellow</strong> asks: "which product is making me the most money and should be pushed?"</li>
+    <li><strong><span class="punto p-negro" aria-hidden="true"></span>Black</strong> asks: "what money do I have buried on a shelf, not moving?"</li>
+    <li><strong><span class="punto p-verde" aria-hidden="true"></span>Green</strong> asks nothing: it is the absence of a problem, and that is information too.</li>
   </ul>
 </section>
 
@@ -1578,7 +1599,7 @@ Carmen Ulloa,</pre>
       <ul class="lista" style="margin:0;">
         <li>The same traffic light and the same stock alerts</li>
         <li>Number of sales of the day (no money amounts or profit)</li>
-        <li>The <strong>star ⭐</strong> products the owner marked to push today</li>
+        <li>The <strong>star <span class="ico-estrella" role="img" aria-label="star"></span></strong> products the owner marked to push today</li>
       </ul>
       <p style="font-size:14px;margin:10px 0 0;color:var(--ink-soft);">This split is intentional: the employee knows what to sell and how much has been sold, but profitability stays with the owner only.</p>
     </div>
@@ -1614,7 +1635,7 @@ Carmen Ulloa,</pre>
   <h3>Quick stock adjustment (no scanning)</h3>
   <p>Each card has <strong>−</strong> and <strong>+</strong> buttons to move 1 unit without going through the scanner: perfect for physical counts, shrinkage or incoming goods. The app always asks for a short reason ("Shrinkage", "Physical count", "Gift to customer") and saves it in the movement log, visible only to the owner: the natural lock against mismatches.</p>
 
-  <h3>The star ⭐: the product you want to push today</h3>
+  <h3>The star <span class="ico-estrella" role="img" aria-label="star"></span>: the product you want to push today</h3>
   <p>The owner can mark any product with a star. That product automatically appears in the "Push today" section of the Today view and at the very top of the Sold grid, so the employee knows exactly what to recommend without the owner having to be there.</p>
 
   <div class="tip"><strong>Inventory filters:</strong> All · Urgent (red) · Review (orange) · Opportunity (yellow) · Healthy (green) · Dormant (black). Use them every morning in this order: first Urgent, then Review, and once a week check Dormant to free up capital.</div>
@@ -1691,7 +1712,7 @@ Carmen Ulloa,</pre>
     <table class="datos">
       <tr><th>Product</th><th>Units sold today</th><th>Price</th><th>Subtotal</th></tr>
       <tr><td>Kentukis — Samanta Schweblin</td><td>2</td><td>$19.00</td><td>$38.00</td></tr>
-      <tr><td>Pelea de gallos — M. F. Ampuero ⭐</td><td>1</td><td>$18.00</td><td>$18.00</td></tr>
+      <tr><td>Pelea de gallos — M. F. Ampuero <span class="ico-estrella" role="img" aria-label="star"></span></td><td>1</td><td>$18.00</td><td>$18.00</td></tr>
       <tr><td>Cometierra — Dolores Reyes</td><td>1</td><td>$21.00</td><td>$21.00</td></tr>
       <tr><td colspan="3" style="text-align:right;font-weight:700;">End-of-day total</td><td style="font-weight:700;">$77.00</td></tr>
     </table>
@@ -1763,12 +1784,12 @@ Carmen Ulloa,</pre>
     <div class="txt"><h4>Check the matrix once a week</h4><p>The Autumn quadrant is your priority reactivation list: these are customers who already proved they buy big, they just need a nudge.</p></div>
   </div>
 
-  <div class="oportunidad"><strong>Real case:</strong> at the Andean clothing boutique, "Doña Carmen" bought 4 times in 60 days for a total of $145 (summer ☀️), but "Sr. Andrade" bought 3 times for $210 more than 70 days ago — he fell into autumn 🍂. A WhatsApp message with the new alpaca scarf collection ($25–35) can win him back before he reaches winter.</div>
+  <div class="oportunidad"><strong>Real case:</strong> at the Andean clothing boutique, "Doña Carmen" bought 4 times in 60 days for a total of $145 (summer), but "Sr. Andrade" bought 3 times for $210 more than 70 days ago — he fell into autumn. A WhatsApp message with the new alpaca scarf collection ($25–35) can win him back before he reaches winter.</div>
 
   <h3>Import your whole customer list at once (CSV)</h3>
   <p>If you already have a customer list, the owner can upload it all at once from the <strong>"Import your customer list from a file"</strong> block, at the bottom of this same section. It needs a CSV with two columns — name and phone — and each customer automatically gets their unique code. The exact format, with an example and rules, is in <a href="#csv-respaldo-en">Section 13</a>. <strong>The employee doesn't see this button:</strong> for them, only the manual registration above exists.</p>
 
-  <div class="tip"><strong>Editing and deleting customers:</strong> the owner and admin can edit any customer's contact info and notes (✎ button) and also <strong>delete them completely</strong> (🗑 button). Deletion is permanent — the customer disappears from the list and the sales selector — but <strong>it's always recorded in the activity log</strong>: who deleted them, whom, and when. The employee doesn't see the delete button.</div>
+  <div class="tip"><strong>Editing and deleting customers:</strong> the owner and admin can edit any customer's contact info and notes (✎ button) and also <strong>delete them completely</strong> (<strong>Delete</strong> button). Deletion is permanent — the customer disappears from the list and the sales selector — but <strong>it's always recorded in the activity log</strong>: who deleted them, whom, and when. The employee doesn't see the delete button.</div>
 
   <h3>On account (fiado), store credit (abono) and pending payment</h3>
   <p><strong>On account (fiado)</strong> is what the customer owes you. <strong>Store credit (abono)</strong> is credit in their favor: it can be for a specific product or "undetermined". Each customer's balance is always calculated from their history, never typed in by hand.</p>
@@ -1821,7 +1842,7 @@ Carmen Ulloa,</pre>
   <p>At the bottom of Commissions, a 4-quadrant matrix classifies each promoter by value (monthly sales) and recency (days since their last sale): <strong>Champions</strong> (high value and active), <strong>At risk</strong> (high value but asleep), <strong>Promising</strong> (active but low value), and <strong>Asleep</strong>. Same logic as the customer matrix, applied to your sales team.</p>
 
   <h3>Promoter ranking</h3>
-  <p>An automatic medal board (🥇🥈🥉) showing units sold, gross sales, their strongest SKU, and an alert if any promoter has gone more than 7 days without selling anything — useful for catching early whether someone needs support or training.</p>
+  <p>An automatic medal board showing units sold, gross sales, their strongest SKU, and an alert if any promoter has gone more than 7 days without selling anything — useful for catching early whether someone needs support or training.</p>
 
   <div class="tip"><strong>Send summary via WhatsApp:</strong> a button automatically puts together the day's summary (sales, pending commissions, critical stock) and opens WhatsApp ready to send it to whoever you choose — no copying and pasting numbers by hand.</div>
 </section>
@@ -1833,15 +1854,15 @@ Carmen Ulloa,</pre>
 
   <div class="matriz2x2">
     <div class="celda-matriz" style="background:var(--sim-azul-bg);border-color:var(--sim-azul);">
-      <h4 style="color:var(--sim-azul-dk);">❓ Up-and-Comers</h4>
+      <h4 style="color:var(--sim-azul-dk);">Up-and-Comers</h4>
       <p>They don't sell much yet but are on the rise. Give them display space and room to grow.</p>
     </div>
     <div class="celda-matriz" style="background:var(--sim-verde-bg);border-color:var(--sim-verde);">
-      <h4 style="color:var(--sim-verde-dk);">⭐ Stars</h4>
+      <h4 style="color:var(--sim-verde-dk);">Stars</h4>
       <p>They sell a lot and are climbing. Protect their stock — they're your immediate future.</p>
     </div>
     <div class="celda-matriz" style="background:var(--sim-plata-bg);border-color:var(--sim-plata-dk);">
-      <h4 style="color:var(--ink-soft);">💤 Dead Weight</h4>
+      <h4 style="color:var(--ink-soft);">Dead Weight</h4>
       <p>No movement in 60 days. Free up that capital with discounts or bundles.</p>
     </div>
     <div class="celda-matriz" style="background:var(--sim-amarillo-bg);border-color:var(--sim-amarillo);">
@@ -2078,9 +2099,9 @@ Carmen Ulloa,</pre>
           <h3 style="margin-top:0;">Andean crafts and clothing boutique — Santa Fe</h3>
           <p>Toquilla straw hats, filigree earrings, alpaca scarves and shawls, beaded bracelets. Higher average ticket than the other cases.</p>
           <ul class="lista">
-            <li><strong>Real prices:</strong> Toquilla straw hat $30, filigree earrings $22 (star ⭐, 73% margin → yellow), alpaca scarf $25, embroidered shawl $35.</li>
+            <li><strong>Real prices:</strong> Toquilla straw hat $30, filigree earrings $22 (star <span class="ico-estrella" role="img" aria-label="star"></span>, 73% margin → yellow), alpaca scarf $25, embroidered shawl $35.</li>
             <li><strong>Using the color yellow:</strong> the filigree earrings have a very high margin (cost $6 against a $22 price) — the app automatically flags them yellow. The owner uses them as an "entry product" on social media because each sale leaves a lot of profit.</li>
-            <li><strong>Customer matrix:</strong> occasional tourists naturally fall into spring or winter; frequent local customers (weddings, events) reach summer ☀️ — the boutique notifies them first about new collections.</li>
+            <li><strong>Customer matrix:</strong> occasional tourists naturally fall into spring or winter; frequent local customers (weddings, events) reach summer — the boutique notifies them first about new collections.</li>
           </ul>
         </div>
 
@@ -2176,7 +2197,7 @@ Carmen Ulloa,</pre>
     <dt>Simon System</dt><dd>The five status colors (green, yellow, orange, red, black) that classify each product.</dd>
     <dt>Color traffic light</dt><dd>The five inventory states: green, yellow, orange, red, and black. One flat color per state, no levels or shades.</dd>
     <dt>Red / yellow threshold</dt><dd>Stock quantities that trigger each restock alert.</dd>
-    <dt>Star product ⭐</dt><dd>A product the owner has marked to actively push today.</dd>
+    <dt>Star product <span class="ico-estrella" role="img" aria-label="star"></span></dt><dd>A product the owner has marked to actively push today.</dd>
     <dt>Seasons matrix (RFM)</dt><dd>Classification of customers into spring, summer, autumn, and winter based on purchase frequency and amount.</dd>
     <dt>BCG matrix</dt><dd>Classification of products into stars, cash cows, up-and-comers, and dead weight based on 60-day sales.</dd>
     <dt>Day close</dt><dd>Batch recording of all the day's sales when they weren't recorded live.</dd>
