@@ -20,13 +20,13 @@ async function tienda() {
 const negado = (res) => !!(res && res.error && /employee cannot/.test(res.error));
 const intenta = async (p) => { try { return await p; } catch (e) { return { error: String(e && e.message) }; } };
 
-test('empleado: no anula, no cambia precio/costo, no borra, no ve comisiones, no crea comisionistas', async () => {
+test('empleado: no cambia precio/costo, no borra, no ve comisiones, no crea comisionistas', async () => {
   const t = await tienda();
   t.como('empleado');
   assert.ok(negado(await intenta(t.w.request('/api/liquidaciones'))), 'liquidaciones');
   assert.ok(negado(await intenta(t.w.request('/api/comisiones/cuadre'))), 'cuadre');
   assert.ok(negado(await intenta(t.w.request('/api/promotores/desempeno'))), 'ranking');
-  assert.ok(negado(await intenta(t.w.request(`/api/ventas/${t.ventaId}/anular`, 'POST', {}))), 'anular');
+  // Anular: INTERINO como antes de v406 (JFC: el empleado debe poder pedir anulaciones; llegara la autorizacion del encargado).
   assert.ok(negado(await intenta(t.w.request(`/api/productos/${t.p.id}`, 'PUT', { precio: 1 }))), 'precio');
   assert.ok(negado(await intenta(t.w.request(`/api/productos/${t.p.id}`, 'PUT', { costo: 1 }))), 'costo');
   assert.ok(negado(await intenta(t.w.request(`/api/productos/${t.p.id}`, 'DELETE'))), 'borrar');
