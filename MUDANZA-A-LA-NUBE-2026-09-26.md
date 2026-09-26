@@ -64,6 +64,16 @@ secciones de `NOTAS-PARA-OPUS-5.5-2026-09-24.md`.
 - `scripts/jueces.mjs`: jueces externos del Sonar (axe-core, capturas, "aire", Lighthouse).
   Se versiona en la mudanza. Su salida `out-jueces/` NO va al repo (se regenera).
 
+## PRIMERA TAREA DE LA PRÓXIMA SESIÓN EN LA LAPTOP (JFC 2026-09-26, sin pedirle nada a JFC)
+La mudanza a la nube se hizo SIN la clave de Jev: fallo de la sesión de laptop, no de JFC.
+JFC autorizó usar su clave local. La sesión de laptop, sola y sin preguntarle:
+1. Lee `AI_GATEWAY_API_KEY` de la variable de usuario de Windows (no la imprime, no la
+   escribe en el repo ni en el chat).
+2. La deja como variable del entorno de la nube de Claude Code (Environment variables),
+   por el medio que tenga a mano en la laptop. Si no hay forma sin JFC, lo dice en UNA
+   línea y sigue; no le da pasos a JFC.
+3. Anota aquí "HECHO" con la fecha. Orden de JFC: usar Jev SIEMPRE.
+
 ## PRIORIDAD 1 — el build del Worker `friendly-123` falla en cada PR
 > **RESUELTO 2026-09-26 (nube):** en master el build sale VERDE (c9a815f, 18:36 UTC,
 > "Workers Builds: friendly-123" = success; ningún archivo de docs/ cambió desde v410, así que
