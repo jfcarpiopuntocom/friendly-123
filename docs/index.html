@@ -179,7 +179,7 @@
     /* Dinero coherente (JFC 2026-09-02, micromejora #2): un solo par para
        crédito/verde y deuda/gasto/rojo en TODA la app — paleta semáforo exacta. */
     --dinero-verde:#00C87A;
-    --dinero-verde-dk:#008a54;
+    --dinero-verde-dk:#00704A;
     --dinero-rojo:#E8365D;
     --dinero-rojo-bg:#FDECEA;
 
@@ -188,6 +188,8 @@
     --ink:#0F1923;
     --ink-soft:#2C3E50;
     --rust:#E86040;
+    /* 2026-09-26 (axe-core): naranja para FONDOS de boton con texto blanco (4.7:1). --rust sigue para acentos. */
+    --rust-boton:#C0472B;
     --rust-deep:#C05000;
     /* TINTAS SOLO PARA TEXTO (JFC 2026-09-24, auditoria de contraste): el rojo y el naranja de marca
        dan 3.2-3.9:1 como letra sobre blanco. Fondos y bordes del semaforo NO cambian. */
@@ -1516,6 +1518,26 @@
   }
 /* JFC 2026-09-25: "Counter sale" en tipo normal y cursiva, aunque la etiqueta que lo contiene vaya en mayusculas. */
 .rotulo em,.cifra em{text-transform:none;letter-spacing:0;font-style:italic}
+  /* AIRE (JFC 2026-09-26, jueces del Sonar: en el telefono Sold gastaba 103 % de la pantalla
+     en categorias antes del primer producto, e Inventory la mitad en filtros). Cada fila de
+     controles ocupa UNA linea y se desliza de lado; buscador y orden comparten linea. */
+  .fila-deslizable{display:flex !important;flex-wrap:nowrap !important;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:4px;}
+  .fila-deslizable > *{flex:0 0 auto;}
+  .barra-busca-orden{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;}
+  .barra-busca-orden input[type=search]{flex:1 1 180px;max-width:360px;min-width:0;margin:0 !important;}
+  .barra-busca-orden #ordenInventario{margin:0 !important;flex:1 1 auto;}
+  /* MEDIA LINEA (JFC 2026-09-26: "no necesitas darle tooooda la linea a una caja de search";
+     Jev: Inventory HALF 0.58, Sell ICON/HALF sin confianza -> decide Claude con la filosofia
+     "navaja suiza": siempre a la mano, nunca protagonista). El buscador toma media linea y
+     comparte la fila con las categorias (Sold) o el orden (Inventory), que se deslizan. */
+  .barra-media{display:flex !important;flex-wrap:nowrap !important;gap:8px;align-items:center;}
+  .barra-media > input{flex:0 0 48% !important;max-width:48% !important;width:auto !important;margin:0 !important;}
+  .barra-media > .fila-deslizable{flex:1 1 0 !important;min-width:0;margin:0 !important;}
+  #vp-orden{flex-wrap:nowrap !important;overflow-x:auto;background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 0 4px !important;}
+  #vp-orden > *{flex:0 0 auto;}
+  .alta-plegable > summary::-webkit-details-marker{display:none;}
+  /* Instrucciones repetidas (ya estan en "How does it work?"): solo en pantallas anchas. */
+  @media (max-width:700px){.solo-pc{display:none !important;}}
 </style>
 </head>
 <body>
@@ -1678,7 +1700,7 @@
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.inv.4">4. The star (★) marks products the owner wants everyone pushing today.</p>
       </div>
     </details>
-    <div class="filtros-estado" id="filtrosEstado">
+    <div class="filtros-estado fila-deslizable" id="filtrosEstado">
       <!-- Filtros alineados a la semantica Simon CONGELADA (2026-07-07):
            amarillo=Oportunidad, naranja=Revisar, azul=Dato, negro=Dormido -->
       <button data-estado="" class="activo" data-i18n="filter.all">All</button>
@@ -1688,12 +1710,14 @@
       <button data-estado="verde" data-i18n="filter.healthy">Healthy</button>
       <button data-estado="negro" data-i18n="filter.dormant">Dormant</button>
     </div>
+    <div class="barra-busca-orden barra-media">
     <input id="inputBuscarInventario" type="search" data-i18n-attr="placeholder:inv.searchPlaceholder" placeholder="Search by name, SKU or category…" style="width:100%;padding:10px 12px;margin-bottom:10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:15px;">
     <!-- Ordenar por columna (2026-07-29): mismo dato, otra vista — no reemplaza
          la busqueda de arriba, la complementa. Todos los roles la ven: el
          inventario es operativo, no dato personal de cliente. -->
-    <div id="ordenInventario" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 10px;">
+    <div id="ordenInventario" class="fila-deslizable" style="display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 10px;">
       <span style="font-size:13px;color:var(--ink-soft,#5d5340);align-self:center;" data-i18n="inv.sortBy">Sort by:</span>
+    </div>
     </div>
     <!-- M6: resumen por familia. Vive ARRIBA del grid y no lo altera: si
          esta seccion fallara, la cuadricula sigue igual. -->
@@ -1720,7 +1744,7 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
           <label style="font-size:13px;"><span data-i18n="common.name">Name</span><br>
             <input id="sucursalNombre" type="text" placeholder="e.g. Downtown, Holiday Market" data-i18n-attr="placeholder:shelves.branchPlaceholder" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);width:220px;"></label>
-          <button id="sucursalCrear" class="ir" style="padding:10px 16px;background:var(--ink-soft,#5d5340);border-color:var(--ink,#211c14);" data-i18n="shelves.addBranchBtn">+ Add branch</button>
+          <button id="sucursalCrear" class="ir" style="padding:10px 16px;background:var(--ink-soft,#5d5340);border-color:var(--ink,#211c14);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;" data-i18n="shelves.addBranchBtn">+ Add branch</button>
         </div>
         <p id="sucursalMsg" style="font-size:14px;margin-top:8px;"></p>
       </div>
@@ -1806,7 +1830,7 @@
          El id vista-escanear se conserva: lo referencian el autofoco del
          lector y el nav; solo cambia lo que el usuario ve. -->
     <h3 class="seccion" style="margin-top:0;" data-i18n="sold.heading">Sold</h3>
-    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="sold.intro">Open a product, review the sale details and confirm. Scroll down to pick a customer or record the day's close.</p>
+    <p class="solo-pc" style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="sold.intro">Open a product, review the sale details and confirm. Scroll down to pick a customer or record the day's close.</p>
     <!-- ¿Cómo usar Vender? Guía colapsable para el operador. -->
     <details style="margin:-4px 0 12px;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="sold.howToggle">How does it work? ▸</summary>
@@ -1829,10 +1853,10 @@
     <!-- Buscador/filtro rapido ANTES del grid tactil (JFC 2026-07-30). Solo
          filtra los botones ya renderizados por cargarGridVender() - no
          toca esa logica ni el listener delegado de venta. -->
-    <div id="venderBuscador" style="margin-bottom:12px;">
+    <div id="venderBuscador" class="barra-media" style="margin-bottom:12px;">
       <input id="venderBuscarInput" type="text" data-i18n-attr="placeholder:sold.searchPlaceholder" placeholder="Search by name or category..."
         style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;font-size:15px;margin-bottom:8px;">
-      <div id="venderCategoriaChips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+      <div id="venderCategoriaChips" class="fila-deslizable" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     </div>
     <!-- CLIENTE ARRIBA (2026-08-27, bloque 1e): el selector de cliente se elige
          ANTES de tocar los productos, no al final. Barra prominente sobre el
@@ -1853,7 +1877,7 @@
         <span data-i18n="sold.showCustomers" style="margin-left:4px;">Show customers</span>
       </button>
     </div>
-    <p style="font-size:14px;font-weight:700;color:var(--ink-soft);margin:0 0 8px;" data-i18n="sold.nextStep">Next step: open a product and review the sale</p>
+    <p class="solo-pc" style="font-size:14px;font-weight:700;color:var(--ink-soft);margin:0 0 8px;" data-i18n="sold.nextStep">Next step: open a product and review the sale</p>
     <div id="gridVender" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px;"></div>
     <!-- Carrito de "Fill a basket": aparece solo en ese modo. Cada linea es
          editable (+/- y quitar). El cobro final es UNA sola accion clara,
@@ -1953,7 +1977,7 @@
          sigue funcionando porque usa el mismo camino que el usuario). -->
     <div id="labels-escanear-bloque" style="margin:0 0 18px;">
       <button type="button" id="btnLabelsEscanear"
-        style="display:block;width:100%;min-height:56px;padding:15px 18px;border:2px solid #0A0A0F;border-radius:10px;background:var(--rust,#E86040);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-family:var(--font-display,sans-serif);font-size:18px;font-weight:800;letter-spacing:.01em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;"
+        style="display:block;width:100%;min-height:56px;padding:15px 18px;border:2px solid #0A0A0F;border-radius:10px;background:var(--rust-boton,#C0472B);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-family:var(--font-display,sans-serif);font-size:18px;font-weight:800;letter-spacing:.01em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;"
         data-i18n="labels.scanCta">Scan a label</button>
       <p style="margin:8px 0 0;font-size:15px;line-height:1.45;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;text-align:center;"
         data-i18n="labels.scanHint">Point the camera at a printed label to sell or restock it — faster than typing the code, and it can't go to the wrong product.</p>
@@ -2006,7 +2030,7 @@
        matriz de estaciones son SOLO del dueno (cargarClientes aplica el rol). -->
   <section id="vista-clientes" class="vista">
     <h3 class="seccion" style="margin-top:0;" data-i18n="cust.heading">My customers</h3>
-    <p style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="cust.intro">Your whole customer list, live and searchable. Further down, the behavior read tells you who you can count on.</p>
+    <p class="solo-pc" style="font-size:16px;color:var(--ink-soft);margin-top:0;" data-i18n="cust.intro">Your whole customer list, live and searchable. Further down, the behavior read tells you who you can count on.</p>
     <details style="margin:-4px 0 12px;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
@@ -2016,12 +2040,17 @@
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.cust.4">4. Already have a customer list? Import it all at once from a CSV further down.</p>
       </div>
     </details>
-    <div class="tag-card" style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+    <!-- 2026-09-26 (navaja suiza): el alta de cliente se usa de vez en cuando; se pliega en un
+         boton y la lista (el negocio) sube. Mismos ids: el codigo de alta no cambia. -->
+    <details id="cliAltaPlegable" class="alta-plegable">
+    <summary class="ir" style="display:inline-flex;align-items:center;min-height:44px;padding:8px 16px;cursor:pointer;list-style:none;" data-i18n="cust.addBtn">+ Add customer</summary>
+    <div class="tag-card" style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;">
       <input id="cliNombre" type="text" placeholder="Customer name" data-i18n-attr="placeholder:cust.namePlaceholder" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <input id="cliTelefono" type="text" placeholder="Phone (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <input id="cliEmail" type="email" inputmode="email" autocomplete="off" placeholder="Email (optional)" data-i18n-attr="placeholder:cust.emailPlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <button class="ir" id="btnAltaCliente" style="padding:10px 18px;" data-i18n="cust.addBtn">+ Add customer</button>
     </div>
+    </details>
     <p id="cliMsg" role="status" aria-live="polite" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
     <div id="listaClientes" style="margin-top:14px;"></div>
     <div id="matrizClientes" style="margin-top:26px;"></div>
@@ -3387,7 +3416,7 @@ function tarjetaCliente(c, esDueno){
      Verde = ha comprado; gris = aún no. Visible a dueño/admin. */
   const haComprado = (Number(c.frecuencia) || 0) > 0;
   const chipCompra = esDueno
-    ? `<span title="${haComprado ? "Has bought" : "No purchases yet"}" style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:700;${haComprado ? "background:#EDFAF4;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;" : "background:#F4F7FA;color:#8A94A0 !important;-webkit-text-fill-color:#8A94A0 !important;"}">${haComprado ? "✓ Has bought" : "○ No purchases yet"}</span>`
+    ? `<span title="${haComprado ? "Has bought" : "No purchases yet"}" style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:700;${haComprado ? "background:#EDFAF4;color:#006B3C !important;-webkit-text-fill-color:#006B3C !important;" : "background:#F4F7FA;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;"}">${haComprado ? "✓ Has bought" : "○ No purchases yet"}</span>`
     : "";
   const dato = esDueno
     ? `<div style="font-size:15px;color:#2C3E50;margin-top:3px;">${c.frecuencia} purchase(s) in 90 days · ${fmtMoney(c.monto)}${c.recencia != null ? ` · last ${c.recencia} day(s) ago` : " · no purchases yet"}</div>`
@@ -3486,7 +3515,7 @@ function tarjetaCliente(c, esDueno){
     <div style="display:flex;gap:8px;margin-top:6px;">
       <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #E8365D;border-radius:6px;color:#B8123C !important;-webkit-text-fill-color:#B8123C !important;cursor:pointer;"
         onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record debt (fiado)</button>
-      <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#008a54 !important;-webkit-text-fill-color:#008a54 !important;cursor:pointer;"
+      <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#00704A !important;-webkit-text-fill-color:#00704A !important;cursor:pointer;"
         onclick="ocRegistrarCredito('${c.id}','${escHtml(c.nombre)}')">Record credit (abono)</button>
     </div>${toggleAlerta}`;
   /* #8 (JFC 2026-09-10, claridad de Belén): "fiaron una copa y la app dice 2
@@ -3556,7 +3585,7 @@ async function pintarSaldoCartera(clienteId) {
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
     const es = window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es";
-    const color = debe ? "#E8365D" : "#008a54";
+    const color = debe ? "#E8365D" : "#00704A";
     // BUG FIX (JFC 2026-09-02): esta línea se borró por accidente en v1.7.79, así
     // que `texto` quedaba indefinido → ReferenceError → el saldo NO se pintaba
     // (ni crédito a favor ni deuda). Restaurada.
@@ -3902,7 +3931,7 @@ async function cargarClientes(){
   if (!esDueno) { mc.innerHTML = ""; }
   else {
     const celda = (k) => { const e = ESTACIONES[k], l = grupos[k] || []; return `<div style="background:${e.bg};border:2px solid ${e.borde};border-radius:10px;padding:12px;min-height:90px;">
-      <div style="font-weight:700;font-size:15px;color:${e.tinta};">${e.icono} ${e.titulo.split(" — ")[0]}</div>
+      <div style="font-weight:700;font-size:15px;color:#0F1923;">${e.icono} ${e.titulo.split(" — ")[0]}</div>
       <div style="font-size:14px;color:#0F1923;margin-top:6px;">${l.length ? l.map((c) => escHtml(c.nombre.split(" ")[0])).join(", ") : "—"}</div></div>`; };
     /* Se arma pero NO se escribe todavia: va DEBAJO de comportamiento. */
     var htmlEstaciones = `<h3 class="seccion">Seasons</h3>
@@ -3928,7 +3957,7 @@ async function cargarClientes(){
         const chips = lista.slice(0,6).map(c => `<span style="display:inline-block;background:#FFFFFF;border:1.5px solid ${q.borde};border-radius:6px;padding:2px 8px;margin:2px;font-size:13px;color:#0F1923;">${escHtml(c.nombre.split(" ")[0])}</span>`).join("");
         const extra = lista.length > 6 ? `<span style="font-size:13px;color:${q.tinta};">+${lista.length-6} more</span>` : "";
         return `<div style="background:${q.bg};border:2px solid ${q.borde};border-radius:10px;padding:12px;min-height:80px;">
-          <div style="font-weight:700;font-size:15px;color:${q.tinta};">${q.emoji} ${q.titulo} (${lista.length})</div>
+          <div style="font-weight:700;font-size:15px;color:#0F1923;">${q.emoji} ${q.titulo} (${lista.length})</div>
           <div style="font-size:13px;color:${q.tinta};margin:2px 0 6px;">${q.sub}</div>
           ${chips}${extra}</div>`;
       };
@@ -4167,10 +4196,13 @@ async function cargarBCG(){
   const celda = (k) => {
     const c = CUAD[k], l = q[k] || [];
     const chips = l.slice(0, 8).map((i) => `<span style="display:inline-block;background:#FFFFFF;border:1.5px solid ${c.borde};border-radius:6px;padding:3px 8px;margin:3px 3px 0 0;font-size:14px;color:#0F1923;">${escHtml(i.nombre)}${i.total > 0 ? ` · ${fmtMoney(i.total)}` : ""}</span>`).join("");
-    const extra = l.length > 8 ? `<div style="font-size:14px;color:#2C3E50;margin-top:4px;">and ${l.length - 8} more…</div>` : "";
+    const extra = l.length > 8 ? `<div style="font-size:14px;color:#0F1923;margin-top:4px;">and ${l.length - 8} more…</div>` : "";
     return `<div style="background:${c.bg};border:2px solid ${c.borde};border-radius:10px;padding:12px;">
-      <div style="font-weight:700;font-size:15px;color:${c.tinta};">${c.icono} ${c.titulo} (${l.length})</div>
-      <div style="font-size:14px;color:#2C3E50;margin:2px 0 6px;">${c.sub}</div>${chips}${extra}</div>`;
+      <div style="font-weight:700;font-size:15px;color:#0F1923;">${c.icono} ${c.titulo} (${l.length})</div>
+      <div style="font-size:14px;color:#0F1923;margin:2px 0 6px;">${c.sub}</div>${chips}${extra}</div>`;
+    /* 2026-09-26 (axe-core, jueces del Sonar): los fondos pasaron a tonos planos saturados y la
+       tinta de cada cuadrante quedo del MISMO color que su fondo (verde sobre verde 1.13:1).
+       Tinta de la app en los cuatro: 5.8 a 12:1. c.tinta queda para el borde de los chips. */
   };
   cont.innerHTML = `<h3 class="seccion">${t("bcg.heading")}</h3>
     <p style="font-size:15px;color:var(--ink-soft);margin-top:0;">${t("bcg.intro")}</p>
@@ -6565,7 +6597,7 @@ async function abrirPanelVentaInfo(id, esTicket){
         </div>
         <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
       </div>
-      <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#008a54;margin:4px 0 0;"></p>
+      <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#00704A;margin:4px 0 0;"></p>
       ${(function(){
         var actualNom = (_perchaVenta && _perchaVenta.promotoraId && (_promsVenta||[]).find(function(x){return x.id===_perchaVenta.promotoraId;})||{}).nombre || "";
         // Compacto (JFC 2026-09-04): un ✎ que expande el selector inline, sin
@@ -7521,11 +7553,13 @@ function tarjetaPromotora(pr){
     pr.cedula ? `🪪 ${escHtml(pr.cedula)}` : "",
     (pr.banco || pr.cuenta) ? `🏦 ${escHtml(pr.banco || "")}${pr.banco && pr.cuenta ? " · " : ""}${escHtml(pr.cuenta || "")}` : "",
   ].filter(Boolean).join(" &nbsp;·&nbsp; ");
+  /* 2026-09-26 (JFC: nombres de personas en mayusculas lucen amateur): el boton del nombre anula
+     la regla global de mayusculas; tamano 16px dentro de la escala 13/14/16 de Commissions. */
   const tramos = (pr.escalasComision && pr.escalasComision.length) ? ` · ${window.tf("comm.g.tierCount", {n: pr.escalasComision.length})}` : "";
   return `
     <div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;">
-      <button type="button" data-abrir-promotora="${pr.id}" style="flex:1;text-align:left;background:transparent;border:none;padding:0;cursor:pointer;">
-        <strong style="font-size:16px;color:var(--azul-medio,#2c4a68);text-decoration:underline;">${escHtml(pr.nombre)}</strong>
+      <button type="button" data-abrir-promotora="${pr.id}" style="flex:1;text-align:left;background:transparent;border:none;padding:0;cursor:pointer;text-transform:none;letter-spacing:normal;font-family:inherit;">
+        <strong style="font-size:16px;color:var(--ink,#0F1923);text-transform:none;letter-spacing:normal;">${escHtml(pr.nombre)}</strong>
         <div style="font-size:14px;color:var(--ink-soft);">${window.tf("comm.g.pctCommission", {pct: Number(pr.comisionBase)||0})}${tramos} — ${window.t("comm.g.tapToEdit")}</div>
         ${datos ? `<div style="font-size:14px;color:var(--ink-soft);margin-top:2px;">${datos}</div>` : ""}
         ${pr.direccion ? `<div style="font-size:14px;color:var(--ink-soft);">📍 ${escHtml(pr.direccion)}</div>` : ""}
@@ -7596,7 +7630,7 @@ async function renderGestionPromotoras(){
            nuevo en la cajita — 2 formas de lograr lo mismo. Al guardar gana el
            texto escrito; si no, el del pulldown. -->
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <select id="promNombreSelect" style="flex:2;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;"></select>
+        <select id="promNombreSelect" aria-label="Sales associate or promoter" style="flex:2;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;"></select>
         <input id="promNombre" type="text" placeholder="${window.t("comm.g.namePh")}" style="flex:2;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
         <input id="promComision" type="number" min="0" max="100" placeholder="${window.t("comm.g.pctPh")}" style="flex:1;min-width:110px;padding:10px;border:2px solid var(--azul-medio);border-radius:4px;">
       </div>
@@ -9867,7 +9901,7 @@ function ocPrompt(mensaje, valorInicial) {
      que. Solo se muestra si hay sesion de dueno o admin. -->
 <style>
   #fab-eod{position:fixed;right:16px;bottom:16px;z-index:850;border-radius:999px;
-    background:#E86040;color:#fff;border:none;padding:14px 20px;font-size:15px;font-weight:700;
+    background:var(--rust-boton,#C0472B);color:#fff;border:none;padding:14px 20px;font-size:15px;font-weight:700;
     box-shadow:0 6px 20px rgba(232,96,64,.35);cursor:pointer;display:none;font-family:inherit;
     -webkit-tap-highlight-color:transparent;}
   #fab-eod:hover{background:#C05000;}
@@ -9880,7 +9914,7 @@ function ocPrompt(mensaje, valorInicial) {
   /* Y al reves: el boton en linea es solo de movil. */
   #eod-inline-wrap{display:none;margin-top:14px;}
   @media (max-width:899px){ #eod-inline-wrap.puede{display:block;} }
-  #eod-inline{width:100%;min-height:48px;border-radius:10px;background:#E86040;color:#fff;
+  #eod-inline{width:100%;min-height:48px;border-radius:10px;background:#C0472B;color:#fff;
     border:none;padding:13px 18px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;}
   #eod-inline:active{transform:scale(.99);}
   #fab-eod:active{transform:scale(.97);}
@@ -9897,7 +9931,7 @@ function ocPrompt(mensaje, valorInicial) {
   #eod-modal .row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
   #eod-modal .btn{flex:1;min-width:130px;padding:12px;border-radius:8px;border:1.5px solid transparent;
     font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
-  #eod-modal .btn-p{background:#E86040;color:#fff;}
+  #eod-modal .btn-p{background:var(--rust-boton,#C0472B);color:#fff;}
   #eod-modal .btn-p:hover{background:#C05000;}
   #eod-modal .btn-o{background:#fff;border-color:#e5e7eb;color:#0F1923;}
   #eod-msg{font-size:13px;color:#6b7280;margin-top:10px;min-height:16px;}
@@ -10027,4 +10061,29 @@ function ocPrompt(mensaje, valorInicial) {
 })();
 </script>
 
+<script>
+/* ETIQUETAS ACCESIBLES (JFC 2026-09-26, axe-core en el Sonar: campos sin etiqueta en Customers,
+   Expenses y Advanced). Un placeholder no es una etiqueta para un lector de pantalla. A todo
+   input/select/textarea sin <label>, aria-label ni aria-labelledby se le da aria-label desde
+   su placeholder, title o el texto visible anterior. Tambien a los que el codigo crea despues
+   (MutationObserver con respiro). No cambia nada visible. */
+(function () {
+  function etiquetar(raiz) {
+    try {
+      (raiz || document).querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select,textarea").forEach(function (el) {
+        if (el.getAttribute("aria-label") || el.getAttribute("aria-labelledby")) return;
+        if (el.id && document.querySelector('label[for="' + el.id + '"]')) return;
+        if (el.closest("label")) return;
+        var t = el.getAttribute("placeholder") || el.getAttribute("title") || (el.previousElementSibling && el.previousElementSibling.textContent) || el.name || el.id || "";
+        t = String(t).replace(/\s+/g, " ").trim().slice(0, 80);
+        if (t) el.setAttribute("aria-label", t);
+      });
+    } catch (_) {}
+  }
+  var t = null;
+  function pronto() { clearTimeout(t); t = setTimeout(function () { etiquetar(document); }, 250); }
+  document.addEventListener("DOMContentLoaded", pronto);
+  try { new MutationObserver(pronto).observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}
+})();
+</script>
 </body></html>

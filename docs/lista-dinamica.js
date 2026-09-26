@@ -140,6 +140,8 @@
 
     var barra = document.createElement("div");
     barra.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;";
+    // 2026-09-26 (JFC, "navaja suiza"): buscador en media linea + orden deslizable en la misma fila.
+    barra.className = "barra-media";
     var input = document.createElement("input");
     input.type = "text";
     input.placeholder = opts.placeholderBusqueda || "Buscar...";
@@ -152,6 +154,7 @@
     if (columnas.some(function (c) { return c.ordenable; })) {
       encabezados = document.createElement("div");
       encabezados.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;";
+      encabezados.className = "fila-deslizable";
       columnas.forEach(function (c) {
         if (!c.ordenable) return;
         var b = document.createElement("button");
@@ -173,6 +176,7 @@
     if (filtros.length) {
       barraFiltros = document.createElement("div");
       barraFiltros.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px;";
+      barraFiltros.className = "fila-deslizable";
       filtros.forEach(function (f) {
         var b = document.createElement("button");
         b.type = "button";

@@ -382,7 +382,7 @@
         Download your full business data (products, sales, movements, costs, keys, and shelf photos) in one file. Save it to your email, Drive, or anywhere — it's your backup if the cache is cleared or the device fails.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button id="oc-exportar" class="ir" style="background:var(--azul-medio);color:var(--blanco-calido);border-color:var(--azul-oscuro);">⤓ Export backup</button>
-        <label class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);display:inline-flex;align-items:center;cursor:pointer;">⬆️ Import backup
+        <label class="ir" style="background:var(--rust-boton,#C0472B);color:var(--blanco-calido);border-color:var(--rust-deep);display:inline-flex;align-items:center;cursor:pointer;">⬆️ Import backup
           <input id="oc-importar-file" type="file" accept=".json" style="display:none;">
         </label>
       </div>
@@ -1116,7 +1116,7 @@
                   "</ul>" +
                   '<p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:0 0 16px;padding:10px 12px;background:#F8F9FB;border-left:4px solid #2C3E50;border-radius:0 8px 8px 0;">' + nota + "</p>") +
               '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-              (nada ? "" : '<button type="button" id="oc-merge-ok" style="flex:1;min-width:150px;min-height:48px;border:none;border-radius:10px;background:#E86040;color:#FFF;font-size:16px;font-weight:700;cursor:pointer;">Merge now</button>') +
+              (nada ? "" : '<button type="button" id="oc-merge-ok" style="flex:1;min-width:150px;min-height:48px;border:none;border-radius:10px;background:var(--rust-boton,#C0472B);color:#FFF;font-size:16px;font-weight:700;cursor:pointer;">Merge now</button>') +
               '<button type="button" id="oc-merge-x" style="flex:1;min-width:110px;min-height:48px;border:2px solid #2C3E50;border-radius:10px;background:transparent;color:#0F1923;font-size:16px;font-weight:700;cursor:pointer;">' + (nada ? "Close" : "Cancel") + "</button>" +
               '</div><p id="oc-merge-msg" style="font-size:14px;font-weight:700;margin:12px 0 0;"></p></div>';
           }
@@ -1508,7 +1508,7 @@
             </div>
             ${_soyDueno ? `<div style="font-size:13px;color:var(--ink);margin-top:2px;">${escHtml(_correoDuenoTxt)}${_lapiz(`data-edit-correo-dueno="1" title="${window.t("team.changeRecoveryEmail")}" aria-label="${window.t("team.changeRecoveryEmail")}"`)}</div>` : ""}
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
-              ${_badge(window.t("team.owner"), "#E87A10")}
+              ${_badge(window.t("team.owner"), "#B35A00")}
               <span style="font-size:13px;color:var(--sim-verde-dk,#1a6e3c);font-weight:700;">${window.t("team.active")}</span>
             </div>
             ${_soyDueno ? `
@@ -1533,7 +1533,7 @@
         const estadoTxt    = window.t(u.activo ? "team.active" : "team.inactive");
         const btnEstLabel  = window.t(u.activo ? "team.deactivate" : "team.activate");
         const btnEstColor  = u.activo ? "var(--rojo,#a3392a)" : "var(--sim-verde-dk,#1a6e3c)";
-        const rolBadge     = _badge(window.t(u.rol === "admin" ? "team.admin" : "team.employee"), "#E87A10");
+        const rolBadge     = _badge(window.t(u.rol === "admin" ? "team.admin" : "team.employee"), "#B35A00");
         const esMiFila = window.OCCurrentUser && String(window.OCCurrentUser.id) === String(u.id);
         const puedeEditar = isDueno() || (isAdmin() && (u.rol === "empleado" || esMiFila));
         const puedePromover = isDueno();
@@ -1558,7 +1558,7 @@
                 style="font-size:15px;padding:5px 11px;border:2px solid var(--azul-medio);border-radius:6px;background:transparent;color:var(--azul-medio);cursor:pointer;">✎ PIN</button>
               ${puedePromover ? `
                 <select data-cambiar-rol="${escHtml(u.id)}" data-rol-actual="${escHtml(u.rol)}" aria-label="${window.t("team.changeRole")}" title="${window.t("team.changeRole")}"
-                  style="font-size:13px;padding:6px 8px;border:2px solid #E87A10;border-radius:6px;background:#fff;color:#7a4a00;cursor:pointer;">
+                  style="font-size:13px;padding:6px 8px;border:2px solid #B35A00;border-radius:6px;background:#fff;color:#7a4a00;cursor:pointer;">
                   <option value="empleado" ${u.rol === "empleado" ? "selected" : ""}>${window.t("team.employee")}</option>
                   <option value="admin" ${u.rol === "admin" ? "selected" : ""}>${window.t("team.admin")}</option>
                 </select>
@@ -2342,7 +2342,7 @@
                 `<ol style="font-size:14px;color:var(--ink,#211c14);padding-left:20px;margin:0 0 4px;">${pasos}</ol>` +
                 `<div style="margin-top:14px;padding:12px 14px;border:1px dashed var(--azul-suave,#c9d6e2);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">` +
                   `<span style="font-size:13px;color:var(--ink-soft,#5d5340);">${T("firststeps.tourNote", "")}</span>` +
-                  `<button type="button" id="oc-fs-tour" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;">${T("firststeps.tourBtn", "Take the guided tour")} <span style="opacity:.7;font-weight:400;">· ${T("firststeps.tourOptional", "optional")}</span></button>` +
+                  `<button type="button" id="oc-fs-tour" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;">${T("firststeps.tourBtn", "Take the guided tour")} <span style="font-weight:400;color:#0F1923;">· ${T("firststeps.tourOptional", "optional")}</span></button>` +
                 `</div>`;
               try {
                 const bTour = fs.querySelector("#oc-fs-tour");
@@ -2395,13 +2395,13 @@
           /* ESTADO ACTIVO (2026-08-26, UX sweep L1): en desktop el indicador
              es la barra izquierda (border-left) + fondo azul suave. En mobile
              los chips son horizontales y border-left no es visible, así que el
-             chip activo toma fondo naranja (#E87A10) con texto blanco — mismo
+             chip activo toma fondo naranja (#B35A00) con texto blanco — mismo
              naranja que los badges del equipo (coherencia de paleta). */
           const angosto = window.matchMedia && window.matchMedia("(max-width:720px)").matches;
           rNav.querySelectorAll("[data-riel-go]").forEach((b) => {
             const a = b.getAttribute("data-riel-go") === id;
             b.style.borderLeftColor = (!angosto && a) ? "var(--azul-medio,#2c4a68)" : "transparent";
-            b.style.background = a ? (angosto ? "#E87A10" : "var(--azul-suave,#dde5ec)") : "none";
+            b.style.background = a ? (angosto ? "#B35A00" : "var(--azul-suave,#dde5ec)") : "none";
             b.style.color = a ? (angosto ? "#fff" : "var(--azul-medio,#2c4a68)") : "var(--ink-soft,#5d5340)";
             b.style.setProperty("-webkit-text-fill-color", a ? (angosto ? "#fff" : "var(--azul-medio,#2c4a68)") : "var(--ink-soft,#5d5340)");
             if (angosto && a) b.style.borderRadius = "20px";
@@ -2988,7 +2988,7 @@
     } else {
       row.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;">
         <input id="oc-email-in" type="email" placeholder="email@domain.com" style="flex:1;min-width:200px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);">
-        <button id="oc-email-save" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">Save</button></div>
+        <button id="oc-email-save" class="ir" style="background:var(--rust-boton,#C0472B);color:var(--blanco-calido);border-color:var(--rust-deep);">Save</button></div>
         <p id="oc-email-msg" style="font-size:14px;margin-top:8px;"></p>`;
       $("oc-email-save").addEventListener("click", () => {
         if (window.OCAuth.esDemo && window.OCAuth.esDemo()) return; // demo: sin cambio de correo
@@ -3018,7 +3018,7 @@
     const row = $("oc-whatsapp-row");
     row.innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap;">
       <input id="oc-whatsapp-in" type="tel" inputmode="tel" placeholder="${window.t("auth.act.whatsappPlaceholder")}" value="${escHtml(wa)}" style="flex:1;min-width:200px;padding:10px;border:2px solid var(--azul-medio);border-radius:5px;font-family:var(--font-mono);">
-      <button id="oc-whatsapp-save" class="ir" style="background:var(--rust);color:var(--blanco-calido);border-color:var(--rust-deep);">${window.t("auth.act.whatsappSave")}</button></div>
+      <button id="oc-whatsapp-save" class="ir" style="background:var(--rust-boton,#C0472B);color:var(--blanco-calido);border-color:var(--rust-deep);">${window.t("auth.act.whatsappSave")}</button></div>
       <p style="font-size:13px;color:var(--ink-soft);margin-top:6px;">${window.t("auth.act.whatsappCountryHint")}</p>
       <p id="oc-whatsapp-msg" style="font-size:14px;margin-top:8px;"></p>`;
     $("oc-whatsapp-save").addEventListener("click", async () => {
@@ -3242,7 +3242,7 @@
       '<p style="font-size:16px;line-height:1.5;margin:0 0 12px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">A new code is generated and the current one stops working. Every phone on your team will have to join again with the new one, including yours if you use more than one device.</p>' +
       '<p style="font-size:15px;line-height:1.5;margin:0 0 12px;padding:11px 13px;background:#F8F9FB;border-left:4px solid #2C3E50;border-radius:0 8px 8px 0;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Only do this if the code leaked: someone posted it, dropped it in a group chat, or left the company with it written down. For a regular ex-employee it is enough to deactivate them under Users, which is far less disruptive for everyone else.</p>' +
       '<p style="font-size:15px;line-height:1.5;margin:0 0 18px;padding:11px 13px;background:#FFF6F2;border-left:4px solid #E86040;border-radius:0 8px 8px 0;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">This cuts off access from here on. Whatever that person already saw or copied cannot be taken back.</p>' +
-      '<button type="button" id="oc-rot-ok" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:12px;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">Yes, rotate the team license</button>' +
+      '<button type="button" id="oc-rot-ok" style="width:100%;min-height:48px;padding:13px;border:none;border-radius:12px;background:var(--rust-boton,#C0472B);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">Yes, rotate the team license</button>' +
       '<button type="button" id="oc-rot-no" style="width:100%;min-height:44px;margin-top:10px;background:none;border:none;font-size:15px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;">Never mind</button>' +
       '<p id="oc-rot-msg" style="font-size:15px;font-weight:700;margin:12px 0 0;"></p>' +
       "</div>";

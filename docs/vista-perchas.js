@@ -198,11 +198,11 @@
           <strong style="font-size:16px;color:var(--ink);">${p.promotor ? esc(p.promotor) : '—'}</strong></div>
       </div>` : '';
 
-    // La tarjeta ENTERA abre la carpeta (data-vp-abrir). Los controles internos
-    // (foto, ✎ gestión) llevan su propio data-* y frenan la propagación.
+    // La tarjeta ENTERA abre la carpeta al tocarla (data-vp-abrir). 2026-09-26 (axe-core:
+    // nested-interactive): ya no se declara role=button (tenia botones adentro); el acceso por
+    // teclado es el boton real "Open", con el mismo data-vp-abrir. Se quito un title en espanol.
     return `
-      <div class="tag-card vp-carpeta" data-vp-abrir="${esc(p.id)}" role="button" tabindex="0"
-        title="Toca para ver sus productos"
+      <div class="tag-card vp-carpeta" data-vp-abrir="${esc(p.id)}"
         style="padding:0;overflow:hidden;border:3px solid ${c.border};border-radius:14px;cursor:pointer;">
         <div style="position:relative;">
           ${visual}
@@ -212,7 +212,7 @@
             font-weight:700;background:rgba(0,0,0,.65);color:#fff;padding:4px 10px;border-radius:20px;">${badgeMeta}</span>
           ${(p.diasSinVenta != null && p.diasSinVenta >= 7) ? `<span style="position:absolute;top:10px;left:10px;font-family:var(--font-mono);font-size:13px;font-weight:700;background:#E53935;color:#fff;padding:3px 9px;border-radius:20px;">dormida ${p.diasSinVenta}d</span>` : ''}
           <!-- Abrir carpeta: pista visual -->
-          <span style="position:absolute;bottom:10px;right:${esDueno ? '52px' : '10px'};font-family:var(--font-mono);font-size:13px;font-weight:700;background:#152840;color:#fff;padding:4px 9px;border-radius:20px;">${window.t('shelves.open')} ▸</span>
+          <button type="button" data-vp-abrir="${esc(p.id)}" style="position:absolute;bottom:10px;right:${esDueno ? '52px' : '10px'};font-family:var(--font-mono);font-size:13px;font-weight:700;background:#152840;color:#fff;padding:4px 9px;border-radius:20px;border:0;min-height:32px;cursor:pointer;">${window.t('shelves.open')} ▸</button>
           ${esDueno ? `<button data-vp-foto="${esc(p.id)}" title="Cambiar foto" style="position:absolute;bottom:10px;right:10px;font-size:16px;line-height:1;
             background:rgba(0,0,0,.55);border:none;padding:6px 8px;border-radius:8px;color:#fff;cursor:pointer;" aria-label="Cambiar foto"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>` : ''}
         </div>
