@@ -46,7 +46,7 @@
   #oc-brand-help{overflow:visible;flex-shrink:0;}
   #oc-sync-mini{
     display:inline-flex !important;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
-    font-size:11px;line-height:1.2;font-weight:700;letter-spacing:.02em;margin-top:4px;
+    font-size:12px;line-height:1.2;font-weight:700;letter-spacing:.02em;margin-top:4px; /* 2026-09-26 Linus b5: minimo 12px */
     border:1.5px solid #14181C;box-sizing:border-box;cursor:default;white-space:nowrap;}
   #oc-sync-mini.sync-on{background:#ffffff !important;border-color:#7f93a4;}
   #oc-sync-mini.sync-on, #oc-sync-mini.sync-on span{
@@ -315,7 +315,7 @@
   const mini = document.createElement("div");
   mini.id = "oc-sync-mini";
   mini.setAttribute("aria-live", "polite");
-  mini.style.cssText = "display:flex;align-items:center;gap:5px;font-size:11px;line-height:1;font-weight:700;letter-spacing:.02em;color:#8a8a8a;margin-top:4px;cursor:default;";
+  mini.style.cssText = "display:flex;align-items:center;gap:5px;font-size:12px;line-height:1;font-weight:700;letter-spacing:.02em;color:#14181C;margin-top:4px;cursor:default;";
   const miniDot = document.createElement("span");
   miniDot.style.cssText = "width:8px;height:8px;border-radius:50%;box-sizing:border-box;background:#ffffff;border:1.5px solid #b7b7b7;";
   const miniTxt = document.createElement("span");

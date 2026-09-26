@@ -644,7 +644,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       </div>
       <p id="oc-gate-landing" style="margin:12px 0 0;font-size:13px;line-height:1.5;text-align:center;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.landing">${(window.t && window.t("auth.gate.landing")) || ""}</p>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
-      <p id="oc-gate-build" style="margin:8px 0 0;font-size:11px;letter-spacing:.06em;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;opacity:.75;">&nbsp;</p>
+      <p id="oc-gate-build" style="margin:8px 0 0;font-size:12px;letter-spacing:.06em;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">&nbsp;</p>
       <!-- Acceso al "campo de pruebas" (workshop) RETIRADO (JFC 2026-09-10):
            ya no se quiere que la gente acceda al workshop desde el candado.
            Se elimina el enlace; el workshop sigue existiendo en su URL, solo que
@@ -1928,7 +1928,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       rc.id = "oc-rol-chip";
       rc.textContent = window.t(_rolChipKey);
       rc.style.cssText = "font-size:13px;font-weight:700;color:#fff !important;-webkit-text-fill-color:#fff !important;"
-        + "margin-right:6px;padding:4px 10px;background:var(--rust,#E86040);border-radius:20px;";
+        + "margin-right:6px;padding:4px 10px;background:var(--rust-boton,#C0472B);border-radius:20px;"; // 2026-09-26 Linus b5: blanco sobre #E86040 daba 3.4
       header.appendChild(rc);
     }
     header.appendChild(b);
