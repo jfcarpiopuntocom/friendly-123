@@ -17,7 +17,7 @@ between your own devices is opt-in and end-to-end encrypted.
   commission. Send a commissionist their statement (7 or 30 days) by WhatsApp.
 - **Customers.** Rate reliability and manner, 1 to 5. Owner and admin can fix the date,
   time and note of an incident, and blacklist a customer in one tap.
-- **Phone first.** Readable in dark mode on every screen. The weekly reminder no longer
+- **Phone first.** Every screen reads well, even with the phone set to dark mode. The weekly reminder no longer
   covers the navigation bar.
 - **Light or dark.** A sun/moon button in the header, and Appearance in Advanced. Each
   device keeps its own choice; light is the default.
@@ -37,7 +37,7 @@ entre tus propios aparatos es opcional y va cifrado de extremo a extremo.
   sin comisión. Envía al comisionista su estado de cuenta (7 o 30 días) por WhatsApp.
 - **Clientes.** Califica confiabilidad y trato, de 1 a 5. Dueño y admin pueden corregir la
   fecha, la hora y la nota de un incidente, y mandar a un cliente a la lista negra con un toque.
-- **Primero el teléfono.** Se lee bien en modo oscuro en todas las pantallas. El recordatorio
+- **Primero el teléfono.** Todas las pantallas se leen bien, aunque el teléfono esté en modo oscuro. El recordatorio
   semanal ya no tapa la barra de navegación.
 - **Claro u oscuro.** Un botón de sol/luna en el encabezado, y Apariencia en Advanced. Cada
   aparato guarda su propia elección; por defecto, claro.
