@@ -419,3 +419,13 @@ NO se decidio; se hizo research y se repregunto.
 - B5 movil modo oscuro: v408 (aire, contraste axe) + v410 (32 fallos -> 0; test linus-movil-oscuro).
 - Pruebas inestables conocidas (timeouts 30 s de Chromium con la suite cargada, pasan aisladas): canarios-app "salud", ui-integrity v359. No son regresion.
 QUEDA para declarar v1.0: v410 en clientes (~02:46) y prueba de JFC en su iPhone; pedidos sin empezar (lapicito lista negra, 2 clips del hero); entrega a Codex; tag v1.0 + notas de release EN/ES.
+
+## 2026-09-26 19:30 — sesión en la nube
+- Plugins de Jev instalados y activos en la nube (repos privados adjuntados a la sesión). Falta la clave
+  AI_GATEWAY_API_KEY en el entorno de la nube: JFC la pone desde el iPhone. Orden de JFC: usar Jev SIEMPRE.
+- Prioridad 1 CERRADA: "Workers Builds" verde en master; rojo solo en ramas de PR (vista previa). Doc para Codex hecho (#208).
+- Lapicito de incidentes + lista negra directa: shell v411 (fecha, hora, nota; solo dueño/admin, candado también en el backend
+  y en despedir/reactivar). test/incidentes-editar.test.js: 4 rojas en v410, 5 verdes (la 5 es por la pantalla).
+- Nube: la red bloquea github.io y workers.dev (no se puede verificar la URL viva desde aquí). Playwright del repo pide
+  chromium_headless_shell-1234; se enlazó al 1194 preinstalado (solo en el contenedor).
+QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (repo del website, confirmar); tag v1.0 + notas EN/ES.

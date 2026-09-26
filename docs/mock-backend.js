@@ -5389,6 +5389,39 @@
         return J(fichaCliente(c));
       }
 
+      /* PATCH /api/clientes/:id/incidentes/:idx — LAPICITO DE INCIDENTES (JFC 2026-09-26).
+         Decision de JFC: de un incidente ya anotado solo se corrige FECHA, HORA y NOTA;
+         la calificacion y quien la puso NO se tocan, y no se borra (queda para
+         conciliar con camaras/audios). Solo dueno o admin, validado aqui y no solo
+         en la UI. Campos NUEVOS y opcionales (fechaIncidente, nota, editadoPor,
+         editadoEn): una app vieja los ignora, no cambia el formato. `fecha` (sello
+         de cuando se anoto) jamas se reescribe. */
+      const mCliInc = path.match(/^\/api\/clientes\/([^/]+)\/incidentes\/(\d+)$/);
+      if (mCliInc && opts && opts.method === "PATCH") {
+        const _rInc = _rolLocal();
+        if (_rInc !== "dueno" && _rInc !== "admin") return J({ error: "Only the owner or an admin can edit an incident." }, 403);
+        const c = clientes.find((x) => x.id === mCliInc[1]);
+        if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        const h = c.evaluacion && Array.isArray(c.evaluacion.historial) ? c.evaluacion.historial[Number(mCliInc[2])] : null;
+        if (!h) return J({ error: "Incident not found." }, 404);
+        if (body.fechaIncidente !== undefined) {
+          const f = String(body.fechaIncidente || "");
+          const d = new Date(f + "T12:00:00");
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || isNaN(d) || d.toISOString().slice(0, 10) !== f) return J({ error: "Invalid date." }, 400);
+        }
+        if (body.horaIncidente !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body.horaIncidente || ""))) return J({ error: "Invalid time." }, 400);
+        if (body.fechaIncidente !== undefined) h.fechaIncidente = String(body.fechaIncidente);
+        if (body.horaIncidente !== undefined) h.horaIncidente = String(body.horaIncidente);
+        if (body.nota !== undefined) h.nota = String(body.nota || "").trim().slice(0, 300);
+        h.editadoPor = body.quien || "Sistema";
+        h.editadoEn = new Date().toISOString();
+        c.rev = _revNueva();
+        mov("incidente-editado", { cliente: c.nombre, quien: h.editadoPor, fechaIncidente: h.fechaIncidente || null, horaIncidente: h.horaIncidente || null });
+        guardarEstadoLocal();
+        avisarCatalogoCambiado();
+        return J(fichaCliente(c));
+      }
+
       // PATCH /api/clientes/:id/contacto — edita nombre/telefono/email/notas.
       // Portado de amigable-123 (2026-08-27): el shared digital notebook debe
       // dejar editar el contacto y las notas del cliente. Solo se actualizan
@@ -5446,6 +5479,10 @@
       // POST /api/clientes/:id/reactivar — lo devuelve.
       const mCliAct = path.match(/^\/api\/clientes\/([^/]+)\/(despedir|reactivar)$/);
       if (mCliAct && opts && opts.method === "POST") {
+        /* Lista negra solo dueno o admin (JFC 2026-09-26). El unico llamador (boton
+           de la tarjeta de Clientes) ya era solo dueno/admin: el candado no rompe a nadie. */
+        const _rDes = _rolLocal();
+        if (_rDes !== "dueno" && _rDes !== "admin") return J({ error: "Only the owner or an admin can blacklist or reactivate a customer." }, 403);
         const c = clientes.find((x) => x.id === mCliAct[1]);
         if (!c) return J({ error: "Customer not found." }, 404);
         const accion = mCliAct[2];

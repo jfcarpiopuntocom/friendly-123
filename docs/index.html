@@ -3495,7 +3495,10 @@ function tarjetaCliente(c, esDueno){
         ${filaRate("trato", ev.trato, svgHeartR, "Manner")}
       </span>
     </div>${campoHora}` : "";
-  const btnDespedir = (esDueno && nivelEv(ev.trato) === -1 && nivelEv(ev.confiabilidad) === -1)
+  /* LISTA NEGRA DIRECTA (JFC 2026-09-26): antes el boton solo salia con estrellas Y
+     corazones en rojo; ahora dueno/admin lo tienen siempre en la tarjeta. El backend
+     tambien exige dueno/admin. */
+  const btnDespedir = esDueno
     ? `<button style="margin-top:8px;font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;"
         data-despedir-id="${c.id}" data-despedir-nombre="${escHtml(c.nombre)}"
         onclick="despedirCliente(this.dataset.despedirId, this.dataset.despedirNombre)">Fire client 🚪</button>` : "";
@@ -3537,10 +3540,67 @@ function tarjetaCliente(c, esDueno){
       ${(promEje("confiabilidad") || promEje("trato")) ? `<span title="Average rating" style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:2px 8px;border-radius:4px;font-size:13px;font-weight:700;background:#F4F7FA;color:#1E4258;">${promEje("confiabilidad") ? `${svgStarR(true, 13)}${promEje("confiabilidad")}` : ""}${promEje("trato") ? `${svgHeartR(true, 13)}${promEje("trato")}` : ""}</span>` : ""}
       ${esDueno ? badgeComportamiento(ev) : ""}
     </div>
-    ${dato}${comprasBlock}${lineaContacto}${lineaNotas}${controles}${btnDespedir}${carteraHtml}
+    ${dato}${comprasBlock}${lineaContacto}${lineaNotas}${controles}${bloqueIncidentes(c, esDueno)}${btnDespedir}${carteraHtml}
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;">${btnEditar}${btnBorrar}</div>
     ${panelEditar}
   </div>`;
+}
+/* LAPICITO DE INCIDENTES (JFC 2026-09-26). Incidente = entrada del historial con
+   estrellas o corazones en 1-2 (lo que lleva a la lista negra). Decision de JFC:
+   se corrige FECHA, HORA y NOTA; nada mas, y solo dueno/admin (el backend lo exige
+   tambien). El indice es la posicion en evaluacion.historial: no reordenar ese
+   arreglo nunca, el PATCH /incidentes/:idx depende de ella. Tinta oscura y 14-15px:
+   nada gris ni chico (regla de legibilidad de JFC). */
+window.OCIncEditOpen = window.OCIncEditOpen || new Set();
+function bloqueIncidentes(c, esDueno) {
+  if (!esDueno) return "";
+  const hist = (c.evaluacion && Array.isArray(c.evaluacion.historial)) ? c.evaluacion.historial : [];
+  const esInc = (h) => { const t = Number(h.trato) || 0, r = Number(h.confiabilidad) || 0; return (t >= 1 && t <= 2) || (r >= 1 && r <= 2); };
+  const filas = [];
+  hist.forEach((h, i) => {
+    if (!esInc(h)) return;
+    const fecha = h.fechaIncidente || String(h.fecha || "").slice(0, 10);
+    const key = c.id + ":" + i;
+    const abierto = window.OCIncEditOpen.has(key);
+    const califs = `${Number(h.confiabilidad) ? svgStarR(true, 13) + h.confiabilidad : ""} ${Number(h.trato) ? svgHeartR(true, 13) + h.trato : ""}`;
+    filas.push(`<div style="border-top:1px solid #FDDBD8;padding:6px 0;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:14px;color:#0F1923;">
+        <strong>${escHtml(fecha)}${h.horaIncidente ? " · " + escHtml(h.horaIncidente) : ""}</strong>
+        <span style="display:inline-flex;align-items:center;gap:2px;">${califs}</span>
+        <span>by ${escHtml(h.quien || "")}</span>
+        <button class="oc-edit-btn" data-inc-key="${escHtml(key)}" onclick="toggleEditarIncidente(this.dataset.incKey)" title="Edit date, time and note">✎</button>
+      </div>
+      ${h.nota ? `<div style="font-size:14px;color:#0F1923;margin-top:2px;">"${escHtml(h.nota)}"</div>` : ""}
+      ${abierto ? `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;">
+        <input type="date" id="oc-incf-${escHtml(key)}" value="${escHtml(fecha)}" aria-label="Incident date" style="padding:6px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;color:#0F1923;">
+        <input type="time" id="oc-inch-${escHtml(key)}" value="${escHtml(h.horaIncidente || "")}" aria-label="Incident time" style="padding:6px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;color:#0F1923;">
+        <input type="text" id="oc-incn-${escHtml(key)}" value="${escHtml(h.nota || "")}" maxlength="300" placeholder="Note" aria-label="Incident note" style="flex:1;min-width:160px;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;color:#0F1923;">
+        <button class="ir" style="font-size:13px;padding:6px 12px;" data-inc-cli="${escHtml(c.id)}" data-inc-idx="${i}" onclick="guardarIncidente(this.dataset.incCli, Number(this.dataset.incIdx))">Save</button>
+      </div>` : ""}
+    </div>`);
+  });
+  if (!filas.length) return "";
+  return `<details style="margin-top:8px;background:#FFF8F8;border:1px solid #FDDBD8;border-radius:7px;padding:6px 10px;"${[...window.OCIncEditOpen].some((k) => k.startsWith(c.id + ":")) ? " open" : ""}>
+    <summary style="cursor:pointer;font-size:14px;font-weight:700;color:#C0392B;">Incidents (${filas.length})</summary>${filas.join("")}</details>`;
+}
+function toggleEditarIncidente(key) {
+  if (window.OCIncEditOpen.has(key)) window.OCIncEditOpen.delete(key);
+  else window.OCIncEditOpen.add(key);
+  cargarClientes();
+}
+async function guardarIncidente(clienteId, idx) {
+  const key = clienteId + ":" + idx;
+  const val = (p) => { const el = document.getElementById(p + key); return el ? el.value : undefined; };
+  const body = { fechaIncidente: val("oc-incf-"), horaIncidente: val("oc-inch-"), nota: val("oc-incn-"),
+    quien: (window.OCAuth && window.OCAuth.usuarioActual && window.OCAuth.usuarioActual().nombre) || "Sistema" };
+  // Hora vacia = no se toca (el backend rechaza una hora invalida, no la borra).
+  if (!body.horaIncidente) delete body.horaIncidente;
+  try {
+    const res = await fetch(`${API}/clientes/${clienteId}/incidentes/${idx}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) { const r = await res.json().catch(() => ({})); await ocAlert(r.error || "Could not save the incident."); return; }
+    window.OCIncEditOpen.delete(key);
+    cargarClientes();
+  } catch (e) { console.error("Error editando incidente:", e); }
 }
 // Editar contacto/notas del cliente (2026-08-27, portado de amigable-123).
 window.OCClienteEditOpen = window.OCClienteEditOpen || new Set();
