@@ -410,3 +410,12 @@ NO se decidio; se hizo research y se repregunto.
   a los 33 min promover.yml lo pasa a clientes (verificar raiz v403 y /previo/ v402).
 - Reglas nuevas en memoria: ventana 33 min (JFC tester), Sonar de Canarios con PUSH/REWIND y 3 versiones vivas.
 
+
+## 2026-09-26 02:15 — Revision Linus CERRADA (5 de 5)
+- B1 dinero/stock + dos pestanas: v405 (linus-dinero-ui, linus-dos-pestanas).
+- B2 sync entre aparatos: stock/anular/correcciones ya cubiertos; nuevo linus-sync-persona (COUNTER SALE, persona elegida por venta, fotos puntero+bytes) = FIJACION, sin bug.
+- B3 roles: v406 (linus-roles-matriz).
+- B4 F5/navegacion: v409. Bug real: el aviso semanal de WhatsApp tapaba la barra del telefono en Advanced. Test linus-f5-todas.
+- B5 movil modo oscuro: v408 (aire, contraste axe) + v410 (32 fallos -> 0; test linus-movil-oscuro).
+- Pruebas inestables conocidas (timeouts 30 s de Chromium con la suite cargada, pasan aisladas): canarios-app "salud", ui-integrity v359. No son regresion.
+QUEDA para declarar v1.0: v410 en clientes (~02:46) y prueba de JFC en su iPhone; pedidos sin empezar (lapicito lista negra, 2 clips del hero); entrega a Codex; tag v1.0 + notas de release EN/ES.
