@@ -249,6 +249,20 @@ trabajo está mal hecho aunque el código funcione.
   (fork local de JFC que va por Vercel AI Gateway y censura licencias, claves y PIN antes de
   enviar). Si falla, Claude Code hace el resumen normal.
 
+## SEGUNDO CEREBRO: OBSIDIAN EN LA NUBE (JFC 2026-09-26)
+- Plugin `obsidian-second-brain` (github eugeniughelbur/obsidian-second-brain, MIT, publico)
+  declarado en `.claude/settings.json`: carga solo en cada sesion de la nube.
+  `OBSIDIAN_VAULT_PATH=/home/user/obsidian-vault`.
+- La nube NO ve la laptop. El puente es un repo PRIVADO de GitHub con el vault: en la
+  laptop, Obsidian lo sincroniza con el plugin comunitario "Obsidian Git"; aqui se clona.
+- Cuando JFC diga "enchufa Obsidian" (o lo recuerde): 1) `add_repo` del repo privado del
+  vault (si no se sabe el nombre, preguntarlo UNA vez); 2) clonarlo en
+  `/home/user/obsidian-vault`; 3) trabajar; 4) commit + push al repo del vault para que
+  Obsidian lo baje en la laptop. Nunca meter el vault en friendly-123 (repo PUBLICO).
+- Privacidad: los comandos base del vault son locales. `/research`, `/x-*`, podcasts y
+  embeddings en la nube mandan texto a terceros (Perplexity, Grok, Gemini): jamas con
+  datos de clientes, licencias, PIN ni claves.
+
 ## CLOUDFLARE = CAPA PRIVADA DE LAS APPS (JFC 2026-09-24, regla dura, las 3 apps)
 - Todo lo privado o semipublico (Worker de licencias, relay de sync, y el
   origen del codigo para el cargador anti-clon) vive en la cuenta Cloudflare
