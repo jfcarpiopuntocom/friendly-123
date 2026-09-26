@@ -1611,10 +1611,20 @@
       /* Bloque 4: cuanto le toca a cada persona cuando hay ventas repartidas. */
       const _porPersona = new Map();
       const _sumar = (pid, monto) => { const k = pid || "__percha__"; _porPersona.set(k, (_porPersona.get(k) || 0) + (Number(monto) || 0)); };
-      const _hayReparto = ventasMes.some((v) => v.split && v.split.reparto) || ajustesMes.some((x) => x.reparto);
+      /* PERSONA DE CADA VENTA (JFC 2026-09-26, auditoria de Commissions). La venta guarda a
+         quien se eligio (v.promotoraId, v398) y el ranking ya la usaba, pero aqui todo lo que
+         no traia reparto de asistente se le sumaba a la persona FIJA de la percha: en la
+         percha de Ana, una venta con Beto elegido salia como "Ana: 60" en vez de Ana 40 /
+         Beto 20. Ahora cada venta va a su persona; una devolucion, a la persona de SU venta.
+         Sin mezcla de personas el reparto sigue vacio, como antes. */
+      const _personaVenta = (v) => (v && v.promotoraId) || u.promotoraId || null;
+      const _personaAjuste = (x) => _personaVenta(ventas.find((v) => v.id === x.ventaId));
+      const _fija = u.promotoraId || null;
+      const _hayReparto = ventasMes.some((v) => (v.split && v.split.reparto) || _personaVenta(v) !== _fija)
+        || ajustesMes.some((x) => x.reparto || _personaAjuste(x) !== _fija);
       if (_hayReparto) {
-        ventasMes.forEach((v) => { if (v.split.reparto) v.split.reparto.forEach((r) => _sumar(r.promotoraId, r.monto)); else _sumar(u.promotoraId || null, v.split.montoComisionSocio); });
-        ajustesMes.forEach((x) => { if (x.reparto) x.reparto.forEach((r) => _sumar(r.promotoraId, r.monto)); else _sumar(u.promotoraId || null, x.montoComisionSocio); });
+        ventasMes.forEach((v) => { if (v.split.reparto) v.split.reparto.forEach((r) => _sumar(r.promotoraId, r.monto)); else _sumar(_personaVenta(v), v.split.montoComisionSocio); });
+        ajustesMes.forEach((x) => { if (x.reparto) x.reparto.forEach((r) => _sumar(r.promotoraId, r.monto)); else _sumar(_personaAjuste(x), x.montoComisionSocio); });
       }
       const repartoPersonas = [..._porPersona.entries()].map(([k, monto]) => { const pr = k !== "__percha__" ? promotoras.find((x) => x.id === k) : null; return { promotoraId: k === "__percha__" ? null : k, nombre: pr ? pr.nombre : (k === "__percha__" ? u.nombre : "(removed)"), monto: +monto.toFixed(2) }; });
       // #19 Desglose de liquidacion: el socio necesita saber DE QUE ventas exactas
@@ -5264,6 +5274,8 @@
           // COUNTER SALE no se atribuye a la persona permanente de la percha:
           // el nombre acompaña solo a ventas que realmente tienen reparto.
           asociadoNombre: v.split && pr ? pr.nombre : "",
+          // 2026-09-26 (aditivo): id de la persona que cobra, para el estado de cuenta por persona.
+          promotoraId: v.split && pr ? pr.id : null,
         };
       }));
     }

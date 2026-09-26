@@ -440,3 +440,14 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - JFC YA NO TIENE ACCESO A LA LAPTOP (dicho 2026-09-26). Jev sin clave en la nube; no volver a pedirsela.
 - QUEDA: 2 clips del hero (repo website; su WIP estaba sin commit en la laptop). Aviso de emergencia en oscuro: re-invertido.
 - 2026-09-26 19:40: Workers Builds de RAMAS arreglado (PR #215, wrangler.jsonc en la raiz). Rama y master en verde.
+
+## 2026-09-26 20:20 — auditoria "varios dispositivos" + Commissions (v414)
+- Sync viejo (sync-realtime.js) ahora sigue a la licencia como Yjs (una licencia = una sala). Bug: el rescate de
+  licencia v407 lo dejaba apagado o en la sala del codigo viejo (header "Offline", sin PIN desde otro aparato).
+  "Deactivate sync" se respeta con f123_sync_apagado_v1. test/sala-sigue-licencia.test.js (rojo en v413).
+- No hay limite de aparatos por licencia en la app ni en el Worker.
+- Commissions por persona: la liquidacion reparte por v.promotoraId (antes todo a la persona fija de la percha),
+  devoluciones a la persona de su venta, estado de cuenta por persona + boton por persona en "Split between people".
+  /api/ventas/todas trae promotoraId (aditivo). test/comision-por-persona.test.js (4 rojas en v413). Suite 399/399.
+- Pendiente anotado: sync-yjs normaliza la licencia sin Crockford (I/L/O) y sync-realtime con Crockford; solo importa
+  si una licencia trae I, L u O (el formato actual no las usa).
