@@ -13,7 +13,7 @@ async function latidoCon(licLocal) {
   const ctx = await b.newContext();
   const p = await ctx.newPage();
   try {
-    await p.route('https://licencias.prueba.invalid/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"estado":"full","licenseCode":"F123-RESC-ATEX-PRUE-BA000"}' }));
+    await p.route('https://licencias.prueba.invalid/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"estado":"full","licenseCode":"F123-TEST-RESC-ATEX-00000"}' }));
     await p.goto(pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href, { waitUntil: 'networkidle' });
     await p.evaluate((lic) => {
       localStorage.setItem('f123_cf_worker_url', 'https://licencias.prueba.invalid');
@@ -26,9 +26,9 @@ async function latidoCon(licLocal) {
 }
 
 test('aparato SIN licencia adopta la que JFC le puso desde el panel', async () => {
-  assert.equal(await latidoCon(''), 'F123-RESC-ATEX-PRUE-BA000');
+  assert.equal(await latidoCon(''), 'F123-TEST-RESC-ATEX-00000');
 });
 
 test('aparato CON licencia nunca la cambia por lo que diga el latido (FIJACION)', async () => {
-  assert.equal(await latidoCon('F123-PROP-IAXX-XXXX-XXXXX'), 'F123-PROP-IAXX-XXXX-XXXXX');
+  assert.equal(await latidoCon('F123-XXXX-PROP-IAXX-XXXXX'), 'F123-XXXX-PROP-IAXX-XXXXX');
 });
