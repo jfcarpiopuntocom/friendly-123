@@ -8479,7 +8479,7 @@ async function cargarComisiones(){
       ${(f.ajustes && f.ajustes.length) ? `<p style="font-size:13px;color:var(--rust-ink,#E86040);font-weight:700;margin:6px 0 0;">${f.ajustes.length} return(s) of already-paid sales this month: ${fmtMoney(f.ajustes.reduce((a, x) => a + x.montoComisionSocio, 0))} deducted${f.ajustes.some(x => !x.liquidada) ? " from the next payment" : ""}.</p>
       <details style="margin-top:4px;"><summary style="font-size:13px;cursor:pointer;color:var(--azul-medio,#2c4a68);">Who returned what →</summary>
         <table style="width:100%;margin-top:4px;font-size:13px;">${f.ajustes.map(x => `<tr><td>${(() => { try { return new Date(x.fecha).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || undefined); } catch (_) { return String(x.fecha).slice(0, 10); } })()} · ${escHtml(x.quien || "")}${x.motivo ? " · " + escHtml(x.motivo) : ""}</td><td style="text-align:right;">${fmtMoney(x.montoComisionSocio)}${x.liquidada ? " (deducted)" : ""}</td></tr>`).join("")}</table></details>` : ""}
-      ${(f.repartoPersonas && f.repartoPersonas.length > 1) ? `<table style="width:100%;margin-top:8px;font-size:14px;"><tr><td colspan="2" style="font-weight:700;">Split between people this month</td></tr>${f.repartoPersonas.map(p => `<tr><td>${escHtml(p.nombre)}</td><td style="text-align:right;">${fmtMoney(p.monto)}</td></tr>`).join("")}</table>` : ""}
+      ${(f.repartoPersonas && (f.repartoPersonas.length > 1 || (f.repartoPersonas[0] && f.repartoPersonas[0].promotoraId && f.repartoPersonas[0].promotoraId !== f.promotoraId))) ? `<table style="width:100%;margin-top:8px;font-size:14px;"><tr><td colspan="3" style="font-weight:700;">Split between people this month</td></tr>${f.repartoPersonas.map(p => `<tr><td>${escHtml(p.nombre)}</td><td style="text-align:right;">${fmtMoney(p.monto)}</td><td style="text-align:right;width:1%;white-space:nowrap;">${(p.promotoraId && p.promotoraId !== f.promotoraId) ? `<button type="button" class="tecla" style="font-size:13px;margin-left:8px;" data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.promotoraId)}" onclick="enviarEstadoComisionista(this.dataset.estU, this.dataset.estP)">Send statement</button>` : ""}</td></tr>`).join("")}</table>` : ""}
       ${f.esMesActual === false ? "" : editorComisionHtml(f)}
       ${(f.detallePendientes && f.detallePendientes.length) ? `
       <details style="margin-top:8px;">
@@ -8848,7 +8848,11 @@ async function reactivarCliente(clienteId, nombre) {
    - Abre WhatsApp con el enlace listo; la persona toca enviar. Sin telefono,
      abre WhatsApp para elegir el contacto. Si el navegador bloquea la ventana,
      copia el enlace y lo dice. Nada viaja a un servidor. */
-async function enviarEstadoComisionista(ubicacionId){
+/* 2026-09-26 (auditoria de Commissions): el estado de cuenta es POR PERSONA. Antes sumaba
+   todas las ventas con comision de la percha a nombre de la persona fija: si en la percha
+   de Ana se eligio a Beto en una venta, Ana recibia los 20 de Beto y Beto no tenia estado
+   de cuenta. promotoraId opcional = la persona del reparto; sin el, la persona fija. */
+async function enviarEstadoComisionista(ubicacionId, promotoraId){
   const es = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
   try {
     const rol = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
@@ -8861,12 +8865,15 @@ async function enviarEstadoComisionista(ubicacionId){
       fetch(`${API}/promotoras`).then(r => r.ok ? r.json() : [])
     ]);
     const f = (Array.isArray(liqs) ? liqs : []).find(x => x.ubicacionId === ubicacionId);
-    const pr = f && f.promotoraId ? (Array.isArray(proms) ? proms : []).find(x => x.id === f.promotoraId) : null;
+    const _personaId = promotoraId || (f && f.promotoraId) || null;
+    const pr = f && _personaId ? (Array.isArray(proms) ? proms : []).find(x => x.id === _personaId) : null;
     if (!f || !pr) { await ocAlert(es ? "Esta percha no tiene comisionista asignado." : "This shelf has no commissionist assigned."); return; }
-    const vs = (Array.isArray(ventas) ? ventas : []).filter(v => v.mes === f.mes && Number(v.comisionAsociado) > 0 && v.modoComision !== "counter");
+    const _todas = Array.isArray(ventas) ? ventas : [];
+    const _deLaPersona = (v) => !!v && (v.promotoraId || f.promotoraId || null) === _personaId;
+    const vs = _todas.filter(v => v.mes === f.mes && Number(v.comisionAsociado) > 0 && v.modoComision !== "counter" && _deLaPersona(v));
     const nombreProd = {}; vs.forEach(v => { nombreProd[v.id] = v.productoNombre; });
     const lineas = vs.map(v => ({ fecha: String(v.fecha || "").slice(0, 10), producto: v.productoNombre, cantidad: v.cantidad, comision: v.comisionAsociado, pagada: !!v.liquidada, medio: v.medioPagoComision || null }));
-    const ajustes = (f.ajustes || []).map(a => ({ fecha: String(a.fecha || "").slice(0, 10), producto: nombreProd[a.ventaId] || (es ? "Devolución" : "Return"), comision: a.montoComisionSocio, pagada: !!a.liquidada }));
+    const ajustes = (f.ajustes || []).filter(a => _deLaPersona(_todas.find(v => v.id === a.ventaId))).map(a => ({ fecha: String(a.fecha || "").slice(0, 10), producto: nombreProd[a.ventaId] || (es ? "Devolución" : "Return"), comision: a.montoComisionSocio, pagada: !!a.liquidada }));
     const r2 = (n) => Math.round(n * 100) / 100;
     const sumaCom = vs.reduce((s, v) => s + (Number(v.comisionAsociado) || 0), 0) + ajustes.reduce((s, a) => s + (Number(a.comision) || 0), 0);
     const pendiente = vs.filter(v => !v.liquidada).reduce((s, v) => s + (Number(v.comisionAsociado) || 0), 0) + ajustes.filter(a => !a.pagada).reduce((s, a) => s + (Number(a.comision) || 0), 0);

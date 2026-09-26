@@ -34,6 +34,7 @@
   // aqui (la cola offline + catch-up recuperan lo que se perdio mientras tanto).
   const RELAY_URL = "wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/";
   const ROOM_KEY = "f123_sync_room"; // {codigo} — si no existe, sync apagado
+  const APAGADO_KEY = "f123_sync_apagado_v1"; // "1" = el dueño apago el sync a proposito
   const DEVICE_ID_KEY = "f123_device_id";
   const LAMPORT_KEY = "f123_sync_lamport";
   const COLA_KEY = "f123_sync_cola"; // ops pendientes de enviar (offline)
@@ -1172,6 +1173,8 @@
     // codigo, sync queda encendido PARA SIEMPRE en este dispositivo — no es
     // un "modo evento" que se prende y apaga, es un estado permanente.
     activar(codigo) {
+      // Prender a mano borra la marca de "apagado por el dueño" (ver alinearSalaConLicencia).
+      try { localStorage.removeItem(APAGADO_KEY); } catch (_) {}
       // Refuerzo (2026-07-23): normalizar SIEMPRE antes de guardar — "amg-x"
       // y "AMG-X" deben caer en la MISMA sala. Antes se guardaba tal cual lo
       // tecleara el usuario, silencioso y confuso si alguien no usaba mayus.
@@ -1366,6 +1369,9 @@
     },
     desactivar() {
       try { localStorage.removeItem(ROOM_KEY); } catch (_) {}
+      // Apagado DELIBERADO: el arranque no lo vuelve a prender solo (JFC 2026-09-26).
+      // La rotacion de codigo llama desactivar() y luego activar(), que borra la marca.
+      try { localStorage.setItem(APAGADO_KEY, "1"); } catch (_) {}
       cerrarWsExistente();
       presenciaN = null;
       intentosSeguidos = 0;
@@ -1422,6 +1428,27 @@
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && leerSala() && (!ws || ws.readyState !== WebSocket.OPEN)) { reintentoMs = 1000; conectar(); }
   });
+
+  /* UNA LICENCIA = UNA SALA tambien aqui (JFC 2026-09-26; Yjs ya lo hace desde v295).
+     Bug real: el rescate automatico de licencia (v407, auth-ui.js) escribia licenseCode
+     y recargaba sin tocar f123_sync_room. Este sync quedaba APAGADO o en la sala del
+     codigo VIEJO: sin ops de stock, sin PIN para entrar desde otro aparato, sin fotos,
+     y el punto del header (que lee ESTE estado) decia "Offline" aunque Yjs anduviera.
+     Al arrancar, la sala se alinea con la licencia del aparato. Solo se respeta un
+     apagado deliberado del dueño ("Deactivate sync" -> APAGADO_KEY). Sin licencia
+     (demo, sin activar) no se toca nada. */
+  function alinearSalaConLicencia() {
+    try {
+      if (localStorage.getItem(APAGADO_KEY) === "1") return;
+      const ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      const lic = normalizarCodigo(ow.licenseCode || "");
+      if (lic.length < 6) return;
+      const sala = leerSala();
+      if (sala && normalizarCodigo(sala.codigo) === lic) return;
+      localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: lic }));
+    } catch (_) {}
+  }
+  alinearSalaConLicencia();
 
   // Arranque: si ya habia una sala configurada de antes, reconectar solo.
   if (leerSala()) conectar();
