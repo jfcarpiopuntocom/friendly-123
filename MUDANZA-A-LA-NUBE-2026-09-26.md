@@ -88,7 +88,7 @@ sí publica el origen anti-copia. Ya se le corrigió.
 1. Prioridad 1 de arriba.
 2. JFC prueba v410 en su iPhone en modo oscuro (legibilidad, header compacto, aviso de
    WhatsApp encima de la barra en Advanced).
-3. Lapicito para editar los incidentes que llevan a la lista negra + botón directo de lista
+3. HECHO en shell v411 (JFC eligió: fecha, hora y nota; solo dueño/admin). Lapicito para editar los incidentes que llevan a la lista negra + botón directo de lista
    negra en Clientes. Punto de partida: `docs/index.html` ~3475 (hora del incidente) y ~8669
    (`horaIncidente` en la calificación). Antes de construir: AskUserQuestion con qué se
    puede editar (fecha, hora, nota, quién) y quién puede hacerlo (roles).

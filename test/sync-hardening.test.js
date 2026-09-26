@@ -23,6 +23,8 @@ const despedidosDe = async peer =>
 
 test('firing a customer converges to a peer device', async () => {
   const a = browser(), b = browser();
+  // v411: despedir/reactivar exige dueno o admin (lista negra, JFC 2026-09-26).
+  a.OCAuth = { rolActual: () => 'dueno' };
   const c = await a.request('/api/clientes', 'POST', { nombre: 'Fixture fired customer' });
   b.receive(a);
   assert.equal((await despedidosDe(b)).includes(c.id), false, 'arranca activo en el peer');
@@ -38,6 +40,8 @@ test('firing a customer converges to a peer device', async () => {
 
 test('reactivating a customer converges back, so rev keeps advancing', async () => {
   const a = browser(), b = browser();
+  // v411: despedir/reactivar exige dueno o admin (lista negra, JFC 2026-09-26).
+  a.OCAuth = { rolActual: () => 'dueno' };
   const c = await a.request('/api/clientes', 'POST', { nombre: 'Fixture rehired customer' });
   b.receive(a);
   await a.request(`/api/clientes/${c.id}/despedir`, 'POST', { quien: 'Fixture' });

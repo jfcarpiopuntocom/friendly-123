@@ -233,6 +233,10 @@ trabajo está mal hecho aunque el código funcione.
 - JAMÁS mandar a Jev: datos de clientes, PIN, licencias, claves, datos del panel,
   transcripts completos ni volcados del repo. Jev aconseja, no autoriza: dinero,
   publicar y borrar siguen con sus guardas y con JFC.
+- **JFC 2026-09-26: "usa JEV at all times".** Jev se usa SIEMPRE que haya clave, también en
+  la nube, con las mismas prohibiciones de abajo (nada de clientes, PIN, licencias ni claves).
+  En la nube la clave va en las variables del entorno (AI_GATEWAY_API_KEY); si falta, se
+  dice UNA vez y no se le vuelve a pedir a JFC. La máquina de la nube NO ve la laptop.
 - Compactación de sesión con Jev: plugin `fast-jev-compaction@fast-jev-compaction-jfc`
   (fork local de JFC que va por Vercel AI Gateway y censura licencias, claves y PIN antes de
   enviar). Si falla, Claude Code hace el resumen normal.
