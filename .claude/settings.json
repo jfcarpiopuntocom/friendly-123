@@ -1,14 +1,30 @@
 {
   "extraKnownMarketplaces": {
     "fast-jev-compaction-jfc": {
-      "source": { "source": "github", "repo": "jfcarpiopuntocom/fast-jev-compaction-jfc" }
+      "source": {
+        "source": "github",
+        "repo": "jfcarpiopuntocom/fast-jev-compaction-jfc"
+      }
     },
     "jev-pruner-jfc": {
-      "source": { "source": "github", "repo": "jfcarpiopuntocom/jev-pruner-jfc" }
+      "source": {
+        "source": "github",
+        "repo": "jfcarpiopuntocom/jev-pruner-jfc"
+      }
+    },
+    "obsidian-second-brain": {
+      "source": {
+        "source": "github",
+        "repo": "eugeniughelbur/obsidian-second-brain"
+      }
     }
   },
   "enabledPlugins": {
     "fast-jev-compaction@fast-jev-compaction-jfc": true,
-    "fast-jev-output@jev-pruner-jfc": true
+    "fast-jev-output@jev-pruner-jfc": true,
+    "obsidian-second-brain@obsidian-second-brain": true
+  },
+  "env": {
+    "OBSIDIAN_VAULT_PATH": "/home/user/obsidian-vault"
   }
 }
