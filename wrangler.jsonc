@@ -1,0 +1,21 @@
+// Worker "friendly-123" = ORIGEN anti-copia (https://friendly-123.jfcarpio.workers.dev/).
+// Cloudflare Workers Builds lo despliega solo desde este repo.
+//
+// POR QUE EXISTE (2026-09-26): los builds de RAMAS (no master) fallaban en cada PR con
+// "Missing entry-point to Worker script or to assets directory". Para ramas, Cloudflare
+// corre por defecto `npx wrangler versions upload`, sin flags, y sin este archivo no
+// sabia que subir. master pasaba porque su comando de despliegue trae los flags.
+// Reproducido en Linux con wrangler 4.141: rojo sin este archivo, verde con el.
+//
+// Solo sirve docs/ como archivos estaticos: no hay script, no hay bindings, no hay
+// secretos. Los flags del comando de master (--assets, --name, --compatibility-date)
+// siguen mandando sobre lo de aqui. NO cambiar "name": Workers Builds exige que
+// coincida con el Worker del panel. f123-code (respaldo) y cloudflare-worker/ (licencias)
+// se despliegan desde otras carpetas y no leen este archivo.
+{
+  "name": "friendly-123",
+  "compatibility_date": "2025-09-27",
+  "assets": {
+    "directory": "./docs"
+  }
+}
