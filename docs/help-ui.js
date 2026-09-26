@@ -57,6 +57,20 @@
   #oc-sync-mini.sync-off{background:#141414 !important;border-color:#141414;}
   #oc-sync-mini.sync-off, #oc-sync-mini.sync-off span{
     color:#F4F4F4 !important;-webkit-text-fill-color:#F4F4F4 !important;}
+  /* Fila de estado + sol/luna (JFC 2026-09-26). En el telefono la PALABRA del estado
+     de sync se oculta (el punto queda, y la palabra sigue en aria-label/title para
+     lectores de pantalla): ese espacio lo toma el boton de tema. En PC, todo igual. */
+  #oc-estado-fila{display:flex;align-items:center;gap:6px;margin-top:4px;}
+  #oc-estado-fila #oc-sync-mini{margin-top:0 !important;}
+  #oc-tema-toggle{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;
+    border-radius:999px;border:1.5px solid #14181C;background:#FFFFFF;color:#0F1923;cursor:pointer;flex-shrink:0;}
+  #oc-tema-toggle svg{width:18px;height:18px;display:block;}
+  #oc-tema-toggle:focus-visible{outline:3px solid #2E6278;outline-offset:2px;}
+  html[data-tema="oscuro"] #oc-sync-mini{box-shadow:0 0 0 2px #FFFFFF;}
+  @media (max-width:767px){
+    #oc-sync-mini .oc-sync-txt{display:none !important;}
+    #oc-sync-mini{padding:4px !important;}
+  }
   `;
   document.head.appendChild(css);
 
@@ -314,14 +328,39 @@
      offline / lleva rato sin conectar (apagado); gris = sincronizando. */
   const mini = document.createElement("div");
   mini.id = "oc-sync-mini";
+  /* Tema oscuro: el estado NO se invierte (negro = sin conexion, blanco = al dia). */
+  mini.classList.add("oc-sin-invertir");
   mini.setAttribute("aria-live", "polite");
   mini.style.cssText = "display:flex;align-items:center;gap:5px;font-size:12px;line-height:1;font-weight:700;letter-spacing:.02em;color:#14181C;margin-top:4px;cursor:default;";
   const miniDot = document.createElement("span");
   miniDot.style.cssText = "width:8px;height:8px;border-radius:50%;box-sizing:border-box;background:#ffffff;border:1.5px solid #b7b7b7;";
   const miniTxt = document.createElement("span");
+  miniTxt.className = "oc-sync-txt";
   mini.appendChild(miniDot);
   mini.appendChild(miniTxt);
-  brandWrap.appendChild(mini);
+  const fila = document.createElement("div");
+  fila.id = "oc-estado-fila";
+  fila.appendChild(mini);
+  /* BOTON SOL/LUNA (JFC 2026-09-26): alterna claro/oscuro en ESTE aparato (OCTema,
+     definido en el <head> de index.html). Muestra el icono del modo al que lleva. */
+  const temaBtn = document.createElement("button");
+  temaBtn.id = "oc-tema-toggle";
+  temaBtn.type = "button";
+  const SVG_LUNA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  const SVG_SOL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
+  function pintarTema() {
+    const oscuro = !!(window.OCTema && window.OCTema.actual() === "oscuro");
+    temaBtn.innerHTML = oscuro ? SVG_SOL : SVG_LUNA;
+    temaBtn.setAttribute("aria-pressed", oscuro ? "true" : "false");
+    const et = _miniT("tema.oscuro", "Dark mode");
+    temaBtn.setAttribute("aria-label", et);
+    temaBtn.title = oscuro ? _miniT("tema.claro", "Light mode") : et;
+  }
+  temaBtn.addEventListener("click", function () { if (window.OCTema) window.OCTema.alternar(); });
+  window.addEventListener("oc-tema-change", pintarTema);
+  window.addEventListener("oc-lang-change", pintarTema);
+  fila.appendChild(temaBtn);
+  brandWrap.appendChild(fila);
 
   function _miniT(k, f) { try { return (window.t ? window.t(k, f) : f); } catch (_) { return f; } }
   function pintarMini(estado) {
@@ -354,12 +393,14 @@
       miniDot.style.borderColor = dotBorder;
       miniDot.style.boxShadow = dotGlow;
       miniTxt.textContent = etiqueta;
+      mini.setAttribute("aria-label", etiqueta);
       mini.style.color = txtColor;
       mini.classList.remove("sync-on", "sync-off", "sync-mid");
       mini.classList.add(e === "conectado" ? "sync-on" : ((e === "conectando" || e === "reconectando") && !problema) ? "sync-mid" : "sync-off");
       try { mini.title = _miniT("sync.mini.legend", "Sync status — black: offline · white: up to date"); } catch (_) {}
     } catch (_) {}
   }
+  pintarTema();
   pintarMini();
   try { if (window.OCSyncControl && window.OCSyncControl.onEstado) window.OCSyncControl.onEstado(pintarMini); } catch (_) {}
   window.addEventListener("oc-lang-change", function () { pintarMini(); });
