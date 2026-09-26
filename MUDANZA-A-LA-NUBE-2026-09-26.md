@@ -96,7 +96,7 @@ sí publica el origen anti-copia. Ya se le corrigió.
 
 ## PENDIENTE para declarar v1.0 (en este orden)
 1. Prioridad 1 de arriba.
-2. JFC prueba v410 en su iPhone en modo oscuro (legibilidad, header compacto, aviso de
+2. HECHO (JFC dio "Ok" desde el iPhone). JFC prueba v410 en su iPhone en modo oscuro (legibilidad, header compacto, aviso de
    WhatsApp encima de la barra en Advanced).
 3. HECHO en shell v411 (JFC eligió: fecha, hora y nota; solo dueño/admin). Lapicito para editar los incidentes que llevan a la lista negra + botón directo de lista
    negra en Clientes. Punto de partida: `docs/index.html` ~3475 (hora del incidente) y ~8669
@@ -107,7 +107,7 @@ sí publica el origen anti-copia. Ya se le corrigió.
    website, no aquí: confirmar con JFC dónde se trabaja.
 5. HECHO (`PARA-CODEX-2026-09-26.md`). Documento corto para Codex con lo que cambió desde el 25-09 (canales, Sonar, rutas del
    Worker, revisión Linus v405-v410). Codex publica en master, y master es el canario.
-6. Tag `v1.0` en git, notas de versión cortas EN y ES, una línea en DECISIONES y en NOTAS.
+6. HECHO 2026-09-26: v1.0 sellada en e25c830 (shell v413), rama `release-v1.0`; tag `v1.0-release` pendiente (proxy de la nube). Tag `v1.0` en git, notas de versión cortas EN y ES, una línea en DECISIONES y en NOTAS.
    La versión pública ya dice v1.0: declarar es sellarla, no subir el número.
 
 ## Pendientes que NO se pueden hacer desde la nube (quedan para la laptop)

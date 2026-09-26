@@ -429,3 +429,13 @@ QUEDA para declarar v1.0: v410 en clientes (~02:46) y prueba de JFC en su iPhone
 - Nube: la red bloquea github.io y workers.dev (no se puede verificar la URL viva desde aquí). Playwright del repo pide
   chromium_headless_shell-1234; se enlazó al 1194 preinstalado (solo en el contenedor).
 QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (repo del website, confirmar); tag v1.0 + notas EN/ES.
+
+## 2026-09-26 20:00 — v1.0 SELLADA (nube)
+- v412: textos ES de v400 ("ventas ventas", "venta de mostrador"). v413: tema claro/oscuro por aparato (sol/luna en el
+  header donde iba la palabra del estado de sync en el telefono; Appearance en Advanced; por defecto claro). Tecnica:
+  invertir + girar tono 180; se re-invierten fotos, lienzos, iframes, logo, semaforo de Hoy y el punto de sync.
+  Suite completa 392/392.
+- v1.0 sellada en e25c830 (rama release-v1.0). Tag v1.0 del 22-09 (v337) = interna, NO se movio. Tag v1.0-release
+  pendiente: el proxy de la nube no deja subir tags.
+- JFC YA NO TIENE ACCESO A LA LAPTOP (dicho 2026-09-26). Jev sin clave en la nube; no volver a pedirsela.
+- QUEDA: 2 clips del hero (repo website; su WIP estaba sin commit en la laptop). Aviso de emergencia en oscuro: re-invertido.
