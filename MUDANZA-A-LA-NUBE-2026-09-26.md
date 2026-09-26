@@ -65,6 +65,12 @@ secciones de `NOTAS-PARA-OPUS-5.5-2026-09-24.md`.
   Se versiona en la mudanza. Su salida `out-jueces/` NO va al repo (se regenera).
 
 ## PRIORIDAD 1 — el build del Worker `friendly-123` falla en cada PR
+> **RESUELTO 2026-09-26 (nube):** en master el build sale VERDE (c9a815f, 18:36 UTC,
+> "Workers Builds: friendly-123" = success; ningún archivo de docs/ cambió desde v410, así que
+> el origen sirve v410). El rojo es solo en ramas de PR (vista previa, falla en 0 s sin
+> construir). No bloquea nada. Para que salga verde en los PR, JFC tendría que apagar
+> "builds de ramas que no son producción" en el panel de Cloudflare (opcional).
+
 El check "Workers Builds: friendly-123" sale en rojo desde el PR #201 como mínimo. Ese Worker
 es el ORIGEN anti-copia (`https://friendly-123.jfcarpio.workers.dev/`) y se despliega solo en
 cada merge a master. Si el build falla, el origen se queda con un shell viejo. Los clientes no
@@ -89,7 +95,7 @@ sí publica el origen anti-copia. Ya se le corrigió.
 4. Los 2 clips del hero de la landing (DECISIONES "Clips de la landing": HTML5/JS, 3 a 7 s,
    una usuaria y un usuario, UNO A LA VEZ para medir tokens). La landing vive en el repo del
    website, no aquí: confirmar con JFC dónde se trabaja.
-5. Documento corto para Codex con lo que cambió desde el 25-09 (canales, Sonar, rutas del
+5. HECHO (`PARA-CODEX-2026-09-26.md`). Documento corto para Codex con lo que cambió desde el 25-09 (canales, Sonar, rutas del
    Worker, revisión Linus v405-v410). Codex publica en master, y master es el canario.
 6. Tag `v1.0` en git, notas de versión cortas EN y ES, una línea en DECISIONES y en NOTAS.
    La versión pública ya dice v1.0: declarar es sellarla, no subir el número.
