@@ -439,3 +439,4 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
   pendiente: el proxy de la nube no deja subir tags.
 - JFC YA NO TIENE ACCESO A LA LAPTOP (dicho 2026-09-26). Jev sin clave en la nube; no volver a pedirsela.
 - QUEDA: 2 clips del hero (repo website; su WIP estaba sin commit en la laptop). Aviso de emergencia en oscuro: re-invertido.
+- 2026-09-26 19:40: Workers Builds de RAMAS arreglado (PR #215, wrangler.jsonc en la raiz). Rama y master en verde.
