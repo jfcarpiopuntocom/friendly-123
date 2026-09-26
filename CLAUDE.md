@@ -1,5 +1,13 @@
 # CLAUDE.md — léeme entero antes de planificar o tocar código
 
+> **REGLA DURA JFC 2026-09-26 (la dijo 3 veces): JFC YA NO USA CODEX.** Claude es el
+> único que trabaja en estas apps. Todo lo que en este archivo o en las notas hable de
+> "coordinar con Codex", "no pisar el trabajo de Codex", `C:\00 Projects\Codex-...` o
+> documentos "para Codex" es HISTÓRICO: no se sigue, no se escriben más documentos para
+> Codex y no se le vuelve a mencionar a JFC como parte del flujo.
+> **JFC ya no tiene acceso a la laptop** (2026-09-26): todo se hace desde la nube. No
+> planificar nada que dependa de que él abra la PC.
+
 > **PRIMERO lee `DECISIONES-JFC.md`** (raíz del repo): las decisiones y aclaraciones
 > vigentes de JFC, compartidas con Codex. Si JFC aclara algo nuevo, se anota allí.
 
