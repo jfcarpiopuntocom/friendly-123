@@ -245,6 +245,10 @@ trabajo está mal hecho aunque el código funcione.
   la nube, con las mismas prohibiciones de abajo (nada de clientes, PIN, licencias ni claves).
   En la nube la clave va en las variables del entorno (AI_GATEWAY_API_KEY); si falta, se
   dice UNA vez y no se le vuelve a pedir a JFC. La máquina de la nube NO ve la laptop.
+- **HECHO 2026-09-26: Jev FUNCIONA en la nube.** El entorno "GitHub1" tiene la variable
+  `AI_GATEWAY_API_KEY` y Network access Custom con `ai-gateway.vercel.sh` (+ defaults).
+  Verificado en una sesion nueva (respuesta 200, confianza 1). Las sesiones que ya estaban
+  abiertas antes del cambio no lo ven: solo las nuevas. No volver a pedirle nada a JFC.
 - Compactación de sesión con Jev: plugin `fast-jev-compaction@fast-jev-compaction-jfc`
   (fork local de JFC que va por Vercel AI Gateway y censura licencias, claves y PIN antes de
   enviar). Si falla, Claude Code hace el resumen normal.
