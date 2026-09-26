@@ -1,3 +1,5 @@
+> HISTÓRICO: JFC ya no usa Codex (2026-09-26). Se conserva solo como resumen de cambios.
+
 # Para Codex — qué cambió en friendly-123 desde el 25-09 (hasta shell v410)
 
 Léelo antes de tocar nada. Reglas completas en `CLAUDE.md` (secciones CANARIOS, MARCA,
