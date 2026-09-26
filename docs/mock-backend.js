@@ -901,6 +901,12 @@
   } catch (_) {}
   const OC_STATE_SUFIJO = _sufijoTiendaActiva();
   const OC_STATE_PTR = OC_STATE_KEY + OC_STATE_SUFIJO + "_ptr";
+  /* SELLO DE ESCRITURA (revision Linus 2026-09-25, bug real: dos pestanas vendian la ULTIMA
+     unidad, las dos decian "vendido" y una venta se perdia en silencio). Cada guardado
+     deja un sello unico; una pestana cuyo sello en memoria no coincide con el guardado
+     sabe que otra escribio despues y recarga ANTES de escribir (ver window.fetch). */
+  const OC_STATE_SELLO = OC_STATE_KEY + OC_STATE_SUFIJO + "_sello";
+  let _miSello = (function () { try { return localStorage.getItem(OC_STATE_SELLO); } catch (_) { return null; } })();
   function claveBuffer(letra) { return OC_STATE_KEY + OC_STATE_SUFIJO + "_" + letra; }
   // Solo metadatos del conflicto, jamás el PIN remoto. El registro es por
   // cuaderno y sobrevive a un refresh hasta que el miembro sí logra aplicarse.
@@ -964,6 +970,8 @@
     try {
       localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
       localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
+      _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
       ocultarAvisoRecorte();
       _publicarAdminPins();
       return true;
@@ -1265,7 +1273,19 @@
     } catch (_) {}
   }
   // Cuando otra pestaña guarda, recargar su estado si es más nuevo (evita last-writer-wins con estado viejo)
-  window.addEventListener("storage", (e) => { if (e.key === OC_STATE_PTR) cargarEstadoLocal(); });
+  /* 2026-09-25: la clave nativa lleva el prefijo de aislamiento.js ("f123::..."), asi que
+     comparar con OC_STATE_PTR a secas NUNCA coincidia (hallazgo H1 del 2026-08-05): la otra
+     pestana no se enteraba jamas. Se acepta la clave con o sin prefijo. */
+  window.addEventListener("storage", (e) => {
+    const k = e && e.key ? String(e.key) : "";
+    if (k === OC_STATE_PTR || k.endsWith("::" + OC_STATE_PTR)) { cargarEstadoLocal(); try { _miSello = localStorage.getItem(OC_STATE_SELLO); } catch (_) {} }
+  });
+  function _recargarSiOtraPestanaEscribio() {
+    try {
+      const guardado = localStorage.getItem(OC_STATE_SELLO);
+      if (guardado && guardado !== _miSello) { cargarEstadoLocal(); _miSello = guardado; }
+    } catch (_) {}
+  }
 
   function nombreUbic(id) { const u = ubicaciones.find((x) => x.id === id); return u ? u.nombre : "Ubicación desconocida"; }
 
@@ -3722,7 +3742,26 @@
 
   const realFetch = window.fetch.bind(window);
 
-  window.fetch = async function (url, opts) {
+  /* CANDADO ENTRE PESTANAS (revision Linus 2026-09-25). Toda escritura /api pasa por un
+     candado unico del origen (Web Locks: Chrome 69+, Safari 15.4+). Dentro del candado se
+     recarga el estado si otra pestana guardo despues, se valida (stock, etc.) y se guarda.
+     Asi la segunda venta de la ultima unidad ve stock 0 y se RECHAZA, en vez de "venderse"
+     y perderse. Lecturas (GET) no esperan a nadie. Sin Web Locks: igual se recarga por sello. */
+  const _fetchConCandado = async function (url, opts) {
+    let escribe = false;
+    try {
+      const u0 = typeof url === "string" ? url : (url && url.url) || "";
+      const m0 = ((opts && opts.method) || (url && url.method) || "GET").toUpperCase();
+      escribe = m0 !== "GET" && new URL(u0, window.location.origin).pathname.startsWith("/api");
+    } catch (_) {}
+    if (!escribe) return _fetchInterno(url, opts);
+    if (navigator.locks && navigator.locks.request) {
+      return navigator.locks.request("f123-escrituras", async () => { _recargarSiOtraPestanaEscribio(); return _fetchInterno(url, opts); });
+    }
+    _recargarSiOtraPestanaEscribio();
+    return _fetchInterno(url, opts);
+  };
+  const _fetchInterno = async function (url, opts) {
     // Microcirugia 4 (2026-07-07): si alguna libreria llama fetch(new
     // Request(...)), antes el interceptor no veia metodo ni body y la
     // llamada al backend local se perdia en silencio. Se normaliza aqui.
@@ -5664,4 +5703,5 @@
       if (debePersistir) guardarEstadoLocal();
     }
   };
+  window.fetch = _fetchConCandado;
 })();

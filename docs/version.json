@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-25",
-  "changelog": "Safer updates: each new version runs first on the owner's devices and reaches every store only after it passes its checks.",
+  "changelog": "Two open tabs on the same device no longer lose sales: every sale is checked against the latest stock before it is saved.",
   "requerida": false,
-  "shell": "f123-shell-v404",
+  "shell": "f123-shell-v405",
   "apagar": [],
   "releaseName": "v1.0"
 }
