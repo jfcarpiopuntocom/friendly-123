@@ -233,7 +233,10 @@
       html.push('<tr' + (sel ? ' class="lic-sel"' : "") + '>' +
         '<td><input type="checkbox" class="lic-check" data-iid="' + id + '" data-cod="' + esc(g.cod) + '"' + (sel ? " checked" : "") + ' aria-label="Select ' + esc(r.nombreNegocio || g.cod || id) + '"></td>' +
         '<td><span class="lic-badge ' + esc(est) + '">' + esc(est) + '</span>' + (g.diasInactivo !== null && g.diasInactivo >= 30 ? '<br><span class="lic-sub">' + g.diasInactivo + ' days quiet</span>' : "") + '</td>' +
-        '<td class="mono" style="color:var(--gold);">' + esc(g.cod || "—") + (g.lote ? '<br><span class="lic-chip">' + esc(g.lote) + '</span>' : "") +
+        /* 2026-09-25 (JFC, pedido 13 veces): lapiz para poner/cambiar la licencia AQUI, junto a
+           ella. Antes "Re-attach" estaba escondido en "More", en la ultima columna. Reusa
+           licReenganchar (ruta /reapuntar del Worker, con historial: reversible). */
+        '<td class="mono" style="color:var(--gold);">' + esc(g.cod || "—") + ' <button type="button" class="lic-lapiz" onclick="licReenganchar(\'' + id + '\')" title="Set or change the license of this device">✎</button>' + (g.lote ? '<br><span class="lic-chip">' + esc(g.lote) + '</span>' : "") +
           (n > 1 ? '<br><button type="button" class="btn-ok lic-mini" onclick="licToggleDisp(\'' + id + '\')" title="See each device on this license">' + esc(etiquetaDisp) + '</button>' : "") + '</td>' +
         '<td>' + (r.nombreNegocio ? '<strong>' + esc(r.nombreNegocio) + '</strong>' : '—') + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'negocio\')" title="Edit business name">✎</button></td>' +
         '<td>' + esc(nombreCompleto(r) || "—") + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'nombre\')" title="Edit owner name">✎</button></td>' +
@@ -258,7 +261,7 @@
         var hid = esc(h.instanceId);
         html.push('<tr class="lic-disp lic-disp-' + id + '" style="display:none;">' +
           '<td></td><td class="lic-sub">↳ device</td>' +
-          '<td class="mono">' + esc(h.licenseCode || "—") + '</td>' +
+          '<td class="mono">' + esc(h.licenseCode || "—") + ' <button type="button" class="lic-lapiz" onclick="licReenganchar(\'' + hid + '\')" title="Set or change the license of this device">✎</button>' + '</td>' +
           '<td>' + esc(h.nombreNegocio || "—") + '</td>' +
           '<td>' + esc(nombreCompleto(h) || "—") + '</td>' +
           '<td>' + esc(h.email || "—") + (esMio(h) ? ' <span class="lic-chip">tu aparato</span>' : "") + '</td>' +
