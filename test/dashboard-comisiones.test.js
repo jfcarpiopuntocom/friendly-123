@@ -31,7 +31,7 @@ test('dashboard paints Commissions first: month bar, totals, cards, deep-links a
     assert.match(r.txt, /\$120\.00/, 'gross of this month: 50+50+20');
     assert.match(r.txt, /\$44\.50/, 'associates take 42.5+42.5+2 minus the 42.5 return');
     assert.ok(r.keys.some(k => /still to pay|\$42\.50/.test(k)) || r.keys.some(k => k.includes(fx.prev.slice(0, 4))), 'the unpaid earlier month is a red key');
-    assert.match(r.txt, /Mountain print/); assert.match(r.txt, /COUNTER SALE/);
+    assert.match(r.txt, /Mountain print/); assert.match(r.txt, /House sale/);
     assert.match(r.txt, /Ranking/); assert.ok(r.txt.indexOf('Ranking') > r.txt.indexOf('Mountain print'), 'ranking at the bottom');
     // vista por percha: pagar en la app y devoluciones
     const r2 = await page.evaluate(() => {
