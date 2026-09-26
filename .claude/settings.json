@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "fast-jev-compaction-jfc": {
+      "source": { "source": "github", "repo": "jfcarpiopuntocom/fast-jev-compaction-jfc" }
+    },
+    "jev-pruner-jfc": {
+      "source": { "source": "github", "repo": "jfcarpiopuntocom/jev-pruner-jfc" }
+    }
+  },
+  "enabledPlugins": {
+    "fast-jev-compaction@fast-jev-compaction-jfc": true,
+    "fast-jev-output@jev-pruner-jfc": true
+  }
+}
