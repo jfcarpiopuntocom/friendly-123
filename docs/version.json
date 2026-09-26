@@ -3,7 +3,7 @@
   "fecha": "2026-09-25",
   "changelog": "Stronger roles: employees sell but cannot void, change prices or see commissions; only the owner can restore a full backup.",
   "requerida": false,
-  "shell": "f123-shell-v409",
+  "shell": "f123-shell-v410",
   "apagar": [],
   "releaseName": "v1.0"
 }
