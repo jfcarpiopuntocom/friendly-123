@@ -1,6 +1,6 @@
 # friendly-123 v1.0 — release notes
 
-Borrador listo el 2026-09-26 (shell v411). Se sella con el tag `v1.0` cuando JFC dé por
+Borrador listo el 2026-09-26 (shell v413). Se sella con el tag `v1.0` cuando JFC dé por
 buena la prueba en su iPhone en modo oscuro. La versión pública ya dice v1.0: declarar es
 sellarla, no subir el número.
 
@@ -19,6 +19,8 @@ between your own devices is opt-in and end-to-end encrypted.
   time and note of an incident, and blacklist a customer in one tap.
 - **Phone first.** Readable in dark mode on every screen. The weekly reminder no longer
   covers the navigation bar.
+- **Light or dark.** A sun/moon button in the header, and Appearance in Advanced. Each
+  device keeps its own choice; light is the default.
 - **Safe updates.** New versions reach the owner's devices first and your customers
   33 minutes later, with a way back.
 
@@ -37,5 +39,7 @@ entre tus propios aparatos es opcional y va cifrado de extremo a extremo.
   fecha, la hora y la nota de un incidente, y mandar a un cliente a la lista negra con un toque.
 - **Primero el teléfono.** Se lee bien en modo oscuro en todas las pantallas. El recordatorio
   semanal ya no tapa la barra de navegación.
+- **Claro u oscuro.** Un botón de sol/luna en el encabezado, y Apariencia en Advanced. Cada
+  aparato guarda su propia elección; por defecto, claro.
 - **Actualizaciones seguras.** Cada versión nueva llega primero a los aparatos del dueño y
   33 minutos después a los clientes, con vuelta atrás.
