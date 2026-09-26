@@ -160,6 +160,26 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             owned.licenseEstadoAt = Date.now();
             localStorage.setItem("f123_owned", JSON.stringify(owned));
           }
+          /* RESCATE AUTOMATICO DE LICENCIA (JFC 2026-09-25, caso Belen: un telefono de
+             idiomARTE quedo SIN licencia, fuera de su cuaderno, mostrando datos de muestra).
+             JFC le pone la licencia desde su panel (lapiz -> /reapuntar) y el Worker la
+             devuelve en el latido. Antes la app la IGNORABA y habia que pegarla a mano en
+             Advanced. Ahora: si ESTE aparato no tiene licencia y el Worker trae una F123
+             valida, la adopta, se recarga UNA vez y el sync arranca en su cuaderno.
+             Nunca reemplaza una licencia que el aparato ya tenga. No borra datos: al
+             unirse, la fusion suma (add-only). */
+          try {
+            var _licNueva = String((r && r.licenseCode) || "").trim().toUpperCase();
+            var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+            var _licActual = String(_ow.licenseCode || "").trim().toUpperCase();
+            if (_ow.instanceId && !/^F123-/.test(_licActual) && /^F123-[0-9A-Z*~$=-]{8,34}$/.test(_licNueva)) {
+              _ow.licenseCode = _licNueva;
+              if (!/^F123-/i.test(String(_ow.syncCode || ""))) _ow.syncCode = _licNueva;
+              localStorage.setItem("f123_owned", JSON.stringify(_ow));
+              try { localStorage.setItem("f123_licencia_rescatada_en", String(Date.now())); } catch (_) {}
+              setTimeout(function () { try { location.reload(); } catch (_) {} }, 1200);
+            }
+          } catch (_) {}
           /* APARATO DE JFC (v349). Lo decide JFC en su panel ("Aparato JFC").
              true  -> se marca lord (entra como soporte/invitado a tiendas ajenas)
                       y fija la licencia canónica del lord si aún no existe.

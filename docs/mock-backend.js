@@ -3764,7 +3764,9 @@
       let body = {}; try { body = opts && opts.body ? JSON.parse(opts.body) : {}; } catch (_) {}
       const msg = "Ask the owner or a manager: an employee cannot do this.";
       if (/^\/api\/(liquidaciones|comisiones)(\/|$)/.test(path) || path === "/api/promotores/desempeno") return msg;
-      if (/^\/api\/ventas\/[^/]+\/anular$/.test(path)) return msg;
+      /* Anular: INTERINO (JFC 2026-09-25: "claro que el empleado debe poder pedir anulaciones").
+         Queda como antes de v406 hasta que exista la autorizacion del encargado con PIN en el
+         momento (mejor practica: el cajero pide, un dueno/admin aprueba). */
       if (/^\/api\/promotoras(\/|$)/.test(path) && m !== "GET") return msg;
       const mp = /^\/api\/productos\/([^/]+)$/.exec(path);
       if (mp && m === "DELETE") return msg;

@@ -1270,7 +1270,7 @@ async function licReenganchar(instanceId) {
     });
     const r = await res.json();
     if (!res.ok || !r.ok) { alert("Error: " + (r.error || res.status)); return; }
-    alert("Re-enganchado. Ahora en el dispositivo entra esa licencia por Avanzado → Sync your team (o 'Unirme con el código de mi negocio') para que la adopte y se una a sus hermanos.");
+    alert("Re-enganchado. Si el aparato no tenía licencia, la adopta solo la próxima vez que entre (desde el shell v407) y se une a su cuaderno. Si ya tenía otra, entra esta licencia por Avanzado → Sync your team para que la adopte y se una a sus hermanos.");
     licRecargar();
   } catch (e) { alert("Fallo de red: " + (e && e.message)); }
 }
