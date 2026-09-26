@@ -121,6 +121,43 @@
 <meta name="color-scheme" content="light only">
 <meta name="supported-color-schemes" content="light">
 <meta name="theme-color" content="#0F1923">
+<!-- TEMA CLARO/OSCURO (JFC 2026-09-26). LEER ANTES DE TOCAR:
+     - Por defecto CLARO, igual que siempre. "oscuro" es una eleccion por aparato
+       (localStorage oc_tema), nunca viaja por sync ni se impone.
+     - Se aplica AQUI, en el <head> y antes de pintar: sin destello blanco al abrir.
+     - Tecnica: invertir la pagina entera y girar el tono 180 grados. Asi los colores
+       del semaforo conservan su tono y todo el texto conserva su contraste, sin
+       reescribir los cientos de colores en linea de la app. Fotos, video, lienzos e
+       iframes se re-invierten para verse con sus colores reales.
+     - NO cambiar el meta color-scheme "light only" de arriba: el sistema no debe
+       oscurecer por su cuenta (fue el bug de legibilidad de iOS/WhatsApp). El oscuro
+       de la app es este, y solo si la persona lo elige. -->
+<style>
+  html[data-tema="oscuro"]{filter:invert(1) hue-rotate(180deg);background:#FFFFFF;}
+  html[data-tema="oscuro"] img,html[data-tema="oscuro"] video,html[data-tema="oscuro"] canvas,
+  html[data-tema="oscuro"] iframe,html[data-tema="oscuro"] .oc-sin-invertir{filter:invert(1) hue-rotate(180deg) !important;}
+  /* !important: reglas con id (p. ej. la sombra del logo del PIN) le ganaban y el logo salia invertido. */
+  /* El semaforo de Hoy conserva sus colores reales (rojo/amarillo/verde = identidad de la app). */
+  html[data-tema="oscuro"] #heroSemaforo{filter:invert(1) hue-rotate(180deg);}
+</style>
+<script>
+  window.OCTema = (function () {
+    var CLAVE = "oc_tema";
+    function actual() { return document.documentElement.getAttribute("data-tema") === "oscuro" ? "oscuro" : "claro"; }
+    function aplicar(t) {
+      if (t === "oscuro") document.documentElement.setAttribute("data-tema", "oscuro");
+      else document.documentElement.removeAttribute("data-tema");
+    }
+    function poner(t) {
+      t = t === "oscuro" ? "oscuro" : "claro";
+      try { localStorage.setItem(CLAVE, t); } catch (e) {}
+      aplicar(t);
+      try { window.dispatchEvent(new CustomEvent("oc-tema-change", { detail: t })); } catch (e) {}
+    }
+    try { aplicar(localStorage.getItem(CLAVE)); } catch (e) {}
+    return { actual: actual, poner: poner, alternar: function () { poner(actual() === "oscuro" ? "claro" : "oscuro"); } };
+  })();
+</script>
 <!-- Open Graph: link previews in WhatsApp / social when the URL is shared -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="friendly-123">
@@ -2168,6 +2205,17 @@
       <p data-i18n="adv.timezoneIntro">Used to decide what counts as "today" for sales, expenses, and daily close. Pick your store's timezone, or leave it on auto to use this device's timezone.</p>
       <select id="selectTimezone" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;max-width:320px;"></select>
       <p id="msgTimezone" style="font-size:14px; margin-top:10px;"></p>
+    </div>
+    <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
+
+    <!-- Apariencia (JFC 2026-09-26): mismo control que el sol/luna del header; ver OCTema en el <head>. -->
+    <h3 class="seccion" data-i18n="adv.temaHeading">Appearance</h3>
+    <div class="panel-escaner tag-card" style="text-align:left;">
+      <p data-i18n="adv.temaIntro">Light or dark screen for this device. Your other devices keep their own choice.</p>
+      <select id="selectTema" aria-label="Appearance" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;max-width:320px;font-size:15px;color:#0F1923;">
+        <option value="claro" data-i18n="adv.temaClaro">Light</option>
+        <option value="oscuro" data-i18n="adv.temaOscuro">Dark</option>
+      </select>
     </div>
     <div style="text-align:right;margin-top:10px;"><a href="#" onclick="volverArribaAvanzado();return false;" style="font-size:13px;font-weight:700;color:var(--azul-medio,#2c4a68);text-decoration:none;cursor:pointer;">↑ <span data-i18n="adv.backToTop">Back to top</span></a></div>
 
@@ -8929,6 +8977,17 @@ const TIMEZONES_COMUNES = [
   window.addEventListener("online", actualizar);
   window.addEventListener("offline", actualizar);
   actualizar();
+})();
+
+// Selector de Apariencia en Advanced (JFC 2026-09-26). Se mantiene en sintonia con el
+// sol/luna del header por el evento "oc-tema-change".
+(function () {
+  const sel = document.getElementById("selectTema");
+  if (!sel || !window.OCTema) return;
+  const pintar = () => { sel.value = window.OCTema.actual(); };
+  sel.addEventListener("change", () => window.OCTema.poner(sel.value));
+  window.addEventListener("oc-tema-change", pintar);
+  pintar();
 })();
 
 function inicializarSelectorTimezone(){
