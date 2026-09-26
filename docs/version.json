@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-25",
-  "changelog": "Two open tabs on the same device no longer lose sales: every sale is checked against the latest stock before it is saved.",
+  "changelog": "Stronger roles: employees sell but cannot void, change prices or see commissions; only the owner can restore a full backup.",
   "requerida": false,
-  "shell": "f123-shell-v405",
+  "shell": "f123-shell-v406",
   "apagar": [],
   "releaseName": "v1.0"
 }

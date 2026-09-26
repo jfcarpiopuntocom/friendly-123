@@ -99,13 +99,16 @@ test('actual Yjs bridge propagates a sale void without resurrecting revenue', as
 
 test('actual Yjs bridge carries sale price and quantity corrections', async () => {
   const a = await peer(), b = await peer();
-  a.OCAuth = { rolActual: () => 'admin' };
+  // 2026-09-25: exportar completo e importar son solo del dueno; el admin corrige la venta.
+  let rolA = 'dueno';
+  a.OCAuth = { rolActual: () => rolA };
   const fixture = await a.request('/api/respaldo/exportar');
   const product = fixture.productos.find(p => p.stockActual >= 10);
   product.id = 'p-bridge-edit'; product.stockActual = 10;
   fixture.productos = [product]; fixture.ventas = []; fixture.movimientos = [];
   await a.request('/api/respaldo/importar', 'POST', fixture);
   await b.request('/api/respaldo/importar', 'POST', fixture);
+  rolA = 'admin';
   const sold = await a.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 2 });
   a.OCYjs._store.sembrar(); transfer(a, b);
   await a.request(`/api/ventas/${sold.ventaId}`, 'PATCH', { cantidad: 3, precioUnit: 17 });

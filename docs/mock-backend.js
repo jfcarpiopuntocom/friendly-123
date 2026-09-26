@@ -3747,7 +3747,38 @@
      recarga el estado si otra pestana guardo despues, se valida (stock, etc.) y se guarda.
      Asi la segunda venta de la ultima unidad ve stock 0 y se RECHAZA, en vez de "venderse"
      y perderse. Lecturas (GET) no esperan a nadie. Sin Web Locks: igual se recarga por sello. */
+  /* PERMISOS DEL EMPLEADO EN EL BACKEND (revision Linus bloque 3, JFC 2026-09-25: "lo que
+     sea legalmente, operativamente y worlds best practices mejor, en ese orden"). Separacion
+     de funciones, como el cajero de Square / Shopify POS / Lightspeed: quien cobra no anula,
+     no cambia precios ni costos, no borra productos, no ve comisiones ni crea comisionistas.
+     Antes solo lo frenaba la interfaz (botones escondidos); el backend lo permitia todo.
+     Limite honesto: en una app local alguien con DevTools puede saltarse JS; esto frena lo
+     real de una tienda (un boton que se cuela, un enlace directo, una pantalla abierta).
+     NO se toca /api/respaldo/exportar: lo usa respaldo-empleado.js (punto 13 de JFC). */
+  function _negadoPorRol(url, opts) {
+    try {
+      if (_rolLocal() !== "empleado") return null;
+      const u0 = typeof url === "string" ? url : (url && url.url) || "";
+      const path = new URL(u0, window.location.origin).pathname;
+      const m = ((opts && opts.method) || "GET").toUpperCase();
+      let body = {}; try { body = opts && opts.body ? JSON.parse(opts.body) : {}; } catch (_) {}
+      const msg = "Ask the owner or a manager: an employee cannot do this.";
+      if (/^\/api\/(liquidaciones|comisiones)(\/|$)/.test(path) || path === "/api/promotores/desempeno") return msg;
+      if (/^\/api\/ventas\/[^/]+\/anular$/.test(path)) return msg;
+      if (/^\/api\/promotoras(\/|$)/.test(path) && m !== "GET") return msg;
+      const mp = /^\/api\/productos\/([^/]+)$/.exec(path);
+      if (mp && m === "DELETE") return msg;
+      if (mp && (m === "PUT" || m === "PATCH")) {
+        const prod = productos.find((x) => String(x.id) === String(mp[1]));
+        const cambia = (k) => body[k] !== undefined && prod && Number(body[k]) !== Number(prod[k]);
+        if (cambia("precio") || cambia("costo")) return msg;
+      }
+    } catch (_) {}
+    return null;
+  }
   const _fetchConCandado = async function (url, opts) {
+    const _negado = _negadoPorRol(url, opts);
+    if (_negado) return new Response(JSON.stringify({ error: _negado }), { status: 403, headers: { "Content-Type": "application/json" } });
     let escribe = false;
     try {
       const u0 = typeof url === "string" ? url : (url && url.url) || "";
@@ -4843,10 +4874,29 @@
         return J({ estrella: p.estrella });
       }
 
+      /* RESPALDO POR ROL (revision Linus bloque 3, JFC 2026-09-25: "export del empleado suena
+         riesgoso e innecesario ... lo legal, operativa y world best practices"). Completo SOLO
+         el dueno. Admin y empleado reciben una exportacion PARCIAL armada aqui por LISTA
+         BLANCA: productos sin costo, perchas, ventas con su comision y el rastro basico.
+         Sin clientes, costos, gastos, PINs ni margenes. respaldo-empleado.js (punto 13) se
+         arma con esto y sigue funcionando. Importar (reemplaza TODO el cuaderno): solo dueno. */
       if (path === "/api/respaldo/exportar") {
-        return J(estadoActualExportable());
+        const _rolExp = _rolLocal();
+        if (!_rolExp || _rolExp === "dueno" || _rolExp === "demo" || _rolExp === "contador") return J(estadoActualExportable()); // sin sesion = uso interno; demo = muestra; contador = rol de solo lectura que necesita costos (no importa)
+        const _c = estadoActualExportable();
+        const _toma = (o, ks) => ks.reduce((r, k) => { if (o && o[k] !== undefined) r[k] = o[k]; return r; }, {});
+        return J({
+          parcial: true, nombreNegocio: _c.nombreNegocio || "",
+          productos: (_c.productos || []).map((x) => _toma(x, ["id", "nombre", "sku", "precio", "ubicacionId"])),
+          ubicaciones: (_c.ubicaciones || []).map((x) => _toma(x, ["id", "nombre", "tipo"])),
+          ventas: (_c.ventas || []).map((v) => Object.assign(_toma(v, ["id", "fecha", "productoId", "cantidad", "precioUnit", "ubicacionId", "vendedorId", "liquidada", "anulada"]),
+            { split: v.split ? { montoComisionSocio: v.split.montoComisionSocio } : null })),
+          movimientos: (_c.movimientos || []).map((x) => _toma(x, ["id", "fecha", "tipo", "productoId", "cantidad", "ubicacionId", "vendedorId", "usuario"])),
+        });
       }
       if (path === "/api/respaldo/importar") {
+        const _rolImp = _rolLocal();
+        if (_rolImp && _rolImp !== "dueno" && _rolImp !== "demo") return J({ error: "Only the owner can import a backup: it replaces the whole notebook." }, 403);
         try {
           // BUG FIJADO 2026-07-03 y ampliado 2026-07-05 (item 19): antes solo
           // se comprobaba que fueran arrays; ahora validarRespaldo() revisa
