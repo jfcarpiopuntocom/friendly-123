@@ -264,6 +264,10 @@ trabajo está mal hecho aunque el código funcione.
   (`$.env.get(name)` con nombre variable): se corrigio a nombres literales y ahora valida.
   Para actualizarlo: copiar de nuevo desde jfcarpiopuntocom/fast-jev-compaction-jfc sin
   tests/, demo/ ni examples/ (traen licencias de prueba que G5 podria marcar).
+- Poda de salidas largas de Bash con Jev: plugin `fast-jev-output@jev-pruner-jfc`.
+  **2026-09-27 (JFC: "Sí, duh!"):** tambien COPIADO en `.claude/marketplaces/jev-pruner-jfc/`
+  (repo origen privado). Solo lo que corre: sin tests/, evals/, demo/, codex/, .agents/.
+  Ya validaba; lee la clave de AI_GATEWAY_API_KEY (entorno o env de settings).
 
 ## SEGUNDO CEREBRO: OBSIDIAN EN LA NUBE (JFC 2026-09-26)
 - Plugin `obsidian-second-brain` (github eugeniughelbur/obsidian-second-brain, MIT, publico)
