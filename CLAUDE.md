@@ -245,6 +245,10 @@ trabajo está mal hecho aunque el código funcione.
   la nube, con las mismas prohibiciones de abajo (nada de clientes, PIN, licencias ni claves).
   En la nube la clave va en las variables del entorno (AI_GATEWAY_API_KEY); si falta, se
   dice UNA vez y no se le vuelve a pedir a JFC. La máquina de la nube NO ve la laptop.
+- **JFC 2026-09-27: "Luego de tu research siempre mucho Jev".** Todo research (web, benchmark,
+  landing, copy) termina con una pasada FUERTE de Jev: rankear, triar y validar sí/no cada
+  hallazgo o propuesta, con criterios explícitos, antes de presentárselo a JFC. Si Jev falla
+  (hoy 403 por falta de créditos), se dice UNA vez y queda anotado como pasada pendiente.
 - **HECHO 2026-09-26: Jev FUNCIONA en la nube.** El entorno "GitHub1" tiene la variable
   `AI_GATEWAY_API_KEY` y Network access Custom con `ai-gateway.vercel.sh` (+ defaults).
   Verificado en una sesion nueva (respuesta 200, confianza 1). Las sesiones que ya estaban

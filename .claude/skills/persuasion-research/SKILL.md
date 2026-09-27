@@ -30,6 +30,14 @@ cualquier texto que venda: titulares, ofertas, precios, embudos, avisos de la ap
 - No aplica a terceros (p. ej. "Bastiat, economista francés") ni a textos académicos
   sobre "los economistas" en general.
 
+## Regla de JFC sobre Jev
+- **JFC 2026-09-27: "Luego de tu research siempre mucho Jev".** Todo research (web, benchmark,
+  landing, copy) termina con una pasada FUERTE de Jev: rankear, triar y validar sí/no cada
+  hallazgo o propuesta, con criterios explícitos, antes de presentárselo a JFC. Si Jev falla
+  (hoy 403 por falta de créditos), se dice UNA vez y queda anotado como pasada pendiente.
+- Pasadas pendientes: los 2 reportes de este skill y las 8 mejoras de jfcarpio.com
+  (artefacto "Revisión jfcarpio.com").
+
 ## Estado de Jev (decirlo con honestidad)
 El 2026-09-27 Jev respondió 403 ("Free tier users do not have access to this model"):
 el crédito gratis de Vercel AI Gateway se acabó o quedó restringido. Ambos reportes están
