@@ -21,6 +21,15 @@ cualquier texto que venda: titulares, ofertas, precios, embudos, avisos de la ap
 4. El deseo del cliente va en el titular; el producto va después.
 5. Todo texto nuevo para un sitio público se le muestra a JFC antes de publicar.
 
+## REGLA DURA JFC 2026-09-27: NUNCA LLAMAR A JFC "ECONOMISTA"
+- Prohibido "economista" / "economist" para referirse a JFC, en cualquier texto (sitio,
+  apps, onepagers, bios, metadatos, posts). A él le suena pretencioso, aun con maestría y
+  casi doctorado. Tampoco debe sonar a asesor contable.
+- Cómo SÍ: **investigador económico y empresarial** y **consultor** (EN: economic and
+  business researcher; consultant).
+- No aplica a terceros (p. ej. "Bastiat, economista francés") ni a textos académicos
+  sobre "los economistas" en general.
+
 ## Estado de Jev (decirlo con honestidad)
 El 2026-09-27 Jev respondió 403 ("Free tier users do not have access to this model"):
 el crédito gratis de Vercel AI Gateway se acabó o quedó restringido. Ambos reportes están
