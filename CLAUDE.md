@@ -258,6 +258,12 @@ trabajo está mal hecho aunque el código funcione.
 - Compactación de sesión con Jev: plugin `fast-jev-compaction@fast-jev-compaction-jfc`
   (fork local de JFC que va por Vercel AI Gateway y censura licencias, claves y PIN antes de
   enviar). Si falla, Claude Code hace el resumen normal.
+  **2026-09-26 (JFC eligio "publico"):** el plugin va COPIADO dentro de este repo en
+  `.claude/marketplaces/fast-jev-compaction-jfc/` (marketplace de directorio) porque su repo
+  es privado y la nube no lo clonaba. Ademas NUNCA habia pasado la validacion de Claude Code
+  (`$.env.get(name)` con nombre variable): se corrigio a nombres literales y ahora valida.
+  Para actualizarlo: copiar de nuevo desde jfcarpiopuntocom/fast-jev-compaction-jfc sin
+  tests/, demo/ ni examples/ (traen licencias de prueba que G5 podria marcar).
 
 ## SEGUNDO CEREBRO: OBSIDIAN EN LA NUBE (JFC 2026-09-26)
 - Plugin `obsidian-second-brain` (github eugeniughelbur/obsidian-second-brain, MIT, publico)
