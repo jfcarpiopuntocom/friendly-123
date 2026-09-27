@@ -46,10 +46,14 @@ prohibido por regla dura (JFC debe sonar a investigador económico y empresarial
 0. Identidad (title, meta y og; reemplaza "apps ... hechas por un economista")
    - ES: "J.F. Carpio: investigación económica y empresarial, y consultoría."
    - EN: "J.F. Carpio: economic and business research, and consulting."
-1. Titular principal (H1), para CEOs y directorios (deseo: proteger el patrimonio)
-   - ES: "Decide 2026-2027 sin arriesgar tu patrimonio: research macro y sectorial de Ecuador, y talleres para directivos."
-   - EN: "Decide 2026-2027 without risking your assets: macro and sector research on Ecuador, and workshops for executives."
-   Debajo siguen el testimonio de Diego Peñaherrera, el brief gratis y la garantía.
+1. Titular principal (H1) — APLICADO 2026-09-27, JFC eligió "B que desemboca en A":
+   - H1 ES: "Investigación económica y empresarial para decidir con claridad en países complicados."
+   - Sub ES: "Ideas originales sobre economía y empresa, convertidas en decisiones y herramientas."
+   - EN: "Economic and business research for clear decisions in complicated countries." /
+     "Original ideas on economics and business, turned into decisions and tools."
+   - RECHAZADO por JFC ("repugnante y reductivo"): "Decide 2026-2027 sin arriesgar tu patrimonio...".
+     Lección: JFC no se vende por miedo ni reducido a un público; lo distinguen sus ideas propias.
+     JFC: "prefiero ser excesivo que confundir al lector" (claridad antes que brevedad).
 2. Lectores (texto `bento_deck` sobre las 5 tarjetas del "Archivo aplicado")
    - ES: "Economía explicada con rigor y sin jerga: ensayos, artículos y libros sobre Ecuador y el mundo."
    - EN: "Economics explained with rigor and without jargon: essays, articles and books on Ecuador and the world."
