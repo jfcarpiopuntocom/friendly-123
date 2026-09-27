@@ -30,12 +30,16 @@ profesional en Ecuador restaría confianza. No se publica tal cual.
 
 ## Diagnóstico de jfcarpio.com
 El titular actual habla del producto y del autor ("Herramientas simples para negocios
-reales, hechas por un economista"), no de lo que gana el visitante.
+reales, hechas por un economista"), no de lo que gana el visitante. Además usa "economista",
+prohibido por regla dura (JFC debe sonar a investigador económico y empresarial y a consultor).
 
 ## Propuesta de titulares (ESPERA APROBACIÓN DE JFC, no publicada)
-1. Apps (deseo: tiempo)
-   - ES: "Menos horas cuadrando cuentas. Más horas para tu negocio."
-   - EN: "Fewer hours balancing the books. More hours for your business."
+0. Identidad (reemplaza "hechas por un economista" en title, meta y H1; regla dura 2026-09-27)
+   - ES: "J.F. Carpio: investigación económica y empresarial, consultoría y apps para negocios reales."
+   - EN: "J.F. Carpio: economic and business research, consulting and apps for real businesses."
+1. Apps (deseo: tiempo). La versión "Menos horas cuadrando cuentas" se DESCARTÓ: sonaba a asesor contable.
+   - ES: "Deja de adivinar: mira tu negocio con claridad en minutos."
+   - EN: "Stop guessing: see your business clearly in minutes."
 2. Research (deseo: proteger el patrimonio)
    - ES: "Decide 2026-2027 sin arriesgar tu patrimonio: research macro y sectorial de Ecuador, y talleres para directivos."
    - EN: "Decide 2026-2027 without risking your assets: macro and sector research on Ecuador, and workshops for executives."

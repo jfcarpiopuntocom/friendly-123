@@ -312,6 +312,15 @@ trabajo está mal hecho aunque el código funcione.
   Ganchos elegantes dentro del producto; sin nombrar frameworks. Jev puntúa
   variantes de copy con criterios explícitos. Detalle en DECISIONES-JFC.md.
 
+## REGLA DURA JFC 2026-09-27: NUNCA LLAMAR A JFC "ECONOMISTA"
+- Prohibido "economista" / "economist" para referirse a JFC, en cualquier texto (sitio,
+  apps, onepagers, bios, metadatos, posts). A él le suena pretencioso, aun con maestría y
+  casi doctorado. Tampoco debe sonar a asesor contable.
+- Cómo SÍ: **investigador económico y empresarial** y **consultor** (EN: economic and
+  business researcher; consultant).
+- No aplica a terceros (p. ej. "Bastiat, economista francés") ni a textos académicos
+  sobre "los economistas" en general.
+
 ## MARCA Y DUEÑO (JFC 2026-09-25) — REGLA DURA, LAS 3 APPS
 - La línea de apps se llama **Made In Cuenca: intuitive business apps**
   (friendly-123, amigable-123, consultorio-123). Nombre exacto, sin parafrasear
