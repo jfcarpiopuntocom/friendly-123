@@ -249,6 +249,12 @@ trabajo está mal hecho aunque el código funcione.
   `AI_GATEWAY_API_KEY` y Network access Custom con `ai-gateway.vercel.sh` (+ defaults).
   Verificado en una sesion nueva (respuesta 200, confianza 1). Las sesiones que ya estaban
   abiertas antes del cambio no lo ven: solo las nuevas. No volver a pedirle nada a JFC.
+- **jevgrep (github dzhng/jevgrep, evaluado 2026-09-26): NO adoptado.** Busca codigo en
+  lenguaje natural con la misma clave de Jev. En la nube se cuelga si no se le cierra la
+  entrada: usar `jg "pregunta" ./carpeta < /dev/null` (auth: `jg auth --provider vercel --stdin`).
+  Carpeta chica: 69 s y acierta. `docs/` de friendly: mas de 9 min sin respuesta (index.html
+  1.25 MB). grep lo resuelve en < 1 s. Reevaluar solo si JFC lo pide o si parten esos
+  archivos. Manda codigo a Jev: solo repos publicos, nunca datos de clientes.
 - Compactación de sesión con Jev: plugin `fast-jev-compaction@fast-jev-compaction-jfc`
   (fork local de JFC que va por Vercel AI Gateway y censura licencias, claves y PIN antes de
   enviar). Si falla, Claude Code hace el resumen normal.
