@@ -10,8 +10,8 @@
   "extraKnownMarketplaces": {
     "jev-pruner-jfc": {
       "source": {
-        "source": "github",
-        "repo": "jfcarpiopuntocom/jev-pruner-jfc"
+        "source": "directory",
+        "path": "/home/user/friendly-123/.claude/marketplaces/jev-pruner-jfc"
       }
     },
     "obsidian-second-brain": {
