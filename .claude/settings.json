@@ -2,6 +2,19 @@
   "env": {
     "OBSIDIAN_VAULT_PATH": "/home/user/obsidian-vault"
   },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-push-check-sw.sh\""
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "fast-jev-output@jev-pruner-jfc": true,
     "obsidian-second-brain@obsidian-second-brain": true,

@@ -11,5 +11,9 @@ description: Runs the fix -> test -> commit -> verify pipeline used on the best 
 4. Bump the version marker this project uses. friendly-123 and sibling PWAs: shell integer in `docs/sw.js` CACHE + `docs/version.json` (same number), then `node scripts/gen-manifest.js` and `bash check-sw.sh` must be all OK. Never move the public `version`.
 5. Commit with a message describing why, not what. Push.
 6. Verify the LIVE deployed result: wait until the public `version.json` shows the new shell, compare served file hashes with the manifest, then browser-check the changed screen (DOM read-back or screenshot).
+7. Release path (canaries, since shell v403 — see CLAUDE.md "CANARIOS Y TRES CANALES"). Merging to `master` does NOT reach customers:
+   - After the merge, verify the LIVE `/friendly-123/next/` (canary), not the root: `curl -s https://jfcarpiopuntocom.github.io/friendly-123/next/version.json`.
+   - Tell JFC the shell is on `/next/` and the time it reaches customers (merge time + 33 min max, via `promover.yml`, unless the Sonar shows red or "Detener").
+   - At ~33 min, verify the root `/friendly-123/version.json` shows the new shell. If it does not, check the `promover.yml` run and say why.
 
-Report back: test results (pass/fail counts), the version bumped to, what the live check proved and what it did not, and the live URL.
+Report back: test results (pass/fail counts), the version bumped to, what the live check proved and what it did not, the `/next/` URL, and when it reaches customers.
