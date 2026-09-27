@@ -1,0 +1,6 @@
+KEY_PRESENTE=si
+  > ./fast-jev.ts env reads: AI_GATEWAY_API_KEY, TYPESAFE_API_KEY
+
+√ Validation passed with warnings
+Sun Sep 27 00:16:54 UTC 2026
+{"model":"typesafe-ai/jev","answers":{"route":{"type":"choice","choice":"ui","confidence":1,"probabilities":{"other":0,"sync":0,"ui":1}}},"usage":{"input_tokens":351,"output_tokens":38},"provider_metadata":{"typesafe":{"confidence":{"route":1}},"gateway":{"routing":{"originalModelId":"typesafe-ai/jev","resolvedProvider":"digitalocean","fallbacksAvailable":["typesafe-ai"],"planningReasoning":"System credentials planned for: digitalocean, typesafe-ai. Total execution order: typesafe-ai(system) → digitalocean(system)","canonicalSlug":"typesafe-ai/jev","finalProvider":"typesafe-ai","modelAttemptCount":1,"modelAttempts":[{"canonicalSlug":"typesafe-ai/jev","success":true,"providerAttemptCount":1,"providerAttempts":[{"provider":"typesafe-ai","credentialType":"system","success":true,"startTime":1790468215244,"endTime":1790468215406,"statusCode":200}]}],"totalProviderAttemptCount":1},"cost":"0.000014742","marketCost":"0.000014742","surchargeCost":"0","gatewayCost":"0.000014742","inferenceCost":"0.000014742","inputInferenceCost":"0.000014742","outputInferenceCost":"0","generationId":"gen_01M3G3HMA6T66WTX2VVXG5NZVN"}}}
