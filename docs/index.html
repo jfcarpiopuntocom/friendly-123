@@ -4848,7 +4848,7 @@ async function cargarHoy(){
   // Para impulsar hoy: productos estrella de la percha actual (encargado los ve).
   try {
     const prods = await fetch(`${API}/productos?ubicacionId=${ubicacionActual}`).then(r => r.json());
-    const estrellas = (Array.isArray(prods) ? prods : []).filter(p => p.estrella);
+    const estrellas = (Array.isArray(prods) ? prods : []).filter(p => p.estrella && p.stockActual > 0 && !(p.perecible && p.diasParaVencer < 0));
     const cont = document.getElementById("estrellaHoy");
     if (cont) {
       cont.innerHTML = estrellas.length ? `
@@ -6658,6 +6658,7 @@ async function abrirPanelVentaInfo(id, esTicket){
   const inp = 'style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"';
   const req = esTicket ? ' <span style="color:var(--rojo-ink,#a3392a);">*</span>' : '';
   const esBar = p.tipoProducto === "bar";
+  const vencido = !!(p.perecible && p.diasParaVencer < 0);
   const _servPorBotella = esBar ? Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50))) : 0;
   /* TÍTULO DEL PANEL DE VENTA TRADUCIBLE EN VIVO (JFC 2026-09-22, cierra el
      test de Codex "sale details translate in place"). Estaba en inglés duro:
@@ -6677,6 +6678,7 @@ async function abrirPanelVentaInfo(id, esTicket){
   caja.innerHTML = `
     <div class="ficha-producto tag-card" style="text-align:left;background:var(--blanco-calido,#fbf5e8);">
       <div class="titulo" style="font-family:var(--font-display);font-size:17px;font-weight:700;"><span data-i18n="${_kTitVenta}">${escHtml(t(_kTitVenta))}</span> — ${escHtml(p.nombre)}</div>
+      ${vencido ? `<p role="alert" style="padding:12px;border:2px solid var(--sim-rojo);font-weight:700;color:var(--rojo-ink);">${escHtml(t("sale.expiredBlocked"))}</p>` : ""}
       <p style="font-size:14px;color:var(--ink-soft);" data-i18n="${_kSubVenta}">${escHtml(t(_kSubVenta))}</p>
       ${esBar ? `
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblServings">${escHtml(t("sale.lblServings"))}</span><br><input id="vi-servings" type="number" min="1" step="1" value="1" ${inp}></label>
@@ -6792,7 +6794,7 @@ async function abrirPanelVentaInfo(id, esTicket){
       <p id="vi-impuesto" style="display:none;font-size:15px;font-weight:700;margin:10px 0 0;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;"></p>
       <div id="vi-msg" role="status" aria-live="polite" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div class="acciones-rapidas" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="vender" onclick="confirmarVentaConInfo('${p.id}', ${esTicket ? "true" : "false"})" data-i18n="sale.btnConfirm">${escHtml(t("sale.btnConfirm"))}</button>
+        <button class="vender" onclick="confirmarVentaConInfo('${p.id}', ${esTicket ? "true" : "false"})" data-i18n="sale.btnConfirm" ${vencido ? "disabled" : ""}>${escHtml(t("sale.btnConfirm"))}</button>
         <button onclick="cancelarPanelVentaInfo()" data-i18n="sale.btnCancel">${escHtml(t("sale.btnCancel"))}</button>
       </div>
     </div>`;

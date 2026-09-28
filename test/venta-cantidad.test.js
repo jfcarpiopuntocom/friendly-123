@@ -29,7 +29,7 @@ test('venta: cantidades invalidas se rechazan, no se adivinan', async () => {
  const chk=(n,c,d)=>{ assert.ok(c, n + (c?'':'  -> '+JSON.stringify(d).slice(0,200))); };
 
  const prods=(await J('/api/productos')).b;
- const p=prods.find(x=>x.stockActual>3);
+ const p=prods.find(x=>x.stockActual>3 && !(x.perecible && x.diasParaVencer < 0));
  const st0=p.stockActual;
 
  // venta normal
@@ -92,4 +92,15 @@ test('transferencia: no se puede transferir a la misma percha ni al mismo produc
     now=(await J('/api/productos')).b.find(x=>x.id===a.id).stockActual;
     chk('ninguna cantidad invalida toco el stock', now===sa, {sa,now});
   }
+});
+
+test('un perecible vencido no registra una venta ni reduce su stock', async () => {
+  const prods = (await J('/api/productos')).b;
+  const vencido = prods.find(p => p.perecible && p.diasParaVencer < 0 && p.stockActual > 0);
+  assert.ok(vencido, 'la demo incluye un perecible vencido con stock');
+  const r = await J(`/api/productos/${vencido.id}/venta`, P({ cantidad: 1 }));
+  assert.equal(r.s, 400);
+  assert.match(r.b.error, /expired/i);
+  const despues = (await J('/api/productos')).b.find(p => p.id === vencido.id);
+  assert.equal(despues.stockActual, vencido.stockActual);
 });
