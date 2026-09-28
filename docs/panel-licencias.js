@@ -79,6 +79,15 @@
       g.n = g.filas.length;
       g.nCliente = cliente.length;
       g.nMios = mios.length;
+      // La cabeza identifica el negocio; no debe ocultar a otra persona que
+      // activó un aparato bajo la misma licencia (caso idiomARTE/Belén).
+      var vistos = {};
+      g.personas = cliente.map(function (x) { return nombreCompleto(x); }).filter(function (nombre) {
+        var k = norm(nombre);
+        if (!k || vistos[k]) return false;
+        vistos[k] = true;
+        return true;
+      });
       g.soloJfc = g.n > 1 && g.nMios === g.n && !!g.cod;
       g.estado = global.licNormEstado ? global.licNormEstado(c.estado) : String(c.estado || "minima");
       g.lastSeen = Math.max.apply(null, g.filas.map(function (x) { return ts(x.lastSeen); }));
@@ -239,7 +248,9 @@
         '<td class="mono" style="color:var(--gold);">' + esc(g.cod || "—") + ' <button type="button" class="lic-lapiz" onclick="licReenganchar(\'' + id + '\')" title="Set or change the license of this device">✎</button>' + (g.lote ? '<br><span class="lic-chip">' + esc(g.lote) + '</span>' : "") +
           (n > 1 ? '<br><button type="button" class="btn-ok lic-mini" onclick="licToggleDisp(\'' + id + '\')" title="See each device on this license">' + esc(etiquetaDisp) + '</button>' : "") + '</td>' +
         '<td>' + (r.nombreNegocio ? '<strong>' + esc(r.nombreNegocio) + '</strong>' : '—') + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'negocio\')" title="Edit business name">✎</button></td>' +
-        '<td>' + esc(nombreCompleto(r) || "—") + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'nombre\')" title="Edit owner name">✎</button></td>' +
+        '<td>' + esc(nombreCompleto(r) || "—") + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'nombre\')" title="Edit this device name">✎</button>' +
+          (g.personas.filter(function (nombre) { return norm(nombre) !== norm(nombreCompleto(r)); }).length
+            ? '<br><span class="lic-sub">También en esta licencia: ' + g.personas.filter(function (nombre) { return norm(nombre) !== norm(nombreCompleto(r)); }).map(esc).join(', ') + '</span>' : '') + '</td>' +
         '<td>' + esc(r.email || "—") + (esMio(r) ? ' <span class="lic-chip">tu aparato</span>' : "") + chipClaim + '</td>' +
         '<td>' + (wa(r.whatsapp) ? '<a href="' + esc(wa(r.whatsapp)) + '" target="_blank" rel="noopener" style="color:#25D366;">' + esc(r.whatsapp) + '</a>' : "—") + '</td>' +
         '<td>' + pago + '<br><button type="button" class="btn-ok lic-mini" onclick="licAbrirPago(\'' + id + '\')">Record payment</button> <button type="button" class="btn-ok lic-mini" onclick="licVerPagos(\'' + id + '\')">History</button></td>' +

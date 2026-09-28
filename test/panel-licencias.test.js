@@ -60,6 +60,35 @@ test('el aparato de pruebas de JFC va al fondo del grupo y el cliente encabeza',
   assert.equal(idx.grupos[0].nMios, 1);
 });
 
+test('la fila de idiomARTE conserva visibles los nombres de sus otros aparatos', () => {
+  const P = cargar();
+  const idx = P.indexar([
+    { instanceId: 'duena', licenseCode: 'F123-FIXTURE-STORE', nombreNegocio: 'idiomARTE', nombre: 'Sarah', email: 'sarah@ejemplo.test' },
+    { instanceId: 'belen', licenseCode: 'F123-FIXTURE-STORE', nombreNegocio: 'idiomARTE', nombre: 'Belén', email: 'belen@ejemplo.test' },
+  ]);
+  assert.equal(idx.grupos.length, 1);
+  assert.deepEqual(Array.from(idx.grupos[0].personas), ['Sarah', 'Belén']);
+});
+
+test('la lista dinámica pinta a Belén junto a idiomARTE sin cambiar la identidad principal', () => {
+  const P = cargar();
+  const idx = P.indexar([
+    { instanceId: 'duena', licenseCode: 'F123-FIXTURE-STORE', nombreNegocio: 'idiomARTE', nombre: 'Sarah', email: 'sarah@ejemplo.test' },
+    { instanceId: 'belen', licenseCode: 'F123-FIXTURE-STORE', nombreNegocio: 'idiomARTE', nombre: 'Belén', email: 'belen@ejemplo.test' },
+  ]);
+  // pintar usa el documento global del módulo: se verifica el HTML en un DOM
+  // aislado, sin consultar licencias ni contactos reales.
+  const context = { window: {}, document: { getElementById: () => null } };
+  const tbody = { innerHTML: '', querySelectorAll: () => [] };
+  context.document.getElementById = id => id === 'lic-tbody' ? tbody : null;
+  context.window = context; context.globalThis = context;
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/panel-licencias.js'), 'utf8'), context);
+  context.PanelLic.pintar(idx, {});
+  assert.match(tbody.innerHTML, /idiomARTE/);
+  assert.match(tbody.innerHTML, /También en esta licencia: Belén/);
+});
+
 test('10.000 licencias: indexar en menos de 600 ms; filtrar + ordenar + paginar en menos de 150 ms', () => {
   const P = cargar();
   const rows = filas(10000);

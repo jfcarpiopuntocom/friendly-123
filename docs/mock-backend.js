@@ -1594,11 +1594,17 @@
   /* mes opcional "YYYY-MM" (shell 371). Sin mes = mes en curso, igual que antes. */
   function getLiquidaciones(mes) {
     const _mes = mesValido(mes);
-    /* 2026-09-25: una percha PROPIA entra si tuvo ventas con comision (persona elegida en la
-       venta) o ajustes en el mes: sin tarjeta no habria donde ver ni pagar esa comision. */
+    /* IdiomARTE 2026-09-28: una percha propia con ventas de la casa tambien necesita
+       su tarjeta por percha. Las perchas borradas sin actividad del mes no deben
+       reaparecer como "sin ventas"; conservar las que tengan historia en el mes
+       elegido para no esconder pagos, devoluciones ni ventas anteriores al borrado. */
     const _conComisionEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && v.split && esDelMes(v.fecha, _mes))
       || ajustesComision.some((a) => a && a.ubicacionId === id && esDelMes(a.fecha, _mes));
-    return ubicaciones.filter((u) => (u.tipo && u.tipo !== "propio") || _conComisionEnMes(u.id)).map((u) => {
+    const _conVentasEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && esDelMes(v.fecha, _mes));
+    return ubicaciones.filter((u) => {
+      const historia = _conVentasEnMes(u.id) || _conComisionEnMes(u.id);
+      return u.borrado ? historia : ((u.tipo && u.tipo !== "propio") || historia);
+    }).map((u) => {
       const ventasMes = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes) && v.split);
       /* Bloque 4: los ajustes (devoluciones de ventas ya pagadas) entran al mes
          de SU fecha, no al de la venta original: lo pagado no se reescribe. */
