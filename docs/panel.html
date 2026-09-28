@@ -81,6 +81,9 @@
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
   #btn-cerrar{font-size:13px;font-family:var(--mono);color:var(--ink-dim);background:transparent;border:1px solid var(--border);border-radius:5px;padding:6px 11px;cursor:pointer;}
   #btn-cerrar:hover{color:var(--ink);}
+  .topbar-jump{font-size:13px;font-weight:700;color:#000;background:var(--gold);border:0;border-radius:6px;padding:9px 11px;cursor:pointer;min-height:44px;}
+  #licencias{scroll-margin-top:90px;}
+  #lic-config{scroll-margin-top:90px;}
 
   /* Layout */
   main{max-width:1040px;margin:0 auto;padding:28px 20px 60px;}
@@ -207,6 +210,10 @@
 
   @media(max-width:520px){
     .topbar{padding:12px 14px;}
+    .topbar-right{gap:6px;}
+    .topbar-right>div{display:none!important;}
+    #btn-cerrar{padding:8px 6px;}
+    .tabla-wrap:has(#lic-tabla){max-height:none;overflow-x:auto;overflow-y:visible;}
     main{padding:18px 12px 48px;}
     #gate-box{padding:28px 20px 22px;}
   }
@@ -272,6 +279,7 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
       <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--green);font-family:var(--mono);">
         <div class="dot"></div><span id="status-label">En línea</span>
       </div>
+      <button type="button" class="topbar-jump" onclick="licIrConfig()">Worker / seed</button>
       <button id="btn-cerrar">Cerrar sesión</button>
     </div>
   </div>
@@ -315,7 +323,8 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
     <div class="sec-head"><h2>Resumen</h2><span class="hint" id="fecha-panel"></span></div>
 
     <!-- LICENCIAS — conectado a un Cloudflare Worker externo (config vacía por defecto) -->
-    <div class="sec-head"><h2>Licencias · instancias activas</h2><span class="hint" id="lic-meta">configura el Worker →</span></div>
+    <div class="sec-head" id="licencias"><h2>Licencias · instancias activas</h2><span class="hint" id="lic-meta">configura el Worker →</span></div>
+    <p id="lic-estado" role="status" aria-live="polite" style="font-size:14px;font-weight:700;line-height:1.5;margin:0 0 12px;color:var(--ink);">Comprobando conexión…</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       <button class="btn btn-outline" onclick="licToggleConfig()">⚙️ Config Worker</button>
       <button class="btn btn-outline" onclick="licRecargar()">↻ Recargar</button>
@@ -338,7 +347,7 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
       <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">URL del Cloudflare Worker</label>
       <input class="lic-input" id="lic-worker-url" type="url" value="https://friendly123-licencias.jfcarpio.workers.dev" placeholder="https://friendly123-licencias.jfcarpio.workers.dev" style="width:100%;margin-bottom:10px;">
       <label style="display:block;font-size:13px;color:var(--ink-soft);margin-bottom:4px;">Seed del secret value (el que escribiste en CMD)</label>
-      <input class="lic-input" id="lic-master-key" type="password" placeholder="el seed del secret value que escribiste en CMD" style="width:100%;margin-bottom:8px;">
+      <input class="lic-input" id="lic-master-key" type="password" autocomplete="off" placeholder="el seed del secret value que escribiste en CMD" style="width:100%;margin-bottom:8px;">
       <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">
         Es lo que escribiste en CMD cuando
         <code>npx wrangler secret put MASTER_KEY</code> te pidio
@@ -1022,13 +1031,27 @@ function licInit() {
      solo decia "configura el Worker", sin decir QUE configurar. */
   if (!cfg.workerUrl) licSetCfg({ workerUrl: LIC_WORKER_POR_DEFECTO });
   if (!licMasterKey()) {
-    licMostrarVacio();
+    licMostrarVacio("El registro aún no se ha consultado: falta el seed en este navegador.");
     document.getElementById("lic-meta").textContent = "falta el seed del secret value — abre Config Worker";
+    licEstado("Falta el seed en este navegador. Toca «Worker / seed», pégalo y pulsa «Guardar y conectar».", false);
     const c = document.getElementById("lic-config");
     if (c) c.style.display = "block";   // se abre solo: es lo unico que falta
     return;
   }
   licRecargar();
+}
+function licEstado(mensaje, correcto) {
+  const el = document.getElementById("lic-estado");
+  if (el) { el.textContent = mensaje; el.style.color = correcto ? "var(--green)" : "var(--amber)"; }
+}
+function licIrConfig() {
+  const p = document.getElementById("lic-config");
+  if (!p) return;
+  p.style.display = "block";
+  p.scrollIntoView({ behavior: "smooth", block: "start" });
+  // El foco deja el campo listo incluso cuando la vista remota no transmite gestos de scroll.
+  const campo = document.getElementById("lic-master-key");
+  if (campo && !licMasterKey()) setTimeout(() => campo.focus({ preventScroll: true }), 350);
 }
 
 /* Diagnostico explicito: dice CUAL de las cuatro cosas fallo, en vez de un
@@ -1046,7 +1069,7 @@ async function licProbar() {
     if (res.status === 401) { pinta("El Worker responde, pero rechaza ese seed del secret value (401). No coincide con el que tiene desplegado.", "var(--red)"); return; }
     if (!res.ok) { pinta("El Worker respondio " + res.status + ".", "var(--red)"); return; }
     const data = await res.json();
-    pinta("OK — conectado. " + (Array.isArray(data) ? data.length : 0) + " instancia(s) en la KV.", "var(--green)");
+    pinta("OK — conectado. " + (Array.isArray(data) ? data.length : 0) + " aparato(s) del registro " + (res.headers.get("X-Fuente-Registros") || "Worker") + ".", "var(--green)");
   } catch (e) {
     pinta("No se llego al Worker: " + e.message + " (revisa la URL o tu conexion).", "var(--red)");
   }
@@ -1079,19 +1102,24 @@ let _licTodos = [];
 async function licRecargar() {
   const url = licWorkerUrl();
   const meta = document.getElementById("lic-meta");
-  if (!url) { meta.textContent = "sin URL del Worker — abre Config"; licMostrarVacio(); return; }
-  if (!licMasterKey()) { meta.textContent = "falta el seed del secret value — abre Config"; mostrarConfirmacion("Configura el seed del secret value del Worker"); return; }
+  if (!url) { meta.textContent = "sin URL del Worker — abre Config"; licEstado("Falta la URL del Worker. Abre «Worker / seed».", false); return; }
+  if (!licMasterKey()) { meta.textContent = "falta el seed del secret value — abre Config"; licEstado("Falta el seed en este navegador. Abre «Worker / seed».", false); return; }
   meta.textContent = "cargando…";
+  licEstado("Consultando el registro de licencias…", false);
   try {
     const res = await fetch(url.replace(/\/+$/, "") + "/licencias", { headers: { "X-Master-Key": licMasterKey() } });
-    if (res.status === 401) { meta.textContent = "Seed del secret value incorrecto"; mostrarConfirmacion("Seed del secret value incorrecto"); return; }
+    if (res.status === 401) { meta.textContent = "Seed del secret value incorrecto"; licEstado("El Worker respondió 401: seed incorrecto. Abre «Worker / seed» y verifica el valor.", false); return; }
+    if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
+    if (!Array.isArray(data)) throw new Error("respuesta inesperada del Worker");
     _licData = (Array.isArray(data) ? data : []).filter(Boolean); // guard: nunca dejar pasar un null (ver worker.js)
     licRenderTabla(_licData);
     licRenderStats(_licData);
     meta.textContent = _licData.length + " instancia(s) · " + (new Date()).toLocaleTimeString("es");
+    licEstado("Worker conectado · fuente: " + (res.headers.get("X-Fuente-Registros") || "sin indicar") + " · " + _licData.length + " aparato(s) cargados · actualizado " + (new Date()).toLocaleTimeString("es") + ".", true);
   } catch (e) {
     meta.textContent = "error al conectar con el Worker";
+    licEstado("No se pudo cargar la lista: " + e.message + ". Los datos anteriores permanecen; pulsa «Recargar» para reintentar.", false);
     mostrarConfirmacion("No se pudo conectar: " + e.message);
   }
 }
@@ -1120,7 +1148,9 @@ function licRenderStats(data) {
     `<div class="stat-box"><div class="stat-value" style="color:var(--red);">${c.bloqueada}</div><div class="stat-label">Blocked</div></div>`;
 }
 function licMostrarVacio() {
-  document.getElementById("lic-empty").style.display = "block";
+  const vacio = document.getElementById("lic-empty");
+  vacio.textContent = arguments[0] || "El Worker respondió sin aparatos registrados.";
+  vacio.style.display = "block";
   document.getElementById("lic-tabla").style.display = "none";
 }
 // wa.me exige solo digitos (con codigo de pais, sin "+", espacios ni guiones).
