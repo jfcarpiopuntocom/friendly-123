@@ -4401,6 +4401,7 @@
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/venta$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        if (p.perecible && estadoDe(p).dias < 0) return J({ error: "This product has expired. Remove it from sale and adjust its stock." }, 400);
         const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
         if (ubicP && ubicP.activa === false) return J({ error: `"${ubicP.nombre}" está desactivada — no admite ventas nuevas.` }, 400);
         /* B19 (JFC 2026-08-19, medido con un harness contra este endpoint).

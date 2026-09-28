@@ -223,7 +223,7 @@
     } catch (_) { out.error = true; }
     try {
       var prods = await fetch(API_ + "/productos?ubicacionId=" + ubic).then(function (r) { return r.json(); });
-      out.impulsados = (Array.isArray(prods) ? prods : []).filter(function (p) { return p.estrella; }).slice(0, 4);
+      out.impulsados = (Array.isArray(prods) ? prods : []).filter(function (p) { return p.estrella && p.stockActual > 0 && !(p.perecible && p.diasParaVencer < 0); }).slice(0, 4);
     } catch (_) {}
     return out;
   }
