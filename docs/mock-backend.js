@@ -2731,6 +2731,7 @@
           const pagadaLocal = !!local.liquidada, splitLocal = local.split;
           const pagadaRemota = !!v.liquidada, splitRemoto = v.split;
           const medioLocal = local.medioPagoComision || null;
+          const canceladaExPostLocal = local.canceladaExPostEn || null;
           if (domina) { Object.assign(local, v); actualizados++; }
           /* Medio de pago (2026-09-24): una vez sellado, manda el del lado que pago. */
           local.medioPagoComision = medioLocal || v.medioPagoComision || local.medioPagoComision || undefined;
@@ -2738,6 +2739,7 @@
           local.liquidada = pagadaLocal || pagadaRemota;
           local.devuelta = !!(local.devuelta || v.devuelta);
           local.anulada = !!(local.anulada || v.anulada);
+          local.canceladaExPostEn = canceladaExPostLocal || v.canceladaExPostEn || null;
           if (!local.devolucionId && v.devolucionId) local.devolucionId = v.devolucionId;
           if (pagadaLocal && splitLocal) local.split = splitLocal;
           else if (pagadaRemota && splitRemoto) local.split = splitRemoto;
@@ -2758,7 +2760,7 @@
           }
           return;
         }
-        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
+        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
         ventasAgregadas++;
       });
@@ -3388,7 +3390,7 @@
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
-        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
+        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
@@ -4709,10 +4711,35 @@
         if (!p) return J({ error: "Product not found." }, 404);
         const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
         p.stockActual += venta.cantidad;
-        venta.anulada = true; venta.rev = _revNueva();
+        venta.anulada = true; venta.canceladaExPostEn = new Date().toISOString(); venta.rev = _revNueva();
         mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "(sin motivo)", ventaId: venta.id, fechaVenta: venta.fecha });
         emitirOpStock("cancelacion-ex-post", { productoId: p.id, delta: venta.cantidad });
         return J({ producto: ficha(p), ok: true });
+      }
+      /* v418: la anulacion es monotona en sync: desmarcarla reviviria o perderia
+         dinero al converger dos aparatos. Compensamos con un asiento nuevo ligado
+         al original, sin pasar por /venta (que correctamente bloquea vencidos).
+         La fecha, precio y split son los del asiento original; no se recalculan. */
+      if ((m = path.match(/^\/api\/ventas\/([^/]+)\/deshacer-cancelacion$/)) && opts && opts.method === "POST") {
+        const rol = _rolLocal();
+        if (rol !== "dueno" && rol !== "admin" && rol !== "empleado") return J({ error: "Sign in to undo a cancellation." }, 403);
+        const original = ventas.find((v) => v.id === m[1]);
+        if (!original) return J({ error: "Sale not found." }, 404);
+        const idRestaurado = "v-rest-" + original.id;
+        if (ventas.some((v) => v.id === idRestaurado || v.restauracionDe === original.id)) return J({ error: "This cancellation was already restored." }, 409);
+        const edad = Date.now() - new Date(original.canceladaExPostEn).getTime();
+        if (!original.anulada || !original.canceladaExPostEn || !Number.isFinite(edad) || edad < 0 || edad > 30000 || original.devuelta || (original.liquidada && original.split)) {
+          return J({ error: "Only a recent, unsettled cancellation is eligible for undo." }, 400);
+        }
+        const p = productos.find((x) => x.id === original.productoId);
+        if (!p) return J({ error: "Product not found." }, 404);
+        if (!Number.isInteger(original.cantidad) || original.cantidad <= 0 || p.stockActual < original.cantidad) return J({ error: "Not enough stock to undo this cancellation." }, 400);
+        const restaurada = { ...original, id: idRestaurado, anulada: false, canceladaExPostEn: null, restauracionDe: original.id, rev: _revNueva() };
+        p.stockActual -= original.cantidad;
+        ventas.push(restaurada);
+        mov("restauracion-cancelacion", { ventaId: original.id, ventaRestauradaId: idRestaurado, producto: p.nombre, cantidad: original.cantidad, total: +(original.precioUnit * original.cantidad).toFixed(2) });
+        emitirOpStock("restauracion-cancelacion", { productoId: p.id, delta: -original.cantidad });
+        return J({ ok: true, ventaId: idRestaurado, producto: ficha(p) });
       }
       /* EDITAR UNA VENTA (JFC 2026-09-02): la lista de Sold es editable con
          lapicitos "por si hubo errores". Se puede corregir cantidad, forma de
