@@ -1,10 +1,5 @@
-/* Commissions en una tienda REAL (Belen, 2026-09-24): "by rack sale con info de
-   relleno" y "by product no hay nada". Causas: (1) perchas de la semilla VIEJA
-   del demo (bookshelf "Ink & Pages", fairbooth, smokeshop) quedaron en su tienda
-   y se pintaban como tarjetas completas en $0; (2) la vista por producto solo
-   cuenta ventas con comision y no explicaba por que estaba vacia.
-   Reglas: nunca se borra nada de la clienta; las perchas sin ventas del mes van
-   plegadas; las de la semilla vieja se rotulan; el vacio explica y orienta. */
+/* Commissions en una tienda real: las perchas con ventas propias deben aparecer
+   tanto por rack como por producto, sin inventar un reparto de comisiones. */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -27,9 +22,47 @@ test('old demo seed racks are labeled, never deleted', () => {
   assert.doesNotMatch(html, /PERCHAS_SEMILLA_VIEJA[\s\S]{0,400}(DELETE|splice)/, 'no se borra nada');
 });
 
-test('empty by-product view explains own-rack sales in EN and ES', () => {
-  assert.match(html, /comm\.byProductOwnSales/);
-  for (const k of ['comm.byProductOwnSales', 'comm.sampleRack', 'comm.idleRacks', 'comm.idleRacksNote']) {
+test('by-product view labels own sales separately in EN and ES', () => {
+  assert.match(html, /agruparVentasPorProducto\(ventasTodas, true, _ocMesComisiones, true\)/);
+  for (const k of ['comm.productTotal', 'comm.productOwn', 'comm.productHouse', 'comm.sampleRack', 'comm.idleRacks', 'comm.idleRacksNote']) {
     assert.equal((i18n.match(new RegExp(`"${k.replace(/\./g, '\.')}":`, 'g')) || []).length, 2, `${k} EN+ES`);
   }
+});
+
+test('product summary includes own and shared house sales without creating commission', () => {
+  const start = html.indexOf('function agruparVentasPorProducto(');
+  const end = html.indexOf('function selectorVistaComisionesHtml(', start);
+  assert.ok(start > 0 && end > start);
+  const agrupar = new Function(`${html.slice(start, end)}; return agruparVentasPorProducto;`)();
+  const base = { productoId: 'p1', productoNombre: 'Real product', sku: 'SKU-1', mes: '2026-09', delMesActual: true, cantidad: 1 };
+  const rows = [
+    { ...base, ubicacionNombre: 'Bar', ubicacionTipo: 'propio', precioUnit: 10, comisionPct: null },
+    { ...base, ubicacionNombre: 'Shared', ubicacionTipo: 'socio', precioUnit: 20, comisionPct: null },
+    { ...base, ubicacionNombre: 'Shared', ubicacionTipo: 'socio', precioUnit: 30, comisionPct: 40, comisionAsociado: 12, netoCasa: 18, liquidada: false },
+    { ...base, mes: '2026-08', precioUnit: 40, ubicacionTipo: 'propio', comisionPct: null },
+  ];
+  const [d] = agrupar(rows, true, '2026-09', true);
+  assert.equal(d.total, 60);
+  assert.equal(d.totalUnid, 3);
+  assert.equal(d.propiasMonto, 10);
+  assert.equal(d.counterMonto, 20);
+  assert.equal(d.bruto, 30);
+  assert.equal(d.socio, 12);
+  assert.equal(d.pendSocio, 12);
+  assert.equal(agrupar(rows, true, '2026-09')[0].total, 50, 'commission-only callers retain their scope');
+});
+
+test('a month with only own-rack sales renders product cards, not the empty message', () => {
+  const a = html.indexOf('function resumenComisionPorProductoHtml(');
+  const b = html.indexOf('async function cargarComisiones(', a);
+  const render = new Function('t', 'fmtMoney', 'escHtml', 'cuadreMesHtml', '_ocMesComisiones', '_ocMesEtiqueta',
+    `${html.slice(a, b)}; return resumenComisionPorProductoHtml;`)(
+      (key) => key, (n) => '$' + Number(n).toFixed(2), String, () => '', '2026-09', (m) => m);
+  const output = render([{ producto: 'Artesanía', sku: 'A1', perchas: new Set(['Bar']), asociados: new Set(),
+    unid: 0, bruto: 0, socio: 0, casa: 0, pendSocio: 0, counterUnid: 0, counterMonto: 0,
+    propiasUnid: 2, propiasMonto: 26, totalUnid: 2, total: 26 }], null);
+  assert.match(output, /Artesanía/);
+  assert.match(output, /comm\.productOwn/);
+  assert.match(output, /\$26\.00/);
+  assert.doesNotMatch(output, /comm\.byProductEmpty/);
 });

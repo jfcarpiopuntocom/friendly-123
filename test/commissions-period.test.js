@@ -80,5 +80,5 @@ test('Commissions UI has a month selector wired to every money read', () => {
   assert.match(html, /data-commissions-month/, 'selector de mes presente');
   assert.match(html, /liquidaciones\?mes=\$\{/, 'la lectura de liquidaciones manda el mes elegido');
   assert.match(html, /marcar-pagado`,\s*\{[^}]*body: JSON\.stringify\(\{ mes/, 'pagar manda el mes elegido');
-  assert.match(html, /agruparVentasPorProducto\(ventasTodas, true, _ocMesComisiones\)/, 'el resumen por producto usa el mes elegido');
+  assert.match(html, /agruparVentasPorProducto\(ventasTodas, true, _ocMesComisiones, true\)/, 'el resumen por producto incluye ventas propias del mes elegido');
 });

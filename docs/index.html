@@ -8199,19 +8199,19 @@ function barraComisionesHtml(meses, acciones){
     <div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">${sel.control}${sel.aviso}${selectorVistaComisionesHtml()}<div class="acciones">${acciones}</div></div>${filas}
   </div>`;
 }
-function agruparVentasPorProducto(rows, soloComision, mes){
+function agruparVentasPorProducto(rows, soloComision, mes, incluirPropias = false){
   const map = new Map();
   (Array.isArray(rows) ? rows : []).forEach((v) => {
     const conReparto = v.comisionPct != null;
-    const counter = !conReparto && v.modoComision === "counter";
+    const compartida = !!v.ubicacionTipo && v.ubicacionTipo !== "propio";
     if (soloComision) {
       // Shell 371: con mes elegido se filtra por el mes local de la venta; sin mes, el mes en curso de siempre.
       if (mes ? v.mes !== mes : !v.delMesActual) return;
-      if (!conReparto && !(counter && v.ubicacionTipo && v.ubicacionTipo !== "propio")) return;
+      if (!conReparto && !compartida && !incluirPropias) return;
     }
     const k = v.productoId || v.productoNombre;
     const d = map.get(k) || { producto: v.productoNombre, sku: v.sku || "", perchas: new Set(), asociados: new Set(),
-      unid: 0, bruto: 0, socio: 0, casa: 0, pendSocio: 0, counterUnid: 0, counterMonto: 0, totalUnid: 0, total: 0, cortesias: 0 };
+      unid: 0, bruto: 0, socio: 0, casa: 0, pendSocio: 0, counterUnid: 0, counterMonto: 0, propiasUnid: 0, propiasMonto: 0, totalUnid: 0, total: 0, cortesias: 0 };
     const cant = Number(v.cantidad) || 1;
     const monto = (Number(v.precioUnit) || 0) * cant;
     if (v.ubicacionNombre) d.perchas.add(v.ubicacionNombre);
@@ -8222,10 +8222,11 @@ function agruparVentasPorProducto(rows, soloComision, mes){
       d.unid += cant; d.bruto += socio + casa; d.socio += socio; d.casa += casa;
       if (!v.liquidada) d.pendSocio += socio;
       if (v.asociadoNombre) d.asociados.add(v.asociadoNombre);
-    } else if (counter) { d.counterUnid += cant; d.counterMonto += monto; }
+    } else if (compartida) { d.counterUnid += cant; d.counterMonto += monto; }
+    else { d.propiasUnid += cant; d.propiasMonto += monto; }
     map.set(k, d);
   });
-  return [...map.values()].sort((a, b) => (b.bruto + b.counterMonto) - (a.bruto + a.counterMonto) || b.total - a.total);
+  return [...map.values()].sort((a, b) => b.total - a.total);
 }
 function selectorVistaComisionesHtml(){
   const boton = (vista, texto, activo) => `<button type="button" role="tab" id="comm-tab-${vista}"
@@ -8275,14 +8276,14 @@ function cuadreMesHtml(c){
     ${c.contribFijaDescontada > 0 ? fila(t("comm.q.fixedContrib"), -c.contribFijaDescontada, null) : ""}
   </section>`;
 }
-function resumenComisionPorProductoHtml(prods, unidadesPropias, cuadre){
+function resumenComisionPorProductoHtml(prods, cuadre){
   // JFC 2026-09-24: esta seccion no desaparece si el mes aun no tiene filas.
   // Asi Commissions conserva siempre el orden mental: producto primero, pago por percha despues.
   const apertura = `<section id="comm-panel-product" role="tabpanel" data-commissions-section="by-product" aria-labelledby="comm-tab-product comm-by-product-heading">
     <h3 id="comm-by-product-heading" class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
     <details style="margin:0 0 10px;font-size:14px;"><summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;">${t("how.toggle")}</summary>
       <p style="font-size:14px;color:var(--ink);margin:6px 0 0;">${t("comm.byProductIntro")}</p></details>`;
-  if (!prods.length) return apertura + cuadreMesHtml(cuadre) + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}${unidadesPropias > 0 ? `<p style="margin:8px 0 0;font-size:14px;color:var(--ink);">${window.tf("comm.byProductOwnSales", { n: unidadesPropias })}</p>` : ""}</div></section>`;
+  if (!prods.length) return apertura + cuadreMesHtml(cuadre) + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}</div></section>`;
   // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
   const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
   const tile = (label, val, color) => `<div class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;">
@@ -8300,11 +8301,13 @@ function resumenComisionPorProductoHtml(prods, unidadesPropias, cuadre){
       </div>
       <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: ${escHtml([...d.perchas].join(", ") || "-")}${d.asociados.size ? ` · Associate: <strong>${escHtml([...d.asociados].join(", "))}</strong>` : ""}</div>
       <div class="stats">
+        <div><div class="rotulo">${t("comm.productTotal")}</div><div class="cifra">${fmtMoney(d.total)} <small>${d.totalUnid}u</small></div></div>
         ${d.unid ? `<div><div class="rotulo">Sold with commission</div><div class="cifra">${fmtMoney(d.bruto)} <small>${d.unid}u</small></div></div>
         <div><div class="rotulo">Associate takes</div><div class="cifra">${fmtMoney(d.socio)}</div></div>
         <div><div class="rotulo">House keeps</div><div class="cifra">${fmtMoney(d.casa)}</div></div>` : ""}
         ${d.pendSocio > 0 ? `<div><div class="rotulo" style="color:var(--rust-deep,#C05000);">Still to pay</div><div class="cifra" style="color:var(--rust-deep,#C05000);">${fmtMoney(d.pendSocio)}</div></div>` : ""}
-        ${d.counterUnid ? `<div><div class="rotulo"><em>House sale</em> (no commission)</div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
+        ${d.counterUnid ? `<div><div class="rotulo"><em>${t("comm.productHouse")}</em></div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
+        ${d.propiasUnid ? `<div><div class="rotulo">${t("comm.productOwn")}</div><div class="cifra">${fmtMoney(d.propiasMonto)} <small>${d.propiasUnid}u</small></div></div>` : ""}
       </div>
     </div>`).join("") + `</section>`;
 }
@@ -8334,7 +8337,7 @@ async function cargarComisiones(){
   // Excel/Sheets o mandarlo al contador.
   const btnExport = `<button class="tecla" style="margin:0;" onclick="exportarComisionesCSV()">⤓ Export CSV</button>`;
 
-  const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones);
+  const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones, true);
   // Rec 04 + 09: ranking de asociados/as con su mejor SKU y alerta de dormido.
   const rankHtml = (Array.isArray(ranking) && ranking.length) ? `
     <h3 class="seccion" style="font-size:16px;margin-top:0;">${t("comm.rankingHeading")}</h3>
@@ -8511,11 +8514,7 @@ async function cargarComisiones(){
     ${cardsHtml || `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.rackEmpty")}</div>`}
   </section>`;
   // JFC 2026-09-23: primero por producto; las tarjetas por percha (pagar, corregir %) al fondo.
-  /* Ventas del mes en perchas PROPIAS (sin comision): solo para explicar un "by product" vacio. */
-  const unidadesPropiasMes = (Array.isArray(ventasTodas) ? ventasTodas : []).filter(v =>
-    (_ocMesComisiones ? v.mes === _ocMesComisiones : v.delMesActual) && v.comisionPct == null && (!v.ubicacionTipo || v.ubicacionTipo === "propio"))
-    .reduce((a, v) => a + (Number(v.cantidad) || 1), 0);
-  cont.innerHTML = barraComisionesHtml(meses, btnWA + btnExport) + resumenComisionPorProductoHtml(porProducto, unidadesPropiasMes, cuadreMes) + cardsSection;
+  cont.innerHTML = barraComisionesHtml(meses, btnWA + btnExport) + resumenComisionPorProductoHtml(porProducto, cuadreMes) + cardsSection;
   /* 2026-09-25: antes forzaba "product" en CADA repintado (una venta de otro
      aparato te sacaba de "by rack"). Ahora respeta la pestana elegida. */
   cambiarVistaComisiones(window._ocVistaComisiones || "product");
@@ -8614,7 +8613,7 @@ async function exportarComisionesCSV(){
   }
   catch (_) { alert("Could not load commissions to export."); return; }
   // Shell 371: el CSV exporta el MISMO mes que se esta viendo.
-  const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones);
+  const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones, true);
   if ((!Array.isArray(filas) || !filas.length) && !porProducto.length) { alert("No commissions to export yet."); return; }
   const esc = (s) => { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const cab = ["Rack","Commissionist/Artist/Promoter","Monthly sales","Associate %","Associate takes","House %","House keeps","Status"];
@@ -8628,9 +8627,9 @@ async function exportarComisionesCSV(){
     esc(({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado)
   ].join(","));
   // JFC 2026-09-23: el CSV abre por producto; el bloque por percha va debajo.
-  const cabP = ["Product","SKU","Rack","Associate","Units with commission","Sales","Associate takes","House keeps","Still to pay","House sale units","House sale sales"];
+  const cabP = ["Product","SKU","Rack","Associate","All units","All sales","Units with commission","Commission sales","Associate takes","House keeps","Still to pay","Shared rack house units","Shared rack house sales","Own rack units","Own rack sales"];
   const filasP = porProducto.map(d => [esc(d.producto), esc(d.sku), esc([...d.perchas].join(" / ")), esc([...d.asociados].join(" / ")),
-    d.unid, d.bruto.toFixed(2), d.socio.toFixed(2), d.casa.toFixed(2), d.pendSocio.toFixed(2), d.counterUnid, d.counterMonto.toFixed(2)].join(","));
+    d.totalUnid, d.total.toFixed(2), d.unid, d.bruto.toFixed(2), d.socio.toFixed(2), d.casa.toFixed(2), d.pendSocio.toFixed(2), d.counterUnid, d.counterMonto.toFixed(2), d.propiasUnid, d.propiasMonto.toFixed(2)].join(","));
   const csv = "\uFEFF" + cabP.join(",") + "\n" + filasP.join("\n") + "\n\n" + cab.join(",") + "\n" + filasCSV.join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
