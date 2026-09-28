@@ -938,14 +938,20 @@ export default {
 
     if (url.pathname === "/licencias" && req.method === "GET") {
       if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
-      const lista = await env.LICENCIAS.list({ prefix: "inst:" });
+      const claves = [];
+      let cursor;
+      do {
+        const pagina = await env.LICENCIAS.list({ prefix: "inst:", limit: 1000, ...(cursor ? { cursor } : {}) });
+        claves.push(...pagina.keys);
+        cursor = pagina.list_complete ? null : pagina.cursor;
+      } while (cursor);
       // FIX (homologado de amigable-123, JFC 2026-07-29: "se queda en vacio
       // en vez de desaparecer" tras borrar): KV.list() es eventualmente
       // consistente -- justo despues de un DELETE puede seguir enumerando
       // la llave un instante antes de que la baja se propague. get() de esa
       // llave ya da null, y JSON.parse(null) NO explota: devuelve null en
       // silencio. Ese null viajaba al panel y se pintaba como fila vacia.
-      const registrosKV = (await Promise.all(lista.keys.map((k) => env.LICENCIAS.get(k.name).then((v) => JSON.parse(v))))).filter(Boolean);
+      const registrosKV = (await Promise.all(claves.map((k) => env.LICENCIAS.get(k.name).then((v) => JSON.parse(v))))).filter(Boolean);
 
       /* LECTURA FRESCA (JFC 2026-09-22). El DO es de instancia única, así que
          lo que se escribió hace un segundo YA se lee aquí — eso es lo que KV
@@ -968,17 +974,17 @@ export default {
         }
       } catch (_) { registrosDO = null; }
 
-      if (Array.isArray(registrosDO) && registrosDO.length >= registrosKV.length && registrosDO.length > 0) {
-        registros = registrosDO;
-        fuente = "do";
-      } else if (registrosKV.length) {
-        // Relleno perezoso: sin evento de migración y sin tocar KV. Lo que ya
-        // esté en el DO se sobreescribe con lo de KV solo si falta; un registro
-        // más nuevo del DO no se pisa porque solo entramos aquí cuando el DO
-        // viene INCOMPLETO respecto a KV.
-        const yaEnDO = new Set((registrosDO || []).map((r) => r && r.instanceId).filter(Boolean));
+      if (Array.isArray(registrosDO)) {
+        // Un total igual no prueba que sean los MISMOS aparatos: un registro
+        // nuevo en DO podía ocultar a Belén si otro faltaba allí. Unir por ID,
+        // dando prioridad al DO para cada registro que sí conoce.
+        const porId = new Map(registrosKV.filter((r) => r && r.instanceId).map((r) => [r.instanceId, r]));
+        const enDO = new Set();
+        for (const r of registrosDO) if (r && r.instanceId) { porId.set(r.instanceId, r); enDO.add(r.instanceId); }
+        registros = [...porId.values()];
+        fuente = enDO.size ? (registros.length > enDO.size ? "do+kv" : "do") : "kv";
         for (const r of registrosKV) {
-          if (r && r.instanceId && !yaEnDO.has(r.instanceId)) await espejarEnDO(env, r.instanceId, r);
+          if (r && r.instanceId && !enDO.has(r.instanceId)) await espejarEnDO(env, r.instanceId, r);
         }
       }
 

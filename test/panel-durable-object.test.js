@@ -122,6 +122,35 @@ test('a half-filled Durable Object can never hide a device that exists in KV', a
   assert.equal(segunda.filas.length, 2, 'la segunda lectura ya sale del DO y no pierde a nadie');
 });
 
+test('equal row counts with different IDs merge by device, keeping fresh DO fields', async () => {
+  const worker = await cargarWorker();
+  const fake = doFalso();
+  const env = { LICENCIAS: kvFalsa(), MASTER_KEY: MASTER, REGISTROS: fake.binding };
+  env.LICENCIAS.store.set('inst:idiomarte-belen', JSON.stringify({ instanceId: 'idiomarte-belen', nombre: 'Belén', estado: 'full', lastSeen: 1 }));
+  env.LICENCIAS.store.set('inst:idiomarte-owner', JSON.stringify({ instanceId: 'idiomarte-owner', nombre: 'Old', estado: 'full', lastSeen: 1 }));
+  fake.storage.set('inst:idiomarte-owner', { instanceId: 'idiomarte-owner', nombre: 'Fresh', estado: 'full', lastSeen: 2 });
+  fake.storage.set('inst:other', { instanceId: 'other', estado: 'minima', lastSeen: 3 });
+  const { filas } = await listarPanel(worker, env);
+  assert.equal(filas.length, 3);
+  assert.ok(filas.some(x => x.instanceId === 'idiomarte-belen'));
+  assert.equal(filas.find(x => x.instanceId === 'idiomarte-owner').nombre, 'Fresh');
+  assert.ok(fake.storage.has('inst:idiomarte-belen'), 'missing device is mirrored without overwriting its sibling');
+});
+
+test('KV fallback reads every page, including devices after the first thousand', async () => {
+  const worker = await cargarWorker();
+  const kv = kvFalsa();
+  const entries = Array.from({ length: 1001 }, (_, i) => 'inst:fixture-' + i);
+  entries.forEach((key, i) => kv.store.set(key, JSON.stringify({ instanceId: key.slice(5), estado: 'full', lastSeen: i })));
+  kv.list = async ({ cursor } = {}) => {
+    const from = Number(cursor || 0);
+    return { keys: entries.slice(from, from + 1000).map(name => ({ name })), list_complete: from + 1000 >= entries.length, cursor: String(from + 1000) };
+  };
+  const { filas } = await listarPanel(worker, { LICENCIAS: kv, MASTER_KEY: MASTER });
+  assert.equal(filas.length, 1001);
+  assert.ok(filas.some(x => x.instanceId === 'fixture-1000'));
+});
+
 test('deleting an instance removes it from both stores, so no ghost row survives', async () => {
   const worker = await cargarWorker();
   const fake = doFalso();
