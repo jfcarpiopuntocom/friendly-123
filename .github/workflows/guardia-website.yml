@@ -1,0 +1,24 @@
+# GUARDIA CONTRA EL INCIDENTE DE jfcarpio.com (JFC 2026-09-29). Si Cloudflare intenta construir el Worker "website"
+# (jfcarpio.com) desde un commit de MASTER de este repo, aparece el check "Workers Builds: website". Eso NO debe pasar
+# nunca: el Worker "website" solo se conecta a jfcarpiopuntocom/website (main). Este workflow lo ve en segundos y se pone en
+# ROJO (GitHub avisa por correo). No se puede vigilar el sitio desde afuera: Cloudflare reta (cf-mitigated: challenge) a los
+# servidores de GitHub, por eso se vigila la CAUSA, que si es visible aqui. Solo LEE; no toca nada.
+# Ramas que no son master generan solo vistas previas (no publican): se ignoran.
+name: guardia-website
+on:
+  check_run:
+    types: [created]
+permissions:
+  contents: read
+jobs:
+  alarma:
+    if: "${{ github.event.check_run.name == 'Workers Builds: website' && github.event.check_run.check_suite.head_branch == 'master' }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: ALARMA - friendly-123 esta construyendo el Worker website
+        run: |
+          echo "::error::El Worker 'website' (jfcarpio.com) esta siendo construido desde friendly-123/master. Esto puede tapar la portada con la app."
+          echo "Arreglo: Cloudflare > Workers & Pages > website > Settings > Build > Git repository: Disconnect y Connect a jfcarpiopuntocom/website (main)."
+          echo "Modo escritorio en Safari: el boton Disconnect/Reconnect queda cortado en el iPhone. Detalle: notas/INCIDENTE-2026-09-29.md del repo website."
+          exit 1
