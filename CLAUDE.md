@@ -16,6 +16,12 @@
 > reconecte al repo `jfcarpiopuntocom/website` (main). Detalle y pasos: bitacora de Notion
 > "Bitacora Claude + Codex — apps Made In Cuenca" y `.github/workflows/rescate-website.yml`
 > (necesita los secrets CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID, hoy NO existen).
+> **RESUELTO 2026-09-29 14:25 UTC.** JFC hizo Rollback del Worker website (a 41394e6f), lo
+> conecto a `jfcarpiopuntocom/website` rama `main` y pulso Reconnect (la cuenta Git estaba caida).
+> El commit 888a8a2 de website construyo solo ("Workers Builds: website" en verde). Trampas del
+> dashboard en iPhone: Disconnect/Reconnect quedan cortados a la derecha; usar "Request Desktop
+> Website". La regla de revisar el check antes de fusionar SIGUE vigente. Conector Cloudflare
+> (claude.ai) conectado: solo lee Workers, no toca Builds ni rollback.
 
 > **CODEX VOLVIO (JFC 2026-09-29):** JFC usa otra vez Codex (app "Work"). Coordinacion:
 > bitacora de Notion "Bitacora Claude + Codex — apps Made In Cuenca" (leer al empezar,
