@@ -1,0 +1,75 @@
+name: Rescate website (jfcarpio.com)
+
+# INCIDENTE 2026-09-29: el Worker "website" (jfcarpio.com) quedo conectado por error
+# en Cloudflare Workers Builds al repo friendly-123. El merge de v421 (07:20 UTC)
+# publico la APP encima de la pagina. Este flujo, SOLO MANUAL, usa el token de
+# Cloudflare guardado en los secrets del repo para:
+#   diagnostico  -> comprobar el token, listar el historial del Worker "website"
+#                   y sus conexiones de Workers Builds (solo lectura).
+#   rollback     -> volver el Worker "website" a la version indicada (la buena).
+#   desconectar  -> borrar la conexion de Workers Builds indicada (trigger_uuid),
+#                   para que friendly-123 no vuelva a pisar jfcarpio.com.
+# Nunca imprime el token. No toca el Worker friendly-123 ni el de licencias.
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: diagnostico | rollback | desconectar
+        required: true
+        default: diagnostico
+        type: string
+      version_id:
+        description: (rollback) Version ID buena del Worker website
+        required: false
+        type: string
+      trigger_uuid:
+        description: (desconectar) UUID de la conexion de Workers Builds a borrar
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rescate-website
+  cancel-in-progress: false
+
+jobs:
+  rescate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Token presente
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "SIN_TOKEN: faltan los secrets CLOUDFLARE_API_TOKEN o CLOUDFLARE_ACCOUNT_ID"; exit 1; fi
+          echo "TOKEN_OK"
+      - name: Diagnostico (solo lectura)
+        if: inputs.modo == 'diagnostico'
+        run: |
+          echo "== Deployments del Worker website"
+          npx -y wrangler@4.132.0 deployments list --name website --json || echo "FALLO_LISTAR_DEPLOYMENTS"
+          echo "== Versiones del Worker website"
+          npx -y wrangler@4.132.0 versions list --name website --json || echo "FALLO_LISTAR_VERSIONES"
+          echo "== Conexiones de Workers Builds del Worker website"
+          curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/workers/website/triggers" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'success': d.get('success'), 'errors': d.get('errors'), 'triggers': [{k: t.get(k) for k in ('trigger_uuid','trigger_name','branch_includes','repo_connection','build_command','deploy_command','root_directory')} for t in (d.get('result') or [])]}, indent=1))" \
+            || echo "FALLO_LISTAR_TRIGGERS"
+      - name: Rollback a la version buena
+        if: inputs.modo == 'rollback'
+        run: |
+          test -n "${{ inputs.version_id }}"
+          npx -y wrangler@4.132.0 rollback "${{ inputs.version_id }}" --name website -y \
+            -m "Rescate 2026-09-29: friendly-123 piso jfcarpio.com por Workers Builds mal conectado"
+          npx -y wrangler@4.132.0 deployments list --name website --json | head -c 3000
+      - name: Desconectar Workers Builds de friendly-123
+        if: inputs.modo == 'desconectar'
+        run: |
+          test -n "${{ inputs.trigger_uuid }}"
+          curl -sS -X DELETE -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/triggers/${{ inputs.trigger_uuid }}" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print({'success': d.get('success'), 'errors': d.get('errors')})"
