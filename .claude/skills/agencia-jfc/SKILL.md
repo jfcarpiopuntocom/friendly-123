@@ -19,10 +19,17 @@ SIN mencionarlos: solo usandolos magistralmente". Lee `persuasion-research` ante
 8. **Todo texto nuevo publico se le muestra a JFC ANTES de publicar** (regla de persuasion-research). Guiones y textos: JFC no graba; se le dan guiones.
 9. Sin miedo sin salida: todo costo mostrado termina en un paso concreto.
 
-## El hilo (idea central, palabras de JFC)
-"Todo lo que hago es una sola pregunta: **¿que se rompe cuando decides tarde?**" (su tesis: familias y organizaciones pierden mucho
-cuando interpretan tarde senales que ya estaban sobre la mesa). Une apps, macro, reportes, tableros, talleres y libros.
-Recorrido pedido por JFC: apps desde el 2o fotograma, luego se abre a Econ y macro, y vuelve a aterrizar en herramientas.
+## El hilo (CORREGIDO por JFC 2026-09-29: "lo que conecta todo es el VALOR: creacion de valor y preservacion de valor")
+Idea central: **HISTORIA DE DOS NEGOCIOS**. Dos negocios pequenos del mismo rubro nacen el mismo ano. Uno usa las herramientas, reportes, dashboards,
+talleres y el blog de JFC para CREAR valor (menos cuaderno y Excel, mejores decisiones) y PRESERVARLO (leer el entorno, defender su actividad de
+emprendedor con ideas: ganar-ganar, cooperacion, valor nacido en la mente humana segun Menger). El otro no. Cada fotograma cuenta un momento del
+negocio o del entorno y lo que hizo cada uno. Es una PARABOLA, siempre rotulada como historia ilustrativa, NUNCA un caso real ni un resultado prometido.
+Estructura inspirada (NO copiada palabra por palabra: hay derechos de autor) en la carta "Dos jovenes" de The Wall Street Journal (Martin Conroy, 1974).
+Ganchos clasicos a adaptar: Caples ("Se rieron cuando me sente al piano... pero cuando empece a tocar!"), Sackheim ("¿Cometes estos errores...?"),
+Ogilvy (hecho concreto como titular). Niveles de conciencia del lector (Schwartz) para elegir el gancho en cada fotograma.
+Apps: friendly-123 y amigable-123 NO son "para tiendas": son para CUALQUIER pequeno negocio. Afirmacion de JFC (verificar antes de publicar): "hasta 50-65%
+del tiempo" al dejar el cuadernito o sufrir con Excel; publicarla como estimacion ("hasta", segun la rutina), no como promesa.
+PROHIBIDO: analogias forzadas como "una tienda pequena y una moneda se rompen cuando decides tarde" (JFC las detesta).
 
 ## Frameworks (USO INTERNO. NUNCA nombrarlos en pantalla, redes ni guiones)
 | Que hacer | Como se usa en el sitio |
@@ -32,7 +39,7 @@ Recorrido pedido por JFC: apps desde el 2o fotograma, luego se abre a Econ y mac
 | Situacion / Problema / Implicacion / Necesidad-beneficio (preguntas en cadena) | Los 4 tránsitos principales SON esas 4 preguntas, en ese orden: ¿Como decides hoy? ¿Donde se traba? ¿Cuanto cuesta no verlo? ¿Que cambiaria si lo vieras a tiempo? |
 | Venta de brecha (hoy vs deseado + costo de la brecha) | Dos columnas "Hoy / Con el hilo" y un costo en tiempo o dinero con fuente (solo cifras verificadas). |
 | THE WORKS (mezcla) | Reciprocidad (guia gratis y demo PIN 456), anclaje (reporte USD 749 junto al micro reporte USD 100), prueba social real (3 testimonios), autoridad (trayectoria con fuentes), historia (el hilo), coherencia (pasos pequenos), repeticion (mismo llamado: "Agendar un diagnostico"). |
-| Polimata / multicurioso | Una historia que une todo (el hilo), valor concreto, prueba. Un solo hub con un hilo; no cinco identidades sueltas. |
+| Polimata / multicurioso | Una historia que une todo (el hilo), valor concreto, prueba. Un solo hub con un hilo (crear y preservar valor); no cinco identidades sueltas. |
 
 ## Escalera de compromiso (precios reales de JFC)
 Gratis (guia "10 modelos de negocios sin empleados", demo friendly-123 PIN 456, brief de 1 pagina de tu sector en 72 h)
