@@ -68,8 +68,13 @@ jobs:
           echo "== Versiones del Worker website"
           npx -y wrangler@4.132.0 versions list --name website --json | python3 -c "import json,sys; d=json.load(sys.stdin); d=d if isinstance(d,list) else d.get('items', d); print(json.dumps([{'id': x.get('id'), 'created': x.get('created_on') or (x.get('metadata') or {}).get('created_on'), 'source': x.get('source') or (x.get('metadata') or {}).get('source'), 'annotations': x.get('annotations'), 'versions': x.get('versions')} for x in d if isinstance(x,dict)][:15], indent=1, default=str)[:6000])" || echo "FALLO_LISTAR_VERSIONES"
           echo "== Conexiones de Workers Builds del Worker website"
+          # La API de Builds pide el worker_tag interno, NO el nombre "website" (error del rescate previo, 2026-09-29).
+          TAG=$(curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts" \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print(next((x.get('tag') or x.get('id') for x in (d.get('result') or []) if x.get('id')=='website'), ''))")
+          test -n "$TAG" && echo "worker_tag de website: $TAG"
           curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/workers/website/triggers" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/workers/$TAG/triggers" \
             | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'success': d.get('success'), 'errors': d.get('errors'), 'triggers': [{k: t.get(k) for k in ('trigger_uuid','trigger_name','branch_includes','repo_connection','build_command','deploy_command','root_directory')} for t in (d.get('result') or [])]}, indent=1))" \
             || echo "FALLO_LISTAR_TRIGGERS"
       - name: Rollback a la version buena
