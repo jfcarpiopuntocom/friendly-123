@@ -2247,7 +2247,13 @@
       } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
     }
-    if (window.OCSyncEmit) { try { window.OCSyncEmit(tipo, payload); } catch (_) {} }
+    if (window.OCSyncEmit) {
+      try {
+        // false = la cola del sync viejo no pudo guardar la op (localStorage lleno).
+        // El estado ya esta guardado y el sync nuevo la reparte: solo consola.
+        if (window.OCSyncEmit(tipo, payload) === false) console.warn("[sync] cola llena: la op " + tipo + " no quedo en la cola del sync viejo; viaja por el sync nuevo desde el estado guardado");
+      } catch (_) {}
+    }
     // MYCELIUM PHASE B (2026-07-28). This is the only place where the stock
     // move has already happened AND the resulting stock is known. Emitting the
     // fact from here rather than from a UI wrapper matters: a UI function may

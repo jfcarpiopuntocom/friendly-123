@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-29",
-  "changelog": "A sale is saved before it is confirmed; a unit sold twice offline shows as a red missing-stock alert.",
+  "changelog": "A sale is saved before it is confirmed; a unit sold twice offline shows as a red missing-stock alert; a full sync queue is reported instead of dropping the operation silently.",
   "requerida": false,
-  "shell": "f123-shell-v421",
+  "shell": "f123-shell-v422",
   "apagar": [],
   "releaseName": "v1.0"
 }

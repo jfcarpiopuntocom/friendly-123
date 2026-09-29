@@ -235,7 +235,8 @@
         try { localStorage.setItem("f123_sync_cola_desbordada", String(arr.length)); } catch (_) {}
       }
       localStorage.setItem(COLA_KEY, JSON.stringify(arr.slice(-1000)));
-    } catch (_) {}
+      return true;
+    } catch (_) { return false; }
   }
 
   function leerSala() {
@@ -1136,7 +1137,7 @@
   // --- Puente con mock-backend.js: emitirOpStock(tipo, payload) llama aqui ---
   window.OCSyncEmit = function (tipo, payload) {
     const sala = leerSala();
-    if (!sala) return; // sync apagado: no-op total, cero overhead
+    if (!sala) return true; // sync apagado: no-op total, cero overhead
     const op = {
       opId: uuidCorto(), deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
       lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
@@ -1159,10 +1160,16 @@
         .then((buf) => { try { ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { encolar(op); } })
         .catch(() => encolar(op));
     } else {
-      encolar(op);
+      if (!encolar(op)) return false;
     }
+    return true;
   };
-  function encolar(op) { const cola = leerCola(); cola.push(op); guardarCola(cola); }
+  /* NO PERDER EN SILENCIO (JFC 2026-09-29, portado del archivo que Codex dejo sin
+     subir): con localStorage lleno guardarCola() tragaba el error y la op no
+     quedaba pendiente. Ahora se dice: OCSyncEmit devuelve false. La venta ya esta
+     guardada (mock-backend guarda antes de emitir) y el sync nuevo la reparte desde
+     el estado; esto avisa que el transporte viejo no la tiene en cola. */
+  function encolar(op) { const cola = leerCola(); cola.push(op); return guardarCola(cola); }
 
   // --- API publica para la UI (Avanzado) ---
   window.OCSyncControl = {

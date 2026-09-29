@@ -464,3 +464,8 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
   ya fallaba en master v420).
 - test/venta-durable-deficit.test.js: 1, 2 y 3 rojas en v420; 2b nueva; 4 es fijacion. Suite 423/423.
 - Pendiente: el log del ajuste guarda stockResultante antes de pagar el faltante (dato de auditoria, no de stock).
+- v422 (mismo dia): JFC pego un archivo de Codex (test/sync-zero-trust.test.js, subido como blob sin rama).
+  Diferencia leida: la cola del sync viejo debe decir si guardo. guardarCola/encolar devuelven bool y
+  OCSyncEmit devuelve false si la op no quedo en cola (localStorage lleno); mock-backend solo lo anota en
+  consola (el estado ya esta guardado y Yjs reparte ventas y contador). test/cola-sync-sin-espacio.test.js
+  roja en v421. Suite 424/424. Los demas blobs de Codex no estan en ninguna rama: no se pueden leer.
