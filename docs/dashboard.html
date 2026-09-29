@@ -1399,6 +1399,7 @@
       var estado = g.socio > 0 || (l && (l.ajustes || []).length) ? (g.pend > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
       var sub = cmVista === "producto"
         ? "Rack: " + esc(Object.keys(g.perchas).join(", ") || "-") + (Object.keys(g.personas).length ? " · Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : "")
+          + (g.unid && g.bruto > 0 ? " · <strong>" + (Math.round(g.socio / g.bruto * 1000) / 10) + "%</strong> to the associate" : "")
         : (l && l.asociadoNombre ? "Associate: <strong>" + esc(l.asociadoNombre) + "</strong>" + (l.pctEfectivo != null ? " · " + l.pctEfectivo + "%" : "") + (l.baseComision === "margen" ? " · on margin" : "") : (Object.keys(g.personas).length ? "Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : ""));
       var stats = '<div class="cm-stats">' +
         (g.unid ? '<div><div class="et">Sold with commission</div><div class="n">' + money(g.bruto) + " <small>" + g.unid + "u</small></div></div>" +

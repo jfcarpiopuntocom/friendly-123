@@ -5210,6 +5210,7 @@ async function duplicarComoVariante(id) {
     set("#np-ubicacion", p.ubicacionId || "todas");
     set("#np-tipo-proveedor", p.tipoProveedor || "compra");
     set("#np-comisionista", p.comisionistaId || "");
+    set("#np-pct-asociado", p.pctAsociado != null ? p.pctAsociado : "");
     set("#np-tipo-producto", p.tipoProducto || "normal");
     set("#np-serving-ml", p.servingMl || 50);
     set("#np-botella-ml", p.botellaMl || 750);
@@ -6085,6 +6086,8 @@ function mostrarFormNuevoProducto(codigoEscaneado){
         <select id="np-comisionista" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;">
           <option value="">— None —</option>
         </select></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.assocPct")}<br>
+        <input id="np-pct-asociado-q" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="${t("form.assocPctPh")}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.photoAltaLabel")}<br>
         <input id="np-foto" type="file" accept="image/*" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
@@ -6150,6 +6153,7 @@ async function crearProductoNuevo(codigoEscaneado){
     tipoProveedor: el("np-tipo-proveedor") ? el("np-tipo-proveedor").value : "compra",
     comisionProveedorPct: el("np-tipo-proveedor") && el("np-tipo-proveedor").value === "consignacion" ? Number(val("np-comision-pct")) || 0 : 0,
     comisionistaId: el("np-comisionista") ? (el("np-comisionista").value || null) : null,
+    pctAsociado: el("np-pct-asociado") ? val("np-pct-asociado") : (el("np-pct-asociado-q") ? val("np-pct-asociado-q") : ""), // Belen 2026-09-29
     perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
     exentoImpuesto: !!(el("np-exento") && el("np-exento").checked),
     metodoCosteo: perecible ? el("np-metodo").value : "FIFO",
@@ -6248,6 +6252,9 @@ async function mostrarFormEditarProducto(id){
         <select id="ed-comisionista" ${inp}>
           <option value="">— None —</option>
         </select></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.assocPct")}<br>
+        <input id="ed-pct-asociado" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="${t("form.assocPctPh")}" value="${p.pctAsociado != null ? p.pctAsociado : ""}" ${inp}></label>
+      <div style="font-size:13px;margin-top:4px;">${t("form.assocPctHint")}</div>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.shelfLabel")}<br>
         <select id="ed-ubicacion" ${inp}>
           <option value="todas"${!p.ubicacionId || p.ubicacionId === "todas" ? " selected" : ""}>${t("form.noShelf")}</option>
@@ -6322,7 +6329,7 @@ async function guardarEdicionProducto(id){
   // campo no existe en el DOM, se OMITE del PATCH en vez de reventar todo.
   const v = (x) => { const el = document.getElementById(x); return el ? el.value.trim() : undefined; };
   // OJO: el SKU no se toca aqui — solo el barcode si el dueno lo digito.
-  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })() };
+  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   { const ex = document.getElementById("ed-exento"); if (ex) body.exentoImpuesto = ex.checked; } // v361
   const foto = await leerFotoRedimensionada(document.getElementById("ed-foto"));
@@ -6463,6 +6470,9 @@ async function abrirAltaProducto(){
         <select id="np-comisionista" ${inp}>
           <option value="">— None —</option>
         </select></label>
+      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.assocPct")}<br>
+        <input id="np-pct-asociado" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="${t("form.assocPctPh")}" value="" ${inp}></label>
+      <div style="font-size:13px;margin-top:4px;">${t("form.assocPctHint")}</div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
         <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
       <!-- v361: producto exento de impuesto (comida, libros... según el país). -->
