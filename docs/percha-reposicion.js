@@ -136,7 +136,7 @@
         var costoLinea = p.__sugerido * Number(p.costo || 0);
         totalCosto += costoLinea;
         var chip = p.__urgente
-          ? '<span style="font-size:13px;font-weight:700;background:#E53935;color:#FFFFFF;padding:3px 9px;border-radius:12px;">' + TL.urgent + '</span>'
+          ? '<span style="font-size:13px;font-weight:700;background:#C41E3A;color:#FFFFFF;padding:3px 9px;border-radius:12px;">' + TL.urgent + '</span>'
           : '<span style="font-size:13px;font-weight:700;background:#FFB300;color:#1e1a12;padding:3px 9px;border-radius:12px;">' + TL.soon + '</span>';
         var bcgTxt = ETIQUETA_BCG[p.__peso] ? '<span style="font-size:13px;font-weight:700;color:#0F1923;">' + ETIQUETA_BCG[p.__peso] + "</span>" : "";
         var derecha = dueno

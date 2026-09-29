@@ -5288,6 +5288,7 @@ async function cargarInventario(){
         <div class="detalle">${escHtml(p.categoria)} · ${escHtml(p.sku)}</div>
         ${p.chip ? `<span class="chip-var">${escHtml(p.chip)}</span>` : ""}
         <div class="stock">${p.stockActual}</div>
+        ${p.stockDeficit > 0 ? `<div class="oc-deficit" role="alert" style="margin:6px 0;padding:8px 10px;background:#FFFFFF;color:#7C1024;border:2px solid #C41E3A;border-radius:8px;font-size:15px;font-weight:700;line-height:1.35;">${escHtml(tf("inv.deficit", {n: p.stockDeficit}))}</div>` : ""}
         <div class="detalle">${escHtml(p.mensaje)}</div>
       </div>
       <!-- Ajuste rápido de stock sin escanear -->
@@ -6527,6 +6528,7 @@ function pintarFicha(p){
       ${p.varianteValor ? `<div class="linea"><strong>${document.documentElement.lang === "es" ? "Variante:" : "Variant:"}</strong> ${escHtml(p.varianteAtributo || "")} · ${escHtml(p.varianteValor)}</div>` : ""}
       <div class="linea"><strong>${t("ficha.supplier")}</strong> ${escHtml(p.proveedor)}</div>
       <div class="linea"><strong>${t("ficha.currentStock")}</strong> ${p.stockActual} ${t("ficha.units")}</div>
+      ${p.stockDeficit > 0 ? `<div class="oc-deficit" role="alert" style="margin:6px 0;padding:8px 10px;background:#FFFFFF;color:#7C1024;border:2px solid #C41E3A;border-radius:8px;font-size:15px;font-weight:700;line-height:1.35;">${escHtml(tf("inv.deficit", {n: p.stockDeficit}))}</div>` : ""}
       ${p.tipoProducto === "bar" ? `<div class="linea" id="bar-servings-line"><strong>Servings per bottle:</strong> ≈ ${Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50)))} (${escHtml(p.servingMl)} ml each)${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<button onclick="editarServings('${p.id}')" title="Adjust servings per bottle" style="font-size:12px;padding:2px 8px;margin-left:6px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}</div>` : ""}
       ${p.perecible ? `<div class="linea"><strong>${t("ficha.expires")}</strong> ${escHtml(p.fechaCaducidad || t("ficha.noDate"))}${p.metodoCosteo ? ` · ${escHtml(p.metodoCosteo)}` : ""}</div>` : ""}
       <span class="badge-estado ${escHtml(p.estado)}">${escHtml(p.mensaje)}</span>

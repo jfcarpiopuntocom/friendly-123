@@ -451,3 +451,16 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
   /api/ventas/todas trae promotoraId (aditivo). test/comision-por-persona.test.js (4 rojas en v413). Suite 399/399.
 - Pendiente anotado: sync-yjs normaliza la licencia sin Crockford (I/L/O) y sync-realtime con Crockford; solo importa
   si una licencia trae I, L u O (el formato actual no las usa).
+
+## 2026-09-29 — shell v421: venta durable + faltante visible (rehecho; Codex se quedo sin uso antes de subir)
+- Venta: se guarda ANTES de responder (await guardarEstadoLocal). Si localStorage e IndexedDB fallan: se
+  deshace (stock, venta, movimiento y sello) y responde 507 con aviso EN/ES (sale.notSaved). La op de stock
+  (emitirOpStock) sale solo despues de guardar.
+- Faltante: campo NUEVO stockDeficit, derivado del contador compartido en aplicarCatalogo (mock-backend). La
+  percha sigue sin negativos; la tarjeta y la ficha muestran alerta roja (inv.deficit). Una reposicion paga
+  primero el faltante (emitirOpStock). NO se toca sync-yjs.js: ponerlo en el mapa Yjs rompia la convergencia
+  de "keeps both offline stock deductions" (probado); cada aparato lo recalcula al fusionar.
+- Contraste: badge rojo #E53935 -> #C41E3A en vista-perchas y percha-reposicion (4.23 -> 5.9; test Bloque 5
+  ya fallaba en master v420).
+- test/venta-durable-deficit.test.js: 1, 2 y 3 rojas en v420; 2b nueva; 4 es fijacion. Suite 423/423.
+- Pendiente: el log del ajuste guarda stockResultante antes de pagar el faltante (dato de auditoria, no de stock).
