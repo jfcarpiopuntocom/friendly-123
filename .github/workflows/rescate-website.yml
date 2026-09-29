@@ -11,6 +11,11 @@ name: Rescate website (jfcarpio.com)
 #                   para que friendly-123 no vuelva a pisar jfcarpio.com.
 # Nunca imprime el token. No toca el Worker friendly-123 ni el de licencias.
 on:
+  # Tambien por push de .github/rescate-website.json a la rama de trabajo de Claude:
+  # la integracion de GitHub de la nube no puede lanzar workflow_dispatch (403).
+  push:
+    branches: [nube-skills-jev-a5f0km]
+    paths: ['.github/rescate-website.json']
   workflow_dispatch:
     inputs:
       modo:
@@ -42,34 +47,42 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
+      - uses: actions/checkout@v4
+      - name: Leer ordenes
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            python3 -c "import json; d=json.load(open('.github/rescate-website.json')); [print(f'{k.upper()}={d.get(k, \"\")}') for k in ('modo','version_id','trigger_uuid')]" >> "$GITHUB_ENV"
+          else
+            { echo "MODO=${{ inputs.modo }}"; echo "VERSION_ID=${{ inputs.version_id }}"; echo "TRIGGER_UUID=${{ inputs.trigger_uuid }}"; } >> "$GITHUB_ENV"
+          fi
       - name: Token presente
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "SIN_TOKEN: faltan los secrets CLOUDFLARE_API_TOKEN o CLOUDFLARE_ACCOUNT_ID"; exit 1; fi
           echo "TOKEN_OK"
       - name: Diagnostico (solo lectura)
-        if: inputs.modo == 'diagnostico'
+        if: env.MODO == 'diagnostico'
         run: |
           echo "== Deployments del Worker website"
-          npx -y wrangler@4.132.0 deployments list --name website --json || echo "FALLO_LISTAR_DEPLOYMENTS"
+          npx -y wrangler@4.132.0 deployments list --name website --json | python3 -c "import json,sys; d=json.load(sys.stdin); d=d if isinstance(d,list) else d.get('items', d); print(json.dumps([{'id': x.get('id'), 'created': x.get('created_on') or (x.get('metadata') or {}).get('created_on'), 'source': x.get('source') or (x.get('metadata') or {}).get('source'), 'annotations': x.get('annotations'), 'versions': x.get('versions')} for x in d if isinstance(x,dict)][:15], indent=1, default=str)[:6000])" || echo "FALLO_LISTAR_DEPLOYMENTS"
           echo "== Versiones del Worker website"
-          npx -y wrangler@4.132.0 versions list --name website --json || echo "FALLO_LISTAR_VERSIONES"
+          npx -y wrangler@4.132.0 versions list --name website --json | python3 -c "import json,sys; d=json.load(sys.stdin); d=d if isinstance(d,list) else d.get('items', d); print(json.dumps([{'id': x.get('id'), 'created': x.get('created_on') or (x.get('metadata') or {}).get('created_on'), 'source': x.get('source') or (x.get('metadata') or {}).get('source'), 'annotations': x.get('annotations'), 'versions': x.get('versions')} for x in d if isinstance(x,dict)][:15], indent=1, default=str)[:6000])" || echo "FALLO_LISTAR_VERSIONES"
           echo "== Conexiones de Workers Builds del Worker website"
           curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/workers/website/triggers" \
             | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({'success': d.get('success'), 'errors': d.get('errors'), 'triggers': [{k: t.get(k) for k in ('trigger_uuid','trigger_name','branch_includes','repo_connection','build_command','deploy_command','root_directory')} for t in (d.get('result') or [])]}, indent=1))" \
             || echo "FALLO_LISTAR_TRIGGERS"
       - name: Rollback a la version buena
-        if: inputs.modo == 'rollback'
+        if: env.MODO == 'rollback'
         run: |
-          test -n "${{ inputs.version_id }}"
-          npx -y wrangler@4.132.0 rollback "${{ inputs.version_id }}" --name website -y \
+          test -n "$VERSION_ID"
+          npx -y wrangler@4.132.0 rollback "$VERSION_ID" --name website -y \
             -m "Rescate 2026-09-29: friendly-123 piso jfcarpio.com por Workers Builds mal conectado"
           npx -y wrangler@4.132.0 deployments list --name website --json | head -c 3000
       - name: Desconectar Workers Builds de friendly-123
-        if: inputs.modo == 'desconectar'
+        if: env.MODO == 'desconectar'
         run: |
-          test -n "${{ inputs.trigger_uuid }}"
+          test -n "$TRIGGER_UUID"
           curl -sS -X DELETE -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/triggers/${{ inputs.trigger_uuid }}" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/triggers/$TRIGGER_UUID" \
             | python3 -c "import json,sys; d=json.load(sys.stdin); print({'success': d.get('success'), 'errors': d.get('errors')})"
