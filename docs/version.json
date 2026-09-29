@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-29",
-  "changelog": "A sale is saved before it is confirmed; a unit sold twice offline shows as a red missing-stock alert; a full sync queue is reported instead of dropping the operation silently.",
+  "changelog": "Commissions: a past month receipt no longer copies this month returns and shows the net after returns; new bars show how each dollar sold with commission splits between associates and the house.",
   "requerida": false,
-  "shell": "f123-shell-v422",
+  "shell": "f123-shell-v423",
   "apagar": [],
   "releaseName": "v1.0"
 }

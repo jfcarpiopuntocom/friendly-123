@@ -228,6 +228,16 @@
   .cm-actions a,.cm-actions button{min-height:40px;padding:6px 12px;border:2px solid var(--ink);border-radius:6px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer}
   .cm-actions a.pagar{background:var(--rust);border-color:#C05000;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px}
   .cm-h{font-family:var(--font-display);font-size:16px;font-weight:700;margin:0}
+  /* v423: barras de reparto. Azul #1F5FB8 = asociado, verde #086944 = casa (paleta validada, CVD dE 19).
+     Texto siempre en tinta; el color solo va en la barra y en el cuadrito de la leyenda. */
+  .cm-reparto .et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+  .cm-barra{display:flex;gap:2px;height:12px;max-width:100%;border-radius:4px;overflow:hidden}
+  .cm-barra i{display:block;height:100%;min-width:0}
+  .cm-barra-xl{height:28px}
+  .cm-s-asoc{background:#1F5FB8}.cm-s-casa{background:#086944}
+  .cm-leyenda{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:10px;font-size:15px;font-weight:700}
+  .cm-leyenda .sw{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+  .cm-fila-barra{margin-top:10px}
   .cm-sub{font-size:13px;margin:2px 0 0}
   #cm details summary{cursor:pointer;font-size:14px;font-weight:700;color:#2E6278 !important;-webkit-text-fill-color:#2E6278 !important}
   #cm table{width:100%;font-size:14px;border-collapse:collapse}
@@ -1340,7 +1350,12 @@
   function cmRecibo(ubicacionId, mes) {
     /* Recibo imprimible SIN logo nuestro (JFC): es el papel del cliente para su asociado. */
     var filas = cmFilas(mes).filter(function (v) { return v.ubicacionId === ubicacionId && v.comisionPct != null; });
-    var liq = (datos.liquidaciones || []).find(function (l) { return l.ubicacionId === ubicacionId; }) || {};
+    /* v423 (JFC 2026-09-29): la liquidacion viva es del MES ACTUAL. Antes el recibo de un mes pasado
+       copiaba sus devoluciones (y su asociado vigente). Ahora: mes pasado = solo sus ventas. */
+    var esActual = mes === cmMesActual();
+    var liqViva = (datos.liquidaciones || []).find(function (l) { return l.ubicacionId === ubicacionId; }) || {};
+    var f0 = filas[0] || {};
+    var liq = esActual ? liqViva : { ubicacion: liqViva.ubicacion || f0.ubicacionNombre || "", asociadoNombre: f0.asociadoNombre || "" };
     var neg = (datos.resumen && datos.resumen.nombreNegocio) || ($("neg-nombre") && $("neg-nombre").textContent) || "";
     var porProd = cmAgrupar(filas, "producto");
     var tot = filas.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
@@ -1349,7 +1364,8 @@
       "<h2>Sales with commission</h2><table><thead><tr><th>Product</th><th class=n>Units</th><th class=n>Sold</th><th class=n>Commission</th></tr></thead><tbody>" +
       porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + d.unid + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + money(d.socio) + "</td></tr>"; }).join("") +
       "</tbody><tfoot><tr><td colspan=3>Total commission</td><td class=n>" + money(tot) + "</td></tr></tfoot></table>" +
-      ((liq.ajustes && liq.ajustes.length) ? "<h2>Returns of already-paid sales</h2><table>" + liq.ajustes.map(function (x) { return "<tr><td>" + esc(String(x.fecha || "").slice(0, 10)) + " · " + esc(x.quien || "") + (x.motivo ? " · " + esc(x.motivo) : "") + "</td><td class=n>" + money(x.montoComisionSocio) + "</td></tr>"; }).join("") + "</table>" : "") +
+      ((liq.ajustes && liq.ajustes.length) ? "<h2>Returns of already-paid sales</h2><table>" + liq.ajustes.map(function (x) { return "<tr><td>" + esc(String(x.fecha || "").slice(0, 10)) + " · " + esc(x.quien || "") + (x.motivo ? " · " + esc(x.motivo) : "") + "</td><td class=n>" + money(x.montoComisionSocio) + "</td></tr>"; }).join("") +
+        "<tfoot><tr><td>Net after returns</td><td class=n>" + money(tot + liq.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + "</td></tr></tfoot></table>" : "") +
       "<p style='margin-top:24px'>Signature: ____________________________</p></body></html>";
     var w = window.open("", "_blank"); if (!w) return;
     w.document.open(); w.document.write(html); w.document.close();
@@ -1370,6 +1386,14 @@
     var atrasados = meses.filter(function (m) { return m !== actual && cmPendienteDe(m) > 0; });
     var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + money(n) + "</div></div>"; };
     var grupos = cmAgrupar(filas, cmVista);
+    /* v423: barras (JFC "visualizacion amplia e impactante"). Azul = asociado, verde = casa (validado para
+       daltonismo). Largo de cada barra = lo vendido con comision de esa fila frente a la mayor. */
+    var cmMax = grupos.reduce(function (a, g) { return Math.max(a, g.bruto); }, 0);
+    var cmBarra = function (socioM, casaM, cls, ancho) {
+      var s = Math.max(0, socioM), c = Math.max(0, casaM), t = s + c; if (t <= 0) return "";
+      var ps = Math.round(s / t * 1000) / 10;
+      return '<div class="cm-barra' + (cls || "") + '" style="width:' + ancho + '%" title="Associate ' + money(s) + " · House " + money(c) + '"><i class="cm-s-asoc" style="width:' + ps + '%"></i><i class="cm-s-casa" style="width:' + (100 - ps) + '%"></i></div>';
+    };
     var tarjeta = function (g) {
       var l = cmVista === "percha" ? (liqs.find(function (x) { return x.ubicacionId === g.id; }) || null) : null;
       var estado = g.socio > 0 || (l && (l.ajustes || []).length) ? (g.pend > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
@@ -1395,7 +1419,8 @@
         (g.pend > 0 ? '<a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(g.ubicacionId) + '">Pay in the app</a>' : "") +
         '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(g.ubicacionId) + '">Adjust the deal</a>' +
         '<button type="button" data-cm-recibo="' + esc(g.ubicacionId) + '">Receipt</button></div>' : "";
-      return '<div class="cm-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><div><h3 class="cm-h">' + esc(g.nombre) + (g.sku ? ' <span style="font-weight:400;font-size:13px;">' + esc(g.sku) + "</span>" : "") + "</h3>" + (sub ? '<div class="cm-sub">' + sub + "</div>" : "") + "</div>" + estado + "</div>" + stats + extra + acciones + "</div>";
+      var barra = g.bruto > 0 && cmMax > 0 ? '<div class="cm-fila-barra">' + cmBarra(g.socio, g.casa, "", Math.max(6, Math.round(g.bruto / cmMax * 100))) + "</div>" : "";
+      return '<div class="cm-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><div><h3 class="cm-h">' + esc(g.nombre) + (g.sku ? ' <span style="font-weight:400;font-size:13px;">' + esc(g.sku) + "</span>" : "") + "</h3>" + (sub ? '<div class="cm-sub">' + sub + "</div>" : "") + "</div>" + estado + "</div>" + barra + stats + extra + acciones + "</div>";
     };
     var rank = cmRanking(conCom);
     cont.innerHTML =
@@ -1406,6 +1431,13 @@
         '<div style="display:flex;gap:6px;"><button type="button" class="cm-key' + (cmVista === "producto" ? " on" : "") + '" data-cm-vista="producto">By product / SKU</button><button type="button" class="cm-key' + (cmVista === "percha" ? " on" : "") + '" data-cm-vista="percha">By rack / event</button></div>' +
       "</div>" +
       '<div class="cm-grid">' + k("Sales with commission", bruto) + k("Associates take", socio) + k("House keeps", casa, "cm-verde") + k("Still to pay", pend, pend > 0 ? "cm-rojo" : "cm-verde") + "</div>" +
+      (bruto > 0 ? (function () {
+        var s = Math.max(0, socio), c = Math.max(0, casa), t = s + c; if (t <= 0) return "";
+        var ps = Math.round(s / t * 100), pc = 100 - ps;
+        return '<div class="cm-card cm-reparto" role="img" aria-label="Of ' + money(bruto) + ' sold with commission, associates take ' + ps + '% and the house keeps ' + pc + '%">' +
+          '<div class="et">Where each dollar sold with commission goes</div>' + cmBarra(s, c, " cm-barra-xl", 100) +
+          '<div class="cm-leyenda"><span><b class="sw cm-s-asoc"></b>Associates ' + ps + "% · " + money(s) + '</span><span><b class="sw cm-s-casa"></b>House ' + pc + "% · " + money(c) + "</span></div></div>";
+      })() : "") +
       (grupos.length ? grupos.map(tarjeta).join("") : '<div class="cm-card">No commissioned sales this month. Partner, consignment and event racks appear here on their own as soon as they sell.</div>') +
       (rank.length ? '<details class="cm-card" style="padding:10px 16px;"><summary>Ranking · who earned the most this month</summary><table style="margin-top:8px;">' + rank.map(function (r, i) { return "<tr><td>" + (i + 1) + ". " + esc(r.nombre) + " <small>(" + r.ventas + " sale" + (r.ventas === 1 ? "" : "s") + ")</small></td><td class=\"num\">" + money(r.monto) + "</td></tr>"; }).join("") + "</table></details>" : "");
     var sel = $("cm-mes"); if (sel) sel.addEventListener("change", function () { cmMes = sel.value; pintarComisiones(); });
