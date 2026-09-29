@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-29",
-  "changelog": "Commissions: a past month receipt no longer copies this month returns and shows the net after returns; new bars show how each dollar sold with commission splits between associates and the house.",
+  "changelog": "Each product can now have its own associate percentage (blank uses the rack deal); Commissions by product shows the percentage the associate actually took.",
   "requerida": false,
-  "shell": "f123-shell-v423",
+  "shell": "f123-shell-v424",
   "apagar": [],
   "releaseName": "v1.0"
 }

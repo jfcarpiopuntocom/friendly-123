@@ -1555,8 +1555,22 @@
     ];
     return split;
   }
-  function calcularSplitVenta(u, montoBruto, acumuladoPrevio, costoTotal) {
-    return repartir(resolverTrato(u), montoBruto, acumuladoPrevio, costoTotal);
+  /* COMISION POR PRODUCTO (IdiomARTE/Belen 2026-09-29): "que el % pueda cambiar segun el producto".
+     El producto puede traer pctAsociado = lo que se lleva el ASOCIADO en SUS ventas (0-100). null/""/no numero =
+     sin % propio: manda el trato de la percha o de la persona, como siempre. 0 es un % real (el asociado no cobra).
+     Con % propio se anulan las escalas por meta (el producto manda), pero la base (bruto/margen), el aporte fijo y
+     el minimo garantizado siguen siendo los del trato. Como toda comision, se SELLA en la venta (comisionPct). */
+  function normPctAsociado(v) {
+    if (v === null || v === undefined || v === "") return null;
+    var n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.min(100, +n.toFixed(2)));
+  }
+  function calcularSplitVenta(u, montoBruto, acumuladoPrevio, costoTotal, pctProducto) {
+    var t = resolverTrato(u);
+    var pp = normPctAsociado(pctProducto);
+    if (t && pp !== null) t = Object.assign({}, t, { pct: pp, escalas: [], origen: "producto" });
+    return repartir(t, montoBruto, acumuladoPrevio, costoTotal);
   }
   /* B3 (corrida Hugo/Paco/Luis, 2026-09-24). REGLA DURA de JFC: la comision se
      sella en la venta el dia que se hace; cambiar el trato despues NUNCA
@@ -2050,7 +2064,7 @@
   function ficha(p) {
     const e = estadoDe(p);
     const _rb = rebajaDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
   /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
      archivados: dashboards, resumen histórico, BCG y reportes financieros deben
@@ -2662,7 +2676,7 @@
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
-          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "chip", "archivado", "fotoHash", "borrado", "rev"];
+          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "chip", "archivado", "fotoHash", "borrado", "rev"];
           const fotoAnterior = mio.fotoHash;
           campos.forEach((k) => { if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
           if (fotoAnterior !== mio.fotoHash) mio.foto = null;
@@ -3337,7 +3351,7 @@
              fotos (mismo camino que las perchas). El receptor resuelve la foto
              desde OCFotos por ese hash. Ver sembrarFotosAlRelay (productos) y la
              hidratacion en volcarFotosAlStore. */
-          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado })),
+          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado })),
         /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
            BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
            `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada
@@ -3574,7 +3588,7 @@
           const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
           const montoBruto = p.precio * cant;
           const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
-          const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant) : null;
+          const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
           ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
         }
         mov(op.tipo + "-remoto", { producto: p.nombre, delta: pl.delta, dispositivo: op.deviceNombre || op.deviceId || "otro dispositivo" });
@@ -3940,7 +3954,7 @@
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
         const stockAntesEdicion = Number(p.stockActual) || 0;
-        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "archivado"];
+        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "archivado"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
       if (k === "foto") {
@@ -3967,6 +3981,7 @@
         }
         p[k] = nuevo; return;
       }
+      if (k === "pctAsociado") { p[k] = normPctAsociado(body[k]); return; } // Belen 2026-09-29: % del asociado por producto (null = trato de la percha)
       if (k === "chip") { p[k] = String(body[k] || "").trim().slice(0, 12); return; }
       if (k === "perecible" || k === "archivado" || k === "exentoImpuesto") { p[k] = !!body[k]; return; } // archivado: JFC/Belén 2026-09-08
       p[k] = body[k];
@@ -4409,6 +4424,7 @@
           servingMl: Math.max(1, Number(body.servingMl) || 50),
           botellaMl: Math.max(1, Number(body.botellaMl) || 750),
           comisionistaId: body.comisionistaId || null, // JFC 2026-08-27: comisionista asociado al producto
+          pctAsociado: normPctAsociado(body.pctAsociado), // Belen 2026-09-29: % del asociado solo para este producto (null = trato de la percha)
           creadoEn: new Date().toISOString(),
           /* FIX 2026-09-24 (hallado con benchmark #6): el formulario de alta manda
              body.foto desde 2026-07-22, pero esta ruta nunca la guardaba y la foto
@@ -4527,7 +4543,7 @@
           : ubicP;
         const split = modoComision === "counter"
           ? null
-          : (_ubicTrato ? calcularSplitVenta(_ubicTrato, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant) : null);
+          : (_ubicTrato ? calcularSplitVenta(_ubicTrato, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado) : null);
         /* Bloque 4: asistente opcional por venta. COUNTER SALE lo ignora (split null). */
         if (split && body && body.asistenteId) aplicarRepartoAsistente(split, _ubicTrato, String(body.asistenteId), body.asistentePct);
         const _promotoraVenta = split ? ((_prVenta && _prVenta.id) || (_ubicTrato && _ubicTrato.promotoraId) || null) : null;
@@ -5051,7 +5067,7 @@
       const previo = ventasActivas().filter((x) => x.id !== v.id && x.ubicacionId === u.id
         && esDelMes(x.fecha, mesVenta) && x.fecha < v.fecha)
         .reduce((a, x) => a + (Number(x.precioUnit) || 0) * (Number(x.cantidad) || 0), 0);
-      const split = calcularSplitVenta(ubicTrato, bruto, previo, (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 0));
+      const split = calcularSplitVenta(ubicTrato, bruto, previo, (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 0), (productos.find((x) => x.id === v.productoId) || {}).pctAsociado);
       if (!split) return J({ error: "No valid commission agreement for this sale." }, 409);
       if (body.preview === true) return J({ preview: true, ventaId: v.id, promotoraId: pr.id, nombre: pr.nombre, split });
       const motivo = String(body.motivo || "").trim().slice(0, 200);
@@ -5115,7 +5131,7 @@
         const destUbic = ubicaciones.find((u) => u.id === body.ubicacionId && u.activa !== false);
         if (!destUbic) return J({ error: "That shelf does not exist or is switched off." }, 400);
         if (productos.some((x) => x.sku === origen.sku && x.ubicacionId === destUbic.id)) return J({ error: `Este producto ya tiene una fila en "${destUbic.nombre}". Usa Transferir en vez de Agregar percha.` }, 400);
-        const clon = { id: uuid("p"), nombre: origen.nombre, categoria: origen.categoria, sku: origen.sku, barcode: origen.barcode, ubicacionId: destUbic.id, precio: origen.precio, costo: origen.costo || 0, stockActual: 0, umbralRojo: origen.umbralRojo, umbralAmarillo: origen.umbralAmarillo, proveedor: origen.proveedor || "", tipoProveedor: origen.tipoProveedor || "compra", comisionProveedorPct: origen.comisionProveedorPct || 0, perecible: !!origen.perecible, exentoImpuesto: !!origen.exentoImpuesto, fechaCaducidad: origen.perecible ? (origen.fechaCaducidad || null) : null, metodoCosteo: origen.metodoCosteo || "FIFO", tipoProducto: origen.tipoProducto || "normal", servingMl: origen.servingMl || 50, botellaMl: origen.botellaMl || 750, foto: origen.foto || null, creadoEn: new Date().toISOString() };
+        const clon = { id: uuid("p"), nombre: origen.nombre, categoria: origen.categoria, sku: origen.sku, barcode: origen.barcode, ubicacionId: destUbic.id, precio: origen.precio, costo: origen.costo || 0, stockActual: 0, umbralRojo: origen.umbralRojo, umbralAmarillo: origen.umbralAmarillo, proveedor: origen.proveedor || "", tipoProveedor: origen.tipoProveedor || "compra", comisionProveedorPct: origen.comisionProveedorPct || 0, pctAsociado: normPctAsociado(origen.pctAsociado), perecible: !!origen.perecible, exentoImpuesto: !!origen.exentoImpuesto, fechaCaducidad: origen.perecible ? (origen.fechaCaducidad || null) : null, metodoCosteo: origen.metodoCosteo || "FIFO", tipoProducto: origen.tipoProducto || "normal", servingMl: origen.servingMl || 50, botellaMl: origen.botellaMl || 750, foto: origen.foto || null, creadoEn: new Date().toISOString() };
         productos.push(clon);
         mov("alta-percha", { producto: clon.nombre, sku: clon.sku, desde: nombreUbic(origen.ubicacionId), hacia: destUbic.nombre });
         return J(ficha(clon));
@@ -5395,7 +5411,7 @@
           if (p.stockActual < cant) { errores.push(`${p.nombre}: solo hay ${p.stockActual} en stock.`); continue; }
           const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
           const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
-          const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant) : null;
+          const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
           p.stockActual -= cant;
           ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
           emitirOpStock("cierre-dia", { productoId: p.id, delta: -cant });

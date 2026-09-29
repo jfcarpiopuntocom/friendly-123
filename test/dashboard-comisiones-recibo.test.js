@@ -56,3 +56,14 @@ test('commission share bar: associates vs house, by value, with text labels (not
     assert.equal(r.over, false, 'no horizontal overflow on a phone');
   } finally { await web.close(); }
 });
+
+test('by product / SKU: each card says what percentage the associate actually took (products can have their own)', async () => {
+  const web = await chromium.launch({ headless: true });
+  try {
+    const page = await web.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href, { waitUntil: 'load' });
+    const txt = await page.evaluate((d) => { window.OCDashComisiones.pintarConDatos(d); return document.getElementById('cm').innerText; }, fx.datos);
+    assert.match(txt, /85% to the associate/, 'Mountain print: 42.50 of 50 twice = 85%');
+    assert.match(txt, /10% to the associate/, 'Tote bag: 2 of 20 = 10%');
+  } finally { await web.close(); }
+});
