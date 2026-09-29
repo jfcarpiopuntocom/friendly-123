@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "fecha": "2026-09-28",
-  "changelog": "Commission by linked product, audited review of old house sales, and compact product search.",
+  "fecha": "2026-09-29",
+  "changelog": "A sale is saved before it is confirmed; a unit sold twice offline shows as a red missing-stock alert.",
   "requerida": false,
-  "shell": "f123-shell-v420",
+  "shell": "f123-shell-v421",
   "apagar": [],
   "releaseName": "v1.0"
 }

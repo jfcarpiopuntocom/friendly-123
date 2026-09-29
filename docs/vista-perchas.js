@@ -210,7 +210,7 @@
             background:${c.bg};border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
           <span style="position:absolute;bottom:10px;left:10px;font-family:var(--font-mono);font-size:13px;
             font-weight:700;background:#0F1923;color:#fff;padding:4px 10px;border-radius:20px;">${badgeMeta}</span>
-          ${(p.diasSinVenta != null && p.diasSinVenta >= 7) ? `<span style="position:absolute;top:10px;left:10px;font-family:var(--font-mono);font-size:13px;font-weight:700;background:#E53935;color:#fff;padding:3px 9px;border-radius:20px;">dormida ${p.diasSinVenta}d</span>` : ''}
+          ${(p.diasSinVenta != null && p.diasSinVenta >= 7) ? `<span style="position:absolute;top:10px;left:10px;font-family:var(--font-mono);font-size:13px;font-weight:700;background:#C41E3A;color:#fff;padding:3px 9px;border-radius:20px;">dormida ${p.diasSinVenta}d</span>` : ''}
           <!-- Abrir carpeta: pista visual -->
           <button type="button" data-vp-abrir="${esc(p.id)}" style="position:absolute;bottom:10px;right:${esDueno ? '52px' : '10px'};font-family:var(--font-mono);font-size:13px;font-weight:700;background:#152840;color:#fff;padding:4px 9px;border-radius:20px;border:0;min-height:32px;cursor:pointer;">${window.t('shelves.open')} ▸</button>
           ${esDueno ? `<button data-vp-foto="${esc(p.id)}" title="Cambiar foto" style="position:absolute;bottom:10px;right:10px;font-size:16px;line-height:1;
