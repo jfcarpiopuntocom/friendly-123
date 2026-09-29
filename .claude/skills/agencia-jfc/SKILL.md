@@ -51,5 +51,20 @@ Gratis (guia "10 modelos de negocios sin empleados", demo friendly-123 PIN 456, 
 - **YouTube (6-10 min)**: serie "Conexiones": una idea, un caso, una herramienta. Capitulos claros, descripcion con enlaces.
 - JFC no graba: entregar GUION (voz en off) + TEXTO en pantalla + version para X.
 
+## ANTI-SLOP (espanol; JFC 2026-09-29 "antiSlop en textos y vocabulario por DIOS"). Pasada OBLIGATORIA antes de mostrar cualquier texto
+Reglas: una idea por frase; verbo concreto; hecho o numero con fuente antes que adjetivo; frases que un ser humano diria en voz alta.
+Senales de IA a cazar y reescribir:
+1. **Paralelismo negativo**: "no es X, es Y", "no solo X sino Y", "mas que X, Y". Afirmar directo lo que SI es.
+2. **Tricolon y staccato**: tres frases gemelas ("Misma idea. Mismo esfuerzo. Mismo dia."), triples de adjetivos. Maximo uno por pantalla, y solo si dice algo distinto en cada parte.
+3. **Vocabulario de humo**: potenciar, desbloquear, impulsar, revolucionar, transformar, sumergete, descubre, panorama, clave, fundamental, crucial, robusto, sin duda, en el mundo actual, en la era de, hoy mas que nunca, viaje/camino (metafora), ecosistema, sinergia, holistico, cutting-edge.
+4. **Cierres de gerundio** que no aportan ("...permitiendo asi...", "...fomentando...").
+5. **Preguntas retoricas seguidas** y titulares en cadena; una pregunta por fotograma como maximo.
+6. **Rayas largas (—) en cascada** y dos puntos dramaticos en cada frase; maximo 1 por bloque.
+7. **Simetria de eslogan** (frases del mismo largo y ritmo), enumeraciones de 3 por costumbre.
+8. **Adverbios enfaticos** (realmente, verdaderamente, absolutamente) y adjetivos sin prueba (increible, poderoso, unico, premium).
+9. **Promesas sin medida**: si hay cifra, con "hasta", fuente o rutina; sin cifra, quitar la promesa.
+Frases de JFC (sitio, articulos, talleres) se dejan TAL CUAL: son su voz, no slop. Herramientas externas (plugins humanizer, unslop, Writing Skills) sirven para ingles; para espanol manda esta lista.
+Verificacion barata: buscar en el borrador "no es " + ": es", "—", y las palabras de la lista 3; leerlo en voz alta.
+
 ## Antes de entregar
 Verifica cada cifra contra su fuente; marca lo que JFC debe aprobar; nunca publiques sin su OK. Jev (pasada de rankeo de titulares) queda pendiente si no hay credito.
