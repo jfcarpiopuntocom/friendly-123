@@ -8,6 +8,21 @@
 > **JFC ya no tiene acceso a la laptop** (2026-09-26): todo se hace desde la nube. No
 > planificar nada que dependa de que él abra la PC.
 
+> **INCIDENTE Y REGLA DURA 2026-09-29 — jfcarpio.com PISADO POR LA APP.** El Worker de
+> Cloudflare "website" (jfcarpio.com) quedo conectado en Workers Builds al repo friendly-123:
+> los merges de v421 y v422 publicaron la app encima de la pagina. Antes de CADA merge a
+> master: `curl -s https://api.github.com/repos/jfcarpiopuntocom/friendly-123/commits/master/check-runs`
+> y si aparece `Workers Builds: website`, NO fusionar hasta que JFC haga Rollback en website y lo
+> reconecte al repo `jfcarpiopuntocom/website` (main). Detalle y pasos: bitacora de Notion
+> "Bitacora Claude + Codex — apps Made In Cuenca" y `.github/workflows/rescate-website.yml`
+> (necesita los secrets CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID, hoy NO existen).
+
+> **CODEX VOLVIO (JFC 2026-09-29):** JFC usa otra vez Codex (app "Work"). Coordinacion:
+> bitacora de Notion "Bitacora Claude + Codex — apps Made In Cuenca" (leer al empezar,
+> agregar entrada fechada al terminar) + `AGENTS.md`. Un blob subido por la API sin rama/PR
+> se pierde: todo trabajo debe quedar en una rama. Numero de shell: el siguiente libre, nunca
+> reutilizar uno ya publicado por el otro modelo.
+
 > **PRIMERO lee `DECISIONES-JFC.md`** (raíz del repo): las decisiones y aclaraciones
 > vigentes de JFC, compartidas con Codex. Si JFC aclara algo nuevo, se anota allí.
 
