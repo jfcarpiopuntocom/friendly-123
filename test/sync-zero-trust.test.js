@@ -129,7 +129,7 @@ test('el stock viaja como operaciones con dedup, no como ultima escritura', () =
 
 test('una venta sin conexion se encola y nunca se pierde', () => {
   // Sin WebSocket abierto, la op se encola.
-  assert.match(SYNC, /else\s*\{\s*\n\s*encolar\(op\);/);
+  assert.match(SYNC, /else\s*\{\s*\n\s*if\s*\(!encolar\(op\)\) return false;/);
   // Y si cifrar() falla con el socket abierto, tambien cae a la cola (no se pierde).
   assert.match(SYNC, /\.catch\(\(\)\s*=>\s*encolar\(op\)\)/);
 });

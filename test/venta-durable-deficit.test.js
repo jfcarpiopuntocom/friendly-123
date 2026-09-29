@@ -90,6 +90,18 @@ test('2b. restocking pays the deficit first and both devices agree after syncing
   }
 });
 
+test('2c. pinning (DDIA J2): one device restocks +3 while another sells 2 -> coherent balance on both', async () => {
+  const a = browser(), b = browser();
+  await conStock(a, 'p-ddia', 5); await conStock(b, 'p-ddia', 5);
+  await a.request('/api/productos/p-ddia/ajustar', 'POST', { delta: 3, motivo: 'compra' });
+  await b.request('/api/productos/p-ddia/venta', 'POST', { cantidad: 2 });
+  a.receive(b); b.receive(a);
+  for (const w of [a, b]) {
+    const p = await prod(w, 'p-ddia');
+    assert.equal(p.stockActual, 6, '5 + 3 - 2'); assert.equal(p.stockDeficit || 0, 0);
+  }
+});
+
 test('3. both stores fail: the sale answers an error, nothing changes and nothing is sent', async () => {
   const w = browser();
   await conStock(w, 'p-disco', 5);
