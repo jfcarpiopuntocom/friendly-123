@@ -4489,8 +4489,16 @@
            persona. En perchas compartidas sigue mandando la percha (como siempre).
            La venta guarda promotoraId (campo nuevo): el ranking y Sold la atribuyen
            a quien la hizo, no a quien este asignado despues. */
-        const _prVenta = (modoComision !== "counter" && body && body.promotoraId)
-          ? promotoras.find((x) => String(x.id) === String(body.promotoraId) && !x.borrado) : null;
+        /* IdiomARTE 2026-09-28: la pieza puede tener su propio comisionista.
+           La eleccion explicita en ESTA venta manda; si no la hay, manda el
+           producto y por ultimo la percha. COUNTER SALE sigue siendo 100% casa.
+           Sin esto el campo comisionistaId era decorativo y las piezas en una
+           percha propia se vendian con $0 de comision. */
+        const _pidVenta = modoComision === "counter" ? null
+          : ((body && body.promotoraId) || p.comisionistaId || null);
+        const _prVenta = _pidVenta
+          ? promotoras.find((x) => String(x.id) === String(_pidVenta) && !x.borrado) : null;
+        if (_pidVenta && !_prVenta) return J({ error: "The associate assigned to this product or sale is unavailable. Choose a current associate or Counter sale." }, 409);
         // Percha propia: trato de la persona. Percha compartida: la persona elegida en la venta,
         // con las reglas de la percha (mismo resultado que el viejo PUT previo, sin tocar la percha).
         const _ubicTrato = (ubicP && _prVenta)
@@ -4983,6 +4991,45 @@
       if (r.error) return J({ error: r.error }, r.status || 400);
       return J(r);
     }
+    /* IdiomARTE 2026-09-28: una venta antigua marcada COUNTER no se puede
+       repartir con el editor de porcentaje (que requiere un split previo).
+       Preview no escribe; la confirmacion explicita crea un split auditado.
+       Nunca se recalifica automaticamente una venta de la casa ni un pago cerrado. */
+    if ((m = path.match(/^\/api\/ventas\/([^/]+)\/asignar-comision$/)) && opts && opts.method === "POST") {
+      const rol = _rolLocal();
+      if (rol !== "dueno" && rol !== "admin") return J({ error: "Only an owner or admin can correct a commission assignment." }, 403);
+      const v = ventas.find((x) => x.id === m[1] && !x.anulada);
+      if (!v) return J({ error: "Sale not found." }, 404);
+      if (v.split) return J({ error: "This sale already has a commission split." }, 409);
+      if (v.liquidada || v.devuelta) return J({ error: "This sale is settled or returned and cannot be reclassified." }, 409);
+      const pr = promotoras.find((x) => String(x.id) === String(body.promotoraId || "") && !x.borrado);
+      if (!pr) return J({ error: "Choose a current associate." }, 400);
+      const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+      if (!u) return J({ error: "The sale's rack is unavailable." }, 409);
+      const bruto = +(Number(v.precioUnit) * Number(v.cantidad)).toFixed(2);
+      if (!(bruto > 0)) return J({ error: "A sale with no revenue has no commission to assign." }, 400);
+      const ubicTrato = Object.assign({}, u, { promotoraId: pr.id,
+        ...((!u.tipo || u.tipo === "propio") ? { tipo: "socio", usarComisionPropia: false } : {}) });
+      // La escala se evalua en la fecha de la venta, no con ventas posteriores.
+      const mesVenta = fechaLocalDe(v.fecha).slice(0, 7);
+      const previo = ventasActivas().filter((x) => x.id !== v.id && x.ubicacionId === u.id
+        && esDelMes(x.fecha, mesVenta) && x.fecha < v.fecha)
+        .reduce((a, x) => a + (Number(x.precioUnit) || 0) * (Number(x.cantidad) || 0), 0);
+      const split = calcularSplitVenta(ubicTrato, bruto, previo, (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 0));
+      if (!split) return J({ error: "No valid commission agreement for this sale." }, 409);
+      if (body.preview === true) return J({ preview: true, ventaId: v.id, promotoraId: pr.id, nombre: pr.nombre, split });
+      const motivo = String(body.motivo || "").trim().slice(0, 200);
+      if (!motivo) return J({ error: "Explain why this house sale needs a commission." }, 400);
+      split.corregida = true;
+      split.correcciones = [{ fecha: new Date().toISOString(), quien: String(body.quien || "").trim().slice(0, 80) || "unidentified",
+        motivo, antes: { modoComision: v.modoComision || "counter", montoComisionSocio: 0, montoNetoDueno: bruto },
+        despues: { promotoraId: pr.id, comisionPct: split.comisionPct, montoComisionSocio: split.montoComisionSocio, montoNetoDueno: split.montoNetoDueno } }];
+      v.split = split; v.modoComision = "acuerdo"; v.promotoraId = pr.id; v.rev = _revNueva();
+      mov("comision-asignada-a-venta", { ventaId: v.id, ubicacion: u.nombre, promotora: pr.nombre,
+        comision: split.montoComisionSocio, motivo });
+      guardarEstadoLocal(); avisarCatalogoCambiado();
+      return J({ ok: true, venta: { id: v.id, fecha: v.fecha, split: v.split } });
+    }
     if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/comisiones-del-mes$/)) && opts && opts.method === "PATCH") {
       const r = corregirComisionesDelMes(m[1], body.comisionPct, body.quien, body.motivo, body.soloPendientes !== false);
       if (r.error) return J({ error: r.error }, r.status || 400);
@@ -5246,6 +5293,8 @@
           productoId: v.productoId,
           productoNombre: p ? p.nombre : "(deleted product)",
           sku: p ? p.sku : "", categoria: p ? p.categoria : "",
+          comisionistaIdProducto: p ? (p.comisionistaId || null) : null,
+          comisionistaNombreProducto: p && p.comisionistaId ? ((promotoras.find(x => x.id === p.comisionistaId && !x.borrado) || {}).nombre || "") : "",
           cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit || 0,
           clienteNombre: c ? c.nombre : "",
           ubicacionId: v.ubicacionId, ubicacionNombre: nombreUbic(v.ubicacionId),

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "fecha": "2026-09-25",
-  "changelog": "Stronger roles: employees sell but cannot void, change prices or see commissions; only the owner can restore a full backup.",
+  "fecha": "2026-09-28",
+  "changelog": "Commission by linked product, audited review of old house sales, and compact product search.",
   "requerida": false,
-  "shell": "f123-shell-v419",
+  "shell": "f123-shell-v420",
   "apagar": [],
   "releaseName": "v1.0"
 }
