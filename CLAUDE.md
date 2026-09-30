@@ -1,12 +1,7 @@
 # CLAUDE.md — léeme entero antes de planificar o tocar código
 
-> **REGLA DURA JFC 2026-09-26 (la dijo 3 veces): JFC YA NO USA CODEX.** Claude es el
-> único que trabaja en estas apps. Todo lo que en este archivo o en las notas hable de
-> "coordinar con Codex", "no pisar el trabajo de Codex", `C:\00 Projects\Codex-...` o
-> documentos "para Codex" es HISTÓRICO: no se sigue, no se escriben más documentos para
-> Codex y no se le vuelve a mencionar a JFC como parte del flujo.
-> **JFC ya no tiene acceso a la laptop** (2026-09-26): todo se hace desde la nube. No
-> planificar nada que dependa de que él abra la PC.
+> **Laptop (JFC 2026-09-30):** el trabajo diario se hace desde la nube; la laptop es respaldo y
+> copia local (ahi estan Obsidian y el pulso). No planificar nada que dependa de que JFC abra la PC.
 
 > **INCIDENTE Y REGLA DURA 2026-09-29 — jfcarpio.com PISADO POR LA APP.** El Worker de
 > Cloudflare "website" (jfcarpio.com) quedo conectado en Workers Builds al repo friendly-123:
@@ -25,12 +20,13 @@
 
 > **CODEX VOLVIO (JFC 2026-09-29):** JFC usa otra vez Codex (app "Work"). Coordinacion:
 > bitacora de Notion "Bitacora Claude + Codex — apps Made In Cuenca" (leer al empezar,
-> agregar entrada fechada al terminar) + `AGENTS.md`. Un blob subido por la API sin rama/PR
+> agregar entrada fechada al terminar) + `AGENTS.md`. Claude no se une al flujo de Codex: solo se
+> pasan la posta por la bitacora. Un blob subido por la API sin rama/PR
 > se pierde: todo trabajo debe quedar en una rama. Numero de shell: el siguiente libre, nunca
 > reutilizar uno ya publicado por el otro modelo.
 
-> **PRIMERO lee `DECISIONES-JFC.md`** (raíz del repo): las decisiones y aclaraciones
-> vigentes de JFC, compartidas con Codex. Si JFC aclara algo nuevo, se anota allí.
+> **Decisiones vigentes de JFC:** estan en este archivo, en `NOTAS-PARA-OPUS-5.5-2026-09-24.md`
+> y en la bitacora de Notion. Si JFC aclara algo nuevo, se anota en este archivo.
 
 Este archivo se carga solo en cada sesión. Es la memoria persistente de este
 repo: lo crítico está aquí para no re-derivarlo (ni re-preguntarlo) cada vez.
@@ -40,7 +36,8 @@ Si un dato cambia, se actualiza aquí en el mismo commit.
 
 ## QUÉ ES friendly-123
 
-- **Es el repo de TESTEO — recibe los avances PRIMERO.** Suele ir ADELANTE de
+- **Es el repo donde nacen los avances: los recibe PRIMERO** (en `/next/`, luego a clientes; ver
+  actualizacion 2026-09-18 y CANARIOS). Suele ir ADELANTE de
   amigable en varios sistemas. **Nunca asumir que friendly va atrás.**
 - Idioma **inglés**, con `i18n.js` (EN + ES). amigable y consultorio NO tienen
   i18n (español hardcodeado) — no portar strings a ciegas entre apps.
@@ -176,7 +173,7 @@ Friendly tiene cliente real y datos de produccion: ya NO es un repo de testeo. L
 
 Mandato visual de JFC: todas las cajas y tarjetas de Friendly, amigable-123 y consultorio-123 tienen las cuatro esquinas completas. No reintroducir clip-path diagonal, esquina rota, doblez ni ojal. El header de Friendly en móvil debe ser compacto sin perder nombre, dispositivo, selector, idioma, usuario/rol, salir, ayuda ni estado. El diseño de PC no se rediseña por esta correccion. Nunca usar texto gris de bajo contraste.
 
-Codex trabaja en C:\00 Projects\Codex-Friendly-20260917\release-v307; este checkout local de Claude no debe sobrescribir trabajo de Codex. Al coordinar, inspeccionar origin/master y la bitacora privada C:\00 Projects\Codex-Friendly-20260917\CONTINUAR.md antes de tocar sync o identidad. Shell v319 estaba en preparacion al escribir esta nota; verificar el version.json publico y git log antes de asumir que esta live. Un iPhone Safari en v318 mostró un nombre antiguo en PIN y ninguno en header: no cambiar nombres reales ni borrar namespaces para «arreglar» la pantalla; diagnosticar la licencia/sala y conservar el ultimo nombre conocido.
+Antes de tocar sync o identidad, inspeccionar origin/master, `docs/version.json` y `git log`. Un iPhone Safari en v318 mostró un nombre antiguo en PIN y ninguno en header: no cambiar nombres reales ni borrar namespaces para «arreglar» la pantalla; diagnosticar la licencia/sala y conservar el ultimo nombre conocido.
 
 ---
 
@@ -193,8 +190,13 @@ trabajo está mal hecho aunque el código funcione.
 - Nunca cerrar con "¿sigo?", "¿voy por ese?" ni con una lista de pendientes
   presentada como menú. Lo que quede fuera se dice como hecho consumado y con
   su razón ("no toqué X porque cambia la forma de la API").
-- Se para SOLO si hay bloqueo real: falta un dato que solo él tiene, o la
-  acción es destructiva/irreversible y no estaba autorizada.
+- Se para SOLO si hay bloqueo real: falta un dato que solo él tiene, la acción es
+  destructiva/irreversible y no estaba autorizada, o hay una disyuntiva crucial (varias salidas
+  razonables que cambian el producto, el dinero o la seguridad). En ese caso se confirma UNA
+  vez, con opciones y una recomendación, y se sigue con todo lo demás.
+- Con una misión clara ya dada NO se pregunta "¿sigo?". Reformular el pedido en una línea al
+  empezar sirve para que JFC corrija a tiempo, pero no se espera su respuesta para arrancar
+  (JFC 2026-09-30: "confirmar cosas cruciales/disyuntivas, pero no preguntar sigo").
 
 ### 2. Respaldar de más, siempre.
 - Antes de CADA lote de cambios: copia + `SHA256-LINES.txt` con bytes, líneas
@@ -276,10 +278,9 @@ trabajo está mal hecho aunque el código funcione.
   landing, copy) termina con una pasada FUERTE de Jev: rankear, triar y validar sí/no cada
   hallazgo o propuesta, con criterios explícitos, antes de presentárselo a JFC. Si Jev falla
   (hoy 403 por falta de créditos), se dice UNA vez y queda anotado como pasada pendiente.
-- **HECHO 2026-09-26: Jev FUNCIONA en la nube.** El entorno "GitHub1" tiene la variable
-  `AI_GATEWAY_API_KEY` y Network access Custom con `ai-gateway.vercel.sh` (+ defaults).
-  Verificado en una sesion nueva (respuesta 200, confianza 1). Las sesiones que ya estaban
-  abiertas antes del cambio no lo ven: solo las nuevas. No volver a pedirle nada a JFC.
+- **Jev en la nube:** el entorno "GitHub1" tiene la variable `AI_GATEWAY_API_KEY` y Network access
+  Custom con `ai-gateway.vercel.sh` (+ defaults); solo las sesiones nuevas lo ven. Hoy responde
+  403 por falta de credito: decirlo una vez y no volver a pedirle nada a JFC.
 - **jevgrep (github dzhng/jevgrep, evaluado 2026-09-26): NO adoptado.** Busca codigo en
   lenguaje natural con la misma clave de Jev. En la nube se cuelga si no se le cierra la
   entrada: usar `jg "pregunta" ./carpeta < /dev/null` (auth: `jg auth --provider vercel --stdin`).
@@ -300,16 +301,11 @@ trabajo está mal hecho aunque el código funcione.
   (repo origen privado). Solo lo que corre: sin tests/, evals/, demo/, codex/, .agents/.
   Ya validaba; lee la clave de AI_GATEWAY_API_KEY (entorno o env de settings).
 
-## SEGUNDO CEREBRO: OBSIDIAN EN LA NUBE (JFC 2026-09-26)
-- Plugin `obsidian-second-brain` (github eugeniughelbur/obsidian-second-brain, MIT, publico)
-  declarado en `.claude/settings.json`: carga solo en cada sesion de la nube.
-  `OBSIDIAN_VAULT_PATH=/home/user/obsidian-vault`.
-- La nube NO ve la laptop. El puente es un repo PRIVADO de GitHub con el vault: en la
-  laptop, Obsidian lo sincroniza con el plugin comunitario "Obsidian Git"; aqui se clona.
-- Cuando JFC diga "enchufa Obsidian" (o lo recuerde): 1) `add_repo` del repo privado del
-  vault (si no se sabe el nombre, preguntarlo UNA vez); 2) clonarlo en
-  `/home/user/obsidian-vault`; 3) trabajar; 4) commit + push al repo del vault para que
-  Obsidian lo baje en la laptop. Nunca meter el vault en friendly-123 (repo PUBLICO).
+## SEGUNDO CEREBRO: NOTION, DROPBOX Y OBSIDIAN (JFC 2026-09-29/30)
+- Detalle y reglas en el skill `segundo-cerebro`. Notion (siempre) y el conector de Dropbox
+  de claude.ai (Outbox en vivo) llegan desde la nube; el vault de Obsidian vive solo en la
+  laptop. La nube no lo ve: lo que deba llegarle se deja en el Outbox de Dropbox o en Notion.
+- Nunca meter el vault ni contenido de Dropbox/Obsidian en friendly-123 (repo PUBLICO) ni en Notion.
 - Privacidad: los comandos base del vault son locales. `/research`, `/x-*`, podcasts y
   embeddings en la nube mandan texto a terceros (Perplexity, Grok, Gemini): jamas con
   datos de clientes, licencias, PIN ni claves.
@@ -326,9 +322,9 @@ trabajo está mal hecho aunque el código funcione.
   del codigo sin orden expresa de JFC. Runbook: PLAN-BLOQUE-P-CARGADOR-HOSTINGER-2026-09-24.md.
 
 ## REGLAS DURAS JFC 2026-09-24 (tarde)
-- **Un solo modelo: Opus 5.5.** Lo que los apuntes marcaban "Fable 5.1" (dinero, sync,
-  acceso, seguridad) lo hace Opus 5.5 con esas MISMAS guardas: plan, respaldo SHA-256,
-  test rojo-verde contra el respaldo, dos aparatos, shell nuevo.
+- **Modelo:** lo de dinero, sync, acceso y seguridad (lo que los apuntes marcaban "Fable 5.1")
+  lo hace el modelo de la sesion (Opus 5.5 o Sonnet 5.5) con estas MISMAS guardas: plan, respaldo
+  SHA-256, test rojo-verde contra el respaldo, dos aparatos, shell nuevo.
 - **Apuntes siempre hacia adelante, y tambien en el chat**: al cerrar cada paso, marcar
   en NOTAS-PARA-OPUS-5.5-2026-09-24.md lo hecho y lo que queda, y decirlo en el chat.
 - **Jev + research online antes de decidir** (ahorro de tokens y rigor): skill jev-jfc
@@ -341,7 +337,7 @@ trabajo está mal hecho aunque el código funcione.
   y con rol dueño/admin/encargado. Jamás al abrir la app ni en una venta.
 - Demo + landing (jfcarpio.com/friendly123/) = un embudo hacia save.html/PayPal.
   Ganchos elegantes dentro del producto; sin nombrar frameworks. Jev puntúa
-  variantes de copy con criterios explícitos. Detalle en DECISIONES-JFC.md.
+  variantes de copy con criterios explícitos.
 
 ## REGLA DURA JFC 2026-09-27: NUNCA LLAMAR A JFC "ECONOMISTA"
 - Prohibido "economista" / "economist" para referirse a JFC, en cualquier texto (sitio,
