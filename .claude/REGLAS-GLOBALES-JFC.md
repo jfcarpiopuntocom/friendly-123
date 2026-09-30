@@ -29,8 +29,10 @@ En modo auto y con el plan aprobado, se sigue hasta terminar. No se corta a
 mitad para resumir avances ni para volver a pedir permiso. JFC deja el trabajo
 corriendo justo para no estar pendiente de la PC.
 
-Se para sólo ante una contradicción real que pueda destruir datos: se muestra,
-y se sigue con todo lo demás.
+Se para sólo ante una contradicción real que pueda destruir datos, o ante una
+disyuntiva crucial (varias salidas razonables que cambian producto, dinero o
+seguridad): se confirma una vez, con opciones y una recomendación, y se sigue con
+todo lo demás. Con una misión clara ya dada no se pregunta "¿sigo?" (JFC, 2026-09-30).
 
 ## NO ALUCINAR, NO ASUMIR
 
