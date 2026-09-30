@@ -383,15 +383,15 @@ cada push; JFC es parte del equipo de prueba.
 Emergencias (panel privado de JFC, seccion "Sonar de Canarios", aparte de la
 lista de licencias): PUSH (next a clientes ya), REWIND (clientes a previo),
 Detener/Reanudar. Las ejecuta `sonar.yml` (cron cada 5 min).
-Claude en sesion puede hacerlo directo: mover ramas y `gh workflow run publicar.yml`.
+Desde una sesion de nube NO se pueden relanzar workflows (la integracion da 403, verificado 2026-09-30) y no hay `gh`: en una emergencia JFC usa el panel.
 
 Checklist de release (se suma al de arriba): tras el merge, verificar la URL
 VIVA de `/next/` (no la raiz), decirle a JFC que el shell esta en /next/ y a que
 hora llega a clientes; a los 33 min verificar la raiz.
-Antes de fusionar a master, mirar que NO haya un `publicar`/`promover` en curso: la rama `estable`
-se mueve ANTES de que termine el despliegue de Pages, asi que no basta con verla al dia. Un merge que
-cae durante un despliegue falla con "in progress deployment" (visto 2026-09-30, sin dano: el
-siguiente push lo reparo). Comprobar con la API de Actions que `publicar` y `desplegar` del commit
-de estable esten en `completed` y luego fusionar; si ya fallo, relanzar `publicar`.
+Fusionar a master no exige esperar despliegues. Pages rechaza un despliegue nuevo unos segundos despues
+de que el anterior termina ("in progress deployment"; visto 2026-09-30 con 11 s de diferencia entre dos
+despliegues que NO se solapaban, asi que un grupo de `concurrency` no lo evita). `publicar.yml` reintenta
+solo, hasta 3 intentos. Tras fusionar, comprobar que `publicar` termino en exito. Si quedo rojo, JFC lo
+relanza en Actions ("Re-run failed jobs") o lo repara el siguiente push a master.
 Vuelta atras total: Settings > Pages > "Deploy from a branch" master /docs.
 Plan completo: PLAN-CANARIOS-2026-09-25.md.
