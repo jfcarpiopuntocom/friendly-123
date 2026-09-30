@@ -776,6 +776,23 @@
             n.style.display = "";
           } catch (_) { n.style.display = "none"; }
         };
+        /* Aviso de datos (JFC 2026-09-30): UNA lectura del informe que el backend armo al arrancar. */
+        try {
+          var _nI = document.getElementById("oc-invariantes-aviso");
+          if (_nI && window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) {
+            fetch("/api/invariantes").then(function (r) { return r.ok ? r.json() : null; }).then(function (inf) {
+              if (!inf || !inf.avisos || !inf.avisos.length) return;
+              var etq = { "dinero-partido": "commission and net do not add up to the sale", "comision-mayor-que-venta": "commission larger than the sale",
+                "bruto-distinto": "amount differs from price times quantity", "numero-invalido": "a price, cost or quantity is invalid",
+                "id-duplicado": "duplicated sale", "producto-huerfano": "sale of a product that no longer exists" };
+              var cuenta = {}; inf.avisos.forEach(function (a) { cuenta[a.codigo] = (cuenta[a.codigo] || 0) + 1; });
+              var partes = Object.keys(cuenta).map(function (k) { return cuenta[k] + " × " + (etq[k] || k); });
+              _nI.textContent = "Data check: " + inf.avisos.length + " sale" + (inf.avisos.length > 1 ? "s look" : " looks") +
+                " inconsistent (" + partes.join("; ") + "). Nothing was changed. Do not fix by hand: send this line to support.";
+              _nI.style.display = "";
+            }).catch(function () {});
+          }
+        } catch (_) {}
         var _pintarSyncMinBase = _pintarSyncMin;
         _pintarSyncMin = function () { _pintarSyncMinBase(); _pintarReloj(); };
         _pintarSyncMin();

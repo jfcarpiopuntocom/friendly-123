@@ -477,3 +477,10 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - Aclaraciones de JFC: (1) Claude NO se une al flujo de Codex; solo se pasan la posta por la bitacora de Notion, con cautela. (2) "ocultarte/ocultarle" y la lista de Gumroad ya estan resueltos en jfcarpio.com: NO son pendientes. (3) Pendientes reales: reloj, invariantes, clips del hero de la landing.
 - Segundo cerebro: vault Obsidian local `C:\Users\JFC\OneDrive\Documentos\Obsidian Vault` (carpeta `00 Projects/Made In Cuenca (Claude)/`) y carpeta de archivos `C:\Dropbox\Outbox Dropbox` (JFC pone ahi lo que Claude debe tener a mano). Solo existen en la laptop: la nube no los ve. Si algo importa en la nube, pedirle a JFC que lo pegue o que quede en el repo/Notion.
 - Trampa CRLF: gen-manifest ya da hashes de blob LF (verificado 29-09: 0 diferencias contra `git show`). Sigue vigente verificar contra la URL viva.
+
+## Avance 2026-09-30 (sesion nube)
+- HECHO v427 (PR #249, en clientes 05:22Z): aviso de hora en el encabezado de Advanced (`OCLatencia.desvioReloj`, umbral 60 s sobre el margen). Solo avisa.
+- HECHO v428: invariantes al arrancar (`docs/invariantes.js`, plan en PLAN-INVARIANTES-AL-ARRANCAR-2026-09-30.md). Dinero SOLO se avisa; unica reparacion = percha vacia de una venta. Aviso en Advanced solo dueno/admin. `GET /api/invariantes`.
+- QUEDA: (3) clips del hero de la landing (repo website, uno a la vez). Verificar v428 en /next/ y a los 33 min en la raiz.
+- Trampa de este contenedor: Playwright nuevo pide chromium_headless_shell-1234; se enlazo al Chromium instalado en /opt/pw-browsers (fuera del repo). Si la suite no arranca en otra sesion: repetir ese enlace.
+- La nube NO ve github.io (proxy lo niega): verificar despliegues por la API de Actions y la rama `estable`, no por curl a la URL viva.
