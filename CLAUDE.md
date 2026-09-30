@@ -124,6 +124,12 @@ después. Nunca `sed` a ciegas en minificado.
 
 ---
 
+## HERRAMIENTAS DE LA NUBE (JFC 2026-09-30)
+
+- Si falta una herramienta, se instala sin pedir permiso y se anota en `.claude/HERRAMIENTAS-NUBE.md`
+  en el mismo commit. `.claude/hooks/session-start.sh` deja lista esa caja de herramientas al abrir
+  cada sesion de la nube (LibreOffice, pdftoppm, pptxgenjs, Playwright con su navegador, etc.).
+
 ## GIT — YO CIERRO EL CICLO, NADA QUEDA A MEDIAS
 
 - Antes de ramificar: `git fetch origin master` y `git checkout -B <rama>
