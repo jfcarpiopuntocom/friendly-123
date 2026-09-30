@@ -552,6 +552,11 @@
 
   // Item 23: IDs con Date.now()+Math.random() podían colisionar. UUID real
   // (crypto.randomUUID) con fallback para navegadores viejos.
+  /* DINERO EN CENTAVOS (JFC 2026-09-29, DDIA 4). Todo precio/costo que entra al catalogo o a una venta
+     se guarda redondeado al centavo, mitad hacia arriba. Se usa notacion exponencial para que 10.005 sea
+     10.01 (con Math.round(x*100) daba 10.00 por el error binario de coma flotante). Valores ya limpios no
+     cambian. NO se migran productos historicos: solo lo que entra desde hoy. */
+  function aCent(n) { const x = Number(n); if (!Number.isFinite(x)) return 0; return Number(Math.round(x + "e2") + "e-2"); }
   function uuid(prefijo) {
     const c = globalThis.crypto;
     const id = (c && c.randomUUID) ? c.randomUUID() : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
@@ -2683,11 +2688,11 @@
           _observarRev(p.rev); actualizados++;
         } else if (ganaP === null && mandaElOtro) {
           if (esTextoCorto(String(p.nombre || ""), 240) && String(mio.nombre) !== String(p.nombre)) { mio.nombre = p.nombre; actualizados++; }
-          if (Number.isFinite(Number(p.precio)) && Number(p.precio) >= 0 && Number(mio.precio) !== Number(p.precio)) { mio.precio = Number(p.precio); actualizados++; }
+          if (Number.isFinite(Number(p.precio)) && Number(p.precio) >= 0 && Number(mio.precio) !== Number(p.precio)) { mio.precio = aCent(p.precio); actualizados++; }
           /* precioCasa (JFC/Belén 2026-09-15): converge entre aparatos. null lo
              borra; un número >=0 lo fija. */
           if (p.precioCasa === null && mio.precioCasa != null) { mio.precioCasa = null; actualizados++; }
-          else if (Number.isFinite(Number(p.precioCasa)) && Number(p.precioCasa) >= 0 && Number(mio.precioCasa) !== Number(p.precioCasa)) { mio.precioCasa = Number(p.precioCasa); actualizados++; }
+          else if (Number.isFinite(Number(p.precioCasa)) && Number(p.precioCasa) >= 0 && Number(mio.precioCasa) !== Number(p.precioCasa)) { mio.precioCasa = aCent(p.precioCasa); actualizados++; }
         }
       }
     });
@@ -3965,8 +3970,9 @@
          precio de casa (null); si no, número >=0. Va ANTES del branch numérico
          genérico, que convertiría null/"" en 0 y dejaría un precio de casa $0
          fantasma. */
-      if (k === "precioCasa") { p[k] = (body[k] === "" || body[k] == null) ? null : Math.max(0, Number(body[k]) || 0); return; }
-      if (k === "precio" || k === "costo" || k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
+      if (k === "precioCasa") { p[k] = (body[k] === "" || body[k] == null) ? null : aCent(Math.max(0, Number(body[k]) || 0)); return; }
+      if (k === "precio" || k === "costo") { p[k] = aCent(Number(body[k]) || 0); return; }
+      if (k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
       if (k === "servingMl" || k === "botellaMl") {
         const nuevo = Math.max(1, Number(body[k]) || (k === "servingMl" ? 50 : 750));
         /* BAR (JFC 2026-09-10, queja de Belén: "el stock de bebidas no cambia al
@@ -4405,14 +4411,14 @@
           sku: body.sku || body.barcode, barcode: body.barcode, ubicacionId: body.ubicacionId || "todas",
           // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
           // corrompía la valorización de inventario desde la creación.
-          precio: Math.max(0, Number(body.precio) || 0), costo: Math.max(0, Number(body.costo) || 0), stockActual: Math.max(0, Number(body.stockInicial) || 0),
+          precio: aCent(Math.max(0, Number(body.precio) || 0)), costo: aCent(Math.max(0, Number(body.costo) || 0)), stockActual: Math.max(0, Number(body.stockInicial) || 0),
           stockTs: Date.now(), // v302: todo producto nace con sello de stock para que el stock inicial cruce por LWW
           /* PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): segundo precio
              OPCIONAL, más bajo, para la gente de la casa (ej. cerveza $5 al
              público, $3 a artistas) SIN abrir un segundo producto que partiría
              el stock en dos. null = no hay precio de casa (comportamiento de
              siempre). "" o no-número => null. Ver precioEfectivo en /venta. */
-          precioCasa: (body.precioCasa === "" || body.precioCasa == null) ? null : Math.max(0, Number(body.precioCasa) || 0),
+          precioCasa: (body.precioCasa === "" || body.precioCasa == null) ? null : aCent(Math.max(0, Number(body.precioCasa) || 0)),
           umbralRojo: Number(body.umbralRojo) || 5, umbralAmarillo: Number(body.umbralAmarillo) || 10, proveedor: body.proveedor || "",
           perecible: !!body.perecible, exentoImpuesto: !!body.exentoImpuesto, fechaCaducidad: body.perecible ? (body.fechaCaducidad || null) : null,
           metodoCosteo: body.metodoCosteo === "LIFO" ? "LIFO" : "FIFO",
@@ -4487,7 +4493,7 @@
            vende. */
         const _infoPago = (body && typeof body.info === "object" && body.info) ? body.info : {};
         const _esTicket = (p.tipoProducto || "normal") === "ticket";
-        const _pagado = Number(_infoPago.montoPagado);
+        const _pagado = aCent(_infoPago.montoPagado);
         /* CORTESIA (JFC 2026-09-08, "hay costo pero no precio"): una venta de
            cortesía sale del stock y CONSERVA su costoUnit (el costo se contabiliza),
            pero su precioUnit es 0 — no genera ingreso ni comisión (no hay monto que
@@ -4503,7 +4509,7 @@
            4) el precio de lista del producto.
            El stock baja igual (una unidad es una unidad); solo cambia el
            precioUnit registrado. No inventa un segundo producto. */
-        const _override = Number(_infoPago.precioOverride);
+        const _override = _infoPago.precioOverride === "" || _infoPago.precioOverride == null ? NaN : aCent(_infoPago.precioOverride);
         const precioEfectivo = _esCortesia
           ? 0
           : ((Number.isFinite(_override) && _override >= 0)

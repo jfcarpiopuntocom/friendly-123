@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-29",
-  "changelog": "Each product can now have its own associate percentage (blank uses the rack deal); Commissions by product shows the percentage the associate actually took.",
+  "changelog": "Prices and costs are now always saved to the cent, so sale totals and commission splits never carry fractions of a cent.",
   "requerida": false,
-  "shell": "f123-shell-v424",
+  "shell": "f123-shell-v425",
   "apagar": [],
   "releaseName": "v1.0"
 }
