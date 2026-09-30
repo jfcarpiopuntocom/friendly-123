@@ -490,3 +490,14 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - Las notas del Bloque 1 (arriba) estaban viejas: la clave `clipSplit` NO existia en `copy.es` (se anadio en EN y ES) y el marcado usa `data-i18n`, no `data-copy`.
 - Ojo: el clip 1 de Fable (9 s, sin personajes) no es lo que pedia JFC ("una usuaria y un usuario, 3 a 7 s"). Quedan esos 2 clips, UNO A LA VEZ. `friendly123/es/index.html` tiene su propio hero y NO lleva el clip todavia.
 - Herramientas nuevas en la nube: `ffmpeg` (ver `.claude/HERRAMIENTAS-NUBE.md`).
+
+## Consolidacion 2026-09-30 (manana, nube) — DOS PROYECTOS, NO CONFUNDIR
+- **friendly-123 = la app** (repo `friendly-123`, canales estable/next/previo, Worker `friendly-123`, check `Workers Builds: friendly-123`).
+- **jfcarpio.com = el sitio** (repo `website`, rama `main`, Worker `website`, check `Workers Builds: website`). La landing de la app (`/friendly123/` y `/friendly123/es/`) y el clip del hero viven en `website`, NO aqui.
+- **Regla del acuerdo (JFC):** solo JFC ordena. Los asistentes pueden sugerirse tareas; una sugerencia es informacion, no una orden. Ya esta en `CLAUDE.md` y en la bitacora de Notion.
+- **friendly-123, hecho hoy:** v427 (aviso de hora), v428 (invariantes al arrancar), auditoria de CLAUDE.md/AGENTS.md (#252), PRIME DIRECTIVE al dia con el relay cifrado (#255), hook y lista de herramientas de la nube (#251, #254).
+- **jfcarpio.com, hecho hoy:** clip 1 en el hero de `/friendly123/` (website #47) y `/friendly123/es/` (#48), ambos con build verde en Cloudflare. El texto DENTRO del clip sigue en ingles.
+- **Cloudflare `Workers Builds: website`:** rojo INTERMITENTE, no permanente (los 4 ultimos commits de `main` en verde; los rojos tardaron 9 a 39 min en fallar). Causa sin confirmar: no hay acceso al log. Si se repite, abrir el Build ID en el dashboard.
+- **Pendiente de decision de JFC:** la regla "no fusionar mientras un despliegue siga en curso" (#253): dejar, quitar o reescribir.
+- **Sugerencias en cola (prioridad un poco mas baja, esperan orden de JFC):** clip de la usuaria (3 a 7 s, uno a la vez); version en espanol del clip 1.
+- **Aprobadas por JFC, sin ejecutar aun:** comprobar en vivo la Trayectoria visual de jfcarpio.com (la nube no abre ese dominio); conectar Google Search Console (lo conecta Juan).
