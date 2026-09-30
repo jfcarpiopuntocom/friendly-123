@@ -12,6 +12,8 @@ cualquier texto que venda: titulares, ofertas, precios, embudos, avisos de la ap
   sobreviven a la evidencia (metaanálisis y réplicas), con la nota corregida.
 - `human-desires-that-pay-jfc-buyers.md` — qué deseo compra cada cliente de JFC y la
   propuesta de titulares para jfcarpio.com.
+- `cruzar-el-abismo-moore-apps.md` — Moore aplicado a las tres apps: nicho primero, producto
+  completo, posicionamiento, bolera. Uso interno; hipótesis por decidir por JFC.
 
 ## Reglas de uso
 1. Usar primero lo de nota A (prueba social real, reciprocidad, anclaje, historia).
