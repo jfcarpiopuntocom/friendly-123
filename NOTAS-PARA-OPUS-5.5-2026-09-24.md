@@ -528,3 +528,6 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
   en telefono no cabe y baja a la linea siguiente.
 - [x] Tests: ticket-personas-fecha y dinero-paso-dolar (rojo-verde contra respaldo). Suite 468/468.
 - [ ] Ventas de tickets anteriores con 2+ personas quedaron con cantidad 1: corregirlas en Sold.
+- [x] v431 Commissions: "This month" + "Everything sold" ARRIBA de "Summary by product" (ahi empieza la lista);
+  productos sin comision al final en "Products without commission (N)", plegado; la busqueda lo abre si hay match.
+  Test commissions-orden-sin-comision rojo-verde. Suite 469/469.
