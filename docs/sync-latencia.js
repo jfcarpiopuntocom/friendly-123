@@ -140,11 +140,30 @@
            " ms ±" + r.margenMs + " (" + r.n + " muestras)";
   }
 
+  /* DESVIO DE HORA (JFC 2026-09-30). Si el reloj del aparato esta corrido, las
+     ventas quedan con fecha/hora equivocada y el orden entre aparatos se enreda.
+     Aqui SOLO se detecta y se avisa: no se corrige ni se toca ningun dato guardado.
+     Umbral 60 s por encima del margen de medicion (rtt/2): un desvio menor no
+     cambia ninguna venta de dia ni de orden; uno mayor si. */
+  var UMBRAL_DESVIO_MS = 60 * 1000;
+  function desvioReloj() {
+    if (!hayReloj()) return { medible: false, hayAviso: false, desfaseMs: null, minutos: 0, adelantado: false };
+    var margen = mejorPing.rtt / 2;
+    var abs = Math.abs(mejorPing.desfase);
+    return {
+      medible: true,
+      hayAviso: abs - margen > UMBRAL_DESVIO_MS,
+      desfaseMs: Math.round(mejorPing.desfase),
+      minutos: abs / 60000,
+      adelantado: mejorPing.desfase < 0, // relay atras de nosotros = nuestro reloj va adelantado
+    };
+  }
+
   function reiniciar() { muestras = []; mejorPing = null; descartadas = 0; }
 
   window.OCLatencia = {
     anotarPing: anotarPing, anotarMuestra: anotarMuestra, marcarOrigen: marcarOrigen,
-    ahoraRelay: ahoraRelay, hayReloj: hayReloj, resumen: resumen, texto: texto, reiniciar: reiniciar,
+    ahoraRelay: ahoraRelay, hayReloj: hayReloj, desvioReloj: desvioReloj, resumen: resumen, texto: texto, reiniciar: reiniciar,
     SLA_MS: SLA_MS,
   };
 })();

@@ -612,6 +612,10 @@
              refresca solo. NO es el panel viejo de diagnóstico (ese sí aturdía);
              es una sola línea honesta. -->
         <p id="oc-sync-estado-min" style="display:none;font-size:13px;font-weight:700;margin:10px 0 0;color:#1a1a1a;">Sync: …</p>
+        <!-- AVISO DE HORA (JFC 2026-09-30): visible para dueño/admin/encargado que entran a
+             Advanced (NO es diagnostico solo-JFC). Solo aparece si el reloj de este aparato
+             esta corrido mas de 1 minuto respecto al relay. Solo avisa: no cambia datos. -->
+        <p id="oc-reloj-aviso" role="alert" style="display:none;font-size:16px;font-weight:700;margin:10px 0 0;padding:10px 12px;border:2px solid var(--rojo-ink,#a3392a);border-radius:10px;color:#1a1a1a;background:#fff;"></p>
         <!-- ORIGEN DEL CODIGO (Bloque P, JFC 2026-09-24): una linea honesta de
              cargador.js (de donde vino el codigo, cuantos cayeron a github.io,
              si el shell remoto cuadra) y un canario por aparato: pegar la URL
@@ -764,6 +768,20 @@
             el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
           } catch (_) { el.textContent = "Sync: —"; }
         };
+        /* Aviso de hora (JFC 2026-09-30): lee OCLatencia.desvioReloj cada 3 s. */
+        var _pintarReloj = function () {
+          var n = document.getElementById("oc-reloj-aviso"); if (!n) return;
+          try {
+            var d = window.OCLatencia && window.OCLatencia.desvioReloj ? window.OCLatencia.desvioReloj() : null;
+            if (!d || !d.hayAviso) { n.style.display = "none"; return; }
+            var m = Math.round(d.minutos);
+            n.textContent = "Clock warning: this device's clock is about " + (m < 1 ? "1" : m) + " minute" + (m > 1 ? "s" : "") +
+              (d.adelantado ? " ahead" : " behind") + ". Sales made here will show the wrong time. Fix it in the device's date and time settings (turn on automatic time).";
+            n.style.display = "";
+          } catch (_) { n.style.display = "none"; }
+        };
+        var _pintarSyncMinBase = _pintarSyncMin;
+        _pintarSyncMin = function () { _pintarSyncMinBase(); _pintarReloj(); };
         _pintarSyncMin();
         if (window._ocSyncMinTimer) clearInterval(window._ocSyncMinTimer);
         window._ocSyncMinTimer = setInterval(_pintarSyncMin, 3000);

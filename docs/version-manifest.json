@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v426",
+  "shell": "f123-shell-v427",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-d1b3f72ecc62b764c141de1db82fb4f606c606f4a62c0a36febf387e48a61e44",
@@ -21,7 +21,7 @@
     "./sync-realtime.js": "sha256-b5c9ef39ab31a638be5a05d2b8023475225faaa2cc2e4c94c6cc516eb6613e71",
     "./sync-watchdog.js": "sha256-d894dcd64788881148b90d8205db529d6aee45961fc71eec106a7e50fcf349d0",
     "./sync-yjs.js": "sha256-535af1400eb6fe33528e035d8ca3c98483b980f985d903dad6bb5accf6a665ae",
-    "./sync-latencia.js": "sha256-7b0bedc8802877cfcec87df0c653b46dcfc61b91c55b90706bd39cc6552d39b9",
+    "./sync-latencia.js": "sha256-ad492f491d387a5c12ddc769ee4ec5a5cf61227c89ca93264a8515224aa14146",
     "./licencia-prueba.js": "sha256-1c967bde35eb8bb20c9a160946548e2bed7b89cbfe1e04de93f32186ee780c4b",
     "./vendor/yjs-bundle.min.js": "sha256-a723f1618428ef38937626e8b72165a31ac41894fe7ab07f83d9bbb6cdd0176a",
     "./lista-dinamica.js": "sha256-8b23ae9fe259e29b37635585bf8f48146aa16871d6641bd97d77a543ec7fd3ff",
@@ -32,7 +32,7 @@
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
     "./auth-ui.js": "sha256-ceec5c70ad22a3024ebbaa1d045913656afb9ada2834934151b14560f61d7bc7",
     "./backup-scheduler.js": "sha256-a422a1550b514c571b1d0ab5230ff3187553a94f07170201c492b3c397643555",
-    "./avanzado-extra.js": "sha256-a41a8a9af2d9d8e27a16c5bfa409927236a318197e3e506f54ccb52457a0b3d0",
+    "./avanzado-extra.js": "sha256-61da5ef8d952f22c204658b4ef9d66dfdaba844add110d90a0e5d1dea741b92b",
     "./artista.js": "sha256-2f59fcf0fc41307a91ebb2b63166aa236f7f7f5bc81389136787f5e57638abd2",
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
     "./geo-ping.js": "sha256-0ead39d09c652caeb07991401e33b61b7ef9b13e1de5ae367d401c8870c6fd56",
