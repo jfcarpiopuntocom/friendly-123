@@ -9,7 +9,9 @@ const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 const { browser: fixtureBrowser } = require('./helpers/browser.cjs');
 
-test('counter sale records a pure house sale without changing the shelf associate', async () => {
+// REGLA CAMBIADA (JFC 2026-09-30, v429): "counter no es la casa". COUNTER SALE = venta de mostrador,
+// comisionada con el trato. Lo que se sigue fijando: no exige elegir persona y no toca la percha.
+test('counter sale is commissioned with the shelf deal and does not change the shelf associate', async () => {
   const app = fixtureBrowser();
   const associate = await app.request('/api/promotoras', 'POST', {
     nombre: 'Fixture associate',
@@ -43,15 +45,13 @@ test('counter sale records a pure house sale without changing the shelf associat
   const shelfAfter = backup.ubicaciones.find(u => u.id === shelf.id);
 
   assert.ok(sale, 'la venta queda registrada');
-  assert.equal(sale.split, null, 'COUNTER SALE no asigna comision a nadie');
-  assert.equal(sale.modoComision, 'counter', 'queda documentado que fue venta de la casa');
+  assert.ok(sale.split, 'COUNTER SALE se comisiona con el trato de la percha');
+  assert.equal(sale.canalVenta, 'mostrador', 'queda documentado que fue venta de mostrador');
   assert.equal(shelfAfter.promotoraId, associate.id,
     'la venta de la casa no borra el acuerdo permanente de la percha');
 
   const listed = (await app.request('/api/ventas/todas')).find(v => v.id === sale.id);
-  assert.equal(listed.comisionAsociado, 0, 'el reporte muestra comisión cero');
-  assert.equal(listed.asociadoNombre, '',
-    'el reporte no atribuye COUNTER SALE al associate permanente de la percha');
+  assert.equal(listed.comisionAsociado, 7.5, '30% de 25 para el associate de la percha');
 });
 
 test('sale UI offers COUNTER SALE and sends it without rewriting the shelf', async () => {
@@ -100,25 +100,25 @@ test('sale UI offers COUNTER SALE and sends it without rewriting the shelf', asy
 
       const backup = await req('/api/respaldo/exportar');
       const sales = backup.ventas.filter(v => v.productoId === product.id);
-      const sale = sales.find(v => v.modoComision === 'counter');
-      const commissioned = sales.find(v => v.modoComision === 'acuerdo');
+      const sale = sales.find(v => v.canalVenta === 'mostrador');
+      const commissioned = sales.find(v => v.canalVenta !== 'mostrador');
       const shelfAfter = backup.ubicaciones.find(u => u.id === shelf.id);
       return {
         optionText,
         initialValue,
         split: sale && sale.split,
-        modoComision: sale && sale.modoComision,
+        canal: sale && sale.canalVenta,
         commissionedSplit: commissioned && commissioned.split,
         shelfAssociate: shelfAfter && shelfAfter.promotoraId,
         originalAssociate: associate.id
       };
     });
 
-    assert.match(result.optionText, /house sale.*no commission/i);
+    assert.match(result.optionText, /counter sale.*commission as agreed/i);
     assert.equal(result.initialValue, result.originalAssociate,
       'un acuerdo existente sigue preseleccionado, pero se puede cambiar a COUNTER SALE');
-    assert.equal(result.split, null);
-    assert.equal(result.modoComision, 'counter');
+    assert.equal(result.split.comisionPct, 25, 'COUNTER SALE se comisiona (v429)');
+    assert.equal(result.canal, 'mostrador');
     assert.equal(result.commissionedSplit.comisionPct, 25,
       'elegir al associate conserva la venta comisionada');
     assert.equal(result.shelfAssociate, result.originalAssociate);

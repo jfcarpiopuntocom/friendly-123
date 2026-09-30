@@ -56,8 +56,9 @@ test('Bloque 2: COUNTER SALE y persona elegida en la venta cruzan al otro aparat
     assert.deepEqual(resumen(vb), resumen(va), 'misma persona y mismo split en B para ' + id);
   }
   const casaB = ventasB.find((v) => v.id === vCasa.ventaId);
-  assert.ok(!casaB.split, 'COUNTER SALE sigue sin comision en B');
-  assert.equal(casaB.modoComision, 'counter', 'B sabe que fue venta de la casa');
+  // REGLA CAMBIADA (JFC 2026-09-30, v429): counter no es la casa; se comisiona con el trato.
+  assert.ok(casaB.split, 'COUNTER SALE comisionada tambien en B');
+  assert.equal(casaB.canalVenta, 'mostrador', 'B sabe que fue venta de mostrador');
   assert.ok(ventasB.find((v) => v.id === vOtra.ventaId).split, 'la persona elegida cobra en B');
   const expB = await b.request('/api/respaldo/exportar');
   assert.equal(expB.ubicaciones.find((u) => u.id === shelf.id).promotoraId, fija.id, 'el acuerdo fijo de la percha no cambia');

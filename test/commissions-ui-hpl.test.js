@@ -75,6 +75,5 @@ test('Luis: elige persona, se arrepiente a venta de la casa, y confirma dos vece
   });
   assert.equal(r.n, 1, 'doble toque = una sola venta');
   assert.equal(r.stock, 4);
-  assert.equal(r.modo, 'counter');
-  assert.equal(r.com, 0);
+  assert.equal(r.com, 0, 'percha propia sin nadie: no hay a quien comisionar');
 });

@@ -7,6 +7,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { browser } = require('./helpers/browser.cjs');
+const { marcarCasaVieja } = require('./helpers/venta-casa-vieja.cjs');
 
 let n = 0;
 const bc = () => 'PP-' + Date.now().toString(36) + (n++);
@@ -112,7 +113,8 @@ test('8. day close (cierre) and reclassifying a house sale also use the product 
   assert.equal(cierre.comisionPct, 60, 'day close');
   // Venta de la casa vieja (antes de v429): sin % en la pieza al vender; el % llega despues.
   const b = await prod(w, rack);
-  await w.request(`/api/productos/${b.id}/venta`, 'POST', { cantidad: 1, modoComision: 'counter' });
+  const vb = await w.request(`/api/productos/${b.id}/venta`, 'POST', { cantidad: 1, modoComision: 'counter' });
+  await marcarCasaVieja(w, vb.ventaId);
   await w.request(`/api/productos/${b.id}`, 'PATCH', { pctAsociado: 60 });
   const casa = (await ventas(w)).find((x) => x.productoId === b.id && x.modoComision === 'counter');
   const prev = await w.request(`/api/ventas/${casa.id}/asignar-comision`, 'POST', { promotoraId: bel.id, preview: true });

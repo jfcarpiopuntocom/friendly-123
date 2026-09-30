@@ -244,15 +244,20 @@ trabajo está mal hecho aunque el código funcione.
   comentario, nunca el guard que protege algo real.
 - Nunca mentir un logro ni inflar lo verificado.
 
-### 7. COUNTER SALE es una venta pura de la casa (JFC 2026-09-22).
-- Al registrar una venta, **nunca** se puede exigir elegir associate o
-  comisionista. `COUNTER SALE` significa que vende la casa y no se asigna
-  comisión a nadie.
-- Es una elección por venta: no borra ni altera el associate permanente de la
-  percha. Si se elige una persona, se aplica su acuerdo; si se elige COUNTER
-  SALE, la venta queda sin split de comisión.
-- Esta regla es diseño deliberado de JFC. No convertirla en validación
-  obligatoria ni en una edición silenciosa de la percha en cambios futuros.
+### 7. COUNTER SALE: NO es la casa, se comisiona (JFC 2026-09-30; reemplaza la regla del 2026-09-22)
+- Al registrar una venta, **nunca** se exige elegir associate o comisionista.
+- Elegir otra persona en la venta no borra ni altera el associate permanente de la percha.
+- **COUNTER NO ES LA CASA** (JFC 2026-09-30, Belen/idiomARTE, shell v429). "Counter sale" = se vendio
+  en el mostrador o en la puerta. Se comisiona IGUAL que cualquier venta: trato de la pieza (comisionista
+  o % propios) y, si la pieza no trae nada, trato de la percha. Solo queda sin comision si no hay trato
+  con nadie (percha propia sin comisionista). Motivo: el 2026-09-22 counter = "venta de la casa" chocaba
+  con la comision puesta en la pieza (dos ordenes que se contradecian) y la comision se perdia en
+  silencio. Practica mundial (consignacion): la parte de quien trae la pieza se paga siempre.
+  Tecnica: la venta se guarda en modoComision "acuerdo" + campo nuevo `canalVenta: "mostrador"`;
+  counter ignora al asistente; si el comisionista de la pieza ya no existe, usa el trato de la percha:
+  una venta NUNCA se bloquea. Ventas viejas guardadas como "counter" (<= v428) siguen igual y se
+  corrigen una a una con "Review split". La UI no debe ofrecer opciones que se bloqueen o contradigan
+  entre si (JFC 2026-09-30).
 
 ## LICENCIAS: NUNCA EN EL REPO (JFC 2026-09-22) — el repo es PÚBLICO
 - Jamás escribir una licencia completa (F123-/AMG-/C123-) en código, docs, tests

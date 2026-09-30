@@ -31,13 +31,13 @@ test('Bloque 1: ventas por la UI (cantidad, precio especial, cortesia, comisioni
         await confirmarVentaConInfo(id, false);
       };
       await vender(a.id, { 'vi-cantidad': '3', 'vi-comisionista': pr.id });            // compartida + comision
-      await vender(a.id, { 'vi-comisionista': '__counter__' });                          // house sale
+      await vender(a.id, { 'vi-comisionista': '__counter__' });                          // venta de mostrador (v429: se comisiona)
       await vender(b.id, { 'vi-cantidad': '2', 'vi-comisionista': pr.id });            // percha propia + persona (Spray)
       await vender(b.id, { 'vi-cortesia': true });                                        // cortesia
       const ventas0 = await req('/api/ventas/todas');
       const mias = ventas0.filter((v) => v.productoId === a.id || v.productoId === b.id);
       // Anular la house sale por la ruta que usa la pantalla.
-      const house = mias.find((v) => v.modoComision === 'counter');
+      const house = mias.find((v) => v.productoId === a.id && v.cantidad === 1);
       await req(`/api/ventas/${house.id}/anular`, 'POST', {});
       const ventas = (await req('/api/ventas/todas')).filter((v) => v.productoId === a.id || v.productoId === b.id);
       const prods = await req('/api/productos');

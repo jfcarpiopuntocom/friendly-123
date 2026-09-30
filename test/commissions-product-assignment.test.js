@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { browser } = require('./helpers/browser.cjs');
+const { marcarCasaVieja } = require('./helpers/venta-casa-vieja.cjs');
 
 async function setup(type = 'propio', conPieza = true) {
   const app = browser(); app.OCAuth = { rolActual: () => 'dueno' };
@@ -15,9 +16,10 @@ async function setup(type = 'propio', conPieza = true) {
   return { app, artist, rackPerson, rack, product };
 }
 // Venta de la casa VIEJA (anterior a v429): sale con la pieza sin comisionista y despues se le
-// asigna uno. Desde v429 una pieza con comisionista ya no puede venderse como COUNTER SALE.
+// asigna uno. Desde v429 COUNTER SALE se comisiona: el dato viejo se fabrica con marcarCasaVieja.
 async function ventaCasaVieja(app, product, artist, cantidad) {
   const r = await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad, modoComision: 'counter' });
+  await marcarCasaVieja(app, r.ventaId);
   await app.request(`/api/productos/${product.id}`, 'PATCH', { comisionistaId: artist.id });
   return r;
 }
