@@ -170,7 +170,7 @@
       '<div class="pp-caja">' +
         '<h3>Record credit for ' + esc(nombre) + '</h3>' +
         '<div class="pp-fg"><label for="pp-monto">How much</label>' +
-          '<input id="pp-monto" type="number" inputmode="decimal" min="0" step="0.01"></div>' +
+          '<input id="pp-monto" type="number" inputmode="decimal" min="0" step="any"></div>' +
         '<div class="pp-fg"><label for="pp-motivo">Reason (optional)</label>' +
           '<input id="pp-motivo" type="text" autocomplete="off"></div>' +
         '<label class="pp-check"><input type="checkbox" id="pp-conplan"> Set up a payment plan</label>' +
@@ -299,7 +299,7 @@
         '<h3>Record a payment</h3>' +
         '<p class="pp-resumen" id="pp-ab-ctx">Loading...</p>' +
         '<div class="pp-fg"><label for="pp-ab-monto">Payment amount</label>' +
-          '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0" step="0.01"></div>' +
+          '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0" step="any"></div>' +
         '<button type="button" class="pp-btn" id="pp-ab-ok">Record payment</button>' +
         '<button type="button" class="pp-btn gris" id="pp-ab-cancel">Cancel</button>' +
         '<p class="pp-msg" id="pp-ab-msg"></p>' +

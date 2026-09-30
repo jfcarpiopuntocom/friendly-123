@@ -1825,9 +1825,9 @@
                Vacio = 0 = se comporta exactamente como antes: cero migracion,
                ningun trato existente cambia de valor. -->
           <label style="font-size:13px;"><span data-i18n="shelves.guaranteedMin">Guaranteed minimum $</span><br>
-            <input id="perchaMinimo" type="number" min="0" step="0.01" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+            <input id="perchaMinimo" type="number" min="0" step="any" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
           <label style="font-size:13px;"><span data-i18n="shelves.fixedContrib">Fixed contribution $</span><br>
-            <input id="perchaContrib" type="number" min="0" step="0.01" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
+            <input id="perchaContrib" type="number" min="0" step="any" placeholder="optional" data-i18n-attr="placeholder:common.phOptional" style="padding:8px;border:2px solid var(--azul-medio);border-radius:5px;width:110px;"></label>
           <button id="perchaCrear" class="ir" style="padding:10px 16px;" data-i18n="shelves.addShelfBtn">+ Add shelf</button>
         </div>
         <p id="perchaMsg" role="status" aria-live="polite" style="font-size:14px;margin-top:8px;"></p>
@@ -1971,6 +1971,18 @@
       <div class="ficha-resultado" id="fichaResultado"></div>
     </div>
 
+    <!-- LISTA DE VENTAS EDITABLE (JFC 2026-09-02): "en Sold falta una lista
+         dinamica, expandible de lo que ya se vendio y obvio debe poder editarse
+         con lapicitos por si hubo errores u otras necesidades de cambios" +
+         "cancelar ex post tambien". Expandible; cada venta se edita (cantidad,
+         forma de pago, factura, notas) o se cancela. Todo va al log con usuario
+         y dispositivo responsable.
+         JFC 2026-09-30 (v430): va ENCIMA de "Day close" (se usa mas). -->
+    <details id="ventasSold" class="tag-card" style="margin-top:18px;padding:14px 16px;">
+      <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);" data-i18n="sold.logSummary">🧾 Sales log — edit or undo</summary>
+      <p style="font-size:14px;color:var(--ink-soft);margin:6px 0 10px;" data-i18n="sold.logIntro">Everything already sold. Tap the pencil to fix a mistake, or ↶ to undo a sale. Every change is recorded with who did it and from which device.</p>
+      <div id="ventasSoldLista"></div>
+    </details>
     <!-- CIERRE DEL DIA: conciliacion en un solo paso, cero trabajo en horario
          de venta. Genera ventas reales de hoy (split de comisiones incluido). -->
     <details id="cierreDia" class="tag-card" style="margin-top:18px;padding:14px 16px;">
@@ -1979,17 +1991,6 @@
       <div id="cierreLista"></div>
       <button class="ir" id="btnAplicarCierre" style="margin-top:12px;" data-i18n="sold.applyClose">Apply day close</button>
       <p id="cierreMsg" style="font-size:15px;font-weight:700;margin:8px 0 0;"></p>
-    </details>
-    <!-- LISTA DE VENTAS EDITABLE (JFC 2026-09-02): "en Sold falta una lista
-         dinamica, expandible de lo que ya se vendio y obvio debe poder editarse
-         con lapicitos por si hubo errores u otras necesidades de cambios" +
-         "cancelar ex post tambien". Expandible; cada venta se edita (cantidad,
-         forma de pago, factura, notas) o se cancela. Todo va al log con usuario
-         y dispositivo responsable. -->
-    <details id="ventasSold" class="tag-card" style="margin-top:18px;padding:14px 16px;">
-      <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);" data-i18n="sold.logSummary">🧾 Sales log — edit or undo</summary>
-      <p style="font-size:14px;color:var(--ink-soft);margin:6px 0 10px;" data-i18n="sold.logIntro">Everything already sold. Tap the pencil to fix a mistake, or ↶ to undo a sale. Every change is recorded with who did it and from which device.</p>
-      <div id="ventasSoldLista"></div>
     </details>
     <!-- CIERRE DEL DIA EN MOVIL (JFC 2026-08-19): el FAB flotante tapaba el
          menu inferior, asi que en telefono la misma pantalla de cierre se abre
@@ -2170,7 +2171,7 @@
           <option value="maintenance" data-i18n="exp.cat.maintenance">Maintenance / repairs</option>
           <option value="other" selected data-i18n="exp.cat.other">Other</option>
         </select>
-        <input id="gastoMonto" type="number" min="0" step="0.01" placeholder="Amount" style="flex:1;min-width:100px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <input id="gastoMonto" type="number" min="0" step="any" placeholder="Amount" style="flex:1;min-width:100px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <input id="gastoFecha" type="date" style="flex:1;min-width:130px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <!-- JFC 2026-09-08: nº de factura/invoice del proveedor externo, para control tributario básico. Opcional. -->
         <input id="gastoFactura" type="text" placeholder="Invoice # (optional)" title="Supplier invoice number — for basic tax control" style="flex:1;min-width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
@@ -2236,7 +2237,7 @@
         <label style="font-size:14px;font-weight:700;"><span data-i18n="adv.pickLocation">Pick a location to edit its expenses:</span><br>
           <select id="gastosUbicSelector" style="margin-top:6px;padding:8px;border:2px solid var(--rust);border-radius:5px;"></select></label>
       </div>
-      <input id="inputGastosMensuales" type="number" min="0" step="0.01" placeholder="e.g. 350.00" data-i18n-attr="placeholder:adv.expensesPlaceholder" style="text-align:left; max-width:220px;">
+      <input id="inputGastosMensuales" type="number" min="0" step="any" placeholder="e.g. 350.00" data-i18n-attr="placeholder:adv.expensesPlaceholder" style="text-align:left; max-width:220px;">
       <br>
       <button class="ir" id="btnGuardarGastos" data-i18n="adv.save">Save</button>
       <p id="msgGastos" style="font-size:14px; margin-top:10px;"></p>
@@ -3845,7 +3846,7 @@ async function ocRegistrarCredito(clienteId, nombre) {
   ov.innerHTML = `<div class="tag-card" style="background:#fff;max-width:420px;width:100%;padding:18px 20px;border-radius:12px;">
     <h3 style="margin:0 0 4px;font-size:18px;">Record credit for ${escHtml(nombre)}</h3>
     <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">Store credit can be general, or tied to one item (then it can only be spent on that item).</p>
-    <label style="display:block;font-size:14px;">Amount ($)<br><input id="oc-abono-monto" type="number" min="0" step="0.01" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
+    <label style="display:block;font-size:14px;">Amount ($)<br><input id="oc-abono-monto" type="number" min="0" step="any" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;"></label>
     <label style="display:block;font-size:14px;margin-top:10px;">Item this credit is for<br>
       <select id="oc-abono-item" style="width:100%;padding:9px;border:2px solid var(--azul-medio);border-radius:6px;margin-top:4px;">
         <option value="">— Not tied to an item (general credit) —</option>
@@ -3938,10 +3939,17 @@ if (!window.__ocCliComprasWired) {
       }).join("");
       // Es volumen BRUTO de ventas fiadas, no deuda pendiente: pagos y
       // cargos manuales se ven en el libro de saldo de la tarjeta.
-      if (fiadoTot > 0) html = '<div style="font-size:13px;font-weight:700;color:#B0183E;margin-bottom:2px;">'
+      // JFC 2026-09-30 (v430): "Debt $X pending · Record a payment" va en la MISMA fila que
+      // "On-account sales shown". Se MUEVE el nodo cartera-<id> (no se copia): el mismo id lo
+      // sigue repintando pintarSaldoCartera, y no aparece dos veces la deuda en la tarjeta.
+      if (fiadoTot > 0) html = '<div class="oc-fiado-fila" style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:flex-start;gap:6px 16px;margin-bottom:2px;">'
+        + '<div style="font-size:13px;font-weight:700;color:#B0183E;">'
         + ((window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es") ? 'Ventas fiadas mostradas: ' : 'On-account sales shown: ')
-        + fmtMoney(fiadoTot) + '</div>' + html;
+        + fmtMoney(fiadoTot) + '</div><div class="oc-fiado-deuda"></div></div>' + html;
       cont.innerHTML = html;
+      var _deuda = cliId && document.getElementById("cartera-" + cliId);
+      var _hueco = cont.querySelector(".oc-fiado-deuda");
+      if (_deuda && _hueco) { _deuda.style.marginTop = "0"; _hueco.appendChild(_deuda); }
     }).catch(function () { cont.innerHTML = '<span style="font-size:13px;color:var(--rojo-ink,#a3392a);">Could not load purchases.</span>'; });
   }, true);
 }
@@ -5224,6 +5232,7 @@ async function duplicarComoVariante(id) {
     set("#np-tipo-producto", p.tipoProducto || "normal");
     set("#np-serving-ml", p.servingMl || 50);
     set("#np-botella-ml", p.botellaMl || 750);
+    set("#np-fecha-evento", p.fechaEvento || "");
     var tipo = scope.querySelector("#np-tipo-producto");
     if (tipo) tipo.dispatchEvent(new Event("change"));
     var perecible = scope.querySelector("#np-perecible");
@@ -6070,6 +6079,11 @@ function mostrarFormNuevoProducto(codigoEscaneado){
           <option value="ticket">Ticket / Event</option>
           <option value="bar">Bar (count by serving)</option>
         </select></label>
+      <!-- JFC 2026-09-30 (v430): la fecha del evento/clase se pone AL CREAR el ticket; en la venta ya no es obligatoria. -->
+      <div id="np-ticket-wrap" style="display:none;margin-top:10px;">
+        <label style="display:block;font-size:14px;"><span data-i18n="sale.lblEventDate">${escHtml(t("sale.lblEventDate"))}</span><br>
+          <input id="np-fecha-evento" type="date" value="" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      </div>
       <div id="np-bar-wrap" style="display:none;margin-top:10px;">
         <div style="display:flex;gap:10px;">
           <label style="flex:1;font-size:14px;">Serving size (ml)<br><input id="np-serving-ml" type="number" min="1" step="1" value="50" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
@@ -6126,6 +6140,8 @@ function mostrarFormNuevoProducto(codigoEscaneado){
   if (_npTipo) _npTipo.addEventListener("change", (e) => {
     const w = document.getElementById("np-bar-wrap");
     if (w) w.style.display = e.target.value === "bar" ? "block" : "none";
+    const wt = document.getElementById("np-ticket-wrap");
+    if (wt) wt.style.display = e.target.value === "ticket" ? "block" : "none";
   });
   /* Comisionista (JFC 2026-08-27): poblar el dropdown con las promotoras. */
   poblarSelectComisionistas("np-comisionista", null);
@@ -6172,6 +6188,7 @@ async function crearProductoNuevo(codigoEscaneado){
     tipoProducto: el("np-tipo-producto") ? el("np-tipo-producto").value : "normal",
     servingMl: el("np-tipo-producto") && el("np-tipo-producto").value === "bar" ? Number(val("np-serving-ml")) || 50 : 50,
     botellaMl: el("np-tipo-producto") && el("np-tipo-producto").value === "bar" ? Number(val("np-botella-ml")) || 750 : 750,
+    fechaEvento: el("np-tipo-producto") && el("np-tipo-producto").value === "ticket" ? val("np-fecha-evento") : "",
     familiaId: val("np-familia-id"), productoBaseId: val("np-producto-base-id"),
     varianteAtributo: val("np-variante-atributo"), varianteValor: el("np-chip") ? val("np-chip").slice(0, 40) : "",
     sku: val("np-sku"),
@@ -6284,6 +6301,10 @@ async function mostrarFormEditarProducto(id){
           <option value="ticket"${p.tipoProducto === "ticket" ? " selected" : ""}>Ticket / Event</option>
           <option value="bar"${p.tipoProducto === "bar" ? " selected" : ""}>Bar (count by serving)</option>
         </select></label>
+      <div id="ed-ticket-wrap" style="display:${p.tipoProducto === "ticket" ? "block" : "none"};margin-top:10px;">
+        <label style="display:block;font-size:14px;"><span data-i18n="sale.lblEventDate">${escHtml(t("sale.lblEventDate"))}</span><br>
+          <input id="ed-fecha-evento" type="date" value="${q(p.fechaEvento || "")}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      </div>
       <div id="ed-bar-wrap" style="margin-top:10px;display:${p.tipoProducto === "bar" ? "block" : "none"};">
         <div style="display:flex;gap:10px;">
           <label style="flex:1;font-size:14px;">Serving size (ml)<br><input id="ed-serving-ml" type="number" min="1" step="1" value="${p.servingMl || 50}" ${inp}></label>
@@ -6303,6 +6324,8 @@ async function mostrarFormEditarProducto(id){
   if (_edTipo) _edTipo.addEventListener("change", (e) => {
     const w = document.getElementById("ed-bar-wrap");
     if (w) w.style.display = e.target.value === "bar" ? "block" : "none";
+    const wt = document.getElementById("ed-ticket-wrap");
+    if (wt) wt.style.display = e.target.value === "ticket" ? "block" : "none";
   });
   try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("ed-categoria")); } catch (_) {}
   document.getElementById("ed-tipo-proveedor").addEventListener("change", (e) => {
@@ -6339,7 +6362,7 @@ async function guardarEdicionProducto(id){
   // campo no existe en el DOM, se OMITE del PATCH en vez de reventar todo.
   const v = (x) => { const el = document.getElementById(x); return el ? el.value.trim() : undefined; };
   // OJO: el SKU no se toca aqui — solo el barcode si el dueno lo digito.
-  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
+  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), fechaEvento: v("ed-fecha-evento"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   { const ex = document.getElementById("ed-exento"); if (ex) body.exentoImpuesto = ex.checked; } // v361
   const foto = await leerFotoRedimensionada(document.getElementById("ed-foto"));
@@ -6440,6 +6463,11 @@ async function abrirAltaProducto(){
           <option value="ticket">Ticket / Event</option>
           <option value="bar">Bar (count by serving)</option>
         </select></label>
+      <!-- JFC 2026-09-30 (v430): la fecha del evento/clase se pone AL CREAR el ticket; en la venta ya no es obligatoria. -->
+      <div id="np-ticket-wrap" style="display:none;margin-top:10px;">
+        <label style="display:block;font-size:14px;"><span data-i18n="sale.lblEventDate">${escHtml(t("sale.lblEventDate"))}</span><br>
+          <input id="np-fecha-evento" type="date" value="" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      </div>
       <div id="np-bar-wrap" style="display:none;margin-top:10px;">
         <div style="display:flex;gap:10px;">
           <label style="flex:1;font-size:14px;">Serving size (ml)<br><input id="np-serving-ml" type="number" min="1" step="1" value="50" ${inp}></label>
@@ -6511,6 +6539,8 @@ async function abrirAltaProducto(){
   if (_npTipo2) _npTipo2.addEventListener("change", (e) => {
     const w = document.getElementById("np-bar-wrap");
     if (w) w.style.display = e.target.value === "bar" ? "block" : "none";
+    const wt = document.getElementById("np-ticket-wrap");
+    if (wt) wt.style.display = e.target.value === "ticket" ? "block" : "none";
   });
   try { if (window.OCCategorias) window.OCCategorias.enganchar(document.getElementById("np-categoria")); } catch (_) {}
   /* Mismo borrador que el formulario de Escanear: son el MISMO alta con dos
@@ -6762,7 +6792,7 @@ async function abrirPanelVentaInfo(id, esTicket){
       })()}
       ${esTicket ? `
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;">
-        <label style="flex:1;min-width:150px;font-size:14px;"><span data-i18n="sale.lblEventDate">${escHtml(t("sale.lblEventDate"))}</span>${req}<br><input id="vi-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+        <label style="flex:1;min-width:150px;font-size:14px;"><span data-i18n="sale.lblEventDate">${escHtml(t("sale.lblEventDate"))}</span><br><input id="vi-fecha" type="date" value="${escHtml(p.fechaEvento || "")}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
         <label style="flex:1;min-width:150px;font-size:14px;"><span data-i18n="sale.lblPeople">${escHtml(t("sale.lblPeople"))}</span><br>
           <select id="vi-personas" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
             <option value="">—</option>
@@ -6806,7 +6836,7 @@ async function abrirPanelVentaInfo(id, esTicket){
         <button type="button" id="vi-precio-toggle" style="background:none;border:none;padding:0;font-size:14px;font-weight:700;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;text-decoration:underline;">✎ Adjust price / discount</button>
         <div id="vi-precio-box" style="display:none;margin-top:6px;">
           <label style="display:block;font-size:14px;">Price charged for this sale ($)<br>
-            <input id="vi-precio-override" type="number" min="0" step="0.01" placeholder="${Number(p.precioRebajado || p.precio).toFixed(2)}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+            <input id="vi-precio-override" type="number" min="0" step="any" placeholder="${Number(p.precioRebajado || p.precio).toFixed(2)}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
             ${p.precioCasa != null ? `<button type="button" id="vi-precio-casa-btn" style="font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;cursor:pointer;">House price (${fmtMoney(p.precioCasa)})</button>` : ""}
             <button type="button" id="vi-precio-lista-btn" style="font-size:13px;font-weight:700;padding:8px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;">List price (${fmtMoney(p.precio)})</button>
@@ -6982,7 +7012,7 @@ async function abrirPanelVentaInfo(id, esTicket){
     const c = _viCfgImp;
     if (!c || !c.activo || !(c.tasa > 0) || p.exentoImpuesto) { el2.style.display = "none"; return; }
     const g = (id) => document.getElementById(id);
-    const cant = Math.max(1, Number((g("vi-servings") || g("vi-cantidad") || {}).value) || 1);
+    const cant = Math.max(1, Number((g("vi-servings") || g("vi-cantidad") || g("vi-personas") || {}).value) || 1); // v430: ticket = personas
     const ov = g("vi-precio-override");
     const precio = (ov && ov.value !== "" && isFinite(Number(ov.value))) ? Number(ov.value) : Number(p.precio) || 0;
     const baseC = (g("vi-cortesia") && g("vi-cortesia").checked) ? 0 : Math.round(precio * cant * 100);
@@ -6994,7 +7024,7 @@ async function abrirPanelVentaInfo(id, esTicket){
     el2.style.display = "block";
   };
   fetch(`${API}/config/impuesto`).then((r) => r.json()).then((c) => { _viCfgImp = c; pintarImpuestoVenta(); }).catch(() => {});
-  ["vi-cantidad", "vi-servings", "vi-precio-override"].forEach((id) => { const e3 = document.getElementById(id); if (e3) e3.addEventListener("input", pintarImpuestoVenta); });
+  ["vi-cantidad", "vi-servings", "vi-precio-override", "vi-personas"].forEach((id) => { const e3 = document.getElementById(id); if (e3) { e3.addEventListener("input", pintarImpuestoVenta); e3.addEventListener("change", pintarImpuestoVenta); } });
   { const cc = document.getElementById("vi-cortesia"); if (cc) cc.addEventListener("change", pintarImpuestoVenta); }
   _viPintarImpuesto = pintarImpuestoVenta;
   if (esBar) {
@@ -7041,8 +7071,12 @@ async function confirmarVentaConInfo(id, esTicket){
   const clienteId = document.getElementById("vi-cliente").value || undefined;
   // JFC 2026-09-02: cantidad de mostrador (varios de golpe) solo sin cliente y
   // en productos normales (no bar/ticket). Con cliente o bar/ticket = 1.
-  const _cantMostrador = (!_esBar && !esTicket && !clienteId)
-    ? Math.max(1, Math.floor(Number(g("vi-cantidad")) || 1)) : 1;
+  // FIX idiomARTE (JFC 2026-09-30, v430): en un ticket "People in the reservation: 2" registraba
+  // UNA sola unidad (cantidad fija en 1): se cobraba y descontaba una plaza por reserva de dos.
+  // Ahora en tickets la cantidad = personas de la reserva (vacio = 1).
+  const _cantMostrador = esTicket
+    ? Math.max(1, Math.floor(Number(g("vi-personas")) || 1))
+    : ((!_esBar && !clienteId) ? Math.max(1, Math.floor(Number(g("vi-cantidad")) || 1)) : 1);
   const _facturaOn = (() => { const c = document.getElementById("vi-add-factura"); return !!(c && c.checked); })();
   // CORTESÍA / FIADO (JFC 2026-09-08). Excluyentes: una cortesía (precio 0) no
   // genera deuda. Fiado necesita un cliente para colgarle la deuda.
@@ -7079,11 +7113,8 @@ async function confirmarVentaConInfo(id, esTicket){
     _ovEl.focus();
     return;
   }
-  if (esTicket && !info.fechaEvento){
-    msg.style.color = "var(--rojo-ink,#a3392a)";
-    msg.textContent = "For tickets/events you need the event/class date.";
-    return;
-  }
+  // JFC 2026-09-30 (v430): la fecha del evento/clase ya NO es obligatoria al vender; se pone al
+  // crear el ticket y viene precargada. Vacia = el motor usa la del ticket.
   if (_fiadoOn && !clienteId){
     msg.style.color = "var(--rojo-ink,#a3392a)";
     msg.textContent = "On credit needs a customer — pick one above (or use New).";
@@ -7234,7 +7265,7 @@ async function cargarVentasSold(){
       <div class="oc-vs-editor" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--linea,#D7E0E8);">
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <label style="font-size:13px;flex:1;min-width:90px;">Quantity<br><input class="vs-cant" type="number" min="1" step="1" value="${v.cantidad}" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
-          <label style="font-size:13px;flex:1;min-width:110px;">Unit price ($)<br><input class="vs-precio" type="number" min="0" step="0.01" value="${Number(v.precioUnit) || 0}" title="Correct the amount if it was entered wrong" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
+          <label style="font-size:13px;flex:1;min-width:110px;">Unit price ($)<br><input class="vs-precio" type="number" min="0" step="any" value="${Number(v.precioUnit) || 0}" title="Correct the amount if it was entered wrong" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
           <label style="font-size:13px;flex:1;min-width:120px;">Payment method<br>
             <select class="vs-pago" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;">
               <option value=""${v.formaPago ? "" : " selected"}>—</option>
@@ -8108,7 +8139,7 @@ async function editarGasto(id){
       <select id="ge-categoria" style="font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
         ${["rent","utilities","inventory","payroll","services","marketing","transport","taxes","maintenance","other"].map((k) => `<option value="${k}"${(g.categoria || "other") === k ? " selected" : ""}>${escHtml(gastoCatLabel(k))}</option>`).join("")}
       </select>
-      <input id="ge-monto" type="number" min="0" step="0.01" value="${Number(g.monto) || 0}" style="width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
+      <input id="ge-monto" type="number" min="0" step="any" value="${Number(g.monto) || 0}" style="width:110px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
       <input id="ge-fecha" type="date" value="${escHtml(fecha)}" style="font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
     </div>
     <button id="ge-guardar" style="font-size:13px;font-weight:700;padding:6px 12px;background:#006B3C;border:1.5px solid #006B3C;border-radius:6px;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">Save</button>

@@ -517,3 +517,14 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - [ ] Las 3 ventas viejas de Belen siguen como venta de la casa: corregirlas con "Review split" (Commissions,
   producto Equatorial Winds). Si JFC quiere un boton "Comisionar todas", es un paso aparte.
 - [ ] Portar la regla a amigable-123 y consultorio-123 si tienen COUNTER SALE (esta sesion no tiene esos repos).
+
+## 2026-09-30 (noche) — shell v430 (idiomARTE + pedidos de JFC)
+- [x] BUG tickets: "People in the reservation: 2" registraba 1 unidad. Ahora cantidad = personas.
+- [x] "Event/class date" se pone al CREAR el ticket (alta y edicion; campo nuevo `fechaEvento` en producto,
+  sync y respaldo). En la venta ya no es obligatoria: precargada; vacia hereda la del ticket.
+- [x] Campos de DINERO: step="any" (flechas/rueda de a $1, se pueden escribir centavos). Los % quedan igual.
+- [x] Sold: "Sales log" va encima de "Day close".
+- [x] Clientes: "Debt $X pending · Record a payment" en la misma fila que "On-account sales shown" (PC);
+  en telefono no cabe y baja a la linea siguiente.
+- [x] Tests: ticket-personas-fecha y dinero-paso-dolar (rojo-verde contra respaldo). Suite 468/468.
+- [ ] Ventas de tickets anteriores con 2+ personas quedaron con cantidad 1: corregirlas en Sold.
