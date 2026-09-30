@@ -118,3 +118,17 @@ les cambia el valor por separado.
 - `dashboard.html` es `noindex`; es tablero privado del dueño, no landing.
 - Referencias consultadas para este archivo: VoltAgent/awesome-claude-design (estructura
   de tokens) y nutlope/hallmark (jerarquía de landing). Se toma la forma, no sus colores.
+
+## Regla de diseno: COUNTER NO ES LA CASA (JFC 2026-09-30, v429)
+
+**COUNTER NO ES LA CASA** (JFC 2026-09-30, Belen/idiomARTE, shell v429). "Counter sale" = se vendio
+en el mostrador o en la puerta. Se comisiona IGUAL que cualquier venta: trato de la pieza (comisionista
+o % propios) y, si la pieza no trae nada, trato de la percha. Solo queda sin comision si no hay trato
+con nadie (percha propia sin comisionista). Motivo: el 2026-09-22 counter = "venta de la casa" chocaba
+con la comision puesta en la pieza (dos ordenes que se contradecian) y la comision se perdia en
+silencio. Practica mundial (consignacion): la parte de quien trae la pieza se paga siempre.
+Tecnica: la venta se guarda en modoComision "acuerdo" + campo nuevo `canalVenta: "mostrador"`;
+counter ignora al asistente; si el comisionista de la pieza ya no existe, usa el trato de la percha:
+una venta NUNCA se bloquea. Ventas viejas guardadas como "counter" (<= v428) siguen igual y se
+corrigen una a una con "Review split". La UI no debe ofrecer opciones que se bloqueen o contradigan
+entre si (JFC 2026-09-30).

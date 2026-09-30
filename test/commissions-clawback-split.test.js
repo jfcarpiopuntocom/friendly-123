@@ -145,12 +145,13 @@ test('a sale can be split between a seller and an assistant, exact to the cent; 
   assert.equal(lista.asistenteNombre, 'Helper');
 });
 
-test('COUNTER SALE ignores any assistant: no split, no reparto', async () => {
+// REGLA CAMBIADA (JFC 2026-09-30, v429): counter se comisiona, pero sigue ignorando al asistente.
+test('COUNTER SALE ignores any assistant: commissioned with the deal, no assistant reparto', async () => {
   const app = browser();
   const { product } = await tienda(app);
   const helper = await app.request('/api/promotoras', 'POST', { nombre: 'Helper', comisionBase: 10 });
   await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1, modoComision: 'counter', asistenteId: helper.id, asistentePct: 50 });
   const v = await ventaDe(app, product);
-  assert.equal(v.split, null);
-  assert.equal(v.modoComision, 'counter');
+  assert.ok(v.split, 'counter sale is commissioned');
+  assert.ok(!v.split.asistenteId && !v.split.reparto, 'no assistant reparto: ' + JSON.stringify(v.split));
 });

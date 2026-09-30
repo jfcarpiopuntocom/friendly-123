@@ -7,6 +7,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { browser } = require('./helpers/browser.cjs');
+const { marcarCasaVieja } = require('./helpers/venta-casa-vieja.cjs');
 
 let n = 0;
 const bc = () => 'PP-' + Date.now().toString(36) + (n++);
@@ -92,13 +93,14 @@ test('6. out-of-range and garbage values are clamped or ignored, never stored as
   assert.equal(vs.find((x) => x.productoId === c.id).comisionPct, 0, '-5 -> 0');
 });
 
-test('7. COUNTER SALE stays a pure house sale even when the product has its own percentage', async () => {
+// REGLA CAMBIADA (JFC + Belen 2026-09-30, v429): el % de la pieza manda tambien sobre COUNTER SALE.
+test('7. COUNTER SALE of a product with its own percentage is commissioned at that percentage', async () => {
   const w = browser(); w.OCAuth = { rolActual: () => 'dueno' };
   const { rack } = await base(w, 70);
   const a = await prod(w, rack, { pctAsociado: 60 });
   await w.request(`/api/productos/${a.id}/venta`, 'POST', { cantidad: 1, modoComision: 'counter' });
   const v = (await ventas(w)).find((x) => x.productoId === a.id);
-  assert.equal(v.comisionPct, null); assert.equal(v.comisionAsociado, 0);
+  assert.equal(v.comisionPct, 60); assert.equal(v.comisionAsociado, 60); assert.equal(v.netoCasa, 40);
 });
 
 test('8. day close (cierre) and reclassifying a house sale also use the product percentage', async () => {
@@ -109,8 +111,12 @@ test('8. day close (cierre) and reclassifying a house sale also use the product 
   assert.ok(r && !r.error, JSON.stringify(r));
   const cierre = (await ventas(w)).find((x) => x.productoId === a.id);
   assert.equal(cierre.comisionPct, 60, 'day close');
-  await w.request(`/api/productos/${a.id}/venta`, 'POST', { cantidad: 1, modoComision: 'counter' });
-  const casa = (await ventas(w)).find((x) => x.productoId === a.id && x.modoComision === 'counter');
+  // Venta de la casa vieja (antes de v429): sin % en la pieza al vender; el % llega despues.
+  const b = await prod(w, rack);
+  const vb = await w.request(`/api/productos/${b.id}/venta`, 'POST', { cantidad: 1, modoComision: 'counter' });
+  await marcarCasaVieja(w, vb.ventaId);
+  await w.request(`/api/productos/${b.id}`, 'PATCH', { pctAsociado: 60 });
+  const casa = (await ventas(w)).find((x) => x.productoId === b.id && x.modoComision === 'counter');
   const prev = await w.request(`/api/ventas/${casa.id}/asignar-comision`, 'POST', { promotoraId: bel.id, preview: true });
   assert.equal(prev.split.comisionPct, 60, 'reclassification preview');
 });

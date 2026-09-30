@@ -12,6 +12,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { browser } = require('./helpers/browser.cjs');
+const { marcarCasaVieja } = require('./helpers/venta-casa-vieja.cjs');
 const { cuadre } = require('./helpers/cuadre.cjs');
 
 async function tienda() {
@@ -119,6 +120,7 @@ test('B5 Paco: pagar la percha no sella las COUNTER SALES (no hay a quien pagarl
   const t = await tienda();
   await t.vender(t.libro);
   const counter = await t.vender(t.taza, { modoComision: 'counter' });
+  await marcarCasaVieja(t.w, counter); // venta de la casa vieja (<= v428): desde v429 counter se comisiona
   await t.w.request(`/api/liquidaciones/${t.rackV.id}/marcar-pagado`, 'POST', {});
   assert.equal((await t.venta(counter)).liquidada, false);
   await t.w.request(`/api/ventas/${counter}/cancelar`, 'POST', { motivo: 'error' }); t.stock[t.taza.id] += 1;
@@ -148,8 +150,8 @@ const cent = (n) => Math.round((Number(n) || 0) * 100);
 test('C1 Belen: la tarjeta de la percha muestra las COUNTER SALES y su total real = Sold', async () => {
   const t = await tienda();
   await t.vender(t.libro, { cantidad: 2 });
-  await t.vender(t.taza, { modoComision: 'counter' });
-  await t.vender(t.taza, { modoComision: 'counter', cantidad: 2 });
+  // Ventas de la casa VIEJAS (<= v428). Desde v429 counter se comisiona (JFC 2026-09-30).
+  await marcarCasaVieja(t.w, [await t.vender(t.taza, { modoComision: 'counter' }), await t.vender(t.taza, { modoComision: 'counter', cantidad: 2 })]);
   const l = (await t.w.request('/api/liquidaciones')).find((x) => x.ubicacionId === t.rackV.id);
   assert.deepEqual(l.ventasCasa, { monto: 37.5, ventas: 2 });
   assert.equal(l.ventasBrutas, 40);

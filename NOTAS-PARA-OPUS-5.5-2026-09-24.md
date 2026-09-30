@@ -503,3 +503,17 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - **Ojo (verificado 2026-09-30):** desde la nube NO se pueden relanzar workflows (403) y no hay `gh`; antes `CLAUDE.md` decia lo contrario. Se corrigio en #258.
 - **Sugerencias en cola (prioridad un poco mas baja, esperan orden de JFC):** clip de la usuaria (3 a 7 s, uno a la vez); version en espanol del clip 1.
 - **Aprobadas por JFC, sin ejecutar aun:** comprobar en vivo la Trayectoria visual de jfcarpio.com (la nube no abre ese dominio); conectar Google Search Console (lo conecta Juan).
+
+## 2026-09-30 (noche, nube) — COUNTER NO ES LA CASA (shell v429)
+- Pedido: Belen (idiomARTE) por WhatsApp: 2 ventas en la puerta de "Equatorial Winds" (comisionista
+  Esteban en la pieza) quedaron sin comision por ser "counter". JFC: "counter no es la casa, OJOOOO";
+  "usa lo que hacen otros... que la UI no haga cosas que se bloqueen o traben entre si".
+- [x] Regla nueva (ver CLAUDE.md regla 7 y DESIGN.md): counter se comisiona con el trato de la pieza o de la percha.
+- [x] Motor (`mock-backend.js` venta), texto de la opcion ("Counter sale (commission as agreed)" / "Venta
+  de mostrador (con su comision)"), nota de "Review split", campo nuevo `canalVenta` en respaldo y sync.
+- [x] Tests: `test/pieza-manda-counter.test.js` rojo-verde contra el respaldo; 10 tests de la regla vieja
+  actualizados y rotulados "REGLA CAMBIADA"; helper `test/helpers/venta-casa-vieja.cjs` fabrica ventas
+  viejas por respaldo exportado/importado (sin atajos en la app). Suite 462/462.
+- [ ] Las 3 ventas viejas de Belen siguen como venta de la casa: corregirlas con "Review split" (Commissions,
+  producto Equatorial Winds). Si JFC quiere un boton "Comisionar todas", es un paso aparte.
+- [ ] Portar la regla a amigable-123 y consultorio-123 si tienen COUNTER SALE (esta sesion no tiene esos repos).

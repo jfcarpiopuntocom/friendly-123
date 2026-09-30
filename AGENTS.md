@@ -13,3 +13,5 @@ Reglas que ya costaron caro (2026-09-29):
 3. **Shell:** revisa `docs/version.json` de origin/master antes de numerar: el siguiente libre es
    el entero que sigue al que figure alli. Checklist de release en `CLAUDE.md`.
 4. Nunca licencias completas, PIN, claves ni datos de clientes en el repo (es PUBLICO), ni en Notion.
+5. **COUNTER NO ES LA CASA** (JFC 2026-09-30, v429): una venta de mostrador se comisiona con el trato
+   de la pieza o de la percha. No reintroducir "counter = venta de la casa sin comision". Ver `CLAUDE.md` regla 7.

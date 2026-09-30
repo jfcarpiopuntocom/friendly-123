@@ -7093,9 +7093,11 @@ async function confirmarVentaConInfo(id, esTicket){
   const _precioFiado = _tieneOverride ? _ovNum : ((_ventaInfoProductoCache && Number(_ventaInfoProductoCache.precio)) || 0);
   const _nombreFiado = (_ventaInfoProductoCache && _ventaInfoProductoCache.nombre) || "";
   const _cantVenta = _esBar ? _servings : _cantMostrador;
-  // DISEÑO JFC (2026-09-22): COUNTER SALE es una venta pura de la casa. Nunca
-  // exige associate/comisionista, no genera comisión y NO borra ni modifica el
-  // acuerdo permanente de la percha. Solo si el usuario elige una persona se
+  // REGLA DURA JFC 2026-09-30 (shell v429): COUNTER NO ES LA CASA. COUNTER SALE = venta
+  // de mostrador/puerta y se comisiona con el trato de la pieza o de la percha (el motor
+  // lo aplica). Reemplaza el diseño del 2026-09-22 ("venta pura de la casa"), que chocaba
+  // con la comision puesta en la pieza. Sigue sin exigir elegir persona y NO borra ni
+  // modifica el acuerdo permanente de la percha. Solo si el usuario elige una persona se
   // guarda esa asignación antes de vender para calcular el reparto correcto.
   // FIX (JFC 2026-09-22): este PUT tragaba cualquier fallo (catch vacío) y la
   // venta seguía de todos modos, así que el split podía calcularse con el

@@ -110,14 +110,16 @@ test('Paco cambia el % de la percha a mitad de mes: las ventas viejas conservan 
   assert.equal(cents(l.ventasBrutas), lista.reduce((s, v) => s + cents(v.split.montoBruto), 0));
 });
 
-test('Paco vende COUNTER SALE con asistente y % puesto: la casa se queda todo, sin split ni reparto, y no aparece pendiente', async () => {
+// REGLA CAMBIADA (JFC 2026-09-30, v429): "counter no es la casa". Se comisiona con el trato; el asistente se ignora.
+test('Paco vende COUNTER SALE con asistente y % puesto: se comisiona con el trato de la percha, sin reparto de asistente', async () => {
   const app = browser();
   const { helper, shelf, product } = await tienda(app);
   await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1, modoComision: 'counter', asistenteId: helper.id, asistentePct: 50 });
   const v = await ultima(app, product);
-  assert.equal(v.split, null, 'COUNTER SALE = venta pura de la casa');
+  assert.ok(v.split, 'COUNTER SALE se comisiona');
+  assert.ok(!v.split.asistenteId && !v.split.reparto, 'sin reparto de asistente');
   const l = await liq(app, shelf);
-  assert.equal(l.ventasPendientes, 0);
+  assert.equal(l.ventasPendientes, 1, 'queda pendiente de pagar al asociado');
   const u = await app.request(`/api/ubicaciones/${shelf.id}`).catch(() => null);
   if (u) assert.equal(u.comisionSocio, 40, 'la percha conserva su acuerdo permanente');
 });

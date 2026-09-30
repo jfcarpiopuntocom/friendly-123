@@ -7,7 +7,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const src = fs.readFileSync(path.join(__dirname, '../docs/i18n.js'), 'utf8');
 
-test('ES: no repeated "ventas ventas" and no leftover "venta de mostrador"', () => {
+// JFC 2026-09-30 (v429): "counter no es la casa". "Venta de mostrador" vuelve a ser el nombre
+// correcto de COUNTER SALE; lo que sigue prohibido es el tartamudeo "ventas ventas".
+test('ES: no repeated "ventas ventas"', () => {
   assert.doesNotMatch(src, /ventas ventas/i);
-  assert.doesNotMatch(src, /venta de mostrador/i);
 });

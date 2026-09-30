@@ -2760,7 +2760,7 @@
           }
           return;
         }
-        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
+        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
         ventasAgregadas++;
       });
@@ -3390,7 +3390,7 @@
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
-        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
+        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
@@ -4537,7 +4537,16 @@
            casa. Es una decisión por venta, no una edición de la percha: no se
            exige comisionista, no se crea split y no se desasigna a nadie del
            acuerdo permanente. Ausente conserva el contrato histórico. */
-        const modoComision = body && body.modoComision === "counter" ? "counter" : "acuerdo";
+        /* COUNTER NO ES LA CASA (JFC 2026-09-30, shell v429, Belen/idiomARTE). REGLA DURA.
+           "Counter sale" = se vendio en el mostrador o en la puerta. NO significa venta de la
+           casa: se comisiona IGUAL que cualquier venta, con el trato de la pieza (comisionista
+           o % propios) o, si la pieza no trae nada, con el trato de la percha. Antes COUNTER
+           SALE dejaba la venta 100% casa y chocaba con la comision puesta en la pieza: dos
+           instrucciones que se contradecian y la comision se perdia en silencio.
+           La venta queda en modoComision "acuerdo" (las apps viejas la leen bien) y lleva el
+           campo nuevo canalVenta: "mostrador". Si el comisionista de la pieza ya no existe,
+           una venta de mostrador usa el trato de la percha: nunca se bloquea. Las ventas
+           viejas guardadas como "counter" siguen igual y se corrigen con "Review split". */
         /* PERSONA DE LA VENTA (JFC 2026-09-25, "el Spray de la verdad", shell v398).
            La pantalla deja elegir comisionista en CUALQUIER percha, pero el reparto
            solo usaba el trato de la percha, y una percha PROPIA no reparte con nadie:
@@ -4551,7 +4560,10 @@
            producto y por ultimo la percha. COUNTER SALE sigue siendo 100% casa.
            Sin esto el campo comisionistaId era decorativo y las piezas en una
            percha propia se vendian con $0 de comision. */
-        const _pidVenta = modoComision === "counter" ? null
+        const _pedidoMostrador = !!(body && body.modoComision === "counter");
+        const modoComision = "acuerdo";
+        const _pidPieza = p.comisionistaId && promotoras.some((x) => String(x.id) === String(p.comisionistaId) && !x.borrado) ? p.comisionistaId : null;
+        const _pidVenta = _pedidoMostrador ? _pidPieza
           : ((body && body.promotoraId) || p.comisionistaId || null);
         const _prVenta = _pidVenta
           ? promotoras.find((x) => String(x.id) === String(_pidVenta) && !x.borrado) : null;
@@ -4567,7 +4579,7 @@
           ? null
           : (_ubicTrato ? calcularSplitVenta(_ubicTrato, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado) : null);
         /* Bloque 4: asistente opcional por venta. COUNTER SALE lo ignora (split null). */
-        if (split && body && body.asistenteId) aplicarRepartoAsistente(split, _ubicTrato, String(body.asistenteId), body.asistentePct);
+        if (split && !_pedidoMostrador && body && body.asistenteId) aplicarRepartoAsistente(split, _ubicTrato, String(body.asistenteId), body.asistentePct);
         const _promotoraVenta = split ? ((_prVenta && _prVenta.id) || (_ubicTrato && _ubicTrato.promotoraId) || null) : null;
         let clienteVenta = null;
         if (body.clienteId) {
@@ -4615,7 +4627,7 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, modoComision, promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), split, modoComision, ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
            corria despues, en finally, sin esperar a IndexedDB: con localStorage
