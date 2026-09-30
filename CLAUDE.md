@@ -47,10 +47,11 @@ Si un dato cambia, se actualiza aquí en el mismo commit.
 
 ## PRIME DIRECTIVE — NO NUBE, NO FILTRAR DATOS DE CLIENTES
 
-Todo vive en el dispositivo. Lo ÚNICO que sale del aparato es el heartbeat de
-licencia (instanceId, licenseCode y datos que el dueño ingresó). **Jamás**
-productos, ventas, clientes, inventario. No meter servicios de nube de terceros
-(memoria, analítica, etc.) que manden datos afuera.
+Los datos del negocio viven en el dispositivo. Sale del aparato el heartbeat de licencia
+(instanceId, licenseCode y datos que el dueño ingresó) y, solo si el dueño activa el sync, el
+relay Yjs, que cifra los datos de extremo a extremo (ver 2026-09-18). **Jamás** productos,
+ventas, clientes o inventario en claro. No meter servicios de nube de terceros (memoria,
+analítica, etc.) que manden datos afuera. (Redacción confirmada por JFC 2026-09-30.)
 
 ---
 
