@@ -43,7 +43,7 @@ else
 fi
 
 # ---------- 2. Python: oficina, PDF y lectura de documentos ----------
-PIP_PAQ="defusedxml lxml pymupdf python-pptx openpyxl python-docx pillow markitdown[pptx]"
+PIP_PAQ="defusedxml lxml pymupdf python-pptx openpyxl python-docx pillow markitdown[pptx] actionlint-py"
 paso "pip: $PIP_PAQ" pip install -q --disable-pip-version-check $PIP_PAQ
 
 # ---------- 3. Node: generacion de PowerPoint fuera del repo ----------

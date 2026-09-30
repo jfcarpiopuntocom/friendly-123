@@ -72,7 +72,26 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.despliegue.outputs.page_url }}
+      url: ${{ steps.intento3.outputs.page_url || steps.intento2.outputs.page_url || steps.intento1.outputs.page_url }}
     steps:
-      - id: despliegue
+      # REINTENTO (2026-09-30). Pages rechaza un despliegue nuevo unos segundos despues de que
+      # el anterior termina, aunque Actions ya lo marque en exito: "Deployment request failed ...
+      # due to in progress deployment" (visto con 11 s de diferencia entre dos despliegues que NO
+      # se solapaban, asi que ningun grupo de concurrency lo evita). Desplegar es idempotente:
+      # se reintenta con espera, hasta 3 intentos (~2 min). Si los 3 fallan, el job falla.
+      - id: intento1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Esperar 30 s antes del intento 2
+        if: steps.intento1.outcome == 'failure'
+        run: sleep 30
+      - id: intento2
+        if: steps.intento1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Esperar 60 s antes del intento 3
+        if: steps.intento1.outcome == 'failure' && steps.intento2.outcome == 'failure'
+        run: sleep 60
+      - id: intento3
+        if: steps.intento1.outcome == 'failure' && steps.intento2.outcome == 'failure'
         uses: actions/deploy-pages@v4

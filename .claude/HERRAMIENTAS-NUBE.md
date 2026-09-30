@@ -12,6 +12,7 @@ Si una herramienta falta, instalarla sin preguntar y ANOTARLA AQUI en el mismo c
 | Video: recortar, convertir, capturar fotogramas (clips de la landing) | ffmpeg y ffprobe | apt |
 | Fuentes fieles a Calibri y Cambria | fonts-crosextra-carlito y caladea | apt |
 | Crear PowerPoint | pptxgenjs, react, react-icons, sharp | npm en `~/.jfc-tools` (NODE_PATH) |
+| Validar workflows de GitHub Actions antes de fusionar | actionlint (paquete pip `actionlint-py`, baja el binario) | pip |
 | Leer/editar Office desde Python | python-pptx, python-docx, openpyxl, markitdown, lxml, defusedxml, pillow | pip |
 | Pruebas de navegador de la app | Playwright (repo) con Chromium enlazado a `/opt/pw-browsers/chromium` | npm + enlace |
 
