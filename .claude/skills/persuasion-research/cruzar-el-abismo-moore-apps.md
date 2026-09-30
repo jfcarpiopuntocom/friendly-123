@@ -78,8 +78,16 @@ el sync cifrado es opcional. No afirmar más que eso.)
   cuando JFC los decida.
 - Jev: pasada de rankeo de titulares y de nichos pendiente (sin crédito). Decir una vez.
 
-## 6. Preguntas que siguen abiertas (solo JFC)
-1. ¿Qué frase exacta de Olimpo Club e idiomARTE se puede publicar, con su nombre?
-2. ¿amigable-123 y friendly-123 comparten el mismo mensaje del "cuadernito" (uno en español, uno
-   en inglés), o cada uno tiene su propio cliente ideal?
-3. ¿Hay algún doctor a la mano para ser el primer bolo de consultorio-123?
+## 6. Respuestas de JFC, segunda ronda (2026-09-30)
+- Olimpo Club e idiomARTE: JFC dio carta blanca ("lo que sea") para nombrarlos. Se nombran, sin
+  inventar datos sobre ellos.
+- friendly-123 es para EE. UU. y el mundo (UI en inglés). amigable-123 es la versión CON
+  DESCUENTO para Latinoamérica y solo la interfaz está en español.
+- consultorio-123: sin cliente aún, en beta y en grupos de prueba (focus groups). Decirlo así.
+- Aplicado en el slide #apps de jfcarpio.com (commit ad2cccb): titular "Ni Excel ni cuadernito.",
+  línea "Made In Cuenca: intuitive business apps" en el lead. Lección técnica: el kicker largo y
+  el titular de 3 líneas empujan el bloque fuera del scrim y fallan contraste y marco en móvil.
+
+## 7. Preguntas que siguen abiertas
+1. ¿Qué app usa cada cliente (Olimpo Club, idiomARTE)? El texto público dice "las usan" a nivel de
+   línea; si un cliente usa solo una app, conviene precisarlo.
