@@ -4537,7 +4537,16 @@
            casa. Es una decisión por venta, no una edición de la percha: no se
            exige comisionista, no se crea split y no se desasigna a nadie del
            acuerdo permanente. Ausente conserva el contrato histórico. */
-        const modoComision = body && body.modoComision === "counter" ? "counter" : "acuerdo";
+        /* LA PIEZA MANDA (JFC + Belen/idiomARTE 2026-09-30, shell v429). Antes, si el dueno
+           ponia comisionista o % en la PIEZA y la venta se marcaba COUNTER SALE (venta en la
+           puerta), la venta quedaba 100% casa: dos instrucciones que chocaban y la comision
+           se perdia en silencio. Practica de consignacion: la parte de quien trae la pieza se
+           paga siempre, la venda quien la venda. Ahora COUNTER SALE solo aplica a piezas SIN
+           comisionista ni % propios. Si el comisionista de la pieza ya no existe, la venta
+           sigue como de la casa (nunca se bloquea una venta por esto). */
+        const _pidPieza = p.comisionistaId && promotoras.some((x) => String(x.id) === String(p.comisionistaId) && !x.borrado) ? p.comisionistaId : null;
+        const _piezaManda = !!_pidPieza || (!p.comisionistaId && normPctAsociado(p.pctAsociado) !== null);
+        const modoComision = body && body.modoComision === "counter" && !_piezaManda ? "counter" : "acuerdo";
         /* PERSONA DE LA VENTA (JFC 2026-09-25, "el Spray de la verdad", shell v398).
            La pantalla deja elegir comisionista en CUALQUIER percha, pero el reparto
            solo usaba el trato de la percha, y una percha PROPIA no reparte con nadie:

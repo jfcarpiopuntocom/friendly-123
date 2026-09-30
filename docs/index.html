@@ -6737,12 +6737,17 @@ async function abrirPanelVentaInfo(id, esTicket){
           || (_promsVenta || []).find(function(x){ return _perchaVenta && x.id === _perchaVenta.promotoraId; });
         var _idDefault = _personaDefault ? _personaDefault.id : "";
         var actualNom = _personaDefault ? _personaDefault.nombre : "";
+        // LA PIEZA MANDA (Belen/idiomARTE 2026-09-30, v429): si la pieza trae comisionista o %
+        // propios, el motor comisiona aunque llegue COUNTER SALE. Ofrecer esa opcion aqui seria
+        // una orden que el sistema no cumple: se retira. Solo con persona por defecto, para
+        // no dejar preseleccionado a alguien al azar. Misma regla que mock-backend (_piezaManda).
+        var _piezaManda = !!_personaDefault && (!!(p.comisionistaId && _personaDefault.id === p.comisionistaId) || (!p.comisionistaId && p.pctAsociado != null && p.pctAsociado !== ""));
         // Compacto (JFC 2026-09-04): un ✎ que expande el selector inline, sin
         // ocupar una linea fija. Se muestra siempre en el modal de venta.
         return `<div style="margin-top:8px;">
           <button type="button" id="vi-com-toggle" style="background:none;border:none;padding:0;font-size:13px;color:var(--azul-medio,#2c4a68);cursor:pointer;text-decoration:underline;">✎ <span data-i18n="${actualNom ? "sale.comLabel" : "sale.comCounter"}">${escHtml(t(actualNom ? "sale.comLabel" : "sale.comCounter"))}</span>${actualNom ? " " + escHtml(actualNom) : ""}</button>
           <select id="vi-comisionista" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
-            <option value="__counter__"${!actualNom ? " selected" : ""} data-i18n="sale.comCounter">${escHtml(t("sale.comCounter"))}</option>
+            ${_piezaManda ? "" : `<option value="__counter__"${!actualNom ? " selected" : ""} data-i18n="sale.comCounter">${escHtml(t("sale.comCounter"))}</option>`}
             ${(_promsVenta || []).map(function(pr){ return `<option value="${escHtml(pr.id)}"${_idDefault === pr.id ? " selected" : ""}>${escHtml(pr.nombre)}</option>`; }).join("")}
           </select>
           <!-- Bloque 4 (JFC 2026-09-24): asistente opcional POR VENTA. Parte la

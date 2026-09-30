@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { browser } = require('./helpers/browser.cjs');
 
-async function setup(type = 'propio') {
+async function setup(type = 'propio', conPieza = true) {
   const app = browser(); app.OCAuth = { rolActual: () => 'dueno' };
   const artist = await app.request('/api/promotoras', 'POST', { nombre: 'Artist A', comisionBase: 40 });
   const rackPerson = await app.request('/api/promotoras', 'POST', { nombre: 'Rack person', comisionBase: 15 });
@@ -10,9 +10,16 @@ async function setup(type = 'propio') {
   if (type !== 'propio') await app.request(`/api/ubicaciones/${rack.id}`, 'PUT', { promotoraId: rackPerson.id });
   const product = await app.request('/api/productos', 'POST', {
     nombre: 'Assigned piece', barcode: 'ASSIGNED-1', precio: 100, costo: 30,
-    stockInicial: 8, ubicacionId: rack.id, comisionistaId: artist.id, umbralRojo: 1, umbralAmarillo: 2
+    stockInicial: 8, ubicacionId: rack.id, comisionistaId: conPieza ? artist.id : null, umbralRojo: 1, umbralAmarillo: 2
   });
   return { app, artist, rackPerson, rack, product };
+}
+// Venta de la casa VIEJA (anterior a v429): sale con la pieza sin comisionista y despues se le
+// asigna uno. Desde v429 una pieza con comisionista ya no puede venderse como COUNTER SALE.
+async function ventaCasaVieja(app, product, artist, cantidad) {
+  const r = await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad, modoComision: 'counter' });
+  await app.request(`/api/productos/${product.id}`, 'PATCH', { comisionistaId: artist.id });
+  return r;
 }
 
 test('a product assignment produces a sealed split on an own rack without a manual selector', async () => {
@@ -25,7 +32,8 @@ test('a product assignment produces a sealed split on an own rack without a manu
   assert.equal((await app.request('/api/liquidaciones')).find(x => x.ubicacionId === rack.id).comisionSocio, 40);
 });
 
-test('product assignment beats rack default, while explicit counter and explicit person still win', async () => {
+// REGLA CAMBIADA (JFC + Belen 2026-09-30, v429): la pieza manda tambien sobre COUNTER SALE.
+test('product assignment beats rack default and counter sale; an explicit person still wins', async () => {
   const { app, artist, rackPerson, product } = await setup('socio');
   const first = await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
   const counter = await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1, modoComision: 'counter' });
@@ -33,15 +41,15 @@ test('product assignment beats rack default, while explicit counter and explicit
   const rows = await app.request('/api/ventas/todas');
   assert.equal(rows.find(x => x.id === first.ventaId).asociadoNombre, artist.nombre);
   assert.equal(rows.find(x => x.id === first.ventaId).comisionAsociado, 40);
-  assert.equal(rows.find(x => x.id === counter.ventaId).comisionAsociado, 0);
-  assert.equal(rows.find(x => x.id === counter.ventaId).modoComision, 'counter');
+  assert.equal(rows.find(x => x.id === counter.ventaId).comisionAsociado, 40);
+  assert.equal(rows.find(x => x.id === counter.ventaId).asociadoNombre, artist.nombre);
   assert.equal(rows.find(x => x.id === override.ventaId).asociadoNombre, rackPerson.nombre);
   assert.equal(rows.find(x => x.id === override.ventaId).comisionAsociado, 15);
 });
 
 test('old counter sale can be previewed and explicitly corrected without touching stock or amount', async () => {
-  const { app, artist, product, rack } = await setup('socio');
-  const { ventaId } = await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 2, modoComision: 'counter' });
+  const { app, artist, product, rack } = await setup('socio', false);
+  const { ventaId } = await ventaCasaVieja(app, product, artist, 2);
   const before = (await app.request('/api/productos')).find(x => x.id === product.id);
   const preview = await app.request(`/api/ventas/${ventaId}/asignar-comision`, 'POST', { promotoraId: artist.id, preview: true });
   assert.equal(preview.split.montoComisionSocio, 80);
@@ -56,8 +64,8 @@ test('old counter sale can be previewed and explicitly corrected without touchin
 });
 
 test('settled or returned sales are never silently reclassified', async () => {
-  const { app, artist, product } = await setup();
-  const { ventaId } = await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1, modoComision: 'counter' });
+  const { app, artist, product } = await setup('propio', false);
+  const { ventaId } = await ventaCasaVieja(app, product, artist, 1);
   await assert.rejects(app.request(`/api/ventas/${ventaId}/asignar-comision`, 'POST', { promotoraId: 'missing', preview: true }), /Choose a current associate/);
   assert.equal((await app.request('/api/ventas/todas')).find(x => x.id === ventaId).comisionAsociado, 0);
 });
