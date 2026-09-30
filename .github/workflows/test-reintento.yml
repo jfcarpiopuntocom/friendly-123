@@ -1,0 +1,34 @@
+# PRUEBA DESECHABLE (2026-09-30): ejerce la logica de reintento de publicar.yml SIN tocar Pages.
+# Misma estructura de pasos y mismas condiciones `if`; los fallos se fuerzan. Se borra la rama al terminar.
+name: test-reintento
+on:
+  push:
+    branches: ["claude/test-reintento"]
+permissions:
+  contents: read
+jobs:
+  probar:
+    strategy:
+      fail-fast: false
+      matrix:
+        escenario: ["falla-1-y-2", "falla-1-2-y-3", "no-falla"]
+    runs-on: ubuntu-latest
+    env:
+      ESCENARIO: ${{ matrix.escenario }}
+    steps:
+      - id: intento1
+        run: '[ "$ESCENARIO" = "falla-1-y-2" ] || [ "$ESCENARIO" = "falla-1-2-y-3" ] && { echo "intento 1 falla"; exit 1; } || echo "intento 1 ok"'
+        continue-on-error: true
+      - name: Esperar antes del intento 2
+        if: steps.intento1.outcome == 'failure'
+        run: sleep 2
+      - id: intento2
+        if: steps.intento1.outcome == 'failure'
+        run: '[ "$ESCENARIO" = "falla-1-y-2" ] || [ "$ESCENARIO" = "falla-1-2-y-3" ] && { echo "intento 2 falla"; exit 1; } || echo "intento 2 ok"'
+        continue-on-error: true
+      - name: Esperar antes del intento 3
+        if: steps.intento1.outcome == 'failure' && steps.intento2.outcome == 'failure'
+        run: sleep 3
+      - id: intento3
+        if: steps.intento1.outcome == 'failure' && steps.intento2.outcome == 'failure'
+        run: '[ "$ESCENARIO" = "falla-1-2-y-3" ] && { echo "intento 3 falla"; exit 1; } || echo "intento 3 ok"'
