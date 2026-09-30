@@ -383,5 +383,10 @@ Claude en sesion puede hacerlo directo: mover ramas y `gh workflow run publicar.
 Checklist de release (se suma al de arriba): tras el merge, verificar la URL
 VIVA de `/next/` (no la raiz), decirle a JFC que el shell esta en /next/ y a que
 hora llega a clientes; a los 33 min verificar la raiz.
+Antes de fusionar a master, mirar que NO haya un `publicar`/`promover` en curso: la rama `estable`
+se mueve ANTES de que termine el despliegue de Pages, asi que no basta con verla al dia. Un merge que
+cae durante un despliegue falla con "in progress deployment" (visto 2026-09-30, sin dano: el
+siguiente push lo reparo). Comprobar con la API de Actions que `publicar` y `desplegar` del commit
+de estable esten en `completed` y luego fusionar; si ya fallo, relanzar `publicar`.
 Vuelta atras total: Settings > Pages > "Deploy from a branch" master /docs.
 Plan completo: PLAN-CANARIOS-2026-09-25.md.
