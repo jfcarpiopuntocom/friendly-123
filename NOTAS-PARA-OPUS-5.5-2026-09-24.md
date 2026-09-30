@@ -469,3 +469,11 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
   OCSyncEmit devuelve false si la op no quedo en cola (localStorage lleno); mock-backend solo lo anota en
   consola (el estado ya esta guardado y Yjs reparte ventas y contador). test/cola-sync-sin-espacio.test.js
   roja en v421. Suite 424/424. Los demas blobs de Codex no estan en ninguna rama: no se pueden leer.
+
+## 2026-09-29 noche — PUNTO DE CONTROL antes de volver a la nube (Claude Desktop, laptop)
+- master = shell v426 (v425 centavos + v426 deshacer cancelacion tras vencimiento). Suite 446/446, check-sw 7/7. Clientes reciben v426 ~04:19 UTC del 30-09 (verificar raiz).
+- Sin PRs abiertos. Sin ramas de trabajo pendientes de merge.
+- Decisiones DDIA de JFC (29-09): motor de sync = DEJAR COMO ESTA. Reloj = mejores practicas mundiales (primero detectar desvio de hora y avisar en Advanced, sin tocar datos; luego reloj logico hibrido solo para ordenar ops). Invariantes al arrancar = corregir solo lo derivable/recalculable, avisar en todo lo que toque dinero. Dinero en centavos = HECHO (v425, aCent() en mock-backend). Reloj e invariantes: SIN CODIGO todavia.
+- Aclaraciones de JFC: (1) Claude NO se une al flujo de Codex; solo se pasan la posta por la bitacora de Notion, con cautela. (2) "ocultarte/ocultarle" y la lista de Gumroad ya estan resueltos en jfcarpio.com: NO son pendientes. (3) Pendientes reales: reloj, invariantes, clips del hero de la landing.
+- Segundo cerebro: vault Obsidian local `C:\Users\JFC\OneDrive\Documentos\Obsidian Vault` (carpeta `00 Projects/Made In Cuenca (Claude)/`) y carpeta de archivos `C:\Dropbox\Outbox Dropbox` (JFC pone ahi lo que Claude debe tener a mano). Solo existen en la laptop: la nube no los ve. Si algo importa en la nube, pedirle a JFC que lo pegue o que quede en el repo/Notion.
+- Trampa CRLF: gen-manifest ya da hashes de blob LF (verificado 29-09: 0 diferencias contra `git show`). Sigue vigente verificar contra la URL viva.
