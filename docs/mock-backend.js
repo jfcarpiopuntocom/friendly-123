@@ -3630,6 +3630,20 @@
   try { _semillaDemo = JSON.parse(JSON.stringify(estadoActualExportable())); } catch (_) { _semillaDemo = null; }
   let _demoRefrescado = false;
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
+  /* INVARIANTES AL ARRANCAR (JFC 2026-09-30, plan PLAN-INVARIANTES-AL-ARRANCAR-2026-09-30.md).
+     Regla: reparar SOLO lo derivable (percha vacia de una venta), avisar SIEMPRE en dinero.
+     Solo con datos reales (no semilla demo). El informe se lee por GET /api/invariantes y
+     Advanced lo muestra. Nunca recalcula un monto ni borra una venta. Si algo falla, la app
+     arranca igual: es un chequeo, no una puerta. */
+  let _informeInvariantes = { avisos: [], reparaciones: [], aplicadas: 0, revisado: false };
+  try {
+    if (_cargoBufferReal && window.OCInvariantes) {
+      _informeInvariantes = window.OCInvariantes.revisar({ ventas, productos, ubicaciones });
+      _informeInvariantes.aplicadas = window.OCInvariantes.aplicar(_informeInvariantes, ventas);
+      _informeInvariantes.revisado = true;
+      if (_informeInvariantes.aplicadas) guardarEstadoLocal();
+    }
+  } catch (e) { console.error("Invariantes al arrancar:", e); }
   /* FOTOS DEL DEMO (JFC 2026-09-24, shell 374: "sube buenas fotos de productos al
      demo, seamos impresionantes"). 38 fotos CC0 (StockSnap/Openverse, uso comercial
      sin atribucion; fuentes en docs/demo/CREDITOS.json), 480x480 WebP, ~20 KB c/u.
@@ -5032,6 +5046,9 @@
          de ventas pagadas (por la fecha del ajuste), cortesias, aporte fijo
          descontado y lo que falta pagar (ventas + ajustes pendientes). Solo
          lectura; no cambia ningun calculo. test/cuadre-hugo-paco-luis.test.js */
+      if (path === "/api/invariantes" && method === "GET") {
+        return J(_informeInvariantes);
+      }
       if (path === "/api/comisiones/cuadre" && method === "GET") {
         const _mes = mesValido(q.get("mes"));
         const ce = (n) => Math.round((Number(n) || 0) * 100);

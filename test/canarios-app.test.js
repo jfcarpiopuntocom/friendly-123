@@ -178,3 +178,46 @@ test('aviso de hora en Advanced: un cliente dueno lo ve con el reloj corrido, y 
     assert.equal((await leer()).vis, false, 'con la hora buena el aviso se esconde solo');
   });
 });
+
+/* v428 (JFC 2026-09-30): invariantes al arrancar. Se siembra por el importador de respaldo una
+   venta con dinero partido y otra con la percha vacia; tras reiniciar: el dinero SOLO se avisa
+   (el monto malo queda igual) y la percha vacia se llena desde el producto. Prueba nueva. */
+test('invariantes al arrancar: avisa el dinero partido sin tocarlo y llena la percha vacia', async () => {
+  await conServidor(async (web, base) => {
+    const ctx = await web.newContext();
+    const page = await aparato(ctx, base, 'F123-CLIENTE-DE-PRUEBA');
+    await page.goto(base + 'next/', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2500);
+    const sembrado = await page.evaluate(async () => {
+      const exp = await (await fetch('/api/respaldo/exportar')).json();
+      exp.ubicaciones = [{ id: 'u-t', nombre: 'Shelf T', tipo: 'propio' }];
+      exp.productos = [{ id: 'p-t', nombre: 'Product T', precio: 10, costo: 4, stockActual: 5, ubicacionId: 'u-t' }];
+      const p = exp.productos[0];
+      const base = { productoId: p.id, cantidad: 2, precioUnit: 10, costoUnit: 4, fecha: new Date().toISOString(), liquidada: false, clienteId: null };
+      exp.ventas = [
+        Object.assign({ id: 'v-mala', ubicacionId: p.ubicacionId }, base, { split: { montoBruto: 20, montoComisionSocio: 6, montoNetoDueno: 13 } }),
+        Object.assign({ id: 'v-vacia', ubicacionId: '' }, base, { split: null }),
+      ];
+      const r = await fetch('/api/respaldo/importar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(exp) });
+      return { ok: r.ok, ubi: p.ubicacionId };
+    });
+    assert.equal(sembrado.ok, true, 'el respaldo sembrado se importo');
+    const bufferUbi = () => page.evaluate(() => { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); try { const b = JSON.parse(localStorage.getItem(k)); const v = b && b.ventas && b.ventas.find((x) => x.id === 'v-vacia'); if (v) return v.ubicacionId; } catch (_) {} } return null; });
+    assert.equal(await bufferUbi(), '', 'antes de reiniciar la venta guardada trae la percha vacia (prueba de que el llenado es de v428)');
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(2500);
+    const inf = await page.evaluate(async () => (await fetch('/api/invariantes')).json());
+    assert.equal(await bufferUbi(), sembrado.ubi, 'tras reiniciar, la percha vacia quedo guardada llena');
+    assert.equal(inf.revisado, true);
+    assert.ok(inf.avisos.some((a) => a.codigo === 'dinero-partido' && a.ventaId === 'v-mala'));
+    const netoGuardado = await page.evaluate(() => { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); try { const b = JSON.parse(localStorage.getItem(k)); const v = b && b.ventas && b.ventas.find((x) => x.id === 'v-mala'); if (v) return v.split.montoNetoDueno; } catch (_) {} } return null; });
+    assert.equal(netoGuardado, 13, 'el dinero malo NO se reescribe: sigue guardado tal cual');
+    await page.click('nav button[data-vista="avanzado"]');
+    await page.waitForTimeout(3500);
+    const caja = await page.evaluate(() => { const n = document.getElementById('oc-invariantes-aviso'); return { vis: !!n && n.getBoundingClientRect().height > 0, txt: n ? n.textContent : '', px: n ? parseFloat(getComputedStyle(n).fontSize) : 0 }; });
+    assert.equal(caja.vis, true);
+    assert.match(caja.txt, /Data check: 1 sale looks inconsistent .*Nothing was changed/);
+    assert.ok(caja.px >= 16);
+    if (process.env.SHOT2) await page.screenshot({ path: process.env.SHOT2 });
+  });
+});
