@@ -484,3 +484,9 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - QUEDA: (3) clips del hero de la landing (repo website, uno a la vez). Verificar v428 en /next/ y a los 33 min en la raiz.
 - Trampa de este contenedor: Playwright nuevo pide chromium_headless_shell-1234; se enlazo al Chromium instalado en /opt/pw-browsers (fuera del repo). Si la suite no arranca en otra sesion: repetir ese enlace.
 - La nube NO ve github.io (proxy lo niega): verificar despliegues por la API de Actions y la rama `estable`, no por curl a la URL viva.
+
+## Avance 2026-09-30 (tarde, nube): clips del hero
+- HECHO (borrador, sin fusionar): website PR #47 inserta `clips/clip1-split-fable.html` en el hero de `friendly123/index.html`. Escritorio: bajo el texto (bajo el arte no hay hueco: van la leyenda y la nota). Movil: bajo el arte. Espera el visto bueno visual de JFC porque fusionar publica en jfcarpio.com.
+- Las notas del Bloque 1 (arriba) estaban viejas: la clave `clipSplit` NO existia en `copy.es` (se anadio en EN y ES) y el marcado usa `data-i18n`, no `data-copy`.
+- Ojo: el clip 1 de Fable (9 s, sin personajes) no es lo que pedia JFC ("una usuaria y un usuario, 3 a 7 s"). Quedan esos 2 clips, UNO A LA VEZ. `friendly123/es/index.html` tiene su propio hero y NO lleva el clip todavia.
+- Herramientas nuevas en la nube: `ffmpeg` (ver `.claude/HERRAMIENTAS-NUBE.md`).
