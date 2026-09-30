@@ -134,7 +134,7 @@
       f.appendChild(l); f.appendChild(i); return i;
     }
     var nombre = campo("art-nombre", t("artist.name", "Name of the piece"), "text", { maxlength: "80", autocomplete: "off" });
-    var precio = campo("art-precio", t("artist.price", "Price"), "number", { min: "0.01", step: "0.01", inputmode: "decimal" });
+    var precio = campo("art-precio", t("artist.price", "Price"), "number", { min: "0.01", step: "any", inputmode: "decimal" });
     var cantidad = campo("art-cantidad", t("artist.qty", "How many"), "number", { min: "1", step: "1", inputmode: "numeric", value: "1" });
     var foto = campo("art-foto", t("artist.photo", "Photo (optional)"), "file", { accept: "image/*" });
     foto.style.cssText += "padding:8px;";

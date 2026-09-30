@@ -2069,7 +2069,7 @@
   function ficha(p) {
     const e = estadoDe(p);
     const _rb = rebajaDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
   /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
      archivados: dashboards, resumen histórico, BCG y reportes financieros deben
@@ -2681,7 +2681,7 @@
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
-          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "chip", "archivado", "fotoHash", "borrado", "rev"];
+          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "fechaEvento", "chip", "archivado", "fotoHash", "borrado", "rev"];
           const fotoAnterior = mio.fotoHash;
           campos.forEach((k) => { if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
           if (fotoAnterior !== mio.fotoHash) mio.foto = null;
@@ -3358,7 +3358,7 @@
              fotos (mismo camino que las perchas). El receptor resuelve la foto
              desde OCFotos por ese hash. Ver sembrarFotosAlRelay (productos) y la
              hidratacion en volcarFotosAlStore. */
-          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado })),
+          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado })),
         /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
            BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
            `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada
@@ -3975,7 +3975,7 @@
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
         const stockAntesEdicion = Number(p.stockActual) || 0;
-        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "archivado"];
+        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "fechaEvento", "archivado"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
       if (k === "foto") {
@@ -4005,6 +4005,7 @@
       }
       if (k === "pctAsociado") { p[k] = normPctAsociado(body[k]); return; } // Belen 2026-09-29: % del asociado por producto (null = trato de la percha)
       if (k === "chip") { p[k] = String(body[k] || "").trim().slice(0, 12); return; }
+      if (k === "fechaEvento") { p[k] = String(body[k] || "").trim().slice(0, 20); return; } // JFC 2026-09-30 (v430)
       if (k === "perecible" || k === "archivado" || k === "exentoImpuesto") { p[k] = !!body[k]; return; } // archivado: JFC/Belén 2026-09-08
       p[k] = body[k];
     });
@@ -4447,6 +4448,7 @@
           botellaMl: Math.max(1, Number(body.botellaMl) || 750),
           comisionistaId: body.comisionistaId || null, // JFC 2026-08-27: comisionista asociado al producto
           pctAsociado: normPctAsociado(body.pctAsociado), // Belen 2026-09-29: % del asociado solo para este producto (null = trato de la percha)
+          fechaEvento: String(body.fechaEvento || "").trim().slice(0, 20), // JFC 2026-09-30 (v430): fecha del evento/clase se pone al crear el ticket, no al venderlo
           creadoEn: new Date().toISOString(),
           /* FIX 2026-09-24 (hallado con benchmark #6): el formulario de alta manda
              body.foto desde 2026-07-22, pero esta ruta nunca la guardaba y la foto
@@ -4612,7 +4614,8 @@
           nombreEvento: _esTicket
             ? String(p.nombre || "").trim().slice(0, 120)
             : String(infoBody.nombreEvento || "").trim().slice(0, 120),
-          fechaEvento: String(infoBody.fechaEvento || "").trim().slice(0, 20),
+          // JFC 2026-09-30 (v430): la fecha escrita en la venta manda; si no hay, la del ticket.
+          fechaEvento: String(infoBody.fechaEvento || p.fechaEvento || "").trim().slice(0, 20),
           numPersonas: (infoBody.numPersonas !== undefined && infoBody.numPersonas !== "") ? Math.max(0, Number(infoBody.numPersonas) || 0) : null,
           nombrePagador: String(infoBody.nombrePagador || "").trim().slice(0, 120),
           email: String(infoBody.email || "").trim().slice(0, 120),
