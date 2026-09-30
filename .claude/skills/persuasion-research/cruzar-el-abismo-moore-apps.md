@@ -37,30 +37,49 @@ gremio y solo compran soluciones completas y estándar.
   por WhatsApp, dashboard de comisiones, respaldo, tres idiomas de trabajo (EN/ES).
 - **Precio ancla ya definido:** pago único (friendly-123: $399 por 5 años) frente a mensualidades.
 
-## 4. Hipótesis para decidir (una por app; JFC elige, no se ejecutan solas)
-| App | Posible primer bolo (nicho) | Por qué cumple los tres criterios | Qué falta comprobar |
-|---|---|---|---|
-| friendly-123 | Talleres, colectivos de artistas y tiendas de consignación que reparten ventas por percha | Dolor: no saber a quién se le debe cuánto. Comunidad: ellos se conocen entre sí. Ya hay caso (idiomARTE). | Cuántos hay a mano y si pagan $399. |
-| amigable-123 | Igual gremio, en español, para Ecuador y Latinoamérica | Misma función, mismo boca a boca, sin barrera de idioma. | Si conviene un solo nicho para ambas o dos frentes. |
-| consultorio-123 | Consultorios y profesionales independientes con foco contable, sin perchas | Dolor distinto (caja y cobros), PIN de 4 dígitos por diseño. | Elegir UNA profesión (no "todos los consultorios"). |
+## 4. Decisiones de JFC (2026-09-30) y lo que implican
+Respuestas de JFC a las tres preguntas abiertas de la primera versión:
+1. **El nicho de friendly-123 y amigable-123 NO es "talleres y artistas".** Son para
+   **gente que odia el Excel, pero a la que el cuadernito ya le quedó corto.** El nombre de la
+   línea es exacto: **Made In Cuenca: intuitive business apps** (sin parafrasear ni traducir).
+2. **consultorio-123: doctores, dentistas y veterinarios, en ese orden.** Primer bolo = doctores;
+   luego dentistas; luego vets. (Encaja con la bolera de Moore: misma aplicación, industria vecina.)
+3. **Clientes reales: dos. Olimpo Club e idiomARTE, ambos en Cuenca; sobre todo idiomARTE.**
+   Olimpo Club dio a JFC carta blanca para decir lo que sea (dicho de palabra). Se usa, pero solo
+   con hechos verdaderos: carta blanca no autoriza inventar. De idiomARTE, confirmar con Belén
+   qué se puede citar antes de publicar.
 
-Borrador de posicionamiento (plantilla de Moore) para friendly-123, **solo para que JFC lo corrija**:
-*Para dueños de talleres y tiendas que reparten sus ventas con artistas o socios, friendly-123 es una
-app de caja e inventario que muestra a cada quien lo que le toca, hasta por producto. A diferencia de
-una hoja de cálculo o una app con mensualidad, se paga una vez y funciona en el teléfono sin nube.*
-(Sin nube: la app guarda los datos en el aparato; el relay de sync cifrado es opcional. No afirmar
-más de eso.)
+Lectura con el método de Moore (mis notas, para que JFC corrija):
+- **El nicho se define por un MOMENTO, no por un gremio:** quien ya superó el cuaderno y aún no
+  quiere ni necesita un sistema grande. Es un nicho válido (dolor claro, comunidad que se habla,
+  #1 alcanzable) pero exige que el texto lo diga con las palabras de esa persona: "el Excel me
+  fastidia" y "el cuaderno ya no me alcanza". No con "app de inventario".
+- **Cuenca es la cabeza de playa geográfica real:** los dos clientes están allí, se conocen, y
+  el boca a boca funciona. Es un hecho local, no un mensaje para el mundo. La marca lleva
+  "Made In Cuenca" como identidad de la línea; el resto del texto no explica ni presume de eso.
+- **Consultorio-123 SÍ tiene gremio:** ahí aplica el nicho clásico (doctores primero).
+- **Prueba social honesta:** dos referencias son pocas y reales. Decir "dos negocios en Cuenca ya
+  la usan", nunca un número inflado.
+
+Borrador de posicionamiento (plantilla de Moore) para friendly-123, **solo para que JFC corrija**:
+*Para quien odia el Excel pero ya se quedó corto con el cuaderno, friendly-123 es una app de caja,
+inventario y ventas que se entiende sola. A diferencia de la hoja de cálculo o del cuaderno, cada
+venta queda registrada y cada quien ve lo que le toca. Se paga una vez.* (Datos en el aparato;
+el sync cifrado es opcional. No afirmar más que eso.)
 
 ## 5. Reglas que se desprenden (para textos y para decidir)
-- Un solo nicho por vez en el mensaje principal. El "abrir el panorama" de la Historia de dos
-  negocios queda como capa de ideas, no como promesa a todos.
-- El texto público habla del dolor del nicho y de resultados con nombre, no de funciones.
+- Un solo mensaje principal por app. El "abrir el panorama" de la Historia de dos negocios
+  queda como capa de ideas, no como promesa a todos.
+- El texto público habla con las palabras del cliente ("odio el Excel", "el cuaderno ya no
+  alcanza") y de resultados con nombre, no de funciones.
 - Cada cliente satisfecho = una referencia pedida y autorizada. Es la moneda de la bolera.
-- Precio: anclar contra lo que ese gremio ya paga, con el dato real, nunca inventado.
-- Canal: donde el nicho ya confía (comunidades, talleres, gremio). Anotar el canal elegido aquí.
-- Jev: pasada de rankeo de nichos pendiente (sin crédito). Decir una vez, no insistir.
+- Precio anclado con el dato real ($399 por 5 años en friendly-123), nunca inventado.
+- Canal: el boca a boca de Cuenca (los dos clientes se conocen). Anotar aquí otros canales
+  cuando JFC los decida.
+- Jev: pasada de rankeo de titulares y de nichos pendiente (sin crédito). Decir una vez.
 
-## 6. Preguntas abiertas que solo JFC puede cerrar
-1. ¿Cuál es el primer nicho de friendly-123 y amigable-123: talleres y colectivos de artistas?
-2. ¿Qué profesión concreta para consultorio-123?
-3. ¿Cuántos clientes reales hay hoy por app y cuántos aceptarían ser referencia?
+## 6. Preguntas que siguen abiertas (solo JFC)
+1. ¿Qué frase exacta de Olimpo Club e idiomARTE se puede publicar, con su nombre?
+2. ¿amigable-123 y friendly-123 comparten el mismo mensaje del "cuadernito" (uno en español, uno
+   en inglés), o cada uno tiene su propio cliente ideal?
+3. ¿Hay algún doctor a la mano para ser el primer bolo de consultorio-123?
