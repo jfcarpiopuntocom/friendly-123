@@ -9,6 +9,7 @@ Si una herramienta falta, instalarla sin preguntar y ANOTARLA AQUI en el mismo c
 |---|---|---|
 | Ver y convertir PowerPoint, Word, Excel a PDF | LibreOffice Impress, Writer, Calc | apt |
 | PDF a imagen (revisar diapositivas) | poppler-utils (`pdftoppm`) y PyMuPDF | apt y pip |
+| Video: recortar, convertir, capturar fotogramas (clips de la landing) | ffmpeg y ffprobe | apt |
 | Fuentes fieles a Calibri y Cambria | fonts-crosextra-carlito y caladea | apt |
 | Crear PowerPoint | pptxgenjs, react, react-icons, sharp | npm en `~/.jfc-tools` (NODE_PATH) |
 | Leer/editar Office desde Python | python-pptx, python-docx, openpyxl, markitdown, lxml, defusedxml, pillow | pip |
