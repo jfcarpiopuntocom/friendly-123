@@ -7294,17 +7294,15 @@ async function cargarVentasSold(){
       if (!ok) return;
       let motivo = "";
       try { motivo = (await ocPrompt("Reason (optional):")) || ""; } catch (_) {}
-      const snap = rows.find((x) => x.id === id); // #7: para poder deshacer
       try {
         const res = await fetch(`${API}/ventas/${id}/cancelar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ motivo }) });
         const data = await res.json();
         if (!res.ok) { await ocAlert(data.error || "Could not cancel the sale."); return; }
         cargarVentasSold();
         if (document.getElementById("gridVender")) cargarGridVender();
-        // #7 (JFC 2026-09-02): 5s de gracia para deshacer la cancelación. Al
-        // deshacer se re-registra una venta equivalente (mismo producto, cantidad,
-        // cliente e info). Sin banner nuevo: usa el mismo toast de "deshacer".
-        if (snap) mostrarToastDeshacerCancelacion(snap);
+        // v418: el backend restaura el asiento exacto y conserva la anulación
+        // histórica. No llamar /venta: un producto puede vencer después de venderse.
+        mostrarToastDeshacerCancelacion(id);
       } catch (_) { await ocAlert("Could not reach the server."); }
     });
     /* Bloque 4 (JFC 2026-09-24): devolver una venta YA PAGADA. No se edita ni
@@ -7328,13 +7326,11 @@ async function cargarVentasSold(){
   });
 }
 
-/* #7 (JFC 2026-09-02): toast de 5s para deshacer una cancelación ex-post. Reusa
-   el contenedor de toast existente (#oc-toast-venta), sin banner nuevo. Deshacer
-   re-registra una venta equivalente vía POST /venta. */
+/* Toast de 5s para restaurar una cancelación ex-post sin registrar otra venta. */
 let _toastDeshacerInterval = null;
-function mostrarToastDeshacerCancelacion(snap){
+function mostrarToastDeshacerCancelacion(ventaId){
   const cont = document.getElementById("oc-toast-venta");
-  if (!cont || !snap) return;
+  if (!cont || !ventaId) return;
   clearInterval(_toastDeshacerInterval);
   cont.innerHTML = `<div class="tag-card" style="position:fixed;left:16px;right:16px;bottom:calc(var(--nav-h,78px) + 16px);z-index:400;
     background:var(--azul-oscuro,#1c3049);color:var(--blanco-calido,#F8F9FB);padding:14px 16px;border-radius:8px;
@@ -7352,17 +7348,8 @@ function mostrarToastDeshacerCancelacion(snap){
   }, 1000);
   if (el) el.addEventListener("click", async () => {
     clearInterval(_toastDeshacerInterval); _toastDeshacerInterval = null; cont.innerHTML = "";
-    const info = {};
-    if (snap.formaPago) info.formaPago = snap.formaPago;
-    if (snap.factura) info.factura = snap.factura;
-    if (snap.notas) info.notas = snap.notas;
-    if (snap.pagador) info.nombrePagador = snap.pagador;
-    if (snap.eventoNombre) info.nombreEvento = snap.eventoNombre;
     try {
-      const res = await fetch(`${API}/productos/${snap.productoId}/venta`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cantidad: snap.cantidad || 1, clienteId: snap.clienteId || undefined, info })
-      });
+      const res = await fetch(`${API}/ventas/${ventaId}/deshacer-cancelacion`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) { await ocAlert(data.error || "Could not undo the cancellation."); return; }
       if (document.getElementById("ventasSold") && document.getElementById("ventasSold").open) cargarVentasSold();

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-09-29",
-  "changelog": "Prices and costs are now always saved to the cent, so sale totals and commission splits never carry fractions of a cent.",
+  "changelog": "You can now undo a just-cancelled sale even if the product expired in the meantime, and it comes back with its original price and date.",
   "requerida": false,
-  "shell": "f123-shell-v425",
+  "shell": "f123-shell-v426",
   "apagar": [],
   "releaseName": "v1.0"
 }
