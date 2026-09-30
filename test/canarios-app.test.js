@@ -153,3 +153,28 @@ test('franja del canario en Advanced: la ve el aparato lord como dueno, no un cl
     assert.equal(cliente.vis, false);
   });
 });
+
+/* v427 (JFC 2026-09-30): el aviso de hora es para TODO dueno, no solo el lord. Se prueba con
+   un aparato CLIENTE. Prueba nueva (no de fijacion): sin el aviso este test es rojo. */
+test('aviso de hora en Advanced: un cliente dueno lo ve con el reloj corrido, y no lo ve con la hora buena', async () => {
+  await conServidor(async (web, base) => {
+    const ctx = await web.newContext();
+    const page = await aparato(ctx, base, 'F123-CLIENTE-DE-PRUEBA');
+    await page.goto(base + 'next/', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2500);
+    await page.click('nav button[data-vista="avanzado"]');
+    await page.waitForTimeout(3500);
+    const leer = () => page.evaluate(() => { const n = document.getElementById('oc-reloj-aviso'); return { vis: !!n && n.getBoundingClientRect().height > 0 /* de verdad en pantalla, no solo display del nodo */, txt: n ? n.textContent : '', px: n ? parseFloat(getComputedStyle(n).fontSize) : 0 }; });
+    assert.equal((await leer()).vis, false, 'sin reloj comun no hay aviso');
+    await page.evaluate(() => { const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 4 * 60 * 1000, t + 20); });
+    await page.waitForTimeout(3500);
+    const malo = await leer();
+    assert.equal(malo.vis, true);
+    assert.match(malo.txt, /Clock warning: .* about 4 minutes behind/);
+    assert.ok(malo.px >= 16, 'legible: 16px o mas');
+    if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
+    await page.evaluate(() => { window.OCLatencia.reiniciar(); const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10, t + 20); });
+    await page.waitForTimeout(3500);
+    assert.equal((await leer()).vis, false, 'con la hora buena el aviso se esconde solo');
+  });
+});

@@ -154,3 +154,31 @@ test('structural cost guard: the clock ping is never on a timer', () => {
   const conIntervalo = src.match(/setInterval\([\s\S]{0,400}?\}\s*,\s*\d+\)/g) || [];
   assert.ok(!conIntervalo.some(b => /k:\s*"ts"/.test(b)), 'ningún setInterval envía k:"ts"');
 });
+
+/* Aviso de desvio de hora (JFC 2026-09-30, "mejores practicas: primero detectar y avisar,
+   sin tocar datos"). Solo avisa; nunca corrige marcas de tiempo guardadas. */
+test('desvioReloj: warns only when the device clock is really off, never before there is a clock', () => {
+  const L = cargar();
+  assert.equal(L.desvioReloj().hayAviso, false, 'sin reloj comun no se avisa ni se inventa un desvio');
+  assert.equal(L.desvioReloj().medible, false);
+
+  const ahora = Date.now();
+  L.anotarPing(ahora, ahora + 10 + 4 * 60 * 1000, ahora + 20); // relay 4 min adelante, rtt 20 ms
+  const d = L.desvioReloj();
+  assert.equal(d.medible, true);
+  assert.equal(d.hayAviso, true);
+  assert.equal(d.adelantado, false, 'el aparato va ATRASADO respecto al relay');
+  assert.ok(Math.abs(d.minutos - 4) < 0.1);
+
+  const L2 = cargar();
+  const a2 = Date.now();
+  L2.anotarPing(a2, a2 + 10 + 20 * 1000, a2 + 20); // 20 s: dentro de lo tolerable
+  assert.equal(L2.desvioReloj().hayAviso, false);
+
+  const L3 = cargar();
+  const a3 = Date.now();
+  L3.anotarPing(a3, a3 + 10 - 3 * 60 * 1000, a3 + 20); // relay 3 min atras => aparato ADELANTADO
+  const d3 = L3.desvioReloj();
+  assert.equal(d3.hayAviso, true);
+  assert.equal(d3.adelantado, true);
+});

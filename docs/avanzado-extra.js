@@ -764,6 +764,20 @@
             el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
           } catch (_) { el.textContent = "Sync: —"; }
         };
+        /* Aviso de hora (JFC 2026-09-30): lee OCLatencia.desvioReloj cada 3 s. */
+        var _pintarReloj = function () {
+          var n = document.getElementById("oc-reloj-aviso"); if (!n) return;
+          try {
+            var d = window.OCLatencia && window.OCLatencia.desvioReloj ? window.OCLatencia.desvioReloj() : null;
+            if (!d || !d.hayAviso) { n.style.display = "none"; return; }
+            var m = Math.round(d.minutos);
+            n.textContent = "Clock warning: this device's clock is about " + (m < 1 ? "1" : m) + " minute" + (m > 1 ? "s" : "") +
+              (d.adelantado ? " ahead" : " behind") + ". Sales made here will show the wrong time. Fix it in the device's date and time settings (turn on automatic time).";
+            n.style.display = "";
+          } catch (_) { n.style.display = "none"; }
+        };
+        var _pintarSyncMinBase = _pintarSyncMin;
+        _pintarSyncMin = function () { _pintarSyncMinBase(); _pintarReloj(); };
         _pintarSyncMin();
         if (window._ocSyncMinTimer) clearInterval(window._ocSyncMinTimer);
         window._ocSyncMinTimer = setInterval(_pintarSyncMin, 3000);
