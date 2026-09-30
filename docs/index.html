@@ -8327,23 +8327,32 @@ function cuadreMesHtml(c){
 function resumenComisionPorProductoHtml(prods, cuadre){
   // JFC 2026-09-24: esta seccion no desaparece si el mes aun no tiene filas.
   // Asi Commissions conserva siempre el orden mental: producto primero, pago por percha despues.
-  const apertura = `<section id="comm-panel-product" role="tabpanel" data-commissions-section="by-product" aria-labelledby="comm-tab-product comm-by-product-heading">
+  /* JFC 2026-09-30 (v431): el resumen del mes ("This month" + "Everything sold") va ARRIBA de
+     "Summary by product", y ahi empieza la lista. Los productos SIN comision van al final, plegados
+     ("mejor aun"), para que la lista muestre primero lo que hay que pagar. */
+  const _secc = `<section id="comm-panel-product" role="tabpanel" data-commissions-section="by-product" aria-labelledby="comm-tab-product comm-by-product-heading">`;
+  const apertura = `
     <h3 id="comm-by-product-heading" class="seccion" style="font-size:16px;margin:0 0 6px;">${t("comm.byProductHeading")}</h3>
     <details style="margin:0 0 10px;font-size:14px;"><summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;">${t("how.toggle")}</summary>
       <p style="font-size:14px;color:var(--ink);margin:6px 0 0;">${t("comm.byProductIntro")}</p></details>
     <input id="comm-product-search" type="search" aria-label="${t("comm.searchProduct")}" placeholder="${t("comm.searchProduct")}" autocomplete="off" style="width:100%;max-width:460px;min-height:44px;margin:0 0 8px;padding:8px 12px;border:1px solid #9BAEBF;border-radius:8px;background:var(--paper,#fff);color:var(--ink);font:inherit;">
     <div id="comm-product-count" role="status" aria-live="polite" style="font-size:13px;color:var(--ink-soft);margin-bottom:10px;"></div>`;
-  if (!prods.length) return apertura + cuadreMesHtml(cuadre) + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}</div></section>`;
+  if (!prods.length) return _secc + cuadreMesHtml(cuadre) + apertura + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}</div></section>`;
   // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
   const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
   const tile = (label, val, color) => `<div class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;">
       <div class="rotulo">${label}</div>
       <div class="cifra" style="color:${color};">${fmtMoney(val)}</div></div>`;
-  return apertura + `<h4 class="seccion" style="font-size:14px;margin:16px 0 8px;">${_ocMesComisiones ? escHtml(_ocMesEtiqueta(_ocMesComisiones)) : t("comm.totalsHeading")}</h4>
+  const _conCom = (d) => d.unid > 0 || d.socio > 0 || d.pendSocio > 0 || (d.candidatas || []).length > 0;
+  const _con = prods.filter(_conCom), _sin = prods.filter((d) => !_conCom(d));
+  return _secc + `<h4 class="seccion" style="font-size:14px;margin:0 0 8px;">${_ocMesComisiones ? escHtml(_ocMesEtiqueta(_ocMesComisiones)) : t("comm.totalsHeading")}</h4>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:18px;">
       ${tile("Sales with commission", tot.bruto, "var(--ink)")}${tile("Associates take", tot.socio, "var(--ink)")}
       ${tile("House keeps", tot.casa, "#006B3C")}${(() => { /* Por pagar incluye devoluciones pendientes de descontar (mismo numero que las tarjetas). */ const pp = cuadre && cuadre.porPagar != null ? cuadre.porPagar : tot.pend; return tile("Still to pay", pp, pp > 0 ? "#C0392B" : "#006B3C"); })()}
-    </div>` + cuadreMesHtml(cuadre) + prods.map((d) => `
+    </div>` + cuadreMesHtml(cuadre) + apertura + _con.map(_tarjetaProd).join("")
+    + (_sin.length ? `<details id="comm-sin-comision" style="margin-top:14px;"><summary style="cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:16px;font-weight:700;color:var(--ink);">${t("comm.noCommissionGroup").replace("{n}", _sin.length)}</summary>
+      ${_sin.map(_tarjetaProd).join("")}</details>` : "") + `</section>`;
+  function _tarjetaProd(d) { return `
     <div class="tag-card" data-comm-product-card data-search="${escHtml([d.producto,d.sku,...d.perchas,...d.asociados].join(" "))}" style="text-align:left;margin-bottom:10px;padding:14px 16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(d.producto)}${d.sku ? ` <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">${escHtml(d.sku)}</span>` : ""}</strong>
@@ -8364,7 +8373,7 @@ function resumenComisionPorProductoHtml(prods, cuadre){
         ${(d.candidatas || []).map(v => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #D7E0E8;font-size:14px;">
           <span>${escHtml(String(v.fecha).slice(0,10))} · ${v.cantidad} × ${fmtMoney(v.precioUnit)} · ${escHtml(v.comisionistaNombreProducto || "")}</span>
           <button type="button" class="tecla" style="margin:0;min-height:40px;" data-review-commission="${escHtml(v.id)}" data-person="${escHtml(v.comisionistaIdProducto)}">${t("comm.reviewOne")}</button></div>`).join("")}</details>` : ""}
-    </div>`).join("") + `</section>`;
+    </div>`; }
 }
 
 async function revisarComisionVenta(ventaId, promotoraId){
@@ -8599,6 +8608,9 @@ async function cargarComisiones(){
       const needle = normalizarTexto(buscadorProducto.value.trim());
       let shown = 0;
       cards.forEach(card => { card.hidden = !normalizarTexto(card.dataset.search).includes(needle); if (!card.hidden) shown++; });
+      // v431: si la busqueda encuentra algo dentro del grupo plegado "sin comision", se abre.
+      const _sinC = cont.querySelector("#comm-sin-comision");
+      if (_sinC && needle) _sinC.open = cards.some(c => !c.hidden && _sinC.contains(c));
       cont.querySelector("#comm-product-count").textContent = window.tf("comm.searchCount", { shown, total: cards.length });
     };
     buscadorProducto.addEventListener("input", filtrar);
