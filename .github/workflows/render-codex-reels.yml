@@ -25,7 +25,7 @@ jobs:
           node music/score.mjs
           ffmpeg -y -i music/score.wav -af "highpass=f=30,equalizer=f=250:t=q:w=1:g=-2,loudnorm=I=-14:TP=-1.2:LRA=8" -c:a aac -b:a 192k assets/score.m4a
           CHROME=$(command -v chromium-browser || command -v chromium || command -v google-chrome)
-          node render.mjs --frames --workers=4 --soft-gl --chrome="$CHROME"
+          node render.mjs --frames --workers=2 --soft-gl --chrome="$CHROME"
           node render.mjs --encode --audio=assets/score.m4a --out=out/full.mp4 --fps=30
           ffmpeg -y -i out/full.mp4 -vf "scale='min(1280,iw)':-2" -c:v libx264 -crf 24 -preset medium -c:a aac -b:a 128k codex-reel-A.mp4
           npm run sheet
@@ -36,7 +36,7 @@ jobs:
           node music/score.mjs
           ffmpeg -y -i music/score.wav -af "highpass=f=30,equalizer=f=250:t=q:w=1:g=-2,loudnorm=I=-14:TP=-1.2:LRA=8" -c:a aac -b:a 192k assets/score.m4a
           CHROME=$(command -v chromium-browser || command -v chromium || command -v google-chrome)
-          node render.mjs --frames --workers=4 --soft-gl --chrome="$CHROME"
+          node render.mjs --frames --workers=2 --soft-gl --chrome="$CHROME"
           node render.mjs --encode --audio=assets/score.m4a --out=out/full.mp4 --fps=30
           ffmpeg -y -i out/full.mp4 -vf "scale='min(1280,iw)':-2" -c:v libx264 -crf 24 -preset medium -c:a aac -b:a 128k codex-reel-B.mp4
           npm run sheet
