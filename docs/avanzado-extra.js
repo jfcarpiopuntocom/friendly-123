@@ -800,7 +800,7 @@
             var m = Math.round(d.minutos);
             n.textContent = "Clock warning: this device's clock is about " + (m < 1 ? "1" : m) + " minute" + (m > 1 ? "s" : "") +
               (d.adelantado ? " ahead" : " behind") + " (checked against two separate time sources). Sales made here will show the wrong time." +
-              " Even with automatic time on, a computer can drift until its next sync: on Windows open Date & time settings and press \"Sync now\"; on a phone, turn automatic time off and on again.";
+              " Even with automatic time on, a computer can drift until its next sync: on Windows open Date & time settings and press \"Sync now\"; on a phone, turn automatic time off and on again. To see it yourself, open time.is on this device.";
             n.style.display = "";
           } catch (_) { n.style.display = "none"; }
         };

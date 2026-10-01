@@ -28,4 +28,29 @@
       e.stopPropagation(); e.preventDefault();
     } catch (_) {}
   }, true);
+
+  /* REPINTADO QUE BORRA LA SELECCION (JFC 2026-10-01, con captura: "no me deja copiar el
+     aviso de reloj"). Varias pantallas se repintan solas cada 1-60 s (aviso de reloj y
+     linea de Sync cada 3 s, reloj, FAB, cuentas regresivas) asignando textContent aunque
+     el texto NO cambio. Asignar textContent reemplaza el nodo de texto y el navegador
+     suelta la seleccion: imposible copiar. Arreglo: si el texto nuevo es IDENTICO y el
+     elemento solo tiene texto (sin hijos-elemento), no se reasigna. Visualmente es lo
+     mismo; solo se conserva la seleccion. Con hijos-elemento o texto distinto, se
+     comporta como siempre. innerHTML NO se toca a proposito: reasignarlo recrea nodos
+     y el codigo suele volver a colgarles eventos (saltarlo duplicaria handlers). */
+  try {
+    var d = Object.getOwnPropertyDescriptor(Node.prototype, "textContent");
+    if (d && d.set && d.get && d.configurable) {
+      Object.defineProperty(Node.prototype, "textContent", {
+        configurable: true, enumerable: d.enumerable, get: d.get,
+        set: function (v) {
+          try {
+            if (this.nodeType === 1 && !this.firstElementChild && this.firstChild && this.firstChild === this.lastChild &&
+                d.get.call(this) === String(v == null ? "" : v)) return;
+          } catch (_) {}
+          d.set.call(this, v);
+        },
+      });
+    }
+  } catch (_) {}
 })();

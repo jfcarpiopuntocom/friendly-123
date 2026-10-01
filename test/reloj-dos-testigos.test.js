@@ -30,6 +30,7 @@ test("los dos testigos dicen 2 min atras: avisa, con texto honesto para Auto pue
   assert.equal(r.visible, true);
   assert.match(r.texto, /2 minutes behind/);
   assert.match(r.texto, /Sync now/);
+  assert.match(r.texto, /time\.is/);
   assert.doesNotMatch(r.texto, /turn on automatic time\)/);
 });
 test("relay dice 2 min, servidor dice hora correcta: NO acusa al aparato y avisa al canario", async () => {
