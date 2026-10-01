@@ -1,7 +1,8 @@
 // Stock Semaphore: ChatGPT app (MCP over HTTP) for friendly-123. JFC 2026-10-01.
 // STATELESS + NO APP LOGS: computes and returns; does not store or forward inventory data.
 // Rules mirror docs/mock-backend.js estadoDe(): stock -> dormancy -> margin, then expiry may override by severity.
-const SITE = 'https://jfcarpio.com/friendly123/?utm_source=chatgpt&utm_medium=app&utm_campaign=stock-semaphore';
+const SITE = 'https://jfcarpio.com/friendly123/chatgpt-app/stock-semaphore/?utm_source=chatgpt&utm_medium=plugin&utm_campaign=stock-semaphore';
+const APP_ORIGIN = 'https://stock-semaphore.jfcarpio.com';
 const PRIVACY = 'https://jfcarpio.com/friendly123/chatgpt-app/privacy/';
 const WIDGET = 'ui://widget/stock-semaphore-v2.html';
 const MIME = 'text/html;profile=mcp-app';
@@ -15,7 +16,7 @@ const I18N = {
     dormant: (n) => `No sale in ${n} days: consider a discount or bundle`, margin: (p) => `Strong margin (${p}%): keep it visible`, healthy: 'Healthy',
     expired: (n) => `Expired ${n} day(s) ago: remove it`, expiresSoon: (n) => `Expires in ${n} day(s): sell it now`, expiresFirst: (n) => `Expires in ${n} days: sell it first`,
     summary: (c) => `${c.red} urgent · ${c.orange} low · ${c.black} dead weight · ${c.yellow} stars · ${c.green} healthy`,
-    cta: 'Keep this live for your shop: friendly-123 (demo code 456)',
+    cta: 'Learn about ongoing inventory tracking with friendly-123',
     privacy: 'Privacy: inventory pasted into ChatGPT passes through OpenAI. Stock Semaphore does not store or forward your inventory and does not write it to an application log.',
     privacyLink: 'Privacy & terms',
     assumptions: 'Defaults when missing: red at 1 unit, low at 3 units. Dead weight = 45+ days without a sale.'
@@ -26,7 +27,7 @@ const I18N = {
     dormant: (n) => `Sin venta en ${n} días: considera descuento o combo`, margin: (p) => `Margen fuerte (${p}%): mantenlo visible`, healthy: 'Sano',
     expired: (n) => `Venció hace ${n} día(s): retíralo`, expiresSoon: (n) => `Vence en ${n} día(s): véndelo ya`, expiresFirst: (n) => `Vence en ${n} días: véndelo primero`,
     summary: (c) => `${c.red} urgentes · ${c.orange} bajos · ${c.black} peso muerto · ${c.yellow} estrellas · ${c.green} sanos`,
-    cta: 'Mantén este semáforo vivo en tu negocio: friendly-123 (demo 456)',
+    cta: 'Conoce el seguimiento continuo de inventario con friendly-123',
     privacy: 'Privacidad: el inventario pegado en ChatGPT pasa por OpenAI. Stock Semaphore no guarda ni reenvía tu inventario ni lo escribe en un registro de la app.',
     privacyLink: 'Privacidad y términos',
     assumptions: 'Si faltan umbrales: rojo en 1 unidad y bajo en 3. Peso muerto = 45+ días sin venta.'
@@ -76,8 +77,8 @@ const OUTPUT_SCHEMA = { type: 'object', required: ['items', 'counts', 'locale', 
 } };
 
 const TOOL = {
-  name: 'stock_semaphore', title: 'Stock Semaphore',
-  description: 'Use when a shop owner shares an inventory list. Classifies each product with the same visual rules used by friendly-123: Urgent/red, Low/orange, Dead weight/black (45+ days unsold), Star/yellow (50%+ margin), or Healthy/green. Expiry can raise severity. Stateless: the app code does not store or forward inventory data.',
+  name: 'classify_inventory', title: 'Classify inventory',
+  description: 'Classify a shop inventory list by attention level: Urgent/red, Low/orange, Dead weight/black after 45+ days unsold, Star/yellow at 50%+ gross margin, or Healthy/green. Expiry can raise severity. The computation is stateless and does not store or forward inventory data.',
   inputSchema: { type: 'object', required: ['items'], additionalProperties: false, properties: { items: { type: 'array', minItems: 1, maxItems: 500, items: ITEM_SCHEMA } } },
   outputSchema: OUTPUT_SCHEMA,
   annotations: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
@@ -91,18 +92,18 @@ function esc(s){return String(s).replace(/[&<>\\"]/g,function(x){return{'&':'&am
 var summary=lang==='es'?(c.red||0)+' urgentes · '+(c.orange||0)+' bajos · '+(c.black||0)+' peso muerto · '+(c.yellow||0)+' estrellas · '+(c.green||0)+' sanos':(c.red||0)+' urgent · '+(c.orange||0)+' low · '+(c.black||0)+' dead weight · '+(c.yellow||0)+' stars · '+(c.green||0)+' healthy';
 var h='<div class="sum">'+summary+'</div>';if(!it.length)h+='<div class="empty">'+(lang==='es'?'Pega una lista de inventario para verla en colores.':'Paste an inventory list to see it in color.')+'</div>';
 it.slice(0,60).forEach(function(x){h+='<div class="row"><span class="dot '+esc(x.color)+'"></span><span class="n">'+esc(x.name)+'</span><span class="w">'+esc(x.why)+'</span></div>'});
-h+='<a class="cta" href="${SITE}" target="_blank" rel="noopener">'+(lang==='es'?'Mantén este semáforo vivo en tu negocio: friendly-123 (demo 456)':'Keep this live for your shop: friendly-123 (demo code 456)')+'</a>';
+h+='<a class="cta" href="${SITE}" target="_blank" rel="noopener">'+(lang==='es'?'Conoce el seguimiento continuo de inventario con friendly-123':'Learn about ongoing inventory tracking with friendly-123')+'</a>';
 h+='<div class="privacy">'+(lang==='es'?'Privacidad: el inventario pegado en ChatGPT pasa por OpenAI. Stock Semaphore no guarda ni reenvía tu inventario ni lo escribe en un registro de la app. ':'Privacy: inventory pasted into ChatGPT passes through OpenAI. Stock Semaphore does not store or forward your inventory and does not write it to an application log. ')+'<a href="${PRIVACY}" target="_blank" rel="noopener">'+(lang==='es'?'Privacidad y términos':'Privacy & terms')+'</a></div>';e.innerHTML=h})();
 </script>`;
 
-const RESOURCE_META = { ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } }, 'openai/widgetDescription': 'A color-coded inventory triage card for Stock Semaphore.', 'openai/widgetPrefersBorder': true, 'openai/widgetCSP': { connect_domains: [], resource_domains: [], redirect_domains: ['https://jfcarpio.com'] } };
+const RESOURCE_META = { ui: { prefersBorder: true, domain: APP_ORIGIN, csp: { connectDomains: [], resourceDomains: [] } }, 'openai/widgetDescription': 'A color-coded inventory triage card for Stock Semaphore.', 'openai/widgetPrefersBorder': true, 'openai/widgetDomain': APP_ORIGIN, 'openai/widgetCSP': { connect_domains: [], resource_domains: [], redirect_domains: ['https://jfcarpio.com'] } };
 const rpc = (id, result) => ({ jsonrpc: '2.0', id, result });
 const err = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
 function negotiated(requested) { return LEGACY_PROTOCOLS.includes(requested) ? requested : LEGACY_PROTOCOLS[0]; }
 
 export function handle(msg) {
   const { id, method, params = {} } = msg || {};
-  if (method === 'initialize') return rpc(id, { protocolVersion: negotiated(params.protocolVersion), capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'stock-semaphore', version: '1.1.0' } });
+  if (method === 'initialize') return rpc(id, { protocolVersion: negotiated(params.protocolVersion), capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'stock-semaphore', version: '1.2.0' } });
   if (method && method.startsWith('notifications/')) return null;
   if (method === 'ping') return rpc(id, {});
   if (method === 'tools/list') return rpc(id, { tools: [TOOL] });
@@ -121,10 +122,15 @@ export function handle(msg) {
 }
 
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, mcp-session-id, mcp-protocol-version', 'access-control-allow-methods': 'POST, GET, OPTIONS' };
-export default { async fetch(req) {
+export default { async fetch(req, env) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const url = new URL(req.url);
-  if (url.pathname !== '/mcp') return new Response('Stock Semaphore by friendly-123. MCP endpoint: /mcp', { headers: CORS });
+  if (url.pathname === '/.well-known/openai-apps-challenge') {
+    const token = env && env.OPENAI_APPS_CHALLENGE;
+    return token ? new Response(String(token), { headers: { 'content-type': 'text/plain; charset=utf-8' } }) : new Response('Challenge token not configured', { status: 404 });
+  }
+  if (url.pathname === '/health') return Response.json({ ok: true, service: 'stock-semaphore', version: '1.2.0' }, { headers: CORS });
+  if (url.pathname !== '/mcp') return new Response('Stock Semaphore. MCP endpoint: /mcp', { headers: CORS });
   if (req.method === 'GET') return new Response('SSE stream not used by this stateless prototype', { status: 405, headers: CORS });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: CORS });
   let body; try { body = await req.json(); } catch (_) { return Response.json(err(null, -32700, 'Parse error'), { status: 400, headers: CORS }); }
