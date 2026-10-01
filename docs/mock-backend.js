@@ -222,8 +222,12 @@
     const gen = (pid, dias, cli, cant, opts) => {
       const p = productos.find((x) => x.id === pid);
       if (!p) return;
-      dias.forEach((d, i) => {
-        ventas.push({ id: "vs-" + pid + "-" + d + "-" + i, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant || 1, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date(Date.now() - d * 86400000).toISOString(), split: null, liquidada: true, clienteId: cli || null,
+      dias.forEach((d0, i) => {
+        /* FIX 2026-10-01: { mesActual: true } = venta del MES EN CURSO. Antes se fechaba "hace d
+           dias" y el dia 1 del mes caia toda en el mes anterior: el demo abria Commissions sin
+           nada por pagar este mes. Ahora se acota a los dias ya corridos del mes. */
+        const d = (opts && opts.mesActual) ? Math.min(d0, new Date().getDate() - 1) : d0;
+        ventas.push({ id: "vs-" + pid + "-" + d0 + "-" + i, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant || 1, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date(Date.now() - d * 86400000).toISOString(), split: null, liquidada: true, clienteId: cli || null,
           ...(opts && opts.counter ? { modoComision: "counter" } : {}), ...(opts && opts.impaga ? { _demoImpaga: true } : {}) });
       });
     };
@@ -243,8 +247,9 @@
     gen("p09", [30], "c06", 1);                           // máquina de escribir (c06 otoño)
     gen("p32", [40], "c06", 1);                           // libro de arte
     // Consignación de artista (comisión 85/15): dispara el cálculo de comisiones.
-    gen("p06", [10], "c04", 1);                           // óleo en consignación
-    gen("p07", [6, 18], null, 1);                         // láminas en consignación
+    gen("p06", [10], "c04", 1, { mesActual: true });      // óleo en consignación (mes en curso: sube el tramo)
+    gen("p07", [6], null, 1, { mesActual: true });        // láminas en consignación
+    gen("p07", [18], null, 1);
     // Eventos culturales: por tandas.
     gen("p33", [4, 32], "c01", 2);                        // cata de vinos y quesos
     gen("p34", [11], null, 3);                            // jazz
@@ -256,10 +261,10 @@
     // pasado con saldo pendiente (aviso rojo + pagar desde el selector de mes),
     // meses viejos ya pagados, tramos por meta de la artista (85/88/90) y una
     // COUNTER SALE de la casa en eventos.
-    gen("p07", [2, 9, 15], "c01", 1);                     // mes en curso: laminas de la artista
-    gen("p07", [5], null, 3);                             // una tanda de 3 laminas (sube el tramo)
-    gen("p35", [3], "c04", 2);                            // taller: lo trae el partner de eventos
-    gen("p34", [1], null, 2, { counter: true });          // COUNTER SALE: la casa vende el jazz sin comision
+    gen("p07", [2, 9, 15], "c01", 1, { mesActual: true }); // mes en curso: laminas de la artista
+    gen("p07", [5], null, 3, { mesActual: true });        // una tanda de 3 laminas (sube el tramo)
+    gen("p35", [3], "c04", 2, { mesActual: true });       // taller: lo trae el partner de eventos
+    gen("p34", [1], null, 2, { counter: true, mesActual: true });          // COUNTER SALE: la casa vende el jazz sin comision
     gen("p07", [28, 36], "c02", 2, { impaga: true });     // mes pasado, aun sin pagar a la artista
     gen("p33", [30], "c03", 2, { impaga: true });         // mes pasado, aun sin pagar al partner
     gen("p06", [44], "c05", 1);                           // mes pasado, ya pagado

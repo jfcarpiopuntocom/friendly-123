@@ -531,3 +531,15 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - [x] v431 Commissions: "This month" + "Everything sold" ARRIBA de "Summary by product" (ahi empieza la lista);
   productos sin comision al final en "Products without commission (N)", plegado; la busqueda lo abre si hay match.
   Test commissions-orden-sin-comision rojo-verde. Suite 469/469.
+
+## 2026-10-01 (madrugada) — shell v432: panel honesto, PUSH real, canarios CC0
+- VERIFICADO: el PUSH del panel decia "hecho" pero los clientes seguian en v429. sonar.yml ("cada 5 min")
+  GitHub lo corre cada 4-7 h (02:27, 08:55, 15:43, 20:19 el 30-09). El panel solo ANOTABA la orden.
+- [x] promover.yml: durante su ventana de 33 min lee /canario/orden; un PUSH fresco promueve YA y deja el tag sonar-ID.
+- [x] panel: confirma "registrada, todavia NO esta hecha" y mide la verdad: PENDIENTE/CUMPLIDA comparando shells de los canales.
+- [x] Canarios: sprites CC0 "Animated Bird Characters" de Mantis (OpenGameArt), sin modificar pixeles, acreditados en el codigo.
+  JFC: "no confio en Claude disenando; sprites online sin IP issues". No volver a dibujar pajaros propios.
+  Se bajaron de un repo publico de GitHub que los usa (bjarkiella/Boids, Content/Birdies.png): la nube solo llega a GitHub.
+- [x] Bug del demo el dia 1 de cada mes: ventas "del mes en curso" caian en el mes anterior (Commissions vacio). Ahora { mesActual }.
+- [ ] Si no hay publicacion en curso, un PUSH sigue dependiendo del cron lento de sonar.yml. Arreglo de fondo (decision de JFC):
+  que el Worker dispare sonar.yml (workflow_dispatch) con un token de GitHub como secret.

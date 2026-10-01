@@ -40,6 +40,21 @@ jobs:
           WORKER="https://friendly123-licencias.jfcarpio.workers.dev"
           SHELL_NUEVO=$(grep -o 'f123-shell-v[0-9]*' docs/version.json)
           echo "shell en /next/: $SHELL_NUEVO"
+          # JFC 2026-09-30: el PUSH del panel lo ejecutaba solo sonar.yml, cuyo cron "cada 5 min"
+          # GitHub lo corre cada 4-7 h: el panel decia "hecho" y los clientes seguian esperando.
+          # Si durante esta ventana llega una orden PUSH reciente (<24 h, no ejecutada), se
+          # promueve YA y se marca la orden como ejecutada (tag sonar-ID) para que sonar no la repita.
+          ORDEN_ID=""
+          pushPedido() {
+            J=$(curl -s --max-time 20 "$WORKER/canario/orden" || echo '{}')
+            ID=$(echo "$J" | jq -r '.orden.id // empty'); AC=$(echo "$J" | jq -r '.orden.accion // empty'); AT=$(echo "$J" | jq -r '.orden.at // 0')
+            [ "$AC" = "push" ] || return 1
+            echo "$ID" | grep -Eq '^[a-z0-9]{4,20}$' || return 1
+            [ $(( $(date +%s) * 1000 - AT )) -le 86400000 ] || return 1
+            git fetch -q --tags origin || true
+            git rev-parse -q --verify "refs/tags/sonar-$ID" >/dev/null && return 1
+            ORDEN_ID="$ID"; return 0
+          }
           revisar() {
             E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$SHELL_NUEVO" || echo '{}')
             if echo "$E" | jq -e '.rojo == true' >/dev/null 2>&1; then echo "ROJO: $(echo "$E" | jq -c '.rojos')"; return 1; fi
@@ -49,6 +64,7 @@ jobs:
           FIN=$(( $(date +%s) + 33 * 60 ))
           while [ "$(date +%s)" -lt "$FIN" ]; do
             if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+            if pushPedido; then echo "PUSH del panel ($ORDEN_ID): se promueve ya"; echo "orden=$ORDEN_ID" >> "$GITHUB_OUTPUT"; echo "promover=si" >> "$GITHUB_OUTPUT"; exit 0; fi
             sleep 60
           done
           if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
@@ -65,6 +81,10 @@ jobs:
           git push origin "$ESTABLE:refs/heads/previo" --force
           git push origin "$GITHUB_SHA:refs/heads/estable" --force
           echo "previo=$ESTABLE estable=$GITHUB_SHA"
+      - name: Marcar la orden PUSH como ejecutada
+        if: steps.v.outputs.promover == 'si' && steps.v.outputs.orden != ''
+        run: |
+          git tag "sonar-${{ steps.v.outputs.orden }}" && git push -q origin "refs/tags/sonar-${{ steps.v.outputs.orden }}" || true
 
   publicar:
     needs: ventana

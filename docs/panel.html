@@ -899,6 +899,17 @@ async function sonarEstado(shell) {
   if (!shell) return null;
   try { const r = await fetch(url + "/canario/estado?shell=" + encodeURIComponent(shell), { cache: "no-store" }); return r.ok ? await r.json() : null; } catch (_) { return null; }
 }
+/* ¿La orden ya se ve en los canales? PUSH cumplido = clientes (estable) con el mismo shell que
+   next; REWIND cumplido = clientes con el shell de previo. Verdad medida, no lo que se pidio. */
+function sonarOrdenCumplida(o, versiones) {
+  const sh = (i) => (versiones[i] && versiones[i].shell) || "";
+  const [previo, estable, next] = [sh(0), sh(1), sh(2)];
+  if (!estable) return "sin datos de los canales";
+  if (Date.now() - (o.at || 0) > 86400000) return "vencida (más de 24 h)";
+  if (o.accion === "push") return estable === next ? "CUMPLIDA: clientes en " + estable : "PENDIENTE: clientes siguen en " + estable + " (next es " + next + "). La ejecuta GitHub: minutos si hay publicación en curso, si no hasta horas.";
+  if (o.accion === "rewind") return estable === previo ? "CUMPLIDA: clientes en " + estable : "PENDIENTE: clientes siguen en " + estable;
+  return "";
+}
 function sonarHora(ms) { if (!ms) return "—"; const d = new Date(ms); return d.toLocaleString("es-EC", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }); }
 /* Canarios del mapa: [id del nodo, nombre, cuarto donde vive]. Los ids coinciden con
    los que manda la app (salud-app.js NODOS) y los organos internos del Worker. */
@@ -910,21 +921,24 @@ const SONAR_CANARIOS = [
   ["avanzado", "Advanced", "avanzado"],
 ].map(([id, nombre, cuarto]) => ({ id, nombre, cuarto, reportes: 0 }));
 let SONAR_VIVO = false;
+/* CANARIOS = SPRITES CC0 DE MANTIS (JFC 2026-09-30: "sprites que haya online y sin IP issues";
+   NO dibujar pajaros propios). Fuente: "Animated Bird Characters" / "Update animated birds character
+   sheet" por Mantis, OpenGameArt (https://opengameart.org/content/animated-bird-characters), licencia
+   CC0 1.0 (dominio publico, sin atribucion obligatoria; se acredita igual). Se uso el primer cuadro de
+   6 pajaros + el robot gris, SIN modificar pixeles, en una tira de 7 celdas de 28x24 (embebida abajo).
+   Celdas: 0 azul, 1 amarillo, 2 violeta, 3 verde, 4 blanco, 5 buho naranja, 6 robot gris (= sin datos).
+   No se usan los pajaros ROJOS de la hoja para que el color no se confunda con alarma.
+   Estado (no depende del pajaro): problema = patas arriba + latido + borde rojo + texto rojo. */
+const SONAR_TIRA = "data:image/png;base64,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";
 function sonarCanarioSVG(x, y, c) {
   const rojo = SONAR_VIVO && c.reportes > 0;
-  const col = !SONAR_VIVO ? "#6B7A74" : (rojo ? "#E86040" : "#28ECAA");
-  // Canario: cuerpo, cabeza, ala, pico y patas. Rojo = caido (patas arriba) y latiendo.
-  const giro = rojo ? `rotate(180 ${x} ${y})` : "";
+  const idx = Math.max(0, SONAR_CANARIOS.indexOf(c));
+  const celda = !SONAR_VIVO ? 6 : idx % 6;
+  const E = 2, w = 28 * E, h = 24 * E; // escala x2, pixel nitido
+  const t = rojo ? `translate(${x - w / 2} ${y + h / 2 - 6}) scale(1 -1)` : `translate(${x - w / 2} ${y - h / 2 - 6})`;
   return `<g class="${rojo ? "caido" : ""}"><title>${sonarEsc(c.nombre)}: ${rojo ? c.reportes + " report(s) with problems" : "OK"}</title>
-    <g transform="${giro}">
-      <ellipse cx="${x}" cy="${y}" rx="15" ry="11" fill="${col}"/>
-      <circle cx="${x + 12}" cy="${y - 9}" r="7.5" fill="${col}"/>
-      <path d="M${x + 18} ${y - 10} l8 3 l-8 3 z" fill="#E8A020"/>
-      <circle cx="${x + 14}" cy="${y - 11}" r="1.8" fill="#0B0F14"/>
-      <path d="M${x - 8} ${y - 2} q8 -9 16 0 q-8 5 -16 0 z" fill="#0B0F14" opacity="1" fill-opacity="0.25"/>
-      <path d="M${x - 13} ${y + 1} l-9 -5 l2 9 z" fill="${col}"/>
-      <path d="M${x - 3} ${y + 10} v7 M${x + 4} ${y + 10} v7" stroke="#E8A020" stroke-width="2.2"/>
-    </g>
+    ${rojo ? `<circle cx="${x}" cy="${y - 6}" r="${h / 2 + 2}" fill="none" stroke="#E86040" stroke-width="3"/>` : ""}
+    <g transform="${t}"><svg width="${w}" height="${h}" viewBox="${celda * 28} 0 28 24"><image href="${SONAR_TIRA}" width="196" height="24" style="image-rendering:pixelated"/></svg></g>
     <text x="${x}" y="${y + 34}" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF">${sonarEsc(c.nombre)}</text>
     ${rojo ? `<text x="${x}" y="${y + 50}" text-anchor="middle" font-size="13" font-weight="800" fill="#FF8A6B">${c.reportes} report${c.reportes === 1 ? "" : "s"}</text>` : ""}
   </g>`;
@@ -993,7 +1007,7 @@ async function sonarPintar() {
   const o = e0.orden;
   document.getElementById("sonar-orden").textContent =
     (e0.detenido ? "Promoción automática DETENIDA. " : "Promoción automática activa (33 min). ") +
-    (o ? "Última orden: " + (o.accion === "push" ? "PUSH" : "REWIND") + " · " + sonarHora(o.at) : "Sin órdenes todavía.");
+    (o ? "Última orden: " + (o.accion === "push" ? "PUSH" : "REWIND") + " · " + sonarHora(o.at) + " · " + sonarOrdenCumplida(o, versiones) : "Sin órdenes todavía.");
   document.getElementById("sonar-detener").textContent = e0.detenido ? "Reanudar promoción automática" : "Detener promoción automática";
   document.getElementById("sonar-detener").dataset.accion = e0.detenido ? "reanudar" : "detener";
   meta.textContent = "actualizado " + sonarHora(Date.now());
@@ -1008,7 +1022,10 @@ async function sonarOrden(accion) {
   try {
     const r = await fetch(url + "/canario/orden", { method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify({ accion }) });
     const j = await r.json().catch(() => ({}));
-    mostrarConfirmacion(r.ok ? "Orden registrada: " + accion.toUpperCase() : "No se pudo: " + (j.error || r.status));
+    /* JFC 2026-09-30: antes decia solo "Orden registrada" y parecia hecho. La orden la ejecuta
+       GitHub: en minutos si hay una publicacion esperando (promover.yml), si no en el proximo
+       ciclo de sonar.yml, que GitHub puede retrasar horas. El estado real se ve abajo. */
+    mostrarConfirmacion(r.ok ? "Orden " + accion.toUpperCase() + " registrada. Todavía NO está hecha: mira abajo cuándo se cumple." : "No se pudo: " + (j.error || r.status));
   } catch (_) { mostrarConfirmacion("Sin conexión con el Worker"); }
   sonarPintar();
 }

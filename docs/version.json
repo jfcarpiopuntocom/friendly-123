@@ -3,7 +3,7 @@
   "fecha": "2026-09-29",
   "changelog": "You can now undo a just-cancelled sale even if the product expired in the meantime, and it comes back with its original price and date.",
   "requerida": false,
-  "shell": "f123-shell-v431",
+  "shell": "f123-shell-v432",
   "apagar": [],
   "releaseName": "v1.0"
 }
