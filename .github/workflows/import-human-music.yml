@@ -11,24 +11,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - name: Download human-composed CC-BY track
+      - name: Clone public audio archive
         run: |
           set -euo pipefail
+          git clone --depth 1 https://github.com/noobsandnerdsgroup/audio.git audio
           mkdir -p out
-          curl -fL --retry 3 --retry-delay 2             'https://incompetech.com/music/royalty-free/music/Kawai%20Kitsune.mp3'             -o out/Kawai-Kitsune-Scott-Buckley.mp3
-          sha256sum out/Kawai-Kitsune-Scott-Buckley.mp3 | tee out/SHA256SUMS.txt
+          cp "audio/Airport Lounge.mp3" out/Airport-Lounge-Kevin-MacLeod.mp3
+          sha256sum out/Airport-Lounge-Kevin-MacLeod.mp3 | tee out/SHA256SUMS.txt
           cat > out/LICENSE-CREDIT.txt <<'EOF'
-          Track: Kawai-Kitsune
+          Track: Airport Lounge
           Composer: Kevin MacLeod
-          Source/license: https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1500059
+          Official track page: https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100806
           License: Creative Commons Attribution 4.0 International (CC BY 4.0)
           Commercial use: permitted with attribution.
           Required credit:
-          "Kawai Kitsune" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 License http://creativecommons.org/licenses/by/4.0/
+          "Airport Lounge" Kevin MacLeod (incompetech.com)
+          Licensed under Creative Commons: By Attribution 4.0 License
+          http://creativecommons.org/licenses/by/4.0/
           EOF
       - uses: actions/upload-artifact@v4
         with:
-          name: human-music-simplicity
+          name: airport-lounge-human-music
           path: out/
           if-no-files-found: error
