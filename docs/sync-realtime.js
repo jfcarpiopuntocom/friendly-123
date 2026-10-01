@@ -1169,7 +1169,13 @@
      quedaba pendiente. Ahora se dice: OCSyncEmit devuelve false. La venta ya esta
      guardada (mock-backend guarda antes de emitir) y el sync nuevo la reparte desde
      el estado; esto avisa que el transporte viejo no la tiene en cola. */
-  function encolar(op) { const cola = leerCola(); cola.push(op); return guardarCola(cola); }
+  function encolar(op) {
+    const cola = leerCola(); cola.push(op);
+    const ok = guardarCola(cola);
+    // Canario 2026-10-01: una op que no entra en la cola es un fallo silencioso. Avisa, no frena.
+    if (!ok) { try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "sync-no-encolo"); } catch (_) {} }
+    return ok;
+  }
 
   // --- API publica para la UI (Avanzado) ---
   window.OCSyncControl = {

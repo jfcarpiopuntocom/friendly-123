@@ -110,6 +110,7 @@
      estática, o server.js real en el servidor local del negocio. -->
 <script src="./pocketbase-client.js"></script>
 <script src="./estado-idb.js"></script>
+<script src="./canarios.js"></script>
 <script src="./invariantes.js"></script>
 <script src="./mock-backend.js"></script>
 <script src="./red-segura.js"></script>
@@ -5120,8 +5121,8 @@ function bloqueFoto(p, todos) {
        Ahora cae a la foto de la familia con su marca; si tampoco hay, iniciales. */
     var respaldo = propia ? fotoDeLaFamilia(p, todos) : null;
     var onerr = respaldo
-      ? "if(this.dataset.r){this.remove();}else{this.dataset.r=1;this.src=this.dataset.fam;var m=document.createElement('span');m.className='heredada';m.textContent='foto de la familia';this.parentNode.appendChild(m);}"
-      : "this.remove()";
+      ? "if(this.dataset.r){this.remove();}else{try{OCSalud.fallo('inventario','foto-no-abre')}catch(e){}this.dataset.r=1;this.src=this.dataset.fam;var m=document.createElement('span');m.className='heredada';m.textContent='foto de la familia';this.parentNode.appendChild(m);}"
+      : "try{OCSalud.fallo('inventario','foto-no-abre')}catch(e){}this.remove()";
     html += '<img src="' + src + '"' + (respaldo ? ' data-fam="' + escHtml(respaldo) + '"' : '') + ' alt="" loading="lazy" decoding="async" onerror="' + onerr + '">';
     if (heredada) html += '<span class="heredada">foto de la familia</span>';
   }

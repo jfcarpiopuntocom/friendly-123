@@ -24,7 +24,7 @@
     Array.prototype.forEach.call(productos, function (p) { if (p && p.id != null) prodPorId[p.id] = p; });
     var vistos = {};
 
-    function avisar(codigo, v, detalle) { avisos.push({ codigo: codigo, ventaId: v && v.id != null ? v.id : null, detalle: detalle }); }
+    function avisar(codigo, v, detalle) { try { if (typeof window !== "undefined") { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("comisiones", "dinero-" + codigo); else (window.__ocFallos = window.__ocFallos || []).push(["comisiones", "dinero-" + codigo]); } } catch (_) {} avisos.push({ codigo: codigo, ventaId: v && v.id != null ? v.id : null, detalle: detalle }); }
 
     Array.prototype.forEach.call(ventas, function (v) {
       if (!v || v.anulada) return;

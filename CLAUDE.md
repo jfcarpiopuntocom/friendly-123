@@ -57,6 +57,11 @@ relay Yjs, que cifra los datos de extremo a extremo (ver 2026-09-18). **Jamás**
 ventas, clientes o inventario en claro. No meter servicios de nube de terceros (memoria,
 analítica, etc.) que manden datos afuera. (Redacción confirmada por JFC 2026-09-30.)
 
+**Canarios con Sentry y PostHog (decisión de JFC 2026-10-01):** errores, flujos y checksums NO son datos
+del negocio; mandarlos a Sentry/PostHog no viola esta regla. Corren en /next/ y en la app de clientes.
+Todo pasa por `docs/canarios.js` con lista blanca, limpieza de texto, id anónimo y tope por sesión.
+AVISAN, NO FRENAN: nada de canarios.js decide la promoción a clientes. Jamás mandar ahí datos del negocio.
+
 ---
 
 ## POLÍTICA DE VERSIÓN (JFC 2026-09-09) — NO MOVER SIN ORDEN EXPRESA
