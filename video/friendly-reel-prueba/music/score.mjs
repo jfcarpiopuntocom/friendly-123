@@ -94,9 +94,8 @@ const AM = [57, 64, 69, 72], FM = [53, 60, 65, 69], CM = [52, 60, 67, 72], GM = 
 
 // ---- hits, one line per shot
 bloom(S.title, [69, 76, 81], .9); for (let i = 0; i < 12; i++) tick(Hh.title + i * .035, .7); [0, 1, 2].forEach(i => blip(Hh.chips + i * .15, 88 + i * 3, .6, -.3 + i * .3));
-glide(S.stat, .5, 69, 81, .9); odo(Hh.flip, 1, .9); stab(Hh.flip + 1, [72, 76, 79, 84], 1);
+Hh.cards.forEach((t, i) => { bloom(t, [[72, 76, 79], [74, 77, 81], [76, 79, 83], [72, 77, 81], [79, 83, 86]][i], .8); [0, 1, 2].forEach(j => blip(t + 1.4 + j * .15, 84 + j * 3, .5, -.3 + j * .3)); });
 Hh.nodes.forEach((t, i) => blip(t, 81 + i * 4, .7, -.4 + i * .4)); Hh.hops.forEach((t, i) => blip(t, [84, 88, 84, 93][i], .8));
-for (let i = 0; i < 16; i++) tick(S.quote + i * .035, .6); pad(S.quote, [57, 64, 69, 72], 2, 1); Hh.words.forEach((t, i) => stab(t, [[69, 72], [71, 74], [72, 76, 81]][i], .8));
 swell(S.end, AM, 1.2, 1); impact(S.end, 1.1); stab(S.end, [57, 60, 64, 69], 1);
 glitch(Hh.glitch, .5, .7); softImpact(Hh.endDot, .9); put(Hh.endDot, 1.2, tt => .25 * Math.sin(TAU * 1760 * tt) * Math.exp(-tt * 4), { gain: .6, rev: .8, bus: 'mus' });
 

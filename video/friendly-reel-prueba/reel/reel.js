@@ -415,14 +415,27 @@ function sTitle(t) {
   let x = 146; ['INVENTORY', 'SALES', 'COMMISSIONS'].forEach((s, i) => { x += chip(s, x, 830, { k: seg(t, Hh.chips + i * .15, Hh.chips + i * .15 + .25), bg: i === 1 ? K.lime : K.ink, fg: i === 1 ? K.ink : K.cream }) + 14; });
   hud(t, { dark: false, tl: '01 / TITLE', tr: tc(t), bl: sec(1, 'TYPE'), br: 'TRULY BILINGUAL · EN / ES', zh: 'BILINGÜE', zhRight: true, brackets: false });
 }
-function sStat(t) {
-  bg(K.lime); const lt = t - S.stat;
-  glShot(knot(t, { x: 2.6, y: -1.1, s: .5 }));
-  const f = font(F.cond, 400), k = seg(t, Hh.flip, Hh.flip + .9);
-  txt('$', 150, 660, { font: f, fill: K.red }); txt(String(Math.round(399 * ease(k))), 150 + measure('$', f) + 10, 660, { font: f, fill: K.ink });
-  txt('ONE PAYMENT · 5-YEAR LICENSE', 160, 750, { font: font(F.mono, 24, 700), fill: K.ink, ls: 4 });
-  hud(t, { dark: false, tl: 'PRICE', tr: tc(t), bl: sec(1, 'RESULT'), br: 'NO MONTHLY FEES', brackets: false });
-}
+/* TARJETAS DE BENEFICIO (JFC 2026-10-01: "manten los primeros 5 secs y EXTIENDE con info y beneficios
+   reales"). Mismo estilo que sTitle (fondo claro, palabras que caen, circulo con el logo, chips). Solo datos
+   verdaderos de friendly-123; nada de cifras sin fuente. */
+const CARDS = {
+  price:   { w1: '$399 ONCE.', w2: '5 YEARS.', chips: ['NO MONTHLY FEES', 'ONE LICENSE', 'YOURS'], col: K.lime, tl: 'PRICE', br: 'ONE PAYMENT · 5-YEAR LICENSE' },
+  offline: { w1: 'WORKS', w2: 'OFFLINE.', chips: ['NO INTERNET NEEDED', 'DATA ON YOUR DEVICE', 'PRIVATE'], col: K.blue, tl: 'YOUR DATA', br: 'YOUR BUSINESS STAYS WITH YOU' },
+  lang:    { w1: 'ENGLISH.', w2: 'ESPAÑOL.', chips: ['ONE TAP', 'SAME DATA', 'YOUR WHOLE TEAM'], col: K.orange, tl: 'TRULY BILINGUAL', br: 'EN / ES' },
+  comm:    { w1: 'COMMISSIONS', w2: 'TO THE CENT.', chips: ['CONSIGNMENT', 'ASSOCIATES', 'COUNTER SALES'], col: K.green, tl: 'FAIR SPLITS', br: 'WHO GETS WHAT, CLEAR' },
+  all:     { w1: 'ONE APP.', w2: 'WHOLE SHOP.', chips: ['INVENTORY', 'SALES', 'CUSTOMERS', 'EXPENSES', 'LABELS'], col: K.red, tl: 'EVERYTHING', br: 'POP-UPS · BOUTIQUES · CONSIGNMENT' },
+};
+function sCard(key) { return (t) => {
+  const c = CARDS[key], t0 = S[key], lt = t - t0;
+  bg(K.cream);
+  const f1 = font(F.cond, Math.min(220, Math.floor(220 * 1300 / Math.max(1, measure(c.w1, font(F.cond, 220)))))), f2size = Math.min(280, Math.floor(280 * 1480 / Math.max(1, measure(c.w2, font(F.cond, 280)))));
+  dropWord(c.w1, 140, 400, f1, t0 + .1, t, { fill: K.ink, fall: 200 });
+  dropWord(c.w2, 140, 680, font(F.cond, f2size), t0 + .3, t, { fill: K.ink, fall: 220, fillAt: i => i === c.w2.length - 1 ? K.red : K.ink });
+  const k = backOut(seg(lt, .2, .6)), cx = 1620, cy = 250;
+  circle(cx, cy, 170 * k, { fill: c.col }); if (k > .05) { const lw = 300 * k, lh = lw * LOGO.height / LOGO.width; ctx.drawImage(LOGO, cx - lw / 2, cy - lh / 2, lw, lh); }
+  let x = 146; c.chips.forEach((s2, i) => { x += chip(s2, x, 830, { k: seg(t, t0 + 1.4 + i * .15, t0 + 1.65 + i * .15), bg: i === 1 ? c.col : K.ink, fg: i === 1 && c.col === K.lime ? K.ink : K.cream }) + 14; });
+  hud(t, { dark: false, tl: c.tl, tr: tc(t), bl: sec(1, key.toUpperCase()), br: c.br, brackets: false });
+}; }
 function sFlow(t) {
   bg(K.ink); const lt = t - S.flow;
   dropWord('COUNT. SEE.', 140, 290, font(F.cond, 170), S.flow, t, { fall: 150 });
@@ -444,15 +457,6 @@ function sFlow(t) {
   txt('YOUR STOCK SPEAKS IN COLOR', 140, 860, { font: font(F.mono, 19, 700), fill: 'rgba(241,238,230,.7)', ls: 2.5, a: seg(lt, .6, .9) });
   hud(t, { tl: 'THE SEMAPHORE', tr: tc(t), bl: sec(2, 'DIAGRAM'), br: 'GREEN · YELLOW · RED', zh: 'EN COLORES', zhRight: true });
 }
-function sQuote(t) {
-  const lt = t - S.quote;
-  glShot(liquid(t, { zoom: 1.5, seed: 9 }));
-  const words = ['Private.', 'On your', 'device.'], f = `italic 124px ${F.serif}`;
-  const total = measure(words.join(' '), f); let x = W / 2 - total / 2;
-  words.forEach((wd, i) => { const k = seg(t, Hh.words[i], Hh.words[i] + .3); txt(wd, x, H / 2 + 20 + (1 - easeOut(k)) * 30, { font: f, fill: K.cream, a: k, glow: 'rgba(14,15,40,.35)', glowR: 20 }); x += measure(wd + ' ', f); });
-  txt('每一帧都有意图', W / 2, H / 2 + 120, { font: font(F.zh, 28, 500), fill: 'rgba(241,238,230,.85)', ls: 12, align: 'center', a: seg(lt, 1, 1.3) });
-  hud(t, { tl: 'YOUR DATA', tr: tc(t), bl: sec(2, 'QUOTE'), br: 'NO CLOUD REQUIRED' });
-}
 function sEndDemo(t) {
   bg(K.ink); const lt = t - S.end;
   dropWord('START', 130, 560, font(F.cond, 280), Hh.name, t, { stag: .04, dur: .4 });
@@ -468,11 +472,14 @@ function sEndDemo(t) {
 // transitions INTO a scene (see references/style-guide.md for the catalogue); scenes without an entry hard-cut on the beat
 const TR = {
   title: [.5, trIris(W / 2, H / 2 + 30, K.ink)],
-  stat: [.55, trZoom(() => RECT.titleCircle || [1260, 290, 380, 380])],
+  price: [.55, trZoom(() => RECT.titleCircle || [1260, 290, 380, 380])],
   flow: [.45, trPush(0, 1)],
-  quote: [.6, trGrid(16, 9, K.lime)],
+  offline: [.45, trPush(1, 0)],
+  lang: [.5, trIris(W / 2, H / 2 + 30, K.ink)],
+  comm: [.45, trPush(0, 1)],
+  all: [.6, trGrid(16, 9, K.lime)],
 };
-const SCENES = [[S.open, sOpen, 'open'], [S.title, sTitle, 'title'], [S.stat, sStat, 'stat'], [S.flow, sFlow, 'flow'], [S.quote, sQuote, 'quote'], [S.end, sEndDemo, 'end']];
+const SCENES = [[S.open, sOpen, 'open'], [S.title, sTitle, 'title'], [S.price, sCard('price'), 'price'], [S.flow, sFlow, 'flow'], [S.offline, sCard('offline'), 'offline'], [S.lang, sCard('lang'), 'lang'], [S.comm, sCard('comm'), 'comm'], [S.all, sCard('all'), 'all'], [S.end, sEndDemo, 'end']];
 
 function renderInto(i, t, buf) {
   ctx = buf.getContext('2d'); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.clearRect(0, 0, W, H);
