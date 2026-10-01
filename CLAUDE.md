@@ -1,5 +1,10 @@
 # CLAUDE.md — léeme entero antes de planificar o tocar código
 
+> **ARRANQUE DE CADA SESION (JFC 2026-10-01):** 1) leer la bitacora de Notion "Bitacora Claude +
+> Codex — apps Made In Cuenca" (solo las ultimas entradas); 2) usar **Laya primero** para los juicios
+> chicos (`.claude/skills/jev-jfc/scripts/laya-evaluate.py`), luego Jev, luego Claude. Asi no se
+> re-explica el contexto y se gastan menos tokens desde el primer mensaje. Laya la instala el hook.
+
 > **Laptop (JFC 2026-09-30):** el trabajo diario se hace desde la nube; la laptop es respaldo y
 > copia local (ahi estan Obsidian y el pulso). No planificar nada que dependa de que JFC abra la PC.
 
