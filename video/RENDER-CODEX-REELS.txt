@@ -1,1 +1,0 @@
-Temporary render trigger for Codex Reel A and Reel B. Remove after artifacts are produced.
