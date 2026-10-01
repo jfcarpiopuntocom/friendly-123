@@ -1,0 +1,35 @@
+name: import-human-music
+
+on:
+  push:
+    branches:
+      - codex/human-music-import
+  workflow_dispatch: {}
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download human-composed CC-BY track
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl -fL --retry 3 --retry-delay 2             'https://www.scottbuckley.com.au/library/wp-content/uploads/2024/03/Simplicity.mp3'             -o out/Simplicity-Scott-Buckley.mp3
+          ffprobe -v error -show_entries format=duration,size,format_name             -show_entries stream=codec_name,codec_type,sample_rate,channels             -of json out/Simplicity-Scott-Buckley.mp3 | tee out/ffprobe.json
+          sha256sum out/Simplicity-Scott-Buckley.mp3 | tee out/SHA256SUMS.txt
+          cat > out/LICENSE-CREDIT.txt <<'EOF'
+          Track: Simplicity
+          Composer: Scott Buckley
+          Source: https://www.scottbuckley.com.au/library/simplicity/
+          License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+          Commercial use: permitted with attribution.
+          Required credit:
+          'Simplicity' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: human-music-simplicity
+          path: out/
+          if-no-files-found: error
