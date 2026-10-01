@@ -14,8 +14,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify preinstalled render tools
+      - name: Install ffmpeg and verify Chrome
         run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
           ffmpeg -version | head -n 1
           command -v google-chrome || command -v chromium-browser || command -v chromium
       - name: Render Reel A
