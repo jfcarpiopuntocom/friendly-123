@@ -28,7 +28,6 @@ jobs:
           node render.mjs --frames --workers=1 --soft-gl --chrome="$CHROME"
           node render.mjs --encode --audio=assets/score.m4a --out=out/full.mp4 --fps=30
           ffmpeg -y -i out/full.mp4 -vf "scale='min(1280,iw)':-2" -c:v libx264 -crf 24 -preset medium -c:a aac -b:a 128k codex-reel-A.mp4
-          npm run sheet
       - name: Render Reel B
         working-directory: video/codex-reel-B
         run: |
@@ -39,7 +38,6 @@ jobs:
           node render.mjs --frames --workers=1 --soft-gl --chrome="$CHROME"
           node render.mjs --encode --audio=assets/score.m4a --out=out/full.mp4 --fps=30
           ffmpeg -y -i out/full.mp4 -vf "scale='min(1280,iw)':-2" -c:v libx264 -crf 24 -preset medium -c:a aac -b:a 128k codex-reel-B.mp4
-          npm run sheet
       - name: Upload reels
         uses: actions/upload-artifact@v4
         with:
@@ -47,8 +45,6 @@ jobs:
           path: |
             video/codex-reel-A/out/full.mp4
             video/codex-reel-A/codex-reel-A.mp4
-            video/codex-reel-A/*sheet*.jpg
             video/codex-reel-B/out/full.mp4
             video/codex-reel-B/codex-reel-B.mp4
-            video/codex-reel-B/*sheet*.jpg
           if-no-files-found: error
