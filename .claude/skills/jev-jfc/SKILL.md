@@ -1,6 +1,6 @@
 ---
 name: jev-jfc
-description: Use Jev (TypeSafe System One model) through JFC's budget-capped Vercel AI Gateway key for repeated or high-volume bounded judgments - routing, relevance/ranking, triage, yes/no checks over many items - when it saves more Claude context than it costs. Not for text generation, exact rules, math, dates, money, one-off trivial choices, irreversible actions, or customer/private data. Applies to friendly-123, AMIGABLE and consultorio-123.
+description: ALWAYS use Laya first (JFC order 2026-10-01, "siempre siempre siempre"), then Jev as backup. Use Jev (TypeSafe System One model) through JFC's budget-capped Vercel AI Gateway key for repeated or high-volume bounded judgments - routing, relevance/ranking, triage, yes/no checks over many items - when it saves more Claude context than it costs. Not for text generation, exact rules, math, dates, money, one-off trivial choices, irreversible actions, or customer/private data. Applies to friendly-123, AMIGABLE and consultorio-123.
 ---
 
 # Jev for JFC (Claude side)
@@ -18,6 +18,8 @@ The executor is byte-identical to Codex's; only this how-to differs.
 - Not worth a call for a single obvious yes/no. The call must save more than it consumes.
 
 ## Laya FIRST, Jev as backup (JFC 2026-10-01)
+**JFC order: use Laya ALWAYS, whenever possible, without being asked** - every bounded judgment, every
+research pass, every copy score. It inherits Jev's "at all times" mandate and costs nothing.
 Laya (pip `laya`, Apache-2.0, open weights) does the same typed judgments (`choice`/`score`/`noul`)
 LOCALLY: free, no credits, nothing leaves the machine. Same JSON as Jev, same hard limits below.
 - Laptop: `python scripts/laya-evaluate.py < request.json` (first run downloads the model from Hugging Face).
