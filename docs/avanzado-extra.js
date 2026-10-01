@@ -764,15 +764,43 @@
             el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
           } catch (_) { el.textContent = "Sync: —"; }
         };
-        /* Aviso de hora (JFC 2026-09-30): lee OCLatencia.desvioReloj cada 3 s. */
+        /* Aviso de hora (JFC 2026-09-30): lee OCLatencia.desvioReloj cada 3 s.
+           2026-10-01 (JFC: "me dice 2 min atras aunque la UI esta en Auto"): un solo testigo
+           (el relay) no basta para acusar al aparato. SEGUNDO TESTIGO independiente: la
+           cabecera Date del propio servidor de la app (mismo origen, sin datos del negocio,
+           precision 1 s). El aviso sale SOLO si los dos coinciden en el lado y en >60 s.
+           Si discrepan, no se acusa al aparato y se avisa al canario (reloj-testigos-discrepan)
+           para revisar el relay. El texto ya no manda "activar la hora automatica": con Auto
+           puesto, Windows puede correrse igual hasta la proxima sincronizacion. */
+        var _testigo = { en: 0, desfase: null, pidiendo: false, avisado: false };
+        var _pedirTestigo = function () {
+          if (_testigo.pidiendo || Date.now() - _testigo.en < 5 * 60 * 1000) return;
+          _testigo.pidiendo = true;
+          var t0 = Date.now();
+          fetch("version.json?reloj=" + t0, { cache: "no-store" }).then(function (r) {
+            var t2 = Date.now(), h = r.headers.get("Date"), srv = h ? Date.parse(h) : NaN;
+            // Date trunca al segundo: +500 ms centra el error. Ida y vuelta lenta = muestra inutil.
+            if (isFinite(srv) && t2 - t0 < 10000) { _testigo.desfase = srv + 500 - (t0 + t2) / 2; _testigo.en = t2; }
+          }).catch(function () {}).then(function () { _testigo.pidiendo = false; });
+        };
         var _pintarReloj = function () {
           var n = document.getElementById("oc-reloj-aviso"); if (!n) return;
           try {
             var d = window.OCLatencia && window.OCLatencia.desvioReloj ? window.OCLatencia.desvioReloj() : null;
             if (!d || !d.hayAviso) { n.style.display = "none"; return; }
+            _pedirTestigo();
+            var w = _testigo.desfase;
+            if (w === null) { n.style.display = "none"; return; } // sin segundo testigo todavia: no se acusa
+            var mismoLado = (w < 0) === (d.desfaseMs < 0);
+            if (!mismoLado || Math.abs(w) < 60000) {
+              n.style.display = "none";
+              if (!_testigo.avisado) { _testigo.avisado = true; try { window.OCCanarios && window.OCCanarios.fallo("avanzado", "reloj-testigos-discrepan"); } catch (_) {} }
+              return;
+            }
             var m = Math.round(d.minutos);
             n.textContent = "Clock warning: this device's clock is about " + (m < 1 ? "1" : m) + " minute" + (m > 1 ? "s" : "") +
-              (d.adelantado ? " ahead" : " behind") + ". Sales made here will show the wrong time. Fix it in the device's date and time settings (turn on automatic time).";
+              (d.adelantado ? " ahead" : " behind") + " (checked against two separate time sources). Sales made here will show the wrong time." +
+              " Even with automatic time on, a computer can drift until its next sync: on Windows open Date & time settings and press \"Sync now\"; on a phone, turn automatic time off and on again.";
             n.style.display = "";
           } catch (_) { n.style.display = "none"; }
         };

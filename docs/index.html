@@ -111,6 +111,7 @@
 <script src="./pocketbase-client.js"></script>
 <script src="./estado-idb.js"></script>
 <script src="./canarios.js"></script>
+<script src="./copiar-libre.js"></script>
 <script src="./invariantes.js"></script>
 <script src="./mock-backend.js"></script>
 <script src="./red-segura.js"></script>
@@ -8494,7 +8495,7 @@ async function cargarComisiones(){
     const uid = f.ubicacionId.replace(/[^a-z0-9]/gi, "");
     return `
       <details style="margin-top:10px;">
-        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);user-select:none;">What if I sell more? →</summary>
+        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);">What if I sell more? →</summary>
         <div style="padding:10px 0 4px;">
           <label style="font-size:13px;">Projected sales: <strong id="sim-lbl-${uid}">${fmtMoney(f.ventasBrutas)}</strong></label><br>
           <input type="range" id="sim-rng-${uid}"
@@ -8531,7 +8532,7 @@ async function cargarComisiones(){
     const actual = f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0);
     return `
       <details style="margin-top:10px;">
-        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--rust-ink,#E86040);user-select:none;">Was the percentage wrong? Fix it →</summary>
+        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--rust-ink,#E86040);">Was the percentage wrong? Fix it →</summary>
         <div style="padding:10px 0 4px;">
           <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px;">Recalculates the split for this month's sales on this shelf. The sale, the product and the stock stay the same — only the split changes. There's a record of what it said before.</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
@@ -8593,7 +8594,7 @@ async function cargarComisiones(){
       ${f.esMesActual === false ? "" : editorComisionHtml(f)}
       ${(f.detallePendientes && f.detallePendientes.length) ? `
       <details style="margin-top:8px;">
-        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);user-select:none;">Which sales does this payment cover? →</summary>
+        <summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);">Which sales does this payment cover? →</summary>
         <table style="width:100%;margin-top:6px;font-size:14px;">
           ${f.detallePendientes.map(d => `<tr><td>${d.cantidad}× ${escHtml(d.producto)}</td><td style="text-align:right;">${fmtMoney(d.comisionSocio)}</td></tr>`).join("")}
         </table>
