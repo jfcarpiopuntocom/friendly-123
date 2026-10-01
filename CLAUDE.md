@@ -269,6 +269,11 @@ trabajo está mal hecho aunque el código funcione.
 - Caso que origino la regla: el PUSH del panel decia "hecho" y los clientes seguian en v429 (sonar.yml
   corre cada 4-7 h). Corregido en v432. Cualquier texto "no honesto" que se encuentre se corrige en el acto.
 
+## REGLA DURA JFC 2026-10-01: LO QUE GASTE MENOS TOKENS + JFC NO USA TERMINAL
+- Entre dos caminos que logran lo mismo, se elige el que gaste menos tokens (esperar un proceso en segundo plano no gasta).
+- JFC nunca corre comandos: Claude hace todo. Si algo exige su laptop (GPU, Obsidian), se usa una sesion LOCAL de Claude Code, no se le pasan comandos.
+- Pruebas con materiales de JFC (logo, frases, datos demo propios), nunca con contenido generico.
+
 ## LICENCIAS: NUNCA EN EL REPO (JFC 2026-09-22) — el repo es PÚBLICO
 - Jamás escribir una licencia completa (F123-/AMG-/C123-) en código, docs, tests
   ni commits. Una licencia da acceso a su cuaderno. Pasó con la licencia
