@@ -297,8 +297,9 @@ trabajo está mal hecho aunque el código funcione.
 - **LAYA PRIMERO (JFC 2026-10-01):** Laya (`pip install laya`, modelo abierto, corre en el aparato,
   gratis) hace los mismos juicios que Jev (choice/score/noul). Orden: Laya -> Jev -> Claude decide.
   Mismas prohibiciones. Ejecutor: `.claude/skills/jev-jfc/scripts/laya-evaluate.py` (mismo JSON que Jev).
-  En la nube necesita `huggingface.co` y `cdn-lfs.huggingface.co` en Network access del entorno. Probado 2026-10-01: laya 0.3.22 instala, pero el modelo da 403; faltan tambien
-  `cas-server.xethub.hf.co` y `*.hf.co` (o `HF_HUB_DISABLE_XET=1` + `cdn-lfs*.hf.co`).
+  En la nube necesita `huggingface.co` y `cdn-lfs.huggingface.co` en Network access del entorno. Tambien `*.hf.co` y `cas-server.xethub.hf.co`.
+  **FUNCIONA (2026-10-01):** JFC agrego los dominios; Laya responde en ~5 s. Formato de cada pregunta:
+  `{"type":"choice","criteria":[...],"instructions":"..."}` (no "options").
 - Claude razona, depura, lee y escribe código y textos. Jev (TypeSafe, vía Vercel AI
   Gateway) toma los juicios chicos y repetidos sobre el MISMO estado público:
   clasificar, rankear, triar, sí/no sobre muchos ítems. El código hace cuentas,
