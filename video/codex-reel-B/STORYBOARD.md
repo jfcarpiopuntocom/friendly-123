@@ -1,16 +1,16 @@
-# <Reel title> · kinetic reel (<N> s, 16:9, 30 fps, 120 BPM)
+# Reel B — Cafés, Bars & Events
 
-**Emphasis / time budget**: which chapter is the lead and what share of the runtime each gets
-(e.g. 01 lead 36% · 02 21% · 03 17% · intro, index, finale 26%). Decide this before any code.
+27-second comparison reel for friendly-123.
 
-**Source of truth for on-screen facts**: <résumé / brief / doc>. Every number on screen comes from it, with its scope
-(test set, sample size). Schematic visuals (IDs, example rows, diagrams) are labelled SCHEMATIC.
+## Beats
+- 0–3 s — branded opening.
+- 3–6 s — **COUNT EVERY POUR.**
+- 6–9 s — bar items sold by serving.
+- 9–12 s — tickets → per person → day close.
+- 12–15 s — customer debt (fiado) and credit (abono).
+- 15–18 s — works offline; data stays on the device.
+- 18–21 s — EN / ES in one tap.
+- 21–24 s — day-close review: sales, expenses, customers, tickets.
+- 24–27 s — **START SEEING.** demo 456 / bit.ly/friendly123 / Made in Cuenca · Ecuador.
 
-**Thread / device**: the one idea that ties the reel together (v3 used "the reel is an agent trace": segmented progress
-bar + a span waterfall finale).
-
-| Time | Chapter / shot | Headline (big type) | Visual mechanism | Transition in | Sound |
-|---|---|---|---|---|---|
-| 0–3 | open | — | particle terrain → dot → mark | from black | riser, blip, impact |
-| 3–6 | 01 title | MAKE IT / MOVE. | drop-in letters, chip row | iris from the mark | bloom |
-| … | | | | | |
+No QR. No testimonials. No unsourced claims.
