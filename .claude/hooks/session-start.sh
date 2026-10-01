@@ -30,7 +30,7 @@ paso() { # paso "nombre" comando...
 }
 
 # ---------- 1. Paquetes del sistema (solo los que falten) ----------
-APT_PAQ="libreoffice-impress libreoffice-writer libreoffice-calc poppler-utils fonts-crosextra-carlito fonts-crosextra-caladea ffmpeg"
+APT_PAQ="libreoffice-impress libreoffice-writer libreoffice-calc poppler-utils fonts-crosextra-carlito fonts-crosextra-caladea ffmpeg rsync"
 FALTAN=""
 for p in $APT_PAQ; do dpkg -s "$p" >/dev/null 2>&1 || FALTAN="$FALTAN $p"; done
 if [ -n "$FALTAN" ]; then

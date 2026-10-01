@@ -544,3 +544,11 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - [ ] Si no hay publicacion en curso, un PUSH sigue dependiendo del cron lento de sonar.yml. Arreglo de fondo (decision de JFC):
   que el Worker dispare sonar.yml (workflow_dispatch) con un token de GitHub como secret.
 - REGLA DURA 2026-10-01 (JFC): NO MENTIR. Ninguna UI afirma algo que no paso o no se comprobo. Escrita en CLAUDE.md, AGENTS.md y DESIGN.md.
+
+## 2026-10-01 — skills de video (de la lista "10 repos de la semana de Opus 5.5")
+- [x] Instaladas en `.claude/skills/` (MIT, con su LICENSE): kinetic-reel, painted-animation (opus-video-skills) y
+  lemo-opuscar. Prueba con el logo de friendly en `video/friendly-reel-prueba/` (sheet renderizado en la nube).
+- NO traidos: shipvideo (#8, sin licencia = todos los derechos reservados; ademas es servicio OpenComputer+Vercel;
+  kinetic-reel cubre lo mismo: promo HTML -> MP4), PDoomVideo y claude-opus-5-5-demo (sin licencia),
+  motion-graphics-music-video (MIT pero manda datos a Fal, tercero pagado), tidewater (juego, 107 MB, sin uso aqui),
+  listas awesome (solo enlaces). Detalle en Notion.
