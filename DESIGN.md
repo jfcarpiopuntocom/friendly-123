@@ -132,3 +132,14 @@ counter ignora al asistente; si el comisionista de la pieza ya no existe, usa el
 una venta NUNCA se bloquea. Ventas viejas guardadas como "counter" (<= v428) siguen igual y se
 corrigen una a una con "Review split". La UI no debe ofrecer opciones que se bloqueen o contradigan
 entre si (JFC 2026-09-30).
+
+## REGLA DURA JFC 2026-10-01: NO MENTIR. LA UI HACE LO QUE DICE (las 3 apps, paginas y paneles)
+- Prohibido que una pantalla, boton, aviso o texto afirme algo que no paso o que no se comprobo:
+  "hecho", "guardado", "enviado", "publicado", "sincronizado", "pagado", "cumplido", etc.
+- Si la accion queda en cola o depende de otro sistema, se dice ASI ("registrada, todavia no esta
+  hecha") y la pantalla muestra el estado MEDIDO (ej. el panel compara lo que tienen los clientes).
+- Antes de entregar cualquier cambio de UI: comprobar que cada promesa de esa pantalla se cumple en
+  el dato o en el sistema real (persona-testing / verificar-ui). Si no se pudo comprobar, se dice.
+- Caso que origino la regla: el PUSH del panel decia "hecho" y los clientes seguian en v429 (sonar.yml
+  corre cada 4-7 h). Corregido en v432. Cualquier texto "no honesto" que se encuentre se corrige en el acto.
+

@@ -543,3 +543,4 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - [x] Bug del demo el dia 1 de cada mes: ventas "del mes en curso" caian en el mes anterior (Commissions vacio). Ahora { mesActual }.
 - [ ] Si no hay publicacion en curso, un PUSH sigue dependiendo del cron lento de sonar.yml. Arreglo de fondo (decision de JFC):
   que el Worker dispare sonar.yml (workflow_dispatch) con un token de GitHub como secret.
+- REGLA DURA 2026-10-01 (JFC): NO MENTIR. Ninguna UI afirma algo que no paso o no se comprobo. Escrita en CLAUDE.md, AGENTS.md y DESIGN.md.
