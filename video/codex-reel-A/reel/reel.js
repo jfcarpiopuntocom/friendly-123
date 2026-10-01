@@ -419,11 +419,11 @@ function sTitle(t) {
    reales"). Mismo estilo que sTitle (fondo claro, palabras que caen, circulo con el logo, chips). Solo datos
    verdaderos de friendly-123; nada de cifras sin fuente. */
 const CARDS = {
-  price:   { w1: 'EACH PIECE.', w2: 'ITS OWN SPLIT.', chips: ['CONSIGNMENT', 'ASSOCIATE', 'COUNTER SALE'], col: K.lime, tl: 'PIECE BY PIECE', br: 'EACH ITEM CAN CARRY ITS OWN COMMISSION DEAL' },
-  offline: { w1: 'COMMISSIONS', w2: 'TO THE CENT.', chips: ['CONSIGNMENT', 'ASSOCIATES', 'COUNTER SALES'], col: K.blue, tl: 'FAIR SPLITS', br: 'WHO GETS WHAT, CLEAR' },
-  lang:    { w1: 'COUNTER SALE.', w2: 'STILL COMMISSIONS.', chips: ['PIECE DEAL', 'SHELF DEAL', 'CLEAR SPLIT'], col: K.orange, tl: 'AT THE DOOR', br: 'COUNTER SALES KEEP THE COMMISSION DEAL' },
-  comm:    { w1: '$399 ONCE.', w2: '5 YEARS.', chips: ['NO MONTHLY FEES', 'ONE LICENSE', 'ONE PAYMENT'], col: K.green, tl: 'PRICE', br: 'ONE PAYMENT · 5-YEAR LICENSE' },
-  all:     { w1: '60+ DAYS?', w2: 'DEAD WEIGHT.', chips: ['IN STOCK', 'LOW', 'URGENT', 'DEAD WEIGHT'], col: K.red, tl: 'THE SEMAPHORE', br: 'BLACK = 60+ DAYS WITHOUT A SALE' },
+  price:   { w1: 'EACH PIECE.', w2: 'ITS OWN SPLIT.', chips: ['CONSIGNMENT', 'ASSOCIATE', 'COUNTER SALE'], col: K.lime, tl: 'PIECE BY PIECE', sec: 'PIECE DEAL', br: 'EACH ITEM CAN CARRY ITS OWN COMMISSION DEAL' },
+  offline: { w1: 'COMMISSIONS', w2: 'TO THE CENT.', chips: ['CONSIGNMENT', 'ASSOCIATES', 'COUNTER SALES'], col: K.blue, tl: 'FAIR SPLITS', sec: 'SPLITS', br: 'WHO GETS WHAT, CLEAR' },
+  lang:    { w1: 'COUNTER SALE.', w2: 'STILL COMMISSIONS.', chips: ['PIECE DEAL', 'SHELF DEAL', 'CLEAR SPLIT'], col: K.orange, tl: 'AT THE DOOR', sec: 'COUNTER', br: 'COUNTER SALES KEEP THE COMMISSION DEAL' },
+  comm:    { w1: '$399 ONCE.', w2: '5 YEARS.', chips: ['NO MONTHLY FEES', 'ONE LICENSE', 'ONE PAYMENT'], col: K.green, tl: 'PRICE', sec: 'PRICE', br: 'ONE PAYMENT · 5-YEAR LICENSE' },
+  all:     { w1: '60+ DAYS?', w2: 'DEAD WEIGHT.', chips: ['IN STOCK', 'LOW', 'URGENT', 'DEAD WEIGHT'], col: K.red, tl: 'THE SEMAPHORE', sec: 'DEAD STOCK', br: 'BLACK = 60+ DAYS WITHOUT A SALE' },
 };
 function sCard(key) { return (t) => {
   const c = CARDS[key], t0 = S[key], lt = t - t0;
@@ -434,7 +434,7 @@ function sCard(key) { return (t) => {
   const k = backOut(seg(lt, .2, .6)), cx = 1620, cy = 250;
   circle(cx, cy, 170 * k, { fill: c.col }); if (k > .05) { const lw = 300 * k, lh = lw * LOGO.height / LOGO.width; ctx.drawImage(LOGO, cx - lw / 2, cy - lh / 2, lw, lh); }
   let x = 146; c.chips.forEach((s2, i) => { x += chip(s2, x, 830, { k: seg(t, t0 + 1.4 + i * .15, t0 + 1.65 + i * .15), bg: i === 1 ? c.col : K.ink, fg: i === 1 && c.col === K.lime ? K.ink : K.cream }) + 14; });
-  hud(t, { dark: false, tl: c.tl, tr: tc(t), bl: sec(1, key.toUpperCase()), br: c.br, brackets: false });
+  hud(t, { dark: false, tl: c.tl, tr: tc(t), bl: sec(1, c.sec || key.toUpperCase()), br: c.br, brackets: false });
 }; }
 function sFlow(t) {
   bg(K.ink); const lt = t - S.flow;
