@@ -16,16 +16,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out
-          curl -fL --retry 3 --retry-delay 2             'https://ifarchive.ifreviews.org/if-archive/games/competition2020/Games/The%20Cursed%20Pickle%20of%20Shireton/files/Lobby%20Time.mp3'             -o out/Lobby-Time-Scott-Buckley.mp3
-          sha256sum out/Lobby-Time-Scott-Buckley.mp3 | tee out/SHA256SUMS.txt
+          curl -fL --retry 3 --retry-delay 2             'https://incompetech.com/music/royalty-free/music/Kawai%20Kitsune.mp3'             -o out/Kawai-Kitsune-Scott-Buckley.mp3
+          sha256sum out/Kawai-Kitsune-Scott-Buckley.mp3 | tee out/SHA256SUMS.txt
           cat > out/LICENSE-CREDIT.txt <<'EOF'
-          Track: Lobby-Time
+          Track: Kawai-Kitsune
           Composer: Kevin MacLeod
-          Source/license: https://www.incompetech.com/music/royalty-free/index.html?isrc=USUAN1600054
+          Source/license: https://incompetech.com/music/royalty-free/index.html?Search=Search&isrc=USUAN1500059
           License: Creative Commons Attribution 4.0 International (CC BY 4.0)
           Commercial use: permitted with attribution.
           Required credit:
-          "Lobby Time" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 License http://creativecommons.org/licenses/by/4.0/
+          "Kawai Kitsune" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 License http://creativecommons.org/licenses/by/4.0/
           EOF
       - uses: actions/upload-artifact@v4
         with:
