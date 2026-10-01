@@ -15,3 +15,4 @@ Reglas que ya costaron caro (2026-09-29):
 4. Nunca licencias completas, PIN, claves ni datos de clientes en el repo (es PUBLICO), ni en Notion.
 5. **COUNTER NO ES LA CASA** (JFC 2026-09-30, v429): una venta de mostrador se comisiona con el trato
    de la pieza o de la percha. No reintroducir "counter = venta de la casa sin comision". Ver `CLAUDE.md` regla 7.
+6. **NO MENTIR (JFC 2026-10-01):** ninguna UI afirma "hecho/guardado/enviado/publicado" sin que haya pasado y se haya comprobado. Ver `CLAUDE.md`.
