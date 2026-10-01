@@ -552,3 +552,14 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
   kinetic-reel cubre lo mismo: promo HTML -> MP4), PDoomVideo y claude-opus-5-5-demo (sin licencia),
   motion-graphics-music-video (MIT pero manda datos a Fal, tercero pagado), tidewater (juego, 107 MB, sin uso aqui),
   listas awesome (solo enlaces). Detalle en Notion.
+
+## 2026-10-01 — shell v433: foto de variante que quedaba gris
+- Caso JFC: cambio la foto de "Spray de la verdad — Bourgeois" y la tarjeta quedo con iniciales (SD), sin la foto de la familia.
+- Verificado en Chromium: un JPG normal SI se guarda y sobrevive la recarga. Si la variante no tuviera foto, ya saldria la de la familia.
+  Que salgan iniciales prueba que quedo guardada una foto que el navegador no abre; la tarjeta la borraba en silencio (onerror).
+- [x] Foto propia rota -> cae a la de la familia con su marca. Archivo ilegible (o imagen sin tamano, "data:,") -> aviso rojo y NO guarda.
+- [x] test/foto-variante-ui.test.js rojo 0/2 contra respaldo, verde 2/2. Suite 476/476, check-sw OK.
+- [ ] Causa raiz de COMO entro la foto rota al aparato de JFC: sin confirmar (no hay acceso a sus datos). Sospecha: sync de fotos por hash.
+- [ ] Canarios: miden errores de JS; una foto que no abre no es error, por eso no avisaron. Medirlo seria telemetria nueva: decision de JFC.
+- Commissions: lo de Belen (v424 % por pieza, v429 counter se comisiona, v430 tickets por persona, v431 orden) esta en master y estable; 106/106 pruebas.
+  Siguen pendientes: 3 ventas viejas counter y tickets viejos con cantidad 1 (se corrigen a mano en la app).
