@@ -407,23 +407,23 @@ function sOpen(t) {
 }
 function sTitle(t) {
   bg(K.cream); const lt = t - S.title;
-  dropWord('STOP', 140, 430, font(F.cond, 240), Hh.title, t, { fill: K.ink, fall: 200 });
-  dropWord('GUESSING.', 140, 700, font(F.cond, 300), Hh.title + .2, t, { fill: K.ink, fall: 220, fillAt: i => i === 8 ? K.red : K.ink });
+  dropWord('COUNT EVERY', 140, 430, font(F.cond, 210), Hh.title, t, { fill: K.ink, fall: 200 });
+  dropWord('POUR.', 140, 700, font(F.cond, 300), Hh.title + .2, t, { fill: K.ink, fall: 220, fillAt: i => i === 4 ? K.red : K.ink });
   const k = backOut(seg(lt, .2, .6)), cx = 1560, cy = 300;
   circle(cx, cy, 190 * k, { fill: K.lime }); if (k > .05) { ctx.save(); ctx.globalAlpha = Math.min(1, k); { const lw = 340 * k, lh = lw * LOGO.height / LOGO.width; ctx.drawImage(LOGO, cx - lw / 2, cy - lh / 2, lw, lh); } ctx.restore(); }
   RECT.titleCircle = [cx - 190, cy - 190, 380, 380];
-  let x = 146; ['INVENTORY', 'SALES', 'COMMISSIONS'].forEach((s, i) => { x += chip(s, x, 830, { k: seg(t, Hh.chips + i * .15, Hh.chips + i * .15 + .25), bg: i === 1 ? K.lime : K.ink, fg: i === 1 ? K.ink : K.cream }) + 14; });
+  let x = 146; ['SERVINGS', 'TICKETS', 'DAY CLOSE'].forEach((s, i) => { x += chip(s, x, 830, { k: seg(t, Hh.chips + i * .15, Hh.chips + i * .15 + .25), bg: i === 1 ? K.lime : K.ink, fg: i === 1 ? K.ink : K.cream }) + 14; });
   hud(t, { dark: false, tl: '01 / TITLE', tr: tc(t), bl: sec(1, 'TYPE'), br: 'TRULY BILINGUAL · EN / ES', zh: 'BILINGÜE', zhRight: true, brackets: false });
 }
 /* TARJETAS DE BENEFICIO (JFC 2026-10-01: "manten los primeros 5 secs y EXTIENDE con info y beneficios
    reales"). Mismo estilo que sTitle (fondo claro, palabras que caen, circulo con el logo, chips). Solo datos
    verdaderos de friendly-123; nada de cifras sin fuente. */
 const CARDS = {
-  price:   { w1: '$399 ONCE.', w2: '5 YEARS.', chips: ['NO MONTHLY FEES', 'ONE LICENSE', 'YOURS'], col: K.lime, tl: 'PRICE', br: 'ONE PAYMENT · 5-YEAR LICENSE' },
-  offline: { w1: 'WORKS', w2: 'OFFLINE.', chips: ['NO INTERNET NEEDED', 'DATA ON YOUR DEVICE', 'PRIVATE'], col: K.blue, tl: 'YOUR DATA', br: 'YOUR BUSINESS STAYS WITH YOU' },
-  lang:    { w1: 'ENGLISH.', w2: 'ESPAÑOL.', chips: ['ONE TAP', 'SAME DATA', 'YOUR WHOLE TEAM'], col: K.orange, tl: 'TRULY BILINGUAL', br: 'EN / ES' },
-  comm:    { w1: 'COMMISSIONS', w2: 'TO THE CENT.', chips: ['CONSIGNMENT', 'ASSOCIATES', 'COUNTER SALES'], col: K.green, tl: 'FAIR SPLITS', br: 'WHO GETS WHAT, CLEAR' },
-  all:     { w1: 'ONE APP.', w2: 'WHOLE SHOP.', chips: ['INVENTORY', 'SALES', 'CUSTOMERS', 'EXPENSES', 'LABELS'], col: K.red, tl: 'EVERYTHING', br: 'POP-UPS · BOUTIQUES · CONSIGNMENT' },
+  price:   { w1: 'SELL BY', w2: 'SERVING.', chips: ['BAR', 'POUR', 'SERVING'], col: K.lime, tl: 'BAR MODE', br: 'BAR ITEMS CAN BE SOLD BY SERVING' },
+  offline: { w1: 'FIADO.', w2: 'ABONO.', chips: ['DEBT', 'CREDIT', 'CUSTOMERS'], col: K.blue, tl: 'CUSTOMERS', br: 'TRACK DEBT AND CREDIT CLEARLY' },
+  lang:    { w1: 'WORKS', w2: 'OFFLINE.', chips: ['NO INTERNET NEEDED', 'DATA ON YOUR DEVICE', 'PRIVATE'], col: K.orange, tl: 'YOUR DATA', br: 'YOUR BUSINESS STAYS WITH YOU' },
+  comm:    { w1: 'ENGLISH.', w2: 'ESPAÑOL.', chips: ['ONE TAP', 'SAME DATA', 'YOUR WHOLE TEAM'], col: K.green, tl: 'TRULY BILINGUAL', br: 'EN / ES' },
+  all:     { w1: 'CLOSE THE DAY.', w2: 'SEE IT CLEAR.', chips: ['SALES', 'EXPENSES', 'CUSTOMERS', 'TICKETS'], col: K.red, tl: 'DAY CLOSE', br: 'ONE PLACE TO REVIEW THE DAY' },
 };
 function sCard(key) { return (t) => {
   const c = CARDS[key], t0 = S[key], lt = t - t0;
@@ -438,9 +438,9 @@ function sCard(key) { return (t) => {
 }; }
 function sFlow(t) {
   bg(K.ink); const lt = t - S.flow;
-  dropWord('COUNT. SEE.', 140, 290, font(F.cond, 170), S.flow, t, { fall: 150 });
-  dropWord('SELL.', 140 + measure('COUNT. SEE. ', font(F.cond, 170)), 290, font(F.cond, 170), S.flow + .25, t, { fall: 150, fill: K.lime });
-  const N = [['IN STOCK', 400, K.green], ['LOW', 960, K.lime], ['URGENT', 1520, K.red]], ny = 600, nw = 320, nh = 110;
+  dropWord('BOOK. COUNT.', 140, 290, font(F.cond, 170), S.flow, t, { fall: 150 });
+  dropWord('CLOSE.', 140 + measure('BOOK. COUNT. ', font(F.cond, 170)), 290, font(F.cond, 170), S.flow + .25, t, { fall: 150, fill: K.lime });
+  const N = [['TICKETS', 400, K.green], ['PER PERSON', 960, K.lime], ['DAY CLOSE', 1520, K.red]], ny = 600, nw = 320, nh = 110;
   N.forEach(([s, x, colN], i) => {
     const k = seg(t, Hh.nodes[i], Hh.nodes[i] + .25), on = i === 2 && t > Hh.hops[3];
     rrect(x - nw / 2, ny - nh / 2, nw, nh, 55, { fill: colN, stroke: on ? K.cream : colN, lw: on ? 6 : 2, a: k });
@@ -454,8 +454,8 @@ function sFlow(t) {
     const fa = 1 - seg(t, hp[3] + .35, hp[3] + .5);
     circle(x, y, (14 + 6 * beatPulse(t)) * fa, { fill: K.lime });
   }
-  txt('YOUR STOCK SPEAKS IN COLOR', 140, 860, { font: font(F.mono, 19, 700), fill: 'rgba(241,238,230,.7)', ls: 2.5, a: seg(lt, .6, .9) });
-  hud(t, { tl: 'THE SEMAPHORE', tr: tc(t), bl: sec(2, 'DIAGRAM'), br: 'GREEN · YELLOW · RED', zh: 'EN COLORES', zhRight: true });
+  txt('FROM RESERVATION TO DAY CLOSE', 140, 860, { font: font(F.mono, 19, 700), fill: 'rgba(241,238,230,.7)', ls: 2.5, a: seg(lt, .6, .9) });
+  hud(t, { tl: 'EVENT FLOW', tr: tc(t), bl: sec(2, 'DIAGRAM'), br: 'TICKETS · PEOPLE · CLOSE', zh: 'EN COLORES', zhRight: true });
 }
 function sEndDemo(t) {
   bg(K.ink); const lt = t - S.end;
