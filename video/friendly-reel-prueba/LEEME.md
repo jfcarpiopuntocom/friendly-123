@@ -1,6 +1,6 @@
 # Reel de prueba con el logo de friendly-123 (2026-10-01)
 
-Hecho con la skill **kinetic-reel** (MIT, github.com/tuzhechen2005/opus-video-skills). Texto: la frase
+Version 2 (2026-10-01): colores y tipografias de friendly, solo datos verdaderos (sin QR ni cifras sin fuente), jazz swing sintetizado. Hecho con la skill **kinetic-reel** (MIT, github.com/tuzhechen2005/opus-video-skills). Texto: la frase
 del PIN de friendly ("Stop guessing. Start seeing."). Logo: `docs/logo.png`. `prueba-sheet.jpg` = dos
 cuadros renderizados en la nube (sin GPU, por eso la fuente condensada no cargo: la nube bloquea Google Fonts).
 

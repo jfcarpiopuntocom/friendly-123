@@ -49,19 +49,31 @@ const pluck = (t, m, v = 1, pan = 0) => put(t, .5, tt => v * .16 * (Math.sin(TAU
 const pad = (t, notes, len, v = 1) => notes.forEach((m, i) => { const d = [1, 1.004, .996]; put(t, len + .8, tt => { let s = 0; for (const k of d) for (let h = 1; h <= 4; h++) s += Math.sin(TAU * mtof(m) * k * h * tt + h) / (h * h); return v * .025 * s * Math.min(1, tt / .4) * (tt > len ? Math.exp(-(tt - len) * 4) : 1); }, { gain: .8, pan: (i - 1) * .5, rev: .6, bus: 'mus' }); });
 
 // ---------- arrangement (bars of 2 s) ----------
-const CH = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]];   // Am F C G
-const ROOT = [33, 29, 36, 31];
+// JAZZ (JFC 2026-10-01: "jazzy music cool"). Turnaround ii-V-I-VI en Do: Dm9 G13 Cmaj9 A7(b9).
+// Swing: la corchea de "y" cae al 2/3 del pulso. Ride swing, escobillas en 2 y 4, bombo suave en 1,
+// contrabajo caminando en negras y comping de Rhodes en anticipaciones.
+const CH = [[53, 57, 60, 64], [53, 57, 59, 64], [52, 55, 59, 62], [55, 58, 61, 64]];
+const WALK = [[38, 41, 45, 43], [43, 47, 50, 44], [36, 40, 43, 42], [45, 49, 52, 37]];
 const barOf = t => Math.floor(t / 2);
-pad(0, [57, 64, 69], 2.9, .8); riser(.2, 1.8, .7);
-blip(Hh.dot, 88, .8); impact(Hh.mark, .9);
-for (let t = S.title; t < Hh.glitch; t += BEAT) {           // the groove: kick 4-on-floor, claps on 2 & 4, 8th hats
-  const b = Math.round(t / BEAT), beatIn = b % 4, ch = barOf(t) % 4, calm = t >= S.quote && t < S.end;
-  kick(t, calm ? (beatIn === 0 ? .7 : 0) : beatIn === 0 ? 1 : .85);
-  if ((beatIn === 1 || beatIn === 3) && !calm) clap(t, .75);
-  for (let e = 0; e < 2; e++) hat(t + e * BEAT / 2, e ? .9 : .45, e === 1 && beatIn === 3);
-  bass(t, ROOT[ch] + 12, BEAT * .45, .9); bass(t + BEAT / 2, ROOT[ch] + (beatIn === 3 ? 19 : 12), BEAT * .4, .75);
-  if (!calm) for (let s2 = 0; s2 < 4; s2++) pluck(t + s2 * BEAT / 4, CH[ch][(b * 4 + s2) % 3] + 12 + (s2 === 3 ? 12 : 0), .45, s2 % 2 ? .35 : -.35);
-  if (beatIn === 0) pad(t, CH[ch].map(m => m + 12), 1.9, .7);
+const rhodes = (t, notes, len, v = 1) => notes.forEach((m, i) => put(t + i * .012, len + .4, tt => {
+  const f = mtof(m), trem = 1 + .18 * Math.sin(TAU * 5.5 * tt), env = Math.min(1, tt / .008) * Math.exp(-tt * 1.6);
+  return v * .075 * env * trem * (Math.sin(TAU * f * tt) + .45 * Math.sin(TAU * f * 2 * tt) * Math.exp(-tt * 5) + .12 * Math.sin(TAU * f * 3.01 * tt) * Math.exp(-tt * 9));
+}, { gain: .85, pan: -.35 + .7 * i / Math.max(1, notes.length - 1), rev: .35, bus: 'mus' }));
+const upright = (t, m, len, v = 1) => put(t, len + .08, tt => {
+  const f = mtof(m), env = Math.min(1, tt / .006) * Math.exp(-tt * 3.2) * (tt > len ? Math.max(0, 1 - (tt - len) / .08) : 1);
+  return v * .5 * env * (Math.sin(TAU * f * tt) + .3 * Math.sin(TAU * f * 2 * tt) * Math.exp(-tt * 6));
+}, { gain: .9, pan: .05, bus: 'mus' });
+const brush = (t, v = 1) => noise(t, .22, tt => v * .35 * Math.exp(-tt * 18), () => [2600, .5], { gain: .55, pan: -.1, rev: .2 });
+pad(0, [60, 64, 67, 71], 2.9, .6); riser(.2, 1.8, .4);
+blip(Hh.dot, 84, .7); impact(Hh.mark, .6);
+for (let t = S.title; t < Hh.glitch; t += BEAT) {
+  const b = Math.round(t / BEAT), beatIn = b % 4, ch = barOf(t) % 4, calm = t >= S.quote && t < S.end, sw = BEAT * 2 / 3;
+  if (beatIn === 0) kick(t, calm ? .35 : .5);
+  if (beatIn === 1 || beatIn === 3) brush(t, calm ? .5 : .8);
+  hat(t, .55); if (beatIn === 1 || beatIn === 3) hat(t + sw, .4);          // ride: ding, ding-a
+  upright(t, WALK[ch][beatIn], BEAT * .9, calm ? .7 : .95);
+  if (!calm && (beatIn === 1 || beatIn === 3)) rhodes(t + sw, CH[ch].map(m => m + 12), .35, .9);   // comping anticipado
+  if (beatIn === 0) rhodes(t, CH[ch].map(m => m + 12), 1.2, calm ? 1 : .7);
 }
 
 // ---- transition sound design (v3.1): no noise whooshes. Transitions are carried by the music: a reversed-pad swell

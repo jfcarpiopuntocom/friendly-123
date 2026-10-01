@@ -6,8 +6,8 @@ import * as THREE from '../node_modules/three/build/three.module.js';
 
 const W = 1920, H = 1080, C = KCUE, S = C.S, Hh = C.hits, FPS = C.fps, BEAT = 60 / C.bpm;
 window.DUR = C.dur; window.PROJECT = { audio: 'assets/score.m4a' };
-const K = { ink: '#0E0F0E', ink2: '#171917', cream: '#F1EEE6', lime: '#DDF53D', blue: '#2F3CFF', red: '#E8412F', grey: '#8B908A', mid: '#5E625D' };
-const F = { cond: '"Anton"', wide: '"Archivo Black"', serif: '"Instrument Serif"', mono: '"JetBrains Mono"', zh: '"Noto Sans SC"' };
+const K = { ink: '#13233A', ink2: '#1C3150', cream: '#FFFFFF', lime: '#FFC72C', blue: '#1F7AE0', red: '#E8364F', orange: '#F28C28', green: '#00A86B', grey: '#C9D3DD', mid: '#5E6B7A' };
+const F = { cond: '"Space Grotesk"', wide: '"Space Grotesk"', serif: '"Space Grotesk"', mono: '"JetBrains Mono"', zh: '"Noto Sans SC"' };
 
 // ---------- math ----------
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
@@ -215,7 +215,7 @@ const post = (() => {
 
 // ---------- 2D helpers ----------
 let FX;
-const font = (fam, size, weight = '') => `${weight} ${size}px ${fam}`.trim();
+const font = (fam, size, weight = '') => `${weight || (fam === F.cond ? 700 : '')} ${size}px ${fam}`.trim();
 function txt(s, x, y, o = {}) {
   ctx.save();
   ctx.font = o.font; ctx.textAlign = o.align || 'left'; ctx.textBaseline = o.base || 'alphabetic'; ctx.letterSpacing = (o.ls || 0) + 'px';
@@ -403,36 +403,35 @@ function sOpen(t) {
     if (t < Hh.mark) circle(cx, cy, (14 + 10 * beatPulse(t)) * backOut(seg(t, Hh.dot, Hh.dot + .35)), { fill: K.lime });
     else { const k = backOut(seg(t, Hh.mark, Hh.mark + .4)); starburst(cx, cy, 90 * k, 14, K.lime, t * .4, .72); circle(cx, cy, 170 * k, { stroke: 'rgba(221,245,61,.35)', lw: 2 }); }
   }
-  hud(t, { tl: 'STUDIO — REEL ’26', tr: tc(t), bl: sec(0, 'OPEN'), br: '1920×1080 · 30 FPS · RENDERED IN CODE', zh: '作品集 · 2026', k: ease(seg(lt, .1, .6)) });
+  hud(t, { tl: 'FRIENDLY-123', tr: tc(t), bl: sec(0, 'OPEN'), br: 'MANAGE YOUR BUSINESS, IN COLOR', zh: 'HECHO EN CUENCA', k: ease(seg(lt, .1, .6)) });
 }
 function sTitle(t) {
   bg(K.cream); const lt = t - S.title;
   dropWord('STOP', 140, 430, font(F.cond, 240), Hh.title, t, { fill: K.ink, fall: 200 });
   dropWord('GUESSING.', 140, 700, font(F.cond, 300), Hh.title + .2, t, { fill: K.ink, fall: 220, fillAt: i => i === 8 ? K.red : K.ink });
-  const k = backOut(seg(lt, .2, .6)), cx = 1450, cy = 480;
+  const k = backOut(seg(lt, .2, .6)), cx = 1560, cy = 300;
   circle(cx, cy, 190 * k, { fill: K.lime }); if (k > .05) { ctx.save(); ctx.globalAlpha = Math.min(1, k); { const lw = 340 * k, lh = lw * LOGO.height / LOGO.width; ctx.drawImage(LOGO, cx - lw / 2, cy - lh / 2, lw, lh); } ctx.restore(); }
   RECT.titleCircle = [cx - 190, cy - 190, 380, 380];
-  let x = 146; ['KINETIC TYPE', 'THREE.JS LAYERS', 'BEAT-LOCKED CUTS'].forEach((s, i) => { x += chip(s, x, 830, { k: seg(t, Hh.chips + i * .15, Hh.chips + i * .15 + .25), bg: i === 1 ? K.lime : K.ink, fg: i === 1 ? K.ink : K.cream }) + 14; });
-  hud(t, { dark: false, tl: '01 / TITLE', tr: tc(t), bl: sec(1, 'TYPE'), br: 'IDEAS NEED ENERGY.', zh: '动态排版', zhRight: true, brackets: false });
+  let x = 146; ['INVENTORY', 'SALES', 'COMMISSIONS'].forEach((s, i) => { x += chip(s, x, 830, { k: seg(t, Hh.chips + i * .15, Hh.chips + i * .15 + .25), bg: i === 1 ? K.lime : K.ink, fg: i === 1 ? K.ink : K.cream }) + 14; });
+  hud(t, { dark: false, tl: '01 / TITLE', tr: tc(t), bl: sec(1, 'TYPE'), br: 'TRULY BILINGUAL · EN / ES', zh: 'BILINGÜE', zhRight: true, brackets: false });
 }
 function sStat(t) {
   bg(K.lime); const lt = t - S.stat;
   glShot(knot(t, { x: 2.6, y: -1.1, s: .5 }));
   const f = font(F.cond, 400), k = seg(t, Hh.flip, Hh.flip + .9);
-  const xEnd = odometer(12, 87, k, 150, 660, f, K.ink);
-  txt('%', xEnd + 10, 660, { font: f, fill: K.ink });
-  txt('EXAMPLE METRIC — REPLACE WITH A SOURCED FIGURE', 160, 750, { font: font(F.mono, 24, 700), fill: K.ink, ls: 4 });
-  hud(t, { dark: false, tl: '01.1 / RESULT', tr: tc(t), bl: sec(1, 'RESULT'), br: 'STATE THE EVAL SET HERE', brackets: false });
+  txt('$', 150, 660, { font: f, fill: K.red }); txt(String(Math.round(399 * ease(k))), 150 + measure('$', f) + 10, 660, { font: f, fill: K.ink });
+  txt('ONE PAYMENT · 5-YEAR LICENSE', 160, 750, { font: font(F.mono, 24, 700), fill: K.ink, ls: 4 });
+  hud(t, { dark: false, tl: 'PRICE', tr: tc(t), bl: sec(1, 'RESULT'), br: 'NO MONTHLY FEES', brackets: false });
 }
 function sFlow(t) {
   bg(K.ink); const lt = t - S.flow;
-  dropWord('SENSE. PLAN.', 140, 290, font(F.cond, 170), S.flow, t, { fall: 150 });
-  dropWord('ACT.', 140 + measure('SENSE. PLAN. ', font(F.cond, 170)), 290, font(F.cond, 170), S.flow + .25, t, { fall: 150, fill: K.lime });
-  const N = [['OBSERVE', 400], ['DECIDE', 960], ['EXECUTE', 1520]], ny = 600, nw = 320, nh = 110;
-  N.forEach(([s, x], i) => {
+  dropWord('COUNT. SEE.', 140, 290, font(F.cond, 170), S.flow, t, { fall: 150 });
+  dropWord('SELL.', 140 + measure('COUNT. SEE. ', font(F.cond, 170)), 290, font(F.cond, 170), S.flow + .25, t, { fall: 150, fill: K.lime });
+  const N = [['IN STOCK', 400, K.green], ['LOW', 960, K.lime], ['URGENT', 1520, K.red]], ny = 600, nw = 320, nh = 110;
+  N.forEach(([s, x, colN], i) => {
     const k = seg(t, Hh.nodes[i], Hh.nodes[i] + .25), on = i === 2 && t > Hh.hops[3];
-    rrect(x - nw / 2, ny - nh / 2, nw, nh, 55, { fill: on ? K.lime : K.ink2, stroke: on ? K.lime : 'rgba(241,238,230,.8)', lw: 2, a: k });
-    txt(s, x, ny + 14, { font: font(F.cond, 50), fill: on ? K.ink : K.cream, align: 'center', a: k, ls: 2 });
+    rrect(x - nw / 2, ny - nh / 2, nw, nh, 55, { fill: colN, stroke: on ? K.cream : colN, lw: on ? 6 : 2, a: k });
+    txt(s, x, ny + 14, { font: font(F.cond, 50), fill: i === 1 ? K.ink : K.cream, align: 'center', a: k, ls: 2 });
     if (i < 2) arrow(x + nw / 2 + 10, ny, N[i + 1][1] - nw / 2 - 12, ny, 'rgba(241,238,230,.8)', 2.5, seg(t, Hh.nodes[i + 1], Hh.nodes[i + 1] + .2));
   });
   const path = [400, 960, 400, 960, 1520], hp = Hh.hops;   // a token hops on the beat, with one loop back
@@ -442,26 +441,26 @@ function sFlow(t) {
     const fa = 1 - seg(t, hp[3] + .35, hp[3] + .5);
     circle(x, y, (14 + 6 * beatPulse(t)) * fa, { fill: K.lime });
   }
-  txt('SCHEMATIC — A STATE MACHINE, ONE HOP PER BEAT', 140, 860, { font: font(F.mono, 19, 700), fill: 'rgba(241,238,230,.7)', ls: 2.5, a: seg(lt, .6, .9) });
-  hud(t, { tl: '02 / SYSTEM', tr: tc(t), bl: sec(2, 'DIAGRAM'), br: 'EXPLICIT STATE MACHINE', zh: '显式状态机', zhRight: true });
+  txt('YOUR STOCK SPEAKS IN COLOR', 140, 860, { font: font(F.mono, 19, 700), fill: 'rgba(241,238,230,.7)', ls: 2.5, a: seg(lt, .6, .9) });
+  hud(t, { tl: 'THE SEMAPHORE', tr: tc(t), bl: sec(2, 'DIAGRAM'), br: 'GREEN · YELLOW · RED', zh: 'EN COLORES', zhRight: true });
 }
 function sQuote(t) {
   const lt = t - S.quote;
   glShot(liquid(t, { zoom: 1.5, seed: 9 }));
-  const words = ['Every frame,', 'on', 'purpose.'], f = `italic 124px ${F.serif}`;
+  const words = ['Private.', 'On your', 'device.'], f = `italic 124px ${F.serif}`;
   const total = measure(words.join(' '), f); let x = W / 2 - total / 2;
   words.forEach((wd, i) => { const k = seg(t, Hh.words[i], Hh.words[i] + .3); txt(wd, x, H / 2 + 20 + (1 - easeOut(k)) * 30, { font: f, fill: K.cream, a: k, glow: 'rgba(14,15,40,.35)', glowR: 20 }); x += measure(wd + ' ', f); });
   txt('每一帧都有意图', W / 2, H / 2 + 120, { font: font(F.zh, 28, 500), fill: 'rgba(241,238,230,.85)', ls: 12, align: 'center', a: seg(lt, 1, 1.3) });
-  hud(t, { tl: '02 / PRINCIPLE', tr: tc(t), bl: sec(2, 'QUOTE'), br: 'LIQUID MARBLE · WEBGL' });
+  hud(t, { tl: 'YOUR DATA', tr: tc(t), bl: sec(2, 'QUOTE'), br: 'NO CLOUD REQUIRED' });
 }
 function sEndDemo(t) {
-  bg('#121412'); const lt = t - S.end;
+  bg(K.ink); const lt = t - S.end;
   dropWord('START', 130, 560, font(F.cond, 280), Hh.name, t, { stag: .04, dur: .4 });
   dropWord('SEEING.', 130, 820, font(F.cond, 280), Hh.name + .25, t, { stag: .05, dur: .4, fillAt: i => i === 6 ? K.lime : K.cream });
   const mk = seg(t, Hh.name + .5, Hh.name + 1.3);
   starburst(1470, 440, 150 * backOut(mk), 14, K.lime, t * .3, .7);
   circle(1470, 440, (210 + 12 * beatPulse(t)) * backOut(mk), { stroke: 'rgba(221,245,61,.35)', lw: 2 }); if (mk > .05) { const lw = 400 * backOut(mk), lh = lw * LOGO.height / LOGO.width; ctx.drawImage(LOGO, 1470 - lw / 2, 440 - lh / 2, lw, lh); }
-  hud(t, { tl: 'FRIENDLY-123', tr: 'MADE IN CUENCA', bl: 'jfcarpio.com/friendly123', br: '', brackets: false, k: seg(lt, .5, 1) });
+  hud(t, { tl: 'FRIENDLY-123', tr: 'STOP GUESSING. START SEEING.', bl: 'DEMO CODE 456 · bit.ly/friendly123', br: 'MADE IN CUENCA · ECUADOR', brackets: false, k: seg(lt, .5, 1) });
   if (t > Hh.glitch) { const g = seg(t, Hh.glitch, Hh.endDot); FX.slice = g; FX.split = .02 * g; FX.seed = Math.floor(t * FPS); }
   if (t > Hh.endDot) { const k = seg(t, Hh.endDot, Hh.endDot + .25); bg(K.ink); circle(W / 2, H / 2, lerp(60, 4, easeIn(k)) * (1 - seg(t, C.dur - .25, C.dur)), { fill: K.cream }); FX.slice = 0; FX.split = 0; }
 }
@@ -501,7 +500,7 @@ function frame(t) {
 // Chinese glyphs are fetched as a subset: keep CJK listing every CJK character your scenes draw.
 const CJK = '一作动品图帧式态意排显有机每版状都集';
 const fontsReady = Promise.all([
-  document.fonts.load('100px "Anton"'), document.fonts.load('100px "Archivo Black"'), document.fonts.load('italic 100px "Instrument Serif"'),
+  document.fonts.load('700 100px "Space Grotesk"'), document.fonts.load('400 100px "Space Grotesk"'),
   document.fonts.load('700 20px "JetBrains Mono"'), document.fonts.load('500 20px "JetBrains Mono"'),
   document.fonts.load('500 20px "Noto Sans SC"', CJK),
   document.fonts.load('700 20px "Noto Sans SC"', CJK),
