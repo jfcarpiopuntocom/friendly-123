@@ -5115,7 +5115,14 @@ function bloqueFoto(p, todos) {
   var src = propia || heredada;
   var html = '<div class="fotowrap"><span class="iniciales">' + escHtml(inicialesDe(p && p.nombre)) + "</span>";
   if (src) {
-    html += '<img src="' + src + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
+    /* JFC 2026-10-01 (variante "Spray de la verdad - Bourgeois" quedo gris): si la
+       foto PROPIA no abre, antes se borraba y quedaban solo las iniciales, sin aviso.
+       Ahora cae a la foto de la familia con su marca; si tampoco hay, iniciales. */
+    var respaldo = propia ? fotoDeLaFamilia(p, todos) : null;
+    var onerr = respaldo
+      ? "if(this.dataset.r){this.remove();}else{this.dataset.r=1;this.src=this.dataset.fam;var m=document.createElement('span');m.className='heredada';m.textContent='foto de la familia';this.parentNode.appendChild(m);}"
+      : "this.remove()";
+    html += '<img src="' + src + '"' + (respaldo ? ' data-fam="' + escHtml(respaldo) + '"' : '') + ' alt="" loading="lazy" decoding="async" onerror="' + onerr + '">';
     if (heredada) html += '<span class="heredada">foto de la familia</span>';
   }
   return html + "</div>";
@@ -6200,7 +6207,8 @@ async function crearProductoNuevo(codigoEscaneado){
   if (Number(body.precio) === 0){ if (!(await ocConfirm(t("form.zeroPriceConfirm")))) return; }
   // Foto por producto en alta (homologado de AMIGABLE, 2026-07-22)
   const fotoNp = el("np-foto");
-  if (fotoNp) { const fotoNueva = await leerFotoRedimensionada(fotoNp); if (fotoNueva) body.foto = fotoNueva; }
+  if (fotoNp) { const fotoNueva = await leerFotoRedimensionada(fotoNp); if (fotoNueva) body.foto = fotoNueva;
+    else if (fotoNp.files && fotoNp.files[0]) { msg.style.color = "var(--rojo-ink)"; msg.textContent = document.documentElement.lang === "es" ? "No se pudo leer esa foto. Prueba con un JPG o PNG. No se guardo nada." : "That photo could not be read. Try a JPG or PNG. Nothing was saved."; return; } }
   let res, data;
   try {
     res = await fetch(`${API}/productos`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
@@ -6345,12 +6353,15 @@ function leerFotoRedimensionada(fileInput){
     // en una sesion larga filtraba memoria.
     const urlTemporal = URL.createObjectURL(f);
     img.onload = () => {
+      // JFC 2026-10-01: una imagen sin tamano daba "data:," (foto vacia guardada como buena).
+      if (!img.width || !img.height) { URL.revokeObjectURL(urlTemporal); return resolve(null); }
       const MAX = 320, esc = Math.min(1, MAX / Math.max(img.width, img.height));
       const c = document.createElement("canvas");
       c.width = Math.round(img.width * esc); c.height = Math.round(img.height * esc);
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(urlTemporal);
-      resolve(c.toDataURL("image/jpeg", 0.82));
+      const d = c.toDataURL("image/jpeg", 0.82);
+      resolve(d.indexOf("data:image/") === 0 && d.length > 200 ? d : null);
     };
     img.onerror = () => { URL.revokeObjectURL(urlTemporal); resolve(null); };
     img.src = urlTemporal;
@@ -6365,9 +6376,13 @@ async function guardarEdicionProducto(id){
   const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), fechaEvento: v("ed-fecha-evento"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   { const ex = document.getElementById("ed-exento"); if (ex) body.exentoImpuesto = ex.checked; } // v361
-  const foto = await leerFotoRedimensionada(document.getElementById("ed-foto"));
+  const edFoto = document.getElementById("ed-foto");
+  const foto = await leerFotoRedimensionada(edFoto);
   if (foto) body.foto = foto;
   const msg = document.getElementById("ed-msg");
+  /* NO MENTIR (JFC 2026-10-01): eligio foto y no se pudo leer -> se dice y NO se guarda
+     como si nada. Antes se guardaba el resto y la foto se perdia en silencio. */
+  if (!foto && edFoto && edFoto.files && edFoto.files[0]){ msg.style.color = "var(--rojo-ink)"; msg.textContent = document.documentElement.lang === "es" ? "No se pudo leer esa foto. Prueba con un JPG o PNG. No se guardo nada." : "That photo could not be read. Try a JPG or PNG. Nothing was saved."; return; }
   if (!body.nombre){ msg.style.color = "var(--rojo-ink)"; msg.textContent = t("form.nameRequired"); return; }
   if (!body.barcode){ msg.style.color = "var(--rojo-ink)"; msg.textContent = t("form.codeCannotBeEmpty"); return; }
   let res, data;
