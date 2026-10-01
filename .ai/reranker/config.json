@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "weights": {
+    "reranker": 0.5,
+    "exact": 0.18,
+    "authority": 0.12,
+    "freshness": 0.1,
+    "project": 0.07,
+    "pinned": 0.03,
+    "stalePenalty": 0.22,
+    "crossProjectPenalty": 0.35
+  },
+  "modes": {
+    "fast": {"retrieve": 30, "top": 6},
+    "deep": {"retrieve": 100, "top": 12},
+    "forensic": {"retrieve": 150, "top": 18}
+  },
+  "rules": {
+    "constraintsAreMandatory": true,
+    "cpuFirst": true,
+    "paidApiRequired": false,
+    "cacheKey": "sha256(normalized_text + model_version)"
+  }
+}
