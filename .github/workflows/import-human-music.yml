@@ -12,14 +12,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Download human-composed CC-BY track
         run: |
           set -euo pipefail
           mkdir -p out
           curl -fL --retry 3 --retry-delay 2             'https://www.scottbuckley.com.au/library/wp-content/uploads/2024/03/Simplicity.mp3'             -o out/Simplicity-Scott-Buckley.mp3
-          ffprobe -v error -show_entries format=duration,size,format_name             -show_entries stream=codec_name,codec_type,sample_rate,channels             -of json out/Simplicity-Scott-Buckley.mp3 | tee out/ffprobe.json
           sha256sum out/Simplicity-Scott-Buckley.mp3 | tee out/SHA256SUMS.txt
           cat > out/LICENSE-CREDIT.txt <<'EOF'
           Track: Simplicity
