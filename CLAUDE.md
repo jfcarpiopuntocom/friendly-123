@@ -294,6 +294,11 @@ trabajo está mal hecho aunque el código funcione.
 - JFC es el DUEÑO de la app (lord = su licencia principal), nunca "soporte".
 
 ## JEV + OMNIROUTE: REPARTO DE TRABAJO (JFC 2026-09-24, regla dura, las 3 apps)
+- **ORDEN DE JFC 2026-10-01: "usa Laya SIEMPRE SIEMPRE SIEMPRE que sea posible".** Laya hereda las
+  ordenes que ya tenia Jev: "usa JEV at all times" (09-26) y "luego de tu research siempre mucho Jev"
+  (09-27). Todo juicio chico (clasificar, rankear, triar, si/no, validar hallazgos de research, puntuar
+  copy) pasa PRIMERO por Laya, sin que JFC lo pida, en cada sesion y en cada tarea. Gratis y local: no
+  hay excusa de costo. Jev solo si Laya falla o duda; Claude al final. Mismas prohibiciones de datos.
 - **LAYA PRIMERO (JFC 2026-10-01):** Laya (`pip install laya`, modelo abierto, corre en el aparato,
   gratis) hace los mismos juicios que Jev (choice/score/noul). Orden: Laya -> Jev -> Claude decide.
   Mismas prohibiciones. Ejecutor: `.claude/skills/jev-jfc/scripts/laya-evaluate.py` (mismo JSON que Jev).
