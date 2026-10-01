@@ -407,7 +407,7 @@ function sOpen(t) {
 }
 function sTitle(t) {
   bg(K.cream); const lt = t - S.title;
-  dropWord('COUNT EVERY', 140, 430, font(F.cond, 210), Hh.title, t, { fill: K.ink, fall: 200 });
+  dropWord('COUNT EVERY', 140, 430, font(F.cond, 175), Hh.title, t, { fill: K.ink, fall: 200 });
   dropWord('POUR.', 140, 700, font(F.cond, 300), Hh.title + .2, t, { fill: K.ink, fall: 220, fillAt: i => i === 4 ? K.red : K.ink });
   const k = backOut(seg(lt, .2, .6)), cx = 1560, cy = 300;
   circle(cx, cy, 190 * k, { fill: K.lime }); if (k > .05) { ctx.save(); ctx.globalAlpha = Math.min(1, k); { const lw = 340 * k, lh = lw * LOGO.height / LOGO.width; ctx.drawImage(LOGO, cx - lw / 2, cy - lh / 2, lw, lh); } ctx.restore(); }
