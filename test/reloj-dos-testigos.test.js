@@ -22,13 +22,19 @@ async function correr({ relayMs, servidorMs }) {
   };
   const fn = new Function("document", "window", "fetch", bloque + "; return _pintarReloj;")(g.document, g.window, g.fetch);
   fn(); await new Promise((r) => setTimeout(r, 20)); fn();
-  return { visible: nodo.style.display !== "none", texto: nodo.textContent, canario };
+  return { visible: nodo.style.display !== "none", texto: nodo.textContent, canario, nota: g.window._ocRelojNota };
 }
 
-test("los dos testigos dicen 2 min atras: avisa, con texto honesto para Auto puesto", async () => {
+test("los dos testigos dicen 2 min atras: SIN aviso visible (nivel 1-5 min), solo nota de diagnostico", async () => {
   const r = await correr({ relayMs: 120000, servidorMs: 120000 });
+  assert.equal(r.visible, false);
+  assert.match(r.nota, /behind ~2 min \(warning shows from 5\)/);
+});
+test("los dos testigos dicen 6 min atras: avisa, con texto honesto para Auto puesto", async () => {
+  const r = await correr({ relayMs: 360000, servidorMs: 360000 });
   assert.equal(r.visible, true);
-  assert.match(r.texto, /2 minutes behind/);
+  assert.equal(r.nota, "");
+  assert.match(r.texto, /6 minutes behind/);
   assert.match(r.texto, /Sync now/);
   assert.match(r.texto, /time\.is/);
   assert.doesNotMatch(r.texto, /turn on automatic time\)/);

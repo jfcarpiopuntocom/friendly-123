@@ -166,23 +166,23 @@ test('aviso de hora en Advanced: un cliente dueno lo ve con el reloj corrido, y 
     await page.waitForTimeout(3500);
     const leer = () => page.evaluate(() => { const n = document.getElementById('oc-reloj-aviso'); return { vis: !!n && n.getBoundingClientRect().height > 0 /* de verdad en pantalla, no solo display del nodo */, txt: n ? n.textContent : '', px: n ? parseFloat(getComputedStyle(n).fontSize) : 0 }; });
     assert.equal((await leer()).vis, false, 'sin reloj comun no hay aviso');
-    await page.evaluate(() => { const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 4 * 60 * 1000, t + 20); });
+    await page.evaluate(() => { const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 6 * 60 * 1000, t + 20); });
     await page.waitForTimeout(3500);
     // v436 (JFC 2026-10-01): un solo testigo (el relay) ya no basta; el servidor de la app
     // (cabecera Date de version.json) dice la hora buena -> no se acusa al aparato.
     assert.equal((await leer()).vis, false, 'solo el relay corrido: no acusa al aparato');
-    // Segundo testigo de acuerdo: el servidor tambien va 4 min adelante del aparato.
+    // Segundo testigo de acuerdo: el servidor tambien va 6 min adelante del aparato.
     await page.route('**/version.json?reloj=*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{}',
-      headers: { Date: new Date(Date.now() + 4 * 60 * 1000).toUTCString() } }));
-    await page.evaluate(() => { window.OCLatencia.reiniciar(); const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 4 * 60 * 1000, t + 20); });
+      headers: { Date: new Date(Date.now() + 6 * 60 * 1000).toUTCString() } }));
+    await page.evaluate(() => { window.OCLatencia.reiniciar(); const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 6 * 60 * 1000, t + 20); });
     await page.reload({ waitUntil: 'networkidle' });
     await page.waitForTimeout(2500);
     await page.click('nav button[data-vista="avanzado"]');
-    await page.evaluate(() => { const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 4 * 60 * 1000, t + 20); });
+    await page.evaluate(() => { const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 6 * 60 * 1000, t + 20); });
     await page.waitForTimeout(7000);
     const malo = await leer();
     assert.equal(malo.vis, true);
-    assert.match(malo.txt, /Clock warning: .* about 4 minutes behind/);
+    assert.match(malo.txt, /Clock warning: .* about 6 minutes behind/);
     assert.ok(malo.px >= 16, 'legible: 16px o mas');
     if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
     await page.evaluate(() => { window.OCLatencia.reiniciar(); const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10, t + 20); });

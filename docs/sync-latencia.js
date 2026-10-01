@@ -162,6 +162,19 @@
   function reiniciar() { muestras = []; mejorPing = null; descartadas = 0; }
 
   window.OCLatencia = {
+    /* SELLO DE RELOJ (JFC 2026-10-01, "worlds best practices, datos de miles de tiendas").
+       Practica de sistemas distribuidos: no fiarse del reloj del aparato para el dato;
+       guardar con cada venta CUANTO iba corrido, para poder corregir despues sin
+       reescribir nada. Devuelve {} si no hay medicion fresca (nunca inventa). Campos
+       NUEVOS y opcionales: una app vieja los ignora; la nueva los copia en import/export.
+       relojDesfaseMs = hora del relay - hora del aparato (positivo = aparato atrasado).
+       relojMargenMs  = incertidumbre de esa medicion (mitad de la ida y vuelta). */
+    sello: function () {
+      try {
+        if (!hayReloj()) return {};
+        return { relojDesfaseMs: Math.round(mejorPing.desfase), relojMargenMs: Math.round(mejorPing.rtt / 2) };
+      } catch (_) { return {}; }
+    },
     anotarPing: anotarPing, anotarMuestra: anotarMuestra, marcarOrigen: marcarOrigen,
     ahoraRelay: ahoraRelay, hayReloj: hayReloj, desvioReloj: desvioReloj, resumen: resumen, texto: texto, reiniciar: reiniciar,
     SLA_MS: SLA_MS,

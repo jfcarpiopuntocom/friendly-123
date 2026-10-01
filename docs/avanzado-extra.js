@@ -759,6 +759,7 @@
                o no hubo cambios, lo dice en vez de inventar una cifra. */
             var lat = "";
             try { if (window.OCLatencia) lat = " · " + window.OCLatencia.texto(); } catch (_) {}
+            lat += window._ocRelojNota || "";
             el.textContent = "Sync: " + (conectado ? "connected" : "NOT connected") +
               " · products " + prod + " · shelves " + perchas + " · photos " + fotos + lat;
             el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
@@ -785,6 +786,7 @@
         };
         var _pintarReloj = function () {
           var n = document.getElementById("oc-reloj-aviso"); if (!n) return;
+          window._ocRelojNota = "";
           try {
             var d = window.OCLatencia && window.OCLatencia.desvioReloj ? window.OCLatencia.desvioReloj() : null;
             if (!d || !d.hayAviso) { n.style.display = "none"; return; }
@@ -798,6 +800,17 @@
               return;
             }
             var m = Math.round(d.minutos);
+            /* DOS NIVELES (JFC 2026-10-01, research: Kerberos tolera 300 s por defecto; un POS
+               real tolera 5 min de deriva NTP normal). Entre 1 y 5 min: solo una nota en el
+               diagnostico (linea Sync), sin aviso visible: no cambia el dia ni el orden de una
+               venta y cada venta ya guarda su relojDesfaseMs para corregir despues. Mas de
+               5 min con los dos testigos de acuerdo: aviso visible. */
+            if (Math.abs(d.desfaseMs) < 5 * 60000) {
+              n.style.display = "none";
+              window._ocRelojNota = " · clock " + (d.adelantado ? "ahead" : "behind") + " ~" + (m < 1 ? 1 : m) + " min (warning shows from 5)";
+              return;
+            }
+            window._ocRelojNota = "";
             n.textContent = "Clock warning: this device's clock is about " + (m < 1 ? "1" : m) + " minute" + (m > 1 ? "s" : "") +
               (d.adelantado ? " ahead" : " behind") + " (checked against two separate time sources). Sales made here will show the wrong time." +
               " Even with automatic time on, a computer can drift until its next sync: on Windows open Date & time settings and press \"Sync now\"; on a phone, turn automatic time off and on again. To see it yourself, open time.is on this device.";

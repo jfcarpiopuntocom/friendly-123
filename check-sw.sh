@@ -151,4 +151,14 @@ if [ "$falta" = "0" ]; then
   echo "Recuerda: si cambiaste el shell, el CACHE tiene que subir de numero o el"
   echo "telefono del cliente se queda con la version vieja para siempre."
 fi
+
+# G7 (2026-10-01): un merge dejo marcas de conflicto DENTRO de docs/sw.js y check-sw daba
+# todo OK (solo mira el numero de CACHE). Un SW con error de sintaxis no se instala: los
+# aparatos se quedan sin actualizar. Aqui: sin marcas de conflicto y cada .js del shell compila.
+if grep -rlE '^(<<<<<<<|>>>>>>>) ' docs --include='*.js' --include='*.html' --include='*.json' >/dev/null 2>&1; then
+  echo "FALLO — marcas de conflicto de merge en docs/ (G7):"; grep -rlE '^(<<<<<<<|>>>>>>>) ' docs --include='*.js' --include='*.html' --include='*.json'; falta=1
+else
+  for f in docs/sw.js docs/*.js; do node --check "$f" 2>/dev/null || { echo "FALLO — $f no compila (G7)."; falta=1; }; done
+  [ "$falta" = 0 ] && echo "OK — sin marcas de conflicto y los .js de docs compilan (G7)."
+fi
 exit $falta
