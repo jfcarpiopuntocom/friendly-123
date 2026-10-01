@@ -46,6 +46,12 @@ fi
 PIP_PAQ="defusedxml lxml pymupdf python-pptx openpyxl python-docx pillow markitdown[pptx] actionlint-py"
 paso "pip: $PIP_PAQ" pip install -q --disable-pip-version-check $PIP_PAQ
 
+# Laya (JFC 2026-10-01: "Laya primero"). Trae torch y tarda: va en segundo plano para no
+# frenar el arranque. Log en $HERR/laya-install.log. Modelo: necesita huggingface.co en la red.
+python3 -c "import laya" 2>/dev/null && anota "OK    pip: laya (ya estaba)" || {
+  nohup pip install -q --disable-pip-version-check laya >"$HERR/laya-install.log" 2>&1 &
+  anota "EN CURSO pip: laya (segundo plano, ver $HERR/laya-install.log)"; }
+
 # ---------- 3. Node: generacion de PowerPoint fuera del repo ----------
 # Aislado en ~/.jfc-tools para no ensuciar el repo publico. NODE_PATH se exporta abajo.
 if [ ! -d "$HERR/node_modules/pptxgenjs" ] || [ ! -d "$HERR/node_modules/sharp" ]; then

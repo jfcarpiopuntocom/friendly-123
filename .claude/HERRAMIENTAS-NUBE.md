@@ -23,3 +23,4 @@ Si una herramienta falta, instalarla sin preguntar y ANOTARLA AQUI en el mismo c
 - Nada de esto se instala dentro del repo publico salvo `node_modules` (ignorado por git).
 - 2026-10-01: `rsync` (apt, en el hook): lo piden los scaffolds de las skills de video. Render en la nube: sin GPU,
   usar `--soft-gl` (SwiftShader) en kinetic-reel. En la laptop de JFC (AMD integrada) va por GPU.
+- 2026-10-01: `laya` (pip, en el hook, en segundo plano porque trae torch). Modelo desde huggingface.co.
