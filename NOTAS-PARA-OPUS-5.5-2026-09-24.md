@@ -563,3 +563,15 @@ QUEDA para v1.0: JFC prueba v410/v411 en iPhone modo oscuro; 2 clips del hero (r
 - [ ] Canarios: miden errores de JS; una foto que no abre no es error, por eso no avisaron. Medirlo seria telemetria nueva: decision de JFC.
 - Commissions: lo de Belen (v424 % por pieza, v429 counter se comisiona, v430 tickets por persona, v431 orden) esta en master y estable; 106/106 pruebas.
   Siguen pendientes: 3 ventas viejas counter y tickets viejos con cantidad 1 (se corrigen a mano en la app).
+
+## 2026-10-01 — shell v434: canarios con Sentry y PostHog (JFC: "el canario nos avisa y reparamos")
+- [x] `docs/canarios.js`: errores JS + fallos silenciosos -> Sentry (proyecto jfcarpiocom/friendly-123); flujos (app abierta,
+  seccion) y checksum de dinero -> PostHog (Default project). Lista blanca, texto limpio, id anonimo, tope 60/sesion.
+  En /next/ y en clientes. AVISAN, NO FRENAN (no tocan promover.yml). Decision de JFC anotada en CLAUDE.md; PRIVACY.md al dia.
+- [x] Canarios nuevos: foto-no-abre, memoria-llena, sync-no-encolo, dinero-<invariante>, cuadre-fallo. Pintan su seccion en el mapa del Sonar.
+- [x] Panel: canarios saltan/ladean, caidos tiemblan, barrido de sonar; menu sin gris.
+- [x] test/canarios-sentry-posthog.test.js (funcion nueva, no arreglo): nada del negocio sale, fallo no suma a errores.
+  Atrapo un bug propio: el limpiador tapaba los codigos de fallo. Suite 478/478, check-sw OK.
+- ERROR MIO corregido: primero sume los fallos a "errores" (frenaba la promocion) sin preguntar. JFC: no tomar decisiones de diseno por el.
+- [ ] Verificar en Sentry/PostHog que llegan eventos desde /next/ (la nube no abre github.io).
+- [ ] Alertas de Sentry (correo a JFC) por cada error nuevo: falta crearlas.

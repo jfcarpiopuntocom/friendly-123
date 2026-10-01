@@ -734,6 +734,7 @@
   // FIX 2026-07-07: si localStorage esta lleno, el dueno creia que guardaba
   // y un refresh le comia el dia. Ahora hay banda roja persistente.
   function avisoMemoriaLlena() {
+    try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "memoria-llena"); else (window.__ocFallos = window.__ocFallos || []).push(["", "memoria-llena"]); } catch (_) {} // canario 2026-10-01
     try {
       if (document.getElementById("oc-quota-aviso")) return;
       const d = document.createElement("div");

@@ -450,6 +450,7 @@
         if (ce(v.comisionAsociado) + ce(v.netoCasa) !== ce((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0))) ok = false;
       });
       cuadre = ok ? "ok" : "fallo";
+      try { if (global.OCCanarios) { global.OCCanarios.flujo("checksum_dinero", { ok: ok }); if (!ok) global.OCCanarios.fallo("comisiones", "cuadre-fallo"); } } catch (_) {} // 2026-10-01
       return cuadre;
     }).catch(function () { return cuadre; });
   }
@@ -460,5 +461,22 @@
       retenido: !!e.retenido, mezcla: global.__ocMezcla === true, cuadre: cuadre,
       nodos: NODOS.reduce(function (o, k) { if (porNodo[k]) o[k] = porNodo[k]; return o; }, {}) };
   }
-  global.OCSalud = { resumen: resumen, medirCuadre: medirCuadre, esLord: esLord, canal: canal };
+  /* CANARIOS DE FALLO SILENCIOSO (JFC 2026-10-01: "mas canarios ... desde /next/").
+     Caso que lo origino: una foto de variante que no abria se borraba sola y nadie se
+     entero. Cada fallo silencioso se anota en su seccion por el MISMO
+     canal de nodos: el mapa del Sonar pinta esa seccion en rojo, y canarios.js lo
+     manda a Sentry y PostHog. AVISA, NO FRENA (JFC 2026-10-01: "el canario nos avisa
+     y reparamos"): NO suma a "errores", que es lo que detiene promover.yml. */
+  var fallos = {};
+  function fallo(nodo, codigo) {
+    try {
+      var n = NODOS.indexOf(nodo) >= 0 ? nodo : nodoActual();
+      porNodo[n] = (porNodo[n] || 0) + 1;
+      var c = String(codigo || "fallo").slice(0, 40); fallos[c] = (fallos[c] || 0) + 1;
+      if (global.OCCanarios && global.OCCanarios.fallo) global.OCCanarios.fallo(n, c);
+    } catch (_) {}
+  }
+  // Fallos anotados por scripts que cargan ANTES que este (invariantes, mock-backend).
+  try { (global.__ocFallos || []).forEach(function (f) { fallo(f[0], f[1]); }); global.__ocFallos = []; } catch (_) {}
+  global.OCSalud = { fallo: fallo, fallos: function () { return Object.assign({}, fallos); }, resumen: resumen, medirCuadre: medirCuadre, esLord: esLord, canal: canal };
 })(typeof window !== "undefined" ? window : this);

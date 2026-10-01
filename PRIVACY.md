@@ -2,7 +2,7 @@
 
 **Short version: your business data never leaves your device. The only thing we track is your license.**
 
-friendly-123 is local-first by design. Products, sales, customers, inventory, rack photos, commissions — everything about your business lives in your browser's local storage, on your device, and nowhere else. There is no backend that stores it, no cloud sync, no analytics, no telemetry.
+friendly-123 is local-first by design. Products, sales, customers, inventory, rack photos, commissions — everything about your business lives in your browser's local storage, on your device, and nowhere else. There is no backend that stores it. The only things that leave the device are listed below.
 
 ## The one exception: license activation
 
@@ -14,6 +14,10 @@ To sell licenses and let paying customers unlock the full app, we run a small Cl
 - Activation status (full / minimal / blocked)
 
 That's the complete list. Nothing about your products, sales, customers, or inventory is ever included in this ping, at any point, under any feature.
+
+## Error and health signals (since October 2026)
+
+To catch problems before you do, the app sends error reports to Sentry and usage-flow signals to PostHog. They contain only: the app version, which section was open, a fixed error code (for example "photo did not open"), the file and line of a code error, and whether the money totals add up (yes/no). Error messages are cleaned before sending: quoted text, numbers, e-mails and license codes are removed. The device is identified by a random id that is not linked to your license. No products, sales, customers, amounts, names, PINs or licenses are ever sent. The code is in `docs/canarios.js`.
 
 ## Verify it yourself
 
