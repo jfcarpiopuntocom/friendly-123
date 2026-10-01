@@ -17,6 +17,22 @@ The executor is byte-identical to Codex's; only this how-to differs.
 - **Code** keeps: counts, dates, sums, money, exact matches, anything deterministic.
 - Not worth a call for a single obvious yes/no. The call must save more than it consumes.
 
+## Laya FIRST, Jev as backup (JFC 2026-10-01)
+Laya (pip `laya`, Apache-2.0, open weights) does the same typed judgments (`choice`/`score`/`noul`)
+LOCALLY: free, no credits, nothing leaves the machine. Same JSON as Jev, same hard limits below.
+- Laptop: `python scripts/laya-evaluate.py < request.json` (first run downloads the model from Hugging Face).
+- Cloud: works only if the environment allows `huggingface.co` and `cdn-lfs.huggingface.co`, and
+  after `pip install laya` (pulls torch, large). If Laya is unavailable or answers `low_confidence`,
+  use Jev; if Jev fails too, Claude decides. Say in one line which engine answered.
+- Zero-shot accuracy is modest (author's benchmark: 0.36 base vs 0.77 fine-tuned). Treat it as
+  triage advice, never as truth on its own.
+
+```bash
+python3 "$(git rev-parse --show-toplevel)/.claude/skills/jev-jfc/scripts/laya-evaluate.py" <<'JSON'
+{"state":{"public_context":"..."},"questions":{"route":{"type":"choice","instructions":"Which area?","criteria":{"sync":"...","ui":"...","other":"Nothing else fits"}}}}
+JSON
+```
+
 ## How to call
 One request = one state + up to 20 questions, max 12,000 chars. No retry, 8 s timeout.
 The key is never printed and never written to a file. In the CLOUD (Linux) it comes from the
