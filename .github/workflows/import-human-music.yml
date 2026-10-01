@@ -14,9 +14,10 @@ jobs:
       - name: Clone public audio archive
         run: |
           set -euo pipefail
-          git clone --depth 1 https://github.com/noobsandnerdsgroup/audio.git audio
           mkdir -p out
-          cp "audio/Airport Lounge.mp3" out/Airport-Lounge-Kevin-MacLeod.mp3
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://raw.githubusercontent.com/noobsandnerdsgroup/audio/main/Airport%20Lounge.mp3' \
+            -o out/Airport-Lounge-Kevin-MacLeod.mp3
           sha256sum out/Airport-Lounge-Kevin-MacLeod.mp3 | tee out/SHA256SUMS.txt
           cat > out/LICENSE-CREDIT.txt <<'EOF'
           Track: Airport Lounge
