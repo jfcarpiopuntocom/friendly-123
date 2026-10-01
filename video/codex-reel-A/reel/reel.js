@@ -412,18 +412,18 @@ function sTitle(t) {
   const k = backOut(seg(lt, .2, .6)), cx = 1560, cy = 300;
   circle(cx, cy, 190 * k, { fill: K.lime }); if (k > .05) { ctx.save(); ctx.globalAlpha = Math.min(1, k); { const lw = 340 * k, lh = lw * LOGO.height / LOGO.width; ctx.drawImage(LOGO, cx - lw / 2, cy - lh / 2, lw, lh); } ctx.restore(); }
   RECT.titleCircle = [cx - 190, cy - 190, 380, 380];
-  let x = 146; ['INVENTORY', 'SALES', 'COMMISSIONS'].forEach((s, i) => { x += chip(s, x, 830, { k: seg(t, Hh.chips + i * .15, Hh.chips + i * .15 + .25), bg: i === 1 ? K.lime : K.ink, fg: i === 1 ? K.ink : K.cream }) + 14; });
+  let x = 146; ['PIECES', 'SALES', 'COMMISSIONS'].forEach((s, i) => { x += chip(s, x, 830, { k: seg(t, Hh.chips + i * .15, Hh.chips + i * .15 + .25), bg: i === 1 ? K.lime : K.ink, fg: i === 1 ? K.ink : K.cream }) + 14; });
   hud(t, { dark: false, tl: '01 / TITLE', tr: tc(t), bl: sec(1, 'TYPE'), br: 'TRULY BILINGUAL · EN / ES', zh: 'BILINGÜE', zhRight: true, brackets: false });
 }
 /* TARJETAS DE BENEFICIO (JFC 2026-10-01: "manten los primeros 5 secs y EXTIENDE con info y beneficios
    reales"). Mismo estilo que sTitle (fondo claro, palabras que caen, circulo con el logo, chips). Solo datos
    verdaderos de friendly-123; nada de cifras sin fuente. */
 const CARDS = {
-  price:   { w1: '$399 ONCE.', w2: '5 YEARS.', chips: ['NO MONTHLY FEES', 'ONE LICENSE', 'YOURS'], col: K.lime, tl: 'PRICE', br: 'ONE PAYMENT · 5-YEAR LICENSE' },
-  offline: { w1: 'WORKS', w2: 'OFFLINE.', chips: ['NO INTERNET NEEDED', 'DATA ON YOUR DEVICE', 'PRIVATE'], col: K.blue, tl: 'YOUR DATA', br: 'YOUR BUSINESS STAYS WITH YOU' },
-  lang:    { w1: 'ENGLISH.', w2: 'ESPAÑOL.', chips: ['ONE TAP', 'SAME DATA', 'YOUR WHOLE TEAM'], col: K.orange, tl: 'TRULY BILINGUAL', br: 'EN / ES' },
-  comm:    { w1: 'COMMISSIONS', w2: 'TO THE CENT.', chips: ['CONSIGNMENT', 'ASSOCIATES', 'COUNTER SALES'], col: K.green, tl: 'FAIR SPLITS', br: 'WHO GETS WHAT, CLEAR' },
-  all:     { w1: 'ONE APP.', w2: 'WHOLE SHOP.', chips: ['INVENTORY', 'SALES', 'CUSTOMERS', 'EXPENSES', 'LABELS'], col: K.red, tl: 'EVERYTHING', br: 'POP-UPS · BOUTIQUES · CONSIGNMENT' },
+  price:   { w1: 'EACH PIECE.', w2: 'ITS OWN SPLIT.', chips: ['CONSIGNMENT', 'ASSOCIATE', 'COUNTER SALE'], col: K.lime, tl: 'PIECE BY PIECE', br: 'EACH ITEM CAN CARRY ITS OWN COMMISSION DEAL' },
+  offline: { w1: 'COMMISSIONS', w2: 'TO THE CENT.', chips: ['CONSIGNMENT', 'ASSOCIATES', 'COUNTER SALES'], col: K.blue, tl: 'FAIR SPLITS', br: 'WHO GETS WHAT, CLEAR' },
+  lang:    { w1: 'COUNTER SALE.', w2: 'STILL COMMISSIONS.', chips: ['PIECE DEAL', 'SHELF DEAL', 'CLEAR SPLIT'], col: K.orange, tl: 'AT THE DOOR', br: 'COUNTER SALES KEEP THE COMMISSION DEAL' },
+  comm:    { w1: '$399 ONCE.', w2: '5 YEARS.', chips: ['NO MONTHLY FEES', 'ONE LICENSE', 'ONE PAYMENT'], col: K.green, tl: 'PRICE', br: 'ONE PAYMENT · 5-YEAR LICENSE' },
+  all:     { w1: '60+ DAYS?', w2: 'DEAD WEIGHT.', chips: ['IN STOCK', 'LOW', 'URGENT', 'DEAD WEIGHT'], col: K.red, tl: 'THE SEMAPHORE', br: 'BLACK = 60+ DAYS WITHOUT A SALE' },
 };
 function sCard(key) { return (t) => {
   const c = CARDS[key], t0 = S[key], lt = t - t0;
