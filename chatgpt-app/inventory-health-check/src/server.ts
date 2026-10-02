@@ -12,7 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const widgetHtml = readFileSync(join(__dirname, "../public/inventory-card.html"), "utf8");
 const PORT = Number(process.env.PORT ?? 8787);
 const MCP_PATH = "/mcp";
-const RESOURCE_URI = "ui://inventory-health-check/card.html";
+const RESOURCE_URI = "ui://inventory-health-check/card-v1.html";
 const APP_ORIGIN = process.env.APP_ORIGIN ?? "https://inventory-health-check.jfcarpio.com";
 
 const itemSchema = z.object({
