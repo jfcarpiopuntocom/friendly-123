@@ -3705,11 +3705,17 @@ async function pintarSaldoCartera(clienteId) {
   if (!el) return;
   try {
     const info = await (await fetch(`${API}/clientes/${clienteId}/cartera`)).json();
-    if (info && info.integridad && !info.integridad.ok) {
-      el.textContent = "Balance pending verification — " + (info.integridad.razon || "sync incomplete");
+    const integridadPendiente = !!(info && info.integridad && !info.integridad.ok);
+    const avisoIntegridad = integridadPendiente
+      ? '<span style="display:inline-block;margin-left:8px;font-size:12px;color:var(--ink-soft);font-weight:600;">Balance pending verification — ' +
+        escHtml(info.integridad.razon || "sync incomplete") + '</span>'
+      : "";
+    // HOTFIX 2026-10-02: an integrity warning is diagnostic, not a reason to hide
+    // a debt already computed by /cartera or the owner's existing payment action.
+    if (!info || !info.saldo) {
+      el.innerHTML = integridadPendiente ? avisoIntegridad : "";
       return;
     }
-    if (!info || !info.saldo) { el.innerHTML = ""; return; }
     // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
@@ -3790,7 +3796,7 @@ async function pintarSaldoCartera(clienteId) {
         <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}</span>
         <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
       </div>`).join("")}</details>` : "";
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${detalle}`;
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${detalle}`;
   } catch (e) { console.error("[pintarSaldoCartera]", e); el.innerHTML = ""; }
 }
 /* Pagar una deuda (JFC 2026-09-02): abre el modal de plan-pagos ("Record a
