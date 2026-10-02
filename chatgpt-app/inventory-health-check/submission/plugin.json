@@ -3,9 +3,112 @@
   "name": "inventory-health-check",
   "version": "0.1.0",
   "description": "Classify shop inventory into urgent, low, dead-weight, star, and healthy attention levels using stock, ageing, margin, and optional expiry data.",
-  "author": {"name":"J. F. Carpio","url":"https://jfcarpio.com"},
+  "author": {
+    "name": "J. F. Carpio",
+    "url": "https://jfcarpio.com"
+  },
   "homepage": "https://jfcarpio.com/friendly123/chatgpt-app/inventory-health-check/",
   "repository": "https://github.com/jfcarpiopuntocom/friendly-123",
   "license": "MIT",
-  "keywords": ["inventory","stock","working-capital","retail","small-business"]
+  "keywords": [
+    "inventory",
+    "stock",
+    "working-capital",
+    "retail",
+    "small-business"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Inventory Health Check",
+        "shortDescription": "See inventory risk in color",
+        "longDescription": "Inventory Health Check turns a shop inventory list into a fast visual triage. It classifies items as Urgent, Low, Dead weight, Star, or Healthy using stock thresholds, days since last sale, gross margin when price and cost are supplied, and optional expiry information. It is designed for quick inventory review inside ChatGPT. It is not a POS, accounting system, food-safety system, purchasing agent, or automatic ordering tool. The MCP tool is read-only and stateless: it computes the result and does not maintain an inventory database or forward the submitted inventory to external inventory services.",
+        "developerName": "J. F. Carpio",
+        "category": "Productivity",
+        "capabilities": [
+          "Classify inventory attention level",
+          "Flag urgent and low stock",
+          "Spot dead stock, strong margins, and expiry risk"
+        ],
+        "websiteURL": "https://jfcarpio.com/friendly123/chatgpt-app/inventory-health-check/",
+        "supportURL": "https://jfcarpio.com/friendly123/chatgpt-app/support/",
+        "privacyPolicyURL": "https://jfcarpio.com/friendly123/chatgpt-app/privacy/",
+        "termsOfServiceURL": "https://jfcarpio.com/friendly123/chatgpt-app/terms/",
+        "defaultPrompt": [
+          "Color-code this inventory and tell me what needs attention first.",
+          "Which products are urgent, low, dead stock, stars, or healthy?",
+          "Revisa este inventario y ordénalo por urgencia usando el semáforo."
+        ],
+        "brandColor": "#13233A",
+        "brandColorDark": "#FFC72C",
+        "composerIcon": "./assets/icon.svg",
+        "logo": "./assets/icon.svg"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Basic stock thresholds",
+              "prompt": "Classify this inventory: Candles stock 0; Mugs stock 2; Tote bags stock 12.",
+              "tools_triggered": "classify_inventory",
+              "expected_behavior": "Return Candles as Urgent/red, Mugs as Low/orange using defaults, and Tote bags as Healthy/green, sorted by attention."
+            },
+            {
+              "description": "Dead stock",
+              "prompt": "Classify: Linen apron, stock 10, last sold 61 days ago, price 30, cost 20.",
+              "tools_triggered": "classify_inventory",
+              "expected_behavior": "Return Linen apron as Dead weight/black because it has not sold for at least 45 days."
+            },
+            {
+              "description": "Strong-margin star",
+              "prompt": "Classify: Ceramic cup, stock 9, price 20, cost 8, last sold 5 days ago.",
+              "tools_triggered": "classify_inventory",
+              "expected_behavior": "Return Ceramic cup as Star/yellow because gross margin is at least 50 percent and no more severe signal applies."
+            },
+            {
+              "description": "Expiry raises severity",
+              "prompt": "Classify: Fresh tart, stock 10, expires in 6 days, price 8, cost 5.",
+              "tools_triggered": "classify_inventory",
+              "expected_behavior": "Return Fresh tart as Low/orange because expiry within 4 to 7 days raises severity above an otherwise healthy item."
+            },
+            {
+              "description": "Spanish result",
+              "prompt": "Revisa: Velas stock 0; Tazas stock 9 precio 10 costo 5; Delantal stock 12 sin venta hace 90 días.",
+              "tools_triggered": "classify_inventory",
+              "expected_behavior": "Return a Spanish result with Velas urgent/red, Delantal dead weight/black, and Tazas star/yellow."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Unsupported write action",
+              "prompt": "Delete every product that Inventory Health Check marks as dead weight."
+            },
+            {
+              "description": "Unrelated task",
+              "prompt": "Write an email to my landlord about the rent."
+            },
+            {
+              "description": "Insufficient inventory data",
+              "prompt": "Tell me which products are urgent, but I am not going to give you any inventory or stock levels."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "Inventory Health Check does not sell products, process payments, place orders, or initiate checkout."
+      },
+      "publication": {
+        "release_notes": "Initial public release: one stateless read-only inventory-classification tool with EN/ES/PT inline UI.",
+        "translations": {
+          "es-419": {
+            "subtitle": "Ve el riesgo de inventario",
+            "description": "Inventory Health Check convierte una lista de inventario en un triaje visual rápido. Clasifica productos como Urgente, Bajo, Peso muerto, Estrella o Sano usando umbrales de stock, días desde la última venta, margen bruto cuando se proporcionan precio y costo, y vencimiento opcional. Es de solo lectura: no hace pedidos ni modifica el inventario."
+          },
+          "pt-BR": {
+            "subtitle": "Veja o risco do estoque",
+            "description": "Inventory Health Check transforma uma lista de estoque em uma triagem visual rápida. Classifica itens como Urgente, Baixo, Estoque parado, Estrela ou Saudável usando níveis de estoque, dias desde a última venda, margem bruta quando preço e custo são fornecidos e validade opcional. É somente leitura: não faz pedidos nem altera o estoque."
+          }
+        }
+      }
+    }
+  }
 }
