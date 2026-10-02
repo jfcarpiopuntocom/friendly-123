@@ -1987,6 +1987,13 @@
   var K_ESTADO = "f123_estado_v4";
 
   function leerEstadoLocal() {
+    /* JFC 2026-10-01 EMERGENCIA (Belen): con el telefono de la tienda sin contestar, el tablero
+       pintaba lo guardado en ESTE navegador, y ese navegador tenia la DEMO: la duena entro con su
+       PIN y vio un negocio de ejemplo. Misma regla que la app (_esAparatoDemo en mock-backend):
+       sin cuaderno propio activado no hay negocio local; se va al equipo por la sala. */
+    try {
+      if (!localStorage.getItem("f123_tienda_activa") && !localStorage.getItem("f123_owned")) return null;
+    } catch (_) { return null; }
     try {
       var ptr = localStorage.getItem(K_ESTADO + "_ptr") || "B";
       /* Doble buffer A/B: se prueba el activo y, si esta corrupto o vacio, el
