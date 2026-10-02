@@ -50,3 +50,11 @@ test('Sonar v2 respects reduced motion', () => {
   assert.match(src, /prefers-reduced-motion: reduce/);
   assert.match(src, /sonarPulsar/);
 });
+
+
+test('Sonar animations never overwrite the SVG group translate that positions each bird', () => {
+  assert.doesNotMatch(src, /\[data-state="healthy"\] \.sonar-sprite \{/);
+  assert.doesNotMatch(src, /\[data-state="shell"\]\.is-new \.sonar-sprite \{/);
+  assert.match(src, /\[data-state="healthy"\] \.sonar-sprite > image \{/);
+  assert.match(src, /\[data-state="shell"\]\.is-new \.sonar-sprite > image \{/);
+});

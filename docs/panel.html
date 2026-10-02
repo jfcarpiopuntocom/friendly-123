@@ -305,9 +305,9 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
         @keyframes sonarPulsar { 0% { transform:scale(.62); opacity:.9; } 100% { transform:scale(1.55); opacity:0; } }
         @keyframes sonarDrop { 0% { transform:translateY(-7px); opacity:.35; } 100% { transform:translateY(0); opacity:1; } }
         @keyframes sonarGiro { to { transform: rotate(360deg); } }
-        #sonar-mapa [data-state="healthy"] .sonar-sprite { animation: sonarRespira 3.2s ease-in-out infinite; transform-box:fill-box; transform-origin:center bottom; }
+        #sonar-mapa [data-state="healthy"] .sonar-sprite > image { animation: sonarRespira 3.2s ease-in-out infinite; transform-box:fill-box; transform-origin:center bottom; }
         #sonar-mapa [data-state="hotfix"].is-new .sonar-pulsar-ring { animation: sonarPulsar 1.1s ease-out 2; transform-box:fill-box; transform-origin:center; }
-        #sonar-mapa [data-state="shell"].is-new .sonar-sprite { animation: sonarDrop .24s ease-out 1; }
+        #sonar-mapa [data-state="shell"].is-new .sonar-sprite > image { animation: sonarDrop .24s ease-out 1; }
         #sonar-mapa [data-state="stale"] { opacity:.42; }
         #sonar-mapa .barrido { animation: sonarGiro 4s linear infinite; transform-box: view-box; transform-origin: 455px 280px; }
         /* Vientito v2: only a newly detected HOTFIX gets the light airflow.
@@ -317,7 +317,7 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
         #sonar-mapa .oc-viento path:nth-child(2) { animation-delay: .12s; } #sonar-mapa .oc-viento path:nth-child(3) { animation-delay: .24s; } #sonar-mapa .oc-viento path:nth-child(4) { animation-delay: .36s; }
         @media (prefers-reduced-motion: reduce) {
           #sonar-mapa .oc-viento { display:none; }
-          #sonar-mapa [data-state] .sonar-sprite,
+          #sonar-mapa [data-state] .sonar-sprite > image,
           #sonar-mapa .sonar-pulsar-ring,
           #sonar-mapa .barrido { animation:none !important; }
         }
