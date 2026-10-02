@@ -1,0 +1,38 @@
+name: Inventory Health Check
+
+on:
+  push:
+    branches:
+      - codex/inventory-health-check-sdk-2026-10-02
+    paths:
+      - "chatgpt-app/inventory-health-check/**"
+      - ".github/workflows/inventory-health-check.yml"
+  pull_request:
+    paths:
+      - "chatgpt-app/inventory-health-check/**"
+      - ".github/workflows/inventory-health-check.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chatgpt-app/inventory-health-check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: chatgpt-app/inventory-health-check/package.json
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+      - name: Validate submission JSON
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('submission/plugin.json','utf8')); JSON.parse(require('fs').readFileSync('submission/mcp.json','utf8'));"
+      - name: Privacy/static guards
+        run: |
+          ! grep -R -nE 'localStorage|sessionStorage|indexedDB|XMLHttpRequest|navigator\.sendBeacon' src public
+          ! grep -R -nE 'console\.(log|info|warn|error).*items|console\.(log|info|warn|error).*req' src
+          test "$(grep -c 'data-l="en"' public/inventory-card.html)" -ge 1
+          test "$(grep -c 'id="themeBtn"' public/inventory-card.html)" -ge 1
