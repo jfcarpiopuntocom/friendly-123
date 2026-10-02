@@ -1432,6 +1432,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // un rol propio: NO se remapea a "dueno", queda aislado y solo-lectura.
     demoSesion = esDemo;
     rol = esDemo ? "dueno" : nuevoRol;
+    /* v441 (JFC 2026-10-02): dueno/admin en un aparato SIN cuaderno propio = esta viendo la demo
+       (misma regla que _esAparatoDemo de mock-backend). Solo avisa al canario; no cambia la entrada. */
+    try {
+      if ((nuevoRol === "dueno" || nuevoRol === "admin") && !localStorage.getItem("f123_owned") && !localStorage.getItem("f123_tienda_activa")) {
+        if (window.OCSalud && window.OCSalud.demoVisto) window.OCSalud.demoVisto("app");
+      }
+    } catch (_) {}
     /* SESIÓN PERSISTENTE (JFC 2026-08-28). El reload forzado de versión
        recargaba la página y volvía a mostrar el candado, sacando al usuario
        logueado a mitad de uso. Se guarda la sesión en sessionStorage (sobrevive

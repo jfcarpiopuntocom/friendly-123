@@ -485,6 +485,7 @@
      Los dos son del mismo origen: no son CDN y no pueden fallar por red. -->
 <script src="./aislamiento.js"></script>
 <script src="./crypto-store.js"></script>
+<script src="./canarios.js"></script>
 <script src="./salud-app.js"></script>
 <script>
 /* ============================================================================
@@ -1992,7 +1993,12 @@
        PIN y vio un negocio de ejemplo. Misma regla que la app (_esAparatoDemo en mock-backend):
        sin cuaderno propio activado no hay negocio local; se va al equipo por la sala. */
     try {
-      if (!localStorage.getItem("f123_tienda_activa") && !localStorage.getItem("f123_owned")) return null;
+      if (!localStorage.getItem("f123_tienda_activa") && !localStorage.getItem("f123_owned")) {
+        /* v441: si ademas hay un cuaderno guardado (la demo), el tablero estuvo a punto de pintarla:
+           se avisa al canario demo-visto (una vez por sesion). */
+        try { if ((localStorage.getItem(K_ESTADO + "_A") || localStorage.getItem(K_ESTADO + "_B")) && window.OCSalud && window.OCSalud.demoVisto) window.OCSalud.demoVisto("tablero"); } catch (_) {}
+        return null;
+      }
     } catch (_) { return null; }
     try {
       var ptr = localStorage.getItem(K_ESTADO + "_ptr") || "B";

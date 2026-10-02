@@ -409,9 +409,10 @@
   /* NODOS DEL SONAR (JFC 2026-09-25: "el sonar muestra la app y sus nodos ... rojos si
      algo se rompio, para saber donde"). Cada error se anota en la SECCION donde estaba
      la persona (id fijo de la lista blanca), nunca con datos del negocio. */
-  var NODOS = ["hoy", "escanear", "inventario", "perchas", "clientes", "comisiones", "gastos", "etiquetas", "avanzado", "arranque"];
+  var NODOS = ["hoy", "escanear", "inventario", "perchas", "clientes", "comisiones", "gastos", "etiquetas", "avanzado", "arranque", "tablero"];
   var porNodo = {};
   function nodoActual() {
+    try { if (/dashboard\.html$/.test(global.location.pathname)) return "tablero"; } catch (_) {} // v441
     try { var b = global.document.querySelector("nav button.activo"); var v = b && b.dataset ? b.dataset.vista : ""; return NODOS.indexOf(v) >= 0 ? v : "arranque"; }
     catch (_) { return "arranque"; }
   }
@@ -478,5 +479,13 @@
   }
   // Fallos anotados por scripts que cargan ANTES que este (invariantes, mock-backend).
   try { (global.__ocFallos || []).forEach(function (f) { fallo(f[0], f[1]); }); global.__ocFallos = []; } catch (_) {}
-  global.OCSalud = { fallo: fallo, fallos: function () { return Object.assign({}, fallos); }, resumen: resumen, medirCuadre: medirCuadre, esLord: esLord, canal: canal };
+  /* CANARIO DEMO-VISTO (JFC 2026-10-02, caso Belen: entro al tablero con su PIN y vio la DEMO
+     sin que sonara nada). Un dueno/admin frente a datos de demo es un fallo silencioso: va al
+     nodo de donde vino, una sola vez por sesion. Avisa, no frena (no suma a "errores"). */
+  var demoVistoYa = false;
+  function demoVisto(origen) {
+    if (demoVistoYa) return; demoVistoYa = true;
+    fallo(origen === "tablero" ? "tablero" : "arranque", "demo-visto");
+  }
+  global.OCSalud = { demoVisto: demoVisto, fallo: fallo, fallos: function () { return Object.assign({}, fallos); }, resumen: resumen, medirCuadre: medirCuadre, esLord: esLord, canal: canal };
 })(typeof window !== "undefined" ? window : this);
