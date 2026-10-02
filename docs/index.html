@@ -8454,6 +8454,20 @@ async function cargarComisiones(){
   const btnExport = `<button class="tecla" style="margin:0;" onclick="exportarComisionesCSV()">⤓ Export CSV</button>`;
 
   const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones, true);
+  /* v442 (JFC 2026-10-02, "no queremos panicos asi, algo FRIENDLY"): el 1 de octubre la vista abrio
+     en octubre vacio y parecio que se borraron las ventas. Si el mes en curso aun no tiene ventas y el
+     mes anterior si, se abre en el mes anterior (el que se liquida ahora), UNA vez por sesion, con
+     aviso claro arriba. Volver al mes en curso con el selector sigue funcionando (no se re-salta). */
+  if (!_ocMesComisiones && !porProducto.length && !window._ocMesAutoHecho) {
+    window._ocMesAutoHecho = true;
+    const _h = new Date(), _a = _h.getFullYear(), _m = _h.getMonth() + 1;
+    const _ant = _m === 1 ? `${_a - 1}-12` : `${_a}-${String(_m - 1).padStart(2, "0")}`;
+    if ((Array.isArray(ventasTodas) ? ventasTodas : []).some((v) => v.mes === _ant)) {
+      window._ocMesAuto = _ant;
+      _ocMesComisiones = _ant;
+      return cargarComisiones();
+    }
+  }
   // Rec 04 + 09: ranking de asociados/as con su mejor SKU y alerta de dormido.
   const rankHtml = (Array.isArray(ranking) && ranking.length) ? `
     <h3 class="seccion" style="font-size:16px;margin-top:0;">${t("comm.rankingHeading")}</h3>
@@ -8631,6 +8645,10 @@ async function cargarComisiones(){
   </section>`;
   // JFC 2026-09-23: primero por producto; las tarjetas por percha (pagar, corregir %) al fondo.
   cont.innerHTML = barraComisionesHtml(meses, btnWA + btnExport) + resumenComisionPorProductoHtml(porProducto, cuadreMes) + cardsSection;
+  if (window._ocMesAuto && _ocMesComisiones === window._ocMesAuto) { // v442: aviso del salto automatico
+    const _hoyMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    cont.insertAdjacentHTML("afterbegin", `<div class="tag-card" data-commissions-auto-month role="status" style="text-align:left;padding:12px 16px;margin:0 0 14px;font-size:16px;color:var(--ink);border:2px solid #1F7A55;">${escHtml(window.tf("comm.autoPrevMonth", { nuevo: _ocMesEtiqueta(_hoyMes), anterior: _ocMesEtiqueta(window._ocMesAuto) }))}</div>`);
+  }
   /* 2026-09-25: antes forzaba "product" en CADA repintado (una venta de otro
      aparato te sacaba de "by rack"). Ahora respeta la pestana elegida. */
   cambiarVistaComisiones(window._ocVistaComisiones || "product");
