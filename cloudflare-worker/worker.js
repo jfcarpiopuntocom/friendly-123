@@ -819,7 +819,7 @@ function sanearSalud(x) {
   };
 }
 /* Nodos del Sonar: secciones de la app por lista blanca -> numero de errores. */
-const NODOS_APP = ["hoy", "escanear", "inventario", "perchas", "clientes", "comisiones", "gastos", "etiquetas", "avanzado", "arranque"];
+const NODOS_APP = ["hoy", "escanear", "inventario", "perchas", "clientes", "comisiones", "gastos", "etiquetas", "avanzado", "arranque", "tablero"]; // tablero: v441 (dashboard.html, canario demo-visto)
 function sanearNodos(o) {
   const r = {};
   if (!o || typeof o !== "object") return r;

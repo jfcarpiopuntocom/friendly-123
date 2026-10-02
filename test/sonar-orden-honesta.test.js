@@ -22,8 +22,11 @@ test('promover.yml honors a panel PUSH during its window', () => {
   const y = fs.readFileSync(path.resolve(__dirname, '../.github/workflows/promover.yml'), 'utf8');
   assert.match(y, /pushPedido/); assert.match(y, /sonar-\$\{\{ steps\.v\.outputs\.orden \}\}/);
 });
-test('canaries are the credited CC0 Mantis sprites, not hand-drawn shapes', () => {
-  assert.match(src, /SONAR_TIRA = "data:image\/png;base64,/);
-  assert.match(src, /Mantis, OpenGameArt/); assert.match(src, /CC0/);
+test('canaries are JFC sprite files (img/canario*.png), not hand-drawn shapes', () => {
+  // v441 (JFC 2026-10-02): la tira CC0 de Mantis se reemplazo por el sprite que entrego JFC.
+  // La guarda real sigue: nada de pajaros dibujados con figuras SVG.
+  assert.match(src, /img\/\$\{rojo \? "canario-caido" : "canario"\}\.png/);
+  const fs = require('fs'), path = require('path');
+  ['canario.png', 'canario-caido.png'].forEach((n) => assert.ok(fs.statSync(path.join(__dirname, '..', 'docs', 'img', n)).size > 1000, n));
   assert.doesNotMatch(src, /<ellipse cx="\$\{x\}"/);
 });
