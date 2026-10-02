@@ -75,14 +75,20 @@
       "color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;}";
   document.head.appendChild(css);
 
+  /* Formateador PLANO, a proposito. El fmtMoney() de index.html devuelve un
+     <span> con markup, y este modulo pinta con textContent: usarlo mostraria
+     la etiqueta cruda en pantalla. */
   function fmt(n) {
     return "$" + (Number(n) || 0).toFixed(2);
   }
   function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>\"']/g, function (c) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+  /* API es un const en el scope de index.html, invisible desde aca. Se replica
+     la unica constante que hace falta en vez de exportarla y arriesgar que
+     alguien la reasigne desde fuera. */
   var API = "/api";
 
   function esDueno() {
@@ -95,9 +101,12 @@
   // ---------------------------------------------------------------------------
   // B1 y B4 · el chip del cliente dice el estado, y la proxima cuota en palabras
   // ---------------------------------------------------------------------------
+  /* Se engancha DESPUES de pintarSaldoCartera (index.html) en vez de
+     reemplazarla: si este archivo no carga, el saldo se sigue viendo igual. */
   function adornar(clienteId) {
     var el = document.getElementById("cartera-" + clienteId);
     if (!el || !global.AMG || !global.AMG.PlanPagos) return;
+    // La casilla de avisarme manda: si esta apagada, no se anuncia nada.
     var avisar = true;
     try { avisar = global.AMG.Cartera ? global.AMG.Cartera.alertaActiva(clienteId) : true; } catch (_) {}
     global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
@@ -117,9 +126,15 @@
       if (e.proximoVencimiento) {
         var p = document.createElement("span");
         p.className = "pp-prox";
-        p.textContent = "Next payment: " + fmt(e.montoCuota) + " on " + global.AMG.PlanPagos.fechaEnPalabras(e.proximoVencimiento);
+        p.textContent = "Next payment: " + fmt(e.montoCuota) + " on " +
+          global.AMG.PlanPagos.fechaEnPalabras(e.proximoVencimiento);
         el.appendChild(p);
       }
+      /* Cancel the agreement. Owner only, same as recording credit: an employee
+         does not renegotiate. The engine does NOT delete the old plan, it emits
+         plan_pago_anulado, so the history shows there was a renegotiation
+         instead of hiding it. And the balance is untouched: cancelling an
+         agreement does not forgive a debt. */
       if (esDueno()) {
         var b = document.createElement("button");
         b.className = "pp-anular";
@@ -141,62 +156,11 @@
   }
 
   // ---------------------------------------------------------------------------
-  // BUG FIX 2026-10-02 BELEN: line complete + visible button
-  // ---------------------------------------------------------------------------
-  function renderFiadoState(clienteId, nombre) {
-    var el = document.getElementById("cartera-" + clienteId);
-    if (!el) return;
-    fetch(API + "/clientes/" + clienteId + "/cartera")
-      .then(function (r) { return r.json(); })
-      .then(function (info) {
-        var saldo = Number((info && info.saldo) || 0);
-        if (!Number.isFinite(saldo) || saldo === 0) return;
-        var row = document.createElement("div");
-        row.style.marginTop = "8px";
-        row.style.fontSize = "14px";
-        row.style.lineHeight = "1.5";
-        row.style.color = "#0F1923";
-        row.style.display = "flex";
-        row.style.flexWrap = "wrap";
-        row.style.alignItems = "center";
-        row.style.gap = "6px 10px";
-
-        var txt = document.createElement("strong");
-        txt.textContent = "On-account sales shown: " + fmt(Math.abs(saldo));
-        txt.style.fontWeight = "700";
-        txt.style.color = "#0F1923";
-        row.appendChild(txt);
-
-        var estado = document.createElement("span");
-        estado.textContent = "Balance pending verification";
-        estado.style.fontSize = "13px";
-        estado.style.color = "#8A8A8A";
-        row.appendChild(estado);
-
-        if (saldo < 0 && esDueno()) {
-          var btn = document.createElement("button");
-          btn.type = "button";
-          btn.textContent = "Record a payment";
-          btn.style.minHeight = "36px";
-          btn.style.padding = "6px 12px";
-          btn.style.borderRadius = "8px";
-          btn.style.border = "2px solid #E86040";
-          btn.style.background = "#FFFFFF";
-          btn.style.color = "#8C2835";
-          btn.style.fontWeight = "700";
-          btn.style.cursor = "pointer";
-          btn.addEventListener("click", function () { modalAbonar(clienteId, nombre); });
-          row.appendChild(btn);
-        }
-
-        el.appendChild(row);
-      })
-      .catch(function () {});
-  }
-
-  // ---------------------------------------------------------------------------
   // B2 · acordar el plan en el mismo momento en que se fia
   // ---------------------------------------------------------------------------
+  /* Reemplaza el prompt() del fiado por un modal de verdad. El plan se acuerda
+     cuando se fia, en la vida real: ponerlo en otra pantalla garantiza que
+     nadie lo use. */
   function modalFiar(clienteId, nombre) {
     if (document.getElementById("pp-modal-fiar")) return;
     var m = document.createElement("div");
@@ -267,6 +231,10 @@
       var conPlan = $("pp-conplan").checked;
       var motivo = $("pp-motivo").value || "";
 
+      /* HUECO LUIS (2026-08-13): validar el plan ANTES de tocar el dinero.
+         Antes se cobraba primero y se validaba despues, asi que un campo vacio
+         dejaba el cargo hecho, un error tecnico en pantalla, y cada reintento
+         volvia a fiar. Aca no se toca un centavo hasta que el plan cierre. */
       var nCuotas = 0, fechaPlan = null;
       if (conPlan) {
         nCuotas = Math.floor(Number($("pp-cuotas").value));
@@ -283,6 +251,8 @@
         }
       }
 
+      /* El cargo va PRIMERO y el plan despues, a proposito: si el plan falla,
+         la deuda igual quedo registrada. Al reves se perderia el dinero. */
       fetch(API + "/clientes/" + clienteId + "/fiar", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ monto: monto, motivo: motivo })
@@ -302,10 +272,13 @@
         if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
         refrescarHoy();
       }).catch(function (e) {
+        /* If we got here after the charge already went through, retrying would
+           record the credit twice. Close the modal and tell the whole truth. */
         cerrar();
         if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
         refrescarHoy();
-        global.alert("The credit was recorded, but the payment plan could not be saved. " + "You can set it up later. (" + ((e && e.message) || "error") + ")");
+        global.alert("The credit was recorded, but the payment plan could not be saved. " +
+          "You can set it up later. (" + ((e && e.message) || "error") + ")");
       });
     });
 
@@ -313,6 +286,9 @@
   }
   global.fiarCliente = modalFiar;
 
+  /* Abonar tambien pasa a modal. Con prompt() no se puede mostrar cuanto debe
+     ni cuanto falta para la cuota, que es justo lo que hace falta saber en el
+     momento de recibir la plata. Y desentonaba con el modal de fiar. */
   function modalAbonar(clienteId, nombre) {
     if (document.getElementById("pp-modal-abono")) return;
     var m = document.createElement("div");
@@ -337,6 +313,8 @@
     m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
     q("pp-ab-cancel").addEventListener("click", cerrar);
 
+    /* Contexto ANTES de escribir el monto: cuanto debe y, si hay plan, cuanto
+       falta para ponerse al dia. Sugerir ese numero ahorra la cuenta mental. */
     fetch(API + "/clientes/" + clienteId + "/cartera")
       .then(function (r) { return r.json(); })
       .then(function (info) {
@@ -380,6 +358,10 @@
   }
   global.abonarCliente = modalAbonar;
 
+  /* Cancel the installment agreement. Nothing is deleted and the balance is
+     untouched: it emits a plan_pago_anulado fact, and from then on the engine
+     stops seeing an active plan. If a new one is agreed later, it is created
+     fresh and the history shows both. */
   function modalAnular(clienteId) {
     if (document.getElementById("pp-modal-anular")) return;
     var m = document.createElement("div");
@@ -422,6 +404,9 @@
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // B3 · la alerta en Hoy, y el filtro en Clientes
+  // ---------------------------------------------------------------------------
   function clientesConEstado() {
     if (!global.AMG || !global.AMG.PlanPagos) return Promise.resolve([]);
     return fetch(API + "/clientes").then(function (r) { return r.json(); }).then(function (d) {
@@ -441,6 +426,7 @@
     clientesConEstado().then(function (todos) {
       var atrasados = todos.filter(function (x) {
         if (!x.estado.hayPlan || x.estado.estado !== "atrasado") return false;
+        // La casilla de avisarme manda tambien aca.
         try { return global.AMG.Cartera ? global.AMG.Cartera.alertaActiva(x.id) : true; } catch (_) { return true; }
       });
       if (!atrasados.length) { caja.classList.remove("hay"); caja.innerHTML = ""; return; }
@@ -478,6 +464,8 @@
         var mostrar = cual === "todos" ||
           (cual === "conplan" && e.hayPlan) ||
           (cual === "atrasados" && e.hayPlan && e.estado === "atrasado");
+        // Se oculta la TARJETA entera, no solo el chip: filtrar a medias es peor
+        // que no filtrar, porque deja al dueno contando tarjetas vacias.
         var card = el.closest(".cliente-card") || el.parentElement;
         if (card) card.style.display = mostrar ? "" : "none";
       });
@@ -510,6 +498,8 @@
   }
 
   global.addEventListener("oc-login", function () { setTimeout(montar, 600); });
+  /* Al cerrar sesion la alerta desaparece: un encargado no debe ver la lista
+     global de quien debe, ni siquiera de refilon. */
   global.addEventListener("oc-logout", function () {
     var c = document.getElementById("pp-hoy");
     if (c) { c.classList.remove("hay"); c.innerHTML = ""; }
