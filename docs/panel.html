@@ -299,30 +299,32 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
            canario con su nombre: verde y parado = bien; rojo, caido y latiendo = ahi se
            rompio algo (con cuantos reportes). Datos: /canario/estado -> nodos (ids y conteos). -->
       <style>
-        @keyframes sonarLatido { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
-        #sonar-mapa .caido { animation: sonarLatido 1.1s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-        /* CANARIOS ANIMADOS (JFC 2026-10-01: "anima los canarios mas"). Sanos: saltan y
-           ladean la cabeza, cada uno a su ritmo (delay por indice). Caidos: latido + temblor.
-           Barrido de sonar girando sobre el mapa. Solo CSS sobre el mismo sprite CC0
-           (no se tocan pixeles). Con "reducir movimiento" todo queda quieto. */
-        @keyframes sonarSalto { 0%,62%,100% { transform: translateY(0) rotate(0); } 70% { transform: translateY(-9px) rotate(-6deg); } 78% { transform: translateY(0) rotate(0); } 84% { transform: translateY(-4px) rotate(5deg); } 90% { transform: translateY(0) rotate(0); } }
-        @keyframes sonarTiembla { 0%,100% { translate: 0 0; } 25% { translate: -2px 0; } 75% { translate: 2px 0; } }
+        /* SONAR v2 — quiet when healthy, loud only when action is needed.
+           Healthy/stale/structural birds are ~2/3 of the old 56px footprint. */
+        @keyframes sonarRespira { 0%,100% { transform: scale(1); opacity:.94; } 50% { transform: scale(1.035); opacity:1; } }
+        @keyframes sonarPulsar { 0% { transform:scale(.62); opacity:.9; } 100% { transform:scale(1.55); opacity:0; } }
+        @keyframes sonarDrop { 0% { transform:translateY(-7px); opacity:.35; } 100% { transform:translateY(0); opacity:1; } }
         @keyframes sonarGiro { to { transform: rotate(360deg); } }
-        #sonar-mapa .vivo { animation: sonarSalto 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center bottom; }
-        #sonar-mapa .caido > g { animation: sonarTiembla .35s linear infinite; }
+        #sonar-mapa [data-state="healthy"] .sonar-sprite { animation: sonarRespira 3.2s ease-in-out infinite; transform-box:fill-box; transform-origin:center bottom; }
+        #sonar-mapa [data-state="hotfix"].is-new .sonar-pulsar-ring { animation: sonarPulsar 1.1s ease-out 2; transform-box:fill-box; transform-origin:center; }
+        #sonar-mapa [data-state="shell"].is-new .sonar-sprite { animation: sonarDrop .24s ease-out 1; }
+        #sonar-mapa [data-state="stale"] { opacity:.42; }
         #sonar-mapa .barrido { animation: sonarGiro 4s linear infinite; transform-box: view-box; transform-origin: 455px 280px; }
-        /* VIENTITO ENTRE CANARIOS (JFC 2026-10-02, v441). Cuando un canario CAE entre dos sondeos,
-           una rafaga cruza el mapa (~1,2 s) y los canarios sanos se inclinan HACIA el caido, como
-           si el aire los empujara a mirarlo. Solo transform/opacity. No sale al abrir el panel
-           (solo con cambios). Con "reducir movimiento": sin rafaga, solo el aviso en texto. */
-        @keyframes ocViento { 0% { transform: translateX(-160px); opacity: 0; } 15% { opacity: .9; } 85% { opacity: .9; } 100% { transform: translateX(920px); opacity: 0; } }
+        /* Vientito v2: only a newly detected HOTFIX gets the light airflow.
+           Structural faults are intentionally stark: room red + fallen bird, no playful wind. */
+        @keyframes ocViento { 0% { transform: translateX(-160px); opacity: 0; } 15% { opacity: .72; } 85% { opacity: .72; } 100% { transform: translateX(920px); opacity: 0; } }
         #sonar-mapa .oc-viento path { animation: ocViento 1.2s ease-in-out forwards; }
         #sonar-mapa .oc-viento path:nth-child(2) { animation-delay: .12s; } #sonar-mapa .oc-viento path:nth-child(3) { animation-delay: .24s; } #sonar-mapa .oc-viento path:nth-child(4) { animation-delay: .36s; }
-        @media (prefers-reduced-motion: reduce) { #sonar-mapa .oc-viento { display: none; } }
-        @media (prefers-reduced-motion: reduce) { #sonar-mapa .caido, #sonar-mapa .vivo, #sonar-mapa .caido > g, #sonar-mapa .barrido { animation: none; } }
+        @media (prefers-reduced-motion: reduce) {
+          #sonar-mapa .oc-viento { display:none; }
+          #sonar-mapa [data-state] .sonar-sprite,
+          #sonar-mapa .sonar-pulsar-ring,
+          #sonar-mapa .barrido { animation:none !important; }
+        }
       </style>
+      <div id="sonar-resumen" role="status" aria-live="polite" style="max-width:760px;margin:0 auto 8px;font:800 13px/1.4 var(--mono);letter-spacing:.02em;color:#28ECAA;"></div>
       <div id="sonar-mapa" style="max-width:760px;margin:0 auto 12px;"></div>
-      <p id="sonar-viento-aviso" role="status" aria-live="polite" style="margin:0 0 10px;font-size:16px;font-weight:800;color:#FF8A6B;min-height:1px;"></p>
+      <p id="sonar-viento-aviso" role="status" aria-live="polite" style="margin:0 0 10px;font-size:16px;font-weight:800;color:#E8A020;min-height:1px;"></p>
       <div id="sonar-canales" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;"></div>
       <p id="sonar-rojos" style="display:none;margin:12px 0 0;font-size:16px;font-weight:700;color:#FF8A6B;"></p>
       <p id="sonar-orden" style="margin:10px 0 0;font-size:15px;color:var(--ink);"></p>
@@ -938,27 +940,34 @@ const SONAR_CANARIOS = [
   ["perchas", "Racks", "perchas"], ["clientes", "Customers", "clientes"], ["comisiones", "Commissions", "comisiones"],
   ["dinero", "Money", "comisiones"], ["gastos", "Expenses", "gastos"], ["etiquetas", "Labels", "etiquetas"],
   ["avanzado", "Advanced", "avanzado"], ["tablero", "Dashboard", "barra"],
-].map(([id, nombre, cuarto]) => ({ id, nombre, cuarto, reportes: 0 }));
+].map(([id, nombre, cuarto]) => ({ id, nombre, cuarto, reportes: 0, estado: null, estadoPrevio: null, nuevo: false }));
 let SONAR_VIVO = false;
-/* CANARIOS (v441, JFC 2026-10-02): sprite que entrego JFC (pollito bardo, estilo SNES/JRPG),
-   en img/canario.png: fondo quitado por relleno desde los bordes, recortado al contorno, 112x111.
-   Reemplaza la tira CC0 de Mantis (28x24 recortada por viewBox: un pajaro salia mutilado y JFC
-   los encontro feos). Regla de JFC: NO dibujar pajaros propios. Estado no depende del dibujo:
-   problema = patas arriba + latido + aro rojo + texto rojo. */
+const SONAR_CANARIO_COMPACTO = 37;
+const SONAR_CANARIO_HOTFIX = 56;
+const SONAR_ESTADOS = new Set(["healthy", "hotfix", "shell", "stale"]);
+function sonarEstadoVisual(c) {
+  if (c && SONAR_ESTADOS.has(c.estado)) return c.estado;
+  if (!SONAR_VIVO) return "stale";
+  if (c.reportes > 0) return "shell"; // protocolo viejo: degradar conservador, nunca inventar HOTFIX
+  return "healthy";
+}
 function sonarCanarioSVG(x, y, c) {
-  const rojo = SONAR_VIVO && c.reportes > 0;
+  const estado = sonarEstadoVisual(c);
   const idx = Math.max(0, SONAR_CANARIOS.indexOf(c));
-  /* v441 (JFC 2026-10-02): canario = sprite de JFC (img/canario.png, fondo quitado, 112x111,
-     se pinta a 56x56). ENTERO siempre: nada de viewBox recortando celdas (el verde salia mutilado).
-     Fallo = img/canario-caido.png, el dibujo PATAS ARRIBA que entrego JFC (ojos en X), + latido + aro rojo.
-     No se voltea por codigo: se usa su sprite tal cual. */
-  const w = 56, h = 56;
-  const t = `translate(${x - w / 2} ${y - h / 2 - 6})`;
-  return `<g data-canario="${sonarEsc(c.id)}" data-x="${Math.round(x)}" class="${rojo ? "caido" : (SONAR_VIVO ? "vivo" : "")}" style="animation-delay:${(idx * 0.37) % 2.8}s"><title>${sonarEsc(c.nombre)}: ${rojo ? c.reportes + " report(s) with problems" : "OK"}</title>
-    ${rojo ? `<circle cx="${x}" cy="${y - 6}" r="${h / 2 + 4}" fill="none" stroke="#E86040" stroke-width="3"/>` : ""}
-    <g transform="${t}"><image href="img/${rojo ? "canario-caido" : "canario"}.png" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/></g>
-    <text x="${x}" y="${y + 34}" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF">${sonarEsc(c.nombre)}</text>
-    ${rojo ? `<text x="${x}" y="${y + 50}" text-anchor="middle" font-size="13" font-weight="800" fill="#FF8A6B">${c.reportes} report${c.reportes === 1 ? "" : "s"}</text>` : ""}
+  const hotfix = estado === "hotfix", shell = estado === "shell", stale = estado === "stale";
+  const w = hotfix ? SONAR_CANARIO_HOTFIX : SONAR_CANARIO_COMPACTO;
+  const h = w, cy = y - 6, t = `translate(${x - w / 2} ${cy - h / 2})`;
+  const etiqueta = hotfix ? "HOTFIX" : shell ? "SHELL" : stale ? "STALE" : "OK";
+  const tinta = hotfix ? "#F3B33D" : shell ? "#FF8A6B" : stale ? "#AAB4AE" : "#28ECAA";
+  const ring = hotfix
+    ? `<circle class="sonar-pulsar-ring" cx="${x}" cy="${cy}" r="23" fill="none" stroke="#F3B33D" stroke-width="2.5" opacity=".85"/><circle class="sonar-pulsar-ring" cx="${x}" cy="${cy}" r="29" fill="none" stroke="#F3B33D" stroke-width="1.5" opacity=".55"/>`
+    : shell ? `<circle cx="${x}" cy="${cy}" r="23" fill="none" stroke="#E86040" stroke-width="3"/>`
+    : stale ? `<circle cx="${x}" cy="${cy}" r="22" fill="none" stroke="#AAB4AE" stroke-width="1.5" stroke-dasharray="3 4"/>` : "";
+  return `<g data-canario="${sonarEsc(c.id)}" data-state="${estado}" data-x="${Math.round(x)}" class="canario-v2 ${estado}${c.nuevo ? " is-new" : ""}" style="animation-delay:${(idx * 0.19) % 3.2}s"><title>${sonarEsc(c.nombre)} · ${etiqueta}${c.reportes ? " · " + c.reportes + " report(s)" : ""}</title>
+    ${ring}
+    <g class="sonar-sprite" transform="${t}"><image href="img/${shell ? "canario-caido" : "canario"}.png" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/></g>
+    <text x="${x}" y="${y + 28}" text-anchor="middle" font-size="12" font-weight="800" fill="#FFFFFF">${sonarEsc(c.nombre)}</text>
+    ${estado !== "healthy" ? `<text x="${x}" y="${y + 43}" text-anchor="middle" font-size="10" font-weight="900" letter-spacing=".08em" fill="${tinta}">${etiqueta}</text>` : ""}
   </g>`;
 }
 function sonarDibujarMapa() {
@@ -983,9 +992,12 @@ function sonarDibujarMapa() {
   // Cuartos.
   cuartos.forEach(([id, nombre], i) => {
     const x = X0 + (i % 3) * (CW + G), y = Y0 + Math.floor(i / 3) * (CH + G);
-    const enRojo = SONAR_VIVO && SONAR_CANARIOS.some((c) => c.cuarto === id && c.reportes > 0);
-    svg += `<rect x="${x}" y="${y}" width="${CW}" height="${CH}" rx="10" fill="#0E2219" stroke="${enRojo ? "#E86040" : "#1F6B4E"}" stroke-width="${enRojo ? 3 : 1.5}"/>`;
-    svg += `<text x="${x + 12}" y="${y + 22}" font-size="13" font-weight="800" fill="${enRojo ? "#FF8A6B" : "#28ECAA"}">${nombre}</text>`;
+    const estadosCuarto = SONAR_CANARIOS.filter((c) => c.cuarto === id).map(sonarEstadoVisual);
+    const tieneShell = estadosCuarto.includes("shell"), tieneHotfix = estadosCuarto.includes("hotfix");
+    const borde = tieneShell ? "#E86040" : tieneHotfix ? "#F3B33D" : "#1F6B4E";
+    const tinta = tieneShell ? "#FF8A6B" : tieneHotfix ? "#F3B33D" : "#28ECAA";
+    svg += `<rect x="${x}" y="${y}" width="${CW}" height="${CH}" rx="10" fill="#0E2219" stroke="${borde}" stroke-width="${tieneShell || tieneHotfix ? 3 : 1.5}"/>`;
+    svg += `<text x="${x + 12}" y="${y + 22}" font-size="13" font-weight="800" fill="${tinta}">${nombre}</text>`;
     const vivos = SONAR_CANARIOS.filter((c) => c.cuarto === id);
     // v441: con 2 canarios en un cuarto se abren a 1/4 y 3/4 (a 1/3 y 2/3 los nombres se pisaban).
     vivos.forEach((c, k) => { svg += sonarCanarioSVG(x + (vivos.length === 2 ? CW * (k ? 0.76 : 0.24) : CW / (vivos.length + 1) * (k + 1)), y + 58, c); });
@@ -1049,13 +1061,26 @@ async function sonarPintar() {
       <div style="font-size:14px;font-weight:800;margin-top:6px;color:${rojo ? "#FF8A6B" : "#28ECAA"};">${rojo ? "EN ROJO" : "sin rojos"}</div>
     </div>`;
   }).join("");
-  // Mapa de la app: reportes con problemas por canario, en clientes (estable) + canario (next).
+  // Sonar v2: el panel entiende estado explícito cuando el Worker lo entregue.
+  // Mientras llega CSP v2, cualquier reporte del protocolo viejo se trata como SHELL:
+  // seguro por defecto, nunca se inventa un HOTFIX.
   SONAR_VIVO = !!(estados[1] || estados[2]);
-  SONAR_CANARIOS.forEach((c) => { c.reportes = [estados[1], estados[2]].reduce((a, e) => a + ((e && e.nodos && e.nodos[c.id]) || 0), 0); });
-  const subieron = SONAR_PREVIO ? SONAR_CANARIOS.filter((c) => c.reportes > (SONAR_PREVIO[c.id] || 0)) : [];
+  SONAR_CANARIOS.forEach((c) => {
+    c.reportes = [estados[1], estados[2]].reduce((a, e) => a + ((e && e.nodos && e.nodos[c.id]) || 0), 0);
+    const declarado = [estados[2], estados[1]].map((e) => e && e.clases && e.clases[c.id]).find((x) => SONAR_ESTADOS.has(x)) || null;
+    c.estado = declarado;
+    const ahora = sonarEstadoVisual(c);
+    c.nuevo = !!(c.estadoPrevio && c.estadoPrevio !== ahora);
+    c.estadoPrevio = ahora;
+  });
+  const nuevosHotfix = SONAR_CANARIOS.filter((c) => c.nuevo && sonarEstadoVisual(c) === "hotfix");
   if (SONAR_VIVO) SONAR_PREVIO = SONAR_CANARIOS.reduce((o, c) => { o[c.id] = c.reportes; return o; }, {});
   sonarDibujarMapa();
-  if (subieron.length) sonarViento(subieron);
+  if (nuevosHotfix.length) sonarViento(nuevosHotfix);
+  const conteos = SONAR_CANARIOS.reduce((o, c) => { const e = sonarEstadoVisual(c); o[e] = (o[e] || 0) + 1; return o; }, {});
+  const resumen = document.getElementById("sonar-resumen");
+  if (resumen) resumen.textContent = (conteos.shell ? "PROMOTION BLOCKED · " : "") +
+    `${conteos.healthy || 0} OK · ${conteos.hotfix || 0} HOTFIX · ${conteos.shell || 0} SHELL · ${conteos.stale || 0} STALE`;
   const next = estados[2];
   const rojos = document.getElementById("sonar-rojos");
   if (next && next.rojo) {
