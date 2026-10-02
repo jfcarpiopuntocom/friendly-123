@@ -30,3 +30,23 @@ test('canaries are JFC sprite files (img/canario*.png), not hand-drawn shapes', 
   ['canario.png', 'canario-caido.png'].forEach((n) => assert.ok(fs.statSync(path.join(__dirname, '..', 'docs', 'img', n)).size > 1000, n));
   assert.doesNotMatch(src, /<ellipse cx="\$\{x\}"/);
 });
+
+
+test('Sonar v2 uses compact healthy canaries and explicit visual states', () => {
+  assert.match(src, /const SONAR_CANARIO_COMPACTO = 37/);
+  assert.match(src, /function sonarEstadoVisual\(c\)/);
+  assert.match(src, /data-state="\$\{estado\}"/);
+  assert.match(src, /estado === "hotfix"/);
+  assert.match(src, /estado === "shell"/);
+  assert.match(src, /estado === "stale"/);
+  assert.match(src, /sonar-pulsar-ring/);
+  assert.match(src, /PROMOTION BLOCKED/);
+});
+test('legacy reports degrade conservatively to shell, never hotfix', () => {
+  assert.match(src, /if \(c\.reportes > 0\) return "shell"/);
+  assert.doesNotMatch(src, /c\.reportes > 0[^\n]*return "hotfix"/);
+});
+test('Sonar v2 respects reduced motion', () => {
+  assert.match(src, /prefers-reduced-motion: reduce/);
+  assert.match(src, /sonarPulsar/);
+});
