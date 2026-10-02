@@ -1,0 +1,23 @@
+{
+  "name": "@jfcarpio/inventory-health-check-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "test": "vitest run",
+    "check": "tsc --noEmit && vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3"
+  },
+  "engines": {"node": ">=20"}
+}

@@ -1,0 +1,4 @@
+2026-10-02 — Inventory Health Check official-SDK implementation
+New files only; no previous bytes existed on master under chatgpt-app/inventory-health-check/.
+Purpose: build a parallel, reviewable implementation using the same official MCP SDK pattern already used by the submitted Business Survival Score sibling.
+The existing Stock Semaphore prototype remains untouched in its draft branch.

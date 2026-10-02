@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "inventory-health-check",
+  "version": "0.1.0",
+  "description": "Classify shop inventory into urgent, low, dead-weight, star, and healthy attention levels using stock, ageing, margin, and optional expiry data.",
+  "author": {"name":"J. F. Carpio","url":"https://jfcarpio.com"},
+  "homepage": "https://jfcarpio.com/friendly123/chatgpt-app/inventory-health-check/",
+  "repository": "https://github.com/jfcarpiopuntocom/friendly-123",
+  "license": "MIT",
+  "keywords": ["inventory","stock","working-capital","retail","small-business"]
+}
