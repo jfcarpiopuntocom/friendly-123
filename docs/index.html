@@ -8362,7 +8362,17 @@ function resumenComisionPorProductoHtml(prods, cuadre){
       <p style="font-size:14px;color:var(--ink);margin:6px 0 0;">${t("comm.byProductIntro")}</p></details>
     <input id="comm-product-search" type="search" aria-label="${t("comm.searchProduct")}" placeholder="${t("comm.searchProduct")}" autocomplete="off" style="width:100%;max-width:460px;min-height:44px;margin:0 0 8px;padding:8px 12px;border:1px solid #9BAEBF;border-radius:8px;background:var(--paper,#fff);color:var(--ink);font:inherit;">
     <div id="comm-product-count" role="status" aria-live="polite" style="font-size:13px;color:var(--ink-soft);margin-bottom:10px;"></div>`;
-  if (!prods.length) return _secc + cuadreMesHtml(cuadre) + apertura + `<div class="tag-card" style="text-align:left;padding:14px 16px;font-size:14px;">${t("comm.byProductEmpty")}</div></section>`;
+  /* JFC 2026-10-01 EMERGENCIA: el 1 de octubre la duena vio "No product sales in this month yet" y
+     creyo que se habian borrado las ventas de ayer. No se borro nada: cambio el mes y la vista arranca
+     en el mes en curso. Ahora el aviso NOMBRA el mes y trae un boton al mes anterior. */
+  if (!prods.length) {
+    const _hoy = new Date();
+    const _mesVisto = _ocMesComisiones || `${_hoy.getFullYear()}-${String(_hoy.getMonth() + 1).padStart(2, "0")}`;
+    const [_a, _m] = _mesVisto.split("-").map(Number);
+    const _ant = _m === 1 ? `${_a - 1}-12` : `${_a}-${String(_m - 1).padStart(2, "0")}`;
+    return _secc + cuadreMesHtml(cuadre) + apertura + `<div class="tag-card" data-commissions-empty style="text-align:left;padding:14px 16px;font-size:16px;color:var(--ink);">${escHtml(window.tf("comm.byProductEmptyMonth", { mes: _ocMesEtiqueta(_mesVisto) }))}
+      <div style="margin-top:10px;"><button type="button" class="tecla" data-commissions-prev="${_ant}" onclick="cambiarMesComisiones('${_ant}')" style="font-size:16px;min-height:44px;">${escHtml(window.tf("comm.byProductSeeMonth", { mes: _ocMesEtiqueta(_ant) }))}</button></div></div></section>`;
+  }
   // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
   const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
   const tile = (label, val, color) => `<div class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;">
