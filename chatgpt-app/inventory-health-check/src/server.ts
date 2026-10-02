@@ -38,13 +38,7 @@ function createInventoryServer() {
       uri: RESOURCE_URI,
       mimeType: RESOURCE_MIME_TYPE,
       text: widgetHtml,
-      _meta: {
-        ui: {
-          domain: APP_ORIGIN,
-          prefersBorder: true,
-          csp: { connectDomains: [], resourceDomains: [] }
-        }
-      }
+      _meta: { ui: { domain: APP_ORIGIN, prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } } }
     }]
   }));
 
@@ -61,10 +55,12 @@ function createInventoryServer() {
     const parsed = inputSchema.parse(args);
     const result = classifyInventory(parsed.items, parsed.locale ?? "en");
     const urgent = result.items.filter((x) => x.color === "red" || x.color === "orange").slice(0, 10);
-    const text = [
-      `${result.counts.red} urgent/red; ${result.counts.orange} low/orange; ${result.counts.black} dead weight/black; ${result.counts.yellow} star/yellow; ${result.counts.green} healthy/green.`,
-      urgent.length ? urgent.map((x) => `${x.name}: ${x.why}`).join("; ") : "No red or orange items in the submitted list."
-    ].join(" ");
+    const labels = {
+      en: { summary: `${result.counts.red} urgent; ${result.counts.orange} low; ${result.counts.black} dead weight; ${result.counts.yellow} stars; ${result.counts.green} healthy.`, none: "No red or orange items in the submitted list." },
+      es: { summary: `${result.counts.red} urgentes; ${result.counts.orange} bajos; ${result.counts.black} peso muerto; ${result.counts.yellow} estrellas; ${result.counts.green} sanos.`, none: "No hay productos rojos o naranjas en la lista enviada." },
+      pt: { summary: `${result.counts.red} urgentes; ${result.counts.orange} baixos; ${result.counts.black} parados; ${result.counts.yellow} estrelas; ${result.counts.green} saudáveis.`, none: "Não há itens vermelhos ou laranjas na lista enviada." }
+    }[result.locale];
+    const text = [labels.summary, urgent.length ? urgent.map((x) => `${x.name}: ${x.why}`).join("; ") : labels.none].join(" ");
     return { content: [{ type: "text", text }], structuredContent: result };
   });
 
