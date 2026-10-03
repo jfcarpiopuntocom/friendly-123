@@ -29,6 +29,7 @@ jobs:
       - name: Generate deterministic manifest preview
         run: |
           node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json
           echo '---MANIFEST-BEGIN---'
           cat docs/version-manifest.json
           echo '---MANIFEST-END---'
