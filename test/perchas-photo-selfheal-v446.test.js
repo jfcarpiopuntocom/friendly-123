@@ -41,7 +41,7 @@ test('v446: a shelf photo still stored by id reattaches its hash automatically',
         migrarSiHaceFalta: async () => {},
         leerTodas: async () => ({ 'u-photo': photo }),
         guardarFotoContenido: async (data) => {
-          assertData = data;
+          window.__hashedData = data;
           return 'hash-recovered';
         },
         leerPorHash: async () => null,
@@ -70,11 +70,13 @@ test('v446: a shelf photo still stored by id reattaches its hash automatically',
     const result = await page.evaluate(() => ({
       puts: window.__puts.slice(),
       img: document.querySelector('#vp-grid img') && document.querySelector('#vp-grid img').getAttribute('src'),
-      text: document.getElementById('vp-grid').textContent
+      text: document.getElementById('vp-grid').textContent,
+      hashedData: window.__hashedData
     }));
 
     assert.match(result.text, /JFC shelf/);
     assert.equal(result.img, 'data:image/png;base64,bG9jYWwtc2hlbGYtcGhvdG8=');
+    assert.equal(result.hashedData, result.img, 'the exact local bytes are hashed; no photo is guessed or copied');
     assert.deepEqual(result.puts, [{
       url: '/api/ubicaciones/u-photo',
       body: { fotoHash: 'hash-recovered' }
