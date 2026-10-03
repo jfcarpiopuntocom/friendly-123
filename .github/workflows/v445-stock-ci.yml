@@ -1,0 +1,37 @@
+name: v445-stock-ci
+
+on:
+  push:
+    branches:
+      - incident/v445-stock-ci-2026-10-03
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Targeted v445 stock regression
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/stock-zero-replay-v445.test.js
+      - name: Full suite
+        run: npm test
+      - name: Manifest deterministic
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before
+          node scripts/gen-manifest.js
+          cmp -s /tmp/version-manifest.before docs/version-manifest.json
+      - name: Service worker integrity
+        run: bash check-sw.sh
+      - name: Repository guards
+        run: bash .claude/guards.sh
+      - name: v444 to v445 diff whitespace check
+        run: git diff --check 1c3f911d4a5319fe9a7bb33987fd3635ffab108a..99b1cafabe6800e16b821d16acd7a73972ac51fc
