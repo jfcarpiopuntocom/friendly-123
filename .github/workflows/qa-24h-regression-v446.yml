@@ -25,6 +25,46 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Full test suite
         run: npm test
+      - name: Historical sensitivity — prove the new guards catch the last 24h regressions
+        run: |
+          set -euo pipefail
+          TESTFILE="$GITHUB_WORKSPACE/test/regression-gauntlet-v446.test.js"
+          run_expected_fail() {
+            NAME="$1"
+            SHA="$2"
+            PATTERN="$3"
+            DIR="/tmp/f123-$NAME"
+            LOG="/tmp/$NAME.log"
+            rm -rf "$DIR" "$LOG"
+            git worktree add --detach "$DIR" "$SHA" >/dev/null
+            cp "$TESTFILE" "$DIR/test/regression-gauntlet-v446.test.js"
+            ln -s "$GITHUB_WORKSPACE/node_modules" "$DIR/node_modules"
+            set +e
+            (cd "$DIR" && node --require ./test/helpers/sin-red-produccion.cjs --test --test-name-pattern "$PATTERN" test/regression-gauntlet-v446.test.js) >"$LOG" 2>&1
+            RC=$?
+            set -e
+            echo "===== $NAME @ $SHA / $PATTERN ====="
+            cat "$LOG"
+            git worktree remove "$DIR" --force >/dev/null
+            if [ "$RC" -eq 0 ]; then
+              echo "::error::Historical sensitivity failed: $NAME unexpectedly passed."
+              exit 1
+            fi
+            echo "EXPECTED HISTORICAL FAILURE OBSERVED: $NAME"
+          }
+
+          # Before v442: no one-time empty-current-month auto-jump.
+          run_expected_fail "pre-v442-commissions" "318dea275cd36fdbb2b9db014ae829419067409d" "24h #3"
+          # Before v443: an integrity warning replaces the debt/payment row.
+          run_expected_fail "pre-v443-payment" "ab64d71d1fd467653138759cefb7f5e84a950060" "24h #1"
+          # First compact-clock commit had the 11px regression; 8b8b later restored 12px.
+          run_expected_fail "pre-clock-readability-fix" "34b4dcab7df1" "24h #4|24h #5"
+          # Before v444: archived shelves were requested/rendered by the operational view.
+          run_expected_fail "pre-v444-shelves" "fbc7f4465caf928d429cd1045daa8ecb162a98e3" "24h #6"
+          # v444 still accepted an unproven legacy zero.
+          run_expected_fail "v444-stock" "9b891c8023927cadf0a95b24757091afc8ace8e4" "24h #10"
+          # v445 had no per-photo revision/self-heal contract yet.
+          run_expected_fail "v445-photos" "99b1cafabe6800e16b821d16acd7a73972ac51fc" "24h #7|24h #8|24h #9"
       - name: Service worker integrity
         run: bash check-sw.sh
       - name: Diff hygiene
