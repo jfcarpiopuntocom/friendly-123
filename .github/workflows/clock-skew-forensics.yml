@@ -24,6 +24,12 @@ jobs:
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/clock-skew-forensics-v447.test.js
       - name: Full suite
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/*.test.js
+      - name: Generate deterministic manifest preview
+        run: |
+          node scripts/gen-manifest.js
+          echo '---MANIFEST-BEGIN---'
+          cat docs/version-manifest.json
+          echo '---MANIFEST-END---'
       - name: Service-worker and release guards
         run: bash check-sw.sh
       - name: Diff hygiene
