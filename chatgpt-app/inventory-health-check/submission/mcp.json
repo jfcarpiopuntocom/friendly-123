@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "inventory-health-check": {
+      "type": "streamable-http",
+      "url": "https://inventory-health-check.jfcarpio.com/mcp"
+    }
+  }
+}

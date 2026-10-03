@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: inventory-health-check
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ORIGIN
+        value: https://inventory-health-check.jfcarpio.com
