@@ -42,7 +42,7 @@ test('Today emergency hero is compact and How does it work stays attached on 603
   assert.ok(r.heroHeight <= 100, 'hero should stay under 100 CSS px at 603px viewport: ' + JSON.stringify(r));
   assert.ok(r.gapToHow <= 8, 'How does it work should sit close to hero: ' + JSON.stringify(r));
   assert.ok(r.titleFont <= 15.1, 'mobile headline should be compact: ' + JSON.stringify(r));
-  assert.ok(r.clockFont <= 11.1, 'timestamp pill should be secondary: ' + JSON.stringify(r));
+  assert.ok(r.clockFont <= 12.1, 'timestamp pill should be secondary while respecting the 12px readability floor: ' + JSON.stringify(r));
   assert.equal(r.shellText, false, 'aesthetic hotfix must not introduce shell v444');
 });
 
