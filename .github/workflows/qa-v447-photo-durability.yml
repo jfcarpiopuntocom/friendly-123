@@ -1,0 +1,32 @@
+name: qa-v447-photo-durability
+
+on:
+  push:
+    branches: [hotfix/v447-shelf-photo-durable-id-mirror]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Focused regression
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/shelf-photo-hash-only-durability-v447.test.js
+      - name: Full suite
+        run: npm test
+      - name: Shell integrity
+        run: bash check-sw.sh
+      - name: Diff hygiene
+        run: |
+          git fetch -q origin master
+          git diff --check origin/master...HEAD
