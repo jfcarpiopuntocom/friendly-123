@@ -44,14 +44,32 @@
      comparacion de fechas tiene que pasar por aqui; ver el guard
      .claude/guards.sh, que falla si vuelve a aparecer un .slice() sobre una
      fecha cruda. */
-  function fechaLocalDe(fechaISO) {
+  /* RELOJ FORENSE (v447). Desde v438 cada venta puede guardar el desfase
+     medido contra el relay: relojDesfaseMs = relay - aparato. La fecha cruda
+     NO se reescribe (evidencia/auditoria); para reportes se deriva el instante
+     corregido. Ventas viejas sin sello conservan exactamente el comportamiento
+     anterior. */
+  function instanteCorregidoMs(fechaISO, relojDesfaseMs) {
+    const base = Date.parse(fechaISO);
+    if (!Number.isFinite(base)) return NaN;
+    const d = Number(relojDesfaseMs);
+    return base + (Number.isFinite(d) ? d : 0);
+  }
+  function fechaLocalDe(fechaISO, relojDesfaseMs) {
     try {
-      return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(fechaISO));
+      const ms = instanteCorregidoMs(fechaISO, relojDesfaseMs);
+      return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Number.isFinite(ms) ? ms : fechaISO));
     } catch (_) {
       /* Fecha ilegible: se devuelve el prefijo crudo. Peor que exacto, pero
          mucho mejor que romper el filtro entero por un dato malo. */
       return String(fechaISO || "").slice(0, 10);
     }
+  }
+  function ahoraRelayComun() {
+    try {
+      const n = (window.OCLatencia && window.OCLatencia.ahoraRelay) ? Number(window.OCLatencia.ahoraRelay()) : NaN;
+      return Number.isFinite(n) ? n : null;
+    } catch (_) { return null; }
   }
   // Días reales del mes actual (28/29/30/31) — espejo de diasEnMesActual() en server.js.
   function diasEnMesActual() {
@@ -1302,7 +1320,7 @@
 
   // ---- Reparto de comisiones (espejo de data.js) ----
   function mesActualISO() { return hoyISO().slice(0, 7); }
-  function esDelMesActual(fechaISO) { return !!fechaISO && fechaLocalDe(fechaISO).slice(0, 7) === mesActualISO(); }
+  function esDelMesActual(fechaISO, relojDesfaseMs) { return !!fechaISO && fechaLocalDe(fechaISO, relojDesfaseMs).slice(0, 7) === mesActualISO(); }
   /* PERIODO DE COMMISSIONS (JFC 2026-09-24, shell 371). Antes todo lo de
      comisiones miraba solo el mes en curso: al cambiar de mes, lo que no se
      pago quedaba invisible e impagable. mesValido() acepta SOLO "YYYY-MM" con
@@ -1310,7 +1328,7 @@
      nunca a "todos los meses": un parametro malo no puede abrir otro periodo
      ni liquidar ventas que nadie eligio. Decision: DECISIONES-JFC.md. */
   function mesValido(mes) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(mes || "")) ? String(mes) : mesActualISO(); }
-  function esDelMes(fechaISO, mes) { return !!fechaISO && fechaLocalDe(fechaISO).slice(0, 7) === mesValido(mes); }
+  function esDelMes(fechaISO, mes, relojDesfaseMs) { return !!fechaISO && fechaLocalDe(fechaISO, relojDesfaseMs).slice(0, 7) === mesValido(mes); }
   /* Meses con ventas comisionadas, del mas nuevo al mas viejo, con lo que aun
      falta pagar al asociado. El mes actual va siempre, aunque este vacio. Solo
      lectura: no cambia ninguna venta. */
@@ -1319,7 +1337,7 @@
     const map = new Map([[actual, { mes: actual, actual: true, ventas: 0, comision: 0, pendiente: 0 }]]);
     ventasActivas().forEach((v) => {
       if (!v.split || !v.fecha) return;
-      const mes = fechaLocalDe(v.fecha).slice(0, 7);
+      const mes = fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7);
       const d = map.get(mes) || { mes, actual: mes === actual, ventas: 0, comision: 0, pendiente: 0 };
       const c = Number(v.split.montoComisionSocio) || 0;
       d.ventas += 1; d.comision += c; if (!v.liquidada) d.pendiente += c;
@@ -1339,16 +1357,16 @@
   // Conteo global de ventas del mes actual, TODAS las ubicaciones (free-tier
   // gating, 2026-07-15) — distinto de ventasMesAcumuladas (suma montos por
   // una sola ubicacion, para comisiones). Usado para el tope de 100/mes.
-  function ventasCountMesGlobal() { return ventasActivas().filter((v) => esDelMesActual(v.fecha)).length; }
+  function ventasCountMesGlobal() { return ventasActivas().filter((v) => esDelMesActual(v.fecha, v.relojDesfaseMs)).length; }
   function ventasMesAcumuladas(ubicacionId) {
-    return ventasActivas().filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
+    return ventasActivas().filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha, v.relojDesfaseMs)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
   }
   /* BUG FIX (JFC/Belén 2026-09-03): al EDITAR una venta, el split se recalculaba
      con ventasMesAcumuladas(), que ya incluye a la propia venta editada (vive en
      el array) → el umbral de escala se contaba a sí mismo y la comisión salía mal.
      Este acumulado EXCLUYE la venta en curso, que es lo correcto para el "previo". */
   function ventasMesAcumuladasExcl(ubicacionId, ventaId) {
-    return ventasActivas().filter((v) => v.id !== ventaId && v.ubicacionId === ubicacionId && esDelMesActual(v.fecha)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
+    return ventasActivas().filter((v) => v.id !== ventaId && v.ubicacionId === ubicacionId && esDelMesActual(v.fecha, v.relojDesfaseMs)).reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
   }
     /* ==========================================================================
      MOTOR DE TRATOS — una sola cuenta para todas las formas de repartir
@@ -1623,14 +1641,14 @@
        su tarjeta por percha. Las perchas borradas sin actividad del mes no deben
        reaparecer como "sin ventas"; conservar las que tengan historia en el mes
        elegido para no esconder pagos, devoluciones ni ventas anteriores al borrado. */
-    const _conComisionEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && v.split && esDelMes(v.fecha, _mes))
+    const _conComisionEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && v.split && esDelMes(v.fecha, _mes, v.relojDesfaseMs))
       || ajustesComision.some((a) => a && a.ubicacionId === id && esDelMes(a.fecha, _mes));
-    const _conVentasEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && esDelMes(v.fecha, _mes));
+    const _conVentasEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && esDelMes(v.fecha, _mes, v.relojDesfaseMs));
     return ubicaciones.filter((u) => {
       const historia = _conVentasEnMes(u.id) || _conComisionEnMes(u.id);
       return u.borrado ? historia : ((u.tipo && u.tipo !== "propio") || historia);
     }).map((u) => {
-      const ventasMes = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes) && v.split);
+      const ventasMes = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes, v.relojDesfaseMs) && v.split);
       /* Bloque 4: los ajustes (devoluciones de ventas ya pagadas) entran al mes
          de SU fecha, no al de la venta original: lo pagado no se reescribe. */
       const ajustesMes = ajustesComision.filter((a) => a && a.ubicacionId === u.id && esDelMes(a.fecha, _mes));
@@ -1719,7 +1737,7 @@
            el motor DE VERDAD desconto este mes (se aplica por venta);
            contribFija sigue siendo el valor configurado. Solo lectura. */
         ...(function () {
-          const casa = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes) && !v.split);
+          const casa = ventasActivas().filter((v) => v.ubicacionId === u.id && esDelMes(v.fecha, _mes, v.relojDesfaseMs) && !v.split);
           const casaMonto = casa.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0), 0);
           return {
             ventasCasa: { monto: +casaMonto.toFixed(2), ventas: casa.length },
@@ -1804,7 +1822,7 @@
   /* Corregir de golpe TODAS las del mes en una percha. Cuando el % se configuro
      mal, casi nunca esta mal una venta: estan mal las treinta del mes. */
   function corregirComisionesDelMes(ubicacionId, pctNuevo, quien, motivo, soloPendientes) {
-    const objetivo = ventasActivas().filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha) && v.split && (!soloPendientes || !v.liquidada));
+    const objetivo = ventasActivas().filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha, v.relojDesfaseMs) && v.split && (!soloPendientes || !v.liquidada));
     if (!objetivo.length) return { error: "No commissioned sales this month on that shelf.", status: 400 };
     const res = objetivo.map((v) => corregirComisionVenta(v.id, pctNuevo, quien, motivo));
     const malas = res.filter((r) => r.error);
@@ -1842,7 +1860,7 @@
       porEstado[e]++;
     });
 
-    const vMes = ventasActivas().filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha));
+    const vMes = ventasActivas().filter((v) => v.ubicacionId === ubicacionId && esDelMesActual(v.fecha, v.relojDesfaseMs));
     const vTodas = ventasActivas().filter((v) => v.ubicacionId === ubicacionId);
     const sumar = (arr) => arr.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1), 0);
     const costoDe = (arr) => arr.reduce((a, v) => a + (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 1), 0);
@@ -2096,7 +2114,7 @@
     return ajustesComision.filter((a) => a && a.tipo === "devolucion" && fechaLocalDe(a.fecha) === hoy && (!uid || uid === "todas" || a.ubicacionId === uid))
       .map((a) => ventas.find((v) => v.id === a.ventaId)).filter(Boolean);
   }
-  function ventasHoyDe(uid) { const hoy = hoyISO(); return ventasActivas().filter((v) => fechaLocalDe(v.fecha) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
+  function ventasHoyDe(uid) { const hoy = hoyISO(); return ventasActivas().filter((v) => fechaLocalDe(v.fecha, v.relojDesfaseMs) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
   // Multi-usuario (2026-07-07): cada movimiento captura automaticamente
   // quien estaba logueado (window.OCCurrentUser). Si no hay usuario nombrado
   // (dueno por PIN clasico, sistema) aparece como "Sistema".
@@ -2706,14 +2724,17 @@
           mio.stockTs = Math.max(_tsL, _tsR);
         } else if (_baseL === null && _baseR === null && _tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
           /* Compatibilidad con aparatos anteriores al ledger de stock.
-             v445: un CERO legado sin stockBase/stockPN no tiene prueba de que sea
-             una mutacion real; puede ser un snapshot viejo cuyo Date.now() venia
-             de un aparato adelantado. Nunca debe borrar un conteo local positivo.
-             Los ceros modernos SI traen ledger (emitirOpStock crea stockBase+PN)
-             y siguen pasando por la rama CRDT de arriba. */
+             v445 bloqueo el cero legado destructivo. v447 agrega la otra mitad:
+             si YA existe un reloj comun, un stockTs legado que esta >5 min en el
+             futuro no demuestra recencia y no puede ganar, sea cero o positivo.
+             Se preserva el estado local y se emite diagnostico; no se inventa stock. */
           const _stockR = Math.max(0, Number(p.stockActual));
+          const _ahoraComun = ahoraRelayComun();
+          const _tsFuturoImposible = _ahoraComun !== null && _tsR > _ahoraComun + 5 * 60 * 1000;
           const _ceroLegadoSospechoso = _stockR === 0 && Number(mio.stockActual) > 0;
-          if (!_ceroLegadoSospechoso) {
+          if (_tsFuturoImposible) {
+            try { window.dispatchEvent(new CustomEvent("oc-stock-ts-futuro-ignorado", { detail: { productoId: mio.id, stockTs: _tsR, ahoraRelay: _ahoraComun } })); } catch (_) {}
+          } else if (!_ceroLegadoSospechoso) {
             mio.stockActual = _stockR; mio.stockTs = _tsR; actualizados++;
           } else {
             try { window.dispatchEvent(new CustomEvent("oc-stock-cero-legado-ignorado", { detail: { productoId: mio.id } })); } catch (_) {}
@@ -4351,7 +4372,7 @@
         promotoras.filter((pr) => !pr.borrado && ubicaciones.some((u) => u.promotoraId === pr.id)).forEach((pr) => {
           byId[pr.id] = { id: pr.id, nombre: pr.nombre, ventasBrutas: 0, ventasCount: 0, comision: 0, ultima: "", porSku: {} };
         });
-        ventasActivas().filter((v) => esDelMesActual(v.fecha) && v.split).forEach((v) => {
+        ventasActivas().filter((v) => esDelMesActual(v.fecha, v.relojDesfaseMs) && v.split).forEach((v) => {
           const u = ubicaciones.find((x) => x.id === v.ubicacionId);
           const pid = v.promotoraId || (u && u.promotoraId) || null;
           const pr = pid ? promotoras.find((x) => x.id === pid) : null; if (!pr) return;
@@ -4475,7 +4496,7 @@
           // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
           // corrompía la valorización de inventario desde la creación.
           precio: aCent(Math.max(0, Number(body.precio) || 0)), costo: aCent(Math.max(0, Number(body.costo) || 0)), stockActual: Math.max(0, Number(body.stockInicial) || 0),
-          stockTs: Date.now(), // v302: todo producto nace con sello de stock para que el stock inicial cruce por LWW
+          stockTs: (function () { const _r = ahoraRelayComun(); return _r === null ? Date.now() : _r; })(), // v447: stock inicial no hereda un reloj civil adelantado
           /* PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): segundo precio
              OPCIONAL, más bajo, para la gente de la casa (ej. cerveza $5 al
              público, $3 a artistas) SIN abrir un segundo producto que partiría
@@ -5115,7 +5136,7 @@
         const ce = (n) => Math.round((Number(n) || 0) * 100);
         const bruto = (v) => ce((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0));
         const tipoDe = (id) => { const u = ubicaciones.find((x) => x.id === id); return u && u.tipo ? u.tipo : "propio"; };
-        const vm = ventasActivas().filter((v) => esDelMes(v.fecha, _mes));
+        const vm = ventasActivas().filter((v) => esDelMes(v.fecha, _mes, v.relojDesfaseMs));
         const cubo = () => ({ c: 0, ventas: 0 });
         const k = { conComision: cubo(), casaCompartida: cubo(), perchasPropias: cubo(), sinTrato: cubo() };
         let comAsoc = 0, porPagar = 0, contribMes = 0, cortesias = 0;
@@ -5174,9 +5195,10 @@
       const ubicTrato = Object.assign({}, u, { promotoraId: pr.id,
         ...((!u.tipo || u.tipo === "propio") ? { tipo: "socio", usarComisionPropia: false } : {}) });
       // La escala se evalua en la fecha de la venta, no con ventas posteriores.
-      const mesVenta = fechaLocalDe(v.fecha).slice(0, 7);
+      const mesVenta = fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7);
+      const _instanteVenta = instanteCorregidoMs(v.fecha, v.relojDesfaseMs);
       const previo = ventasActivas().filter((x) => x.id !== v.id && x.ubicacionId === u.id
-        && esDelMes(x.fecha, mesVenta) && x.fecha < v.fecha)
+        && esDelMes(x.fecha, mesVenta, x.relojDesfaseMs) && instanteCorregidoMs(x.fecha, x.relojDesfaseMs) < _instanteVenta)
         .reduce((a, x) => a + (Number(x.precioUnit) || 0) * (Number(x.cantidad) || 0), 0);
       const split = calcularSplitVenta(ubicTrato, bruto, previo, (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 0), (productos.find((x) => x.id === v.productoId) || {}).pctAsociado);
       if (!split) return J({ error: "No valid commission agreement for this sale." }, 409);
@@ -5223,7 +5245,7 @@
         /* B5 (2026-09-24): solo se sellan ventas CON comision (split). Antes el
            pago marcaba tambien las COUNTER SALES de la percha, que no tienen a
            quien pagarle, y despues ya no se podian cancelar ni editar. */
-        const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMes(v.fecha, _mesPago) && !v.liquidada && v.split);
+        const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMes(v.fecha, _mesPago, v.relojDesfaseMs) && !v.liquidada && v.split);
         pend.forEach((v) => { v.liquidada = true; if (_medio) v.medioPagoComision = _medio; v.rev = _revNueva(); });
         /* Bloque 4: los ajustes pendientes del mes se descuentan en este pago. */
         const ajPago = ajustesComision.filter((a) => a && a.ubicacionId === m[1] && esDelMes(a.fecha, _mesPago) && !a.liquidada);
@@ -5486,9 +5508,9 @@
           /* JFC 2026-09-23: el resumen por producto de Commissions usa el MISMO mes que
              /api/liquidaciones (hora local del negocio) y sabe si la percha comparte
              comision, sin que el front recalcule fechas ni cruce tablas. Aditivo. */
-          delMesActual: esDelMesActual(v.fecha),
+          delMesActual: esDelMesActual(v.fecha, v.relojDesfaseMs),
           // Shell 371: el mes local de la venta, para que Commissions filtre por el mes elegido.
-          mes: v.fecha ? fechaLocalDe(v.fecha).slice(0, 7) : "",
+          mes: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7) : "",
           ubicacionTipo: u ? (u.tipo || "propio") : "",
           // COUNTER SALE no se atribuye a la persona permanente de la percha:
           // el nombre acompaña solo a ventas que realmente tienen reparto.
@@ -5991,6 +6013,39 @@
         avisarCatalogoCambiado();
         return J({ ok: true, nombreNegocio: nombreNegocio });
       }
+      /* DIAGNOSTICO FORENSE DE RELOJ (v447). SOLO LECTURA.
+         Señala evidencia que merece conciliacion humana; JAMAS cambia stock,
+         ventas ni timestamps. Un stock legado en el futuro no implica cual era
+         el conteo correcto, por eso aqui no hay auto-repair. */
+      if (path === "/api/diagnostico/reloj-datos" && method === "GET") {
+        const _ahora = ahoraRelayComun();
+        const _tol = 5 * 60 * 1000;
+        const stockSospechoso = [];
+        if (_ahora !== null) {
+          productos.forEach((p) => {
+            if (!p || p.borrado) return;
+            const _ts = Number(p.stockTs);
+            const _legacy = p.stockBase == null && !(p.stockPN && typeof p.stockPN === "object");
+            if (_legacy && Number.isFinite(_ts) && _ts > _ahora + _tol) {
+              stockSospechoso.push({
+                productoId: p.id, nombre: p.nombre || "", stockActual: Number(p.stockActual) || 0,
+                stockTs: _ts, futuroMs: _ts - _ahora, legacySinLedger: true
+              });
+            }
+          });
+        }
+        const ventasConDesfase = ventas.filter((v) => v && v.fecha && Number.isFinite(Number(v.relojDesfaseMs)) && Math.abs(Number(v.relojDesfaseMs)) > _tol)
+          .map((v) => {
+            const _ms = instanteCorregidoMs(v.fecha, v.relojDesfaseMs);
+            return {
+              ventaId: v.id, productoId: v.productoId, fechaGuardada: v.fecha,
+              relojDesfaseMs: Number(v.relojDesfaseMs), relojMargenMs: Number(v.relojMargenMs) || 0,
+              fechaCorregida: Number.isFinite(_ms) ? new Date(_ms).toISOString() : null
+            };
+          });
+        return J({ relojComun: _ahora !== null, ahoraRelay: _ahora, toleranciaFuturoMs: _tol, stockSospechoso, ventasConDesfase });
+      }
+
       // GET /api/integridad — verifica la cadena anti-tamper del historial.
       // Recorre los movimientos SELLADOS (los viejos sin sello son "histórico")
       // y reporta la primera ruptura: edición (el sello propio no recalcula) o
