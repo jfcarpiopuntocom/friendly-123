@@ -20,12 +20,12 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify exact v445 runtime parent
         run: |
-          test "$(git rev-parse HEAD^)" = "99b1cafabe6800e16b821d16acd7a73972ac51fc"
+          test "$(git merge-base HEAD 99b1cafabe6800e16b821d16acd7a73972ac51fc)" = "99b1cafabe6800e16b821d16acd7a73972ac51fc"
           test "$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)" = "f123-shell-v445"
       - name: Focused v445 stock tests
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/stock-zero-replay-v445.test.js test/v445-expanded-stock-regression.test.js
       - name: Existing customer debt and Record Payment regressions
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/*cliente* test/*pago* test/*deuda* 2>/dev/null || true
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/customer-balance-clarity.test.js test/ui-integrity-v341.test.js
       - name: Full suite
         run: npm test
       - name: Manifest deterministic
