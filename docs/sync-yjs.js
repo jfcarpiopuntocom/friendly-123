@@ -650,6 +650,12 @@
           // v290: hidratar fotos de PRODUCTO (poner p.foto desde el hash recibido)
           // para que la UI, que pinta p.foto, muestre la foto que cruzo.
           try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
+        }
+        /* La percha puede haber recibido su fotoHash DESPUES de que los bytes ya
+           existian localmente. En ese caso hubo=false, pero la UI igualmente
+           necesita re-leer por hash y repintar la portada. Evento idempotente:
+           no escribe datos, solo vuelve a cargar la vista si esta abierta. */
+        if (pend.length) {
           try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {}
         }
         return;
