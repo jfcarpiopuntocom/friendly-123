@@ -10,7 +10,7 @@ async function measure(width) {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href,
       { waitUntil: 'networkidle' });
-    return await page.evaluate(() => {
+    return await page.evaluate((viewportWidth) => {
       const hero = document.getElementById('heroSemaforo');
       const title = document.getElementById('heroTitulo');
       const sub = document.getElementById('heroSubtitulo');
@@ -23,7 +23,7 @@ async function measure(width) {
       const hr = hero.getBoundingClientRect();
       const dr = how.getBoundingClientRect();
       return {
-        width,
+        width: viewportWidth,
         heroHeight: hr.height,
         gapToHow: dr.top - hr.bottom,
         titleFont: parseFloat(getComputedStyle(title).fontSize),
@@ -31,7 +31,7 @@ async function measure(width) {
         titleLinesApprox: Math.round(title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight)),
         shellText: document.documentElement.innerHTML.includes('f123-shell-v444')
       };
-    });
+    }, width);
   } finally {
     await browser.close();
   }
