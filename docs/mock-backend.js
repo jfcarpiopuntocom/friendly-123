@@ -2623,16 +2623,36 @@
         const ganaU = _revDomina(u.rev, mia.rev);
         if (ganaU === true || (ganaU === null && mandaElOtro)) {
           if (!u.borrado && !esTextoCorto(String(u.nombre || ""), 240)) return;
-          const fotoAnterior = mia.fotoHash;
-          Object.keys(u).forEach((k) => { if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev") mia[k] = u[k]; });
-          if (fotoAnterior !== mia.fotoHash) mia.foto = null;
+          /* v446: fotoHash tiene su propia revision. Una edicion remota de nombre,
+             trato o meta NO puede borrar el puntero de la foto solo porque ese peer
+             viejo mande fotoHash:null dentro de una revision general mas nueva. */
+          Object.keys(u).forEach((k) => {
+            if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev" && k !== "fotoHash" && k !== "fotoRev") mia[k] = u[k];
+          });
           _observarRev(u.rev); actualizados++;
         }
-        /* B2: puntero de foto ADD-ONLY. Si la percha de aca no tiene foto y la
-           del otro aparato si, se adopta el hash (los bytes se traen despues, B3).
-           No se pisa una foto ya puesta aqui: cada aparato conserva la suya hasta
-           que haya una regla mas fina; asi nunca se pierde una asignacion. */
-        if (ganaU === null && u.fotoHash && !mia.fotoHash) { mia.fotoHash = u.fotoHash; actualizados++; }
+        /* v446 — merge independiente del puntero de foto.
+           - Peer nuevo: fotoRev decide set/reemplazo/borrado.
+           - Peer viejo (sin fotoRev): puede aportar/reemplazar un hash no vacio,
+             pero NUNCA borrar con null. Asi una edicion no relacionada no deja
+             la tarjeta en blanco. */
+        const fotoAnterior = mia.fotoHash || null;
+        const fotoRevLocal = mia.fotoRev || null;
+        const fotoRevRemota = u.fotoRev || null;
+        let aplicarFoto = false;
+        if (fotoRevRemota) {
+          _observarRev(fotoRevRemota);
+          const ganaFoto = _revDomina(fotoRevRemota, fotoRevLocal);
+          aplicarFoto = !fotoRevLocal || ganaFoto === true || (ganaFoto === null && mandaElOtro);
+        } else if (!fotoRevLocal && u.fotoHash) {
+          aplicarFoto = !mia.fotoHash || ganaU === true || (ganaU === null && mandaElOtro);
+        }
+        if (aplicarFoto) {
+          mia.fotoHash = u.fotoHash || null;
+          if (fotoRevRemota) mia.fotoRev = fotoRevRemota;
+          if (fotoAnterior !== mia.fotoHash) mia.foto = null;
+          actualizados++;
+        }
       }
     });
     remoto.productos.forEach((p) => {
@@ -3361,7 +3381,7 @@
     catalogoPropio() {
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       return {
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
         // NO PUBLICAR SEMILLA DEMO (v297, JFC 2026-09-16). Los productos de ejemplo
         // tienen id "p"+DIGITOS (p01..p66); los reales son "p"+UUID (con guiones).
         // Filtrar aqui evita que un aparato con demo re-contamine la sala (add-only
@@ -4129,8 +4149,12 @@
            asi la asignacion "esta percha tiene esta foto" converge entre aparatos
            sin mover megas por el CRDT. Los bytes viajan aparte (a la nube del
            dueno, B3). null = quitar la foto. */
-        if ("fotoHash" in body) u.fotoHash = body.fotoHash || null;
-        u.rev = _revNueva();
+        const revCambio = _revNueva();
+        if ("fotoHash" in body) {
+          u.fotoHash = body.fotoHash || null;
+          u.fotoRev = revCambio; // v446: solo una edicion explicita de foto puede borrar/reemplazar el puntero.
+        }
+        u.rev = revCambio;
         guardarEstadoLocal();
         avisarCatalogoCambiado(); // cambios de la percha (nombre, trato, foto) viajan al equipo
         return J(u);

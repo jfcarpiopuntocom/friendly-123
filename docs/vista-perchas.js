@@ -306,6 +306,26 @@
       const perchasVisibles = Array.isArray(perchas)
         ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
         : [];
+      /* v446 (JFC 2026-10-03): auto-reparacion SIN inventar datos.
+         Las fotos antiguas de percha se guardaban tambien por id. Si ese byte local
+         sigue aqui pero un peer viejo dejo fotoHash en null, volvemos a calcular EL
+         MISMO hash de esos bytes y reatamos el puntero a ESA MISMA percha. Nunca
+         buscamos por nombre ni copiamos una foto de otra percha. */
+      if (perchasVisibles.length && window.OCFotos && window.OCFotos.guardarFotoContenido) {
+        await Promise.all(perchasVisibles.map(async (u) => {
+          if (!u || u.fotoHash || !fotoCache[u.id]) return;
+          try {
+            const hash = await window.OCFotos.guardarFotoContenido(fotoCache[u.id]);
+            if (!hash) return;
+            const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(u.id)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fotoHash: hash })
+            });
+            if (!rr || rr.ok !== false) u.fotoHash = hash;
+          } catch (_) {}
+        }));
+      }
       /* B3 (JFC 2026-09-10): una percha puede traer fotoHash (asignada en OTRO
          aparato y llegada por el sync) sin tener la imagen guardada por id aquí.
          El doc de fotos (sync-yjs) ya bajó los bytes a OCFotos por su hash; aquí
