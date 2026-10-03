@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-01",
-  "changelog": "You can now undo a just-cancelled sale even if the product expired in the meantime, and it comes back with its original price and date.",
+  "fecha": "2026-10-03",
+  "changelog": "Record a payment now stays available when a real customer debt exists even while balance integrity is still being verified.",
   "requerida": false,
-  "shell": "f123-shell-v442",
+  "shell": "f123-shell-v443",
   "apagar": [],
   "releaseName": "v1.0"
 }
