@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Shelves: synced photos are mirrored under their shelf ID as well as by content hash, so a later pointer loss can recover the exact same photo; the current fotoHash also overrides a stale local mirror.",
+  "changelog": "Shelves: synced photos are mirrored under their shelf ID as well as by content hash, the current fotoHash overrides a stale local mirror, and an explicit modern photo deletion cannot be resurrected by legacy self-heal.",
   "requerida": false,
   "shell": "f123-shell-v447",
   "apagar": [],
