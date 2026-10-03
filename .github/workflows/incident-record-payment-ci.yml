@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: hotfix/ui-compact-hero-no-shell-2026-10-03
-          fetch-depth: 3
+          fetch-depth: 0
       - name: Fetch isolated compact-hero fixture
         run: |
           git fetch origin incident/record-payment-ci-2026-10-03
