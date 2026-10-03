@@ -35,4 +35,4 @@ jobs:
       - name: Service-worker and release guards
         run: bash check-sw.sh
       - name: Diff hygiene
-        run: git diff --check HEAD^ HEAD
+        run: git diff --check origin/master...HEAD
