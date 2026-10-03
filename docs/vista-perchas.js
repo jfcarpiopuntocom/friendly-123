@@ -295,24 +295,43 @@
     try {
       await precargarFotos();
       const [perchas, liq, promotoras] = await Promise.all([
-        fetch(`${API}/ubicaciones?todas=1`).then((r) => r.json()),
+        // Vista operativa: solo perchas activas. Las archivadas/inactivas siguen en el store y en historial,
+        // pero no deben reaparecer en "My shelves" por pedir todas=1.
+        fetch(`${API}/ubicaciones`).then((r) => r.json()),
         fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
         fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
       ]);
+      // Defensa doble: la API operativa ya devuelve solo activas, pero la vista
+      // tampoco pinta una percha archivada/inactiva aunque un peer viejo la mande.
+      const perchasVisibles = Array.isArray(perchas)
+        ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
+        : [];
       /* B3 (JFC 2026-09-10): una percha puede traer fotoHash (asignada en OTRO
          aparato y llegada por el sync) sin tener la imagen guardada por id aquí.
          El doc de fotos (sync-yjs) ya bajó los bytes a OCFotos por su hash; aquí
          se resuelve el blob por hash y se mete al cache por id, así la tarjeta la
          muestra igual que una foto propia. */
-      if (Array.isArray(perchas) && window.OCFotos && window.OCFotos.leerPorHash) {
-        await Promise.all(perchas.map(async (u) => {
+      if (perchasVisibles.length && window.OCFotos && window.OCFotos.leerPorHash) {
+        await Promise.all(perchasVisibles.map(async (u) => {
           if (u && u.fotoHash && !fotoCache[u.id]) {
-            try { const d = await window.OCFotos.leerPorHash(u.fotoHash); if (d) fotoCache[u.id] = d; } catch (_) {}
+            try {
+              let d = await window.OCFotos.leerPorHash(u.fotoHash);
+              // Read-repair: tras reenganchar un aparato, Yjs puede tener ya el blob
+              // aunque OCFotos aun no lo haya volcado. Usar el MISMO hash; no inventa
+              // ni modifica datos de negocio. Si aparece, se rehidrata localmente.
+              if (!d && window.OCYjs && window.OCYjs.fotosMap && window.OCYjs.fotosMap.get) {
+                d = window.OCYjs.fotosMap.get(u.fotoHash) || null;
+                if (d && window.OCFotos.guardarPorHash) {
+                  try { await window.OCFotos.guardarPorHash(u.fotoHash, d); } catch (_) {}
+                }
+              }
+              if (d) fotoCache[u.id] = d;
+            } catch (_) {}
           }
         }));
       }
       if (estaCarga !== cargaEnCurso) return;
-      if (!Array.isArray(perchas) || !perchas.length) {
+      if (!perchasVisibles.length) {
         grid.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noRacksYet'))}</p>`;
         return;
       }
@@ -320,7 +339,7 @@
       const promPor = {}; (Array.isArray(promotoras) ? promotoras : []).forEach((pr) => { promPor[pr.id] = pr.nombre; });
       nombrePorId = {};
 
-      const ms = await Promise.all(perchas.map(async (u) => {
+      const ms = await Promise.all(perchasVisibles.map(async (u) => {
         const f = liqPor[u.id];
         const cumplimiento = f ? f.cumplimientoMeta : null;
         nombrePorId[u.id] = u.nombre;
