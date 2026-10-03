@@ -1,0 +1,63 @@
+name: incident-v446-audit-zeros
+
+on:
+  push:
+    branches:
+      - incident/v446-audit-zeros-2026-10-03
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: "1 — stale legacy zero cannot erase positive stock"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/stock-zero-replay-v445.test.js
+      - name: "2 — archived shelves stay hidden"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-hotfix-v444.test.js
+      - name: "3 — shelf photo pointer integrity"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/shelf-photo-integrity-v446.test.js
+      - name: "4 — shelf photo self-heal"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-photo-selfheal-v446.test.js
+      - name: "5 — customer balance clarity"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/customer-balance-clarity.test.js
+      - name: "6 — Record Payment and UI integrity"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/ui-integrity-v341.test.js
+      - name: "7 — sync behavior"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/sync-behavior.test.js
+      - name: "8 — synced facts and cartera"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/hechos-sync.test.js
+      - name: "9 — Belen commissions"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/commissions-belen.test.js
+      - name: "10 — deleted racks never return to commissions"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/commissions-deleted-racks.test.js
+      - name: "11 — durable sale/stock deficit behavior"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/venta-durable-deficit.test.js
+      - name: "12 — sync hardening"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/sync-hardening.test.js
+
+      - name: Full suite
+        run: npm test
+      - name: Manifest deterministic
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before
+          node scripts/gen-manifest.js
+          cmp -s /tmp/version-manifest.before docs/version-manifest.json
+      - name: Service worker integrity
+        run: bash check-sw.sh
+      - name: Repository guards
+        run: bash .claude/guards.sh
+      - name: Diff whitespace
+        run: git diff --check HEAD^..HEAD
