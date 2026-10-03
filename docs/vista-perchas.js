@@ -295,7 +295,7 @@
     try {
       await precargarFotos();
       const [perchas, liq, promotoras] = await Promise.all([
-        fetch(`${API}/ubicaciones?todas=1`).then((r) => r.json()),
+        fetch(`${API}/ubicaciones`).then((r) => r.json()),
         fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
         fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
       ]);
