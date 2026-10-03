@@ -1,0 +1,53 @@
+name: incident-perchas-ci
+
+on:
+  push:
+    branches:
+      - incident/perchas-ci-2026-10-03
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/v444-perchas-photos-only-2026-10-03
+          fetch-depth: 8
+      - name: Fetch isolated shelf regression fixture
+        run: |
+          git fetch origin incident/perchas-ci-2026-10-03
+          git show origin/incident/perchas-ci-2026-10-03:test/incident-perchas-render.test.js > test/incident-perchas-render.test.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify exact v444 identity
+        run: |
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)" = "f123-shell-v444"
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/version.json | head -1)" = "f123-shell-v444"
+          test "$(sha256sum docs/vista-perchas.js | awk '{print $1}')" = "66395756aef3407591caf544e8eecc1b119e8b969b6f3397a3a9ba9538b7bdd9"
+          test "$(sha256sum docs/sync-yjs.js | awk '{print $1}')" = "f68e99b7e39f614ee6fd44066875825357b30ce220db9d76caf326273e504a18"
+          test "$(sha256sum docs/sw.js | awk '{print $1}')" = "1c6ba9b3482aaa8d7c426497d2916e53a96b38663b9b21c9fb8fdafe89734365"
+      - name: Focused Shelves regression
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-perchas-render.test.js
+      - name: Full suite
+        run: npm test
+      - name: Manifest deterministic
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before
+          node scripts/gen-manifest.js
+          cmp -s /tmp/version-manifest.before docs/version-manifest.json
+      - name: Service worker integrity
+        run: bash check-sw.sh
+      - name: Repository guards
+        run: bash .claude/guards.sh
+      - name: Release diff whitespace check
+        run: git diff --check fbc7f4465caf928d429cd1045daa8ecb162a98e3..HEAD
