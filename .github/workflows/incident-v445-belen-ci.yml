@@ -1,0 +1,65 @@
+name: incident-v445-belen-ci
+
+on:
+  push:
+    branches:
+      - incident/v445-belen-regression-ci-2026-10-03
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 40
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Pin exact v445 runtime identity
+        run: |
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)" = "f123-shell-v445"
+          test "$(node -p "require('./docs/version.json').shell")" = "f123-shell-v445"
+          git diff --quiet 727d00564585134c926ba62605be5e8f4384cfc1 -- docs/cartera.js docs/plan-pagos.js docs/plan-pagos-ui.js docs/hechos.js
+      - name: Audit v444 to v445 runtime scope
+        run: |
+          git fetch origin master
+          git diff --name-only 9b891c8023927cadf0a95b24757091afc8ace8e4 99b1cafabe6800e16b821d16acd7a73972ac51fc > /tmp/v445-files
+          cat /tmp/v445-files
+          grep -qx 'docs/mock-backend.js' /tmp/v445-files
+          grep -qx 'docs/sw.js' /tmp/v445-files
+          grep -qx 'docs/version-manifest.json' /tmp/v445-files
+          grep -qx 'docs/version.json' /tmp/v445-files
+          grep -qx 'test/stock-zero-replay-v445.test.js' /tmp/v445-files
+          test "$(wc -l < /tmp/v445-files)" -eq 5
+      - name: Focused Belén regression matrix
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-v445-belen-regression.test.js
+      - name: Existing v445 zero replay tests
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/stock-zero-replay-v445.test.js
+      - name: Existing v444 shelves and photos regression
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-hotfix-v444.test.js
+      - name: Customer balance clarity
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/customer-balance-clarity.test.js
+      - name: Full UI integrity including Record a payment
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/ui-integrity-v341.test.js
+      - name: Full suite
+        run: npm test
+      - name: Manifest deterministic
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before
+          node scripts/gen-manifest.js
+          cmp -s /tmp/version-manifest.before docs/version-manifest.json
+      - name: Service worker integrity
+        run: bash check-sw.sh
+      - name: Repository guards
+        run: bash .claude/guards.sh
+      - name: Test-only branch whitespace
+        run: git diff --check 99b1cafabe6800e16b821d16acd7a73972ac51fc..HEAD
