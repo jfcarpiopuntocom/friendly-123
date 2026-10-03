@@ -159,3 +159,20 @@ test('Belén debt regression: sequence-gap warning keeps real $10 debt and Recor
     assert.match(r.snapshot, /Record a payment/);
   } finally { await browser.close(); }
 });
+
+test('v445 current sale path may legitimately reach zero and sync that zero to another peer', async () => {
+  const a = fixtureBrowser();
+  const b = fixtureBrowser();
+  const p = await makeProduct(a, 'Belen sold to zero', 1);
+  b.receive(a);
+  await a.request('/api/productos/' + p.id + '/venta', 'POST', { cantidad: 1 });
+  const afterSale = await a.request('/api/respaldo/exportar');
+  const sold = afterSale.productos.find(x => x.id === p.id);
+  assert.equal(sold.stockActual, 0);
+  assert.ok(sold.stockBase != null, 'current sale path must carry stockBase');
+  assert.ok(sold.stockPN && typeof sold.stockPN === 'object', 'current sale path must carry PN ledger');
+
+  b.receive(a);
+  const afterSync = await b.request('/api/respaldo/exportar');
+  assert.equal(afterSync.productos.find(x => x.id === p.id).stockActual, 0);
+});
