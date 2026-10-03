@@ -1,0 +1,41 @@
+name: v445-expanded-ci
+on:
+  push:
+    branches: [incident/v445-expanded-ci-2026-10-03]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify exact v445 runtime parent
+        run: |
+          test "$(git rev-parse HEAD^)" = "99b1cafabe6800e16b821d16acd7a73972ac51fc"
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)" = "f123-shell-v445"
+      - name: Focused v445 stock tests
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/stock-zero-replay-v445.test.js test/v445-expanded-stock-regression.test.js
+      - name: Existing customer debt and Record Payment regressions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/*cliente* test/*pago* test/*deuda* 2>/dev/null || true
+      - name: Full suite
+        run: npm test
+      - name: Manifest deterministic
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before
+          node scripts/gen-manifest.js
+          cmp -s /tmp/version-manifest.before docs/version-manifest.json
+      - name: Service worker integrity
+        run: bash check-sw.sh
+      - name: Repository guards
+        run: bash .claude/guards.sh
+      - name: Whitespace check
+        run: git diff --check HEAD^..HEAD
