@@ -1,0 +1,46 @@
+name: incident-perchas-v444-release-ci
+
+on:
+  push:
+    branches:
+      - incident/perchas-v444-release-ci-2026-10-03
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify exact v444 identity
+        run: |
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)" = "f123-shell-v444"
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/version.json | head -1)" = "f123-shell-v444"
+          test "$(sha256sum docs/vista-perchas.js | awk '{print $1}')" = "a25ca92cea108a3ef0844139f2201e97b1c37b88dd85249c91e8e1dbb3878328"
+      - name: Focused perchas regression
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-hotfix-v444.test.js
+      - name: Full suite
+        run: npm test
+      - name: Manifest deterministic
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before
+          node scripts/gen-manifest.js
+          cmp -s /tmp/version-manifest.before docs/version-manifest.json
+      - name: Service worker integrity
+        run: bash check-sw.sh
+      - name: Repository guards
+        run: bash .claude/guards.sh
+      - name: Release diff whitespace check
+        run: git diff --check 036f17d9426ea8df209a8347b76cf34a8793afb8..HEAD
