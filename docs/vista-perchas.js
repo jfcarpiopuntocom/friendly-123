@@ -295,7 +295,9 @@
     try {
       await precargarFotos();
       const [perchas, liq, promotoras] = await Promise.all([
-        fetch(`${API}/ubicaciones?todas=1`).then((r) => r.json()),
+        // Vista operativa: solo perchas activas. Las archivadas/inactivas siguen en el store y en historial,
+        // pero no deben reaparecer en "My shelves" por pedir todas=1.
+        fetch(`${API}/ubicaciones`).then((r) => r.json()),
         fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
         fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
       ]);
@@ -307,7 +309,19 @@
       if (Array.isArray(perchas) && window.OCFotos && window.OCFotos.leerPorHash) {
         await Promise.all(perchas.map(async (u) => {
           if (u && u.fotoHash && !fotoCache[u.id]) {
-            try { const d = await window.OCFotos.leerPorHash(u.fotoHash); if (d) fotoCache[u.id] = d; } catch (_) {}
+            try {
+              let d = await window.OCFotos.leerPorHash(u.fotoHash);
+              // Read-repair: tras reenganchar un aparato, Yjs puede tener ya el blob
+              // aunque OCFotos aun no lo haya volcado. Usar el MISMO hash; no inventa
+              // ni modifica datos de negocio. Si aparece, se rehidrata localmente.
+              if (!d && window.OCYjs && window.OCYjs.fotosMap && window.OCYjs.fotosMap.get) {
+                d = window.OCYjs.fotosMap.get(u.fotoHash) || null;
+                if (d && window.OCFotos.guardarPorHash) {
+                  try { await window.OCFotos.guardarPorHash(u.fotoHash, d); } catch (_) {}
+                }
+              }
+              if (d) fotoCache[u.id] = d;
+            } catch (_) {}
           }
         }));
       }
