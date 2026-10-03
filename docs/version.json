@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Record a payment now stays available when a real customer debt exists even while balance integrity is still being verified.",
+  "changelog": "Archived shelves stay hidden, and existing shelf photos reappear when their synced photo hash is already stored on the device.",
   "requerida": false,
-  "shell": "f123-shell-v443",
+  "shell": "f123-shell-v444",
   "apagar": [],
   "releaseName": "v1.0"
 }
