@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Shelves: archived locations stay hidden, and existing synced shelf photos recover after reconnect.",
+  "changelog": "Inventory: a stale legacy zero from sync can no longer erase a positive local count; new stock timestamps use relay time when available.",
   "requerida": false,
-  "shell": "f123-shell-v444",
+  "shell": "f123-shell-v445",
   "apagar": [],
   "releaseName": "v1.0"
 }

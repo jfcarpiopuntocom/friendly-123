@@ -2267,7 +2267,12 @@
               _sp.stockActual = Math.max(0, Number(_sp.stockActual) - pago);
             }
           }
-          _sp.stockTs = Date.now();
+          /* v445: stockTs no debe depender del reloj civil del aparato cuando
+             ya tenemos una referencia comun. Un iPhone adelantado podia dejar un
+             cero legado con timestamp "del futuro" y ganar otra vez al recargar. */
+          const _stockAhoraRelay = (window.OCLatencia && window.OCLatencia.ahoraRelay)
+            ? window.OCLatencia.ahoraRelay() : null;
+          _sp.stockTs = Number.isFinite(Number(_stockAhoraRelay)) ? Number(_stockAhoraRelay) : Date.now();
         }
       } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
@@ -2680,8 +2685,19 @@
           mio.stockBase = _baseR; mio.stockPN = pn; mio.stockActual = calculado; mio.stockDeficit = _deficit;
           mio.stockTs = Math.max(_tsL, _tsR);
         } else if (_baseL === null && _baseR === null && _tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
-          // Compatibilidad con aparatos anteriores al ledger de descuentos.
-          mio.stockActual = Math.max(0, Number(p.stockActual)); mio.stockTs = _tsR; actualizados++;
+          /* Compatibilidad con aparatos anteriores al ledger de stock.
+             v445: un CERO legado sin stockBase/stockPN no tiene prueba de que sea
+             una mutacion real; puede ser un snapshot viejo cuyo Date.now() venia
+             de un aparato adelantado. Nunca debe borrar un conteo local positivo.
+             Los ceros modernos SI traen ledger (emitirOpStock crea stockBase+PN)
+             y siguen pasando por la rama CRDT de arriba. */
+          const _stockR = Math.max(0, Number(p.stockActual));
+          const _ceroLegadoSospechoso = _stockR === 0 && Number(mio.stockActual) > 0;
+          if (!_ceroLegadoSospechoso) {
+            mio.stockActual = _stockR; mio.stockTs = _tsR; actualizados++;
+          } else {
+            try { window.dispatchEvent(new CustomEvent("oc-stock-cero-legado-ignorado", { detail: { productoId: mio.id } })); } catch (_) {}
+          }
         } else if (_baseR !== null && _baseL !== null && _baseR !== _baseL) {
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
         }
