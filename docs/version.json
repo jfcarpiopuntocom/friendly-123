@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Shelves: unrelated sync edits can no longer erase a shelf photo pointer; an older local shelf photo can reattach its own hash automatically.",
+  "changelog": "Shelves: synced photos are mirrored under their shelf ID as well as by content hash, so a later pointer loss can recover the exact same photo; the current fotoHash also overrides a stale local mirror.",
   "requerida": false,
-  "shell": "f123-shell-v446",
+  "shell": "f123-shell-v447",
   "apagar": [],
   "releaseName": "v1.0"
 }
