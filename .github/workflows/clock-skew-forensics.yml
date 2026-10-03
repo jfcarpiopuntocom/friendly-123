@@ -1,0 +1,30 @@
+name: clock-skew-forensics
+
+on:
+  push:
+    branches:
+      - "forensics/clock-skew-2026-10-03"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Focused clock-skew tests
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/clock-skew-forensics-v447.test.js
+      - name: Full suite
+        run: npm test
+      - name: Service-worker and release guards
+        run: bash check-sw.sh
+      - name: Diff hygiene
+        run: git diff --check HEAD^ HEAD
