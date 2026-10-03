@@ -306,6 +306,16 @@
       const perchasVisibles = Array.isArray(perchas)
         ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
         : [];
+      /* v447: fotoHash=null + fotoRev significa borrado MODERNO intencional,
+         no "puntero viejo perdido". Limpiar el espejo por id evita mostrar o
+         resucitar una foto que otro aparato borro explicitamente. */
+      await Promise.all(perchasVisibles.map(async (u) => {
+        if (!u || u.fotoHash || !u.fotoRev) return;
+        delete fotoCache[u.id];
+        if (window.OCFotos && window.OCFotos.borrarFoto) {
+          try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
+        }
+      }));
       /* v446 (JFC 2026-10-03): auto-reparacion SIN inventar datos.
          Las fotos antiguas de percha se guardaban tambien por id. Si ese byte local
          sigue aqui pero un peer viejo dejo fotoHash en null, volvemos a calcular EL
@@ -313,7 +323,7 @@
          buscamos por nombre ni copiamos una foto de otra percha. */
       if (perchasVisibles.length && window.OCFotos && window.OCFotos.guardarFotoContenido) {
         await Promise.all(perchasVisibles.map(async (u) => {
-          if (!u || u.fotoHash || !fotoCache[u.id]) return;
+          if (!u || u.fotoHash || u.fotoRev || !fotoCache[u.id]) return;
           try {
             const hash = await window.OCFotos.guardarFotoContenido(fotoCache[u.id]);
             if (!hash) return;
