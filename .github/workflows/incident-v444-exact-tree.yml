@@ -1,0 +1,55 @@
+name: incident-v444-exact-tree
+
+on:
+  push:
+    branches:
+      - incident/v444-exact-tree-verify-2026-10-03
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify exact v444 files
+        run: |
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)" = "f123-shell-v444"
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/version.json | head -1)" = "f123-shell-v444"
+          test "$(wc -l < docs/vista-perchas.js)" -eq 849
+          test "$(wc -l < docs/sync-yjs.js)" -eq 991
+          test "$(wc -l < docs/sw.js)" -eq 307
+          test "$(wc -l < docs/version.json)" -eq 9
+          test "$(wc -l < docs/version-manifest.json)" -eq 85
+          test "$(wc -l < docs/index.html)" -eq 10384
+          test "$(sha256sum docs/vista-perchas.js | awk '{print $1}')" = "a25ca92cea108a3ef0844139f2201e97b1c37b88dd85249c91e8e1dbb3878328"
+          test "$(sha256sum docs/sync-yjs.js | awk '{print $1}')" = "535af1400eb6fe33528e035d8ca3c98483b980f985d903dad6bb5accf6a665ae"
+          test "$(sha256sum docs/sw.js | awk '{print $1}')" = "fb95fa8be3119f6477588b6cfc2734536c396985658ff9b7e69385e2087a4269"
+          test "$(sha256sum docs/version.json | awk '{print $1}')" = "2bfbba7c4a406548ef74d427b2a27ddcce909fcc07261c1289e924ceca239f17"
+          test "$(sha256sum docs/version-manifest.json | awk '{print $1}')" = "5034fce738e00299d882f6955349325a5421db9803564b69f18dfe6a78a2f220"
+          test "$(sha256sum docs/index.html | awk '{print $1}')" = "3ec5aa5a1563add6d68d1f9bbdb9d7db090647d1a780dfde89c18c4b1f4b9436"
+      - name: Focused v444 shelves regression
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-hotfix-v444.test.js
+      - name: Full suite
+        run: npm test
+      - name: Manifest deterministic
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before
+          node scripts/gen-manifest.js
+          cmp -s /tmp/version-manifest.before docs/version-manifest.json
+      - name: Service worker integrity
+        run: bash check-sw.sh
+      - name: Repository guards
+        run: bash .claude/guards.sh
+      - name: Release diff whitespace check
+        run: git diff --check 036f17d9426ea8df209a8347b76cf34a8793afb8..1c3f911d4a5319fe9a7bb33987fd3635ffab108a
