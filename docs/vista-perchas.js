@@ -333,7 +333,7 @@
          muestra igual que una foto propia. */
       if (perchasVisibles.length && window.OCFotos && window.OCFotos.leerPorHash) {
         await Promise.all(perchasVisibles.map(async (u) => {
-          if (u && u.fotoHash && !fotoCache[u.id]) {
+          if (u && u.fotoHash) {
             try {
               let d = await window.OCFotos.leerPorHash(u.fotoHash);
               // Read-repair: tras reenganchar un aparato, Yjs puede tener ya el blob
@@ -345,7 +345,18 @@
                   try { await window.OCFotos.guardarPorHash(u.fotoHash, d); } catch (_) {}
                 }
               }
-              if (d) fotoCache[u.id] = d;
+              if (d) {
+                /* v447: una foto recibida por hash tambien queda espejada por id de
+                   percha. Asi, si mas tarde un peer viejo pierde el fotoHash, v446
+                   puede recalcular exactamente ese mismo hash y reatar el puntero.
+                   El hash actual manda sobre un espejo id viejo: evita mostrar una
+                   foto anterior cuando otro aparato la reemplazo. */
+                const anterior = fotoCache[u.id] || null;
+                fotoCache[u.id] = d;
+                if (anterior !== d && window.OCFotos.guardarFoto) {
+                  try { await window.OCFotos.guardarFoto(u.id, d); } catch (_) {}
+                }
+              }
             } catch (_) {}
           }
         }));
