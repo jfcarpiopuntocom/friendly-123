@@ -15,12 +15,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: hotfix/v443-record-payment-only-2026-10-03
-          fetch-depth: 2
-      - name: Fetch isolated E2E fixture
+          ref: hotfix/ui-compact-hero-no-shell-2026-10-03
+          fetch-depth: 3
+      - name: Fetch isolated compact-hero fixture
         run: |
           git fetch origin incident/record-payment-ci-2026-10-03
-          git show origin/incident/record-payment-ci-2026-10-03:test/incident-record-payment.test.js > test/incident-record-payment.test.js
+          git show origin/incident/record-payment-ci-2026-10-03:test/incident-compact-hero.test.js > test/incident-compact-hero.test.js
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -29,14 +29,14 @@ jobs:
         run: npm ci
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Verify exact v443 identity
+      - name: Verify no-shell hotfix identity
         run: |
           test "$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)" = "f123-shell-v443"
           test "$(grep -oE 'f123-shell-v[0-9]+' docs/version.json | head -1)" = "f123-shell-v443"
-          test "$(wc -l < docs/index.html)" -eq 10378
-          test "$(sha256sum docs/index.html | awk '{print $1}')" = "5ed3ad267a7172a765ba49f32f4f17fe718ff39eeee5dbdab867da4526430841"
-      - name: Focused Record Payment regression
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-record-payment.test.js
+          test "$(wc -l < docs/index.html)" -eq 10384
+          test "$(sha256sum docs/index.html | awk '{print $1}')" = "77c53150883a023519e47d99b062bc84d2d2d1536c1377188c3f972c0879a50b"
+      - name: Focused compact hero regression
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-compact-hero.test.js
       - name: Full suite
         run: npm test
       - name: Manifest deterministic
@@ -49,4 +49,4 @@ jobs:
       - name: Repository guards
         run: bash .claude/guards.sh
       - name: Release diff whitespace check
-        run: git diff --check ab64d71d1fd467653138759cefb7f5e84a950060..HEAD
+        run: git diff --check 93531d2f207434698a5c8af0669ab21acf7b8494..HEAD
