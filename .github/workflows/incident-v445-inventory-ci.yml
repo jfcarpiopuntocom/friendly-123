@@ -1,0 +1,47 @@
+name: incident-v445-inventory-ci
+
+on:
+  push:
+    branches:
+      - incident/v445-inventory-ci-2026-10-03
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: incident/v445-inventory-ci-2026-10-03
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify v445 identity
+        run: |
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)" = "f123-shell-v445"
+          test "$(grep -oE 'f123-shell-v[0-9]+' docs/version.json | head -1)" = "f123-shell-v445"
+          test "$(sha256sum docs/mock-backend.js | awk '{print $1}')" = "0d4f73d2f914a4c2245f88be41ee1159ea77d91e85540a7916bb002f003a45e0"
+      - name: Focused inventory zero replay regression
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/stock-zero-replay-v445.test.js
+      - name: Full suite
+        run: npm test
+      - name: Manifest deterministic
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before
+          node scripts/gen-manifest.js
+          cmp -s /tmp/version-manifest.before docs/version-manifest.json
+      - name: Service worker integrity
+        run: bash check-sw.sh
+      - name: Repository guards
+        run: bash .claude/guards.sh
+      - name: Release diff whitespace check
+        run: git diff --check 1c3f911d4a5319fe9a7bb33987fd3635ffab108a..HEAD
