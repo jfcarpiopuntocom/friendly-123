@@ -23,6 +23,8 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: "0 — multi-product stale-zero stress matrix"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-v446-zero-matrix.test.js
       - name: "1 — stale legacy zero cannot erase positive stock"
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/stock-zero-replay-v445.test.js
       - name: "2 — archived shelves stay hidden"
