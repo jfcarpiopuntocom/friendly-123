@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Inventory: a stale legacy zero from sync can no longer erase a positive local count; new stock timestamps use relay time when available.",
+  "changelog": "Shelves: unrelated sync edits can no longer erase a shelf photo pointer; an older local shelf photo can reattach its own hash automatically.",
   "requerida": false,
-  "shell": "f123-shell-v445",
+  "shell": "f123-shell-v446",
   "apagar": [],
   "releaseName": "v1.0"
 }
