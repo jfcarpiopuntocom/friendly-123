@@ -18,6 +18,7 @@ test('v447: a previously displayed hash-only shelf photo survives later fotoHash
     await page.evaluate(() => {
       const photo = 'data:image/png;base64,SFlOQy1PTkxZLVBIT1RP';
       window.__photo = photo;
+      window.__idPhotos = {};
       window.__shelf = { id: 'u-hash-only', nombre: 'Hash-only shelf', tipo: 'socio', activa: true, fotoHash: 'hash-only' };
       window.t = (k) => ({
         'shelves.noRacksYet':'No shelves yet','shelves.noTarget':'No target','shelves.ofTargetMet':'% target',
@@ -34,8 +35,9 @@ test('v447: a previously displayed hash-only shelf photo survives later fotoHash
       // blob store, but NEVER stored under the shelf id in STORE "perchas".
       window.OCFotos = {
         migrarSiHaceFalta: async () => {},
-        leerTodas: async () => ({}),
-        guardarFotoContenido: async () => null,
+        leerTodas: async () => ({ ...window.__idPhotos }),
+        guardarFoto: async (id, dataUrl) => { window.__idPhotos[id] = dataUrl; return true; },
+        guardarFotoContenido: async (dataUrl) => dataUrl === photo ? 'hash-only' : null,
         leerPorHash: async (hash) => hash === 'hash-only' ? photo : null,
         guardarPorHash: async () => true
       };
