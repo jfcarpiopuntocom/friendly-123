@@ -76,3 +76,65 @@ test('v447: a previously displayed hash-only shelf photo survives later fotoHash
     await browser.close();
   }
 });
+
+
+test('v447: current fotoHash overrides a stale per-id mirror and refreshes that mirror', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <!doctype html><html><body>
+        <section id="vista-perchas" class="activa">
+          <div id="vp-orden"></div><div id="vp-grid"></div><div id="vp-transfers"></div>
+        </section>
+      </body></html>`);
+    await page.evaluate(() => {
+      const oldPhoto = 'data:image/png;base64,T0xELUlELU1JUlJPUg==';
+      const newPhoto = 'data:image/png;base64,TkVXLUhBU0gtUEhPVE8=';
+      window.__oldPhoto = oldPhoto;
+      window.__newPhoto = newPhoto;
+      window.__idPhotos = { 'u-stale-id': oldPhoto };
+      window.__shelf = { id: 'u-stale-id', nombre: 'Updated photo shelf', tipo: 'socio', activa: true, fotoHash: 'hash-new' };
+      window.t = (k) => ({
+        'shelves.noRacksYet':'No shelves yet','shelves.noTarget':'No target','shelves.ofTargetMet':'% target',
+        'shelves.monthlySales':'Monthly sales','shelves.target':'Target','shelves.commission':'Commission',
+        'shelves.promoter':'Promoter','shelves.open':'Open','shelves.transfersHeading':'Transfers',
+        'shelves.addRackBtn':'Add shelf','common.close':'Close','shelves.newRackTitle':'New shelf',
+        'shelves.rackNameLabel':'Name','shelves.rackNamePlaceholder':'Shelf name','shelves.assignHint':'Assign',
+        'shelves.createRackBtn':'Create'
+      }[k] || k);
+      window.OCI18n = { locale: () => 'en-US' };
+      window.OCMoneda = { codigo: () => 'USD' };
+      window.OCAuth = { puedeGestionar: () => false };
+      window.OCFotos = {
+        migrarSiHaceFalta: async () => {},
+        leerTodas: async () => ({ ...window.__idPhotos }),
+        guardarFoto: async (id, dataUrl) => { window.__idPhotos[id] = dataUrl; return true; },
+        guardarFotoContenido: async (dataUrl) => dataUrl === newPhoto ? 'hash-new' : 'hash-old',
+        leerPorHash: async (hash) => hash === 'hash-new' ? newPhoto : null,
+        guardarPorHash: async () => true
+      };
+      window.fetch = async (input) => {
+        const url = String(input);
+        let body = [];
+        if (url === '/api/ubicaciones') body = [Object.assign({}, window.__shelf)];
+        else if (url === '/api/liquidaciones') body = [];
+        else if (url === '/api/promotoras') body = [];
+        else if (url === '/api/transferencias') body = [];
+        return new Response(JSON.stringify(body), { status:200, headers:{'Content-Type':'application/json'} });
+      };
+    });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/vista-perchas.js') });
+    await page.evaluate(() => window.VPerchas.cargar());
+    const out = await page.evaluate(() => ({
+      img: document.querySelector('#vp-grid img')?.getAttribute('src') || null,
+      mirror: window.__idPhotos['u-stale-id']
+    }));
+    assert.equal(out.img, 'data:image/png;base64,TkVXLUhBU0gtUEhPVE8=',
+      'the hash referenced by the current shelf state must beat an older id mirror');
+    assert.equal(out.mirror, out.img,
+      'the id mirror must be refreshed so future pointer recovery uses the current photo');
+  } finally {
+    await browser.close();
+  }
+});
