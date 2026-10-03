@@ -500,6 +500,41 @@ test('#5 #6 the Customers list is fully Spanish and its notices use solid ink', 
   assert.equal(r.tinta, 'rgb(15, 25, 35)', 'tinta sólida #0F1923, no café');
 });
 
+
+test('Customers keeps Record a payment visible when debt exists but integrity is still verifying', async () => {
+  const r = await withPage(page => page.evaluate(async () => {
+    const req = async (url, method = 'GET', body) => (await fetch(url, { method,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined })).json();
+    const c = await req('/api/clientes', 'POST', { nombre: 'Fixture Integrity Debt' });
+    await req(`/api/clientes/${c.id}/fiar`, 'POST', { monto: 10, motivo: 'fixture' });
+    window.OCAuth = Object.assign(window.OCAuth || {}, { rolActual: () => 'dueno' });
+    const originalFetch = window.fetch;
+    window.fetch = async function (url, options) {
+      const res = await originalFetch.apply(this, arguments);
+      if (String(url) === `/api/clientes/${c.id}/cartera` && (!options || !options.method || options.method === 'GET')) {
+        const data = await res.clone().json();
+        data.integridad = { ok: false, razon: 'hueco de secuencia' };
+        return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return res;
+    };
+    const host = document.createElement('div');
+    host.id = 'cartera-' + c.id;
+    document.body.appendChild(host);
+    await pintarSaldoCartera(c.id);
+    const out = {
+      text: host.textContent,
+      button: !!host.querySelector('button[onclick*="ocPagarDeuda"]')
+    };
+    window.fetch = originalFetch;
+    return out;
+  }));
+  assert.equal(r.button, true, 'integrity warning must not hide the payment action for an existing debt');
+  assert.match(r.text, /Debt \$10\.00/);
+  assert.match(r.text, /Balance pending verification/);
+});
+
 test('v356: Team & access PINs are hidden until tapped', async () => {
   const r = await withPage(page => page.evaluate(() => {
     const d = document.createElement('div');
