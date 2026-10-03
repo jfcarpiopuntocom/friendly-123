@@ -34,7 +34,7 @@ jobs:
           test "$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)" = "f123-shell-v443"
           test "$(grep -oE 'f123-shell-v[0-9]+' docs/version.json | head -1)" = "f123-shell-v443"
           test "$(wc -l < docs/index.html)" -eq 10384
-          test "$(sha256sum docs/index.html | awk '{print $1}')" = "77c53150883a023519e47d99b062bc84d2d2d1536c1377188c3f972c0879a50b"
+          test "$(sha256sum docs/index.html | awk '{print $1}')" = "3ec5aa5a1563add6d68d1f9bbdb9d7db090647d1a780dfde89c18c4b1f4b9436"
       - name: Focused compact hero regression
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-compact-hero.test.js
       - name: Full suite
