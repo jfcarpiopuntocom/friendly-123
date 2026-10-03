@@ -48,8 +48,8 @@ Runtime files changed:
 Post-patch `docs/index.html`:
 - GitHub split-line count: 10,385
 - POSIX `wc -l`: 10,384
-- SHA-256: `77c53150883a023519e47d99b062bc84d2d2d1536c1377188c3f972c0879a50b`
-- git blob: `2cbccaf86aac4a46a85671667132ffa27a4440f4`
+- SHA-256: `3ec5aa5a1563add6d68d1f9bbdb9d7db090647d1a780dfde89c18c4b1f4b9436`
+- git blob: `7d59ea05d48c5b8ac48ee26f2e1f6d392f0cbd6e`
 
 ## Regression gate
 
@@ -59,7 +59,7 @@ A separate CI-only fixture measures the hero at 603px and 1200px. It asserts:
 - gap hero -> How does it work <=8px;
 - mobile title <=15.1px;
 - desktop title <=18.1px;
-- timestamp <=11.1px on the mobile measurement;
+- timestamp <=12.1px on the mobile measurement, respecting the existing 12px readability floor;
 - no `f123-shell-v444`.
 
 The focused test is isolated outside the release branch. Full suite, deterministic manifest, check-sw, repository guards and diff whitespace checks remain required before promotion.
