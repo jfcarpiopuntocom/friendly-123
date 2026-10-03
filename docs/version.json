@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Clock safety: sealed sales use relay-corrected time in Today/Commissions without rewriting audit timestamps; impossible-future legacy stock timestamps are quarantined; new stock timestamps prefer relay time.",
+  "changelog": "Clock forensics v448: read-only diagnostics now surface pre-v438 future-dated sales without clock seals and impossible future product creation dates; no customer data is rewritten or auto-repaired.",
   "requerida": false,
-  "shell": "f123-shell-v447",
+  "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v1.0"
 }
