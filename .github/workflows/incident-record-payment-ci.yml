@@ -1,0 +1,32 @@
+name: incident-record-payment-ci
+
+on:
+  push:
+    branches:
+      - incident/record-payment-ci-2026-10-03
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Focused Record Payment regression
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-record-payment.test.js
+      - name: Full suite
+        run: npm test
+      - name: Repository guards
+        run: bash .claude/guards.sh
+      - name: Diff whitespace check
+        run: git diff --check HEAD^ HEAD
