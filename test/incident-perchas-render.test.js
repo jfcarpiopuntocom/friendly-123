@@ -59,6 +59,7 @@ test('Shelf photo already stored by hash appears after the shelf hash arrives an
         return data;
       };
       const shelf = await req('/api/ubicaciones', 'POST', { nombre: 'CI PHOTO SHELF' });
+      document.getElementById('vista-perchas').classList.add('activa');
       await window.VPerchas.cargar();
       const before = document.querySelector('.vp-carpeta[data-vp-abrir="' + shelf.id + '"] img');
 
