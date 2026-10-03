@@ -841,8 +841,8 @@
      y holgura (estilo Airtable) sin quitar el semaforo, que es el corazon de
      Hoy. Es puro CSS y reversible: subir de nuevo padding/sombra lo restaura. */
   .hero-semaforo{
-    padding:11px 20px;
-    margin-bottom:8px;
+    padding:8px 16px;
+    margin-bottom:3px;
     color:var(--blanco-calido);
     border-color:rgba(255,255,255,0.35);
     box-shadow:0 1px 2px rgba(0,0,0,0.08);
@@ -853,14 +853,15 @@
   .hero-semaforo.amarillo{background-color:var(--sim-amarillo); --tc-bg:var(--sim-amarillo);}
   .hero-semaforo.rojo{background-color:var(--sim-rojo); --tc-bg:var(--sim-rojo);}
   .hero-semaforo h2{
-    margin:0 0 4px 0;
+    margin:0 0 2px 0;
     font-family:var(--font-serif);
     font-weight:400;
-    font-size:18px;
-    line-height:1.12;
+    font-size:15px;
+    line-height:1.08;
   }
   .hero-semaforo p{
     font-size:13px;
+    line-height:1.15;
     margin:0;
     color:var(--blanco-calido);
   }
@@ -1425,7 +1426,7 @@
     footer{ display:block; margin-left:var(--sidebar-w); }
     .grid-resumen{ grid-template-columns:repeat(4,1fr); gap:16px; }
     header h1{ font-size:25px; }
-    .hero-semaforo h2{ font-size:20px; }
+    .hero-semaforo h2{ font-size:17px; }
     .tarjeta .valor{ font-size:26px; }
   }
 
@@ -1440,7 +1441,7 @@
     .grid-resumen{ gap:18px; }
     .tarjeta .valor{ font-size:28px; }
     header h1{ font-size:28px; }
-    .hero-semaforo h2{ font-size:22px; }
+    .hero-semaforo h2{ font-size:18px; }
     .ficha-producto .titulo{ font-size:26px; }
     .ficha-producto .precio{ font-size:30px; }
   }
@@ -1525,8 +1526,13 @@
     header #oc-brand-help img{display:none !important;}
     header #oc-brand-help #oc-sync-mini{margin-top:0 !important;}
     nav{height:var(--nav-h);align-items:flex-end;padding-top:2px;padding-bottom:0;}
-    #heroSemaforo{display:flex;flex-direction:column;align-items:flex-start;}
-    #heroReloj{position:static !important;align-self:flex-end;margin-top:8px;max-width:100%;}
+    #heroSemaforo{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:2px;align-items:center;}
+    #heroTitulo{grid-column:1;grid-row:1;margin:0 !important;}
+    #heroSubtitulo{grid-column:1;grid-row:2;margin:0 !important;}
+    #heroReloj{grid-column:2;grid-row:1 / span 2;position:static !important;align-self:center;margin:0 !important;max-width:none;font-size:11px !important;padding:4px 8px !important;white-space:nowrap;}
+  }
+  @media (max-width:479px){
+    #heroReloj{grid-column:1 / -1;grid-row:3;justify-self:end;margin-top:2px !important;font-size:11px !important;padding:3px 8px !important;}
   }
   /* Safari en pestaña ya deja la barra del navegador fuera del viewport. Solo
      una app instalada a pantalla completa necesita reservar el home indicator. */
@@ -1684,7 +1690,7 @@
       <div id="heroReloj" style="position:absolute;bottom:10px;right:12px;background:rgba(0,0,0,.5);color:#fff;-webkit-text-fill-color:#fff;font-family:var(--font-mono,monospace);font-size:13px;font-weight:700;padding:4px 10px;border-radius:20px;"></div>
     </div>
 
-    <details style="margin:-4px 0 12px;font-size:14px;">
+    <details style="margin:0 0 8px;font-size:14px;">
       <summary style="cursor:pointer;font-size:13px;font-family:var(--font-mono);color:var(--azul-medio,#2c4a68);font-weight:700;list-style:none;" data-i18n="how.toggle">How does it work? &#9656;</summary>
       <div style="margin-top:8px;padding:10px 14px;background:var(--blanco-calido,#fbf5e8);border-radius:8px;border:1px solid var(--azul-suave,#dde5ec);">
         <p style="margin:0 0 6px;font-size:14px;color:var(--ink);" data-i18n="how.hoy.1">1. The color banner tells you the state of your business at a glance: green = healthy, yellow = needs attention, red = act now.</p>
