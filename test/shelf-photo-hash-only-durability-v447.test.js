@@ -138,3 +138,74 @@ test('v447: current fotoHash overrides a stale per-id mirror and refreshes that 
     await browser.close();
   }
 });
+
+
+test('v447: explicit modern photo deletion clears an id mirror instead of self-healing it', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <!doctype html><html><body>
+        <section id="vista-perchas" class="activa">
+          <div id="vp-orden"></div><div id="vp-grid"></div><div id="vp-transfers"></div>
+        </section>
+      </body></html>`);
+    await page.evaluate(() => {
+      const oldPhoto = 'data:image/png;base64,REVMRVRFRC1QSE9UTw==';
+      window.__idPhotos = { 'u-deleted-photo': oldPhoto };
+      window.__puts = [];
+      window.__deletes = [];
+      window.__shelf = {
+        id: 'u-deleted-photo', nombre: 'Deleted photo shelf', tipo: 'propio', activa: true,
+        fotoHash: null, fotoRev: { c: 42, d: 'modern-delete' }
+      };
+      window.t = (k) => ({
+        'shelves.noRacksYet':'No shelves yet','shelves.noTarget':'No target','shelves.ofTargetMet':'% target',
+        'shelves.monthlySales':'Monthly sales','shelves.target':'Target','shelves.commission':'Commission',
+        'shelves.promoter':'Promoter','shelves.open':'Open','shelves.transfersHeading':'Transfers',
+        'shelves.addRackBtn':'Add shelf','common.close':'Close','shelves.newRackTitle':'New shelf',
+        'shelves.rackNameLabel':'Name','shelves.rackNamePlaceholder':'Shelf name','shelves.assignHint':'Assign',
+        'shelves.createRackBtn':'Create'
+      }[k] || k);
+      window.OCI18n = { locale: () => 'en-US' };
+      window.OCMoneda = { codigo: () => 'USD' };
+      window.OCAuth = { puedeGestionar: () => false };
+      window.OCFotos = {
+        migrarSiHaceFalta: async () => {},
+        leerTodas: async () => ({ ...window.__idPhotos }),
+        guardarFoto: async (id, dataUrl) => { window.__idPhotos[id] = dataUrl; return true; },
+        borrarFoto: async (id) => { window.__deletes.push(id); delete window.__idPhotos[id]; },
+        guardarFotoContenido: async () => 'hash-old-deleted',
+        leerPorHash: async () => null,
+        guardarPorHash: async () => true
+      };
+      window.fetch = async (input, options = {}) => {
+        const url = String(input);
+        if ((options.method || 'GET') === 'PUT') {
+          window.__puts.push({ url, body: JSON.parse(options.body || '{}') });
+          return new Response('{}', { status:200, headers:{'Content-Type':'application/json'} });
+        }
+        let body = [];
+        if (url === '/api/ubicaciones') body = [Object.assign({}, window.__shelf)];
+        else if (url === '/api/liquidaciones') body = [];
+        else if (url === '/api/promotoras') body = [];
+        else if (url === '/api/transferencias') body = [];
+        return new Response(JSON.stringify(body), { status:200, headers:{'Content-Type':'application/json'} });
+      };
+    });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/vista-perchas.js') });
+    await page.evaluate(() => window.VPerchas.cargar());
+    const out = await page.evaluate(() => ({
+      img: document.querySelector('#vp-grid img')?.getAttribute('src') || null,
+      puts: window.__puts.slice(),
+      deletes: window.__deletes.slice(),
+      mirror: window.__idPhotos['u-deleted-photo'] || null
+    }));
+    assert.equal(out.img, null, 'an explicit modern deletion must not render stale mirrored bytes');
+    assert.equal(out.puts.length, 0, 'an explicit modern deletion must not regenerate fotoHash');
+    assert.deepEqual(out.deletes, ['u-deleted-photo']);
+    assert.equal(out.mirror, null);
+  } finally {
+    await browser.close();
+  }
+});
