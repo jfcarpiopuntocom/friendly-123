@@ -23,7 +23,7 @@ jobs:
       - name: Focused clock-skew tests
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/clock-skew-forensics-v447.test.js
       - name: Full suite
-        run: npm test
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/*.test.js
       - name: Service-worker and release guards
         run: bash check-sw.sh
       - name: Diff hygiene
