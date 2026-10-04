@@ -1,9 +1,9 @@
-name: clock-skew-forensics
+name: golden-v448-certification
 
 on:
   push:
     branches:
-      - "forensics/clock-skew-2026-10-03"
+      - "qa/golden-v448-2026-10-03"
   workflow_dispatch: {}
 
 permissions:
@@ -21,11 +21,41 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - name: Focused clock-skew tests
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/clock-skew-forensics-v447.test.js
+      - run: npx playwright install --with-deps chromium webkit
+
+      - name: Critical v448 tests
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test \
+            test/clock-skew-forensics-v447.test.js \
+            test/perchas-hotfix-v444.test.js \
+            test/perchas-photo-selfheal-v446.test.js \
+            test/stock-zero-replay-v445.test.js \
+            test/regression-gauntlet-v446.test.js \
+            test/linus-dinero-ui.test.js \
+            test/golden-webkit-photos-v448.test.js
+
       - name: Full suite
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/*.test.js
+
+      - name: Historical browser smokes — Chromium + iPhone WebKit
+        run: |
+          python3 -m http.server 8127 --bind 127.0.0.1 --directory docs >/tmp/f123-http.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          sleep 2
+          node .claude/smoke-multiprompt.cjs
+          F123_BROWSER=webkit node .claude/smoke-multiprompt.cjs
+          node .claude/smoke-expira-evento.cjs
+
+      - name: Install external judges
+        run: npm install --no-save --package-lock=false @axe-core/playwright lighthouse
+
+      - name: External UI judges
+        run: |
+          node scripts/jueces.mjs
+          cat out-jueces/resultado.json
+          node -e "const r=require('./out-jueces/resultado.json'); if(r.rojo){console.error(r.motivos); process.exit(1)}"
+
       - name: Generate deterministic manifest preview
         run: |
           node scripts/gen-manifest.js
@@ -33,7 +63,49 @@ jobs:
           echo '---MANIFEST-BEGIN---'
           cat docs/version-manifest.json
           echo '---MANIFEST-END---'
+
       - name: Service-worker and release guards
         run: bash check-sw.sh
+
+      - name: QA branch did not change production bytes
+        run: |
+          test -z "$(git diff --name-only origin/estable...HEAD -- docs cloudflare-worker)" || {
+            echo "QA certification changed production files:";
+            git diff --name-only origin/estable...HEAD -- docs cloudflare-worker;
+            exit 1;
+          }
+
+      - name: Stable live shell matches every v448 manifest hash
+        run: |
+          node <<'NODE'
+          const crypto = require('node:crypto');
+          const base = 'https://jfcarpiopuntocom.github.io/friendly-123/';
+          const bust = () => (Date.now() + '-' + Math.random().toString(36).slice(2));
+          async function get(path) {
+            const sep = path.includes('?') ? '&' : '?';
+            const r = await fetch(base + path + sep + 'golden=' + bust(), { cache: 'no-store' });
+            if (!r.ok) throw new Error(path + ' HTTP ' + r.status);
+            return r;
+          }
+          (async () => {
+            const version = await (await get('version.json')).json();
+            if (version.shell !== 'f123-shell-v448') throw new Error('stable shell is ' + version.shell);
+            const manifest = await (await get('version-manifest.json')).json();
+            if (manifest.shell !== 'f123-shell-v448') throw new Error('manifest shell is ' + manifest.shell);
+            const bad = [];
+            for (const [p, expected] of Object.entries(manifest.files || {})) {
+              const r = await get(p.replace(/^\.\//, ''));
+              const buf = Buffer.from(await r.arrayBuffer());
+              const got = 'sha256-' + crypto.createHash('sha256').update(buf).digest('hex');
+              if (got !== expected) bad.push({ path:p, expected, got });
+            }
+            if (bad.length) {
+              console.error(JSON.stringify(bad, null, 2));
+              process.exit(1);
+            }
+            console.log('LIVE HASHES OK:', Object.keys(manifest.files || {}).length, 'files; shell', version.shell);
+          })().catch(e => { console.error(e); process.exit(1); });
+          NODE
+
       - name: Diff hygiene
-        run: git diff --check origin/master...HEAD
+        run: git diff --check origin/estable...HEAD
