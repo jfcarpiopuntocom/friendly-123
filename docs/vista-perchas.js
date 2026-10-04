@@ -345,7 +345,15 @@
                   try { await window.OCFotos.guardarPorHash(u.fotoHash, d); } catch (_) {}
                 }
               }
-              if (d) fotoCache[u.id] = d;
+              if (d) {
+                fotoCache[u.id] = d;
+                /* v448 GOLDEN: si los bytes exactos resolvieron el fotoHash actual,
+                   guardarlos tambien bajo el ID exacto de la percha. Asi una futura
+                   perdida legacy del puntero puede reconstruirse sin adivinar. */
+                if (window.OCFotos.guardarFoto) {
+                  try { await window.OCFotos.guardarFoto(u.id, d); } catch (_) {}
+                }
+              }
             } catch (_) {}
           }
         }));
