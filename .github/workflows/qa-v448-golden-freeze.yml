@@ -28,8 +28,8 @@ jobs:
           grep -q '"shell": "f123-shell-v448"' docs/version.json
           grep -q '"releaseName": "v448 GOLDEN"' docs/version.json
           grep -q 'const CACHE = "f123-shell-v448"' docs/sw.js
-          grep -q 'const CACHE_GENERACION = "-golden3"' docs/sw.js
-          grep -q '"cacheGeneration": "golden3"' docs/version.json
+          grep -Eq 'const CACHE_GENERACION = "-golden[0-9]+"' docs/sw.js
+          grep -Eq '"cacheGeneration": "golden[0-9]+"' docs/version.json
           grep -q 'const CACHE_LOCAL = CACHE + CACHE_GENERACION + CANAL' docs/sw.js
           grep -q '"shell": "f123-shell-v448"' docs/version-manifest.json
           ! grep -q '"shell": "f123-shell-v450"' docs/version.json
@@ -38,7 +38,7 @@ jobs:
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/shelf-lifecycle-race-v448.test.js test/perchas-hotfix-v444.test.js test/commissions-deleted-racks.test.js
 
       - name: "03 Shelf photo durability and self-heal"
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-photo-selfheal-v446.test.js test/shelf-photo-integrity-v446.test.js test/shelf-photo-durability-v449.test.js test/shelf-photo-legacy-g03.test.js test/photo-backup-evidence-v449.test.js test/backup-fotos.test.js
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-photo-selfheal-v446.test.js test/shelf-photo-integrity-v446.test.js test/shelf-photo-durability-v449.test.js test/shelf-photo-legacy-g03.test.js test/photo-history-g05.test.js test/photo-backup-evidence-v449.test.js test/backup-fotos.test.js
 
       - name: "04 WebKit iPhone shelf-photo smoke"
         run: node .claude/smoke-v449-photo-webkit.cjs

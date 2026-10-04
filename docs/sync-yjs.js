@@ -434,6 +434,87 @@
   };
   window.OCYjs = API;
 
+  /* PRIME DIRECTIVE 1AAA / G05 — HISTORIAL LOCAL DE PUNTEROS DE FOTO.
+     y-indexeddb persiste updates del catalogo en objectStore "updates". Este
+     lector abre ESA MISMA base ya abierta por IndexeddbPersistence, en modo
+     readonly, y reproduce sus updates en un Y.Doc AISLADO. Despues de cada
+     update anota todo fotoHash no vacio observado para cada shelf id.
+     - NO aplica nada a API.doc.
+     - NO escribe/borrar IndexedDB.
+     - NO inventa asociaciones.
+     - La compactacion de y-indexeddb puede haber eliminado historia antigua;
+       en ese caso devuelve solo lo que realmente siga demostrable. */
+  API.historialFotosPorPercha = async function () {
+    var out = {};
+    try {
+      if (!API.idb || !window.Y) return out;
+      try {
+        if (API.idb.whenSynced && typeof API.idb.whenSynced.then === "function") {
+          await API.idb.whenSynced.catch(function () {});
+        }
+      } catch (_) {}
+      var db = API.idb.db || null;
+      if (!db && API.idb._db && typeof API.idb._db.then === "function") {
+        try { db = await API.idb._db; } catch (_) {}
+      }
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains("updates")) return out;
+
+      var updates = await new Promise(function (resolve, reject) {
+        try {
+          var tx = db.transaction("updates", "readonly");
+          var store = tx.objectStore("updates");
+          var req = store.openCursor();
+          var arr = [];
+          req.onsuccess = function (ev) {
+            var cur = ev.target.result;
+            if (!cur) { resolve(arr); return; }
+            arr.push(cur.value);
+            cur.continue();
+          };
+          req.onerror = function () { reject(req.error); };
+        } catch (e) { reject(e); }
+      });
+
+      var d = new window.Y.Doc();
+      var mapa = d.getMap("ubicaciones");
+      var ultimo = {};
+      function capturar() {
+        try {
+          mapa.forEach(function (row, id) {
+            var h = row && row.fotoHash ? String(row.fotoHash) : "";
+            if (!h || ultimo[id] === h) return;
+            ultimo[id] = h;
+            if (!out[id]) out[id] = [];
+            if (out[id].indexOf(h) < 0) out[id].push(h);
+          });
+        } catch (_) {}
+      }
+      for (var i = 0; i < updates.length; i++) {
+        try {
+          var u = updates[i];
+          var bytes = u instanceof Uint8Array ? u : new Uint8Array(u);
+          window.Y.applyUpdate(d, bytes, "forense-readonly");
+          capturar();
+        } catch (_) {}
+      }
+      /* Si y-indexeddb compacto el historial, el estado actual puede ser la unica
+         evidencia restante. Se añade solo si el pointer existe de verdad. */
+      try {
+        var vivo = API.mapas && API.mapas.ubicaciones;
+        if (vivo) vivo.forEach(function (row, id) {
+          var h = row && row.fotoHash ? String(row.fotoHash) : "";
+          if (!h) return;
+          if (!out[id]) out[id] = [];
+          if (out[id].indexOf(h) < 0) out[id].push(h);
+        });
+      } catch (_) {}
+      try { d.destroy(); } catch (_) {}
+    } catch (e) {
+      try { console.warn("[OCYjs] historialFotosPorPercha:", e && e.message); } catch (_) {}
+    }
+    return out;
+  };
+
   function log(/*...*/) { try { console.log.apply(console, ["[OCYjs]"].concat([].slice.call(arguments))); } catch (_) {} }
 
   async function arrancar() {

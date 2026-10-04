@@ -286,6 +286,21 @@
     if (aCrear) aCrear.textContent = window.t('shelves.createRackBtn');
   });
 
+  let _historialFotosExactoPromise = null;
+  async function historialFotosExacto() {
+    if (!_historialFotosExactoPromise) {
+      _historialFotosExactoPromise = (async () => {
+        try {
+          if (window.OCYjs && window.OCYjs.historialFotosPorPercha) {
+            return (await window.OCYjs.historialFotosPorPercha()) || {};
+          }
+        } catch (_) {}
+        return {};
+      })();
+    }
+    try { return await _historialFotosExactoPromise; } catch (_) { return {}; }
+  }
+
   async function montarPhotoRecoveryVault(perchasVisibles) {
     let cont = document.getElementById('vp-photo-vault');
     const seccion = document.getElementById('vista-perchas');
@@ -312,15 +327,38 @@
     const huerfanas = Object.keys(blobs).filter((h) => blobs[h] && !refs.has(h));
     if (!huerfanas.length) { cont.style.display = 'none'; return; }
     cont.style.display = '';
-    const opciones = (perchasVisibles || []).map((u) => `<option value="${esc(u.id)}">${esc(u.nombre || u.id)}</option>`).join('');
+    const hist = await historialFotosExacto();
+    const nombres = {};
+    (perchasVisibles || []).forEach((u) => { if (u && u.id) nombres[String(u.id)] = u.nombre || u.id; });
+    const idsPorHash = {};
+    Object.keys(hist || {}).forEach((id) => {
+      (hist[id] || []).forEach((h) => {
+        h = String(h || ''); if (!h) return;
+        if (!idsPorHash[h]) idsPorHash[h] = [];
+        if (idsPorHash[h].indexOf(String(id)) < 0) idsPorHash[h].push(String(id));
+      });
+    });
+    const opcionesPara = (hash) => {
+      const candidatos = (idsPorHash[hash] || []).filter((id) => nombres[id]);
+      const preferido = candidatos.length === 1 ? candidatos[0] : '';
+      const opts = (perchasVisibles || []).map((u) =>
+        `<option value="${esc(u.id)}"${String(u.id) === preferido ? ' selected' : ''}>${esc(u.nombre || u.id)}</option>`
+      ).join('');
+      return { preferido, opts };
+    };
     cont.innerHTML = `<h3 style="margin:0 0 6px;">Photo Recovery Vault</h3>
       <p style="font-size:13px;margin:0 0 12px;color:var(--ink-soft);">These photo bytes still exist on this device but no current shelf points to them. Nothing is deleted. Restore only the photos you recognize.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
-      ${huerfanas.map((h) => `<div style="border:1px solid var(--azul-suave,#dde5ec);padding:8px;border-radius:8px;">
-        <img src="${blobs[h]}" alt="Recovered photo" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;">
-        <select data-vault-shelf="${esc(h)}" style="width:100%;margin-top:8px;min-height:38px;"><option value="">Restore to shelf…</option>${opciones}</select>
-        <button type="button" data-vault-restore="${esc(h)}" class="ir" style="width:100%;margin-top:6px;min-height:40px;">Restore photo</button>
-      </div>`).join('')}</div>`;
+      ${huerfanas.map((h) => {
+        const op = opcionesPara(h);
+        const pista = op.preferido ? `<div style="font-size:12px;margin-top:6px;color:var(--azul-medio,#2E6278);">Exact local history: ${esc(nombres[op.preferido])}</div>` : '';
+        return `<div style="border:1px solid var(--azul-suave,#dde5ec);padding:8px;border-radius:8px;">
+          <img src="${blobs[h]}" alt="Recovered photo" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;">
+          ${pista}
+          <select data-vault-shelf="${esc(h)}" style="width:100%;margin-top:8px;min-height:38px;"><option value="">Restore to shelf…</option>${op.opts}</select>
+          <button type="button" data-vault-restore="${esc(h)}" class="ir" style="width:100%;margin-top:6px;min-height:40px;">Restore photo</button>
+        </div>`;
+      }).join('')}</div>`;
   }
 
   let cargaEnCurso = 0;
@@ -386,6 +424,40 @@
             }
           } catch (_) {}
         }));
+      }
+
+      /* v448 GOLDEN G05: tercera fuente EXACTA — historial local y-indexeddb.
+         Si el estado ACTUAL ya perdio fotoHash, reproducimos solo-lectura los
+         updates persistidos y obtenemos hashes que ESTA MISMA shelf id tuvo antes.
+         Se intenta del mas reciente al mas antiguo y solo se reatacha si los bytes
+         del hash exacto sobreviven. Si no hay evidencia, no se toca nada. */
+      if (perchasVisibles.length && window.OCFotos) {
+        let hist = {};
+        try { hist = await historialFotosExacto(); } catch (_) {}
+        for (const u of perchasVisibles) {
+          if (!u || u.fotoHash) continue;
+          const hashes = (hist[String(u.id)] || []).slice().reverse();
+          for (const hash of hashes) {
+            try {
+              let bytes = window.OCFotos.leerPorHash ? await window.OCFotos.leerPorHash(hash) : null;
+              if (!bytes && window.OCYjs && window.OCYjs.fotosMap && window.OCYjs.fotosMap.get) {
+                bytes = window.OCYjs.fotosMap.get(hash) || null;
+              }
+              if (!bytes) continue;
+              if (window.OCFotos.guardarPorHash) await window.OCFotos.guardarPorHash(hash, bytes);
+              if (window.OCFotos.guardarFoto) await window.OCFotos.guardarFoto(u.id, bytes);
+              const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(u.id)}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fotoHash: hash })
+              });
+              if (!rr || rr.ok !== false) {
+                u.fotoHash = hash; fotoCache[u.id] = bytes;
+                fotoRecuperadaEnEstaCarga.set(u.id, { hash, bytes, origen: 'yjs-history' });
+                break;
+              }
+            } catch (_) {}
+          }
+        }
       }
 
       /* v446 (JFC 2026-10-03): auto-reparacion SIN inventar datos.
