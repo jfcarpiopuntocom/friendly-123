@@ -1,12 +1,6 @@
 # promover.yml — VENTANA DE 33 MINUTOS (regla dura de JFC, 2026-09-25).
-# "33 minutos maximo, es el tiempo que me doy para testear desde cada commit/push tuyo".
-# Cada push a master que toque docs/ ya esta en /next/ (publicar.yml). Aqui se espera
-# 33 min mirando el Sonar del Worker cada minuto:
-#   - rojo en el canario de ese shell (errores, scripts caidos, mezcla, descuadre) -> NO se promueve;
-#   - JFC apreto "Detener" en su panel                                            -> NO se promueve;
-#   - si no, a los 33 min: previo <- estable, estable <- este commit, y se publica.
-# Un push nuevo cancela la espera anterior y reinicia la ventana (concurrency).
-# Nada aqui toca datos: solo mueve que version de la interfaz ven los clientes.
+# v448 GOLDEN G02: fail-closed por BUILD canario unico + CAS atomico de ramas.
+# La release visible queda v448 GOLDEN; cada hotfix tiene canaryBuild propio.
 name: promover
 
 on:
@@ -29,95 +23,186 @@ jobs:
     timeout-minutes: 45
     outputs:
       promover: ${{ steps.v.outputs.promover }}
+      hecho: ${{ steps.m.outputs.hecho }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - id: v
-        name: Esperar 33 min mirando el Sonar
+        name: Esperar 33 min mirando el Sonar del build exacto
         run: |
           set -uo pipefail
           WORKER="https://friendly123-licencias.jfcarpio.workers.dev"
-          SHELL_NUEVO=$(grep -o 'f123-shell-v[0-9]*' docs/version.json)
-          echo "shell en /next/: $SHELL_NUEVO"
-          # JFC 2026-09-30: el PUSH del panel lo ejecutaba solo sonar.yml, cuyo cron "cada 5 min"
-          # GitHub lo corre cada 4-7 h: el panel decia "hecho" y los clientes seguian esperando.
-          # Si durante esta ventana llega una orden PUSH reciente (<24 h, no ejecutada), se
-          # promueve YA y se marca la orden como ejecutada (tag sonar-ID) para que sonar no la repita.
-          ORDEN_ID=""
-          pushPedido() {
-            J=$(curl -s --max-time 20 "$WORKER/canario/orden" || echo '{}')
-            ID=$(echo "$J" | jq -r '.orden.id // empty'); AC=$(echo "$J" | jq -r '.orden.accion // empty'); AT=$(echo "$J" | jq -r '.orden.at // 0')
-            [ "$AC" = "push" ] || return 1
-            echo "$ID" | grep -Eq '^[a-z0-9]{4,20}$' || return 1
-            [ $(( $(date +%s) * 1000 - AT )) -le 86400000 ] || return 1
-            git fetch -q --tags origin || true
-            git rev-parse -q --verify "refs/tags/sonar-$ID" >/dev/null && return 1
-            ORDEN_ID="$ID"; return 0
+          BUILD_NUEVO=$(jq -r '.canaryBuild // .shell // empty' docs/version.json)
+          if ! echo "$BUILD_NUEVO" | grep -Eq '^f123-shell-v[0-9]{1,5}$'; then
+            echo "BUILD CANARIO INVALIDO: $BUILD_NUEVO" >&2
+            echo "promover=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          COMMIT_AT_MS=$(( $(git show -s --format=%ct "$GITHUB_SHA") * 1000 ))
+          echo "build en /next/: $BUILD_NUEVO · release visible: v448 GOLDEN"
+
+          esEntero() {
+            case "${1:-}" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac
           }
+
+          estadoSonar() {
+            curl -s --max-time 20 "$WORKER/canario/estado?shell=$BUILD_NUEVO" || echo '{}'
+          }
+
           revisar() {
-            E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$SHELL_NUEVO" || echo '{}')
-            if echo "$E" | jq -e '.rojo == true' >/dev/null 2>&1; then echo "ROJO: $(echo "$E" | jq -c '.rojos')"; return 1; fi
-            if echo "$E" | jq -e '.detenido == true' >/dev/null 2>&1; then echo "DETENIDO por JFC"; return 1; fi
+            E=$(estadoSonar)
+            if ! echo "$E" | jq -e --arg b "$BUILD_NUEVO" '.shell == $b' >/dev/null 2>&1; then
+              echo "SONAR INVALIDO/SIN RESPUESTA para $BUILD_NUEVO"
+              return 1
+            fi
+            if echo "$E" | jq -e '.rojo == true' >/dev/null 2>&1; then
+              echo "ROJO: $(echo "$E" | jq -c '.rojos')"
+              return 1
+            fi
+            if echo "$E" | jq -e '.detenido == true' >/dev/null 2>&1; then
+              echo "DETENIDO por JFC"
+              return 1
+            fi
             return 0
           }
-          # v448 post-incidente: silencio NO es verde y evidencia vieja tampoco.
-          # Un canario util debe ser un aparato real de la licencia lord, reportando
-          # desde /next/ y con telemetria reciente. El latido lord corre cada 3 min;
-          # damos 7 min para tolerar jitter/red sin aceptar un testigo abandonado.
-          # La misma regla aplica al PUSH manual. Falla cerrado.
+
           hayTestigo() {
-            E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$SHELL_NUEVO" || echo '{}')
+            E=$(estadoSonar)
             REP=$(echo "$E" | jq -r '.reportes // 0')
             APA=$(echo "$E" | jq -r '.aparatos // 0')
             ULT=$(echo "$E" | jq -r '.ultimo // 0')
             NEXT=$(echo "$E" | jq -r '.canales.next // 0')
+            esEntero "$REP" && esEntero "$APA" && esEntero "$ULT" && esEntero "$NEXT" || return 1
             AHORA=$(( $(date +%s) * 1000 ))
             EDAD_ULT=$(( AHORA - ULT ))
             EDAD_NEXT=$(( AHORA - NEXT ))
-            echo "testigo Sonar: reportes=$REP aparatos=$APA ultimo=${EDAD_ULT}ms next=${EDAD_NEXT}ms"
-            [ "$REP" -ge 1 ] 2>/dev/null &&
-            [ "$APA" -ge 1 ] 2>/dev/null &&
-            [ "$ULT" -gt 0 ] 2>/dev/null &&
-            [ "$NEXT" -gt 0 ] 2>/dev/null &&
-            [ "$EDAD_ULT" -ge 0 ] 2>/dev/null &&
-            [ "$EDAD_NEXT" -ge 0 ] 2>/dev/null &&
-            [ "$EDAD_ULT" -le 420000 ] 2>/dev/null &&
-            [ "$EDAD_NEXT" -le 420000 ] 2>/dev/null
+            echo "testigo $BUILD_NUEVO: reportes=$REP aparatos=$APA ultimo=${EDAD_ULT}ms next=${EDAD_NEXT}ms"
+            [ "$REP" -ge 1 ] &&
+            [ "$APA" -ge 1 ] &&
+            [ "$ULT" -ge "$COMMIT_AT_MS" ] &&
+            [ "$NEXT" -ge "$COMMIT_AT_MS" ] &&
+            [ "$EDAD_ULT" -ge 0 ] &&
+            [ "$EDAD_NEXT" -ge 0 ] &&
+            [ "$EDAD_ULT" -le 420000 ] &&
+            [ "$EDAD_NEXT" -le 420000 ]
           }
+
+          ORDEN_ID=""
+          pushPedido() {
+            J=$(curl -s --max-time 20 "$WORKER/canario/orden" || echo '{}')
+            ID=$(echo "$J" | jq -r '.orden.id // empty')
+            AC=$(echo "$J" | jq -r '.orden.accion // empty')
+            AT=$(echo "$J" | jq -r '.orden.at // 0')
+            [ "$AC" = "push" ] || return 1
+            echo "$ID" | grep -Eq '^[a-z0-9]{4,20}$' || return 1
+            esEntero "$AT" || return 1
+            # Una orden emitida ANTES de este commit jamas autoriza un build que JFC no vio.
+            [ "$AT" -ge "$COMMIT_AT_MS" ] || return 1
+            [ $(( $(date +%s) * 1000 - AT )) -le 86400000 ] || return 1
+            git fetch -q --tags origin || true
+            git rev-parse -q --verify "refs/tags/sonar-$ID" >/dev/null && return 1
+            ORDEN_ID="$ID"
+            return 0
+          }
+
           FIN=$(( $(date +%s) + 33 * 60 ))
           while [ "$(date +%s)" -lt "$FIN" ]; do
             if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
             if pushPedido; then
               if hayTestigo; then
-                echo "PUSH del panel ($ORDEN_ID): hay testigo canario, se promueve ya"
-                echo "orden=$ORDEN_ID" >> "$GITHUB_OUTPUT"; echo "promover=si" >> "$GITHUB_OUTPUT"; exit 0
+                echo "PUSH del panel ($ORDEN_ID): testigo exacto y fresco; pasa al CAS final"
+                echo "orden=$ORDEN_ID" >> "$GITHUB_OUTPUT"
+                echo "promover=si" >> "$GITHUB_OUTPUT"
+                exit 0
               fi
-              echo "PUSH del panel ($ORDEN_ID) retenido: aun no hay testigo canario real"
+              echo "PUSH del panel ($ORDEN_ID) retenido: build sin testigo exacto/fresco"
             fi
             sleep 60
           done
+
           if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if ! hayTestigo; then echo "SIN TESTIGO CANARIO: no se promueve" >&2; echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if ! hayTestigo; then
+            echo "SIN TESTIGO CANARIO EXACTO: no se promueve" >&2
+            echo "promover=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           echo "promover=si" >> "$GITHUB_OUTPUT"
-      - name: Mover ramas (previo <- estable, estable <- este commit)
+
+      - id: m
+        name: CAS final + mover previo/estable atomicamente
         if: steps.v.outputs.promover == 'si'
         run: |
           set -euo pipefail
-          git fetch -q origin estable
+          echo "hecho=no" >> "$GITHUB_OUTPUT"
+          WORKER="https://friendly123-licencias.jfcarpio.workers.dev"
+          BUILD_NUEVO=$(jq -r '.canaryBuild // .shell // empty' docs/version.json)
+          COMMIT_AT_MS=$(( $(git show -s --format=%ct "$GITHUB_SHA") * 1000 ))
+
+          # Ultima lectura del Sonar, ya en la puerta del push.
+          E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$BUILD_NUEVO" || echo '{}')
+          if ! echo "$E" | jq -e --arg b "$BUILD_NUEVO" '
+            .shell == $b and
+            .rojo != true and .detenido != true and
+            (.reportes // 0) >= 1 and (.aparatos // 0) >= 1 and
+            (.ultimo // 0) >= $ENV.COMMIT_AT_MS_NUM and
+            (.canales.next // 0) >= $ENV.COMMIT_AT_MS_NUM
+          ' COMMIT_AT_MS_NUM="$COMMIT_AT_MS" >/dev/null 2>&1; then
+            # jq no toma esa asignacion como env en todas las versiones; comprobacion numerica abajo.
+            :
+          fi
+          REP=$(echo "$E" | jq -r '.reportes // 0')
+          APA=$(echo "$E" | jq -r '.aparatos // 0')
+          ULT=$(echo "$E" | jq -r '.ultimo // 0')
+          NEXT=$(echo "$E" | jq -r '.canales.next // 0')
+          ROJO=$(echo "$E" | jq -r '.rojo // false')
+          DET=$(echo "$E" | jq -r '.detenido // false')
+          SHELL_E=$(echo "$E" | jq -r '.shell // empty')
+          case "$REP:$APA:$ULT:$NEXT" in *[!0-9:]*|'') echo "Sonar final invalido"; exit 0 ;; esac
+          AHORA=$(( $(date +%s) * 1000 ))
+          if [ "$SHELL_E" != "$BUILD_NUEVO" ] || [ "$ROJO" = "true" ] || [ "$DET" = "true" ] ||
+             [ "$REP" -lt 1 ] || [ "$APA" -lt 1 ] ||
+             [ "$ULT" -lt "$COMMIT_AT_MS" ] || [ "$NEXT" -lt "$COMMIT_AT_MS" ] ||
+             [ $(( AHORA - ULT )) -gt 420000 ] || [ $(( AHORA - NEXT )) -gt 420000 ]; then
+            echo "CAS abortado: Sonar ya no es testigo verde/fresco del build exacto"
+            exit 0
+          fi
+
+          git fetch -q origin master estable previo || git fetch -q origin master estable
+          MASTER=$(git rev-parse origin/master)
           ESTABLE=$(git rev-parse origin/estable)
-          if [ "$ESTABLE" = "$GITHUB_SHA" ]; then echo "estable ya esta en este commit"; exit 0; fi
-          # Solo hacia adelante: una ventana vieja jamas retrocede a los clientes.
-          if ! git merge-base --is-ancestor "$ESTABLE" "$GITHUB_SHA"; then echo "estable no es ancestro de este commit: no se mueve"; exit 1; fi
-          git push origin "$ESTABLE:refs/heads/previo" --force
-          git push origin "$GITHUB_SHA:refs/heads/estable" --force
-          echo "previo=$ESTABLE estable=$GITHUB_SHA"
+          PREVIO=$(git rev-parse -q --verify origin/previo 2>/dev/null || true)
+
+          if [ "$MASTER" != "$GITHUB_SHA" ]; then
+            echo "STALE RUN: master=$MASTER pero este workflow=$GITHUB_SHA; no se mueve nada"
+            exit 0
+          fi
+          if [ "$ESTABLE" = "$GITHUB_SHA" ]; then
+            echo "estable ya esta en este commit"
+            echo "hecho=ya" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git merge-base --is-ancestor "$ESTABLE" "$GITHUB_SHA"; then
+            echo "estable no es ancestro del build candidato: fail closed"
+            exit 1
+          fi
+
+          # CAS remoto: master participa como refspec NO-OP para que si cambia entre
+          # fetch y push, falle la transaccion completa. previo+estable son atomicos.
+          LEASE_PREVIO="--force-with-lease=refs/heads/previo:$PREVIO"
+          [ -n "$PREVIO" ] || LEASE_PREVIO="--force-with-lease=refs/heads/previo:"
+          git push --atomic             "--force-with-lease=refs/heads/master:$GITHUB_SHA"             "--force-with-lease=refs/heads/estable:$ESTABLE"             "$LEASE_PREVIO"             origin             "$GITHUB_SHA:refs/heads/master"             "$ESTABLE:refs/heads/previo"             "$GITHUB_SHA:refs/heads/estable"
+
+          echo "previo=$ESTABLE estable=$GITHUB_SHA build=$BUILD_NUEVO"
+          echo "hecho=si" >> "$GITHUB_OUTPUT"
+
       - name: Marcar la orden PUSH como ejecutada
-        if: steps.v.outputs.promover == 'si' && steps.v.outputs.orden != ''
+        if: steps.v.outputs.orden != '' && (steps.m.outputs.hecho == 'si' || steps.m.outputs.hecho == 'ya')
         run: |
           git tag "sonar-${{ steps.v.outputs.orden }}" && git push -q origin "refs/tags/sonar-${{ steps.v.outputs.orden }}" || true
 
   publicar:
     needs: ventana
-    if: needs.ventana.outputs.promover == 'si'
+    if: needs.ventana.outputs.hecho == 'si'
     uses: ./.github/workflows/publicar.yml
