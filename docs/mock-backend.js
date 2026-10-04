@@ -2665,7 +2665,7 @@
              resuelve aparte y nunca puede ser deshecha por un peer rancio. */
           Object.keys(u).forEach((k) => {
             if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev" &&
-                k !== "fotoHash" && k !== "fotoRev" && k !== "borrado" && k !== "activa") mia[k] = u[k];
+                k !== "fotoHash" && k !== "fotoRev" && k !== "borrado" && k !== "activa" && k !== "activaRev") mia[k] = u[k];
           });
           _observarRev(u.rev); actualizados++;
         }
