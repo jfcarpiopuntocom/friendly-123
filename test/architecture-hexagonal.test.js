@@ -17,7 +17,11 @@ test('hexagonal boundary: photo domain/application contain no browser or storage
     /\bOCFotos\b/, /\bOCYjs\b/, /\bcaches\b/
   ];
   for (const file of files) {
-    const src = read(file);
+    // Architecture comments may NAME forbidden technologies to document the rule.
+    // Enforcement applies to executable source, not prose.
+    const src = read(file)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
     for (const re of forbidden) {
       assert.doesNotMatch(src, re, file + ' imports infrastructure into the core/application boundary: ' + re);
     }
