@@ -183,3 +183,92 @@ test('G08: product-only photo evidence cannot become a shelf photo', async () =>
     assert.equal(out.vault,null);
   });
 });
+
+
+test('G09: si Yjs hidrata el historial despues del primer render, oc-fotos-actualizadas invalida el cache y recupera la foto', async () => {
+  await withPage(async (page) => {
+    await page.evaluate(() => {
+      const photo = 'data:image/png;base64,RzA5LVNIRUxGLVBIT1RP';
+      window.__photo = photo;
+      window.__historyReady = false;
+      window.__historyCalls = 0;
+      window.__puts = [];
+      window.__shelf = { id:'shelf-late-yjs', nombre:'Late Yjs shelf', tipo:'socio', activa:true, fotoHash:null };
+
+      localStorage.removeItem('f123_caja_snapshots');
+      window.OCSecure = { hashTexto: async () => 'irrelevant' };
+      window.t = (k) => ({
+        'shelves.noRacksYet':'No shelves yet','shelves.noTarget':'No target','shelves.ofTargetMet':'% target',
+        'shelves.monthlySales':'Monthly sales','shelves.target':'Target','shelves.commission':'Commission',
+        'shelves.promoter':'Promoter','shelves.open':'Open','shelves.transfersHeading':'Transfers',
+        'shelves.addRackBtn':'Add shelf'
+      }[k] || k);
+      window.OCI18n = { locale:()=> 'en-US' };
+      window.OCMoneda = { codigo:()=> 'USD' };
+      window.OCAuth = { puedeGestionar:()=>false, rolActual:()=> 'owner' };
+      window.OCFotos = {
+        migrarSiHaceFalta:async()=>{},
+        blindarEvidencia:async()=>({}),
+        leerTodas:async()=>({}),
+        leerFoto:async()=>null,
+        leerTodosPorHash:async()=>({'hash-late':photo}),
+        leerPorHash:async(h)=>h==='hash-late'?photo:null,
+        guardarPorHash:async()=>true,
+        guardarFoto:async()=>true,
+        hashDeDataUrl:async()=>null
+      };
+      window.OCSync = { catalogoPropio:()=>({ubicaciones:[{...window.__shelf}],productos:[]}) };
+      window.OCYjs = {
+        get:(col)=>col==='ubicaciones'?{'shelf-late-yjs':{...window.__shelf}}:{},
+        historialFotosPorPercha:async()=>{
+          window.__historyCalls++;
+          return window.__historyReady ? {'shelf-late-yjs':['hash-late']} : {};
+        },
+        fotosMap:{get:()=>null}
+      };
+      window.fetch = async (input, options={}) => {
+        const url=String(input), method=options.method||'GET';
+        if(method==='PUT'){
+          const body=JSON.parse(options.body||'{}');
+          window.__puts.push({url,body});
+          if(body.fotoHash) window.__shelf.fotoHash=body.fotoHash;
+          return new Response(JSON.stringify(window.__shelf),{status:200,headers:{'Content-Type':'application/json'}});
+        }
+        let body=[];
+        if(url==='/api/ubicaciones') body=[{...window.__shelf}];
+        else if(url==='/api/liquidaciones'||url==='/api/promotoras'||url==='/api/transferencias'||url==='/api/ventas/todas') body=[];
+        return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
+      };
+    });
+
+    await load(page);
+
+    const first = await page.evaluate(() => ({
+      img:document.querySelector('#vp-grid img')?.getAttribute('src')||null,
+      historyCalls:window.__historyCalls,
+      pointer:window.__shelf.fotoHash
+    }));
+    assert.equal(first.img,null,'precondition: first render happens before Yjs history is hydrated');
+    assert.equal(first.pointer,null);
+    assert.equal(first.historyCalls,1,'the early empty history was read once');
+
+    await page.evaluate(() => {
+      window.__historyReady = true;
+      window.dispatchEvent(new Event('oc-fotos-actualizadas'));
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('#vp-grid img')?.getAttribute('src') === window.__photo,
+      null, { timeout: 4000 });
+
+    const second = await page.evaluate(() => ({
+      img:document.querySelector('#vp-grid img')?.getAttribute('src')||null,
+      historyCalls:window.__historyCalls,
+      pointer:window.__shelf.fotoHash,
+      puts:window.__puts.slice()
+    }));
+    assert.equal(second.img,'data:image/png;base64,RzA5LVNIRUxGLVBIT1RP');
+    assert.ok(second.historyCalls >= 2,'photo event must force a fresh history read, not reuse the early empty promise');
+    assert.equal(second.pointer,'hash-late');
+    assert.ok(second.puts.some(x=>x.body.fotoHash==='hash-late'),'exact same-shelf history is reattached after hydration');
+  });
+});

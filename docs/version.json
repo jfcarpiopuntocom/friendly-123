@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN hotfix golden8: My Shelves deja de exponer el Photo Recovery Vault. Recuperacion automatica de fotos de percha suma checkpoints locales validos por checksum como evidencia exacta shelf ID -> fotoHash; productos quedan fuera de los candidatos. G07 fallback legacy/IDB y Prime Directive 1AAA se conservan: ningun byte fotografico se destruye.",
+  "changelog": "v448 GOLDEN hotfix golden9: si My Shelves consulta el historial de fotos antes de que Yjs termine de hidratar, el evento de fotos nuevas invalida esa lectura temprana y vuelve a consultar evidencia exacta. Evita que un {} cacheado deje las fotos en blanco toda la sesion. Prime Directive 1AAA intacta: no se borra evidencia ni se inventan asociaciones.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden8"
+  "cacheGeneration": "golden9"
 }
