@@ -1,14 +1,18 @@
 const path = require("path");
-let chromium;
-try { ({ chromium } = require("/opt/node22/lib/node_modules/playwright")); }
-catch (_) { ({ chromium } = require(path.join(__dirname, "..", "node_modules", "playwright"))); }
+let pw;
+try { pw = require("/opt/node22/lib/node_modules/playwright"); }
+catch (_) { pw = require(path.join(__dirname, "..", "node_modules", "playwright")); }
+const browserName = process.env.F123_BROWSER === "webkit" ? "webkit" : "chromium";
+const browserType = pw[browserName];
 const BASE = "http://localhost:8127/index.html";
 let fallos = [];
 function check(n, c, x){ if(c) console.log("  ok   "+n); else { console.log("  FALLA "+n+(x?" -> "+JSON.stringify(x):"")); fallos.push(n);} }
 (async () => {
-  const b = await chromium.launch({ headless: true });
+  const b = await browserType.launch({ headless: true });
   try {
-    const ctx = await b.newContext(); const page = await ctx.newPage();
+    const opts = browserName === "webkit" ? { ...pw.devices["iPhone 13"] } : {};
+    const ctx = await b.newContext(opts); const page = await ctx.newPage();
+    console.log("  browser "+browserName+(browserName === "webkit" ? " / iPhone 13 emulation" : ""));
     const errs = []; page.on("pageerror", e => errs.push(String(e)));
     await page.route(/googleapis|gstatic|workers\.dev|unpkg|jsdelivr|sheetjs|cloudflare/, r => r.abort());
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
