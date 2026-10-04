@@ -24,10 +24,23 @@ function servidor() {
     const f = path.join(DOCS, u);
     if (!f.startsWith(DOCS) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end(); }
     let cuerpo = fs.readFileSync(f);
-    // El canario va un shell ADELANTE (el caso real: master por delante de estable).
-    // El previo va un shell ATRAS (el estable anterior, para el rewind).
-    if (previo && u === '/sw.js') cuerpo = Buffer.from(cuerpo.toString('utf8').replace(/const CACHE = "f123-shell-v(\d+)"/, (m, n) => `const CACHE = "f123-shell-v${Number(n) - 1}"`));
-    if (canario && u === '/sw.js') cuerpo = Buffer.from(cuerpo.toString('utf8').replace(/const CACHE = "f123-shell-v(\d+)"/, (m, n) => `const CACHE = "f123-shell-v${Number(n) + 1}"`));
+    // v448 GOLDEN: la release publica NO cambia entre canales. Lo que cambia
+    // por build es la generacion interna de cache + canaryBuild.
+    const moverGen = (src, delta) => src.replace(
+      /const CACHE_GENERACION = "-golden(\d+)"/,
+      (m, n) => `const CACHE_GENERACION = "-golden${Math.max(1, Number(n) + delta)}"`
+    );
+    const moverVersion = (src, delta) => {
+      let out = src.replace(/"cacheGeneration": "golden(\d+)"/,
+        (m, n) => `"cacheGeneration": "golden${Math.max(1, Number(n) + delta)}"`);
+      out = out.replace(/"canaryBuild": "f123-shell-v448(\d{2})"/,
+        (m, n) => `"canaryBuild": "f123-shell-v448${String(Math.max(1, Number(n) + delta)).padStart(2, '0')}"`);
+      return out;
+    };
+    if (previo && u === '/sw.js') cuerpo = Buffer.from(moverGen(cuerpo.toString('utf8'), -1));
+    if (canario && u === '/sw.js') cuerpo = Buffer.from(moverGen(cuerpo.toString('utf8'), +1));
+    if (previo && u === '/version.json') cuerpo = Buffer.from(moverVersion(cuerpo.toString('utf8'), -1));
+    if (canario && u === '/version.json') cuerpo = Buffer.from(moverVersion(cuerpo.toString('utf8'), +1));
     res.writeHead(200, { 'Content-Type': TIPOS[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(cuerpo);
   });
@@ -50,7 +63,7 @@ test('estable y canario conviven: el canario mas nuevo NO borra la cache de los 
     await page.goto(base, { waitUntil: 'load' });
     await esperarSW(page);
     const antes = await page.evaluate(() => caches.keys());
-    const estable = antes.find((n) => /^f123-shell-v\d+$/.test(n));
+    const estable = antes.find((n) => /^f123-shell-v448-golden\d+$/.test(n));
     assert.ok(estable, 'el estable creo su cache: ' + antes.join(','));
 
     const p2 = await ctx.newPage();
@@ -65,14 +78,19 @@ test('estable y canario conviven: el canario mas nuevo NO borra la cache de los 
     // URLs de /next/: la copia offline de los clientes (su index.html precacheado) se perdia.
     const copiaOffline = await p2.evaluate(async ([nombre, url]) => !!(await (await caches.open(nombre)).match(url)), [estable, base + 'index.html']);
     assert.ok(copiaOffline, 'la copia offline del estable (index.html) sigue en su cache');
-    assert.ok(despues.some((n) => /^f123-shell-v\d+-next$/.test(n)), 'el canario tiene su propia cache -next: ' + despues.join(','));
-    // El SW del canario responde su shell SIN sufijo (la verificacion de version no cambia).
-    const shell = await p2.evaluate(() => new Promise((res) => {
-      navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.tipo === 'shell-actual') res(e.data.shell); });
-      navigator.serviceWorker.controller.postMessage({ tipo: 'que-shell' });
-      setTimeout(() => res('sin respuesta'), 3000);
+    assert.ok(despues.some((n) => /^f123-shell-v448-golden\d+-next$/.test(n)), 'el canario tiene su propia cache generacional -next: ' + despues.join(','));
+    // Camino REAL de A4: MessageChannel. Debe contestar el port y reportar
+    // release publica + generacion interna por separado.
+    const info = await p2.evaluate(() => new Promise((res) => {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = (e) => res(e.data || {});
+      navigator.serviceWorker.controller.postMessage({ tipo: 'que-shell' }, [ch.port2]);
+      setTimeout(() => res({ shell: 'sin respuesta' }), 3000);
     }));
-    assert.match(shell, /^f123-shell-v\d+$/);
+    assert.equal(info.shell, 'f123-shell-v448');
+    assert.match(info.cacheGeneration, /^golden\d+$/);
+    assert.ok(despues.some((n) => n.includes('-' + info.cacheGeneration + '-next')),
+      'la generacion reportada corresponde a la cache canaria real: ' + despues.join(','));
   } finally { await web.close(); srv.close(); }
 });
 
@@ -93,11 +111,11 @@ test('tres canales (previo, estable, next) conviven: ninguno borra la cache de o
     const p = await ctx.newPage();
     await p.goto(base + 'previo/', { waitUntil: 'load' });
     const nombres = await p.evaluate(() => caches.keys());
-    assert.ok(nombres.some((n) => /^f123-shell-v\d+$/.test(n)), 'estable: ' + nombres.join(','));
-    assert.ok(nombres.some((n) => /^f123-shell-v\d+-next$/.test(n)), 'next: ' + nombres.join(','));
-    assert.ok(nombres.some((n) => /^f123-shell-v\d+-previo$/.test(n)), 'previo: ' + nombres.join(','));
+    assert.ok(nombres.some((n) => /^f123-shell-v448-golden\d+$/.test(n)), 'estable: ' + nombres.join(','));
+    assert.ok(nombres.some((n) => /^f123-shell-v448-golden\d+-next$/.test(n)), 'next: ' + nombres.join(','));
+    assert.ok(nombres.some((n) => /^f123-shell-v448-golden\d+-previo$/.test(n)), 'previo: ' + nombres.join(','));
     const offline = await p.evaluate(async (b) => {
-      const est = (await caches.keys()).find((n) => /^f123-shell-v\d+$/.test(n));
+      const est = (await caches.keys()).find((n) => /^f123-shell-v448-golden\d+$/.test(n));
       return !!(await (await caches.open(est)).match(b + 'index.html'));
     }, base);
     assert.ok(offline, 'la copia offline del estable sigue entera');
