@@ -47,3 +47,10 @@ This note is outside `docs/` intentionally: it documents the release policy with
 - G07 (`7d27b9b`) was fast-tracked to `estable` after confirming its complete Git tree is identical to the QA-passed PR #315 head (`117398a`).
 - `previo` is G06 (`3906c015`) for immediate rollback.
 - G07 fixes the storage cache-miss fallback, preserves legacy sources copy-only, unions photo evidence across stores, and keeps recovery logic behind a pure hexagonal core.
+
+## G08 shelf-photo hotfix
+
+- The Photo Recovery Vault is diagnostic-only; it must never appear in normal My Shelves.
+- Product-photo blobs are never shelf-recovery candidates merely because they are preserved.
+- Exact shelf recovery may use current/Yjs mappings, Yjs history, checksummed local checkpoints, and same-shelf per-ID bytes.
+- Public release remains v448 GOLDEN; G08 uses internal CacheStorage generation golden8.
