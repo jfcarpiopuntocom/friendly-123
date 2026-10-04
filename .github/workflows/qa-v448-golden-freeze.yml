@@ -28,7 +28,9 @@ jobs:
           grep -q '"shell": "f123-shell-v448"' docs/version.json
           grep -q '"releaseName": "v448 GOLDEN"' docs/version.json
           grep -q 'const CACHE = "f123-shell-v448"' docs/sw.js
-          grep -q 'const CACHE_GENERACION = "-golden1"' docs/sw.js
+          grep -q '"canaryBuild": "f123-shell-v44802"' docs/version.json
+          grep -q '"cacheGeneration": "golden2"' docs/version.json
+          grep -q 'const CACHE_GENERACION = "-golden2"' docs/sw.js
           grep -q 'const CACHE_LOCAL = CACHE + CACHE_GENERACION + CANAL' docs/sw.js
           grep -q '"shell": "f123-shell-v448"' docs/version-manifest.json
           ! grep -q '"shell": "f123-shell-v450"' docs/version.json
@@ -54,10 +56,13 @@ jobs:
       - name: "08 Sync/Yjs convergence"
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/yjs-bridge.test.js test/sync-behavior.test.js test/sync-hardening.test.js test/sync-zero-trust.test.js
 
-      - name: "09 Full regression suite"
+      - name: "09 Release-race policy"
+        run: node --test test/release-golden-policy.test.js
+
+      - name: "10 Full regression suite"
         run: npm test
 
-      - name: "10 Manifest, SW and diff hygiene"
+      - name: "11 Manifest, SW and diff hygiene"
         run: |
           cp docs/version-manifest.json /tmp/version-manifest.before.json
           node scripts/gen-manifest.js
