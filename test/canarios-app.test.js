@@ -95,7 +95,7 @@ test('salud: solo campos de la lista blanca; cuadre "ok" con ventas mezcladas (s
     assert.equal(r.cuadre, 'ok', 'Sold y Commissions cuadran: no hay rojo falso');
     assert.deepEqual(Object.keys(r.resumen).sort(), ['caidas', 'canal', 'cuadre', 'errores', 'mezcla', 'nodos', 'retenido', 'shell']);
     assert.equal(r.resumen.canal, 'next');
-    assert.match(r.resumen.shell, /^f123-shell-v\d+$/);
+    assert.equal(r.resumen.shell, 'f123-shell-v44802', 'el Sonar ve el build interno G02, no solo la release publica');
   });
 });
 
@@ -148,7 +148,8 @@ test('franja del canario en Advanced: la ve el aparato lord como dueno, no un cl
     };
     const lord = await ver(LORD_PRUEBA);
     assert.equal(lord.vis, true);
-    assert.match(lord.txt, /This device: CANARY \(next\) · f123-shell-v\d+/);
+    assert.match(lord.txt, /This device: CANARY \(next\) · v448 GOLDEN/);
+    assert.doesNotMatch(lord.txt, /v44802|v449|v450/, 'la UI no confunde build interno con release publica');
     const cliente = await ver('F123-CLIENTE-DE-PRUEBA');
     assert.equal(cliente.vis, false);
   });
