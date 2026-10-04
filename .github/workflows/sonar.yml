@@ -87,7 +87,9 @@ jobs:
             NEXT=$(echo "$E" | jq -r '.canales.next // 0')
             ROJO=$(echo "$E" | jq -r '.rojo // false')
             DET=$(echo "$E" | jq -r '.detenido // false')
-            case "$REP:$APA:$ULT:$NEXT" in *[!0-9:]*|'') echo "Sonar invalido"; exit 0 ;; esac
+            for N in "$REP" "$APA" "$ULT" "$NEXT"; do
+              case "$N" in ''|*[!0-9]*) echo "Sonar invalido"; exit 0 ;; esac
+            done
             AHORA=$(( $(date +%s) * 1000 ))
             EDAD_ULT=$(( AHORA - ULT ))
             EDAD_NEXT=$(( AHORA - NEXT ))
