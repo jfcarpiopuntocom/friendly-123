@@ -75,3 +75,6 @@ See [PRIVACY.md](./PRIVACY.md) — short version: your business data stays with 
 Proprietary. See `LICENSE`.
 
 **Commercial use license:** 5 years from activation, support and updates included the whole time. No subscription.
+
+
+<!-- ops: clean Pages publish requested by JFC for shell v448 on 2026-10-03; no app-shell change. -->
