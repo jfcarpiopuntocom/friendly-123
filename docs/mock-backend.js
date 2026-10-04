@@ -2641,12 +2641,24 @@
         const ganaU = _revDomina(u.rev, mia.rev);
         if (ganaU === true || (ganaU === null && mandaElOtro)) {
           if (!u.borrado && !esTextoCorto(String(u.nombre || ""), 240)) return;
-          /* v446: fotoHash tiene su propia revision. Una edicion remota de nombre,
-             trato o meta NO puede borrar el puntero de la foto solo porque ese peer
-             viejo mande fotoHash:null dentro de una revision general mas nueva. */
+          /* v448 golden hotfix — TOMBSTONE MONOTONO.
+             Archivar/borrar una percha es una decision destructiva explicita y no
+             puede ser revertida por una replica vieja que llegue con rev general
+             mayor y activa:true/borrado:false. Reactivar sigue existiendo por el
+             endpoint explicito /activar, que modifica la copia local conscientemente.
+             El merge nunca fabrica una reactivacion. */
+          const tombstoneLocal = !!mia.borrado || mia.activa === false;
           Object.keys(u).forEach((k) => {
-            if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev" && k !== "fotoHash" && k !== "fotoRev") mia[k] = u[k];
+            if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev" && k !== "fotoHash" && k !== "fotoRev" && k !== "borrado" && k !== "activa") mia[k] = u[k];
           });
+          if (tombstoneLocal) {
+            mia.borrado = !!mia.borrado;
+            mia.activa = false;
+          } else {
+            if (Object.prototype.hasOwnProperty.call(u, "borrado")) mia.borrado = !!u.borrado;
+            if (Object.prototype.hasOwnProperty.call(u, "activa")) mia.activa = u.activa !== false;
+            if (mia.borrado) mia.activa = false;
+          }
           _observarRev(u.rev); actualizados++;
         }
         /* v446 — merge independiente del puntero de foto.
