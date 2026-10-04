@@ -727,10 +727,10 @@
       }
       const res = await fetch(`${API}/ubicaciones/${perchaGestionId}`, { method: 'DELETE' });
       if (res.ok) {
-        // Microcirugia 6 (2026-07-08): borrar la foto huerfana. Sin esto cada
-        // percha borrada deja 200-800KB acumulandose (localStorage antes,
-        // IndexedDB ahora — mismo cuidado, otro almacen).
-        if (window.OCFotos) window.OCFotos.borrarFoto(perchaGestionId); // async, fire-and-forget
+        // v448 golden hotfix: DELETE is a synchronized soft-delete (tombstone), not
+        // proof that every peer has observed it. Keep the exact local photo bytes
+        // until a future explicit GC can prove the tombstone converged; deleting
+        // them here made a stale peer resurrection appear as a blank shelf.
         delete fotoCache[perchaGestionId];
         cerrarGestion(); cargar();
         if (window.cargarUbicaciones) window.cargarUbicaciones();
