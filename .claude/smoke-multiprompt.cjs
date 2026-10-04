@@ -44,6 +44,18 @@ function check(n, c, x){ if(c) console.log("  ok   "+n); else { console.log("  F
     }, venta.ventaId);
     check("venta en /ventas/todas con factura+pago+cant3", enTodas && enTodas.factura==="F-001" && enTodas.formaPago==="cash" && enTodas.cantidad===3, enTodas);
 
+    // Golden-release certification: the persistent Sales log must show the sale
+    // after the transient undo toast is irrelevant. This directly guards the
+    // user-visible contract documented in help-ui.js.
+    const enLogUI = await page.evaluate(async (vid) => {
+      const det = document.getElementById("ventasSold");
+      if (det) det.open = true;
+      await cargarVentasSold();
+      const row = document.querySelector('.oc-vs-row[data-id="' + vid + '"]');
+      return !!row && /F-001/.test(row.textContent || "");
+    }, venta.ventaId);
+    check("venta persiste visible en Sales log", enLogUI === true, { ventaId: venta.ventaId });
+
     // edit the sale: quantity 2, notes
     const edit = await page.evaluate(async (vid) => {
       const r = await fetch("/api/ventas/"+vid, { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ cantidad: 2, info:{ notas:"corregido" } }) });
