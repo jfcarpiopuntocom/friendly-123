@@ -270,7 +270,18 @@
           canal.port1.onmessage = function (e) {
             respondio = true;
             var sirviendo = e.data && e.data.shell;
-            if (sirviendo && sirviendo !== v.shell) { window.__ocMezcla = true; ofrecerRecarga(v.shell, sirviendo); }
+            var genSirviendo = e.data && e.data.cacheGeneration;
+            var genEsperada = v.cacheGeneration ? ("-" + String(v.cacheGeneration).replace(/^-/, "")) : "";
+            var shellMal = !!(sirviendo && sirviendo !== v.shell);
+            var genMal = !!(genEsperada && genSirviendo !== genEsperada);
+            /* v448 GOLDEN: el nombre publico queda congelado en v448, por eso
+               comparar solo shell ya no detecta un SW viejo. Un SW pre-golden2
+               responde sin cacheGeneration: eso TAMBIEN es mismatch y ofrece
+               recarga/purge, sin tocar datos del negocio. */
+            if (shellMal || genMal) {
+              window.__ocMezcla = true;
+              ofrecerRecarga(v.shell + (genEsperada ? "@" + genEsperada : ""), (sirviendo || "?") + (genSirviendo ? "@" + genSirviendo : "@legacy"));
+            }
           };
           try { ctrl.postMessage({ tipo: "que-shell" }, [canal.port2]); } catch (_) {}
           /* Respaldo: un SW viejo no conoce el mensaje y no contesta nunca.
