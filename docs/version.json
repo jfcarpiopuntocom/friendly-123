@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Clock forensics v448: read-only diagnostics now surface pre-v438 future-dated sales without clock seals and impossible future product creation dates; no customer data is rewritten or auto-repaired. Promotion is fail-closed until at least one real canary report is observed.",
+  "changelog": "v448 GOLDEN: archived/deleted shelves cannot be resurrected by stale peer metadata; checkpoints preserve shelf tombstones, archive revisions and exact shelf-photo pointers. No inventory, sales, commissions, ledger or sync-engine data is rewritten.",
   "requerida": false,
-  "shell": "f123-shell-v448",
+  "shell": "f123-shell-v4481",
   "apagar": [],
   "releaseName": "v1.0"
 }
