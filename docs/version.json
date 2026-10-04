@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN hotfix G02: mantiene la release publica v448, separa build canario de version visible y endurece la promocion contra workflows viejos/races. Fotos, lifecycle, stock, undo y sync conservan el hardening de G01; no reescribe datos de clientes.",
+  "changelog": "v448 GOLDEN hotfix G02: restaura fotos de Shelves sin borrar evidencia local durante render; recupera pointers perdidos y usa fallback local si el blob del pointer aun no llego. Ademas separa build canario de release visible y endurece promocion contra races. No reescribe datos de negocio.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
