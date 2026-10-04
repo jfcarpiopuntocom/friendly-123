@@ -61,16 +61,29 @@ jobs:
             if echo "$E" | jq -e '.detenido == true' >/dev/null 2>&1; then echo "DETENIDO por JFC"; return 1; fi
             return 0
           }
-          # v448 post-incidente: un Sonar sin testigos NO es verde. Antes,
-          # reportes=0/aparatos=0 podia atravesar 33 min y promover igualmente.
-          # Exigimos evidencia de al menos un aparato canario real antes de
-          # cualquier promocion (tambien para PUSH manual). Falla cerrado.
+          # v448 post-incidente: silencio NO es verde y evidencia vieja tampoco.
+          # Un canario util debe ser un aparato real de la licencia lord, reportando
+          # desde /next/ y con telemetria reciente. El latido lord corre cada 3 min;
+          # damos 7 min para tolerar jitter/red sin aceptar un testigo abandonado.
+          # La misma regla aplica al PUSH manual. Falla cerrado.
           hayTestigo() {
             E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$SHELL_NUEVO" || echo '{}')
             REP=$(echo "$E" | jq -r '.reportes // 0')
             APA=$(echo "$E" | jq -r '.aparatos // 0')
-            echo "testigos Sonar: reportes=$REP aparatos=$APA"
-            [ "$REP" -ge 1 ] 2>/dev/null && [ "$APA" -ge 1 ] 2>/dev/null
+            ULT=$(echo "$E" | jq -r '.ultimo // 0')
+            NEXT=$(echo "$E" | jq -r '.canales.next // 0')
+            AHORA=$(( $(date +%s) * 1000 ))
+            EDAD_ULT=$(( AHORA - ULT ))
+            EDAD_NEXT=$(( AHORA - NEXT ))
+            echo "testigo Sonar: reportes=$REP aparatos=$APA ultimo=${EDAD_ULT}ms next=${EDAD_NEXT}ms"
+            [ "$REP" -ge 1 ] 2>/dev/null &&
+            [ "$APA" -ge 1 ] 2>/dev/null &&
+            [ "$ULT" -gt 0 ] 2>/dev/null &&
+            [ "$NEXT" -gt 0 ] 2>/dev/null &&
+            [ "$EDAD_ULT" -ge 0 ] 2>/dev/null &&
+            [ "$EDAD_NEXT" -ge 0 ] 2>/dev/null &&
+            [ "$EDAD_ULT" -le 420000 ] 2>/dev/null &&
+            [ "$EDAD_NEXT" -le 420000 ] 2>/dev/null
           }
           FIN=$(( $(date +%s) + 33 * 60 ))
           while [ "$(date +%s)" -lt "$FIN" ]; do
