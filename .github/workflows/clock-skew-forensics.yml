@@ -21,6 +21,8 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Install external judge dependencies
+        run: npm install --no-save --package-lock=false @axe-core/playwright lighthouse
       - run: npx playwright install --with-deps chromium webkit
 
       - name: Critical v448 tests
@@ -46,9 +48,6 @@ jobs:
           node .claude/smoke-multiprompt.cjs
           F123_BROWSER=webkit node .claude/smoke-multiprompt.cjs
           node .claude/smoke-expira-evento.cjs
-
-      - name: Install external judges
-        run: npm install --no-save --package-lock=false @axe-core/playwright lighthouse
 
       - name: External UI judges
         run: |
