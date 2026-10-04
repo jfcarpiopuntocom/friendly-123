@@ -809,7 +809,7 @@ function sanearSalud(x) {
   const n = (v) => Math.max(0, Math.min(100000, Math.floor(Number(v) || 0)));
   const shell = String(x.shell || "").slice(0, 40);
   return {
-    shell: /^f123-shell-v\d{1,5}(?:-[A-Za-z0-9]+)*$/.test(shell) ? shell : "",
+    shell: /^f123-shell-v\d{1,5}$/.test(shell) ? shell : "",
     canal: ["estable", "next", "previo"].includes(x.canal) ? x.canal : "estable",
     errores: n(x.errores), caidas: n(x.caidas),
     mezcla: x.mezcla === true, retenido: x.retenido === true,
@@ -871,7 +871,7 @@ async function registrarSonar(env, instanceId, registro) {
 }
 async function handleCanarioEstado(req, env, url) {
   const shell = String(url.searchParams.get("shell") || "").slice(0, 40);
-  if (!/^f123-shell-v\d{1,5}(?:-[A-Za-z0-9]+)*$/.test(shell)) return json({ error: "shell invalido" }, 400);
+  if (!/^f123-shell-v\d{1,5}$/.test(shell)) return json({ error: "shell invalido" }, 400);
   const c = (await leerJSON(env, "canario:" + shell)) || { shell, reportes: 0, rojos: [], canales: {} };
   const son = (await leerJSON(env, "sonar:" + shell)) || { aparatos: {} };
   const ap = Object.values(son.aparatos || {});
