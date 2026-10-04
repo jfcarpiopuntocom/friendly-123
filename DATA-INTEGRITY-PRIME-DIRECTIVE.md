@@ -28,3 +28,7 @@ This rule outranks cleanup, storage tidiness, deduplication and convenience.
 - Deleting/archiving a shelf does not physically erase its photo bytes.
 
 If storage pressure ever becomes a real operational problem, solve it with export/archival/owner-visible retention controls. **Do not silently delete.**
+
+## G04 deployment note
+
+G04 was verified with focused recovery tests, WebKit/iPhone smoke, the full regression suite, and shell/manifest gates before promotion. A Pages rebuild after `estable` moves is required because `publicar.yml` intentionally deploys only from `master`; this note also serves as the non-shell rebuild trigger for the G04 stable artifact.
