@@ -380,6 +380,62 @@
   try { document.addEventListener("DOMContentLoaded", reafirmarIdb); } catch (_) {}
   try { window.addEventListener("load", reafirmarIdb); } catch (_) {}
 
+  /* G10 PHOTO RECOVERY (2026-10-04).
+     Antes del aislamiento, friendly-123 ya usaba una DB fisica "f123_fotos".
+     Desde 2026-08-05 el wrapper abre "f123::f123_fotos". Para rescatar evidencia
+     pre-aislamiento sin abrir una puerta generica, este modulo expone UNA lectura
+     allowlisted y readonly de esa DB antigua. Nunca crea, escribe ni borra. */
+  async function leerFotosDbPreAislamiento() {
+    if (!abrirNativo || !window.indexedDB) return null;
+    try {
+      if (typeof window.indexedDB.databases === "function") {
+        var lista = await window.indexedDB.databases();
+        if (!Array.isArray(lista) || !lista.some(function (d) { return d && d.name === "f123_fotos"; })) return null;
+      }
+    } catch (_) {
+      // En motores sin databases() seguimos con open; onupgradeneeded aborta si no existe.
+    }
+    return await new Promise(function (resolve) {
+      var req = null, creadaAhora = false;
+      try { req = abrirNativo("f123_fotos"); } catch (_) { resolve(null); return; }
+      req.onupgradeneeded = function () {
+        creadaAhora = true;
+        try { req.transaction.abort(); } catch (_) {}
+      };
+      req.onerror = function () { resolve(null); };
+      req.onblocked = function () { resolve(null); };
+      req.onsuccess = function () {
+        var db = req.result;
+        if (creadaAhora || !db) { try { if (db) db.close(); } catch (_) {} resolve(null); return; }
+        var stores = ["perchas", "blobs"].filter(function (n) { return db.objectStoreNames.contains(n); });
+        if (!stores.length) { try { db.close(); } catch (_) {} resolve(null); return; }
+        var out = { perchas: {}, blobs: {} };
+        var pendientes = stores.length;
+        stores.forEach(function (nombre) {
+          try {
+            var tx = db.transaction(nombre, "readonly");
+            var reqCur = tx.objectStore(nombre).openCursor();
+            reqCur.onsuccess = function (ev) {
+              var cur = ev.target.result;
+              if (cur) { out[nombre][String(cur.key)] = cur.value; cur.continue(); }
+            };
+            tx.oncomplete = function () {
+              pendientes--;
+              if (pendientes === 0) { try { db.close(); } catch (_) {} resolve(out); }
+            };
+            tx.onabort = tx.onerror = function () {
+              pendientes--;
+              if (pendientes === 0) { try { db.close(); } catch (_) {} resolve(out); }
+            };
+          } catch (_) {
+            pendientes--;
+            if (pendientes === 0) { try { db.close(); } catch (_) {} resolve(out); }
+          }
+        });
+      };
+    });
+  }
+
   // -------------------------------------------------------------------------
   // API publica minima, por si algun modulo quiere reaccionar a otra pestana.
   // -------------------------------------------------------------------------
@@ -389,6 +445,7 @@
     namespace: NS,
     instalado: instalado, // H2 review: false = el shim no tomo, apps hermanas sin aislar
     idbInstalado: !!(abrirAislado),
+    leerFotosDbPreAislamiento: leerFotosDbPreAislamiento,
     onCambio: function (fn) { if (typeof fn === "function") oyentes.push(fn); },
     epoca: function () { return miEpoca; }
   };

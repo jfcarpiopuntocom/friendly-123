@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN hotfix golden9: si My Shelves consulta el historial de fotos antes de que Yjs termine de hidratar, el evento de fotos nuevas invalida esa lectura temprana y vuelve a consultar evidencia exacta. Evita que un {} cacheado deje las fotos en blanco toda la sesion. Prime Directive 1AAA intacta: no se borra evidencia ni se inventan asociaciones.",
+  "changelog": "v448 GOLDEN hotfix golden10: rescata copy-only fotos de shelves guardadas antes del aislamiento IndexedDB (DB fisica f123_fotos, julio-agosto) hacia el store namespaced actual, sin borrar la fuente ni pisar una foto moderna. Mantiene G03-G09 y Prime Directive 1AAA.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden9"
+  "cacheGeneration": "golden10"
 }

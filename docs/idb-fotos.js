@@ -328,12 +328,62 @@
     return { porId: porId || {}, porHash: porHash || {}, mapaIdHash };
   }
 
+  /* G10: rescate copy-only de la DB fisica pre-aislamiento.
+     aislamiento.js conserva la unica capacidad autorizada para leer esa DB
+     antigua y devuelve solo {perchas, blobs}. Esta capa copia evidencia a la
+     DB namespaced actual sin borrar la fuente ni pisar una foto actual. */
+  async function rescatarDbPreAislamiento() {
+    try {
+      const a = window.AMG && window.AMG.Aislamiento;
+      if (!a || typeof a.leerFotosDbPreAislamiento !== "function") return { encontrada:false, perchas:0, blobs:0 };
+      const vieja = await a.leerFotosDbPreAislamiento();
+      if (!vieja) return { encontrada:false, perchas:0, blobs:0 };
+      let perchas = 0, blobs = 0;
+      const porId = vieja.perchas || {};
+      const porHash = vieja.blobs || {};
+
+      for (const id of Object.keys(porId)) {
+        const bytes = porId[id];
+        if (!bytes) continue;
+        try {
+          // Toda foto vieja se preserva por hash, incluso si el mismo id ya tiene
+          // una foto mas nueva en la DB actual.
+          await guardarFotoContenido(bytes);
+          const actual = await leerFotoSoloIdb(id);
+          if (!actual && await guardarFoto(id, bytes)) perchas++;
+        } catch (_) {}
+      }
+
+      for (const hash of Object.keys(porHash)) {
+        const bytes = porHash[hash];
+        if (!hash || !bytes) continue;
+        try {
+          const actual = await leerPorHash(hash);
+          if (!actual && await guardarPorHash(hash, bytes)) blobs++;
+        } catch (_) {}
+      }
+
+      try {
+        localStorage.setItem("f123_fotos_db_preaislamiento_v1", JSON.stringify({
+          copiadaEn: Date.now(), perchas: perchas, blobs: blobs
+        }));
+      } catch (_) {}
+      return { encontrada:true, perchas:perchas, blobs:blobs };
+    } catch (err) {
+      try { console.warn("[idb-fotos] G10 rescate pre-aislamiento pendiente:", err && err.message ? err.message : err); } catch (_) {}
+      return { encontrada:false, perchas:0, blobs:0 };
+    }
+  }
+
   // PRIME DIRECTIVE 1AAA: migración COPY-ONLY. Se copia el formato legacy a
   // IndexedDB, pero el original f123_foto_percha_* se conserva como segunda
   // evidencia. El escaneo se repite de forma idempotente por si aparece una
   // copia legacy después de una restauración/importación.
   async function migrarSiHaceFalta() {
     if (!SOPORTADO) return;
+    // G10 primero: los bytes de julio/agosto pueden seguir en la DB fisica vieja.
+    // Es idempotente y copy-only, asi que se puede reintentar en cada arranque.
+    await rescatarDbPreAislamiento();
     const FLAG = "f123_fotos_migradas_idb_v1";
     try {
       const claves = [];
@@ -364,7 +414,7 @@
   }
 
   window.OCFotos = {
-    guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta, blindarEvidencia, inventariarEvidencia,
+    guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta, rescatarDbPreAislamiento, blindarEvidencia, inventariarEvidencia,
     soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
     hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, hashesGuardados, leerTodosPorHash, guardarFotoContenido
