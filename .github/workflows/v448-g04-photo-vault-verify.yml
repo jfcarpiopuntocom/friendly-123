@@ -1,0 +1,58 @@
+name: v448-g04-photo-vault-verify
+
+on:
+  push:
+    branches: [hotfix/v448-golden4-photo-vault]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v448-g04-photo-vault
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+
+      - name: Regenerate deterministic shell manifest
+        run: node scripts/gen-manifest.js
+
+      - name: Commit manifest if branch needs it
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet -- docs/version-manifest.json; then
+            git config user.name "friendly-123 golden bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add docs/version-manifest.json
+            git commit -m "integrity(v448 G04): refresh photo-vault shell hashes"
+            git push origin HEAD:hotfix/v448-golden4-photo-vault
+            echo "Manifest refreshed; a fresh verification run will start."
+            exit 0
+          fi
+
+      - name: Prime Directive photo tests
+        run: node --test test/photo-prime-directive-g04.test.js test/perchas-photo-selfheal-v446.test.js test/shelf-photo-durability-v449.test.js test/photo-backup-evidence-v449.test.js test/backup-fotos.test.js
+
+      - name: WebKit iPhone shelf-photo smoke
+        run: node .claude/smoke-v449-photo-webkit.cjs
+
+      - name: Full regression
+        run: npm test
+
+      - name: SW / manifest / syntax gates
+        run: |
+          bash check-sw.sh
+          git diff --check

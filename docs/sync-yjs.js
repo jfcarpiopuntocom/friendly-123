@@ -682,22 +682,30 @@
       var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
       var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
       var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean);
-      hUbic.concat(hProd).forEach(function (hash) {
-        if (_fotosSembradas[hash]) return;
-        Promise.resolve(window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
-          if (!dataUrl) return;
-          try {
-            var d = new window.Y.Doc();
-            d.getMap("blobs").set(hash, dataUrl); // FIX v293: el doc real usa "blobs" (no "fotos"); antes la foto caía en un mapa que nadie leía
-            var u = window.Y.encodeStateAsUpdate(d);
-            _fotosSembradas[hash] = 1;
-            // Aplicar con origin "seed" dispara el observador de -fotos (línea ~331)
-            // que YA hace enviarUpdate (op + en vivo). NO enviar explícito aparte:
-            // duplicaba la op (FIX v293).
-            try { window.Y.applyUpdate(API.fotosDoc, u, "seed"); } catch (_) {}
-          } catch (_) {}
-        }).catch(function () {});
-      });
+      /* PRIME DIRECTIVE 1AAA / G04: no sembrar solo "lo actualmente usado".
+         Un hotfix anterior pudo perder el pointer y dejar los bytes huerfanos.
+         Esos blobs son EVIDENCIA del cliente y deben poder volver desde otro
+         dispositivo. leerTodosPorHash() no inventa asociaciones: solo enumera
+         hash->bytes. Se reenvian individualmente, igual que las fotos en uso. */
+      Promise.resolve(window.OCFotos.leerTodosPorHash ? window.OCFotos.leerTodosPorHash() : {}).then(function (todos) {
+        var hashes = {};
+        hUbic.concat(hProd).forEach(function (h) { if (h) hashes[String(h)] = 1; });
+        Object.keys(todos || {}).forEach(function (h) { hashes[String(h)] = 1; });
+        Object.keys(hashes).forEach(function (hash) {
+          if (_fotosSembradas[hash]) return;
+          var local = todos && todos[hash];
+          Promise.resolve(local || window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
+            if (!dataUrl) return;
+            try {
+              var d = new window.Y.Doc();
+              d.getMap("blobs").set(hash, dataUrl);
+              var u = window.Y.encodeStateAsUpdate(d);
+              _fotosSembradas[hash] = 1;
+              try { window.Y.applyUpdate(API.fotosDoc, u, "seed"); } catch (_) {}
+            } catch (_) {}
+          }).catch(function () {});
+        });
+      }).catch(function () {});
     }).catch(function () {});
   }
 

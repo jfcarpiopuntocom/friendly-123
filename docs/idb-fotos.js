@@ -239,33 +239,54 @@
     }
   }
 
+  /* PRIME DIRECTIVE 1AAA (JFC 2026-10-04): esta capa NO destruye fotos.
+     Históricamente borrarFoto() eliminaba la copia por-id y la migración quitaba
+     el original de localStorage. Un hotfix/render/sync no puede decidir que bytes
+     del cliente "sobran". Se conserva el nombre borrarFoto por compatibilidad,
+     pero ahora significa "dejar de usar en UI" y NO toca persistencia. Los bytes
+     quedan como evidencia recuperable en el dispositivo. */
   async function borrarFoto(id) {
-    if (!SOPORTADO) {
-      try { localStorage.removeItem(claveVieja(id)); } catch (_) {}
-      return;
-    }
-    try {
-      const db = await abrirDB();
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, "readwrite");
-        tx.objectStore(STORE).delete(id);
-        tx.oncomplete = resolve;
-        tx.onerror = () => reject(tx.error);
-      });
-    } catch (err) {
-      console.error("[idb-fotos] borrarFoto:", err);
-    }
+    try { console.warn("[idb-fotos] Prime Directive: foto preservada, no se elimina", String(id || "")); } catch (_) {}
+    return true;
   }
 
-  // Migracion silenciosa y de una sola vez: copia fotos ya guardadas en el
-  // formato viejo (localStorage, f123_foto_percha_*) a IndexedDB y las borra
-  // de localStorage. No pierde nada — si algo falla a medio camino, el flag
-  // NO se marca y se reintenta en el proximo load (las fotos ya migradas se
-  // sobrescriben con el mismo valor, sin duplicar ni corromper).
+  /* Copia cada foto por-id al store content-addressed y devuelve la relacion
+     exacta id -> hash. Es idempotente: nunca borra ni renombra nada. Esto blinda
+     evidencia vieja ANTES de cualquier self-heal, sync o render. */
+  async function blindarEvidencia() {
+    const porId = await leerTodas();
+    const mapaIdHash = {};
+    for (const id of Object.keys(porId || {})) {
+      const dataUrl = porId[id];
+      if (!dataUrl) continue;
+      try {
+        const hash = await guardarFotoContenido(dataUrl);
+        if (hash) mapaIdHash[id] = hash;
+      } catch (_) {}
+    }
+    return mapaIdHash;
+  }
+
+  async function inventariarEvidencia() {
+    const porId = await leerTodas();
+    const porHash = await leerTodosPorHash();
+    const mapaIdHash = {};
+    for (const id of Object.keys(porId || {})) {
+      try {
+        const dataUrl = porId[id];
+        if (dataUrl) mapaIdHash[id] = await hashDeDataUrl(dataUrl);
+      } catch (_) {}
+    }
+    return { porId: porId || {}, porHash: porHash || {}, mapaIdHash };
+  }
+
+  // PRIME DIRECTIVE 1AAA: migración COPY-ONLY. Se copia el formato legacy a
+  // IndexedDB, pero el original f123_foto_percha_* se conserva como segunda
+  // evidencia. El escaneo se repite de forma idempotente por si aparece una
+  // copia legacy después de una restauración/importación.
   async function migrarSiHaceFalta() {
     if (!SOPORTADO) return;
     const FLAG = "f123_fotos_migradas_idb_v1";
-    if (localStorage.getItem(FLAG)) return;
     try {
       const claves = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -278,19 +299,18 @@
         const dataUrl = localStorage.getItem(k);
         if (dataUrl) {
           const ok = await guardarFoto(id, dataUrl);
-          if (ok) localStorage.removeItem(k);
-          else todoOk = false;
+          if (!ok) todoOk = false;
         }
       }
-      if (todoOk) localStorage.setItem(FLAG, "1");
-      else localStorage.removeItem(FLAG);
+      if (todoOk) localStorage.setItem(FLAG, "copy-only");
     } catch (err) {
-      console.error("[idb-fotos] migracion (se reintentara en el proximo load):", err);
+      console.error("[idb-fotos] migracion copy-only (se reintentara):", err);
     }
   }
 
   window.OCFotos = {
-    guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta, soportado: () => SOPORTADO,
+    guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta, blindarEvidencia, inventariarEvidencia,
+    soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
     hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, hashesGuardados, leerTodosPorHash, guardarFotoContenido
   };
