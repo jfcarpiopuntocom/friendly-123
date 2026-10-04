@@ -15,3 +15,11 @@ This note is outside `docs/` intentionally: it documents the release policy with
 
 - `golden2` — shelf-photo recovery hotfix: never destroys a shelf's last local photo merely because the current content-hash blob is still in flight; service-worker generation is now checked independently of the frozen public v448 identity.
 - Verified before promotion: 521/521 regression tests, targeted shelf-photo recovery, WebKit/iPhone photo smoke, lifecycle/stock/undo gates, manifest hashes and service-worker integrity.
+
+## Golden3 shelf-photo recovery
+
+- Production hotfix commit: `293a3d1de6c409edc28fc9dfc313decdac24fc53`.
+- Public release remains `f123-shell-v448` / `v448 GOLDEN`; internal CacheStorage generation is `golden3`.
+- Rendering an active shelf must never delete photo evidence merely because `fotoHash` is null, `fotoRev` exists, IndexedDB is unavailable, or the hash blob is still in flight.
+- Exact per-shelf ID bytes may self-heal their own pointer; no matching by name/order and no guessed associations.
+- Legacy localStorage shelf photos remain a read fallback when IndexedDB is empty/blocked or an old migration was partial.
