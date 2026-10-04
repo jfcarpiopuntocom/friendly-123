@@ -34,19 +34,19 @@ test('v446: a newer legacy shelf edit cannot erase an existing photo pointer wit
   assert.deepEqual(after.fotoRev, shelf.fotoRev, 'photo revision stays untouched');
 });
 
-test('v446: an explicit newer photo deletion still propagates', async () => {
+test('v448 GOLDEN G02: even a newer remote null cannot destroy an existing shelf photo pointer', async () => {
   const { w, id, shelf } = await shelfWithPhoto();
   const remote = w.catalog();
   const ru = remote.ubicaciones.find((x) => x.id === id);
   ru.fotoHash = null;
-  ru.fotoRev = revAfter(shelf.fotoRev, 'new-peer-delete');
-  ru.rev = revAfter(shelf.rev, 'new-peer-delete');
+  ru.fotoRev = revAfter(shelf.fotoRev, 'bad-fix-null');
+  ru.rev = revAfter(shelf.rev, 'bad-fix-null');
 
   w.OCSync.aplicarCatalogo(remote, null);
 
   const after = (await w.request('/api/respaldo/exportar')).ubicaciones.find((x) => x.id === id);
-  assert.equal(after.fotoHash, null);
-  assert.deepEqual(after.fotoRev, ru.fotoRev);
+  assert.equal(after.fotoHash, 'hash-local', 'Prime Directive: null is absence of evidence, never permission to erase');
+  assert.deepEqual(after.fotoRev, shelf.fotoRev, 'destructive remote revision is ignored too');
 });
 
 test('v446: an explicit newer photo replacement still propagates', async () => {
