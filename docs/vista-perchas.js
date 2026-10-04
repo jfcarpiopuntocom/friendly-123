@@ -306,16 +306,11 @@
       const perchasVisibles = Array.isArray(perchas)
         ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
         : [];
-      /* v449: fotoHash=null + fotoRev significa borrado MODERNO intencional,
-         no "puntero viejo perdido". Limpiar el espejo por id evita mostrar o
-         resucitar una foto que otro aparato borro explicitamente. */
-      await Promise.all(perchasVisibles.map(async (u) => {
-        if (!u || u.fotoHash || !u.fotoRev) return;
-        delete fotoCache[u.id];
-        if (window.OCFotos && window.OCFotos.borrarFoto) {
-          try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
-        }
-      }));
+      /* v448 GOLDEN G02: RENDER NUNCA BORRA EVIDENCIA FOTOGRAFICA.
+         No existe en la UX una accion "quitar foto" de una percha activa: la unica
+         baja explicita que elimina bytes es borrar la percha completa, mas abajo.
+         Por eso fotoHash:null + fotoRev en una percha ACTIVA se trata como puntero
+         perdido/corrupto, no como permiso para destruir la copia local por id. */
       /* v449: evidencia efimera de ESTA carga. Si acabamos de derivar un hash
          desde los bytes guardados bajo el id de una percha y el PUT de ese mismo
          pointer fue aceptado, sabemos sin adivinar que esos bytes corresponden al
@@ -330,7 +325,7 @@
          buscamos por nombre ni copiamos una foto de otra percha. */
       if (perchasVisibles.length && window.OCFotos && window.OCFotos.guardarFotoContenido) {
         await Promise.all(perchasVisibles.map(async (u) => {
-          if (!u || u.fotoHash || u.fotoRev || !fotoCache[u.id]) return;
+          if (!u || u.fotoHash || !fotoCache[u.id]) return;
           try {
             const bytes = fotoCache[u.id];
             const hash = await window.OCFotos.guardarFotoContenido(bytes);
@@ -372,8 +367,8 @@
                  viejo NO puede pintarse como si fuera la foto actual. Solo se acepta
                  el espejo si sus bytes hashean exactamente al pointer vigente; en ese
                  caso tambien reparamos el blob-store con esa evidencia exacta. Si el
-                 hash difiere, el espejo esta probado como obsoleto y se elimina para
-                 que jamas pueda self-healear el pointer equivocado despues. */
+                 hash difiere Y el blob vigente aun no existe, el espejo queda como
+                 fallback visual local SIN tocar el pointer: preservar > destruir. */
               if (!d && fotoCache[u.id]) {
                 const espejo = fotoCache[u.id];
                 let hashEspejo = null;
@@ -386,10 +381,17 @@
                     try { await window.OCFotos.guardarPorHash(u.fotoHash, espejo); } catch (_) {}
                   }
                 } else {
-                  delete fotoCache[u.id];
-                  if (hashEspejo && window.OCFotos.borrarFoto) {
-                    try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
-                  }
+                  /* G02: si el pointer vigente aun no tiene bytes disponibles, NO
+                     destruimos la unica copia local conocida. La mostramos como
+                     fallback temporal en ESTE aparato, sin reescribir fotoHash: si
+                     luego llega el blob del hash vigente, ese gana automaticamente.
+                     Esto evita el "shelf en blanco" y conserva evidencia recuperable. */
+                  d = espejo;
+                  try {
+                    if (window.OCCanarios && window.OCCanarios.fallo) {
+                      window.OCCanarios.fallo("perchas", "foto-pointer-sin-bytes");
+                    }
+                  } catch (_) {}
                 }
               }
               if (d) {
