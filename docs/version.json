@@ -1,9 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN: release congelada. Los hotfixes de fotos y lifecycle quedan absorbidos sin cambiar la identidad publica v448; CacheStorage usa una generacion interna separada para invalidar shell sin colisionar con el v448 historico. No se reescriben datos de clientes.",
+  "changelog": "v448 GOLDEN: release congelada. Hotfix 01 conserva el hardening verificado de fotos y lifecycle de perchas sin cambiar la identidad visible v448. El shell tecnico 44801 existe solo para cache/update/Sonar y no reescribe datos de clientes.",
   "requerida": false,
-  "shell": "f123-shell-v448",
+  "shell": "f123-shell-v44801",
+  "shellLabel": "shell-v448 GOLDEN",
   "apagar": [],
-  "releaseName": "v448 GOLDEN"
+  "releaseName": "v1.0"
 }
