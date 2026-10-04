@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Photo durability + backup integrity v449: synced shelf photos are durably mirrored by shelf ID without resurrecting modern deletions; manual and scheduled backups preserve both shelf-ID photos and content-addressed hash evidence. No stock, sales, commissions, customer ledger, or sync-engine semantics changed.",
+  "changelog": "v450 golden shelf lifecycle: archived/deleted shelves keep an independent lifecycle revision so stale peers, unrelated edits, or photo self-heal cannot resurrect them. Includes v449 photo durability/backup hardening; no customer records are auto-repaired.",
   "requerida": false,
-  "shell": "f123-shell-v449",
+  "shell": "f123-shell-v450",
   "apagar": [],
   "releaseName": "v1.0"
 }

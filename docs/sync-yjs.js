@@ -813,6 +813,31 @@
                 var newerMonthly = (Number(ar.c) || 0) > (Number(br.c) || 0) ||
                   ((Number(ar.c) || 0) === (Number(br.c) || 0) && String(ar.d || "") > String(br.d || ""));
                 if (!newerMonthly) r = Object.assign({}, r, { gastoMensual: prev.gastoMensual, gastoMensualRev: prev.gastoMensualRev });
+
+                /* v448-golden: lifecycle CRDT independiente del rev general.
+                   Un aparato rezagado puede tener nombre/meta/foto con rev general
+                   mayor y aun asi una copia VIEJA de activa/borrado. Preservar en
+                   el Y.Map la revision de lifecycle mas nueva evita que ese reseed
+                   borre la lapida/archivo ANTES de llegar a aplicarCatalogo().
+                   Compatibilidad: bajas legacy sin estadoRev usan su rev general
+                   como evidencia; una copia legacy activa no puede resucitar. */
+                var sr = r.estadoRev || ((r.borrado || r.activa === false) ? (r.rev || null) : null);
+                var sp = prev.estadoRev || ((prev.borrado || prev.activa === false) ? (prev.rev || null) : null);
+                if (sp) {
+                  var src = Number(sr && sr.c) || 0, spc = Number(sp.c) || 0;
+                  var stateNewer = !!sr && (src > spc || (src === spc && String(sr.d || "") > String(sp.d || "")));
+                  if (!stateNewer) {
+                    r = Object.assign({}, r, {
+                      activa: !prev.borrado && prev.activa !== false,
+                      borrado: !!prev.borrado,
+                      estadoRev: sp
+                    });
+                  } else {
+                    r = Object.assign({}, r, { estadoRev: sr });
+                  }
+                } else if (sr) {
+                  r = Object.assign({}, r, { estadoRev: sr });
+                }
               }
               if (prev && col === "productos") {
                 var basePrev = prev.stockBase == null ? null : Number(prev.stockBase);
