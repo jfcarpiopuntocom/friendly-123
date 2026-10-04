@@ -21,9 +21,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - name: Focused v449 regressions
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/shelf-photo-durability-v449.test.js test/photo-backup-evidence-v449.test.js
+      - name: WebKit iPhone-size shelf photo smoke
+        run: node .claude/smoke-v449-photo-webkit.cjs
       - name: Full suite
         run: npm test
       - name: Deterministic manifest
