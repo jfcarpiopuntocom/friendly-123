@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v450 golden shelf lifecycle: archived/deleted shelves keep an independent lifecycle revision so stale peers, unrelated edits, or photo self-heal cannot resurrect them. Includes v449 photo durability/backup hardening; no customer records are auto-repaired.",
+  "changelog": "v448 GOLDEN: conserva la base v448 y absorbe como hotfixes el hardening de fotos y lifecycle probado en canario. Perchas archivadas/borradas resisten peers stale y reseeds; fotos quedan durables y respaldables. No se reescriben automaticamente datos de clientes.",
   "requerida": false,
-  "shell": "f123-shell-v450",
+  "shell": "f123-shell-v448-golden1",
   "apagar": [],
-  "releaseName": "v1.0"
+  "releaseName": "v448 GOLDEN"
 }
