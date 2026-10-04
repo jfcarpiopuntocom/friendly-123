@@ -2661,20 +2661,32 @@
            estado seguro (inactiva/borrada), nunca hacia activo. */
         const estadoRevLocal = mia.estadoRev || null;
         const estadoRevRemota = u.estadoRev || null;
-        if (estadoRevRemota) {
+
+        /* Tombstone pegajosa: hoy NO existe una operacion "undelete". Por tanto,
+           una vez que cualquier replica prueba borrado:true, ningun rename,
+           reactivacion ni revision posterior puede convertirla implicitamente en
+           una percha viva con el mismo id. Reactivar solo aplica a archivadas
+           (activa:false, borrado:false). */
+        if (u.borrado && !mia.borrado) {
+          mia.borrado = true;
+          mia.activa = false;
+          if (estadoRevRemota) mia.estadoRev = estadoRevRemota;
+          else if (u.rev) mia.estadoRev = u.rev;
+          actualizados++;
+        }
+
+        if (!mia.borrado && estadoRevRemota) {
           _observarRev(estadoRevRemota);
           const ganaEstado = _revDomina(estadoRevRemota, estadoRevLocal);
           if (!estadoRevLocal || ganaEstado === true || (ganaEstado === null && mandaElOtro)) {
-            mia.borrado = !!u.borrado;
-            mia.activa = !mia.borrado && u.activa !== false;
+            mia.activa = u.activa !== false;
             mia.estadoRev = estadoRevRemota;
             actualizados++;
           }
-        } else if (u.borrado || u.activa === false) {
-          /* Compatibilidad pre-hotfix: aceptar tombstone/archive legacy si su
-             revision general gana; nunca aceptar el inverso (activa:true). */
+        } else if (!mia.borrado && !estadoRevRemota && u.activa === false) {
+          /* Compatibilidad pre-hotfix: un peer legacy puede ARCHIVAR si su
+             revision general gana; activa:true legacy nunca resucita. */
           if (ganaU === true || (ganaU === null && mandaElOtro) || !estadoRevLocal) {
-            if (u.borrado) mia.borrado = true;
             mia.activa = false;
             if (u.rev) { mia.estadoRev = u.rev; _observarRev(u.rev); }
             actualizados++;
