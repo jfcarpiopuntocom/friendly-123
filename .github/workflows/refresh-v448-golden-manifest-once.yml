@@ -28,5 +28,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/version-manifest.json
-          git commit -m "integrity(v448 golden G02): refresh manifest after PIN gate"
+          git commit -m "integrity(v448 golden G02): refresh manifest after photo recovery Prime Directive"
           git push origin "HEAD:${GITHUB_REF_NAME}"
