@@ -791,6 +791,21 @@
     var _aplicando = false;   // guard: no re-volcar mientras aplicamos al store
     var _tSeed = null, _tAplica = null;
 
+    /* v448 GOLDEN: algunos campos de una percha son sub-estados independientes
+       del rev general. Un peer antiguo puede editar nombre/meta y traer un rev
+       general enorme SIN haber visto un archive/delete o una foto moderna.
+       Antes de reemplazar el objeto entero en Y.Map preservamos la autoridad de
+       lifecycle y foto, igual que mock-backend hace al aplicar el catálogo. */
+    function _revPuenteGana(a, b) {
+      var ta = a && Number.isFinite(Number(a.c)), tb = b && Number.isFinite(Number(b.c));
+      if (!ta && !tb) return null;
+      if (ta && !tb) return true;
+      if (!ta && tb) return false;
+      var ac = Number(a.c), bc = Number(b.c);
+      if (ac !== bc) return ac > bc;
+      return String(a.d || "") > String(b.d || "");
+    }
+
     // store -> Yjs. Add/update por id; nunca borra del Y.Map (add-only también
     // aguas arriba). Las bajas de equipo viajan como tombstone (borrado:true),
     // que catalogoPropio() sí incluye, así que la baja converge igual.
@@ -813,6 +828,38 @@
                 var newerMonthly = (Number(ar.c) || 0) > (Number(br.c) || 0) ||
                   ((Number(ar.c) || 0) === (Number(br.c) || 0) && String(ar.d || "") > String(br.d || ""));
                 if (!newerMonthly) r = Object.assign({}, r, { gastoMensual: prev.gastoMensual, gastoMensualRev: prev.gastoMensualRev });
+
+                /* LIFECYCLE remove-wins. Borrado no tiene "undelete"; una
+                   tombstone ya presente en el doc común jamás se limpia por un
+                   reseed. Archive/reactivate sí es reversible, pero solo una
+                   estadoRev moderna puede moverlo hacia activo. Un peer legacy
+                   sin estadoRev puede aportar inactiva/borrada, nunca resucitar. */
+                var estadoPrev = prev.estadoRev || null, estadoMio = r.estadoRev || null;
+                if (prev.borrado || r.borrado) {
+                  var estadoDelBorrado = prev.borrado ? (estadoPrev || prev.rev || estadoMio || r.rev || null)
+                                                     : (estadoMio || r.rev || estadoPrev || prev.rev || null);
+                  r = Object.assign({}, r, { borrado: true, activa: false, estadoRev: estadoDelBorrado });
+                } else if (estadoPrev) {
+                  var ganaEstadoMio = _revPuenteGana(estadoMio, estadoPrev);
+                  if (!estadoMio || ganaEstadoMio !== true) {
+                    r = Object.assign({}, r, { activa: prev.activa !== false, borrado: false, estadoRev: estadoPrev });
+                  }
+                } else if (!estadoMio && prev.activa === false && r.activa !== false) {
+                  r = Object.assign({}, r, { activa: false, borrado: false });
+                }
+
+                /* PHOTO pointer authority. A fotoRev moderna decide reemplazo o
+                   borrado. Un peer legacy sin fotoRev jamás puede borrar una
+                   fotoRev existente ni degradar un hash conocido a null. */
+                var fotoPrev = prev.fotoRev || null, fotoMia = r.fotoRev || null;
+                if (fotoPrev) {
+                  var ganaFotoMia = _revPuenteGana(fotoMia, fotoPrev);
+                  if (!fotoMia || ganaFotoMia !== true) {
+                    r = Object.assign({}, r, { fotoHash: prev.fotoHash || null, fotoRev: fotoPrev });
+                  }
+                } else if (!fotoMia && prev.fotoHash && !r.fotoHash) {
+                  r = Object.assign({}, r, { fotoHash: prev.fotoHash });
+                }
               }
               if (prev && col === "productos") {
                 var basePrev = prev.stockBase == null ? null : Number(prev.stockBase);
