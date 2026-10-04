@@ -1,0 +1,128 @@
+name: kv-readonly-forensics
+
+on:
+  push:
+    branches:
+      - "forensics/clock-skew-2026-10-03"
+    paths:
+      - ".github/workflows/kv-readonly-forensics.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      KV_NAMESPACE_ID: f1599c69c4174cc2b38dd125c18ee3df
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only sanitized license health
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          python3 - <<'PY'
+          import os, json, hashlib, urllib.request, urllib.parse, unicodedata, time
+
+          acct=os.environ["CLOUDFLARE_ACCOUNT_ID"]
+          tok=os.environ["CLOUDFLARE_API_TOKEN"]
+          ns=os.environ["KV_NAMESPACE_ID"]
+          base=f"https://api.cloudflare.com/client/v4/accounts/{acct}/storage/kv/namespaces/{ns}"
+          headers={"Authorization":f"Bearer {tok}"}
+
+          def get_json(url):
+            req=urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=30) as r:
+              return json.loads(r.read().decode())
+
+          def get_text(url):
+            req=urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=30) as r:
+              return r.read().decode()
+
+          keys=[]
+          cursor=None
+          while True:
+            q={"prefix":"inst:","limit":"1000"}
+            if cursor: q["cursor"]=cursor
+            d=get_json(base+"/keys?"+urllib.parse.urlencode(q))
+            keys += [x["name"] for x in (d.get("result") or [])]
+            info=d.get("result_info") or {}
+            cursor=info.get("cursor")
+            if not cursor: break
+
+          recs=[]
+          for k in keys:
+            try:
+              raw=get_text(base+"/values/"+urllib.parse.quote(k, safe=""))
+              r=json.loads(raw)
+              if isinstance(r,dict): recs.append(r)
+            except Exception:
+              pass
+
+          def norm(s):
+            s=unicodedata.normalize("NFKD", str(s or "")).encode("ascii","ignore").decode().lower()
+            return "".join(ch for ch in s if ch.isalnum())
+
+          def hlic(s):
+            return hashlib.sha256(str(s or "").strip().upper().encode()).hexdigest()[:12]
+
+          groups={}
+          for r in recs:
+            lic=str(r.get("licenseCode") or "").strip().upper()
+            if not lic: continue
+            h=hlic(lic)
+            g=groups.setdefault(h,{"devices":0,"lastSeen":0,"shells":set(),"channels":set(),
+                                  "supportMarked":0,"errorReports":0,"problemNodes":set(),
+                                  "idiomarteMatch":False})
+            g["devices"]+=1
+            g["lastSeen"]=max(g["lastSeen"], int(r.get("lastSeen") or 0))
+            if r.get("soporteJfc") is True: g["supportMarked"]+=1
+            s=r.get("salud") or {}
+            if isinstance(s,dict):
+              if s.get("shell"): g["shells"].add(str(s.get("shell"))[:40])
+              if s.get("canal"): g["channels"].add(str(s.get("canal"))[:20])
+              try: g["errorReports"] += int(s.get("errores") or 0)
+              except: pass
+              nod=s.get("nodos") or s.get("scripts") or []
+              if isinstance(nod,list):
+                for x in nod[:30]: g["problemNodes"].add(str(x)[:60])
+            hay=" ".join(str(r.get(k) or "") for k in ("nombreNegocio","nombre","apellido"))
+            if "idiomarte" in norm(hay): g["idiomarteMatch"]=True
+
+          jfc=[]
+          belen=[]
+          for h,g in groups.items():
+            if g["supportMarked"] or any(c in ("canario","next") for c in g["channels"]):
+              jfc.append((h,g))
+            if g["idiomarteMatch"]:
+              belen.append((h,g))
+
+          def safe(g):
+            age_s = None if not g["lastSeen"] else max(0,int(time.time()-g["lastSeen"]/1000))
+            return {
+              "devices": g["devices"],
+              "lastSeenAgeSeconds": age_s,
+              "shells": sorted(g["shells"]),
+              "channels": sorted(g["channels"]),
+              "historicalJfcMarkerCount": g["supportMarked"],
+              "reportedErrors": g["errorReports"],
+              "problemNodeCount": len(g["problemNodes"]),
+            }
+
+          out={
+            "totalInstanceRecords":len(recs),
+            "licenseGroups":len(groups),
+            "jfcCandidateCount":len(jfc),
+            "jfcCandidates":[safe(g) for _,g in jfc],
+            "belenCandidateCount":len(belen),
+            "belenCandidates":[safe(g) for _,g in belen],
+          }
+          print(json.dumps(out, indent=2, sort_keys=True))
+          PY
