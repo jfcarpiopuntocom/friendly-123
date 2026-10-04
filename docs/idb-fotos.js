@@ -28,6 +28,11 @@
   const STORE_BLOBS = "blobs";
   const SOPORTADO = "indexedDB" in window;
   let dbPromise = null;
+  let _ultimoRescate = {
+    at: 0,
+    dbPreAislamiento: { encontrada:false, encontradasPerchas:0, encontradosBlobs:0, perchas:0, blobs:0 },
+    rawLocalStorage: { encontrada:false, encontradasPerchas:0, encontradosBlobs:0, perchas:0, blobs:0 }
+  };
 
   function abrirDB() {
     if (dbPromise) return dbPromise;
@@ -341,6 +346,8 @@
       let perchas = 0, blobs = 0;
       const porId = vieja.perchas || {};
       const porHash = vieja.blobs || {};
+      const encontradasPerchas = Object.keys(porId).length;
+      const encontradosBlobs = Object.keys(porHash).length;
 
       for (const id of Object.keys(porId)) {
         const bytes = porId[id];
@@ -368,11 +375,85 @@
           copiadaEn: Date.now(), perchas: perchas, blobs: blobs
         }));
       } catch (_) {}
-      return { encontrada:true, perchas:perchas, blobs:blobs };
+      return {
+        encontrada:true,
+        encontradasPerchas:encontradasPerchas,
+        encontradosBlobs:encontradosBlobs,
+        perchas:perchas,
+        blobs:blobs
+      };
     } catch (err) {
       try { console.warn("[idb-fotos] G10 rescate pre-aislamiento pendiente:", err && err.message ? err.message : err); } catch (_) {}
       return { encontrada:false, perchas:0, blobs:0 };
     }
+  }
+
+  /* G10b: rescate copy-only de fotos raw en localStorage fisico que pudieron
+     aparecer DESPUES del marcador one-shot del aislamiento. La lectura raw la
+     hace aislamiento.js mediante una capability allowlisted; esta capa valida de
+     nuevo, blinda por hash y llena el slot por-id solo si sigue vacio. */
+  async function rescatarLocalStoragePreAislamiento() {
+    try {
+      const a = window.AMG && window.AMG.Aislamiento;
+      if (!a || typeof a.leerFotosLocalStoragePreAislamiento !== "function") {
+        return { encontrada:false, encontradasPerchas:0, encontradosBlobs:0, perchas:0, blobs:0 };
+      }
+      const vieja = a.leerFotosLocalStoragePreAislamiento() || { perchas:{}, blobs:{} };
+      const porId = vieja.perchas || {}, porHash = vieja.blobs || {};
+      const encontradasPerchas = Object.keys(porId).length;
+      const encontradosBlobs = Object.keys(porHash).length;
+      let perchas = 0, blobs = 0;
+
+      for (const id of Object.keys(porId)) {
+        const bytes = porId[id];
+        if (!id || typeof bytes !== "string" || !bytes.startsWith("data:image/")) continue;
+        try {
+          // Conserva SIEMPRE la evidencia por su hash real; nunca confia en un
+          // nombre de clave para decidir el contenido.
+          await guardarFotoContenido(bytes);
+          const actual = await leerFotoSoloIdb(id);
+          if (!actual && await guardarFoto(id, bytes)) perchas++;
+        } catch (_) {}
+      }
+
+      for (const hash of Object.keys(porHash)) {
+        const bytes = porHash[hash];
+        if (!/^[a-f0-9]{64}$/i.test(hash) || typeof bytes !== "string" || !bytes.startsWith("data:image/")) continue;
+        try {
+          const real = await hashDeDataUrl(bytes);
+          // Si la clave legacy estaba corrupta/mal rotulada, preserva bajo el
+          // hash REAL y no perpetua una asociacion falsa.
+          const objetivo = real || hash;
+          const actual = await leerPorHash(objetivo);
+          if (!actual && await guardarPorHash(objetivo, bytes)) blobs++;
+        } catch (_) {}
+      }
+
+      return {
+        encontrada: encontradasPerchas > 0 || encontradosBlobs > 0,
+        encontradasPerchas,
+        encontradosBlobs,
+        perchas,
+        blobs
+      };
+    } catch (err) {
+      try { console.warn("[idb-fotos] G10b rescate raw localStorage pendiente:", err && err.message ? err.message : err); } catch (_) {}
+      return { encontrada:false, encontradasPerchas:0, encontradosBlobs:0, perchas:0, blobs:0 };
+    }
+  }
+
+  async function diagnosticoRecuperacion() {
+    const porId = await leerTodas();
+    const porHash = await leerTodosPorHash();
+    return {
+      at: _ultimoRescate.at || 0,
+      current: {
+        perchas: Object.keys(porId || {}).length,
+        blobs: Object.keys(porHash || {}).length
+      },
+      dbPreAislamiento: Object.assign({}, _ultimoRescate.dbPreAislamiento),
+      rawLocalStorage: Object.assign({}, _ultimoRescate.rawLocalStorage)
+    };
   }
 
   // PRIME DIRECTIVE 1AAA: migración COPY-ONLY. Se copia el formato legacy a
@@ -381,9 +462,16 @@
   // copia legacy después de una restauración/importación.
   async function migrarSiHaceFalta() {
     if (!SOPORTADO) return;
-    // G10 primero: los bytes de julio/agosto pueden seguir en la DB fisica vieja.
-    // Es idempotente y copy-only, asi que se puede reintentar en cada arranque.
-    await rescatarDbPreAislamiento();
+    // G10/G10b primero: rescatar ambas ventanas historicas en cada arranque.
+    // Ambas son idempotentes y copy-only: no borran ni pisan una foto actual.
+    const dbPre = await rescatarDbPreAislamiento();
+    const rawLs = await rescatarLocalStoragePreAislamiento();
+    _ultimoRescate = {
+      at: Date.now(),
+      dbPreAislamiento: dbPre || { encontrada:false, encontradasPerchas:0, encontradosBlobs:0, perchas:0, blobs:0 },
+      rawLocalStorage: rawLs || { encontrada:false, encontradasPerchas:0, encontradosBlobs:0, perchas:0, blobs:0 }
+    };
+    try { localStorage.setItem("f123_fotos_recovery_diag_v1", JSON.stringify(_ultimoRescate)); } catch (_) {}
     const FLAG = "f123_fotos_migradas_idb_v1";
     try {
       const claves = [];
@@ -414,7 +502,9 @@
   }
 
   window.OCFotos = {
-    guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta, rescatarDbPreAislamiento, blindarEvidencia, inventariarEvidencia,
+    guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta,
+    rescatarDbPreAislamiento, rescatarLocalStoragePreAislamiento,
+    blindarEvidencia, inventariarEvidencia, diagnosticoRecuperacion,
     soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
     hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, hashesGuardados, leerTodosPorHash, guardarFotoContenido
