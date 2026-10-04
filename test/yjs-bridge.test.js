@@ -193,3 +193,38 @@ test('actual Yjs bridge carries settlement of an existing sale', async () => {
   a.OCYjs._store.sembrar(); transfer(a, b);
   assert.equal((await b.request('/api/respaldo/exportar')).ventas.find(v => v.id === sold.ventaId).liquidada, true);
 });
+
+
+test('RED golden: stale store reseed cannot erase newer shelf lifecycle state already in Yjs', async () => {
+  const a = await peer(), b = await peer();
+  const shelf = await a.request('/api/ubicaciones', 'POST', { nombre: 'Lifecycle bridge shelf' });
+  a.OCYjs._store.sembrar();
+  transfer(a, b);
+
+  // B remains locally active and makes unrelated edits that advance only the
+  // general shelf rev. Do not seed them yet.
+  await b.request(`/api/ubicaciones/${shelf.id}`, 'PUT', { nombre: 'Stale edit one' });
+  await b.request(`/api/ubicaciones/${shelf.id}`, 'PUT', { metaMensual: 77 });
+
+  // A explicitly archives and publishes the newer lifecycle state.
+  await a.request(`/api/ubicaciones/${shelf.id}/desactivar`, 'POST', {});
+  a.OCYjs._store.sembrar();
+
+  // Deliver A's Yjs update into B's shared document WITHOUT applying it to B's
+  // stale local store yet. This models reconnect ordering: remote CRDT arrives,
+  // then periodic local reseed runs before store reconciliation.
+  const updateA = a.Y.encodeStateAsUpdate(a.OCYjs.doc);
+  b.Y.applyUpdate(b.OCYjs.doc, updateA, 'red');
+  const before = b.OCYjs.mapas.ubicaciones.get(shelf.id);
+  assert.equal(before.activa, false, 'Yjs has the explicit archive before stale reseed');
+
+  b.OCYjs._store.sembrar();
+  const after = b.OCYjs.mapas.ubicaciones.get(shelf.id);
+  assert.equal(after.activa, false, 'stale higher general rev cannot reactivate Yjs row');
+  assert.equal(after.borrado, false);
+  assert.deepEqual(after.estadoRev, before.estadoRev, 'newer lifecycle revision survives stale reseed');
+
+  b.OCYjs._store.aplicar();
+  assert.equal((await b.request('/api/ubicaciones')).some(x => x.id === shelf.id), false,
+    'store converges to archived after applying the protected Yjs row');
+});
