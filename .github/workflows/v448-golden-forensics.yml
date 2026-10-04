@@ -5,6 +5,10 @@ on:
     branches: [forensics/v448-golden-tombstone]
   workflow_dispatch: {}
 
+concurrency:
+  group: v448-golden-forensics
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
