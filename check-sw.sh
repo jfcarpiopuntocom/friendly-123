@@ -27,6 +27,24 @@ if [ "$sw_ver" != "$vj_ver" ]; then
   falta=1
 fi
 
+# v448 GOLDEN: release publica y generacion interna son cosas distintas.
+# La release queda en f123-shell-v448; cada hotfix de shell sube goldenN.
+sw_gen=$(grep -oE 'const CACHE_GENERACION = "-golden[0-9]+"' docs/sw.js | sed -E 's/.*"(-golden[0-9]+)".*/\1/' | head -1)
+vj_gen=$(grep -oE '"cacheGeneration":\s*"golden[0-9]+"' docs/version.json | sed -E 's/.*"(golden[0-9]+)".*/\1/' | head -1)
+if [ "$vj_ver" = "f123-shell-v448" ]; then
+  if [ -z "$sw_gen" ] || [ -z "$vj_gen" ]; then
+    echo "FALTA generacion interna de v448 GOLDEN en sw.js/version.json"
+    falta=1
+  elif [ "$sw_gen" != "-$vj_gen" ]; then
+    echo "GENERACION DESINCRONIZADA: sw.js=$sw_gen version.json=$vj_gen"
+    falta=1
+  fi
+  if ! grep -q 'const CACHE_LOCAL = CACHE + CACHE_GENERACION + CANAL' docs/sw.js; then
+    echo "CACHE_LOCAL no usa CACHE_GENERACION — riesgo de reutilizar cache vieja"
+    falta=1
+  fi
+fi
+
 # MANIFEST DE VERSION (JFC 2026-08-28, sistema de integridad de version):
 # version-manifest.json tiene que existir, estar al dia con version.json, y
 # regenerarse con node scripts/gen-manifest.js antes de cada push. Si el
@@ -147,9 +165,10 @@ if [ "$falta" = "0" ]; then
   echo "OK — sin claves de otra app hermana (G2)."
   echo "OK — todo data-vista del nav tiene su seccion (G4)."
   echo "OK — ninguna licencia completa en el repo publico (G5)."
-  grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1 | sed 's/^/CACHE actual: /'
-  echo "Recuerda: si cambiaste el shell, el CACHE tiene que subir de numero o el"
-  echo "telefono del cliente se queda con la version vieja para siempre."
+  echo "RELEASE shell: $sw_ver"
+  [ -n "$sw_gen" ] && echo "CACHE generation: $sw_gen"
+  echo "Recuerda: v448 GOLDEN no cambia de numero publico; cada hotfix de shell"
+  echo "sube CACHE_GENERACION (goldenN) y version.json cacheGeneration."
 fi
 
 # G7 (2026-10-01): un merge dejo marcas de conflicto DENTRO de docs/sw.js y check-sw daba
