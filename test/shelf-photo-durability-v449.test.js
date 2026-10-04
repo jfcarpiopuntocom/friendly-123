@@ -51,6 +51,8 @@ test('v449: a previously displayed hash-only shelf photo survives later fotoHash
         return new Response(JSON.stringify(body), { status:200, headers:{'Content-Type':'application/json'} });
       };
     });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/core/shelf-photo-policy.js') });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/application/recover-shelf-photo.js') });
     await page.addScriptTag({ path: path.resolve(__dirname, '../docs/vista-perchas.js') });
 
     await page.evaluate(() => window.VPerchas.cargar());
@@ -124,6 +126,8 @@ test('v449: current fotoHash overrides a stale per-id mirror and refreshes that 
         return new Response(JSON.stringify(body), { status:200, headers:{'Content-Type':'application/json'} });
       };
     });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/core/shelf-photo-policy.js') });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/application/recover-shelf-photo.js') });
     await page.addScriptTag({ path: path.resolve(__dirname, '../docs/vista-perchas.js') });
     await page.evaluate(() => window.VPerchas.cargar());
     const out = await page.evaluate(() => ({
@@ -193,6 +197,8 @@ test('v448 GOLDEN G03: fotoRev con pointer nulo no borra la unica foto local de 
         return new Response(JSON.stringify(body), { status:200, headers:{'Content-Type':'application/json'} });
       };
     });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/core/shelf-photo-policy.js') });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/application/recover-shelf-photo.js') });
     await page.addScriptTag({ path: path.resolve(__dirname, '../docs/vista-perchas.js') });
     await page.evaluate(() => window.VPerchas.cargar());
     const out = await page.evaluate(() => ({
@@ -264,6 +270,8 @@ test('v448 GOLDEN golden2: unavailable current fotoHash preserves and displays t
         return new Response(JSON.stringify(body), { status:200, headers:{'Content-Type':'application/json'} });
       };
     });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/core/shelf-photo-policy.js') });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/application/recover-shelf-photo.js') });
     await page.addScriptTag({ path: path.resolve(__dirname, '../docs/vista-perchas.js') });
     await page.evaluate(() => window.VPerchas.cargar());
     const out = await page.evaluate(() => ({
