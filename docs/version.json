@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN hotfix golden11 (G10b): rescata copy-only evidencia fotografica legacy que una shell vieja pudo escribir en localStorage fisico despues del marcador one-shot de aislamiento; valida prefijos/imagenes, nunca borra la fuente ni pisa una foto actual. Agrega diagnostico Lord por conteos para distinguir bytes ausentes vs evidencia no pintada.",
+  "fecha": "2026-10-04",
+  "changelog": "v448 GOLDEN hotfix golden12: dashboard.html conserva el mes exacto al abrir Pay in the app y la UI restaura ese periodo antes de cargar Commissions. Evita que una liquidacion de mes anterior abra accidentalmente el mes actual. Dashboard sigue solo lectura; sin cambios de datos, ledger, sync, Worker ni version publica.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden11"
+  "cacheGeneration": "golden12"
 }
