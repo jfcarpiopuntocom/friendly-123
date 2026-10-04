@@ -21,3 +21,5 @@ jobs:
       - run: npm ci
       - name: State-machine regressions only
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-name-pattern="unrelated newer legacy|tombstone stays sticky|explicit newer shelf reactivation" test/v448-golden-shelf-state-photo.test.js
+      - name: Yjs stale-reseed authority regressions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/v448-golden-yjs-authority.test.js
