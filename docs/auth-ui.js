@@ -927,8 +927,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if (!el) return;
         const shellServidor = String(vj.shell || "");
         const shell = shellServidor.replace("f123-shell-", "");
+        const shellVisible = String(vj.shellLabel || (shell ? ("shell-" + shell) : ""));
         const ver = String(vj.version || "");
-        const normal = function () { el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  shell-" + shell) : ""); };
+        const normal = function () { el.textContent = (ver ? ("v" + ver) : "") + (shellVisible ? ("  ·  " + shellVisible) : ""); };
         /* The active Service Worker knows its shell. CacheStorage can contain
            both old and newly downloaded shells; its last key is not evidence
            of which worker controls this page. Ask the controller directly. */
@@ -946,7 +947,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             el.style.opacity = "1";
             el.style.color = "#E8365D";
             try { el.style.setProperty("-webkit-text-fill-color", "#E8365D", "important"); } catch (_) {}
-            el.textContent = "shell-" + activaCorta + " — versión vieja. Usa “Purge & reload” abajo (última: shell-" + shell + ").";
+            el.textContent = "shell-" + activaCorta + " — versión vieja. Usa “Purge & reload” abajo (última: " + (shellVisible || ("shell-" + shell)) + ").";
           } else {
             normal();
           }
