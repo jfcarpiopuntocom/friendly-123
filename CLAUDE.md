@@ -43,6 +43,21 @@ Si un dato cambia, se actualiza aquí en el mismo commit.
 
 ---
 
+## ARQUITECTURA COMO RESTRICCIÓN — PORTS & ADAPTERS (JFC 2026-10-04)
+
+Leer `ARCHITECTURE-HEXAGONAL.md` antes de tocar un dominio ya separado. La dirección obligatoria es:
+
+`adapters/browser -> application/use cases -> domain core`.
+
+Para fotos de perchas:
+- `docs/core/shelf-photo-policy.js`: decisiones puras; cero DOM/red/storage/Yjs.
+- `docs/application/recover-shelf-photo.js`: orquesta puertos inyectados; cero infraestructura.
+- `docs/vista-perchas.js`, `idb-fotos.js`, `sync-yjs.js`: adaptadores tecnológicos.
+
+No reintroducir reglas de recuperación dentro de la UI. Si el caso de uso necesita algo nuevo del exterior,
+agregar un puerto y un adaptador. `test/architecture-hexagonal.test.js` falla el build ante erosión de fronteras.
+Prime Directive 1AAA vive como invariante del dominio: render/sync/recovery no destruyen evidencia fotográfica.
+
 ## QUÉ ES friendly-123
 
 - **Es el repo donde nacen los avances: los recibe PRIMERO** (en `/next/`, luego a clientes; ver
@@ -69,30 +84,31 @@ AVISAN, NO FRENAN: nada de canarios.js decide la promoción a clientes. Jamás m
 
 ---
 
-## POLÍTICA DE VERSIÓN (JFC 2026-09-09) — NO MOVER SIN ORDEN EXPRESA
+## POLÍTICA DE RELEASE — v448 GOLDEN (JFC 2026-10-04) — NO MOVER SIN ORDEN EXPRESA
 
-- La **versión pública queda FIJA en `v1.0`** (`version` y `releaseName` en
-  `version.json`). En el PIN se muestra **`v1.0 · shell-vNNN`**.
-- **De aquí en adelante SOLO sube el ENTERO del shell** (`f123-shell-vNN`), que
-  es el control de cambios real. No volver a mover `version` salvo un salto
-  mayor deliberado que JFC pida.
-- El badge del candado (`pintarBuildGate` en `auth-ui.js`) lee `version.json`;
-  se dice **`shell-`**, nunca "build".
+- La **familia pública queda congelada en `v448 GOLDEN`**. `version.json.shell` permanece
+  `f123-shell-v448` y `releaseName` permanece `v448 GOLDEN`.
+- **NO crear v449/v450/etc. para hotfixes.** Los hotfixes de esta familia cambian solo la
+  generación interna de cache: `cacheGeneration: goldenN` en `version.json` y
+  `CACHE_GENERACION = "-goldenN"` en `docs/sw.js`.
+- El `CACHE` público sigue siendo `f123-shell-v448`; `CACHE_LOCAL` combina esa identidad
+  con la generación interna para forzar precache fresco sin mentir sobre la release.
+- Una nueva familia/version requiere orden expresa de JFC.
 
 ## CHECKLIST DE RELEASE — obligatorio en CADA cambio a un archivo del SHELL
 
 Un archivo del SHELL es cualquiera listado en `const SHELL=[...]` de `docs/sw.js`
 (index.html, auth-ui.js, mock-backend.js, etc.). Si tocas uno:
 
-1. Sube el `const CACHE = "f123-shell-vNN"` en `docs/sw.js` al siguiente entero.
-2. Sube `"shell": "f123-shell-vNN"` en `docs/version.json` al MISMO número.
+1. Mantén `const CACHE = "f123-shell-v448"` y `version.json.shell = "f123-shell-v448"`.
+2. Sube `cacheGeneration` y `CACHE_GENERACION` al siguiente `goldenN`.
 3. `node scripts/gen-manifest.js` (regenera los SHA-256 del shell).
 4. `bash check-sw.sh` — tiene que salir TODO OK (hashes reales cuadran,
    sw.js↔version.json coinciden, G4 nav/sección). Si falla, no se pushea.
-5. Recién ahí commit + push.
+5. Corre `npm test` y los gates Golden relevantes; recién ahí PR/promoción.
 
-Saltarse esto deja a los aparatos ya instalados con una MEZCLA de shell viejo y
-nuevo (fue el bug del "Avanzado roto" / "la app corre distinto en cada aparato").
+Saltarse esto deja a aparatos instalados con una mezcla de generaciones. El número visible
+no se usa como invalidación de cache: para eso existe `goldenN`.
 
 > **⚠ TRAMPA ACTIVA EN WINDOWS (descubierta 2026-09-22, afecta a Claude y a
 > Codex por igual).** En este checkout `core.autocrlf=true` y no hay
