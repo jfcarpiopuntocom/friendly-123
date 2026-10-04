@@ -61,7 +61,7 @@ const strings = {
     check("WebKit renders current hash photo", out.img === "data:image/png;base64,V0VCS0lULVBIT1RP", out);
     check("WebKit mirrors displayed hash photo under shelf id", out.mirror === out.img, out);
 
-    await page.evaluate(() => { window.__shelf.fotoHash = null; });
+    await page.evaluate(() => { window.__shelf.fotoHash = null; window.__shelf.fotoRev = null; });
     await page.evaluate(() => window.VPerchas.cargar());
     out = await page.evaluate(() => ({
       img: document.querySelector("#vp-grid img")?.getAttribute("src") || null,
