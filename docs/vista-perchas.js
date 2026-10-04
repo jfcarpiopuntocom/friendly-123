@@ -301,9 +301,66 @@
     try { return await _historialFotosExactoPromise; } catch (_) { return {}; }
   }
 
+  let _historialFotosCheckpointsPromise = null;
+  async function historialFotosCheckpointsExacto() {
+    if (!_historialFotosCheckpointsPromise) {
+      _historialFotosCheckpointsPromise = (async () => {
+        const out = {};
+        let lista = [];
+        try { lista = JSON.parse(localStorage.getItem('f123_caja_snapshots') || '[]'); } catch (_) { lista = []; }
+        if (!Array.isArray(lista) || !lista.length) return out;
+
+        /* G08: los checkpoints locales son evidencia EXACTA de catalogo.
+           Solo se aceptan snapshots cuyo checksum siga valido; y SOLO se leen
+           ubicaciones[].fotoHash. productos[].fotoHash jamas entra aqui. */
+        for (let i = lista.length - 1; i >= 0; i--) {
+          const p = lista[i];
+          if (!p || typeof p.contenido !== 'string' || !p.checksum) continue;
+          let checksumOk = false;
+          try {
+            if (window.OCSecure && window.OCSecure.hashTexto) {
+              checksumOk = (await window.OCSecure.hashTexto(p.contenido)) === p.checksum;
+            }
+          } catch (_) { checksumOk = false; }
+          if (!checksumOk) continue;
+
+          let paquete = null;
+          try { paquete = JSON.parse(p.contenido); } catch (_) { paquete = null; }
+          const ubicaciones = paquete && paquete.datos && Array.isArray(paquete.datos.ubicaciones)
+            ? paquete.datos.ubicaciones : [];
+          ubicaciones.forEach((u) => {
+            if (!u || u.id == null || !u.fotoHash) return;
+            const id = String(u.id), h = String(u.fotoHash);
+            if (!out[id]) out[id] = [];
+            if (out[id].indexOf(h) < 0) out[id].push(h);
+          });
+        }
+        return out;
+      })();
+    }
+    try { return await _historialFotosCheckpointsPromise; } catch (_) { return {}; }
+  }
+
+  function photoVaultDiagnosticoHabilitado() {
+    /* Herramienta forense, NO interfaz de uso diario. G06 la expuso dentro de
+       My Shelves y mezclo fotos de productos con evidencia de perchas. Desde G08
+       solo puede montarse con una bandera tecnica explicita en esta sesion. */
+    try {
+      const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : '';
+      const activado = window.__F123_DIAG_PHOTO_VAULT === true ||
+        sessionStorage.getItem('f123_diag_photo_vault') === '1';
+      return activado &&
+        (rol === 'dueno' || rol === 'dueño' || rol === 'owner' || rol === 'admin');
+    } catch (_) { return false; }
+  }
+
   async function montarPhotoRecoveryVault(perchasVisibles) {
     let cont = document.getElementById('vp-photo-vault');
     const seccion = document.getElementById('vista-perchas');
+    if (!photoVaultDiagnosticoHabilitado()) {
+      if (cont && cont.remove) cont.remove();
+      return;
+    }
     if (!seccion || !window.OCFotos || !window.OCFotos.leerTodosPorHash) return;
     if (!cont) {
       cont = document.createElement('div');
@@ -314,37 +371,43 @@
     }
     let blobs = {};
     try { blobs = await window.OCFotos.leerTodosPorHash() || {}; } catch (_) {}
-    const refs = new Set();
+    const shelfRefsActuales = new Set(), productRefs = new Set();
     try {
       const cat = window.OCSync && window.OCSync.catalogoPropio ? window.OCSync.catalogoPropio() : null;
-      (cat && cat.ubicaciones || []).forEach((u) => { if (u && u.fotoHash) refs.add(String(u.fotoHash)); });
-      (cat && cat.productos || []).forEach((p) => { if (p && p.fotoHash) refs.add(String(p.fotoHash)); });
+      (cat && cat.ubicaciones || []).forEach((u) => { if (u && u.fotoHash) shelfRefsActuales.add(String(u.fotoHash)); });
+      (cat && cat.productos || []).forEach((p) => { if (p && p.fotoHash) productRefs.add(String(p.fotoHash)); });
     } catch (_) {}
     try {
-      const y = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('ubicaciones') : {};
-      Object.keys(y || {}).forEach((id) => { const u = y[id]; if (u && u.fotoHash) refs.add(String(u.fotoHash)); });
+      const yU = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('ubicaciones') : {};
+      const yP = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('productos') : {};
+      Object.keys(yU || {}).forEach((id) => { const u = yU[id]; if (u && u.fotoHash) shelfRefsActuales.add(String(u.fotoHash)); });
+      Object.keys(yP || {}).forEach((id) => { const p = yP[id]; if (p && p.fotoHash) productRefs.add(String(p.fotoHash)); });
     } catch (_) {}
-    /* v448 GOLDEN G06: Recovery Vault = inventario forense completo, no GC.
-       G05 recupera automaticamente cuando el historial da un shelf ID exacto.
-       Lo que queda ambiguo debe seguir siendo visible aunque un registro viejo,
-       producto o Y.Map aun lo "referencie". Ocultarlo por refs hacia imposible
-       recuperar una foto que SI seguia fisicamente en el aparato. */
-    const todos = Object.keys(blobs).filter((h) => blobs[h]);
-    if (!todos.length) { cont.style.display = 'none'; return; }
-    const huerfanas = todos.filter((h) => !refs.has(h));
-    const referenciadas = todos.filter((h) => refs.has(h));
-    cont.style.display = '';
+
+    /* G08: incluso en modo diagnostico, el Vault deja de ser "todas las fotos".
+       Solo enseña hashes con evidencia POSITIVA de percha (actual, Yjs, historial
+       o checkpoint). Una foto de producto no aparece por el mero hecho de existir. */
     const hist = await historialFotosExacto();
+    const histCaja = await historialFotosCheckpointsExacto();
     const nombres = {};
     (perchasVisibles || []).forEach((u) => { if (u && u.id) nombres[String(u.id)] = u.nombre || u.id; });
     const idsPorHash = {};
-    Object.keys(hist || {}).forEach((id) => {
-      (hist[id] || []).forEach((h) => {
-        h = String(h || ''); if (!h) return;
-        if (!idsPorHash[h]) idsPorHash[h] = [];
-        if (idsPorHash[h].indexOf(String(id)) < 0) idsPorHash[h].push(String(id));
+    const shelfRefsHistoricas = new Set();
+    [hist || {}, histCaja || {}].forEach((fuente) => {
+      Object.keys(fuente).forEach((id) => {
+        (fuente[id] || []).forEach((h) => {
+          h = String(h || ''); if (!h) return;
+          shelfRefsHistoricas.add(h);
+          if (!idsPorHash[h]) idsPorHash[h] = [];
+          if (idsPorHash[h].indexOf(String(id)) < 0) idsPorHash[h].push(String(id));
+        });
       });
     });
+    const todos = Object.keys(blobs).filter((h) => blobs[h] && (shelfRefsActuales.has(h) || shelfRefsHistoricas.has(h)));
+    if (!todos.length) { cont.style.display = 'none'; return; }
+    const huerfanas = todos.filter((h) => !shelfRefsActuales.has(h) && shelfRefsHistoricas.has(h));
+    const referenciadas = todos.filter((h) => shelfRefsActuales.has(h));
+    cont.style.display = '';
     const opcionesPara = (hash) => {
       const candidatos = (idsPorHash[hash] || []).filter((id) => nombres[id]);
       const preferido = candidatos.length === 1 ? candidatos[0] : '';
@@ -356,12 +419,12 @@
     const orden = huerfanas.concat(referenciadas);
     cont.innerHTML = `<details ${huerfanas.length ? 'open' : ''}>
       <summary style="cursor:pointer;font-weight:800;font-size:16px;">Photo Recovery Vault · ${todos.length} preserved</summary>
-      <p style="font-size:13px;margin:8px 0 12px;color:var(--ink-soft);">Prime Directive 1AAA: every photo byte still preserved on this device is listed here. ${huerfanas.length} unlinked · ${referenciadas.length} referenced somewhere. Exact historical matches are preselected when available. Nothing is deleted or moved; Restore makes a copy and sets only the shelf you choose.</p>
+      <p style="font-size:13px;margin:8px 0 12px;color:var(--ink-soft);">Diagnostic only: only photo bytes with positive shelf evidence are listed here. Product-photo evidence is excluded. ${huerfanas.length} unlinked · ${referenciadas.length} referenced somewhere. Exact historical matches are preselected when available. Nothing is deleted or moved; Restore makes a copy and sets only the shelf you choose.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
       ${orden.map((h) => {
         const op = opcionesPara(h);
         const pista = op.preferido ? `<div style="font-size:12px;margin-top:6px;color:var(--azul-medio,#2E6278);">Exact local history: ${esc(nombres[op.preferido])}</div>` : '';
-        const estado = refs.has(h) ? 'PRESERVED · referenced somewhere' : 'PRESERVED · unlinked';
+        const estado = shelfRefsActuales.has(h) ? 'PRESERVED · current shelf reference' : 'PRESERVED · exact shelf history';
         return `<div style="border:1px solid var(--azul-suave,#dde5ec);padding:8px;border-radius:8px;">
           <img src="${blobs[h]}" alt="Preserved photo" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;">
           <div style="font-size:11px;font-weight:800;margin-top:5px;color:var(--ink-soft);">${estado}</div>
@@ -404,16 +467,25 @@
          Render no tiene ninguna operación destructiva. */
       const recuperarFoto = window.F123Application && window.F123Application.recoverShelfPhoto;
       if (recuperarFoto && window.OCFotos && perchasVisibles.length) {
-        let yUb = {}, hist = {};
+        let yUb = {}, hist = {}, histCheckpoints = {};
         try { yUb = window.OCYjs && window.OCYjs.get ? (window.OCYjs.get('ubicaciones') || {}) : {}; } catch (_) {}
         try { hist = await historialFotosExacto(); } catch (_) {}
+        try { histCheckpoints = await historialFotosCheckpointsExacto(); } catch (_) {}
 
         const ports = {
           currentMappedHash: async (id) => {
             const r = yUb[String(id)] || null;
             return r && r.fotoHash ? String(r.fotoHash) : null;
           },
-          historyHashes: async (id) => (hist[String(id)] || []).slice().reverse(),
+          historyHashes: async (id) => {
+            const k = String(id), out = [];
+            /* Prioridad: Yjs actual/historico; despues checkpoints locales
+               validos, todos ligados al MISMO shelf id. Nunca escanear productos. */
+            (hist[k] || []).slice().reverse().concat(histCheckpoints[k] || []).forEach((h) => {
+              h = String(h || ''); if (h && out.indexOf(h) < 0) out.push(h);
+            });
+            return out;
+          },
           readPerId: async (id) => {
             const k = String(id);
             if (fotoCache[k]) return fotoCache[k];

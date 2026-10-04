@@ -31,7 +31,7 @@ test('Prime Directive 1AAA: photo persistence is append-only/copy-only', () => {
     'orphan hash evidence must be eligible for reseeding to the owner\'s photo channel');
 });
 
-test('Photo Recovery Vault does not assign an orphan until explicit restore click', async () => {
+test('Photo Recovery Vault never overwrites a current shelf photo until explicit historical restore click', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -47,24 +47,30 @@ test('Photo Recovery Vault does not assign an orphan until explicit restore clic
       }[k] || k);
       window.OCI18n = { locale: () => 'en-US' };
       window.OCMoneda = { codigo: () => 'USD' };
-      window.OCAuth = { puedeGestionar: () => true };
+      window.__F123_DIAG_PHOTO_VAULT = true;
+      window.OCAuth = { puedeGestionar: () => true, rolActual: () => 'owner' };
       window.__byId = {};
       window.__puts = [];
-      window.__shelf = { id:'u1', nombre:'Shelf One', tipo:'propio', activa:true, fotoHash:null };
+      const current = 'data:image/png;base64,Q1VSUkVOVC1QSE9UTw==';
+      window.__shelf = { id:'u1', nombre:'Shelf One', tipo:'propio', activa:true, fotoHash:'current-hash' };
       const orphan = 'data:image/png;base64,T1JQSEFOLVBIT1RP';
       window.OCFotos = {
         migrarSiHaceFalta: async()=>{},
         blindarEvidencia: async()=>({}),
         leerTodas: async()=>({...window.__byId}),
-        leerTodosPorHash: async()=>({'orphan-hash': orphan}),
-        leerPorHash: async(h)=>h==='orphan-hash'?orphan:null,
+        leerTodosPorHash: async()=>({'orphan-hash': orphan, 'current-hash': current}),
+        leerPorHash: async(h)=>h==='orphan-hash'?orphan:(h==='current-hash'?current:null),
         guardarFoto: async(id,d)=>{ window.__byId[id]=d; return true; },
         guardarFotoContenido: async()=>null,
         guardarPorHash: async()=>true,
         hashDeDataUrl: async()=>null
       };
       window.OCSync = { catalogoPropio: () => ({ ubicaciones:[{...window.__shelf}], productos:[] }) };
-      window.OCYjs = { get: () => ({}), fotosMap: new Map() };
+      window.OCYjs = {
+        get: (col) => col === 'ubicaciones' ? ({ u1: { ...window.__shelf } }) : ({}),
+        fotosMap: new Map(),
+        historialFotosPorPercha: async () => ({ u1: ['orphan-hash'] })
+      };
       window.fetch = async (input, options={}) => {
         const url=String(input), m=options.method||'GET';
         if(m==='PUT'){ window.__puts.push({url,body:JSON.parse(options.body||'{}')}); window.__shelf.fotoHash=window.__puts.at(-1).body.fotoHash; return new Response('{}',{status:200}); }
@@ -78,8 +84,10 @@ test('Photo Recovery Vault does not assign an orphan until explicit restore clic
     await page.addScriptTag({ path: path.join(root, 'docs/application/recover-shelf-photo.js') });
     await page.addScriptTag({ path: path.join(root, 'docs/vista-perchas.js') });
     await page.evaluate(() => window.VPerchas.cargar());
-    assert.equal(await page.locator('#vp-photo-vault img').count(), 1);
-    assert.equal(await page.evaluate(() => window.__puts.length), 0, 'vault preview is read-only');
+    assert.equal(await page.locator('[data-vault-shelf="orphan-hash"]').count(), 1,
+      'the old exact shelf photo remains available only in diagnostic recovery');
+    assert.equal(await page.evaluate(() => window.__puts.length), 0,
+      'exact history must never auto-overwrite a valid current shelf photo');
 
     await page.selectOption('[data-vault-shelf="orphan-hash"]', 'u1');
     await page.click('[data-vault-restore="orphan-hash"]');

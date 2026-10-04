@@ -19,7 +19,8 @@ test('G06 Recovery Vault shows all preserved photos and preselects exact histori
       }[k] || k);
       window.OCI18n = { locale: () => 'en-US' };
       window.OCMoneda = { codigo: () => 'USD' };
-      window.OCAuth = { puedeGestionar: () => true };
+      window.__F123_DIAG_PHOTO_VAULT = true;
+      window.OCAuth = { puedeGestionar: () => true, rolActual: () => 'owner' };
       const orphan='data:image/png;base64,T1JQSEFO';
       const referenced='data:image/png;base64,UkVGRVJFTkNFRA==';
       window.__idPhotos = {};
