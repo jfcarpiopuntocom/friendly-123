@@ -2676,24 +2676,26 @@
             actualizados++;
           }
         }
-        /* v446 — merge independiente del puntero de foto.
-           - Peer nuevo: fotoRev decide set/reemplazo/borrado.
-           - Peer viejo (sin fotoRev): puede aportar/reemplazar un hash no vacio,
-             pero NUNCA borrar con null. Asi una edicion no relacionada no deja
-             la tarjeta en blanco. */
+        /* PRIME DIRECTIVE 1AAA — fotoHash es MONOTONO/NO-DESTRUCTIVO.
+           Un peer puede aportar o reemplazar por OTRO HASH con fotoRev mas nueva,
+           pero NUNCA borrar una foto existente enviando null/"".
+           No existe hoy una accion humana separada "purga irreversible de foto";
+           por tanto un null remoto se trata como ausencia de evidencia, no borrado. */
         const fotoAnterior = mia.fotoHash || null;
         const fotoRevLocal = mia.fotoRev || null;
         const fotoRevRemota = u.fotoRev || null;
         let aplicarFoto = false;
-        if (fotoRevRemota) {
-          _observarRev(fotoRevRemota);
-          const ganaFoto = _revDomina(fotoRevRemota, fotoRevLocal);
-          aplicarFoto = !fotoRevLocal || ganaFoto === true || (ganaFoto === null && mandaElOtro);
-        } else if (!fotoRevLocal && u.fotoHash) {
-          aplicarFoto = !mia.fotoHash || ganaU === true || (ganaU === null && mandaElOtro);
+        if (u.fotoHash) {
+          if (fotoRevRemota) {
+            _observarRev(fotoRevRemota);
+            const ganaFoto = _revDomina(fotoRevRemota, fotoRevLocal);
+            aplicarFoto = !fotoRevLocal || ganaFoto === true || (ganaFoto === null && mandaElOtro);
+          } else if (!fotoRevLocal) {
+            aplicarFoto = !mia.fotoHash || ganaU === true || (ganaU === null && mandaElOtro);
+          }
         }
         if (aplicarFoto) {
-          mia.fotoHash = u.fotoHash || null;
+          mia.fotoHash = u.fotoHash;
           if (fotoRevRemota) mia.fotoRev = fotoRevRemota;
           if (fotoAnterior !== mia.fotoHash) mia.foto = null;
           actualizados++;
@@ -4193,15 +4195,13 @@
         if ("baseComision" in body) u.baseComision = _baseComisionValida(body.baseComision) || "bruto";
         if ("rebajaEdad" in body) u.rebajaEdad = _rebajaValida(body.rebajaEdad); // benchmark #3
         if ("escalasComision" in body) u.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision : [];
-        /* B2 (JFC 2026-09-10): puntero de la foto. La foto (bytes) se guarda por
-           su hash SHA-256 en idb-fotos; aqui solo viaja el HASH en el catalogo,
-           asi la asignacion "esta percha tiene esta foto" converge entre aparatos
-           sin mover megas por el CRDT. Los bytes viajan aparte (a la nube del
-           dueno, B3). null = quitar la foto. */
+        /* PRIME DIRECTIVE 1AAA: un PUT normal puede FIJAR/REEMPLAZAR una foto
+           con un hash no vacio, pero no puede destruir el puntero mandando null.
+           Si algun dia existe "purga de foto", sera otra accion, humana y confirmada. */
         const revCambio = _revNueva();
-        if ("fotoHash" in body) {
-          u.fotoHash = body.fotoHash || null;
-          u.fotoRev = revCambio; // v446: solo una edicion explicita de foto puede borrar/reemplazar el puntero.
+        if ("fotoHash" in body && body.fotoHash) {
+          u.fotoHash = String(body.fotoHash);
+          u.fotoRev = revCambio;
         }
         u.rev = revCambio;
         guardarEstadoLocal();
