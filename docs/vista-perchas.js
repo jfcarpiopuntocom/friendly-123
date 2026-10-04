@@ -416,8 +416,14 @@
           historyHashes: async (id) => (hist[String(id)] || []).slice().reverse(),
           readPerId: async (id) => fotoCache[String(id)] || null,
           hashBytes: async (bytes) => {
-            if (!window.OCFotos.hashDeDataUrl) return null;
-            return window.OCFotos.hashDeDataUrl(bytes);
+            /* Adapter compatibility: the modern port is "derive content hash".
+               Older OCFotos implementations exposed only guardarFotoContenido(),
+               which computes the SAME hash and additionally preserves the bytes
+               append-only. That side effect is allowed by Prime Directive 1AAA
+               and stays outside the domain/application layers. */
+            if (window.OCFotos.hashDeDataUrl) return window.OCFotos.hashDeDataUrl(bytes);
+            if (window.OCFotos.guardarFotoContenido) return window.OCFotos.guardarFotoContenido(bytes);
+            return null;
           },
           readByHash: async (hash) => {
             if (!window.OCFotos.leerPorHash) return null;
