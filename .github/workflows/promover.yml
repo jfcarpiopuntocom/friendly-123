@@ -38,7 +38,7 @@ jobs:
         run: |
           set -uo pipefail
           WORKER="https://friendly123-licencias.jfcarpio.workers.dev"
-          SHELL_NUEVO=$(grep -o 'f123-shell-v[0-9]*' docs/version.json)
+          SHELL_NUEVO=$(grep -oE 'f123-shell-v[0-9]+(-[A-Za-z0-9]+)*' docs/version.json)
           echo "shell en /next/: $SHELL_NUEVO"
           # JFC 2026-09-30: el PUSH del panel lo ejecutaba solo sonar.yml, cuyo cron "cada 5 min"
           # GitHub lo corre cada 4-7 h: el panel decia "hecho" y los clientes seguian esperando.
