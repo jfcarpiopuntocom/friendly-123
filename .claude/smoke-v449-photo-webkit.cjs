@@ -51,6 +51,8 @@ const strings = {
         return new Response(JSON.stringify(body),{status:200,headers:{"Content-Type":"application/json"}});
       };
     }, strings);
+    await page.addScriptTag({ path:path.resolve(__dirname,"../docs/core/shelf-photo-policy.js") });
+    await page.addScriptTag({ path:path.resolve(__dirname,"../docs/application/recover-shelf-photo.js") });
     await page.addScriptTag({ path:path.resolve(__dirname,"../docs/vista-perchas.js") });
 
     await page.evaluate(() => window.VPerchas.cargar());
