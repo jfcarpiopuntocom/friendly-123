@@ -256,13 +256,22 @@
     if (barra) barra.appendChild(btnAgregar); else seccion.insertBefore(btnAgregar, grid);
   }
 
+  // G09: estas dos caches son SOLO aceleradores de una lectura que cambia
+  // durante la hidratacion de Yjs / checkpoints. Nunca pueden convertirse en
+  // verdad de sesion: si el sync anuncia fotos nuevas, se invalidan antes de
+  // repintar para que una lectura temprana "{}" no deje Shelves vacio para siempre.
+  let _historialFotosExactoPromise = null;
+  let _historialFotosCheckpointsPromise = null;
+
   // Re-pinta los textos fijos que se construyen UNA sola vez al cargar el
   // script (botón "Agregar +", modal "carpeta" y modal "Nueva percha") —
   // esos innerHTML no se regeneran solos al cambiar de idioma.
-  /* B3 (JFC 2026-09-10): cuando el sync baja fotos nuevas de otro aparato
-     (sync-yjs dispara oc-fotos-actualizadas), si el panel de perchas está a la
-     vista se re-pinta para que aparezcan las imágenes recién llegadas. */
+  /* B3/G09: cuando el sync baja fotos nuevas de otro aparato
+     (sync-yjs dispara oc-fotos-actualizadas), invalidar PRIMERO toda evidencia
+     derivada y luego re-pintar. El render sigue siendo no destructivo. */
   window.addEventListener('oc-fotos-actualizadas', () => {
+    _historialFotosExactoPromise = null;
+    _historialFotosCheckpointsPromise = null;
     const vp = document.getElementById('vista-perchas');
     if (vp && vp.classList.contains('activa')) { try { cargar(); } catch (_) {} }
   });
@@ -286,7 +295,6 @@
     if (aCrear) aCrear.textContent = window.t('shelves.createRackBtn');
   });
 
-  let _historialFotosExactoPromise = null;
   async function historialFotosExacto() {
     if (!_historialFotosExactoPromise) {
       _historialFotosExactoPromise = (async () => {
@@ -301,7 +309,6 @@
     try { return await _historialFotosExactoPromise; } catch (_) { return {}; }
   }
 
-  let _historialFotosCheckpointsPromise = null;
   async function historialFotosCheckpointsExacto() {
     if (!_historialFotosCheckpointsPromise) {
       _historialFotosCheckpointsPromise = (async () => {
