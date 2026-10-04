@@ -71,6 +71,24 @@ test('solo la licencia lord pone en rojo al canario; los clientes cuentan en el 
   assert.ok(!JSON.stringify(e).includes('inst-'), 'la lectura publica no expone instanceIds');
 });
 
+test('v448 GOLDEN: Sonar acepta el shell cache-safe con sufijo y sigue rechazando nombres raros', async () => {
+  const w = await cargar(); const env = entorno();
+  const shell = 'f123-shell-v448-golden1';
+  const checkin = await llamar(w, env, '/checkin', { metodo: 'POST', body: {
+    instanceId: 'inst-lord-golden', licenseCode: LORD,
+    salud: { shell, canal: 'next', errores: 0, cuadre: 'ok' }
+  } });
+  assert.equal(checkin.status, 200);
+  const reg = JSON.parse(await env.LICENCIAS.get('inst:inst-lord-golden'));
+  assert.equal(reg.salud.shell, shell, 'el checkin conserva la identidad golden completa');
+  const estado = await llamar(w, env, '/canario/estado?shell=' + shell);
+  assert.equal(estado.status, 200);
+  assert.equal(estado.json.shell, shell);
+  assert.equal(estado.json.reportes, 1);
+  assert.equal((await llamar(w, env, '/canario/estado?shell=f123-shell-v448-golden_1')).status, 400, 'underscore no permitido');
+  assert.equal((await llamar(w, env, '/canario/estado?shell=f123-shell-v448-../../x')).status, 400, 'path-like shell no permitido');
+});
+
 test('ordenes del Sonar: sin Master Key no; push, detener y reanudar con ella', async () => {
   const w = await cargar(); const env = entorno();
   assert.equal((await llamar(w, env, '/canario/orden', { metodo: 'POST', body: { accion: 'push' } })).status, 401);
