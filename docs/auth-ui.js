@@ -927,8 +927,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if (!el) return;
         const shellServidor = String(vj.shell || "");
         const shell = shellServidor.replace("f123-shell-", "");
-        const ver = String(vj.version || "");
-        const normal = function () { el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  shell-" + shell) : ""); };
+        const genServidor = String(vj.cacheGeneration || "");
+        const releaseVisible = String(vj.releaseName || (vj.version ? ("v" + vj.version) : ""));
+        const normal = function () {
+          el.textContent = releaseVisible +
+            (genServidor ? ("  ·  build " + genServidor) : (shell ? ("  ·  shell-" + shell) : ""));
+        };
         /* The active Service Worker knows its shell. CacheStorage can contain
            both old and newly downloaded shells; its last key is not evidence
            of which worker controls this page. Ask the controller directly. */
@@ -941,12 +945,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           clearTimeout(timeout);
           sw.removeEventListener("message", onShell);
           const activa = String(event.data.shell || "");
-          if (activa && shellServidor && activa !== shellServidor) {
+          const genActiva = String(event.data.cacheGeneration || "");
+          const shellVieja = !!activa && !!shellServidor && activa !== shellServidor;
+          const genVieja = !!genServidor && genActiva !== genServidor;
+          if (shellVieja || genVieja) {
             const activaCorta = activa.replace("f123-shell-", "");
             el.style.opacity = "1";
             el.style.color = "#E8365D";
             try { el.style.setProperty("-webkit-text-fill-color", "#E8365D", "important"); } catch (_) {}
-            el.textContent = "shell-" + activaCorta + " — versión vieja. Usa “Purge & reload” abajo (última: shell-" + shell + ").";
+            const actual = (activaCorta ? ("shell-" + activaCorta) : "shell ?") +
+              (genActiva ? (" · build " + genActiva) : " · build antiguo");
+            const ultima = releaseVisible + (genServidor ? (" · build " + genServidor) : (shell ? (" · shell-" + shell) : ""));
+            el.textContent = actual + " — versión vieja. Usa “Purge & reload” abajo (última: " + ultima + ").";
           } else {
             normal();
           }
@@ -956,7 +966,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           if (responded) return;
           responded = true;
           sw.removeEventListener("message", onShell);
-          el.textContent = (ver ? ("v" + ver + " · ") : "") + "shell sin verificar · última shell-" + shell;
+          el.textContent = (releaseVisible ? (releaseVisible + " · ") : "") + "build sin verificar" + (genServidor ? (" · última " + genServidor) : (shell ? (" · shell-" + shell) : ""));
         }, 2000);
         try { sw.controller.postMessage({ tipo: "que-shell" }); }
         catch (_) { clearTimeout(timeout); sw.removeEventListener("message", onShell); normal(); }
