@@ -49,3 +49,57 @@ test('RED v448: a stale peer unrelated edit must not resurrect a deleted shelf',
   assert.equal((await a.request('/api/ubicaciones?todas=1')).some(x => x.id === u.id), false,
     'deleted shelf must never reappear in My shelves');
 });
+
+
+test('explicit modern reactivation still propagates after archive', async () => {
+  const a = browser(), b = browser();
+  const u = await a.request('/api/ubicaciones', 'POST', { nombre: 'Reactivate shelf' });
+  b.receive(a);
+
+  await a.request(`/api/ubicaciones/${u.id}/desactivar`, 'POST', {});
+  b.receive(a);
+  assert.equal((await b.request('/api/ubicaciones')).some(x => x.id === u.id), false);
+
+  await b.request(`/api/ubicaciones/${u.id}/activar`, 'POST', {});
+  a.receive(b);
+
+  const raw = byId(a.catalog(), u.id);
+  assert.equal(raw.borrado, false);
+  assert.equal(raw.activa, true);
+  assert.equal((await a.request('/api/ubicaciones')).some(x => x.id === u.id), true,
+    'an explicit newer reactivation is allowed');
+});
+
+test('legacy inactive state can still archive an active modern peer', async () => {
+  const a = browser(), b = browser();
+  const u = await a.request('/api/ubicaciones', 'POST', { nombre: 'Legacy archive shelf' });
+  b.receive(a);
+
+  await b.request(`/api/ubicaciones/${u.id}/desactivar`, 'POST', {});
+  const legacy = b.catalog();
+  const row = byId(legacy, u.id);
+  delete row.estadoRev; // simulate a pre-fix peer that only has general rev
+  a.OCSync.aplicarCatalogo(legacy, null);
+
+  assert.equal((await a.request('/api/ubicaciones')).some(x => x.id === u.id), false,
+    'legacy negative lifecycle evidence remains compatible');
+});
+
+test('stale photo/self-heal style writes cannot resurrect a deleted shelf', async () => {
+  const a = browser(), b = browser();
+  const u = await a.request('/api/ubicaciones', 'POST', { nombre: 'Photo race shelf' });
+  b.receive(a);
+
+  await a.request(`/api/ubicaciones/${u.id}`, 'DELETE', {});
+
+  // Stale B still thinks it is active. A normal edit plus a later photo pointer
+  // write models the recent read/self-heal paths advancing the generic record rev.
+  await b.request(`/api/ubicaciones/${u.id}`, 'PUT', { metaMensual: 31 });
+  await b.request(`/api/ubicaciones/${u.id}`, 'PUT', { fotoHash: 'sha256-synthetic-photo' });
+  a.receive(b);
+
+  const raw = byId(a.catalog(), u.id);
+  assert.equal(raw.borrado, true);
+  assert.equal(raw.activa, false);
+  assert.equal((await a.request('/api/ubicaciones?todas=1')).some(x => x.id === u.id), false);
+});
