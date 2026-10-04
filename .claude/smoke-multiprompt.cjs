@@ -10,7 +10,9 @@ function check(n, c, x){ if(c) console.log("  ok   "+n); else { console.log("  F
 (async () => {
   const b = await browserType.launch({ headless: true });
   try {
-    const opts = browserName === "webkit" ? { ...pw.devices["iPhone 13"] } : {};
+    const opts = browserName === "webkit"
+      ? { ...pw.devices["iPhone 13"], serviceWorkers: "block" }
+      : {};
     const ctx = await b.newContext(opts); const page = await ctx.newPage();
     console.log("  browser "+browserName+(browserName === "webkit" ? " / iPhone 13 emulation" : ""));
     const errs = []; page.on("pageerror", e => errs.push(String(e)));
@@ -21,7 +23,7 @@ function check(n, c, x){ if(c) console.log("  ok   "+n); else { console.log("  F
     await page.evaluate(() => { try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: "dueno", demo: false })); } catch (_) {} });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.OCAuth && window.OCAuth.rolActual, null, { timeout: 15000 });
-    await page.waitForFunction(() => window.OCAuth.rolActual() === "dueno", null, { timeout: 15000 });
+    await page.waitForFunction(() => window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual() === "dueno", null, { timeout: 15000 });
 
     // pick a normal product with stock
     const prod = await page.evaluate(async () => {
