@@ -129,3 +129,26 @@ test('v448 golden: archive/deactivate has its own authority and stale metadata e
   assert.equal((await b.request('/api/ubicaciones')).some(x => x.id === shelf.id), true,
     'an explicit later activation must still converge');
 });
+
+
+test('v448 golden: a legacy peer without activaRev can still archive a shelf until modern state authority exists', async () => {
+  const a = await peer();
+  const shelf = await a.request('/api/ubicaciones', 'POST', { nombre: 'Legacy archive bridge' });
+
+  const localBefore = a.catalog().ubicaciones.find(x => x.id === shelf.id);
+  assert.equal(localBefore.activaRev || null, null,
+    'creation stays legacy-compatible: activaRev starts only on explicit modern toggle');
+
+  // Synthetic legacy payload: old app explicitly archived the shelf, but only knows
+  // the general record rev and activa=false.
+  const legacy = a.catalog();
+  const remote = legacy.ubicaciones.find(x => x.id === shelf.id);
+  remote.activa = false;
+  delete remote.activaRev;
+  remote.rev = { c: Number((remote.rev && remote.rev.c) || 0) + 50, d: 'legacy-peer' };
+
+  const applied = a.OCSync.aplicarCatalogo(legacy, null);
+  assert.equal(applied.ok, true);
+  assert.equal((await a.request('/api/ubicaciones')).some(x => x.id === shelf.id), false,
+    'before a modern activaRev exists, the legacy general revision can still carry an archive');
+});
