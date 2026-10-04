@@ -1,0 +1,32 @@
+name: v448-g06-refresh-manifest-once
+on:
+  push:
+    branches: [hotfix/v448-golden-g06-all-photo-evidence]
+    paths:
+      - ".github/workflows/v448-g06-refresh-manifest-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/v448-golden-g06-all-photo-evidence
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/gen-manifest.js
+      - run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet docs/version-manifest.json; then
+            echo "manifest already current"
+          else
+            git add docs/version-manifest.json
+            git commit -m "integrity(v448 GOLDEN G06): regenerate manifest"
+            git push origin HEAD:hotfix/v448-golden-g06-all-photo-evidence
+          fi
