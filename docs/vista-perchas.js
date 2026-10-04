@@ -129,7 +129,10 @@
   const getFoto = (id) => fotoCache[id] || null;
   async function precargarFotos() {
     if (!window.OCFotos) return; // idb-fotos.js no cargo: sin fotos, sin crash
-    await window.OCFotos.migrarSiHaceFalta(); // no-op rapido tras la 1a vez
+    await window.OCFotos.migrarSiHaceFalta(); // G04: copy-only, nunca borra origen
+    if (window.OCFotos.blindarEvidencia) {
+      try { await window.OCFotos.blindarEvidencia(); } catch (_) {}
+    }
     fotoCache = await window.OCFotos.leerTodas();
   }
 
@@ -283,6 +286,43 @@
     if (aCrear) aCrear.textContent = window.t('shelves.createRackBtn');
   });
 
+  async function montarPhotoRecoveryVault(perchasVisibles) {
+    let cont = document.getElementById('vp-photo-vault');
+    const seccion = document.getElementById('vista-perchas');
+    if (!seccion || !window.OCFotos || !window.OCFotos.leerTodosPorHash) return;
+    if (!cont) {
+      cont = document.createElement('div');
+      cont.id = 'vp-photo-vault';
+      cont.className = 'tag-card';
+      cont.style.cssText = 'margin:18px 0;padding:14px;border:2px dashed var(--azul-medio,#5294AC);';
+      seccion.appendChild(cont);
+    }
+    let blobs = {};
+    try { blobs = await window.OCFotos.leerTodosPorHash() || {}; } catch (_) {}
+    const refs = new Set();
+    try {
+      const cat = window.OCSync && window.OCSync.catalogoPropio ? window.OCSync.catalogoPropio() : null;
+      (cat && cat.ubicaciones || []).forEach((u) => { if (u && u.fotoHash) refs.add(String(u.fotoHash)); });
+      (cat && cat.productos || []).forEach((p) => { if (p && p.fotoHash) refs.add(String(p.fotoHash)); });
+    } catch (_) {}
+    try {
+      const y = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('ubicaciones') : {};
+      Object.keys(y || {}).forEach((id) => { const u = y[id]; if (u && u.fotoHash) refs.add(String(u.fotoHash)); });
+    } catch (_) {}
+    const huerfanas = Object.keys(blobs).filter((h) => blobs[h] && !refs.has(h));
+    if (!huerfanas.length) { cont.style.display = 'none'; return; }
+    cont.style.display = '';
+    const opciones = (perchasVisibles || []).map((u) => `<option value="${esc(u.id)}">${esc(u.nombre || u.id)}</option>`).join('');
+    cont.innerHTML = `<h3 style="margin:0 0 6px;">Photo Recovery Vault</h3>
+      <p style="font-size:13px;margin:0 0 12px;color:var(--ink-soft);">These photo bytes still exist on this device but no current shelf points to them. Nothing is deleted. Restore only the photos you recognize.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
+      ${huerfanas.map((h) => `<div style="border:1px solid var(--azul-suave,#dde5ec);padding:8px;border-radius:8px;">
+        <img src="${blobs[h]}" alt="Recovered photo" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;">
+        <select data-vault-shelf="${esc(h)}" style="width:100%;margin-top:8px;min-height:38px;"><option value="">Restore to shelf…</option>${opciones}</select>
+        <button type="button" data-vault-restore="${esc(h)}" class="ir" style="width:100%;margin-top:6px;min-height:40px;">Restore photo</button>
+      </div>`).join('')}</div>`;
+  }
+
   let cargaEnCurso = 0;
   async function cargar() {
     const estaCarga = ++cargaEnCurso;
@@ -317,6 +357,36 @@
          fotoHash que acabamos de fijar. Esto preserva el self-heal v446 sin abrir
          la puerta a mostrar un espejo id obsoleto bajo un hash llegado de otro peer. */
       const fotoRecuperadaEnEstaCarga = new Map();
+
+      /* v448 GOLDEN G04: segunda fuente EXACTA de mapeo. Si el store local perdio
+         fotoHash pero el Y.Map de ESA MISMA percha conserva un hash y los bytes
+         existen en el vault local/Yjs, se reengancha automaticamente. No se usa
+         nombre, similitud ni orden: mismo shelf id o nada. */
+      if (perchasVisibles.length && window.OCYjs && window.OCYjs.get && window.OCFotos) {
+        let yUb = {};
+        try { yUb = window.OCYjs.get('ubicaciones') || {}; } catch (_) {}
+        await Promise.all(perchasVisibles.map(async (u) => {
+          if (!u || u.fotoHash) return;
+          const vieja = yUb[String(u.id)] || null;
+          const hash = vieja && vieja.fotoHash ? String(vieja.fotoHash) : '';
+          if (!hash) return;
+          try {
+            let bytes = window.OCFotos.leerPorHash ? await window.OCFotos.leerPorHash(hash) : null;
+            if (!bytes && window.OCYjs.fotosMap && window.OCYjs.fotosMap.get) bytes = window.OCYjs.fotosMap.get(hash) || null;
+            if (!bytes) return;
+            if (window.OCFotos.guardarPorHash) await window.OCFotos.guardarPorHash(hash, bytes);
+            if (window.OCFotos.guardarFoto) await window.OCFotos.guardarFoto(u.id, bytes);
+            const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(u.id)}`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fotoHash: hash })
+            });
+            if (!rr || rr.ok !== false) {
+              u.fotoHash = hash; fotoCache[u.id] = bytes;
+              fotoRecuperadaEnEstaCarga.set(u.id, { hash, bytes });
+            }
+          } catch (_) {}
+        }));
+      }
 
       /* v446 (JFC 2026-10-03): auto-reparacion SIN inventar datos.
          Las fotos antiguas de percha se guardaban tambien por id. Si ese byte local
@@ -457,6 +527,7 @@
       }
       pintarBotonesOrdenPercha();
       grid.innerHTML = ms.map(_tarjeta).join('');
+      try { await montarPhotoRecoveryVault(perchasVisibles); } catch (_) {}
       try { if (window.ocMontarTraslado) window.ocMontarTraslado('oc-traslado-perchas'); } catch (_) {} // mover ítems entre perchas (breezy)
       renderTransferencias(); // transfers entre perchas (movido de Advanced)
     } catch (err) {
@@ -722,6 +793,26 @@
 
   // ── un solo listener delegado para todo el panel ───────────────────────────
   document.addEventListener('click', async (e) => {
+    const vr = e.target.closest && e.target.closest('[data-vault-restore]');
+    if (vr) {
+      e.stopPropagation();
+      const hash = vr.dataset.vaultRestore;
+      const sel = document.querySelector('[data-vault-shelf="' + CSS.escape(hash) + '"]');
+      const id = sel && sel.value;
+      if (!id || !window.OCFotos) return;
+      try {
+        const bytes = await window.OCFotos.leerPorHash(hash);
+        if (!bytes) return;
+        await window.OCFotos.guardarFoto(id, bytes);
+        fotoCache[id] = bytes;
+        const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
+          method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ fotoHash: hash })
+        });
+        if (rr && rr.ok === false) throw new Error('restore rejected');
+        cargar();
+      } catch (_) { alert('Could not restore this photo yet. Nothing was deleted.'); }
+      return;
+    }
     // Cerrar carpeta (botón o fondo)
     if (e.target.id === 'vp-carpeta-cerrar' || e.target === modal) { cerrarCarpeta(); return; }
     // Cerrar gestión
@@ -783,11 +874,9 @@
       }
       const res = await fetch(`${API}/ubicaciones/${perchaGestionId}`, { method: 'DELETE' });
       if (res.ok) {
-        // Microcirugia 6 (2026-07-08): borrar la foto huerfana. Sin esto cada
-        // percha borrada deja 200-800KB acumulandose (localStorage antes,
-        // IndexedDB ahora — mismo cuidado, otro almacen).
-        if (window.OCFotos) window.OCFotos.borrarFoto(perchaGestionId); // async, fire-and-forget
-        delete fotoCache[perchaGestionId];
+        // PRIME DIRECTIVE 1AAA: borrar/archivar la percha NO destruye su foto.
+        // Queda en el vault local para recovery/auditoria; la UI deja de mostrarla
+        // porque la percha ya no es visible, no porque los bytes desaparezcan.
         cerrarGestion(); cargar();
         if (window.cargarUbicaciones) window.cargarUbicaciones();
       } else {
