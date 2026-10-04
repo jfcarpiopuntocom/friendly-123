@@ -6050,7 +6050,7 @@
             if (!v || !v.fecha) return;
             const _raw = Date.parse(v.fecha);
             if (!Number.isFinite(_raw)) return;
-            const _tieneSello = Number.isFinite(Number(v.relojDesfaseMs));
+            const _tieneSello = v.relojDesfaseMs !== null && v.relojDesfaseMs !== "" && Number.isFinite(Number(v.relojDesfaseMs));
             const _corregido = instanteCorregidoMs(v.fecha, v.relojDesfaseMs);
             const _rawFuturo = _raw > _ahora + _tol;
             const _corregidoFuturo = Number.isFinite(_corregido) && _corregido > _ahora + _tol;
