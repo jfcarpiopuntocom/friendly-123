@@ -54,14 +54,14 @@ jobs:
           if git rev-parse -q --verify origin/previo >/dev/null; then
             git archive origin/previo docs | tar -x -C p
             mkdir -p sitio/previo && cp -a p/docs/. sitio/previo/
-            echo "previo:  $(git rev-parse --short origin/previo) $(grep -o 'f123-shell-v[0-9]*' sitio/previo/version.json)"
+            echo "previo:  $(git rev-parse --short origin/previo) $(grep -oE 'f123-shell-v[0-9]+(-[A-Za-z0-9]+)*' sitio/previo/version.json)"
           else
             echo "previo:  todavia no existe (se crea en la primera promocion)"
           fi
           # Ningun canal lleva canales anidados (por si algun dia docs/next o docs/previo existieran).
           rm -rf sitio/next/next sitio/next/previo sitio/previo/next sitio/previo/previo
-          echo "estable: $(git rev-parse --short origin/estable) $(grep -o 'f123-shell-v[0-9]*' sitio/version.json)"
-          echo "canario: $(git rev-parse --short origin/master) $(grep -o 'f123-shell-v[0-9]*' sitio/next/version.json)"
+          echo "estable: $(git rev-parse --short origin/estable) $(grep -oE 'f123-shell-v[0-9]+(-[A-Za-z0-9]+)*' sitio/version.json)"
+          echo "canario: $(git rev-parse --short origin/master) $(grep -oE 'f123-shell-v[0-9]+(-[A-Za-z0-9]+)*' sitio/next/version.json)"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: sitio
