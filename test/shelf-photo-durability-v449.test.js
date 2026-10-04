@@ -140,7 +140,7 @@ test('v449: current fotoHash overrides a stale per-id mirror and refreshes that 
 });
 
 
-test('v449: explicit modern photo deletion clears an id mirror instead of self-healing it', async () => {
+test('v448 GOLDEN G03: fotoRev con pointer nulo no borra la unica foto local de una shelf activa', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -201,10 +201,11 @@ test('v449: explicit modern photo deletion clears an id mirror instead of self-h
       deletes: window.__deletes.slice(),
       mirror: window.__idPhotos['u-deleted-photo'] || null
     }));
-    assert.equal(out.img, null, 'an explicit modern deletion must not render stale mirrored bytes');
-    assert.equal(out.puts.length, 0, 'an explicit modern deletion must not regenerate fotoHash');
-    assert.deepEqual(out.deletes, ['u-deleted-photo']);
-    assert.equal(out.mirror, null);
+    assert.equal(out.img, 'data:image/png;base64,REVMRVRFRC1QSE9UTw==',
+      'una shelf activa conserva y muestra su ultima foto local');
+    assert.equal(out.puts.length, 1, 'reattach del pointer perdido desde los bytes de ESA shelf');
+    assert.deepEqual(out.deletes, [], 'render no puede borrar la unica evidencia fotografica');
+    assert.equal(out.mirror, out.img);
   } finally {
     await browser.close();
   }
