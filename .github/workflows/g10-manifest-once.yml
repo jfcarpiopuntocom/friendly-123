@@ -1,0 +1,37 @@
+name: g10-manifest-once
+
+on:
+  push:
+    branches: [hotfix/v448-golden-g10-legacy-photo-db]
+    paths:
+      - ".github/workflows/g10-manifest-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/v448-golden-g10-legacy-photo-db
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regenerate deterministic manifest
+        run: |
+          set -euo pipefail
+          node scripts/gen-manifest.js
+          bash check-sw.sh || true
+          if git diff --quiet -- docs/version-manifest.json; then
+            echo "manifest already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version-manifest.json
+          git commit -m "integrity(v448 G10): regenerate shell manifest"
+          git push origin HEAD:hotfix/v448-golden-g10-legacy-photo-db
