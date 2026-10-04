@@ -63,6 +63,8 @@ test('Perchas hides archived shelves and read-repairs a synced photo already pre
       };
     });
 
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/core/shelf-photo-policy.js') });
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/application/recover-shelf-photo.js') });
     await page.addScriptTag({ path: path.resolve(__dirname, '../docs/vista-perchas.js') });
     await page.evaluate(() => window.VPerchas.cargar());
 
