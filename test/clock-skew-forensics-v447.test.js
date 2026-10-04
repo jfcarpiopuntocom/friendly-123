@@ -128,3 +128,99 @@ test('clock forensic: Today uses corrected sale instant when a clock-offset seal
   const today = await w.request('/api/ventas/hoy?ubicacionId=' + encodeURIComponent(shelf.id));
   assert.equal(today[p.id], 1);
 });
+
+
+test('clock forensic: diagnostic flags a pre-v438 future sale with no clock seal', async () => {
+  const w = browser();
+  const relayNow = 1800000000000;
+  w.OCLatencia = { ahoraRelay: () => relayNow };
+  const fx = await w.request('/api/respaldo/exportar');
+  const p = fx.productos.find((x) => Number(x.stockActual) >= 10);
+  p.id = 'p-clock-old-sale';
+  p.nombre = 'Clock old sale';
+  p.creadoEn = new Date(relayNow - 24 * 60 * 60 * 1000).toISOString();
+  fx.productos = [p];
+  fx.ventas = [{
+    id: 'v-clock-old-unselaed',
+    productoId: p.id,
+    ubicacionId: p.ubicacionId,
+    cantidad: 1,
+    precioUnit: 10,
+    costoUnit: 4,
+    fecha: new Date(relayNow + 6 * 60 * 60 * 1000).toISOString(),
+    split: null,
+    liquidada: false,
+    clienteId: null,
+    anulada: false
+  }];
+  fx.movimientos = [];
+  await w.request('/api/respaldo/importar', 'POST', fx);
+
+  const audit = await w.request('/api/diagnostico/reloj-datos');
+  const hit = audit.ventasFechaSospechosa.find((x) => x.ventaId === 'v-clock-old-unselaed');
+  assert.ok(hit);
+  assert.equal(hit.tieneSelloReloj, false);
+  assert.equal(hit.motivo, 'fecha-futura-sin-sello');
+  assert.ok(hit.futuroMs > 5 * 60 * 1000);
+});
+
+test('clock forensic: diagnostic flags impossible future product creation but does not rewrite it', async () => {
+  const w = browser();
+  const relayNow = 1800000000000;
+  w.OCLatencia = { ahoraRelay: () => relayNow };
+  const fx = await w.request('/api/respaldo/exportar');
+  const p = fx.productos.find((x) => Number(x.stockActual) >= 10);
+  p.id = 'p-clock-future-created';
+  p.nombre = 'Clock future created';
+  p.creadoEn = new Date(relayNow + 8 * 60 * 60 * 1000).toISOString();
+  fx.productos = [p];
+  fx.ventas = [];
+  fx.movimientos = [];
+  await w.request('/api/respaldo/importar', 'POST', fx);
+
+  const before = await w.request('/api/respaldo/exportar');
+  const audit = await w.request('/api/diagnostico/reloj-datos');
+  const hit = audit.productosAltaSospechosa.find((x) => x.productoId === p.id);
+  assert.ok(hit);
+  assert.ok(hit.futuroMs > 5 * 60 * 1000);
+
+  const after = await w.request('/api/respaldo/exportar');
+  assert.equal(
+    after.productos.find((x) => x.id === p.id).creadoEn,
+    before.productos.find((x) => x.id === p.id).creadoEn
+  );
+});
+
+
+test('clock forensic: null clock offset is unsealed and future sale is still flagged', async () => {
+  const w = browser();
+  const relayNow = 1800000000000;
+  w.OCLatencia = { ahoraRelay: () => relayNow };
+  const fx = await w.request('/api/respaldo/exportar');
+  const p = fx.productos.find((x) => Number(x.stockActual) >= 10);
+  p.id = 'p-clock-null-seal';
+  fx.productos = [p];
+  fx.ventas = [{
+    id: 'v-clock-null-seal',
+    productoId: p.id,
+    ubicacionId: p.ubicacionId,
+    cantidad: 1,
+    precioUnit: 10,
+    costoUnit: 4,
+    fecha: new Date(relayNow + 7 * 60 * 60 * 1000).toISOString(),
+    relojDesfaseMs: null,
+    relojMargenMs: null,
+    split: null,
+    liquidada: false,
+    anulada: false
+  }];
+  fx.movimientos = [];
+  await w.request('/api/respaldo/importar', 'POST', fx);
+
+  const audit = await w.request('/api/diagnostico/reloj-datos');
+  const hit = audit.ventasFechaSospechosa.find((x) => x.ventaId === 'v-clock-null-seal');
+  assert.ok(hit);
+  assert.equal(hit.tieneSelloReloj, false);
+  assert.equal(hit.relojDesfaseMs, null);
+  assert.equal(hit.motivo, 'fecha-futura-sin-sello');
+});

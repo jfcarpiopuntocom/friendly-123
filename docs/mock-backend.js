@@ -6043,7 +6043,43 @@
               fechaCorregida: Number.isFinite(_ms) ? new Date(_ms).toISOString() : null
             };
           });
-        return J({ relojComun: _ahora !== null, ahoraRelay: _ahora, toleranciaFuturoMs: _tol, stockSospechoso, ventasConDesfase });
+        const ventasFechaSospechosa = [];
+        const productosAltaSospechosa = [];
+        if (_ahora !== null) {
+          ventas.forEach((v) => {
+            if (!v || !v.fecha) return;
+            const _raw = Date.parse(v.fecha);
+            if (!Number.isFinite(_raw)) return;
+            const _tieneSello = v.relojDesfaseMs !== null && v.relojDesfaseMs !== "" && Number.isFinite(Number(v.relojDesfaseMs));
+            const _corregido = instanteCorregidoMs(v.fecha, v.relojDesfaseMs);
+            const _rawFuturo = _raw > _ahora + _tol;
+            const _corregidoFuturo = Number.isFinite(_corregido) && _corregido > _ahora + _tol;
+            if ((_rawFuturo && !_tieneSello) || _corregidoFuturo) {
+              ventasFechaSospechosa.push({
+                ventaId: v.id, productoId: v.productoId, fechaGuardada: v.fecha,
+                tieneSelloReloj: _tieneSello,
+                relojDesfaseMs: _tieneSello ? Number(v.relojDesfaseMs) : null,
+                fechaCorregida: Number.isFinite(_corregido) ? new Date(_corregido).toISOString() : null,
+                futuroMs: (Number.isFinite(_corregido) ? _corregido : _raw) - _ahora,
+                motivo: !_tieneSello ? "fecha-futura-sin-sello" : "fecha-corregida-sigue-en-futuro"
+              });
+            }
+          });
+          productos.forEach((p) => {
+            if (!p || p.borrado || !p.creadoEn) return;
+            const _alta = Date.parse(p.creadoEn);
+            if (Number.isFinite(_alta) && _alta > _ahora + _tol) {
+              productosAltaSospechosa.push({
+                productoId: p.id, nombre: p.nombre || "", creadoEn: p.creadoEn,
+                futuroMs: _alta - _ahora
+              });
+            }
+          });
+        }
+        return J({
+          relojComun: _ahora !== null, ahoraRelay: _ahora, toleranciaFuturoMs: _tol,
+          stockSospechoso, ventasConDesfase, ventasFechaSospechosa, productosAltaSospechosa
+        });
       }
 
       // GET /api/integridad — verifica la cadena anti-tamper del historial.
