@@ -2639,15 +2639,47 @@
           mia.gastoMensualRev = u.gastoMensualRev; _observarRev(u.gastoMensualRev); actualizados++;
         }
         const ganaU = _revDomina(u.rev, mia.rev);
+        /* v448-golden: la baja de una percha es una LAPIDA monotona.
+           DELETE no tiene operacion inversa en el producto: una copia vieja que
+           nunca vio la baja puede seguir editando nombre/meta y conseguir un rev
+           general mayor, pero eso JAMAS constituye una reactivacion intencional.
+           Antes ese rev copiaba borrado:false/activa:true sobre la lapida y la
+           percha reaparecia; si su foto por-id ya habia sido limpiada, reaparecia
+           ademas sin portada. Cualquier evidencia de borrado gana para esos dos
+           campos. El resto de metadatos puede seguir convergiendo normalmente. */
+        const lapidaLocal = !!mia.borrado;
+        const lapidaRemota = !!u.borrado;
+        if (lapidaRemota && !lapidaLocal) {
+          mia.borrado = true;
+          mia.activa = false;
+          if (ganaU === true) mia.rev = u.rev || mia.rev;
+          _observarRev(u.rev);
+          actualizados++;
+        }
         if (ganaU === true || (ganaU === null && mandaElOtro)) {
           if (!u.borrado && !esTextoCorto(String(u.nombre || ""), 240)) return;
           /* v446: fotoHash tiene su propia revision. Una edicion remota de nombre,
              trato o meta NO puede borrar el puntero de la foto solo porque ese peer
-             viejo mande fotoHash:null dentro de una revision general mas nueva. */
+             viejo mande fotoHash:null dentro de una revision general mas nueva.
+             v448-golden: borrado/activa tampoco se copian a ciegas; la lapida se
+             resuelve aparte y nunca puede ser deshecha por un peer rancio. */
           Object.keys(u).forEach((k) => {
-            if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev" && k !== "fotoHash" && k !== "fotoRev") mia[k] = u[k];
+            if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev" &&
+                k !== "fotoHash" && k !== "fotoRev" && k !== "borrado" && k !== "activa") mia[k] = u[k];
           });
+          /* Activa solo converge mientras ninguno de los dos lados conozca una baja.
+             Una percha borrada permanece inactiva aunque el registro remoto gane. */
+          if (!lapidaLocal && !lapidaRemota && Object.prototype.hasOwnProperty.call(u, "activa")) {
+            mia.activa = u.activa !== false;
+          }
+          if (lapidaLocal || lapidaRemota || mia.borrado) {
+            mia.borrado = true;
+            mia.activa = false;
+          }
           _observarRev(u.rev); actualizados++;
+        } else if (lapidaLocal || lapidaRemota || mia.borrado) {
+          mia.borrado = true;
+          mia.activa = false;
         }
         /* v446 — merge independiente del puntero de foto.
            - Peer nuevo: fotoRev decide set/reemplazo/borrado.
@@ -3502,7 +3534,12 @@
     estadoParaCheckpoint() {
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
+        /* v448-golden: el checkpoint debe conservar la identidad logica de la
+           percha, no solo sus campos visibles. Sin borrado/rev una lapida podia
+           degradarse a una percha activa al bootstrap; sin fotoHash/fotoRev un
+           aparato nuevo recibia la percha pero perdia la asociacion exacta de su
+           foto aunque los bytes viajaran por el canal de fotos. */
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, rev: u.rev || null, borrado: !!u.borrado })),
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
@@ -3546,7 +3583,7 @@
         snap.ubicaciones.forEach((u) => {
           if (!u || !u.id) return;
           if (!ubicaciones.some((x) => String(x.id) === String(u.id))) {
-            ubicaciones.push(Object.assign({}, u, { activa: u.activa !== false }));
+            ubicaciones.push(Object.assign({}, u, { activa: !u.borrado && u.activa !== false, borrado: !!u.borrado }));
             if (!(u.id in gastosMensuales)) gastosMensuales[u.id] = 0;
             agP++;
           }
