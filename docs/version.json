@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN hotfix golden6: Prime Directive 1AAA. Combina recovery exacto por historial Yjs con un Photo Recovery Vault forense que muestra TODO byte fotografico preservado, incluso si un registro viejo aun lo referencia. Matches exactos se preseleccionan; restaurar es copy-only + pointer explicito. Nada se borra ni se mueve.",
+  "changelog": "v448 GOLDEN hotfix golden7: arquitectura hexagonal para fotos de perchas. La política de recuperación sale de la UI hacia un domain core puro + caso de uso con puertos; IndexedDB, Yjs, fetch y DOM quedan como adaptadores. Prime Directive 1AAA sigue fail-safe: render nunca destruye evidencia.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden6"
+  "cacheGeneration": "golden7"
 }
