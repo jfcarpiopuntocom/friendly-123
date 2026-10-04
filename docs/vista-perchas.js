@@ -307,10 +307,10 @@
         ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
         : [];
       /* v448 GOLDEN G02: RENDER NUNCA BORRA EVIDENCIA FOTOGRAFICA.
-         No existe en la UX una accion "quitar foto" de una percha activa: la unica
-         baja explicita que elimina bytes es borrar la percha completa, mas abajo.
-         Por eso fotoHash:null + fotoRev en una percha ACTIVA se trata como puntero
-         perdido/corrupto, no como permiso para destruir la copia local por id. */
+         fotoHash:null + fotoRev sigue significando borrado moderno explicito: no
+         se muestra ni se self-healea. La diferencia es que render ya NO destruye
+         el mirror local; borrar bytes queda reservado a la accion DELETE de la
+         percha completa. Si falta fotoRev, el self-heal legacy sigue siendo seguro. */
       /* v449: evidencia efimera de ESTA carga. Si acabamos de derivar un hash
          desde los bytes guardados bajo el id de una percha y el PUT de ese mismo
          pointer fue aceptado, sabemos sin adivinar que esos bytes corresponden al
@@ -325,7 +325,7 @@
          buscamos por nombre ni copiamos una foto de otra percha. */
       if (perchasVisibles.length && window.OCFotos && window.OCFotos.guardarFotoContenido) {
         await Promise.all(perchasVisibles.map(async (u) => {
-          if (!u || u.fotoHash || !fotoCache[u.id]) return;
+          if (!u || u.fotoHash || u.fotoRev || !fotoCache[u.id]) return;
           try {
             const bytes = fotoCache[u.id];
             const hash = await window.OCFotos.guardarFotoContenido(bytes);
@@ -381,12 +381,11 @@
                     try { await window.OCFotos.guardarPorHash(u.fotoHash, espejo); } catch (_) {}
                   }
                 } else {
-                  /* G02: si el pointer vigente aun no tiene bytes disponibles, NO
-                     destruimos la unica copia local conocida. La mostramos como
-                     fallback temporal en ESTE aparato, sin reescribir fotoHash: si
-                     luego llega el blob del hash vigente, ese gana automaticamente.
-                     Esto evita el "shelf en blanco" y conserva evidencia recuperable. */
-                  d = espejo;
+                  /* v448 GOLDEN G02: preservar NO significa adivinar.
+                     Si el mirror por-id NO corresponde al fotoHash vigente, no se
+                     pinta bajo ese pointer y no se reescribe el catalogo. Pero
+                     tampoco se borra: puede ser la unica evidencia recuperable
+                     mientras el blob correcto llega por sync o se diagnostica. */
                   try {
                     if (window.OCCanarios && window.OCCanarios.fallo) {
                       window.OCCanarios.fallo("perchas", "foto-pointer-sin-bytes");
