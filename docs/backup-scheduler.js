@@ -135,11 +135,21 @@
     if (res.status === 403) throw new Error("This device is not activated. Log in with PIN 789 to activate it, then come back to back up.");
     if (!res.ok) throw new Error("Could not read business data.");
     const datos = await res.json();
+    // v449: the sovereign backup must include the same modern photo stores as
+    // Advanced -> Export backup. Per-id bytes restore known shelf photos;
+    // hash->bytes preserves forensic evidence without inventing shelf mappings.
+    let fotosIDB = {}, fotosBlobs = {};
+    try {
+      if (window.OCFotos && window.OCFotos.leerTodas) fotosIDB = (await window.OCFotos.leerTodas()) || {};
+      if (window.OCFotos && window.OCFotos.leerTodosPorHash) fotosBlobs = (await window.OCFotos.leerTodosPorHash()) || {};
+    } catch (_) {}
     const paquete = {
       app: "friendly-123",
       exportadoEn: new Date().toISOString(),
       schemaVersion: 2,
       datos,
+      fotosIDB,
+      fotosBlobs,
     };
     const texto = JSON.stringify(paquete, null, 2);
     const now = new Date();

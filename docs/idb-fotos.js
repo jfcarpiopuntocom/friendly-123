@@ -107,6 +107,44 @@
       });
     } catch (err) { console.error("[idb-fotos] hashesGuardados:", err); return []; }
   }
+
+  // v449: export forense read-only del almacen content-addressed completo.
+  // Conserva hash -> bytes aunque el puntero de una percha ya se haya perdido.
+  // NO intenta asociar hashes huerfanos a ninguna percha.
+  async function leerTodosPorHash() {
+    if (!SOPORTADO) {
+      const out = {};
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.indexOf("f123_fotoblob_") === 0) {
+            const hash = k.slice("f123_fotoblob_".length);
+            const dataUrl = localStorage.getItem(k);
+            if (dataUrl) out[hash] = dataUrl;
+          }
+        }
+      } catch (_) {}
+      return out;
+    }
+    try {
+      const db = await abrirDB();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_BLOBS, "readonly");
+        const store = tx.objectStore(STORE_BLOBS);
+        const out = {};
+        const req = store.openCursor();
+        req.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) { out[String(cursor.key)] = cursor.value; cursor.continue(); }
+          else resolve(out);
+        };
+        req.onerror = () => reject(req.error);
+      });
+    } catch (err) {
+      console.error("[idb-fotos] leerTodosPorHash:", err);
+      return {};
+    }
+  }
   // Guarda una foto por su hash y DEVUELVE el hash — atajo para quien captura.
   async function guardarFotoContenido(dataUrl) {
     const hash = await hashDeDataUrl(dataUrl);
@@ -241,6 +279,6 @@
   window.OCFotos = {
     guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta, soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
-    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, hashesGuardados, guardarFotoContenido
+    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, hashesGuardados, leerTodosPorHash, guardarFotoContenido
   };
 })();

@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Clock forensics v448: read-only diagnostics surface pre-v438 future-dated sales without clock seals and impossible future product creation dates; no customer data is rewritten or auto-repaired. Promotion is fail-closed and requires a fresh real lord-canary report from /next/.",
+  "changelog": "Photo durability + backup integrity v449: synced shelf photos are durably mirrored by shelf ID without resurrecting modern deletions; manual and scheduled backups preserve both shelf-ID photos and content-addressed hash evidence. No stock, sales, commissions, customer ledger, or sync-engine semantics changed.",
   "requerida": false,
-  "shell": "f123-shell-v448",
+  "shell": "f123-shell-v449",
   "apagar": [],
   "releaseName": "v1.0"
 }
