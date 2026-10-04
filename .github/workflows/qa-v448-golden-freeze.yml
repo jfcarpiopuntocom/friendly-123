@@ -1,0 +1,65 @@
+name: qa-v448-golden-freeze
+
+on:
+  push:
+    branches: [hotfix/v448-golden-freeze]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+
+      - name: "01 Golden identity and cache uniqueness"
+        run: |
+          grep -q '"shell": "f123-shell-v448-golden1"' docs/version.json
+          grep -q '"releaseName": "v448 GOLDEN"' docs/version.json
+          grep -q 'const CACHE = "f123-shell-v448-golden1"' docs/sw.js
+          grep -q '"shell": "f123-shell-v448-golden1"' docs/version-manifest.json
+          ! grep -q '"shell": "f123-shell-v450"' docs/version.json
+
+      - name: "02 Shelf lifecycle tombstones"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/shelf-lifecycle-race-v448.test.js test/perchas-hotfix-v444.test.js test/commissions-deleted-racks.test.js
+
+      - name: "03 Shelf photo durability and self-heal"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-photo-selfheal-v446.test.js test/shelf-photo-integrity-v446.test.js test/shelf-photo-durability-v449.test.js test/photo-backup-evidence-v449.test.js test/backup-fotos.test.js
+
+      - name: "04 WebKit iPhone shelf-photo smoke"
+        run: node .claude/smoke-v449-photo-webkit.cjs
+
+      - name: "05 Stock zero replay regression"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/stock-zero-replay-v445.test.js test/venta-durable-deficit.test.js test/venta-cantidad.test.js
+
+      - name: "06 Undo cancellation and returns"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/deshacer-cancelacion-vencido.test.js test/devoluciones.test.js
+
+      - name: "07 Belén commissions and product assignment"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/belen-comisionistas-sync.test.js test/commissions-belen.test.js test/commissions-product-assignment.test.js test/comision-por-producto.test.js
+
+      - name: "08 Sync/Yjs convergence"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/yjs-bridge.test.js test/sync-behavior.test.js test/sync-hardening.test.js test/sync-zero-trust.test.js
+
+      - name: "09 Full regression suite"
+        run: npm test
+
+      - name: "10 Manifest, SW and diff hygiene"
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before.json
+          node scripts/gen-manifest.js
+          diff -u /tmp/version-manifest.before.json docs/version-manifest.json
+          bash check-sw.sh
+          git fetch -q origin master
+          git diff --check origin/master...HEAD
