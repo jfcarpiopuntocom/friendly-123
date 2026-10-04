@@ -190,3 +190,37 @@ test('clock forensic: diagnostic flags impossible future product creation but do
     before.productos.find((x) => x.id === p.id).creadoEn
   );
 });
+
+
+test('clock forensic: null clock offset is unsealed and future sale is still flagged', async () => {
+  const w = browser();
+  const relayNow = 1800000000000;
+  w.OCLatencia = { ahoraRelay: () => relayNow };
+  const fx = await w.request('/api/respaldo/exportar');
+  const p = fx.productos.find((x) => Number(x.stockActual) >= 10);
+  p.id = 'p-clock-null-seal';
+  fx.productos = [p];
+  fx.ventas = [{
+    id: 'v-clock-null-seal',
+    productoId: p.id,
+    ubicacionId: p.ubicacionId,
+    cantidad: 1,
+    precioUnit: 10,
+    costoUnit: 4,
+    fecha: new Date(relayNow + 7 * 60 * 60 * 1000).toISOString(),
+    relojDesfaseMs: null,
+    relojMargenMs: null,
+    split: null,
+    liquidada: false,
+    anulada: false
+  }];
+  fx.movimientos = [];
+  await w.request('/api/respaldo/importar', 'POST', fx);
+
+  const audit = await w.request('/api/diagnostico/reloj-datos');
+  const hit = audit.ventasFechaSospechosa.find((x) => x.ventaId === 'v-clock-null-seal');
+  assert.ok(hit);
+  assert.equal(hit.tieneSelloReloj, false);
+  assert.equal(hit.relojDesfaseMs, null);
+  assert.equal(hit.motivo, 'fecha-futura-sin-sello');
+});
