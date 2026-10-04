@@ -149,7 +149,9 @@ jobs:
           ROJO=$(echo "$E" | jq -r '.rojo // false')
           DET=$(echo "$E" | jq -r '.detenido // false')
           SHELL_E=$(echo "$E" | jq -r '.shell // empty')
-          case "$REP:$APA:$ULT:$NEXT" in *[!0-9:]*|'') echo "Sonar final invalido"; exit 0 ;; esac
+          for N in "$REP" "$APA" "$ULT" "$NEXT"; do
+            case "$N" in ''|*[!0-9]*) echo "Sonar final invalido"; exit 0 ;; esac
+          done
           AHORA=$(( $(date +%s) * 1000 ))
           if [ "$SHELL_E" != "$BUILD_NUEVO" ] || [ "$ROJO" = "true" ] || [ "$DET" = "true" ] ||
              [ "$REP" -lt 1 ] || [ "$APA" -lt 1 ] ||
