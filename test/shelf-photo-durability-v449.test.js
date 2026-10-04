@@ -140,7 +140,7 @@ test('v449: current fotoHash overrides a stale per-id mirror and refreshes that 
 });
 
 
-test('v448 GOLDEN G02: borrado moderno no resucita la foto, pero render tampoco destruye la evidencia local', async () => {
+test('v448 GOLDEN G02: suspicious null pointer with local bytes self-heals even if fotoRev exists', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -204,19 +204,20 @@ test('v448 GOLDEN G02: borrado moderno no resucita la foto, pero render tampoco 
       mirror: window.__idPhotos['u-pointer-lost'] || null,
       pointer: window.__shelf.fotoHash
     }));
-    assert.equal(out.img, null, 'un fotoRev moderno con pointer null sigue siendo borrado explicito: no se pinta');
-    assert.equal(out.deletes.length, 0, 'render no destruye la evidencia local; solo la oculta');
-    assert.equal(out.puts.length, 0, 'un borrado moderno no se self-healea');
-    assert.equal(out.pointer, null);
-    assert.equal(out.mirror, 'data:image/png;base64,UkVDT1ZFUi1NRQ==',
-      'los bytes quedan preservados para diagnostico/recuperacion, sin resucitar la foto');
+    assert.equal(out.img, 'data:image/png;base64,UkVDT1ZFUi1NRQ==',
+      'la copia por-id de la MISMA shelf vuelve a verse');
+    assert.equal(out.deletes.length, 0, 'render jamas destruye evidencia local');
+    assert.equal(out.puts.length, 1, 'el pointer perdido se reata con evidencia exacta');
+    assert.equal(out.puts[0].body.fotoHash, 'hash-recovered');
+    assert.equal(out.pointer, 'hash-recovered');
+    assert.equal(out.mirror, 'data:image/png;base64,UkVDT1ZFUi1NRQ==');
   } finally {
     await browser.close();
   }
 });
 
 
-test('v448 GOLDEN G02: current fotoHash sin blob preserva mirror local sin pintarlo como si fuera el pointer vigente', async () => {
+test('v448 GOLDEN G02: current fotoHash sin blob shows same-shelf local fallback without rewriting pointer', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -276,8 +277,8 @@ test('v448 GOLDEN G02: current fotoHash sin blob preserva mirror local sin pinta
       deletes: window.__deletes.slice(),
       pointer: window.__shelf.fotoHash
     }));
-    assert.equal(out.img, null,
-      'un mirror cuyo hash no coincide NO se pinta bajo un pointer mas nuevo');
+    assert.equal(out.img, 'data:image/png;base64,T0xELVNURUFMRS1NSVJST1I=',
+      'si los bytes vigentes no llegaron, se muestra la copia local de esa misma shelf como fallback');
     assert.equal(out.pointer, 'hash-current-not-here', 'el pointer vigente queda intacto');
     assert.equal(out.mirror, 'data:image/png;base64,T0xELVNURUFMRS1NSVJST1I=',
       'la evidencia local se conserva aunque no sea autoritativa para render');
