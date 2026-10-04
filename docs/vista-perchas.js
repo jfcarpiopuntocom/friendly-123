@@ -316,6 +316,13 @@
           try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
         }
       }));
+      /* v449: evidencia efimera de ESTA carga. Si acabamos de derivar un hash
+         desde los bytes guardados bajo el id de una percha y el PUT de ese mismo
+         pointer fue aceptado, sabemos sin adivinar que esos bytes corresponden al
+         fotoHash que acabamos de fijar. Esto preserva el self-heal v446 sin abrir
+         la puerta a mostrar un espejo id obsoleto bajo un hash llegado de otro peer. */
+      const fotoRecuperadaEnEstaCarga = new Map();
+
       /* v446 (JFC 2026-10-03): auto-reparacion SIN inventar datos.
          Las fotos antiguas de percha se guardaban tambien por id. Si ese byte local
          sigue aqui pero un peer viejo dejo fotoHash en null, volvemos a calcular EL
@@ -325,14 +332,18 @@
         await Promise.all(perchasVisibles.map(async (u) => {
           if (!u || u.fotoHash || u.fotoRev || !fotoCache[u.id]) return;
           try {
-            const hash = await window.OCFotos.guardarFotoContenido(fotoCache[u.id]);
+            const bytes = fotoCache[u.id];
+            const hash = await window.OCFotos.guardarFotoContenido(bytes);
             if (!hash) return;
             const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(u.id)}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ fotoHash: hash })
             });
-            if (!rr || rr.ok !== false) u.fotoHash = hash;
+            if (!rr || rr.ok !== false) {
+              u.fotoHash = hash;
+              fotoRecuperadaEnEstaCarga.set(u.id, { hash, bytes });
+            }
           } catch (_) {}
         }));
       }
@@ -345,7 +356,9 @@
         await Promise.all(perchasVisibles.map(async (u) => {
           if (u && u.fotoHash) {
             try {
-              let d = await window.OCFotos.leerPorHash(u.fotoHash);
+              const recuperada = fotoRecuperadaEnEstaCarga.get(u.id);
+              let d = recuperada && recuperada.hash === u.fotoHash ? recuperada.bytes : null;
+              if (!d) d = await window.OCFotos.leerPorHash(u.fotoHash);
               // Read-repair: tras reenganchar un aparato, Yjs puede tener ya el blob
               // aunque OCFotos aun no lo haya volcado. Usar el MISMO hash; no inventa
               // ni modifica datos de negocio. Si aparece, se rehidrata localmente.
