@@ -16,7 +16,7 @@ const PHOTO_FILES = {
 async function loadPhotoStack(page) {
   await page.addScriptTag({ url: '/photo-policy.js' });
   await page.addScriptTag({ url: '/recover-photo.js' });
-  await loadPhotoStack(page);
+  await page.addScriptTag({ url: '/vista-perchas.js' });
 }
 
 async function serverFor(files, fn) {
