@@ -306,16 +306,11 @@
       const perchasVisibles = Array.isArray(perchas)
         ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
         : [];
-      /* v449: fotoHash=null + fotoRev significa borrado MODERNO intencional,
-         no "puntero viejo perdido". Limpiar el espejo por id evita mostrar o
-         resucitar una foto que otro aparato borro explicitamente. */
-      await Promise.all(perchasVisibles.map(async (u) => {
-        if (!u || u.fotoHash || !u.fotoRev) return;
-        delete fotoCache[u.id];
-        if (window.OCFotos && window.OCFotos.borrarFoto) {
-          try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
-        }
-      }));
+      /* v448 GOLDEN photo-rescue:
+         RENDER JAMAS BORRA EVIDENCIA. En la app real no existe una accion normal
+         "quitar foto" de una percha activa; por tanto fotoHash=null + fotoRev no
+         prueba intencion de borrar. Puede ser un puntero perdido por sync/merge.
+         La copia por-id se conserva para poder reconstruir el hash exacto. */
       /* v449: evidencia efimera de ESTA carga. Si acabamos de derivar un hash
          desde los bytes guardados bajo el id de una percha y el PUT de ese mismo
          pointer fue aceptado, sabemos sin adivinar que esos bytes corresponden al
@@ -330,7 +325,7 @@
          buscamos por nombre ni copiamos una foto de otra percha. */
       if (perchasVisibles.length && window.OCFotos && window.OCFotos.guardarFotoContenido) {
         await Promise.all(perchasVisibles.map(async (u) => {
-          if (!u || u.fotoHash || u.fotoRev || !fotoCache[u.id]) return;
+          if (!u || u.fotoHash || !fotoCache[u.id]) return;
           try {
             const bytes = fotoCache[u.id];
             const hash = await window.OCFotos.guardarFotoContenido(bytes);
@@ -386,10 +381,14 @@
                     try { await window.OCFotos.guardarPorHash(u.fotoHash, espejo); } catch (_) {}
                   }
                 } else {
-                  delete fotoCache[u.id];
-                  if (hashEspejo && window.OCFotos.borrarFoto) {
-                    try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
-                  }
+                  /* No pintar el espejo bajo un hash distinto, pero tampoco
+                     destruirlo. Es evidencia ligada al id exacto de la percha y
+                     puede ser la unica copia recuperable si el puntero remoto era
+                     el corrupto. Solo una accion explicita de usuario puede borrar
+                     bytes de foto. */
+                  try {
+                    if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("perchas", "foto-hash-no-resuelta");
+                  } catch (_) {}
                 }
               }
               if (d) {
