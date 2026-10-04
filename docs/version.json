@@ -1,9 +1,11 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN: release congelada. Los hotfixes de fotos y lifecycle quedan absorbidos sin cambiar la identidad publica v448; CacheStorage usa una generacion interna separada para invalidar shell sin colisionar con el v448 historico. No se reescriben datos de clientes.",
+  "changelog": "v448 GOLDEN hotfix G02: mantiene la release publica v448, separa build canario de version visible y endurece la promocion contra workflows viejos/races. Fotos, lifecycle, stock, undo y sync conservan el hardening de G01; no reescribe datos de clientes.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
-  "releaseName": "v448 GOLDEN"
+  "releaseName": "v448 GOLDEN",
+  "canaryBuild": "f123-shell-v44802",
+  "cacheGeneration": "golden2"
 }
