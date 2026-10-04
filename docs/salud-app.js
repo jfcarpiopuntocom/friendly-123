@@ -421,10 +421,17 @@
     global.addEventListener("error", anotar);
     global.addEventListener("unhandledrejection", anotar);
   } catch (_) {}
-  var shell = "";
+  var shell = "", releaseName = "";
   try {
     fetch("version.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (v) { if (v && v.shell) shell = String(v.shell); }).catch(function () {});
+      .then(function (v) {
+        if (!v) return;
+        /* v448 GOLDEN G02: el Sonar necesita distinguir cada hotfix aunque la
+           version que ve el usuario siga siendo v448. canaryBuild es interno,
+           numerico y compatible con el Worker ya desplegado. */
+        if (v.canaryBuild || v.shell) shell = String(v.canaryBuild || v.shell);
+        if (v.releaseName) releaseName = String(v.releaseName).slice(0, 40);
+      }).catch(function () {});
   } catch (_) {}
   function canal() { var m = /\/(next|previo)\//.exec(global.location ? global.location.pathname : ""); return m ? m[1] : "estable"; }
   function norm(x) { return typeof x === "string" ? x.trim().toUpperCase().replace(/\s+/g, "") : ""; }
@@ -487,5 +494,5 @@
     if (demoVistoYa) return; demoVistoYa = true;
     fallo(origen === "tablero" ? "tablero" : "arranque", "demo-visto");
   }
-  global.OCSalud = { demoVisto: demoVisto, fallo: fallo, fallos: function () { return Object.assign({}, fallos); }, resumen: resumen, medirCuadre: medirCuadre, esLord: esLord, canal: canal };
+  global.OCSalud = { demoVisto: demoVisto, fallo: fallo, fallos: function () { return Object.assign({}, fallos); }, resumen: resumen, releaseName: function () { return releaseName; }, medirCuadre: medirCuadre, esLord: esLord, canal: canal };
 })(typeof window !== "undefined" ? window : this);
