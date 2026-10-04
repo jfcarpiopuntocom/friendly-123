@@ -347,7 +347,9 @@
        solo puede montarse con una bandera tecnica explicita en esta sesion. */
     try {
       const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : '';
-      return sessionStorage.getItem('f123_diag_photo_vault') === '1' &&
+      const activado = window.__F123_DIAG_PHOTO_VAULT === true ||
+        sessionStorage.getItem('f123_diag_photo_vault') === '1';
+      return activado &&
         (rol === 'dueno' || rol === 'dueño' || rol === 'owner' || rol === 'admin');
     } catch (_) { return false; }
   }
