@@ -101,7 +101,12 @@ test('6. the artist PIN is never returned by the associates list', async () => {
     w.OCAuth.rolActual = () => rol;
     const lista = await w.request('/api/promotoras');
     const a = lista.find((p) => p.id === ana.id);
-    assert.equal(JSON.stringify(a).includes('614'), false, `${rol} must not see the artist PIN`);
+    // Security assertion must inspect the schema, not search for the digit
+    // sequence "614" anywhere in JSON: ids/revisions/timestamps can contain it
+    // by chance and made this test flaky. The secret container itself must never
+    // cross the API boundary.
+    assert.equal(Object.hasOwn(a, 'accesoArtista'), false, `${rol} must not receive the artist access secret object`);
+    assert.equal(Object.hasOwn(a, 'pin'), false, `${rol} must not receive a direct artist PIN field`);
     assert.equal(a.tieneAccesoArtista, true);
   }
 });

@@ -436,6 +436,42 @@
     });
   }
 
+  /* G10b PHOTO RECOVERY (2026-10-04).
+     Segunda ventana historica: aislamiento copia localStorage legacy una sola
+     vez. Una shell vieja que vuelva a abrirse DESPUES puede escribir nuevas
+     claves raw f123_foto_percha_* / f123_fotoblob_* fuera del namespace; el
+     shim moderno ya no las ve porque el marcador de migracion existe.
+     Esta capacidad es deliberadamente estrecha:
+       - solo dos prefijos de FOTO;
+       - solo valores data:image/*;
+       - readonly;
+       - nunca borra ni cambia la fuente;
+       - no expone acceso generico al localStorage nativo. */
+  function leerFotosLocalStoragePreAislamiento() {
+    var out = { perchas: {}, blobs: {} };
+    if (!nativo) return out;
+    try {
+      for (var i = 0; i < nativo.length; i++) {
+        var k = nativo.key(i);
+        if (!k || k.indexOf(PREFIJO) === 0) continue; // solo espacio raw historico
+        var tipo = null, id = "";
+        if (k.indexOf("f123_foto_percha_") === 0) {
+          tipo = "perchas";
+          id = k.slice("f123_foto_percha_".length);
+          if (!id || id.length > 240) continue;
+        } else if (k.indexOf("f123_fotoblob_") === 0) {
+          tipo = "blobs";
+          id = k.slice("f123_fotoblob_".length);
+          if (!/^[a-f0-9]{64}$/i.test(id)) continue;
+        } else continue;
+        var v = nativo.getItem(k);
+        if (typeof v !== "string" || v.indexOf("data:image/") !== 0) continue;
+        out[tipo][String(id)] = v;
+      }
+    } catch (_) {}
+    return out;
+  }
+
   // -------------------------------------------------------------------------
   // API publica minima, por si algun modulo quiere reaccionar a otra pestana.
   // -------------------------------------------------------------------------
@@ -446,6 +482,7 @@
     instalado: instalado, // H2 review: false = el shim no tomo, apps hermanas sin aislar
     idbInstalado: !!(abrirAislado),
     leerFotosDbPreAislamiento: leerFotosDbPreAislamiento,
+    leerFotosLocalStoragePreAislamiento: leerFotosLocalStoragePreAislamiento,
     onCambio: function (fn) { if (typeof fn === "function") oyentes.push(fn); },
     epoca: function () { return miEpoca; }
   };

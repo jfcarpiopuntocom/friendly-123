@@ -618,6 +618,7 @@
              https://.../docs/ y recargar. "Back to github.io" borra el canario.
              Solo dueno/admin ven los botones; la linea la ve cualquiera. -->
         <p id="oc-codigo-estado" style="display:none;font-size:13px;font-weight:700;margin:6px 0 0;color:#1a1a1a;">Code: …</p>
+        <p id="oc-fotos-storage-diag" style="display:none;font-size:13px;font-weight:700;margin:6px 0 0;color:#1a1a1a;">Photos: checking preserved evidence…</p>
         <div id="oc-codigo-canario" style="display:none;margin-top:6px;flex-wrap:wrap;gap:6px;align-items:center;">
           <input id="oc-codigo-url" type="url" placeholder="https://your-domain/friendly-123/docs/" style="flex:1 1 220px;min-width:0;font-size:14px;padding:6px 8px;color:#1a1a1a;">
           <button type="button" class="tecla" id="oc-codigo-usar" style="font-size:13px;">Try this origin on this device</button>
@@ -663,7 +664,36 @@
         } catch (_) { return false; }
       })();
       if (_verDiag) {
-        ["oc-sync-estado-min", "oc-codigo-estado"].forEach(function (id) { var n = document.getElementById(id); if (n) n.style.display = ""; });
+        ["oc-sync-estado-min", "oc-codigo-estado", "oc-fotos-storage-diag"].forEach(function (id) { var n = document.getElementById(id); if (n) n.style.display = ""; });
+      }
+
+      /* G10b — DIAGNOSTICO DE EVIDENCIA FOTOGRAFICA, SOLO JFC/canario.
+         Solo CONTEOS: jamas nombres de percha, ids, hashes ni bytes. Sirve para
+         distinguir "no hay evidencia local" de "hay evidencia pero no se pinta". */
+      if (_verDiag) {
+        try {
+          var _pintarFotosDiag = async function () {
+            var el = document.getElementById("oc-fotos-storage-diag"); if (!el) return;
+            try {
+              if (!window.OCFotos || !window.OCFotos.diagnosticoRecuperacion) {
+                el.textContent = "Photos: recovery diagnostics unavailable";
+                return;
+              }
+              var d = await window.OCFotos.diagnosticoRecuperacion();
+              var c = d.current || {}, db = d.dbPreAislamiento || {}, raw = d.rawLocalStorage || {};
+              el.textContent = "Photos: current " + (c.perchas || 0) + " shelf / " + (c.blobs || 0) + " blobs" +
+                " · old DB found " + (db.encontradasPerchas || 0) + "/" + (db.encontradosBlobs || 0) +
+                " copied " + (db.perchas || 0) + "/" + (db.blobs || 0) +
+                " · raw legacy found " + (raw.encontradasPerchas || 0) + "/" + (raw.encontradosBlobs || 0) +
+                " copied " + (raw.perchas || 0) + "/" + (raw.blobs || 0);
+            } catch (_) { el.textContent = "Photos: diagnostics could not be read"; }
+          };
+          _pintarFotosDiag();
+          document.addEventListener("oc-fotos-actualizadas", function () { setTimeout(_pintarFotosDiag, 150); });
+          document.addEventListener("click", function (ev) {
+            if (ev.target && ev.target.closest && ev.target.closest('nav button[data-vista="avanzado"]')) setTimeout(_pintarFotosDiag, 250);
+          }, true);
+        } catch (_) {}
       }
 
       /* Franja del canario (F5). Solo lord + dueno (OCSalud.esLord y rol). Lee
