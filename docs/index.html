@@ -9261,9 +9261,12 @@ function volverArribaAvanzado() {
    dashboard: se reusa el editor de la app (que ya valida y es solo dueño/admin).
    Extensible: #editar=producto:<id> abre el inventario en ese producto. */
 async function procesarDeepLinkEditar() {
-  var m = (location.hash || "").match(/#editar=([a-z]+):([^&]+)/i);
+  var _hashEditar = location.hash || "";
+  var m = _hashEditar.match(/#editar=([a-z]+):([^&]+)/i);
   if (!m) return;
   var tipo = m[1].toLowerCase(), id = decodeURIComponent(m[2]);
+  var _mesEditarM = _hashEditar.match(/[&?]mes=(\d{4}-(?:0[1-9]|1[0-2]))(?:&|$)/i);
+  var _mesEditar = _mesEditarM ? _mesEditarM[1] : "";
   try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
   var sel = (window.CSS && CSS.escape) ? CSS.escape(id) : id.replace(/"/g, '\\"');
   if (tipo === "venta") {
@@ -9308,6 +9311,11 @@ async function procesarDeepLinkEditar() {
     if (navP) navP.click();
     setTimeout(function () { try { if (typeof abrirEditorComisionPercha === "function") abrirEditorComisionPercha(id); } catch (_) {} }, 600);
   } else if (tipo === "comisiones") {
+    /* v448 GOLDEN hotfix 2026-10-04: el dashboard debe traer tambien el mes exacto
+       que estaba viendo. Se fija ANTES de abrir Commissions para que todas sus
+       lecturas y el pago usen ese periodo; un mes ausente/invalido conserva el
+       comportamiento anterior. El dashboard sigue siendo solo lectura. */
+    if (_mesEditar) _ocMesComisiones = _mesEditar;
     /* Bloque 6 (JFC 2026-09-24): el dashboard manda aqui con #editar=comisiones:<ubicacionId>
        para PAGAR o revisar una percha. El tablero no escribe dinero: la app lo hace
        con su boton probado. Se abre Commissions y se resalta la tarjeta. */
