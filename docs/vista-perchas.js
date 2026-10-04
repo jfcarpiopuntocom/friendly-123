@@ -369,37 +369,42 @@
     }
     let blobs = {};
     try { blobs = await window.OCFotos.leerTodosPorHash() || {}; } catch (_) {}
-    const refs = new Set();
+    const shelfRefs = new Set(), productRefs = new Set();
     try {
       const cat = window.OCSync && window.OCSync.catalogoPropio ? window.OCSync.catalogoPropio() : null;
-      (cat && cat.ubicaciones || []).forEach((u) => { if (u && u.fotoHash) refs.add(String(u.fotoHash)); });
-      (cat && cat.productos || []).forEach((p) => { if (p && p.fotoHash) refs.add(String(p.fotoHash)); });
+      (cat && cat.ubicaciones || []).forEach((u) => { if (u && u.fotoHash) shelfRefs.add(String(u.fotoHash)); });
+      (cat && cat.productos || []).forEach((p) => { if (p && p.fotoHash) productRefs.add(String(p.fotoHash)); });
     } catch (_) {}
     try {
-      const y = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('ubicaciones') : {};
-      Object.keys(y || {}).forEach((id) => { const u = y[id]; if (u && u.fotoHash) refs.add(String(u.fotoHash)); });
+      const yU = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('ubicaciones') : {};
+      const yP = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('productos') : {};
+      Object.keys(yU || {}).forEach((id) => { const u = yU[id]; if (u && u.fotoHash) shelfRefs.add(String(u.fotoHash)); });
+      Object.keys(yP || {}).forEach((id) => { const p = yP[id]; if (p && p.fotoHash) productRefs.add(String(p.fotoHash)); });
     } catch (_) {}
-    /* v448 GOLDEN G06: Recovery Vault = inventario forense completo, no GC.
-       G05 recupera automaticamente cuando el historial da un shelf ID exacto.
-       Lo que queda ambiguo debe seguir siendo visible aunque un registro viejo,
-       producto o Y.Map aun lo "referencie". Ocultarlo por refs hacia imposible
-       recuperar una foto que SI seguia fisicamente en el aparato. */
-    const todos = Object.keys(blobs).filter((h) => blobs[h]);
-    if (!todos.length) { cont.style.display = 'none'; return; }
-    const huerfanas = todos.filter((h) => !refs.has(h));
-    const referenciadas = todos.filter((h) => refs.has(h));
-    cont.style.display = '';
+
+    /* G08: incluso en modo diagnostico, el Vault deja de ser "todas las fotos".
+       Solo enseña hashes con evidencia POSITIVA de percha (actual, Yjs, historial
+       o checkpoint). Una foto de producto no aparece por el mero hecho de existir. */
     const hist = await historialFotosExacto();
+    const histCaja = await historialFotosCheckpointsExacto();
     const nombres = {};
     (perchasVisibles || []).forEach((u) => { if (u && u.id) nombres[String(u.id)] = u.nombre || u.id; });
     const idsPorHash = {};
-    Object.keys(hist || {}).forEach((id) => {
-      (hist[id] || []).forEach((h) => {
-        h = String(h || ''); if (!h) return;
-        if (!idsPorHash[h]) idsPorHash[h] = [];
-        if (idsPorHash[h].indexOf(String(id)) < 0) idsPorHash[h].push(String(id));
+    [hist || {}, histCaja || {}].forEach((fuente) => {
+      Object.keys(fuente).forEach((id) => {
+        (fuente[id] || []).forEach((h) => {
+          h = String(h || ''); if (!h) return;
+          shelfRefs.add(h);
+          if (!idsPorHash[h]) idsPorHash[h] = [];
+          if (idsPorHash[h].indexOf(String(id)) < 0) idsPorHash[h].push(String(id));
+        });
       });
     });
+    const todos = Object.keys(blobs).filter((h) => blobs[h] && shelfRefs.has(h));
+    if (!todos.length) { cont.style.display = 'none'; return; }
+    const huerfanas = todos.filter((h) => !Array.from(shelfRefs).includes(h) || !idsPorHash[h]);
+    const referenciadas = todos.filter((h) => !huerfanas.includes(h));
+    cont.style.display = '';
     const opcionesPara = (hash) => {
       const candidatos = (idsPorHash[hash] || []).filter((id) => nombres[id]);
       const preferido = candidatos.length === 1 ? candidatos[0] : '';
@@ -411,12 +416,12 @@
     const orden = huerfanas.concat(referenciadas);
     cont.innerHTML = `<details ${huerfanas.length ? 'open' : ''}>
       <summary style="cursor:pointer;font-weight:800;font-size:16px;">Photo Recovery Vault · ${todos.length} preserved</summary>
-      <p style="font-size:13px;margin:8px 0 12px;color:var(--ink-soft);">Prime Directive 1AAA: every photo byte still preserved on this device is listed here. ${huerfanas.length} unlinked · ${referenciadas.length} referenced somewhere. Exact historical matches are preselected when available. Nothing is deleted or moved; Restore makes a copy and sets only the shelf you choose.</p>
+      <p style="font-size:13px;margin:8px 0 12px;color:var(--ink-soft);">Diagnostic only: only photo bytes with positive shelf evidence are listed here. Product-photo evidence is excluded. ${huerfanas.length} unlinked · ${referenciadas.length} referenced somewhere. Exact historical matches are preselected when available. Nothing is deleted or moved; Restore makes a copy and sets only the shelf you choose.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
       ${orden.map((h) => {
         const op = opcionesPara(h);
         const pista = op.preferido ? `<div style="font-size:12px;margin-top:6px;color:var(--azul-medio,#2E6278);">Exact local history: ${esc(nombres[op.preferido])}</div>` : '';
-        const estado = refs.has(h) ? 'PRESERVED · referenced somewhere' : 'PRESERVED · unlinked';
+        const estado = productRefs.has(h) ? 'PRESERVED · shelf evidence (also used by product)' : 'PRESERVED · shelf evidence';
         return `<div style="border:1px solid var(--azul-suave,#dde5ec);padding:8px;border-radius:8px;">
           <img src="${blobs[h]}" alt="Preserved photo" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;">
           <div style="font-size:11px;font-weight:800;margin-top:5px;color:var(--ink-soft);">${estado}</div>
