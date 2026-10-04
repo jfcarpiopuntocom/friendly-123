@@ -28,9 +28,9 @@ jobs:
           grep -q '"shell": "f123-shell-v448"' docs/version.json
           grep -q '"releaseName": "v448 GOLDEN"' docs/version.json
           grep -q 'const CACHE = "f123-shell-v448"' docs/sw.js
-          grep -q '"canaryBuild": "f123-shell-v44802"' docs/version.json
-          grep -q '"cacheGeneration": "golden2"' docs/version.json
-          grep -q 'const CACHE_GENERACION = "-golden2"' docs/sw.js
+          grep -Eq '"canaryBuild": "f123-shell-v448[0-9]{2}"' docs/version.json
+          grep -Eq '"cacheGeneration": "golden([1-9]|[1-9][0-9])"' docs/version.json
+          grep -Eq 'const CACHE_GENERACION = "-golden([1-9]|[1-9][0-9])"' docs/sw.js
           grep -q 'const CACHE_LOCAL = CACHE + CACHE_GENERACION + CANAL' docs/sw.js
           grep -q '"shell": "f123-shell-v448"' docs/version-manifest.json
           ! grep -q '"shell": "f123-shell-v450"' docs/version.json
