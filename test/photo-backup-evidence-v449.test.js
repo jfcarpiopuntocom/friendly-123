@@ -6,6 +6,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
+const http = require('node:http');
+const { chromium } = require('playwright');
 
 function ventanaConFotos() {
   const entries = new Map();
@@ -79,4 +81,42 @@ test('v449: scheduled sovereign backup includes both durable photo stores', () =
     'scheduled backup must not omit per-shelf IndexedDB photos');
   assert.match(block, /fotosBlobs|exportarRespaldoFotos/,
     'scheduled backup must preserve content-addressed hash evidence');
+});
+
+
+test('v449: real Chromium IndexedDB exports shelf-id photos and hash blobs separately', async () => {
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end('<!doctype html><html><body>idb fixture</body></html>');
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto('http://127.0.0.1:' + port + '/');
+    await page.addScriptTag({ path: path.resolve(__dirname, '../docs/idb-fotos.js') });
+    const out = await page.evaluate(async () => {
+      const byId = 'data:image/png;base64,SUQtU1RPUkU=';
+      const byHash = 'data:image/png;base64,SEFTSC1TVE9SRQ==';
+      const okId = await window.OCFotos.guardarFoto('shelf-idb-fixture', byId);
+      const okHash = await window.OCFotos.guardarPorHash('hash-idb-fixture', byHash);
+      return {
+        soportado: window.OCFotos.soportado(),
+        okId, okHash,
+        ids: await window.OCFotos.leerTodas(),
+        blobs: await window.OCFotos.leerTodosPorHash()
+      };
+    });
+    assert.equal(out.soportado, true);
+    assert.equal(out.okId, true);
+    assert.equal(out.okHash, true);
+    assert.equal(out.ids['shelf-idb-fixture'], 'data:image/png;base64,SUQtU1RPUkU=');
+    assert.equal(out.blobs['hash-idb-fixture'], 'data:image/png;base64,SEFTSC1TVE9SRQ==');
+    assert.equal(out.ids['hash-idb-fixture'], undefined,
+      'hash evidence must stay unassigned unless a shelf id is independently known');
+  } finally {
+    await browser.close();
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
