@@ -129,7 +129,7 @@
   } catch (_) {}
   try {
     g.fetch("version.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (v) { if (v && v.shell) shell = String(v.shell); flujo("app_abierta", {}); }).catch(function () { flujo("app_abierta", {}); });
+      .then(function (v) { if (v && (v.canaryBuild || v.shell)) shell = String(v.canaryBuild || v.shell); flujo("app_abierta", {}); }).catch(function () { flujo("app_abierta", {}); });
   } catch (_) {}
 
   g.OCCanarios = { fallo: fallo, error: error, flujo: flujo, limpiar: limpiar, ultimos: function () { return ultimos.slice(); } };
