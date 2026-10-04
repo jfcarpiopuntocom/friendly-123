@@ -10,6 +10,7 @@ const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 test('Prime Directive 1AAA: photo persistence is append-only/copy-only', () => {
   const idb = read('docs/idb-fotos.js');
   const vp = read('docs/vista-perchas.js');
+  const auth = read('docs/auth-ui.js');
 
   assert.doesNotMatch(idb, /objectStore\(STORE\)\.delete\(id\)/);
   assert.doesNotMatch(idb, /localStorage\.removeItem\(claveVieja\(id\)\)/);
@@ -23,6 +24,8 @@ test('Prime Directive 1AAA: photo persistence is append-only/copy-only', () => {
   assert.match(vp, /Photo Recovery Vault/);
   assert.match(vp, /Restore photo/);
   assert.match(vp, /window\.OCYjs\.get\('ubicaciones'\)/);
+  assert.doesNotMatch(auth, /f123_foto_percha_[\s\S]{0,300}removeItem/,
+    'start-empty must not destroy legacy photo evidence');
 });
 
 test('Photo Recovery Vault does not assign an orphan until explicit restore click', async () => {
