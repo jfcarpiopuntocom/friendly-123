@@ -142,16 +142,6 @@ jobs:
 
           # Ultima lectura del Sonar, ya en la puerta del push.
           E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$BUILD_NUEVO" || echo '{}')
-          if ! echo "$E" | jq -e --arg b "$BUILD_NUEVO" '
-            .shell == $b and
-            .rojo != true and .detenido != true and
-            (.reportes // 0) >= 1 and (.aparatos // 0) >= 1 and
-            (.ultimo // 0) >= $ENV.COMMIT_AT_MS_NUM and
-            (.canales.next // 0) >= $ENV.COMMIT_AT_MS_NUM
-          ' COMMIT_AT_MS_NUM="$COMMIT_AT_MS" >/dev/null 2>&1; then
-            # jq no toma esa asignacion como env en todas las versiones; comprobacion numerica abajo.
-            :
-          fi
           REP=$(echo "$E" | jq -r '.reportes // 0')
           APA=$(echo "$E" | jq -r '.aparatos // 0')
           ULT=$(echo "$E" | jq -r '.ultimo // 0')
@@ -164,6 +154,7 @@ jobs:
           if [ "$SHELL_E" != "$BUILD_NUEVO" ] || [ "$ROJO" = "true" ] || [ "$DET" = "true" ] ||
              [ "$REP" -lt 1 ] || [ "$APA" -lt 1 ] ||
              [ "$ULT" -lt "$COMMIT_AT_MS" ] || [ "$NEXT" -lt "$COMMIT_AT_MS" ] ||
+             [ $(( AHORA - ULT )) -lt 0 ] || [ $(( AHORA - NEXT )) -lt 0 ] ||
              [ $(( AHORA - ULT )) -gt 420000 ] || [ $(( AHORA - NEXT )) -gt 420000 ]; then
             echo "CAS abortado: Sonar ya no es testigo verde/fresco del build exacto"
             exit 0
