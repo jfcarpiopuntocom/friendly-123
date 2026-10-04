@@ -95,7 +95,7 @@ test('salud: solo campos de la lista blanca; cuadre "ok" con ventas mezcladas (s
     assert.equal(r.cuadre, 'ok', 'Sold y Commissions cuadran: no hay rojo falso');
     assert.deepEqual(Object.keys(r.resumen).sort(), ['caidas', 'canal', 'cuadre', 'errores', 'mezcla', 'nodos', 'retenido', 'shell']);
     assert.equal(r.resumen.canal, 'next');
-    assert.match(r.resumen.shell, /^f123-shell-v\d+(?:-[A-Za-z0-9]+)*$/);
+    assert.match(r.resumen.shell, /^f123-shell-v\d+$/);
   });
 });
 
