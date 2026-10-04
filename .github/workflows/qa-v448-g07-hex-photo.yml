@@ -1,0 +1,56 @@
+name: qa-v448-g07-hex-photo
+
+on:
+  push:
+    branches:
+      - master
+      - "hotfix/v448-golden-*"
+    paths:
+      - "docs/core/**"
+      - "docs/application/**"
+      - "docs/vista-perchas.js"
+      - "docs/index.html"
+      - "docs/sw.js"
+      - "docs/version.json"
+      - "docs/version-manifest.json"
+      - "test/architecture-hexagonal.test.js"
+      - "test/shelf-photo-policy-hex.test.js"
+      - "test/recover-shelf-photo-ports.test.js"
+      - ".github/workflows/qa-v448-g07-hex-photo.yml"
+  pull_request:
+    paths:
+      - "docs/core/**"
+      - "docs/application/**"
+      - "docs/vista-perchas.js"
+      - "docs/index.html"
+      - "docs/sw.js"
+      - "docs/version.json"
+      - "docs/version-manifest.json"
+      - "test/architecture-hexagonal.test.js"
+      - "test/shelf-photo-policy-hex.test.js"
+      - "test/recover-shelf-photo-ports.test.js"
+
+permissions:
+  contents: read
+
+jobs:
+  hex-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax
+        run: |
+          node --check docs/core/shelf-photo-policy.js
+          node --check docs/application/recover-shelf-photo.js
+          node --check docs/vista-perchas.js
+      - name: Domain + application + architecture
+        run: |
+          node --test             test/shelf-photo-policy-hex.test.js             test/recover-shelf-photo-ports.test.js             test/architecture-hexagonal.test.js
+      - name: Shell integrity
+        run: bash check-sw.sh
+      - name: Diff hygiene
+        run: git diff --check HEAD^ HEAD
