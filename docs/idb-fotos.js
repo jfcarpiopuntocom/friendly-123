@@ -152,9 +152,24 @@
     return hash;
   }
 
-  // Clave localStorage que usaba el formato viejo (antes de esta migracion) —
-  // se mantiene aqui SOLO como fallback si IndexedDB no esta disponible.
+  // Clave localStorage que usaba el formato viejo (antes de esta migracion).
   const claveVieja = (id) => "f123_foto_percha_" + id;
+  function leerLegacyFoto(id) {
+    try { return localStorage.getItem(claveVieja(id)); } catch (_) { return null; }
+  }
+  function leerLegacyTodas() {
+    const out = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf("f123_foto_percha_") === 0) {
+          const dataUrl = localStorage.getItem(k);
+          if (dataUrl) out[k.slice("f123_foto_percha_".length)] = dataUrl;
+        }
+      }
+    } catch (_) {}
+    return out;
+  }
 
   async function guardarFoto(id, dataUrl) {
     if (!SOPORTADO) {
@@ -177,21 +192,19 @@
   }
 
   async function leerFoto(id) {
-    if (!SOPORTADO) {
-      try { return localStorage.getItem(claveVieja(id)); }
-      catch (_) { return null; }
-    }
+    if (!SOPORTADO) return leerLegacyFoto(id);
     try {
       const db = await abrirDB();
-      return await new Promise((resolve, reject) => {
+      const desdeIdb = await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE, "readonly");
         const req = tx.objectStore(STORE).get(id);
         req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => reject(req.error);
       });
+      return desdeIdb || leerLegacyFoto(id);
     } catch (err) {
       console.error("[idb-fotos] leerFoto:", err);
-      return null;
+      return leerLegacyFoto(id);
     }
   }
 
@@ -200,14 +213,7 @@
   // async individuales, una por tarjeta).
   async function leerTodas() {
     if (!SOPORTADO) {
-      const out = {};
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.indexOf("f123_foto_percha_") === 0) out[k.slice("f123_foto_percha_".length)] = localStorage.getItem(k);
-        }
-      } catch (_) {}
-      return out;
+      return leerLegacyTodas();
     }
     try {
       const db = await abrirDB();
@@ -219,13 +225,17 @@
         req.onsuccess = (e) => {
           const cursor = e.target.result;
           if (cursor) { out[cursor.key] = cursor.value; cursor.continue(); }
-          else resolve(out);
+          else {
+            const legacy = leerLegacyTodas();
+            Object.keys(legacy).forEach((id) => { if (!out[id]) out[id] = legacy[id]; });
+            resolve(out);
+          }
         };
         req.onerror = () => reject(req.error);
       });
     } catch (err) {
       console.error("[idb-fotos] leerTodas:", err);
-      return {};
+      return leerLegacyTodas();
     }
   }
 
@@ -262,15 +272,18 @@
         const k = localStorage.key(i);
         if (k && k.indexOf("f123_foto_percha_") === 0) claves.push(k);
       }
+      let todoOk = true;
       for (const k of claves) {
         const id = k.slice("f123_foto_percha_".length);
         const dataUrl = localStorage.getItem(k);
         if (dataUrl) {
           const ok = await guardarFoto(id, dataUrl);
           if (ok) localStorage.removeItem(k);
+          else todoOk = false;
         }
       }
-      localStorage.setItem(FLAG, "1");
+      if (todoOk) localStorage.setItem(FLAG, "1");
+      else localStorage.removeItem(FLAG);
     } catch (err) {
       console.error("[idb-fotos] migracion (se reintentara en el proximo load):", err);
     }
