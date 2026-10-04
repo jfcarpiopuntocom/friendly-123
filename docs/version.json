@@ -1,9 +1,9 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN: conserva la base v448 y absorbe como hotfixes el hardening de fotos y lifecycle probado en canario. Perchas archivadas/borradas resisten peers stale y reseeds; fotos quedan durables y respaldables. No se reescriben automaticamente datos de clientes.",
+  "changelog": "v448 GOLDEN: release congelada. Los hotfixes de fotos y lifecycle quedan absorbidos sin cambiar la identidad publica v448; CacheStorage usa una generacion interna separada para invalidar shell sin colisionar con el v448 historico. No se reescriben datos de clientes.",
   "requerida": false,
-  "shell": "f123-shell-v448-golden1",
+  "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN"
 }

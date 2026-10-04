@@ -2,7 +2,7 @@ name: qa-v448-golden-freeze
 
 on:
   push:
-    branches: [hotfix/v448-golden-freeze]
+    branches: ["hotfix/v448-golden-*"]
   workflow_dispatch: {}
 
 permissions:
@@ -25,10 +25,12 @@ jobs:
 
       - name: "01 Golden identity and cache uniqueness"
         run: |
-          grep -q '"shell": "f123-shell-v448-golden1"' docs/version.json
+          grep -q '"shell": "f123-shell-v448"' docs/version.json
           grep -q '"releaseName": "v448 GOLDEN"' docs/version.json
-          grep -q 'const CACHE = "f123-shell-v448-golden1"' docs/sw.js
-          grep -q '"shell": "f123-shell-v448-golden1"' docs/version-manifest.json
+          grep -q 'const CACHE = "f123-shell-v448"' docs/sw.js
+          grep -q 'const CACHE_GENERACION = "-golden1"' docs/sw.js
+          grep -q 'const CACHE_LOCAL = CACHE + CACHE_GENERACION + CANAL' docs/sw.js
+          grep -q '"shell": "f123-shell-v448"' docs/version-manifest.json
           ! grep -q '"shell": "f123-shell-v450"' docs/version.json
 
       - name: "02 Shelf lifecycle tombstones"
