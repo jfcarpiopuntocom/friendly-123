@@ -103,3 +103,33 @@ test('tres canales (previo, estable, next) conviven: ninguno borra la cache de o
     assert.ok(offline, 'la copia offline del estable sigue entera');
   } finally { await web.close(); srv.close(); }
 });
+
+
+test('golden v448: stable shell reloads offline after the service worker owns the page', async () => {
+  const srv = servidor();
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${srv.address().port}/friendly-123/`;
+  const web = await chromium.launch({ headless: true });
+  try {
+    const ctx = await web.newContext();
+    const page = await ctx.newPage();
+    await page.goto(base, { waitUntil: 'load' });
+    await esperarSW(page);
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForFunction(() => navigator.serviceWorker && navigator.serviceWorker.controller, null, { timeout: 30000 });
+    const shellAntes = await page.evaluate(() => document.body && document.body.textContent.length > 0);
+    assert.equal(shellAntes, true, 'shell visible antes de cortar red');
+    await ctx.setOffline(true);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const offline = await page.evaluate(() => ({
+      body: !!(document.body && document.body.textContent.length),
+      today: !!document.getElementById('vista-hoy'),
+      sold: !!document.getElementById('vista-escanear'),
+      inventory: !!document.getElementById('vista-inventario')
+    }));
+    assert.deepEqual(offline, { body: true, today: true, sold: true, inventory: true }, 'el shell esencial abre offline');
+  } finally {
+    await web.close();
+    srv.close();
+  }
+});
