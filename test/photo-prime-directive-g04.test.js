@@ -47,7 +47,7 @@ test('Photo Recovery Vault does not assign an orphan until explicit restore clic
       }[k] || k);
       window.OCI18n = { locale: () => 'en-US' };
       window.OCMoneda = { codigo: () => 'USD' };
-      sessionStorage.setItem('f123_diag_photo_vault', '1');
+      window.__F123_DIAG_PHOTO_VAULT = true;
       window.OCAuth = { puedeGestionar: () => true, rolActual: () => 'owner' };
       window.__byId = {};
       window.__puts = [];
