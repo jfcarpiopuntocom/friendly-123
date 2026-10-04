@@ -74,6 +74,8 @@ test('Photo Recovery Vault does not assign an orphan until explicit restore clic
         return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
       };
     });
+    await page.addScriptTag({ path: path.join(root, 'docs/core/shelf-photo-policy.js') });
+    await page.addScriptTag({ path: path.join(root, 'docs/application/recover-shelf-photo.js') });
     await page.addScriptTag({ path: path.join(root, 'docs/vista-perchas.js') });
     await page.evaluate(() => window.VPerchas.cargar());
     assert.equal(await page.locator('#vp-photo-vault img').count(), 1);
