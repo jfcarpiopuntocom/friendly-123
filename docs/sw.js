@@ -119,7 +119,7 @@ function broadcastActualizacion() {
   try {
     self.clients.matchAll({ includeUncontrolled: true }).then((lista) => {
       lista.forEach((cliente) => {
-        try { cliente.postMessage({ tipo: "shell-actualizado", shell: CACHE }); } catch (_) {}
+        try { cliente.postMessage({ tipo: "shell-actualizado", shell: CACHE, cacheGeneration: CACHE_GENERACION.replace(/^-/, "") }); } catch (_) {}
       });
     }).catch(() => {});
   } catch (_) {}
@@ -297,8 +297,14 @@ self.addEventListener("fetch", (evento) => {
 self.addEventListener("message", (ev) => {
   try {
     if (!ev.data) return;
-    if (ev.data.tipo === "que-shell" && ev.source && ev.source.postMessage) {
-      ev.source.postMessage({ tipo: "shell-actual", shell: CACHE });
+    if (ev.data.tipo === "que-shell") {
+      const respuesta = { tipo: "shell-actual", shell: CACHE, cacheGeneration: CACHE_GENERACION.replace(/^-/, "") };
+      // MessageChannel es el camino preferido: la pagina entrega port2 y escucha
+      // port1. Los SW anteriores contestaban solo al client y A4 podia quedarse
+      // esperando para siempre. Se conserva source como fallback compatible.
+      const puerto = ev.ports && ev.ports[0];
+      if (puerto && puerto.postMessage) puerto.postMessage(respuesta);
+      else if (ev.source && ev.source.postMessage) ev.source.postMessage(respuesta);
       return;
     }
     if (ev.data.tipo === "skip-waiting" || ev.data.type === "SKIP_WAITING") {
