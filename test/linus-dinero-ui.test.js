@@ -71,3 +71,46 @@ test('Bloque 1: ventas por la UI (cantidad, precio especial, cortesia, comisioni
     assert.equal(r.cuadre, 'ok', 'Sold = Commissions (cuadre)');
   } finally { await web.close(); }
 });
+
+
+test('v448 rock: $3.50 Cappuccino means +$3.50 revenue, +$0.90 cost, +$2.60 profit and remains in Sales log after toast', async () => {
+  const web = await chromium.launch({ headless: true });
+  try {
+    const page = await web.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href, { waitUntil: 'networkidle' });
+    const r = await page.evaluate(async () => {
+      const req = async (u, m = 'GET', b) => {
+        const x = await fetch(u, { method: m, headers: b ? { 'Content-Type': 'application/json' } : undefined, body: b ? JSON.stringify(b) : undefined });
+        return x.json();
+      };
+      const before = await req('/api/dashboard');
+      const cap = (await req('/api/productos')).find((p) => p.sku === 'BAR-CAP-023');
+      if (!cap) throw new Error('demo Cappuccino missing');
+      await abrirPanelVentaInfo(cap.id, false);
+      await confirmarVentaConInfo(cap.id, false);
+      const sold = (await req('/api/ventas/todas')).filter((v) => v.productoId === cap.id).sort((a,b) => String(b.fecha).localeCompare(String(a.fecha)))[0];
+      if (!sold) throw new Error('sale not durable');
+      await new Promise((resolve) => setTimeout(resolve, 5500));
+      const after = await req('/api/dashboard');
+      ubicacionActual = 'todas';
+      await cargarVentasSold();
+      const log = document.getElementById('ventasSoldLista');
+      return {
+        before: before.resumenDia,
+        after: after.resumenDia,
+        sale: { id: sold.id, precio: sold.precioUnit, cantidad: sold.cantidad, costo: sold.costoUnit },
+        logHasSale: !!(log && log.querySelector('[data-id="' + sold.id + '"]')),
+        logText: log ? log.textContent : ''
+      };
+    });
+    assert.equal(r.sale.precio, 3.5);
+    assert.equal(r.sale.cantidad, 1);
+    assert.equal(r.sale.costo, 0.9);
+    assert.equal(+(r.after.entra - r.before.entra).toFixed(2), 3.5, 'revenue delta');
+    assert.equal(+(r.after.sale - r.before.sale).toFixed(2), 0.9, 'cost delta');
+    assert.equal(+(r.after.gananciaHoy - r.before.gananciaHoy).toFixed(2), 2.6, 'profit delta');
+    assert.equal(r.after.ventasCount - r.before.ventasCount, 1, 'sale count delta');
+    assert.equal(r.logHasSale, true, 'sale remains visible in Sales log after 5-second toast expires');
+    assert.match(r.logText, /Cappuccino/i);
+  } finally { await web.close(); }
+});
