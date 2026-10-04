@@ -1,0 +1,42 @@
+name: Render corrected Codex Reel A
+on:
+  push:
+    branches: [codex/reels-comparacion]
+  workflow_dispatch:
+jobs:
+  render-a:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg chromium-browser || sudo apt-get install -y ffmpeg chromium
+      - name: Render corrected A
+        working-directory: video/codex-reel-A
+        run: |
+          npm ci
+          node music/score.mjs
+          ffmpeg -y -i music/score.wav -af "highpass=f=30,equalizer=f=250:t=q:w=1:g=-2,loudnorm=I=-14:TP=-1.2:LRA=8" -c:a aac -b:a 192k assets/score.m4a
+          CHROME=$(command -v chromium-browser || command -v chromium || command -v google-chrome)
+          node render.mjs --frames --workers=1 --soft-gl --chrome="$CHROME"
+          node render.mjs --encode --audio=assets/score.m4a --out=out/full.mp4 --fps=30
+          ffmpeg -y -i out/full.mp4 -vf "scale='min(1280,iw)':-2" -c:v libx264 -crf 24 -preset medium -c:a aac -b:a 128k friendly-123_Reel-A_Galerias-Consignacion_FINAL.mp4
+          ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries stream=codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of json friendly-123_Reel-A_Galerias-Consignacion_FINAL.mp4 > ffprobe.json
+          sha256sum friendly-123_Reel-A_Galerias-Consignacion_FINAL.mp4 > SHA256.txt
+          for t in 7 13 16 19 22 26; do ffmpeg -loglevel error -y -ss $t -i friendly-123_Reel-A_Galerias-Consignacion_FINAL.mp4 -frames:v 1 -q:v 2 qa-$t.jpg; done
+          ffmpeg -hide_banner -i friendly-123_Reel-A_Galerias-Consignacion_FINAL.mp4 -vf blackdetect=d=0.20:pix_th=0.05 -an -f null - 2> blackdetect.txt || true
+      - name: Upload corrected A + QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: friendly-123-reel-A-corrected-QA
+          path: |
+            video/codex-reel-A/friendly-123_Reel-A_Galerias-Consignacion_FINAL.mp4
+            video/codex-reel-A/ffprobe.json
+            video/codex-reel-A/SHA256.txt
+            video/codex-reel-A/blackdetect.txt
+            video/codex-reel-A/qa-*.jpg
+          if-no-files-found: error
