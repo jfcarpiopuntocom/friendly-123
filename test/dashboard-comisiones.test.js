@@ -39,7 +39,7 @@ test('dashboard paints Commissions first: month bar, totals, cards, deep-links a
       const cm = document.getElementById('cm');
       return { txt: cm.innerText, pagar: [...cm.querySelectorAll('a.pagar')].map(a => a.getAttribute('href')), recibo: cm.querySelectorAll('[data-cm-recibo]').length };
     });
-    assert.ok(r2.pagar.some(h => h === 'index.html#editar=comisiones:u1'), 'Pay in the app deep-links to the rack in the app');
+    assert.ok(r2.pagar.some(h => h === 'index.html#editar=comisiones:u1&mes=' + fx.mes), 'Pay in the app deep-links to the rack AND exact month in the app');
     assert.match(r2.txt, /1 return\(s\) of already-paid sales/);
     assert.match(r2.txt, /Split between people/);
     assert.match(r2.txt, /on margin|Target \$800\.00/);

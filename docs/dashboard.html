@@ -1418,7 +1418,7 @@
         if (l.ventasCorregidas) extra += '<div class="cm-sub cm-rojo"><strong>' + l.ventasCorregidas + " sale(s) with the percentage manually corrected.</strong></div>";
       }
       var acciones = cmVista === "percha" && g.ubicacionId ? '<div class="cm-actions">' +
-        (g.pend > 0 ? '<a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(g.ubicacionId) + '">Pay in the app</a>' : "") +
+        (g.pend > 0 ? '<a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(g.ubicacionId) + '&mes=' + encodeURIComponent(cmMes || actual) + '">Pay in the app</a>' : "") +
         '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(g.ubicacionId) + '">Adjust the deal</a>' +
         '<button type="button" data-cm-recibo="' + esc(g.ubicacionId) + '">Receipt</button></div>' : "";
       var barra = g.bruto > 0 && cmMax > 0 ? '<div class="cm-fila-barra">' + cmBarra(g.socio, g.casa, "", Math.max(6, Math.round(g.bruto / cmMax * 100))) + "</div>" : "";
