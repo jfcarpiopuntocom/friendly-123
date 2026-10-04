@@ -21,7 +21,7 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - name: Focused clock-skew tests
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/clock-skew-forensics-v447.test.js
       - name: Full suite
@@ -33,6 +33,7 @@ jobs:
           trap 'kill "$pid" 2>/dev/null || true' EXIT
           sleep 2
           node .claude/smoke-multiprompt.cjs
+          F123_BROWSER=webkit node .claude/smoke-multiprompt.cjs
           node .claude/smoke-expira-evento.cjs
       - name: Install external judges
         run: npm install --no-save --package-lock=false @axe-core/playwright lighthouse
