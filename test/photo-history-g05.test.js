@@ -163,7 +163,9 @@ test('G05: Vault labels and preselects a unique exact historical shelf but does 
       const cur='data:image/png;base64,Q1VSUkVOVA==';
       window.__shelf={id:'u-one',nombre:'Shelf One',tipo:'propio',activa:true,fotoHash:'hash-current'};
       window.t=(k)=>({'shelves.noRacksYet':'No shelves yet','shelves.noTarget':'No target','shelves.ofTargetMet':'% target','shelves.monthlySales':'Monthly sales','shelves.target':'Target','shelves.commission':'Commission','shelves.promoter':'Promoter','shelves.open':'Open','shelves.transfersHeading':'Transfers','shelves.addRackBtn':'Add shelf'}[k]||k);
-      window.OCI18n={locale:()=> 'en-US'}; window.OCMoneda={codigo:()=> 'USD'}; window.OCAuth={puedeGestionar:()=>false};
+      window.OCI18n={locale:()=> 'en-US'}; window.OCMoneda={codigo:()=> 'USD'};
+      sessionStorage.setItem('f123_diag_photo_vault', '1');
+      window.OCAuth={puedeGestionar:()=>false,rolActual:()=> 'owner'};
       window.OCFotos={
         migrarSiHaceFalta:async()=>{}, leerTodas:async()=>({}),
         leerTodosPorHash:async()=>({'hash-old':old,'hash-current':cur}),
