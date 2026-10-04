@@ -65,7 +65,11 @@ test('Photo Recovery Vault does not assign an orphan until explicit restore clic
         hashDeDataUrl: async()=>null
       };
       window.OCSync = { catalogoPropio: () => ({ ubicaciones:[{...window.__shelf}], productos:[] }) };
-      window.OCYjs = { get: () => ({}), fotosMap: new Map() };
+      window.OCYjs = {
+        get: () => ({}),
+        fotosMap: new Map(),
+        historialFotosPorPercha: async () => ({ u1: ['orphan-hash'] })
+      };
       window.fetch = async (input, options={}) => {
         const url=String(input), m=options.method||'GET';
         if(m==='PUT'){ window.__puts.push({url,body:JSON.parse(options.body||'{}')}); window.__shelf.fotoHash=window.__puts.at(-1).body.fotoHash; return new Response('{}',{status:200}); }
