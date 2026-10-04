@@ -23,3 +23,13 @@ This note is outside `docs/` intentionally: it documents the release policy with
 - Rendering an active shelf must never delete photo evidence merely because `fotoHash` is null, `fotoRev` exists, IndexedDB is unavailable, or the hash blob is still in flight.
 - Exact per-shelf ID bytes may self-heal their own pointer; no matching by name/order and no guessed associations.
 - Legacy localStorage shelf photos remain a read fallback when IndexedDB is empty/blocked or an old migration was partial.
+
+
+## G05 photo-history recovery
+
+- Public release remains v448 GOLDEN.
+- Stable hotfix generation: golden5.
+- Exact historical shelf ID -> fotoHash mappings may be recovered from local y-indexeddb by read-only replay into an isolated Y.Doc.
+- Automatic restore requires the exact historical shelf ID and surviving exact hash bytes.
+- Ambiguous orphan blobs remain in Photo Recovery Vault for explicit owner confirmation.
+- Prime Directive 1AAA remains absolute: preserve > cleanup; no storage clearing or destructive migration during recovery.
