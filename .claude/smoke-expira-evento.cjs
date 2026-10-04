@@ -18,7 +18,16 @@ const check=(n,c,x)=>{ if(c)console.log("  ok   "+n); else {console.log("  FALLA
   // event cancel using ANY normal product (event bookings are any sale within an event)
   const ev=await page.evaluate(async()=>{
     const ps=await(await fetch("/api/productos")).json();
-    const p=ps.find(x=>x.stockActual>=2)||ps[0];
+    const hoy=new Date();
+    const p=ps.find(x=>{
+      if((x.tipoProducto||"normal")!=="normal" || Number(x.stockActual)<2) return false;
+      if(x.perecible && x.fechaCaducidad){
+        const d=new Date(String(x.fechaCaducidad)+"T23:59:59");
+        if(Number.isFinite(d.getTime()) && d<hoy) return false;
+      }
+      return true;
+    });
+    if(!p) throw new Error("no sellable fixture product with stock >=2");
     const before=p.stockActual;
     const r=await fetch("/api/productos/"+p.id+"/venta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({cantidad:2,info:{nombrePagador:"Grupo Ana"}})});
     const d=await r.json();
