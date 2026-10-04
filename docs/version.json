@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN hotfix golden4: Prime Directive 1AAA. Photo storage becomes append-only/copy-only; shelf delete, render and migration never destroy photo bytes. Shelves recovers exact mappings from per-ID evidence and Yjs, and exposes orphaned blobs in a manual Photo Recovery Vault. Public release remains v448 GOLDEN.",
+  "changelog": "v448 GOLDEN hotfix golden5: Prime Directive 1AAA. Recupera asociaciones historicas exactas shelf ID -> fotoHash desde el IndexedDB local de Yjs, en modo solo lectura. Si el blob exacto sobrevive, reatacha la foto sin adivinar ni borrar evidencia; el Vault etiqueta sugerencias historicas. Public release remains v448 GOLDEN.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden4"
+  "cacheGeneration": "golden5"
 }
