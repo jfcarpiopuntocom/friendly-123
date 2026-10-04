@@ -32,3 +32,5 @@ jobs:
           git add docs/version-manifest.json
           git commit -m "integrity(v448 GOLDEN G08): regenerate shell manifest"
           git push origin HEAD:hotfix/v448-golden-shelf-photo-checkpoints
+
+# rerun after final G08 shelf-only vault filter
