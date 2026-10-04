@@ -1,0 +1,23 @@
+name: v448-golden-manifest
+
+on:
+  push:
+    branches: [forensics/v448-golden-tombstone]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Show deterministic manifest delta
+        run: |
+          cp docs/version-manifest.json /tmp/before.json
+          node scripts/gen-manifest.js
+          diff -u /tmp/before.json docs/version-manifest.json
