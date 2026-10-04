@@ -727,11 +727,11 @@
       }
       const res = await fetch(`${API}/ubicaciones/${perchaGestionId}`, { method: 'DELETE' });
       if (res.ok) {
-        // Microcirugia 6 (2026-07-08): borrar la foto huerfana. Sin esto cada
-        // percha borrada deja 200-800KB acumulandose (localStorage antes,
-        // IndexedDB ahora — mismo cuidado, otro almacen).
-        if (window.OCFotos) window.OCFotos.borrarFoto(perchaGestionId); // async, fire-and-forget
-        delete fotoCache[perchaGestionId];
+        /* v448 golden hotfix: DELETE es una LAPIDA sincronizable, no permiso para
+           destruir evidencia local. Una replica vieja puede volver a presentar la
+           percha antes de converger; si borramos aqui los bytes por id, la tarjeta
+           reaparece sin foto aunque el blob/hash autentico siga siendo recuperable.
+           Conservamos la foto local y dejamos que el tombstone mande en visibilidad. */
         cerrarGestion(); cargar();
         if (window.cargarUbicaciones) window.cargarUbicaciones();
       } else {
