@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN hotfix G02: restaura fotos de Shelves sin borrar evidencia local durante render; recupera pointers perdidos y usa fallback local si el blob del pointer aun no llego. Ademas separa build canario de release visible y endurece promocion contra races. No reescribe datos de negocio.",
+  "changelog": "v448 GOLDEN hotfix G02: preserva evidencia de fotos de Shelves sin mostrar mirrors obsoletos ni resucitar borrados explicitos; corrige A4 para detectar cache golden vieja, separa build canario de release visible y blinda promociones contra races con witness exacto + CAS atomico. No reescribe datos de negocio.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
