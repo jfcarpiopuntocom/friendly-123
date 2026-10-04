@@ -1,14 +1,18 @@
 const path = require("path");
-let chromium;
-try { ({ chromium } = require("/opt/node22/lib/node_modules/playwright")); }
-catch (_) { ({ chromium } = require(path.join(__dirname, "..", "node_modules", "playwright"))); }
-const BASE = "http://localhost:8127/index.html";
+let pw;
+try { pw = require("/opt/node22/lib/node_modules/playwright"); }
+catch (_) { pw = require(path.join(__dirname, "..", "node_modules", "playwright")); }
+const browserName = process.env.F123_BROWSER === "webkit" ? "webkit" : "chromium";
+const browserType = pw[browserName];
+const BASE = "http://127.0.0.1:8127/index.html";
 let fallos = [];
 function check(n, c, x){ if(c) console.log("  ok   "+n); else { console.log("  FALLA "+n+(x?" -> "+JSON.stringify(x):"")); fallos.push(n);} }
 (async () => {
-  const b = await chromium.launch({ headless: true });
+  const b = await browserType.launch({ headless: true });
   try {
-    const ctx = await b.newContext(); const page = await ctx.newPage();
+    const opts = browserName === "webkit" ? { ...pw.devices["iPhone 13"] } : {};
+    const ctx = await b.newContext(opts); const page = await ctx.newPage();
+    console.log("  browser "+browserName+(browserName === "webkit" ? " / iPhone 13 emulation" : ""));
     const errs = []; page.on("pageerror", e => errs.push(String(e)));
     await page.route(/googleapis|gstatic|workers\.dev|unpkg|jsdelivr|sheetjs|cloudflare/, r => r.abort());
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
@@ -22,7 +26,18 @@ function check(n, c, x){ if(c) console.log("  ok   "+n); else { console.log("  F
     // pick a normal product with stock
     const prod = await page.evaluate(async () => {
       const ps = await (await fetch("/api/productos")).json();
-      return ps.find(p => (p.tipoProducto||"normal")==="normal" && p.stockActual >= 5) || ps[0];
+      const us = await (await fetch("/api/ubicaciones")).json();
+      const activas = new Set((us || []).filter(u => u && u.activa !== false).map(u => String(u.id)));
+      const hoy = new Date();
+      return ps.find(p => {
+        if ((p.tipoProducto||"normal") !== "normal" || Number(p.stockActual) < 5) return false;
+        if (p.ubicacionId && activas.size && !activas.has(String(p.ubicacionId))) return false;
+        if (p.perecible && p.fechaCaducidad) {
+          const d = new Date(String(p.fechaCaducidad) + "T23:59:59");
+          if (Number.isFinite(d.getTime()) && d < hoy) return false;
+        }
+        return true;
+      }) || ps.find(p => (p.tipoProducto||"normal")==="normal" && Number(p.stockActual)>=5) || ps[0];
     });
     check("hay producto normal con stock", prod && prod.stockActual >= 5, prod && {id:prod.id,stock:prod.stockActual});
 
@@ -43,6 +58,18 @@ function check(n, c, x){ if(c) console.log("  ok   "+n); else { console.log("  F
       return rows.find(v => v.id === vid) || null;
     }, venta.ventaId);
     check("venta en /ventas/todas con factura+pago+cant3", enTodas && enTodas.factura==="F-001" && enTodas.formaPago==="cash" && enTodas.cantidad===3, enTodas);
+
+    // Golden-release certification: the persistent Sales log must show the sale
+    // after the transient undo toast is irrelevant. This directly guards the
+    // user-visible contract documented in help-ui.js.
+    const enLogUI = await page.evaluate(async (vid) => {
+      const det = document.getElementById("ventasSold");
+      if (det) det.open = true;
+      await cargarVentasSold();
+      const row = document.querySelector('.oc-vs-row[data-id="' + vid + '"]');
+      return !!row && /F-001/.test(row.textContent || "");
+    }, venta.ventaId);
+    check("venta persiste visible en Sales log", enLogUI === true, { ventaId: venta.ventaId });
 
     // edit the sale: quantity 2, notes
     const edit = await page.evaluate(async (vid) => {
