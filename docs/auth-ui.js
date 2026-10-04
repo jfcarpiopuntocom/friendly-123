@@ -1276,7 +1276,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       }
       try { window.OCSecure.actualizarCorreo(email); } catch (_) {}
       if (vaciar) {
-        try { var rm = []; for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rm.push(k); } rm.forEach(function (kk) { localStorage.removeItem(kk); }); } catch (_) {}
+        /* PRIME DIRECTIVE 1AAA: "start empty" vacia el cuaderno visible, pero
+           NO destruye fotos legacy del dispositivo. Quedan como evidencia local
+           y G04 puede ofrecerlas luego en Photo Recovery Vault. */
         /* BUG REAL (JFC 2026-08-19): el dueno elegia "empezar vacio" y al
            siguiente arranque volvian los datos de demo. El auto-heal de
            mock-backend.js veia el catalogo en cero y lo trataba como una
