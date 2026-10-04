@@ -371,9 +371,11 @@
             const histLocal = historialLocalFotos[u.id] || [];
             if (histLocal.length) bytes = histLocal[histLocal.length - 1].dataUrl || null;
           }
-          if (bytes && window.OCFotos.hashDeDataUrl) {
+          if (bytes) {
             try {
-              const h = await window.OCFotos.hashDeDataUrl(bytes);
+              let h = null;
+              if (window.OCFotos.hashDeDataUrl) h = await window.OCFotos.hashDeDataUrl(bytes);
+              else if (window.OCFotos.guardarFotoContenido) h = await window.OCFotos.guardarFotoContenido(bytes);
               if (h && await reatarFotoExacta(u, h, bytes, "id-local")) continue;
             } catch (_) {}
           }
