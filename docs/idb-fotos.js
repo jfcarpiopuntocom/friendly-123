@@ -183,12 +183,17 @@
     }
     try {
       const db = await abrirDB();
-      return await new Promise((resolve, reject) => {
+      const desdeIdb = await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE, "readonly");
         const req = tx.objectStore(STORE).get(id);
         req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => reject(req.error);
       });
+      if (desdeIdb) return desdeIdb;
+      /* v448 GOLDEN G02: una migracion antigua pudo dejar la foto legacy en
+         localStorage y aun asi marcar el flag. Nunca hagas invisible evidencia
+         que todavia existe: si IDB no la tiene, lee la copia legacy. */
+      try { return localStorage.getItem(claveVieja(id)); } catch (_) { return null; }
     } catch (err) {
       console.error("[idb-fotos] leerFoto:", err);
       return null;
@@ -219,7 +224,22 @@
         req.onsuccess = (e) => {
           const cursor = e.target.result;
           if (cursor) { out[cursor.key] = cursor.value; cursor.continue(); }
-          else resolve(out);
+          else {
+            /* G02: mezcla no destructiva con el formato legacy. IDB gana si ya
+               tiene esa percha; localStorage solo rescata ids que IDB no tiene. */
+            try {
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || k.indexOf("f123_foto_percha_") !== 0) continue;
+                const id = k.slice("f123_foto_percha_".length);
+                if (!out[id]) {
+                  const dataUrl = localStorage.getItem(k);
+                  if (dataUrl) out[id] = dataUrl;
+                }
+              }
+            } catch (_) {}
+            resolve(out);
+          }
         };
         req.onerror = () => reject(req.error);
       });
@@ -262,15 +282,18 @@
         const k = localStorage.key(i);
         if (k && k.indexOf("f123_foto_percha_") === 0) claves.push(k);
       }
+      let todoOk = true;
       for (const k of claves) {
         const id = k.slice("f123_foto_percha_".length);
         const dataUrl = localStorage.getItem(k);
         if (dataUrl) {
           const ok = await guardarFoto(id, dataUrl);
           if (ok) localStorage.removeItem(k);
+          else todoOk = false;
         }
       }
-      localStorage.setItem(FLAG, "1");
+      if (todoOk) localStorage.setItem(FLAG, "1");
+      else localStorage.removeItem(FLAG); // reintenta en la proxima carga
     } catch (err) {
       console.error("[idb-fotos] migracion (se reintentara en el proximo load):", err);
     }
