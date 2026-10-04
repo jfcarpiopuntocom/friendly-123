@@ -217,3 +217,26 @@ test('v448 golden RED: current fotoHash beats a stale per-id photo mirror', asyn
     assert.deepEqual(out.idWrites,[['u-stale','data:image/png;base64,bmV3LWN1cnJlbnQ=']], 'current bytes replace stale ID mirror');
   } finally { await b.close(); }
 });
+
+
+test('v448 golden RED: a deleted shelf tombstone stays sticky even against a newer explicit active state', async () => {
+  const w = browser();
+  await w.request('/api/ubicaciones', 'POST', { nombre: 'Other shelf sticky', tipo: 'propio' });
+  const shelf = await w.request('/api/ubicaciones', 'POST', { nombre: 'Sticky delete', tipo: 'propio' });
+  await w.request('/api/ubicaciones/' + shelf.id, 'DELETE');
+  const local = (await w.request('/api/respaldo/exportar')).ubicaciones.find(x => x.id === shelf.id);
+  assert.equal(local.borrado, true);
+  assert.ok(local.estadoRev);
+
+  const remote = w.catalog();
+  const ru = remote.ubicaciones.find(x => x.id === shelf.id);
+  ru.borrado = false;
+  ru.activa = true;
+  ru.estadoRev = later(local.estadoRev, 'explicit-active-after-delete');
+  ru.rev = later(local.rev, 'explicit-active-after-delete');
+
+  w.OCSync.aplicarCatalogo(remote, null);
+  const after = (await w.request('/api/respaldo/exportar')).ubicaciones.find(x => x.id === shelf.id);
+  assert.equal(after.borrado, true, 'delete tombstone must be sticky; no implicit undelete exists');
+  assert.equal(after.activa, false);
+});
