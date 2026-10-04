@@ -414,7 +414,20 @@
             return r && r.fotoHash ? String(r.fotoHash) : null;
           },
           historyHashes: async (id) => (hist[String(id)] || []).slice().reverse(),
-          readPerId: async (id) => fotoCache[String(id)] || null,
+          readPerId: async (id) => {
+            const k = String(id);
+            if (fotoCache[k]) return fotoCache[k];
+            /* El cache de render es un ADAPTADOR de conveniencia, no la verdad.
+               Si una migracion IDB quedo parcial pero los bytes legacy siguen
+               preservados, OCFotos.leerFoto(id) sabe caer al almacenamiento real. */
+            if (window.OCFotos.leerFoto) {
+              try {
+                const bytes = await window.OCFotos.leerFoto(k);
+                if (bytes) { fotoCache[k] = bytes; return bytes; }
+              } catch (_) {}
+            }
+            return null;
+          },
           hashBytes: async (bytes) => {
             /* Adapter compatibility: the modern port is "derive content hash".
                Older OCFotos implementations exposed only guardarFotoContenido(),
