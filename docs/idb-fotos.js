@@ -26,18 +26,22 @@
      aparte (a la nube del dueno, B3). El store "perchas" (por id) se mantiene
      intacto para no romper la vista actual; los dos conviven. */
   const STORE_BLOBS = "blobs";
+  /* PRIME DIRECTIVE 1AAA (JFC 2026-10-04): historial append-only de fotos por
+     percha. Cambiar/renderizar/sincronizar una foto JAMAS destruye bytes previos. */
+  const STORE_HISTORY = "history";
   const SOPORTADO = "indexedDB" in window;
   let dbPromise = null;
 
   function abrirDB() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
-      // v2: agrega el store "blobs" sin tocar "perchas" (nada se pierde).
-      const req = indexedDB.open(DB_NAME, 2);
+      // v3: agrega history APPEND-ONLY. Upgrade aditivo: nunca borra stores.
+      const req = indexedDB.open(DB_NAME, 3);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
         if (!db.objectStoreNames.contains(STORE_BLOBS)) db.createObjectStore(STORE_BLOBS);
+        if (!db.objectStoreNames.contains(STORE_HISTORY)) db.createObjectStore(STORE_HISTORY);
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -172,15 +176,44 @@
   }
 
   async function guardarFoto(id, dataUrl) {
+    if (!id || !dataUrl) return false;
     if (!SOPORTADO) {
-      try { localStorage.setItem(claveVieja(id), dataUrl); return true; }
-      catch (_) { return false; }
+      try {
+        /* Fallback localStorage: COPY-ONLY. Nunca se elimina una version previa;
+           el blob por hash queda como segunda copia direccionada por contenido. */
+        localStorage.setItem(claveVieja(id), dataUrl);
+        try { const h = await hashDeDataUrl(dataUrl); localStorage.setItem(claveBlob(h), dataUrl); } catch (_) {}
+        return true;
+      } catch (_) { return false; }
     }
     try {
       const db = await abrirDB();
+      /* Antes de tocar el puntero "actual" por id, preserva ambas versiones en
+         blobs + history. Si el proceso se corta, como minimo la copia anterior
+         sigue en STORE hasta completar la transaccion siguiente. */
+      let anterior = null;
+      try {
+        anterior = await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE, "readonly");
+          const req = tx.objectStore(STORE).get(id);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => reject(req.error);
+        });
+      } catch (_) {}
+      const hNuevo = await hashDeDataUrl(dataUrl);
+      const hAnterior = anterior ? await hashDeDataUrl(anterior).catch(() => null) : null;
       await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, "readwrite");
-        tx.objectStore(STORE).put(dataUrl, id);
+        const tx = db.transaction([STORE, STORE_BLOBS, STORE_HISTORY], "readwrite");
+        const perchas = tx.objectStore(STORE);
+        const blobs = tx.objectStore(STORE_BLOBS);
+        const hist = tx.objectStore(STORE_HISTORY);
+        if (hAnterior && anterior) {
+          blobs.put(anterior, hAnterior);
+          hist.put({ id: String(id), hash: hAnterior, dataUrl: anterior, preservadoEn: Date.now() }, String(id) + "::" + hAnterior);
+        }
+        blobs.put(dataUrl, hNuevo);
+        hist.put({ id: String(id), hash: hNuevo, dataUrl: dataUrl, preservadoEn: Date.now() }, String(id) + "::" + hNuevo);
+        perchas.put(dataUrl, id);
         tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error);
       });
@@ -249,32 +282,41 @@
   }
 
   async function borrarFoto(id) {
-    if (!SOPORTADO) {
-      try { localStorage.removeItem(claveVieja(id)); } catch (_) {}
-      return;
-    }
+    /* PRIME DIRECTIVE 1AAA: nombre legado conservado por compatibilidad, pero
+       desde G02 esta funcion es NO-DESTRUCTIVA. Un render, sync, fix o incluso
+       borrar una percha no tiene permiso para destruir evidencia fotografica.
+       Una futura purga irreversible debera ser una accion humana separada y
+       explicitamente confirmada; hoy NO existe. */
     try {
-      const db = await abrirDB();
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE, "readwrite");
-        tx.objectStore(STORE).delete(id);
-        tx.oncomplete = resolve;
-        tx.onerror = () => reject(tx.error);
-      });
+      const actual = await leerFoto(id);
+      if (actual) {
+        const h = await hashDeDataUrl(actual).catch(() => null);
+        if (h) {
+          await guardarPorHash(h, actual);
+          if (SOPORTADO) {
+            const db = await abrirDB();
+            await new Promise((resolve, reject) => {
+              const tx = db.transaction(STORE_HISTORY, "readwrite");
+              tx.objectStore(STORE_HISTORY).put(
+                { id: String(id), hash: h, dataUrl: actual, preservadoEn: Date.now(), motivo: "borrarFoto-interceptado" },
+                String(id) + "::" + h
+              );
+              tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+            });
+          }
+        }
+      }
     } catch (err) {
-      console.error("[idb-fotos] borrarFoto:", err);
+      console.error("[idb-fotos] preservar antes de borrar:", err);
     }
+    return { preservada: true, borrada: false };
   }
 
-  // Migracion silenciosa y de una sola vez: copia fotos ya guardadas en el
-  // formato viejo (localStorage, f123_foto_percha_*) a IndexedDB y las borra
-  // de localStorage. No pierde nada — si algo falla a medio camino, el flag
-  // NO se marca y se reintenta en el proximo load (las fotos ya migradas se
-  // sobrescriben con el mismo valor, sin duplicar ni corromper).
+  // PRIME DIRECTIVE 1AAA: migracion COPY-ONLY. Copia fotos legacy a IndexedDB
+  // y JAMAS elimina la fuente de localStorage. La redundancia es deliberada.
   async function migrarSiHaceFalta() {
     if (!SOPORTADO) return;
-    const FLAG = "f123_fotos_migradas_idb_v1";
-    if (localStorage.getItem(FLAG)) return;
+    const FLAG = "f123_fotos_migradas_idb_v2_copyonly";
     try {
       const claves = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -287,8 +329,7 @@
         const dataUrl = localStorage.getItem(k);
         if (dataUrl) {
           const ok = await guardarFoto(id, dataUrl);
-          if (ok) localStorage.removeItem(k);
-          else todoOk = false;
+          if (!ok) todoOk = false;
         }
       }
       if (todoOk) localStorage.setItem(FLAG, "1");
@@ -298,9 +339,44 @@
     }
   }
 
+  async function leerHistorialPorPercha() {
+    const out = {};
+    if (!SOPORTADO) return out;
+    try {
+      const db = await abrirDB();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_HISTORY, "readonly");
+        const req = tx.objectStore(STORE_HISTORY).openCursor();
+        req.onsuccess = (e) => {
+          const cur = e.target.result;
+          if (!cur) return resolve(out);
+          const v = cur.value || {};
+          if (v.id && v.dataUrl) {
+            if (!out[v.id]) out[v.id] = [];
+            out[v.id].push({ hash: v.hash || "", dataUrl: v.dataUrl, preservadoEn: Number(v.preservadoEn) || 0, motivo: v.motivo || "" });
+          }
+          cur.continue();
+        };
+        req.onerror = () => reject(req.error);
+      });
+    } catch (err) {
+      console.error("[idb-fotos] leerHistorialPorPercha:", err);
+      return out;
+    }
+  }
+
+  async function inventarioForense() {
+    const perId = await leerTodas();
+    const blobs = await leerTodosPorHash();
+    const historial = await leerHistorialPorPercha();
+    return { perId, blobs, historial, legacy: leerLegacyTodas() };
+  }
+
   window.OCFotos = {
     guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta, soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
-    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, hashesGuardados, leerTodosPorHash, guardarFotoContenido
+    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, hashesGuardados, leerTodosPorHash, guardarFotoContenido,
+    // Prime Directive 1AAA: diagnostico/recuperacion local, siempre read/add-only.
+    leerHistorialPorPercha, inventarioForense
   };
 })();
