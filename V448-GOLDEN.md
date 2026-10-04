@@ -15,3 +15,12 @@ v448 is the frozen public release family for friendly-123.
 - `docs/version.json.shell` and `docs/version-manifest.json.shell` stay aligned at `f123-shell-v448`. Build identity belongs in `canaryBuild`, not in the public shell.
 
 This note is outside `docs/` intentionally: it documents the release policy without changing the app shell.
+
+## Photo Prime Directive
+
+- Shelf-photo recovery is **add/copy-only**. Rendering, sync, repair and shelf lifecycle code must never destroy photo bytes.
+- A missing/ambiguous `fotoHash` is not evidence that the human deleted a photo.
+- Recovery may reattach a photo only from exact same-shelf evidence: the shelf-id copy, its local photo history, or a historical Yjs pointer whose exact blob still exists.
+- Never infer a photo from shelf name, ordering, another shelf, or visual similarity.
+- A current pointer may remain authoritative while the UI temporarily renders same-shelf local evidence; do not delete that evidence merely because the pointed blob has not arrived yet.
+- Any future irreversible photo purge must be a separate explicit human action with its own tests. Today there is no such action.
