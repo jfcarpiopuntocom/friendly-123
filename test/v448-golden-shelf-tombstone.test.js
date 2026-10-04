@@ -92,3 +92,40 @@ test('v448 golden: an active shelf photo pointer survives checkpoint bootstrap o
   assert.equal(restored && restored.fotoHash, 'sha256-active-photo',
     'fresh bootstrap must retain the pointer so synced bytes can be rendered');
 });
+
+
+test('v448 golden: archive/deactivate has its own authority and stale metadata edits cannot reactivate it', async () => {
+  const a = await peer(), b = await peer();
+  const shelf = await a.request('/api/ubicaciones', 'POST', { nombre: 'Archived shelf' });
+
+  a.OCYjs._store.sembrar();
+  transfer(a, b);
+
+  await a.request(`/api/ubicaciones/${shelf.id}/desactivar`, 'POST', {});
+  assert.equal((await a.request('/api/ubicaciones')).some(x => x.id === shelf.id), false,
+    'precondition: explicit deactivate hides the shelf');
+
+  // B missed the archive/deactivate and keeps an active stale copy. Unrelated
+  // edits must not acquire authority over the separate active/inactive state.
+  for (let i = 0; i < 12; i++) {
+    await b.request(`/api/ubicaciones/${shelf.id}`, 'PUT', { nombre: 'Stale active edit ' + i });
+  }
+  b.OCYjs._store.sembrar();
+  transfer(b, a);
+
+  assert.equal((await a.request('/api/ubicaciones')).some(x => x.id === shelf.id), false,
+    'stale general metadata edits must not resurrect an explicitly archived shelf');
+  let archived = a.catalog().ubicaciones.find(x => x.id === shelf.id);
+  assert.equal(archived && archived.activa, false);
+  assert.ok(archived && archived.activaRev,
+    'an explicit archive needs its own revision, separate from unrelated shelf metadata');
+
+  // Unlike DELETE, deactivation is reversible — but only an EXPLICIT activation
+  // should do it. This proves the fix does not make archived shelves permanent.
+  await a.request(`/api/ubicaciones/${shelf.id}/activar`, 'POST', {});
+  a.OCYjs._store.sembrar();
+  transfer(a, b);
+  assert.equal((await a.request('/api/ubicaciones')).some(x => x.id === shelf.id), true);
+  assert.equal((await b.request('/api/ubicaciones')).some(x => x.id === shelf.id), true,
+    'an explicit later activation must still converge');
+});
