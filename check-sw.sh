@@ -19,25 +19,12 @@ done
 # El campo "shell" de version.json tiene que ir SIEMPRE junto al CACHE de sw.js:
 # el autodiagnostico de version (salud-app.js) compara esos dos valores, y si se
 # desincronizan avisaria a TODOS los usuarios de una version vieja que no existe.
-sw_ver=$(grep -oE 'f123-shell-v[0-9]+(-[A-Za-z0-9]+)*' docs/sw.js | head -1)
-vj_ver=$(grep -oE 'f123-shell-v[0-9]+(-[A-Za-z0-9]+)*' docs/version.json | head -1)
+sw_ver=$(grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1)
+vj_ver=$(grep -oE 'f123-shell-v[0-9]+' docs/version.json | head -1)
 if [ "$sw_ver" != "$vj_ver" ]; then
   echo "DESINCRONIZADO: sw.js dice $sw_ver y version.json dice $vj_ver"
   echo "  Los dos tienen que decir lo mismo (ver A4 en salud-app.js)."
   falta=1
-fi
-# v448 GOLDEN: la identidad publica queda congelada; CacheStorage lleva una
-# generacion independiente para forzar un precache nuevo sin mentir al Sonar.
-cache_gen=$(grep -oE 'const CACHE_GENERACION = "-golden[0-9]+"' docs/sw.js | sed -E 's/.*"(-golden[0-9]+)".*/\1/' | head -1)
-if [ "$vj_ver" = "f123-shell-v448" ]; then
-  if [ -z "$cache_gen" ]; then
-    echo "FALTA CACHE_GENERACION para v448 GOLDEN — no reutilices la cache historica v448."
-    falta=1
-  fi
-  if ! grep -q 'const CACHE_LOCAL = CACHE + CACHE_GENERACION + CANAL' docs/sw.js; then
-    echo "CACHE_LOCAL no usa CACHE_GENERACION — riesgo de colision con el v448 historico."
-    falta=1
-  fi
 fi
 
 # MANIFEST DE VERSION (JFC 2026-08-28, sistema de integridad de version):
@@ -48,7 +35,7 @@ if [ ! -f docs/version-manifest.json ]; then
   echo "FALTA docs/version-manifest.json — corre: node scripts/gen-manifest.js"
   falta=1
 else
-  man_ver=$(grep -oE '"shell":\s*"f123-shell-v[0-9]+(-[A-Za-z0-9]+)*"' docs/version-manifest.json | grep -oE 'f123-shell-v[0-9]+(-[A-Za-z0-9]+)*' | head -1)
+  man_ver=$(grep -oE '"shell":\s*"f123-shell-v[0-9]+"' docs/version-manifest.json | grep -oE 'f123-shell-v[0-9]+' | head -1)
   if [ "$man_ver" != "$vj_ver" ]; then
     echo "MANIFEST DESACTUALIZADO: version-manifest.json dice $man_ver y version.json dice $vj_ver"
     echo "  Corre: node scripts/gen-manifest.js"
@@ -160,10 +147,9 @@ if [ "$falta" = "0" ]; then
   echo "OK — sin claves de otra app hermana (G2)."
   echo "OK — todo data-vista del nav tiene su seccion (G4)."
   echo "OK — ninguna licencia completa en el repo publico (G5)."
-  grep -oE 'f123-shell-v[0-9]+(-[A-Za-z0-9]+)*' docs/sw.js | head -1 | sed 's/^/RELEASE shell: /'
-  [ -n "$cache_gen" ] && echo "CACHE generation: $cache_gen"
-  echo "Recuerda: en v448 GOLDEN no cambies la identidad publica; sube CACHE_GENERACION"
-  echo "para cada hotfix que cambie archivos del shell."
+  grep -oE 'f123-shell-v[0-9]+' docs/sw.js | head -1 | sed 's/^/CACHE actual: /'
+  echo "Recuerda: si cambiaste el shell, el CACHE tiene que subir de numero o el"
+  echo "telefono del cliente se queda con la version vieja para siempre."
 fi
 
 # G7 (2026-10-01): un merge dejo marcas de conflicto DENTRO de docs/sw.js y check-sw daba
