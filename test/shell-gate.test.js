@@ -33,3 +33,27 @@ test('PIN gate reports the controlling service worker when a newer cache also ex
   assert.match(label.textContent, /shell-v306/);
   assert.match(label.textContent, /versión vieja/);
 });
+
+
+test('PIN gate shows the public GOLDEN label while comparing the numeric internal shell', async () => {
+  const label = { textContent: '', style: { setProperty() {} } };
+  const listeners = new Map();
+  const controller = { postMessage() {
+    for (const listener of listeners.get('message') || []) listener({ data: { tipo: 'shell-actual', shell: 'f123-shell-v44801' } });
+  } };
+  const serviceWorker = {
+    controller,
+    addEventListener(type, listener) { if (!listeners.has(type)) listeners.set(type, new Set()); listeners.get(type).add(listener); },
+    removeEventListener(type, listener) { listeners.get(type)?.delete(listener); }
+  };
+  const context = { window: {}, navigator: { serviceWorker },
+    document: { getElementById: () => label },
+    fetch: async () => ({ ok: true, json: async () => ({ version: '1.0', shell: 'f123-shell-v44801', shellLabel: 'shell-v448 GOLDEN' }) }),
+    setTimeout: () => 1, clearTimeout() {}, Date };
+  context.window = context;
+  vm.createContext(context);
+  vm.runInContext(render + '\npintarBuildGate();', context);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(label.textContent, 'v1.0  ·  shell-v448 GOLDEN');
+  assert.doesNotMatch(label.textContent, /44801/);
+});
