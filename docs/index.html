@@ -9884,12 +9884,29 @@ function _recargarSeguroVersion() {
      del usuario mientras trabajaba. */
   try { sessionStorage.setItem("f123_reload_al_entrar", "1"); } catch (_) {}
 }
+/* v448 GOLDEN: CacheStorage separa canales con -next/-previo, pero version.json
+   declara el shell publico SIN ese sufijo. Elegir solo la cache de ESTE canal y
+   quitar el sufijo evita falsos "version vieja" cuando estable+next+previo
+   conviven en el mismo origen. */
+function _shellPublicoCache(nombres) {
+  try {
+    var m = /\/(next|previo)\//.exec(location.pathname || "");
+    var canal = m ? ("-" + m[1]) : "";
+    var candidatas = (nombres || []).filter(function (n) {
+      if (String(n).indexOf("f123-shell-") !== 0) return false;
+      var cm = /-(next|previo)$/.exec(String(n));
+      return canal ? !!(cm && ("-" + cm[1]) === canal) : !cm;
+    });
+    var activa = String(candidatas.pop() || "");
+    return activa.replace(/-(next|previo)$/, "");
+  } catch (_) { return ""; }
+}
 (function verificarCompatibilidadVersion() {
   try {
     const esperado = (function () { try { return (JSON.parse(localStorage.getItem("f123_version_vista") || "null") || "").split("|")[1] || ""; } catch (_) { return ""; } })();
     if (esperado && ("caches" in window)) {
       caches.keys().then(function (nombres) {
-        const activa = (nombres.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
+        const activa = _shellPublicoCache(nombres);
         if (activa && esperado && activa !== esperado) {
           try { console.warn("[version] el SW sirve " + activa + " pero version.json pide " + esperado + " — recargando (diferido si hay candado)."); } catch (_) {}
           try { localStorage.setItem("f123_version_vista", esperado); } catch (_) {}
@@ -9930,7 +9947,7 @@ function _recargarSeguroVersion() {
         if (!vj || !vj.shell) return;
         const servidor = String(vj.shell);
         caches.keys().then(function (nombres) {
-          const activa = (nombres.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
+          const activa = _shellPublicoCache(nombres);
           if (activa && servidor && activa !== servidor) {
             try { console.warn("[version] piso: el SW sirve " + activa + " y el servidor publica " + servidor + " — recarga diferida al próximo login."); } catch (_) {}
             try { localStorage.setItem("f123_version_vista", (vj.version || "") + "|" + servidor); } catch (_) {}
