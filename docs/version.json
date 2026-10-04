@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "Clock forensics v448: read-only diagnostics now surface pre-v438 future-dated sales without clock seals and impossible future product creation dates; no customer data is rewritten or auto-repaired. Promotion is fail-closed until at least one real canary report is observed.",
+  "changelog": "Clock forensics v448: read-only diagnostics surface pre-v438 future-dated sales without clock seals and impossible future product creation dates; no customer data is rewritten or auto-repaired. Promotion is fail-closed and requires a fresh real lord-canary report from /next/.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
