@@ -306,41 +306,86 @@
       const perchasVisibles = Array.isArray(perchas)
         ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
         : [];
-      /* v448 GOLDEN G02: RENDER NUNCA BORRA EVIDENCIA FOTOGRAFICA.
-         fotoHash:null + fotoRev sigue significando borrado moderno explicito: no
-         se muestra ni se self-healea. La diferencia es que render ya NO destruye
-         el mirror local; borrar bytes queda reservado a la accion DELETE de la
-         percha completa. Si falta fotoRev, el self-heal legacy sigue siendo seguro. */
-      /* v449: evidencia efimera de ESTA carga. Si acabamos de derivar un hash
-         desde los bytes guardados bajo el id de una percha y el PUT de ese mismo
-         pointer fue aceptado, sabemos sin adivinar que esos bytes corresponden al
-         fotoHash que acabamos de fijar. Esto preserva el self-heal v446 sin abrir
-         la puerta a mostrar un espejo id obsoleto bajo un hash llegado de otro peer. */
+      /* PRIME DIRECTIVE 1AAA — RECUPERACION ADD-ONLY.
+         Para una percha ACTIVA sin fotoHash, se aceptan SOLO dos pruebas:
+         A) bytes guardados bajo el MISMO id de percha; o
+         B) un fotoHash que ESA MISMA percha tuvo en el historial local Yjs y cuyo
+            blob aun existe. No se empareja por nombre, orden ni parecido visual. */
       const fotoRecuperadaEnEstaCarga = new Map();
+      let historialYjsFotos = {};
+      let historialLocalFotos = {};
+      try {
+        if (window.OCYjs && window.OCYjs.historialFotosPorPercha) {
+          historialYjsFotos = (await window.OCYjs.historialFotosPorPercha()) || {};
+        }
+      } catch (_) {}
+      try {
+        if (window.OCFotos && window.OCFotos.leerHistorialPorPercha) {
+          historialLocalFotos = (await window.OCFotos.leerHistorialPorPercha()) || {};
+        }
+      } catch (_) {}
 
-      /* v446 (JFC 2026-10-03): auto-reparacion SIN inventar datos.
-         Las fotos antiguas de percha se guardaban tambien por id. Si ese byte local
-         sigue aqui pero un peer viejo dejo fotoHash en null, volvemos a calcular EL
-         MISMO hash de esos bytes y reatamos el puntero a ESA MISMA percha. Nunca
-         buscamos por nombre ni copiamos una foto de otra percha. */
-      if (perchasVisibles.length && window.OCFotos && window.OCFotos.guardarFotoContenido) {
-        await Promise.all(perchasVisibles.map(async (u) => {
-          if (!u || u.fotoHash || u.fotoRev || !fotoCache[u.id]) return;
-          try {
-            const bytes = fotoCache[u.id];
-            const hash = await window.OCFotos.guardarFotoContenido(bytes);
-            if (!hash) return;
-            const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(u.id)}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ fotoHash: hash })
-            });
-            if (!rr || rr.ok !== false) {
-              u.fotoHash = hash;
-              fotoRecuperadaEnEstaCarga.set(u.id, { hash, bytes });
-            }
-          } catch (_) {}
-        }));
+      async function bytesDeHash(hash) {
+        if (!hash) return null;
+        let d = null;
+        try { if (window.OCFotos && window.OCFotos.leerPorHash) d = await window.OCFotos.leerPorHash(hash); } catch (_) {}
+        if (!d && window.OCYjs && window.OCYjs.fotosMap && window.OCYjs.fotosMap.get) {
+          try { d = window.OCYjs.fotosMap.get(hash) || null; } catch (_) {}
+        }
+        if (d && window.OCFotos && window.OCFotos.guardarPorHash) {
+          try { await window.OCFotos.guardarPorHash(hash, d); } catch (_) {}
+        }
+        return d;
+      }
+
+      async function reatarFotoExacta(u, hash, bytes, origen) {
+        if (!u || !u.id || !hash || !bytes || u.fotoHash) return false;
+        try {
+          /* Multiplica copias ANTES de tocar el puntero. guardarFoto es append-only
+             en G02 y guarda tambien history + blob. */
+          if (window.OCFotos && window.OCFotos.guardarFoto) await window.OCFotos.guardarFoto(u.id, bytes);
+          if (window.OCFotos && window.OCFotos.guardarPorHash) await window.OCFotos.guardarPorHash(hash, bytes);
+          const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(u.id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fotoHash: hash })
+          });
+          if (rr && rr.ok === false) return false;
+          u.fotoHash = hash;
+          fotoCache[u.id] = bytes;
+          fotoRecuperadaEnEstaCarga.set(u.id, { hash, bytes, origen });
+          try { if (window.OCCanarios && window.OCCanarios.flujo) window.OCCanarios.flujo("foto_recuperada", { origen }); } catch (_) {}
+          return true;
+        } catch (_) { return false; }
+      }
+
+      if (perchasVisibles.length && window.OCFotos) {
+        for (const u of perchasVisibles) {
+          if (!u || u.fotoHash) continue;
+
+          /* Prueba A: copia por-id. fotoRev NO autoriza destruirla: en la app no
+             existe hoy una accion humana "quitar foto"; varios fotoRev null fueron
+             generados por fixes/sync defectuosos. */
+          let bytes = fotoCache[u.id] || null;
+          if (!bytes) {
+            const histLocal = historialLocalFotos[u.id] || [];
+            if (histLocal.length) bytes = histLocal[histLocal.length - 1].dataUrl || null;
+          }
+          if (bytes && window.OCFotos.hashDeDataUrl) {
+            try {
+              const h = await window.OCFotos.hashDeDataUrl(bytes);
+              if (h && await reatarFotoExacta(u, h, bytes, "id-local")) continue;
+            } catch (_) {}
+          }
+
+          /* Prueba B: hashes historicos de ESA percha, del mas reciente al viejo.
+             Solo se reata si los bytes exactos del hash todavia existen. */
+          const hs = (historialYjsFotos[u.id] || []).slice().reverse();
+          for (const h of hs) {
+            const d = await bytesDeHash(h);
+            if (d && await reatarFotoExacta(u, h, d, "yjs-historico")) break;
+          }
+        }
       }
       /* B3 (JFC 2026-09-10): una percha puede traer fotoHash (asignada en OTRO
          aparato y llegada por el sync) sin tener la imagen guardada por id aquí.
@@ -381,14 +426,14 @@
                     try { await window.OCFotos.guardarPorHash(u.fotoHash, espejo); } catch (_) {}
                   }
                 } else {
-                  /* v448 GOLDEN G02: preservar NO significa adivinar.
-                     Si el mirror por-id NO corresponde al fotoHash vigente, no se
-                     pinta bajo ese pointer y no se reescribe el catalogo. Pero
-                     tampoco se borra: puede ser la unica evidencia recuperable
-                     mientras el blob correcto llega por sync o se diagnostica. */
+                  /* MISMATCH = dos evidencias distintas de LA MISMA percha.
+                     Conservamos ambas. El pointer vigente sigue mandando para
+                     escritura; mientras sus bytes no aparezcan, mostramos la copia
+                     local como FALLBACK visual, sin cambiar fotoHash. */
+                  d = espejo;
                   try {
                     if (window.OCCanarios && window.OCCanarios.fallo) {
-                      window.OCCanarios.fallo("perchas", "foto-pointer-sin-bytes");
+                      window.OCCanarios.fallo("perchas", "foto-pointer-sin-bytes-fallback-local");
                     }
                   } catch (_) {}
                 }
