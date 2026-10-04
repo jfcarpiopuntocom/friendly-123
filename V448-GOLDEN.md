@@ -33,3 +33,11 @@ This note is outside `docs/` intentionally: it documents the release policy with
 - Automatic restore requires the exact historical shelf ID and surviving exact hash bytes.
 - Ambiguous orphan blobs remain in Photo Recovery Vault for explicit owner confirmation.
 - Prime Directive 1AAA remains absolute: preserve > cleanup; no storage clearing or destructive migration during recovery.
+
+
+## Prime Directive 1AAA — G06 photo recovery
+- Never delete photo bytes as a side effect of render, sync, repair, merge, migration, archive, shelf deletion, or release hotfix.
+- Recovery order: exact same-shelf current evidence -> exact local Yjs history -> same-shelf per-ID evidence -> manual visual restore from the complete preserved-photo Vault.
+- The Recovery Vault inventories every photo blob still physically preserved on-device, even when stale/archived state still references it.
+- Manual Restore is copy-only: copy preserved bytes to the selected shelf and set that shelf pointer; retain the source evidence.
+- Public release remains v448 GOLDEN. G06 uses internal CacheStorage generation golden6.
