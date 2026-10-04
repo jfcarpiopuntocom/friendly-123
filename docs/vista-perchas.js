@@ -306,16 +306,21 @@
       const perchasVisibles = Array.isArray(perchas)
         ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
         : [];
-      /* v449: fotoHash=null + fotoRev significa borrado MODERNO intencional,
-         no "puntero viejo perdido". Limpiar el espejo por id evita mostrar o
-         resucitar una foto que otro aparato borro explicitamente. */
-      await Promise.all(perchasVisibles.map(async (u) => {
-        if (!u || u.fotoHash || !u.fotoRev) return;
-        delete fotoCache[u.id];
-        if (window.OCFotos && window.OCFotos.borrarFoto) {
-          try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
-        }
-      }));
+      /* v448 GOLDEN G03 — PRIME DIRECTIVE DE FOTO:
+         render/sync NO destruyen ni esconden evidencia local por inferencia.
+         En la UX normal no existe una accion "quitar foto" separada: por eso
+         fotoHash:null + fotoRev puede ser un estado de sync incompleto/legacy,
+         no prueba suficiente para borrar u ocultar los bytes por-id de ESTE
+         dispositivo. Si hay copia local, se conserva y se pinta; el puntero
+         remoto NO se reescribe automaticamente. */
+      perchasVisibles.forEach((u) => {
+        if (!u || u.fotoHash || !u.fotoRev || !fotoCache[u.id]) return;
+        try {
+          if (window.OCCanarios && window.OCCanarios.fallo) {
+            window.OCCanarios.fallo('perchas', 'foto-local-sin-puntero');
+          }
+        } catch (_) {}
+      });
       /* v449: evidencia efimera de ESTA carga. Si acabamos de derivar un hash
          desde los bytes guardados bajo el id de una percha y el PUT de ese mismo
          pointer fue aceptado, sabemos sin adivinar que esos bytes corresponden al
@@ -386,10 +391,19 @@
                     try { await window.OCFotos.guardarPorHash(u.fotoHash, espejo); } catch (_) {}
                   }
                 } else {
-                  delete fotoCache[u.id];
-                  if (hashEspejo && window.OCFotos.borrarFoto) {
-                    try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
-                  }
+                  /* v448 GOLDEN G03: el hash remoto manda como metadata, pero si
+                     sus bytes TODAVIA no llegaron no se castiga al usuario con una
+                     tarjeta vacia ni se destruye la unica copia local conocida.
+                     Se muestra el espejo por-id como fallback visual LOCAL, sin
+                     guardarlo bajo el hash remoto y sin tocar fotoHash/fotoRev.
+                     Cuando llegue el blob del hash vigente, la siguiente carga lo
+                     reemplaza normalmente. */
+                  d = espejo;
+                  try {
+                    if (window.OCCanarios && window.OCCanarios.fallo) {
+                      window.OCCanarios.fallo('perchas', 'foto-hash-sin-bytes-fallback-local');
+                    }
+                  } catch (_) {}
                 }
               }
               if (d) {
