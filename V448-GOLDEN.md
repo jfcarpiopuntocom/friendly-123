@@ -63,3 +63,10 @@ This note is outside `docs/` intentionally: it documents the release policy with
 - Regression test reproduces: first render blank → Yjs history hydrates → photo event → exact shelf photo reappears and pointer is reattached.
 - Verified: 548/548 full regression plus WebKit/iPhone, photo durability, lifecycle, stock, undo, commissions, Sync/Yjs, manifest/SW and diff hygiene.
 - Public identity remains **v448 GOLDEN**; internal CacheStorage generation is **golden9**.
+
+
+## G10 production recovery — 2026-10-04
+- `estable` fast-tracked to G10 after full Golden gate.
+- G10 rescues pre-isolation shelf-photo evidence from physical IndexedDB `f123_fotos` into the current namespaced store, copy-only.
+- Source DB remains untouched; newer current photos are never overwritten.
+- Public release remains v448 GOLDEN; internal CacheStorage generation is `golden10`.
