@@ -42,7 +42,7 @@ jobs:
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/shelf-lifecycle-race-v448.test.js test/perchas-hotfix-v444.test.js test/commissions-deleted-racks.test.js
 
       - name: "03 Shelf photo durability and self-heal"
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-photo-selfheal-v446.test.js test/shelf-photo-integrity-v446.test.js test/shelf-photo-durability-v449.test.js test/shelf-photo-legacy-g03.test.js test/photo-history-g05.test.js test/photo-prime-directive-g04.test.js test/photo-recovery-all-evidence-g06.test.js test/shelf-photo-checkpoint-g08.test.js test/shelf-photo-preisolation-g10.test.js test/photo-backup-evidence-v449.test.js test/backup-fotos.test.js
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-photo-selfheal-v446.test.js test/shelf-photo-integrity-v446.test.js test/shelf-photo-durability-v449.test.js test/shelf-photo-legacy-g03.test.js test/photo-history-g05.test.js test/photo-prime-directive-g04.test.js test/photo-recovery-all-evidence-g06.test.js test/shelf-photo-checkpoint-g08.test.js test/shelf-photo-preisolation-g10.test.js test/shelf-photo-raw-localstorage-g10b.test.js test/photo-backup-evidence-v449.test.js test/backup-fotos.test.js
 
       - name: "04 WebKit iPhone shelf-photo smoke"
         run: node .claude/smoke-v449-photo-webkit.cjs
