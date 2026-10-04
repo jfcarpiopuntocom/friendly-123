@@ -148,7 +148,7 @@ test('franja del canario en Advanced: la ve el aparato lord como dueno, no un cl
     };
     const lord = await ver(LORD_PRUEBA);
     assert.equal(lord.vis, true);
-    assert.match(lord.txt, /This device: CANARY \(next\) · f123-shell-v\d+/);
+    assert.match(lord.txt, /This device: CANARY \(next\) · shell-v448 GOLDEN/);
     const cliente = await ver('F123-CLIENTE-DE-PRUEBA');
     assert.equal(cliente.vis, false);
   });
