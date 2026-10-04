@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN hotfix golden5: Prime Directive 1AAA. Recupera asociaciones historicas exactas shelf ID -> fotoHash desde el IndexedDB local de Yjs, en modo solo lectura. Si el blob exacto sobrevive, reatacha la foto sin adivinar ni borrar evidencia; el Vault etiqueta sugerencias historicas. Public release remains v448 GOLDEN.",
+  "changelog": "v448 GOLDEN hotfix golden6: Prime Directive 1AAA. Combina recovery exacto por historial Yjs con un Photo Recovery Vault forense que muestra TODO byte fotografico preservado, incluso si un registro viejo aun lo referencia. Matches exactos se preseleccionan; restaurar es copy-only + pointer explicito. Nada se borra ni se mueve.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden5"
+  "cacheGeneration": "golden6"
 }

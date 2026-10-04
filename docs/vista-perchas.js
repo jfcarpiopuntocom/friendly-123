@@ -324,8 +324,15 @@
       const y = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('ubicaciones') : {};
       Object.keys(y || {}).forEach((id) => { const u = y[id]; if (u && u.fotoHash) refs.add(String(u.fotoHash)); });
     } catch (_) {}
-    const huerfanas = Object.keys(blobs).filter((h) => blobs[h] && !refs.has(h));
-    if (!huerfanas.length) { cont.style.display = 'none'; return; }
+    /* v448 GOLDEN G06: Recovery Vault = inventario forense completo, no GC.
+       G05 recupera automaticamente cuando el historial da un shelf ID exacto.
+       Lo que queda ambiguo debe seguir siendo visible aunque un registro viejo,
+       producto o Y.Map aun lo "referencie". Ocultarlo por refs hacia imposible
+       recuperar una foto que SI seguia fisicamente en el aparato. */
+    const todos = Object.keys(blobs).filter((h) => blobs[h]);
+    if (!todos.length) { cont.style.display = 'none'; return; }
+    const huerfanas = todos.filter((h) => !refs.has(h));
+    const referenciadas = todos.filter((h) => refs.has(h));
     cont.style.display = '';
     const hist = await historialFotosExacto();
     const nombres = {};
@@ -346,19 +353,24 @@
       ).join('');
       return { preferido, opts };
     };
-    cont.innerHTML = `<h3 style="margin:0 0 6px;">Photo Recovery Vault</h3>
-      <p style="font-size:13px;margin:0 0 12px;color:var(--ink-soft);">These photo bytes still exist on this device but no current shelf points to them. Nothing is deleted. Restore only the photos you recognize.</p>
+    const orden = huerfanas.concat(referenciadas);
+    cont.innerHTML = `<details ${huerfanas.length ? 'open' : ''}>
+      <summary style="cursor:pointer;font-weight:800;font-size:16px;">Photo Recovery Vault · ${todos.length} preserved</summary>
+      <p style="font-size:13px;margin:8px 0 12px;color:var(--ink-soft);">Prime Directive 1AAA: every photo byte still preserved on this device is listed here. ${huerfanas.length} unlinked · ${referenciadas.length} referenced somewhere. Exact historical matches are preselected when available. Nothing is deleted or moved; Restore makes a copy and sets only the shelf you choose.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
-      ${huerfanas.map((h) => {
+      ${orden.map((h) => {
         const op = opcionesPara(h);
         const pista = op.preferido ? `<div style="font-size:12px;margin-top:6px;color:var(--azul-medio,#2E6278);">Exact local history: ${esc(nombres[op.preferido])}</div>` : '';
+        const estado = refs.has(h) ? 'PRESERVED · referenced somewhere' : 'PRESERVED · unlinked';
         return `<div style="border:1px solid var(--azul-suave,#dde5ec);padding:8px;border-radius:8px;">
-          <img src="${blobs[h]}" alt="Recovered photo" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;">
+          <img src="${blobs[h]}" alt="Preserved photo" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;">
+          <div style="font-size:11px;font-weight:800;margin-top:5px;color:var(--ink-soft);">${estado}</div>
           ${pista}
           <select data-vault-shelf="${esc(h)}" style="width:100%;margin-top:8px;min-height:38px;"><option value="">Restore to shelf…</option>${op.opts}</select>
           <button type="button" data-vault-restore="${esc(h)}" class="ir" style="width:100%;margin-top:6px;min-height:40px;">Restore photo</button>
         </div>`;
-      }).join('')}</div>`;
+      }).join('')}</div>
+    </details>`;
   }
 
   let cargaEnCurso = 0;
