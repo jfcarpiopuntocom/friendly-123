@@ -1,0 +1,23 @@
+name: v448-golden-forensics
+
+on:
+  push:
+    branches: [forensics/v448-golden-tombstone]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: RED — shelf tombstone and checkpoint invariants
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/v448-golden-shelf-tombstone.test.js
