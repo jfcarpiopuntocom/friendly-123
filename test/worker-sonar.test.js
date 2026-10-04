@@ -71,6 +71,23 @@ test('solo la licencia lord pone en rojo al canario; los clientes cuentan en el 
   assert.ok(!JSON.stringify(e).includes('inst-'), 'la lectura publica no expone instanceIds');
 });
 
+test('v448 GOLDEN acepta el build canario numerico unico sin desplegar un Worker nuevo', async () => {
+  const w = await cargar(); const env = entorno();
+  const shell = 'f123-shell-v44802';
+  const r = await llamar(w, env, '/checkin', { metodo: 'POST', body: {
+    instanceId: 'inst-lord-g02', licenseCode: LORD,
+    salud: { shell, canal: 'next', errores: 0, cuadre: 'ok' }
+  } });
+  assert.equal(r.status, 200);
+  const reg = JSON.parse(await env.LICENCIAS.get('inst:inst-lord-g02'));
+  assert.equal(reg.salud.shell, shell);
+  const e = await llamar(w, env, '/canario/estado?shell=' + shell);
+  assert.equal(e.status, 200);
+  assert.equal(e.json.shell, shell);
+  assert.equal(e.json.reportes, 1);
+  assert.equal(e.json.rojo, false);
+});
+
 test('ordenes del Sonar: sin Master Key no; push, detener y reanudar con ella', async () => {
   const w = await cargar(); const env = entorno();
   assert.equal((await llamar(w, env, '/canario/orden', { metodo: 'POST', body: { accion: 'push' } })).status, 401);
