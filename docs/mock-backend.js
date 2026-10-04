@@ -4184,6 +4184,9 @@
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
         u.activa = m[2] === "activar"; u.rev = _revNueva();
         mov(u.activa ? "ubicacion-reactivada" : "ubicacion-desactivada", { ubicacion: u.nombre });
+        // v448 golden hotfix: archive/reactivate is catalog state and MUST travel.
+        // Without this, another device can keep publishing the stale active copy.
+        avisarCatalogoCambiado();
         return J(u);
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "DELETE") {
@@ -4196,6 +4199,9 @@
         u.borrado = true; u.activa = false; u.rev = _revNueva();
         delete gastosMensuales[u.id];
         mov("ubicacion-borrada", { ubicacion: u.nombre, productosBorrados });
+        // v448 golden hotfix: publish the tombstone immediately. A soft-deleted shelf
+        // must never be resurrected by a peer that still has the older active copy.
+        avisarCatalogoCambiado();
         return J({ ok: true, productosBorrados });
       }
       // ---- CAJA CHICA por percha — Roadmap Agosto 2026, Fase 2 ----
