@@ -44,3 +44,30 @@ test('hexagonal boundary: service worker pins the new domain/application files o
   assert.match(sw, /"\.\/core\/shelf-photo-policy\.js"/);
   assert.match(sw, /"\.\/application\/recover-shelf-photo\.js"/);
 });
+
+
+test('hexagonal boundary: dependency direction is inward, not just infrastructure-free', () => {
+  const core = read('docs/core/shelf-photo-policy.js')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+  const app = read('docs/application/recover-shelf-photo.js')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+
+  assert.doesNotMatch(core, /\brequire\s*\(/, 'domain core must not import any outer layer');
+  assert.doesNotMatch(core, /F123Application|vista-perchas|idb-fotos|sync-yjs|mock-backend/);
+
+  const requires = [...app.matchAll(/require\((['"])(.*?)\1\)/g)].map((m) => m[2]);
+  assert.deepEqual(requires, ['../core/shelf-photo-policy.js'],
+    'application may depend only on the inward domain core');
+  assert.doesNotMatch(app, /vista-perchas|idb-fotos|sync-yjs|mock-backend/,
+    'application cannot reach outward into adapters');
+});
+
+test('hexagonal boundary: render adapter has no destructive photo evidence primitive', () => {
+  const vista = read('docs/vista-perchas.js')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+  assert.doesNotMatch(vista, /\bOCFotos\.borrarFoto\b|\bborrarPorHash\b/,
+    'render/recovery adapter must preserve evidence; deletion belongs to an explicit destructive use case only');
+});
