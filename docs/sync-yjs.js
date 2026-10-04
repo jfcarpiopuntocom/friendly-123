@@ -838,6 +838,20 @@
                 } else if (sr) {
                   r = Object.assign({}, r, { estadoRev: sr });
                 }
+
+                /* PRIME DIRECTIVE 1AAA: el reseed del Y.Map tampoco puede borrar
+                   un fotoHash ya conocido. Si el store local viene sin puntero,
+                   conserva el pointer/revision del documento comun. Si ambos
+                   traen hash, decide fotoRev, independientemente del rev general. */
+                var fr = r.fotoRev || null, fp = prev.fotoRev || null;
+                if (prev.fotoHash) {
+                  var frc = Number(fr && fr.c) || 0, fpc = Number(fp && fp.c) || 0;
+                  var fotoLocalMasNueva = !!r.fotoHash && !!fr &&
+                    (frc > fpc || (frc === fpc && String(fr.d || "") > String(fp && fp.d || "")));
+                  if (!fotoLocalMasNueva) {
+                    r = Object.assign({}, r, { fotoHash: prev.fotoHash, fotoRev: fp || fr || null });
+                  }
+                }
               }
               if (prev && col === "productos") {
                 var basePrev = prev.stockBase == null ? null : Number(prev.stockBase);
@@ -1007,6 +1021,63 @@
     // en vivo (cambio -> sembrar -> WebSocket) es casi instantanea; este respaldo a
     // 2s cubre cualquier evento que no se haya disparado. Barato: solo manda si cambio.
     if (!API._tSembraPeriodica) API._tSembraPeriodica = setInterval(function () { try { if (API.estado === "activo") sembrar(); } catch (_) {} }, 2000);
+
+    /* RECUPERACION FORENSE DE PUNTEROS DE FOTO — SOLO LECTURA.
+       y-indexeddb conserva los updates del catalogo en objectStore "updates".
+       Reproducimos esos updates en un Y.Doc AISLADO y anotamos cada fotoHash que
+       tuvo cada percha. Nunca modifica API.doc, el store real ni IndexedDB. */
+    API.historialFotosPorPercha = async function () {
+      var out = {};
+      try {
+        if (!API.idb || !API.idb._db || !window.Y) return out;
+        var db = await API.idb._db;
+        var updates = await new Promise(function (resolve, reject) {
+          try {
+            var tx = db.transaction("updates", "readonly");
+            var req = tx.objectStore("updates").openCursor();
+            var arr = [];
+            req.onsuccess = function (ev) {
+              var cur = ev.target.result;
+              if (!cur) return resolve(arr);
+              arr.push(cur.value);
+              cur.continue();
+            };
+            req.onerror = function () { reject(req.error); };
+          } catch (e) { reject(e); }
+        });
+        var d = new window.Y.Doc();
+        var m = d.getMap("ubicaciones");
+        var ultimo = {};
+        function capturar() {
+          m.forEach(function (row, id) {
+            var h = row && row.fotoHash ? String(row.fotoHash) : "";
+            if (!h || ultimo[id] === h) return;
+            ultimo[id] = h;
+            if (!out[id]) out[id] = [];
+            out[id].push(h);
+          });
+        }
+        for (var i = 0; i < updates.length; i++) {
+          try {
+            var u = updates[i];
+            window.Y.applyUpdate(d, u instanceof Uint8Array ? u : new Uint8Array(u), "forense");
+            capturar();
+          } catch (_) {}
+        }
+        /* Añadir tambien el estado vivo por si y-indexeddb ya compacto updates. */
+        try {
+          var vivo = API.mapas && API.mapas.ubicaciones;
+          if (vivo) vivo.forEach(function (row, id) {
+            var h = row && row.fotoHash ? String(row.fotoHash) : "";
+            if (!h) return;
+            if (!out[id]) out[id] = [];
+            if (out[id][out[id].length - 1] !== h) out[id].push(h);
+          });
+        } catch (_) {}
+        try { d.destroy(); } catch (_) {}
+      } catch (e) { log("historialFotosPorPercha:", e && e.message); }
+      return out;
+    };
 
     API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual
   }
