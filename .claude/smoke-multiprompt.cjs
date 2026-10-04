@@ -26,7 +26,18 @@ function check(n, c, x){ if(c) console.log("  ok   "+n); else { console.log("  F
     // pick a normal product with stock
     const prod = await page.evaluate(async () => {
       const ps = await (await fetch("/api/productos")).json();
-      return ps.find(p => (p.tipoProducto||"normal")==="normal" && p.stockActual >= 5) || ps[0];
+      const us = await (await fetch("/api/ubicaciones")).json();
+      const activas = new Set((us || []).filter(u => u && u.activa !== false).map(u => String(u.id)));
+      const hoy = new Date();
+      return ps.find(p => {
+        if ((p.tipoProducto||"normal") !== "normal" || Number(p.stockActual) < 5) return false;
+        if (p.ubicacionId && activas.size && !activas.has(String(p.ubicacionId))) return false;
+        if (p.perecible && p.fechaCaducidad) {
+          const d = new Date(String(p.fechaCaducidad) + "T23:59:59");
+          if (Number.isFinite(d.getTime()) && d < hoy) return false;
+        }
+        return true;
+      }) || ps.find(p => (p.tipoProducto||"normal")==="normal" && Number(p.stockActual)>=5) || ps[0];
     });
     check("hay producto normal con stock", prod && prod.stockActual >= 5, prod && {id:prod.id,stock:prod.stockActual});
 
