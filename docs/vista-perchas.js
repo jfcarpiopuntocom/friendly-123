@@ -386,10 +386,17 @@
                     try { await window.OCFotos.guardarPorHash(u.fotoHash, espejo); } catch (_) {}
                   }
                 } else {
-                  delete fotoCache[u.id];
-                  if (hashEspejo && window.OCFotos.borrarFoto) {
-                    try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
-                  }
+                  /* v448 GOLDEN golden2: NUNCA destruir evidencia local solo porque
+                     el pointer remoto/newer todavia no tenga sus bytes. En offline-first
+                     ese desacuerdo puede ser simplemente orden de llegada: catalogo primero,
+                     blob despues. Conservamos el espejo por id y la UI muestra esa ultima
+                     foto local provisionalmente; NO cambiamos fotoHash, NO copiamos esos
+                     bytes bajo el hash nuevo y NO escribimos datos de negocio. Cuando llegue
+                     el blob del fotoHash vigente, reemplazara este fallback en el siguiente
+                     oc-fotos-actualizadas/cargar(). */
+                  try {
+                    if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo('perchas', 'foto-hash-pendiente');
+                  } catch (_) {}
                 }
               }
               if (d) {

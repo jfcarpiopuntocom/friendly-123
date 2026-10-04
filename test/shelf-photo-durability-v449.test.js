@@ -211,7 +211,7 @@ test('v449: explicit modern photo deletion clears an id mirror instead of self-h
 });
 
 
-test('v449: unavailable current fotoHash never displays or trusts a stale per-id mirror', async () => {
+test('v448 GOLDEN golden2: unavailable current fotoHash preserves and displays the last local per-id photo without mutating the pointer', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -271,10 +271,11 @@ test('v449: unavailable current fotoHash never displays or trusts a stale per-id
       deletes: window.__deletes.slice(),
       pointer: window.__shelf.fotoHash
     }));
-    assert.equal(out.img, null, 'stale bytes must not be painted under a newer unresolved pointer');
-    assert.equal(out.pointer, 'hash-current-not-here', 'the current pointer remains untouched');
-    assert.equal(out.mirror, null, 'a proven-mismatched id mirror is cleared so it cannot later self-heal the wrong photo');
-    assert.deepEqual(out.deletes, ['u-missing-current']);
+    assert.equal(out.img, 'data:image/png;base64,T0xELVNURUFMRS1NSVJST1I=',
+      'while the current hash bytes are still in flight, keep showing the exact last local photo for this shelf');
+    assert.equal(out.pointer, 'hash-current-not-here', 'the current pointer remains untouched; fallback is presentation-only');
+    assert.equal(out.mirror, out.img, 'the local recovery evidence must be preserved');
+    assert.deepEqual(out.deletes, [], 'hash lag must never delete the only local shelf-photo evidence');
   } finally {
     await browser.close();
   }

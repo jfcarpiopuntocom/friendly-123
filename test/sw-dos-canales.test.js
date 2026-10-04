@@ -50,7 +50,7 @@ test('estable y canario conviven: el canario mas nuevo NO borra la cache de los 
     await page.goto(base, { waitUntil: 'load' });
     await esperarSW(page);
     const antes = await page.evaluate(() => caches.keys());
-    const estable = antes.find((n) => /^f123-shell-v\d+$/.test(n));
+    const estable = antes.find((n) => /^f123-shell-v\d+-golden\d+$/.test(n));
     assert.ok(estable, 'el estable creo su cache: ' + antes.join(','));
 
     const p2 = await ctx.newPage();
@@ -65,7 +65,7 @@ test('estable y canario conviven: el canario mas nuevo NO borra la cache de los 
     // URLs de /next/: la copia offline de los clientes (su index.html precacheado) se perdia.
     const copiaOffline = await p2.evaluate(async ([nombre, url]) => !!(await (await caches.open(nombre)).match(url)), [estable, base + 'index.html']);
     assert.ok(copiaOffline, 'la copia offline del estable (index.html) sigue en su cache');
-    assert.ok(despues.some((n) => /^f123-shell-v\d+-next$/.test(n)), 'el canario tiene su propia cache -next: ' + despues.join(','));
+    assert.ok(despues.some((n) => /^f123-shell-v\d+-golden\d+-next$/.test(n)), 'el canario tiene su propia cache -next: ' + despues.join(','));
     // El SW del canario responde su shell SIN sufijo (la verificacion de version no cambia).
     const shell = await p2.evaluate(() => new Promise((res) => {
       navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.tipo === 'shell-actual') res(e.data.shell); });
@@ -93,11 +93,11 @@ test('tres canales (previo, estable, next) conviven: ninguno borra la cache de o
     const p = await ctx.newPage();
     await p.goto(base + 'previo/', { waitUntil: 'load' });
     const nombres = await p.evaluate(() => caches.keys());
-    assert.ok(nombres.some((n) => /^f123-shell-v\d+$/.test(n)), 'estable: ' + nombres.join(','));
-    assert.ok(nombres.some((n) => /^f123-shell-v\d+-next$/.test(n)), 'next: ' + nombres.join(','));
-    assert.ok(nombres.some((n) => /^f123-shell-v\d+-previo$/.test(n)), 'previo: ' + nombres.join(','));
+    assert.ok(nombres.some((n) => /^f123-shell-v\d+-golden\d+$/.test(n)), 'estable: ' + nombres.join(','));
+    assert.ok(nombres.some((n) => /^f123-shell-v\d+-golden\d+-next$/.test(n)), 'next: ' + nombres.join(','));
+    assert.ok(nombres.some((n) => /^f123-shell-v\d+-golden\d+-previo$/.test(n)), 'previo: ' + nombres.join(','));
     const offline = await p.evaluate(async (b) => {
-      const est = (await caches.keys()).find((n) => /^f123-shell-v\d+$/.test(n));
+      const est = (await caches.keys()).find((n) => /^f123-shell-v\d+-golden\d+$/.test(n));
       return !!(await (await caches.open(est)).match(b + 'index.html'));
     }, base);
     assert.ok(offline, 'la copia offline del estable sigue entera');

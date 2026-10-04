@@ -28,7 +28,8 @@ jobs:
           grep -q '"shell": "f123-shell-v448"' docs/version.json
           grep -q '"releaseName": "v448 GOLDEN"' docs/version.json
           grep -q 'const CACHE = "f123-shell-v448"' docs/sw.js
-          grep -q 'const CACHE_GENERACION = "-golden1"' docs/sw.js
+          grep -q 'const CACHE_GENERACION = "-golden2"' docs/sw.js
+          grep -q '"cacheGeneration": "golden2"' docs/version.json
           grep -q 'const CACHE_LOCAL = CACHE + CACHE_GENERACION + CANAL' docs/sw.js
           grep -q '"shell": "f123-shell-v448"' docs/version-manifest.json
           ! grep -q '"shell": "f123-shell-v450"' docs/version.json
