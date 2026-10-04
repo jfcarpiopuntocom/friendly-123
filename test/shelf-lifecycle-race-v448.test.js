@@ -103,3 +103,30 @@ test('stale photo/self-heal style writes cannot resurrect a deleted shelf', asyn
   assert.equal(raw.activa, false);
   assert.equal((await a.request('/api/ubicaciones?todas=1')).some(x => x.id === u.id), false);
 });
+
+
+test('RED v451: deleted shelf tombstone is sticky even against newer explicit active lifecycle state', async () => {
+  const w = browser();
+  await w.request('/api/ubicaciones', 'POST', { nombre: 'Other sticky shelf', tipo: 'propio' });
+  const shelf = await w.request('/api/ubicaciones', 'POST', { nombre: 'Sticky delete target', tipo: 'propio' });
+  await w.request(`/api/ubicaciones/${shelf.id}`, 'DELETE', {});
+
+  const before = byId(w.catalog(), shelf.id);
+  assert.equal(before.borrado, true);
+  assert.equal(before.activa, false);
+  assert.ok(before.estadoRev, 'modern delete carries lifecycle revision');
+
+  const remote = w.catalog();
+  const ru = byId(remote, shelf.id);
+  ru.borrado = false;
+  ru.activa = true;
+  ru.estadoRev = { c: Number(before.estadoRev.c || 0) + 1000, d: 'synthetic-undelete-peer' };
+  ru.rev = { c: Number(before.rev && before.rev.c || 0) + 1000, d: 'synthetic-undelete-peer' };
+
+  w.OCSync.aplicarCatalogo(remote, null);
+
+  const after = byId(w.catalog(), shelf.id);
+  assert.equal(after.borrado, true, 'no implicit undelete exists for a shelf id');
+  assert.equal(after.activa, false, 'deleted shelf stays non-operational');
+  assert.equal((await w.request('/api/ubicaciones?todas=1')).some(x => x.id === shelf.id), false);
+});
