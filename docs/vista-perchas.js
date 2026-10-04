@@ -306,16 +306,11 @@
       const perchasVisibles = Array.isArray(perchas)
         ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
         : [];
-      /* v449: fotoHash=null + fotoRev significa borrado MODERNO intencional,
-         no "puntero viejo perdido". Limpiar el espejo por id evita mostrar o
-         resucitar una foto que otro aparato borro explicitamente. */
-      await Promise.all(perchasVisibles.map(async (u) => {
-        if (!u || u.fotoHash || !u.fotoRev) return;
-        delete fotoCache[u.id];
-        if (window.OCFotos && window.OCFotos.borrarFoto) {
-          try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
-        }
-      }));
+      /* v448 GOLDEN G03: render nunca destruye evidencia fotografica.
+         En la UX no existe "quitar foto" de una percha activa. Por tanto,
+         fotoHash:null + fotoRev se trata como pointer perdido/sospechoso,
+         NO como permiso para borrar la copia por-id. Solo borrar la percha
+         completa conserva el derecho de eliminar su foto local. */
       /* v449: evidencia efimera de ESTA carga. Si acabamos de derivar un hash
          desde los bytes guardados bajo el id de una percha y el PUT de ese mismo
          pointer fue aceptado, sabemos sin adivinar que esos bytes corresponden al
@@ -330,7 +325,7 @@
          buscamos por nombre ni copiamos una foto de otra percha. */
       if (perchasVisibles.length && window.OCFotos && window.OCFotos.guardarFotoContenido) {
         await Promise.all(perchasVisibles.map(async (u) => {
-          if (!u || u.fotoHash || u.fotoRev || !fotoCache[u.id]) return;
+          if (!u || u.fotoHash || !fotoCache[u.id]) return;
           try {
             const bytes = fotoCache[u.id];
             const hash = await window.OCFotos.guardarFotoContenido(bytes);
@@ -386,14 +381,11 @@
                     try { await window.OCFotos.guardarPorHash(u.fotoHash, espejo); } catch (_) {}
                   }
                 } else {
-                  /* v448 GOLDEN golden2: NUNCA destruir evidencia local solo porque
-                     el pointer remoto/newer todavia no tenga sus bytes. En offline-first
-                     ese desacuerdo puede ser simplemente orden de llegada: catalogo primero,
-                     blob despues. Conservamos el espejo por id y la UI muestra esa ultima
-                     foto local provisionalmente; NO cambiamos fotoHash, NO copiamos esos
-                     bytes bajo el hash nuevo y NO escribimos datos de negocio. Cuando llegue
-                     el blob del fotoHash vigente, reemplazara este fallback en el siguiente
-                     oc-fotos-actualizadas/cargar(). */
+                  /* v448 GOLDEN G03: preservar > destruir. Mientras el blob del
+                     pointer vigente no exista, mostramos la ultima foto local de
+                     ESA misma percha como fallback. No cambiamos fotoHash ni
+                     escribimos negocio; cuando llegue el blob vigente, gana solo. */
+                  d = espejo;
                   try {
                     if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo('perchas', 'foto-hash-pendiente');
                   } catch (_) {}
