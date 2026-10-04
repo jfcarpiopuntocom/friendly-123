@@ -30,6 +30,10 @@ test('salud y canarios reportan el build unico, Advanced sigue mostrando v448 GO
 
   assert.match(salud, /v\.canaryBuild \|\| v\.shell/);
   assert.match(salud, /releaseName: function \(\) \{ return releaseName; \}/);
+  assert.match(salud, /data\.cacheGeneration/);
+  assert.match(salud, /genSirviendo !== genEsperada/);
+  assert.match(salud, /navigator\.serviceWorker\.addEventListener\("message", fallbackGlobal\)/,
+    'A4 debe oir la respuesta directa de un SW golden1 viejo');
   assert.match(canarios, /v\.canaryBuild \|\| v\.shell/);
   assert.match(avanzado, /OCSalud\.releaseName/);
   assert.match(avanzado, /"v448 GOLDEN"/);
@@ -72,4 +76,14 @@ test('sonar manual PUSH ya no bypassa el canario y REWIND usa lease', () => {
   assert.match(y, /--force-with-lease=refs\/heads\/previo:/);
   assert.match(y, /--force-with-lease=refs\/heads\/estable:\$ESTABLE"[\s\S]*origin "\$PREVIO:refs\/heads\/estable"/,
     'REWIND no puede pisar un estable que cambio despues del fetch');
+});
+
+test('A4 recibe por MessageChannel y compara la generacion interna, no solo v448', () => {
+  const sw = read('docs/sw.js');
+  const salud = read('docs/salud-app.js');
+  assert.match(sw, /const puerto = ev\.ports && ev\.ports\[0\]/);
+  assert.match(sw, /puerto\.postMessage\(respuesta\)/);
+  assert.match(sw, /cacheGeneration: CACHE_GENERACION\.replace/);
+  assert.match(salud, /var genEsperada = String\(v\.cacheGeneration \|\| ""\)/);
+  assert.match(salud, /var genMal = !!genEsperada && genSirviendo !== genEsperada/);
 });
