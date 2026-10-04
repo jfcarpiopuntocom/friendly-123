@@ -369,16 +369,16 @@
     }
     let blobs = {};
     try { blobs = await window.OCFotos.leerTodosPorHash() || {}; } catch (_) {}
-    const shelfRefs = new Set(), productRefs = new Set();
+    const shelfRefsActuales = new Set(), productRefs = new Set();
     try {
       const cat = window.OCSync && window.OCSync.catalogoPropio ? window.OCSync.catalogoPropio() : null;
-      (cat && cat.ubicaciones || []).forEach((u) => { if (u && u.fotoHash) shelfRefs.add(String(u.fotoHash)); });
+      (cat && cat.ubicaciones || []).forEach((u) => { if (u && u.fotoHash) shelfRefsActuales.add(String(u.fotoHash)); });
       (cat && cat.productos || []).forEach((p) => { if (p && p.fotoHash) productRefs.add(String(p.fotoHash)); });
     } catch (_) {}
     try {
       const yU = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('ubicaciones') : {};
       const yP = window.OCYjs && window.OCYjs.get ? window.OCYjs.get('productos') : {};
-      Object.keys(yU || {}).forEach((id) => { const u = yU[id]; if (u && u.fotoHash) shelfRefs.add(String(u.fotoHash)); });
+      Object.keys(yU || {}).forEach((id) => { const u = yU[id]; if (u && u.fotoHash) shelfRefsActuales.add(String(u.fotoHash)); });
       Object.keys(yP || {}).forEach((id) => { const p = yP[id]; if (p && p.fotoHash) productRefs.add(String(p.fotoHash)); });
     } catch (_) {}
 
@@ -390,20 +390,21 @@
     const nombres = {};
     (perchasVisibles || []).forEach((u) => { if (u && u.id) nombres[String(u.id)] = u.nombre || u.id; });
     const idsPorHash = {};
+    const shelfRefsHistoricas = new Set();
     [hist || {}, histCaja || {}].forEach((fuente) => {
       Object.keys(fuente).forEach((id) => {
         (fuente[id] || []).forEach((h) => {
           h = String(h || ''); if (!h) return;
-          shelfRefs.add(h);
+          shelfRefsHistoricas.add(h);
           if (!idsPorHash[h]) idsPorHash[h] = [];
           if (idsPorHash[h].indexOf(String(id)) < 0) idsPorHash[h].push(String(id));
         });
       });
     });
-    const todos = Object.keys(blobs).filter((h) => blobs[h] && shelfRefs.has(h));
+    const todos = Object.keys(blobs).filter((h) => blobs[h] && (shelfRefsActuales.has(h) || shelfRefsHistoricas.has(h)));
     if (!todos.length) { cont.style.display = 'none'; return; }
-    const huerfanas = todos.filter((h) => !Array.from(shelfRefs).includes(h) || !idsPorHash[h]);
-    const referenciadas = todos.filter((h) => !huerfanas.includes(h));
+    const huerfanas = todos.filter((h) => !shelfRefsActuales.has(h) && shelfRefsHistoricas.has(h));
+    const referenciadas = todos.filter((h) => shelfRefsActuales.has(h));
     cont.style.display = '';
     const opcionesPara = (hash) => {
       const candidatos = (idsPorHash[hash] || []).filter((id) => nombres[id]);
@@ -421,7 +422,7 @@
       ${orden.map((h) => {
         const op = opcionesPara(h);
         const pista = op.preferido ? `<div style="font-size:12px;margin-top:6px;color:var(--azul-medio,#2E6278);">Exact local history: ${esc(nombres[op.preferido])}</div>` : '';
-        const estado = productRefs.has(h) ? 'PRESERVED · shelf evidence (also used by product)' : 'PRESERVED · shelf evidence';
+        const estado = shelfRefsActuales.has(h) ? 'PRESERVED · current shelf reference' : 'PRESERVED · exact shelf history';
         return `<div style="border:1px solid var(--azul-suave,#dde5ec);padding:8px;border-radius:8px;">
           <img src="${blobs[h]}" alt="Preserved photo" style="width:100%;height:120px;object-fit:cover;border-radius:6px;display:block;">
           <div style="font-size:11px;font-weight:800;margin-top:5px;color:var(--ink-soft);">${estado}</div>
