@@ -267,18 +267,33 @@
           if (!v || !v.shell) return;   // version.json viejo, sin el campo: no se opina
           var respondio = false;
           var canal = new MessageChannel();
-          canal.port1.onmessage = function (e) {
+          var procesar = function (data) {
+            if (respondio || !data || data.tipo !== "shell-actual") return;
             respondio = true;
-            var sirviendo = e.data && e.data.shell;
-            if (sirviendo && sirviendo !== v.shell) { window.__ocMezcla = true; ofrecerRecarga(v.shell, sirviendo); }
+            try { navigator.serviceWorker.removeEventListener("message", fallbackGlobal); } catch (_) {}
+            var sirviendo = data.shell || "";
+            var genSirviendo = String(data.cacheGeneration || "");
+            var genEsperada = String(v.cacheGeneration || "");
+            var shellMal = !!sirviendo && sirviendo !== v.shell;
+            /* Desde v448 GOLDEN G02, ausencia de generacion cuando el servidor
+               SI la exige significa SW viejo. Asi golden1 ya no puede hacerse
+               pasar por golden2 solo porque ambos dicen v448. */
+            var genMal = !!genEsperada && genSirviendo !== genEsperada;
+            if (shellMal || genMal) {
+              window.__ocMezcla = true;
+              ofrecerRecarga(v.shell + (genEsperada ? "/" + genEsperada : ""),
+                              (sirviendo || "?") + (genSirviendo ? "/" + genSirviendo : "/sin-generacion"));
+            }
           };
+          var fallbackGlobal = function (e) { procesar(e && e.data); };
+          canal.port1.onmessage = function (e) { procesar(e && e.data); };
+          /* Compatibilidad hacia atras: golden1 contestaba al client, no al
+             MessagePort transferido. Escuchamos ambos caminos durante 3 s. */
+          try { navigator.serviceWorker.addEventListener("message", fallbackGlobal); } catch (_) {}
           try { ctrl.postMessage({ tipo: "que-shell" }, [canal.port2]); } catch (_) {}
-          /* Respaldo: un SW viejo no conoce el mensaje y no contesta nunca.
-             Ese silencio ya es la respuesta —esta desactualizado— pero no se
-             avisa por las dudas: sin saber que shell sirve, un aviso podria ser
-             falso. Se deja anotado en consola para el proximo que investigue. */
           setTimeout(function () {
-            if (!respondio) { try { console.warn("[version] el service worker no contesto que shell sirve; probablemente sea anterior a v72"); } catch (_) {} }
+            try { navigator.serviceWorker.removeEventListener("message", fallbackGlobal); } catch (_) {}
+            if (!respondio) { try { console.warn("[version] el service worker no contesto shell/generacion; se mantiene fail-open sin romper la app"); } catch (_) {} }
           }, 3000);
         })
         .catch(function () { /* sin red: no se opina de versiones */ });
