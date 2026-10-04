@@ -306,6 +306,16 @@
       const perchasVisibles = Array.isArray(perchas)
         ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
         : [];
+      /* v449: fotoHash=null + fotoRev significa borrado MODERNO intencional,
+         no "puntero viejo perdido". Limpiar el espejo por id evita mostrar o
+         resucitar una foto que otro aparato borro explicitamente. */
+      await Promise.all(perchasVisibles.map(async (u) => {
+        if (!u || u.fotoHash || !u.fotoRev) return;
+        delete fotoCache[u.id];
+        if (window.OCFotos && window.OCFotos.borrarFoto) {
+          try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
+        }
+      }));
       /* v446 (JFC 2026-10-03): auto-reparacion SIN inventar datos.
          Las fotos antiguas de percha se guardaban tambien por id. Si ese byte local
          sigue aqui pero un peer viejo dejo fotoHash en null, volvemos a calcular EL
@@ -313,7 +323,7 @@
          buscamos por nombre ni copiamos una foto de otra percha. */
       if (perchasVisibles.length && window.OCFotos && window.OCFotos.guardarFotoContenido) {
         await Promise.all(perchasVisibles.map(async (u) => {
-          if (!u || u.fotoHash || !fotoCache[u.id]) return;
+          if (!u || u.fotoHash || u.fotoRev || !fotoCache[u.id]) return;
           try {
             const hash = await window.OCFotos.guardarFotoContenido(fotoCache[u.id]);
             if (!hash) return;
@@ -333,7 +343,7 @@
          muestra igual que una foto propia. */
       if (perchasVisibles.length && window.OCFotos && window.OCFotos.leerPorHash) {
         await Promise.all(perchasVisibles.map(async (u) => {
-          if (u && u.fotoHash && !fotoCache[u.id]) {
+          if (u && u.fotoHash) {
             try {
               let d = await window.OCFotos.leerPorHash(u.fotoHash);
               // Read-repair: tras reenganchar un aparato, Yjs puede tener ya el blob
@@ -345,7 +355,17 @@
                   try { await window.OCFotos.guardarPorHash(u.fotoHash, d); } catch (_) {}
                 }
               }
-              if (d) fotoCache[u.id] = d;
+              if (d) {
+                /* v449: el fotoHash ACTUAL es la autoridad sobre un espejo id viejo.
+                   Cada foto que realmente logramos mostrar queda duplicada con los
+                   MISMOS bytes bajo el id de ESA percha. Si un peer legacy pierde
+                   luego el puntero, el self-heal puede reconstruirlo sin adivinar. */
+                const anterior = fotoCache[u.id] || null;
+                fotoCache[u.id] = d;
+                if (anterior !== d && window.OCFotos.guardarFoto) {
+                  try { await window.OCFotos.guardarFoto(u.id, d); } catch (_) {}
+                }
+              }
             } catch (_) {}
           }
         }));
