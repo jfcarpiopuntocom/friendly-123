@@ -89,6 +89,16 @@
         b.style.cssText = 'font-size:13px;min-height:36px;padding:4px 10px;margin:0;';
         cont.appendChild(b);
       });
+      try {
+        if (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) {
+          const r = document.createElement('button');
+          r.type = 'button'; r.id = 'vp-btn-recover-photos'; r.className = 'tecla';
+          r.style.cssText = 'font-size:13px;min-height:36px;padding:4px 10px;margin:0;';
+          r.textContent = 'Recover photos';
+          r.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); abrirVaultFotos(); });
+          cont.appendChild(r);
+        }
+      } catch (_) {}
       cont.addEventListener('click', (e) => {
         const b = e.target.closest('[data-ord-percha-col]');
         if (!b) return;
@@ -106,6 +116,84 @@
       b.classList.toggle('hundida', activo);
       b.textContent = c.label + (activo ? (_ordenPercha.asc ? ' ↑' : ' ↓') : '');
     });
+  }
+
+  // ── Photo Recovery Vault (Prime Directive 1AAA) ─────────────────────────────
+  async function abrirVaultFotos() {
+    try {
+      if (!window.OCFotos || !window.OCFotos.inventarioForense) {
+        alert('Photo recovery is not available on this device yet.');
+        return;
+      }
+      const inv = await window.OCFotos.inventarioForense();
+      const perchas = await fetch(`${API}/ubicaciones?todas=1`).then((r) => r.json()).catch(() => []);
+      const refs = new Set((Array.isArray(perchas) ? perchas : []).map((u) => u && u.fotoHash).filter(Boolean));
+      const blobs = inv && inv.blobs ? inv.blobs : {};
+      const huerfanos = Object.keys(blobs).filter((h) => h && !refs.has(h));
+
+      let modal = document.getElementById('vp-photo-vault');
+      if (modal) modal.remove();
+      modal = document.createElement('div');
+      modal.id = 'vp-photo-vault';
+      modal.style.cssText = 'position:fixed;inset:0;z-index:10030;background:rgba(15,25,35,.88);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;';
+      const opciones = (Array.isArray(perchas) ? perchas : []).filter((u) => u && !u.borrado).map((u) =>
+        `<option value="${esc(u.id)}">${esc(u.nombre || u.id)}${u.activa === false ? ' (archived)' : ''}</option>`
+      ).join('');
+      modal.innerHTML = `<div style="width:min(980px,96vw);background:#fff;color:#0F1923;border-radius:12px;padding:18px;border:3px solid #E8A020;">
+        <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+          <div>
+            <h2 style="margin:0;font-size:22px;">Photo Recovery Vault</h2>
+            <p style="margin:5px 0 0;font-size:14px;">Append-only recovery. Nothing here deletes a photo.</p>
+          </div>
+          <button type="button" id="vp-photo-vault-close" class="tecla" style="min-height:40px;">Close</button>
+        </div>
+        <p style="font-size:14px;margin:14px 0;">Found <b>${huerfanos.length}</b> preserved photo blob${huerfanos.length === 1 ? '' : 's'} not currently referenced by a shelf. Attach only when you recognize the photo.</p>
+        <div id="vp-photo-vault-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;"></div>
+      </div>`;
+      document.body.appendChild(modal);
+      document.getElementById('vp-photo-vault-close').onclick = () => modal.remove();
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+      const grid = document.getElementById('vp-photo-vault-grid');
+      if (!huerfanos.length) {
+        grid.innerHTML = '<p style="font-size:14px;">No unassigned preserved photo blobs were found on this device.</p>';
+        return;
+      }
+      huerfanos.forEach((hash) => {
+        const d = blobs[hash];
+        const card = document.createElement('div');
+        card.style.cssText = 'border:2px solid #2E6278;border-radius:10px;padding:10px;background:#fff;';
+        card.innerHTML = `<img src="${d}" alt="" style="width:100%;height:150px;object-fit:cover;border-radius:6px;background:#f5f5f5;">
+          <div style="font-size:11px;font-family:monospace;margin:7px 0;word-break:break-all;">${esc(hash.slice(0,16))}…</div>
+          <select data-vault-shelf style="width:100%;min-height:40px;margin-bottom:7px;">${opciones}</select>
+          <button type="button" data-vault-attach="${esc(hash)}" class="tecla" style="width:100%;min-height:42px;">Attach this copy</button>`;
+        grid.appendChild(card);
+      });
+      grid.addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-vault-attach]');
+        if (!b) return;
+        const hash = b.dataset.vaultAttach;
+        const card = b.closest('div');
+        const sel = card && card.querySelector('[data-vault-shelf]');
+        const id = sel && sel.value;
+        const bytes = blobs[hash];
+        if (!id || !bytes) return;
+        b.disabled = true; b.textContent = 'Attaching…';
+        try {
+          if (window.OCFotos.guardarFoto) await window.OCFotos.guardarFoto(id, bytes);
+          if (window.OCFotos.guardarPorHash) await window.OCFotos.guardarPorHash(hash, bytes);
+          const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fotoHash: hash })
+          });
+          if (!rr.ok) throw new Error('PUT failed');
+          b.textContent = 'Attached ✓';
+          setTimeout(() => { try { modal.remove(); cargar(); } catch (_) {} }, 350);
+        } catch (_) {
+          b.disabled = false; b.textContent = 'Could not attach — try again';
+        }
+      });
+    } catch (_) {
+      alert('Could not open Photo Recovery Vault.');
+    }
   }
 
   // Percha activa en el modal de gestión (editar/borrar).
