@@ -140,7 +140,7 @@ test('v449: current fotoHash overrides a stale per-id mirror and refreshes that 
 });
 
 
-test('v449: explicit modern photo deletion clears an id mirror instead of self-healing it', async () => {
+test('v448 GOLDEN G02: fotoRev sin pointer NO autoriza borrar la unica foto local de una percha activa', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -151,13 +151,13 @@ test('v449: explicit modern photo deletion clears an id mirror instead of self-h
         </section>
       </body></html>`);
     await page.evaluate(() => {
-      const oldPhoto = 'data:image/png;base64,REVMRVRFRC1QSE9UTw==';
-      window.__idPhotos = { 'u-deleted-photo': oldPhoto };
+      const oldPhoto = 'data:image/png;base64,UkVDT1ZFUi1NRQ==';
+      window.__idPhotos = { 'u-pointer-lost': oldPhoto };
       window.__puts = [];
       window.__deletes = [];
       window.__shelf = {
-        id: 'u-deleted-photo', nombre: 'Deleted photo shelf', tipo: 'propio', activa: true,
-        fotoHash: null, fotoRev: { c: 42, d: 'modern-delete' }
+        id: 'u-pointer-lost', nombre: 'Recovered shelf', tipo: 'propio', activa: true,
+        fotoHash: null, fotoRev: { c: 42, d: 'suspicious-null-pointer' }
       };
       window.t = (k) => ({
         'shelves.noRacksYet':'No shelves yet','shelves.noTarget':'No target','shelves.ofTargetMet':'% target',
@@ -175,15 +175,17 @@ test('v449: explicit modern photo deletion clears an id mirror instead of self-h
         leerTodas: async () => ({ ...window.__idPhotos }),
         guardarFoto: async (id, dataUrl) => { window.__idPhotos[id] = dataUrl; return true; },
         borrarFoto: async (id) => { window.__deletes.push(id); delete window.__idPhotos[id]; },
-        guardarFotoContenido: async () => 'hash-old-deleted',
-        leerPorHash: async () => null,
+        guardarFotoContenido: async () => 'hash-recovered',
+        leerPorHash: async (hash) => hash === 'hash-recovered' ? oldPhoto : null,
         guardarPorHash: async () => true
       };
       window.fetch = async (input, options = {}) => {
         const url = String(input);
         if ((options.method || 'GET') === 'PUT') {
-          window.__puts.push({ url, body: JSON.parse(options.body || '{}') });
-          return new Response('{}', { status:200, headers:{'Content-Type':'application/json'} });
+          const body = JSON.parse(options.body || '{}');
+          window.__puts.push({ url, body });
+          window.__shelf.fotoHash = body.fotoHash || null;
+          return new Response(JSON.stringify(window.__shelf), { status:200, headers:{'Content-Type':'application/json'} });
         }
         let body = [];
         if (url === '/api/ubicaciones') body = [Object.assign({}, window.__shelf)];
@@ -199,19 +201,21 @@ test('v449: explicit modern photo deletion clears an id mirror instead of self-h
       img: document.querySelector('#vp-grid img')?.getAttribute('src') || null,
       puts: window.__puts.slice(),
       deletes: window.__deletes.slice(),
-      mirror: window.__idPhotos['u-deleted-photo'] || null
+      mirror: window.__idPhotos['u-pointer-lost'] || null,
+      pointer: window.__shelf.fotoHash
     }));
-    assert.equal(out.img, null, 'an explicit modern deletion must not render stale mirrored bytes');
-    assert.equal(out.puts.length, 0, 'an explicit modern deletion must not regenerate fotoHash');
-    assert.deepEqual(out.deletes, ['u-deleted-photo']);
-    assert.equal(out.mirror, null);
+    assert.equal(out.img, 'data:image/png;base64,UkVDT1ZFUi1NRQ==');
+    assert.equal(out.deletes.length, 0, 'render no borra bytes de una percha activa');
+    assert.equal(out.puts.length, 1, 'reatacha el pointer perdido desde los bytes de ESA misma percha');
+    assert.equal(out.pointer, 'hash-recovered');
+    assert.equal(out.mirror, out.img);
   } finally {
     await browser.close();
   }
 });
 
 
-test('v449: unavailable current fotoHash never displays or trusts a stale per-id mirror', async () => {
+test('v448 GOLDEN G02: current fotoHash sin blob usa mirror local como fallback sin destruir ni reescribir el pointer', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -271,10 +275,11 @@ test('v449: unavailable current fotoHash never displays or trusts a stale per-id
       deletes: window.__deletes.slice(),
       pointer: window.__shelf.fotoHash
     }));
-    assert.equal(out.img, null, 'stale bytes must not be painted under a newer unresolved pointer');
-    assert.equal(out.pointer, 'hash-current-not-here', 'the current pointer remains untouched');
-    assert.equal(out.mirror, null, 'a proven-mismatched id mirror is cleared so it cannot later self-heal the wrong photo');
-    assert.deepEqual(out.deletes, ['u-missing-current']);
+    assert.equal(out.img, 'data:image/png;base64,T0xELVNURUFMRS1NSVJST1I=',
+      'mientras el blob vigente no existe, la percha no queda en blanco si conserva su mirror local');
+    assert.equal(out.pointer, 'hash-current-not-here', 'el fallback visual NO reescribe el pointer vigente');
+    assert.equal(out.mirror, out.img, 'la unica evidencia fotografica local se conserva');
+    assert.deepEqual(out.deletes, [], 'render nunca destruye la foto por una discrepancia de pointer');
   } finally {
     await browser.close();
   }
