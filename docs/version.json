@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-03",
-  "changelog": "v448 GOLDEN hotfix golden2: preserva la ultima foto local de cada shelf mientras llega el blob del fotoHash vigente; nunca borra evidencia local por lag de sync. El autodiagnostico tambien distingue generaciones internas aunque la release publica siga siendo v448.",
+  "changelog": "v448 GOLDEN hotfix golden3: Shelves deja de borrar fotos locales por fotoRev/pointer perdido, reatacha fotos de perchas activas desde sus propios bytes y rescata fotos legacy aunque IndexedDB este vacio o bloqueado. Release publica sigue v448; no reescribe datos de negocio.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden2"
+  "cacheGeneration": "golden3"
 }
