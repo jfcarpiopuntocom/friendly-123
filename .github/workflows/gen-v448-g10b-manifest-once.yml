@@ -1,0 +1,42 @@
+name: gen-v448-g10b-manifest-once
+
+on:
+  push:
+    branches: [hotfix/v448-golden-photo-g10b]
+    paths:
+      - ".github/workflows/gen-v448-g10b-manifest-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/v448-golden-photo-g10b
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regenerate deterministic shell manifest
+        run: |
+          set -euo pipefail
+          node scripts/gen-manifest.js
+          bash check-sw.sh || true
+          git diff --check
+          git status --short
+      - name: Commit manifest only
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/version-manifest.json; then
+            echo "manifest already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version-manifest.json
+          git commit -m "integrity(v448 G10b): regenerate golden11 manifest"
+          git push origin HEAD:hotfix/v448-golden-photo-g10b
