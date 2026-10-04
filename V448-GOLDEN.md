@@ -54,3 +54,12 @@ This note is outside `docs/` intentionally: it documents the release policy with
 - Product-photo blobs are never shelf-recovery candidates merely because they are preserved.
 - Exact shelf recovery may use current/Yjs mappings, Yjs history, checksummed local checkpoints, and same-shelf per-ID bytes.
 - Public release remains v448 GOLDEN; G08 uses internal CacheStorage generation golden8.
+
+
+## G09 — late Yjs photo-history refresh
+
+- Root cause fixed: an early empty `historialFotosPorPercha()` result could remain cached for the entire session even after Yjs delivered exact shelf-photo evidence.
+- `oc-fotos-actualizadas` now invalidates derived photo-history/checkpoint caches before repainting Shelves.
+- Regression test reproduces: first render blank → Yjs history hydrates → photo event → exact shelf photo reappears and pointer is reattached.
+- Verified: 548/548 full regression plus WebKit/iPhone, photo durability, lifecycle, stock, undo, commissions, Sync/Yjs, manifest/SW and diff hygiene.
+- Public identity remains **v448 GOLDEN**; internal CacheStorage generation is **golden9**.
