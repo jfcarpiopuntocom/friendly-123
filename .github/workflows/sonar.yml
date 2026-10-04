@@ -1,11 +1,8 @@
-# sonar.yml — EJECUTA LAS ORDENES DEL SONAR DE CANARIOS (JFC 2026-09-25).
-# JFC aprieta PUSH o REWIND en su panel privado -> el Worker guarda la orden (con su
-# Master Key) -> este flujo la lee cada 5 min (GitHub puede atrasar el cron unos
-# minutos) y la ejecuta UNA sola vez (marca con la etiqueta sonar-<id>):
-#   PUSH   : previo <- estable, estable <- master (lo que hay en /next/).
-#   REWIND : estable <- previo (los clientes vuelven a la version anterior).
-# Los DATOS de los clientes no se tocan nunca: solo cambia que interfaz ven.
-# Claude tambien puede lanzarlo a mano: gh workflow run sonar.yml
+# sonar.yml — EJECUTA LAS ORDENES DEL SONAR DE CANARIOS.
+# v448 GOLDEN G02:
+#   PUSH   exige testigo verde/fresco del build exacto que JFC esta aprobando.
+#   REWIND usa lease sobre estable para no pisar un cambio concurrente.
+#   Un PUSH anterior al commit actual NO autoriza codigo aparecido despues.
 name: sonar
 
 on:
@@ -31,40 +28,125 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - id: o
-        name: Leer y ejecutar la orden pendiente
+        name: Leer y ejecutar la orden pendiente con CAS
         run: |
           set -euo pipefail
           WORKER="https://friendly123-licencias.jfcarpio.workers.dev"
+          echo "hecho=no" >> "$GITHUB_OUTPUT"
+
           J=$(curl -s --max-time 20 "$WORKER/canario/orden" || echo '{}')
           ID=$(echo "$J" | jq -r '.orden.id // empty')
           ACCION=$(echo "$J" | jq -r '.orden.accion // empty')
           AT=$(echo "$J" | jq -r '.orden.at // 0')
-          echo "hecho=no" >> "$GITHUB_OUTPUT"
+
           if [ -z "$ID" ]; then echo "sin ordenes"; exit 0; fi
-          if ! echo "$ID" | grep -Eq '^[a-z0-9]{4,20}$'; then echo "id invalido"; exit 0; fi
-          # Ordenes de mas de 24 h no se ejecutan (una orden vieja no debe sorprender a nadie).
-          if [ $(( $(date +%s) * 1000 - AT )) -gt 86400000 ]; then echo "orden vieja, se ignora"; exit 0; fi
-          git fetch -q --tags origin estable master previo || git fetch -q --tags origin estable master
-          if git rev-parse -q --verify "refs/tags/sonar-$ID" >/dev/null; then echo "orden $ID ya ejecutada"; exit 0; fi
-          ESTABLE=$(git rev-parse origin/estable)
-          if [ "$ACCION" = "push" ]; then
-            MASTER=$(git rev-parse origin/master)
-            if [ "$ESTABLE" != "$MASTER" ]; then
-              git push origin "$ESTABLE:refs/heads/previo" --force
-              git push origin "$MASTER:refs/heads/estable" --force
-            fi
-            echo "PUSH: previo=$ESTABLE estable=$MASTER"
-          elif [ "$ACCION" = "rewind" ]; then
-            if ! git rev-parse -q --verify origin/previo >/dev/null; then echo "no hay version previa"; exit 1; fi
-            PREVIO=$(git rev-parse origin/previo)
-            git push origin "$PREVIO:refs/heads/estable" --force
-            echo "REWIND: estable=$PREVIO (antes $ESTABLE)"
-          else
-            echo "accion desconocida: $ACCION"; exit 0
+          echo "$ID" | grep -Eq '^[a-z0-9]{4,20}$' || { echo "id invalido"; exit 0; }
+          case "$AT" in ''|*[!0-9]*) echo "timestamp de orden invalido"; exit 0 ;; esac
+          if [ $(( $(date +%s) * 1000 - AT )) -gt 86400000 ]; then
+            echo "orden vieja, se ignora"
+            exit 0
           fi
-          git tag "sonar-$ID" && git push -q origin "refs/tags/sonar-$ID"
-          echo "hecho=si" >> "$GITHUB_OUTPUT"
+
+          git fetch -q --tags origin estable master previo || git fetch -q --tags origin estable master
+          if git rev-parse -q --verify "refs/tags/sonar-$ID" >/dev/null; then
+            echo "orden $ID ya ejecutada"
+            exit 0
+          fi
+
+          ESTABLE=$(git rev-parse origin/estable)
+          MASTER=$(git rev-parse origin/master)
+          PREVIO=$(git rev-parse -q --verify origin/previo 2>/dev/null || true)
+
+          marcar() {
+            git tag "sonar-$ID" 2>/dev/null || true
+            git push -q origin "refs/tags/sonar-$ID" 2>/dev/null || true
+          }
+
+          if [ "$ACCION" = "push" ]; then
+            MASTER_AT_MS=$(( $(git show -s --format=%ct "$MASTER") * 1000 ))
+            if [ "$AT" -lt "$MASTER_AT_MS" ]; then
+              echo "PUSH $ID es anterior al master actual; se consume sin promover codigo que JFC no habia visto"
+              marcar
+              exit 0
+            fi
+
+            VERSION=$(git show "$MASTER:docs/version.json")
+            BUILD=$(printf '%s' "$VERSION" | jq -r '.canaryBuild // .shell // empty')
+            if ! echo "$BUILD" | grep -Eq '^f123-shell-v[0-9]{1,5}$'; then
+              echo "build canario invalido en master: $BUILD"
+              exit 1
+            fi
+
+            E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$BUILD" || echo '{}')
+            SHELL_E=$(echo "$E" | jq -r '.shell // empty')
+            REP=$(echo "$E" | jq -r '.reportes // 0')
+            APA=$(echo "$E" | jq -r '.aparatos // 0')
+            ULT=$(echo "$E" | jq -r '.ultimo // 0')
+            NEXT=$(echo "$E" | jq -r '.canales.next // 0')
+            ROJO=$(echo "$E" | jq -r '.rojo // false')
+            DET=$(echo "$E" | jq -r '.detenido // false')
+            case "$REP:$APA:$ULT:$NEXT" in *[!0-9:]*|'') echo "Sonar invalido"; exit 0 ;; esac
+            AHORA=$(( $(date +%s) * 1000 ))
+            EDAD_ULT=$(( AHORA - ULT ))
+            EDAD_NEXT=$(( AHORA - NEXT ))
+
+            if [ "$SHELL_E" != "$BUILD" ] || [ "$ROJO" = "true" ] || [ "$DET" = "true" ] ||
+               [ "$REP" -lt 1 ] || [ "$APA" -lt 1 ] ||
+               [ "$ULT" -lt "$MASTER_AT_MS" ] || [ "$NEXT" -lt "$MASTER_AT_MS" ] ||
+               [ "$EDAD_ULT" -lt 0 ] || [ "$EDAD_NEXT" -lt 0 ] ||
+               [ "$EDAD_ULT" -gt 420000 ] || [ "$EDAD_NEXT" -gt 420000 ]; then
+              echo "PUSH retenido: $BUILD no tiene testigo lord /next verde y fresco"
+              exit 0
+            fi
+
+            if [ "$ESTABLE" = "$MASTER" ]; then
+              echo "estable ya coincide con master; orden consumida"
+              marcar
+              exit 0
+            fi
+            if ! git merge-base --is-ancestor "$ESTABLE" "$MASTER"; then
+              echo "estable no es ancestro de master: push automatico bloqueado"
+              exit 1
+            fi
+
+            # Refetch inmediatamente antes del CAS. La transaccion incluye master
+            # como refspec no-op: si master cambia despues del fetch, el lease
+            # invalida TODO el push atomico.
+            git fetch -q origin master estable previo || git fetch -q origin master estable
+            ESTABLE2=$(git rev-parse origin/estable)
+            MASTER2=$(git rev-parse origin/master)
+            PREVIO2=$(git rev-parse -q --verify origin/previo 2>/dev/null || true)
+            if [ "$MASTER2" != "$MASTER" ] || [ "$ESTABLE2" != "$ESTABLE" ]; then
+              echo "refs cambiaron durante la orden; fail closed"
+              exit 0
+            fi
+            LEASE_PREVIO="--force-with-lease=refs/heads/previo:$PREVIO2"
+            [ -n "$PREVIO2" ] || LEASE_PREVIO="--force-with-lease=refs/heads/previo:"
+            git push --atomic               "--force-with-lease=refs/heads/master:$MASTER"               "--force-with-lease=refs/heads/estable:$ESTABLE"               "$LEASE_PREVIO"               origin               "$MASTER:refs/heads/master"               "$ESTABLE:refs/heads/previo"               "$MASTER:refs/heads/estable"
+            echo "PUSH: previo=$ESTABLE estable=$MASTER build=$BUILD"
+            marcar
+            echo "hecho=si" >> "$GITHUB_OUTPUT"
+
+          elif [ "$ACCION" = "rewind" ]; then
+            if [ -z "$PREVIO" ]; then echo "no hay version previa"; exit 1; fi
+            # Releer estable justo antes del push y usar su SHA como lease.
+            git fetch -q origin estable previo
+            ESTABLE2=$(git rev-parse origin/estable)
+            PREVIO2=$(git rev-parse origin/previo)
+            if [ "$ESTABLE2" != "$ESTABLE" ] || [ "$PREVIO2" != "$PREVIO" ]; then
+              echo "refs cambiaron durante REWIND; fail closed"
+              exit 0
+            fi
+            git push               "--force-with-lease=refs/heads/estable:$ESTABLE"               origin "$PREVIO:refs/heads/estable"
+            echo "REWIND: estable=$PREVIO (antes $ESTABLE)"
+            marcar
+            echo "hecho=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "accion desconocida: $ACCION"
+            exit 0
+          fi
 
   publicar:
     needs: orden
