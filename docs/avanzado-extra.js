@@ -891,11 +891,14 @@
                    el campo que no conoce y restaura lo de siempre.
                Todo va en try/catch: si OCFotos no esta, el export sigue
                funcionando exactamente como antes. */
-            var _fotosIDB = {};
+            var _fotosIDB = {}, _fotosBlobs = {};
             try {
               if (window.OCFotos && window.OCFotos.leerTodas) _fotosIDB = (await window.OCFotos.leerTodas()) || {};
-            } catch (_) { _fotosIDB = {}; }
-            var paquete = { schemaVersion: 2, fecha: new Date().toISOString(), _formaB: true, datos: datos, fotosPerchas: _fotosLocales(), fotosIDB: _fotosIDB };
+              if (window.OCFotos && window.OCFotos.leerTodosPorHash) _fotosBlobs = (await window.OCFotos.leerTodosPorHash()) || {};
+            } catch (_) { _fotosIDB = _fotosIDB || {}; _fotosBlobs = _fotosBlobs || {}; }
+            /* v449: fotosBlobs conserva evidencia hash->bytes aunque el pointer
+               de una percha se haya perdido. No crea ninguna asociacion nueva. */
+            var paquete = { schemaVersion: 2, fecha: new Date().toISOString(), _formaB: true, datos: datos, fotosPerchas: _fotosLocales(), fotosIDB: _fotosIDB, fotosBlobs: _fotosBlobs };
             var blob = new Blob([JSON.stringify(paquete)], { type: "application/json" });
             var url = URL.createObjectURL(blob);
             var a = document.createElement("a"); a.href = url; a.download = "friendly-copy-" + stamp + ".json";
@@ -936,15 +939,23 @@
                  hacia atras sin condicionales extra. Se cuenta cuantas entraron
                  para poder decir la verdad en el mensaje final en vez de un
                  "listo" generico. */
-              var _fotosOk = 0;
+              var _fotosOk = 0, _blobsOk = 0;
               if (paquete.fotosIDB && window.OCFotos && window.OCFotos.guardarFoto) {
                 for (var _idFoto in paquete.fotosIDB) {
                   if (!Object.prototype.hasOwnProperty.call(paquete.fotosIDB, _idFoto)) continue;
                   try { if (await window.OCFotos.guardarFoto(_idFoto, paquete.fotosIDB[_idFoto])) _fotosOk++; } catch (_) {}
                 }
               }
+              if (paquete.fotosBlobs && window.OCFotos && window.OCFotos.guardarPorHash) {
+                for (var _hashFoto in paquete.fotosBlobs) {
+                  if (!Object.prototype.hasOwnProperty.call(paquete.fotosBlobs, _hashFoto)) continue;
+                  try { if (await window.OCFotos.guardarPorHash(_hashFoto, paquete.fotosBlobs[_hashFoto])) _blobsOk++; } catch (_) {}
+                }
+              }
               try { window.dispatchEvent(new CustomEvent("oc-datos-importados")); } catch (_) {}
-              _copiaMsg("Copy imported" + (_fotosOk ? " with " + _fotosOk + " photo" + (_fotosOk === 1 ? "" : "s") : "") + ". The screen now shows the restored data.", true);
+              _copiaMsg("Copy imported" + (_fotosOk ? " with " + _fotosOk + " shelf photo" + (_fotosOk === 1 ? "" : "s") : "")
+                + (_blobsOk ? " and " + _blobsOk + " preserved photo blob" + (_blobsOk === 1 ? "" : "s") : "")
+                + ". The screen now shows the restored data.", true);
             } catch (err) { _copiaMsg("Could not read the file — is it a valid copy?", false); }
           });
         }
@@ -2798,13 +2809,22 @@
           const k = localStorage.key(i);
           if (k && k.indexOf("f123_foto_percha_") === 0) fotosPerchas[k] = localStorage.getItem(k);
         }
+        /* v449: el backup principal prometia "shelf photos" pero solo leia el
+           fallback viejo de localStorage. Las fotos actuales viven en IndexedDB.
+           Exportamos AMBOS stores modernos: por id para restauracion exacta y por
+           hash para conservar evidencia incluso si el pointer ya se perdio. */
+        let fotosIDB = {}, fotosBlobs = {};
+        try {
+          if (window.OCFotos && window.OCFotos.leerTodas) fotosIDB = (await window.OCFotos.leerTodas()) || {};
+          if (window.OCFotos && window.OCFotos.leerTodosPorHash) fotosBlobs = (await window.OCFotos.leerTodosPorHash()) || {};
+        } catch (_) {}
         const paquete = { schemaVersion: 2, fecha: new Date().toISOString(), datos, oc_secure: (function () {
           // SEGURIDAD 2026-07-17: ownerPinR va XOR-ofuscado con clave fija visible
           // en el fuente — cualquiera con el archivo recuperaria el PIN del dueno.
           // Se quita del export; la recuperacion "Olvidaste?" se re-arma sola en
           // el proximo cambio de PIN tras restaurar.
           try { const s = JSON.parse(localStorage.getItem("f123_secure")); if (s) delete s.ownerPinR; return s ? JSON.stringify(s) : null; } catch (_) { return localStorage.getItem("f123_secure"); }
-        })(), fotosPerchas };
+        })(), fotosPerchas, fotosIDB, fotosBlobs };
         const contenidoPlano = JSON.stringify(paquete);
         const checksum = await window.OCSecure.hashTexto(contenidoPlano);
         // Contraseña de exportación OPCIONAL: si el dueño la pone, el archivo
@@ -2902,6 +2922,16 @@
           }
         }
         if (paquete.fotosPerchas) Object.entries(paquete.fotosPerchas).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch (_) {} });
+        if (paquete.fotosIDB && window.OCFotos && window.OCFotos.guardarFoto) {
+          for (const [idFoto, dataUrl] of Object.entries(paquete.fotosIDB)) {
+            try { await window.OCFotos.guardarFoto(idFoto, dataUrl); } catch (_) {}
+          }
+        }
+        if (paquete.fotosBlobs && window.OCFotos && window.OCFotos.guardarPorHash) {
+          for (const [hashFoto, dataUrl] of Object.entries(paquete.fotosBlobs)) {
+            try { await window.OCFotos.guardarPorHash(hashFoto, dataUrl); } catch (_) {}
+          }
+        }
         window.dispatchEvent(new CustomEvent("oc-datos-importados")); // index re-sincroniza la UI solo
         if (secretoOk) {
           msg("oc-respaldo-msg", "Backup imported. Screen now shows restored data.", "var(--verde)");
