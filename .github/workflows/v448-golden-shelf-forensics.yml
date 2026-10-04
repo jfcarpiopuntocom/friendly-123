@@ -1,0 +1,25 @@
+name: v448-golden-shelf-forensics
+
+on:
+  push:
+    branches:
+      - "forensics/v448-golden-shelves-2026-10-03"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Focused lifecycle race regressions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/shelf-lifecycle-race-v448.test.js
+      - name: Existing shelf/photo regressions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-hotfix-v444.test.js test/perchas-photo-selfheal-v446.test.js test/shelf-photo-integrity-v446.test.js
