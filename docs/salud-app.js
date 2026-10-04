@@ -424,7 +424,10 @@
   var shell = "";
   try {
     fetch("version.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (v) { if (v && v.shell) shell = String(v.shell); }).catch(function () {});
+      .then(function (v) {
+        if (v && v.shell) shell = String(v.shell);
+        try { global.__ocShellLabel = v && v.shellLabel ? String(v.shellLabel) : ""; } catch (_) {}
+      }).catch(function () {});
   } catch (_) {}
   function canal() { var m = /\/(next|previo)\//.exec(global.location ? global.location.pathname : ""); return m ? m[1] : "estable"; }
   function norm(x) { return typeof x === "string" ? x.trim().toUpperCase().replace(/\s+/g, "") : ""; }
