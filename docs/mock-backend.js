@@ -2645,10 +2645,42 @@
              trato o meta NO puede borrar el puntero de la foto solo porque ese peer
              viejo mande fotoHash:null dentro de una revision general mas nueva. */
           Object.keys(u).forEach((k) => {
-            if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev" && k !== "fotoHash" && k !== "fotoRev") mia[k] = u[k];
+            if (k !== "id" && k !== "gastoMensual" && k !== "gastoMensualRev" &&
+                k !== "fotoHash" && k !== "fotoRev" &&
+                k !== "activa" && k !== "borrado" && k !== "estadoRev") mia[k] = u[k];
           });
           _observarRev(u.rev); actualizados++;
         }
+
+        /* v448 GOLDEN — estado de vida independiente del rev general.
+           Un peer viejo puede tener un contador general mayor por haber editado
+           nombre/meta/trato sin haber visto un archive/delete. Ese rev NO demuestra
+           que "activa:true" sea mas reciente y nunca puede resucitar una percha.
+           Los clientes nuevos sellan activar/desactivar/borrar con estadoRev.
+           Peers legacy sin estadoRev solo pueden avanzar monotonamente hacia el
+           estado seguro (inactiva/borrada), nunca hacia activo. */
+        const estadoRevLocal = mia.estadoRev || null;
+        const estadoRevRemota = u.estadoRev || null;
+        if (estadoRevRemota) {
+          _observarRev(estadoRevRemota);
+          const ganaEstado = _revDomina(estadoRevRemota, estadoRevLocal);
+          if (!estadoRevLocal || ganaEstado === true || (ganaEstado === null && mandaElOtro)) {
+            mia.borrado = !!u.borrado;
+            mia.activa = !mia.borrado && u.activa !== false;
+            mia.estadoRev = estadoRevRemota;
+            actualizados++;
+          }
+        } else if (u.borrado || u.activa === false) {
+          /* Compatibilidad pre-hotfix: aceptar tombstone/archive legacy si su
+             revision general gana; nunca aceptar el inverso (activa:true). */
+          if (ganaU === true || (ganaU === null && mandaElOtro) || !estadoRevLocal) {
+            if (u.borrado) mia.borrado = true;
+            mia.activa = false;
+            if (u.rev) { mia.estadoRev = u.rev; _observarRev(u.rev); }
+            actualizados++;
+          }
+        }
+
         /* v446 — merge independiente del puntero de foto.
            - Peer nuevo: fotoRev decide set/reemplazo/borrado.
            - Peer viejo (sin fotoRev): puede aportar/reemplazar un hash no vacio,
@@ -3402,7 +3434,7 @@
     catalogoPropio() {
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       return {
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, estadoRev: u.estadoRev || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
         // NO PUBLICAR SEMILLA DEMO (v297, JFC 2026-09-16). Los productos de ejemplo
         // tienen id "p"+DIGITOS (p01..p66); los reales son "p"+UUID (con guiones).
         // Filtrar aqui evita que un aparato con demo re-contamine la sala (add-only
@@ -3502,7 +3534,7 @@
     estadoParaCheckpoint() {
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
-        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
+        ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, estadoRev: u.estadoRev || null, rev: u.rev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
         productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
@@ -4099,7 +4131,9 @@
       if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "The location name is required." }, 400);
         const nueva = { id: uuid("u"), nombre: body.nombre.trim(), tipo: body.tipo || "propio", activa: true, comisionSocio: Number(body.comisionSocio) || 0, metaMensual: Number(body.metaMensual) || 0, escalasComision: Array.isArray(body.escalasComision) ? body.escalasComision : [], sucursalId: body.sucursalId || null, esFeria: !!body.esFeria, lecturaPreferida: body.lecturaPreferida === "casa" ? "casa" : "asociado", minimoGarantizado: Math.max(0, Number(body.minimoGarantizado) || 0), contribFija: Math.max(0, Number(body.contribFija) || 0), baseComision: _baseComisionValida(body.baseComision) || null };
-        nueva.rev = _revNueva();
+        const revAlta = _revNueva();
+        nueva.rev = revAlta;
+        nueva.estadoRev = revAlta; // v448 golden: activa/borrado are their own state machine.
         ubicaciones.push(nueva);
         // BUG FIX (2026-07-03): las perchas creadas en runtime no existian en
         // gastosMensuales, por lo que la suma "todas" las excluia hasta que se
@@ -4182,7 +4216,12 @@
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)\/(activar|desactivar)$/))) {
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
-        u.activa = m[2] === "activar"; u.rev = _revNueva();
+        const revEstado = _revNueva();
+        u.activa = m[2] === "activar";
+        u.estadoRev = revEstado;
+        u.rev = revEstado;
+        guardarEstadoLocal();
+        avisarCatalogoCambiado();
         mov(u.activa ? "ubicacion-reactivada" : "ubicacion-desactivada", { ubicacion: u.nombre });
         return J(u);
       }
@@ -4193,7 +4232,8 @@
         // Borrado en cascada: la percha y TODOS sus productos. La UI ya lo advirtio.
         const productosBorrados = productos.filter((p) => p.ubicacionId === u.id && !p.borrado).length;
         for (const p of productos) if (p.ubicacionId === u.id && !p.borrado) { p.borrado = true; p.rev = _revNueva(); }
-        u.borrado = true; u.activa = false; u.rev = _revNueva();
+        const revEstado = _revNueva();
+        u.borrado = true; u.activa = false; u.estadoRev = revEstado; u.rev = revEstado;
         delete gastosMensuales[u.id];
         mov("ubicacion-borrada", { ubicacion: u.nombre, productosBorrados });
         return J({ ok: true, productosBorrados });
