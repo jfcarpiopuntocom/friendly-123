@@ -9,15 +9,29 @@ permissions:
   contents: read
 
 jobs:
-  reproduce:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: RED — shelf tombstone and checkpoint invariants
+      - run: npx playwright install --with-deps chromium
+      - name: Focused v448 golden shelf invariants
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/v448-golden-shelf-tombstone.test.js
+      - name: Full suite
+        run: npm test
+      - name: Deterministic manifest
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before.json
+          node scripts/gen-manifest.js
+          diff -u /tmp/version-manifest.before.json docs/version-manifest.json
+      - name: Shell integrity
+        run: bash check-sw.sh
+      - name: Diff hygiene
+        run: git diff --check 641a17f9137048d2e7e6235a2a225d36e650be30...HEAD
