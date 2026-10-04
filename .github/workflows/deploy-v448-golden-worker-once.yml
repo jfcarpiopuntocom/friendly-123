@@ -1,0 +1,46 @@
+name: deploy-v448-golden-license-worker-once
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/deploy-v448-golden-worker-once.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: friendly123-licencias-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify v448 GOLDEN Sonar compatibility
+        run: node --test test/worker-sonar.test.js test/panel-durable-object.test.js test/worker-checkin.test.js
+      - name: Verify exact Worker and bindings
+        working-directory: cloudflare-worker
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" && test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test "$(sed -n 's/^name = "\(.*\)"/\1/p' wrangler.toml | head -1)" = 'friendly123-licencias'
+          ../node_modules/.bin/wrangler deploy --config ./wrangler.toml --dry-run > "$RUNNER_TEMP/license-dry-run.txt"
+          grep -q 'env.LICENCIAS' "$RUNNER_TEMP/license-dry-run.txt"
+          grep -q 'env.REGISTROS' "$RUNNER_TEMP/license-dry-run.txt"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Deploy exact license Worker
+        working-directory: cloudflare-worker
+        run: ../node_modules/.bin/wrangler deploy --config ./wrangler.toml
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
