@@ -41,3 +41,9 @@ This note is outside `docs/` intentionally: it documents the release policy with
 - The Recovery Vault inventories every photo blob still physically preserved on-device, even when stale/archived state still references it.
 - Manual Restore is copy-only: copy preserved bytes to the selected shelf and set that shelf pointer; retain the source evidence.
 - Public release remains v448 GOLDEN. G06 uses internal CacheStorage generation golden6.
+
+## Current stable photo recovery
+
+- G07 (`7d27b9b`) was fast-tracked to `estable` after confirming its complete Git tree is identical to the QA-passed PR #315 head (`117398a`).
+- `previo` is G06 (`3906c015`) for immediate rollback.
+- G07 fixes the storage cache-miss fallback, preserves legacy sources copy-only, unions photo evidence across stores, and keeps recovery logic behind a pure hexagonal core.
