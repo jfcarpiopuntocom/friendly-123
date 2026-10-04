@@ -1,0 +1,34 @@
+name: qa-v448-golden-shelf-state-photo
+
+on:
+  push:
+    branches:
+      - "hotfix/v448-golden-shelf-state-photo"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Focused v448 golden regressions
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/v448-golden-shelf-state-photo.test.js test/perchas-hotfix-v444.test.js test/perchas-photo-selfheal-v446.test.js test/shelf-photo-integrity-v446.test.js
+      - name: Full suite
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/*.test.js
+      - name: Deterministic manifest
+        run: |
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json
+      - name: Release guards
+        run: bash check-sw.sh
+      - name: Diff hygiene
+        run: git diff --check 641a17f9137048d2e7e6235a2a225d36e650be30...HEAD
