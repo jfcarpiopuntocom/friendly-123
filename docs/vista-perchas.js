@@ -355,6 +355,30 @@
                   try { await window.OCFotos.guardarPorHash(u.fotoHash, d); } catch (_) {}
                 }
               }
+              /* Si los bytes del hash actual todavia no llegaron, un espejo por-id
+                 viejo NO puede pintarse como si fuera la foto actual. Solo se acepta
+                 el espejo si sus bytes hashean exactamente al pointer vigente; en ese
+                 caso tambien reparamos el blob-store con esa evidencia exacta. Si el
+                 hash difiere, el espejo esta probado como obsoleto y se elimina para
+                 que jamas pueda self-healear el pointer equivocado despues. */
+              if (!d && fotoCache[u.id]) {
+                const espejo = fotoCache[u.id];
+                let hashEspejo = null;
+                if (window.OCFotos.hashDeDataUrl) {
+                  try { hashEspejo = await window.OCFotos.hashDeDataUrl(espejo); } catch (_) {}
+                }
+                if (hashEspejo === u.fotoHash) {
+                  d = espejo;
+                  if (window.OCFotos.guardarPorHash) {
+                    try { await window.OCFotos.guardarPorHash(u.fotoHash, espejo); } catch (_) {}
+                  }
+                } else {
+                  delete fotoCache[u.id];
+                  if (hashEspejo && window.OCFotos.borrarFoto) {
+                    try { await window.OCFotos.borrarFoto(u.id); } catch (_) {}
+                  }
+                }
+              }
               if (d) {
                 /* v449: el fotoHash ACTUAL es la autoridad sobre un espejo id viejo.
                    Cada foto que realmente logramos mostrar queda duplicada con los
