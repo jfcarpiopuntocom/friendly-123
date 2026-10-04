@@ -7,6 +7,18 @@ const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
 
+const PHOTO_FILES = {
+  '/photo-policy.js': 'docs/core/shelf-photo-policy.js',
+  '/recover-photo.js': 'docs/application/recover-shelf-photo.js',
+  '/vista-perchas.js': 'docs/vista-perchas.js'
+};
+
+async function loadPhotoStack(page) {
+  await page.addScriptTag({ url: '/photo-policy.js' });
+  await page.addScriptTag({ url: '/recover-photo.js' });
+  await loadPhotoStack(page);
+}
+
 async function serverFor(files, fn) {
   const server = http.createServer((req, res) => {
     const p = files[req.url];
@@ -81,17 +93,17 @@ test('G05: read-only Yjs replay recovers an old shelf->photoHash mapping after c
 });
 
 async function shelfPage(setup) {
-  return serverFor({ '/vista-perchas.js': 'docs/vista-perchas.js' }, async (page) => {
+  return serverFor(PHOTO_FILES, async (page) => {
     await page.setContent('<!doctype html><html><body><section id="vista-perchas" class="activa"><div id="vp-orden"></div><div id="vp-grid"></div><div id="vp-transfers"></div></section></body></html>');
     await page.evaluate(setup);
-    await page.addScriptTag({ url: '/vista-perchas.js' });
+    await loadPhotoStack(page);
     await page.evaluate(() => VPerchas.cargar());
     return page;
   });
 }
 
 test('G05: pointerless shelf auto-recovers only from its exact historical hash when bytes survive', async () => {
-  await serverFor({ '/vista-perchas.js': 'docs/vista-perchas.js' }, async (page) => {
+  await serverFor(PHOTO_FILES, async (page) => {
     await page.setContent('<!doctype html><html><body><section id="vista-perchas" class="activa"><div id="vp-orden"></div><div id="vp-grid"></div><div id="vp-transfers"></div></section></body></html>');
     await page.evaluate(() => {
       const photo = 'data:image/png;base64,RzA1LUhJU1RPUlk=';
@@ -131,7 +143,7 @@ test('G05: pointerless shelf auto-recovers only from its exact historical hash w
         return new Response(JSON.stringify(body), {status:200,headers:{'Content-Type':'application/json'}});
       };
     });
-    await page.addScriptTag({ url: '/vista-perchas.js' });
+    await loadPhotoStack(page);
     await page.evaluate(() => VPerchas.cargar());
     const out = await page.evaluate(() => ({
       img: document.querySelector('#vp-grid img')?.getAttribute('src') || null,
@@ -144,7 +156,7 @@ test('G05: pointerless shelf auto-recovers only from its exact historical hash w
 });
 
 test('G05: Vault labels and preselects a unique exact historical shelf but does not auto-overwrite its current photo', async () => {
-  await serverFor({ '/vista-perchas.js': 'docs/vista-perchas.js' }, async (page) => {
+  await serverFor(PHOTO_FILES, async (page) => {
     await page.setContent('<!doctype html><html><body><section id="vista-perchas" class="activa"><div id="vp-orden"></div><div id="vp-grid"></div><div id="vp-transfers"></div></section></body></html>');
     await page.evaluate(() => {
       const old='data:image/png;base64,T0xELUhJU1RPUklD';
@@ -171,7 +183,7 @@ test('G05: Vault labels and preselects a unique exact historical shelf but does 
         return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
       };
     });
-    await page.addScriptTag({ url:'/vista-perchas.js' });
+    await loadPhotoStack(page);
     await page.evaluate(() => VPerchas.cargar());
     const out=await page.evaluate(()=>({
       txt:document.getElementById('vp-photo-vault')?.textContent||'',
