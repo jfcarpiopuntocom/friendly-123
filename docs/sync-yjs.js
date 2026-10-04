@@ -814,6 +814,18 @@
                   ((Number(ar.c) || 0) === (Number(br.c) || 0) && String(ar.d || "") > String(br.d || ""));
                 if (!newerMonthly) r = Object.assign({}, r, { gastoMensual: prev.gastoMensual, gastoMensualRev: prev.gastoMensualRev });
 
+                /* v448 GOLDEN photo-rescue: fotoHash/fotoRev son CRDT aparte del
+                   rev general, igual que lifecycle. Un reseed de una replica que
+                   trae null NO puede borrar del Y.Map el ultimo puntero conocido.
+                   Esto cierra el hueco que quedaba entre v446 y v448. */
+                var fr = r.fotoRev || null, fp = prev.fotoRev || null;
+                var frc = Number(fr && fr.c) || 0, fpc = Number(fp && fp.c) || 0;
+                var fotoPrevMasNueva = !!fp && (!fr || fpc > frc ||
+                  (fpc === frc && String(fp.d || "") >= String(fr.d || "")));
+                if (prev.fotoHash && (!r.fotoHash || fotoPrevMasNueva)) {
+                  r = Object.assign({}, r, { fotoHash: prev.fotoHash, fotoRev: fp || r.fotoRev || null });
+                }
+
                 /* v448-golden: lifecycle CRDT independiente del rev general.
                    Un aparato rezagado puede tener nombre/meta/foto con rev general
                    mayor y aun asi una copia VIEJA de activa/borrado. Preservar en
