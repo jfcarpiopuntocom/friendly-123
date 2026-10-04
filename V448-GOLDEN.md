@@ -10,3 +10,8 @@ v448 is the frozen public release family for friendly-123.
 - The public shell and `docs/version.json` / `docs/version-manifest.json` must remain aligned at v448 unless JFC explicitly starts a new release family.
 
 This note is outside `docs/` intentionally: it documents the release policy without changing the app shell.
+
+## Current tested generation
+
+- `golden2` — shelf-photo recovery hotfix: never destroys a shelf's last local photo merely because the current content-hash blob is still in flight; service-worker generation is now checked independently of the frozen public v448 identity.
+- Verified before promotion: 521/521 regression tests, targeted shelf-photo recovery, WebKit/iPhone photo smoke, lifecycle/stock/undo gates, manifest hashes and service-worker integrity.
