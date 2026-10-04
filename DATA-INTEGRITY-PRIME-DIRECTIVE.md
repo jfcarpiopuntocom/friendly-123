@@ -32,3 +32,12 @@ If storage pressure ever becomes a real operational problem, solve it with expor
 ## G04 deployment note
 
 G04 was verified with focused recovery tests, WebKit/iPhone smoke, the full regression suite, and shell/manifest gates before promotion. A Pages rebuild after `estable` moves is required because `publicar.yml` intentionally deploys only from `master`; this note also serves as the non-shell rebuild trigger for the G04 stable artifact.
+
+## G05 historical-pointer recovery
+
+- The local Yjs catalog IndexedDB is scanned **read-only** for persisted updates.
+- Updates are replayed into an isolated temporary Y.Doc, never the live document.
+- A previous photo pointer is eligible for automatic recovery only when the exact same shelf ID historically held that exact hash and the exact hash bytes still survive.
+- Yjs compaction is respected: if old evidence is gone, G05 does not infer or guess it.
+- The Photo Recovery Vault may label a blob with an exact historical shelf and preselect that shelf for human confirmation; it never overwrites a current valid pointer.
+- No storage-clearing, physical deletion, or migration cleanup is part of recovery.
