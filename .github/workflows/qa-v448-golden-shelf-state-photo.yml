@@ -22,6 +22,8 @@ jobs:
       - run: npx playwright install --with-deps chromium webkit
       - name: Focused v448 golden regressions
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/v448-golden-shelf-state-photo.test.js test/perchas-hotfix-v444.test.js test/perchas-photo-selfheal-v446.test.js test/shelf-photo-integrity-v446.test.js
+      - name: WebKit iPhone-size golden shelf smoke
+        run: node .claude/smoke-v448-golden-webkit.cjs
       - name: Full suite
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/*.test.js
       - name: Deterministic manifest
