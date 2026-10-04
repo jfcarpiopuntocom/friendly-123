@@ -14,12 +14,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - name: Focused lifecycle race regressions
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/shelf-lifecycle-race-v448.test.js
       - name: Existing shelf/photo regressions
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/perchas-hotfix-v444.test.js test/perchas-photo-selfheal-v446.test.js test/shelf-photo-integrity-v446.test.js
+      - name: Full suite
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/*.test.js
+      - name: Deterministic manifest preview
+        run: |
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json
+      - name: Service-worker and release guards
+        run: bash check-sw.sh
+      - name: Diff hygiene
+        run: git diff --check 641a17f9137048d2e7e6235a2a225d36e650be30...HEAD
