@@ -140,7 +140,7 @@ test('v449: current fotoHash overrides a stale per-id mirror and refreshes that 
 });
 
 
-test('v449: explicit modern photo deletion clears an id mirror instead of self-healing it', async () => {
+test('v448 GOLDEN: null fotoHash + fotoRev cannot erase the only shelf-photo evidence', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -201,17 +201,19 @@ test('v449: explicit modern photo deletion clears an id mirror instead of self-h
       deletes: window.__deletes.slice(),
       mirror: window.__idPhotos['u-deleted-photo'] || null
     }));
-    assert.equal(out.img, null, 'an explicit modern deletion must not render stale mirrored bytes');
-    assert.equal(out.puts.length, 0, 'an explicit modern deletion must not regenerate fotoHash');
-    assert.deepEqual(out.deletes, ['u-deleted-photo']);
-    assert.equal(out.mirror, null);
+    assert.equal(out.img, 'data:image/png;base64,REVMRVRFRC1QSE9UTw==',
+      'null fotoHash is pointer loss, not sufficient proof to destroy a shelf photo');
+    assert.equal(out.puts.length, 1, 'the exact per-shelf bytes should rebuild the missing pointer');
+    assert.equal(out.puts[0].body.fotoHash, 'hash-old-deleted');
+    assert.deepEqual(out.deletes, [], 'render never deletes photo evidence');
+    assert.equal(out.mirror, 'data:image/png;base64,REVMRVRFRC1QSE9UTw==');
   } finally {
     await browser.close();
   }
 });
 
 
-test('v449: unavailable current fotoHash never displays or trusts a stale per-id mirror', async () => {
+test('v448 GOLDEN: unresolved current hash does not display a mismatched mirror but preserves it for recovery', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
@@ -273,8 +275,9 @@ test('v449: unavailable current fotoHash never displays or trusts a stale per-id
     }));
     assert.equal(out.img, null, 'stale bytes must not be painted under a newer unresolved pointer');
     assert.equal(out.pointer, 'hash-current-not-here', 'the current pointer remains untouched');
-    assert.equal(out.mirror, null, 'a proven-mismatched id mirror is cleared so it cannot later self-heal the wrong photo');
-    assert.deepEqual(out.deletes, ['u-missing-current']);
+    assert.equal(out.mirror, 'data:image/png;base64,T0xELVNURUFMRS1NSVJST1I=',
+      'a mismatched mirror is not displayed, but render must not destroy the only per-shelf evidence');
+    assert.deepEqual(out.deletes, [], 'only an explicit user action may delete photo bytes');
   } finally {
     await browser.close();
   }
