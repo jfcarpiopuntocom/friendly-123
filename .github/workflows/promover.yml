@@ -61,13 +61,31 @@ jobs:
             if echo "$E" | jq -e '.detenido == true' >/dev/null 2>&1; then echo "DETENIDO por JFC"; return 1; fi
             return 0
           }
+          # v448 post-incidente: un Sonar sin testigos NO es verde. Antes,
+          # reportes=0/aparatos=0 podia atravesar 33 min y promover igualmente.
+          # Exigimos evidencia de al menos un aparato canario real antes de
+          # cualquier promocion (tambien para PUSH manual). Falla cerrado.
+          hayTestigo() {
+            E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$SHELL_NUEVO" || echo '{}')
+            REP=$(echo "$E" | jq -r '.reportes // 0')
+            APA=$(echo "$E" | jq -r '.aparatos // 0')
+            echo "testigos Sonar: reportes=$REP aparatos=$APA"
+            [ "$REP" -ge 1 ] 2>/dev/null && [ "$APA" -ge 1 ] 2>/dev/null
+          }
           FIN=$(( $(date +%s) + 33 * 60 ))
           while [ "$(date +%s)" -lt "$FIN" ]; do
             if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
-            if pushPedido; then echo "PUSH del panel ($ORDEN_ID): se promueve ya"; echo "orden=$ORDEN_ID" >> "$GITHUB_OUTPUT"; echo "promover=si" >> "$GITHUB_OUTPUT"; exit 0; fi
+            if pushPedido; then
+              if hayTestigo; then
+                echo "PUSH del panel ($ORDEN_ID): hay testigo canario, se promueve ya"
+                echo "orden=$ORDEN_ID" >> "$GITHUB_OUTPUT"; echo "promover=si" >> "$GITHUB_OUTPUT"; exit 0
+              fi
+              echo "PUSH del panel ($ORDEN_ID) retenido: aun no hay testigo canario real"
+            fi
             sleep 60
           done
           if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if ! hayTestigo; then echo "SIN TESTIGO CANARIO: no se promueve" >&2; echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
           echo "promover=si" >> "$GITHUB_OUTPUT"
       - name: Mover ramas (previo <- estable, estable <- este commit)
         if: steps.v.outputs.promover == 'si'
