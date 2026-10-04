@@ -136,13 +136,39 @@
         req.onsuccess = (e) => {
           const cursor = e.target.result;
           if (cursor) { out[String(cursor.key)] = cursor.value; cursor.continue(); }
-          else resolve(out);
+          else {
+            /* Port adapter, fail-safe: IndexedDB disponible NO implica que sea
+               el unico lugar donde haya evidencia. Una sesion antigua pudo dejar
+               blobs content-addressed en localStorage; se fusionan sin borrar ni
+               pisar lo que IDB ya conoce. */
+            try {
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (!k || k.indexOf("f123_fotoblob_") !== 0) continue;
+                const hash = k.slice("f123_fotoblob_".length);
+                const dataUrl = localStorage.getItem(k);
+                if (dataUrl && !out[hash]) out[hash] = dataUrl;
+              }
+            } catch (_) {}
+            resolve(out);
+          }
         };
         req.onerror = () => reject(req.error);
       });
     } catch (err) {
       console.error("[idb-fotos] leerTodosPorHash:", err);
-      return {};
+      const out = {};
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.indexOf("f123_fotoblob_") === 0) {
+            const hash = k.slice("f123_fotoblob_".length);
+            const dataUrl = localStorage.getItem(k);
+            if (dataUrl) out[hash] = dataUrl;
+          }
+        }
+      } catch (_) {}
+      return out;
     }
   }
   // Guarda una foto por su hash y DEVUELVE el hash — atajo para quien captura.
@@ -189,6 +215,19 @@
       console.error("[idb-fotos] guardarFoto:", err);
       return false;
     }
+  }
+
+  async function leerFotoSoloIdb(id) {
+    if (!SOPORTADO) return null;
+    try {
+      const db = await abrirDB();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const req = tx.objectStore(STORE).get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (_) { return null; }
   }
 
   async function leerFoto(id) {
@@ -255,6 +294,7 @@
      evidencia vieja ANTES de cualquier self-heal, sync o render. */
   async function blindarEvidencia() {
     const porId = await leerTodas();
+    const legacy = leerLegacyTodas();
     const mapaIdHash = {};
     for (const id of Object.keys(porId || {})) {
       const dataUrl = porId[id];
@@ -263,6 +303,14 @@
         const hash = await guardarFotoContenido(dataUrl);
         if (hash) mapaIdHash[id] = hash;
       } catch (_) {}
+    }
+    /* Si el mismo shelf id conserva una foto legacy distinta de la copia IDB,
+       ambas son evidencia. La legacy se blinda por hash para que el Recovery
+       Vault pueda mostrarla; nunca reemplaza automaticamente la copia vigente. */
+    for (const id of Object.keys(legacy || {})) {
+      const dataUrl = legacy[id];
+      if (!dataUrl) continue;
+      try { await guardarFotoContenido(dataUrl); } catch (_) {}
     }
     return mapaIdHash;
   }
@@ -298,8 +346,15 @@
         const id = k.slice("f123_foto_percha_".length);
         const dataUrl = localStorage.getItem(k);
         if (dataUrl) {
-          const ok = await guardarFoto(id, dataUrl);
-          if (!ok) todoOk = false;
+          /* COPY-ONLY de verdad: no pisar una foto IDB mas nueva con la sombra
+             legacy que conservamos por seguridad. Primero blindamos esos bytes
+             por hash; despues llenamos el slot por-id solo si esta vacio. */
+          try { await guardarFotoContenido(dataUrl); } catch (_) {}
+          const yaIdb = await leerFotoSoloIdb(id);
+          if (!yaIdb) {
+            const ok = await guardarFoto(id, dataUrl);
+            if (!ok) todoOk = false;
+          }
         }
       }
       if (todoOk) localStorage.setItem(FLAG, "copy-only");
