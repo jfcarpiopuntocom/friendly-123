@@ -301,9 +301,64 @@
     try { return await _historialFotosExactoPromise; } catch (_) { return {}; }
   }
 
+  let _historialFotosCheckpointsPromise = null;
+  async function historialFotosCheckpointsExacto() {
+    if (!_historialFotosCheckpointsPromise) {
+      _historialFotosCheckpointsPromise = (async () => {
+        const out = {};
+        let lista = [];
+        try { lista = JSON.parse(localStorage.getItem('f123_caja_snapshots') || '[]'); } catch (_) { lista = []; }
+        if (!Array.isArray(lista) || !lista.length) return out;
+
+        /* G08: los checkpoints locales son evidencia EXACTA de catalogo.
+           Solo se aceptan snapshots cuyo checksum siga valido; y SOLO se leen
+           ubicaciones[].fotoHash. productos[].fotoHash jamas entra aqui. */
+        for (let i = lista.length - 1; i >= 0; i--) {
+          const p = lista[i];
+          if (!p || typeof p.contenido !== 'string' || !p.checksum) continue;
+          let checksumOk = false;
+          try {
+            if (window.OCSecure && window.OCSecure.hashTexto) {
+              checksumOk = (await window.OCSecure.hashTexto(p.contenido)) === p.checksum;
+            }
+          } catch (_) { checksumOk = false; }
+          if (!checksumOk) continue;
+
+          let paquete = null;
+          try { paquete = JSON.parse(p.contenido); } catch (_) { paquete = null; }
+          const ubicaciones = paquete && paquete.datos && Array.isArray(paquete.datos.ubicaciones)
+            ? paquete.datos.ubicaciones : [];
+          ubicaciones.forEach((u) => {
+            if (!u || u.id == null || !u.fotoHash) return;
+            const id = String(u.id), h = String(u.fotoHash);
+            if (!out[id]) out[id] = [];
+            if (out[id].indexOf(h) < 0) out[id].push(h);
+          });
+        }
+        return out;
+      })();
+    }
+    try { return await _historialFotosCheckpointsPromise; } catch (_) { return {}; }
+  }
+
+  function photoVaultDiagnosticoHabilitado() {
+    /* Herramienta forense, NO interfaz de uso diario. G06 la expuso dentro de
+       My Shelves y mezclo fotos de productos con evidencia de perchas. Desde G08
+       solo puede montarse con una bandera tecnica explicita en esta sesion. */
+    try {
+      const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : '';
+      return sessionStorage.getItem('f123_diag_photo_vault') === '1' &&
+        (rol === 'dueno' || rol === 'dueño' || rol === 'owner' || rol === 'admin');
+    } catch (_) { return false; }
+  }
+
   async function montarPhotoRecoveryVault(perchasVisibles) {
     let cont = document.getElementById('vp-photo-vault');
     const seccion = document.getElementById('vista-perchas');
+    if (!photoVaultDiagnosticoHabilitado()) {
+      if (cont && cont.remove) cont.remove();
+      return;
+    }
     if (!seccion || !window.OCFotos || !window.OCFotos.leerTodosPorHash) return;
     if (!cont) {
       cont = document.createElement('div');
@@ -404,16 +459,25 @@
          Render no tiene ninguna operación destructiva. */
       const recuperarFoto = window.F123Application && window.F123Application.recoverShelfPhoto;
       if (recuperarFoto && window.OCFotos && perchasVisibles.length) {
-        let yUb = {}, hist = {};
+        let yUb = {}, hist = {}, histCheckpoints = {};
         try { yUb = window.OCYjs && window.OCYjs.get ? (window.OCYjs.get('ubicaciones') || {}) : {}; } catch (_) {}
         try { hist = await historialFotosExacto(); } catch (_) {}
+        try { histCheckpoints = await historialFotosCheckpointsExacto(); } catch (_) {}
 
         const ports = {
           currentMappedHash: async (id) => {
             const r = yUb[String(id)] || null;
             return r && r.fotoHash ? String(r.fotoHash) : null;
           },
-          historyHashes: async (id) => (hist[String(id)] || []).slice().reverse(),
+          historyHashes: async (id) => {
+            const k = String(id), out = [];
+            /* Prioridad: Yjs actual/historico; despues checkpoints locales
+               validos, todos ligados al MISMO shelf id. Nunca escanear productos. */
+            (hist[k] || []).slice().reverse().concat(histCheckpoints[k] || []).forEach((h) => {
+              h = String(h || ''); if (h && out.indexOf(h) < 0) out.push(h);
+            });
+            return out;
+          },
           readPerId: async (id) => {
             const k = String(id);
             if (fotoCache[k]) return fotoCache[k];
