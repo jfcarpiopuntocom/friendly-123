@@ -1,0 +1,32 @@
+name: refresh-v448-golden-manifest-once
+
+on:
+  push:
+    branches: [hotfix/v448-golden-promotion-cas]
+    paths:
+      - ".github/workflows/refresh-v448-golden-manifest-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/gen-manifest.js
+      - name: Commit generated manifest if changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/version-manifest.json; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version-manifest.json
+          git commit -m "integrity(v448 golden G02): refresh manifest after A4 hardening"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
