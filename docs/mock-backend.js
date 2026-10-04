@@ -2685,15 +2685,19 @@
         const fotoRevLocal = mia.fotoRev || null;
         const fotoRevRemota = u.fotoRev || null;
         let aplicarFoto = false;
-        if (fotoRevRemota) {
+        if (fotoRevRemota && u.fotoHash) {
           _observarRev(fotoRevRemota);
           const ganaFoto = _revDomina(fotoRevRemota, fotoRevLocal);
           aplicarFoto = !fotoRevLocal || ganaFoto === true || (ganaFoto === null && mandaElOtro);
         } else if (!fotoRevLocal && u.fotoHash) {
           aplicarFoto = !mia.fotoHash || ganaU === true || (ganaU === null && mandaElOtro);
         }
-        if (aplicarFoto) {
-          mia.fotoHash = u.fotoHash || null;
+        /* v448 GOLDEN photo-rescue: null NO es tombstone de foto. No existe una
+           accion de UI que borre la foto de una percha activa, y tratar null+
+           fotoRev como borrado destruyo fotos reales. Solo hashes no vacios
+           pueden reemplazar el puntero existente. */
+        if (aplicarFoto && u.fotoHash) {
+          mia.fotoHash = u.fotoHash;
           if (fotoRevRemota) mia.fotoRev = fotoRevRemota;
           if (fotoAnterior !== mia.fotoHash) mia.foto = null;
           actualizados++;
@@ -4199,9 +4203,9 @@
            sin mover megas por el CRDT. Los bytes viajan aparte (a la nube del
            dueno, B3). null = quitar la foto. */
         const revCambio = _revNueva();
-        if ("fotoHash" in body) {
-          u.fotoHash = body.fotoHash || null;
-          u.fotoRev = revCambio; // v446: solo una edicion explicita de foto puede borrar/reemplazar el puntero.
+        if ("fotoHash" in body && body.fotoHash) {
+          u.fotoHash = body.fotoHash;
+          u.fotoRev = revCambio; // una captura/reemplazo real sella el puntero.
         }
         u.rev = revCambio;
         guardarEstadoLocal();
