@@ -1,0 +1,23 @@
+name: qa-v448-golden-state-red
+
+on:
+  push:
+    branches:
+      - "hotfix/v448-golden-shelf-state-photo"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  state-red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: State-machine regressions only
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-name-pattern="unrelated newer legacy" test/v448-golden-shelf-state-photo.test.js
