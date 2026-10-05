@@ -85,3 +85,30 @@ test('v448 GOLDEN golden14: product view does not offer one-rack payment when th
     await web.close();
   }
 });
+
+
+test('v448 payout ledger: dashboard prefers exact payout-ledger due over stale legacy liquidada', async () => {
+  const web = await chromium.launch({ headless: true });
+  try {
+    const page = await web.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href, { waitUntil: 'load' });
+    const result = await page.evaluate((datos) => {
+      const clone = JSON.parse(JSON.stringify(datos));
+      clone.ventas.forEach(v => {
+        if (v.comisionPct != null) {
+          v.liquidada = false;              // intentionally stale compatibility flag
+          v.comisionPendiente = 0;          // ledger is authoritative
+        }
+      });
+      (clone.liquidaciones || []).forEach(l => { l.stillDue = 0; l.estado = 'pagado'; });
+      window.OCDashComisiones.pintarConDatos(clone);
+      document.querySelector('[data-cm-vista="producto"]').click();
+      const text = document.getElementById('cm').innerText;
+      return { hasPay: !!document.querySelector('#cm a.pagar'), text };
+    }, fx.datos);
+    assert.equal(result.hasPay, false);
+    assert.doesNotMatch(result.text, /Still to pay\s+\$?[1-9]/i);
+  } finally {
+    await web.close();
+  }
+});
