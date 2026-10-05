@@ -312,3 +312,22 @@ test('v448 GOLDEN: catalog sync preserves a real product that only reuses a demo
   const received = await dest.request('/api/respaldo/exportar');
   assert.equal(received.productos.some(p => p.id === 'p23' && p.nombre === 'Real handmade mug'), true, 'inbound merge must not discard a real pNN id');
 });
+
+
+test('v448 GOLDEN: JFC and customer licenses use the same exact demo guard; a real pNN survives restart', async () => {
+  const first = browser();
+  const fixture = await first.request('/api/respaldo/exportar');
+  const shelf = { ...fixture.ubicaciones[0], id: 'real-jfc-shelf', nombre: 'Real JFC shelf' };
+  const product = { ...fixture.productos[0], id: 'p23', nombre: 'Real JFC product', sku: 'REAL-JFC-23', barcode: 'REAL-JFC-00023', ubicacionId: shelf.id, stockActual: 4 };
+  fixture.ubicaciones = [shelf];
+  fixture.productos = [product];
+  fixture.ventas = []; fixture.movimientos = []; fixture.clientes = [];
+  fixture.promotoras = []; fixture.sucursales = [];
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-jfc-real-product', vaciar: true });
+  await first.request('/api/respaldo/importar', 'POST', fixture);
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'fixture-jfc-real-product', licenseCode: 'F123-A6YK-6V1J-FIXTURE' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Real JFC product'), true,
+    'JFC must not receive broader destructive cleanup than customers');
+});
