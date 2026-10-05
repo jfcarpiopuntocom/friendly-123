@@ -1845,7 +1845,7 @@
     const adjustments = ajustesComision.filter((a) => a && esDelMes(a.fecha, periodo)
       && (ubicacionId == null || String(a.ubicacionId) === String(ubicacionId)));
     return { sales, adjustments, locations: ubicaciones, payouts,
-      month: "", locationId: ubicacionId == null ? null : String(ubicacionId) };
+      month: "", period: periodo, locationId: ubicacionId == null ? null : String(ubicacionId) };
   }
   function _fuentePayoutLiquidada(kind, id, ubicacionId, mes) {
     const core = _payoutCore(); if (!core) return false;
