@@ -47,3 +47,41 @@ test('RED v448: app commission deep-link restores its month before opening Commi
     await web.close();
   }
 });
+
+
+test('v448 GOLDEN golden14: product view also keeps Pay in the app when the product belongs to one rack', async () => {
+  const web = await chromium.launch({ headless: true });
+  try {
+    const page = await web.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href, { waitUntil: 'load' });
+    const href = await page.evaluate((datos) => {
+      window.OCDashComisiones.pintarConDatos(datos);
+      document.querySelector('[data-cm-vista="producto"]').click();
+      return document.querySelector('#cm a.pagar')?.getAttribute('href') || '';
+    }, fx.datos);
+    assert.equal(href, 'index.html#editar=comisiones:u1&mes=' + fx.mes);
+  } finally {
+    await web.close();
+  }
+});
+
+test('v448 GOLDEN golden14: product view does not offer one-rack payment when the same product spans multiple racks', async () => {
+  const web = await chromium.launch({ headless: true });
+  try {
+    const page = await web.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href, { waitUntil: 'load' });
+    const hasPay = await page.evaluate((datos) => {
+      const clone = JSON.parse(JSON.stringify(datos));
+      const commissioned = clone.ventas.filter(v => v.comisionPct != null);
+      if (!commissioned.length) throw new Error('fixture requires commissioned sale');
+      const copy = { ...commissioned[0], id: 'fixture-second-rack', ubicacionId: 'u2', ubicacionNombre: 'Second rack', liquidada: false };
+      clone.ventas.push(copy);
+      window.OCDashComisiones.pintarConDatos(clone);
+      document.querySelector('[data-cm-vista="producto"]').click();
+      return !!document.querySelector('#cm a.pagar');
+    }, fx.datos);
+    assert.equal(hasPay, false);
+  } finally {
+    await web.close();
+  }
+});
