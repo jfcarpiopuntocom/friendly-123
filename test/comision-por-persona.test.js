@@ -36,7 +36,7 @@ test('1. Commissions splits the rack by the person chosen on each sale', async (
 test('2. a return of Beto\'s paid sale comes off Beto, not Ana', async () => {
   const w = browser(); w.OCAuth = { rolActual: () => 'dueno' };
   const t = await escenario((u, m, b) => w.request(u, m, b));
-  await w.request(`/api/liquidaciones/${t.rack.id}/marcar-pagado`, 'POST', {});
+  await w.request(`/api/liquidaciones/${t.rack.id}/marcar-pagado`, 'POST', { payeeId: t.beto.id, medioPago: 'transferencia' });
   await w.request(`/api/ventas/${t.ventaBeto}/devolucion`, 'POST', { motivo: 'danado', quien: 'Hugo' });
   const l = (await w.request('/api/liquidaciones')).find((x) => x.ubicacionId === t.rack.id);
   assert.deepEqual(reparto(l), { 'Ana Rack': 40, 'Beto Libre': 0 });
