@@ -205,3 +205,150 @@ test('merged stock counters are idempotent through replay and restart', async ()
   assert.equal(state.productos.find(p => p.id === product.id).stockActual, 5);
   assert.equal((await restarted.request('/api/ventas/todas')).length, 2);
 });
+
+
+test('v448 GOLDEN: sync catalog never publishes demo customers or demo sales', () => {
+  const a = browser();
+  const cat = a.catalog();
+  assert.equal(cat.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), false);
+  assert.equal(cat.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
+  assert.equal(cat.ubicaciones.some(u => u.id === 'galeria' && u.nombre === 'Sample Gallery'), false);
+  assert.equal(cat.promotoras.some(p => p.id === 'pr01' && p.nombre === 'Consignment Artist (sample)'), false);
+  assert.equal(cat.sucursales.some(s => s.id === 'suc01' && s.nombre === 'Gallery'), false);
+});
+
+test('v448 GOLDEN: a real store rejects exact demo fingerprints received from sync', async () => {
+  const source = browser();
+  const dest = browser();
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-real-store', vaciar: true });
+  dest.receive(source);
+  const state = await dest.request('/api/respaldo/exportar');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), false);
+  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
+});
+
+test('v448 GOLDEN: same seed-shaped customer id with a different fingerprint is preserved', async () => {
+  const source = browser();
+  const dest = browser();
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-real-store-2', vaciar: true });
+  const cat = source.catalog();
+  cat.clientes = [{ id: 'c01', codigo: 'REAL-1', nombre: 'Real Customer', telefono: '0999999999', evaluacion: { trato: 0, confiabilidad: 0, historial: [] } }];
+  cat.ventas = [];
+  dest.OCSync.aplicarCatalogo(cat, null);
+  const state = await dest.request('/api/respaldo/exportar');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.nombre === 'Real Customer' && c.telefono === '0999999999'), true);
+});
+
+test('v448 GOLDEN: restart of an activated non-JFC store purges only exact demo contamination', async () => {
+  const first = browser();
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'idiomarte-fixture', vaciar: false });
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'idiomarte-fixture', licenseCode: 'F123-K7M2-FIXTURE' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), false);
+  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
+  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino' && p.sku === 'BAR-CAP-023'), false);
+  assert.equal(state.ubicaciones.some(u => u.id === 'galeria' && u.nombre === 'Sample Gallery'), false);
+  assert.equal(state.promotoras.some(p => p.id === 'pr01' && p.nombre === 'Consignment Artist (sample)'), false);
+  assert.equal(state.sucursales.some(s => s.id === 'suc01' && s.nombre === 'Gallery'), false);
+});
+
+test('v448 GOLDEN: an isolated exact-looking customer is never auto-deleted without corroborating demo evidence', async () => {
+  const first = browser();
+  const fixture = await first.request('/api/respaldo/exportar');
+  fixture.productos = [];
+  fixture.ubicaciones = [];
+  fixture.ventas = [];
+  fixture.movimientos = [];
+  fixture.transferencias = [];
+  fixture.gastos = [];
+  fixture.ajustesComision = [];
+  fixture.promotoras = [];
+  fixture.sucursales = [];
+  fixture.clientes = [{
+    id: 'c01', codigo: 'C-1001', nombre: 'Ashley Rivera', telefono: '3055550101',
+    evaluacion: { trato: 0, confiabilidad: 0, historial: [] }
+  }];
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-coincidence', vaciar: true });
+  await first.request('/api/respaldo/importar', 'POST', fixture);
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'fixture-coincidence', licenseCode: 'F123-REAL-FIXTURE' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.nombre === 'Ashley Rivera'), true,
+    'one coincidental fingerprint alone is insufficient evidence to delete customer data');
+});
+
+
+test('v448 GOLDEN: checkpoint preserves a real product that only reuses a demo-shaped id', async () => {
+  const dest = browser();
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-checkpoint-real-id', vaciar: true });
+  const snap = {
+    ubicaciones: [{ id: 'real-shelf', nombre: 'Real shelf', activa: true }],
+    productos: [{ id: 'p23', nombre: 'Real handmade mug', sku: 'REAL-MUG-23', barcode: 'REAL-00023', ubicacionId: 'real-shelf', stockActual: 4 }],
+    clientes: []
+  };
+  const r = dest.OCSync.aplicarCheckpoint(snap);
+  assert.equal(r.ok, true);
+  const state = await dest.request('/api/respaldo/exportar');
+  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Real handmade mug'), true);
+});
+
+
+test('v448 GOLDEN: catalog sync preserves a real product that only reuses a demo-shaped id', async () => {
+  const source = browser();
+  const dest = browser();
+  const fixture = await source.request('/api/respaldo/exportar');
+  const shelf = { ...fixture.ubicaciones[0], id: 'real-shelf-p23', nombre: 'Real shelf p23' };
+  const product = { ...fixture.productos[0], id: 'p23', nombre: 'Real handmade mug', sku: 'REAL-MUG-23', barcode: 'REAL-00023', ubicacionId: shelf.id, stockActual: 4 };
+  fixture.ubicaciones = [shelf];
+  fixture.productos = [product];
+  fixture.ventas = []; fixture.movimientos = []; fixture.clientes = [];
+  await source.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-source-real-product', vaciar: true });
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-dest-real-product', vaciar: true });
+  await source.request('/api/respaldo/importar', 'POST', fixture);
+  const cat = source.catalog();
+  assert.equal(cat.productos.some(p => p.id === 'p23' && p.nombre === 'Real handmade mug'), true, 'outbound catalog must not discard a real pNN id');
+  dest.OCSync.aplicarCatalogo(cat, null);
+  const received = await dest.request('/api/respaldo/exportar');
+  assert.equal(received.productos.some(p => p.id === 'p23' && p.nombre === 'Real handmade mug'), true, 'inbound merge must not discard a real pNN id');
+});
+
+
+test('v448 GOLDEN: JFC and customer licenses use the same exact demo guard; a real pNN survives restart', async () => {
+  const first = browser();
+  const fixture = await first.request('/api/respaldo/exportar');
+  const shelf = { ...fixture.ubicaciones[0], id: 'real-jfc-shelf', nombre: 'Real JFC shelf' };
+  const product = { ...fixture.productos[0], id: 'p23', nombre: 'Real JFC product', sku: 'REAL-JFC-23', barcode: 'REAL-JFC-00023', ubicacionId: shelf.id, stockActual: 4 };
+  fixture.ubicaciones = [shelf];
+  fixture.productos = [product];
+  fixture.ventas = []; fixture.movimientos = []; fixture.clientes = [];
+  fixture.promotoras = []; fixture.sucursales = [];
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-jfc-real-product', vaciar: true });
+  await first.request('/api/respaldo/importar', 'POST', fixture);
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'fixture-jfc-real-product', licenseCode: 'F123-A6YK-6V1J-FIXTURE' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Real JFC product'), true,
+    'JFC must not receive broader destructive cleanup than customers');
+});
+
+
+test('v448 GOLDEN: real activity protects an exact-looking demo product/customer from cleanup and sync filtering', async () => {
+  const first = browser();
+  const fixture = await first.request('/api/respaldo/exportar');
+  const demoSale = fixture.ventas.find(v => v.productoId === 'p23' && v.clienteId === 'c01');
+  assert.ok(demoSale, 'fixture needs the Cappuccino/Ashley demo pair');
+  fixture.ventas.push({ ...demoSale, id: 'v-real-protect-demo-shaped', fecha: new Date().toISOString(), rev: null });
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-protected-real-activity', vaciar: true });
+  await first.request('/api/respaldo/importar', 'POST', fixture);
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'fixture-protected-real-activity', licenseCode: 'F123-REAL-PROTECTED' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino'), true, 'real sale protects its product');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.nombre === 'Ashley Rivera'), true, 'real sale protects its customer');
+  assert.equal(state.ventas.some(v => v.id === 'v-real-protect-demo-shaped'), true, 'real sale is never removed');
+  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false, 'demo sales are still quarantined');
+  const cat = restarted.catalog();
+  assert.equal(cat.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino'), true, 'protected product must still sync');
+  assert.equal(cat.clientes.some(c => c.id === 'c01' && c.nombre === 'Ashley Rivera'), true, 'protected customer must still sync');
+});
