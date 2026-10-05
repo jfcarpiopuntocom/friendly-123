@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-05",
-  "changelog": "v448 GOLDEN hotfix golden13: Pending payment conserva deudas numéricas ya calculadas aunque la integridad siga en verificación. La semilla demo queda aislada por huellas exactas y evidencia corroborada: clientes, ventas vs-*, productos, perchas, asociados y sucursales no contaminan tiendas reales; antes de retirar contaminación confirmada se guarda snapshot reversible. Coincidencias aisladas y IDs pNN reales se conservan.",
+  "changelog": "v448 GOLDEN hotfix golden14: quarantena reversible y estrictamente acotada de dos registros de prueba confirmados que seguían visibles en la licencia real de idiomARTE (Butter dish workshop - Candy S. y Mural mentoring (Leslie)), junto con sus ventas enlazadas. Solo aplica a la familia F123-K7M2-; no borra datos reales de otras licencias ni usa patrones amplios. También bloquea que esos registros vuelvan a propagarse por sync.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden13"
+  "cacheGeneration": "golden14"
 }
