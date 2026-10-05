@@ -1911,6 +1911,11 @@
       })) : [];
       const stillDue = _ledger ? +(payoutBalances.reduce((a,r) => a + (Number(r.due) || 0), 0)).toFixed(2)
         : +(pendientes.reduce((a,v) => a + (Number(v.split && v.split.montoComisionSocio) || 0), 0) + ajPend.reduce((a,x) => a + (Number(x.montoComisionSocio) || 0), 0)).toFixed(2);
+      const payoutHistory = payouts.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
+        .slice().sort((a,b) => String(b.paidAt || b.createdAt || "").localeCompare(String(a.paidAt || a.createdAt || "")))
+        .map((p) => ({ id:p.id, opId:p.opId, payeeId:p.payeeId || null, payeeName:p.payeeName || _payeeName(p.payeeId,u),
+          amount:+(Number(p.amount) || ((Number(p.amountCents) || 0) / 100)).toFixed(2), method:p.method || null,
+          paidAt:p.paidAt || p.createdAt || null, reference:p.reference || "", note:p.note || "", items:(p.items || []).length }));
       /* Bloque 4: cuanto le toca a cada persona cuando hay ventas repartidas. */
       const _porPersona = new Map();
       const _sumar = (pid, monto) => { const k = pid || "__percha__"; _porPersona.set(k, (_porPersona.get(k) || 0) + (Number(monto) || 0)); };
@@ -1962,7 +1967,7 @@
         /* Como se pago (v391): el medio del ultimo pago sellado en el mes; null si no se registro. Solo lectura. */
         medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
         ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
-        stillDue, payoutBalances, detallePendientes,
+        stillDue, payoutBalances, payoutHistory, detallePendientes,
         ajustes: ajustesMes.map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
         repartoPersonas,
         diasSinVenta, promotorNombre: prom ? prom.nombre : null,
