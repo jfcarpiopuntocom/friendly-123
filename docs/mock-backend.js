@@ -1903,6 +1903,14 @@
       const comisionSocio = ventasMes.reduce((a, v) => a + v.split.montoComisionSocio, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoComisionSocio) || 0), 0);
       const netoDueno = ventasMes.reduce((a, v) => a + v.split.montoNetoDueno, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoNetoDueno) || 0), 0);
       const pendientes = ventasMes.filter((v) => !v.liquidada);
+      const _ledger = _payoutCore();
+      const _ledgerObs = _ledger ? _ledger.buildObligations(_payoutInput(u.id, _mes)) : [];
+      const payoutBalances = _ledger ? _ledger.balancesByPayee(_payoutInput(u.id, _mes)).map((r) => ({
+        payeeId:r.payeeId, nombre:_payeeName(r.payeeId,u), earned:+_ledger.money(r.earnedCents).toFixed(2),
+        paid:+_ledger.money(r.paidCents).toFixed(2), due:+_ledger.money(r.dueCents).toFixed(2), dueCents:r.dueCents
+      })) : [];
+      const stillDue = _ledger ? +(payoutBalances.reduce((a,r) => a + (Number(r.due) || 0), 0)).toFixed(2)
+        : +(pendientes.reduce((a,v) => a + (Number(v.split && v.split.montoComisionSocio) || 0), 0) + ajPend.reduce((a,x) => a + (Number(x.montoComisionSocio) || 0), 0)).toFixed(2);
       /* Bloque 4: cuanto le toca a cada persona cuando hay ventas repartidas. */
       const _porPersona = new Map();
       const _sumar = (pid, monto) => { const k = pid || "__percha__"; _porPersona.set(k, (_porPersona.get(k) || 0) + (Number(monto) || 0)); };
@@ -1926,7 +1934,17 @@
       // es el "te debo $X". Agrupamos las ventas pendientes por producto para armar
       // un recibo itemizado (producto, unidades, bruto, comision). Sin esto el pago
       // es un numero suelto y genera desconfianza. Ver marcarComisionPagada() en index.html.
-      const detallePendientes = agruparPendientesPorProducto(pendientes).concat(ajPend.map((x) => { const pp = productos.find((q) => q.id === x.productoId); return { producto: "Return: " + (pp ? pp.nombre : "product"), sku: pp ? pp.sku : "", cantidad: -(Number(x.cantidad) || 0), montoBruto: +(Number(x.montoBruto) || 0).toFixed(2), comisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), ajusteId: x.id }; }));
+      const detallePendientes = _ledger ? _ledgerObs.filter((o) => Number(o.dueCents) !== 0).map((o) => {
+        const v = o.kind === "sale" ? ventas.find((x) => String(x.id) === String(o.sourceId)) : null;
+        const aj = o.kind === "adjustment" ? ajustesComision.find((x) => String(x.id) === String(o.sourceId)) : null;
+        const vv = v || (aj ? ventas.find((x) => String(x.id) === String(aj.ventaId)) : null);
+        const pp = vv ? productos.find((q) => q.id === vv.productoId) : null;
+        return { producto:(o.kind === "adjustment" ? "Return: " : "") + (pp ? pp.nombre : "product"), sku:pp ? pp.sku : "",
+          cantidad:o.kind === "adjustment" ? -(Number(aj && aj.cantidad) || 0) : (Number(vv && vv.cantidad) || 0),
+          montoBruto:vv && vv.split ? +(Number(vv.split.montoBruto) || 0).toFixed(2) : 0,
+          comisionSocio:+_ledger.money(o.dueCents).toFixed(2), ajusteId:aj ? aj.id : undefined,
+          ventaId:vv ? vv.id : undefined, payeeId:o.payeeId, payeeNombre:_payeeName(o.payeeId,u) };
+      }) : agruparPendientesPorProducto(pendientes).concat(ajPend.map((x) => { const pp = productos.find((q) => q.id === x.productoId); return { producto: "Return: " + (pp ? pp.nombre : "product"), sku: pp ? pp.sku : "", cantidad: -(Number(x.cantidad) || 0), montoBruto: +(Number(x.montoBruto) || 0).toFixed(2), comisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), ajusteId: x.id }; }));
       // Dias desde la ultima venta de esta percha (rec 05: asociado/a dormida).
       const ultima = ventasActivas().filter((v) => v.ubicacionId === u.id).reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
       const diasSinVenta = ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000) : null;
@@ -1940,10 +1958,11 @@
         mes: _mes, esMesActual: _mes === mesActualISO(),
         cumplimientoMeta: _meta ? +((ventasBrutas / _meta) * 100).toFixed(1) : null,
         ventasBrutas: +ventasBrutas.toFixed(2), comisionSocio: +comisionSocio.toFixed(2), netoDueno: +netoDueno.toFixed(2),
-        estado: (ventasMes.length === 0 && ajustesMes.length === 0) ? "sin ventas" : (pendientes.length === 0 && ajPend.length === 0) ? "pagado" : "pendiente",
+        estado: (ventasMes.length === 0 && ajustesMes.length === 0) ? "sin ventas" : (stillDue <= 0.00001 ? "pagado" : "pendiente"),
         /* Como se pago (v391): el medio del ultimo pago sellado en el mes; null si no se registro. Solo lectura. */
         medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
-        ventasPendientes: pendientes.length, detallePendientes,
+        ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
+        stillDue, payoutBalances, detallePendientes,
         ajustes: ajustesMes.map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
         repartoPersonas,
         diasSinVenta, promotorNombre: prom ? prom.nombre : null,
