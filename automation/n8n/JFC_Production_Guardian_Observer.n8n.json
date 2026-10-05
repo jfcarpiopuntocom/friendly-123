@@ -1,0 +1,137 @@
+{
+  "name": "JFC Production Guardian — Observer",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual",
+      "name": "Manual Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Every 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -700,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.github.com/repos/jfcarpiopuntocom/friendly-123/actions/workflows/production-guardian.yml/runs?per_page=5",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "http",
+      "name": "Read GitHub gate runs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -420,
+        20
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$input.first().json; const runs=Array.isArray(raw.workflow_runs)?raw.workflow_runs:[]; const latest=runs[0]||null; let status='UNKNOWN'; if(latest){ if(latest.status!=='completed') status='RUNNING'; else if(latest.conclusion==='success') status='GREEN'; else status='STOP'; } return [{json:{gate:'production-guardian',status,latest:latest?{id:latest.id,name:latest.name,event:latest.event,branch:latest.head_branch,sha:latest.head_sha,status:latest.status,conclusion:latest.conclusion,created_at:latest.created_at,updated_at:latest.updated_at,html_url:latest.html_url}:null,checked_at:new Date().toISOString(),observer_only:true}}];"
+      },
+      "id": "eval",
+      "name": "Evaluate gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -140,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d=$input.first().json; const line=`${d.gate}: ${d.status}`; const detail=d.latest?`${d.latest.branch} · ${d.latest.conclusion||d.latest.status} · ${d.latest.html_url}`:'No run found'; return [{json:{...d,summary:`${line}\\n${detail}\\nObserver only: no deploy, rollback, delete or customer-data mutation.`}}];"
+      },
+      "id": "render",
+      "name": "Render status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        140,
+        20
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Test": {
+      "main": [
+        [
+          {
+            "node": "Read GitHub gate runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 15 min": {
+      "main": [
+        [
+          {
+            "node": "Read GitHub gate runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read GitHub gate runs": {
+      "main": [
+        [
+          {
+            "node": "Evaluate gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate gate": {
+      "main": [
+        [
+          {
+            "node": "Render status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Guayaquil",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
