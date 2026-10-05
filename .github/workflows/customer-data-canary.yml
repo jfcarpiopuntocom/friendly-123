@@ -1,0 +1,61 @@
+name: customer-data-canary
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: ["engineering/production-gates-*", "hotfix/v448-golden-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: customer-data-canary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Customer Data Canary policy
+        run: node scripts/customer-data-canary.mjs --enforce
+
+      - name: Cryptographic and peer isolation regressions
+        run: >-
+          node --require ./test/helpers/sin-red-produccion.cjs --test
+          test/sync-zero-trust.test.js
+          test/sync-hardening.test.js
+          test/sync-behavior.test.js
+          test/yjs-bridge.test.js
+
+      - name: Browser canaries with synthetic licenses only
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/canarios-app.test.js
+
+      - name: Data-integrity regressions
+        run: >-
+          node --require ./test/helpers/sin-red-produccion.cjs --test
+          test/photo-prime-directive-g04.test.js
+          test/photo-recovery-all-evidence-g06.test.js
+          test/backup-fotos.test.js
+          test/commissions-deleted-racks.test.js
+          test/deshacer-cancelacion-vencido.test.js
+
+      - name: Upload canary evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer-data-canary-evidence
+          path: .artifacts/customer-data-canary.json
+          if-no-files-found: warn
+          retention-days: 30
