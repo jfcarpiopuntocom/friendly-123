@@ -2748,10 +2748,9 @@
     });
     remoto.productos.forEach((p) => {
       if (!p || !p.id) return;
-      // NO ADOPTAR SEMILLA DEMO (v297): id "p"+DIGITOS = ejemplo; aunque la sala la
-      // tenga persistida, ningun aparato la vuelve a meter al store. Los reales son
-      // "p"+UUID, no matchean.
-      if (/^p\d+$/.test(String(p.id))) return;
+      // v448 GOLDEN: rechazar solo la huella exacta del producto demo. Un id pNN
+      // por sí solo no prueba nada y puede pertenecer a un negocio real.
+      if (_esProductoDemoExacto(p)) return;
       const mio = productos.find((x) => String(x.id) === String(p.id));
       if (!mio) {
         /* STOCK COMPARTIDO (JFC 2026-09-16, aprobado). Antes el producto entraba
@@ -3478,11 +3477,10 @@
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       return {
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
-        // NO PUBLICAR SEMILLA DEMO (v297, JFC 2026-09-16). Los productos de ejemplo
-        // tienen id "p"+DIGITOS (p01..p66); los reales son "p"+UUID (con guiones).
-        // Filtrar aqui evita que un aparato con demo re-contamine la sala (add-only
-        // no borra; la unica defensa robusta es no publicarla NI adoptarla).
-        productos: productos.filter((p) => p && !/^p\d+$/.test(String(p.id || ""))).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad,
+        // v448 GOLDEN: bloquear la semilla por HUELLA EXACTA, no por forma del id.
+        // Un negocio real puede tener un id corto como p23; nombre+SKU+barcode
+        // distinguen ese registro real del Cappuccino demo sin adivinar.
+        productos: productos.filter((p) => p && !_esProductoDemoExacto(p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad,
           /* STOCK EN EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el stock NO
              viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
              COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
