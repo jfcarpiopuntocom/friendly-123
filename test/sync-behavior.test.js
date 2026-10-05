@@ -246,3 +246,18 @@ test('v448 GOLDEN: restart of an activated non-JFC store purges only exact demo 
   assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
   assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino' && p.sku === 'BAR-CAP-023'), false);
 });
+
+
+test('v448 GOLDEN: checkpoint preserves a real product that only reuses a demo-shaped id', async () => {
+  const dest = browser();
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-checkpoint-real-id', vaciar: true });
+  const snap = {
+    ubicaciones: [{ id: 'real-shelf', nombre: 'Real shelf', activa: true }],
+    productos: [{ id: 'p23', nombre: 'Real handmade mug', sku: 'REAL-MUG-23', barcode: 'REAL-00023', ubicacionId: 'real-shelf', stockActual: 4 }],
+    clientes: []
+  };
+  const r = dest.OCSync.aplicarCheckpoint(snap);
+  assert.equal(r.ok, true);
+  const state = await dest.request('/api/respaldo/exportar');
+  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Real handmade mug'), true);
+});
