@@ -8610,6 +8610,7 @@ async function cargarComisiones(){
   const conVentas = filas.filter(_tuvoVentas);
   const sinVentas = filas.filter(f => !_tuvoVentas(f));
   const tarjetaPercha = f => {
+    const _payRows = (f.payoutBalances || []).filter(p => Number(p.due) > 0.00001);
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
       ? `<span class="badge-estado rojo" style="font-size:13px;">dormant ${f.diasSinVenta}d</span>` : "";
     return `
@@ -9076,7 +9077,7 @@ async function enviarEstadoComisionista(ubicacionId, promotoraId){
   }
 }
 
-async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
+async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId){
   // Shell 371: se paga el mes que se esta viendo; el mismo mes va al backend y al recibo.
   const _mesPago = _ocMesComisiones || "";
   const _mesPagoTxt = _mesPago ? _ocMesEtiqueta(_mesPago) : "this month";
@@ -9100,7 +9101,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   // con error, fallaba en silencio total sin avisar nada al dueño.
   let res, r;
   try {
-    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST", body: JSON.stringify({ mes: _mesPago, medioPago }) });
+    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST", body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, paidAt: new Date().toISOString() }) });
     r = await res.json();
   } catch (err) {
     console.error("[marcarComisionPagada]", err);
@@ -9109,29 +9110,32 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   }
   if (!res.ok) { await ocAlert(r.error || "Could not mark the payment."); return; }
   cargarComisiones();
-  // Recibo para WhatsApp: solo se ofrece si hay nombre de asociado/a y monto > 0.
-  if (promotorNombre && monto > 0) {
+  const _montoRegistrado = Number(r && r.amount != null ? r.amount : monto) || 0;
+  const _nombreRegistrado = String((r && r.payeeName) || promotorNombre || "");
+  // Recibo: usa lo que el ledger ACABA de registrar, no un total viejo de la tarjeta.
+  if (_nombreRegistrado && _montoRegistrado > 0) {
     const neg = (function(){ try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch(_){ return ""; } })();
     const mes = _mesPago ? _ocMesEtiqueta(_mesPago) : new Date().toLocaleDateString("es", { month: "long", year: "numeric" });
     // #19: lineas del desglose — "de qué ventas exactas". Cada producto con
     // unidades y comisión, para que el socio concilie sin preguntar.
-    const lineasDet = detalle.map(d =>
+    const detallePersona = detalle.filter(d => !payeeId || String(d.payeeId || "") === String(payeeId));
+    const lineasDet = detallePersona.map(d =>
       `• ${d.cantidad}× ${d.producto} — ${fmtMoney(d.comisionSocio)}`
     );
     const recibo = [
       `*Commission payment confirmed*`,
-      `Asociado/a: ${promotorNombre}`,
-      `Monto: ${fmtMoney(monto)}`,
+      `Asociado/a: ${_nombreRegistrado}`,
+      `Monto: ${fmtMoney(_montoRegistrado)}`,
       `Pagado con: ${({ efectivo: "efectivo", transferencia: "transferencia", "credito-tienda": "crédito en tienda", otro: "otro" })[medioPago] || medioPago}`,
       `Mes: ${mes}`,
       neg ? `Negocio: ${neg}` : "",
       lineasDet.length ? `` : "",
-      lineasDet.length ? `*Detalle (${detalle.reduce((a,d)=>a+d.cantidad,0)} u):*` : "",
+      lineasDet.length ? `*Detalle (${detallePersona.reduce((a,d)=>a+d.cantidad,0)} u):*` : "",
       ...lineasDet,
       ``,
       `Gracias por tu trabajo este mes. — friendly-123`,
     ].filter(Boolean).join("\n");
-    if (await ocConfirm(`Send receipt to ${promotorNombre} via WhatsApp?`)) {
+    if (await ocConfirm(`Send receipt to ${_nombreRegistrado} via WhatsApp?`)) {
       window.open("https://wa.me/?text=" + encodeURIComponent(recibo), "_blank");
     }
   }
