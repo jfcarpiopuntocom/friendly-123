@@ -1859,8 +1859,9 @@
     const base = _payoutInput(ubicacionId, mes);
     const rows = core.balancesByPayee(base).filter((r) => Number(r.dueCents) > 0);
     if (!rows.length) return { error: "There is nothing due for this period.", status: 409 };
-    let payeeId = body && body.payeeId != null ? String(body.payeeId) : null;
-    if (payeeId == null) {
+    const hasExplicitPayee = !!(body && Object.prototype.hasOwnProperty.call(body, "payeeId"));
+    let payeeId = hasExplicitPayee ? (body.payeeId == null || body.payeeId === "" ? null : String(body.payeeId)) : null;
+    if (!hasExplicitPayee) {
       if (rows.length !== 1) return { error: "More than one associate is owed money here. Choose the person you actually paid.", status: 409, payees: rows.map((r) => ({ payeeId:r.payeeId, due:core.money(r.dueCents) })) };
       payeeId = rows[0].payeeId;
     }
