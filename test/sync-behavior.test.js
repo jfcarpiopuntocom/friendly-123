@@ -266,13 +266,15 @@ test('v448 GOLDEN: checkpoint preserves a real product that only reuses a demo-s
 test('v448 GOLDEN: catalog sync preserves a real product that only reuses a demo-shaped id', async () => {
   const source = browser();
   const dest = browser();
+  const fixture = await source.request('/api/respaldo/exportar');
+  const shelf = { ...fixture.ubicaciones[0], id: 'real-shelf-p23', nombre: 'Real shelf p23' };
+  const product = { ...fixture.productos[0], id: 'p23', nombre: 'Real handmade mug', sku: 'REAL-MUG-23', barcode: 'REAL-00023', ubicacionId: shelf.id, stockActual: 4 };
+  fixture.ubicaciones = [shelf];
+  fixture.productos = [product];
+  fixture.ventas = []; fixture.movimientos = []; fixture.clientes = [];
   await source.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-source-real-product', vaciar: true });
   await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-dest-real-product', vaciar: true });
-  const state = await source.request('/api/respaldo/exportar');
-  state.ubicaciones = [{ id: 'real-shelf-p23', nombre: 'Real shelf p23', activa: true }];
-  state.productos = [{ id: 'p23', nombre: 'Real handmade mug', sku: 'REAL-MUG-23', barcode: 'REAL-00023', ubicacionId: 'real-shelf-p23', stockActual: 4 }];
-  state.ventas = []; state.movimientos = []; state.clientes = [];
-  await source.request('/api/respaldo/importar', 'POST', state);
+  await source.request('/api/respaldo/importar', 'POST', fixture);
   const cat = source.catalog();
   assert.equal(cat.productos.some(p => p.id === 'p23' && p.nombre === 'Real handmade mug'), true, 'outbound catalog must not discard a real pNN id');
   dest.OCSync.aplicarCatalogo(cat, null);
