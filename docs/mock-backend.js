@@ -153,6 +153,10 @@
      fechado hoy, con quien/motivo, que se descuenta del proximo pago. Nunca
      se edita ni se borra un ajuste; si hubo error, se agrega otro. */
   const ajustesComision = [];
+  /* PAYOUT LEDGER v1 (2026-10-05). Append-only financial facts. Historical
+     venta.liquidada remains as a compatibility projection; every NEW commission
+     payment gets its own payout record with exact covered sources. */
+  const payouts = [];
 
   // ==========================================================================
   // CLIENTES (JFC 2026-07-07) — cada cliente tiene un CODIGO UNICO (C-####) y
@@ -761,7 +765,7 @@
       _rev: _localRev,
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
-      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision),
+      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payouts),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
       configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
       usuarios: clonar(usuarios),
@@ -804,6 +808,7 @@
     if (body.transferencias && !Array.isArray(body.transferencias)) return "The transfers section is corrupt.";
     if (body.gastos && !Array.isArray(body.gastos)) return "The expenses section is corrupt.";
     if (body.ajustesComision && !Array.isArray(body.ajustesComision)) return "The commission adjustments section is corrupt.";
+    if (body.payouts && !Array.isArray(body.payouts)) return "The commission payments section is corrupt.";
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
@@ -815,6 +820,7 @@
     transferencias.length = 0; transferencias.push(...(Array.isArray(body.transferencias) ? body.transferencias : []));
     gastos.length = 0; gastos.push(...(Array.isArray(body.gastos) ? body.gastos : []));
     ajustesComision.length = 0; ajustesComision.push(...(Array.isArray(body.ajustesComision) ? body.ajustesComision : []));
+    payouts.length = 0; payouts.push(...(Array.isArray(body.payouts) ? body.payouts.filter((p) => p && p.id && p.opId) : []));
     if (Array.isArray(body.sucursales)) { sucursales.length = 0; sucursales.push(...body.sucursales); }
     if (Array.isArray(body.promotoras)) { promotoras.length = 0; promotoras.push(...body.promotoras); }
     if (Array.isArray(body.clientes)) {
@@ -1801,6 +1807,74 @@
     });
     return [...map.values()].map((d) => ({ ...d, montoBruto: +d.montoBruto.toFixed(2), comisionSocio: +d.comisionSocio.toFixed(2) }));
   }
+  function _payoutCore() {
+    return (typeof window !== "undefined" && window.OCPayoutLedger) ? window.OCPayoutLedger : null;
+  }
+  function _payeeName(id, ubicacion) {
+    const p = id ? promotoras.find((x) => String(x.id) === String(id)) : null;
+    return p ? p.nombre : (ubicacion ? ubicacion.nombre : "Associate");
+  }
+  function _payeeType(id) {
+    const p = id ? promotoras.find((x) => String(x.id) === String(id)) : null;
+    return p && p.tipo ? String(p.tipo) : "associate";
+  }
+  function _payoutInput(ubicacionId, mes) {
+    return { sales: ventasActivas(), adjustments: ajustesComision, locations: ubicaciones,
+      payouts, month: mesValido(mes), locationId: String(ubicacionId) };
+  }
+  function _fuentePayoutLiquidada(kind, id, ubicacionId, mes) {
+    const core = _payoutCore(); if (!core) return false;
+    const obs = core.buildObligations(_payoutInput(ubicacionId, mes)).filter((o) => o.kind === kind && String(o.sourceId) === String(id));
+    return obs.length > 0 && obs.every((o) => Number(o.dueCents) === 0);
+  }
+  function _registrarPayout(ubicacionId, body, qMes) {
+    const core = _payoutCore();
+    if (!core) return { error: "Payment ledger is not available. Nothing was recorded.", status: 503 };
+    const u = ubicaciones.find((x) => String(x.id) === String(ubicacionId));
+    if (!u) return { error: "Location not found.", status: 404 };
+    const mes = mesValido((body && body.mes) || qMes);
+    const base = _payoutInput(ubicacionId, mes);
+    const rows = core.balancesByPayee(base).filter((r) => Number(r.dueCents) > 0);
+    if (!rows.length) return { error: "There is nothing due for this period.", status: 409 };
+    let payeeId = body && body.payeeId != null ? String(body.payeeId) : null;
+    if (payeeId == null) {
+      if (rows.length !== 1) return { error: "More than one associate is owed money here. Choose the person you actually paid.", status: 409, payees: rows.map((r) => ({ payeeId:r.payeeId, due:core.money(r.dueCents) })) };
+      payeeId = rows[0].payeeId;
+    }
+    const row = rows.find((r) => (r.payeeId || null) === (payeeId || null));
+    if (!row) return { error: "That person has no positive amount due for this period.", status: 409 };
+    const sourceKey = row.obligations.filter((o) => Number(o.dueCents) !== 0).map((o) => o.kind + ":" + o.sourceId + ":" + (o.payeeId || "_")).sort().join(",");
+    const opId = String((body && body.opId) || ("settle:" + mes + ":" + ubicacionId + ":" + (payeeId || "_") + ":" + sourceKey));
+    const already = payouts.find((p) => String(p.opId) === opId);
+    if (already) return { ok:true, existing:true, payout:already };
+    const now = new Date().toISOString();
+    const plan = core.planPayout(Object.assign({}, base, {
+      payeeId, opId, id:uuid("pay-"), method:body && body.medioPago,
+      reference:body && body.reference, note:body && body.note,
+      paidAt:(body && body.paidAt) || now,
+      paidBy:(body && body.paidBy) || (_rolLocal() || "owner"),
+      payeeName:_payeeName(payeeId,u), payeeType:_payeeType(payeeId)
+    }));
+    if (plan.error) return plan;
+    const payout = Object.assign({}, plan.payout, { rev:_revNueva(), createdAt:now });
+    payouts.push(payout);
+    /* Compatibility projection. Financial truth is the payout; these booleans
+       keep historical guards/reports safe until every caller reads the ledger. */
+    payout.items.forEach((it) => {
+      if (it.kind === "sale") {
+        const v = ventas.find((x) => String(x.id) === String(it.sourceId));
+        if (v && _fuentePayoutLiquidada("sale", v.id, ubicacionId, mes)) { v.liquidada = true; v.medioPagoComision = payout.method; v.rev = _revNueva(); }
+      } else if (it.kind === "adjustment") {
+        const a = ajustesComision.find((x) => String(x.id) === String(it.sourceId));
+        if (a && _fuentePayoutLiquidada("adjustment", a.id, ubicacionId, mes)) { a.liquidada = true; a.medioPagoComision = payout.method; a.rev = _revNueva(); }
+      }
+    });
+    mov("payout", { payoutId:payout.id, opId:payout.opId, ubicacion:u.nombre, payeeId, payeeName:payout.payeeName,
+      amount:payout.amount, mes, medioPago:payout.method, covered:payout.items.length });
+    guardarEstadoLocal(); avisarCatalogoCambiado();
+    return { ok:true, payout };
+  }
+
   /* mes opcional "YYYY-MM" (shell 371). Sin mes = mes en curso, igual que antes. */
   function getLiquidaciones(mes) {
     const _mes = mesValido(mes);
@@ -2786,6 +2860,16 @@
         if (medioLocal) local.medioPagoComision = medioLocal;
       }
     });
+    /* Payout Ledger v1: append-only and idempotent by BOTH id and opId.
+       A second offline device that recorded the same settlement cannot create a
+       second ledger fact when the peers converge. No payout is ever overwritten. */
+    if (Array.isArray(remoto.payouts)) remoto.payouts.forEach((p) => {
+      if (!p || !p.id || !p.opId || p.status !== "paid" || !(Number(p.amountCents) > 0)) return;
+      const ya = payouts.find((x) => String(x.id) === String(p.id) || String(x.opId) === String(p.opId));
+      if (ya) return;
+      payouts.push(Object.assign({}, p));
+      _observarRev(p.rev); actualizados++;
+    });
     if (Array.isArray(remoto.transferencias)) remoto.transferencias.forEach((t) => {
       if (!t || !t.id || !t.productoOrigenId || !t.productoDestinoId) return;
       _observarRev(t.rev);
@@ -3657,6 +3741,7 @@
         ventas: ventas.filter((v) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ventas", v)).map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
+        payouts: payouts.map((p) => Object.assign({}, p)),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
         /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Este aparato publica SU
            propia entrada {id,apodo,rol}; el dueño de la entrada es autoritativo. Se
@@ -5316,6 +5401,14 @@
       }
 
       if (path === "/api/liquidaciones") return J(getLiquidaciones(q.get("mes")));
+      if (path === "/api/payouts" && method === "GET") {
+        const mes = q.get("mes"); const ubic = q.get("ubicacionId"); const payee = q.get("payeeId");
+        return J(payouts.filter((p) => (!mes || p.period === mes) && (!ubic || String(p.locationId) === String(ubic)) && (!payee || String(p.payeeId || "") === String(payee))).map((p) => clonar(p)));
+      }
+      if (path === "/api/payouts" && method === "POST") {
+        const r = _registrarPayout(body && body.ubicacionId, body || {}, body && body.mes);
+        return J(r.error ? { error:r.error, payees:r.payees || undefined } : r, r.error ? (r.status || 400) : 200);
+      }
       /* CUADRE DEL MES (JFC 2026-09-24: "todo debe cuadrar, nada debe quedar
          fuera de vista"). TODAS las ventas activas del mes, repartidas en cubos
          que suman exacto al total (en centavos): con comision, COUNTER SALE en
@@ -5425,29 +5518,15 @@
          que nadie lo pidiera. Un verbo distinto cae al 404 del router (~L4490),
          igual que en todos los demas endpoints. */
       if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/)) && opts && opts.method === "POST") {
-        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
-        /* Shell 371: paga el mes que se pide (body.mes o ?mes=); sin mes, el
-           mes en curso como siempre. mesValido() impide que un valor raro
-           liquide otro periodo. El mes queda en el log de la liquidacion. */
-        const _mesPago = mesValido(body.mes || q.get("mes"));
-        /* MEDIO DE PAGO (JFC 2026-09-24, benchmark #4, aditivo): como se le pago al
-           comisionista. Opcional: sin el campo, todo igual que antes (null). Un
-           valor fuera de la lista cae a "otro" (nunca se guarda texto libre ajeno).
-           Se sella SOLO en lo que este pago liquida; lo ya pagado no se toca. */
-        const _MEDIOS = ["efectivo", "transferencia", "credito-tienda", "otro"];
-        const _medio = (body.medioPago === undefined || body.medioPago === null || body.medioPago === "") ? null
-          : (_MEDIOS.includes(String(body.medioPago)) ? String(body.medioPago) : "otro");
-        /* B5 (2026-09-24): solo se sellan ventas CON comision (split). Antes el
-           pago marcaba tambien las COUNTER SALES de la percha, que no tienen a
-           quien pagarle, y despues ya no se podian cancelar ni editar. */
-        const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMes(v.fecha, _mesPago, v.relojDesfaseMs) && !v.liquidada && v.split);
-        pend.forEach((v) => { v.liquidada = true; if (_medio) v.medioPagoComision = _medio; v.rev = _revNueva(); });
-        /* Bloque 4: los ajustes pendientes del mes se descuentan en este pago. */
-        const ajPago = ajustesComision.filter((a) => a && a.ubicacionId === m[1] && esDelMes(a.fecha, _mesPago) && !a.liquidada);
-        ajPago.forEach((a) => { a.liquidada = true; if (_medio) a.medioPagoComision = _medio; a.rev = _revNueva(); });
-        mov("liquidacion", { ubicacion: u.nombre, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length, mes: _mesPago, medioPago: _medio });
-        if (pend.length || ajPago.length) avisarCatalogoCambiado();
-        return J({ ok: true, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length, medioPago: _medio });
+        /* Backward-compatible URL; the operation is now a first-class payout.
+           It no longer flips a batch of sale booleans blindly. */
+        const r = _registrarPayout(m[1], body || {}, q.get("mes"));
+        if (r.error) return J({ error:r.error, payees:r.payees || undefined }, r.status || 400);
+        return J({ ok:true, payoutId:r.payout.id, opId:r.payout.opId, amount:r.payout.amount,
+          medioPago:r.payout.method, payeeId:r.payout.payeeId, payeeName:r.payout.payeeName,
+          ventasLiquidadas:r.payout.items.filter((x) => x.kind === "sale").length,
+          ajustesLiquidados:r.payout.items.filter((x) => x.kind === "adjustment").length,
+          existing:!!r.existing });
       }
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/hermanos$/))) {
