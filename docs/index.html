@@ -3989,10 +3989,16 @@ const _saldoDeuda = {};
 let _pendNoVerif = 0;
 let _estadoListaClientes = null;
 function _deudaDe(info) {
-  if (!info || (info.integridad && !info.integridad.ok)) return null;
-  if (info.saldo == null) return false;
-  const n = Number(info.saldo);
-  return Number.isFinite(n) ? n < 0 : null;
+  if (!info) return null;
+  const tieneSaldo = info.saldo != null;
+  const n = tieneSaldo ? Number(info.saldo) : NaN;
+  // v448 GOLDEN: una deuda numérica ya calculada es un hecho utilizable aunque
+  // la secuencia siga bajo verificación. La advertencia permanece visible; lo
+  // que no puede hacer es esconder al deudor del filtro Pending payment.
+  if (tieneSaldo && Number.isFinite(n) && n < 0) return true;
+  if (info.integridad && !info.integridad.ok) return null;
+  if (!tieneSaldo) return false;
+  return Number.isFinite(n) ? false : null;
 }
 async function _prepararPendientes(lista) {
   const cola = lista.slice();
