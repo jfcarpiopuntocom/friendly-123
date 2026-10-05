@@ -90,3 +90,20 @@ test('payouts travel through sync once and are deduplicated by opId', async () =
   assert.equal((await A.request('/api/payouts')).filter(p=>p.opId==='shared-op').length,1);
   assert.equal((await B.request('/api/payouts')).filter(p=>p.opId==='shared-op').length,1);
 });
+
+
+test('reversal is append-only, preserves original payout and reopens amount due', async () => {
+  const app=browser(); const s=await store(app);
+  await app.request(`/api/productos/${s.product.id}/venta`,'POST',{cantidad:1});
+  const pay=await app.request(`/api/liquidaciones/${s.rack.id}/marcar-pagado`,'POST',{payeeId:s.alice.id,medioPago:'cheque',opId:'pay-to-reverse'});
+  const rev=await app.request(`/api/payouts/${pay.payoutId}/reverse`,'POST',{reason:'Cheque cancelled before delivery',opId:'reverse-pay-to-reverse'});
+  assert.equal(rev.reversal.reversalOf,pay.payoutId);
+  const history=await app.request(`/api/payouts?ubicacionId=${s.rack.id}`);
+  assert.equal(history.length,2);
+  assert.ok(history.some(p=>p.id===pay.payoutId));
+  assert.ok(history.some(p=>p.reversalOf===pay.payoutId));
+  const liq=(await app.request('/api/liquidaciones')).find(x=>x.ubicacionId===s.rack.id);
+  assert.equal(liq.stillDue,40);
+  assert.equal(liq.estado,'pendiente');
+  assert.equal(liq.payoutHistory.some(p=>p.type==='reversal' && p.amount===-40),true);
+});
