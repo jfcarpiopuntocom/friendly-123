@@ -1343,6 +1343,7 @@
         if (v.asistenteNombre) g.personas[v.asistenteNombre] = 1;
       } else { g.counterUnid += Number(v.cantidad) || 1; g.counterMonto += monto; }
       if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
+      if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
     });
     return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (b.bruto + b.counterMonto) - (a.bruto + a.counterMonto); });
   }
