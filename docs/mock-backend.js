@@ -198,8 +198,7 @@
     codigo: String(x.codigo || ""), nombre: String(x.nombre || ""), telefono: String(x.telefono || "")
   }]));
   const _DEMO_UBICACIONES_EXACTAS = new Map(ubicaciones.map((u) => [String(u.id), {
-    nombre: String(u.nombre || ""), tipo: String(u.tipo || ""), sucursalId: String(u.sucursalId || ""),
-    promotoraId: String(u.promotoraId || "")
+    nombre: String(u.nombre || ""), tipo: String(u.tipo || ""), sucursalId: String(u.sucursalId || ""), promotoraId: String(u.promotoraId || "")
   }]));
   const _DEMO_PROMOTORAS_EXACTAS = new Map(promotoras.map((p) => [String(p.id), {
     nombre: String(p.nombre || ""), comisionBase: Number(p.comisionBase != null ? p.comisionBase : p.comision) || 0
@@ -237,28 +236,37 @@
   function _esVentaDemoExacta(v) {
     return !!(v && /^vs-/.test(String(v.id || "")));
   }
-  /* Una coincidencia aislada NO autoriza borrar ni ocultar datos de un cliente.
-     La semilla queda corroborada si aparece una venta con el prefijo reservado
-     vs- o si al menos DOS clases independientes coinciden con la semilla. */
-  function _haySemillaCorroboradaEn(src) {
-    src = src || {};
-    const ps = Array.isArray(src.productos) ? src.productos : [];
-    const cs = Array.isArray(src.clientes) ? src.clientes : [];
-    const us = Array.isArray(src.ubicaciones) ? src.ubicaciones : [];
-    const prs = Array.isArray(src.promotoras) ? src.promotoras : [];
-    const ss = Array.isArray(src.sucursales) ? src.sucursales : [];
-    const vs = Array.isArray(src.ventas) ? src.ventas : [];
-    if (vs.some(_esVentaDemoExacta)) return true;
-    let clases = 0;
-    if (ps.some(_esProductoDemoExacto)) clases++;
-    if (cs.some(_esClienteDemoExacto)) clases++;
-    if (us.some(_esUbicacionDemoExacta)) clases++;
-    if (prs.some(_esPromotoraDemoExacta)) clases++;
-    if (ss.some(_esSucursalDemoExacta)) clases++;
-    return clases >= 2;
-  }
-  function _haySemillaCorroboradaLocal() {
-    return _haySemillaCorroboradaEn({ productos, clientes, ubicaciones, promotoras, sucursales, ventas });
+  function _seleccionarSemillaDemoPura(estado) {
+    const ps = Array.isArray(estado && estado.productos) ? estado.productos : [];
+    const cs = Array.isArray(estado && estado.clientes) ? estado.clientes : [];
+    const vs = Array.isArray(estado && estado.ventas) ? estado.ventas : [];
+    const us = Array.isArray(estado && estado.ubicaciones) ? estado.ubicaciones : [];
+    const prs = Array.isArray(estado && estado.promotoras) ? estado.promotoras : [];
+    const sus = Array.isArray(estado && estado.sucursales) ? estado.sucursales : [];
+    const rp0 = ps.filter(_esProductoDemoExacto);
+    const rc0 = cs.filter(_esClienteDemoExacto);
+    const rv = vs.filter(_esVentaDemoExacta);
+    const evidencia = rv.length > 0 || rp0.length >= 2 || rc0.length >= 2 || (rp0.length > 0 && rc0.length > 0);
+    if (!evidencia) return { evidencia: false, productos: [], clientes: [], ventas: [], ubicaciones: [], promotoras: [], sucursales: [] };
+
+    const ventasReales = vs.filter((v) => !_esVentaDemoExacta(v));
+    const prodConActividadReal = new Set(ventasReales.map((v) => String(v && v.productoId || "")).filter(Boolean));
+    const cliConActividadReal = new Set(ventasReales.map((v) => String(v && v.clienteId || "")).filter(Boolean));
+    const rp = rp0.filter((p) => !prodConActividadReal.has(String(p.id)));
+    const rc = rc0.filter((x) => !cliConActividadReal.has(String(x.id)));
+    const borrarP = new Set(rp.map((p) => String(p.id)));
+    const productosQueQuedan = ps.filter((p) => !borrarP.has(String(p && p.id)));
+    const ubicUsadas = new Set(productosQueQuedan.map((p) => String(p && p.ubicacionId || "")).filter(Boolean));
+    const ru = us.filter((u) => _esUbicacionDemoExacta(u) && !ubicUsadas.has(String(u.id)));
+    const borrarU = new Set(ru.map((u) => String(u.id)));
+    const ubicQueQuedan = us.filter((u) => !borrarU.has(String(u && u.id)));
+    const promUsadas = new Set();
+    ubicQueQuedan.forEach((u) => { if (u && u.promotoraId) promUsadas.add(String(u.promotoraId)); });
+    productosQueQuedan.forEach((p) => { if (p && p.comisionistaId) promUsadas.add(String(p.comisionistaId)); });
+    const rpr = prs.filter((p) => _esPromotoraDemoExacta(p) && !promUsadas.has(String(p.id)));
+    const sucUsadas = new Set(ubicQueQuedan.map((u) => String(u && u.sucursalId || "")).filter(Boolean));
+    const rsu = sus.filter((s) => _esSucursalDemoExacta(s) && !sucUsadas.has(String(s.id)));
+    return { evidencia: true, productos: rp, clientes: rc, ventas: rv, ubicaciones: ru, promotoras: rpr, sucursales: rsu };
   }
   function _esTiendaReal() {
     try {
@@ -266,45 +274,49 @@
       return !!o.instanceId || !!OC_STATE_SUFIJO;
     } catch (_) { return !!OC_STATE_SUFIJO; }
   }
+  function _huboLimpiezaDemo(r) {
+    return !!(r && (r.productos || r.clientes || r.ventas || r.ubicaciones || r.promotoras || r.sucursales));
+  }
   function _limpiarSemillaExactaEnTiendaReal(origen) {
     const cero = { productos: 0, clientes: 0, ventas: 0, ubicaciones: 0, promotoras: 0, sucursales: 0 };
-    if (!_esTiendaReal() || !_haySemillaCorroboradaLocal()) return cero;
-    const rp = productos.filter(_esProductoDemoExacto);
-    const rc = clientes.filter(_esClienteDemoExacto);
-    const rv = ventas.filter(_esVentaDemoExacta);
-    const productosReales = productos.filter((p) => !_esProductoDemoExacto(p));
-    const ventasReales = ventas.filter((v) => !_esVentaDemoExacta(v));
-    const ru = ubicaciones.filter((u) => _esUbicacionDemoExacta(u) &&
-      !productosReales.some((p) => String(p.ubicacionId || "") === String(u.id)) &&
-      !ventasReales.some((v) => String(v.ubicacionId || "") === String(u.id)));
-    const idsUbicQueSalen = new Set(ru.map((u) => String(u.id)));
-    const ubicQueQuedan = ubicaciones.filter((u) => !idsUbicQueSalen.has(String(u.id)));
-    const rpr = promotoras.filter((p) => _esPromotoraDemoExacta(p) &&
-      !ubicQueQuedan.some((u) => String(u.promotoraId || "") === String(p.id)));
-    const rs = sucursales.filter((s) => _esSucursalDemoExacta(s) &&
-      !ubicQueQuedan.some((u) => String(u.sucursalId || "") === String(s.id)));
-    if (!rp.length && !rc.length && !rv.length && !ru.length && !rpr.length && !rs.length) return cero;
+    if (!_esTiendaReal()) return cero;
+    const sel = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
+    if (!sel.evidencia) return Object.assign({}, cero, { omitida: "sin-evidencia-corroborada" });
+    if (!sel.productos.length && !sel.clientes.length && !sel.ventas.length &&
+        !sel.ubicaciones.length && !sel.promotoras.length && !sel.sucursales.length) return cero;
+
+    const cuarentena = {
+      ts: Date.now(), origen: String(origen || ""),
+      productos: clonar(sel.productos), clientes: clonar(sel.clientes), ventas: clonar(sel.ventas),
+      ubicaciones: clonar(sel.ubicaciones), promotoras: clonar(sel.promotoras), sucursales: clonar(sel.sucursales)
+    };
     try {
-      if (!localStorage.getItem("f123_prelimpieza_demo_exacta_v448")) {
-        localStorage.setItem("f123_prelimpieza_demo_exacta_v448", JSON.stringify({
-          ts: Date.now(), origen: String(origen || ""), estado: estadoActualExportable()
-        }));
-      }
-    } catch (_) {}
-    for (let i = productos.length - 1; i >= 0; i--) if (_esProductoDemoExacto(productos[i])) productos.splice(i, 1);
-    for (let i = clientes.length - 1; i >= 0; i--) if (_esClienteDemoExacto(clientes[i])) clientes.splice(i, 1);
-    for (let i = ventas.length - 1; i >= 0; i--) if (_esVentaDemoExacta(ventas[i])) ventas.splice(i, 1);
-    for (let i = ubicaciones.length - 1; i >= 0; i--) {
-      if (idsUbicQueSalen.has(String(ubicaciones[i].id))) {
-        try { delete gastosMensuales[ubicaciones[i].id]; } catch (_) {}
-        ubicaciones.splice(i, 1);
-      }
+      const key = "f123_cuarentena_demo_exacta_v448";
+      const raw = JSON.stringify(cuarentena);
+      localStorage.setItem(key, raw);
+      if (localStorage.getItem(key) !== raw) return Object.assign({}, cero, { bloqueada: "cuarentena-no-verificada" });
+    } catch (_) {
+      return Object.assign({}, cero, { bloqueada: "cuarentena-no-disponible" });
     }
-    const idsPr = new Set(rpr.map((p) => String(p.id)));
-    const idsSuc = new Set(rs.map((s) => String(s.id)));
-    for (let i = promotoras.length - 1; i >= 0; i--) if (idsPr.has(String(promotoras[i].id))) promotoras.splice(i, 1);
-    for (let i = sucursales.length - 1; i >= 0; i--) if (idsSuc.has(String(sucursales[i].id))) sucursales.splice(i, 1);
-    return { productos: rp.length, clientes: rc.length, ventas: rv.length, ubicaciones: ru.length, promotoras: rpr.length, sucursales: rs.length };
+
+    const idsP = new Set(sel.productos.map((x) => String(x.id)));
+    const idsC = new Set(sel.clientes.map((x) => String(x.id)));
+    const idsV = new Set(sel.ventas.map((x) => String(x.id)));
+    const idsU = new Set(sel.ubicaciones.map((x) => String(x.id)));
+    const idsPr = new Set(sel.promotoras.map((x) => String(x.id)));
+    const idsSu = new Set(sel.sucursales.map((x) => String(x.id)));
+    for (let i = productos.length - 1; i >= 0; i--) if (idsP.has(String(productos[i] && productos[i].id))) productos.splice(i, 1);
+    for (let i = clientes.length - 1; i >= 0; i--) if (idsC.has(String(clientes[i] && clientes[i].id))) clientes.splice(i, 1);
+    for (let i = ventas.length - 1; i >= 0; i--) if (idsV.has(String(ventas[i] && ventas[i].id))) ventas.splice(i, 1);
+    for (let i = ubicaciones.length - 1; i >= 0; i--) if (idsU.has(String(ubicaciones[i] && ubicaciones[i].id))) {
+      delete gastosMensuales[ubicaciones[i].id]; ubicaciones.splice(i, 1);
+    }
+    for (let i = promotoras.length - 1; i >= 0; i--) if (idsPr.has(String(promotoras[i] && promotoras[i].id))) promotoras.splice(i, 1);
+    for (let i = sucursales.length - 1; i >= 0; i--) if (idsSu.has(String(sucursales[i] && sucursales[i].id))) sucursales.splice(i, 1);
+    return {
+      productos: idsP.size, clientes: idsC.size, ventas: idsV.size,
+      ubicaciones: idsU.size, promotoras: idsPr.size, sucursales: idsSu.size
+    };
   }
   /* Ver FOTOS DEL DEMO (tras cargarEstadoLocal). Tambien corre al final de
      aplicarRespaldo(): el estado del demo puede volver desde IndexedDB o de un
@@ -3904,45 +3916,15 @@
       console.warn("[guard-demo] aparato real sin buffer local: semilla de ejemplo vaciada, la tienda arranca limpia y se llena por sync.");
     }
   } catch (_) {}
-  /* LIMPIEZA UNICA DE SEMILLA CONTAMINADA — SOLO LICENCIA JFC (2026-09-16, aprobado).
-     La sala de la licencia canonica de JFC quedo con ~60 productos de SEMILLA
-     (ids "p01".."pNN") mezclados con los reales. Aqui, SOLO en aparatos cuya
-     licencia activa es EXACTAMENTE la de JFC (idiomARTE y cualquier otra licencia
-     NO entran), se purgan del store local esos productos y sus ventas de ejemplo.
-     Blindaje: (a) gated a la licencia exacta; (b) snapshot completo antes
-     (f123_prelimpieza_jfc_v1, reversible); (c) SOLO ids de semilla: productos
-     "^p\d+$" (los reales son "p"+UUID con guiones, no matchean) y ventas "^vs-"
-     (las reales son "v"+UUID); (d) una sola vez (flag). El reseteo de la SALA para
-     que el relay no re-llene se hace en sync-yjs (bump de sala gated a esta licencia). */
-  try {
-    // v303: gated al PREFIJO de la licencia de JFC (primeros 3 grupos), NO a la
-    // cadena exacta. La PC quedaba sucia porque su licencia es una VARIANTE
-    // (BF2A/B2FA, S2J24/S2324) que no coincidia exacto -> el purgado no corria.
-    // El prefijo "F123-A6YK-6V1J-" cubre TODAS sus variantes y NO toca a idiomARTE
-    // (F123-K7M2-...) ni a Dr Diego (F123-FK0Q-...), que pueden tener ids p\d+
-    // legitimos. CADA arranque (auto-limpieza). Reales de JFC son p+UUID.
-    var _PREFIJO_JFC = "F123-A6YK-6V1J-";
-    var _licAct = String(_licenciaPropia() || "").trim().toUpperCase().replace(/\s+/g, "");
-    if (_licAct.indexOf(_PREFIJO_JFC) === 0) {
-      var _esSemillaProd = function (id) { return /^p\d+$/.test(String(id || "")); };
-      if (productos.some(function (p) { return _esSemillaProd(p.id); })) {
-        // Snapshot solo la primera vez (reversible), no en cada arranque.
-        try { if (!localStorage.getItem("f123_prelimpieza_jfc_v1")) localStorage.setItem("f123_prelimpieza_jfc_v1", JSON.stringify({ ts: Date.now(), estado: estadoActualExportable() })); } catch (_) {}
-        var _antesP = productos.length, _antesV = ventas.length;
-        for (var _pi = productos.length - 1; _pi >= 0; _pi--) { if (_esSemillaProd(productos[_pi].id)) productos.splice(_pi, 1); }
-        for (var _vi = ventas.length - 1; _vi >= 0; _vi--) { if (/^vs-/.test(String((ventas[_vi] && ventas[_vi].id) || ""))) ventas.splice(_vi, 1); }
-        try { guardarEstadoLocal(); } catch (_) {}
-        try { console.warn("[limpieza-jfc] semilla purgada: productos " + _antesP + "->" + productos.length); } catch (_) {}
-      }
-    }
-  } catch (_) {}
-  /* v448 GOLDEN: descontaminación quirúrgica para CUALQUIER tienda real.
+  /* v448 GOLDEN: retirado el purgado especial JFC por /^p\\d+$/.
+     La protección común, exacta y reversible de abajo rige para TODA licencia. */
+    /* v448 GOLDEN: descontaminación quirúrgica para CUALQUIER tienda real.
      No usa prefijos de licencia ni borra por id genérico: exige huella exacta de
      la semilla para productos/clientes y el prefijo reservado vs- para ventas.
      Se conserva snapshot reversible antes de retirar cualquier evidencia demo. */
   try {
     var _limDemo = _limpiarSemillaExactaEnTiendaReal("startup");
-    if (_limDemo.productos || _limDemo.clientes || _limDemo.ventas) {
+    if (_huboLimpiezaDemo(_limDemo)) {
       guardarEstadoLocal();
       try { console.warn("[guard-demo-exacto] semilla retirada de tienda real:", _limDemo); } catch (_) {}
     }
@@ -3971,7 +3953,7 @@
       aplicarRespaldo(espejo);
       try {
         var _limIdb = _limpiarSemillaExactaEnTiendaReal("idb-rescue");
-        if (_limIdb.productos || _limIdb.clientes || _limIdb.ventas) guardarEstadoLocal();
+        if (_huboLimpiezaDemo(_limIdb)) guardarEstadoLocal();
       } catch (_) {}
       try { localStorage.setItem("f123_rescate_idb", String(Date.now())); } catch (_){}
       console.warn("[estado-idb] se recuperaron cambios que no cabian en localStorage (rev " + espejo._rev + ")");
