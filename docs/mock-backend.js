@@ -188,6 +188,52 @@
   // negro por dias-sin-venta), ni tocar los productos con dormidoDesde.
   // Nombres originales de la semilla, antes de cargar nada guardado (ver FOTOS DEL DEMO).
   const _DEMO_NOMBRES = new Map(productos.map((p) => [p.id, p.nombre]));
+  /* v448 GOLDEN — huellas EXACTAS de la semilla. No basta con el id: un cliente
+     real puede usar ids cortos. La semilla solo se reconoce si coinciden varios
+     campos que nacieron juntos en el demo. */
+  const _DEMO_PRODUCTOS_EXACTOS = new Map(productos.map((p) => [String(p.id), {
+    nombre: String(p.nombre || ""), sku: String(p.sku || ""), barcode: String(p.barcode || "")
+  }]));
+  const _DEMO_CLIENTES_EXACTOS = new Map(clientes.map((x) => [String(x.id), {
+    codigo: String(x.codigo || ""), nombre: String(x.nombre || ""), telefono: String(x.telefono || "")
+  }]));
+  function _esProductoDemoExacto(p) {
+    if (!p || p.id == null) return false;
+    const d = _DEMO_PRODUCTOS_EXACTOS.get(String(p.id));
+    return !!d && String(p.nombre || "") === d.nombre && String(p.sku || "") === d.sku && String(p.barcode || "") === d.barcode;
+  }
+  function _esClienteDemoExacto(x) {
+    if (!x || x.id == null) return false;
+    const d = _DEMO_CLIENTES_EXACTOS.get(String(x.id));
+    return !!d && String(x.codigo || "") === d.codigo && String(x.nombre || "") === d.nombre && String(x.telefono || "") === d.telefono;
+  }
+  function _esVentaDemoExacta(v) {
+    return !!(v && /^vs-/.test(String(v.id || "")));
+  }
+  function _esTiendaReal() {
+    try {
+      const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      return !!o.instanceId || !!OC_STATE_SUFIJO;
+    } catch (_) { return !!OC_STATE_SUFIJO; }
+  }
+  function _limpiarSemillaExactaEnTiendaReal(origen) {
+    if (!_esTiendaReal()) return { productos: 0, clientes: 0, ventas: 0 };
+    const rp = productos.filter(_esProductoDemoExacto);
+    const rc = clientes.filter(_esClienteDemoExacto);
+    const rv = ventas.filter(_esVentaDemoExacta);
+    if (!rp.length && !rc.length && !rv.length) return { productos: 0, clientes: 0, ventas: 0 };
+    try {
+      if (!localStorage.getItem("f123_prelimpieza_demo_exacta_v448")) {
+        localStorage.setItem("f123_prelimpieza_demo_exacta_v448", JSON.stringify({
+          ts: Date.now(), origen: String(origen || ""), estado: estadoActualExportable()
+        }));
+      }
+    } catch (_) {}
+    for (let i = productos.length - 1; i >= 0; i--) if (_esProductoDemoExacto(productos[i])) productos.splice(i, 1);
+    for (let i = clientes.length - 1; i >= 0; i--) if (_esClienteDemoExacto(clientes[i])) clientes.splice(i, 1);
+    for (let i = ventas.length - 1; i >= 0; i--) if (_esVentaDemoExacta(ventas[i])) ventas.splice(i, 1);
+    return { productos: rp.length, clientes: rc.length, ventas: rv.length };
+  }
   /* Ver FOTOS DEL DEMO (tras cargarEstadoLocal). Tambien corre al final de
      aplicarRespaldo(): el estado del demo puede volver desde IndexedDB o de un
      respaldo DESPUES del arranque, y ahi entra por esa puerta. */
@@ -2798,6 +2844,7 @@
       const _idsVenta = new Map(ventas.map((x) => [String(x.id), x]));
       remoto.ventas.forEach((v) => {
         if (!v || v.id == null) return;
+        if (_esVentaDemoExacta(v)) return;
         _observarRev(v.rev);
         const local = _idsVenta.get(String(v.id));
         if (local) {
@@ -2971,6 +3018,7 @@
     if (Array.isArray(remoto.clientes)) {
       remoto.clientes.forEach((c) => {
         if (!c || !c.id || (!c.borrado && !c.nombre)) return;
+        if (_esClienteDemoExacto(c)) return;
         _observarRev(c.rev);
         const mio = clientes.find((x) => String(x.id) === String(c.id));
         if (mio) {
@@ -3468,7 +3516,7 @@
         /* CLIENTES (JFC 2026-08-26). Bug de Belén: "clientes default, no los reales".
            Eran estado local que nunca se propagaba. Viajan por el mismo canal
            cifrado device-to-device, merge add-only en aplicarCatalogo. */
-        clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "", despedido: !!c.despedido, borrado: !!c.borrado, rev: c.rev || null, evaluacion: c.evaluacion || null })),
+        clientes: clientes.filter((c) => !_esClienteDemoExacto(c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "", despedido: !!c.despedido, borrado: !!c.borrado, rev: c.rev || null, evaluacion: c.evaluacion || null })),
         /* COMISIONISTAS + SUCURSALES viajan con el catálogo (JFC 2026-09-10, "sync
            integral"). Add-only en aplicarCatalogo: nunca se pisa una comision. */
         promotoras: promotoras.map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, baseComision: _baseComisionValida(p.baseComision) || "bruto", telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [], rev: p.rev || null, borrado: !!p.borrado, ...(p.accesoArtista ? { accesoArtista: { pin: String(p.accesoArtista.pin || ""), activo: !!p.accesoArtista.activo, actualizadoEn: p.accesoArtista.actualizadoEn || null } } : {}) })),
@@ -3480,7 +3528,7 @@
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
-        ventas: ventas.map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
+        ventas: ventas.filter((v) => !_esVentaDemoExacta(v)).map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
@@ -3530,9 +3578,9 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
-        productos: productos.map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
+        productos: productos.filter((p) => p && !/^p\d+$/.test(String(p.id || ""))).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
-        clientes: clientes.map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // JFC 2026-08-26: el checkpoint también lleva clientes para el dispositivo nuevo
+        clientes: clientes.filter((c) => !_esClienteDemoExacto(c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
         huella: huellaCatalogo(),
       };
     },
@@ -3580,6 +3628,7 @@
         });
         snap.productos.forEach((p) => {
           if (!p || !p.id) return;
+          if (/^p\d+$/.test(String(p.id))) return;
           const stk = Math.max(0, Number(p.stockActual) || 0);
           const mio = productos.find((x) => String(x.id) === String(p.id));
           if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); agPr++; } // producto del equipo; el stock solo si soy fresco
@@ -3590,6 +3639,7 @@
         if (Array.isArray(snap.clientes)) {
           snap.clientes.forEach((c) => {
             if (!c || !c.id || !c.nombre) return;
+            if (_esClienteDemoExacto(c)) return;
             if (!clientes.some((x) => String(x.id) === String(c.id))) {
               clientes.push({ id: c.id, codigo: c.codigo || "", nombre: String(c.nombre).slice(0, 80), telefono: c.telefono || "", email: c.email || "", evaluacion: (c.evaluacion && typeof c.evaluacion === "object") ? c.evaluacion : { trato: 0, confiabilidad: 0, historial: [] } });
               agC++;
@@ -3807,6 +3857,18 @@
       }
     }
   } catch (_) {}
+  /* v448 GOLDEN: descontaminación quirúrgica para CUALQUIER tienda real.
+     No usa prefijos de licencia ni borra por id genérico: exige huella exacta de
+     la semilla para productos/clientes y el prefijo reservado vs- para ventas.
+     Se conserva snapshot reversible antes de retirar cualquier evidencia demo. */
+  try {
+    var _limDemo = _limpiarSemillaExactaEnTiendaReal("startup");
+    if (_limDemo.productos || _limDemo.clientes || _limDemo.ventas) {
+      guardarEstadoLocal();
+      try { console.warn("[guard-demo-exacto] semilla retirada de tienda real:", _limDemo); } catch (_) {}
+    }
+  } catch (_) {}
+
   /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).
      Si en la sesion anterior localStorage estaba lleno, los ultimos guardados
      solo entraron en el espejo de IndexedDB. Aqui se comparan las revisiones y
@@ -3828,7 +3890,11 @@
       if (validarRespaldo(espejo)) return;
       _localRev = espejo._rev;
       aplicarRespaldo(espejo);
-      try { localStorage.setItem("f123_rescate_idb", String(Date.now())); } catch (_) {}
+      try {
+        var _limIdb = _limpiarSemillaExactaEnTiendaReal("idb-rescue");
+        if (_limIdb.productos || _limIdb.clientes || _limIdb.ventas) guardarEstadoLocal();
+      } catch (_) {}
+      try { localStorage.setItem("f123_rescate_idb", String(Date.now())); } catch (_){}
       console.warn("[estado-idb] se recuperaron cambios que no cabian en localStorage (rev " + espejo._rev + ")");
       /* La UI ya se pinto con el estado viejo: se le avisa para que se repinte. */
       try { window.dispatchEvent(new CustomEvent("oc-estado-rescatado")); } catch (_) {}
