@@ -1835,8 +1835,17 @@
     return p && p.tipo ? String(p.tipo) : "associate";
   }
   function _payoutInput(ubicacionId, mes) {
-    return { sales: ventasActivas(), adjustments: ajustesComision, locations: ubicaciones,
-      payouts, month: mesValido(mes), locationId: String(ubicacionId) };
+    const periodo = mesValido(mes);
+    /* El core financiero no conoce reloj ni timezone. El shell SI: por eso
+       normalizamos el periodo aqui usando la misma regla forense que Commissions.
+       Evita que una venta cerca del cambio de mes desaparezca del ledger por usar
+       UTC crudo y, a la vez, mantiene payout-ledger.js puro/testeable. */
+    const sales = ventasActivas().filter((v) => esDelMes(v.fecha, periodo, v.relojDesfaseMs)
+      && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
+    const adjustments = ajustesComision.filter((a) => a && esDelMes(a.fecha, periodo)
+      && (ubicacionId == null || String(a.ubicacionId) === String(ubicacionId)));
+    return { sales, adjustments, locations: ubicaciones, payouts,
+      month: "", locationId: ubicacionId == null ? null : String(ubicacionId) };
   }
   function _fuentePayoutLiquidada(kind, id, ubicacionId, mes) {
     const core = _payoutCore(); if (!core) return false;
@@ -2047,7 +2056,12 @@
         mes: _mes, esMesActual: _mes === mesActualISO(),
         cumplimientoMeta: _meta ? +((ventasBrutas / _meta) * 100).toFixed(1) : null,
         ventasBrutas: +ventasBrutas.toFixed(2), comisionSocio: +comisionSocio.toFixed(2), netoDueno: +netoDueno.toFixed(2),
-        estado: (ventasMes.length === 0 && ajustesMes.length === 0) ? "sin ventas" : (stillDue <= 0.00001 ? "pagado" : "pendiente"),
+        /* Un saldo negativo pendiente es un clawback/credito por aplicar, NO "pagado".
+           Estado se resuelve por obligaciones abiertas; el signo solo dice quien
+           debe compensar a quien. */
+        estado: (ventasMes.length === 0 && ajustesMes.length === 0) ? "sin ventas"
+          : (_ledger ? (_ledgerObs.some((o) => Math.abs(Number(o.dueCents) || 0) > 0) ? "pendiente" : "pagado")
+            : ((pendientes.length || ajPend.length) ? "pendiente" : "pagado")),
         /* Como se pago (v391): el medio del ultimo pago sellado en el mes; null si no se registro. Solo lectura. */
         medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
         ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
