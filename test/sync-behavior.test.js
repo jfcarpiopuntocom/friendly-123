@@ -331,3 +331,24 @@ test('v448 GOLDEN: JFC and customer licenses use the same exact demo guard; a re
   assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Real JFC product'), true,
     'JFC must not receive broader destructive cleanup than customers');
 });
+
+
+test('v448 GOLDEN: real activity protects an exact-looking demo product/customer from cleanup and sync filtering', async () => {
+  const first = browser();
+  const fixture = await first.request('/api/respaldo/exportar');
+  const demoSale = fixture.ventas.find(v => v.productoId === 'p23' && v.clienteId === 'c01');
+  assert.ok(demoSale, 'fixture needs the Cappuccino/Ashley demo pair');
+  fixture.ventas.push({ ...demoSale, id: 'v-real-protect-demo-shaped', fecha: new Date().toISOString(), rev: null });
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-protected-real-activity', vaciar: true });
+  await first.request('/api/respaldo/importar', 'POST', fixture);
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'fixture-protected-real-activity', licenseCode: 'F123-REAL-PROTECTED' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino'), true, 'real sale protects its product');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.nombre === 'Ashley Rivera'), true, 'real sale protects its customer');
+  assert.equal(state.ventas.some(v => v.id === 'v-real-protect-demo-shaped'), true, 'real sale is never removed');
+  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false, 'demo sales are still quarantined');
+  const cat = restarted.catalog();
+  assert.equal(cat.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino'), true, 'protected product must still sync');
+  assert.equal(cat.clientes.some(c => c.id === 'c01' && c.nombre === 'Ashley Rivera'), true, 'protected customer must still sync');
+});
