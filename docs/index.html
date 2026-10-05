@@ -8645,7 +8645,7 @@ async function cargarComisiones(){
       </details>` : ""}
       ${f.esMesActual === false ? "" : termometroMeta(f.cumplimientoMeta, f.metaMensual)}
       ${f.esMesActual === false ? "" : simuladorHtml(f)}
-      ${f.estado === "pendiente" ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde-dk,#086944);color:#fff;border-color:var(--sim-verde-dk,#086944);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
+      ${f.estado === "pendiente" && _payRows.length === 1 ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde-dk,#086944);color:#fff;border-color:var(--sim-verde-dk,#086944);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(_payRows[0].nombre || f.promotorNombre || '')}',${_payRows[0].due},'${escHtml(_payRows[0].payeeId || "")}')">✓ Record payment · ${fmtMoney(_payRows[0].due)}</button>` : (f.estado === "pendiente" && _payRows.length > 1 ? `<p style="font-size:13px;color:var(--rust-ink,#E86040);font-weight:700;margin:10px 0 0;">Record each person's payment separately. friendly-123 will not mark several people paid with one ambiguous click.</p>` : "")}
       ${f.promotoraId && f.estado !== "sin ventas" ? `<button type="button" class="tecla" style="font-size:14px;margin-top:12px;margin-left:8px;" onclick="enviarEstadoComisionista('${f.ubicacionId}')">Send statement</button>` : ""}
     </div>`;
   };
