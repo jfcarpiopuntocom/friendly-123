@@ -407,6 +407,30 @@ test('#3 an unreadable balance is reported, never shown as "no pending payments"
   assert.match(r, /Could not verify the balance of 1 customer/);
 });
 
+test('v448 GOLDEN: Pending payment keeps a numeric debt even while integrity is pending', async () => {
+  const r = await withPage(async (page) => {
+    await prepCartera(page, 0);
+    return page.evaluate(async () => {
+      const orig = window.fetch;
+      window.fetch = async function (u, o) {
+        const res = await orig.apply(this, arguments);
+        if (String(u).includes(`/clientes/${window.__deudorId}/cartera`)) {
+          const data = await res.clone().json();
+          data.integridad = { ok: false, razon: 'hueco de secuencia' };
+          return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+        return res;
+      };
+      await cargarClientes();
+      const cont = document.getElementById('listaClientes');
+      cont.querySelector('[data-filtro="pendiente"]').click();
+      await new Promise(res => setTimeout(res, 400));
+      return cont.textContent;
+    });
+  });
+  assert.match(r, /Fixture Deudor/, 'a computed debt must remain visible in Pending payment');
+});
+
 test('#4 search and filter survive the list being rebuilt (language switch, edit)', async () => {
   const r = await withPage(async (page) => {
     await prepCartera(page, 1);
