@@ -35,6 +35,7 @@ jobs:
           node --require ./test/helpers/sin-red-produccion.cjs --test
           test/payout-ledger-v448.test.js
           test/payout-ledger-integration-v448.test.js
+          test/commissions-dashboard-month-deeplink-v448.test.js
           test/medio-pago-comision.test.js
           test/comision-por-persona.test.js
           test/commissions-hugo-paco-luis.test.js
