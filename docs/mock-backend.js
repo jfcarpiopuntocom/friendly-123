@@ -809,6 +809,17 @@
     if (body.gastos && !Array.isArray(body.gastos)) return "The expenses section is corrupt.";
     if (body.ajustesComision && !Array.isArray(body.ajustesComision)) return "The commission adjustments section is corrupt.";
     if (body.payouts && !Array.isArray(body.payouts)) return "The commission payments section is corrupt.";
+    if (Array.isArray(body.payouts)) {
+      const idsPay = new Set(), opsPay = new Set();
+      for (const p of body.payouts) {
+        if (!p || !esTextoCorto(String(p.id || ""), 160) || !esTextoCorto(String(p.opId || ""), 800)) return "There is a corrupt commission payment in the backup.";
+        if (idsPay.has(String(p.id)) || opsPay.has(String(p.opId))) return "There are duplicated commission payment IDs.";
+        idsPay.add(String(p.id)); opsPay.add(String(p.opId));
+        if (p.status !== "paid" || !Number.isInteger(Number(p.amountCents)) || Number(p.amountCents) <= 0) return "There is an invalid commission payment amount or status.";
+        if (!Array.isArray(p.items) || !p.items.length) return "There is a commission payment without covered items.";
+        for (const it of p.items) if (!it || !["sale","adjustment"].includes(it.kind) || !it.sourceId || !Number.isInteger(Number(it.amountCents)) || Number(it.amountCents) <= 0) return "There is a corrupt covered item in a commission payment.";
+      }
+    }
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
@@ -1828,6 +1839,8 @@
     return obs.length > 0 && obs.every((o) => Number(o.dueCents) === 0);
   }
   function _registrarPayout(ubicacionId, body, qMes) {
+    const rolPago = _rolLocal();
+    if (rolPago && rolPago !== "dueno" && rolPago !== "admin" && rolPago !== "demo") return { error:"Only the owner or an admin can record commission payments.", status:403 };
     const core = _payoutCore();
     if (!core) return { error: "Payment ledger is not available. Nothing was recorded.", status: 503 };
     const u = ubicaciones.find((x) => String(x.id) === String(ubicacionId));
@@ -1914,8 +1927,9 @@
       const payoutHistory = payouts.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
         .slice().sort((a,b) => String(b.paidAt || b.createdAt || "").localeCompare(String(a.paidAt || a.createdAt || "")))
         .map((p) => ({ id:p.id, opId:p.opId, payeeId:p.payeeId || null, payeeName:p.payeeName || _payeeName(p.payeeId,u),
-          amount:+(Number(p.amount) || ((Number(p.amountCents) || 0) / 100)).toFixed(2), method:p.method || null,
-          paidAt:p.paidAt || p.createdAt || null, reference:p.reference || "", note:p.note || "", items:(p.items || []).length }));
+          amount:+((p.reversalOf ? -1 : 1) * (Number(p.amount) || ((Number(p.amountCents) || 0) / 100))).toFixed(2), method:p.method || null,
+          paidAt:p.paidAt || p.createdAt || null, reference:p.reference || "", note:p.note || "", items:(p.items || []).length,
+          type:p.reversalOf ? "reversal" : "payment", reversalOf:p.reversalOf || null }));
       /* Bloque 4: cuanto le toca a cada persona cuando hay ventas repartidas. */
       const _porPersona = new Map();
       const _sumar = (pid, monto) => { const k = pid || "__percha__"; _porPersona.set(k, (_porPersona.get(k) || 0) + (Number(monto) || 0)); };
@@ -5437,6 +5451,25 @@
       if (path === "/api/payouts" && method === "POST") {
         const r = _registrarPayout(body && body.ubicacionId, body || {}, body && body.mes);
         return J(r.error ? { error:r.error, payees:r.payees || undefined } : r, r.error ? (r.status || 400) : 200);
+      }
+      if ((m = path.match(/^\/api\/payouts\/([^/]+)\/reverse$/)) && method === "POST") {
+        const rol = _rolLocal();
+        if (rol && rol !== "dueno" && rol !== "admin" && rol !== "demo") return J({ error:"Only the owner or an admin can reverse a commission payment." }, 403);
+        const original = payouts.find((p) => String(p.id) === String(m[1]) && p.status === "paid" && !p.reversalOf);
+        if (!original) return J({ error:"Payment not found or already a reversal." }, 404);
+        const prior = payouts.find((p) => String(p.reversalOf || "") === String(original.id));
+        if (prior) return J({ ok:true, existing:true, reversal:clonar(prior) });
+        const motivo = String(body && body.reason || "").trim().slice(0,240);
+        if (!motivo) return J({ error:"Explain why this payment is being reversed." }, 400);
+        const now = new Date().toISOString();
+        const reversal = { id:uuid("payrev-"), opId:String(body && body.opId || ("reverse:" + original.opId)), status:"paid", type:"reversal", reversalOf:original.id,
+          payeeId:original.payeeId || null, payeeName:original.payeeName || "", payeeType:original.payeeType || "associate", locationId:original.locationId,
+          period:original.period, amountCents:original.amountCents, amount:original.amount, method:original.method || null, reference:original.reference || "",
+          note:motivo, paidAt:now, paidBy:(body && body.paidBy) || (rol || "owner"), items:clonar(original.items || []), rev:_revNueva(), createdAt:now };
+        payouts.push(reversal);
+        mov("payout-reversal", { payoutId:original.id, reversalId:reversal.id, payeeId:reversal.payeeId, amount:reversal.amount, mes:reversal.period, motivo });
+        guardarEstadoLocal(); avisarCatalogoCambiado();
+        return J({ ok:true, reversal:clonar(reversal) });
       }
       /* CUADRE DEL MES (JFC 2026-09-24: "todo debe cuadrar, nada debe quedar
          fuera de vista"). TODAS las ventas activas del mes, repartidas en cubos
