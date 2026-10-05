@@ -74,3 +74,13 @@ test('Payout Ledger v1 refuses ambiguous partial cash recording instead of silen
   assert.equal(r.status,409);
   assert.match(r.error,/full current amount due/i);
 });
+
+
+test('Payout Ledger: a reversal reopens the exact obligation while legacy liquidada stays only a compatibility flag', () => {
+  const sales=[sale('s1',25,{liquidada:true})];
+  const p=L.planPayout({sales:[sale('s1',25)],adjustments:[],locations,payouts:[],month:'2026-10',locationId:'rack-1',
+    payeeId:'alice',opId:'pay-rev-base',id:'pay-rev-base',method:'efectivo',paidAt:'2026-10-05T20:00:00.000Z'}).payout;
+  const reversal={...p,id:'rev-1',opId:'reverse:pay-rev-base',reversalOf:p.id,type:'reversal'};
+  const row=L.balancesByPayee({sales,adjustments:[],locations,payouts:[p,reversal],month:'2026-10',locationId:'rack-1'})[0];
+  assert.equal(row.dueCents,2500);
+});
