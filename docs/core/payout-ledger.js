@@ -178,7 +178,7 @@
     const payout = {
       id:String(input.id || ""), opId, status:"paid", payeeId,
       payeeName:String(input.payeeName || ""), payeeType:String(input.payeeType || "associate"),
-      locationId:String(input.locationId || ""), period:String(input.month || ""),
+      locationId:String(input.locationId || ""), period:String(input.period || input.month || ""),
       amountCents, amount:money(amountCents), method,
       reference:String(input.reference || "").trim().slice(0,120),
       note:String(input.note || "").trim().slice(0,240),
