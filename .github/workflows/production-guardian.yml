@@ -1,0 +1,69 @@
+name: production-guardian
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: ["engineering/production-gates-*", "hotfix/v448-golden-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-guardian-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+
+      - name: Production Guardian policy
+        run: node scripts/production-guardian.mjs --enforce
+
+      - name: Golden identity + manifest + service worker
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before.json
+          node scripts/gen-manifest.js
+          diff -u /tmp/version-manifest.before.json docs/version-manifest.json
+          bash check-sw.sh
+          git diff --check
+
+      - name: High-risk targeted regressions
+        run: >-
+          node --require ./test/helpers/sin-red-produccion.cjs --test
+          test/shelf-lifecycle-race-v448.test.js
+          test/perchas-hotfix-v444.test.js
+          test/commissions-deleted-racks.test.js
+          test/deshacer-cancelacion-vencido.test.js
+          test/devoluciones.test.js
+          test/belen-comisionistas-sync.test.js
+          test/commissions-belen.test.js
+          test/commissions-product-assignment.test.js
+          test/comision-por-producto.test.js
+          test/yjs-bridge.test.js
+          test/sync-behavior.test.js
+          test/sync-hardening.test.js
+          test/sync-zero-trust.test.js
+
+      - name: Full regression suite
+        run: npm test
+
+      - name: Upload guardian evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-guardian-evidence
+          path: .artifacts/production-guardian.json
+          if-no-files-found: warn
+          retention-days: 30
