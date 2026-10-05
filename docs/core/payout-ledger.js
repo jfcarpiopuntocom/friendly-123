@@ -155,7 +155,8 @@
     if (!Number.isInteger(amountCents) || amountCents <= 0) return { error:"Payment amount must be positive whole cents.", status:400 };
     if (amountCents !== row.dueCents) return { error:"Payout Ledger v1 records the full current amount due; partial payouts are reserved for the next compatibility step.", status:409 };
 
-    const method = METHODS.has(String(input.method || "")) ? String(input.method) : "otro";
+    const rawMethod = input.method == null || input.method === "" ? null : String(input.method);
+    const method = rawMethod == null ? null : (METHODS.has(rawMethod) ? rawMethod : "otro");
     const positive = row.obligations.filter((o) => o.dueCents > 0);
     const negative = row.obligations.filter((o) => o.dueCents < 0);
     const items = [];
