@@ -815,7 +815,7 @@
         if (!p || !esTextoCorto(String(p.id || ""), 160) || !esTextoCorto(String(p.opId || ""), 800)) return "There is a corrupt commission payment in the backup.";
         if (idsPay.has(String(p.id)) || opsPay.has(String(p.opId))) return "There are duplicated commission payment IDs.";
         idsPay.add(String(p.id)); opsPay.add(String(p.opId));
-        if (p.status !== "paid" || !Number.isInteger(Number(p.amountCents)) || Number(p.amountCents) <= 0) return "There is an invalid commission payment amount or status.";
+        if (p.status !== "paid" || !Number.isInteger(Number(p.amountCents)) || Number(p.amountCents) < 0) return "There is an invalid commission payment amount or status.";
         if (!Array.isArray(p.items) || !p.items.length) return "There is a commission payment without covered items.";
         for (const it of p.items) if (!it || !["sale","adjustment"].includes(it.kind) || !it.sourceId || !Number.isInteger(Number(it.amountCents)) || Number(it.amountCents) <= 0) return "There is a corrupt covered item in a commission payment.";
       }
@@ -1898,6 +1898,70 @@
     return { ok:true, payout };
   }
 
+  /* Compatibility for the historical rack-wide endpoint.
+     Old shells legitimately call it without a payee. We preserve that contract
+     WITHOUT creating one ambiguous financial fact: each person gets a separate
+     payout. A negative-only clawback becomes a zero-cash settlement fact, not a
+     fake payment. New UI/API callers should always select a payee explicitly. */
+  function _registrarPayoutLegacyRack(ubicacionId, body, qMes) {
+    body = body || {};
+    if (body.payeeId != null && body.payeeId !== "") return _registrarPayout(ubicacionId, body, qMes);
+    const core = _payoutCore();
+    if (!core) return { error:"Payment ledger is not available. Nothing was recorded.", status:503 };
+    const mes = mesValido(body.mes || qMes);
+    const base = _payoutInput(ubicacionId, mes);
+    const rows = core.balancesByPayee(base);
+    const positivos = rows.filter((r) => Number(r.dueCents) > 0);
+    const negativos = rows.filter((r) => Number(r.dueCents) < 0);
+    const creados = [];
+
+    for (const row of positivos) {
+      const rr = _registrarPayout(ubicacionId, Object.assign({}, body, {
+        payeeId:row.payeeId,
+        opId: body.opId ? String(body.opId) + ":" + String(row.payeeId || "_") : undefined
+      }), mes);
+      if (rr.error) return rr;
+      if (rr.payout) creados.push(rr.payout);
+    }
+
+    /* A clawback can be the only remaining ledger item after a prior payment.
+       Recording it as applied moves no cash; it merely proves the credit was
+       consumed/acknowledged and prevents it from reappearing forever. */
+    for (const row of negativos) {
+      const obs = row.obligations.filter((o) => Number(o.dueCents) < 0);
+      if (!obs.length) continue;
+      const sourceKey = obs.map((o) => o.kind + ":" + o.sourceId + ":" + (o.payeeId || "_")).sort().join(",");
+      const opId = String(body.opId ? String(body.opId) + ":credit:" + String(row.payeeId || "_") : ("settle-credit:" + mes + ":" + ubicacionId + ":" + String(row.payeeId || "_") + ":" + sourceKey));
+      const prior = payouts.find((p) => String(p.opId) === opId);
+      if (prior) { creados.push(prior); continue; }
+      const u = ubicaciones.find((x) => String(x.id) === String(ubicacionId));
+      const now = new Date().toISOString();
+      const settlement = {
+        id:uuid("pay-"), opId, status:"paid", type:"credit-settlement",
+        payeeId:row.payeeId || null, payeeName:_payeeName(row.payeeId,u), payeeType:_payeeType(row.payeeId),
+        locationId:String(ubicacionId), period:mes, amountCents:0, amount:0,
+        method:null, reference:"", note:String(body.note || "").trim().slice(0,240),
+        paidAt:body.paidAt || now, paidBy:body.paidBy || (_rolLocal() || "owner"),
+        items:obs.map((o) => ({ kind:o.kind, sourceId:o.sourceId, payeeId:o.payeeId, amountCents:Math.abs(Number(o.dueCents)), offset:true })),
+        rev:_revNueva(), createdAt:now
+      };
+      payouts.push(settlement);
+      settlement.items.forEach((it) => {
+        if (it.kind === "adjustment") {
+          const a = ajustesComision.find((x) => String(x.id) === String(it.sourceId));
+          if (a) { a.liquidada = true; a.rev = _revNueva(); }
+        }
+      });
+      mov("payout-credit-settlement", { payoutId:settlement.id, ubicacion:u ? u.nombre : "", payeeId:settlement.payeeId, mes, covered:settlement.items.length });
+      creados.push(settlement);
+    }
+
+    if (!creados.length) return { ok:true, noop:true, payouts:[], payout:null };
+    guardarEstadoLocal(); avisarCatalogoCambiado();
+    const cash = creados.reduce((a,p) => a + Number(p.amount || 0), 0);
+    return { ok:true, payouts:creados, payout:creados[0], amount:+cash.toFixed(2) };
+  }
+
   /* mes opcional "YYYY-MM" (shell 371). Sin mes = mes en curso, igual que antes. */
   function getLiquidaciones(mes) {
     const _mes = mesValido(mes);
@@ -2912,7 +2976,7 @@
        A second offline device that recorded the same settlement cannot create a
        second ledger fact when the peers converge. No payout is ever overwritten. */
     if (Array.isArray(remoto.payouts)) remoto.payouts.forEach((p) => {
-      if (!p || !p.id || !p.opId || p.status !== "paid" || !(Number(p.amountCents) > 0)) return;
+      if (!p || !p.id || !p.opId || p.status !== "paid" || !(Number(p.amountCents) >= 0)) return;
       const ya = payouts.find((x) => String(x.id) === String(p.id) || String(x.opId) === String(p.opId));
       if (ya) return;
       payouts.push(Object.assign({}, p));
@@ -5590,13 +5654,15 @@
       if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/)) && opts && opts.method === "POST") {
         /* Backward-compatible URL; the operation is now a first-class payout.
            It no longer flips a batch of sale booleans blindly. */
-        const r = _registrarPayout(m[1], body || {}, q.get("mes"));
+        const r = _registrarPayoutLegacyRack(m[1], body || {}, q.get("mes"));
         if (r.error) return J({ error:r.error, payees:r.payees || undefined }, r.status || 400);
-        return J({ ok:true, payoutId:r.payout.id, opId:r.payout.opId, amount:r.payout.amount,
-          medioPago:r.payout.method, payeeId:r.payout.payeeId, payeeName:r.payout.payeeName,
-          ventasLiquidadas:r.payout.items.filter((x) => x.kind === "sale").length,
-          ajustesLiquidados:r.payout.items.filter((x) => x.kind === "adjustment").length,
-          existing:!!r.existing });
+        const hechos = r.payouts || (r.payout ? [r.payout] : []);
+        return J({ ok:true, noop:!!r.noop, payoutId:r.payout ? r.payout.id : null, opId:r.payout ? r.payout.opId : null,
+          amount:r.amount != null ? r.amount : (r.payout ? r.payout.amount : 0),
+          medioPago:r.payout ? r.payout.method : null, payeeId:r.payout ? r.payout.payeeId : null, payeeName:r.payout ? r.payout.payeeName : "",
+          ventasLiquidadas:hechos.reduce((a,p) => a + (p.items || []).filter((x) => x.kind === "sale").length, 0),
+          ajustesLiquidados:hechos.reduce((a,p) => a + (p.items || []).filter((x) => x.kind === "adjustment").length, 0),
+          payoutIds:hechos.map((p) => p.id), existing:!!r.existing });
       }
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/hermanos$/))) {
