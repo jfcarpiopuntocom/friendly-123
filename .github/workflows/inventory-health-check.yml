@@ -1,0 +1,54 @@
+name: Inventory Health Check
+
+on:
+  push:
+    branches:
+      - codex/inventory-health-check-sdk-2026-10-02
+    paths:
+      - "chatgpt-app/inventory-health-check/**"
+      - ".github/workflows/inventory-health-check.yml"
+  pull_request:
+    paths:
+      - "chatgpt-app/inventory-health-check/**"
+      - ".github/workflows/inventory-health-check.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chatgpt-app/inventory-health-check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: chatgpt-app/inventory-health-check/package.json
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+      - name: Validate submission package
+        run: node scripts/verify-submission.mjs
+      - name: HTTP MCP smoke
+        run: |
+          npm start >/tmp/inventory-health-check.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8787/health >/tmp/health.json; then break; fi
+            sleep 0.5
+          done
+          node -e "const h=JSON.parse(require('fs').readFileSync('/tmp/health.json','utf8')); if(!h.ok||h.mode!=='anonymous-stateless') process.exit(1)"
+          curl -fsS -X POST http://127.0.0.1:8787/mcp \
+            -H 'content-type: application/json' \
+            -H 'accept: application/json, text/event-stream' \
+            -H 'mcp-protocol-version: 2025-11-25' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"github-ci","version":"1.0"}}}' \
+            >/tmp/mcp-init.json
+          node -e "const x=JSON.parse(require('fs').readFileSync('/tmp/mcp-init.json','utf8')); if(x.result?.serverInfo?.name!=='inventory-health-check') { console.error(x); process.exit(1) }"
+      - name: Privacy/static guards
+        run: |
+          ! grep -R -nE 'localStorage|sessionStorage|indexedDB|XMLHttpRequest|navigator\.sendBeacon' src public
+          ! grep -R -nE 'console\.(log|info|warn|error).*items|console\.(log|info|warn|error).*req' src
+          test "$(grep -c 'data-l="en"' public/inventory-card.html)" -ge 1
+          test "$(grep -c 'id="themeBtn"' public/inventory-card.html)" -ge 1
