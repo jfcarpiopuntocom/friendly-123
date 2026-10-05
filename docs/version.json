@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-05",
-  "changelog": "v448 GOLDEN hotfix golden14: corrige dos fallas visibles en idiomARTE sin ampliar el alcance: (1) cuarentena reversible de los dos registros de prueba confirmados Butter dish workshop - Candy S. y Mural mentoring (Leslie), solo para la familia F123-K7M2-, junto con sus ventas enlazadas y bloqueo de recontaminación por sync; (2) restaura Pay in the app en la vista By product / SKU cuando ese producto pertenece a una sola percha, conservando el mes exacto. Si el mismo producto abarca varias perchas, no ofrece un pago ambiguo.",
+  "changelog": "v448 GOLDEN internal golden15: Payout Ledger v1 turns new commission payments into append-only auditable payout records. Payments are explicit per person, idempotent by operation, synced once, backed up, and projected back to legacy paid flags for compatibility. Ambiguous multi-person rack payments are refused; each person must be recorded separately. Public identity remains v448 / 1.0.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden14"
+  "cacheGeneration": "golden15"
 }
