@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-04",
-  "changelog": "v448 GOLDEN hotfix golden12: dashboard.html conserva el mes exacto al abrir Pay in the app y la UI restaura ese periodo antes de cargar Commissions. Evita que una liquidacion de mes anterior abra accidentalmente el mes actual. Dashboard sigue solo lectura; sin cambios de datos, ledger, sync, Worker ni version publica.",
+  "fecha": "2026-10-05",
+  "changelog": "v448 GOLDEN hotfix golden13: Pending payment conserva deudas numericas ya calculadas aunque la integridad siga en verificacion; las tiendas reales dejan de publicar, adoptar o conservar huellas exactas de la semilla demo (clientes, ventas vs-* y productos demo), con snapshot reversible antes de limpiar. Sin adivinar ni borrar registros reales por ID.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden12"
+  "cacheGeneration": "golden13"
 }
