@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "fecha": "2026-10-05",
-  "changelog": "v448 GOLDEN hotfix golden14: quarantena reversible y estrictamente acotada de dos registros de prueba confirmados que seguían visibles en la licencia real de idiomARTE (Butter dish workshop - Candy S. y Mural mentoring (Leslie)), junto con sus ventas enlazadas. Solo aplica a la familia F123-K7M2-; no borra datos reales de otras licencias ni usa patrones amplios. También bloquea que esos registros vuelvan a propagarse por sync.",
+  "changelog": "v448 GOLDEN hotfix golden14: corrige dos fallas visibles en idiomARTE sin ampliar el alcance: (1) cuarentena reversible de los dos registros de prueba confirmados Butter dish workshop - Candy S. y Mural mentoring (Leslie), solo para la familia F123-K7M2-, junto con sus ventas enlazadas y bloqueo de recontaminación por sync; (2) restaura Pay in the app en la vista By product / SKU cuando ese producto pertenece a una sola percha, conservando el mes exacto. Si el mismo producto abarca varias perchas, no ofrece un pago ambiguo.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
