@@ -1833,6 +1833,11 @@
     const u = ubicaciones.find((x) => String(x.id) === String(ubicacionId));
     if (!u) return { error: "Location not found.", status: 404 };
     const mes = mesValido((body && body.mes) || qMes);
+    const requestedOpId = String(body && body.opId || "").trim();
+    if (requestedOpId) {
+      const prior = payouts.find((p) => String(p.opId) === requestedOpId);
+      if (prior) return { ok:true, existing:true, payout:prior };
+    }
     const base = _payoutInput(ubicacionId, mes);
     const rows = core.balancesByPayee(base).filter((r) => Number(r.dueCents) > 0);
     if (!rows.length) return { error: "There is nothing due for this period.", status: 409 };
@@ -1844,7 +1849,7 @@
     const row = rows.find((r) => (r.payeeId || null) === (payeeId || null));
     if (!row) return { error: "That person has no positive amount due for this period.", status: 409 };
     const sourceKey = row.obligations.filter((o) => Number(o.dueCents) !== 0).map((o) => o.kind + ":" + o.sourceId + ":" + (o.payeeId || "_")).sort().join(",");
-    const opId = String((body && body.opId) || ("settle:" + mes + ":" + ubicacionId + ":" + (payeeId || "_") + ":" + sourceKey));
+    const opId = String(requestedOpId || ("settle:" + mes + ":" + ubicacionId + ":" + (payeeId || "_") + ":" + sourceKey));
     const already = payouts.find((p) => String(p.opId) === opId);
     if (already) return { ok:true, existing:true, payout:already };
     const now = new Date().toISOString();
