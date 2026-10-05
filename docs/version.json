@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-05",
-  "changelog": "v448 GOLDEN hotfix golden13: Pending payment conserva deudas numéricas ya calculadas aunque la integridad siga en verificación. La semilla demo queda aislada por huellas exactas y evidencia corroborada: clientes, ventas vs-*, productos, perchas, asociados y sucursales no contaminan tiendas reales; antes de retirar contaminación confirmada se guarda snapshot reversible. Coincidencias aisladas y IDs pNN reales se conservan.",
+  "changelog": "v448 GOLDEN hotfix golden14: corrige dos fallas visibles en idiomARTE sin ampliar el alcance: (1) cuarentena reversible de los dos registros de prueba confirmados Butter dish workshop - Candy S. y Mural mentoring (Leslie), solo para la familia F123-K7M2-, junto con sus ventas enlazadas y bloqueo de recontaminación por sync; (2) restaura Pay in the app en la vista By product / SKU cuando ese producto pertenece a una sola percha, conservando el mes exacto. Si el mismo producto abarca varias perchas, no ofrece un pago ambiguo.",
   "requerida": false,
   "shell": "f123-shell-v448",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden13"
+  "cacheGeneration": "golden14"
 }

@@ -352,3 +352,47 @@ test('v448 GOLDEN: real activity protects an exact-looking demo product/customer
   assert.equal(cat.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino'), true, 'protected product must still sync');
   assert.equal(cat.clientes.some(c => c.id === 'c01' && c.nombre === 'Ashley Rivera'), true, 'protected customer must still sync');
 });
+
+
+test('v448 GOLDEN golden14: idiomARTE quarantines the two confirmed manual-test products and their linked sales', async () => {
+  const first = browser();
+  const fixture = await first.request('/api/respaldo/exportar');
+  const shelf = fixture.ubicaciones[0];
+  const baseProduct = fixture.productos[0];
+  const baseSale = fixture.ventas[0];
+  const p1 = { ...baseProduct, id: 'p-idiomarte-test-candy', nombre: 'Butter dish workshop - Candy S.', sku: 'TEST-CANDY', barcode: 'TEST-CANDY-1', ubicacionId: shelf.id };
+  const p2 = { ...baseProduct, id: 'p-idiomarte-test-leslie', nombre: 'Mural mentoring (Leslie)', sku: 'TEST-LESLIE', barcode: 'TEST-LESLIE-1', ubicacionId: shelf.id };
+  fixture.productos = [p1, p2];
+  fixture.ventas = [
+    { ...baseSale, id: 'v-idiomarte-test-candy', productoId: p1.id, ubicacionId: shelf.id },
+    { ...baseSale, id: 'v-idiomarte-test-leslie', productoId: p2.id, ubicacionId: shelf.id }
+  ];
+  fixture.movimientos = []; fixture.transferencias = []; fixture.gastos = []; fixture.ajustesComision = [];
+  fixture.clientes = []; fixture.promotoras = []; fixture.sucursales = [];
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'idiomarte-golden14', vaciar: true });
+  await first.request('/api/respaldo/importar', 'POST', fixture);
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'idiomarte-golden14', licenseCode: 'F123-K7M2-TEST-GOLDEN14' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.productos.some(p => p.nombre === 'Butter dish workshop - Candy S.'), false);
+  assert.equal(state.productos.some(p => p.nombre === 'Mural mentoring (Leslie)'), false);
+  assert.equal(state.ventas.some(v => v.id === 'v-idiomarte-test-candy' || v.id === 'v-idiomarte-test-leslie'), false);
+  assert.ok(restarted.localStorage.getItem('f123_cuarentena_demo_exacta_v448'), 'cleanup must keep a reversible quarantine snapshot');
+});
+
+test('v448 GOLDEN golden14: the same names are preserved outside idiomARTE', async () => {
+  const first = browser();
+  const fixture = await first.request('/api/respaldo/exportar');
+  const shelf = fixture.ubicaciones[0];
+  const baseProduct = fixture.productos[0];
+  const named = { ...baseProduct, id: 'p-other-store-candy', nombre: 'Butter dish workshop - Candy S.', sku: 'REAL-CANDY', barcode: 'REAL-CANDY-1', ubicacionId: shelf.id };
+  fixture.productos = [named];
+  fixture.ventas = []; fixture.movimientos = []; fixture.transferencias = []; fixture.gastos = []; fixture.ajustesComision = [];
+  fixture.clientes = []; fixture.promotoras = []; fixture.sucursales = [];
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'other-store-golden14', vaciar: true });
+  await first.request('/api/respaldo/importar', 'POST', fixture);
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'other-store-golden14', licenseCode: 'F123-OTHER-GOLDEN14' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.productos.some(p => p.nombre === 'Butter dish workshop - Candy S.'), true);
+});
