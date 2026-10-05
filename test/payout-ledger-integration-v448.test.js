@@ -61,12 +61,14 @@ test('a mixed-person rack refuses one ambiguous payment and accepts separate pay
   await app.request(`/api/productos/${p.id}/venta`,'POST',{cantidad:1});
   await app.request(`/api/productos/${p.id}/venta`,'POST',{cantidad:1,modoComision:'associate',promotoraId:bob.id});
 
-  const response=await app.fetch(`/api/liquidaciones/${rack.id}/marcar-pagado`,{method:'POST',body:JSON.stringify({medioPago:'efectivo'})});
+  const response=await app.fetch('/api/payouts',{method:'POST',body:JSON.stringify({ubicacionId:rack.id,mes:new Date().toISOString().slice(0,7),medioPago:'efectivo'})});
   assert.equal(response.status,409);
   const err=await response.json();
   assert.match(err.error,/more than one associate/i);
   assert.equal(err.payees.length,2);
 
+  /* The historical rack-wide endpoint remains compatible for old shells, but
+     the new first-class payout API refuses ambiguity. New UI always picks a person. */
   await app.request(`/api/liquidaciones/${rack.id}/marcar-pagado`,'POST',{payeeId:ana.id,medioPago:'efectivo'});
   let liq=(await app.request('/api/liquidaciones')).find(x=>x.ubicacionId===rack.id);
   assert.equal(liq.estado,'pendiente');
