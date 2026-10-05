@@ -2548,6 +2548,7 @@
   function _rango(rol) { return _RANGO[String(rol || "").toLowerCase()] || 0; }
 
   function compararCatalogo(remoto, rolRemoto) {
+    const _bloqDemoRemoto = _haySemillaCorroboradaEn(remoto);
       /* BUG DE MI PROPIA PRIMERA VERSION, encontrado al probarlo (2026-08-19):
        era `_rango(rolRemoto) > _rango(_rolLocal())`, y cuando el rol local no
        se puede leer (demo, sesion recien abierta, contador) el rango local
