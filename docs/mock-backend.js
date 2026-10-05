@@ -236,6 +236,28 @@
   function _esVentaDemoExacta(v) {
     return !!(v && /^vs-/.test(String(v.id || "")));
   }
+
+  /* v448 GOLDEN golden14 — contaminación de prueba confirmada por JFC en la
+     licencia real de idiomARTE (2026-10-05). No es la semilla canónica: son dos
+     productos/eventos creados durante pruebas manuales y por eso golden13 no
+     podía reconocerlos. Se limita ESTRICTAMENTE a la familia de licencia
+     F123-K7M2- y a estos nombres exactos. No se toca ningún otro cliente,
+     producto, percha, asociado ni venta. La cuarentena reversible común de
+     _limpiarSemillaExactaEnTiendaReal conserva copia antes de retirar. */
+  const _IDIOMARTE_PRUEBA_NOMBRES = new Set([
+    "Butter dish workshop - Candy S.",
+    "Mural mentoring (Leslie)"
+  ]);
+  function _esLicenciaIdiomarte() {
+    try {
+      const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      const lic = String(o.licenseCode || o.syncCode || "").trim().toUpperCase().replace(/\s+/g, "");
+      return lic.indexOf("F123-K7M2-") === 0;
+    } catch (_) { return false; }
+  }
+  function _esProductoPruebaIdiomarte(p) {
+    return !!(p && _esLicenciaIdiomarte() && _IDIOMARTE_PRUEBA_NOMBRES.has(String(p.nombre || "").trim()));
+  }
   function _seleccionarSemillaDemoPura(estado) {
     const ps = Array.isArray(estado && estado.productos) ? estado.productos : [];
     const cs = Array.isArray(estado && estado.clientes) ? estado.clientes : [];
@@ -243,13 +265,17 @@
     const us = Array.isArray(estado && estado.ubicaciones) ? estado.ubicaciones : [];
     const prs = Array.isArray(estado && estado.promotoras) ? estado.promotoras : [];
     const sus = Array.isArray(estado && estado.sucursales) ? estado.sucursales : [];
-    const rp0 = ps.filter(_esProductoDemoExacto);
+    const rp0 = ps.filter((p) => _esProductoDemoExacto(p) || _esProductoPruebaIdiomarte(p));
     const rc0 = cs.filter(_esClienteDemoExacto);
-    const rv = vs.filter(_esVentaDemoExacta);
-    const evidencia = rv.length > 0 || rp0.length >= 2 || rc0.length >= 2 || (rp0.length > 0 && rc0.length > 0);
+    const idsPruebaIdiomarte = new Set(ps.filter(_esProductoPruebaIdiomarte).map((p) => String(p.id)));
+    const esVentaContaminante = (v) => _esVentaDemoExacta(v) ||
+      (_esLicenciaIdiomarte() && idsPruebaIdiomarte.has(String(v && v.productoId || "")));
+    const rv = vs.filter(esVentaContaminante);
+    const hayPruebaIdiomarte = idsPruebaIdiomarte.size > 0;
+    const evidencia = hayPruebaIdiomarte || rv.length > 0 || rp0.length >= 2 || rc0.length >= 2 || (rp0.length > 0 && rc0.length > 0);
     if (!evidencia) return { evidencia: false, productos: [], clientes: [], ventas: [], ubicaciones: [], promotoras: [], sucursales: [] };
 
-    const ventasReales = vs.filter((v) => !_esVentaDemoExacta(v));
+    const ventasReales = vs.filter((v) => !esVentaContaminante(v));
     const prodConActividadReal = new Set(ventasReales.map((v) => String(v && v.productoId || "")).filter(Boolean));
     const cliConActividadReal = new Set(ventasReales.map((v) => String(v && v.clienteId || "")).filter(Boolean));
     const rp = rp0.filter((p) => !prodConActividadReal.has(String(p.id)));
