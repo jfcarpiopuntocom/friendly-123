@@ -1182,6 +1182,7 @@
       if (v.netoCasa != null) g.casa += Number(v.netoCasa) || 0;
       if (v.comisionCorregida) g.corregidas++;
       if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
+      if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
       var quien = v.pagador || v.clienteNombre;
       if (quien) g.compradores[quien] = 1;
       /* La fecha del evento la escribe una persona y puede venir vacia en unas
@@ -1325,7 +1326,7 @@
     var map = {};
     filas.forEach(function (v) {
       var k = por === "producto" ? (v.productoId || v.productoNombre) : (v.ubicacionId || v.ubicacionNombre);
-      var g = map[k] || (map[k] = { id: k, nombre: por === "producto" ? v.productoNombre : v.ubicacionNombre, sku: v.sku || "", ubicacionId: v.ubicacionId || "", perchas: {}, personas: {}, unid: 0, bruto: 0, socio: 0, casa: 0, pend: 0, counterUnid: 0, counterMonto: 0, devueltas: 0 });
+      var g = map[k] || (map[k] = { id: k, nombre: por === "producto" ? v.productoNombre : v.ubicacionNombre, sku: v.sku || "", ubicacionId: v.ubicacionId || "", ubicacionIds: {}, perchas: {}, personas: {}, unid: 0, bruto: 0, socio: 0, casa: 0, pend: 0, counterUnid: 0, counterMonto: 0, devueltas: 0 });
       var monto = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
       if (v.comisionPct != null) {
         g.unid += Number(v.cantidad) || 1; g.bruto += monto; g.socio += Number(v.comisionAsociado) || 0;
@@ -1417,10 +1418,20 @@
         if ((l.detallePendientes || []).length) extra += "<details><summary>Which sales does this payment cover?</summary><table>" + l.detallePendientes.map(function (d) { return "<tr><td>" + d.cantidad + "× " + esc(d.producto) + '</td><td class="num">' + money(d.comisionSocio) + "</td></tr>"; }).join("") + "</table></details>";
         if (l.ventasCorregidas) extra += '<div class="cm-sub cm-rojo"><strong>' + l.ventasCorregidas + " sale(s) with the percentage manually corrected.</strong></div>";
       }
-      var acciones = cmVista === "percha" && g.ubicacionId ? '<div class="cm-actions">' +
-        (g.pend > 0 ? '<a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(g.ubicacionId) + '&mes=' + encodeURIComponent(cmMes || actual) + '">Pay in the app</a>' : "") +
-        '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(g.ubicacionId) + '">Adjust the deal</a>' +
-        '<button type="button" data-cm-recibo="' + esc(g.ubicacionId) + '">Receipt</button></div>' : "";
+      /* v448 GOLDEN golden14: Belén trabaja normalmente en "By product / SKU".
+         El botón para pagar desapareció porque las acciones se limitaron a "By rack".
+         En producto se restaura SOLO cuando todas las ventas del producto pertenecen
+         a una única percha; así el deep-link no puede pagar accidentalmente otra percha. */
+      var _idsPercha = Object.keys(g.ubicacionIds || {});
+      var _perchaPago = cmVista === "percha" ? g.ubicacionId : (_idsPercha.length === 1 ? _idsPercha[0] : "");
+      var acciones = "";
+      if (_perchaPago && g.pend > 0) {
+        acciones += '<div class="cm-actions"><a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(_perchaPago) + '&mes=' + encodeURIComponent(cmMes || actual) + '">Pay in the app</a>';
+        if (cmVista === "percha") acciones += '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(_perchaPago) + '">Adjust the deal</a><button type="button" data-cm-recibo="' + esc(_perchaPago) + '">Receipt</button>';
+        acciones += "</div>";
+      } else if (cmVista === "percha" && _perchaPago) {
+        acciones = '<div class="cm-actions"><a href="index.html#editar=comisionpercha:' + encodeURIComponent(_perchaPago) + '">Adjust the deal</a><button type="button" data-cm-recibo="' + esc(_perchaPago) + '">Receipt</button></div>';
+      }
       var barra = g.bruto > 0 && cmMax > 0 ? '<div class="cm-fila-barra">' + cmBarra(g.socio, g.casa, "", Math.max(6, Math.round(g.bruto / cmMax * 100))) + "</div>" : "";
       return '<div class="cm-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><div><h3 class="cm-h">' + esc(g.nombre) + (g.sku ? ' <span style="font-weight:400;font-size:13px;">' + esc(g.sku) + "</span>" : "") + "</h3>" + (sub ? '<div class="cm-sub">' + sub + "</div>" : "") + "</div>" + estado + "</div>" + barra + stats + extra + acciones + "</div>";
     };
