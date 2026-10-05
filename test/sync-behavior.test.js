@@ -212,6 +212,9 @@ test('v448 GOLDEN: sync catalog never publishes demo customers or demo sales', (
   const cat = a.catalog();
   assert.equal(cat.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), false);
   assert.equal(cat.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
+  assert.equal(cat.ubicaciones.some(u => u.id === 'galeria' && u.nombre === 'Sample Gallery'), false);
+  assert.equal(cat.promotoras.some(p => p.id === 'pr01' && p.nombre === 'Consignment Artist (sample)'), false);
+  assert.equal(cat.sucursales.some(s => s.id === 'suc01' && s.nombre === 'Gallery'), false);
 });
 
 test('v448 GOLDEN: a real store rejects exact demo fingerprints received from sync', async () => {
@@ -245,6 +248,34 @@ test('v448 GOLDEN: restart of an activated non-JFC store purges only exact demo 
   assert.equal(state.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), false);
   assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
   assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino' && p.sku === 'BAR-CAP-023'), false);
+  assert.equal(state.ubicaciones.some(u => u.id === 'galeria' && u.nombre === 'Sample Gallery'), false);
+  assert.equal(state.promotoras.some(p => p.id === 'pr01' && p.nombre === 'Consignment Artist (sample)'), false);
+  assert.equal(state.sucursales.some(s => s.id === 'suc01' && s.nombre === 'Gallery'), false);
+});
+
+test('v448 GOLDEN: an isolated exact-looking customer is never auto-deleted without corroborating demo evidence', async () => {
+  const first = browser();
+  const fixture = await first.request('/api/respaldo/exportar');
+  fixture.productos = [];
+  fixture.ubicaciones = [];
+  fixture.ventas = [];
+  fixture.movimientos = [];
+  fixture.transferencias = [];
+  fixture.gastos = [];
+  fixture.ajustesComision = [];
+  fixture.promotoras = [];
+  fixture.sucursales = [];
+  fixture.clientes = [{
+    id: 'c01', codigo: 'C-1001', nombre: 'Ashley Rivera', telefono: '3055550101',
+    evaluacion: { trato: 0, confiabilidad: 0, historial: [] }
+  }];
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-coincidence', vaciar: true });
+  await first.request('/api/respaldo/importar', 'POST', fixture);
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'fixture-coincidence', licenseCode: 'F123-REAL-FIXTURE' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.nombre === 'Ashley Rivera'), true,
+    'one coincidental fingerprint alone is insufficient evidence to delete customer data');
 });
 
 
