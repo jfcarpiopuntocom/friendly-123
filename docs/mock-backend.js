@@ -2746,6 +2746,7 @@
 
     remoto.ubicaciones.forEach((u) => {
       if (!u || !u.id) return;
+      if (_bloqDemoRemoto && _esUbicacionDemoExacta(u)) return;
       const mia = ubicaciones.find((x) => String(x.id) === String(u.id));
       /* v448-golden: el lifecycle de la percha (activa/borrado) tiene reloj propio.
          Antes compartia `rev` con nombre/meta/foto: un peer viejo podia editar una
