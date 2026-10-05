@@ -107,5 +107,5 @@ test('reversal is append-only, preserves original payout and reopens amount due'
   const liq=(await app.request('/api/liquidaciones')).find(x=>x.ubicacionId===s.rack.id);
   assert.equal(liq.stillDue,40);
   assert.equal(liq.estado,'pendiente');
-  assert.equal(liq.payoutHistory.some(p=>p.type==='reversal' && p.amount===-40),true, JSON.stringify(liq.payoutHistory));
+  assert.equal(liq.payoutHistory.some(p=>p.type==='reversal' && p.amount===-40),true);
 });
