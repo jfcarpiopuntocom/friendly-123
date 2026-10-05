@@ -3,7 +3,7 @@
   "shell": "f123-shell-v448",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-b46fa59a7bc31a6041f880438a3c61326a0aa143f7d97d3844bf638324edf70c",
+    "./index.html": "sha256-d3f67ebce307a014b952b87746811916f1c518419cf2f496c0c8a9bff1e5fabd",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./img/logo-720.png": "sha256-621d161800503a13f3aa6248b6829ce69d9265b708d2d228e5eb051b9bd775ae",
     "./copiar-libre.js": "sha256-d30e6b2c6515df2608a7d7083c51a8251483a5443c785fefedf6b51b2910afd8",
@@ -16,7 +16,7 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-36fd0a437feeefe02873bd8acf685ef67d522f9bb21cfe83c090b30d8bc6f763",
     "./estado-idb.js": "sha256-e1eb9fb1d9db9eb01a498798ea0055d6c9877f2751a0774a85c31d0585758163",
-    "./mock-backend.js": "sha256-2ab94d790fe5542ede9bfe34c0c8be4f3e1971b00db3086ed2a61e2128757df7",
+    "./mock-backend.js": "sha256-15c1e3f2dfbe7e0554b932267a5750388392fb8ebcc072f614bdefe077dbbeea",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
