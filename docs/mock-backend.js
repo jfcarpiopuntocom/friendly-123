@@ -268,6 +268,12 @@
     const rsu = sus.filter((s) => _esSucursalDemoExacta(s) && !sucUsadas.has(String(s.id)));
     return { evidencia: true, productos: rp, clientes: rc, ventas: rv, ubicaciones: ru, promotoras: rpr, sucursales: rsu };
   }
+  function _haySemillaCorroboradaEn(estado) {
+    return !!_seleccionarSemillaDemoPura(estado).evidencia;
+  }
+  function _haySemillaCorroboradaLocal() {
+    return _haySemillaCorroboradaEn({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
+  }
   function _esTiendaReal() {
     try {
       const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
