@@ -205,3 +205,44 @@ test('merged stock counters are idempotent through replay and restart', async ()
   assert.equal(state.productos.find(p => p.id === product.id).stockActual, 5);
   assert.equal((await restarted.request('/api/ventas/todas')).length, 2);
 });
+
+
+test('v448 GOLDEN: sync catalog never publishes demo customers or demo sales', () => {
+  const a = browser();
+  const cat = a.catalog();
+  assert.equal(cat.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), false);
+  assert.equal(cat.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
+});
+
+test('v448 GOLDEN: a real store rejects exact demo fingerprints received from sync', async () => {
+  const source = browser();
+  const dest = browser();
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-real-store', vaciar: true });
+  dest.receive(source);
+  const state = await dest.request('/api/respaldo/exportar');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), false);
+  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
+});
+
+test('v448 GOLDEN: same seed-shaped customer id with a different fingerprint is preserved', async () => {
+  const source = browser();
+  const dest = browser();
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-real-store-2', vaciar: true });
+  const cat = source.catalog();
+  cat.clientes = [{ id: 'c01', codigo: 'REAL-1', nombre: 'Real Customer', telefono: '0999999999', evaluacion: { trato: 0, confiabilidad: 0, historial: [] } }];
+  cat.ventas = [];
+  dest.OCSync.aplicarCatalogo(cat, null);
+  const state = await dest.request('/api/respaldo/exportar');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.nombre === 'Real Customer' && c.telefono === '0999999999'), true);
+});
+
+test('v448 GOLDEN: restart of an activated non-JFC store purges only exact demo contamination', async () => {
+  const first = browser();
+  await first.request('/api/instancia/activar', 'POST', { instanceId: 'idiomarte-fixture', vaciar: false });
+  first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'idiomarte-fixture', licenseCode: 'F123-K7M2-FIXTURE' }));
+  const restarted = browser(first.localStorage);
+  const state = await restarted.request('/api/respaldo/exportar');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), false);
+  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
+  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino' && p.sku === 'BAR-CAP-023'), false);
+});
