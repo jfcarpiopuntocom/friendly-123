@@ -79,6 +79,11 @@
     return paid;
   }
 
+  function hasLedgerFact(payouts, obligation) {
+    const k = key(obligation.kind, obligation.sourceId, obligation.payeeId);
+    return (Array.isArray(payouts) ? payouts : []).some((p) => p && p.status === "paid" && (Array.isArray(p.items) ? p.items : []).some((it) => key(it.kind, it.sourceId, it.payeeId) === k));
+  }
+
   function buildObligations(input) {
     const sales = Array.isArray(input && input.sales) ? input.sales : [];
     const adjustments = Array.isArray(input && input.adjustments) ? input.adjustments : [];
@@ -97,7 +102,7 @@
       if (locationId && String(v.ubicacionId) !== locationId) return;
       obligationsForSale(v, locMap.get(String(v.ubicacionId))).forEach((o) => {
         const total = Math.abs(o.amountCents);
-        const legacy = o.legacyPaid ? total : 0;
+        const legacy = o.legacyPaid && !hasLedgerFact(payouts, o) ? total : 0;
         const byPayout = applied.get(key(o.kind, o.sourceId, o.payeeId)) || 0;
         const paidCents = Math.min(total, legacy + byPayout);
         out.push({ ...o, paidCents, dueCents: Math.max(0, total - paidCents), signedAmountCents: o.amountCents });
@@ -113,7 +118,7 @@
         /* Negative adjustments reduce the next amount due; they are not themselves
            a cash payout. They remain pending until a payout consumes the net balance. */
         const abs = Math.abs(o.amountCents);
-        const legacy = o.legacyPaid ? abs : 0;
+        const legacy = o.legacyPaid && !hasLedgerFact(payouts, o) ? abs : 0;
         const byPayout = applied.get(key(o.kind, o.sourceId, o.payeeId)) || 0;
         const paidCents = Math.min(abs, legacy + byPayout);
         const remainder = Math.max(0, abs - paidCents);
