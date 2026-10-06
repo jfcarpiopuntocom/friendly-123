@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v452",
+  "shell": "f123-shell-v453",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-9e3738d1abdca358d9ec384f2504120ac37ab215535358247cf73922591dc26f",
@@ -44,6 +44,7 @@
     "./idb-fotos.js": "sha256-c99fd20ca55380c9ff21cc7c43733f94e7681875ab3bd52673783537e9e9766f",
     "./core/shelf-photo-policy.js": "sha256-746ebc12c2fc15668d7e12c71d5417901ce99b3f79983306abdefc5a9e3ef34e",
     "./core/payout-ledger.js": "sha256-817050540d49a6dd9ffa936a4137f9fa32a9fb4a3eb90155ab195c23646a9081",
+    "./core/ledger.js": "sha256-8c975b40a5bb3e924484c7b4b97550fd3451c39194cc652512097e0ea842bc36",
     "./application/recover-shelf-photo.js": "sha256-2c1f73f4c6d0e0869fe4b110f314f44313d65116c4ced0900d050c05db6b49e7",
     "./idb-archivo.js": "sha256-7a973da43f5858675d472a9982af855e047ebe14ac16c93b4d89333c28da8963",
     "./simon-config.js": "sha256-0b9c5463811f166452079019d749ca2fb4e7172dd86c8ab2a7ae4737fe93f455",

@@ -16,6 +16,7 @@
     {"id":"stock-stale-zero","contract":"Stale legacy zero cannot erase valid positive stock; legitimate modern zero remains supported.","tests":["test/stock-zero-replay-v445.test.js"]},
     {"id":"undo-returns","contract":"Undo and returns preserve the existing accounting and stock semantics.","tests":["test/deshacer-cancelacion-vencido.test.js","test/devoluciones.test.js"]},
     {"id":"name-language-continuity","contract":"Changing display language does not overwrite the user's business name.","tests":["test/i18n-header-nombre.test.js"]},
+    {"id":"money-three-layer-ledger","contract":"El dinero se deriva en tres capas (hechos, libro de doble entrada, vistas): cada asiento suma cero, el saldo de 2000 por persona = Pendiente al centavo, el libro es determinista e idempotente (ADR-001).","tests":["test/ledger-v1.test.js"]},
     {"id":"active-worker-truth","contract":"The PIN badge describes the controlling worker, not whichever cache is newest.","tests":["test/shell-gate.test.js","test/v448-golden-generation.test.js"]}
   ]
 }
