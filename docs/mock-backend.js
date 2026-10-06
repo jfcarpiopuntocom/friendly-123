@@ -5533,6 +5533,24 @@
       }
 
       if (path === "/api/liquidaciones") return J(getLiquidaciones(q.get("mes")));
+      /* Ficha de producto: quien vendio el producto y cuanto gano cada persona en el mes.
+         Aqui SOLO se juntan los hechos del periodo (mismos filtros que _payoutInput) y se llama al core
+         (OCLedger.buildLedger + productSheet). Cero matematica de dinero en la ruta. */
+      if ((m = path.match(/^\/api\/ledger\/producto\/([^/]+)$/)) && method === "GET") {
+        const LG = (typeof window !== "undefined" && window.OCLedger) ? window.OCLedger : null;
+        if (!LG) return J({ error: "Ledger is not available." }, 503);
+        const pid = decodeURIComponent(m[1]);
+        const prod = productos.find((x) => String(x.id) === pid);
+        if (!prod) return J({ error: "Product not found." }, 404);
+        const periodo = mesValido(q.get("mes"));
+        const base = _payoutInput(null, periodo);
+        const ledger = LG.buildLedger({ ventas: base.sales, ajustes: base.adjustments, payouts, gastos: [], cartera: [], ubicaciones });
+        const hoja = LG.productSheet({ ledger, payouts, sales: base.sales, productId: pid });
+        const nombre = (id) => { const x = promotoras.find((r) => String(r.id) === String(id)); return x ? x.nombre : ""; };
+        hoja.people = hoja.people.map((r) => Object.assign({ name: nombre(r.personId) }, r));
+        hoja.locationNames = hoja.locations.map((id) => { const u = ubicaciones.find((x) => String(x.id) === String(id)); return { id, nombre: u ? u.nombre : id }; });
+        return J(Object.assign({ mes: periodo, nombre: prod.nombre, sku: prod.sku || prod.barcode || "" }, hoja));
+      }
       if (path === "/api/payouts" && method === "GET") {
         const mes = q.get("mes"); const ubic = q.get("ubicacionId"); const payee = q.get("payeeId");
         return J(payouts.filter((p) => (!mes || p.period === mes) && (!ubic || String(p.locationId) === String(ubic)) && (!payee || String(p.payeeId || "") === String(payee))).map((p) => clonar(p)));

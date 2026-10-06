@@ -271,5 +271,80 @@
     return { entries, balances: computeBalances(entries), errors };
   }
 
-  return { ACCOUNTS, buildLedger };
+  /* FICHA DE PRODUCTO (proyeccion pura, sin estado): quien vendio un producto y cuanto gano cada persona.
+     - earned = Haber - Debe de la cuenta 2000 por persona en los asientos de VENTA (original + reverso) de ese
+       producto: una venta devuelta/anulada se reversa sola y queda en 0 neto.
+     - paid   = items de pagos (kind "sale") cuyo sourceId es una venta de ese producto, a esa persona. Solo
+       status "paid"; un pago con reversalOf resta; "voided"/"reversed" no cuentan (misma regla que payout-ledger).
+       Una venta vieja con `liquidada:true` sin hecho de pago cuenta como pagada por su parte (pago legado).
+     - due    = earned - paid (puede ser negativo si se pago una venta que luego se devolvio: es un cobro a favor de la casa).
+     No incluye ajustes de comision (no llevan productId): la ficha habla solo de ventas del producto.
+     units/grossCents son de ventas vigentes; returnsCents es el importe de las devueltas/anuladas (linea propia). */
+  function productSheet(input) {
+    const inp = input || {};
+    const productId = str(inp.productId);
+    const ledger = inp.ledger || { entries: [] };
+    const sales = (Array.isArray(inp.sales) ? inp.sales : []).filter((v) => v && str(v.id) && str(v.productoId) === productId);
+    const saleIds = new Set(sales.map((v) => str(v.id)));
+    const totalOf = (v) => { const c = v.cantidad == null ? 1 : Number(v.cantidad); return cents((Number(v.precioUnit) || 0) * (Number.isFinite(c) ? c : 1)); };
+    const qtyOf = (v) => { const c = v.cantidad == null ? 1 : Number(v.cantidad); return Number.isFinite(c) ? c : 1; };
+
+    const out = { productId, units: 0, grossCents: 0, returnsCents: 0, locations: [], people: [], totals: { earnedCents: 0, paidCents: 0, dueCents: 0 } };
+    const locs = new Set();
+    const rows = new Map();
+    const row = (id) => { if (!rows.has(id)) rows.set(id, { personId: id, units: 0, grossCents: 0, earnedCents: 0, paidCents: 0, dueCents: 0 }); return rows.get(id); };
+
+    /* Ganado por (venta, persona): suma de lineas 2000 de los asientos de venta del producto. */
+    const share = new Map(); // saleId|person -> centavos netos
+    const base = new Map();  // saleId|person -> centavos del asiento original (para el pago legado)
+    (ledger.entries || []).forEach((e) => {
+      if (e.factKind !== "venta" || !saleIds.has(str(e.factId))) return;
+      const isRev = e.id.slice(-4) === ":rev";
+      e.lines.forEach((l) => {
+        if (l.account !== "2000" || !l.personId || l.productId !== productId) return;
+        const k = e.factId + "|" + l.personId, c = l.creditCents - l.debitCents;
+        share.set(k, (share.get(k) || 0) + c);
+        if (!isRev) base.set(k, (base.get(k) || 0) + c);
+      });
+    });
+
+    /* Pagado por (venta, persona) desde los items de pagos. */
+    const applied = new Map();
+    const facts = new Set();
+    (Array.isArray(inp.payouts) ? inp.payouts : []).forEach((p) => {
+      if (!p || p.status !== "paid") return;
+      const sign = p.reversalOf ? -1 : 1;
+      (Array.isArray(p.items) ? p.items : []).forEach((it) => {
+        if (it.kind !== "sale" || !saleIds.has(str(it.sourceId))) return;
+        const k = str(it.sourceId) + "|" + str(it.payeeId);
+        applied.set(k, (applied.get(k) || 0) + sign * Math.max(0, Math.trunc(Number(it.amountCents) || 0)));
+        facts.add(k);
+      });
+    });
+
+    sales.forEach((v) => {
+      locs.add(str(v.ubicacionId));
+      const lost = !!(v.anulada || v.devuelta);
+      if (lost) out.returnsCents += totalOf(v);
+      else { out.units += qtyOf(v); out.grossCents += totalOf(v); }
+      const personas = new Set();
+      share.forEach((_, k) => { if (k.split("|")[0] === str(v.id)) personas.add(k.split("|")[1]); });
+      personas.forEach((pid) => {
+        const k = str(v.id) + "|" + pid, r = row(pid);
+        if (!lost) { r.units += qtyOf(v); r.grossCents += totalOf(v); }
+        r.earnedCents += share.get(k) || 0;
+        let paid = applied.get(k) || 0;
+        if (v.liquidada && !facts.has(k)) paid += base.get(k) || 0;
+        r.paidCents += paid;
+      });
+    });
+    /* Pagos a personas sin ganancia visible en el producto (p. ej. venta devuelta) ya quedaron arriba via share=0. */
+    rows.forEach((r) => { r.dueCents = r.earnedCents - r.paidCents; });
+    out.locations = [...locs].filter(Boolean).sort();
+    out.people = [...rows.values()].sort((a, b) => (b.earnedCents - a.earnedCents) || (a.personId < b.personId ? -1 : a.personId > b.personId ? 1 : 0));
+    out.people.forEach((r) => { out.totals.earnedCents += r.earnedCents; out.totals.paidCents += r.paidCents; out.totals.dueCents += r.dueCents; });
+    return out;
+  }
+
+  return { ACCOUNTS, buildLedger, productSheet };
 });
