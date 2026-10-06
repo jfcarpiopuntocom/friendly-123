@@ -8645,7 +8645,7 @@ async function cargarComisiones(){
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-top:10px;">
             ${due > 0.00001 ? `<button type="button" class="ir" data-comm-pay-person="${escHtml(p.payeeId || "")}"
               data-pay-rack="${escHtml(f.ubicacionId || "")}" data-pay-name="${escHtml(name)}" data-pay-due="${due}"
-              style="min-height:44px;font-size:14px;margin:0;background:var(--sim-verde-dk,#009A5A);border-color:var(--sim-verde-dk,#009A5A);color:#fff;">Record ${fmtMoney(due)} payment</button>` : ""}
+              style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">Record ${fmtMoney(due)} payment</button>` : ""}
             ${p.payeeId ? `<button type="button" class="tecla" data-comm-send-person data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.payeeId)}"
               style="min-height:44px;font-size:14px;margin:0;">${mx.statement}</button>` : ""}
           </div>
