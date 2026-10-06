@@ -1,0 +1,19 @@
+name: qa-v448-money-ux
+on:
+  push:
+    branches: ["engineering/v448-money-ux"]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Money UX focused contract
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/commissions-money-ux-v448.test.js
