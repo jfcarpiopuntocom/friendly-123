@@ -1,7 +1,7 @@
 name: qa-v448-money-ux
 on:
   push:
-    branches: ["engineering/v448-money-ux"]
+    branches: ["engineering/v448-money-ux", "hotfix/v448-commissions-record-payment-copy"]
 permissions:
   contents: read
 jobs:
