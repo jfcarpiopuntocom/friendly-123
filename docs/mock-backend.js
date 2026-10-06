@@ -1883,6 +1883,7 @@
     const now = new Date().toISOString();
     const plan = core.planPayout(Object.assign({}, base, {
       payeeId, opId, id:uuid("pay-"), method:body && body.medioPago,
+      amountCents:body && body.amountCents,
       reference:body && body.reference, note:body && body.note,
       paidAt:(body && body.paidAt) || now,
       paidBy:(body && body.paidBy) || (_rolLocal() || "owner"),
