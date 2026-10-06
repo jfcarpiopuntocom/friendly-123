@@ -1,0 +1,4 @@
+2026-10-01 — New CI file for Stock Semaphore
+No previous file existed on master:
+.github/workflows/stock-semaphore-test.yml
+Purpose: run only chatgpt-app/stock-semaphore/test.mjs for changes to the Stock Semaphore MCP/plugin package.
