@@ -15,3 +15,14 @@ test('Commissions payment UI asks the exact amount and sends integer cents to th
   assert.match(src, /r\s*&&\s*r\.items/, 'receipt must use the payout items returned by the ledger');
   assert.match(src, /Math\.round\([^\n]*\*\s*100\)/, 'UI must convert the confirmed amount to cents');
 });
+
+
+test('Commissions rack card exposes a partially-paid state instead of generic pending', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+  const start = html.indexOf('const tarjetaPercha = f =>');
+  const end = html.indexOf('const cardsHtml', start);
+  assert.ok(start >= 0 && end > start, 'rack card renderer must exist');
+  const src = html.slice(start, end);
+  assert.match(src, /f\.paymentStatus/, 'rack card must read the ledger payment state');
+  assert.match(src, /partially paid/i, 'partial payment must be visible to the owner');
+});
