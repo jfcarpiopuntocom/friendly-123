@@ -7,7 +7,9 @@
    Matriz: Chromium y WebKit, 390x844, idiomas es y en, estados normal e integridad-pendiente.
    Vistas: (1) Commissions por producto (tarjeta + ficha v454), (2) Commissions por percha, (3) Customers con fiado
    (sin y con el filtro "Pending payment"), (4) dashboard.html por producto y por percha.
-   Visible = rect ancho/alto > 0, display != none, visibility != hidden, no disabled, alto >= 44px.
+   Visible = rect ancho/alto > 0, display != none, visibility != hidden, no disabled, y su alto IGUAL (+-1px) al de los
+   botones hermanos de su misma fila/tarjeta (JFC 2026-10-06: nada mas grande que el resto; ya no se exige >= 44px).
+   Ficha de producto: ningun texto con font-size mayor al maximo de la tarjeta de persona de By rack.
    El idioma del rotulo se revisa APARTE (subtest "idioma") para distinguir "no esta" de "esta en otro idioma".
    NO relajar estas aserciones para ponerlo en verde: un rojo es un hallazgo.
 
@@ -32,7 +34,13 @@ window.__medir = function (el) {
   const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
   return { found: true, w: r.width, h: r.height, display: cs.display, visibility: cs.visibility,
     disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true',
-    text: (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ') };
+    text: (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' '),
+    /* alturas de los controles hermanos (botones/enlaces visibles) en la misma fila/tarjeta */
+    sibs: Array.from((el.parentElement || document.body).querySelectorAll('button, a')).filter(function (x) {
+      if (x === el || el.contains(x) || x.contains(el)) return false;
+      const rr = x.getBoundingClientRect(), c2 = getComputedStyle(x);
+      return rr.width > 0 && rr.height > 0 && c2.display !== 'none' && c2.visibility !== 'hidden';
+    }).map(function (x) { return x.getBoundingClientRect().height; }) };
 };
 window.__envolverIntegridad = function () {
   const orig = window.fetch.bind(window);
@@ -54,7 +62,7 @@ function veredictoVisible(m) {
   if (m.display === 'none') f.push('display none');
   if (m.visibility === 'hidden') f.push('visibility hidden');
   if (m.disabled) f.push('deshabilitado');
-  if (m.h < 44 - 0.01) f.push('alto ' + m.h + 'px < 44');
+  (m.sibs || []).forEach(function (sh) { if (Math.abs(sh - m.h) > 1) f.push('alto ' + m.h + 'px distinto del hermano ' + sh + 'px'); });
   return f.length ? f.join(', ') + ' (texto: "' + m.text + '")' : '';
 }
 function veredictoIdioma(m, lang) {
@@ -70,6 +78,8 @@ function veredictoIdioma(m, lang) {
 async function abrir(web, url, lang, integridad) {
   const page = await web.newPage({ viewport: { width: 390, height: 844 } });
   await page.addInitScript(MEDIR);
+  /* dashboard.html no carga i18n.js: lee el idioma guardado (f123_lang) directo de localStorage. */
+  await page.addInitScript((l) => { try { localStorage.setItem('f123_lang', l); } catch (_) {} }, lang);
   await page.goto(url, { waitUntil: 'networkidle' });
   await page.evaluate(({ lang, integridad }) => {
     if (window.OCAuth) window.OCAuth.rolActual = () => 'dueno';
@@ -108,11 +118,18 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
             out.productoPay = window.__medir(card && card.querySelector('[data-comm-pay-from-product]'));
             if (card) { card.click(); await wait(350); }
             out.fichaAbierta = !!document.querySelector('[data-ui="commissions.product-sheet"]');
+            /* Tamano de letra de cada nodo con texto propio de la ficha (medido ANTES de cerrarla). */
+            const _conTexto = (root) => Array.from(root.querySelectorAll('*')).filter(e => Array.from(e.childNodes).some(n => n.nodeType === 3 && n.textContent.trim())).map(e => parseFloat(getComputedStyle(e).fontSize));
+            const _hoja = document.querySelector('[data-ui="commissions.product-sheet"]');
+            out.fichaMaxFs = _hoja ? Math.max(0, ..._conTexto(_hoja)) : 0;
+            out.fichaMinFs = _hoja ? Math.min(...(_conTexto(_hoja).length ? _conTexto(_hoja) : [0])) : 0;
             out.fichaPay = window.__medir(document.querySelector('[data-ficha-pay]'));
             if (out.fichaAbierta) cerrarFichaProducto();
             cambiarVistaComisiones('rack');
             await wait(100);
             out.rackPay = window.__medir(document.querySelector('[data-comm-pay-person]'));
+            const _tarjP = document.querySelector('[data-comm-person-card]');
+            out.rackMaxFs = _tarjP ? Math.max(0, ..._conTexto(_tarjP)) : 0;
             /* ---- Customers: fiado de 40, sin y con filtro Pending payment ---- */
             const cli = await req('/api/clientes', 'POST', { nombre: 'Deudor Siempre' });
             await req('/api/clientes/' + cli.id + '/fiar', 'POST', { monto: 40, motivo: 'test' });
@@ -146,13 +163,18 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
             ['Customers filtro Pending payment: Record credit (abono)', r.cliAbonoFiltro || { found: false }],
           ];
           for (const [nombre, m] of casos) {
-            await t.test(`${nombre} [${tag}] visible, habilitado, >=44px`, () => {
+            await t.test(`${nombre} [${tag}] visible, habilitado, alto igual a sus hermanos`, () => {
               assert.equal(veredictoVisible(m), '', nombre + ' observado: ' + JSON.stringify(m));
             });
             await t.test(`${nombre} [${tag}] idioma`, () => {
               assert.equal(veredictoIdioma(m, lang), '', nombre);
             });
           }
+          await t.test(`Ficha de producto: ningun texto mas grande que la tarjeta de persona de By rack [${tag}]`, () => {
+            assert.ok(r.fichaAbierta && r.rackMaxFs > 0, 'ficha abierta y tarjeta de persona medida');
+            assert.ok(r.fichaMaxFs <= r.rackMaxFs + 0.01, 'ficha max ' + r.fichaMaxFs + 'px > By rack max ' + r.rackMaxFs + 'px');
+            assert.ok(r.fichaMinFs >= 12, 'ficha con texto menor a 12px: ' + r.fichaMinFs + 'px');
+          });
           await t.test(`Estado simulado efectivo [${tag}]`, () => {
             /* Guarda del propio test: la advertencia de integridad aparece solo en el estado integridad-pendiente. */
             assert.equal(/pending verification/i.test(r.cartTxt), integridad, 'texto de cartera: ' + r.cartTxt);
@@ -189,7 +211,7 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
           assert.ok(r.productoPendiente, 'el fixture muestra saldo pendiente en el dashboard');
           const casos = [['dashboard por producto: Pay in the app', r.productoPay], ['dashboard por percha: Pay in the app', r.perchaPay]];
           for (const [nombre, m] of casos) {
-            await t.test(`${nombre} [${tag}] visible, habilitado, >=44px`, () => {
+            await t.test(`${nombre} [${tag}] visible, habilitado, alto igual a sus hermanos`, () => {
               assert.equal(veredictoVisible(m), '', nombre + ' observado: ' + JSON.stringify(m));
             });
             await t.test(`${nombre} [${tag}] idioma`, () => {

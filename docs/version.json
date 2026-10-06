@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-06",
-  "changelog": "v454: ficha de producto en Commissions: quien lo vendio y cuanto gano cada persona.",
+  "changelog": "v455: Registrar pago en espanol en Clientes y dashboard; ficha de producto con el mismo estilo que Commissions.",
   "requerida": false,
-  "shell": "f123-shell-v454",
+  "shell": "f123-shell-v455",
   "apagar": [],
-  "releaseName": "v454",
-  "cacheGeneration": "golden19"
+  "releaseName": "v455",
+  "cacheGeneration": "golden20"
 }

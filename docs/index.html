@@ -3596,7 +3596,7 @@ function tarjetaCliente(c, esDueno){
       <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #E8365D;border-radius:6px;color:#B8123C !important;-webkit-text-fill-color:#B8123C !important;cursor:pointer;"
         onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record debt (fiado)</button>
       <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#00704A !important;-webkit-text-fill-color:#00704A !important;cursor:pointer;"
-        onclick="ocRegistrarCredito('${c.id}','${escHtml(c.nombre)}')">Record credit (abono)</button>
+        onclick="ocRegistrarCredito('${c.id}','${escHtml(c.nombre)}')">${t("cust.recordCredit")}</button>
     </div>${toggleAlerta}`;
   /* #8 (JFC 2026-09-10, claridad de Belén): "fiaron una copa y la app dice 2
      purchases; no hay forma clara de ver qué es qué". El número suelto no basta:
@@ -3784,7 +3784,7 @@ async function pintarSaldoCartera(clienteId) {
     // de plan-pagos, que abona a la deuda). Así ese flujo sigue vivo aunque el botón
     // "Record credit (abono)" ahora abra el modal de crédito a favor (item+expiración).
     const btnPagar = debe
-      ? ` <button type="button" onclick="ocPagarDeuda('${clienteId}')" class="oc-edit-btn" style="padding:2px 9px;">Record a payment</button>`
+      ? ` <button type="button" onclick="ocPagarDeuda('${clienteId}')" class="oc-edit-btn" style="padding:2px 9px;">${t("cust.recordPayment")}</button>`
       : "";
     // #9: crédito totalmente expirado → monto tachado (el dato NO se borra).
     const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
@@ -8462,12 +8462,12 @@ async function abrirFichaProducto(productoId){
   const mx = _ocMoneyDict();
   _ocFichaRegistrar();
   const mesTxt = _ocMesEtiqueta(h.mes);
-  const num = "text-align:right;font-variant-numeric:tabular-nums;font-family:var(--font-mono);";
   const racks = (h.locationNames || []).map(x => x.nombre).join(", ");
-  const cols = (e, p, d) => `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
-      <div><div class="rotulo" style="${num}">${mx.earned}</div><div class="cifra" style="${num}">${_ocFichaCentavos(e)}</div></div>
-      <div><div class="rotulo" style="${num}">${mx.paid}</div><div class="cifra" style="${num}">${_ocFichaCentavos(p)}</div></div>
-      <div><div class="rotulo" style="${num}">${mx.due}</div><div class="cifra" style="${num}color:${d > 0 ? "var(--rust-deep,#C05000)" : "var(--ink)"};">${_ocFichaCentavos(d)}</div></div></div>`;
+  /* Mismas clases y colores que la tarjeta de persona de By rack: .stats (rejilla) + .rotulo + .cifra. */
+  const cols = (e, p, d) => `<div class="stats" style="margin-top:10px;">
+      <div><div class="rotulo">${mx.earned}</div><div class="cifra">${_ocFichaCentavos(e)}</div></div>
+      <div><div class="rotulo">${mx.paid}</div><div class="cifra">${_ocFichaCentavos(p)}</div></div>
+      <div><div class="rotulo">${mx.due}</div><div class="cifra" style="color:${d > 0 ? "var(--rust-deep,#C05000)" : "var(--dinero-verde-dk,#008a54)"};">${_ocFichaCentavos(d)}</div></div></div>`;
   const filas = (h.people || []).map(p => {
     const name = p.name || p.personId;
     /* Pago SOLO de este producto: se agrupan las ventas de la persona por percha; cada percha con saldo > 0 trae su boton.
@@ -8475,27 +8475,30 @@ async function abrirFichaProducto(productoId){
     const porRack = new Map();
     (p.bySale || []).forEach(x => { const g = porRack.get(x.locationId) || { due: 0, ids: [] }; g.due += x.dueCents; if (x.dueCents > 0) g.ids.push(x.saleId); porRack.set(x.locationId, g); });
     const pagos = [...porRack.entries()].filter(([, g]) => g.due > 0 && g.ids.length);
-    return `<div data-ficha-person="${escHtml(p.personId)}" style="padding:10px 0;border-top:1px solid #D7E0E8;">
-      <button type="button" class="tecla" data-ficha-edit="${escHtml(p.personId)}" style="min-height:44px;margin:0 0 6px;font-size:16px;font-weight:700;text-align:left;">${escHtml(name)} <small style="font-weight:400;">${p.units}u</small></button>
+    return `<div data-ficha-person="${escHtml(p.personId)}" style="padding:14px 0;border-top:1px solid #D7E0E8;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <div style="min-width:0;"><strong style="font-family:var(--font-display);font-size:16px;">${escHtml(name)}</strong> <small style="font-size:13px;font-weight:400;">${p.units}u</small></div>
+        <button type="button" class="tecla" data-ficha-edit="${escHtml(p.personId)}" style="min-height:44px;font-size:14px;margin:0;">${mx.edit}</button>
+      </div>
       ${cols(p.earnedCents, p.paidCents, p.dueCents)}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-top:10px;">
         ${pagos.map(([rid, g]) => `<button type="button" class="ir" data-ficha-pay="${escHtml(p.personId)}" data-pay-rack="${escHtml(rid)}" data-pay-name="${escHtml(name)}" data-pay-due="${g.due / 100}" data-pay-sales="${escHtml(g.ids.join(","))}"
           style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${mx.pay(fmtMoney(g.due / 100))}${pagos.length > 1 ? " · " + escHtml(((h.locationNames || []).find(x => x.id === rid) || {}).nombre || "") : ""}</button>`).join("")}
         <button type="button" class="tecla" data-ficha-statement="${escHtml(p.personId)}" data-est-u="${escHtml((h.locations || [])[0] || "")}" style="min-height:44px;font-size:14px;margin:0;">${mx.statement}</button>
       </div></div>`;
   }).join("");
-  caja.innerHTML = `<div class="tag-card" data-ui="commissions.product-sheet" role="dialog" aria-modal="true" aria-label="${escHtml(h.nombre)}" style="text-align:left;background:var(--blanco-calido,#fbf5e8);padding:16px;">
+  caja.innerHTML = `<div class="tag-card" data-ui="commissions.product-sheet" role="dialog" aria-modal="true" aria-label="${escHtml(h.nombre)}" style="text-align:left;background:var(--blanco-calido,#fbf5e8);padding:14px 16px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-      <div style="min-width:0;"><strong style="font-size:16px;color:var(--ink);">${escHtml(h.nombre)}</strong>${h.sku ? ` <span style="font-size:14px;color:var(--ink);">${escHtml(h.sku)}</span>` : ""}
-        <div data-ficha-period style="font-size:16px;color:var(--ink);">${escHtml(mesTxt)}</div></div>
-      <button type="button" class="tecla" data-ficha-close aria-label="${t("common.close")}" style="min-height:44px;min-width:44px;margin:0;font-size:16px;">✕</button>
+      <div style="min-width:0;"><strong style="font-size:16px;">${escHtml(h.nombre)}${h.sku ? ` <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">${escHtml(h.sku)}</span>` : ""}</strong>
+        <div data-ficha-period style="font-size:13px;color:var(--ink-soft);margin-top:4px;">${escHtml(mesTxt)}</div></div>
+      <button type="button" class="tecla" data-ficha-close aria-label="${t("common.close")}" style="min-height:44px;min-width:44px;margin:0;font-size:14px;">✕</button>
     </div>
-    <div style="font-size:14px;color:var(--ink);margin-top:6px;">${t("comm.productTotal")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.grossCents)}</strong> <small>${h.units}u</small></div>
-    ${h.returnsCents > 0 ? `<div data-ficha-returns style="font-size:14px;color:var(--ink);">${t("comm.productReturns")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.returnsCents)}</strong></div>` : ""}
-    <div style="font-size:14px;color:var(--ink);margin-bottom:6px;">${t("artist.rack")}: ${escHtml(racks || "-")}</div>
-    ${filas ? filas + `<div data-ficha-totals style="padding:10px 0;border-top:2px solid var(--ink);margin-top:2px;"><div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:4px;">${t("guests.total")}</div>${cols(h.totals.earnedCents, h.totals.paidCents, h.totals.dueCents)}</div>`
+    <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">${t("comm.productTotal")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.grossCents)}</strong> <small style="font-size:13px;">${h.units}u</small></div>
+    ${h.returnsCents > 0 ? `<div data-ficha-returns style="font-size:13px;color:var(--ink-soft);">${t("comm.productReturns")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.returnsCents)}</strong></div>` : ""}
+    <div style="font-size:13px;color:var(--ink-soft);margin-bottom:6px;">${t("artist.rack")}: ${escHtml(racks || "-")}</div>
+    ${filas ? filas + `<div data-ficha-totals style="padding:14px 0;border-top:2px solid var(--ink);margin-top:2px;"><div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:4px;">${t("guests.total")}</div>${cols(h.totals.earnedCents, h.totals.paidCents, h.totals.dueCents)}</div>`
       : `<p data-ficha-empty style="font-size:16px;color:var(--ink);">${escHtml(window.tf("comm.byProductEmptyMonth", { mes: mesTxt }))}</p>`}
-    <button type="button" class="tecla" data-ficha-close style="min-height:44px;margin:12px 0 0;font-size:16px;">${t("common.close")}</button>
+    <button type="button" class="tecla" data-ficha-close style="min-height:44px;margin:12px 0 0;font-size:14px;">${t("common.close")}</button>
   </div>`;
   overlay.style.display = "flex";
   caja.querySelectorAll("[data-ficha-close]").forEach(b => b.addEventListener("click", cerrarFichaProducto));

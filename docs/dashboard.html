@@ -1436,7 +1436,7 @@
       var _perchaPago = cmVista === "percha" ? g.ubicacionId : (_idsPercha.length === 1 ? _idsPercha[0] : "");
       var acciones = "";
       if (_perchaPago && g.pend > 0) {
-        acciones += '<div class="cm-actions"><a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(_perchaPago) + '&mes=' + encodeURIComponent(cmMes || actual) + '">Pay in the app</a>';
+        acciones += '<div class="cm-actions"><a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(_perchaPago) + '&mes=' + encodeURIComponent(cmMes || actual) + '">' + (function () { try { return localStorage.getItem("f123_lang") === "es" ? "Registrar pago" : "Pay in the app"; } catch (_) { return "Pay in the app"; } })() + '</a>';
         if (cmVista === "percha") acciones += '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(_perchaPago) + '">Adjust the deal</a><button type="button" data-cm-recibo="' + esc(_perchaPago) + '">Receipt</button>';
         acciones += "</div>";
       } else if (cmVista === "percha" && _perchaPago) {
