@@ -1865,7 +1865,9 @@
       const prior = payouts.find((p) => String(p.opId) === requestedOpId);
       if (prior) return { ok:true, existing:true, payout:prior };
     }
-    const base = _payoutInput(ubicacionId, mes);
+    /* v454: body.sourceIds (ids de venta) limita el pago a esas ventas (ficha de producto). El core lo aplica. */
+    const _soloVentas = body && Array.isArray(body.sourceIds) && body.sourceIds.length ? body.sourceIds.map(String) : null;
+    const base = Object.assign(_payoutInput(ubicacionId, mes), _soloVentas ? { sourceIds: _soloVentas } : {});
     const rows = core.balancesByPayee(base).filter((r) => Number(r.dueCents) > 0);
     if (!rows.length) return { error: "There is nothing due for this period.", status: 409 };
     const hasExplicitPayee = !!(body && Object.prototype.hasOwnProperty.call(body, "payeeId"));

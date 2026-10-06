@@ -292,7 +292,7 @@
     const out = { productId, units: 0, grossCents: 0, returnsCents: 0, locations: [], people: [], totals: { earnedCents: 0, paidCents: 0, dueCents: 0 } };
     const locs = new Set();
     const rows = new Map();
-    const row = (id) => { if (!rows.has(id)) rows.set(id, { personId: id, units: 0, grossCents: 0, earnedCents: 0, paidCents: 0, dueCents: 0 }); return rows.get(id); };
+    const row = (id) => { if (!rows.has(id)) rows.set(id, { personId: id, units: 0, grossCents: 0, earnedCents: 0, paidCents: 0, dueCents: 0, bySale: [] }); return rows.get(id); };
 
     /* Ganado por (venta, persona): suma de lineas 2000 de los asientos de venta del producto. */
     const share = new Map(); // saleId|person -> centavos netos
@@ -336,6 +336,8 @@
         let paid = applied.get(k) || 0;
         if (v.liquidada && !facts.has(k)) paid += base.get(k) || 0;
         r.paidCents += paid;
+        /* Desglose por venta (para pagar SOLO este producto: la UI manda estos saleId a planPayout.sourceIds). */
+        r.bySale.push({ saleId: str(v.id), locationId: str(v.ubicacionId), earnedCents: share.get(k) || 0, paidCents: paid, dueCents: (share.get(k) || 0) - paid });
       });
     });
     /* Pagos a personas sin ganancia visible en el producto (p. ej. venta devuelta) ya quedaron arriba via share=0. */

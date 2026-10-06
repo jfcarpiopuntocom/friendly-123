@@ -62,3 +62,48 @@ test('producto sin ventas: hoja vacia', () => {
   const s = run([sale('s1', 'r1', 'ana', 100, 40)], [], 'nada');
   assert.equal(s.units, 0); assert.deepEqual(s.people, []); assert.deepEqual(s.totals, { earnedCents: 0, paidCents: 0, dueCents: 0 });
 });
+
+/* ---- v454: pagar SOLO un producto (planPayout.sourceIds) ---- */
+const PL = require('../docs/core/payout-ledger.js');
+const saleB = (id, who, total, socio) => sale(id, 'r1', who, total, socio, { productoId: 'p2' });
+const planInput = (ventas, payouts, extra = {}) => ({ sales: ventas, adjustments: [], locations: ubicaciones, payouts, month: '', payeeId: 'ana', ...extra });
+
+test('sourceIds: pagar el producto A deja el B intacto al centavo', () => {
+  const v = [sale('a1', 'r1', 'ana', 100, 40), saleB('b1', 'ana', 50, 20)];
+  const plan = PL.planPayout(planInput(v, [], { opId: 'op-a', id: 'pay-a', sourceIds: ['a1'] }));
+  assert.equal(plan.payout.amountCents, 4000);
+  assert.deepEqual(plan.payout.items.map(i => [i.sourceId, i.amountCents]), [['a1', 4000]]);
+  const after = PL.balancesByPayee({ sales: v, adjustments: [], locations: ubicaciones, payouts: [plan.payout] });
+  assert.equal(after[0].dueCents, 2000); // B sigue debiendo 20.00
+  const soloB = PL.balancesByPayee({ sales: v, adjustments: [], locations: ubicaciones, payouts: [plan.payout], sourceIds: ['b1'] });
+  assert.equal(soloB[0].dueCents, 2000);
+});
+
+test('sourceIds: pago parcial y no se puede pagar mas que lo debido del producto', () => {
+  const v = [sale('a1', 'r1', 'ana', 100, 40), saleB('b1', 'ana', 50, 20)];
+  const parcial = PL.planPayout(planInput(v, [], { opId: 'op-1', id: 'p1', sourceIds: ['a1'], amountCents: 1500 }));
+  assert.equal(parcial.payout.amountCents, 1500);
+  const resto = PL.planPayout(planInput(v, [parcial.payout], { opId: 'op-2', id: 'p2', sourceIds: ['a1'] }));
+  assert.equal(resto.payout.amountCents, 2500);
+  const demasiado = PL.planPayout(planInput(v, [], { opId: 'op-3', id: 'p3', sourceIds: ['a1'], amountCents: 4001 }));
+  assert.equal(demasiado.status, 409); // tiene 60.00 en total, pero el producto solo debe 40.00
+});
+
+test('sourceIds: reintento con el mismo opId es idempotente', () => {
+  const v = [sale('a1', 'r1', 'ana', 100, 40)];
+  const p1 = PL.planPayout(planInput(v, [], { opId: 'op-x', id: 'p1', sourceIds: ['a1'] })).payout;
+  const again = PL.planPayout(planInput(v, [p1], { opId: 'op-x', id: 'p2', sourceIds: ['a1'] }));
+  assert.equal(again.existing, true);
+});
+
+test('sin sourceIds todo igual que antes (compatibilidad)', () => {
+  const v = [sale('a1', 'r1', 'ana', 100, 40), saleB('b1', 'ana', 50, 20)];
+  assert.equal(PL.planPayout(planInput(v, [], { opId: 'op-all', id: 'p9' })).payout.amountCents, 6000);
+});
+
+test('productSheet.people[].bySale desglosa por venta y percha', () => {
+  const s = run([sale('s1', 'r1', 'ana', 100, 40), sale('s2', 'r2', 'ana', 50, 20)], [payout('o1', 'ana', [{ sourceId: 's1', amountCents: 1500 }])]);
+  assert.deepEqual(person(s, 'ana').bySale, [
+    { saleId: 's1', locationId: 'r1', earnedCents: 4000, paidCents: 1500, dueCents: 2500 },
+    { saleId: 's2', locationId: 'r2', earnedCents: 2000, paidCents: 0, dueCents: 2000 }]);
+});

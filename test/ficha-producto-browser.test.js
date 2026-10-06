@@ -29,8 +29,11 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
           const mv = await req('/api/productos/' + prod.id, 'PATCH', { ubicacionId: r2.id });
           await req('/api/productos/' + prod.id + '/venta', 'POST', { cantidad: 1 });
           await req('/api/liquidaciones/' + r1.id + '/marcar-pagado', 'POST', { payeeId: ana.id, medioPago: 'transferencia', amountCents: 1500, opId: 'ficha-parcial' });
+          const prodB = await req('/api/productos', 'POST', { nombre: 'Jarron Otro', barcode: 'FICHA-002', precio: 50, costo: 10, stockInicial: 5, ubicacionId: r1.id });
+          await req('/api/productos/' + prodB.id + '/venta', 'POST', { cantidad: 1 });
           const sheet = await req('/api/ledger/producto/' + prod.id);
-          return { ana: ana.id, bea: bea.id, r1: r1.id, r2: r2.id, prod: prod.id, moved: JSON.stringify(mv).slice(0, 120), sheet };
+          const sheetB = await req('/api/ledger/producto/' + prodB.id);
+          return { prodB: prodB.id, sheetB, ana: ana.id, bea: bea.id, r1: r1.id, r2: r2.id, prod: prod.id, moved: JSON.stringify(mv).slice(0, 120), sheet };
         }, lang);
         // Cada persona con su ganancia exacta, Ana con pago parcial.
         const S = seed.sheet;
@@ -43,9 +46,15 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
 
         const out = await page.evaluate(async ({ ids }) => {
           const wait = (ms) => new Promise(r => setTimeout(r, ms));
+          // v454: la ficha abre ANTES de que By rack se haya pintado nunca (sin tarjetas de percha en el DOM).
+          const antes = { racksPintadas: document.querySelectorAll('[data-comm-pay-person]').length };
+          await abrirFichaProducto(ids.prod);
+          antes.abre = !!document.querySelector('[data-ui="commissions.product-sheet"]');
+          antes.texto = antes.abre ? document.querySelector('[data-ui="commissions.product-sheet"]').innerText : '';
+          cerrarFichaProducto();
           await cargarComisiones(); // sin cambiar de pestana: arranca en By product
           const card = document.querySelector('[data-ui="commissions.product-card"][data-product-id="' + ids.prod + '"]');
-          const res = { cardFound: !!card, role: card && card.getAttribute('role'), tabindex: card && card.getAttribute('tabindex') };
+          const res = { antes, cardFound: !!card, role: card && card.getAttribute('role'), tabindex: card && card.getAttribute('tabindex') };
           const sheetEl = () => document.querySelector('[data-ui="commissions.product-sheet"]');
           // Teclado: Enter abre la ficha; Escape la cierra.
           card.focus();
@@ -88,8 +97,21 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
           const modal = document.getElementById('oc-modal-overlay');
           res.payModalOpen = getComputedStyle(modal).display !== 'none' && /Ana Prueba/i.test(modal.innerText);
           res.sheetClosedForPay = !sheetEl();
+          res.modalMsg = modal.innerText;
+          // Completa el pago con el formulario existente: medio (2o boton: Efectivo/Cash), monto por defecto = saldo del producto.
+          const btns = [...document.querySelectorAll('#oc-modal-botones button')];
+          btns.find(b => /Efectivo|Cash/.test(b.textContent)).click();
+          await wait(300);
+          res.promptValue = (document.getElementById('oc-prompt-input') || {}).value;
+          [...document.querySelectorAll('#oc-modal-botones button')].pop().click();
+          await wait(600);
+          // Otro alert (recibo) puede quedar abierto: se acepta.
+          for (let i = 0; i < 3; i++) { const o = document.getElementById('oc-modal-overlay'); if (getComputedStyle(o).display !== 'none') { [...o.querySelectorAll('button')].pop().click(); await wait(300); } }
+          res.sheetA = await (await fetch('/api/ledger/producto/' + ids.prod)).json();
+          res.sheetB = await (await fetch('/api/ledger/producto/' + ids.prodB)).json();
+          res.payouts = await (await fetch('/api/payouts')).json();
           return res;
-        }, { ids: { prod: seed.prod, ana: seed.ana, bea: seed.bea, r1: seed.r1, r2: seed.r2, anaDueCents: ana.dueCents, beaDueCents: bea.dueCents, anaEarnedCents: ana.earnedCents } });
+        }, { ids: { prodB: seed.prodB, prod: seed.prod, ana: seed.ana, bea: seed.bea, r1: seed.r1, r2: seed.r2, anaDueCents: ana.dueCents, beaDueCents: bea.dueCents, anaEarnedCents: ana.earnedCents } });
 
         assert.ok(out.cardFound && out.role === 'button' && out.tabindex === '0', 'tarjeta tocable con role/tabindex');
         assert.ok(out.openByEnter && out.closedByEscape && out.openByClick && out.closedByOutside, 'abre por Enter/click, cierra por Escape y fuera');
@@ -105,8 +127,22 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
         assert.ok(out.payAnaVisible && out.payBeaVisible, 'boton de pago visible (>=44px) para quien debe');
         assert.match(out.payAnaText, lang === 'es' ? /Registrar pago/i : /Record .* payment/i);
         const rackSum = out.rackDue.reduce((a, b) => a + b, 0);
-        assert.equal(Math.round(rackSum * 100), out.totalsCents[2], 'Still due de la ficha == suma de By rack');
+        // By rack suma TODO lo que cada persona debe en la percha: la ficha de A + lo que Ana debe del producto B (misma percha).
+        assert.equal(Math.round(rackSum * 100), out.totalsCents[2] + seed.sheetB.totals.dueCents, 'Still due de la ficha + otros productos == By rack');
         assert.ok(out.sheetClosedForPay && out.payModalOpen, 'el pago abre el formulario existente de Ana');
+        assert.equal(out.antes.racksPintadas, 0, 'By rack no se habia pintado');
+        assert.ok(out.antes.abre && /Ana Prueba/i.test(out.antes.texto) && /Bea Prueba/i.test(out.antes.texto), 'la ficha abre sin By rack renderizado');
+        assert.match(out.modalMsg, /Taza Ficha/, 'la confirmacion nombra el producto');
+        assert.equal(out.promptValue, (ana.dueCents / 100).toFixed(2), 'monto por defecto = saldo de ESTE producto');
+        // Pagar el producto A (25.00) no toca el producto B de Ana: su saldo queda igual al centavo.
+        const anaA = out.sheetA.people.find(p => p.personId === seed.ana), anaB0 = seed.sheetB.people.find(p => p.personId === seed.ana), anaB1 = out.sheetB.people.find(p => p.personId === seed.ana);
+        assert.equal(anaA.dueCents, 0, 'producto A de Ana liquidado');
+        assert.equal(anaA.paidCents, anaA.earnedCents);
+        assert.deepEqual(anaB1, anaB0, 'producto B intacto');
+        const pagoNuevo = out.payouts.filter(p => p.opId !== 'ficha-parcial');
+        assert.equal(pagoNuevo.length, 1);
+        assert.equal(pagoNuevo[0].amountCents, ana.dueCents);
+        assert.ok(pagoNuevo[0].items.every(i => i.kind === 'sale'), 'solo ventas');
       } finally { await web.close(); }
     });
   }

@@ -128,8 +128,13 @@
     return out.sort((a,b) => a.order.localeCompare(b.order) || a.sourceId.localeCompare(b.sourceId));
   }
 
+  /* v454 (ficha de producto): `input.sourceIds` (lista de ids de venta) restringe el calculo a ESAS ventas
+     (kind "sale"). Sin la lista todo funciona como siempre. Con ella, el saldo, planPayout y el reparto de items
+     solo ven esas ventas: pagar el producto A deja el producto B (y los ajustes) intactos al centavo. */
   function balancesByPayee(input) {
-    const obs = buildObligations(input);
+    let obs = buildObligations(input);
+    const only = Array.isArray(input && input.sourceIds) ? new Set(input.sourceIds.map(String)) : null;
+    if (only) obs = obs.filter((o) => o.kind === "sale" && only.has(String(o.sourceId)));
     const map = new Map();
     obs.forEach((o) => {
       const pid = o.payeeId || null;
