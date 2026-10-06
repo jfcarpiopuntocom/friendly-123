@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-06",
-  "changelog": "v453: libro de doble entrada (ADR-001 paso 1), sin cambios visibles.",
+  "changelog": "v454: ficha de producto en Commissions: quien lo vendio y cuanto gano cada persona.",
   "requerida": false,
-  "shell": "f123-shell-v453",
+  "shell": "f123-shell-v454",
   "apagar": [],
-  "releaseName": "v453",
-  "cacheGeneration": "golden18"
+  "releaseName": "v454",
+  "cacheGeneration": "golden19"
 }

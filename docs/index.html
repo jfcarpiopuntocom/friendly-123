@@ -114,6 +114,7 @@
 <script src="./copiar-libre.js"></script>
 <script src="./invariantes.js"></script>
 <script src="./core/payout-ledger.js"></script>
+<script src="./core/ledger.js"></script>
 <script src="./mock-backend.js"></script>
 <script src="./red-segura.js"></script>
 <meta charset="UTF-8">
@@ -8408,7 +8409,7 @@ function resumenComisionPorProductoHtml(prods, cuadre){
     + (_sin.length ? `<details id="comm-sin-comision" style="margin-top:14px;"><summary style="cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:16px;font-weight:700;color:var(--ink);">${t("comm.noCommissionGroup").replace("{n}", _sin.length)}</summary>
       ${_sin.map(_tarjetaProd).join("")}</details>` : "") + `</section>`;
   function _tarjetaProd(d) { return `
-    <div class="tag-card" data-comm-product-card data-search="${escHtml([d.producto,d.sku,...d.perchas,...d.asociados].join(" "))}" style="text-align:left;margin-bottom:10px;padding:14px 16px;">
+    <div class="tag-card" data-comm-product-card role="button" tabindex="0" data-ui="commissions.product-card" data-product-id="${escHtml(d.productoId || "")}" aria-label="${escHtml(d.producto)}" data-search="${escHtml([d.producto,d.sku,...d.perchas,...d.asociados].join(" "))}" style="text-align:left;margin-bottom:10px;padding:14px 16px;cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(d.producto)}${d.sku ? ` <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">${escHtml(d.sku)}</span>` : ""}</strong>
         ${d.socio > 0 ? `<span class="badge-estado ${d.pendSocio > 0 ? "rojo" : "verde"}">${d.pendSocio > 0 ? "pending" : "paid"}</span>` : ""}
@@ -8437,6 +8438,85 @@ function resumenComisionPorProductoHtml(prods, cuadre){
           <span>${escHtml(String(v.fecha).slice(0,10))} · ${v.cantidad} × ${fmtMoney(v.precioUnit)} · ${escHtml(v.comisionistaNombreProducto || "")}</span>
           <button type="button" class="tecla" style="margin:0;min-height:40px;" data-review-commission="${escHtml(v.id)}" data-person="${escHtml(v.comisionistaIdProducto)}">${t("comm.reviewOne")}</button></div>`).join("")}</details>` : ""}
     </div>`; }
+}
+
+/* FICHA DE PRODUCTO (v454): toca una tarjeta de "By product / SKU" y ves quien vendio ese producto y cuanto
+   gano cada persona en el mes que se esta viendo. Los numeros salen del libro de doble entrada
+   (GET /api/ledger/producto/:id -> OCLedger.productSheet); aqui NO se suma dinero, solo se pinta.
+   Reusa el overlay de editores (#oc-comision-overlay) y los flujos existentes: el pago es marcarComisionPagada
+   (el mismo de la tarjeta de percha), el nombre abre abrirEditorComisionista, "Enviar estado" es
+   enviarEstadoComisionista. Textos: SOLO claves/diccionario que ya existen (_ocMoneyDict, common.close, ...).
+   OJO: el modal de pago (z-index 10000) queda DEBAJO de este overlay (10001): por eso se cierra la ficha antes de pagar. */
+function _ocFichaCentavos(c){ return fmtMoney((Number(c) || 0) / 100); }
+function cerrarFichaProducto(){ cerrarEditorComision(); }
+async function abrirFichaProducto(productoId){
+  if (!productoId) return;
+  const overlay = document.getElementById("oc-comision-overlay");
+  const caja = document.getElementById("oc-comision-caja");
+  let h;
+  try {
+    const r = await fetch(`${API}/ledger/producto/${encodeURIComponent(productoId)}?mes=${encodeURIComponent(_ocMesComisiones || "")}`);
+    h = await r.json();
+    if (!r.ok) throw new Error(h && h.error);
+  } catch (_) { await ocAlert(t("comm.reviewError")); return; }
+  const mx = _ocMoneyDict();
+  _ocFichaRegistrar();
+  const mesTxt = _ocMesEtiqueta(h.mes);
+  const num = "text-align:right;font-variant-numeric:tabular-nums;font-family:var(--font-mono);";
+  const racks = (h.locationNames || []).map(x => x.nombre).join(", ");
+  const cols = (e, p, d) => `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+      <div><div class="rotulo" style="${num}">${mx.earned}</div><div class="cifra" style="${num}">${_ocFichaCentavos(e)}</div></div>
+      <div><div class="rotulo" style="${num}">${mx.paid}</div><div class="cifra" style="${num}">${_ocFichaCentavos(p)}</div></div>
+      <div><div class="rotulo" style="${num}">${mx.due}</div><div class="cifra" style="${num}color:${d > 0 ? "var(--rust-deep,#C05000)" : "var(--ink)"};">${_ocFichaCentavos(d)}</div></div></div>`;
+  const filas = (h.people || []).map(p => {
+    const name = p.name || p.personId;
+    /* Pago SOLO de este producto: se agrupan las ventas de la persona por percha; cada percha con saldo > 0 trae su boton.
+       El monto es la suma del Still due de esas ventas y se manda la lista de ventas (sourceIds) al pago existente. */
+    const porRack = new Map();
+    (p.bySale || []).forEach(x => { const g = porRack.get(x.locationId) || { due: 0, ids: [] }; g.due += x.dueCents; if (x.dueCents > 0) g.ids.push(x.saleId); porRack.set(x.locationId, g); });
+    const pagos = [...porRack.entries()].filter(([, g]) => g.due > 0 && g.ids.length);
+    return `<div data-ficha-person="${escHtml(p.personId)}" style="padding:10px 0;border-top:1px solid #D7E0E8;">
+      <button type="button" class="tecla" data-ficha-edit="${escHtml(p.personId)}" style="min-height:44px;margin:0 0 6px;font-size:16px;font-weight:700;text-align:left;">${escHtml(name)} <small style="font-weight:400;">${p.units}u</small></button>
+      ${cols(p.earnedCents, p.paidCents, p.dueCents)}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        ${pagos.map(([rid, g]) => `<button type="button" class="ir" data-ficha-pay="${escHtml(p.personId)}" data-pay-rack="${escHtml(rid)}" data-pay-name="${escHtml(name)}" data-pay-due="${g.due / 100}" data-pay-sales="${escHtml(g.ids.join(","))}"
+          style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${mx.pay(fmtMoney(g.due / 100))}${pagos.length > 1 ? " · " + escHtml(((h.locationNames || []).find(x => x.id === rid) || {}).nombre || "") : ""}</button>`).join("")}
+        <button type="button" class="tecla" data-ficha-statement="${escHtml(p.personId)}" data-est-u="${escHtml((h.locations || [])[0] || "")}" style="min-height:44px;font-size:14px;margin:0;">${mx.statement}</button>
+      </div></div>`;
+  }).join("");
+  caja.innerHTML = `<div class="tag-card" data-ui="commissions.product-sheet" role="dialog" aria-modal="true" aria-label="${escHtml(h.nombre)}" style="text-align:left;background:var(--blanco-calido,#fbf5e8);padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div style="min-width:0;"><strong style="font-size:16px;color:var(--ink);">${escHtml(h.nombre)}</strong>${h.sku ? ` <span style="font-size:14px;color:var(--ink);">${escHtml(h.sku)}</span>` : ""}
+        <div data-ficha-period style="font-size:16px;color:var(--ink);">${escHtml(mesTxt)}</div></div>
+      <button type="button" class="tecla" data-ficha-close aria-label="${t("common.close")}" style="min-height:44px;min-width:44px;margin:0;font-size:16px;">✕</button>
+    </div>
+    <div style="font-size:14px;color:var(--ink);margin-top:6px;">${t("comm.productTotal")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.grossCents)}</strong> <small>${h.units}u</small></div>
+    ${h.returnsCents > 0 ? `<div data-ficha-returns style="font-size:14px;color:var(--ink);">${t("comm.productReturns")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.returnsCents)}</strong></div>` : ""}
+    <div style="font-size:14px;color:var(--ink);margin-bottom:6px;">${t("artist.rack")}: ${escHtml(racks || "-")}</div>
+    ${filas ? filas + `<div data-ficha-totals style="padding:10px 0;border-top:2px solid var(--ink);margin-top:2px;"><div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:4px;">${t("guests.total")}</div>${cols(h.totals.earnedCents, h.totals.paidCents, h.totals.dueCents)}</div>`
+      : `<p data-ficha-empty style="font-size:16px;color:var(--ink);">${escHtml(window.tf("comm.byProductEmptyMonth", { mes: mesTxt }))}</p>`}
+    <button type="button" class="tecla" data-ficha-close style="min-height:44px;margin:12px 0 0;font-size:16px;">${t("common.close")}</button>
+  </div>`;
+  overlay.style.display = "flex";
+  caja.querySelectorAll("[data-ficha-close]").forEach(b => b.addEventListener("click", cerrarFichaProducto));
+  caja.querySelectorAll("[data-ficha-edit]").forEach(b => b.addEventListener("click", () => abrirEditorComisionista(b.dataset.fichaEdit)));
+  caja.querySelectorAll("[data-ficha-statement]").forEach(b => b.addEventListener("click", () => enviarEstadoComisionista(b.dataset.estU, b.dataset.fichaStatement)));
+  caja.querySelectorAll("[data-ficha-pay]").forEach(b => b.addEventListener("click", () => {
+    cerrarFichaProducto();
+    marcarComisionPagada(b.dataset.payRack, b.dataset.payName, Number(b.dataset.payDue), b.dataset.fichaPay, { sourceIds: b.dataset.paySales.split(","), producto: h.nombre });
+  }));
+  const x = caja.querySelector("[data-ficha-close]"); if (x) x.focus();
+}
+/* Escape y toque fuera cierran la ficha (se registra una sola vez; solo actua si la ficha esta abierta). */
+function _ocFichaRegistrar() {
+  if (window._ocFichaListeners) return;
+  window._ocFichaListeners = true;
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.querySelector('[data-ui="commissions.product-sheet"]')) cerrarFichaProducto();
+  });
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "oc-comision-overlay" && document.querySelector('[data-ui="commissions.product-sheet"]')) cerrarFichaProducto();
+  });
 }
 
 async function revisarComisionVenta(ventaId, promotoraId){
@@ -8621,7 +8701,8 @@ async function cargarComisiones(){
     );
     if (!balances.length) return "";
     const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
-    const mx = esMoney ? {people:"Personas por liquidar · Reparto entre personas este mes", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", pay:(m) => "Registrar pago de " + m, history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle · Split between people this month", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", pay:(m) => "Record " + m + " payment", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
+    const mx = _ocMoneyDict();
+
     return `<section data-comm-people-money style="margin-top:12px;">
       <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin:0 0 8px;">${mx.people}</div>
       ${balances.map(p => {
@@ -8775,6 +8856,12 @@ async function cargarComisiones(){
     buscadorProducto.addEventListener("input", filtrar);
     filtrar();
   }
+  // v454: la tarjeta entera abre la ficha de producto; los controles internos (pagar, revisar, plegables) siguen con lo suyo.
+  cont.querySelectorAll("[data-comm-product-card]").forEach(card => {
+    const abrir = () => abrirFichaProducto(card.dataset.productId);
+    card.addEventListener("click", (e) => { if (e.target.closest("button,a,summary,input,details")) return; abrir(); });
+    card.addEventListener("keydown", (e) => { if (e.target === card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abrir(); } });
+  });
   cont.querySelectorAll("[data-review-commission]").forEach(btn => btn.addEventListener("click", () => revisarComisionVenta(btn.dataset.reviewCommission, btn.dataset.person)));
   // golden16: el boton de pago de "By product" abre la percha en "By rack" (ahi se registra el pago).
   cont.querySelectorAll("[data-comm-pay-from-product]").forEach(btn => btn.addEventListener("click", () => {
@@ -9180,7 +9267,17 @@ async function enviarEstadoComisionista(ubicacionId, promotoraId){
   }
 }
 
-async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId){
+/* Diccionario de textos de dinero de Commissions (Generado/Pagado/Por pagar, Registrar pago...). Una sola fuente
+   para las tarjetas de persona (personaMoneyHtml) y la ficha de producto: no depende de que By rack se haya pintado.
+   Para cambiar un rotulo se cambia aqui y cambia en los dos lugares. */
+function _ocMoneyDict(){
+  const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
+  return esMoney ? {people:"Personas por liquidar · Reparto entre personas este mes", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", pay:(m) => "Registrar pago de " + m, history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle · Split between people this month", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", pay:(m) => "Record " + m + " payment", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
+}
+async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId, alcance){
+  /* v454: `alcance` = { sourceIds, producto } paga SOLO esas ventas (ficha de producto). El nombre del producto va en los
+     textos de confirmacion; el backend (planPayout.sourceIds) limita el pago a esas ventas. Sin `alcance` todo igual que antes. */
+  if (alcance && alcance.producto) promotorNombre = (promotorNombre || "") + " · " + alcance.producto;
   // Shell 371: se paga el mes que se esta viendo; el mismo mes va al backend y al recibo.
   const _mesPago = _ocMesComisiones || "";
   const _mesPagoTxt = _mesPago ? _ocMesEtiqueta(_mesPago) : "this month";
@@ -9234,7 +9331,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
   try {
     res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, {
       method: "POST",
-      body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, amountCents, opId, paidAt: new Date().toISOString() }),
+      body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, amountCents, opId, paidAt: new Date().toISOString(), sourceIds: alcance && alcance.sourceIds ? alcance.sourceIds : undefined }), // sourceIds solo con ficha de producto (undefined no viaja en JSON)
       headers: { "Content-Type": "application/json" }
     });
     r = await res.json();
