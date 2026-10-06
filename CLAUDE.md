@@ -26,7 +26,9 @@
 > **CODEX VOLVIO (JFC 2026-09-29):** JFC usa otra vez Codex (app "Work"). Coordinacion:
 > bitacora de Notion "Bitacora Claude + Codex — apps Made In Cuenca" (leer al empezar,
 > agregar entrada fechada al terminar) + `AGENTS.md`. Claude no se une al flujo de Codex: solo se
-> pasan la posta por la bitacora. Un blob subido por la API sin rama/PR
+> pasan la posta por la bitacora. **Apuntes para otras IA (JFC 2026-10-06):** al cerrar cada tanda,
+> dejar lo hecho y lo pendiente tambien en los archivos de anotaciones del repo (`NOTAS-PARA-*.md`,
+> `PROMPTS-Y-BITACORA.md`) para que Codex u otra IA retome sin re-preguntar. Un blob subido por la API sin rama/PR
 > se pierde: todo trabajo debe quedar en una rama. Numero de shell: el siguiente libre, nunca
 > reutilizar uno ya publicado por el otro modelo.
 
