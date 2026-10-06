@@ -1092,7 +1092,7 @@
       "how.cust.4": "4. Already have a customer list? Import it all at once from a CSV further down.",
       "how.comm.1": "1. Each partner/promoter shelf shows what they've sold this month and what you owe them.",
       "how.comm.2html": "2. Tap <strong>\"What if I sell more?\"</strong> to simulate a bigger month and see the commission change live.",
-      "how.comm.3html": "3. When you pay, tap <strong>\"Mark as paid\"</strong> — it seals the month's sales and offers an itemized WhatsApp receipt.",
+      "how.comm.3html": "3. When you pay, tap <strong>\"Record payment\"</strong> — it seals the month's sales and offers an itemized WhatsApp receipt.",
       "how.comm.4": "4. The ranking shows who's selling the most — and flags anyone who's gone quiet.",
       "how.adv.1": "1. Set your monthly expenses once — the app splits them across the real days in the month automatically.",
       "how.adv.2": "2. P&L, balance sheet and valued inventory update live from your actual sales and stock — no manual entry.",
