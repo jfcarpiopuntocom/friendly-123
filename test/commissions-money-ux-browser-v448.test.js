@@ -1,11 +1,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 
-test('Money UX browser: partial payout renders person-first controls on mobile without overflow', async () => {
-  const web = await chromium.launch({ headless: true });
+for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]]) {
+test(`Money UX browser (${engineName}): partial payout renders person-first controls on mobile without overflow`, async () => {
+  const web = await engine.launch({ headless: true });
   try {
     const page = await web.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href, { waitUntil: 'networkidle' });
@@ -69,3 +70,4 @@ test('Money UX browser: partial payout renders person-first controls on mobile w
     await web.close();
   }
 });
+}
