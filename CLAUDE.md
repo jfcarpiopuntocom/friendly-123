@@ -84,7 +84,14 @@ AVISAN, NO FRENAN: nada de canarios.js decide la promoción a clientes. Jamás m
 
 ---
 
-## POLÍTICA DE RELEASE — v448 GOLDEN (JFC 2026-10-04) — NO MOVER SIN ORDEN EXPRESA
+> **ACTUALIZACIÓN JFC 2026-10-06 (confirmada por opción múltiple): el congelamiento de v448
+> ESTÁ LEVANTADO desde el 2026-10-05.** Prevalece sobre la sección de abajo, que queda
+> como historia. Regla vigente (igual que AGENTS.md de `9a7dafd`): cada cambio de runtime usa
+> un shell nuevo, entero y creciente (v449, v450...), nunca uno ya publicado; generación
+> coherente; manifest regenerado; versión comercial 1.0 sin cambios. `release/capabilities.json`
+> protege las funciones aprobadas.
+
+## POLÍTICA DE RELEASE — v448 GOLDEN (JFC 2026-10-04) — HISTÓRICA, LEVANTADA EL 2026-10-05
 
 - La **familia pública queda congelada en `v448 GOLDEN`**. `version.json.shell` permanece
   `f123-shell-v448` y `releaseName` permanece `v448 GOLDEN`.
