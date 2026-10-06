@@ -120,8 +120,18 @@ test('Payout Ledger API records a partial payout and leaves the remainder due', 
   assert.equal(r.amount,15);
   assert.equal(Array.isArray(r.items),true);
   assert.equal(r.items.reduce((sum,it)=>sum+(it.offset ? -it.amountCents : it.amountCents),0),1500);
-  const liq=(await app.request('/api/liquidaciones')).find(x=>x.ubicacionId===s.rack.id);
+  let liq=(await app.request('/api/liquidaciones')).find(x=>x.ubicacionId===s.rack.id);
   assert.equal(liq.stillDue,25);
   assert.equal(liq.estado,'pendiente');
+  assert.equal(liq.paymentStatus,'partially-paid');
   assert.equal(liq.payoutHistory.some(p=>p.type==='payment' && p.amount===15),true);
+
+  const second=await app.request(`/api/liquidaciones/${s.rack.id}/marcar-pagado`,'POST',{
+    payeeId:s.alice.id, medioPago:'efectivo', amountCents:2500, opId:'partial-api-2'
+  });
+  assert.equal(second.amount,25);
+  liq=(await app.request('/api/liquidaciones')).find(x=>x.ubicacionId===s.rack.id);
+  assert.equal(liq.stillDue,0);
+  assert.equal(liq.paymentStatus,'paid');
+  assert.equal(liq.payoutHistory.filter(p=>p.type==='payment').length,2);
 });
