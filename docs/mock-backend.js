@@ -2004,6 +2004,11 @@
       })) : [];
       const stillDue = _ledger ? +(payoutBalances.reduce((a,r) => a + (Number(r.due) || 0), 0)).toFixed(2)
         : +(pendientes.reduce((a,v) => a + (Number(v.split && v.split.montoComisionSocio) || 0), 0) + ajPend.reduce((a,x) => a + (Number(x.montoComisionSocio) || 0), 0)).toFixed(2);
+      const _ledgerAbierto = _ledger ? _ledgerObs.some((o) => Math.abs(Number(o.dueCents) || 0) > 0) : !!(pendientes.length || ajPend.length);
+      const _ledgerPagoPositivo = _ledger ? _ledgerObs.some((o) => Number(o.signedAmountCents) > 0 && Number(o.paidCents) > 0)
+        : ventasMes.some((v) => !!v.liquidada);
+      const paymentStatus = (ventasMes.length === 0 && ajustesMes.length === 0) ? "no-sales"
+        : (_ledgerAbierto ? (_ledgerPagoPositivo ? "partially-paid" : "due") : "paid");
       const payoutHistory = payouts.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
         .slice().sort((a,b) => String(b.paidAt || b.createdAt || "").localeCompare(String(a.paidAt || a.createdAt || "")))
         .map((p) => ({ id:p.id, opId:p.opId, payeeId:p.payeeId || null, payeeName:p.payeeName || _payeeName(p.payeeId,u),
@@ -2060,9 +2065,8 @@
         /* Un saldo negativo pendiente es un clawback/credito por aplicar, NO "pagado".
            Estado se resuelve por obligaciones abiertas; el signo solo dice quien
            debe compensar a quien. */
-        estado: (ventasMes.length === 0 && ajustesMes.length === 0) ? "sin ventas"
-          : (_ledger ? (_ledgerObs.some((o) => Math.abs(Number(o.dueCents) || 0) > 0) ? "pendiente" : "pagado")
-            : ((pendientes.length || ajPend.length) ? "pendiente" : "pagado")),
+        estado: paymentStatus === "no-sales" ? "sin ventas" : (paymentStatus === "paid" ? "pagado" : "pendiente"),
+        paymentStatus,
         /* Como se pago (v391): el medio del ultimo pago sellado en el mes; null si no se registro. Solo lectura. */
         medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
         ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
