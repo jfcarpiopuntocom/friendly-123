@@ -11,6 +11,7 @@ test('Commissions payment UI asks the exact amount and sends integer cents to th
   const src = html.slice(start, end);
   assert.match(src, /ocPrompt\(/, 'payment flow must ask how much was actually paid');
   assert.match(src, /amountCents/, 'payment flow must send exact integer cents');
+  assert.match(src, /opId/, 'each payment action must send an explicit idempotency key so a second partial payment is not mistaken for a retry');
   assert.match(src, /r\s*&&\s*r\.items/, 'receipt must use the payout items returned by the ledger');
   assert.match(src, /Math\.round\([^\n]*\*\s*100\)/, 'UI must convert the confirmed amount to cents');
 });
