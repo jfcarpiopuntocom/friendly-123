@@ -26,9 +26,12 @@ test('Money UX: each payable person exposes visible edit, payment, statement and
 
 test('Money UX: person card shows Earned, Paid and Still due from ledger-backed values', () => {
   const src = commissionsRegion();
-  assert.match(src, />Earned</);
-  assert.match(src, />Paid</);
-  assert.match(src, />Still due</);
+  assert.match(src, /mx\.earned/, 'Earned label must be bound into person totals');
+  assert.match(src, /mx\.paid/, 'Paid label must be bound into person totals');
+  assert.match(src, /mx\.due/, 'Still due label must be bound into person totals');
+  assert.match(src, /earned:"Earned"/, 'English Earned copy must remain');
+  assert.match(src, /paid:"Paid"/, 'English Paid copy must remain');
+  assert.match(src, /due:"Still due"/, 'English Still due copy must remain');
   assert.match(src, /partially paid/i);
 });
 
