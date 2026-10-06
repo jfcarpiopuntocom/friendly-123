@@ -11,4 +11,4 @@ while ((m = re.exec(html))) {
   const code = m[1];
   try { new Function(code); } catch (e) { ok = false; console.log("SCRIPT #" + i + " SYNTAX ERROR:", e.message); }
 }
-console.log(file, "checked", i, "inline scripts; ok=" + ok);
+console.log(file, "checked", i, "inline scripts; ok=" + ok);\nif (!ok) process.exitCode = 1;
