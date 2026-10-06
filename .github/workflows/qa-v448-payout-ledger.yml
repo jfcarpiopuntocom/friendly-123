@@ -1,4 +1,5 @@
 name: qa-v448-payout-ledger
+# Manifest sync is a separate commit; a non-shell QA touch can validate the synced branch head.
 
 on:
   push:
