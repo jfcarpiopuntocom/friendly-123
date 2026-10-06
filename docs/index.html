@@ -8301,11 +8301,12 @@ function agruparVentasPorProducto(rows, soloComision, mes, incluirPropias = fals
       if (!conReparto && !compartida && !incluirPropias) return;
     }
     const k = v.productoId || v.productoNombre;
-    const d = map.get(k) || { productoId: v.productoId, producto: v.productoNombre, sku: v.sku || "", candidatas: [], perchas: new Set(), asociados: new Set(),
+    const d = map.get(k) || { productoId: v.productoId, producto: v.productoNombre, sku: v.sku || "", candidatas: [], perchas: new Set(), ubicacionIds: new Set(), asociados: new Set(),
       unid: 0, bruto: 0, socio: 0, casa: 0, pendSocio: 0, counterUnid: 0, counterMonto: 0, propiasUnid: 0, propiasMonto: 0, totalUnid: 0, total: 0, cortesias: 0 };
     const cant = Number(v.cantidad) || 1;
     const monto = (Number(v.precioUnit) || 0) * cant;
     if (v.ubicacionNombre) d.perchas.add(v.ubicacionNombre);
+    if (v.ubicacionId) d.ubicacionIds.add(v.ubicacionId); // golden16: pago desde By product (ver _tarjetaProd)
     d.totalUnid += cant; d.total += monto;
     if (v.cortesia) d.cortesias += cant;
     if (conReparto) {
@@ -8422,6 +8423,14 @@ function resumenComisionPorProductoHtml(prods, cuadre){
         ${d.counterUnid ? `<div><div class="rotulo"><em>${t("comm.productHouse")}</em></div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
         ${d.propiasUnid ? `<div><div class="rotulo">${t("comm.productOwn")}</div><div class="cifra">${fmtMoney(d.propiasMonto)} <small>${d.propiasUnid}u</small></div></div>` : ""}
       </div>
+      ${/* golden16 (JFC 2026-10-06, Belen): "By product / SKU" es la pestana por defecto y no tenia
+         boton de pago; solo "By rack" lo tenia. golden14 lo arreglo en dashboard.html, no en la app.
+         Igual que alla: aparece SOLO si todas las ventas del producto son de UNA percha, y NO paga
+         aqui: lleva a la tarjeta de esa percha en "By rack", donde vive el pago probado
+         (marcarComisionPagada). Asi no hay una ruta de dinero nueva ni se puede pagar otra percha. */
+        (d.pendSocio > 0 && d.ubicacionIds && d.ubicacionIds.size === 1) ? `<div style="margin-top:10px;"><button type="button" class="ir"
+          data-comm-pay-from-product="${escHtml([...d.ubicacionIds][0])}"
+          style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${(window.OCI18n && window.OCI18n.locale && window.OCI18n.getLang && window.OCI18n.getLang() === "es") ? "Registrar pago de " + fmtMoney(d.pendSocio) : "Record " + fmtMoney(d.pendSocio) + " payment"}</button></div>` : ""}
       ${(d.candidatas || []).length ? `<details style="margin-top:8px;"><summary style="cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--azul-medio,#2c4a68);font-size:14px;">${window.tf("comm.reviewSales",{n:d.candidatas.length})}</summary>
         <p style="font-size:13px;color:var(--ink-soft);">${t("comm.reviewNote")}</p>
         ${(d.candidatas || []).map(v => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #D7E0E8;font-size:14px;">
@@ -8611,8 +8620,8 @@ async function cargarComisiones(){
       (f.payoutHistory || []).some(h => String(h.payeeId || "") === String(p.payeeId || ""))
     );
     if (!balances.length) return "";
-    const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
-    const mx = esMoney ? {people:"Personas por liquidar · Reparto entre personas este mes", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle · Split between people this month", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
+    const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
+    const mx = esMoney ? {people:"Personas por liquidar · Reparto entre personas este mes", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", pay:(m) => "Registrar pago de " + m, history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle · Split between people this month", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", pay:(m) => "Record " + m + " payment", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
     return `<section data-comm-people-money style="margin-top:12px;">
       <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin:0 0 8px;">${mx.people}</div>
       ${balances.map(p => {
@@ -8645,7 +8654,7 @@ async function cargarComisiones(){
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-top:10px;">
             ${due > 0.00001 ? `<button type="button" class="ir" data-comm-pay-person="${escHtml(p.payeeId || "")}"
               data-pay-rack="${escHtml(f.ubicacionId || "")}" data-pay-name="${escHtml(name)}" data-pay-due="${due}"
-              style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">Record ${fmtMoney(due)} payment</button>` : ""}
+              style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${mx.pay(fmtMoney(due))}</button>` : ""}
             ${p.payeeId ? `<button type="button" class="tecla" data-comm-send-person data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.payeeId)}"
               style="min-height:44px;font-size:14px;margin:0;">${mx.statement}</button>` : ""}
           </div>
@@ -8767,6 +8776,13 @@ async function cargarComisiones(){
     filtrar();
   }
   cont.querySelectorAll("[data-review-commission]").forEach(btn => btn.addEventListener("click", () => revisarComisionVenta(btn.dataset.reviewCommission, btn.dataset.person)));
+  // golden16: el boton de pago de "By product" abre la percha en "By rack" (ahi se registra el pago).
+  cont.querySelectorAll("[data-comm-pay-from-product]").forEach(btn => btn.addEventListener("click", () => {
+    const id = btn.dataset.commPayFromProduct;
+    cambiarVistaComisiones("rack");
+    const card = [...cont.querySelectorAll("[data-liq-ubic]")].find(c => c.dataset.liqUbic === id);
+    if (card) { card.scrollIntoView({ behavior: "smooth", block: "start" }); const pay = card.querySelector("[data-comm-pay-person]"); if (pay) pay.focus({ preventScroll: true }); }
+  }));
   cont.querySelectorAll("[data-comm-pay-person]").forEach(btn => btn.addEventListener("click", () => {
     marcarComisionPagada(btn.dataset.payRack, btn.dataset.payName, Number(btn.dataset.payDue), btn.dataset.commPayPerson);
   }));
