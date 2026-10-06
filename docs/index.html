@@ -9123,11 +9123,17 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
 
   // #19: capturamos el desglose ANTES de sellar para rotular los items exactos del payout.
   const detalle = (window._ocLiqDet && window._ocLiqDet[ubicacionId]) || [];
+  /* Una acción humana = una clave idempotente. Sin esto dos pagos parciales
+     sucesivos podían parecer el mismo retry al backend porque cubren las mismas
+     ventas. El backend además vuelve a comprobar el saldo antes de escribir. */
+  const opId = (window.crypto && typeof window.crypto.randomUUID === "function")
+    ? window.crypto.randomUUID()
+    : ("ui-pay-" + Date.now() + "-" + Math.random().toString(36).slice(2));
   let res, r;
   try {
     res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, {
       method: "POST",
-      body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, amountCents, paidAt: new Date().toISOString() }),
+      body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, amountCents, opId, paidAt: new Date().toISOString() }),
       headers: { "Content-Type": "application/json" }
     });
     r = await res.json();
