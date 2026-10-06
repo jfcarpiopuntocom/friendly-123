@@ -3,7 +3,7 @@
   "shell": "f123-shell-v448",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-2c70de35b78d99204bda3585bb51507cb8e5e26098879cef1f1ee49efd17e9e1",
+    "./index.html": "sha256-62480e546302d89cc887b30a251bcfde7d696696f8b37a125ff18bb343af6727",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./img/logo-720.png": "sha256-621d161800503a13f3aa6248b6829ce69d9265b708d2d228e5eb051b9bd775ae",
     "./copiar-libre.js": "sha256-d30e6b2c6515df2608a7d7083c51a8251483a5443c785fefedf6b51b2910afd8",
