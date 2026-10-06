@@ -8611,18 +8611,21 @@ async function cargarComisiones(){
       (f.payoutHistory || []).some(h => String(h.payeeId || "") === String(p.payeeId || ""))
     );
     if (!balances.length) return "";
+    const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+    const mx = esMoney ? {people:"Personas por liquidar", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
     return `<section data-comm-people-money style="margin-top:12px;">
-      <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin:0 0 8px;">People to settle</div>
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin:0 0 8px;">${mx.people}</div>
       ${balances.map(p => {
         const due = Number(p.due) || 0;
         const paid = Number(p.paid) || 0;
         const earned = Number(p.earned) || 0;
-        const status = Math.abs(due) <= 0.00001 ? "paid" : (paid > 0 ? "partially paid" : "due");
-        const statusClass = status === "paid" ? "verde" : (status === "partially paid" ? "amarillo" : "rojo");
+        const statusKey = Math.abs(due) <= 0.00001 ? "paid" : (paid > 0 ? "partial" : "due");
+        const status = statusKey === "paid" ? mx.paidState : (statusKey === "partial" ? mx.partial : mx.dueState);
+        const statusClass = statusKey === "paid" ? "verde" : (statusKey === "partial" ? "amarillo" : "rojo");
         const hist = (f.payoutHistory || []).filter(h => String(h.payeeId || "") === String(p.payeeId || ""));
         const det = (f.detallePendientes || []).filter(d => String(d.payeeId || "") === String(p.payeeId || ""));
         const name = p.nombre || "Associate";
-        return `<article class="tag-card" data-comm-person-card data-payee-id="${escHtml(p.payeeId || "")}"
+        return `<article data-comm-person-card data-payee-id="${escHtml(p.payeeId || "")}"
           style="text-align:left;padding:14px 16px;margin:0 0 10px;border:2px solid var(--hairline,#E8ECF2);border-radius:6px;">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
             <div style="min-width:0;">
@@ -8632,12 +8635,12 @@ async function cargarComisiones(){
             ${p.payeeId ? `<button type="button" class="tecla" data-comm-edit-person="${escHtml(p.payeeId)}"
               data-abrir-promotora="${escHtml(p.payeeId)}" aria-label="Edit ${escHtml(name)} commission deal"
               title="Edit this person's commission deal"
-              style="min-height:44px;font-size:14px;margin:0;">✎ Edit deal</button>` : ""}
+              style="min-height:44px;font-size:14px;margin:0;">${mx.edit}</button>` : ""}
           </div>
           <div class="stats" style="margin-top:10px;">
-            <div><div class="rotulo">Earned</div><div class="cifra">${fmtMoney(earned)}</div></div>
-            <div><div class="rotulo">Paid</div><div class="cifra">${fmtMoney(paid)}</div></div>
-            <div><div class="rotulo">Still due</div><div class="cifra" style="color:${due > 0 ? 'var(--rust-deep,#C05000)' : 'var(--dinero-verde-dk,#008a54)'};">${fmtMoney(due)}</div></div>
+            <div><div class="rotulo">${mx.earned}</div><div class="cifra">${fmtMoney(earned)}</div></div>
+            <div><div class="rotulo">${mx.paid}</div><div class="cifra">${fmtMoney(paid)}</div></div>
+            <div><div class="rotulo">${mx.due}</div><div class="cifra" style="color:${due > 0 ? 'var(--rust-deep,#C05000)' : 'var(--dinero-verde-dk,#008a54)'};">${fmtMoney(due)}</div></div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-top:10px;">
             ${due > 0.00001 ? `<button type="button" class="ir" data-comm-pay-person="${escHtml(p.payeeId || "")}"
@@ -8645,22 +8648,22 @@ async function cargarComisiones(){
               onclick="marcarComisionPagada('${escHtml(f.ubicacionId)}','${escHtml(name)}',${due},'${escHtml(p.payeeId || "")}')">Record ${fmtMoney(due)} payment</button>` : ""}
             ${p.payeeId ? `<button type="button" class="tecla" data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.payeeId)}"
               style="min-height:44px;font-size:14px;margin:0;"
-              onclick="enviarEstadoComisionista(this.dataset.estU,this.dataset.estP)">Send statement</button>` : ""}
+              onclick="enviarEstadoComisionista(this.dataset.estU,this.dataset.estP)">${mx.statement}</button>` : ""}
           </div>
           <details data-comm-history-person style="margin-top:10px;">
             <summary style="min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--brass-dk,#2E6278);">
-              Payment history${hist.length ? " (" + hist.length + ")" : " · none yet"} →
+              ${mx.history}${hist.length ? " (" + hist.length + ")" : " · " + mx.none} →
             </summary>
             <div style="padding-top:4px;">
               ${hist.length ? hist.map(h => `<div style="padding:8px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;">
                 <strong>${h.type === "reversal" ? "REVERSAL" : "PAID"} · ${fmtMoney(h.amount)}</strong>
                 <div style="color:var(--ink-soft);">${h.paidAt ? escHtml(new Date(h.paidAt).toLocaleString()) : ""}${h.method ? " · " + escHtml(({efectivo:"cash",transferencia:"transfer",cheque:"check","credito-tienda":"store credit",otro:"other"})[h.method] || h.method) : ""}${h.reference ? " · ref " + escHtml(h.reference) : ""}</div>
                 ${h.note ? `<div style="color:var(--ink-soft);margin-top:2px;">${escHtml(h.note)}</div>` : ""}
-              </div>`).join("") : `<p style="font-size:14px;margin:4px 0;color:var(--ink);">No payments recorded for this person in this period.</p>`}
+              </div>`).join("") : `<p style="font-size:14px;margin:4px 0;color:var(--ink);">${mx.noPayments}</p>`}
             </div>
           </details>
           ${det.length ? `<details style="margin-top:4px;">
-            <summary style="min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--brass-dk,#2E6278);">What makes up this balance? →</summary>
+            <summary style="min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--brass-dk,#2E6278);">${mx.balance} →</summary>
             <table style="width:100%;font-size:14px;"><tbody>${det.map(d => `<tr><td>${d.cantidad}× ${escHtml(d.producto)}</td><td style="text-align:right;font-family:var(--font-mono);">${fmtMoney(d.comisionSocio)}</td></tr>`).join("")}</tbody></table>
           </details>` : ""}
         </article>`;
@@ -8692,8 +8695,8 @@ async function cargarComisiones(){
           <button type="button" class="tecla" data-comm-edit-rack="${escHtml(f.ubicacionId || "")}"
             aria-label="Adjust commission deal for ${escHtml(f.ubicacion)}" title="Adjust this shelf's commission deal"
             onclick="abrirEditorComisionPercha('${escHtml(f.ubicacionId || "")}')"
-            style="min-height:44px;font-size:14px;margin:0;">✎ Adjust shelf deal</button>
-          ${dormida}<span class="badge-estado ${_paymentClass}">${((_paymentStatus === "no-sales" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : _paymentText)}${_paymentStatus === "paid" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transferencia", cheque: "check", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span>
+            style="min-height:44px;font-size:14px;margin:0;">${(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es") ? "✎ Editar trato de percha" : "✎ Adjust shelf deal"}</button>
+          ${dormida}<span class="badge-estado ${_paymentClass}">${((_paymentStatus === "no-sales" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : _paymentText)}${_paymentStatus === "paid" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", cheque: "check", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span>
         </div>
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Commissionist/artist/promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
@@ -9250,7 +9253,8 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
       ``,
       `Gracias por tu trabajo este mes. — friendly-123`,
     ].filter(Boolean).join("\n");
-    const _saldoRestante = Math.max(0, _montoDebido - _montoRegistrado);\n    if (await ocConfirm(`Payment recorded: ${fmtMoney(_montoRegistrado)} for ${_nombreRegistrado}. Still due: ${fmtMoney(_saldoRestante)}. Send receipt via WhatsApp?`)) {
+    const _saldoRestante = Math.max(0, _montoDebido - _montoRegistrado);
+    if (await ocConfirm(_esP ? `Pago registrado: ${fmtMoney(_montoRegistrado)} para ${_nombreRegistrado}. Por pagar: ${fmtMoney(_saldoRestante)}. ¿Enviar recibo por WhatsApp?` : `Payment recorded: ${fmtMoney(_montoRegistrado)} for ${_nombreRegistrado}. Still due: ${fmtMoney(_saldoRestante)}. Send receipt via WhatsApp?`)) {
       window.open("https://wa.me/?text=" + encodeURIComponent(recibo), "_blank");
     }
   }
