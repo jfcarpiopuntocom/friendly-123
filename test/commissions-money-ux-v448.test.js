@@ -63,4 +63,6 @@ test('Money UX language: old Mark as paid wording is removed from owner-facing h
   assert.doesNotMatch(manual, /Mark as paid/i);
   assert.match(help, /Record payment/i);
   assert.match(manual, /Record payment/i);
+  assert.match(help, /Cuando pagues, toca <b>Registrar pago<\/b>/, 'Spanish help must use Spanish payment copy');
+  assert.doesNotMatch(help, /Cuando pagues[^\n]*Record payment/i, 'Spanish help must not mix English payment labels');
 });
