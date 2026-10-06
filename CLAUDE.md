@@ -86,6 +86,11 @@ AVISAN, NO FRENAN: nada de canarios.js decide la promoción a clientes. Jamás m
 
 ## POLÍTICA DE RELEASE — v448 GOLDEN (JFC 2026-10-04) — NO MOVER SIN ORDEN EXPRESA
 
+> **ACTUALIZADO POR JFC 2026-10-06:** el gate de continuidad (`scripts/release-control.cjs`, Codex 2026-10-06)
+> exige un shell numerico NUEVO y mayor a todos los usados en cada cambio de `docs/`. JFC eligio cumplirlo:
+> cada hotfix sube el shell interno (v451 = pago desde By product + Registrar pago en ES) y tambien `goldenN`;
+> lo visible sigue "1.0". Lo de abajo sobre "no crear v449/v450" queda reemplazado por esta nota.
+
 - La **familia pública queda congelada en `v448 GOLDEN`**. `version.json.shell` permanece
   `f123-shell-v448` y `releaseName` permanece `v448 GOLDEN`.
 - **NO crear v449/v450/etc. para hotfixes.** Los hotfixes de esta familia cambian solo la

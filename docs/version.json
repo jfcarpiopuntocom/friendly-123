@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-05",
-  "changelog": "v448 GOLDEN internal golden15: Payout Ledger v1 turns new commission payments into append-only auditable payout records. Payments are explicit per person, idempotent by operation, synced once, backed up, and projected back to legacy paid flags for compatibility. Ambiguous multi-person rack payments are refused; each person must be recorded separately. Public identity remains v448 / 1.0.",
+  "fecha": "2026-10-06",
+  "changelog": "v451 (interno; visible 1.0): Commissions By product/SKU trae boton de pago en la app (lleva al pago de la percha cuando el producto es de una sola percha) y Registrar pago sale en espanol.",
   "requerida": false,
-  "shell": "f123-shell-v448",
+  "shell": "f123-shell-v451",
   "apagar": [],
   "releaseName": "v448 GOLDEN",
   "cacheGeneration": "golden16"
