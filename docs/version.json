@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-06",
-  "changelog": "v451 (interno; visible 1.0): Commissions By product/SKU trae boton de pago en la app (lleva al pago de la percha cuando el producto es de una sola percha) y Registrar pago sale en espanol.",
+  "changelog": "v452: se cierra la familia v448 GOLDEN (orden JFC 2026-10-06). El nombre publico pasa a ser igual al shell. Sin cambios funcionales: incluye el pago desde By product/SKU y Registrar pago en espanol de v451.",
   "requerida": false,
-  "shell": "f123-shell-v451",
+  "shell": "f123-shell-v452",
   "apagar": [],
-  "releaseName": "v448 GOLDEN",
-  "cacheGeneration": "golden16"
+  "releaseName": "v452",
+  "cacheGeneration": "golden17"
 }

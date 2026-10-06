@@ -84,28 +84,21 @@ AVISAN, NO FRENAN: nada de canarios.js decide la promoción a clientes. Jamás m
 
 ---
 
-## POLÍTICA DE RELEASE — v448 GOLDEN (JFC 2026-10-04) — NO MOVER SIN ORDEN EXPRESA
+## POLÍTICA DE RELEASE — nombre público = shell (JFC 2026-10-06)
 
-> **ACTUALIZADO POR JFC 2026-10-06:** el gate de continuidad (`scripts/release-control.cjs`, Codex 2026-10-06)
-> exige un shell numerico NUEVO y mayor a todos los usados en cada cambio de `docs/`. JFC eligio cumplirlo:
-> cada hotfix sube el shell interno (v451 = pago desde By product + Registrar pago en ES) y tambien `goldenN`;
-> lo visible sigue "1.0". Lo de abajo sobre "no crear v449/v450" queda reemplazado por esta nota.
-
-- La **familia pública queda congelada en `v448 GOLDEN`**. `version.json.shell` permanece
-  `f123-shell-v448` y `releaseName` permanece `v448 GOLDEN`.
-- **NO crear v449/v450/etc. para hotfixes.** Los hotfixes de esta familia cambian solo la
-  generación interna de cache: `cacheGeneration: goldenN` en `version.json` y
-  `CACHE_GENERACION = "-goldenN"` en `docs/sw.js`.
-- El `CACHE` público sigue siendo `f123-shell-v448`; `CACHE_LOCAL` combina esa identidad
-  con la generación interna para forzar precache fresco sin mentir sobre la release.
-- Una nueva familia/version requiere orden expresa de JFC.
+- **La familia v448 GOLDEN queda CERRADA** por orden de JFC (aprobado en dos sesiones). Desde v452,
+  `version.json.releaseName` es igual al número del shell: `f123-shell-v452` -> `"v452"`.
+- Cada cambio a `docs/` sube el shell al siguiente entero nunca usado (lo exige
+  `scripts/release-control.cjs`), `releaseName` al mismo número, y `cacheGeneration`/`CACHE_GENERACION` al siguiente `goldenN`.
+- Lo visible para clientes sigue "1.0" hasta nueva orden de JFC.
+- Historia: v448 GOLDEN fue la familia congelada del 2026-10-04 al 2026-10-06 (hotfixes golden1..golden16, shells v448..v451).
 
 ## CHECKLIST DE RELEASE — obligatorio en CADA cambio a un archivo del SHELL
 
 Un archivo del SHELL es cualquiera listado en `const SHELL=[...]` de `docs/sw.js`
 (index.html, auth-ui.js, mock-backend.js, etc.). Si tocas uno:
 
-1. Mantén `const CACHE = "f123-shell-v448"` y `version.json.shell = "f123-shell-v448"`.
+1. Sube `const CACHE`, `version.json.shell` y `releaseName` al siguiente entero nunca usado (ej. v452 -> v453).
 2. Sube `cacheGeneration` y `CACHE_GENERACION` al siguiente `goldenN`.
 3. `node scripts/gen-manifest.js` (regenera los SHA-256 del shell).
 4. `bash check-sw.sh` — tiene que salir TODO OK (hashes reales cuadran,
