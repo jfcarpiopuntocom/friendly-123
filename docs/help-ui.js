@@ -124,7 +124,7 @@
       comTit: "Commissions (weekly or monthly)",
       com: [
         "Each person earns on the sales where they were chosen, even on someone else's shelf. The shelf card shows the <b>split between people</b>.",
-        "When you pay, tap <b>Mark as paid</b>. <b>Send statement</b> opens WhatsApp with a link that works 7 or 30 days.",
+        "When you pay, tap <b>Record payment</b>. <b>Send statement</b> opens WhatsApp with a link that works 7 or 30 days.",
         "A return of a sale already paid comes off that person's next amount."
       ],
       cliTit: "Customers",
@@ -210,7 +210,7 @@
       comTit: "Comisiones (cada semana o cada mes)",
       com: [
         "Cada persona cobra las ventas donde se la eligió, aunque sean en la percha de otra. La tarjeta de la percha muestra el <b>reparto entre personas</b>.",
-        "Cuando pagues, toca <b>Mark as paid</b>. <b>Send statement</b> abre WhatsApp con un enlace que dura 7 o 30 días.",
+        "Cuando pagues, toca <b>Record payment</b>. <b>Send statement</b> abre WhatsApp con un enlace que dura 7 o 30 días.",
         "La devolución de una venta ya pagada se descuenta del próximo pago de esa persona."
       ],
       cliTit: "Clientes",
