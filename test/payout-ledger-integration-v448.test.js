@@ -109,3 +109,17 @@ test('reversal is append-only, preserves original payout and reopens amount due'
   assert.equal(liq.estado,'pendiente');
   assert.equal(liq.payoutHistory.some(p=>p.type==='reversal' && p.amount===-40),true);
 });
+
+
+test('Payout Ledger API records a partial payout and leaves the remainder due', async () => {
+  const app=browser(); const s=await store(app);
+  await app.request(`/api/productos/${s.product.id}/venta`,'POST',{cantidad:1});
+  const r=await app.request(`/api/liquidaciones/${s.rack.id}/marcar-pagado`,'POST',{
+    payeeId:s.alice.id, medioPago:'transferencia', amountCents:1500, opId:'partial-api-1'
+  });
+  assert.equal(r.amount,15);
+  const liq=(await app.request('/api/liquidaciones')).find(x=>x.ubicacionId===s.rack.id);
+  assert.equal(liq.stillDue,25);
+  assert.equal(liq.estado,'pendiente');
+  assert.equal(liq.payoutHistory.some(p=>p.type==='payment' && p.amount===15),true);
+});
