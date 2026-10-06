@@ -59,7 +59,8 @@ test('Money UX regression: historical Commissions controls are not lost', () => 
   assert.match(html, /function abrirEditorComisionPercha\(/, 'historical shelf commission editor must remain callable');
 });
 
-test('Money UX language: old Mark as paid wording is removed from owner-facing help/manual', () => {
+test('Money UX language: old Mark as paid wording is removed from owner-facing UI/help/manual', () => {
+  assert.doesNotMatch(html, /Mark as paid/i);
   assert.doesNotMatch(help, /Mark as paid/i);
   assert.doesNotMatch(manual, /Mark as paid/i);
   assert.match(help, /Record payment/i);
