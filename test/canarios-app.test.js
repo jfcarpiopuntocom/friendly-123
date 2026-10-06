@@ -28,15 +28,24 @@ function servidor() {
     res.end(cuerpo);
   });
 }
+// Este servidor sustituye bytes para una identidad ficticia: su manifest no es
+// el artefacto publicado. Los SW tienen su suite propia; aqui deben pasar por
+// las rutas del fixture (incluida la cabecera Date simulada), sin cache del SW.
 async function conServidor(fn) {
   const srv = servidor(); await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   const web = await chromium.launch({ headless: true });
   try { return await fn(web, `http://127.0.0.1:${srv.address().port}/friendly-123/`); }
   finally { await web.close(); srv.close(); }
 }
+// networkidle no prueba que el cargador secuencial haya terminado. Bajo carga
+// el fixture llegaba a medirCuadre con OCSalud undefined y el panel sin inicializar.
+async function lista(page) {
+  await page.waitForFunction(() => window.OCCargador && window.OCCargador.estado().listo && window.OCSalud && window.OCLatencia, null, { timeout: 20000 });
+}
 async function aparato(ctx, base, licencia) {
   const page = await ctx.newPage();
   await page.goto(base + '?estable=1', { waitUntil: 'networkidle' }); // primera carga: sembrar sin moverse
+  await lista(page);
   await page.evaluate((lic) => {
     localStorage.removeItem('f123_canal_propio');
     localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'inst-canario-test', licenseCode: lic }));
@@ -47,15 +56,18 @@ async function aparato(ctx, base, licencia) {
 
 test('aparato lord: la direccion de los clientes lo lleva solo a /next/ con los mismos datos', async () => {
   await conServidor(async (web, base) => {
-    const ctx = await web.newContext();
+    const ctx = await web.newContext({ serviceWorkers: 'block' });
     const page = await aparato(ctx, base, LORD_PRUEBA);
     await page.evaluate(() => localStorage.setItem('f123_marca_datos', 'mismo-cuaderno'));
     await page.goto(base, { waitUntil: 'networkidle' });
+    await lista(page);
     await page.waitForURL(/\/next\/$/, { timeout: 8000 });
     assert.equal(await page.evaluate(() => localStorage.getItem('f123_marca_datos')), 'mismo-cuaderno', 'mismos datos en /next/');
     // Salida: ?estable=1 lo deja en el estable y lo recuerda.
     await page.goto(base + '?estable=1', { waitUntil: 'networkidle' });
+    await lista(page);
     await page.goto(base, { waitUntil: 'networkidle' });
+    await lista(page);
     await page.waitForTimeout(1500);
     assert.doesNotMatch(page.url(), /\/next\//, 'con la salida puesta se queda en el estable');
   });
@@ -63,9 +75,10 @@ test('aparato lord: la direccion de los clientes lo lleva solo a /next/ con los 
 
 test('aparato de un cliente: nunca se mueve de la direccion estable', async () => {
   await conServidor(async (web, base) => {
-    const ctx = await web.newContext();
+    const ctx = await web.newContext({ serviceWorkers: 'block' });
     const page = await aparato(ctx, base, 'F123-CLIENTE-DE-PRUEBA');
     await page.goto(base, { waitUntil: 'networkidle' });
+    await lista(page);
     await page.waitForTimeout(2000);
     assert.doesNotMatch(page.url(), /\/next\//);
   });
@@ -73,9 +86,10 @@ test('aparato de un cliente: nunca se mueve de la direccion estable', async () =
 
 test('salud: solo campos de la lista blanca; cuadre "ok" con ventas mezcladas (sin rojo falso)', async () => {
   await conServidor(async (web, base) => {
-    const ctx = await web.newContext();
+    const ctx = await web.newContext({ serviceWorkers: 'block' });
     const page = await aparato(ctx, base, LORD_PRUEBA);
     await page.goto(base + 'next/', { waitUntil: 'networkidle' });
+    await lista(page);
     await page.waitForTimeout(3000);
     const r = await page.evaluate(async () => {
       const req = async (u, m = 'GET', b) => (await fetch(u, { method: m, headers: b ? { 'Content-Type': 'application/json' } : undefined, body: b ? JSON.stringify(b) : undefined })).json();
@@ -101,9 +115,10 @@ test('salud: solo campos de la lista blanca; cuadre "ok" con ventas mezcladas (s
 
 test('salud: un error de JavaScript en la sesion se cuenta', async () => {
   await conServidor(async (web, base) => {
-    const ctx = await web.newContext();
+    const ctx = await web.newContext({ serviceWorkers: 'block' });
     const page = await aparato(ctx, base, LORD_PRUEBA);
     await page.goto(base + 'next/', { waitUntil: 'networkidle' });
+    await lista(page);
     const antes = await page.evaluate(() => window.OCSalud.resumen().errores);
     await page.evaluate(() => { setTimeout(() => { throw new Error('canario de prueba'); }, 0); });
     await page.waitForTimeout(300);
@@ -113,9 +128,10 @@ test('salud: un error de JavaScript en la sesion se cuenta', async () => {
 
 test('salud: un descuadre real entre Sold y Commissions se detecta como "fallo"', async () => {
   await conServidor(async (web, base) => {
-    const ctx = await web.newContext();
+    const ctx = await web.newContext({ serviceWorkers: 'block' });
     const page = await aparato(ctx, base, LORD_PRUEBA);
     await page.goto(base + 'next/', { waitUntil: 'networkidle' });
+    await lista(page);
     await page.waitForTimeout(2500);
     const r = await page.evaluate(async () => {
       const req = async (u, m = 'GET', b) => (await fetch(u, { method: m, headers: b ? { 'Content-Type': 'application/json' } : undefined, body: b ? JSON.stringify(b) : undefined })).json();
@@ -138,9 +154,10 @@ test('salud: un descuadre real entre Sold y Commissions se detecta como "fallo"'
 test('franja del canario en Advanced: la ve el aparato lord como dueno, no un cliente', async () => {
   await conServidor(async (web, base) => {
     const ver = async (lic) => {
-      const ctx = await web.newContext();
+      const ctx = await web.newContext({ serviceWorkers: 'block' });
       const page = await aparato(ctx, base, lic);
       await page.goto(base + 'next/', { waitUntil: 'networkidle' });
+      await lista(page);
       await page.waitForTimeout(2500);
       await page.click('nav button[data-vista="avanzado"]');
       await page.waitForTimeout(3000);
@@ -158,9 +175,10 @@ test('franja del canario en Advanced: la ve el aparato lord como dueno, no un cl
    un aparato CLIENTE. Prueba nueva (no de fijacion): sin el aviso este test es rojo. */
 test('aviso de hora en Advanced: un cliente dueno lo ve con el reloj corrido, y no lo ve con la hora buena', async () => {
   await conServidor(async (web, base) => {
-    const ctx = await web.newContext();
+    const ctx = await web.newContext({ serviceWorkers: 'block' });
     const page = await aparato(ctx, base, 'F123-CLIENTE-DE-PRUEBA');
     await page.goto(base + 'next/', { waitUntil: 'networkidle' });
+    await lista(page);
     await page.waitForTimeout(2500);
     await page.click('nav button[data-vista="avanzado"]');
     await page.waitForTimeout(3500);
@@ -172,14 +190,17 @@ test('aviso de hora en Advanced: un cliente dueno lo ve con el reloj corrido, y 
     // (cabecera Date de version.json) dice la hora buena -> no se acusa al aparato.
     assert.equal((await leer()).vis, false, 'solo el relay corrido: no acusa al aparato');
     // Segundo testigo de acuerdo: el servidor tambien va 6 min adelante del aparato.
-    await page.route('**/version.json?reloj=*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{}',
-      headers: { Date: new Date(Date.now() + 6 * 60 * 1000).toUTCString() } }));
+    let clockRequests = 0;
+    await page.route('**/version.json?reloj=*', (r) => { clockRequests++; return r.fulfill({ status: 200, contentType: 'application/json', body: '{}',
+      headers: { Date: new Date(Date.now() + 6 * 60 * 1000).toUTCString() } }); });
     await page.evaluate(() => { window.OCLatencia.reiniciar(); const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 6 * 60 * 1000, t + 20); });
     await page.reload({ waitUntil: 'networkidle' });
+    await lista(page);
     await page.waitForTimeout(2500);
     await page.click('nav button[data-vista="avanzado"]');
     await page.evaluate(() => { const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 6 * 60 * 1000, t + 20); });
     await page.waitForTimeout(7000);
+    assert.ok(clockRequests > 0, 'el segundo testigo debe pasar por la ruta de reloj simulada');
     const malo = await leer();
     assert.equal(malo.vis, true);
     assert.match(malo.txt, /Clock warning: .* about 6 minutes behind/);
@@ -196,9 +217,10 @@ test('aviso de hora en Advanced: un cliente dueno lo ve con el reloj corrido, y 
    (el monto malo queda igual) y la percha vacia se llena desde el producto. Prueba nueva. */
 test('invariantes al arrancar: avisa el dinero partido sin tocarlo y llena la percha vacia', async () => {
   await conServidor(async (web, base) => {
-    const ctx = await web.newContext();
+    const ctx = await web.newContext({ serviceWorkers: 'block' });
     const page = await aparato(ctx, base, 'F123-CLIENTE-DE-PRUEBA');
     await page.goto(base + 'next/', { waitUntil: 'networkidle' });
+    await lista(page);
     await page.waitForTimeout(2500);
     const sembrado = await page.evaluate(async () => {
       const exp = await (await fetch('/api/respaldo/exportar')).json();
@@ -217,6 +239,7 @@ test('invariantes al arrancar: avisa el dinero partido sin tocarlo y llena la pe
     const bufferUbi = () => page.evaluate(() => { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); try { const b = JSON.parse(localStorage.getItem(k)); const v = b && b.ventas && b.ventas.find((x) => x.id === 'v-vacia'); if (v) return v.ubicacionId; } catch (_) {} } return null; });
     assert.equal(await bufferUbi(), '', 'antes de reiniciar la venta guardada trae la percha vacia (prueba de que el llenado es de v428)');
     await page.reload({ waitUntil: 'networkidle' });
+    await lista(page);
     await page.waitForTimeout(2500);
     const inf = await page.evaluate(async () => (await fetch('/api/invariantes')).json());
     assert.equal(await bufferUbi(), sembrado.ubi, 'tras reiniciar, la percha vacia quedo guardada llena');

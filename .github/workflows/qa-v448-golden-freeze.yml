@@ -29,14 +29,8 @@ jobs:
 
       - name: "01 Golden identity and cache uniqueness"
         run: |
-          grep -q '"shell": "f123-shell-v448"' docs/version.json
-          grep -q '"releaseName": "v448 GOLDEN"' docs/version.json
-          grep -q 'const CACHE = "f123-shell-v448"' docs/sw.js
-          grep -Eq 'const CACHE_GENERACION = "-golden[0-9]+"' docs/sw.js
-          grep -Eq '"cacheGeneration": "golden[0-9]+"' docs/version.json
-          grep -q 'const CACHE_LOCAL = CACHE + CACHE_GENERACION + CANAL' docs/sw.js
-          grep -q '"shell": "f123-shell-v448"' docs/version-manifest.json
-          ! grep -q '"shell": "f123-shell-v450"' docs/version.json
+          node scripts/release-control.cjs validate
+          node --test test/v448-golden-generation.test.js
 
       - name: "02 Shelf lifecycle tombstones"
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/shelf-lifecycle-race-v448.test.js test/perchas-hotfix-v444.test.js test/commissions-deleted-racks.test.js

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "decision": "JFC 2026-10-05: shell freeze lifted; approved capabilities must not regress without an explicit product decision.",
+  "coverage": "Initial protected inventory. Passing these tests is not proof of complete UI/UX coverage or physical-device health.",
+  "capabilities": [
+    {"id":"commission-person-money-and-editors","contract":"Earned/Paid/Still due, partial payments, statements, history, person and shelf editors and historical deep links remain reachable.","tests":["test/commissions-money-ux-v448.test.js","test/commissions-money-ux-browser-v448.test.js"]},
+    {"id":"commission-product-rack-views","contract":"Both product/SKU and rack/event views remain available.","tests":["test/commissions-switch-browser.test.js","test/commissions-layout.test.js"]},
+    {"id":"commission-period-dashboard","contract":"Selected period survives dashboard-to-app payment navigation.","tests":["test/commissions-dashboard-month-deeplink-v448.test.js","test/commissions-period.test.js"]},
+    {"id":"commission-counter-piece-deal","contract":"Counter is a sales channel, never implicit removal of the piece/shelf commission.","tests":["test/counter-sale.test.js","test/pieza-manda-counter.test.js"]},
+    {"id":"payout-ledger-idempotent","contract":"New payments are exact, auditable facts; partial payments, retries and legacy history remain coherent.","tests":["test/payout-ledger-v448.test.js","test/payout-ledger-integration-v448.test.js","test/payout-partial-ui-v448.test.js"]},
+    {"id":"commission-split-clawback","contract":"Split and return adjustments preserve paid history.","tests":["test/commissions-clawback-split.test.js"]},
+    {"id":"shelf-lifecycle","contract":"Archived or deleted shelves do not reappear from stale peers.","tests":["test/shelf-lifecycle-race-v448.test.js","test/commissions-deleted-racks.test.js"]},
+    {"id":"photo-exact-preserved-evidence","contract":"Rendering preserves photos; recovery uses exact shelf evidence and respects newer images.","tests":["test/photo-prime-directive-g04.test.js","test/shelf-photo-policy-hex.test.js","test/shelf-photo-preisolation-g10.test.js","test/shelf-photo-raw-localstorage-g10b.test.js"]},
+    {"id":"backup-restore-photos","contract":"Exports are importable and preserve photo evidence; corrupt imports do not erase business state.","tests":["test/respaldo-whatsapp.test.js","test/photo-backup-evidence-v449.test.js","test/backup-fotos.test.js"]},
+    {"id":"sync-isolation-durability","contract":"Business edits converge without mixing tenants or applying operations twice.","tests":["test/sync-zero-trust.test.js","test/sync-behavior.test.js","test/sync-hardening.test.js","test/yjs-bridge.test.js"]},
+    {"id":"stock-stale-zero","contract":"Stale legacy zero cannot erase valid positive stock; legitimate modern zero remains supported.","tests":["test/stock-zero-replay-v445.test.js"]},
+    {"id":"undo-returns","contract":"Undo and returns preserve the existing accounting and stock semantics.","tests":["test/deshacer-cancelacion-vencido.test.js","test/devoluciones.test.js"]},
+    {"id":"name-language-continuity","contract":"Changing display language does not overwrite the user's business name.","tests":["test/i18n-header-nombre.test.js"]},
+    {"id":"active-worker-truth","contract":"The PIN badge describes the controlling worker, not whichever cache is newest.","tests":["test/shell-gate.test.js","test/v448-golden-generation.test.js"]}
+  ]
+}

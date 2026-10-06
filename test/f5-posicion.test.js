@@ -14,12 +14,19 @@ async function conPagina(fn) {
   try {
     const page = await web.newPage({ viewport: { width: 390, height: 700 } });
     await page.goto(URL_APP, { waitUntil: 'networkidle' });
+    await lista(page);
     return await fn(page);
   } finally { await web.close(); }
+}
+// El cargador secuencial y las fuentes deben estar listos antes de medir geometria.
+async function lista(page) {
+  await page.waitForFunction(() => window.OCCargador && window.OCCargador.estado().listo, null, { timeout: 20000 });
+  await page.evaluate(() => document.fonts.ready);
 }
 // Sesion ya abierta en esta pestana (lo que deja un login con PIN), y recarga.
 async function recargar(page) {
   await page.reload({ waitUntil: 'networkidle' });
+  await lista(page);
   await page.waitForTimeout(3500); // auto-login + reintentos de scroll (~3 s)
 }
 const activa = (page) => page.evaluate(() => { const b = document.querySelector('nav button.activo'); return b && b.dataset.vista; });
@@ -31,12 +38,16 @@ test('F5 vuelve a la misma seccion, con el desplegable abierto y el mismo scroll
     await page.click('nav button[data-vista="escanear"]');
     await page.evaluate(() => { document.getElementById('ventasSold').open = true; });
     await page.waitForTimeout(800);
-    const y = await page.evaluate(() => {
+    let y = await page.evaluate(() => {
       const max = document.documentElement.scrollHeight - innerHeight;
       const y = Math.min(500, max - 20); window.scrollTo(0, y); return Math.round(scrollY);
     });
     assert.ok(y > 150, 'la vista tiene por donde bajar (y=' + y + ')');
     await page.waitForTimeout(500);
+    // Comparar con la posicion real inmediatamente antes de F5, no con una
+    // lectura anterior a que el navegador termine el scroll/ajuste de layout.
+    y = await page.evaluate(() => Math.round(scrollY));
+    assert.ok(y > 150, 'posicion real antes de recargar');
     await recargar(page);
     assert.equal(await activa(page), 'escanear', 'misma seccion');
     assert.equal(await page.evaluate(() => document.getElementById('ventasSold').open), true, 'Sold sigue abierto');

@@ -14,6 +14,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
+  actions: read
   contents: write
   pages: write
   id-token: write
@@ -27,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       hecho: ${{ steps.o.outputs.hecho }}
+      recovery: ${{ steps.o.outputs.recovery }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,13 +51,17 @@ jobs:
           if git rev-parse -q --verify "refs/tags/sonar-$ID" >/dev/null; then echo "orden $ID ya ejecutada"; exit 0; fi
           ESTABLE=$(git rev-parse origin/estable)
           if [ "$ACCION" = "push" ]; then
-            MASTER=$(git rev-parse origin/master)
+            MASTER=$(node scripts/release-control.cjs served "$(git rev-parse origin/master)")
             if [ "$ESTABLE" != "$MASTER" ]; then
-              git push origin "$ESTABLE:refs/heads/previo" --force
-              git push origin "$MASTER:refs/heads/estable" --force
+              node scripts/release-control.cjs gate "$MASTER" >> "$GITHUB_STEP_SUMMARY" 2>&1 || echo "PUSH explicito de JFC: QA no bloquea" >> "$GITHUB_STEP_SUMMARY"
+              git fetch -q origin master estable
+              [ "$(git rev-parse origin/estable)" = "$ESTABLE" ] || { echo "Estable cambio durante QA"; exit 1; }
+              git merge-base --is-ancestor "$ESTABLE" "$MASTER" || { echo "PUSH no es avance"; exit 1; }
+              git push --atomic origin "$ESTABLE:refs/heads/previo" "$MASTER:refs/heads/estable"
             fi
             echo "PUSH: previo=$ESTABLE estable=$MASTER"
           elif [ "$ACCION" = "rewind" ]; then
+            echo "recovery=true" >> "$GITHUB_OUTPUT"
             if ! git rev-parse -q --verify origin/previo >/dev/null; then echo "no hay version previa"; exit 1; fi
             PREVIO=$(git rev-parse origin/previo)
             git push origin "$PREVIO:refs/heads/estable" --force
@@ -65,8 +71,12 @@ jobs:
           fi
           git tag "sonar-$ID" && git push -q origin "refs/tags/sonar-$ID"
           echo "hecho=si" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   publicar:
     needs: orden
     if: needs.orden.outputs.hecho == 'si'
     uses: ./.github/workflows/publicar.yml
+    with:
+      recovery: ${{ needs.orden.outputs.recovery == 'true' }}

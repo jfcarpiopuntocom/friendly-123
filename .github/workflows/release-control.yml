@@ -1,0 +1,41 @@
+name: release-control
+on:
+  push:
+    branches: [master]
+  pull_request: {}
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: release-control-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: Release continuity gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Preserve approved capabilities and release identity
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/release-control.cjs validate "${BASE_SHA:-HEAD^}"
+      - name: Parse operational UI
+        run: node .claude/check-inline.cjs docs/index.html
+      - name: Full regression suite including browser and financial contracts
+        run: npm test
+      - name: Artifact integrity
+        run: |
+          cp docs/version-manifest.json /tmp/manifest-before.json
+          node scripts/gen-manifest.js
+          diff -u /tmp/manifest-before.json docs/version-manifest.json
+          bash check-sw.sh
+          git diff --check

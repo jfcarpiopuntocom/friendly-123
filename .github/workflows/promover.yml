@@ -15,6 +15,7 @@ on:
     paths: ["docs/**"]
 
 permissions:
+  actions: read
   contents: write
   pages: write
   id-token: write
@@ -35,6 +36,8 @@ jobs:
           fetch-depth: 0
       - id: v
         name: Esperar 33 min mirando el Sonar
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
           WORKER="https://friendly123-licencias.jfcarpio.workers.dev"
@@ -65,7 +68,7 @@ jobs:
           # Un canario util debe ser un aparato real de la licencia lord, reportando
           # desde /next/ y con telemetria reciente. El latido lord corre cada 3 min;
           # damos 7 min para tolerar jitter/red sin aceptar un testigo abandonado.
-          # La misma regla aplica al PUSH manual. Falla cerrado.
+          # Solo promocion automatica; PUSH es la orden de emergencia de JFC.
           hayTestigo() {
             E=$(curl -s --max-time 20 "$WORKER/canario/estado?shell=$SHELL_NUEVO" || echo '{}')
             REP=$(echo "$E" | jq -r '.reportes // 0')
@@ -85,16 +88,15 @@ jobs:
             [ "$EDAD_ULT" -le 420000 ] 2>/dev/null &&
             [ "$EDAD_NEXT" -le 420000 ] 2>/dev/null
           }
-          FIN=$(( $(date +%s) + 33 * 60 ))
+          # Tiempo desde el push, no desde el final de QA ni desde el inicio del runner.
+          INICIO=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at) || exit 1
+          FIN=$(( $(date -d "$INICIO" +%s) + 33 * 60 ))
           while [ "$(date +%s)" -lt "$FIN" ]; do
-            if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
             if pushPedido; then
-              if hayTestigo; then
-                echo "PUSH del panel ($ORDEN_ID): hay testigo canario, se promueve ya"
-                echo "orden=$ORDEN_ID" >> "$GITHUB_OUTPUT"; echo "promover=si" >> "$GITHUB_OUTPUT"; exit 0
-              fi
-              echo "PUSH del panel ($ORDEN_ID) retenido: aun no hay testigo canario real"
+              echo "PUSH de emergencia de JFC ($ORDEN_ID): sin bloqueo QA/testigo"
+              echo "orden=$ORDEN_ID" >> "$GITHUB_OUTPUT"; echo "promover=si" >> "$GITHUB_OUTPUT"; exit 0
             fi
+            if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
             sleep 60
           done
           if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
@@ -104,14 +106,25 @@ jobs:
         if: steps.v.outputs.promover == 'si'
         run: |
           set -euo pipefail
-          git fetch -q origin estable
+          TARGET="$GITHUB_SHA"
+          if [ -n "$ORDEN_ID" ]; then
+            TARGET=$(node scripts/release-control.cjs served "$GITHUB_SHA")
+            node scripts/release-control.cjs gate "$TARGET" >> "$GITHUB_STEP_SUMMARY" 2>&1 || echo "PUSH explicito: QA no bloquea" >> "$GITHUB_STEP_SUMMARY"
+          else
+            # Una sola lectura al terminar la ventana: no extenderla esperando QA.
+            node scripts/release-control.cjs gate "$GITHUB_SHA"
+          fi
+          git fetch -q origin estable master previo
+          [ "$(git rev-parse origin/master)" = "$GITHUB_SHA" ] || { echo "Candidato obsoleto"; exit 1; }
           ESTABLE=$(git rev-parse origin/estable)
-          if [ "$ESTABLE" = "$GITHUB_SHA" ]; then echo "estable ya esta en este commit"; exit 0; fi
+          if [ "$ESTABLE" = "$TARGET" ]; then echo "estable ya esta en este commit"; exit 0; fi
           # Solo hacia adelante: una ventana vieja jamas retrocede a los clientes.
-          if ! git merge-base --is-ancestor "$ESTABLE" "$GITHUB_SHA"; then echo "estable no es ancestro de este commit: no se mueve"; exit 1; fi
-          git push origin "$ESTABLE:refs/heads/previo" --force
-          git push origin "$GITHUB_SHA:refs/heads/estable" --force
-          echo "previo=$ESTABLE estable=$GITHUB_SHA"
+          if ! git merge-base --is-ancestor "$ESTABLE" "$TARGET"; then echo "estable no es ancestro de este commit: no se mueve"; exit 1; fi
+          git push --atomic origin "$ESTABLE:refs/heads/previo" "$TARGET:refs/heads/estable"
+          echo "previo=$ESTABLE estable=$TARGET"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORDEN_ID: ${{ steps.v.outputs.orden }}
       - name: Marcar la orden PUSH como ejecutada
         if: steps.v.outputs.promover == 'si' && steps.v.outputs.orden != ''
         run: |

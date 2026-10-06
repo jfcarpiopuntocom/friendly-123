@@ -28,7 +28,7 @@ if [ "$sw_ver" != "$vj_ver" ]; then
 fi
 
 # v448 GOLDEN: release publica y generacion interna son cosas distintas.
-# La release queda en f123-shell-v448; cada hotfix de shell sube goldenN.
+# JFC 2026-10-05: shells nuevos autorizados; conservar coherencia de generacion.
 sw_gen=$(grep -oE 'const CACHE_GENERACION = "-golden[0-9]+"' docs/sw.js | sed -E 's/.*"(-golden[0-9]+)".*/\1/' | head -1)
 vj_gen=$(grep -oE '"cacheGeneration":\s*"golden[0-9]+"' docs/version.json | sed -E 's/.*"(golden[0-9]+)".*/\1/' | head -1)
 if [ "$vj_ver" = "f123-shell-v448" ]; then
@@ -167,8 +167,8 @@ if [ "$falta" = "0" ]; then
   echo "OK — ninguna licencia completa en el repo publico (G5)."
   echo "RELEASE shell: $sw_ver"
   [ -n "$sw_gen" ] && echo "CACHE generation: $sw_gen"
-  echo "Recuerda: v448 GOLDEN no cambia de numero publico; cada hotfix de shell"
-  echo "sube CACHE_GENERACION (goldenN) y version.json cacheGeneration."
+  echo "Recuerda: cada cambio de runtime usa un shell nuevo, numerico y creciente;"
+  echo "conserva la generacion coherente, el aislamiento por canal y el manifest."
 fi
 
 # G7 (2026-10-01): un merge dejo marcas de conflicto DENTRO de docs/sw.js y check-sw daba

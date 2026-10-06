@@ -22,9 +22,19 @@ on:
         description: "Ensayo: construir el sitio sin desplegar"
         type: boolean
         default: false
-  workflow_call: {}
+  workflow_run:
+    workflows: [release-control]
+    types: [completed]
+    branches: [master]
+  workflow_call:
+    inputs:
+      recovery:
+        description: "REWIND conserva el canario ya publicado sin depender del QA de master"
+        type: boolean
+        default: false
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -36,24 +46,55 @@ concurrency:
 jobs:
   construir:
     runs-on: ubuntu-latest
+    outputs:
+      stable: ${{ steps.assemble.outputs.stable }}
+      master: ${{ steps.assemble.outputs.master }}
+      previous: ${{ steps.assemble.outputs.previous }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Armar sitio (estable en la raiz, master en /next/)
+        id: assemble
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVERY: ${{ inputs.recovery || false }}
         run: |
           set -euo pipefail
           git fetch -q origin estable master
           git fetch -q origin previo || true
+          MASTER=$(git rev-parse origin/master)
+          STABLE=$(git rev-parse origin/estable)
+          # Consulta inmediata: nunca ocupar la fila pages esperando pruebas.
+          QA=false
+          if node scripts/release-control.cjs gate "$MASTER" >> "$GITHUB_STEP_SUMMARY" 2>&1; then QA=true; fi
+          SERVED=$(node scripts/release-control.cjs served "")
+          if [ "$RECOVERY" = "true" ]; then
+            CANDIDATE="${SERVED:-$MASTER}"
+          elif [ "$QA" = "true" ]; then
+            CANDIDATE="$MASTER"
+          else
+            # Sin huella aun: conservar el padre si este lote no cambia la app;
+            # si no es posible identificarlo, usar estable y dejar constancia.
+            CANDIDATE="${SERVED:-$STABLE}"
+            if [ -z "$SERVED" ] && git diff --quiet "$MASTER^" "$MASTER" -- docs; then CANDIDATE=$(git rev-parse "$MASTER^"); fi
+            echo "Canario retenido en $CANDIDATE; estable/previo se publican sin esperar QA" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "stable=$(git rev-parse origin/estable)" >> "$GITHUB_OUTPUT"
+          echo "master=$(git rev-parse origin/master)" >> "$GITHUB_OUTPUT"
+          echo "previous=$(git rev-parse origin/previo)" >> "$GITHUB_OUTPUT"
           rm -rf sitio e n p && mkdir -p sitio/next e n p
           # git archive saca el blob tal cual (LF en Linux): los mismos bytes que servia Pages.
           git archive origin/estable docs | tar -x -C e
-          git archive origin/master docs | tar -x -C n
+          git archive "$CANDIDATE" docs | tar -x -C n
           cp -a e/docs/. sitio/
           cp -a n/docs/. sitio/next/
+          node scripts/release-control.cjs provenance sitio "$(git rev-parse origin/estable)"
+          node scripts/release-control.cjs provenance sitio/next "$CANDIDATE"
           if git rev-parse -q --verify origin/previo >/dev/null; then
             git archive origin/previo docs | tar -x -C p
             mkdir -p sitio/previo && cp -a p/docs/. sitio/previo/
+            node scripts/release-control.cjs provenance sitio/previo "$(git rev-parse origin/previo)"
             echo "previo:  $(git rev-parse --short origin/previo) $(grep -o 'f123-shell-v[0-9]*' sitio/previo/version.json)"
           else
             echo "previo:  todavia no existe (se crea en la primera promocion)"
@@ -61,7 +102,7 @@ jobs:
           # Ningun canal lleva canales anidados (por si algun dia docs/next o docs/previo existieran).
           rm -rf sitio/next/next sitio/next/previo sitio/previo/next sitio/previo/previo
           echo "estable: $(git rev-parse --short origin/estable) $(grep -o 'f123-shell-v[0-9]*' sitio/version.json)"
-          echo "canario: $(git rev-parse --short origin/master) $(grep -o 'f123-shell-v[0-9]*' sitio/next/version.json)"
+          echo "canario: $CANDIDATE $(grep -o 'f123-shell-v[0-9]*' sitio/next/version.json)"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: sitio
@@ -74,6 +115,15 @@ jobs:
       name: github-pages
       url: ${{ steps.intento3.outputs.page_url || steps.intento2.outputs.page_url || steps.intento1.outputs.page_url }}
     steps:
+      - name: No publicar referencias que cambiaron durante la construccion
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECT_STABLE: ${{ needs.construir.outputs.stable }}
+          EXPECT_PREVIOUS: ${{ needs.construir.outputs.previous }}
+        run: |
+          set -euo pipefail
+          [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/estable" --jq .object.sha)" = "$EXPECT_STABLE" ]
+          [ "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/previo" --jq .object.sha)" = "$EXPECT_PREVIOUS" ]
       # REINTENTO (2026-09-30). Pages rechaza un despliegue nuevo unos segundos despues de que
       # el anterior termina, aunque Actions ya lo marque en exito: "Deployment request failed ...
       # due to in progress deployment" (visto con 11 s de diferencia entre dos despliegues que NO

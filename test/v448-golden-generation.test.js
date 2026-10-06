@@ -2,15 +2,16 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-test('v448 GOLDEN: public release stays v448 while goldenN uniquely invalidates cache', () => {
+test('release identity: advancing shells retain coherent generation and channel cache isolation', () => {
   const version = JSON.parse(fs.readFileSync('docs/version.json', 'utf8'));
   const sw = fs.readFileSync('docs/sw.js', 'utf8');
   const salud = fs.readFileSync('docs/salud-app.js', 'utf8');
 
-  assert.equal(version.shell, 'f123-shell-v448');
-  assert.equal(version.releaseName, 'v448 GOLDEN');
+  assert.match(version.shell, /^f123-shell-v[1-9][0-9]*$/);
+  assert.ok(Number(version.shell.split('v').pop()) >= 448);
+  assert.equal(typeof version.releaseName, 'string');
   assert.match(version.cacheGeneration, /^golden[1-9][0-9]*$/);
-  assert.match(sw, /const CACHE = "f123-shell-v448"/);
+  assert.ok(sw.includes('const CACHE = "' + version.shell + '"'));
   assert.match(sw, new RegExp('const CACHE_GENERACION = "-' + version.cacheGeneration + '"'));
   assert.match(sw, /const CACHE_LOCAL = CACHE \+ CACHE_GENERACION \+ CANAL/);
   assert.match(sw, /cacheGeneration: CACHE_GENERACION/);
