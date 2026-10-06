@@ -9097,14 +9097,39 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
       { label: _esP ? "Otro" : "Other", value: "otro" }
     ]);
   if (!medioPago) return;
-  // #19: capturamos el desglose ANTES de sellar (marcar-pagado deja pendientes en 0).
+
+  /* Payout Ledger v1: el efectivo realmente entregado es un dato financiero,
+     no se infiere del saldo visible. Permitimos pago parcial, pero jamás cero,
+     centavos fraccionarios ni sobrepago. El backend vuelve a validar todo. */
+  const _montoDebido = Number(monto) || 0;
+  const _montoTexto = await ocPrompt(
+    _esP
+      ? `¿Cuánto pagaste realmente a ${promotorNombre || "la persona"}? Saldo pendiente: ${fmtMoney(_montoDebido)}`
+      : `How much did you actually pay ${promotorNombre || "them"}? Amount due: ${fmtMoney(_montoDebido)}`,
+    _montoDebido.toFixed(2)
+  );
+  if (_montoTexto == null) return;
+  const _montoNumero = Number(String(_montoTexto).trim().replace(",", "."));
+  const amountCents = Math.round(_montoNumero * 100);
+  const _debidoCents = Math.round(_montoDebido * 100);
+  if (!Number.isFinite(_montoNumero) || amountCents <= 0 || Math.abs(_montoNumero * 100 - amountCents) > 0.000001) {
+    await ocAlert(_esP ? "Escribe un monto válido con máximo dos decimales." : "Enter a valid amount with no more than two decimal places.");
+    return;
+  }
+  if (amountCents > _debidoCents) {
+    await ocAlert(_esP ? "El pago no puede ser mayor que el saldo pendiente." : "Payment cannot exceed the amount due.");
+    return;
+  }
+
+  // #19: capturamos el desglose ANTES de sellar para rotular los items exactos del payout.
   const detalle = (window._ocLiqDet && window._ocLiqDet[ubicacionId]) || [];
-  // try/catch (homologado de AMIGABLE, auditoria 2026-07-23): antes un fallo
-  // de red aqui tiraba una excepcion no atrapada, y si el servidor respondia
-  // con error, fallaba en silencio total sin avisar nada al dueño.
   let res, r;
   try {
-    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST", body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, paidAt: new Date().toISOString() }) });
+    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, amountCents, paidAt: new Date().toISOString() })
+    });
     r = await res.json();
   } catch (err) {
     console.error("[marcarComisionPagada]", err);
@@ -9122,8 +9147,15 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
     // #19: lineas del desglose — "de qué ventas exactas". Cada producto con
     // unidades y comisión, para que el socio concilie sin preguntar.
     const detallePersona = detalle.filter(d => !payeeId || String(d.payeeId || "") === String(payeeId));
-    const lineasDet = detallePersona.map(d =>
-      `• ${d.cantidad}× ${d.producto} — ${fmtMoney(d.comisionSocio)}`
+    const _itemsPayout = Array.isArray(r && r.items) ? r.items : [];
+    const lineasDet = _itemsPayout.map(it => {
+      const d = detallePersona.find(x =>
+        (it.kind === "sale" && String(x.ventaId || "") === String(it.sourceId || "")) ||
+        (it.kind === "adjustment" && String(x.ajusteId || "") === String(it.sourceId || ""))
+      );
+      const etiqueta = d ? `${d.cantidad}× ${d.producto}` : (it.kind === "adjustment" ? "Adjustment / return" : "Commissioned sale");
+      const signo = it.offset ? "-" : "";
+      return `• ${etiqueta} — ${signo}${fmtMoney((Number(it.amountCents) || 0) / 100)}`;
     );
     const recibo = [
       `*Commission payment confirmed*`,
@@ -9133,7 +9165,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
       `Mes: ${mes}`,
       neg ? `Negocio: ${neg}` : "",
       lineasDet.length ? `` : "",
-      lineasDet.length ? `*Detalle (${detallePersona.reduce((a,d)=>a+d.cantidad,0)} u):*` : "",
+      lineasDet.length ? `*Detalle del pago:*` : "",
       ...lineasDet,
       ``,
       `Gracias por tu trabajo este mes. — friendly-123`,
