@@ -8612,7 +8612,7 @@ async function cargarComisiones(){
     );
     if (!balances.length) return "";
     const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
-    const mx = esMoney ? {people:"Personas por liquidar", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
+    const mx = esMoney ? {people:"Personas por liquidar · Reparto entre personas este mes", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle · Split between people this month", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
     return `<section data-comm-people-money style="margin-top:12px;">
       <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin:0 0 8px;">${mx.people}</div>
       ${balances.map(p => {
@@ -8644,11 +8644,10 @@ async function cargarComisiones(){
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-top:10px;">
             ${due > 0.00001 ? `<button type="button" class="ir" data-comm-pay-person="${escHtml(p.payeeId || "")}"
-              style="min-height:44px;font-size:14px;margin:0;background:var(--sim-verde-dk,#009A5A);border-color:var(--sim-verde-dk,#009A5A);color:#fff;"
-              onclick="marcarComisionPagada('${escHtml(f.ubicacionId)}','${escHtml(name)}',${due},'${escHtml(p.payeeId || "")}')">Record ${fmtMoney(due)} payment</button>` : ""}
-            ${p.payeeId ? `<button type="button" class="tecla" data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.payeeId)}"
-              style="min-height:44px;font-size:14px;margin:0;"
-              onclick="enviarEstadoComisionista(this.dataset.estU,this.dataset.estP)">${mx.statement}</button>` : ""}
+              data-pay-rack="${escHtml(f.ubicacionId || "")}" data-pay-name="${escHtml(name)}" data-pay-due="${due}"
+              style="min-height:44px;font-size:14px;margin:0;background:var(--sim-verde-dk,#009A5A);border-color:var(--sim-verde-dk,#009A5A);color:#fff;">Record ${fmtMoney(due)} payment</button>` : ""}
+            ${p.payeeId ? `<button type="button" class="tecla" data-comm-send-person data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.payeeId)}"
+              style="min-height:44px;font-size:14px;margin:0;">${mx.statement}</button>` : ""}
           </div>
           <details data-comm-history-person style="margin-top:10px;">
             <summary style="min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--brass-dk,#2E6278);">
@@ -8694,7 +8693,6 @@ async function cargarComisiones(){
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           <button type="button" class="tecla" data-comm-edit-rack="${escHtml(f.ubicacionId || "")}"
             aria-label="Adjust commission deal for ${escHtml(f.ubicacion)}" title="Adjust this shelf's commission deal"
-            onclick="abrirEditorComisionPercha('${escHtml(f.ubicacionId || "")}')"
             style="min-height:44px;font-size:14px;margin:0;">${(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es") ? "✎ Editar trato de percha" : "✎ Adjust shelf deal"}</button>
           ${dormida}<span class="badge-estado ${_paymentClass}">${((_paymentStatus === "no-sales" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : _paymentText)}${_paymentStatus === "paid" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", cheque: "check", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span>
         </div>
@@ -8769,6 +8767,16 @@ async function cargarComisiones(){
     filtrar();
   }
   cont.querySelectorAll("[data-review-commission]").forEach(btn => btn.addEventListener("click", () => revisarComisionVenta(btn.dataset.reviewCommission, btn.dataset.person)));
+  cont.querySelectorAll("[data-comm-pay-person]").forEach(btn => btn.addEventListener("click", () => {
+    marcarComisionPagada(btn.dataset.payRack, btn.dataset.payName, Number(btn.dataset.payDue), btn.dataset.commPayPerson);
+  }));
+  cont.querySelectorAll("[data-comm-send-person]").forEach(btn => btn.addEventListener("click", () => {
+    enviarEstadoComisionista(btn.dataset.estU, btn.dataset.estP);
+  }));
+  cont.querySelectorAll("[data-comm-edit-rack]").forEach(btn => btn.addEventListener("click", () => {
+    abrirEditorComisionPercha(btn.dataset.commEditRack);
+  }));
+
   // Ranking y RFM van en su propio contenedor, debajo del alta de comisionistas (no llevan listeners).
   const rankCont = document.getElementById("rankingComisiones");
   if (rankCont) rankCont.innerHTML = rankHtml + matrizComisionistasHtml(ranking);
