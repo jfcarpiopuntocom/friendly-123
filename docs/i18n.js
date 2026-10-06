@@ -183,6 +183,8 @@
       // Titulos por pagina — para actualizar el tab del navegador al cambiar de idioma.
       "meta.title.app": "friendly-123",
       "meta.title.dashboard": "Dashboard · friendly-123",
+      "cust.recordPayment": "Record a payment",
+      "cust.recordCredit": "Record credit (abono)",
       "nav.today": "Today",
       "nav.inventory": "Inventory",
       "nav.sell": "Sold",
@@ -1295,6 +1297,8 @@
       "log.type.transferencia": "Transferencia", "log.type.liquidacion": "Liquidación", "log.type.estrella": "Estrella",
       "meta.title.app": "friendly-123",
       "meta.title.dashboard": "Tablero de control · friendly-123",
+      "cust.recordPayment": "Registrar pago",
+      "cust.recordCredit": "Registrar pago",
       "nav.today": "Hoy",
       "nav.inventory": "Inventario",
       "nav.sell": "Vendido",
