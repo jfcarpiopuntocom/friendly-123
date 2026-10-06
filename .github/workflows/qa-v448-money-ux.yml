@@ -24,7 +24,7 @@ jobs:
           node --check docs/help-ui.js
           node --check docs/i18n.js
       - name: Money UX focused contract
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/commissions-money-ux-v448.test.js test/commissions-money-ux-browser-v448.test.js
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/commissions-money-ux-v448.test.js test/commissions-money-ux-browser-v448.test.js test/money-pay-always-visible-browser.test.js
       - name: Payout and commissions regressions
         run: >-
           node --require ./test/helpers/sin-red-produccion.cjs --test
