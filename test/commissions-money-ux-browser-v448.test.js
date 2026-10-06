@@ -44,11 +44,33 @@ test(`Money UX browser (${engineName}): partial payout renders person-first cont
       const rackEdit = document.querySelector('[data-liq-ubic="' + rack.id + '"] [data-comm-edit-rack]');
       const rect = card && card.getBoundingClientRect();
 
+      // Hugo/Paco/Luis: existence is not enough. Exercise the real editors.
+      edit.click();
+      await new Promise(r => setTimeout(r, 80));
+      const personEditorOpen = document.getElementById('oc-comision-overlay').style.display === 'flex'
+        && document.getElementById('oc-comision-caja').innerText.includes('Candy Smith');
+      cerrarEditorComision();
+
+      rackEdit.click();
+      await new Promise(r => setTimeout(r, 80));
+      const rackEditorOpen = document.getElementById('oc-comision-overlay').style.display === 'flex'
+        && document.getElementById('oc-comision-caja').innerText.includes('Artist wall');
+      cerrarEditorComision();
+
+      // Sep 11 regression: dashboard deep-link must still reach the same real shelf editor.
+      location.hash = '#editar=comisionpercha:' + encodeURIComponent(rack.id);
+      procesarDeepLinkEditar();
+      await new Promise(r => setTimeout(r, 900));
+      const historicalDeepLinkOpen = document.getElementById('oc-comision-overlay').style.display === 'flex'
+        && document.getElementById('oc-comision-caja').innerText.includes('Artist wall');
+      cerrarEditorComision();
+
       return {
         text: card ? card.innerText : '',
         payText: pay ? pay.innerText : '',
         payMinHeight: pay ? getComputedStyle(pay).minHeight : '',
         edit: !!edit, statement: !!statement, history: !!history, rackEdit: !!rackEdit,
+        personEditorOpen, rackEditorOpen, historicalDeepLinkOpen,
         cardLeft: rect ? rect.left : -1, cardRight: rect ? rect.right : 9999,
         viewport: window.innerWidth
       };
@@ -64,6 +86,9 @@ test(`Money UX browser (${engineName}): partial payout renders person-first cont
     assert.ok(result.rackEdit, 'rack deal pencil exists');
     assert.ok(result.statement, 'statement action exists');
     assert.ok(result.history, 'history exists');
+    assert.ok(result.personEditorOpen, 'person pencil opens the existing commissionist editor');
+    assert.ok(result.rackEditorOpen, 'rack pencil opens the existing shelf commission editor');
+    assert.ok(result.historicalDeepLinkOpen, 'Sep 11 #editar=comisionpercha deep-link still opens the real shelf editor');
     assert.equal(result.payMinHeight, '44px');
     assert.ok(result.cardLeft >= 0 && result.cardRight <= result.viewport + 1, 'person money card stays within 390px viewport');
   } finally {
