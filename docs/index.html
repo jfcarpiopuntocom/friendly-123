@@ -8611,13 +8611,16 @@ async function cargarComisiones(){
   const sinVentas = filas.filter(f => !_tuvoVentas(f));
   const tarjetaPercha = f => {
     const _payRows = (f.payoutBalances || []).filter(p => Number(p.due) > 0.00001);
+    const _paymentStatus = f.paymentStatus || (f.estado === "pagado" ? "paid" : f.estado === "sin ventas" ? "no-sales" : "due");
+    const _paymentClass = _paymentStatus === "paid" ? "verde" : _paymentStatus === "no-sales" ? "amarillo" : _paymentStatus === "partially-paid" ? "amarillo" : "rojo";
+    const _paymentText = _paymentStatus === "paid" ? "paid" : _paymentStatus === "no-sales" ? "no sales" : _paymentStatus === "partially-paid" ? "partially paid" : "pending";
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
       ? `<span class="badge-estado rojo" style="font-size:13px;">dormant ${f.diasSinVenta}d</span>` : "";
     return `
     <div class="tag-card" data-liq-ubic="${escHtml(f.ubicacionId || "")}" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}${esPerchaSemillaVieja(f.ubicacionId) ? ` <span class="badge-estado amarillo" style="font-size:13px;">${t("comm.sampleRack")}</span>` : ""}</strong>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${((f.estado === "sin ventas" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : (({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado))}${f.estado === "pagado" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${_paymentClass}">${((_paymentStatus === "no-sales" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : _paymentText)}${_paymentStatus === "paid" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", cheque: "check", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span></div>
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Commissionist/artist/promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
       ${f.origenComision === "comisionista" ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
