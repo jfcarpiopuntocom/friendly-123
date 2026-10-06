@@ -210,7 +210,7 @@
       comTit: "Comisiones (cada semana o cada mes)",
       com: [
         "Cada persona cobra las ventas donde se la eligió, aunque sean en la percha de otra. La tarjeta de la percha muestra el <b>reparto entre personas</b>.",
-        "Cuando pagues, toca <b>Record payment</b>. <b>Send statement</b> abre WhatsApp con un enlace que dura 7 o 30 días.",
+        "Cuando pagues, toca <b>Registrar pago</b>. <b>Enviar estado</b> abre WhatsApp con un enlace que dura 7 o 30 días.",
         "La devolución de una venta ya pagada se descuenta del próximo pago de esa persona."
       ],
       cliTit: "Clientes",
