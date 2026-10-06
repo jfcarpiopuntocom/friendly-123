@@ -30,6 +30,7 @@ jobs:
         run: |
           node --check docs/core/payout-ledger.js
           node --check docs/mock-backend.js
+          node .claude/check-inline.cjs docs/index.html
       - name: Payout Ledger focused regressions
         run: >-
           node --require ./test/helpers/sin-red-produccion.cjs --test
