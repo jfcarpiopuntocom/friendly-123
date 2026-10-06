@@ -84,3 +84,27 @@ test('Payout Ledger: a reversal reopens the exact obligation while legacy liquid
   const row=L.balancesByPayee({sales,adjustments:[],locations,payouts:[p,reversal],month:'2026-10',locationId:'rack-1'})[0];
   assert.equal(row.dueCents,2500);
 });
+
+
+test('Payout Ledger: partial payout records exact cash and leaves the remainder due', () => {
+  const sales = [
+    sale({ id:'s-part-1', amount:40, payeeId:'p1' }),
+    sale({ id:'s-part-2', amount:35, payeeId:'p1' }),
+  ];
+  const input = { sales, adjustments:[], locations:[location()], payouts:[], month:month };
+  const plan = ledger.planPayout({ ...input, payeeId:'p1', opId:'partial-1', id:'pay-part-1', amountCents:2500, method:'transferencia' });
+  assert.equal(plan.error, undefined);
+  assert.equal(plan.payout.amountCents, 2500);
+  assert.equal(plan.payout.amount, 25);
+  const after = ledger.balancesByPayee({ ...input, payouts:[plan.payout] }).find(x => x.payeeId === 'p1');
+  assert.equal(after.paidCents, 2500);
+  assert.equal(after.dueCents, 5000);
+});
+
+test('Payout Ledger: partial payout cannot exceed the amount due', () => {
+  const sales = [sale({ id:'s-overpay', amount:40, payeeId:'p1' })];
+  const input = { sales, adjustments:[], locations:[location()], payouts:[], month:month };
+  const plan = ledger.planPayout({ ...input, payeeId:'p1', opId:'overpay-1', id:'pay-overpay-1', amountCents:4001, method:'efectivo' });
+  assert.equal(plan.status, 409);
+  assert.match(plan.error, /exceed/i);
+});
