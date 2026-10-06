@@ -156,9 +156,10 @@
     const row = rows[0];
     if (row.dueCents <= 0) return { error:"There is no positive amount due to record as paid.", status:409 };
 
-    const amountCents = input.amountCents == null ? row.dueCents : Math.trunc(Number(input.amountCents));
-    if (!Number.isInteger(amountCents) || amountCents <= 0) return { error:"Payment amount must be positive whole cents.", status:400 };
-    if (amountCents !== row.dueCents) return { error:"Payout Ledger v1 records the full current amount due; partial payouts are reserved for the next compatibility step.", status:409 };
+    const rawAmount = input.amountCents == null ? row.dueCents : Number(input.amountCents);
+    if (!Number.isInteger(rawAmount) || rawAmount <= 0) return { error:"Payment amount must be positive whole cents.", status:400 };
+    const amountCents = rawAmount;
+    if (amountCents > row.dueCents) return { error:"Payment amount cannot exceed the current amount due.", status:409 };
 
     const rawMethod = input.method == null || input.method === "" ? null : String(input.method);
     const method = rawMethod == null ? null : (METHODS.has(rawMethod) ? rawMethod : "otro");
@@ -166,7 +167,9 @@
     const negative = row.obligations.filter((o) => o.dueCents < 0);
     const items = [];
     negative.forEach((o) => items.push({kind:o.kind,sourceId:o.sourceId,payeeId:o.payeeId,amountCents:Math.abs(o.dueCents),offset:true}));
-    let remaining = row.dueCents + negative.reduce((a,o)=>a+Math.abs(o.dueCents),0);
+    /* Negative adjustments are credits, so consume them before cash. A partial
+       cash payment covers exactly cash + those credits, leaving the rest due. */
+    let remaining = amountCents + negative.reduce((a,o)=>a+Math.abs(o.dueCents),0);
     positive.forEach((o) => {
       if (remaining <= 0) return;
       const take = Math.min(o.dueCents, remaining);
