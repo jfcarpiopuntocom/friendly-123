@@ -28,6 +28,7 @@ function browser(ls = storage()) {
   // verifier by default, while individual tests can override it to fail.
   w.OCSecure = { estadoSecreto: () => 'ok', coincidePin: async () => false, leerPinsVisibles: () => null };
   vm.createContext(w);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/core/payout-ledger.js'), 'utf8'), w);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/mock-backend.js'), 'utf8'), w);
   w.request = async (url, method = 'GET', body) => {
     const response = await w.fetch(url, { method, body: body === undefined ? undefined : JSON.stringify(body) });

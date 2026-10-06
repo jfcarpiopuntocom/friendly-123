@@ -485,6 +485,7 @@
      Los dos son del mismo origen: no son CDN y no pueden fallar por red. -->
 <script src="./aislamiento.js"></script>
 <script src="./crypto-store.js"></script>
+<script src="./core/payout-ledger.js"></script>
 <script src="./canarios.js"></script>
 <script src="./salud-app.js"></script>
 <script>
@@ -1319,8 +1320,13 @@
     (datos.ventas || []).forEach(function (v) { if (v && v.mes && v.comisionPct != null) set[v.mes] = 1; });
     return Object.keys(set).sort().reverse();
   }
+  function cmPendienteVenta(v) {
+    if (!v || v.comisionPct == null) return 0;
+    if (v.comisionPendiente != null && Number.isFinite(Number(v.comisionPendiente))) return Number(v.comisionPendiente) || 0;
+    return v.liquidada ? 0 : (Number(v.comisionAsociado) || 0);
+  }
   function cmPendienteDe(mes) {
-    return cmFilas(mes).reduce(function (a, v) { return a + ((v.comisionPct != null && !v.liquidada) ? (Number(v.comisionAsociado) || 0) : 0); }, 0);
+    return cmFilas(mes).reduce(function (a, v) { return a + cmPendienteVenta(v); }, 0);
   }
   function cmAgrupar(filas, por) {
     var map = {};
@@ -1331,12 +1337,13 @@
       if (v.comisionPct != null) {
         g.unid += Number(v.cantidad) || 1; g.bruto += monto; g.socio += Number(v.comisionAsociado) || 0;
         g.casa += v.netoCasa != null ? Number(v.netoCasa) : (monto - (Number(v.comisionAsociado) || 0));
-        if (!v.liquidada) g.pend += Number(v.comisionAsociado) || 0;
+        g.pend += cmPendienteVenta(v);
         if (v.devuelta) g.devueltas++;
         if (v.asociadoNombre) g.personas[v.asociadoNombre] = 1;
         if (v.asistenteNombre) g.personas[v.asistenteNombre] = 1;
       } else { g.counterUnid += Number(v.cantidad) || 1; g.counterMonto += monto; }
       if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
+      if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
     });
     return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (b.bruto + b.counterMonto) - (a.bruto + a.counterMonto); });
   }
@@ -1383,7 +1390,10 @@
     var ajustes = liqs.reduce(function (a, l) { return a.concat(l.ajustes || []); }, []);
     var bruto = conCom.reduce(function (a, v) { return a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1); }, 0);
     var socio = conCom.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0) + ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0);
-    var pend = conCom.reduce(function (a, v) { return a + (v.liquidada ? 0 : (Number(v.comisionAsociado) || 0)); }, 0) + ajustes.reduce(function (a, x) { return a + (x.liquidada ? 0 : (Number(x.montoComisionSocio) || 0)); }, 0);
+    var pendVentas = conCom.reduce(function (a, v) { return a + cmPendienteVenta(v); }, 0);
+    var pend = (cmMes === actual && liqs.length && liqs.some(function (l) { return l.stillDue != null; }))
+      ? liqs.reduce(function (a, l) { return a + (Number(l.stillDue) || 0); }, 0)
+      : pendVentas + ajustes.reduce(function (a, x) { return a + (x.liquidada ? 0 : (Number(x.montoComisionSocio) || 0)); }, 0);
     var casa = bruto - socio;
     var atrasados = meses.filter(function (m) { return m !== actual && cmPendienteDe(m) > 0; });
     var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + money(n) + "</div></div>"; };
@@ -2057,6 +2067,16 @@
 
     var hoy = new Date(); hoy = hoy.getFullYear() + "-" +
       String(hoy.getMonth() + 1).padStart(2, "0") + "-" + String(hoy.getDate()).padStart(2, "0");
+    var _ledgerCore = window.OCPayoutLedger || null;
+    var _ledgerObs = _ledgerCore ? _ledgerCore.buildObligations({ sales:e.ventas || [], adjustments:e.ajustesComision || [], locations:e.ubicaciones || [], payouts:e.payouts || [] }) : [];
+    var _ledgerDueVenta = {};
+    var _ledgerDueRackMes = {};
+    _ledgerObs.forEach(function (o) {
+      if (o.kind === "sale") _ledgerDueVenta[o.sourceId] = (_ledgerDueVenta[o.sourceId] || 0) + Number(o.dueCents || 0);
+      var mesO = String(o.order || "").slice(0, 7);
+      var rk = mesO + "|" + String(o.locationId || "");
+      _ledgerDueRackMes[rk] = (_ledgerDueRackMes[rk] || 0) + Number(o.dueCents || 0);
+    });
     var entra = 0, sale = 0, nHoy = 0;
     var ventas = (e.ventas || []).map(function (v) {
       var p = prods[v.productoId] || {};
@@ -2084,6 +2104,7 @@
         netoCasa: v.split ? v.split.montoNetoDueno : null,
         comisionCorregida: !!(v.split && v.split.corregida),
         liquidada: !!v.liquidada,
+        comisionPendiente: _ledgerCore ? +_ledgerCore.money(_ledgerDueVenta[String(v.id)] || 0).toFixed(2) : null,
         medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
         asociadoNombre: asoc[v.ubicacionId] || "",
       };
@@ -2122,7 +2143,13 @@
       g.comisionSocio = +g.comisionSocio.toFixed(2);
       g.netoDueno = +g.netoDueno.toFixed(2);
       g.pctEfectivo = g.ventasBrutas > 0 ? +(g.comisionSocio / g.ventasBrutas * 100).toFixed(2) : 0;
-      g.estado = g.ventasPendientes === 0 ? "pagado" : "pendiente";
+      if (_ledgerCore) {
+        var _dueC = _ledgerDueRackMes[mesActual + "|" + String(g.ubicacionId || "")] || 0;
+        g.stillDue = +_ledgerCore.money(_dueC).toFixed(2);
+        g.estado = g.stillDue <= 0.00001 ? "pagado" : "pendiente";
+      } else {
+        g.estado = g.ventasPendientes === 0 ? "pagado" : "pendiente";
+      }
       return g;
     });
 
@@ -2131,6 +2158,8 @@
       clientes: clientesArr.filter(function (c) { return !c.despedido; }),
       ventas: ventas,
       liquidaciones: liquidaciones,
+      payouts: e.payouts || [],
+      ajustesComision: e.ajustesComision || [],
       perchas: e.ubicaciones || [],
       resumen: { resumenDia: {
         entra: +entra.toFixed(2), sale: +sale.toFixed(2),
@@ -2206,7 +2235,7 @@
       if (!(d.productos || []).length && !(d.ventas || []).length) return false;
       datos.productos = d.productos; datos.clientes = d.clientes;
       datos.ventas = d.ventas; datos.resumen = d.resumen;
-      datos.liquidaciones = d.liquidaciones; datos.perchas = d.perchas;
+      datos.liquidaciones = d.liquidaciones; datos.payouts = d.payouts || []; datos.ajustesComision = d.ajustesComision || []; datos.perchas = d.perchas;
       datos.gastos = (e.gastos || []).filter(function (g) { return !g.borrado; });
       datos.transferencias = e.transferencias || [];
       datos.gastosMensuales = { porUbicacion: e.gastosMensuales || {},

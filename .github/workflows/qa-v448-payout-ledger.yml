@@ -1,0 +1,57 @@
+name: qa-v448-payout-ledger
+# Manifest sync is a separate commit; a non-shell QA touch can validate the synced branch head.
+
+on:
+  push:
+    branches: ["engineering/v448-payout-ledger-v1"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-v448-payout-ledger-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Syntax
+        run: |
+          node --check docs/core/payout-ledger.js
+          node --check docs/mock-backend.js
+          node .claude/check-inline.cjs docs/index.html
+      - name: Payout Ledger focused regressions
+        run: >-
+          node --require ./test/helpers/sin-red-produccion.cjs --test
+          test/payout-ledger-v448.test.js
+          test/payout-ledger-integration-v448.test.js
+          test/payout-partial-ui-v448.test.js
+          test/commissions-dashboard-month-deeplink-v448.test.js
+          test/medio-pago-comision.test.js
+          test/comision-por-persona.test.js
+          test/commissions-hugo-paco-luis.test.js
+          test/commissions-carreras-sync.test.js
+          test/commissions-period.test.js
+          test/deshacer-cancelacion-vencido.test.js
+          test/devoluciones.test.js
+      - name: Full regression suite
+        run: npm test
+      - name: Manifest, SW and diff hygiene
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before.json
+          node scripts/gen-manifest.js
+          diff -u /tmp/version-manifest.before.json docs/version-manifest.json
+          bash check-sw.sh
+          git diff --check origin/master...HEAD

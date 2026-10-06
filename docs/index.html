@@ -113,6 +113,7 @@
 <script src="./canarios.js"></script>
 <script src="./copiar-libre.js"></script>
 <script src="./invariantes.js"></script>
+<script src="./core/payout-ledger.js"></script>
 <script src="./mock-backend.js"></script>
 <script src="./red-segura.js"></script>
 <meta charset="UTF-8">
@@ -8609,13 +8610,17 @@ async function cargarComisiones(){
   const conVentas = filas.filter(_tuvoVentas);
   const sinVentas = filas.filter(f => !_tuvoVentas(f));
   const tarjetaPercha = f => {
+    const _payRows = (f.payoutBalances || []).filter(p => Number(p.due) > 0.00001);
+    const _paymentStatus = f.paymentStatus || (f.estado === "pagado" ? "paid" : f.estado === "sin ventas" ? "no-sales" : "due");
+    const _paymentClass = _paymentStatus === "paid" ? "verde" : _paymentStatus === "no-sales" ? "amarillo" : _paymentStatus === "partially-paid" ? "amarillo" : "rojo";
+    const _paymentText = _paymentStatus === "paid" ? "paid" : _paymentStatus === "no-sales" ? "no sales" : _paymentStatus === "partially-paid" ? "partially paid" : "pending";
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
       ? `<span class="badge-estado rojo" style="font-size:13px;">dormant ${f.diasSinVenta}d</span>` : "";
     return `
     <div class="tag-card" data-liq-ubic="${escHtml(f.ubicacionId || "")}" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}${esPerchaSemillaVieja(f.ubicacionId) ? ` <span class="badge-estado amarillo" style="font-size:13px;">${t("comm.sampleRack")}</span>` : ""}</strong>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${f.estado === "pagado" ? "verde" : f.estado === "sin ventas" ? "amarillo" : "rojo"}">${((f.estado === "sin ventas" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : (({ "sin ventas": "no sales", "pagado": "paid", "pendiente": "pending" })[f.estado] || f.estado))}${f.estado === "pagado" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${_paymentClass}">${((_paymentStatus === "no-sales" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : _paymentText)}${_paymentStatus === "paid" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", cheque: "check", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span></div>
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Commissionist/artist/promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
       ${f.origenComision === "comisionista" ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
@@ -8633,6 +8638,8 @@ async function cargarComisiones(){
       <details style="margin-top:4px;"><summary style="font-size:13px;cursor:pointer;color:var(--azul-medio,#2c4a68);">Who returned what →</summary>
         <table style="width:100%;margin-top:4px;font-size:13px;">${f.ajustes.map(x => `<tr><td>${(() => { try { return new Date(x.fecha).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || undefined); } catch (_) { return String(x.fecha).slice(0, 10); } })()} · ${escHtml(x.quien || "")}${x.motivo ? " · " + escHtml(x.motivo) : ""}</td><td style="text-align:right;">${fmtMoney(x.montoComisionSocio)}${x.liquidada ? " (deducted)" : ""}</td></tr>`).join("")}</table></details>` : ""}
       ${(f.repartoPersonas && (f.repartoPersonas.length > 1 || (f.repartoPersonas[0] && f.repartoPersonas[0].promotoraId && f.repartoPersonas[0].promotoraId !== f.promotoraId))) ? `<table style="width:100%;margin-top:8px;font-size:14px;"><tr><td colspan="3" style="font-weight:700;">Split between people this month</td></tr>${f.repartoPersonas.map(p => `<tr><td>${escHtml(p.nombre)}</td><td style="text-align:right;">${fmtMoney(p.monto)}</td><td style="text-align:right;width:1%;white-space:nowrap;">${(p.promotoraId && p.promotoraId !== f.promotoraId) ? `<button type="button" class="tecla" style="font-size:13px;margin-left:8px;" data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.promotoraId)}" onclick="enviarEstadoComisionista(this.dataset.estU, this.dataset.estP)">Send statement</button>` : ""}</td></tr>`).join("")}</table>` : ""}
+      ${_payRows.length > 1 ? `<div class="tag-card" style="margin-top:10px;padding:10px 12px;text-align:left;"><strong style="font-size:14px;">Payments due by person</strong>${_payRows.map(p => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;"><span>${escHtml(p.nombre || "Associate")} · <strong>${fmtMoney(p.due)}</strong></span><button type="button" class="ir" style="font-size:13px;background:var(--sim-verde-dk,#086944);color:#fff;border-color:var(--sim-verde-dk,#086944);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(p.nombre || "Associate")}',${p.due},'${escHtml(p.payeeId || "")}')">Record payment</button></div>`).join("")}</div>` : ""}
+      ${(f.payoutHistory && f.payoutHistory.length) ? `<details style="margin-top:10px;"><summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);">Payment history (${f.payoutHistory.length}) →</summary><div style="margin-top:6px;">${f.payoutHistory.map(p => `<div style="padding:8px 0;border-top:1px solid var(--line,#d9d3c8);font-size:13px;"><strong>${p.type === "reversal" ? "REVERSAL" : "PAID"} · ${fmtMoney(p.amount)}</strong> · ${escHtml(p.payeeName || "Associate")}<br><span style="color:var(--ink-soft);">${p.paidAt ? escHtml(new Date(p.paidAt).toLocaleString()) : ""}${p.method ? " · " + escHtml(({efectivo:"cash",transferencia:"transfer",cheque:"check","credito-tienda":"store credit",otro:"other"})[p.method] || p.method) : ""}${p.reference ? " · ref " + escHtml(p.reference) : ""}</span></div>`).join("")}</div></details>` : ""}
       ${f.esMesActual === false ? "" : editorComisionHtml(f)}
       ${(f.detallePendientes && f.detallePendientes.length) ? `
       <details style="margin-top:8px;">
@@ -8643,7 +8650,7 @@ async function cargarComisiones(){
       </details>` : ""}
       ${f.esMesActual === false ? "" : termometroMeta(f.cumplimientoMeta, f.metaMensual)}
       ${f.esMesActual === false ? "" : simuladorHtml(f)}
-      ${f.estado === "pendiente" ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde-dk,#086944);color:#fff;border-color:var(--sim-verde-dk,#086944);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(f.promotorNombre||'')}',${f.comisionSocio})">✓ Mark as paid (${f.ventasPendientes} sales)</button>` : ""}
+      ${f.estado === "pendiente" && _payRows.length === 1 ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde-dk,#086944);color:#fff;border-color:var(--sim-verde-dk,#086944);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(_payRows[0].nombre || f.promotorNombre || '')}',${_payRows[0].due},'${escHtml(_payRows[0].payeeId || "")}')">✓ Record payment · ${fmtMoney(_payRows[0].due)}</button>` : (f.estado === "pendiente" && _payRows.length > 1 ? `<p style="font-size:13px;color:var(--rust-ink,#E86040);font-weight:700;margin:10px 0 0;">Record each person's payment separately. friendly-123 will not mark several people paid with one ambiguous click.</p>` : "")}
       ${f.promotoraId && f.estado !== "sin ventas" ? `<button type="button" class="tecla" style="font-size:14px;margin-top:12px;margin-left:8px;" onclick="enviarEstadoComisionista('${f.ubicacionId}')">Send statement</button>` : ""}
     </div>`;
   };
@@ -9075,7 +9082,7 @@ async function enviarEstadoComisionista(ubicacionId, promotoraId){
   }
 }
 
-async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
+async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId){
   // Shell 371: se paga el mes que se esta viendo; el mismo mes va al backend y al recibo.
   const _mesPago = _ocMesComisiones || "";
   const _mesPagoTxt = _mesPago ? _ocMesEtiqueta(_mesPago) : "this month";
@@ -9088,18 +9095,50 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
       { label: t("common.cancel"), value: false },
       { label: _esP ? "Efectivo" : "Cash", value: "efectivo" },
       { label: _esP ? "Transferencia" : "Transfer", value: "transferencia" },
+      { label: _esP ? "Cheque" : "Check", value: "cheque" },
       { label: _esP ? "Crédito en tienda" : "Store credit", value: "credito-tienda" },
       { label: _esP ? "Otro" : "Other", value: "otro" }
     ]);
   if (!medioPago) return;
-  // #19: capturamos el desglose ANTES de sellar (marcar-pagado deja pendientes en 0).
+
+  /* Payout Ledger v1: el efectivo realmente entregado es un dato financiero,
+     no se infiere del saldo visible. Permitimos pago parcial, pero jamás cero,
+     centavos fraccionarios ni sobrepago. El backend vuelve a validar todo. */
+  const _montoDebido = Number(monto) || 0;
+  const _montoTexto = await ocPrompt(
+    _esP
+      ? `¿Cuánto pagaste realmente a ${promotorNombre || "la persona"}? Saldo pendiente: ${fmtMoney(_montoDebido)}`
+      : `How much did you actually pay ${promotorNombre || "them"}? Amount due: ${fmtMoney(_montoDebido)}`,
+    _montoDebido.toFixed(2)
+  );
+  if (_montoTexto == null) return;
+  const _montoNumero = Number(String(_montoTexto).trim().replace(",", "."));
+  const amountCents = Math.round(_montoNumero * 100);
+  const _debidoCents = Math.round(_montoDebido * 100);
+  if (!Number.isFinite(_montoNumero) || amountCents <= 0 || Math.abs(_montoNumero * 100 - amountCents) > 0.000001) {
+    await ocAlert(_esP ? "Escribe un monto válido con máximo dos decimales." : "Enter a valid amount with no more than two decimal places.");
+    return;
+  }
+  if (amountCents > _debidoCents) {
+    await ocAlert(_esP ? "El pago no puede ser mayor que el saldo pendiente." : "Payment cannot exceed the amount due.");
+    return;
+  }
+
+  // #19: capturamos el desglose ANTES de sellar para rotular los items exactos del payout.
   const detalle = (window._ocLiqDet && window._ocLiqDet[ubicacionId]) || [];
-  // try/catch (homologado de AMIGABLE, auditoria 2026-07-23): antes un fallo
-  // de red aqui tiraba una excepcion no atrapada, y si el servidor respondia
-  // con error, fallaba en silencio total sin avisar nada al dueño.
+  /* Una acción humana = una clave idempotente. Sin esto dos pagos parciales
+     sucesivos podían parecer el mismo retry al backend porque cubren las mismas
+     ventas. El backend además vuelve a comprobar el saldo antes de escribir. */
+  const opId = (window.crypto && typeof window.crypto.randomUUID === "function")
+    ? window.crypto.randomUUID()
+    : ("ui-pay-" + Date.now() + "-" + Math.random().toString(36).slice(2));
   let res, r;
   try {
-    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, { method: "POST", body: JSON.stringify({ mes: _mesPago, medioPago }) });
+    res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, {
+      method: "POST",
+      body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, amountCents, opId, paidAt: new Date().toISOString() }),
+      headers: { "Content-Type": "application/json" }
+    });
     r = await res.json();
   } catch (err) {
     console.error("[marcarComisionPagada]", err);
@@ -9108,29 +9147,39 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto){
   }
   if (!res.ok) { await ocAlert(r.error || "Could not mark the payment."); return; }
   cargarComisiones();
-  // Recibo para WhatsApp: solo se ofrece si hay nombre de asociado/a y monto > 0.
-  if (promotorNombre && monto > 0) {
+  const _montoRegistrado = Number(r && r.amount != null ? r.amount : monto) || 0;
+  const _nombreRegistrado = String((r && r.payeeName) || promotorNombre || "");
+  // Recibo: usa lo que el ledger ACABA de registrar, no un total viejo de la tarjeta.
+  if (_nombreRegistrado && _montoRegistrado > 0) {
     const neg = (function(){ try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch(_){ return ""; } })();
     const mes = _mesPago ? _ocMesEtiqueta(_mesPago) : new Date().toLocaleDateString("es", { month: "long", year: "numeric" });
     // #19: lineas del desglose — "de qué ventas exactas". Cada producto con
     // unidades y comisión, para que el socio concilie sin preguntar.
-    const lineasDet = detalle.map(d =>
-      `• ${d.cantidad}× ${d.producto} — ${fmtMoney(d.comisionSocio)}`
-    );
+    const detallePersona = detalle.filter(d => !payeeId || String(d.payeeId || "") === String(payeeId));
+    const _itemsPayout = Array.isArray(r && r.items) ? r.items : [];
+    const lineasDet = _itemsPayout.map(it => {
+      const d = detallePersona.find(x =>
+        (it.kind === "sale" && String(x.ventaId || "") === String(it.sourceId || "")) ||
+        (it.kind === "adjustment" && String(x.ajusteId || "") === String(it.sourceId || ""))
+      );
+      const etiqueta = d ? `${d.cantidad}× ${d.producto}` : (it.kind === "adjustment" ? "Adjustment / return" : "Commissioned sale");
+      const signo = it.offset ? "-" : "";
+      return `• ${etiqueta} — ${signo}${fmtMoney((Number(it.amountCents) || 0) / 100)}`;
+    });
     const recibo = [
       `*Commission payment confirmed*`,
-      `Asociado/a: ${promotorNombre}`,
-      `Monto: ${fmtMoney(monto)}`,
-      `Pagado con: ${({ efectivo: "efectivo", transferencia: "transferencia", "credito-tienda": "crédito en tienda", otro: "otro" })[medioPago] || medioPago}`,
+      `Asociado/a: ${_nombreRegistrado}`,
+      `Monto: ${fmtMoney(_montoRegistrado)}`,
+      `Pagado con: ${({ efectivo: "efectivo", transferencia: "transferencia", cheque: "cheque", "credito-tienda": "crédito en tienda", otro: "otro" })[medioPago] || medioPago}`,
       `Mes: ${mes}`,
       neg ? `Negocio: ${neg}` : "",
       lineasDet.length ? `` : "",
-      lineasDet.length ? `*Detalle (${detalle.reduce((a,d)=>a+d.cantidad,0)} u):*` : "",
+      lineasDet.length ? `*Detalle del pago:*` : "",
       ...lineasDet,
       ``,
       `Gracias por tu trabajo este mes. — friendly-123`,
     ].filter(Boolean).join("\n");
-    if (await ocConfirm(`Send receipt to ${promotorNombre} via WhatsApp?`)) {
+    if (await ocConfirm(`Send receipt to ${_nombreRegistrado} via WhatsApp?`)) {
       window.open("https://wa.me/?text=" + encodeURIComponent(recibo), "_blank");
     }
   }

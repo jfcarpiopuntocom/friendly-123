@@ -153,6 +153,10 @@
      fechado hoy, con quien/motivo, que se descuenta del proximo pago. Nunca
      se edita ni se borra un ajuste; si hubo error, se agrega otro. */
   const ajustesComision = [];
+  /* PAYOUT LEDGER v1 (2026-10-05). Append-only financial facts. Historical
+     venta.liquidada remains as a compatibility projection; every NEW commission
+     payment gets its own payout record with exact covered sources. */
+  const payouts = [];
 
   // ==========================================================================
   // CLIENTES (JFC 2026-07-07) — cada cliente tiene un CODIGO UNICO (C-####) y
@@ -761,7 +765,7 @@
       _rev: _localRev,
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
-      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision),
+      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payouts),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
       configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
       usuarios: clonar(usuarios),
@@ -804,6 +808,18 @@
     if (body.transferencias && !Array.isArray(body.transferencias)) return "The transfers section is corrupt.";
     if (body.gastos && !Array.isArray(body.gastos)) return "The expenses section is corrupt.";
     if (body.ajustesComision && !Array.isArray(body.ajustesComision)) return "The commission adjustments section is corrupt.";
+    if (body.payouts && !Array.isArray(body.payouts)) return "The commission payments section is corrupt.";
+    if (Array.isArray(body.payouts)) {
+      const idsPay = new Set(), opsPay = new Set();
+      for (const p of body.payouts) {
+        if (!p || !esTextoCorto(String(p.id || ""), 160) || !esTextoCorto(String(p.opId || ""), 800)) return "There is a corrupt commission payment in the backup.";
+        if (idsPay.has(String(p.id)) || opsPay.has(String(p.opId))) return "There are duplicated commission payment IDs.";
+        idsPay.add(String(p.id)); opsPay.add(String(p.opId));
+        if (p.status !== "paid" || !Number.isInteger(Number(p.amountCents)) || Number(p.amountCents) < 0) return "There is an invalid commission payment amount or status.";
+        if (!Array.isArray(p.items) || !p.items.length) return "There is a commission payment without covered items.";
+        for (const it of p.items) if (!it || !["sale","adjustment"].includes(it.kind) || !it.sourceId || !Number.isInteger(Number(it.amountCents)) || Number(it.amountCents) <= 0) return "There is a corrupt covered item in a commission payment.";
+      }
+    }
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
@@ -815,6 +831,7 @@
     transferencias.length = 0; transferencias.push(...(Array.isArray(body.transferencias) ? body.transferencias : []));
     gastos.length = 0; gastos.push(...(Array.isArray(body.gastos) ? body.gastos : []));
     ajustesComision.length = 0; ajustesComision.push(...(Array.isArray(body.ajustesComision) ? body.ajustesComision : []));
+    payouts.length = 0; payouts.push(...(Array.isArray(body.payouts) ? body.payouts.filter((p) => p && p.id && p.opId) : []));
     if (Array.isArray(body.sucursales)) { sucursales.length = 0; sucursales.push(...body.sucursales); }
     if (Array.isArray(body.promotoras)) { promotoras.length = 0; promotoras.push(...body.promotoras); }
     if (Array.isArray(body.clientes)) {
@@ -1518,6 +1535,11 @@
       d.comision += c; if (!a.liquidada) d.pendiente += c;
       map.set(mes, d);
     });
+    const core = _payoutCore();
+    if (core) map.forEach((d, mes) => {
+      const rows = core.balancesByPayee({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, month:mes });
+      d.pendiente = rows.reduce((a,r) => a + core.money(r.dueCents), 0);
+    });
     return [...map.values()].sort((a, b) => (a.mes < b.mes ? 1 : -1))
       .map((d) => ({ ...d, comision: +d.comision.toFixed(2), pendiente: +d.pendiente.toFixed(2) }));
   }
@@ -1801,6 +1823,156 @@
     });
     return [...map.values()].map((d) => ({ ...d, montoBruto: +d.montoBruto.toFixed(2), comisionSocio: +d.comisionSocio.toFixed(2) }));
   }
+  function _payoutCore() {
+    return (typeof window !== "undefined" && window.OCPayoutLedger) ? window.OCPayoutLedger : null;
+  }
+  function _payeeName(id, ubicacion) {
+    const p = id ? promotoras.find((x) => String(x.id) === String(id)) : null;
+    return p ? p.nombre : (ubicacion ? ubicacion.nombre : "Associate");
+  }
+  function _payeeType(id) {
+    const p = id ? promotoras.find((x) => String(x.id) === String(id)) : null;
+    return p && p.tipo ? String(p.tipo) : "associate";
+  }
+  function _payoutInput(ubicacionId, mes) {
+    const periodo = mesValido(mes);
+    /* El core financiero no conoce reloj ni timezone. El shell SI: por eso
+       normalizamos el periodo aqui usando la misma regla forense que Commissions.
+       Evita que una venta cerca del cambio de mes desaparezca del ledger por usar
+       UTC crudo y, a la vez, mantiene payout-ledger.js puro/testeable. */
+    const sales = ventasActivas().filter((v) => esDelMes(v.fecha, periodo, v.relojDesfaseMs)
+      && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
+    const adjustments = ajustesComision.filter((a) => a && esDelMes(a.fecha, periodo)
+      && (ubicacionId == null || String(a.ubicacionId) === String(ubicacionId)));
+    return { sales, adjustments, locations: ubicaciones, payouts,
+      month: "", period: periodo, locationId: ubicacionId == null ? null : String(ubicacionId) };
+  }
+  function _fuentePayoutLiquidada(kind, id, ubicacionId, mes) {
+    const core = _payoutCore(); if (!core) return false;
+    const obs = core.buildObligations(_payoutInput(ubicacionId, mes)).filter((o) => o.kind === kind && String(o.sourceId) === String(id));
+    return obs.length > 0 && obs.every((o) => Number(o.dueCents) === 0);
+  }
+  function _registrarPayout(ubicacionId, body, qMes) {
+    const rolPago = _rolLocal();
+    if (rolPago && rolPago !== "dueno" && rolPago !== "admin" && rolPago !== "demo") return { error:"Only the owner or an admin can record commission payments.", status:403 };
+    const core = _payoutCore();
+    if (!core) return { error: "Payment ledger is not available. Nothing was recorded.", status: 503 };
+    const u = ubicaciones.find((x) => String(x.id) === String(ubicacionId));
+    if (!u) return { error: "Location not found.", status: 404 };
+    const mes = mesValido((body && body.mes) || qMes);
+    const requestedOpId = String(body && body.opId || "").trim();
+    if (requestedOpId) {
+      const prior = payouts.find((p) => String(p.opId) === requestedOpId);
+      if (prior) return { ok:true, existing:true, payout:prior };
+    }
+    const base = _payoutInput(ubicacionId, mes);
+    const rows = core.balancesByPayee(base).filter((r) => Number(r.dueCents) > 0);
+    if (!rows.length) return { error: "There is nothing due for this period.", status: 409 };
+    const hasExplicitPayee = !!(body && Object.prototype.hasOwnProperty.call(body, "payeeId"));
+    let payeeId = hasExplicitPayee ? (body.payeeId == null || body.payeeId === "" ? null : String(body.payeeId)) : null;
+    if (!hasExplicitPayee) {
+      if (rows.length !== 1) return { error: "More than one associate is owed money here. Choose the person you actually paid.", status: 409, payees: rows.map((r) => ({ payeeId:r.payeeId, due:core.money(r.dueCents) })) };
+      payeeId = rows[0].payeeId;
+    }
+    const row = rows.find((r) => (r.payeeId || null) === (payeeId || null));
+    if (!row) return { error: "That person has no positive amount due for this period.", status: 409 };
+    const sourceKey = row.obligations.filter((o) => Number(o.dueCents) !== 0).map((o) => o.kind + ":" + o.sourceId + ":" + (o.payeeId || "_")).sort().join(",");
+    const opId = String(requestedOpId || ("settle:" + mes + ":" + ubicacionId + ":" + (payeeId || "_") + ":" + sourceKey));
+    const already = payouts.find((p) => String(p.opId) === opId);
+    if (already) return { ok:true, existing:true, payout:already };
+    const now = new Date().toISOString();
+    const plan = core.planPayout(Object.assign({}, base, {
+      payeeId, opId, id:uuid("pay-"), method:body && body.medioPago,
+      amountCents:body && body.amountCents,
+      reference:body && body.reference, note:body && body.note,
+      paidAt:(body && body.paidAt) || now,
+      paidBy:(body && body.paidBy) || (_rolLocal() || "owner"),
+      payeeName:_payeeName(payeeId,u), payeeType:_payeeType(payeeId)
+    }));
+    if (plan.error) return plan;
+    const payout = Object.assign({}, plan.payout, { rev:_revNueva(), createdAt:now });
+    payouts.push(payout);
+    /* Compatibility projection. Financial truth is the payout; these booleans
+       keep historical guards/reports safe until every caller reads the ledger. */
+    payout.items.forEach((it) => {
+      if (it.kind === "sale") {
+        const v = ventas.find((x) => String(x.id) === String(it.sourceId));
+        if (v && _fuentePayoutLiquidada("sale", v.id, ubicacionId, mes)) { v.liquidada = true; v.medioPagoComision = payout.method; v.rev = _revNueva(); }
+      } else if (it.kind === "adjustment") {
+        const a = ajustesComision.find((x) => String(x.id) === String(it.sourceId));
+        if (a && _fuentePayoutLiquidada("adjustment", a.id, ubicacionId, mes)) { a.liquidada = true; a.medioPagoComision = payout.method; a.rev = _revNueva(); }
+      }
+    });
+    mov("payout", { payoutId:payout.id, opId:payout.opId, ubicacion:u.nombre, payeeId, payeeName:payout.payeeName,
+      amount:payout.amount, mes, medioPago:payout.method, covered:payout.items.length });
+    guardarEstadoLocal(); avisarCatalogoCambiado();
+    return { ok:true, payout };
+  }
+
+  /* Compatibility for the historical rack-wide endpoint.
+     Old shells legitimately call it without a payee. We preserve that contract
+     WITHOUT creating one ambiguous financial fact: each person gets a separate
+     payout. A negative-only clawback becomes a zero-cash settlement fact, not a
+     fake payment. New UI/API callers should always select a payee explicitly. */
+  function _registrarPayoutLegacyRack(ubicacionId, body, qMes) {
+    body = body || {};
+    if (body.payeeId != null && body.payeeId !== "") return _registrarPayout(ubicacionId, body, qMes);
+    const core = _payoutCore();
+    if (!core) return { error:"Payment ledger is not available. Nothing was recorded.", status:503 };
+    const mes = mesValido(body.mes || qMes);
+    const base = _payoutInput(ubicacionId, mes);
+    const rows = core.balancesByPayee(base);
+    const positivos = rows.filter((r) => Number(r.dueCents) > 0);
+    const negativos = rows.filter((r) => Number(r.dueCents) < 0);
+    const creados = [];
+
+    for (const row of positivos) {
+      const rr = _registrarPayout(ubicacionId, Object.assign({}, body, {
+        payeeId:row.payeeId,
+        opId: body.opId ? String(body.opId) + ":" + String(row.payeeId || "_") : undefined
+      }), mes);
+      if (rr.error) return rr;
+      if (rr.payout) creados.push(rr.payout);
+    }
+
+    /* A clawback can be the only remaining ledger item after a prior payment.
+       Recording it as applied moves no cash; it merely proves the credit was
+       consumed/acknowledged and prevents it from reappearing forever. */
+    for (const row of negativos) {
+      const obs = row.obligations.filter((o) => Number(o.dueCents) < 0);
+      if (!obs.length) continue;
+      const sourceKey = obs.map((o) => o.kind + ":" + o.sourceId + ":" + (o.payeeId || "_")).sort().join(",");
+      const opId = String(body.opId ? String(body.opId) + ":credit:" + String(row.payeeId || "_") : ("settle-credit:" + mes + ":" + ubicacionId + ":" + String(row.payeeId || "_") + ":" + sourceKey));
+      const prior = payouts.find((p) => String(p.opId) === opId);
+      if (prior) { creados.push(prior); continue; }
+      const u = ubicaciones.find((x) => String(x.id) === String(ubicacionId));
+      const now = new Date().toISOString();
+      const settlement = {
+        id:uuid("pay-"), opId, status:"paid", type:"credit-settlement",
+        payeeId:row.payeeId || null, payeeName:_payeeName(row.payeeId,u), payeeType:_payeeType(row.payeeId),
+        locationId:String(ubicacionId), period:mes, amountCents:0, amount:0,
+        method:null, reference:"", note:String(body.note || "").trim().slice(0,240),
+        paidAt:body.paidAt || now, paidBy:body.paidBy || (_rolLocal() || "owner"),
+        items:obs.map((o) => ({ kind:o.kind, sourceId:o.sourceId, payeeId:o.payeeId, amountCents:Math.abs(Number(o.dueCents)), offset:true })),
+        rev:_revNueva(), createdAt:now
+      };
+      payouts.push(settlement);
+      settlement.items.forEach((it) => {
+        if (it.kind === "adjustment") {
+          const a = ajustesComision.find((x) => String(x.id) === String(it.sourceId));
+          if (a) { a.liquidada = true; a.rev = _revNueva(); }
+        }
+      });
+      mov("payout-credit-settlement", { payoutId:settlement.id, ubicacion:u ? u.nombre : "", payeeId:settlement.payeeId, mes, covered:settlement.items.length });
+      creados.push(settlement);
+    }
+
+    if (!creados.length) return { ok:true, noop:true, payouts:[], payout:null };
+    guardarEstadoLocal(); avisarCatalogoCambiado();
+    const cash = creados.reduce((a,p) => a + Number(p.amount || 0), 0);
+    return { ok:true, payouts:creados, payout:creados[0], amount:+cash.toFixed(2) };
+  }
+
   /* mes opcional "YYYY-MM" (shell 371). Sin mes = mes en curso, igual que antes. */
   function getLiquidaciones(mes) {
     const _mes = mesValido(mes);
@@ -1824,6 +1996,25 @@
       const comisionSocio = ventasMes.reduce((a, v) => a + v.split.montoComisionSocio, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoComisionSocio) || 0), 0);
       const netoDueno = ventasMes.reduce((a, v) => a + v.split.montoNetoDueno, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoNetoDueno) || 0), 0);
       const pendientes = ventasMes.filter((v) => !v.liquidada);
+      const _ledger = _payoutCore();
+      const _ledgerObs = _ledger ? _ledger.buildObligations(_payoutInput(u.id, _mes)) : [];
+      const payoutBalances = _ledger ? _ledger.balancesByPayee(_payoutInput(u.id, _mes)).map((r) => ({
+        payeeId:r.payeeId, nombre:_payeeName(r.payeeId,u), earned:+_ledger.money(r.earnedCents).toFixed(2),
+        paid:+_ledger.money(r.paidCents).toFixed(2), due:+_ledger.money(r.dueCents).toFixed(2), dueCents:r.dueCents
+      })) : [];
+      const stillDue = _ledger ? +(payoutBalances.reduce((a,r) => a + (Number(r.due) || 0), 0)).toFixed(2)
+        : +(pendientes.reduce((a,v) => a + (Number(v.split && v.split.montoComisionSocio) || 0), 0) + ajPend.reduce((a,x) => a + (Number(x.montoComisionSocio) || 0), 0)).toFixed(2);
+      const _ledgerAbierto = _ledger ? _ledgerObs.some((o) => Math.abs(Number(o.dueCents) || 0) > 0) : !!(pendientes.length || ajPend.length);
+      const _ledgerPagoPositivo = _ledger ? _ledgerObs.some((o) => Number(o.signedAmountCents) > 0 && Number(o.paidCents) > 0)
+        : ventasMes.some((v) => !!v.liquidada);
+      const paymentStatus = (ventasMes.length === 0 && ajustesMes.length === 0) ? "no-sales"
+        : (_ledgerAbierto ? (_ledgerPagoPositivo ? "partially-paid" : "due") : "paid");
+      const payoutHistory = payouts.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
+        .slice().sort((a,b) => String(b.paidAt || b.createdAt || "").localeCompare(String(a.paidAt || a.createdAt || "")))
+        .map((p) => ({ id:p.id, opId:p.opId, payeeId:p.payeeId || null, payeeName:p.payeeName || _payeeName(p.payeeId,u),
+          amount:+((p.reversalOf ? -1 : 1) * (Number(p.amount) || ((Number(p.amountCents) || 0) / 100))).toFixed(2), method:p.method || null,
+          paidAt:p.paidAt || p.createdAt || null, reference:p.reference || "", note:p.note || "", items:(p.items || []).length,
+          type:p.reversalOf ? "reversal" : "payment", reversalOf:p.reversalOf || null }));
       /* Bloque 4: cuanto le toca a cada persona cuando hay ventas repartidas. */
       const _porPersona = new Map();
       const _sumar = (pid, monto) => { const k = pid || "__percha__"; _porPersona.set(k, (_porPersona.get(k) || 0) + (Number(monto) || 0)); };
@@ -1847,7 +2038,17 @@
       // es el "te debo $X". Agrupamos las ventas pendientes por producto para armar
       // un recibo itemizado (producto, unidades, bruto, comision). Sin esto el pago
       // es un numero suelto y genera desconfianza. Ver marcarComisionPagada() en index.html.
-      const detallePendientes = agruparPendientesPorProducto(pendientes).concat(ajPend.map((x) => { const pp = productos.find((q) => q.id === x.productoId); return { producto: "Return: " + (pp ? pp.nombre : "product"), sku: pp ? pp.sku : "", cantidad: -(Number(x.cantidad) || 0), montoBruto: +(Number(x.montoBruto) || 0).toFixed(2), comisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), ajusteId: x.id }; }));
+      const detallePendientes = _ledger ? _ledgerObs.filter((o) => Number(o.dueCents) !== 0).map((o) => {
+        const v = o.kind === "sale" ? ventas.find((x) => String(x.id) === String(o.sourceId)) : null;
+        const aj = o.kind === "adjustment" ? ajustesComision.find((x) => String(x.id) === String(o.sourceId)) : null;
+        const vv = v || (aj ? ventas.find((x) => String(x.id) === String(aj.ventaId)) : null);
+        const pp = vv ? productos.find((q) => q.id === vv.productoId) : null;
+        return { producto:(o.kind === "adjustment" ? "Return: " : "") + (pp ? pp.nombre : "product"), sku:pp ? pp.sku : "",
+          cantidad:o.kind === "adjustment" ? -(Number(aj && aj.cantidad) || 0) : (Number(vv && vv.cantidad) || 0),
+          montoBruto:vv && vv.split ? +(Number(vv.split.montoBruto) || 0).toFixed(2) : 0,
+          comisionSocio:+_ledger.money(o.dueCents).toFixed(2), ajusteId:aj ? aj.id : undefined,
+          ventaId:vv ? vv.id : undefined, payeeId:o.payeeId, payeeNombre:_payeeName(o.payeeId,u) };
+      }) : agruparPendientesPorProducto(pendientes).concat(ajPend.map((x) => { const pp = productos.find((q) => q.id === x.productoId); return { producto: "Return: " + (pp ? pp.nombre : "product"), sku: pp ? pp.sku : "", cantidad: -(Number(x.cantidad) || 0), montoBruto: +(Number(x.montoBruto) || 0).toFixed(2), comisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), ajusteId: x.id }; }));
       // Dias desde la ultima venta de esta percha (rec 05: asociado/a dormida).
       const ultima = ventasActivas().filter((v) => v.ubicacionId === u.id).reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
       const diasSinVenta = ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000) : null;
@@ -1861,10 +2062,15 @@
         mes: _mes, esMesActual: _mes === mesActualISO(),
         cumplimientoMeta: _meta ? +((ventasBrutas / _meta) * 100).toFixed(1) : null,
         ventasBrutas: +ventasBrutas.toFixed(2), comisionSocio: +comisionSocio.toFixed(2), netoDueno: +netoDueno.toFixed(2),
-        estado: (ventasMes.length === 0 && ajustesMes.length === 0) ? "sin ventas" : (pendientes.length === 0 && ajPend.length === 0) ? "pagado" : "pendiente",
+        /* Un saldo negativo pendiente es un clawback/credito por aplicar, NO "pagado".
+           Estado se resuelve por obligaciones abiertas; el signo solo dice quien
+           debe compensar a quien. */
+        estado: paymentStatus === "no-sales" ? "sin ventas" : (paymentStatus === "paid" ? "pagado" : "pendiente"),
+        paymentStatus,
         /* Como se pago (v391): el medio del ultimo pago sellado en el mes; null si no se registro. Solo lectura. */
         medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
-        ventasPendientes: pendientes.length, detallePendientes,
+        ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
+        stillDue, payoutBalances, payoutHistory, detallePendientes,
         ajustes: ajustesMes.map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
         repartoPersonas,
         diasSinVenta, promotorNombre: prom ? prom.nombre : null,
@@ -2786,6 +2992,16 @@
         if (medioLocal) local.medioPagoComision = medioLocal;
       }
     });
+    /* Payout Ledger v1: append-only and idempotent by BOTH id and opId.
+       A second offline device that recorded the same settlement cannot create a
+       second ledger fact when the peers converge. No payout is ever overwritten. */
+    if (Array.isArray(remoto.payouts)) remoto.payouts.forEach((p) => {
+      if (!p || !p.id || !p.opId || p.status !== "paid" || !(Number(p.amountCents) >= 0)) return;
+      const ya = payouts.find((x) => String(x.id) === String(p.id) || String(x.opId) === String(p.opId));
+      if (ya) return;
+      payouts.push(Object.assign({}, p));
+      _observarRev(p.rev); actualizados++;
+    });
     if (Array.isArray(remoto.transferencias)) remoto.transferencias.forEach((t) => {
       if (!t || !t.id || !t.productoOrigenId || !t.productoDestinoId) return;
       _observarRev(t.rev);
@@ -3657,6 +3873,7 @@
         ventas: ventas.filter((v) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ventas", v)).map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
+        payouts: payouts.map((p) => Object.assign({}, p)),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
         /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Este aparato publica SU
            propia entrada {id,apodo,rol}; el dueño de la entrada es autoritativo. Se
@@ -5316,6 +5533,33 @@
       }
 
       if (path === "/api/liquidaciones") return J(getLiquidaciones(q.get("mes")));
+      if (path === "/api/payouts" && method === "GET") {
+        const mes = q.get("mes"); const ubic = q.get("ubicacionId"); const payee = q.get("payeeId");
+        return J(payouts.filter((p) => (!mes || p.period === mes) && (!ubic || String(p.locationId) === String(ubic)) && (!payee || String(p.payeeId || "") === String(payee))).map((p) => clonar(p)));
+      }
+      if (path === "/api/payouts" && method === "POST") {
+        const r = _registrarPayout(body && body.ubicacionId, body || {}, body && body.mes);
+        return J(r.error ? { error:r.error, payees:r.payees || undefined } : r, r.error ? (r.status || 400) : 200);
+      }
+      if ((m = path.match(/^\/api\/payouts\/([^/]+)\/reverse$/)) && method === "POST") {
+        const rol = _rolLocal();
+        if (rol && rol !== "dueno" && rol !== "admin" && rol !== "demo") return J({ error:"Only the owner or an admin can reverse a commission payment." }, 403);
+        const original = payouts.find((p) => String(p.id) === String(m[1]) && p.status === "paid" && !p.reversalOf);
+        if (!original) return J({ error:"Payment not found or already a reversal." }, 404);
+        const prior = payouts.find((p) => String(p.reversalOf || "") === String(original.id));
+        if (prior) return J({ ok:true, existing:true, reversal:clonar(prior) });
+        const motivo = String(body && body.reason || "").trim().slice(0,240);
+        if (!motivo) return J({ error:"Explain why this payment is being reversed." }, 400);
+        const now = new Date().toISOString();
+        const reversal = { id:uuid("payrev-"), opId:String(body && body.opId || ("reverse:" + original.opId)), status:"paid", type:"reversal", reversalOf:original.id,
+          payeeId:original.payeeId || null, payeeName:original.payeeName || "", payeeType:original.payeeType || "associate", locationId:original.locationId,
+          period:original.period, amountCents:original.amountCents, amount:original.amount, method:original.method || null, reference:original.reference || "",
+          note:motivo, paidAt:now, paidBy:(body && body.paidBy) || (rol || "owner"), items:clonar(original.items || []), rev:_revNueva(), createdAt:now };
+        payouts.push(reversal);
+        mov("payout-reversal", { payoutId:original.id, reversalId:reversal.id, payeeId:reversal.payeeId, amount:reversal.amount, mes:reversal.period, motivo });
+        guardarEstadoLocal(); avisarCatalogoCambiado();
+        return J({ ok:true, reversal:clonar(reversal) });
+      }
       /* CUADRE DEL MES (JFC 2026-09-24: "todo debe cuadrar, nada debe quedar
          fuera de vista"). TODAS las ventas activas del mes, repartidas en cubos
          que suman exacto al total (en centavos): con comision, COUNTER SALE en
@@ -5351,6 +5595,9 @@
         let devBruto = 0, ajCom = 0;
         aj.forEach((a) => { devBruto += ce(a.montoBruto); ajCom += ce(a.montoComisionSocio); if (!a.liquidada) porPagar += ce(a.montoComisionSocio); });
         const d = (n) => +(n / 100).toFixed(2);
+        const _coreCuadre = _payoutCore();
+        if (_coreCuadre) porPagar = _coreCuadre.balancesByPayee({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, month:_mes })
+          .reduce((a,r) => a + Number(r.dueCents || 0), 0);
         const total = k.conComision.c + k.casaCompartida.c + k.perchasPropias.c + k.sinTrato.c;
         const salida = { mes: _mes, totalVentas: d(total), ventas: vm.length,
           devoluciones: { monto: d(devBruto), cantidad: aj.filter((a) => a.tipo === "devolucion").length },
@@ -5425,29 +5672,18 @@
          que nadie lo pidiera. Un verbo distinto cae al 404 del router (~L4490),
          igual que en todos los demas endpoints. */
       if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/)) && opts && opts.method === "POST") {
-        const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
-        /* Shell 371: paga el mes que se pide (body.mes o ?mes=); sin mes, el
-           mes en curso como siempre. mesValido() impide que un valor raro
-           liquide otro periodo. El mes queda en el log de la liquidacion. */
-        const _mesPago = mesValido(body.mes || q.get("mes"));
-        /* MEDIO DE PAGO (JFC 2026-09-24, benchmark #4, aditivo): como se le pago al
-           comisionista. Opcional: sin el campo, todo igual que antes (null). Un
-           valor fuera de la lista cae a "otro" (nunca se guarda texto libre ajeno).
-           Se sella SOLO en lo que este pago liquida; lo ya pagado no se toca. */
-        const _MEDIOS = ["efectivo", "transferencia", "credito-tienda", "otro"];
-        const _medio = (body.medioPago === undefined || body.medioPago === null || body.medioPago === "") ? null
-          : (_MEDIOS.includes(String(body.medioPago)) ? String(body.medioPago) : "otro");
-        /* B5 (2026-09-24): solo se sellan ventas CON comision (split). Antes el
-           pago marcaba tambien las COUNTER SALES de la percha, que no tienen a
-           quien pagarle, y despues ya no se podian cancelar ni editar. */
-        const pend = ventasActivas().filter((v) => v.ubicacionId === m[1] && esDelMes(v.fecha, _mesPago, v.relojDesfaseMs) && !v.liquidada && v.split);
-        pend.forEach((v) => { v.liquidada = true; if (_medio) v.medioPagoComision = _medio; v.rev = _revNueva(); });
-        /* Bloque 4: los ajustes pendientes del mes se descuentan en este pago. */
-        const ajPago = ajustesComision.filter((a) => a && a.ubicacionId === m[1] && esDelMes(a.fecha, _mesPago) && !a.liquidada);
-        ajPago.forEach((a) => { a.liquidada = true; if (_medio) a.medioPagoComision = _medio; a.rev = _revNueva(); });
-        mov("liquidacion", { ubicacion: u.nombre, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length, mes: _mesPago, medioPago: _medio });
-        if (pend.length || ajPago.length) avisarCatalogoCambiado();
-        return J({ ok: true, ventasLiquidadas: pend.length, ajustesLiquidados: ajPago.length, medioPago: _medio });
+        /* Backward-compatible URL; the operation is now a first-class payout.
+           It no longer flips a batch of sale booleans blindly. */
+        const r = _registrarPayoutLegacyRack(m[1], body || {}, q.get("mes"));
+        if (r.error) return J({ error:r.error, payees:r.payees || undefined }, r.status || 400);
+        const hechos = r.payouts || (r.payout ? [r.payout] : []);
+        return J({ ok:true, noop:!!r.noop, payoutId:r.payout ? r.payout.id : null, opId:r.payout ? r.payout.opId : null,
+          amount:r.amount != null ? r.amount : (r.payout ? r.payout.amount : 0),
+          medioPago:r.payout ? r.payout.method : null, payeeId:r.payout ? r.payout.payeeId : null, payeeName:r.payout ? r.payout.payeeName : "",
+          items:r.payout ? clonar(r.payout.items || []) : [],
+          ventasLiquidadas:hechos.reduce((a,p) => a + (p.items || []).filter((x) => x.kind === "sale").length, 0),
+          ajustesLiquidados:hechos.reduce((a,p) => a + (p.items || []).filter((x) => x.kind === "adjustment").length, 0),
+          payoutIds:hechos.map((p) => p.id), existing:!!r.existing });
       }
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/hermanos$/))) {
@@ -5661,6 +5897,10 @@
          el tablero no tenga que cruzar tablas por su cuenta (que es como dos
          pantallas terminan mostrando dos numeros distintos del mismo negocio).
          Portado desde amigable-123 (JFC 2026-08-18). */
+      const _coreVentas = _payoutCore();
+      const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts }) : [];
+      const _dueVenta = new Map();
+      _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _dueVenta.set(String(o.sourceId), (_dueVenta.get(String(o.sourceId)) || 0) + Number(o.dueCents || 0)));
       return J(ventasActivas().filter((v) => !uid || uid === "todas" || v.ubicacionId === uid).map((v) => {
         const p = productos.find((x) => x.id === v.productoId);
         const c = clientes.find((x) => x.id === v.clienteId);
@@ -5696,6 +5936,9 @@
           modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
           comisionCorregida: !!(v.split && v.split.corregida),
           liquidada: !!v.liquidada,
+          /* Payout Ledger: exact remaining commission for this sale, summed
+             across people. Null only when the pure ledger core is unavailable. */
+          comisionPendiente: _coreVentas ? +_coreVentas.money(_dueVenta.get(String(v.id)) || 0).toFixed(2) : null,
           devuelta: !!v.devuelta,
           medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
           reparto: (v.split && v.split.reparto) ? v.split.reparto : null,

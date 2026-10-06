@@ -12,3 +12,4 @@ while ((m = re.exec(html))) {
   try { new Function(code); } catch (e) { ok = false; console.log("SCRIPT #" + i + " SYNTAX ERROR:", e.message); }
 }
 console.log(file, "checked", i, "inline scripts; ok=" + ok);
+if (!ok) process.exitCode = 1;
