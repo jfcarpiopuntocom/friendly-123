@@ -1,0 +1,106 @@
+{
+  "rol": "contador",
+  "lang": "es",
+  "commit": "2ef2230",
+  "screens": [
+    {
+      "screen": "Hoy",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Inventario",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Vendido",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Perchas",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Clientes",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Comisiones",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Gastos",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Etiquetas",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Avanzado",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Accounting",
+      "view": null,
+      "controls": [
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-descargar-csv",
+          "dataAttrs": [],
+          "text": "DOWNLOAD ACCOUNTING REPORT (.CSV)",
+          "fontSize": "13.3333px",
+          "color": "rgb(248, 249, 251)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7323 @@
+{
+  "rol": "admin",
+  "lang": "es",
+  "commit": "2ef2230",
+  "screens": [
+    {
+      "screen": "Hoy",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        }
+      ]
+    },
+    {
+      "screen": "Inventario",
+      "view": null,
+      "controls": [
+        {
+          "tag": "button",
+          "id": "btnAltaProducto",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ AGREGAR",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "TODOS",
+          "fontSize": "13px",
+          "color": "rgb(248, 249, 251)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "URGENTE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "REVISAR",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "OPORTUNIDAD",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "SANO",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "DORMIDO",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "inputBuscarInventario",
+          "dataAttrs": [
+            "data-i18n-attr",
+            "data-oc-listo"
+          ],
+          "text": "Search by name, SKU or category…",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-inv-col"
+          ],
+          "text": "NOMBRE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-inv-col"
+          ],
+          "text": "STOCK",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-inv-col"
+          ],
+          "text": "PRECIO",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-inv-col"
+          ],
+          "text": "CATEGORÍA",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "invAgrupar",
+          "dataAttrs": [
+            "data-listo"
+          ],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SHOW ARCHIVED",
+          "fontSize": "13px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "AM Aged Manchego 200g 🕓 Cheese & deli · CHE-MAN-011 18 Venció hace 12 días — retíralo",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "BC Blue cheese 150g 🕓 Cheese & deli · CHE-BLU-013 10 Venció hace 20 días — retíralo",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ★ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "★",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "BW Brie wheel 🕓 Cheese & deli · CHE-BRI-012 12 Venció hace 18 días — retíralo",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "C& Cheese & charcuterie board 🕓 Cheese & deli · CHE-BRD-014 20 Venció hace 22 días — retí",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "C— Consignment — Market morning Paintings · CON-OIL-006 1 Quedan 1 — reponer urgente",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ★ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "★",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "C— Consignment — The weaver (oil) Paintings · CON-OIL-005 1 Quedan 1 — reponer urgente",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "E( Empanadas (2 pcs) 🕓 Kitchen · KIT-EMP-029 70 Venció hace 33 días — retíralo",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "LF Local fresh cheese 250g 🕓 Cheese & deli · CHE-FRE-015 24 Venció hace 24 días — retíral",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "OO Original oil — City rooftops Paintings · ART-OIL-001 1 Quedan 1 — reponer urgente",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "TP Tapas plate 🕓 Kitchen · KIT-TAP-027 60 Venció hace 31 días — retíralo",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ★ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "★",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "TP Taza Prueba General · TAZA-001 4 Quedan 4 — reponer urgente",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "TS Toasted sandwich 🕓 Kitchen · KIT-SAN-028 50 Venció hace 32 días — retíralo",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "VP Vela Prueba General · VELA-001 2 Quedan 2 — reponer urgente",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "VT Vintage typewriter Antiques · ANT-TYP-009 1 Quedan 1 — reponer urgente",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ★ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "★",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "AW Antique wall clock Antiques · ANT-CLK-010 2 Quedan 2 — revisar pronto",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "OW Original watercolor — River bend Paintings · ART-WAT-002 2 Quedan 2 — revisar pronto",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ★ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "★",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "AB Antique brass compass Antiques · ANT-BRS-008 3 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "AS Aperitif spritz Bar · BAR-SPR-025 60 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "CS Cabernet Sauvignon (bottle) Wine · WIN-CAB-017 60 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "CA Cappuccino Bar · BAR-CAP-023 200 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ★ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "★",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "C— Consignment — Mountain lake print Art & prints · CON-PRN-007 12 Buen margen — hay diner",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "CB Craft beer (pint) Bar · BAR-BEE-024 80 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "ES Espresso Bar · BAR-ESP-022 200 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "HW House wine (glass) Bar · BAR-HRE-020 90 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "LJ Live jazz night (ticket) Tickets & events · EVT-JAZ-034 60 Buen margen — hay dinero esp",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "LA Local art history (book) Books · LIB-ART-032 15 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ★ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "★",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "MR Malbec Reserve (bottle) Wine · WIN-MAL-016 48 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ★ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "★",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "O& Olives & nuts bowl Kitchen · KIT-OLV-030 80 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "PE Photo exhibition (ticket) Tickets & events · EVT-FOT-037 80 Buen margen — hay dinero es",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "PA Poetry anthology Books · LIB-POE-031 20 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "P— Print — Mountain series I Art & prints · ART-PRN-003 24 Buen margen — hay dinero esperá",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "P— Print — Old doors Art & prints · ART-PRN-004 30 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "R( Rosé (bottle) Wine · WIN-ROS-021 36 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SB Sauvignon Blanc (bottle) Wine · WIN-SAU-018 40 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SW Sparkling water Bar · BAR-WAT-026 120 Buen margen — hay dinero esperándote",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "TN Tango night (ticket) Tickets & events · EVT-TAN-036 50 Buen margen — hay dinero esperán",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "WW Watercolor workshop (seat) Tickets & events · EVT-ACU-035 20 Buen margen — hay dinero e",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "W& Wine & cheese tasting (ticket) Tickets & events · EVT-CAT-033 40 Buen margen — hay dine",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ★ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "★",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "PR Poetry reading (ticket) Tickets & events · EVT-POE-038 40 Sin ventas hace 97 días — tu ",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SB Sparkling Brut (bottle) Wine · WIN-BRU-019 30 Stock saludable",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− + ☆ ✏️",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estrella-toggle"
+          ],
+          "text": "☆",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-editar-directo"
+          ],
+          "text": "✏️",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-suc-renombrar"
+          ],
+          "text": "RENAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-renombrar"
+          ],
+          "text": "RENAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-toggle",
+            "data-activa",
+            "data-feria"
+          ],
+          "text": "DEACTIVATE",
+          "fontSize": "13px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-borrar",
+            "data-nombre"
+          ],
+          "text": "DELETE",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-mover"
+          ],
+          "text": "— Sin sucursal — Gallery Bar & Café Events",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-promotor"
+          ],
+          "text": "— Ninguno — Consignment Artist (sample) Event Partner (sample) Ana Prueba Beto Prueba",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-renombrar"
+          ],
+          "text": "RENAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-comision"
+          ],
+          "text": "COMMISSION",
+          "fontSize": "13px",
+          "color": "rgb(122, 85, 16)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-toggle",
+            "data-activa",
+            "data-feria"
+          ],
+          "text": "DEACTIVATE",
+          "fontSize": "13px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-borrar",
+            "data-nombre"
+          ],
+          "text": "DELETE",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-mover"
+          ],
+          "text": "— Sin sucursal — Gallery Bar & Café Events",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-promotor"
+          ],
+          "text": "— Ninguno — Consignment Artist (sample) Event Partner (sample) Ana Prueba Beto Prueba",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-suc-renombrar"
+          ],
+          "text": "RENAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-renombrar"
+          ],
+          "text": "RENAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-toggle",
+            "data-activa",
+            "data-feria"
+          ],
+          "text": "DEACTIVATE",
+          "fontSize": "13px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-borrar",
+            "data-nombre"
+          ],
+          "text": "DELETE",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-mover"
+          ],
+          "text": "— Sin sucursal — Gallery Bar & Café Events",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-promotor"
+          ],
+          "text": "— Ninguno — Consignment Artist (sample) Event Partner (sample) Ana Prueba Beto Prueba",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-suc-renombrar"
+          ],
+          "text": "RENAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-renombrar"
+          ],
+          "text": "RENAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-comision"
+          ],
+          "text": "COMMISSION",
+          "fontSize": "13px",
+          "color": "rgb(122, 85, 16)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-toggle",
+            "data-activa",
+            "data-feria"
+          ],
+          "text": "DEACTIVATE",
+          "fontSize": "13px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-borrar",
+            "data-nombre"
+          ],
+          "text": "DELETE",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-mover"
+          ],
+          "text": "— Sin sucursal — Gallery Bar & Café Events",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-promotor"
+          ],
+          "text": "— Ninguno — Consignment Artist (sample) Event Partner (sample) Ana Prueba Beto Prueba",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-renombrar"
+          ],
+          "text": "RENAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-comision"
+          ],
+          "text": "COMMISSION",
+          "fontSize": "13px",
+          "color": "rgb(122, 85, 16)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-toggle",
+            "data-activa",
+            "data-feria"
+          ],
+          "text": "DEACTIVATE",
+          "fontSize": "13px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-borrar",
+            "data-nombre"
+          ],
+          "text": "DELETE",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-mover"
+          ],
+          "text": "— Sin sucursal — Gallery Bar & Café Events",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-promotor"
+          ],
+          "text": "— Ninguno — Consignment Artist (sample) Event Partner (sample) Ana Prueba Beto Prueba",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-renombrar"
+          ],
+          "text": "RENAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-comision"
+          ],
+          "text": "COMMISSION",
+          "fontSize": "13px",
+          "color": "rgb(122, 85, 16)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-toggle",
+            "data-activa",
+            "data-feria"
+          ],
+          "text": "DEACTIVATE",
+          "fontSize": "13px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-borrar",
+            "data-nombre"
+          ],
+          "text": "DELETE",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-mover"
+          ],
+          "text": "— Sin sucursal — Gallery Bar & Café Events",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-percha-promotor"
+          ],
+          "text": "— Ninguno — Consignment Artist (sample) Event Partner (sample) Ana Prueba Beto Prueba",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "sucursalNombre",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Ej: Centro, Feria de Navidad",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "sucursalCrear",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ AGREGAR SUCURSAL",
+          "fontSize": "13.3333px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "input",
+          "id": "perchaNombre",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Ej: Percha Feria Artesanal",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "perchaSucursal",
+          "dataAttrs": [],
+          "text": "— Sin sucursal — Gallery Bar & Café Events",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "perchaTipo",
+          "dataAttrs": [],
+          "text": "Propio Socio Franquicia Consignación",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "perchaComision",
+          "dataAttrs": [
+            "data-i18n-attr",
+            "data-espejo"
+          ],
+          "text": "Ej: 25",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "perchaCasa",
+          "dataAttrs": [],
+          "text": "e.g. 75",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "perchaMeta",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Ej: 300",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "perchaMinimo",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "opcional",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "perchaContrib",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "opcional",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "perchaCrear",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ AGREGAR PERCHA",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "feriaNombre",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Ej: Feria de Otavalo",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "feriaComision",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Ej: 30",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "feriaAbrir",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "ABRIR FERIA",
+          "fontSize": "13.3333px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-move-from"
+          ],
+          "text": "— Sample Gallery Artist consignment Bar & Café Cultural events Percha Prueba Percha Dos",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-move-item"
+          ],
+          "text": "—",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-move-to"
+          ],
+          "text": "— Sample Gallery Artist consignment Bar & Café Cultural events Percha Prueba Percha Dos",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-move-go"
+          ],
+          "text": "TRASLADAR",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        }
+      ]
+    },
+    {
+      "screen": "Vendido",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "btnModoQuick",
+          "dataAttrs": [
+            "data-modo-venta"
+          ],
+          "text": "⚡ QUICK TAP",
+          "fontSize": "14px",
+          "color": "rgb(251, 245, 232)"
+        },
+        {
+          "tag": "button",
+          "id": "btnModoCarrito",
+          "dataAttrs": [
+            "data-modo-venta"
+          ],
+          "text": "🧺 FILL A BASKET",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "venderBuscarInput",
+          "dataAttrs": [
+            "data-i18n-attr",
+            "data-listener-listo"
+          ],
+          "text": "Search by name or category...",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "TODAS",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "ACCESSORIES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "ANTIQUES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "ART & PRINTS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "BAR",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "BOOKS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "CHEESE & DELI",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "CLOTHING",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "COSMETICS & PERSONAL CARE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "CRAFTS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "ELECTRONICS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "FOOTWEAR",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "GENERAL",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "HOME & DECOR",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "JEWELRY",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "KITCHEN",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "PAINTINGS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "PETS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "SERVICES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "SNACKS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "SOFT DRINKS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "STATIONERY",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "TICKETS & EVENTS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "TOOLS & HARDWARE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "TOYS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "WINE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-cat-manage"
+          ],
+          "text": "✎",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "ventaCliente",
+          "dataAttrs": [],
+          "text": "Cliente de paso Ashley Rivera (C-1001) Marcus Bennett (C-1002) Lucy Tran (C-1003) Evan Cro",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "btnNuevoCliente",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ NUEVO CLIENTE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "btnShowCustomers",
+          "dataAttrs": [],
+          "text": "VER CLIENTES",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ BLUE CHEESE 150G $X 10 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ CAPPUCCINO $X 200 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ CONSIGNMENT — MARKET MORNING $X 1 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ LOCAL ART HISTORY (BOOK) $X 15 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ MALBEC RESERVE (BOTTLE) $X 48 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ ORIGINAL WATERCOLOR — RIVER BEND $X 2 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ TAPAS PLATE $X 60 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ VINTAGE TYPEWRITER $X 1 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ WINE & CHEESE TASTING (TICKET) $X 40 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "AGED MANCHEGO 200G $X 18 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ANTIQUE BRASS COMPASS $X 3 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ANTIQUE WALL CLOCK $X 2 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "APERITIF SPRITZ $X 60 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "BRIE WHEEL $X 12 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CABERNET SAUVIGNON (BOTTLE) $X 60 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CHEESE & CHARCUTERIE BOARD $X 20 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CONSIGNMENT — MOUNTAIN LAKE PRINT $X 12 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CONSIGNMENT — THE WEAVER (OIL) $X 1 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CRAFT BEER (PINT) $X 80 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "EMPANADAS (2 PCS) $X 70 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ESPRESSO $X 200 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "HOUSE WINE (GLASS) $X 90 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "LIVE JAZZ NIGHT (TICKET) $X 60 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "LOCAL FRESH CHEESE 250G $X 24 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "OLIVES & NUTS BOWL $X 80 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ORIGINAL OIL — CITY ROOFTOPS $X 1 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "PHOTO EXHIBITION (TICKET) $X 80 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "POETRY ANTHOLOGY $X 20 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "POETRY READING (TICKET) $X 40 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "PRINT — MOUNTAIN SERIES I $X 24 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "PRINT — OLD DOORS $X 30 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ROSÉ (BOTTLE) $X 36 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "SAUVIGNON BLANC (BOTTLE) $X 40 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "SPARKLING BRUT (BOTTLE) $X 30 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "SPARKLING WATER $X 120 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "TANGO NIGHT (TICKET) $X 50 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "T TAZA PRUEBA $X 4 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "TOASTED SANDWICH $X 50 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "V VELA PRUEBA $X 2 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "WATERCOLOR WORKSHOP (SEAT) $X 20 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "inputEscaner",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "e.g. 7501234567001 or MAR-RED-20",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "btnEscanear",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "BUSCAR",
+          "fontSize": "15px",
+          "color": "rgb(248, 249, 251)"
+        },
+        {
+          "tag": "select",
+          "id": "ventaEvento",
+          "dataAttrs": [],
+          "text": "Sin evento (venta normal)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "btnNuevoEvento",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ NUEVO EVENTO",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "🧾 Registro de ventas — editar o deshacer",
+          "fontSize": "17px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "🌙 Cierre del día — cuadra todo de una sola vez",
+          "fontSize": "17px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "btnAplicarCierre",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "eod-inline",
+          "dataAttrs": [],
+          "text": "RESUMEN DIARIO",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        }
+      ]
+    },
+    {
+      "screen": "Perchas",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-percha-col"
+          ],
+          "text": "NAME",
+          "fontSize": "13px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-percha-col"
+          ],
+          "text": "MONTHLY SALES",
+          "fontSize": "13px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-percha-col"
+          ],
+          "text": "TARGET %",
+          "fontSize": "13px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "vp-btn-agregar",
+          "dataAttrs": [],
+          "text": "+ AGREGAR PERCHA",
+          "fontSize": "14px",
+          "color": "rgb(251, 245, 232)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "ABRIR ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-foto"
+          ],
+          "text": "Cambiar foto",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-rename"
+          ],
+          "text": "✎",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "ABRIR ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-foto"
+          ],
+          "text": "Cambiar foto",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-rename"
+          ],
+          "text": "✎",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "ABRIR ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-foto"
+          ],
+          "text": "Cambiar foto",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-rename"
+          ],
+          "text": "✎",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "ABRIR ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-foto"
+          ],
+          "text": "Cambiar foto",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-rename"
+          ],
+          "text": "✎",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "ABRIR ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-foto"
+          ],
+          "text": "Cambiar foto",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-rename"
+          ],
+          "text": "✎",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "ABRIR ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-foto"
+          ],
+          "text": "Cambiar foto",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-rename"
+          ],
+          "text": "✎",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-move-from"
+          ],
+          "text": "— Sample Gallery Artist consignment Bar & Café Cultural events Percha Prueba Percha Dos",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-move-item"
+          ],
+          "text": "—",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-move-to"
+          ],
+          "text": "— Sample Gallery Artist consignment Bar & Café Cultural events Percha Prueba Percha Dos",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-move-go"
+          ],
+          "text": "TRASLADAR",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        }
+      ]
+    },
+    {
+      "screen": "Clientes",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-f"
+          ],
+          "text": "ALL",
+          "fontSize": "14px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-f"
+          ],
+          "text": "ON A PLAN",
+          "fontSize": "14px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-f"
+          ],
+          "text": "BEHIND",
+          "fontSize": "14px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ Agregar cliente",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "cliNombre",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Customer name",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cliTelefono",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Phone (optional)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cliEmail",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Email (optional)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "btnAltaCliente",
+          "dataAttrs": [
+            "data-i18n",
+            "data-listo"
+          ],
+          "text": "",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Buscar por nombre o código...",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-col"
+          ],
+          "text": "NOMBRE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-col"
+          ],
+          "text": "CÓDIGO",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-col"
+          ],
+          "text": "GASTO 90 DÍAS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-filtro"
+          ],
+          "text": "PAGO PENDIENTE",
+          "fontSize": "13px",
+          "color": "rgb(176, 24, 62)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "See purchases — what's on account (fiado) and what's paid",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-despedir-id",
+            "data-despedir-nombre"
+          ],
+          "text": "FIRE CLIENT 🚪",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD DEBT (FIADO)",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD CREDIT (ABONO)",
+          "fontSize": "13px",
+          "color": "rgb(0, 112, 74)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "✎ EDIT CONTACT / NOTES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "🗑 DELETE",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "See purchases — what's on account (fiado) and what's paid",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-despedir-id",
+            "data-despedir-nombre"
+          ],
+          "text": "FIRE CLIENT 🚪",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD DEBT (FIADO)",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD CREDIT (ABONO)",
+          "fontSize": "13px",
+          "color": "rgb(0, 112, 74)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "✎ EDIT CONTACT / NOTES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "🗑 DELETE",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "See purchases — what's on account (fiado) and what's paid",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-despedir-id",
+            "data-despedir-nombre"
+          ],
+          "text": "FIRE CLIENT 🚪",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD DEBT (FIADO)",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD CREDIT (ABONO)",
+          "fontSize": "13px",
+          "color": "rgb(0, 112, 74)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "✎ EDIT CONTACT / NOTES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "🗑 DELETE",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "See purchases — what's on account (fiado) and what's paid",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-despedir-id",
+            "data-despedir-nombre"
+          ],
+          "text": "FIRE CLIENT 🚪",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD DEBT (FIADO)",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD CREDIT (ABONO)",
+          "fontSize": "13px",
+          "color": "rgb(0, 112, 74)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "✎ EDIT CONTACT / NOTES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "🗑 DELETE",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "See purchases — what's on account (fiado) and what's paid",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-despedir-id",
+            "data-despedir-nombre"
+          ],
+          "text": "FIRE CLIENT 🚪",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD DEBT (FIADO)",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD CREDIT (ABONO)",
+          "fontSize": "13px",
+          "color": "rgb(0, 112, 74)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "✎ EDIT CONTACT / NOTES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "🗑 DELETE",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "See purchases — what's on account (fiado) and what's paid",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-despedir-id",
+            "data-despedir-nombre"
+          ],
+          "text": "FIRE CLIENT 🚪",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD DEBT (FIADO)",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD CREDIT (ABONO)",
+          "fontSize": "13px",
+          "color": "rgb(0, 112, 74)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "✎ EDIT CONTACT / NOTES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "🗑 DELETE",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "See purchases — what's on account (fiado) and what's paid",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-despedir-id",
+            "data-despedir-nombre"
+          ],
+          "text": "FIRE CLIENT 🚪",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD DEBT (FIADO)",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD CREDIT (ABONO)",
+          "fontSize": "13px",
+          "color": "rgb(0, 112, 74)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "✎ EDIT CONTACT / NOTES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "🗑 DELETE",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "See purchases — what's on account (fiado) and what's paid",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-despedir-id",
+            "data-despedir-nombre"
+          ],
+          "text": "FIRE CLIENT 🚪",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD DEBT (FIADO)",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD CREDIT (ABONO)",
+          "fontSize": "13px",
+          "color": "rgb(0, 112, 74)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "✎ EDIT CONTACT / NOTES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "🗑 DELETE",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "See purchases — what's on account (fiado) and what's paid",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-despedir-id",
+            "data-despedir-nombre"
+          ],
+          "text": "FIRE CLIENT 🚪",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD DEBT (FIADO)",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "RECORD CREDIT (ABONO)",
+          "fontSize": "13px",
+          "color": "rgb(0, 112, 74)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "✎ EDIT CONTACT / NOTES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "🗑 DELETE",
+          "fontSize": "13px",
+          "color": "rgb(192, 57, 43)"
+        },
+        {
+          "tag": "input",
+          "id": "cliCsvFile",
+          "dataAttrs": [
+            "data-listo"
+          ],
+          "text": "If you already have your customers in Excel or on your phone, save the file as C",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        }
+      ]
+    },
+    {
+      "screen": "Comisiones",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-commissions-month"
+          ],
+          "text": "octubre de 2026 (en curso) · $X por pagar septiembre de 2026 · $X por pagar agos",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-commissions-jump"
+          ],
+          "text": "SEPTIEMBRE DE 2026 · $X",
+          "fontSize": "14px",
+          "color": "rgb(176, 24, 62)"
+        },
+        {
+          "tag": "button",
+          "id": "comm-tab-product",
+          "dataAttrs": [
+            "data-commissions-view"
+          ],
+          "text": "POR PRODUCTO / SKU",
+          "fontSize": "14px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "comm-tab-rack",
+          "dataAttrs": [
+            "data-commissions-view"
+          ],
+          "text": "POR PERCHA / EVENTO",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "ENVIAR RESUMEN DE HOY POR WHATSAPP",
+          "fontSize": "14px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "⤓ EXPORT CSV",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "comm-product-search",
+          "dataAttrs": [],
+          "text": "Buscar producto, SKU, percha o comisionista",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Productos sin comisión (9)",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "libre",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "empleado",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "proveedor",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "promNombreSelect",
+          "dataAttrs": [],
+          "text": "— Elige un/a agente existente — Ana Prueba Beto Prueba Consignment Artist (sample) Event P",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promNombre",
+          "dataAttrs": [],
+          "text": "Nombre del/la comisionista",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promComision",
+          "dataAttrs": [],
+          "text": "% comisión (ej: 10)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "+ Datos de contacto y pago (opcional) ▸",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "promTelefono",
+          "dataAttrs": [],
+          "text": "Teléfono",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promCedula",
+          "dataAttrs": [],
+          "text": "Cédula / RUC",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promBanco",
+          "dataAttrs": [],
+          "text": "Banco",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promCuenta",
+          "dataAttrs": [],
+          "text": "N° de cuenta",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promDireccion",
+          "dataAttrs": [],
+          "text": "Dirección (opcional)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "textarea",
+          "id": "promNotas",
+          "dataAttrs": [],
+          "text": "Notas (horarios, acuerdos especiales, etc.)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "btnAltaPromotora",
+          "dataAttrs": [],
+          "text": "GUARDAR COMISIONISTA",
+          "fontSize": "14px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "promBuscar",
+          "dataAttrs": [
+            "data-listo"
+          ],
+          "text": "Buscar por nombre, teléfono o cédula…",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Ana Prueba 40% de comisión — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Beto Prueba 30% de comisión — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Consignment Artist (sample) 85% de comisión · 3 tramo(s) — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Event Partner (sample) 10% de comisión — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        }
+      ]
+    },
+    {
+      "screen": "Comisiones",
+      "view": "product",
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-commissions-month"
+          ],
+          "text": "octubre de 2026 (en curso) · $X por pagar septiembre de 2026 · $X por pagar agos",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-commissions-jump"
+          ],
+          "text": "SEPTIEMBRE DE 2026 · $X",
+          "fontSize": "14px",
+          "color": "rgb(176, 24, 62)"
+        },
+        {
+          "tag": "button",
+          "id": "comm-tab-product",
+          "dataAttrs": [
+            "data-commissions-view"
+          ],
+          "text": "POR PRODUCTO / SKU",
+          "fontSize": "14px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "comm-tab-rack",
+          "dataAttrs": [
+            "data-commissions-view"
+          ],
+          "text": "POR PERCHA / EVENTO",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "ENVIAR RESUMEN DE HOY POR WHATSAPP",
+          "fontSize": "14px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "⤓ EXPORT CSV",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "comm-product-search",
+          "dataAttrs": [],
+          "text": "Buscar producto, SKU, percha o comisionista",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Productos sin comisión (9)",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "libre",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "empleado",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "proveedor",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "promNombreSelect",
+          "dataAttrs": [],
+          "text": "— Elige un/a agente existente — Ana Prueba Beto Prueba Consignment Artist (sample) Event P",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promNombre",
+          "dataAttrs": [],
+          "text": "Nombre del/la comisionista",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promComision",
+          "dataAttrs": [],
+          "text": "% comisión (ej: 10)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "+ Datos de contacto y pago (opcional) ▸",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "promTelefono",
+          "dataAttrs": [],
+          "text": "Teléfono",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promCedula",
+          "dataAttrs": [],
+          "text": "Cédula / RUC",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promBanco",
+          "dataAttrs": [],
+          "text": "Banco",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promCuenta",
+          "dataAttrs": [],
+          "text": "N° de cuenta",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promDireccion",
+          "dataAttrs": [],
+          "text": "Dirección (opcional)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "textarea",
+          "id": "promNotas",
+          "dataAttrs": [],
+          "text": "Notas (horarios, acuerdos especiales, etc.)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "btnAltaPromotora",
+          "dataAttrs": [],
+          "text": "GUARDAR COMISIONISTA",
+          "fontSize": "14px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "promBuscar",
+          "dataAttrs": [
+            "data-listo"
+          ],
+          "text": "Buscar por nombre, teléfono o cédula…",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Ana Prueba 40% de comisión — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Beto Prueba 30% de comisión — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Consignment Artist (sample) 85% de comisión · 3 tramo(s) — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Event Partner (sample) 10% de comisión — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        }
+      ]
+    },
+    {
+      "screen": "Comisiones",
+      "view": "rack",
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "",
+          "dataAttrs": [
+            "data-commissions-month"
+          ],
+          "text": "octubre de 2026 (en curso) · $X por pagar septiembre de 2026 · $X por pagar agos",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-commissions-jump"
+          ],
+          "text": "SEPTIEMBRE DE 2026 · $X",
+          "fontSize": "14px",
+          "color": "rgb(176, 24, 62)"
+        },
+        {
+          "tag": "button",
+          "id": "comm-tab-product",
+          "dataAttrs": [
+            "data-commissions-view"
+          ],
+          "text": "POR PRODUCTO / SKU",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "comm-tab-rack",
+          "dataAttrs": [
+            "data-commissions-view"
+          ],
+          "text": "POR PERCHA / EVENTO",
+          "fontSize": "14px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "ENVIAR RESUMEN DE HOY POR WHATSAPP",
+          "fontSize": "14px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "⤓ EXPORT CSV",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-edit-rack"
+          ],
+          "text": "✎ ADJUST SHELF DEAL",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Consignment Artist (sample)",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-edit-person",
+            "data-abrir-promotora"
+          ],
+          "text": "✎ EDIT DEAL",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-pay-person",
+            "data-pay-rack",
+            "data-pay-name",
+            "data-pay-due"
+          ],
+          "text": "RECORD $X PAYMENT",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-send-person",
+            "data-est-u",
+            "data-est-p"
+          ],
+          "text": "SEND STATEMENT",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Payment history · none yet →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "What makes up this balance? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Was the percentage wrong? Fix it →",
+          "fontSize": "14px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-aso-consigna",
+          "dataAttrs": [
+            "data-no-borrador"
+          ],
+          "text": "85.9",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-casa-consigna",
+          "dataAttrs": [
+            "data-no-borrador"
+          ],
+          "text": "14.1",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-mot-consigna",
+          "dataAttrs": [
+            "data-no-borrador"
+          ],
+          "text": "e.g. deal was 85/15, typed backwards",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-todas-consigna",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-corregir",
+            "data-uid",
+            "data-nombre"
+          ],
+          "text": "",
+          "fontSize": "14px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Which sales does this payment cover? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "What if I sell more? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "sim-rng-consigna",
+          "dataAttrs": [],
+          "text": "sim-rng-consigna",
+          "fontSize": "16px",
+          "color": "rgb(16, 16, 16)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SEND STATEMENT",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-edit-rack"
+          ],
+          "text": "✎ ADJUST SHELF DEAL",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "What if I sell more? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "sim-rng-bar",
+          "dataAttrs": [],
+          "text": "sim-rng-bar",
+          "fontSize": "16px",
+          "color": "rgb(16, 16, 16)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-edit-rack"
+          ],
+          "text": "✎ ADJUST SHELF DEAL",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Event Partner (sample)",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-edit-person",
+            "data-abrir-promotora"
+          ],
+          "text": "✎ EDIT DEAL",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-pay-person",
+            "data-pay-rack",
+            "data-pay-name",
+            "data-pay-due"
+          ],
+          "text": "RECORD $X PAYMENT",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-send-person",
+            "data-est-u",
+            "data-est-p"
+          ],
+          "text": "SEND STATEMENT",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Payment history · none yet →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "What makes up this balance? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Was the percentage wrong? Fix it →",
+          "fontSize": "14px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-aso-eventos",
+          "dataAttrs": [
+            "data-no-borrador"
+          ],
+          "text": "10",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-casa-eventos",
+          "dataAttrs": [
+            "data-no-borrador"
+          ],
+          "text": "90",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-mot-eventos",
+          "dataAttrs": [
+            "data-no-borrador"
+          ],
+          "text": "e.g. deal was 85/15, typed backwards",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-todas-eventos",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-corregir",
+            "data-uid",
+            "data-nombre"
+          ],
+          "text": "",
+          "fontSize": "14px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Which sales does this payment cover? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "What if I sell more? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "sim-rng-eventos",
+          "dataAttrs": [],
+          "text": "sim-rng-eventos",
+          "fontSize": "16px",
+          "color": "rgb(16, 16, 16)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SEND STATEMENT",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-edit-rack"
+          ],
+          "text": "✎ ADJUST SHELF DEAL",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Ana Prueba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-edit-person",
+            "data-abrir-promotora"
+          ],
+          "text": "✎ EDIT DEAL",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-pay-person",
+            "data-pay-rack",
+            "data-pay-name",
+            "data-pay-due"
+          ],
+          "text": "RECORD $X PAYMENT",
+          "fontSize": "16px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-send-person",
+            "data-est-u",
+            "data-est-p"
+          ],
+          "text": "SEND STATEMENT",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Payment history · none yet →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "What makes up this balance? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Was the percentage wrong? Fix it →",
+          "fontSize": "14px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-aso-uX",
+          "dataAttrs": [
+            "data-no-borrador"
+          ],
+          "text": "40",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-casa-uX",
+          "dataAttrs": [
+            "data-no-borrador"
+          ],
+          "text": "60",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-mot-uX",
+          "dataAttrs": [
+            "data-no-borrador"
+          ],
+          "text": "e.g. deal was 85/15, typed backwards",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cor-todas-uX",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-corregir",
+            "data-uid",
+            "data-nombre"
+          ],
+          "text": "",
+          "fontSize": "14px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Which sales does this payment cover? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "What if I sell more? →",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "sim-rng-uX",
+          "dataAttrs": [],
+          "text": "sim-rng-uX",
+          "fontSize": "16px",
+          "color": "rgb(16, 16, 16)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SEND STATEMENT",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Perchas sin ventas este mes (1): Percha Dos",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-comm-edit-rack"
+          ],
+          "text": "Adjust commission deal for Percha Dos",
+          "fontSize": "14px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "sim-rng-uX",
+          "dataAttrs": [],
+          "text": "sim-rng-uX",
+          "fontSize": "16px",
+          "color": "rgb(16, 16, 16)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "libre",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "empleado",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "proveedor",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "select",
+          "id": "promNombreSelect",
+          "dataAttrs": [],
+          "text": "— Elige un/a agente existente — Ana Prueba Beto Prueba Consignment Artist (sample) Event P",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promNombre",
+          "dataAttrs": [],
+          "text": "Nombre del/la comisionista",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promComision",
+          "dataAttrs": [],
+          "text": "% comisión (ej: 10)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "+ Datos de contacto y pago (opcional) ▸",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "promTelefono",
+          "dataAttrs": [],
+          "text": "Teléfono",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promCedula",
+          "dataAttrs": [],
+          "text": "Cédula / RUC",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promBanco",
+          "dataAttrs": [],
+          "text": "Banco",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promCuenta",
+          "dataAttrs": [],
+          "text": "N° de cuenta",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "promDireccion",
+          "dataAttrs": [],
+          "text": "Dirección (opcional)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "textarea",
+          "id": "promNotas",
+          "dataAttrs": [],
+          "text": "Notas (horarios, acuerdos especiales, etc.)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "btnAltaPromotora",
+          "dataAttrs": [],
+          "text": "GUARDAR COMISIONISTA",
+          "fontSize": "14px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "promBuscar",
+          "dataAttrs": [
+            "data-listo"
+          ],
+          "text": "Buscar por nombre, teléfono o cédula…",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Ana Prueba 40% de comisión — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Beto Prueba 30% de comisión — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Consignment Artist (sample) 85% de comisión · 3 tramo(s) — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-abrir-promotora"
+          ],
+          "text": "Event Partner (sample) 10% de comisión — toca para editar",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-archivar-promotora",
+            "data-nombre-promotora"
+          ],
+          "text": "ARCHIVAR",
+          "fontSize": "13px",
+          "color": "rgb(184, 18, 60)"
+        }
+      ]
+    },
+    {
+      "screen": "Gastos",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "gastoConcepto",
+          "dataAttrs": [],
+          "text": "What was it? (e.g. rent, supplies, transport)",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "select",
+          "id": "gastoCategoria",
+          "dataAttrs": [],
+          "text": "Arriendo Servicios básicos Mercadería / insumos Nómina / personal Servicios profesionales ",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "gastoMonto",
+          "dataAttrs": [],
+          "text": "Amount",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "gastoFecha",
+          "dataAttrs": [],
+          "text": "gastoFecha",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "gastoFactura",
+          "dataAttrs": [],
+          "text": "Invoice # (optional)",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "+ ADD EXPENSE",
+          "fontSize": "14px",
+          "color": "rgb(248, 249, 251)"
+        }
+      ]
+    },
+    {
+      "screen": "Etiquetas",
+      "view": null,
+      "controls": [
+        {
+          "tag": "button",
+          "id": "btnLabelsEscanear",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "ESCANEAR UNA ETIQUETA",
+          "fontSize": "18px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Aged Manchego 200g $X CHE-MAN-011 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Blue cheese 150g $X CHE-BLU-013 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Brie wheel $X CHE-BRI-012 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Cheese & charcuterie board $X CHE-BRD-014 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Consignment — Market morning $X CON-OIL-006",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Consignment — The weaver (oil) $X CON-OIL-005",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Empanadas (2 pcs) $X KIT-EMP-029 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Local fresh cheese 250g $X CHE-FRE-015 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Original oil — City rooftops $X ART-OIL-001",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Tapas plate $X KIT-TAP-027 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Taza Prueba $X TAZA-001",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Toasted sandwich $X KIT-SAN-028 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Vela Prueba $X VELA-001",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Vintage typewriter $X ANT-TYP-009",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Antique wall clock $X ANT-CLK-010",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Original watercolor — River bend $X ART-WAT-002",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Antique brass compass $X ANT-BRS-008",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Aperitif spritz $X BAR-SPR-025",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Cabernet Sauvignon (bottle) $X WIN-CAB-017",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Cappuccino $X BAR-CAP-023",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Consignment — Mountain lake print $X CON-PRN-007",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Craft beer (pint) $X BAR-BEE-024",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Espresso $X BAR-ESP-022",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "House wine (glass) $X BAR-HRE-020",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Live jazz night (ticket) $X EVT-JAZ-034",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Local art history (book) $X LIB-ART-032",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Malbec Reserve (bottle) $X WIN-MAL-016",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Olives & nuts bowl $X KIT-OLV-030",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Photo exhibition (ticket) $X EVT-FOT-037",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Poetry anthology $X LIB-POE-031",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Print — Mountain series I $X ART-PRN-003",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Print — Old doors $X ART-PRN-004",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Rosé (bottle) $X WIN-ROS-021",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Sauvignon Blanc (bottle) $X WIN-SAU-018",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Sparkling water $X BAR-WAT-026",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Tango night (ticket) $X EVT-TAN-036",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Watercolor workshop (seat) $X EVT-ACU-035",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Wine & cheese tasting (ticket) $X EVT-CAT-033",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Poetry reading (ticket) $X EVT-POE-038",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Sparkling Brut (bottle) $X WIN-BRU-019",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        }
+      ]
+    },
+    {
+      "screen": "Avanzado",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "¿Cómo funciona? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "➊FIRST STEPS",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "⧉TEAM & ACCESS",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "SHARED NOTEBOOK",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "◈ACCESS & RECOVERY",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "ΣACCOUNTING",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "≡ACTIVITY LOG",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "◉YOUR TEAM RIGHT NOW",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "⊘FRAUD CONTROL",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "≡RECENT ACTIVITY",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "◷TIMEZONE",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "APPEARANCE",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "⊟MONTHLY EXPENSES",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "▦PROFIT & LOSS (TODAY)",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "⌖WHERE THE TEAM HAS BEEN",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-riel-go"
+          ],
+          "text": "STAFF MOTIVATION",
+          "fontSize": "13px",
+          "color": "rgb(44, 62, 80)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-fs-tour",
+          "dataAttrs": [],
+          "text": "TAKE THE GUIDED TOUR · OPTIONAL",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-pin"
+          ],
+          "text": "•••",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-pin"
+          ],
+          "text": "•••",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-pin-edit"
+          ],
+          "text": "✎",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-pin"
+          ],
+          "text": "•••",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-edit-campo",
+            "data-uid"
+          ],
+          "text": "✎",
+          "fontSize": "17px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-edit-campo",
+            "data-uid"
+          ],
+          "text": "✎",
+          "fontSize": "17px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-pin"
+          ],
+          "text": "PIN •••",
+          "fontSize": "14px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-toggle-id",
+            "data-activo"
+          ],
+          "text": "DESACTIVAR",
+          "fontSize": "13px",
+          "color": "rgb(232, 54, 93)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-cambiar-pin"
+          ],
+          "text": "✎ PIN",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ Agregar al equipo",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "oc-emp-nombre",
+          "dataAttrs": [],
+          "text": "e.g. Maria Auquilla",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "oc-emp-email",
+          "dataAttrs": [],
+          "text": "name@example.com",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "oc-emp-pin",
+          "dataAttrs": [],
+          "text": "•••",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-emp-agregar",
+          "dataAttrs": [],
+          "text": "",
+          "fontSize": "13.3333px",
+          "color": "rgb(248, 249, 251)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "oc-sync-codigo",
+          "dataAttrs": [
+            "data-oc-prefijo",
+            "data-oc-mask"
+          ],
+          "text": "Notebook license (F123-XXXX-XXXX-XXXX-XXXXX)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-sync-activar",
+          "dataAttrs": [],
+          "text": "ACTIVATE",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "If This device belongs to another business — enter its license",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "oc-sync-codigo2",
+          "dataAttrs": [
+            "data-oc-prefijo",
+            "data-oc-mask"
+          ],
+          "text": "F123-XXXX-XXXX-XXXX-XXXXX",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-sync-unirme",
+          "dataAttrs": [],
+          "text": "",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "oc-whatsapp-in",
+          "dataAttrs": [],
+          "text": "+1 555 123 4567",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-whatsapp-save",
+          "dataAttrs": [],
+          "text": "SAVE",
+          "fontSize": "15px",
+          "color": "rgb(248, 249, 251)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-apodo-device-btn",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "✎",
+          "fontSize": "15px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-acct-open",
+          "dataAttrs": [],
+          "text": "VIEW ACCOUNTING LAYER",
+          "fontSize": "14px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-log-cargar",
+          "dataAttrs": [],
+          "text": "CARGAR HISTORIAL",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "oc-mic-apodo",
+          "dataAttrs": [],
+          "text": "Rosa, or the front counter phone",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-mic-apodo-ok",
+          "dataAttrs": [],
+          "text": "SAVE",
+          "fontSize": "15px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Adjust when to warn",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "oc-mic-rez",
+          "dataAttrs": [],
+          "text": "5",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "oc-mic-cie",
+          "dataAttrs": [],
+          "text": "120",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-mic-umb-ok",
+          "dataAttrs": [],
+          "text": "",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-mic-avisos",
+          "dataAttrs": [],
+          "text": "TURN ON ALERTS ON THIS DEVICE",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "oc-af-refrescar",
+          "dataAttrs": [],
+          "text": "VERIFY NOW",
+          "fontSize": "13.3333px",
+          "color": "rgb(248, 249, 251)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "selectTimezone",
+          "dataAttrs": [
+            "data-oc-listo"
+          ],
+          "text": "Automática (este dispositivo) — America/Guayaquil America/Guayaquil America/New_York Ameri",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "selectTema",
+          "dataAttrs": [],
+          "text": "Claro Oscuro",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "gastosUbicSelector",
+          "dataAttrs": [
+            "data-oc-listo"
+          ],
+          "text": "Sample Gallery Artist consignment Bar & Café Cultural events",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "inputGastosMensuales",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "e.g. 350.00",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "btnGuardarGastos",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "GUARDAR",
+          "fontSize": "15px",
+          "color": "rgb(248, 249, 251)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "ocImpPais",
+          "dataAttrs": [],
+          "text": "— United States Canada (GST) México United Kingdom España Deutschland France Australia Col",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "ocImpActivo",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "ocImpTasa",
+          "dataAttrs": [],
+          "text": "0",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "ocImpNombre",
+          "dataAttrs": [],
+          "text": "Sales tax",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "select",
+          "id": "ocImpModo",
+          "dataAttrs": [],
+          "text": "Incluido en mis precios (IVA/VAT) Se suma al cobrar (sales tax de EE. UU.)",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "ocMoneda",
+          "dataAttrs": [],
+          "text": "USD",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "ocImpGuardar",
+          "dataAttrs": [],
+          "text": "GUARDAR",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "ocLealActiva",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "ocLealCada",
+          "dataAttrs": [],
+          "text": "ocLealCada",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "ocLealPct",
+          "dataAttrs": [],
+          "text": "ocLealPct",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "ocLealGuardar",
+          "dataAttrs": [],
+          "text": "SAVE",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "a",
+          "id": "",
+          "dataAttrs": [],
+          "text": "↑ Volver arriba",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "amg-geo-toggle",
+          "dataAttrs": [],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        }
+      ]
+    }
+  ]
+}

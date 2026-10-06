@@ -1,0 +1,3041 @@
+{
+  "rol": "empleado",
+  "lang": "en",
+  "commit": "2ef2230",
+  "screens": [
+    {
+      "screen": "Today",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "How does it work? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        }
+      ]
+    },
+    {
+      "screen": "What’s New1",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Inventory",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "How does it work? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "ALL",
+          "fontSize": "13px",
+          "color": "rgb(248, 249, 251)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "URGENT",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "REVIEW",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "OPPORTUNITY",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "HEALTHY",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-estado",
+            "data-i18n"
+          ],
+          "text": "DORMANT",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "inputBuscarInventario",
+          "dataAttrs": [
+            "data-i18n-attr",
+            "data-oc-listo"
+          ],
+          "text": "Search by name, SKU or category…",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-inv-col"
+          ],
+          "text": "NAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-inv-col"
+          ],
+          "text": "STOCK",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-inv-col"
+          ],
+          "text": "PRICE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-inv-col"
+          ],
+          "text": "CATEGORY",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "invAgrupar",
+          "dataAttrs": [
+            "data-listo"
+          ],
+          "text": "on",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SHOW ARCHIVED",
+          "fontSize": "13px",
+          "color": "rgb(168, 67, 0)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "AM Aged Manchego 200g 🕓 Cheese & deli · CHE-MAN-011 18 Expired 12 days ago — pull it",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "BC Blue cheese 150g 🕓 Cheese & deli · CHE-BLU-013 10 Expired 20 days ago — pull it",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "BW Brie wheel 🕓 Cheese & deli · CHE-BRI-012 12 Expired 18 days ago — pull it",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "C& Cheese & charcuterie board 🕓 Cheese & deli · CHE-BRD-014 20 Expired 22 days ago — pull",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "C— Consignment — Market morning Paintings · CON-OIL-006 1 1 left — restock urgently",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "C— Consignment — The weaver (oil) Paintings · CON-OIL-005 1 1 left — restock urgently",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "E( Empanadas (2 pcs) 🕓 Kitchen · KIT-EMP-029 70 Expired 33 days ago — pull it",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "LF Local fresh cheese 250g 🕓 Cheese & deli · CHE-FRE-015 24 Expired 24 days ago — pull it",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "OO Original oil — City rooftops Paintings · ART-OIL-001 1 1 left — restock urgently",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "TP Tapas plate 🕓 Kitchen · KIT-TAP-027 60 Expired 31 days ago — pull it",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "TP Taza Prueba General · TAZA-001 4 4 left — restock urgently",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "TS Toasted sandwich 🕓 Kitchen · KIT-SAN-028 50 Expired 32 days ago — pull it",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "VP Vela Prueba General · VELA-001 2 2 left — restock urgently",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "VT Vintage typewriter Antiques · ANT-TYP-009 1 1 left — restock urgently",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "AW Antique wall clock Antiques · ANT-CLK-010 2 2 left — check soon",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "OW Original watercolor — River bend Paintings · ART-WAT-002 2 2 left — check soon",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "AB Antique brass compass Antiques · ANT-BRS-008 3 Good margin — there's money waiting for ",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "AS Aperitif spritz Bar · BAR-SPR-025 60 Good margin — there's money waiting for you",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "CS Cabernet Sauvignon (bottle) Wine · WIN-CAB-017 60 Good margin — there's money waiting f",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "CA Cappuccino Bar · BAR-CAP-023 200 Good margin — there's money waiting for you",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "C— Consignment — Mountain lake print Art & prints · CON-PRN-007 12 Good margin — there's m",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "CB Craft beer (pint) Bar · BAR-BEE-024 80 Good margin — there's money waiting for you",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "ES Espresso Bar · BAR-ESP-022 200 Good margin — there's money waiting for you",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "HW House wine (glass) Bar · BAR-HRE-020 90 Good margin — there's money waiting for you",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "LJ Live jazz night (ticket) Tickets & events · EVT-JAZ-034 60 Good margin — there's money ",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "LA Local art history (book) Books · LIB-ART-032 15 Good margin — there's money waiting for",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "MR Malbec Reserve (bottle) Wine · WIN-MAL-016 48 Good margin — there's money waiting for y",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "O& Olives & nuts bowl Kitchen · KIT-OLV-030 80 Good margin — there's money waiting for you",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "PE Photo exhibition (ticket) Tickets & events · EVT-FOT-037 80 Good margin — there's money",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "PA Poetry anthology Books · LIB-POE-031 20 Good margin — there's money waiting for you",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "P— Print — Mountain series I Art & prints · ART-PRN-003 24 Good margin — there's money wai",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "P— Print — Old doors Art & prints · ART-PRN-004 30 Good margin — there's money waiting for",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "R( Rosé (bottle) Wine · WIN-ROS-021 36 Good margin — there's money waiting for you",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SB Sauvignon Blanc (bottle) Wine · WIN-SAU-018 40 Good margin — there's money waiting for ",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SW Sparkling water Bar · BAR-WAT-026 120 Good margin — there's money waiting for you",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "TN Tango night (ticket) Tickets & events · EVT-TAN-036 50 Good margin — there's money wait",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "WW Watercolor workshop (seat) Tickets & events · EVT-ACU-035 20 Good margin — there's mone",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "W& Wine & cheese tasting (ticket) Tickets & events · EVT-CAT-033 40 Good margin — there's ",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "PR Poetry reading (ticket) Tickets & events · EVT-POE-038 40 No sales in 97 days — your mo",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "SB Sparkling Brut (bottle) Wine · WIN-BRU-019 30 Healthy stock",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "− +",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-menos"
+          ],
+          "text": "−",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ajuste-mas"
+          ],
+          "text": "+",
+          "fontSize": "15px",
+          "color": "rgb(15, 25, 35)"
+        }
+      ]
+    },
+    {
+      "screen": "Sold",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "How does it work? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "btnModoQuick",
+          "dataAttrs": [
+            "data-modo-venta"
+          ],
+          "text": "⚡ QUICK TAP",
+          "fontSize": "14px",
+          "color": "rgb(251, 245, 232)"
+        },
+        {
+          "tag": "button",
+          "id": "btnModoCarrito",
+          "dataAttrs": [
+            "data-modo-venta"
+          ],
+          "text": "🧺 FILL A BASKET",
+          "fontSize": "14px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "venderBuscarInput",
+          "dataAttrs": [
+            "data-i18n-attr",
+            "data-listener-listo"
+          ],
+          "text": "Search by name or category...",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "ALL",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "ACCESSORIES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "ANTIQUES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "ART & PRINTS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "BAR",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "BOOKS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "CHEESE & DELI",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "CLOTHING",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "COSMETICS & PERSONAL CARE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "CRAFTS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "ELECTRONICS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "FOOTWEAR",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "GENERAL",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "HOME & DECOR",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "JEWELRY",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "KITCHEN",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "PAINTINGS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "PETS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "SERVICES",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "SNACKS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "SOFT DRINKS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "STATIONERY",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "TICKETS & EVENTS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "TOOLS & HARDWARE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "TOYS",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-chip-cat"
+          ],
+          "text": "WINE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "select",
+          "id": "ventaCliente",
+          "dataAttrs": [],
+          "text": "Walk-in customer Ashley Rivera (C-1001) Marcus Bennett (C-1002) Lucy Tran (C-1003) Evan Cr",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "btnNuevoCliente",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ NEW CUSTOMER",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "btnShowCustomers",
+          "dataAttrs": [],
+          "text": "SHOW CUSTOMERS",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ BLUE CHEESE 150G $X 10 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ CAPPUCCINO $X 200 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ CONSIGNMENT — MARKET MORNING $X 1 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ LOCAL ART HISTORY (BOOK) $X 15 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ MALBEC RESERVE (BOTTLE) $X 48 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ ORIGINAL WATERCOLOR — RIVER BEND $X 2 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ TAPAS PLATE $X 60 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ VINTAGE TYPEWRITER $X 1 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "⭐ WINE & CHEESE TASTING (TICKET) $X 40 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "AGED MANCHEGO 200G $X 18 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ANTIQUE BRASS COMPASS $X 3 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ANTIQUE WALL CLOCK $X 2 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "APERITIF SPRITZ $X 60 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "BRIE WHEEL $X 12 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CABERNET SAUVIGNON (BOTTLE) $X 60 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CHEESE & CHARCUTERIE BOARD $X 20 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CONSIGNMENT — MOUNTAIN LAKE PRINT $X 12 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CONSIGNMENT — THE WEAVER (OIL) $X 1 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "CRAFT BEER (PINT) $X 80 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "EMPANADAS (2 PCS) $X 70 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ESPRESSO $X 200 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "HOUSE WINE (GLASS) $X 90 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "LIVE JAZZ NIGHT (TICKET) $X 60 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "LOCAL FRESH CHEESE 250G $X 24 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "OLIVES & NUTS BOWL $X 80 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ORIGINAL OIL — CITY ROOFTOPS $X 1 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "PHOTO EXHIBITION (TICKET) $X 80 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "POETRY ANTHOLOGY $X 20 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "POETRY READING (TICKET) $X 40 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "PRINT — MOUNTAIN SERIES I $X 24 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "PRINT — OLD DOORS $X 30 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "ROSÉ (BOTTLE) $X 36 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "SAUVIGNON BLANC (BOTTLE) $X 40 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "SPARKLING BRUT (BOTTLE) $X 30 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "SPARKLING WATER $X 120 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "TANGO NIGHT (TICKET) $X 50 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "T TAZA PRUEBA $X 4 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "TOASTED SANDWICH $X 50 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "V VELA PRUEBA $X 2 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vender-tile"
+          ],
+          "text": "WATERCOLOR WORKSHOP (SEAT) $X 20 U.",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "inputEscaner",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "e.g. 7501234567001 or MAR-RED-20",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "btnEscanear",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "SEARCH",
+          "fontSize": "15px",
+          "color": "rgb(248, 249, 251)"
+        },
+        {
+          "tag": "select",
+          "id": "ventaEvento",
+          "dataAttrs": [],
+          "text": "No event (regular sale)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "btnNuevoEvento",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ NEW EVENT",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "🧾 Sales log — edit or undo",
+          "fontSize": "17px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "🌙 Day close — reconcile everything at once",
+          "fontSize": "17px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "btnAplicarCierre",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        }
+      ]
+    },
+    {
+      "screen": "Shelves",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "How does it work? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-percha-col"
+          ],
+          "text": "NAME",
+          "fontSize": "13px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-percha-col"
+          ],
+          "text": "MONTHLY SALES",
+          "fontSize": "13px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-percha-col"
+          ],
+          "text": "TARGET %",
+          "fontSize": "13px",
+          "color": "rgb(20, 24, 28)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "OPEN ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "OPEN ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "OPEN ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "OPEN ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "OPEN ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-vp-abrir"
+          ],
+          "text": "OPEN ▸",
+          "fontSize": "13px",
+          "color": "rgb(255, 255, 255)"
+        }
+      ]
+    },
+    {
+      "screen": "Customers",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "How does it work? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "+ Add customer",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "cliNombre",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Customer name",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cliTelefono",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Phone (optional)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "cliEmail",
+          "dataAttrs": [
+            "data-i18n-attr"
+          ],
+          "text": "Email (optional)",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "btnAltaCliente",
+          "dataAttrs": [
+            "data-i18n",
+            "data-listo"
+          ],
+          "text": "",
+          "fontSize": "13.3333px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Search by name or code...",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-col"
+          ],
+          "text": "NAME",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [
+            "data-ord-col"
+          ],
+          "text": "CODE",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        }
+      ]
+    },
+    {
+      "screen": "Commissions",
+      "view": null,
+      "controls": []
+    },
+    {
+      "screen": "Expenses",
+      "view": null,
+      "controls": [
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "How does it work? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "input",
+          "id": "gastoConcepto",
+          "dataAttrs": [],
+          "text": "What was it? (e.g. rent, supplies, transport)",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "select",
+          "id": "gastoCategoria",
+          "dataAttrs": [],
+          "text": "Rent Utilities Inventory / supplies Payroll / staff Professional services Marketing Transp",
+          "fontSize": "16px",
+          "color": "rgb(0, 0, 0)"
+        },
+        {
+          "tag": "input",
+          "id": "gastoMonto",
+          "dataAttrs": [],
+          "text": "Amount",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "gastoFecha",
+          "dataAttrs": [],
+          "text": "gastoFecha",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "input",
+          "id": "gastoFactura",
+          "dataAttrs": [],
+          "text": "Invoice # (optional)",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "button",
+          "id": "",
+          "dataAttrs": [],
+          "text": "+ ADD EXPENSE",
+          "fontSize": "14px",
+          "color": "rgb(248, 249, 251)"
+        }
+      ]
+    },
+    {
+      "screen": "Labels",
+      "view": null,
+      "controls": [
+        {
+          "tag": "button",
+          "id": "btnLabelsEscanear",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "SCAN A LABEL",
+          "fontSize": "18px",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "tag": "summary",
+          "id": "",
+          "dataAttrs": [
+            "data-i18n"
+          ],
+          "text": "How does it work? ▸",
+          "fontSize": "13px",
+          "color": "rgb(46, 98, 120)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Aged Manchego 200g $X CHE-MAN-011 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Blue cheese 150g $X CHE-BLU-013 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Brie wheel $X CHE-BRI-012 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Cheese & charcuterie board $X CHE-BRD-014 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Consignment — Market morning $X CON-OIL-006",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Consignment — The weaver (oil) $X CON-OIL-005",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Empanadas (2 pcs) $X KIT-EMP-029 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Local fresh cheese 250g $X CHE-FRE-015 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Original oil — City rooftops $X ART-OIL-001",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Tapas plate $X KIT-TAP-027 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Taza Prueba $X TAZA-001",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Toasted sandwich $X KIT-SAN-028 🕓 Perecible",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Vela Prueba $X VELA-001",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Vintage typewriter $X ANT-TYP-009",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Antique wall clock $X ANT-CLK-010",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Original watercolor — River bend $X ART-WAT-002",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Antique brass compass $X ANT-BRS-008",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Aperitif spritz $X BAR-SPR-025",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Cabernet Sauvignon (bottle) $X WIN-CAB-017",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Cappuccino $X BAR-CAP-023",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Consignment — Mountain lake print $X CON-PRN-007",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Craft beer (pint) $X BAR-BEE-024",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Espresso $X BAR-ESP-022",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "House wine (glass) $X BAR-HRE-020",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Live jazz night (ticket) $X EVT-JAZ-034",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Local art history (book) $X LIB-ART-032",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Malbec Reserve (bottle) $X WIN-MAL-016",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Olives & nuts bowl $X KIT-OLV-030",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Photo exhibition (ticket) $X EVT-FOT-037",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Poetry anthology $X LIB-POE-031",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Print — Mountain series I $X ART-PRN-003",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Print — Old doors $X ART-PRN-004",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Rosé (bottle) $X WIN-ROS-021",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Sauvignon Blanc (bottle) $X WIN-SAU-018",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Sparkling water $X BAR-WAT-026",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Tango night (ticket) $X EVT-TAN-036",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Watercolor workshop (seat) $X EVT-ACU-035",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Wine & cheese tasting (ticket) $X EVT-CAT-033",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Poetry reading (ticket) $X EVT-POE-038",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        },
+        {
+          "tag": "div",
+          "id": "",
+          "dataAttrs": [],
+          "text": "Sparkling Brut (bottle) $X WIN-BRU-019",
+          "fontSize": "16px",
+          "color": "rgb(15, 25, 35)"
+        }
+      ]
+    },
+    {
+      "screen": "Advanced",
+      "view": null,
+      "controls": []
+    }
+  ]
+}
