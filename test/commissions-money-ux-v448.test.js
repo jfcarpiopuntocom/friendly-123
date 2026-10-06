@@ -21,6 +21,7 @@ test('Money UX: each payable person exposes visible edit, payment, statement and
   assert.match(src, /data-comm-pay-person/, 'Record payment must be visible inline');
   assert.match(src, /data-est-p=/, 'Send statement control must remain available');
   assert.match(src, /data-comm-history-person/, 'Payment history must be reachable per person');
+  assert.match(src, /data-comm-edit-rack/, 'rack deal pencil must be visible in Commissions');
 });
 
 test('Money UX: person card shows Earned, Paid and Still due from ledger-backed values', () => {
@@ -45,8 +46,10 @@ test('Money UX regression: historical Commissions controls are not lost', () => 
   assert.match(src, /What if I sell more\?/i, 'historical simulator must remain');
   assert.match(src, /Was the percentage wrong\? Fix it/i, 'historical retrospective split correction must remain');
   assert.match(src, /Export CSV/i, 'commission export must remain');
-  assert.match(src, /comm-tab-product/, 'By product tab must remain');
-  assert.match(src, /comm-tab-rack/, 'By rack/event tab must remain');
+  assert.match(html, /comm-tab-product/, 'By product tab must remain');
+  assert.match(html, /comm-tab-rack/, 'By rack/event tab must remain');
+  assert.match(html, /tipo === "comisionpercha"/, 'Sep 11 dashboard commission-pencil deep link must remain wired');
+  assert.match(html, /function abrirEditorComisionPercha\(/, 'historical shelf commission editor must remain callable');
 });
 
 test('Money UX language: old Mark as paid wording is removed from owner-facing help/manual', () => {
