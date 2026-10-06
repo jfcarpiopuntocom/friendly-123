@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "roles": ["dueno", "admin", "empleado", "contador"],
+  "screens": [
+    { "id": "commissions", "open": "nav:Commissions", "controls": [
+      { "id": "commissions.pay-person",
+        "selector": "[data-ui='commissions.pay-person'], [data-comm-pay-person]",
+        "text": { "en": "Record {amount} payment", "es": "Registrar pago de {amount}" },
+        "roles": ["dueno", "admin"], "when": "balance-due", "views": ["product", "rack", "person"], "action": "opens:payment-dialog" },
+      { "id": "commissions.earned",
+        "selector": "[data-ui='commissions.earned'], [data-comm-person-card] .stats > div:nth-child(1) > .rotulo",
+        "text": { "en": "Earned", "es": "Ganado" },
+        "roles": ["dueno", "admin"], "when": "balance-due", "views": ["rack", "person"] },
+      { "id": "commissions.paid",
+        "selector": "[data-ui='commissions.paid'], [data-comm-person-card] .stats > div:nth-child(2) > .rotulo",
+        "text": { "en": "Paid", "es": "Pagado" },
+        "roles": ["dueno", "admin"], "when": "balance-due", "views": ["rack", "person"] },
+      { "id": "commissions.due",
+        "selector": "[data-ui='commissions.due'], [data-comm-person-card] .stats > div:nth-child(3) > .rotulo",
+        "text": { "en": "Still due", "es": "Pendiente" },
+        "roles": ["dueno", "admin"], "when": "balance-due", "views": ["rack", "person"] } ] },
+    { "id": "customers", "open": "nav:Customers", "controls": [
+      { "id": "customers.rate-reliability",
+        "selector": "[data-ui='customers.rate-reliability'], button.oc-rate-btn[title^='Reliability'], button.oc-rate-btn[title^='Confiabilidad']",
+        "text": { "en": "Reliability", "es": "Confiabilidad" },
+        "roles": ["dueno", "admin", "empleado"], "when": "customer-exists" } ] },
+    { "id": "advanced", "open": "nav:Advanced", "controls": [
+      { "id": "advanced.load-log",
+        "selector": "#oc-log-cargar",
+        "text": { "en": "Load history", "es": "Cargar historial" },
+        "roles": ["dueno", "admin"] } ] }
+  ],
+  "changeApproval": [
+    { "approvedBy": "JFC", "date": "2026-10-06", "reason": "Contrato v1 inicial (spec y enmienda aprobadas 2026-10-06; PDF de pagos)", "previousContract": null }
+  ]
+}
