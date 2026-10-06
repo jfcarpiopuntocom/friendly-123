@@ -40,7 +40,7 @@
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
     "./geo-ping.js": "sha256-0ead39d09c652caeb07991401e33b61b7ef9b13e1de5ae367d401c8870c6fd56",
     "./novedades.js": "sha256-37da2e5546dd2bff2999636ce03c72d9fb468e6f8c151ad3c5650b1a8e55ac0a",
-    "./help-ui.js": "sha256-bb2cd4a780ccd7969608c8489ca008716fda956acf158d9412c46f62d96fb2c2",
+    "./help-ui.js": "sha256-b78361a87a5087c55032e86e560fd20ac17d2235864fc2c9784af9c5158cf27a",
     "./idb-fotos.js": "sha256-c99fd20ca55380c9ff21cc7c43733f94e7681875ab3bd52673783537e9e9766f",
     "./core/shelf-photo-policy.js": "sha256-746ebc12c2fc15668d7e12c71d5417901ce99b3f79983306abdefc5a9e3ef34e",
     "./core/payout-ledger.js": "sha256-817050540d49a6dd9ffa936a4137f9fa32a9fb4a3eb90155ab195c23646a9081",
