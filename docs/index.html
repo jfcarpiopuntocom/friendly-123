@@ -9127,8 +9127,8 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
   try {
     res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, amountCents, paidAt: new Date().toISOString() })
+      body: JSON.stringify({ mes: _mesPago, medioPago, payeeId: payeeId || null, amountCents, paidAt: new Date().toISOString() }),
+      headers: { "Content-Type": "application/json" }
     });
     r = await res.json();
   } catch (err) {
@@ -9156,7 +9156,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
       const etiqueta = d ? `${d.cantidad}× ${d.producto}` : (it.kind === "adjustment" ? "Adjustment / return" : "Commissioned sale");
       const signo = it.offset ? "-" : "";
       return `• ${etiqueta} — ${signo}${fmtMoney((Number(it.amountCents) || 0) / 100)}`;
-    );
+    });
     const recibo = [
       `*Commission payment confirmed*`,
       `Asociado/a: ${_nombreRegistrado}`,
