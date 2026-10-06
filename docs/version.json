@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-06",
-  "changelog": "v452: se cierra la familia v448 GOLDEN (orden JFC 2026-10-06). El nombre publico pasa a ser igual al shell. Sin cambios funcionales: incluye el pago desde By product/SKU y Registrar pago en espanol de v451.",
+  "changelog": "v453: libro de doble entrada (ADR-001 paso 1), sin cambios visibles.",
   "requerida": false,
-  "shell": "f123-shell-v452",
+  "shell": "f123-shell-v453",
   "apagar": [],
-  "releaseName": "v452",
-  "cacheGeneration": "golden17"
+  "releaseName": "v453",
+  "cacheGeneration": "golden18"
 }
