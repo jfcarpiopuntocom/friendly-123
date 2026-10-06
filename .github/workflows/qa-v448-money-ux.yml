@@ -5,15 +5,43 @@ on:
 permissions:
   contents: read
 jobs:
-  focused:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Syntax
+        run: |
+          node .claude/check-inline.cjs docs/index.html
+          node --check docs/help-ui.js
+          node --check docs/i18n.js
       - name: Money UX focused contract
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/commissions-money-ux-v448.test.js
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/commissions-money-ux-v448.test.js test/commissions-money-ux-browser-v448.test.js
+      - name: Payout and commissions regressions
+        run: >-
+          node --require ./test/helpers/sin-red-produccion.cjs --test
+          test/payout-ledger-v448.test.js
+          test/payout-ledger-integration-v448.test.js
+          test/payout-partial-ui-v448.test.js
+          test/commissions-dashboard-month-deeplink-v448.test.js
+          test/comision-por-persona.test.js
+          test/commissions-period.test.js
+          test/commissions-belen.test.js
+          test/commissions-ui-hpl.test.js
+      - name: Full regression suite
+        run: npm test
+      - name: Manifest, SW and diff hygiene
+        run: |
+          cp docs/version-manifest.json /tmp/version-manifest.before.json
+          node scripts/gen-manifest.js
+          diff -u /tmp/version-manifest.before.json docs/version-manifest.json
+          bash check-sw.sh
+          git diff --check origin/master...HEAD
