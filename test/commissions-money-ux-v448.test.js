@@ -22,6 +22,9 @@ test('Money UX: each payable person exposes visible edit, payment, statement and
   assert.match(src, /data-est-p=/, 'Send statement control must remain available');
   assert.match(src, /data-comm-history-person/, 'Payment history must be reachable per person');
   assert.match(src, /data-comm-edit-rack/, 'rack deal pencil must be visible in Commissions');
+  assert.match(src, /Split between people this month/, 'historical split-between-people concept must stay visible');
+  assert.doesNotMatch(src, /data-comm-pay-person[^>]*onclick=/, 'new payment controls must not embed names in inline JS');
+  assert.match(src, /btn\.dataset\.commPayPerson/, 'new payment controls must be wired with data attributes');
 });
 
 test('Money UX: person card shows Earned, Paid and Still due from ledger-backed values', () => {
