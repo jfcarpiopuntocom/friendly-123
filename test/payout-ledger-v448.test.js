@@ -67,12 +67,12 @@ test('Payout Ledger: two payees remain separate even inside the same sale', () =
   assert.equal(rows.find(x=>x.payeeId==='bob').dueCents,4000);
 });
 
-test('Payout Ledger v1 refuses ambiguous partial cash recording instead of silently lying', () => {
-  const sales=[sale('s1', 25)];
-  const r=L.planPayout({sales,adjustments:[],locations,payouts:[],month:'2026-10',locationId:'rack-1',
-    payeeId:'alice',opId:'pay-partial',id:'pay-partial',amountCents:1000,method:'efectivo'});
-  assert.equal(r.status,409);
-  assert.match(r.error,/full current amount due/i);
+test('Payout Ledger rejects non-positive or fractional-cent payment amounts', () => {
+  const sales=[sale('s1',25)];
+  const base={sales,adjustments:[],locations,payouts:[],month:'2026-10',locationId:'rack-1',
+    payeeId:'alice',opId:'bad-amount',id:'pay-bad',method:'efectivo'};
+  assert.equal(L.planPayout({...base,amountCents:0}).status,400);
+  assert.equal(L.planPayout({...base,opId:'bad-amount-2',amountCents:10.5}).status,400);
 });
 
 
