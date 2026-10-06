@@ -457,3 +457,27 @@ test('release-control validate falla si ui-contract cambia sin changeApproval', 
 - PR desde `feat/ui-contract-2026-10-06` a `master`, **sin fusionar** hasta que JFC dé el OK.
 - Antes de fusionar: el check de Workers Builds "website" (CLAUDE.md, incidente 2026-09-29) y `verification-before-completion`.
 - Reporte a JFC en VERIFICADO / INFERIDO / PENDIENTE, con la salida roja inicial y la verde final.
+
+---
+
+## Enmienda 2026-10-06 (PDF "Reporte de mejora: pagos y comisiones", decisiones de JFC)
+
+Decisiones de JFC, tomadas por opción múltiple después de leer el PDF:
+- **Vista Por persona:** se agrega como tercera pestaña de Commissions, en este lote.
+- **Estados visibles (los del PDF):** Pendiente, Pago registrado, Pagado, Parcialmente pagado, Anulado y Revertido. "Pago registrado" significa que el pago está anotado en el ledger pero su recibo todavía no se envió.
+- **Versión:** el número interno de shell sube (v449). Lo que ve el cliente ("friendly-123 1.0") no cambia.
+- **Textos ES oficiales (del PDF):** Ganado / Pagado / Pendiente; "La persona gana"; "La casa retiene"; "Monto a pagar"; "Registrar pago". En EN: Earned / Paid / Still due; "Record payment".
+
+### Tarea 6f: Pestaña "Por persona" / "By person"
+- Agregar `[data-commissions-view="person"]` junto a product y rack. Mostrar ahí las tarjetas por persona que hoy están en la vista rack (reusar el mismo render y los mismos handlers `data-comm-*`; no duplicar lógica de dinero).
+- Cada tarjeta muestra Ganado / Pagado / Pendiente y el botón `commissions.pay-person` (mismo `data-ui`) cuando Pendiente > 0.
+- Contrato: `commissions.pay-person.views` pasa a `["product","rack","person"]`, con `changeApproval` (JFC 2026-10-06, PDF lámina 9 "Mismo comportamiento en Por producto, Por percha y Por persona").
+- TDD: primero el rojo de la Tarea 4 con la vista person en el contrato; después implementar.
+
+### Tarea 6g: Estados visibles del PDF
+- Badge por persona: Pendiente (`due`), Parcialmente pagado (`partially-paid`), Pagado (`paid`), Anulado (`voided`), Revertido (`reversed`), y **Pago registrado** = pago en el ledger con recibo aún no enviado.
+- Opus decide antes de que Sonnet edite: dónde se guarda "recibo enviado" (campo aditivo en el payout, p. ej. `receiptSentAt`, sin cambiar el esquema existente; ver el core de `docs/core/payout-ledger.js`). Si exige un cambio de esquema, se para y se consulta a JFC.
+- Textos en `i18n.js`, ES y EN; contrato `commissions.status-badge` con sus 6 textos.
+
+### Ajuste a la Tarea 3
+- `commissions.pay-person.text.es` = "Registrar pago de {amount}"; agregar al contrato `commissions.earned` / `commissions.paid` / `commissions.due` con ES "Ganado" / "Pagado" / "Pendiente" y EN "Earned" / "Paid" / "Still due".
