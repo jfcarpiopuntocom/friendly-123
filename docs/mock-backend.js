@@ -5676,6 +5676,7 @@
         return J({ ok:true, noop:!!r.noop, payoutId:r.payout ? r.payout.id : null, opId:r.payout ? r.payout.opId : null,
           amount:r.amount != null ? r.amount : (r.payout ? r.payout.amount : 0),
           medioPago:r.payout ? r.payout.method : null, payeeId:r.payout ? r.payout.payeeId : null, payeeName:r.payout ? r.payout.payeeName : "",
+          items:r.payout ? clonar(r.payout.items || []) : [],
           ventasLiquidadas:hechos.reduce((a,p) => a + (p.items || []).filter((x) => x.kind === "sale").length, 0),
           ajustesLiquidados:hechos.reduce((a,p) => a + (p.items || []).filter((x) => x.kind === "adjustment").length, 0),
           payoutIds:hechos.map((p) => p.id), existing:!!r.existing });
