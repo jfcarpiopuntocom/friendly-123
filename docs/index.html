@@ -8600,6 +8600,76 @@ async function cargarComisiones(){
         </div>
       </details>`;
   }
+  /* v448 GOLDEN Money UX (2026-10-05): el ledger es por PERSONA, por eso la
+     accion de pagar tambien. Esta capa solo proyecta payoutBalances/payoutHistory:
+     no suma dinero por su cuenta ni reescribe hechos historicos. */
+  function personaMoneyHtml(f) {
+    const balances = (f.payoutBalances || []).filter(p =>
+      Math.abs(Number(p.earned) || 0) > 0.00001 ||
+      Math.abs(Number(p.paid) || 0) > 0.00001 ||
+      Math.abs(Number(p.due) || 0) > 0.00001 ||
+      (f.payoutHistory || []).some(h => String(h.payeeId || "") === String(p.payeeId || ""))
+    );
+    if (!balances.length) return "";
+    const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+    const mx = esMoney ? {people:"Personas por liquidar · Reparto entre personas este mes", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle · Split between people this month", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
+    return `<section data-comm-people-money style="margin-top:12px;">
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin:0 0 8px;">${mx.people}</div>
+      ${balances.map(p => {
+        const due = Number(p.due) || 0;
+        const paid = Number(p.paid) || 0;
+        const earned = Number(p.earned) || 0;
+        const statusKey = Math.abs(due) <= 0.00001 ? "paid" : (paid > 0 ? "partial" : "due");
+        const status = statusKey === "paid" ? mx.paidState : (statusKey === "partial" ? mx.partial : mx.dueState);
+        const statusClass = statusKey === "paid" ? "verde" : (statusKey === "partial" ? "amarillo" : "rojo");
+        const hist = (f.payoutHistory || []).filter(h => String(h.payeeId || "") === String(p.payeeId || ""));
+        const det = (f.detallePendientes || []).filter(d => String(d.payeeId || "") === String(p.payeeId || ""));
+        const name = p.nombre || "Associate";
+        return `<article data-comm-person-card data-payee-id="${escHtml(p.payeeId || "")}"
+          style="text-align:left;padding:14px 16px;margin:0 0 10px;border:2px solid var(--hairline,#E8ECF2);border-radius:6px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div style="min-width:0;">
+              <strong style="font-family:var(--font-display);font-size:16px;">${escHtml(name)}</strong>
+              <span class="badge-estado ${statusClass}" style="margin-left:8px;font-size:13px;">${status}</span>
+            </div>
+            ${p.payeeId ? `<button type="button" class="tecla" data-comm-edit-person="${escHtml(p.payeeId)}"
+              data-abrir-promotora="${escHtml(p.payeeId)}" aria-label="Edit ${escHtml(name)} commission deal"
+              title="Edit this person's commission deal"
+              style="min-height:44px;font-size:14px;margin:0;">${mx.edit}</button>` : ""}
+          </div>
+          <div class="stats" style="margin-top:10px;">
+            <div><div class="rotulo">${mx.earned}</div><div class="cifra">${fmtMoney(earned)}</div></div>
+            <div><div class="rotulo">${mx.paid}</div><div class="cifra">${fmtMoney(paid)}</div></div>
+            <div><div class="rotulo">${mx.due}</div><div class="cifra" style="color:${due > 0 ? 'var(--rust-deep,#C05000)' : 'var(--dinero-verde-dk,#008a54)'};">${fmtMoney(due)}</div></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-top:10px;">
+            ${due > 0.00001 ? `<button type="button" class="ir" data-comm-pay-person="${escHtml(p.payeeId || "")}"
+              data-pay-rack="${escHtml(f.ubicacionId || "")}" data-pay-name="${escHtml(name)}" data-pay-due="${due}"
+              style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">Record ${fmtMoney(due)} payment</button>` : ""}
+            ${p.payeeId ? `<button type="button" class="tecla" data-comm-send-person data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.payeeId)}"
+              style="min-height:44px;font-size:14px;margin:0;">${mx.statement}</button>` : ""}
+          </div>
+          <details data-comm-history-person style="margin-top:10px;">
+            <summary style="min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--brass-dk,#2E6278);">
+              ${mx.history}${hist.length ? " (" + hist.length + ")" : " · " + mx.none} →
+            </summary>
+            <div style="padding-top:4px;">
+              ${hist.length ? hist.map(h => `<div style="padding:8px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;">
+                <strong>${h.type === "reversal" ? "REVERSAL" : "PAID"} · ${fmtMoney(h.amount)}</strong>
+                <div style="color:var(--ink-soft);">${h.paidAt ? escHtml(new Date(h.paidAt).toLocaleString()) : ""}${h.method ? " · " + escHtml(({efectivo:"cash",transferencia:"transfer",cheque:"check","credito-tienda":"store credit",otro:"other"})[h.method] || h.method) : ""}${h.reference ? " · ref " + escHtml(h.reference) : ""}</div>
+                ${h.note ? `<div style="color:var(--ink-soft);margin-top:2px;">${escHtml(h.note)}</div>` : ""}
+              </div>`).join("") : `<p style="font-size:14px;margin:4px 0;color:var(--ink);">${mx.noPayments}</p>`}
+            </div>
+          </details>
+          ${det.length ? `<details style="margin-top:4px;">
+            <summary style="min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:14px;font-weight:700;color:var(--brass-dk,#2E6278);">${mx.balance} →</summary>
+            <table style="width:100%;font-size:14px;"><tbody>${det.map(d => `<tr><td>${d.cantidad}× ${escHtml(d.producto)}</td><td style="text-align:right;font-family:var(--font-mono);">${fmtMoney(d.comisionSocio)}</td></tr>`).join("")}</tbody></table>
+          </details>` : ""}
+        </article>`;
+      }).join("")}
+    </section>`;
+  }
+
   /* TIENDA REAL DE BELEN (JFC 2026-09-24): las perchas SIN ventas en el mes se
      pintaban como tarjetas completas en $0 (meta, %, simulador) y parecian relleno.
      Ahora: las que vendieron van arriba; las demas, plegadas en un solo bloque.
@@ -8620,7 +8690,12 @@ async function cargarComisiones(){
     <div class="tag-card" data-liq-ubic="${escHtml(f.ubicacionId || "")}" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(f.ubicacion)}${esPerchaSemillaVieja(f.ubicacionId) ? ` <span class="badge-estado amarillo" style="font-size:13px;">${t("comm.sampleRack")}</span>` : ""}</strong>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">${dormida}<span class="badge-estado ${_paymentClass}">${((_paymentStatus === "no-sales" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : _paymentText)}${_paymentStatus === "paid" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", cheque: "check", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <button type="button" class="tecla" data-comm-edit-rack="${escHtml(f.ubicacionId || "")}"
+            aria-label="Adjust commission deal for ${escHtml(f.ubicacion)}" title="Adjust this shelf's commission deal"
+            style="min-height:44px;font-size:14px;margin:0;">${(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es") ? "✎ Editar trato de percha" : "✎ Adjust shelf deal"}</button>
+          ${dormida}<span class="badge-estado ${_paymentClass}">${((_paymentStatus === "no-sales" && f.ventasCasa && f.ventasCasa.ventas) ? t("comm.card.houseOnly") : _paymentText)}${_paymentStatus === "paid" && f.medioPago ? " · " + ({ efectivo: "cash", transferencia: "transfer", cheque: "check", "credito-tienda": "store credit", otro: "other" })[f.medioPago] : ""}</span>
+        </div>
       </div>
       ${f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Commissionist/artist/promoter: <strong>${f.promotoraId ? `<a href="javascript:void(0)" data-abrir-promotora="${escHtml(f.promotoraId)}" style="color:var(--azul-medio,#2c4a68);text-decoration:underline;cursor:pointer;">${escHtml(f.promotorNombre)}</a>` : escHtml(f.promotorNombre)}</strong></div>` : ""}
       ${f.origenComision === "comisionista" ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using the commission agent's own deal (${f.pctBase}%).</div>` : (f.promotorNombre ? `<div style="font-size:13px;color:var(--ink-soft);margin-top:2px;">Using this shelf's standard commission.</div>` : "")}
@@ -8632,14 +8707,12 @@ async function cargarComisiones(){
         <div><div class="rotulo">Associate takes <small style="text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:400;">(${f.pctEfectivo != null ? f.pctEfectivo : (f.pctBase || 0)}%)</small></div><div class="cifra">${fmtMoney(f.comisionSocio)}</div></div>
         <div><div class="rotulo">House keeps <small style="text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:400;">(${f.pctEfectivo != null ? (100 - f.pctEfectivo).toFixed(2).replace(/\.00$/,"") : (f.pctQuedaEnCasa || 0)}%)</small></div><div class="cifra">${fmtMoney(f.netoDueno)}</div></div>
       </div>
+      ${personaMoneyHtml(f)}
       ${(f.avisosTrato && f.avisosTrato.length) ? f.avisosTrato.map(a => `<p style="font-size:13px;color:var(--rust-ink,#E86040);margin:6px 0 0;">${escHtml(a)}</p>`).join("") : ""}
       ${f.ventasCorregidas ? `<p style="font-size:13px;color:var(--rust-ink,#E86040);font-weight:700;margin:6px 0 0;">${f.ventasCorregidas} sale(s) this month have the percentage manually corrected.</p>` : ""}
       ${(f.ajustes && f.ajustes.length) ? `<p style="font-size:13px;color:var(--rust-ink,#E86040);font-weight:700;margin:6px 0 0;">${f.ajustes.length} return(s) of already-paid sales this month: ${fmtMoney(f.ajustes.reduce((a, x) => a + x.montoComisionSocio, 0))} deducted${f.ajustes.some(x => !x.liquidada) ? " from the next payment" : ""}.</p>
       <details style="margin-top:4px;"><summary style="font-size:13px;cursor:pointer;color:var(--azul-medio,#2c4a68);">Who returned what →</summary>
         <table style="width:100%;margin-top:4px;font-size:13px;">${f.ajustes.map(x => `<tr><td>${(() => { try { return new Date(x.fecha).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || undefined); } catch (_) { return String(x.fecha).slice(0, 10); } })()} · ${escHtml(x.quien || "")}${x.motivo ? " · " + escHtml(x.motivo) : ""}</td><td style="text-align:right;">${fmtMoney(x.montoComisionSocio)}${x.liquidada ? " (deducted)" : ""}</td></tr>`).join("")}</table></details>` : ""}
-      ${(f.repartoPersonas && (f.repartoPersonas.length > 1 || (f.repartoPersonas[0] && f.repartoPersonas[0].promotoraId && f.repartoPersonas[0].promotoraId !== f.promotoraId))) ? `<table style="width:100%;margin-top:8px;font-size:14px;"><tr><td colspan="3" style="font-weight:700;">Split between people this month</td></tr>${f.repartoPersonas.map(p => `<tr><td>${escHtml(p.nombre)}</td><td style="text-align:right;">${fmtMoney(p.monto)}</td><td style="text-align:right;width:1%;white-space:nowrap;">${(p.promotoraId && p.promotoraId !== f.promotoraId) ? `<button type="button" class="tecla" style="font-size:13px;margin-left:8px;" data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.promotoraId)}" onclick="enviarEstadoComisionista(this.dataset.estU, this.dataset.estP)">Send statement</button>` : ""}</td></tr>`).join("")}</table>` : ""}
-      ${_payRows.length > 1 ? `<div class="tag-card" style="margin-top:10px;padding:10px 12px;text-align:left;"><strong style="font-size:14px;">Payments due by person</strong>${_payRows.map(p => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;"><span>${escHtml(p.nombre || "Associate")} · <strong>${fmtMoney(p.due)}</strong></span><button type="button" class="ir" style="font-size:13px;background:var(--sim-verde-dk,#086944);color:#fff;border-color:var(--sim-verde-dk,#086944);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(p.nombre || "Associate")}',${p.due},'${escHtml(p.payeeId || "")}')">Record payment</button></div>`).join("")}</div>` : ""}
-      ${(f.payoutHistory && f.payoutHistory.length) ? `<details style="margin-top:10px;"><summary style="font-size:14px;font-weight:700;cursor:pointer;color:var(--azul-medio,#2c4a68);">Payment history (${f.payoutHistory.length}) →</summary><div style="margin-top:6px;">${f.payoutHistory.map(p => `<div style="padding:8px 0;border-top:1px solid var(--line,#d9d3c8);font-size:13px;"><strong>${p.type === "reversal" ? "REVERSAL" : "PAID"} · ${fmtMoney(p.amount)}</strong> · ${escHtml(p.payeeName || "Associate")}<br><span style="color:var(--ink-soft);">${p.paidAt ? escHtml(new Date(p.paidAt).toLocaleString()) : ""}${p.method ? " · " + escHtml(({efectivo:"cash",transferencia:"transfer",cheque:"check","credito-tienda":"store credit",otro:"other"})[p.method] || p.method) : ""}${p.reference ? " · ref " + escHtml(p.reference) : ""}</span></div>`).join("")}</div></details>` : ""}
       ${f.esMesActual === false ? "" : editorComisionHtml(f)}
       ${(f.detallePendientes && f.detallePendientes.length) ? `
       <details style="margin-top:8px;">
@@ -8650,7 +8723,6 @@ async function cargarComisiones(){
       </details>` : ""}
       ${f.esMesActual === false ? "" : termometroMeta(f.cumplimientoMeta, f.metaMensual)}
       ${f.esMesActual === false ? "" : simuladorHtml(f)}
-      ${f.estado === "pendiente" && _payRows.length === 1 ? `<button class="ir" style="font-size:14px;margin-top:12px;background:var(--sim-verde-dk,#086944);color:#fff;border-color:var(--sim-verde-dk,#086944);" onclick="marcarComisionPagada('${f.ubicacionId}','${escHtml(_payRows[0].nombre || f.promotorNombre || '')}',${_payRows[0].due},'${escHtml(_payRows[0].payeeId || "")}')">✓ Record payment · ${fmtMoney(_payRows[0].due)}</button>` : (f.estado === "pendiente" && _payRows.length > 1 ? `<p style="font-size:13px;color:var(--rust-ink,#E86040);font-weight:700;margin:10px 0 0;">Record each person's payment separately. friendly-123 will not mark several people paid with one ambiguous click.</p>` : "")}
       ${f.promotoraId && f.estado !== "sin ventas" ? `<button type="button" class="tecla" style="font-size:14px;margin-top:12px;margin-left:8px;" onclick="enviarEstadoComisionista('${f.ubicacionId}')">Send statement</button>` : ""}
     </div>`;
   };
@@ -8695,6 +8767,16 @@ async function cargarComisiones(){
     filtrar();
   }
   cont.querySelectorAll("[data-review-commission]").forEach(btn => btn.addEventListener("click", () => revisarComisionVenta(btn.dataset.reviewCommission, btn.dataset.person)));
+  cont.querySelectorAll("[data-comm-pay-person]").forEach(btn => btn.addEventListener("click", () => {
+    marcarComisionPagada(btn.dataset.payRack, btn.dataset.payName, Number(btn.dataset.payDue), btn.dataset.commPayPerson);
+  }));
+  cont.querySelectorAll("[data-comm-send-person]").forEach(btn => btn.addEventListener("click", () => {
+    enviarEstadoComisionista(btn.dataset.estU, btn.dataset.estP);
+  }));
+  cont.querySelectorAll("[data-comm-edit-rack]").forEach(btn => btn.addEventListener("click", () => {
+    abrirEditorComisionPercha(btn.dataset.commEditRack);
+  }));
+
   // Ranking y RFM van en su propio contenedor, debajo del alta de comisionistas (no llevan listeners).
   const rankCont = document.getElementById("rankingComisiones");
   if (rankCont) rankCont.innerHTML = rankHtml + matrizComisionistasHtml(ranking);
@@ -9090,7 +9172,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
      pero pregunta COMO se pago. Cancelar sigue sin sellar nada. */
   const _esP = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
   const medioPago = await _ocModalMostrar(
-    _esP ? `¿Ya le pagaste a ${promotorNombre || "la persona"} lo de ${_mesPagoTxt}? ¿Cómo?` : `Already paid ${promotorNombre || "them"} what is owed for ${_mesPagoTxt}? How?`,
+    _esP ? `Registrar pago · ${promotorNombre || "persona"} · ${_mesPagoTxt}. ¿Cómo se pagó?` : `Record payment · ${promotorNombre || "them"} · ${_mesPagoTxt}. How was it paid?`,
     [
       { label: t("common.cancel"), value: false },
       { label: _esP ? "Efectivo" : "Cash", value: "efectivo" },
@@ -9107,8 +9189,8 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
   const _montoDebido = Number(monto) || 0;
   const _montoTexto = await ocPrompt(
     _esP
-      ? `¿Cuánto pagaste realmente a ${promotorNombre || "la persona"}? Saldo pendiente: ${fmtMoney(_montoDebido)}`
-      : `How much did you actually pay ${promotorNombre || "them"}? Amount due: ${fmtMoney(_montoDebido)}`,
+      ? `Monto del pago (Payment amount) a ${promotorNombre || "la persona"}. Saldo pendiente: ${fmtMoney(_montoDebido)}. Pagar saldo completo (Pay full balance): ${fmtMoney(_montoDebido)}`
+      : `Payment amount for ${promotorNombre || "them"}. Amount due: ${fmtMoney(_montoDebido)}. Pay full balance: ${fmtMoney(_montoDebido)}`,
     _montoDebido.toFixed(2)
   );
   if (_montoTexto == null) return;
@@ -9179,7 +9261,8 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId)
       ``,
       `Gracias por tu trabajo este mes. — friendly-123`,
     ].filter(Boolean).join("\n");
-    if (await ocConfirm(`Send receipt to ${_nombreRegistrado} via WhatsApp?`)) {
+    const _saldoRestante = Math.max(0, _montoDebido - _montoRegistrado);
+    if (await ocConfirm(_esP ? `Pago registrado: ${fmtMoney(_montoRegistrado)} para ${_nombreRegistrado}. Por pagar: ${fmtMoney(_saldoRestante)}. ¿Enviar recibo por WhatsApp?` : `Payment recorded: ${fmtMoney(_montoRegistrado)} for ${_nombreRegistrado}. Still due: ${fmtMoney(_saldoRestante)}. Send receipt via WhatsApp?`)) {
       window.open("https://wa.me/?text=" + encodeURIComponent(recibo), "_blank");
     }
   }
