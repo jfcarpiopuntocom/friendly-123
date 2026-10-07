@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-07",
-  "changelog": "v460: la deuda de una venta fiada sigue a la venta (corregir el precio corrige la deuda); vincular cargos viejos a su venta.",
+  "changelog": "v461: seguridad: se cierra el uso indebido de la recuperación de PIN; notas internas fuera del sitio público.",
   "requerida": false,
-  "shell": "f123-shell-v460",
+  "shell": "f123-shell-v461",
   "apagar": [],
-  "releaseName": "v460",
-  "cacheGeneration": "golden25"
+  "releaseName": "v461",
+  "cacheGeneration": "golden26"
 }
