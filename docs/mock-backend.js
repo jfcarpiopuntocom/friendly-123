@@ -262,7 +262,7 @@
   function _esProductoPruebaIdiomarte(p) {
     return !!(p && _esLicenciaIdiomarte() && _IDIOMARTE_PRUEBA_NOMBRES.has(String(p.nombre || "").trim()));
   }
-  function _seleccionarSemillaDemoPura(estado) {
+  function _seleccionarSemillaDemoPura(estado, sinEvidencia) {
     const ps = Array.isArray(estado && estado.productos) ? estado.productos : [];
     const cs = Array.isArray(estado && estado.clientes) ? estado.clientes : [];
     const vs = Array.isArray(estado && estado.ventas) ? estado.ventas : [];
@@ -277,7 +277,9 @@
     const rv = vs.filter(esVentaContaminante);
     const hayPruebaIdiomarte = idsPruebaIdiomarte.size > 0;
     const evidencia = hayPruebaIdiomarte || rv.length > 0 || rp0.length >= 2 || rc0.length >= 2 || (rp0.length > 0 && rc0.length > 0);
-    if (!evidencia) return { evidencia: false, productos: [], clientes: [], ventas: [], ubicaciones: [], promotoras: [], sucursales: [] };
+    /* v457: la LECTURA de un negocio con licencia no exige evidencia (ver _demoOculto). El retiro con cuarentena
+       de _limpiarSemillaExactaEnTiendaReal SI la sigue exigiendo: nunca llama con sinEvidencia. */
+    if (!evidencia && !sinEvidencia) return { evidencia: false, productos: [], clientes: [], ventas: [], ubicaciones: [], promotoras: [], sucursales: [] };
 
     const ventasReales = vs.filter((v) => !esVentaContaminante(v));
     const prodConActividadReal = new Set(ventasReales.map((v) => String(v && v.productoId || "")).filter(Boolean));
@@ -308,6 +310,44 @@
   }
   function _haySemillaCorroboradaLocal() {
     return _haySemillaCorroboradaEn({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
+  }
+  /* v457 (LEY de JFC 2026-10-07): EL DEMO NUNCA SE MEZCLA CON UN NEGOCIO CON LICENCIA, para TODOS los clientes
+     ("toda la info, no solo inventario sino clientes y comisionistas y todo del demo"). A la LECTURA se excluyen los
+     registros con huella EXACTA de la semilla (reusa _es*DemoExacto de arriba) SIN exigir evidencia previa. NUNCA se
+     borra nada: el estado guardado queda intacto y las listas solo "no ven" esos registros. Un registro demo que tiene
+     ventas REALES (no "vs-") que lo referencian se queda visible, y con el sus perchas/asociados dependientes
+     (misma cadena de _seleccionarSemillaDemoPura). Sin licencia (el demo puro) no se oculta nada.
+     No depende de ninguna licencia concreta ni de nombres de cliente. */
+  let _licMemoRaw = null, _licMemoVal = false;
+  function _esNegocioConLicencia() {
+    try {
+      const raw = localStorage.getItem("f123_owned") || "";
+      if (raw !== _licMemoRaw) {
+        _licMemoRaw = raw;
+        const o = raw ? (JSON.parse(raw) || {}) : {};
+        _licMemoVal = !!(String(o.licenseCode || "").trim() || String(o.syncCode || "").trim());
+      }
+      return _licMemoVal || !!OC_STATE_SUFIJO;
+    } catch (_) { return false; }
+  }
+  let _ocultoMemo = { k: null, sel: null };
+  function _demoOcultoSel() {
+    try {
+      if (!_esNegocioConLicencia()) return null;
+      const k = [_localRev, productos.length, clientes.length, ventas.length, ubicaciones.length, promotoras.length, sucursales.length].join("|");
+      if (_ocultoMemo.k !== k) {
+        const sel = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales }, true);
+        const ids = {};
+        ["productos", "clientes", "ventas", "ubicaciones", "promotoras", "sucursales"].forEach((t) => { ids[t] = new Set((sel[t] || []).map((x) => String(x.id))); });
+        _ocultoMemo = { k, sel: ids };
+      }
+      return _ocultoMemo.sel;
+    } catch (_) { return null; }
+  }
+  /* true si el registro es semilla demo y debe quedar fuera de las vistas de este negocio. */
+  function _demoOculto(tipo, obj) {
+    const sel = _demoOcultoSel();
+    return !!(sel && obj && obj.id != null && sel[tipo] && sel[tipo].has(String(obj.id)));
   }
   function _esTiendaReal() {
     try {
@@ -359,6 +399,82 @@
       ubicaciones: idsU.size, promotoras: idsPr.size, sucursales: idsSu.size
     };
   }
+
+  /* v457 (JFC 2026-10-07, decision (b) "Recalcular al % del producto"): las ventas VIEJAS de un producto que hoy trae
+     su % (pctAsociado) y su asociado (comisionistaId), pero que se guardaron SIN reparto, se recalculan al % del producto,
+     INCLUYENDO meses anteriores y ventas ya liquidadas, SIN editar ni borrar la venta original.
+     Como: un AJUSTE de comision append-only por venta (el mismo hecho que ya entienden payout-ledger.js
+     obligationsForAdjustment y ledger.js entriesForAdjustment). Id determinista "adj-retro-<ventaId>": correrlo dos
+     veces no crea nada nuevo, y dos aparatos generan el MISMO id (el sync de ajustes une por id). El importe va en
+     centavos enteros dentro de reparto[] (el cobrador es el asociado del PRODUCTO). La fecha del ajuste es la de la
+     venta: el efecto cae en el mes de la venta y la plata ya pagada pasa a ser nuevo "Still due" (efecto buscado).
+     SOLO ventas sin reparto y sin comision guardada: nunca se suma sobre un split existente (sin doble conteo).
+     Producto con % pero SIN asociado: no se crea nada; reporteRecalculoRetro() lista esas ventas.
+     Una venta recalculada que luego se anula/devuelve recibe su reverso "adj-retro-rev-<ventaId>" (tambien append-only).
+     Corre al arrancar, tras el rescate de IndexedDB y cuando cambia el % o el asociado de un producto. Sin red.
+     Las ventas semilla del demo (vs-) no se tocan. */
+  const RETRO_MOTIVO = "recalculo retroactivo al % del producto";
+  function _retroCentavos(v, pct) {
+    const brutoC = Math.round(((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) * 100);
+    return Math.round(brutoC * Math.round(pct * 100) / 10000);
+  }
+  function _retroSinComisionGuardada(v) {
+    if (!v.split) return true;
+    const rep = Array.isArray(v.split.reparto) ? v.split.reparto.filter(Boolean) : [];
+    return !rep.length && Math.round((Number(v.split.montoComisionSocio) || 0) * 100) === 0;
+  }
+  function _retroEvaluar() {
+    const prodMap = new Map(productos.filter(Boolean).map((p) => [String(p.id), p]));
+    const vivas = new Set(promotoras.filter((x) => x && !x.borrado).map((x) => String(x.id)));
+    const nuevas = [], sinAsociado = [], cancelables = [];
+    ventas.forEach((v) => {
+      if (!v || !v.id || /^vs-/.test(String(v.id))) return;
+      if (v.anulada || v.devuelta) { cancelables.push(v); return; }
+      const p = prodMap.get(String(v.productoId));
+      const pct = p ? normPctAsociado(p.pctAsociado) : null;
+      if (!p || !pct || pct <= 0 || !_retroSinComisionGuardada(v)) return;
+      const asociado = p.comisionistaId && vivas.has(String(p.comisionistaId)) ? String(p.comisionistaId) : null;
+      if (!asociado) { sinAsociado.push({ ventaId: String(v.id), productoId: String(p.id), pct }); return; }
+      nuevas.push({ v, p, pct, asociado });
+    });
+    return { nuevas, sinAsociado, cancelables };
+  }
+  function recalcularAlPctDelProducto() {
+    const ev = _retroEvaluar();
+    const ids = new Set(ajustesComision.map((a) => String(a && a.id)));
+    let creados = 0, reversos = 0;
+    ev.nuevas.forEach(({ v, p, pct, asociado }) => {
+      const id = "adj-retro-" + String(v.id);
+      if (ids.has(id)) return;
+      const c = _retroCentavos(v, pct);
+      if (c <= 0) return;
+      const monto = +(c / 100).toFixed(2);
+      ajustesComision.push({
+        id, tipo: "recalculo-retroactivo", ventaId: v.id, ubicacionId: v.ubicacionId, productoId: p.id,
+        cantidad: Number(v.cantidad) || 0, fecha: v.fecha,
+        montoBruto: 0, montoComisionSocio: monto, montoNetoDueno: -monto,
+        reparto: [{ promotoraId: asociado, monto }], comisionPct: pct,
+        quien: "sistema", motivo: RETRO_MOTIVO, liquidada: false, rev: _revNueva()
+      });
+      ids.add(id); creados++;
+    });
+    /* Reverso de una venta ya recalculada que despues se anulo o devolvio. */
+    ev.cancelables.forEach((v) => {
+      const orig = ajustesComision.find((a) => a && String(a.id) === "adj-retro-" + String(v.id));
+      const idRev = "adj-retro-rev-" + String(v.id);
+      if (!orig || ids.has(idRev)) return;
+      ajustesComision.push(Object.assign({}, orig, {
+        id: idRev, montoComisionSocio: -orig.montoComisionSocio, montoNetoDueno: -orig.montoNetoDueno,
+        reparto: orig.reparto.map((r) => Object.assign({}, r, { monto: -r.monto })),
+        motivo: RETRO_MOTIVO + " (reverso: venta anulada o devuelta)", liquidada: false, rev: _revNueva()
+      }));
+      ids.add(idRev); reversos++;
+    });
+    if (creados || reversos) { try { guardarEstadoLocal(); } catch (_) {} }
+    return { creados, reversos, sinAsociado: ev.sinAsociado };
+  }
+  function reporteRecalculoRetro() { return _retroEvaluar().sinAsociado; }
+  try { window.OCComisionRetro = { aplicar: recalcularAlPctDelProducto, reporte: reporteRecalculoRetro }; } catch (_) {}
   /* Ver FOTOS DEL DEMO (tras cargarEstadoLocal). Tambien corre al final de
      aplicarRespaldo(): el estado del demo puede volver desde IndexedDB o de un
      respaldo DESPUES del arranque, y ahi entra por esa puerta. */
@@ -1788,6 +1904,15 @@
     var t = resolverTrato(u);
     var pp = normPctAsociado(pctProducto);
     if (t && pp !== null) t = Object.assign({}, t, { pct: pp, escalas: [], origen: "producto" });
+    /* v457 (JFC 2026-10-07, LEY: "TODO debe generar comision"; "que mande el porcentaje de cada producto"):
+       si el producto trae SU % pero la percha no reparte con nadie (percha propia, sin trato), la venta
+       comisiona igual con el % del producto, sin importar a quien se vendio ni si hubo cliente. Sin % propio
+       y sin trato de percha NO se inventa ningun % por defecto: sigue sin comision, como antes. El cobrador
+       es la propia percha (sin persona). Las ventas ya guardadas no se reescriben. */
+    else if (!t && u && pp !== null) {
+      t = { pct: pp, pctCasa: +(100 - pp).toFixed(2), lectura: "asociado", modalidad: pp >= 50 ? "artista" : "vendedor",
+        origen: "producto", fuenteId: u.id, contribFija: 0, escalas: [], metaMensual: 0, minimoGarantizado: 0, base: "bruto", avisos: [] };
+    }
     return repartir(t, montoBruto, acumuladoPrevio, costoTotal);
   }
   /* B3 (corrida Hugo/Paco/Luis, 2026-09-24). REGLA DURA de JFC: la comision se
@@ -1985,7 +2110,7 @@
     const _conComisionEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && v.split && esDelMes(v.fecha, _mes, v.relojDesfaseMs))
       || ajustesComision.some((a) => a && a.ubicacionId === id && esDelMes(a.fecha, _mes));
     const _conVentasEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && esDelMes(v.fecha, _mes, v.relojDesfaseMs));
-    return ubicaciones.filter((u) => {
+    return ubicaciones.filter((u) => !_demoOculto("ubicaciones", u)).filter((u) => {
       const historia = _conVentasEnMes(u.id) || _conComisionEnMes(u.id);
       return u.borrado ? historia : ((u.tipo && u.tipo !== "propio") || historia);
     }).map((u) => {
@@ -2045,8 +2170,9 @@
         const aj = o.kind === "adjustment" ? ajustesComision.find((x) => String(x.id) === String(o.sourceId)) : null;
         const vv = v || (aj ? ventas.find((x) => String(x.id) === String(aj.ventaId)) : null);
         const pp = vv ? productos.find((q) => q.id === vv.productoId) : null;
-        return { producto:(o.kind === "adjustment" ? "Return: " : "") + (pp ? pp.nombre : "product"), sku:pp ? pp.sku : "",
-          cantidad:o.kind === "adjustment" ? -(Number(aj && aj.cantidad) || 0) : (Number(vv && vv.cantidad) || 0),
+        const _esDev = !!(aj && aj.tipo === "devolucion"); // v457 (b): el ajuste retroactivo no es una devolucion
+        return { producto:(_esDev ? "Return: " : "") + (pp ? pp.nombre : "product"), sku:pp ? pp.sku : "",
+          cantidad:_esDev ? -(Number(aj && aj.cantidad) || 0) : (Number(vv && vv.cantidad) || 0),
           montoBruto:vv && vv.split ? +(Number(vv.split.montoBruto) || 0).toFixed(2) : 0,
           comisionSocio:+_ledger.money(o.dueCents).toFixed(2), ajusteId:aj ? aj.id : undefined,
           ventaId:vv ? vv.id : undefined, payeeId:o.payeeId, payeeNombre:_payeeName(o.payeeId,u) };
@@ -2073,7 +2199,8 @@
         medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
         ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
         stillDue, payoutBalances, payoutHistory, detallePendientes,
-        ajustes: ajustesMes.map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
+        /* v457 (b): el recalculo retroactivo no es una devolucion; su plata ya viaja en la fila de su venta (ledger). */
+        ajustes: ajustesMes.filter((x) => x.tipo !== "recalculo-retroactivo").map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
         repartoPersonas,
         diasSinVenta, promotorNombre: prom ? prom.nombre : null,
         promotoraId: u.promotoraId || null,
@@ -2475,7 +2602,7 @@
      seguir viéndolos (world's best practice — archivar NO borra del historial,
      JFC 2026-09-08). La exclusión de archivados vive SOLO en el grid de
      Inventario (endpoint GET /productos), que es la vista operacional. */
-  function filtrar(uid) { return productos.filter((p) => !p.borrado && (!uid || uid === "todas" || p.ubicacionId === uid)); }
+  function filtrar(uid) { return productos.filter((p) => !p.borrado && !_demoOculto("productos", p) && (!uid || uid === "todas" || p.ubicacionId === uid)); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
   // ubicacion; con historial de dias anteriores el resumen del dia mentia.
   /* B6 (2026-09-24): una venta YA PAGADA que se devuelve queda en la lista
@@ -2960,7 +3087,7 @@
     return da > db;
   }
 
-  function ventasActivas() { return Array.prototype.filter.call(ventas, (v) => !v.anulada); }
+  function ventasActivas() { return Array.prototype.filter.call(ventas, (v) => !v.anulada && !_demoOculto("ventas", v)); }
 
   function aplicarCatalogo(remoto, rolRemoto) {
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
@@ -4179,13 +4306,23 @@
      No usa prefijos de licencia ni borra por id genérico: exige huella exacta de
      la semilla para productos/clientes y el prefijo reservado vs- para ventas.
      Se conserva snapshot reversible antes de retirar cualquier evidencia demo. */
+  /* FEATURE — DORMANT (desactivado por JFC 2026-10-07: "Apagarla, solo filtrar"). NO BORRAR.
+     La limpieza de arranque que RETIRABA el demo sobrante del almacenamiento de un negocio con licencia queda APAGADA:
+     ya no se borra ni se pone en cuarentena nada. El demo solo se FILTRA A LA LECTURA (item 5 de v457, huellas exactas).
+     Para reactivar: poner LIMPIEZA_DEMO_ACTIVA = true (aplica a esta puerta de arranque Y a la de "idb-rescue" de mas
+     abajo; la funcion _limpiarSemillaExactaEnTiendaReal sigue intacta y conserva su copia de cuarentena). */
+  const LIMPIEZA_DEMO_ACTIVA = false;
   try {
+    if (LIMPIEZA_DEMO_ACTIVA) {
     var _limDemo = _limpiarSemillaExactaEnTiendaReal("startup");
     if (_huboLimpiezaDemo(_limDemo)) {
       guardarEstadoLocal();
       try { console.warn("[guard-demo-exacto] semilla retirada de tienda real:", _limDemo); } catch (_) {}
     }
+    }
   } catch (_) {}
+  /* v457 (b): recalculo retroactivo al % del producto, una vez tras cargar el estado (idempotente). */
+  try { recalcularAlPctDelProducto(); } catch (_) {}
 
   /* RESCATE DESDE INDEXEDDB (JFC 2026-08-17, portado desde amigable-123).
      Si en la sesion anterior localStorage estaba lleno, los ultimos guardados
@@ -4209,8 +4346,12 @@
       _localRev = espejo._rev;
       aplicarRespaldo(espejo);
       try {
-        var _limIdb = _limpiarSemillaExactaEnTiendaReal("idb-rescue");
-        if (_huboLimpiezaDemo(_limIdb)) guardarEstadoLocal();
+        /* DORMANT, ver LIMPIEZA_DEMO_ACTIVA arriba (JFC 2026-10-07, "Apagarla, solo filtrar"). */
+        if (LIMPIEZA_DEMO_ACTIVA) {
+          var _limIdb = _limpiarSemillaExactaEnTiendaReal("idb-rescue");
+          if (_huboLimpiezaDemo(_limIdb)) guardarEstadoLocal();
+        }
+        recalcularAlPctDelProducto();
       } catch (_) {}
       try { localStorage.setItem("f123_rescate_idb", String(Date.now())); } catch (_){}
       console.warn("[estado-idb] se recuperaron cambios que no cabian en localStorage (rev " + espejo._rev + ")");
@@ -4486,6 +4627,7 @@
         if (Number(p.stockActual) !== stockAntesEdicion) emitirOpStock("conversion-bar", { productoId: p.id, delta: Number(p.stockActual) - stockAntesEdicion });
         p.rev = _revNueva();
         mov("edicion", { producto: p.nombre, sku: p.sku, ubicacion: nombreUbic(p.ubicacionId) });
+        if (body.pctAsociado !== undefined || body.comisionistaId !== undefined) { try { recalcularAlPctDelProducto(); } catch (_) {} } // v457 (b)
         avisarCatalogoCambiado(); // nombre/precio/percha del producto viajan al equipo (el stock no)
         return J(ficha(p));
       }
@@ -4505,7 +4647,7 @@
       if (path === "/api/modo") return J({ modo: "demo-estatico" });
       if (path === "/api/ubicaciones" && (!opts || opts.method !== "POST")) {
         const soloActivas = q.get("todas") !== "1";
-        return J(soloActivas ? ubicaciones.filter((u) => !u.borrado && u.activa !== false) : ubicaciones.filter((u) => !u.borrado));
+        return J(soloActivas ? ubicaciones.filter((u) => !u.borrado && u.activa !== false && !_demoOculto("ubicaciones", u)) : ubicaciones.filter((u) => !u.borrado && !_demoOculto("ubicaciones", u)));
       }
       if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "The location name is required." }, 400);
@@ -4643,7 +4785,7 @@
       // ---- Asociados/as (comision por traer gente) ----
       /* El PIN del artista NUNCA sale por aqui (lo ve cualquiera que abra la
          lista). Se expone solo si tiene acceso activo. (benchmark #6) */
-      if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras.filter((p) => !p.borrado).map((p) => {
+      if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras.filter((p) => !p.borrado && !_demoOculto("promotoras", p)).map((p) => {
         const { accesoArtista, ...resto } = p;
         return { ...resto, tieneAccesoArtista: !!(accesoArtista && accesoArtista.activo), tienePercha: _perchasDeArtista(p.id).length > 0 };
       }));
@@ -4750,7 +4892,7 @@
         return J({ ok: true });
       }
       // ---- Sucursales (agrupadores backend de perchas) ----
-      if (path === "/api/sucursales" && (!opts || opts.method !== "POST")) return J(sucursales.filter((s) => !s.borrado));
+      if (path === "/api/sucursales" && (!opts || opts.method !== "POST")) return J(sucursales.filter((s) => !s.borrado && !_demoOculto("sucursales", s)));
       if (path === "/api/sucursales" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "The branch name is required." }, 400);
         const nuevaSuc = { id: uuid("suc"), nombre: body.nombre.trim(), activa: true, rev: _revNueva() };
@@ -4783,7 +4925,7 @@
         /* 2026-09-25: se atribuye cada venta a su persona (v.promotoraId); las ventas
            viejas sin ese campo caen a la persona actual de la percha, como antes. */
         const byId = {};
-        promotoras.filter((pr) => !pr.borrado && ubicaciones.some((u) => u.promotoraId === pr.id)).forEach((pr) => {
+        promotoras.filter((pr) => !pr.borrado && !_demoOculto("promotoras", pr) && ubicaciones.some((u) => u.promotoraId === pr.id && !_demoOculto("ubicaciones", u))).forEach((pr) => {
           byId[pr.id] = { id: pr.id, nombre: pr.nombre, ventasBrutas: 0, ventasCount: 0, comision: 0, ultima: "", porSku: {} };
         });
         ventasActivas().filter((v) => esDelMesActual(v.fecha, v.relojDesfaseMs) && v.split).forEach((v) => {
@@ -4850,7 +4992,7 @@
         // filtrar() y SÍ los ve — archivar no borra del historial (JFC 2026-09-08).
         const soloArch = q.get("soloArchivados") === "1";
         let fuente = soloArch
-          ? productos.filter((p) => p.archivado && (!uid || uid === "todas" || p.ubicacionId === uid))
+          ? productos.filter((p) => p.archivado && !_demoOculto("productos", p) && (!uid || uid === "todas" || p.ubicacionId === uid))
           : filtrar(uid).filter((p) => !p.archivado);
         /* GARANTIA v306: para la licencia de JFC (prefijo), NUNCA mostrar la semilla
            demo (ids "p"+digitos) en el listado, pase lo que pase con el estado local
@@ -5040,8 +5182,9 @@
            a quien la hizo, no a quien este asignado despues. */
         /* IdiomARTE 2026-09-28: la pieza puede tener su propio comisionista.
            La eleccion explicita en ESTA venta manda; si no la hay, manda el
-           producto y por ultimo la percha. COUNTER SALE sigue siendo 100% casa.
-           Sin esto el campo comisionistaId era decorativo y las piezas en una
+           producto y por ultimo la percha. COUNTER SALE NO es 100% casa (v429, v457):
+           "counter sale es quien vendio, customer es a quien se vendio"; el cliente
+           nunca cambia la comision. Sin esto el campo comisionistaId era decorativo y las piezas en una
            percha propia se vendian con $0 de comision. */
         const _pedidoMostrador = !!(body && body.modoComision === "counter");
         const modoComision = "acuerdo";
@@ -5921,6 +6064,20 @@
       const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts }) : [];
       const _dueVenta = new Map();
       _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _dueVenta.set(String(o.sourceId), (_dueVenta.get(String(o.sourceId)) || 0) + Number(o.dueCents || 0)));
+      /* v457 (b): una venta vieja sin reparto recalculada al % del producto NO se reescribe; su comision vive en el
+         ajuste "adj-retro-<id>". La fila la lee DEL LEDGER (centavos exactos, ya pagado o no), sin recalcular aqui. */
+      const _retroPorVenta = new Map();
+      if (_coreVentas) {
+        const _ajPorId = new Map(ajustesComision.filter(Boolean).map((a) => [String(a.id), a]));
+        _obsVentas.filter((o) => o.kind === "adjustment").forEach((o) => {
+          const a = _ajPorId.get(String(o.sourceId));
+          if (!a || a.tipo !== "recalculo-retroactivo") return;
+          const k = String(a.ventaId);
+          const r = _retroPorVenta.get(k) || { ganadoC: 0, dueC: 0, pct: a.comisionPct != null ? a.comisionPct : null, payeeId: o.payeeId };
+          r.ganadoC += Number(o.signedAmountCents || 0); r.dueC += Number(o.dueCents || 0);
+          _retroPorVenta.set(k, r);
+        });
+      }
       return J(ventasActivas().filter((v) => !uid || uid === "todas" || v.ubicacionId === uid).map((v) => {
         const p = productos.find((x) => x.id === v.productoId);
         const c = clientes.find((x) => x.id === v.clienteId);
@@ -5928,12 +6085,16 @@
         // Persona de la venta primero (campo nuevo); ventas viejas caen a la percha.
         const _pid = v.promotoraId || (u && u.promotoraId) || null;
         const pr = _pid ? promotoras.find((x) => x.id === _pid) : null;
+        const _rt = !v.split ? _retroPorVenta.get(String(v.id)) : null;
+        const _prRt = _rt && _rt.payeeId ? promotoras.find((x) => x.id === _rt.payeeId) : null;
         return {
           id: v.id, fecha: v.fecha,
           productoId: v.productoId,
           productoNombre: p ? p.nombre : "(deleted product)",
           sku: p ? p.sku : "", categoria: p ? p.categoria : "",
           comisionistaIdProducto: p ? (p.comisionistaId || null) : null,
+          /* v457: el % propio del producto (null si no tiene): Commissions lo usa para no contar como "casa" una venta guardada sin reparto de un producto que si comisiona. */
+          pctAsociadoProducto: p ? normPctAsociado(p.pctAsociado) : null,
           comisionistaNombreProducto: p && p.comisionistaId ? ((promotoras.find(x => x.id === p.comisionistaId && !x.borrado) || {}).nombre || "") : "",
           cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit || 0,
           clienteNombre: c ? c.nombre : "",
@@ -5950,15 +6111,15 @@
           clienteId: v.clienteId || "",
           servings: (v.info && v.info.servings) || null,
           botellas: (v.info && v.info.botellas) || null,
-          comisionPct: v.split ? v.split.comisionPct : null,
-          comisionAsociado: v.split ? v.split.montoComisionSocio : 0,
-          netoCasa: v.split ? v.split.montoNetoDueno : null,
+          comisionPct: v.split ? v.split.comisionPct : (_rt ? _rt.pct : null),
+          comisionAsociado: v.split ? v.split.montoComisionSocio : (_rt ? _coreVentas.money(_rt.ganadoC) : 0),
+          netoCasa: v.split ? v.split.montoNetoDueno : (_rt ? +(((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) - _coreVentas.money(_rt.ganadoC)).toFixed(2) : null),
           modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
           comisionCorregida: !!(v.split && v.split.corregida),
           liquidada: !!v.liquidada,
           /* Payout Ledger: exact remaining commission for this sale, summed
              across people. Null only when the pure ledger core is unavailable. */
-          comisionPendiente: _coreVentas ? +_coreVentas.money(_dueVenta.get(String(v.id)) || 0).toFixed(2) : null,
+          comisionPendiente: _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
           devuelta: !!v.devuelta,
           medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
           reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
@@ -5972,9 +6133,9 @@
           ubicacionTipo: u ? (u.tipo || "propio") : "",
           // COUNTER SALE no se atribuye a la persona permanente de la percha:
           // el nombre acompaña solo a ventas que realmente tienen reparto.
-          asociadoNombre: v.split && pr ? pr.nombre : "",
+          asociadoNombre: v.split && pr ? pr.nombre : (_prRt ? _prRt.nombre : ""),
           // 2026-09-26 (aditivo): id de la persona que cobra, para el estado de cuenta por persona.
-          promotoraId: v.split && pr ? pr.id : null,
+          promotoraId: v.split && pr ? pr.id : (_prRt ? _prRt.id : null),
         };
       }));
     }
@@ -6016,7 +6177,7 @@
       if (path === "/api/clientes" && (!opts || opts.method !== "POST")) {
         const med = medianaMontos();
         // Clientes despedidos no aparecen en el selector de Vender ni en listas operativas.
-        return J(clientes.filter(c => !c.despedido && !c.borrado).map((c) => fichaCliente(c, med)));
+        return J(clientes.filter(c => !c.despedido && !c.borrado && !_demoOculto("clientes", c)).map((c) => fichaCliente(c, med)));
       }
       if (path === "/api/clientes" && opts && opts.method === "POST") {
         if (!body.nombre || !String(body.nombre).trim()) return J({ error: "The customer name is required." }, 400);
@@ -6053,7 +6214,7 @@
       if (path === "/api/clientes/matriz") {
         const med = medianaMontos();
         const grupos = { verano: [], primavera: [], otono: [], invierno: [] };
-        clientes.filter(c => !c.despedido && !c.borrado).forEach((c) => { const f = fichaCliente(c, med); grupos[f.estacion].push(f); });
+        clientes.filter(c => !c.despedido && !c.borrado && !_demoOculto("clientes", c)).forEach((c) => { const f = fichaCliente(c, med); grupos[f.estacion].push(f); });
         Object.keys(grupos).forEach((k) => grupos[k].sort((a, b) => b.monto - a.monto));
         return J(grupos);
       }
@@ -6063,7 +6224,7 @@
       if (path === "/api/clientes/comportamiento") {
         const med = medianaMontos();
         const grupos = { estrella: [], tolerable: [], ojo: [], bandera: [], neutro: [], despedidos: [] };
-        clientes.filter((c) => !c.borrado).forEach((c) => {
+        clientes.filter((c) => !c.borrado && !_demoOculto("clientes", c)).forEach((c) => {
           const f = fichaCliente(c, med);
           if (c.despedido) { grupos.despedidos.push(f); return; }
           // JFC 2026-08-06: evaluacion.trato/confiabilidad son 1-5 (no -1/0/1);

@@ -239,18 +239,19 @@ test('v448 GOLDEN: same seed-shaped customer id with a different fingerprint is 
   assert.equal(state.clientes.some(c => c.id === 'c01' && c.nombre === 'Real Customer' && c.telefono === '0999999999'), true);
 });
 
-test('v448 GOLDEN: restart of an activated non-JFC store purges only exact demo contamination', async () => {
+test('v448 GOLDEN: restart of an activated non-JFC store NO LONGER purges demo from storage (JFC 2026-10-07 Apagarla, solo filtrar)', async () => {
   const first = browser();
   await first.request('/api/instancia/activar', 'POST', { instanceId: 'idiomarte-fixture', vaciar: false });
   first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'idiomarte-fixture', licenseCode: 'F123-K7M2-FIXTURE' }));
   const restarted = browser(first.localStorage);
   const state = await restarted.request('/api/respaldo/exportar');
-  assert.equal(state.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), false);
-  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false);
-  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino' && p.sku === 'BAR-CAP-023'), false);
-  assert.equal(state.ubicaciones.some(u => u.id === 'galeria' && u.nombre === 'Sample Gallery'), false);
-  assert.equal(state.promotoras.some(p => p.id === 'pr01' && p.nombre === 'Consignment Artist (sample)'), false);
-  assert.equal(state.sucursales.some(s => s.id === 'suc01' && s.nombre === 'Gallery'), false);
+  assert.equal(restarted.localStorage.getItem('f123_cuarentena_demo_exacta_v448'), null, 'nothing was quarantined');
+  assert.equal(state.clientes.some(c => c.id === 'c01' && c.codigo === 'C-1001' && c.nombre === 'Ashley Rivera' && c.telefono === '3055550101'), true, 'cleanup is DORMANT: the stored record stays');
+  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), true, 'cleanup is DORMANT: the stored record stays');
+  assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino' && p.sku === 'BAR-CAP-023'), true, 'cleanup is DORMANT: the stored record stays');
+  assert.equal(state.ubicaciones.some(u => u.id === 'galeria' && u.nombre === 'Sample Gallery'), true, 'cleanup is DORMANT: the stored record stays');
+  assert.equal(state.promotoras.some(p => p.id === 'pr01' && p.nombre === 'Consignment Artist (sample)'), true, 'cleanup is DORMANT: the stored record stays');
+  assert.equal(state.sucursales.some(s => s.id === 'suc01' && s.nombre === 'Gallery'), true, 'cleanup is DORMANT: the stored record stays');
 });
 
 test('v448 GOLDEN: an isolated exact-looking customer is never auto-deleted without corroborating demo evidence', async () => {
@@ -333,7 +334,7 @@ test('v448 GOLDEN: JFC and customer licenses use the same exact demo guard; a re
 });
 
 
-test('v448 GOLDEN: real activity protects an exact-looking demo product/customer from cleanup and sync filtering', async () => {
+test('v448 GOLDEN: real activity protects an exact-looking demo product/customer (cleanup is dormant since 2026-10-07; sync filtering unchanged)', async () => {
   const first = browser();
   const fixture = await first.request('/api/respaldo/exportar');
   const demoSale = fixture.ventas.find(v => v.productoId === 'p23' && v.clienteId === 'c01');
@@ -347,14 +348,14 @@ test('v448 GOLDEN: real activity protects an exact-looking demo product/customer
   assert.equal(state.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino'), true, 'real sale protects its product');
   assert.equal(state.clientes.some(c => c.id === 'c01' && c.nombre === 'Ashley Rivera'), true, 'real sale protects its customer');
   assert.equal(state.ventas.some(v => v.id === 'v-real-protect-demo-shaped'), true, 'real sale is never removed');
-  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), false, 'demo sales are still quarantined');
+  assert.equal(state.ventas.some(v => /^vs-/.test(String(v.id || ''))), true, 'demo sales stay in storage: the startup cleanup is DORMANT (JFC 2026-10-07 Apagarla, solo filtrar)');
   const cat = restarted.catalog();
   assert.equal(cat.productos.some(p => p.id === 'p23' && p.nombre === 'Cappuccino'), true, 'protected product must still sync');
   assert.equal(cat.clientes.some(c => c.id === 'c01' && c.nombre === 'Ashley Rivera'), true, 'protected customer must still sync');
 });
 
 
-test('v448 GOLDEN golden14: idiomARTE quarantines the two confirmed manual-test products and their linked sales', async () => {
+test('v448 GOLDEN golden14: idiomARTE test products stay in storage (startup cleanup DORMANT, JFC 2026-10-07 Apagarla, solo filtrar)', async () => {
   const first = browser();
   const fixture = await first.request('/api/respaldo/exportar');
   const shelf = fixture.ubicaciones[0];
@@ -374,10 +375,10 @@ test('v448 GOLDEN golden14: idiomARTE quarantines the two confirmed manual-test 
   first.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'idiomarte-golden14', licenseCode: 'F123-K7M2-TEST-GOLDEN14' }));
   const restarted = browser(first.localStorage);
   const state = await restarted.request('/api/respaldo/exportar');
-  assert.equal(state.productos.some(p => p.nombre === 'Butter dish workshop - Candy S.'), false);
-  assert.equal(state.productos.some(p => p.nombre === 'Mural mentoring (Leslie)'), false);
-  assert.equal(state.ventas.some(v => v.id === 'v-idiomarte-test-candy' || v.id === 'v-idiomarte-test-leslie'), false);
-  assert.ok(restarted.localStorage.getItem('f123_cuarentena_demo_exacta_v448'), 'cleanup must keep a reversible quarantine snapshot');
+  assert.equal(state.productos.some(p => p.nombre === 'Butter dish workshop - Candy S.'), true);
+  assert.equal(state.productos.some(p => p.nombre === 'Mural mentoring (Leslie)'), true);
+  assert.equal(state.ventas.some(v => v.id === 'v-idiomarte-test-candy' || v.id === 'v-idiomarte-test-leslie'), true);
+  assert.equal(restarted.localStorage.getItem('f123_cuarentena_demo_exacta_v448'), null, 'the dormant cleanup opens no quarantine');
 });
 
 test('v448 GOLDEN golden14: the same names are preserved outside idiomARTE', async () => {

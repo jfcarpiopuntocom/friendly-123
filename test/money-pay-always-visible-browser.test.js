@@ -35,10 +35,13 @@ window.__medir = function (el) {
   return { found: true, w: r.width, h: r.height, display: cs.display, visibility: cs.visibility,
     disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true',
     text: (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' '),
-    /* alturas de los controles hermanos (botones/enlaces visibles) en la misma fila/tarjeta */
+    /* alturas de los controles hermanos (botones/enlaces visibles) en la misma FILA visual.
+       2026-10-07: en CI (fuentes de Linux) el texto ES "Registrar pago de $X" hace que el
+       hermano baje a otra linea del flex-wrap; un control en otra fila no es comparable. */
     sibs: Array.from((el.parentElement || document.body).querySelectorAll('button, a')).filter(function (x) {
       if (x === el || el.contains(x) || x.contains(el)) return false;
-      const rr = x.getBoundingClientRect(), c2 = getComputedStyle(x);
+      const rr = x.getBoundingClientRect(), c2 = getComputedStyle(x), me = el.getBoundingClientRect();
+      if (Math.abs(rr.top - me.top) > 2) return false;
       return rr.width > 0 && rr.height > 0 && c2.display !== 'none' && c2.visibility !== 'hidden';
     }).map(function (x) { return x.getBoundingClientRect().height; }) };
 };

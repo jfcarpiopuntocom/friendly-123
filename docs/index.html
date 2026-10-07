@@ -8294,7 +8294,12 @@ function barraComisionesHtml(meses, acciones){
 function agruparVentasPorProducto(rows, soloComision, mes, incluirPropias = false){
   const map = new Map();
   (Array.isArray(rows) ? rows : []).forEach((v) => {
-    const conReparto = v.comisionPct != null;
+    /* v457 (LEY JFC 2026-10-07: "TODO debe generar comision", manda el % del producto): una venta de un producto
+       que tiene su propio % se cuenta CON comision, no como "casa" ni como percha propia. Las ventas viejas
+       guardadas sin reparto no se reescriben: entran con $0 al asociado y siguen corrigiendose con las
+       herramientas de correccion de siempre. */
+    const _pctProd = v.pctAsociadoProducto != null && v.pctAsociadoProducto !== "" && Number.isFinite(Number(v.pctAsociadoProducto));
+    const conReparto = v.comisionPct != null || _pctProd;
     const compartida = !!v.ubicacionTipo && v.ubicacionTipo !== "propio";
     if (soloComision) {
       // Shell 371: con mes elegido se filtra por el mes local de la venta; sin mes, el mes en curso de siempre.
@@ -8311,9 +8316,11 @@ function agruparVentasPorProducto(rows, soloComision, mes, incluirPropias = fals
     d.totalUnid += cant; d.total += monto;
     if (v.cortesia) d.cortesias += cant;
     if (conReparto) {
-      const socio = Number(v.comisionAsociado) || 0, casa = Number(v.netoCasa) || 0;
+      const socio = Number(v.comisionAsociado) || 0, casa = v.netoCasa != null ? (Number(v.netoCasa) || 0) : (v.comisionPct == null ? monto : 0);
       d.unid += cant; d.bruto += socio + casa; d.socio += socio; d.casa += casa;
-      if (!v.liquidada) d.pendSocio += socio;
+      /* v457 (b): lo pendiente sale del ledger (comisionPendiente) cuando viene; una venta vieja recalculada y ya liquidada tiene nuevo Still due. */
+      if (v.comisionPendiente != null && Number.isFinite(Number(v.comisionPendiente))) d.pendSocio += Number(v.comisionPendiente);
+      else if (!v.liquidada) d.pendSocio += socio;
       if (v.asociadoNombre) d.asociados.add(v.asociadoNombre);
     } else if (compartida) { d.counterUnid += cant; d.counterMonto += monto; }
     else { d.propiasUnid += cant; d.propiasMonto += monto; }
