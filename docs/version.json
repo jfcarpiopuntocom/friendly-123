@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-07",
-  "changelog": "v461: seguridad: se cierra el uso indebido de la recuperación de PIN; notas internas fuera del sitio público.",
+  "changelog": "v462: el dashboard pasa a ser un hub: isla viva, tarjetas y barra de navegación.",
   "requerida": false,
-  "shell": "f123-shell-v461",
+  "shell": "f123-shell-v462",
   "apagar": [],
-  "releaseName": "v461",
-  "cacheGeneration": "golden26"
+  "releaseName": "v462",
+  "cacheGeneration": "golden27"
 }
