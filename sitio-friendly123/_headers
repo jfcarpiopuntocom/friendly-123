@@ -23,3 +23,7 @@
 # La app: misma politica de cache que docs/_headers (revalidar a los 5 minutos).
 /app/*
   Cache-Control: public, max-age=300, must-revalidate
+
+# Videos y flyer de la landing: nombres fijos, cache de un dia.
+/media/*
+  Cache-Control: public, max-age=86400

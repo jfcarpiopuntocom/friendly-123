@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="light only">
 <meta name="supported-color-schemes" content="light">
-<meta name="theme-color" content="#F8F9FB">
+<meta name="theme-color" content="#0A0A0F">
 <title>How much time are you losing counting by hand? friendly-123</title>
 <meta name="description" content="Work out in 10 seconds how many hours a year it costs you to keep inventory in a notebook or in your head. friendly-123: inventory, customers and light accounting for your business.">
 <meta property="og:title" content="How much time are you losing counting by hand? friendly-123">
@@ -14,250 +14,447 @@
 <meta property="og:site_name" content="friendly-123">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
-<!-- VISTA PREVIA (JFC 2026-10-07): no indexar hasta que JFC apruebe y se mueva a la raiz.
-     Para publicar: cambiar "noindex,nofollow" por "index,follow" y quitar /preview/ de robots.txt (build.mjs). -->
-<meta name="robots" content="noindex,nofollow">
-<!-- build.mjs agrega iconos, og:image, og:url y canonical (SOLO en dist/, aqui no se tocan). -->
+<meta name="robots" content="index,follow">
+<!-- build.mjs agrega iconos, og:image, og:url, canonical, hreflang y og:locale (SOLO en dist/, aqui no se tocan). -->
+<!-- Opt-in de animaciones: el contenido es visible SIN JS. Este script agrega la clase "js" a <html> solo si el
+     usuario no pidio reducir movimiento y el navegador trae IntersectionObserver. Sin la clase, ninguna regla
+     de revelado oculta nada. "lite" = Save-Data: sin canvas, sin autoplay de video, sin bucles decorativos. -->
+<script>
+(function(d){
+  var rm=false,lite=false;
+  try{rm=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+  try{var cn=navigator.connection||navigator.mozConnection||navigator.webkitConnection;lite=!!(cn&&cn.saveData);}catch(e){}
+  var c=d.className?d.className+' ':'';
+  if(!rm&&'IntersectionObserver' in window){c+='js ';}
+  if(rm){c+='rm ';}
+  if(lite){c+='lite ';}
+  d.className=c;
+})(document.documentElement);
+</script>
 <style>
 /* ============================================================
-   friendly-123 landing (vista previa). Fuente: sitio-friendly123/landing/index.html
-   Reglas de JFC aplicadas:
-   - Mobile-first: base 320px, se mejora hacia arriba con min-width.
-   - Texto >= 16px en cuerpo, nunca bajo 12px. Colores SOLIDOS en texto (sin rgba/opacity).
-   - Sin gris mas oscuro que #999 en texto, sin azul/cian/cafe en texto.
-   - Contenido visible SIN JS. El JS solo agrega la calculadora y estados de botones.
-   - Sin backdrop-filter, sin fuentes web nuevas (mismas pilas que save.html).
-   Un "color de texto" se declara siempre con color + -webkit-text-fill-color (iOS dark mode).
+   friendly-123 landing: version con motion (JFC 2026-10-07).
+   Fuente unica: sitio-friendly123/landing/index.html (no hay /preview/ ni copias).
+
+   ESTRUCTURA (esqueleto de pagina de ventas): Gancho (hero) > franja de prueba > video general + 3 pasos >
+   historia (problema + epifania) > calculadora > metodo de 5 colores > respaldo > oferta (stack) >
+   reversa de riesgo > preguntas > cierre. Los 14 bloques de la investigacion se conservan.
+
+   REGLAS DE JFC aplicadas:
+   - Mobile-first: base 320px; se mejora hacia arriba con min-width (640 / 900).
+   - Texto >= 16px en cuerpo, nunca bajo 12px. Colores de texto SOLIDOS. Cero opacity y cero rgba() en este
+     archivo: los degradados usan "transparent" y los reveals animan transform + clip-path, nunca la
+     transparencia de un texto ni de un contenedor con texto.
+   - Sin gris oscuro en texto sobre fondo oscuro. Sin backdrop-filter. Sin fuentes web (pilas del sistema).
+   - Contenido visible SIN JS. El script del <head> agrega "js" a <html> para activar las animaciones.
+     prefers-reduced-motion: no se agrega "js" y ademas se apagan todas las animaciones CSS.
+   - Cada color de texto se declara con color + -webkit-text-fill-color (iOS modo oscuro). El bloque TEXTO se
+     repite dentro de @media (prefers-color-scheme: dark). Los colores salen de variables por superficie:
+     .s-light (fondo claro) y .s-dark (fondo oscuro). NO cambiar un color de texto sin tocar su superficie.
+   - Textos nuevos (aprobacion pendiente de JFC) llevan data-copy="nuevo".
+   Para quitar una animacion: borrar su clase/atributo (data-rv, data-par, data-count, data-tilt); el contenido queda.
    ============================================================ */
 :root{
   color-scheme: light only;
   forced-color-adjust: none;
-  --verde:#00C87A;
-  --verde-ink:#0B7A4B;     /* texto blanco sobre este verde: 5.0:1 */
-  --naranja-ink:#C2410C;
-  --rojo-ink:#B8123C;
-  --amarillo:#FFC700;
-  --negro:#0A0A0F;
-  --ink:#111111;           /* titulos */
-  --txt:#1F1F1F;           /* cuerpo, neutro (no azulado) */
-  --canvas:#F8F9FB;
-  --card:#FFFFFF;
-  --line:#D9DDE3;
-  --font-display:'Space Grotesk',Inter,-apple-system,'Helvetica Neue',sans-serif;
-  --font-body:Inter,-apple-system,'Helvetica Neue',sans-serif;
-  --font-mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
+  --verde:#00C87A; --vink:#0B7A4B; --nar:#C2410C; --roj:#B8123C; --ama:#FFC700; --neg:#0A0A0F;
+  --nar-b:#FF7A2F; --roj-b:#FF3B5C;   /* variantes vivas, SOLO para decoracion sobre fondo oscuro (nunca texto) */
+  --canvas:#F8F9FB; --line:#D9DDE3;
+  --c:#1F1F1F; --h:#111111; --lk:#0B7A4B;
+  --out:cubic-bezier(0.23,1,0.32,1); --io:cubic-bezier(0.77,0,0.175,1);
+  --fd:'Space Grotesk',Inter,-apple-system,'Helvetica Neue',sans-serif;
+  --fb:Inter,-apple-system,'Helvetica Neue',sans-serif;
+  --fm:'JetBrains Mono','Cascadia Code',Consolas,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;}
-html,body{background:var(--canvas) !important;color:var(--txt) !important;-webkit-text-fill-color:var(--txt) !important;
-  font-family:var(--font-body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
-img{max-width:100%;height:auto;display:block;}
+/* overflow-x solo en <html> (no en body): asi el header sticky sigue funcionando */
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:64px;overflow-x:hidden;}
+html,body{background:#F8F9FB !important;color:#1F1F1F !important;-webkit-text-fill-color:#1F1F1F !important;
+  font-family:var(--fb);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+img,video{max-width:100%;height:auto;display:block;}
 button{font-family:inherit;cursor:pointer;}
-h1,h2,h3,p,li,a,span,em,strong,summary,label,button,input,div{ -webkit-text-fill-color:currentColor; }
-h1,h2,h3{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;font-family:var(--font-display);font-weight:700;line-height:1.15;}
-p,li,label,summary{color:var(--txt) !important;-webkit-text-fill-color:var(--txt) !important;}
-a{color:var(--verde-ink) !important;-webkit-text-fill-color:var(--verde-ink) !important;}
-@media (prefers-color-scheme: dark){
-  html,body{background:var(--canvas) !important;color:var(--txt) !important;-webkit-text-fill-color:var(--txt) !important;}
-  h1,h2,h3{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
-  p,li,label,summary{color:var(--txt) !important;-webkit-text-fill-color:var(--txt) !important;}
-  a{color:var(--verde-ink) !important;-webkit-text-fill-color:var(--verde-ink) !important;}
-  .oscuro h2,.oscuro h3,.oscuro p,.oscuro li{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
-}
-a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--verde-ink);outline-offset:3px;border-radius:6px;}
-@media (prefers-reduced-motion: reduce){
-  *{animation-duration:.01ms !important;transition-duration:.01ms !important;scroll-behavior:auto !important;}
-}
-.wrap{max-width:720px;margin:0 auto;padding:0 16px;}
-.sec{padding:40px 0;}
-.centro{text-align:center;}
-h2{font-size:24px;font-size:clamp(24px,6vw,32px);margin-bottom:14px;}
-.lead{font-size:17px;max-width:560px;margin:0 auto 24px;}
-.centro .lead{margin-left:auto;margin-right:auto;}
-@media (min-width:640px){ .sec{padding:64px 0;} .wrap{padding:0 20px;} }
+ul{list-style:none;}
 
-/* ---- Botones (44px+ de alto) ---- */
-.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 24px;border-radius:12px;
-  font-weight:700;font-size:16px;text-decoration:none;border:2px solid var(--verde-ink);width:100%;text-align:center;transition:transform .15s ease;}
+/* ---------- TEXTO (se repite en el bloque prefers-color-scheme: dark; mantener ambos iguales) ---------- */
+h1,h2,h3{color:var(--h) !important;-webkit-text-fill-color:var(--h) !important;}
+p,li,span,strong,em,b,small,summary,label,figcaption,div,button,dt,dd,time,blockquote{color:var(--c) !important;-webkit-text-fill-color:var(--c) !important;}
+a{color:var(--lk) !important;-webkit-text-fill-color:var(--lk) !important;}
+h1 em,h1 span,h2 span,h3 span{color:var(--h) !important;-webkit-text-fill-color:var(--h) !important;}
+.hl{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+
+/* superficies: definen las variables de color de texto */
+.s-light{--c:#1F1F1F;--h:#111111;--lk:#0B7A4B;}
+.s-dark{--c:#E8E4DC;--h:#FFFFFF;--lk:#28ECAA;background:var(--neg);}
+.s-strip{--c:#000000;--h:#000000;--lk:#000000;}
+@media (prefers-color-scheme: dark){
+    h1,h2,h3{color:var(--h) !important;-webkit-text-fill-color:var(--h) !important;}
+  p,li,span,strong,em,b,small,summary,label,figcaption,div,button,dt,dd,time,blockquote{color:var(--c) !important;-webkit-text-fill-color:var(--c) !important;}
+  a{color:var(--lk) !important;-webkit-text-fill-color:var(--lk) !important;}
+  h1 em,h1 span,h2 span,h3 span{color:var(--h) !important;-webkit-text-fill-color:var(--h) !important;}
+  .hl{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+}
+/* spans/em dentro de titulos toman el color de titulo; .hl (subrayado animado) siempre blanco sobre fondo oscuro */
+h1 em,h1 span,h2 span,h3 span{color:var(--h) !important;-webkit-text-fill-color:var(--h) !important;}
+.hl{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important;scroll-behavior:auto !important;}
+  .marq-track{width:auto;flex-wrap:wrap;justify-content:center;padding:0 16px;}
+  .marq ul{flex-wrap:wrap;justify-content:center;}
+  .marq-dup{display:none;}
+  .stick{transform:none;visibility:visible;}
+}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--verde);outline-offset:3px;border-radius:6px;}
+.s-light a:focus-visible,.s-light button:focus-visible,.s-light summary:focus-visible{outline-color:var(--vink);}
+
+/* ---------- Layout base ---------- */
+.wrap{max-width:720px;margin:0 auto;padding:0 16px;}
+.wrap-w{max-width:1120px;margin:0 auto;padding:0 16px;}
+.sec{padding:48px 0;position:relative;overflow:hidden;isolation:isolate;}
+.centro{text-align:center;}
+h1,h2,h3{font-family:var(--fd);font-weight:700;line-height:1.12;}
+h2{font-size:26px;font-size:clamp(26px,6.4vw,40px);margin-bottom:14px;letter-spacing:-.02em;}
+.lead{font-size:17px;max-width:600px;margin:0 auto 24px;}
+@media (min-width:640px){ .sec{padding:84px 0;} .wrap,.wrap-w{padding:0 24px;} .lead{font-size:19px;} }
+
+/* ---------- Revelado al scroll (solo con html.js) ----------
+   Se anima transform + clip-path (nunca la transparencia). Estado inicial: recortado y 28px abajo. */
+.js [data-rv]{transform:translate3d(0,28px,0);-webkit-clip-path:inset(0 0 100% 0);clip-path:inset(0 0 100% 0);}
+.js [data-rv].in{transform:none;-webkit-clip-path:inset(-60px);clip-path:inset(-60px);
+  transition:transform .75s var(--out) var(--d,0s),-webkit-clip-path .75s var(--out) var(--d,0s),clip-path .75s var(--out) var(--d,0s);}
+.js [data-rv="l"]{transform:translate3d(-36px,0,0);-webkit-clip-path:inset(0 100% 0 0);clip-path:inset(0 100% 0 0);}
+.js [data-rv="r"]{transform:translate3d(36px,0,0);-webkit-clip-path:inset(0 0 0 100%);clip-path:inset(0 0 0 100%);}
+.js [data-rv="z"]{transform:scale(.94) translate3d(0,20px,0);}
+.js [data-rv].in{transform:none;}
+
+/* ---------- Botones (48px de alto, feedback de pulsacion) ---------- */
+.btn{position:relative;isolation:isolate;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:12px 24px;
+  border-radius:14px;font-weight:700;font-size:16px;line-height:1.2;text-decoration:none;border:2px solid var(--vink);width:100%;text-align:center;
+  transition:transform .16s var(--out),box-shadow .2s var(--out);}
 .btn:active{transform:scale(.97);}
-.btn-pri{background:var(--verde-ink) !important;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
-.btn-sec{background:#FFFFFF !important;color:var(--verde-ink) !important;-webkit-text-fill-color:var(--verde-ink) !important;}
+.btn *{color:inherit !important;-webkit-text-fill-color:currentColor !important;}
+.btn-pri{background:var(--vink) !important;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.btn-sec{background:#FFFFFF !important;color:var(--vink) !important;-webkit-text-fill-color:var(--vink) !important;}
+.btn-hot{background:var(--verde) !important;border-color:var(--verde);color:#000000 !important;-webkit-text-fill-color:#000000 !important;}
+.btn-ghost{background:var(--neg) !important;border-color:#FFFFFF;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+/* brillo que cruza el boton principal (queda DEBAJO del texto: z-index -1 dentro de isolation) */
+.btn-hot::after,.btn-pri::after{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:0;width:46%;background:#7FF0C3;
+  transform:translate3d(-130%,0,0) skewX(-20deg);}
+.btn-pri::after{background:#1AA56B;}
 .btn[aria-busy="true"]{cursor:progress;}
+@media (hover:hover) and (pointer:fine){
+  .btn:hover{transform:translate3d(0,-2px,0);box-shadow:0 8px 0 #000000;}
+  .btn-sec:hover,.btn-pri:hover{box-shadow:0 8px 0 var(--neg);}
+  .btn-hot:hover::after,.btn-pri:hover::after{transform:translate3d(320%,0,0) skewX(-20deg);transition:transform .7s var(--out);}
+  .btn:active{transform:scale(.97);}
+}
+.js .btn-hot.idle::after{animation:shine 5.5s var(--io) 1.8s infinite;}
+@keyframes shine{0%,70%{transform:translate3d(-130%,0,0) skewX(-20deg);}100%{transform:translate3d(320%,0,0) skewX(-20deg);}}
 .filas{display:flex;flex-direction:column;gap:12px;max-width:440px;margin:0 auto;}
 @media (min-width:640px){ .filas{flex-direction:row;max-width:none;justify-content:center;} .btn{width:auto;min-width:230px;} }
-.estado{min-height:24px;margin-top:10px;font-size:15px;font-weight:700;}
-.estado.err{color:var(--rojo-ink) !important;-webkit-text-fill-color:var(--rojo-ink) !important;}
+.estado{min-height:24px;margin-top:10px;font-size:16px;font-weight:700;}
+.estado.err{color:#FF8FA6 !important;-webkit-text-fill-color:#FF8FA6 !important;}
+.s-light .estado.err{color:var(--roj) !important;-webkit-text-fill-color:var(--roj) !important;}
 
-/* ---- 1. Cabecera minima ---- */
-header.top{position:sticky;top:0;z-index:50;background:#F8F9FB;border-bottom:1px solid var(--line);}
-header.top .in{max-width:720px;margin:0 auto;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+/* ---------- Barra de progreso de lectura + barra CTA movil ---------- */
+#prog{position:fixed;left:0;top:0;right:0;height:4px;background:var(--verde);z-index:80;transform:scaleX(0);transform-origin:left;pointer-events:none;}
+.stick{position:fixed;left:0;right:0;bottom:0;z-index:70;display:flex;gap:8px;padding:8px 10px;padding-bottom:calc(8px + env(safe-area-inset-bottom));
+  background:var(--neg);border-top:3px solid var(--verde);}
+.stick .btn{flex:1 1 0;min-width:0;width:auto;min-height:52px;padding:8px 10px;font-size:16px;}
+.js .stick{transform:translate3d(0,110%,0);visibility:hidden;transition:transform .35s var(--out),visibility 0s linear .35s;}
+.js .stick.on{transform:none;visibility:visible;transition:transform .35s var(--out);}
+body{padding-bottom:76px;}
+@media (min-width:700px){ .stick{display:none;} body{padding-bottom:0;} }
+
+/* ---------- 1. Cabecera minima ---------- */
+header.top{position:sticky;top:0;z-index:60;background:#F8F9FB;border-bottom:1px solid var(--line);}
+header.top .in{max-width:1120px;margin:0 auto;padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
 header.top img{height:32px;width:auto;}
 header.top a.demo{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-weight:700;font-size:16px;white-space:nowrap;}
 
-/* ---- 2. Hero ---- */
-.hero{text-align:center;padding:32px 0 28px;}
-.hero h1{font-size:34px;font-size:clamp(32px,9vw,56px);letter-spacing:-.03em;margin-bottom:14px;}
-.hero .sub{font-size:18px;max-width:540px;margin:0 auto 14px;}
-.hero .para{font-size:16px;font-weight:700;margin:0 auto 22px;max-width:540px;}
-.hero .filas{margin-bottom:6px;}
+/* ---------- 2. Hero (gancho) ---------- */
+.hero{position:relative;overflow:hidden;isolation:isolate;padding:34px 0 44px;}
+.hero-bg{position:absolute;left:0;top:0;right:0;bottom:0;z-index:-1;overflow:hidden;background:var(--neg);}
+/* auroras: degradados radiales de colores oscuros SOLIDOS (el texto blanco conserva contraste > 6:1) */
+.blob{position:absolute;border-radius:50%;width:520px;height:520px;}
+.b1{left:-220px;top:-200px;background:radial-gradient(circle,#0E6B43 0%,transparent 66%);animation:dr1 21s var(--io) infinite alternate;}
+.b2{right:-240px;top:120px;background:radial-gradient(circle,#7A3A00 0%,transparent 66%);animation:dr2 26s var(--io) infinite alternate;}
+.b3,.b4{display:none;}
+@media (min-width:700px){
+  .blob{width:860px;height:860px;}
+  .b1{left:-320px;top:-340px;} .b2{right:-340px;top:-60px;}
+  .b3,.b4{display:block;}
+  .b3{left:28%;bottom:-520px;background:radial-gradient(circle,#6B0F28 0%,transparent 66%);animation:dr3 30s var(--io) infinite alternate;}
+  .b4{right:22%;top:-460px;background:radial-gradient(circle,#6B5400 0%,transparent 66%);animation:dr1 24s var(--io) infinite alternate-reverse;}
+}
+@keyframes dr1{to{transform:translate3d(90px,70px,0) scale(1.18);}}
+@keyframes dr2{to{transform:translate3d(-110px,-50px,0) scale(1.12);}}
+@keyframes dr3{to{transform:translate3d(-80px,-90px,0) scale(1.2);}}
+.lite .blob{animation:none;}
+#fx{position:absolute;left:0;top:0;width:100%;height:100%;display:block;}
+.hero-in{display:grid;grid-template-columns:1fr;gap:34px;align-items:center;}
+.hero h1{font-size:34px;font-size:clamp(34px,10vw,76px);letter-spacing:-.035em;line-height:1.02;margin-bottom:16px;}
+.ln{display:block;}
+/* titular: cada linea sube desde una mascara (transform, sin transparencia) */
+.js .ln{overflow:hidden;padding-bottom:.12em;margin-bottom:-.12em;}
+.js .ln>span{display:block;transform:translate3d(0,112%,0);}
+.js.go .ln>span{transform:none;transition:transform .95s var(--out);}
+.js.go .ln:nth-child(2)>span{transition-delay:.14s;}
+.see{position:relative;font-style:normal;display:inline-block;}
+.see::after{content:"";position:absolute;left:0;right:0;bottom:-.06em;height:.11em;border-radius:99px;
+  background:linear-gradient(90deg,#00C87A 0%,#00C87A 20%,#FFC700 20%,#FFC700 40%,#FF7A2F 40%,#FF7A2F 60%,#FF3B5C 60%,#FF3B5C 80%,#FFFFFF 80%,#FFFFFF 100%);}
+.js .see::after{transform:scaleX(0);transform-origin:left;}
+.js.go .see::after{transform:none;transition:transform .8s var(--out) .75s;}
+.hero .sub{font-size:18px;max-width:560px;margin:0 0 14px;}
+.hero .para{font-size:17px;font-weight:700;margin:0 0 22px;max-width:560px;}
+.hero .filas{margin:0;max-width:440px;}
 .chips-t{font-size:16px;margin:26px 0 10px;}
-.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
-.chip{font-family:var(--font-mono);font-size:14px;font-weight:700;padding:8px 13px;border-radius:8px;}
-.c-verde{background:var(--verde-ink);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
-.c-dorado{background:var(--amarillo);color:#000000 !important;-webkit-text-fill-color:#000000 !important;}
-.c-naranja{background:var(--naranja-ink);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
-.c-rojo{background:var(--rojo-ink);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
-.c-negro{background:var(--negro);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
-.captura{margin:26px auto 0;max-width:340px;border:2px solid var(--ink);border-radius:18px;overflow:hidden;background:#FFFFFF;}
-.captura img{width:100%;aspect-ratio:480/689;}
-.captura figcaption{font-size:15px;padding:10px 12px;border-top:2px solid var(--ink);background:#FFFFFF;}
+.chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{display:inline-block;font-family:var(--fm);font-size:14px;font-weight:700;padding:8px 13px;border-radius:8px;}
+.chip *{color:inherit !important;-webkit-text-fill-color:currentColor !important;}
+.c-verde{background:var(--vink);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.c-dorado{background:var(--ama);color:#000000 !important;-webkit-text-fill-color:#000000 !important;}
+.c-naranja{background:var(--nar);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.c-rojo{background:var(--roj);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.c-negro{background:var(--neg);border:1px solid #FFFFFF;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+/* los chips del hero "se encienden" uno tras otro (semaforo) */
+.hero .chip{animation:chipb 6s var(--io) infinite;}
+.hero .chip:nth-child(2){animation-delay:.5s;} .hero .chip:nth-child(3){animation-delay:1s;}
+.hero .chip:nth-child(4){animation-delay:1.5s;} .hero .chip:nth-child(5){animation-delay:2s;}
+@keyframes chipb{0%,14%,100%{transform:none;}7%{transform:translate3d(0,-6px,0) scale(1.1);}}
+.lite .hero .chip{animation:none;}
+/* telefono con la captura real: parallax (envoltorio) > flotacion > inclinacion con el puntero */
+.phone-wrap{margin:0 auto;width:250px;}
+.float{animation:flo 7s var(--io) infinite alternate;}
+@keyframes flo{to{transform:translate3d(0,-12px,0);}}
+.lite .float{animation:none;}
+.tilt{transition:transform .2s var(--out);will-change:auto;}
+.phone-wrap{perspective:800px;}
+/* idea tomada de inWind (sin copiar codigo): el telefono nace inclinado en 3D y se aplana al hacer scroll (--st lo escribe el JS) */
+.js .phone{transform:rotateX(var(--st,26deg));transform-origin:50% 100%;}
+.phone{border:9px solid #1C1C26;border-radius:38px;overflow:hidden;background:#FFFFFF;box-shadow:0 0 0 2px #3A4156,0 26px 0 -6px #0E6B43;}
+.phone img{width:100%;aspect-ratio:480/689;}
+.phone-wrap figcaption{font-size:16px;text-align:center;margin-top:28px;}
 @media (min-width:900px){
-  .hero{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;text-align:left;max-width:1040px;padding:56px 20px;}
-  .hero .sub,.hero .para{margin-left:0;}
-  .hero .filas{justify-content:flex-start;margin-left:0;}
-  .chips{justify-content:flex-start;}
-  .captura{margin:0;}
+  .hero{padding:72px 0 80px;}
+  .hero-in{grid-template-columns:1.1fr .9fr;gap:56px;}
+  .phone-wrap{width:300px;}
 }
 
-/* ---- 3. Prueba rapida ---- */
-.prueba{background:#FFFFFF;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:24px 0;}
-.prueba .grid{display:grid;grid-template-columns:1fr;gap:14px;}
-.prueba .it{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--canvas);}
-.prueba .it h3{font-size:17px;margin-bottom:4px;}
-@media (min-width:700px){ .prueba .grid{grid-template-columns:repeat(3,1fr);} .prueba .wrap{max-width:1000px;} }
+/* ---------- 3. Franja de prueba (marquee con frases ya aprobadas) ---------- */
+.marq{background:var(--verde);overflow:hidden;border-top:3px solid #000000;border-bottom:3px solid #000000;padding:14px 0;}
+.marq-track{display:flex;width:max-content;animation:marq 56s linear infinite;}
+.marq:hover .marq-track{animation-play-state:paused;}
+.marq ul{display:flex;flex-shrink:0;}
+.marq li{display:flex;align-items:center;white-space:nowrap;font-weight:700;font-size:17px;padding-right:20px;}
+.marq li::before{content:"";width:12px;height:12px;margin-right:20px;border-radius:50%;background:#000000;flex-shrink:0;}
+@keyframes marq{to{transform:translate3d(-50%,0,0);}}
+.lite .marq-track{animation:none;}
 
-/* ---- 4. Problema ---- */
-.problema{background:#FFFFFF;border-bottom:1px solid var(--line);}
-.checks{display:grid;grid-template-columns:1fr;gap:12px;max-width:600px;margin:0 auto 24px;}
-.checks .it{display:flex;gap:10px;align-items:flex-start;background:var(--canvas);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+/* ---------- 6. Video general + tres pasos ---------- */
+.ov{display:grid;grid-template-columns:1fr;gap:34px;align-items:center;}
+.vid{margin:0 auto;width:100%;}
+.vid-v{max-width:300px;}
+.vframe{position:relative;border:3px solid #111111;border-radius:22px;overflow:hidden;background:#111111;box-shadow:10px 10px 0 var(--verde);}
+.vframe video{width:100%;background:#111111;}
+.vid figcaption{margin-top:48px;font-size:16px;font-weight:700;text-align:center;}
+.vplay{position:absolute;left:50%;top:50%;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;border:0;background:var(--verde);display:flex;align-items:center;justify-content:center;
+  transition:transform .2s var(--out),visibility 0s;}
+.vplay svg{margin-left:5px;}
+.vplay::before{content:"";position:absolute;left:-3px;top:-3px;right:-3px;bottom:-3px;border-radius:50%;border:3px solid var(--verde);animation:ring 2.2s var(--out) infinite;}
+.vplay:active{transform:scale(.94);}
+@media (hover:hover) and (pointer:fine){ .vplay:hover{transform:scale(1.08);} }
+@keyframes ring{from{transform:scale(1);border-width:3px;}to{transform:scale(1.7);border-width:0;}}
+.vframe.playing .vplay{visibility:hidden;transform:scale(.6);}
+.vplay[hidden]{display:none;}
+.pasos{display:flex;flex-direction:column;gap:14px;position:relative;margin:0 0 26px;}
+.paso{position:relative;display:grid;grid-template-columns:48px 1fr;gap:14px;background:#FFFFFF;border:2px solid #111111;border-radius:16px;padding:16px;}
+.paso .n{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:var(--vink);
+  color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-family:var(--fd);font-weight:700;font-size:20px;}
+.paso h3{font-size:19px;margin-bottom:4px;}
+@media (min-width:900px){
+  .ov{grid-template-columns:320px 1fr;gap:72px;}
+  .vid-v{max-width:320px;}
+}
+
+/* ---------- 4. Historia: problema ---------- */
+.problema{background:#FFFFFF;border-top:1px solid var(--line);}
+.checks{display:grid;grid-template-columns:1fr;gap:12px;max-width:640px;margin:0 auto 24px;text-align:left;}
+.checks .it{display:flex;gap:12px;align-items:flex-start;background:var(--canvas);border:2px solid #111111;border-radius:14px;padding:16px;}
 .checks svg{flex-shrink:0;margin-top:3px;}
 @media (min-width:640px){ .checks{grid-template-columns:1fr 1fr;} }
 
-/* ---- 5. Calculadora ---- */
-.calc{background:var(--card);border:2px solid var(--ink);border-radius:20px;padding:20px;max-width:720px;margin:0 auto;}
-@media (min-width:640px){ .calc{padding:32px;} }
-.calc h2{text-align:center;font-size:24px;margin-bottom:6px;}
+/* ---------- Epifania (domingo) + video de ambiente ---------- */
+.epi h2{font-size:28px;font-size:clamp(28px,7vw,52px);max-width:820px;margin-left:auto;margin-right:auto;}
+.epi .big{font-size:20px;font-size:clamp(20px,4.6vw,30px);font-weight:700;line-height:1.35;max-width:820px;margin:0 auto;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.hl{background-image:linear-gradient(#00C87A,#00C87A);background-repeat:no-repeat;background-position:0 96%;background-size:100% .16em;font-weight:700;}
+.js .hl{background-size:0% .16em;transition:background-size .9s var(--out) .35s;}
+.js .in .hl,.js .hl.in{background-size:100% .16em;}
+.film{position:relative;max-width:420px;margin:48px auto 0;}
+.film .deco{position:absolute;width:46%;aspect-ratio:1;border-radius:20px;z-index:0;}
+.film .d1{left:-14%;top:-8%;background:#0E6B43;}
+.film .d2{right:-12%;bottom:-8%;background:#7A3A00;}
+.film .d3{right:6%;top:-10%;width:22%;background:#6B0F28;border-radius:50%;}
+.film .vframe{position:relative;z-index:1;box-shadow:none;border-color:#FFFFFF;}
+@media (min-width:900px){ .film{max-width:480px;} }
+
+/* ---------- 5. Calculadora ---------- */
+.calc{background:#FFFFFF;border:3px solid #111111;border-radius:22px;padding:20px;max-width:760px;margin:0 auto;box-shadow:10px 10px 0 var(--verde);}
+@media (min-width:640px){ .calc{padding:34px;} }
+.calc h2{text-align:center;font-size:26px;font-size:clamp(24px,5vw,34px);margin-bottom:6px;}
 .calc .sub{text-align:center;margin-bottom:22px;}
 .calc-grid{display:grid;grid-template-columns:1fr;gap:22px;}
 @media (min-width:640px){ .calc-grid{grid-template-columns:1fr 1fr;gap:30px;} }
 .campo{margin-bottom:22px;}
-.campo label{display:block;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
-.valor{font-family:var(--font-display);font-weight:700;font-size:30px;color:var(--verde-ink) !important;-webkit-text-fill-color:var(--verde-ink) !important;margin-bottom:6px;}
+.campo label{display:block;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;}
+.valor{font-family:var(--fd);font-weight:700;font-size:30px;color:var(--vink) !important;-webkit-text-fill-color:var(--vink) !important;margin-bottom:6px;}
+.valor span{color:var(--vink) !important;-webkit-text-fill-color:var(--vink) !important;}
 input[type=range]{width:100%;height:44px;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;}
 input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;background:var(--line);}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:var(--verde-ink);border:3px solid #FFFFFF;box-shadow:0 0 0 1px var(--ink);margin-top:-10px;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:var(--vink);border:3px solid #FFFFFF;box-shadow:0 0 0 1px #111111;margin-top:-10px;transition:transform .15s var(--out);}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(1.18);}
 input[type=range]::-moz-range-track{height:8px;border-radius:999px;background:var(--line);}
-input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--verde-ink);border:3px solid #FFFFFF;}
+input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--vink);border:3px solid #FFFFFF;}
 .rango{display:flex;justify-content:space-between;font-size:15px;}
 .ref{font-size:15px;margin-top:8px;}
-.res{background:#E9F8F1;border:2px solid var(--verde-ink);border-radius:16px;padding:20px;text-align:center;}
-.res .lab{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--verde-ink) !important;-webkit-text-fill-color:var(--verde-ink) !important;}
-.res .num{font-family:var(--font-display);font-weight:700;font-size:40px;font-size:clamp(36px,10vw,52px);line-height:1.05;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;margin:6px 0;}
+.res{background:#E9F8F1;border:2px solid var(--vink);border-radius:16px;padding:20px;text-align:center;}
+.res .lab{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--vink) !important;-webkit-text-fill-color:var(--vink) !important;}
+.res .num{font-family:var(--fd);font-weight:700;font-size:40px;font-size:clamp(36px,10vw,52px);line-height:1.05;color:#111111 !important;-webkit-text-fill-color:#111111 !important;margin:6px 0;}
 .barras{margin:18px 0 6px;display:flex;flex-direction:column;gap:10px;text-align:left;}
 .bfila{display:grid;grid-template-columns:96px 1fr 56px;align-items:center;gap:8px;}
 .bfila span{font-size:14px;line-height:1.2;}
 .riel{height:14px;background:#C9CED6;border-radius:999px;overflow:hidden;}
-.bfill{height:100%;border-radius:999px;transition:width .35s ease;}
-.b1{background:var(--rojo-ink);} .b2{background:var(--verde-ink);}
-.bcifra{font-family:var(--font-mono);font-weight:700;font-size:14px;text-align:right;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+.bfill{height:100%;border-radius:999px;transition:width .55s var(--out);}
+.b-1{background:var(--roj);} .b-2{background:var(--vink);}
+.bcifra{font-family:var(--fm);font-weight:700;font-size:14px;text-align:right;color:#111111 !important;-webkit-text-fill-color:#111111 !important;}
 .mini2{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px;}
 @media (min-width:480px){ .mini2{grid-template-columns:1fr 1fr;} }
 .mini2>div{background:#FFFFFF;border:1px solid var(--line);border-radius:12px;padding:12px;}
-.mini2 .n{font-family:var(--font-display);font-weight:700;font-size:24px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+.mini2 .n{font-family:var(--fd);font-weight:700;font-size:24px;color:#111111 !important;-webkit-text-fill-color:#111111 !important;}
 .mini2 .l{font-size:14px;}
 .res .btn{margin-top:16px;}
 .wa{display:inline-flex;align-items:center;min-height:44px;margin-top:6px;font-size:15px;font-weight:700;text-decoration:underline;}
 .nota{font-size:14px;text-align:center;margin-top:16px;}
 
-/* ---- 6. Tres pasos ---- */
-.pasos{display:grid;grid-template-columns:1fr;gap:14px;max-width:700px;margin:0 auto 24px;}
-@media (min-width:640px){ .pasos{grid-template-columns:repeat(3,1fr);} }
-.paso{background:#FFFFFF;border:1px solid var(--line);border-radius:12px;padding:18px;text-align:center;}
-.paso .n{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:var(--verde-ink);
-  color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-family:var(--font-display);font-weight:700;font-size:18px;margin-bottom:10px;}
-.paso h3{font-size:18px;margin-bottom:6px;}
-
-/* ---- 7. Beneficios + galeria ---- */
-.oscuro{background:var(--negro);}
-.oscuro h2,.oscuro h3{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
-.oscuro p{color:#E8E4DC !important;-webkit-text-fill-color:#E8E4DC !important;}
-.feats{display:grid;grid-template-columns:1fr;gap:14px;max-width:640px;margin:0 auto;}
-@media (min-width:640px){ .feats{grid-template-columns:1fr 1fr;} }
-.feat{background:#171A24;border:1px solid #3A4156;border-radius:14px;padding:18px;}
+/* ---------- 7. Metodo de 5 colores (semaforo animado + video) ---------- */
+.met{display:grid;grid-template-columns:1fr;gap:36px;align-items:center;max-width:980px;margin:0 auto 8px;text-align:left;}
+.lamps{display:flex;flex-direction:column;gap:10px;margin:18px 0 0;}
+.lamps li{display:flex;align-items:center;gap:14px;min-height:56px;padding:6px 10px;border:2px solid #3A4156;border-radius:16px;background:#171A24;cursor:pointer;
+  transition:transform .35s var(--out);}
+.lamp{position:relative;flex-shrink:0;width:34px;height:34px;border-radius:50%;border:3px solid #FFFFFF;transition:transform .35s var(--out);}
+.l-verde{background:#00C87A;} .l-dorado{background:#FFC700;} .l-naranja{background:#FF7A2F;} .l-rojo{background:#FF3B5C;} .l-negro{background:#3A3A48;}
+/* apagado = misma lampara en tono oscuro SOLIDO (no se usa transparencia) */
+.js .lamps li:not(.on) .l-verde{background:#0E3B2A;} .js .lamps li:not(.on) .l-dorado{background:#4A3C00;}
+.js .lamps li:not(.on) .l-naranja{background:#4A2410;} .js .lamps li:not(.on) .l-rojo{background:#4A1020;} .js .lamps li:not(.on) .l-negro{background:#17171F;}
+.js .lamps li:not(.on) .lamp{border-color:#3A4156;}
+.lamps li.on{transform:translate3d(10px,0,0);border-color:#FFFFFF;}
+.lamps li.on .lamp{transform:scale(1.18);}
+.lamps li.on .lamp::after{content:"";position:absolute;left:-3px;top:-3px;right:-3px;bottom:-3px;border-radius:50%;border:3px solid #FFFFFF;animation:ring 1.6s var(--out) infinite;}
+.feats{display:grid;grid-template-columns:1fr;gap:14px;max-width:980px;margin:36px auto 0;text-align:left;}
+.feat{position:relative;overflow:hidden;background:#171A24;border:2px solid #3A4156;border-radius:16px;padding:20px;}
 .feat .dot{width:14px;height:14px;border-radius:50%;margin-bottom:10px;}
-.feat h3{font-size:17px;margin-bottom:6px;}
-.gal{display:grid;grid-template-columns:1fr;gap:12px;max-width:640px;margin:0 auto;}
-@media (min-width:640px){ .gal{grid-template-columns:1fr 1fr;} }
-.mc{border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:2px;}
+.feat h3{font-size:19px;margin-bottom:6px;}
+.gal{display:grid;grid-template-columns:1fr;gap:12px;max-width:980px;margin:0 auto;text-align:left;}
+.mc{display:flex;flex-direction:column;gap:2px;border-radius:16px;padding:18px;transition:transform .3s var(--out);}
+.mc *{color:inherit !important;-webkit-text-fill-color:currentColor !important;}
 .mc .e{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
-.mc .nom{font-family:var(--font-display);font-weight:700;font-size:17px;}
-.mc .st{font-family:var(--font-display);font-weight:700;font-size:32px;line-height:1.1;}
-.mc .d{font-size:15px;}
-.m-rojo{background:var(--rojo-ink);} .m-naranja{background:var(--naranja-ink);} .m-verde{background:var(--verde-ink);} .m-negro{background:var(--negro);border:1px solid #FFFFFF;}
-.m-dorado{background:var(--amarillo);}
-.m-rojo *,.m-naranja *,.m-verde *,.m-negro *{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
-.m-dorado *{color:#000000 !important;-webkit-text-fill-color:#000000 !important;}
-.gal-t{margin-top:40px;}
+.mc .nom{font-family:var(--fd);font-weight:700;font-size:17px;}
+.mc .st{font-family:var(--fd);font-weight:700;font-size:36px;line-height:1.1;}
+.mc .d{font-size:16px;}
+.m-rojo{background:var(--roj);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.m-naranja{background:var(--nar);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.m-verde{background:var(--vink);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.m-negro{background:var(--neg);border:2px solid #FFFFFF;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.m-dorado{background:var(--ama);color:#000000 !important;-webkit-text-fill-color:#000000 !important;}
+.gal-t{margin-top:56px;}
+@media (hover:hover) and (pointer:fine){ .mc:hover{transform:translate3d(0,-8px,0) rotate(-1deg);} .feat:hover .dot{transform:scale(1.5);} .feat .dot{transition:transform .3s var(--out);} }
+.vid-s{max-width:420px;}
+@media (min-width:640px){ .feats{grid-template-columns:1fr 1fr;} .gal{grid-template-columns:repeat(3,1fr);} }
+@media (min-width:900px){ .met{grid-template-columns:1fr 420px;gap:64px;} }
 
-/* ---- 8. Antes/despues ---- */
-.victoria{background:#FFFFFF;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
-
-/* ---- 9. Testimonios ---- */
-.testis{display:grid;grid-template-columns:1fr;gap:14px;max-width:640px;margin:0 auto 24px;}
-@media (min-width:600px){ .testis{grid-template-columns:1fr 1fr;} }
-.testi{background:#FFFFFF;border:1px solid var(--line);border-left:5px solid var(--verde-ink);border-radius:12px;padding:18px;}
-.testi .q{font-family:var(--font-display);font-weight:700;font-size:19px;margin-bottom:8px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
-.testi .a{font-size:15px;}
-.aviso{font-size:15px;text-align:center;max-width:640px;margin:0 auto 18px;}
-.dos{display:grid;grid-template-columns:1fr;gap:14px;max-width:640px;margin:0 auto;}
-@media (min-width:600px){ .dos{grid-template-columns:1fr 1fr;} }
-.caja{background:#FFFFFF;border:1px solid var(--line);border-radius:12px;padding:18px;}
-.caja h3{font-size:18px;margin-bottom:6px;}
+/* ---------- 9. Respaldo y quien esta detras ---------- */
+.testis{display:grid;grid-template-columns:1fr;gap:14px;max-width:760px;margin:0 auto 18px;text-align:left;}
+@media (min-width:640px){ .testis{grid-template-columns:1fr 1fr;} }
+.testi{position:relative;background:#FFFFFF;border:2px solid #111111;border-left:8px solid var(--vink);border-radius:14px;padding:20px;}
+.testi .q{font-family:var(--fd);font-weight:700;font-size:20px;margin-bottom:8px;color:#111111 !important;-webkit-text-fill-color:#111111 !important;}
+.testi .a{font-size:16px;}
+.aviso{font-size:16px;text-align:center;max-width:640px;margin:0 auto 34px;}
+.dos{display:grid;grid-template-columns:1fr;gap:14px;max-width:760px;margin:0 auto;text-align:left;}
+@media (min-width:640px){ .dos{grid-template-columns:1fr 1fr;} }
+.caja{background:#FFFFFF;border:2px solid #111111;border-radius:14px;padding:20px;}
+.caja h3{font-size:19px;margin-bottom:6px;}
 .caja p+p{margin-top:8px;}
 
-/* ---- 10-11. Oferta + reversa de riesgo ---- */
+/* ---------- 10-11. Oferta (stack) + reversa de riesgo ---------- */
 .oferta{background:#FFFFFF;border-top:1px solid var(--line);}
-.precio{max-width:460px;margin:0 auto;border:2px solid var(--ink);border-radius:20px;padding:22px 18px;text-align:center;background:var(--canvas);}
-.monto{font-family:var(--font-display);font-weight:700;font-size:64px;line-height:1;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
-.monto small{font-size:28px;vertical-align:top;position:relative;top:8px;}
-.stack{text-align:left;margin:16px 0 18px;padding-left:22px;}
-.stack li{margin-bottom:8px;}
-.riesgo{border:2px solid var(--verde-ink);border-radius:14px;padding:16px;background:#FFFFFF;margin-bottom:18px;text-align:left;}
-.riesgo h3{font-size:19px;margin-bottom:6px;color:var(--verde-ink) !important;-webkit-text-fill-color:var(--verde-ink) !important;}
+.oferta-g{display:grid;grid-template-columns:1fr;gap:36px;align-items:start;max-width:960px;margin:0 auto;}
+.flyer{margin:0 auto;max-width:360px;width:100%;}
+.flyer .fr{position:relative;overflow:hidden;border:3px solid #111111;border-radius:20px;box-shadow:10px 10px 0 var(--ama);background:#0A0A0F;}
+.flyer img{width:100%;aspect-ratio:840/1050;}
+/* destello diagonal que cruza el flyer al aparecer (sobre la imagen, no sobre texto propio) */
+.flyer .fr::after{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;background:#FFFFFF;transform:translate3d(-160%,0,0) skewX(-18deg);pointer-events:none;}
+.js .flyer.in .fr::after{animation:glint 1.3s var(--out) .5s 1 both;}
+@keyframes glint{0%{transform:translate3d(-160%,0,0) skewX(-18deg);}60%{transform:translate3d(320%,0,0) skewX(-18deg);}100%{transform:translate3d(320%,0,0) skewX(-18deg);visibility:hidden;}}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 auto 18px;max-width:460px;}
+.stat{background:#E9F8F1;border:2px solid var(--vink);border-radius:14px;padding:10px 6px;text-align:center;}
+.stat .sn{font-family:var(--fd);font-weight:700;font-size:34px;line-height:1;color:#111111 !important;-webkit-text-fill-color:#111111 !important;}
+.stat .sl{font-size:14px;line-height:1.25;margin-top:4px;}
+.precio{max-width:460px;margin:0 auto;border:3px solid #111111;border-radius:22px;padding:22px 18px;text-align:center;background:var(--canvas);box-shadow:10px 10px 0 var(--verde);}
+.monto{font-family:var(--fd);font-weight:700;font-size:72px;line-height:1;color:#111111 !important;-webkit-text-fill-color:#111111 !important;}
+.monto small{font-size:30px;vertical-align:top;position:relative;top:8px;color:#111111 !important;-webkit-text-fill-color:#111111 !important;}
+.pm{font-size:16px;font-weight:700;margin-top:6px;}
+.stack{text-align:left;margin:18px 0;border-top:2px solid #111111;}
+.stack li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line);}
+.stack svg{margin-top:2px;}
+.stack path{stroke-dasharray:24;stroke-dashoffset:0;}
+.js .stack li[data-rv] path{stroke-dashoffset:24;}
+.js .stack li.in path{stroke-dashoffset:0;transition:stroke-dashoffset .6s var(--out) calc(var(--d,0s) + .25s);}
+.stack .inc{display:inline-block;margin-top:4px;font-size:14px;font-weight:700;background:var(--vink);padding:2px 10px;border-radius:99px;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.riesgo{border:2px solid var(--vink);border-radius:14px;padding:16px;background:#FFFFFF;margin-bottom:18px;text-align:left;}
+.riesgo h3{font-size:19px;margin-bottom:6px;color:var(--vink) !important;-webkit-text-fill-color:var(--vink) !important;}
 .riesgo .pin{display:flex;gap:10px;align-items:center;margin-top:12px;}
-.riesgo .pin b{white-space:nowrap;flex-shrink:0;font-family:var(--font-mono);font-size:22px;background:var(--verde-ink);padding:6px 10px;border-radius:8px;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
-.riesgo .pin span{font-size:15px;}
-.pago-n{font-size:15px;margin-top:12px;}
+.riesgo .pin b{white-space:nowrap;flex-shrink:0;font-family:var(--fm);font-size:22px;background:var(--vink);padding:6px 10px;border-radius:8px;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.riesgo .pin span{font-size:16px;}
+.pago-n{font-size:16px;margin-top:12px;}
+@media (min-width:900px){ .oferta-g{grid-template-columns:360px 1fr;gap:64px;} .flyer{margin:0;position:sticky;top:90px;} }
 
-/* ---- 12. FAQ ---- */
-.faq{max-width:640px;margin:0 auto;}
-.faq details{background:#FFFFFF;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;}
-.faq summary{cursor:pointer;font-weight:700;font-size:17px;padding:14px 18px;min-height:48px;list-style-position:inside;}
+/* ---------- 12. Preguntas ---------- */
+.faq{max-width:700px;margin:0 auto;}
+.faq details{background:#FFFFFF;border:2px solid #111111;border-radius:14px;margin-bottom:10px;}
+.faq summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;font-weight:700;font-size:17px;padding:14px 18px;min-height:52px;list-style:none;}
+.faq summary::-webkit-details-marker{display:none;}
+.faq summary::after{content:"";flex-shrink:0;width:12px;height:12px;border-right:3px solid #111111;border-bottom:3px solid #111111;transform:rotate(45deg);transition:transform .3s var(--out);}
+.faq details[open] summary::after{transform:rotate(-135deg);}
 .faq details p{padding:0 18px 16px;}
+.faq details[open] p{animation:ddo .4s var(--out);}
+@keyframes ddo{from{transform:translate3d(0,-10px,0);-webkit-clip-path:inset(0 0 100% 0);clip-path:inset(0 0 100% 0);}to{transform:none;-webkit-clip-path:inset(0);clip-path:inset(0);}}
 
-/* ---- 13. Cierre ---- */
-.cierre{background:#FFFFFF;border-top:1px solid var(--line);}
-.pines{display:grid;grid-template-columns:1fr;gap:10px;max-width:460px;margin:0 auto 20px;}
-.pinb{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:64px;padding:10px;border:2px solid var(--ink);border-radius:12px;background:var(--canvas);width:100%;}
-.pinb .num{font-family:var(--font-mono);font-weight:700;font-size:26px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
-.pinb .rol{font-size:15px;color:var(--txt) !important;-webkit-text-fill-color:var(--txt) !important;}
-.pinb .cp{font-size:15px;font-weight:700;color:var(--verde-ink) !important;-webkit-text-fill-color:var(--verde-ink) !important;}
-.pinb-t{font-size:16px;font-weight:700;margin-bottom:10px;}
+/* ---------- 13. Cierre ---------- */
+.cierre{isolation:isolate;}
+.cierre .hero-bg{z-index:-1;}
+.pines{display:grid;grid-template-columns:1fr;gap:10px;max-width:460px;margin:0 auto 22px;}
+.pinb{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:68px;padding:10px;border:2px solid #FFFFFF;border-radius:14px;background:#171A24;width:100%;
+  transition:transform .16s var(--out);}
+.pinb:active{transform:scale(.97);}
+.pinb .num{font-family:var(--fm);font-weight:700;font-size:26px;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+.pinb .rol{font-size:16px;}
+.pinb .cp{font-size:16px;font-weight:700;color:#28ECAA !important;-webkit-text-fill-color:#28ECAA !important;}
+.pinb-t{font-size:17px;font-weight:700;margin-bottom:12px;}
+@media (min-width:640px){ .pines{grid-template-columns:repeat(3,1fr);max-width:760px;} }
 
-/* ---- 14. Pie ---- */
-footer{padding:28px 16px 40px;text-align:center;border-top:1px solid var(--line);}
-footer p{font-size:15px;}
+/* ---------- 14. Pie ---------- */
+footer{padding:30px 16px 40px;text-align:center;border-top:3px solid var(--verde);}
+footer p{font-size:16px;}
 footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-weight:700;text-decoration:underline;}
-.hecho{font-size:15px;margin-top:14px;}
 </style>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebPage","name":"How much time are you losing counting by hand? friendly-123","url":"https://friendly123.com/","inLanguage":"en","isPartOf":{"@type":"WebSite","name":"friendly-123","url":"https://friendly123.com/"},"about":{"@type":"SoftwareApplication","name":"friendly-123","applicationCategory":"BusinessApplication","operatingSystem":"Any (web, offline-capable)","offers":{"@type":"Offer","price":"399","priceCurrency":"USD","description":"One-time payment, 5-year license, support and updates included"}}}
 </script>
 </head>
 <body>
+<div id="prog" aria-hidden="true"></div>
 
 <!-- ===== 1. CABECERA MINIMA: logo + un solo enlace (demo) ===== -->
-<header class="top">
+<header class="top s s-light">
   <div class="in">
     <img alt="friendly-123" width="2088" height="427" src="/app/img/logo-720.png">
     <a class="demo" href="/app/">Open the demo now</a>
@@ -265,64 +462,125 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
 </header>
 
 <main>
-<!-- ===== 2. HERO: para quien + resultado + captura REAL de la app ===== -->
-<section class="hero wrap">
-  <div>
-    <h1>Stop guessing. Start seeing.</h1>
-    <p class="sub">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act.</p>
-    <!-- TEXTO NUEVO (JFC debe aprobar): linea de "para quien". Origen: "Clothing, food, crafts or services, it makes no difference" (save.html). -->
-    <p class="para" data-copy="nuevo">For small shops that count stock in a notebook: clothing, food, crafts or services.</p>
-    <div class="filas">
-      <a href="/app/" class="btn btn-pri" data-demo>Open the demo now</a>
-      <a href="#calculadora" class="btn btn-sec">Calculate my savings</a>
-    </div>
-    <p class="estado" data-copy="nuevo" role="status" aria-live="polite" data-estado-demo></p>
-    <p class="chips-t">Inside, every product lights up on its own:</p>
-    <div class="chips">
-      <span class="chip c-verde">Healthy</span>
-      <span class="chip c-dorado">Opportunity</span>
-      <span class="chip c-naranja">Check soon</span>
-      <span class="chip c-rojo">Urgent</span>
-      <span class="chip c-negro">Sleeping</span>
-    </div>
+<!-- ===== 2. HERO (GANCHO): fondo animado (CSS + canvas 2D opcional), titular con mascara, telefono con la captura REAL ===== -->
+<section class="hero s s-dark" id="top">
+  <div class="hero-bg" aria-hidden="true">
+    <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span>
+    <canvas id="fx"></canvas>
   </div>
-  <!-- Captura REAL: app en /app/ con PIN 456 (datos de demo), pestana INVENTORY, 390 px de ancho. Archivo: app-inventario.webp -->
-  <figure class="captura">
-    <img src="app-inventario.webp" width="480" height="689" alt="Inventory screen of friendly-123: each product card is colored by how it sells" fetchpriority="high">
-    <figcaption>Each card is colored by how it sells.</figcaption>
-  </figure>
+  <div class="hero-in wrap-w">
+    <div>
+      <h1><span class="ln"><span>Stop guessing.</span></span> <span class="ln"><span>Start <em class="see">seeing.</em></span></span></h1>
+      <p class="sub">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act.</p>
+      <!-- TEXTO NUEVO (JFC debe aprobar): linea de "para quien". Origen: "Clothing, food, crafts or services, it makes no difference" (save.html). -->
+      <p class="para" data-copy="nuevo">For small shops that count stock in a notebook: clothing, food, crafts or services.</p>
+      <div class="filas" id="hero-cta">
+        <a href="/app/" class="btn btn-hot idle" data-demo>Open the demo now</a>
+        <a href="#calculadora" class="btn btn-ghost">Calculate my savings</a>
+      </div>
+      <p class="estado" data-copy="nuevo" role="status" aria-live="polite" data-estado-demo></p>
+      <p class="chips-t">Inside, every product lights up on its own:</p>
+      <div class="chips">
+        <span class="chip c-verde">Healthy</span>
+        <span class="chip c-dorado">Opportunity</span>
+        <span class="chip c-naranja">Check soon</span>
+        <span class="chip c-rojo">Urgent</span>
+        <span class="chip c-negro">Sleeping</span>
+      </div>
+    </div>
+    <!-- Captura REAL: app en /app/ con PIN 456 (datos de demo), pestana INVENTORY, 390 px de ancho. Archivo: app-inventario.webp -->
+    <figure class="phone-wrap" data-par=".07">
+      <div class="float"><div class="tilt" data-tilt="8">
+        <div class="phone"><img src="app-inventario.webp" width="480" height="689" alt="Inventory screen of friendly-123: each product card is colored by how it sells" fetchpriority="high"></div>
+      </div></div>
+      <figcaption>Each card is colored by how it sells.</figcaption>
+    </figure>
+  </div>
 </section>
 
-<!-- ===== 3. FRANJA DE PRUEBA RAPIDA + 9. TESTIMONIOS CON NOMBRE (fusionados: solo existen 2 citas reales) =====
-     Fuente: docs/save.html lineas 865-876 (comentario: "Nombres con permiso de Belen (idiomARTE) y Jose (Olimpo Chess Club), JFC 2026-09-24").
-     Citas textuales. Son resenas de amigable-123 (app gemela); el aviso de abajo ya existia en save.html y se mantiene. NO agregar citas sin fuente y permiso. -->
-<section class="prueba">
+<!-- ===== 3. FRANJA DE PRUEBA: frases YA aprobadas del stack de oferta (texto textual), en cinta continua.
+     El segundo <ul> es copia para el bucle (aria-hidden). Con reduced-motion se muestra una sola lista en varias lineas. ===== -->
+<section class="marq s s-strip" aria-label="What is included">
+  <div class="marq-track">
+    <ul>
+      <li>5-year license, no subscription and no monthly payments</li>
+      <li>Direct support from the person who built it</li>
+      <li>Updates included for the full 5 years</li>
+      <li>No cap on products, sales or employees</li>
+      <li>Your data always on your device, exportable whenever you want</li>
+      <li>Colors you already know how to read</li>
+      <li>Light accounting, honest</li>
+    </ul>
+    <ul aria-hidden="true" class="marq-dup">
+      <li>5-year license, no subscription and no monthly payments</li>
+      <li>Direct support from the person who built it</li>
+      <li>Updates included for the full 5 years</li>
+      <li>No cap on products, sales or employees</li>
+      <li>Your data always on your device, exportable whenever you want</li>
+      <li>Colors you already know how to read</li>
+      <li>Light accounting, honest</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== 6. COMO FUNCIONA: video general del producto (toque para reproducir; 0 bytes de video antes) + 3 pasos ===== -->
+<section class="sec s s-light">
+  <div class="wrap-w">
+    <div class="ov">
+      <figure class="vid vid-v" data-rv="l">
+        <div data-par="-.04"><div class="vframe">
+          <video controls playsinline preload="none" poster="/media/producto-poster.webp" width="464" height="848" aria-label="friendly-123 product overview video"><source src="/media/producto.mp4" type="video/mp4"></video>
+          <button type="button" class="vplay" data-copy="nuevo" aria-label="Play the product overview video"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M2 2l22 13L2 28z" fill="#000000"/></svg></button>
+        </div></div>
+        <figcaption data-copy="nuevo">The product in one video</figcaption>
+      </figure>
+      <div>
+        <h2>Three steps, that is all</h2>
+        <div class="pasos" data-stagger>
+          <div class="paso"><span class="n">1</span><div><h3>Try it</h3><p>Open the demo with a code, no signup and no card. Ten seconds.</p></div></div>
+          <div class="paso"><span class="n">2</span><div><h3>Activate it</h3><p>With code 789 you start your own instance with your real products: a full 30-day trial.</p></div></div>
+          <div class="paso"><span class="n">3</span><div><h3>Close the notebook</h3><p>When the business grows, you pay once and carry on. The notebook becomes a decoration.</p></div></div>
+        </div>
+        <div class="filas" style="margin:0;"><a href="/app/" class="btn btn-pri idle" data-demo>Try the demo now</a></div>
+        <p class="estado" data-copy="nuevo" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 4. HISTORIA: PROBLEMA (PAS): problema + implicacion fusionados ===== -->
+<section class="problema sec s s-light">
   <div class="wrap centro">
-    <h2>Businesses that already closed the notebook</h2>
-    <div class="testis" style="text-align:left;">
-      <div class="testi"><p class="q">"It is exactly what I was looking for"</p><p class="a">Belén — idiomARTE, Cuenca</p></div>
-      <div class="testi"><p class="q">"This saves me from using the notebook"</p><p class="a">José — Olimpo Chess Club, Cuenca, Ecuador</p></div>
+    <h2 data-rv>The real cost is not the time. It is the wear.</h2>
+    <p class="lead" data-rv style="--d:.08s">It is not just counting. It is carrying in your head what is missing, what is piling up and what is about to expire, all day, every day.</p>
+    <div class="checks" data-stagger>
+      <div class="it"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" stroke="#B8123C" stroke-width="1.8"/><path d="M7 7l6 6M13 7l-6 6" stroke="#B8123C" stroke-width="2" stroke-linecap="round"/></svg><span>Closing up and not knowing whether the register or the stock actually balanced.</span></div>
+      <div class="it"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" stroke="#B8123C" stroke-width="1.8"/><path d="M7 7l6 6M13 7l-6 6" stroke="#B8123C" stroke-width="2" stroke-linecap="round"/></svg><span>Sunday with a calculator, recounting everything from scratch.</span></div>
     </div>
-    <p class="aviso" style="margin-bottom:0;">Reviews based on the twin app amigable-123 &mdash; the Spanish-market sibling of friendly-123, same codebase, same operators.</p>
+    <p class="lead" data-rv>It is the customer you told "we are out" when it was in the back room all along. It is the sale that went to another store because you took too long to confirm. It is the Sunday that was not a Sunday.</p>
   </div>
 </section>
 
-<!-- ===== 4. PROBLEMA (PAS): problema + implicacion fusionados ===== -->
-<section class="problema sec">
-  <div class="wrap centro">
-    <h2>The real cost is not the time. It is the wear.</h2>
-    <p class="lead">It is not just counting. It is carrying in your head what is missing, what is piling up and what is about to expire, all day, every day.</p>
-    <div class="checks" style="text-align:left;">
-      <div class="it"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" stroke="#B8123C" stroke-width="1.8"/><path d="M7 7l6 6M13 7l-6 6" stroke="#B8123C" stroke-width="2" stroke-linecap="round"/></svg><span>Closing up and not knowing whether the register or the stock actually balanced.</span></div>
-      <div class="it"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" stroke="#B8123C" stroke-width="1.8"/><path d="M7 7l6 6M13 7l-6 6" stroke="#B8123C" stroke-width="2" stroke-linecap="round"/></svg><span>Sunday with a calculator, recounting everything from scratch.</span></div>
-    </div>
-    <p class="lead">It is the customer you told "we are out" when it was in the back room all along. It is the sale that went to another store because you took too long to confirm. It is the Sunday that was not a Sunday.</p>
+<!-- ===== 8. EPIFANIA (antes/despues, historia) + video de ambiente (bucle mudo, solo al entrar en pantalla) ===== -->
+<section class="epi sec centro s s-dark">
+  <div class="hero-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span></div>
+  <div class="wrap-w">
+    <h2 data-rv>What Sunday feels like when this stops happening</h2>
+    <p class="big" data-rv style="--d:.1s">You close up on Saturday and <span class="hl">you already know what is missing, what is piling up and what you made.</span> No recount, no calculator, no "I will check on Monday". <span class="hl">Sunday goes back to being Sunday.</span></p>
+    <figure class="film" data-par=".05">
+      <span class="deco d1" aria-hidden="true"></span><span class="deco d2" aria-hidden="true"></span><span class="deco d3" aria-hidden="true"></span>
+      <div class="vframe" data-rv="z">
+        <video id="loop" muted loop playsinline preload="none" poster="/media/moda-poster.webp" width="640" height="640" aria-label="Short fashion loop: a shop team looking at colored stock on a tablet"><source src="/media/moda.mp4" type="video/mp4"></video>
+        <button type="button" class="vplay" hidden aria-label="Play the loop"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M2 2l22 13L2 28z" fill="#000000"/></svg></button>
+      </div>
+    </figure>
   </div>
 </section>
 
-<!-- ===== 5. CALCULADORA DE HORAS (logica de save.html, sin cambios de formula) ===== -->
-<section class="sec wrap" id="calculadora">
-  <div class="calc">
+<!-- ===== 5. CALCULADORA DE HORAS (formula identica a save.html; numeros con conteo animado) ===== -->
+<section class="sec s s-light" id="calculadora">
+  <div class="wrap">
+  <div class="calc" data-rv="z">
     <h2>Your hours-recovered calculator</h2>
     <p class="sub">Set the values to your real business. The math updates instantly.</p>
     <div class="calc-grid">
@@ -346,12 +604,12 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
         <div class="num" id="horas-ano">156 hours</div>
         <p>with friendly-123 versus doing it by hand*</p>
         <div class="barras">
-          <div class="bfila"><span>Today, by hand</span><div class="riel"><div class="bfill b1" id="barra-antes" style="width:100%"></div></div><span class="bcifra" id="barra-antes-cifra">312 h</span></div>
-          <div class="bfila"><span>With friendly-123</span><div class="riel"><div class="bfill b2" id="barra-despues" style="width:50%"></div></div><span class="bcifra" id="barra-despues-cifra">156 h</span></div>
+          <div class="bfila"><span>Today, by hand</span><div class="riel"><div class="bfill b-1" id="barra-antes" style="width:100%"></div></div><span class="bcifra" id="barra-antes-cifra">312 h</span></div>
+          <div class="bfila"><span>With friendly-123</span><div class="riel"><div class="bfill b-2" id="barra-despues" style="width:50%"></div></div><span class="bcifra" id="barra-despues-cifra">156 h</span></div>
         </div>
         <div class="mini2">
           <div><div class="n" id="dias-recuperados">19.5 days</div><div class="l">full 8-hour days, free</div></div>
-          <div><div class="n" id="valor-ahorrado">$468</div><div class="l">value of that time, at your own rate</div></div>
+          <div><div class="n" id="valor-ahorrado">$624</div><div class="l">value of that time, at your own rate</div></div>
         </div>
         <a href="/app/" class="btn btn-pri" data-demo>See this working in the demo</a>
         <a href="#" id="calc-wa" class="wa">Send me this calculation on WhatsApp</a>
@@ -359,96 +617,117 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
     </div>
     <p class="nota">*Illustrative estimate assuming you spend 50% less time on this task. This is a scenario, not a measured result; your actual savings may differ.</p>
   </div>
+  </div>
 </section>
 
-<!-- ===== 6. COMO FUNCIONA EN 3 PASOS ===== -->
-<section class="sec">
-  <div class="wrap centro">
-    <h2>Three steps, that is all</h2>
-    <div class="pasos">
-      <div class="paso"><span class="n">1</span><h3>Try it</h3><p>Open the demo with a code, no signup and no card. Ten seconds.</p></div>
-      <div class="paso"><span class="n">2</span><h3>Activate it</h3><p>With code 789 you start your own instance with your real products: a full 30-day trial.</p></div>
-      <div class="paso"><span class="n">3</span><h3>Close the notebook</h3><p>When the business grows, you pay once and carry on. The notebook becomes a decoration.</p></div>
+<!-- ===== 7. METODO DE LOS 5 COLORES: semaforo animado + video del metodo + beneficios + galeria ===== -->
+<section class="oscuro sec centro s s-dark">
+  <div class="hero-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span></div>
+  <div class="wrap-w">
+    <h2 data-rv>This is what replaces the notebook</h2>
+    <p class="lead" data-rv style="--d:.08s">No training. No manual needed to start. You learn it in 10 minutes.</p>
+    <div class="met">
+      <div>
+        <h3 style="font-size:24px;" data-rv>Colors you already know how to read</h3>
+        <p data-rv style="margin-top:8px;--d:.06s">Green, gold, orange, red, black. You see the product's color and you know what to do, without thinking.</p>
+        <!-- Semaforo: las 5 lamparas se encienden en orden (JS). Sin JS quedan las 5 encendidas. Tocar una la fija. -->
+        <ul class="lamps" id="lamps" data-stagger>
+          <li class="on"><span class="lamp l-verde"></span><span class="chip c-verde">Healthy</span></li>
+          <li><span class="lamp l-dorado"></span><span class="chip c-dorado">Opportunity</span></li>
+          <li><span class="lamp l-naranja"></span><span class="chip c-naranja">Check soon</span></li>
+          <li><span class="lamp l-rojo"></span><span class="chip c-rojo">Urgent</span></li>
+          <li><span class="lamp l-negro"></span><span class="chip c-negro">Sleeping</span></li>
+        </ul>
+      </div>
+      <figure class="vid vid-s" data-rv="r">
+        <div data-par="-.05"><div class="vframe" style="box-shadow:10px 10px 0 #7A3A00;border-color:#FFFFFF;">
+          <video controls playsinline preload="none" poster="/media/colores-poster.webp" width="640" height="640" aria-label="The 5-color inventory method video"><source src="/media/colores.mp4" type="video/mp4"></video>
+          <button type="button" class="vplay" data-copy="nuevo" aria-label="Play the 5-color method video"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M2 2l22 13L2 28z" fill="#000000"/></svg></button>
+        </div></div>
+        <figcaption data-copy="nuevo">The 5-color inventory method</figcaption>
+      </figure>
     </div>
-    <div class="filas"><a href="/app/" class="btn btn-pri" data-demo>Try the demo now</a></div>
-  </div>
-</section>
-
-<!-- ===== 7. BENEFICIOS + GALERIA ===== -->
-<section class="oscuro sec">
-  <div class="wrap centro">
-    <h2>This is what replaces the notebook</h2>
-    <p class="lead">No training. No manual needed to start. You learn it in 10 minutes.</p>
-    <div class="feats" style="text-align:left;">
-      <div class="feat"><div class="dot" style="background:#00C87A;"></div><h3>Colors you already know how to read</h3><p>Green, gold, orange, red, black. You see the product's color and you know what to do, without thinking.</p></div>
-      <div class="feat"><div class="dot" style="background:#FFC700;"></div><h3>Light accounting, honest</h3><p>Real margin, expenses prorated across the days of the month. Nothing that makes you feel better off than you are.</p></div>
+    <div class="feats" data-stagger>
+      <div class="feat" data-spot><div class="dot" style="background:#00C87A;"></div><h3>Colors you already know how to read</h3><p>Green, gold, orange, red, black. You see the product's color and you know what to do, without thinking.</p></div>
+      <div class="feat" data-spot><div class="dot" style="background:#FFC700;"></div><h3>Light accounting, honest</h3><p>Real margin, expenses prorated across the days of the month. Nothing that makes you feel better off than you are.</p></div>
     </div>
-  </div>
-</section>
-<section class="sec">
-  <div class="wrap centro">
-    <h2>This is what your inventory looks like</h2>
-    <p class="lead">Each color tells you what to do before you have thought about it.</p>
-    <div class="gal" style="text-align:left;">
-      <div class="mc m-rojo"><span class="e">Urgent</span><span class="nom">T-shirt: Iron Maiden - The Trooper</span><span class="st">4</span><span class="d">4 left, restock now</span></div>
-      <div class="mc m-dorado"><span class="e">Opportunity</span><span class="nom">Chordeleg Filigree Earrings</span><span class="st">15</span><span class="d">Good margin, there is money waiting for you</span></div>
-      <div class="mc m-negro"><span class="e">Sleeping</span><span class="nom">Hand-carved Wooden Chess Set</span><span class="st">5</span><span class="d">No sales in 128 days, your money is resting there</span></div>
+    <h2 class="gal-t" data-rv>This is what your inventory looks like</h2>
+    <p class="lead" data-rv>Each color tells you what to do before you have thought about it.</p>
+    <div class="gal" data-stagger>
+      <div class="mc m-rojo"><span class="e">Urgent</span><span class="nom">T-shirt: Iron Maiden - The Trooper</span><span class="st" data-count="4">4</span><span class="d">4 left, restock now</span></div>
+      <div class="mc m-dorado"><span class="e">Opportunity</span><span class="nom">Chordeleg Filigree Earrings</span><span class="st" data-count="15">15</span><span class="d">Good margin, there is money waiting for you</span></div>
+      <div class="mc m-negro"><span class="e">Sleeping</span><span class="nom">Hand-carved Wooden Chess Set</span><span class="st" data-count="5">5</span><span class="d">No sales in 128 days, your money is resting there</span></div>
     </div>
   </div>
 </section>
 
-<!-- ===== 8. ANTES / DESPUES (historia) ===== -->
-<section class="victoria sec">
-  <div class="wrap centro">
-    <h2>What Sunday feels like when this stops happening</h2>
-    <p class="lead" style="margin-bottom:0;">You close up on Saturday and you already know what is missing, what is piling up and what you made. No recount, no calculator, no "I will check on Monday". Sunday goes back to being Sunday.</p>
-  </div>
-</section>
-
-<!-- ===== 9. RESPALDO Y QUIEN ESTA DETRAS (las citas con nombre estan en la franja de prueba, arriba) ===== -->
-<section class="sec">
-  <div class="wrap centro">
-    <div class="dos" style="text-align:left;">
+<!-- ===== 9. RESPALDO: citas con nombre (solo existen 2 reales) + datos + quien esta detras ===== -->
+<!-- Fuente: docs/save.html lineas 865-876 (comentario: "Nombres con permiso de Belen (idiomARTE) y Jose (Olimpo Chess Club), JFC 2026-09-24").
+     Citas textuales. Son resenas de amigable-123 (app gemela); el aviso de abajo ya existia en save.html y se mantiene. NO agregar citas sin fuente y permiso. -->
+<section class="sec centro s s-light">
+  <div class="wrap">
+    <h2 data-rv>Businesses that already closed the notebook</h2>
+    <div class="testis" data-stagger>
+      <div class="testi" data-spot><p class="q">"It is exactly what I was looking for"</p><p class="a">Belén — idiomARTE, Cuenca</p></div>
+      <div class="testi" data-spot><p class="q">"This saves me from using the notebook"</p><p class="a">José — Olimpo Chess Club, Cuenca, Ecuador</p></div>
+    </div>
+    <p class="aviso" data-rv>Reviews based on the twin app amigable-123 &mdash; the Spanish-market sibling of friendly-123, same codebase, same operators.</p>
+    <div class="dos" data-stagger>
       <div class="caja"><h3>Your data, backed up</h3><p>An encrypted backup you export yourself whenever you want, to your own messages or email. Change phones and your business does not get lost.</p></div>
       <div class="caja"><h3>Who is behind this</h3><p>I have researched hundreds of businesses and advised dozens, from small to mid-sized. This came out of that: I would rather specialize and do a few things well than promise you a suite that does everything halfway.</p><p>A project by <a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener">avatiun.com</a>.</p></div>
     </div>
   </div>
 </section>
 
-<!-- ===== 10. OFERTA (precio visible + stack) y 11. REVERSA DE RIESGO (ANTES del boton de compra) ===== -->
-<section class="oferta sec" id="oferta">
-  <div class="wrap centro">
-    <h2>You tried it and it convinced you</h2>
-    <p class="lead">One payment, a 5-year license, yours from today.</p>
-    <div class="precio">
-      <div class="monto"><small>$</small>399</div>
-      <p>Your one-time investment.</p>
-      <ul class="stack">
-        <li>5-year license, no subscription and no monthly payments</li>
-        <li>Direct support from the person who built it</li>
-        <li>Updates included for the full 5 years</li>
-        <li>No cap on products, sales or employees</li>
-        <li>Your data always on your device, exportable whenever you want</li>
-      </ul>
-      <!-- 11. Reversa de riesgo: texto de la caja "Try everything free for 30 days" de save.html. Va ANTES del boton de pago. -->
-      <div class="riesgo">
-        <h3>Try everything free for 30 days</h3>
-        <p>Every feature, no limits: products, sales, team and sync. After 30 days without a license the app switches to read-only. Your data is never deleted.</p>
-        <div class="pin"><b>7-8-9</b><span>Start using it: activate your own instance (full 30-day trial)</span></div>
+<!-- ===== 10. OFERTA (stack + precio visible) y 11. REVERSA DE RIESGO (ANTES del boton de compra) =====
+     El flyer lleva el QR TAPADO (se rellena con el fondo de la franja inferior; ver media/flyer.webp). -->
+<section class="oferta sec centro s s-light" id="oferta">
+  <div class="wrap-w">
+    <h2 data-rv>You tried it and it convinced you</h2>
+    <p class="lead" data-rv style="--d:.06s">One payment, a 5-year license, yours from today.</p>
+    <div class="oferta-g">
+      <figure class="flyer" data-rv="l">
+        <div data-par=".05"><div class="fr" data-tilt="6"><img src="/media/flyer.webp" width="840" height="1050" loading="lazy" alt="friendly-123 flyer: Grow without burning yourself out, $399 for 5 full years"></div></div>
+      </figure>
+      <div>
+        <div class="stats" data-stagger>
+          <div class="stat"><div class="sn" data-count="30">30</div><div class="sl" data-copy="nuevo">days to try everything free</div></div>
+          <div class="stat"><div class="sn" data-count="5">5</div><div class="sl" data-copy="nuevo">years of license and updates</div></div>
+          <div class="stat"><div class="sn" data-count="1">1</div><div class="sl" data-copy="nuevo">payment, once</div></div>
+        </div>
+        <div class="precio" data-rv="z">
+          <div class="monto"><small>$</small><span data-count="399">399</span></div>
+          <p>Your one-time investment.</p>
+          <!-- Calculo: 399 / 60 meses = 6.65 (aritmetica sobre el precio aprobado; texto nuevo, JFC debe aprobar). -->
+          <p class="pm" data-copy="nuevo">That is about $6.65 a month over the 5 years.</p>
+          <ul class="stack" data-stagger>
+            <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>5-year license, no subscription and no monthly payments<br><span class="inc" data-copy="nuevo">Included</span></div></li>
+            <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Direct support from the person who built it<br><span class="inc" data-copy="nuevo">Included</span></div></li>
+            <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Updates included for the full 5 years<br><span class="inc" data-copy="nuevo">Included</span></div></li>
+            <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>No cap on products, sales or employees<br><span class="inc" data-copy="nuevo">Included</span></div></li>
+            <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Your data always on your device, exportable whenever you want<br><span class="inc" data-copy="nuevo">Included</span></div></li>
+          </ul>
+          <!-- 11. Reversa de riesgo: texto de la caja "Try everything free for 30 days" de save.html. Va ANTES del boton de pago. -->
+          <div class="riesgo">
+            <h3>Try everything free for 30 days</h3>
+            <p>Every feature, no limits: products, sales, team and sync. After 30 days without a license the app switches to read-only. Your data is never deleted.</p>
+            <div class="pin"><b>7-8-9</b><span>Start using it: activate your own instance (full 30-day trial)</span></div>
+          </div>
+          <a href="https://www.paypal.me/jfcarpio/399" target="_blank" rel="noopener" class="btn btn-pri idle" data-pago="paypal">Yes, I want my 5-year license</a>
+          <p class="estado" data-copy="nuevo" role="status" aria-live="polite" data-estado-pago></p>
+          <p class="pago-n">Pay with PayPal. Stripe and Bitcoin coming.</p>
+          <p class="pago-n"><strong>After payment you get your license by WhatsApp or email within 24 hours.</strong></p>
+        </div>
       </div>
-      <a href="https://www.paypal.me/jfcarpio/399" target="_blank" rel="noopener" class="btn btn-pri" data-pago="paypal">Yes, I want my 5-year license</a>
-      <p class="estado" data-copy="nuevo" role="status" aria-live="polite" data-estado-pago></p>
-      <p class="pago-n">Pay with PayPal. Stripe and Bitcoin coming.</p>
-      <p class="pago-n"><strong>After payment you get your license by WhatsApp or email within 24 hours.</strong></p>
     </div>
   </div>
 </section>
 
-<!-- ===== 12. FAQ + "para quien NO es" (details nativo: funciona sin JS) ===== -->
-<section class="sec">
+<!-- ===== 12. PREGUNTAS + "para quien NO es" (details nativo: funciona sin JS) ===== -->
+<section class="sec s s-light">
   <div class="wrap">
-    <h2 class="centro">Questions people ask before paying</h2>
-    <div class="faq">
+    <h2 class="centro" data-rv>Questions people ask before paying</h2>
+    <div class="faq" data-stagger>
       <details><summary>Is it really a single payment?</summary><p>Yes. $399 once, for a 5-year license. No subscription, no monthly payments and no per-user fees.</p></details>
       <details><summary>What happens when the 30-day trial ends?</summary><p>If you have not bought a license, the app switches to read-only: you can still see and export everything. Nothing is deleted.</p></details>
       <details><summary>Where is my business data kept?</summary><p>On your own device. You can export an encrypted backup whenever you want, to your own messages or email.</p></details>
@@ -459,18 +738,19 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
 </section>
 
 <!-- ===== 13. CIERRE: misma promesa, dos CTA (demo primario, PayPal secundario) ===== -->
-<section class="cierre sec" id="probar">
-  <div class="wrap centro">
-    <h2>Try it first, no signup and no card, in 10 seconds</h2>
-    <p class="pinb-t">Enter the demo with any of these codes</p>
-    <div class="pines">
+<section class="cierre sec centro s s-dark" id="probar">
+  <div class="hero-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+  <div class="wrap-w">
+    <h2 data-rv>Try it first, no signup and no card, in 10 seconds</h2>
+    <p class="pinb-t" data-rv>Enter the demo with any of these codes</p>
+    <div class="pines" data-stagger>
       <button type="button" class="pinb" data-copiar="456"><span class="num">4-5-6</span><span class="rol">Demo, full control, in detail</span><span class="cp">Tap to copy</span></button>
       <button type="button" class="pinb" data-copiar="260"><span class="num">2-6-0</span><span class="rol">Employee, sells and counts stock</span><span class="cp">Tap to copy</span></button>
       <button type="button" class="pinb" data-copiar="357"><span class="num">3-5-7</span><span class="rol">Bookkeeper, the accounting layer</span><span class="cp">Tap to copy</span></button>
     </div>
     <div class="filas">
-      <a href="/app/" class="btn btn-pri" data-demo>Open the demo now</a>
-      <a href="https://www.paypal.me/jfcarpio/399" target="_blank" rel="noopener" class="btn btn-sec" data-pago="paypal">Yes, I want my 5-year license</a>
+      <a href="/app/" class="btn btn-hot idle" data-demo>Open the demo now</a>
+      <a href="https://www.paypal.me/jfcarpio/399" target="_blank" rel="noopener" class="btn btn-ghost" data-pago="paypal">Yes, I want my 5-year license</a>
     </div>
     <p class="estado" data-copy="nuevo" role="status" aria-live="polite" data-estado-cierre></p>
   </div>
@@ -478,34 +758,109 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
 </main>
 
 <!-- ===== 14. PIE ===== -->
-<footer>
+<footer class="s s-dark">
   <p>friendly-123 — Your business, in color. <a href="/app/manual.html">User manual</a> · <a href="https://github.com/jfcarpiopuntocom/friendly-123" target="_blank" rel="noopener">Code</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></p>
 </footer>
 
+<!-- Barra CTA fija (solo movil). Textos ya existentes. Aparece al salir del hero y se oculta en la oferta y el cierre (que traen sus propios botones). -->
+<div class="stick s s-dark" id="stick">
+  <a href="/app/" class="btn btn-hot" data-demo>Open the demo now</a>
+  <a href="https://www.paypal.me/jfcarpio/399" target="_blank" rel="noopener" class="btn btn-ghost" data-pago="paypal">Yes, I want my 5-year license</a>
+</div>
+
 <script>
-/* JS = calculadora, copiar PIN y estados de botones. Sin JS la pagina se lee completa.
-   Formula identica a docs/save.html: 50% de ahorro (mismo numero que help-ui.js de la app), 52 semanas, jornada de 8 h. */
+/* JS = movimiento (opt-in con html.js), calculadora, copiar PIN, estados de botones y video bajo demanda.
+   Sin JS la pagina se lee completa. ES5 a proposito (Android 2015 / navegador interno de WhatsApp).
+   Formula de la calculadora identica a docs/save.html: 50% de ahorro (mismo numero que help-ui.js de la app), 52 semanas, jornada de 8 h. */
 (function(){
   "use strict";
   var $ = function(id){ return document.getElementById(id); };
+  var qa = function(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); };
+  var H = document.documentElement;
+  var JS = /(^| )js( |$)/.test(H.className);          /* animaciones permitidas */
+  var LITE = /(^| )lite( |$)/.test(H.className);      /* Save-Data */
+  var RM = /(^| )rm( |$)/.test(H.className);          /* reduced-motion */
+  var FINE = false; try{ FINE = window.matchMedia("(hover: hover) and (pointer: fine)").matches; }catch(e){}
+  var raf = window.requestAnimationFrame || function(f){ return setTimeout(function(){ f(Date.now()); },16); };
+
+  /* ---------- Revelado al scroll + escalonado ---------- */
+  var pending = [];
+  function revealCheck(){
+    if(!pending.length) return;
+    var vh = window.innerHeight || 600, keep = [];
+    for(var i=0;i<pending.length;i++){
+      var el = pending[i], r = el.getBoundingClientRect();
+      if(r.top < vh*0.92 && r.bottom > 0){ el.className += " in"; } else { keep.push(el); }
+    }
+    pending = keep;
+  }
+  if(JS){
+    qa("[data-stagger]").forEach(function(p){
+      Array.prototype.slice.call(p.children).forEach(function(c,i){
+        if(!c.hasAttribute("data-rv")) c.setAttribute("data-rv","");
+        c.style.setProperty("--d",(i*0.09)+"s");
+      });
+    });
+    /* Revelado: se calcula con getBoundingClientRect en el mismo rAF del scroll (revealCheck, mas abajo).
+       NO se usa IntersectionObserver aqui: Chrome descuenta el clip-path del elemento observado, y un bloque
+       recortado al 100% nunca "entra" (bug visto en la prueba). Sin IO tambien sirve en Android viejo. */
+    pending = qa("[data-rv]");
+    raf(function(){ raf(function(){ H.className+=" go"; }); });   /* titular del hero al cargar */
+  }
+
+  /* ---------- Contadores (el HTML ya trae el numero final) ---------- */
+  function ease(p){ return p>=1?1:1-Math.pow(2,-10*p); }
+  function tween(el,to,fmt,dur){
+    var from = (el._v==null)?to:el._v;
+    if(!JS || from===to){ el._v=to; el.textContent=fmt(to); return; }
+    if(el._r) (window.cancelAnimationFrame||clearTimeout)(el._r);
+    var t0=null;
+    (function step(ts){
+      if(t0===null) t0=ts;
+      var p=Math.min(1,(ts-t0)/dur), v=from+(to-from)*ease(p);
+      el._v=v; el.textContent=fmt(p>=1?to:v);
+      if(p<1) el._r=raf(step); else el._v=to;
+    })(window.performance&&performance.now?performance.now():Date.now());
+  }
+  var cnt = qa("[data-count]");
+  if(JS && cnt.length){
+    cnt.forEach(function(el){ el._to=parseFloat(el.getAttribute("data-count")); el._v=0; el.textContent="0"; });
+    var ioc = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ var el=e.target; tween(el,el._to,function(v){ return String(Math.round(v)); },1100); ioc.unobserve(el); } });
+    },{threshold:0.4});
+    cnt.forEach(function(el){ ioc.observe(el); });
+  }
+
+  /* ---------- Calculadora ---------- */
   var horasInput=$("horas"), valorInput=$("valorhora");
-  var TASA=0.5, SEM=52, JORNADA=8, ultimo=null;
+  var TASA=0.5, SEM=52, JORNADA=8, ultimo=null, calcVisible=!JS;
   function fmt(n){ try{ return "$"+n.toLocaleString("en-US",{maximumFractionDigits:0}); }catch(_){ return "$"+Math.round(n); } }
+  function loc(n){ try{ return Math.round(n).toLocaleString("en-US"); }catch(_){ return String(Math.round(n)); } }
   function calcular(){
     var h=parseFloat(horasInput.value)||0, v=parseFloat(valorInput.value)||0;
     var ano=h*SEM, ahorro=ano*TASA, con=ano-ahorro, dias=ahorro/JORNADA, val=ahorro*v;
     $("horas-out").textContent=h;
     $("valorhora-out").textContent=v%1===0?v:v.toFixed(1);
-    $("horas-ano").textContent=Math.round(ahorro).toLocaleString("en-US")+" hours";
-    $("dias-recuperados").textContent=dias.toFixed(1)+" days";
-    $("valor-ahorrado").textContent=fmt(val);
+    tween($("horas-ano"),ahorro,function(x){ return loc(x)+" hours"; },calcVisible?420:900);
+    tween($("dias-recuperados"),dias,function(x){ return x.toFixed(1)+" days"; },calcVisible?420:900);
+    tween($("valor-ahorrado"),val,fmt,calcVisible?420:900);
+    tween($("barra-antes-cifra"),ano,function(x){ return loc(x)+" h"; },calcVisible?420:900);
+    tween($("barra-despues-cifra"),con,function(x){ return loc(x)+" h"; },calcVisible?420:900);
     $("barra-antes").style.width="100%";
     $("barra-despues").style.width=(100*(1-TASA))+"%";
-    $("barra-antes-cifra").textContent=Math.round(ano).toLocaleString("en-US")+" h";
-    $("barra-despues-cifra").textContent=Math.round(con).toLocaleString("en-US")+" h";
     ultimo={h:h,ano:Math.round(ahorro),dias:dias.toFixed(1),val:fmt(val)};
   }
-  horasInput.addEventListener("input",calcular); valorInput.addEventListener("input",calcular); calcular();
+  horasInput.addEventListener("input",calcular); valorInput.addEventListener("input",calcular);
+  if(JS){
+    /* los resultados arrancan en 0 y cuentan hasta su valor cuando la tarjeta entra en pantalla */
+    ["horas-ano","dias-recuperados","valor-ahorrado","barra-antes-cifra","barra-despues-cifra"].forEach(function(id){ var e=$(id); e._v=0; });
+    $("horas-ano").textContent="0 hours"; $("dias-recuperados").textContent="0.0 days"; $("valor-ahorrado").textContent="$0";
+    $("barra-antes-cifra").textContent="0 h"; $("barra-despues-cifra").textContent="0 h";
+    $("barra-antes").style.width="0%"; $("barra-despues").style.width="0%";
+    var ioCalc = new IntersectionObserver(function(es){ if(es[0].isIntersecting){ ioCalc.disconnect(); calcular(); setTimeout(function(){ calcVisible=true; },1300); } },{threshold:0.25});
+    ioCalc.observe(qa(".calc")[0]);
+    ultimo={h:6,ano:156,dias:"19.5",val:"$624"};
+  } else { calcular(); }
 
   /* Compartir el calculo por WhatsApp: abre el compositor del usuario, no manda nada a un servidor nuestro (igual que save.html). */
   var wa=$("calc-wa");
@@ -513,8 +868,8 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
     var t="Look at what I worked out for our business:\n\nToday we lose about "+ultimo.h+" hours a week tracking inventory by hand.\nWith friendly-123 we would get back about "+ultimo.ano+" hours a year ("+ultimo.dias+" days completos), que a nuestra tarifa son "+ultimo.val+".\n\nLa demo es gratis y sin registro: https://friendly123.com/";
     window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank","noopener"); }); }
 
-  /* Copiar PIN (igual que save.html, con respaldo para Safari). */
-  Array.prototype.forEach.call(document.querySelectorAll("[data-copiar]"),function(b){
+  /* ---------- Copiar PIN (igual que save.html, con respaldo para Safari) ---------- */
+  qa("[data-copiar]").forEach(function(b){
     b.addEventListener("click",function(){
       var pin=b.getAttribute("data-copiar"), av=b.querySelector(".cp");
       function ok(){ if(av){ av.textContent="Copied"; setTimeout(function(){ av.textContent="Tap to copy"; },1600); } }
@@ -524,21 +879,18 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
     });
   });
 
-  /* Estados de los botones (carga / error), con aria-live. Los textos de estado son NUEVOS (data-copy="nuevo" en la lista del informe).
-     - Demo: abre /app/ en la misma pestana; si en 8 s la pagina sigue aqui, muestra el error.
-     - PayPal: abre otra pestana; si el navegador la bloquea o no hay red, muestra el error y deja el enlace como respaldo. */
+  /* ---------- Estados de los botones (carga / error), con aria-live. Textos de estado = NUEVOS (data-copy="nuevo"). ---------- */
   var T={ abriendoDemo:"Opening the demo...", errDemo:"The demo did not open. Tap the button to try again.",
-          abriendoPago:"Opening PayPal...", errPago:"PayPal did not open. Check your connection and try again, or write me on WhatsApp.",
-          wa:"https://wa.me/593999905080?text=Hola%2C%20tengo%20una%20pregunta%20sobre%20friendly-123" };
-  function estadoDe(el){ var s=el.closest("section"); return s?(s.querySelector(".estado")||null):null; }
+          abriendoPago:"Opening PayPal...", errPago:"PayPal did not open. Check your connection and try again, or write me on WhatsApp." };
+  function estadoDe(el){ var s=el.closest?el.closest("section"):null; return s?(s.querySelector(".estado")||null):null; }
   function poner(est,txt,err){ if(!est) return; est.className="estado"+(err?" err":""); est.textContent=txt; }
-  Array.prototype.forEach.call(document.querySelectorAll("[data-demo]"),function(a){
+  qa("[data-demo]").forEach(function(a){
     a.addEventListener("click",function(){
       var est=estadoDe(a); a.setAttribute("aria-busy","true"); poner(est,T.abriendoDemo,false);
       setTimeout(function(){ if(!document.hidden){ a.removeAttribute("aria-busy"); poner(est,T.errDemo,true); } },8000);
     });
   });
-  Array.prototype.forEach.call(document.querySelectorAll("[data-pago]"),function(a){
+  qa("[data-pago]").forEach(function(a){
     a.addEventListener("click",function(ev){
       var est=estadoDe(a);
       if(navigator.onLine===false){ ev.preventDefault(); poner(est,T.errPago,true); return; }
@@ -546,6 +898,141 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
       setTimeout(function(){ a.removeAttribute("aria-busy"); poner(est,"",false); },4000);
     });
   });
+
+  /* ---------- Video bajo demanda: preload="none"; 0 bytes de video hasta tocar (o, el bucle, hasta entrar en pantalla) ---------- */
+  var videos = qa("video");
+  videos.forEach(function(v){
+    var fr=v.parentNode, btn=fr.querySelector(".vplay");
+    if(btn) btn.addEventListener("click",function(){ try{ var p=v.play(); if(p&&p.catch) p.catch(function(){}); }catch(_){} });
+    v.addEventListener("play",function(){
+      fr.className=fr.className.replace(/ ?playing/,"")+" playing";
+      videos.forEach(function(o){ if(o!==v && !o.loop && !o.paused) o.pause(); });   /* un explicativo a la vez */
+    });
+    v.addEventListener("ended",function(){ fr.className=fr.className.replace(/ ?playing/,""); });
+  });
+  var loopV=$("loop");
+  if(loopV){
+    var ok = JS && !LITE && !RM;
+    if(ok && 'IntersectionObserver' in window){
+      loopV.muted=true; loopV.defaultMuted=true;
+      var iov = new IntersectionObserver(function(es){
+        es.forEach(function(e){
+          if(e.isIntersecting){ try{ var p=loopV.play(); if(p&&p.catch) p.catch(function(){ /* autoplay bloqueado: queda el poster */ }); }catch(_){} }
+          else { try{ loopV.pause(); }catch(_){} }
+        });
+      },{threshold:0.35});
+      iov.observe(loopV);
+    } else {
+      /* movimiento reducido o Save-Data: solo poster; el usuario lo reproduce con el boton o los controles */
+      loopV.setAttribute("controls","");
+      var lb=loopV.parentNode.querySelector(".vplay"); if(lb) lb.hidden=false;
+    }
+  }
+
+  /* ---------- Semaforo de 5 colores ---------- */
+  var lamps=qa("#lamps li");
+  if(JS && lamps.length){
+    var cur=0, timer=null, pinned=false, pt=null;
+    /* "in" se agrega por el observer de revelado (data-stagger); aqui se conserva junto a "on" */
+    function setOn2(i){ cur=i; lamps.forEach(function(l,k){ var inn=/(^| )in( |$)/.test(l.className)?" in":""; l.className=(k===i?"on":"")+inn; }); }
+    var vis=false;
+    function tick(){ if(vis && !pinned && !document.hidden) setOn2((cur+1)%lamps.length); }
+    timer=setInterval(tick,1500);
+    lamps.forEach(function(l,k){ l.addEventListener("click",function(){ pinned=true; setOn2(k); clearTimeout(pt); pt=setTimeout(function(){ pinned=false; },6000); }); });
+    new IntersectionObserver(function(es){ vis=es[0].isIntersecting; },{threshold:0.3}).observe($("lamps"));
+    setOn2(0);
+  }
+
+  /* ---------- Parallax ligero (solo transform en el envoltorio) + barra de progreso + barra CTA ---------- */
+  var phoneEl = qa(".phone")[0], pars = qa("[data-par]"), prog=$("prog"), stick=$("stick"), ticking=false;
+  var heroCta=$("hero-cta"), blockers=[$("oferta"),$("probar")], heroGone=false, blocked=0;
+  function frame(){
+    ticking=false;
+    var vh=window.innerHeight||600, y=window.pageYOffset||0, dh=Math.max(1,(document.documentElement.scrollHeight||1)-vh);
+    if(prog) prog.style.transform="scaleX("+Math.min(1,y/dh)+")";
+    revealCheck();
+    if(JS && !RM && phoneEl){ phoneEl.style.setProperty("--st", Math.max(0, 26 - y/9).toFixed(1)+"deg"); }
+    if(JS && !RM){
+      for(var i=0;i<pars.length;i++){
+        var el=pars[i], r=el.getBoundingClientRect();
+        if(r.bottom<-80 || r.top>vh+80) continue;
+        var f=parseFloat(el.getAttribute("data-par"))||0, d=Math.max(-70,Math.min(70,((r.top+r.height/2)-vh/2)*-f));
+        el.style.transform="translate3d(0,"+d.toFixed(1)+"px,0)";
+      }
+    }
+  }
+  function req(){ if(!ticking){ ticking=true; raf(frame); } }
+  window.addEventListener("scroll",req,{passive:true}); window.addEventListener("resize",req); req();
+  if(JS){ revealCheck(); setTimeout(revealCheck,400); }
+  if(JS && stick){
+    function upStick(){ if(heroGone && !blocked) stick.className="stick s s-dark on"; else stick.className="stick s s-dark"; }
+    new IntersectionObserver(function(es){ heroGone=!es[0].isIntersecting && es[0].boundingClientRect.top<0; upStick(); }).observe(heroCta);
+    blockers.forEach(function(b){ if(!b) return; var on=false;
+      new IntersectionObserver(function(es){ var now=es[0].isIntersecting; if(now!==on){ on=now; blocked+=now?1:-1; upStick(); } },{threshold:0.15}).observe(b); });
+  }
+
+  /* ---------- Inclinacion con el puntero (solo escritorio con mouse) ---------- */
+  if(JS && !RM && FINE){
+    qa("[data-tilt]").forEach(function(el){
+      var max=parseFloat(el.getAttribute("data-tilt"))||6, host=el.closest("figure")||el;
+      host.addEventListener("pointermove",function(ev){
+        var r=el.getBoundingClientRect(), x=(ev.clientX-(r.left+r.width/2))/(r.width/2), y=(ev.clientY-(r.top+r.height/2))/(r.height/2);
+        x=Math.max(-1,Math.min(1,x)); y=Math.max(-1,Math.min(1,y));
+        el.style.transform="perspective(900px) rotateX("+(-y*max).toFixed(2)+"deg) rotateY("+(x*max).toFixed(2)+"deg)";
+      });
+      host.addEventListener("pointerleave",function(){ el.style.transform=""; });
+    });
+    /* foco de luz que sigue al puntero en tarjetas (fondo, no texto) */
+    qa("[data-spot]").forEach(function(c){
+      c.addEventListener("pointermove",function(ev){
+        var r=c.getBoundingClientRect();
+        c.style.backgroundImage="radial-gradient(220px circle at "+(ev.clientX-r.left)+"px "+(ev.clientY-r.top)+"px,"+(c.className.indexOf("testi")>-1?"#E9F8F1":"#232838")+",transparent 70%)";
+      });
+      c.addEventListener("pointerleave",function(){ c.style.backgroundImage=""; });
+    });
+  }
+
+  /* ---------- Particulas de colores en el hero (Canvas 2D, mejora opcional) ----------
+     Se omite con reduced-motion, Save-Data, sin canvas o con poca memoria. Se pausa fuera de pantalla o en otra pestana.
+     El fondo de auroras es CSS puro y ya funciona sin esto. */
+  var cv=$("fx");
+  var mem=navigator.deviceMemory||4;
+  if(JS && !RM && !LITE && cv && cv.getContext && mem>=2){
+    var ctx=cv.getContext("2d"), W=0, Hh=0, DPR=Math.min(window.devicePixelRatio||1,1.5), P=[], mx=-999, my=-999, run=false;
+    var COL=["#00C87A","#FFC700","#FF7A2F","#FF3B5C","#FFFFFF"];
+    function size(){
+      var r=cv.parentNode.getBoundingClientRect(); W=r.width; Hh=r.height;
+      cv.width=Math.round(W*DPR); cv.height=Math.round(Hh*DPR); ctx.setTransform(DPR,0,0,DPR,0,0);
+      var n=Math.max(18,Math.min(W>700?64:28,Math.round(W*Hh/26000)));
+      while(P.length<n) P.push({x:Math.random()*W,y:Math.random()*Hh,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,r:1.4+Math.random()*1.6,c:COL[P.length%5]});
+      P.length=n;
+    }
+    function draw(){
+      if(!run) return;
+      ctx.clearRect(0,0,W,Hh);
+      for(var i=0;i<P.length;i++){
+        var p=P[i];
+        p.x+=p.vx; p.y+=p.vy;
+        if(p.x<0||p.x>W) p.vx*=-1; if(p.y<0||p.y>Hh) p.vy*=-1;
+        var dx=p.x-mx, dy=p.y-my, d2=dx*dx+dy*dy;
+        if(d2<14000){ var f=(14000-d2)/14000*.6; p.x+=dx*f*.05; p.y+=dy*f*.05; }
+        ctx.globalAlpha=.85; ctx.fillStyle=p.c; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.2832); ctx.fill();
+        if(W>700){
+          for(var j=i+1;j<P.length;j++){ var q=P[j], ax=p.x-q.x, ay=p.y-q.y, dd=ax*ax+ay*ay;
+            if(dd<9000){ ctx.globalAlpha=(1-dd/9000)*.35; ctx.strokeStyle=p.c; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke(); } }
+        }
+      }
+      raf(draw);
+    }
+    size();
+    var rt=null; window.addEventListener("resize",function(){ clearTimeout(rt); rt=setTimeout(size,200); });
+    if(FINE){ var hero=cv.parentNode.parentNode; hero.addEventListener("pointermove",function(ev){ var r=cv.getBoundingClientRect(); mx=ev.clientX-r.left; my=ev.clientY-r.top; }); hero.addEventListener("pointerleave",function(){ mx=my=-999; }); }
+    var hv=true;
+    function setRun(){ var want=hv && !document.hidden; if(want && !run){ run=true; raf(draw); } else if(!want){ run=false; } }
+    new IntersectionObserver(function(es){ hv=es[0].isIntersecting; setRun(); }).observe(cv);
+    document.addEventListener("visibilitychange",setRun);
+    setRun();
+  }
 })();
 </script>
 </body>
