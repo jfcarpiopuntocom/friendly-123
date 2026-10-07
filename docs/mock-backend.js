@@ -2268,7 +2268,8 @@
      Solo se toca el reparto. El monto, el producto, el stock y la fecha no se
      mueven: eso seria otra cosa y tiene su propio camino (anular).
      ========================================================================= */
-  function corregirComisionVenta(ventaId, pctNuevo, quien, motivo) {
+  function corregirComisionVenta(ventaId, pctNuevo, quien, motivo, opciones) {
+    opciones = opciones || {};
     const v = ventas.find((x) => x.id === ventaId && !x.anulada);
     if (!v) return { error: "That sale no longer exists.", status: 404 };
     if (!v.split) return { error: "This sale doesn't split a commission with anyone: it was made on an owned shelf.", status: 400 };
@@ -2306,18 +2307,22 @@
        mismo % del asistente sobre la comision nueva (sigue sumando exacto). */
     if (v.split.reparto) aplicarRepartoAsistente(v.split, ubicaciones.find((x) => x.id === v.ubicacionId), v.asistenteId || (v.split.reparto[1] || {}).promotoraId, v.asistentePct != null ? v.asistentePct : (v.split.reparto[1] || {}).pct);
     v.split.correcciones = Array.isArray(v.split.correcciones) ? v.split.correcciones : [];
-    v.split.correcciones.push({
+    const _correccion = {
       fecha: new Date().toISOString(),
       quien: String(quien || "").trim().slice(0, 80) || "unidentified",
       motivo: String(motivo || "").trim().slice(0, 200),
       antes: antes,
       despues: { comisionPct: pct, montoComisionSocio: comision, montoNetoDueno: v.split.montoNetoDueno },
-    });
+    };
+    if (opciones.tipoCorreccion) _correccion.tipo = String(opciones.tipoCorreccion).slice(0, 40);
+    v.split.correcciones.push(_correccion);
     v.rev = _revNueva();
 
     mov("comision-corregida", { ventaId: v.id, ubicacion: nombreUbic(v.ubicacionId), pctAntes: antes.comisionPct, pctAhora: pct, diferencia: +(comision - antes.montoComisionSocio).toFixed(2), motivo: String(motivo || "").slice(0, 200) });
-    guardarEstadoLocal();
-    avisarCatalogoCambiado();
+    if (!opciones.deferPersist) {
+      guardarEstadoLocal();
+      avisarCatalogoCambiado();
+    }
     return { ok: true, venta: { id: v.id, fecha: v.fecha, split: v.split } };
   }
 
@@ -2330,6 +2335,77 @@
     const malas = res.filter((r) => r.error);
     if (malas.length === res.length) return malas[0];
     return { ok: true, corregidas: res.length - malas.length, fallidas: malas.length };
+  }
+
+  /* v458 HOTFIX — CAMBIO DE % DE LA PERSONA DEBE MOVER LO QUE AUN SE DEBE.
+     Un cambio en promotora.comisionBase antes solo cambiaba la ficha: las ventas
+     pendientes seguian con el % sellado y el ledger mostraba el importe viejo.
+     Este camino es deliberadamente conservador:
+       - SOLO ventas activas y no liquidadas;
+       - SOLO si el split demuestra que su fuente fue el comisionista;
+       - NO toca % propio del producto, percha con comision propia, devoluciones,
+         ventas pagadas ni correcciones manuales;
+       - NO toca contratos complejos (tramos/meta, aporte fijo o minimo garantizado);
+       - reutiliza corregirComisionVenta, asi conserva la auditoria y el reparto
+         de asistente, pero persiste UNA sola vez al final del lote.
+     La venta, producto, cantidad, precio y fecha no cambian. */
+  function _personaPrincipalVenta(v) {
+    if (!v || !v.split) return null;
+    if (v.promotoraId) return String(v.promotoraId);
+    const rep = Array.isArray(v.split.reparto) ? v.split.reparto : [];
+    const vendedor = rep.find((r) => r && r.promotoraId && (r.rol === "vendedor" || !r.rol));
+    if (vendedor) return String(vendedor.promotoraId);
+    const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+    return u && u.promotoraId ? String(u.promotoraId) : null;
+  }
+  function _tieneCorreccionManual(v) {
+    if (!v || !v.split || !v.split.corregida) return false;
+    const cs = Array.isArray(v.split.correcciones) ? v.split.correcciones : [];
+    if (!cs.length) return true;
+    return cs.some((x) => !x || x.tipo !== "persona-base");
+  }
+  function _ventaSimpleDePersona(v, promotoraId, pctAnterior) {
+    if (!v || !v.split || v.anulada || v.devuelta || v.liquidada || /^vs-/.test(String(v.id || ""))) return false;
+    if (String(_personaPrincipalVenta(v) || "") !== String(promotoraId || "")) return false;
+    const origen = String(v.split.origenComision || "");
+    if (origen && origen !== "comisionista") return false;
+    /* Una venta legacy sin origen solo se toca si ella misma congelo a la persona;
+       no inferimos identidad historica desde una percha que pudo cambiar de manos. */
+    if (!origen && String(v.promotoraId || "") !== String(promotoraId || "")) return false;
+    if (_tieneCorreccionManual(v)) return false;
+    /* Un reparto con asistente tiene dos beneficiarios. El corrector historico
+       reutiliza la percha actual para reconstruir ese reparto; no arriesgamos
+       reasignar centavos/personas por un hotfix de otra cosa. */
+    if (Array.isArray(v.split.reparto) && v.split.reparto.length > 1) return false;
+    const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+    if (!u || u.usarComisionPropia || Number(u.contribFija) > 0 || Number(u.minimoGarantizado) > 0) return false;
+    const p = productos.find((x) => x.id === v.productoId);
+    if (p && normPctAsociado(p.pctAsociado) !== null) return false;
+    const sellado = Number(v.split.comisionPct);
+    if (!Number.isFinite(sellado) || Math.abs(sellado - pctAnterior) > 0.0001) return false;
+    /* Si el monto no es exactamente el % viejo sobre la misma base, hubo otra
+       regla (piso, aporte u otra excepcion): no la adivinamos. */
+    const bruto = Math.max(0, Number(v.split.montoBruto) || ((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)));
+    const base = Number.isFinite(Number(v.split.montoBaseComision)) ? Number(v.split.montoBaseComision) : bruto;
+    const esperado = Math.min(bruto, +(base * (pctAnterior / 100)).toFixed(2));
+    return Math.abs((Number(v.split.montoComisionSocio) || 0) - esperado) <= 0.011;
+  }
+  function corregirPendientesPorCambioComisionista(pr, pctAnterior, pctNuevo, tratoComplejo) {
+    if (!pr || tratoComplejo || !Number.isFinite(pctAnterior) || !Number.isFinite(pctNuevo) || Math.abs(pctAnterior - pctNuevo) < 0.0001)
+      return { corregidas: 0 };
+    const objetivo = ventasActivas().filter((v) => _ventaSimpleDePersona(v, pr.id, pctAnterior));
+    let corregidas = 0;
+    objetivo.forEach((v) => {
+      const r = corregirComisionVenta(v.id, pctNuevo, "system",
+        "Base commission changed from " + pctAnterior + "% to " + pctNuevo + "%.",
+        { deferPersist: true, tipoCorreccion: "persona-base" });
+      if (r && !r.error) corregidas++;
+    });
+    if (corregidas) {
+      guardarEstadoLocal();
+      avisarCatalogoCambiado();
+    }
+    return { corregidas };
   }
 
   /* =========================================================================
@@ -4861,11 +4937,15 @@
       if (mProm && opts && opts.method === "PUT") {
         const pr = promotoras.find((x) => x.id === mProm[1]);
         if (!pr || pr.borrado) return J({ error: "Associate not found." }, 404);
+        const _baseAntes = Math.max(0, Number(pr.comisionBase !== undefined ? pr.comisionBase : pr.comision) || 0);
+        const _tramosAntes = Number(pr.metaMensual) > 0 && Array.isArray(pr.escalasComision) && pr.escalasComision.length > 0;
+        let _cambioBase = false;
         if (body.nombre !== undefined) pr.nombre = String(body.nombre).trim().slice(0, 80) || pr.nombre;
         // Base % en comisionBase (con comision espejo) — acepta ambos nombres de entrada.
         if (body.comisionBase !== undefined || body.comision !== undefined) {
           const b = Math.max(0, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0);
           pr.comisionBase = b; pr.comision = b;
+          _cambioBase = Math.abs(b - _baseAntes) >= 0.0001;
         }
         if (body.metaMensual !== undefined) pr.metaMensual = Math.max(0, Number(body.metaMensual) || 0);
         if (body.baseComision !== undefined) pr.baseComision = _baseComisionValida(body.baseComision) || "bruto";
@@ -4873,7 +4953,12 @@
         if (body.escalasComision !== undefined) pr.escalasComision = Array.isArray(body.escalasComision) ? body.escalasComision.map((e) => ({ hasta: Math.max(0, Number(e.hasta) || 0), comision: Math.max(0, Math.min(100, Number(e.comision) || 0)) })).filter((e) => e.hasta > 0) : [];
         ["telefono", "cedula", "banco", "cuenta", "direccion", "notas"].forEach((k) => { if (body[k] !== undefined) pr[k] = String(body[k] || "").trim().slice(0, 160); });
         pr.rev = _revNueva();
-        mov("promotora-edicion", { promotora: pr.nombre });
+        let _reactivo = { corregidas: 0 };
+        if (_cambioBase) {
+          const _tramosDespues = Number(pr.metaMensual) > 0 && Array.isArray(pr.escalasComision) && pr.escalasComision.length > 0;
+          _reactivo = corregirPendientesPorCambioComisionista(pr, _baseAntes, Number(pr.comisionBase) || 0, _tramosAntes || _tramosDespues);
+        }
+        mov("promotora-edicion", { promotora: pr.nombre, comisionAntes: _baseAntes, comisionAhora: Number(pr.comisionBase) || 0, ventasPendientesActualizadas: _reactivo.corregidas || 0 });
         return J(pr);
       }
       if (mProm && opts && opts.method === "DELETE") {

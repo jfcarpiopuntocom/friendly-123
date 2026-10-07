@@ -96,15 +96,16 @@ test('B2 Luis: una edicion de venta rechazada no deja cambios a medias', async (
   await t.sinDescuadre('Luis edicion rechazada');
 });
 
-test('B3 Hugo: editar una venta vieja NO aplica el % nuevo de la percha', async () => {
+test('B3 Hugo/v458: una venta PENDIENTE sigue el nuevo % de la persona y las ediciones posteriores conservan ese %', async () => {
   const t = await tienda();
   const id = await t.vender(t.libro); // 30 % de 20 = 6
   await t.w.request(`/api/promotoras/${t.vendedora.id}`, 'PUT', { comisionBase: 50 });
+  assert.equal((await t.venta(id)).comisionAsociado, 10, 'v458: al cambiar la base, lo pendiente pasa de 30% a 50% inmediatamente');
   await t.w.request(`/api/ventas/${id}`, 'PATCH', { cantidad: 2 }); t.stock[t.libro.id] -= 1;
   const v = await t.venta(id);
-  assert.equal(v.comisionAsociado, 12, 'sigue al 30 % sellado el dia de la venta');
+  assert.equal(v.comisionAsociado, 20, 'editar cantidad conserva el 50% ya corregido');
   await t.w.request(`/api/ventas/${id}`, 'PATCH', { precioUnit: 25 });
-  assert.equal((await t.venta(id)).comisionAsociado, 15);
+  assert.equal((await t.venta(id)).comisionAsociado, 25, 'editar precio conserva el 50% ya corregido');
   await t.sinDescuadre('Hugo edicion');
 });
 

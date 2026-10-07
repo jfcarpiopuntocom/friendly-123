@@ -62,33 +62,34 @@ async function negocioDeComisiones(app) {
   return { ana, rack, prod };
 }
 
-test('(1) dashboard repaints within 500 ms when the app changes a commission, without reloading', async () => {
+test('(1) dashboard repaints within 500 ms when the app changes the PERSON base commission, without reloading', async () => {
   const web = await chromium.launch({ headless: true });
   try {
     const ctx = await contexto(web);
     const app = await abrirApp(ctx);
-    const { prod } = await negocioDeComisiones(app);
+    const { ana } = await negocioDeComisiones(app);
     const dash = await entrar(ctx, '789');
     await tablero(dash);
     assert.equal((await tiles(dash))['Still to pay'], '$120.00', 'antes: 3 ventas de $100 al 40% = $120 por pagar');
     await dash.evaluate(() => { window.__marcaSinRecarga = 1; });
 
-    const vId = (await api(app, '/api/ventas/todas?ubicacionId=todas')).find((v) => v.productoId === prod.id).id;
+    /* v458: ESTA es la ruta que usa el editor "Commission — PERSON".
+       El test anterior cambiaba una venta individual y dejaba sin probar el bug real. */
     const t0 = await app.evaluate(async (id) => {
-      const r = await fetch('/api/ventas/' + id + '/comision', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comisionPct: 50, quien: 'Belen', motivo: 'acuerdo retroactivo' }) });
-      if (r.status >= 400) throw new Error('PATCH ' + r.status + ' ' + JSON.stringify(await r.json()));
+      const r = await fetch('/api/promotoras/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comisionBase: 50 }) });
+      if (r.status >= 400) throw new Error('PUT ' + r.status + ' ' + JSON.stringify(await r.json()));
       return Date.now();
-    }, vId);
-    /* El tablero tiene que mostrar $130.00 (una venta pasa de $40 a $50) sin recargar. */
+    }, ana.id);
+    /* Las tres ventas pendientes deben pasar de 40% a 50%: $150, sin recargar. */
     const t1 = await dash.evaluate(async () => {
       const lee = () => { const k = [...document.querySelectorAll('#cm .cm-k')].find((x) => /Still to pay/.test(x.textContent)); return k ? k.querySelector('.n').textContent.trim() : ''; };
       const ini = Date.now();
-      while (Date.now() - ini < 4000) { if (lee() === '$130.00') return Date.now(); await new Promise((r) => setTimeout(r, 5)); }
+      while (Date.now() - ini < 4000) { if (lee() === '$150.00') return Date.now(); await new Promise((r) => setTimeout(r, 5)); }
       return -1;
     });
-    assert.ok(t1 > 0, 'el tablero nunca mostro el cambio');
+    assert.ok(t1 > 0, 'el tablero nunca mostro el cambio de la comision base de la persona');
     const ms = t1 - t0;
-    console.log('MEDIDO dashboard refresh ms =', ms);
+    console.log('MEDIDO dashboard person-commission refresh ms =', ms);
     assert.ok(ms <= 500, 'el tablero tardo ' + ms + ' ms (limite 500)');
     assert.equal(await dash.evaluate(() => window.__marcaSinRecarga), 1, 'no hubo recarga de pagina');
   } finally { await web.close(); }
