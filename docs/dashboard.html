@@ -245,6 +245,118 @@
   #cm td.num{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
   mark{background:#FFF3C2;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;padding:0 2px;border-radius:3px}
 </style>
+<style>
+  /* =====================================================================
+     HUB v462 (JFC 2026-10-07): el dashboard pasa a ser un hub. Isla viva arriba,
+     tarjetas en el inicio, barra inferior en movil y barra lateral en escritorio.
+     Mobile-first: la base es 320px; min-width agrega lo grande. Sin backdrop-filter,
+     sin opacity ni rgba en texto, texto solido, nada bajo 12px, targets de 44px.
+     Cada seccion vieja sigue en el DOM con sus ids: solo se muestra la de la ruta.
+     ===================================================================== */
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+  /* El atributo hidden gana a cualquier display de autor (grid/flex) en lo que el router esconde. */
+  [data-vista][hidden]{display:none !important}
+
+  /* ---------- isla ---------- */
+  .isla-caja{display:none;position:sticky;top:0;z-index:40;height:60px;padding:8px 12px 0;
+    background:var(--canvas);justify-content:center;align-items:flex-start}
+  body.hub-on .isla-caja{display:flex}
+  .isla{position:relative;width:11.5rem;max-width:100%;max-height:48px;overflow:hidden;
+    background:#0A0A0F;border:2px solid #0A0A0F;border-radius:24px;
+    transition:width .3s cubic-bezier(.2,.8,.2,1),max-height .3s cubic-bezier(.2,.8,.2,1),border-radius .3s,border-color .2s}
+  .isla[data-estado="evento"],.isla[data-estado="alerta"]{width:min(100%,22rem)}
+  .isla[data-estado="expandida"]{width:min(100%,26rem);max-height:300px;border-radius:22px}
+  .isla[data-sync="viejo"]{border-color:#F97316}
+  .isla[data-sync="solo"]{border-color:#E8365D}
+  .isla,.isla button,.isla span,.isla a,.isla li{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+  .isla-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:44px;
+    padding:0 14px;margin:0;background:none;border:0;font-family:var(--font-display);font-size:16px;font-weight:700;
+    line-height:1.2;text-align:left;cursor:pointer}
+  .isla-punto{width:12px;height:12px;border-radius:50%;background:#C4CDD8;flex:none}
+  .isla[data-sync="vivo"] .isla-punto{background:#00C87A}
+  .isla[data-sync="viejo"] .isla-punto{background:#F97316}
+  .isla[data-sync="solo"] .isla-punto{background:#E8365D}
+  .isla-txt{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .isla[data-estado="reposo"] .isla-txt,.isla[data-estado="expandida"] .isla-txt{display:none}
+  .isla[data-estado="evento"] .isla-txt{color:#28ECAA !important;-webkit-text-fill-color:#28ECAA !important}
+  .isla[data-estado="alerta"] .isla-txt{color:#E8A020 !important;-webkit-text-fill-color:#E8A020 !important}
+  .isla-dinero{flex:none;margin-left:auto;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .isla[data-estado="evento"] .isla-dinero{display:none}
+  .isla-filas{list-style:none;margin:0;padding:0 6px 8px}
+  .isla-filas a{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:6px 10px;
+    border-radius:12px;text-decoration:none;font-size:16px}
+  .isla-filas li+li{border-top:1px solid #2C3E50}
+  .isla-et{font-weight:700;flex:none}
+  .isla-v{min-width:0;text-align:right;font-weight:400;overflow-wrap:anywhere}
+  .isla-cab:focus-visible,.isla-filas a:focus-visible{outline:3px solid #FFC700;outline-offset:-3px}
+  /* El header ya no es sticky: la isla es lo que acompana al scroll. */
+  body.hub-on .top{position:static}
+
+  /* ---------- navegacion: barra inferior (movil) / lateral (escritorio) ---------- */
+  .nav-hub{display:none;position:fixed;z-index:35;left:0;right:0;bottom:0;min-height:56px;
+    padding:0 0 env(safe-area-inset-bottom);background:#0F1923;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  body.hub-on .nav-hub{display:flex}
+  .nav-hub a{flex:1 0 auto;min-width:64px;min-height:56px;display:flex;align-items:center;justify-content:center;
+    padding:0 6px;font-family:var(--font-display);font-size:12px;font-weight:700;line-height:1.15;text-align:center;
+    text-decoration:none;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+  .nav-hub a span{color:inherit !important;-webkit-text-fill-color:inherit !important}
+  .nav-hub a[aria-current="page"]{background:#FFC700;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important}
+  .nav-hub a:focus-visible{outline:3px solid #FFC700;outline-offset:-3px}
+  .nav-hub a[aria-current="page"]:focus-visible{outline-color:#0F1923}
+  .nav-hub .solo-lado{display:none}
+  body.hub-on{padding-bottom:72px;padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+
+  /* ---------- inicio: tarjetas ---------- */
+  #hub{margin:0 0 22px}
+  .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .tile{display:flex;flex-direction:column;gap:5px;min-height:132px;padding:14px;background:var(--card);
+    border:2px solid var(--hairline);border-left-width:8px;border-radius:14px;text-decoration:none}
+  .tile[data-color="verde"]{border-left-color:#00C87A}
+  .tile[data-color="naranja"]{border-left-color:#F97316}
+  .tile[data-color="rojo"]{border-left-color:#E8365D}
+  .tile:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  .tile .tile-et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .tile .tile-n{font-family:var(--font-display);font-size:22px;font-size:clamp(22px,6vw,30px);font-weight:700;line-height:1.1;
+    overflow-wrap:anywhere;font-variant-numeric:tabular-nums;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important}
+  .tile .tile-pie{font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+  .tile-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .tile-chip{display:inline-block;padding:3px 9px;border-radius:20px;font-size:13px;font-weight:700}
+  @media (min-width:640px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (min-width:1100px){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+  /* ---------- vistas: cabecera con Atras, y alertas ---------- */
+  .vista-cab{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+  .vista-cab h2{margin:0;font-size:22px}
+  .atras{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:2px solid var(--hairline);
+    border-radius:11px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:15px;text-decoration:none}
+  .atras:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  #alertas-lista a{display:block;min-height:44px;padding:12px 14px;margin:0 0 10px;background:var(--card);
+    border:2px solid var(--hairline);border-left:8px solid #E8365D;border-radius:14px;text-decoration:none}
+  #alertas-lista a strong{display:block}
+  #alertas-lista p{margin:0;font-weight:700}
+
+
+  /* Escritorio: barra lateral fija de 208px; la isla y el contenido se corren. */
+  @media (min-width:900px){
+    .nav-hub{top:0;right:auto;width:208px;flex-direction:column;justify-content:flex-start;gap:6px;padding:18px 10px;overflow-x:visible;overflow-y:auto}
+    .nav-hub a{flex:0 0 auto;justify-content:flex-start;min-height:48px;padding:0 14px;border-radius:12px;font-size:16px;text-align:left}
+    .nav-hub .solo-lado{display:flex}
+    body.hub-on{padding-left:208px;padding-bottom:0}
+  }
+  /* iOS dark mode: se repiten las reglas de texto del hub para que el filtro automatico no las pise. */
+  @media (prefers-color-scheme: dark){
+    .isla,.isla button,.isla span,.isla a,.isla li{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+    .isla[data-estado="evento"] .isla-txt{color:#28ECAA !important;-webkit-text-fill-color:#28ECAA !important}
+    .isla[data-estado="alerta"] .isla-txt{color:#E8A020 !important;-webkit-text-fill-color:#E8A020 !important}
+    .nav-hub a,.nav-hub a span{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+    .nav-hub a[aria-current="page"],.nav-hub a[aria-current="page"] span{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important}
+    .tile .tile-n{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important}
+    .tile,.atras,#alertas-lista a{background:#FFFFFF !important}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .isla{transition-duration:0s !important}
+  }
+</style>
 </head>
 <body>
 
@@ -336,8 +448,66 @@
   </div>
 </header>
 
+<!-- ISLA VIVA (hub v462, JFC 2026-10-07). Reposo = punto de sync + lo que entro hoy.
+     Una venta nueva se anuncia 4 s; las alertas quedan hasta que se toca; al tocar se
+     expande a Sync, Last sale, Payments y Alerts, y cada fila lleva a su tarjeta.
+     Se pinta desde el MISMO evento que repinta el tablero (mostrar), sin reloj propio.
+     Sin JS queda como pastilla estatica con el dinero de hoy. -->
+<div class="isla-caja" id="isla-caja">
+  <div class="isla" id="isla" data-estado="reposo" data-sync="">
+    <button type="button" class="isla-cab" id="isla-cab" aria-expanded="false" aria-controls="isla-filas">
+      <span class="isla-punto" id="isla-punto"></span>
+      <span class="isla-txt" id="isla-txt"></span>
+      <span class="isla-dinero" id="isla-dinero">$0.00</span>
+    </button>
+    <ul class="isla-filas" id="isla-filas" hidden>
+      <li><a href="#/equipo" data-fila="sync"><span class="isla-et" data-copy="nuevo">Sync</span><span class="isla-v" id="isla-v-sync">&mdash;</span></a></li>
+      <li><a href="#/hoy" data-fila="venta"><span class="isla-et" data-copy="nuevo">Last sale</span><span class="isla-v" id="isla-v-venta">&mdash;</span></a></li>
+      <li><a href="#/comisiones" data-fila="pagos"><span class="isla-et" data-copy="nuevo">Payments</span><span class="isla-v" id="isla-v-pagos">&mdash;</span></a></li>
+      <li><a href="#/alertas" data-fila="alertas"><span class="isla-et" data-copy="nuevo">Alerts</span><span class="isla-v" id="isla-v-alertas">&mdash;</span></a></li>
+    </ul>
+  </div>
+  <span class="sr" id="isla-vivo" role="status" aria-live="polite"></span>
+</div>
+
+<!-- NAVEGACION (hub v462). Movil: barra inferior con 5 destinos. Escritorio: barra lateral
+     con los 8 (los marcados solo-lado se alcanzan en movil desde las tarjetas del inicio).
+     Son enlaces #/ruta normales: el boton Atras del navegador funciona sin codigo extra. -->
+<nav class="nav-hub" id="nav-hub" aria-label="Dashboard">
+  <a href="#/" data-ruta="inicio" aria-current="page"><span data-copy="nuevo">Home</span></a>
+  <a href="#/hoy" data-ruta="hoy"><span data-copy="nuevo">Today</span></a>
+  <a href="#/comisiones" data-ruta="comisiones"><span>Commissions</span></a>
+  <a href="#/inventario" data-ruta="inventario"><span data-copy="nuevo">Inventory</span></a>
+  <a href="#/clientes" data-ruta="clientes" class="solo-lado"><span>Customers</span></a>
+  <a href="#/equipo" data-ruta="equipo"><span data-copy="nuevo">Team</span></a>
+  <a href="#/alertas" data-ruta="alertas" class="solo-lado"><span data-copy="nuevo">Alerts</span></a>
+  <a href="#/herramientas" data-ruta="herramientas" class="solo-lado"><span data-copy="nuevo">Tools</span></a>
+</nav>
+
 <main id="tablero"><div class="wrap">
-  <div class="kpis" id="kpis"></div>
+  <!-- INICIO DEL HUB (v462): una tarjeta por area; cada una abre su vista (#/ruta). -->
+  <section id="hub" data-vista="inicio" aria-label="Home">
+    <div class="tiles">
+      <a class="tile" href="#/hoy" data-tile="hoy" data-color="verde"><span class="tile-et" data-copy="nuevo">Today</span><span class="tile-n" id="t-hoy-n">$0.00</span><span class="tile-pie" id="t-hoy-p"></span><span class="tile-pie" id="t-hoy-p2"></span></a>
+      <a class="tile" href="#/comisiones" data-tile="comisiones"><span class="tile-et">Commissions</span><span class="tile-n" id="t-comisiones-n">$0.00</span><span class="tile-pie">Still to pay</span></a>
+      <a class="tile" href="#/inventario" data-tile="inventario"><span class="tile-et" data-copy="nuevo">Inventory</span><span class="tile-n" id="t-inventario-n"></span><span class="tile-chips" id="t-inventario-chips"></span></a>
+      <a class="tile" href="#/clientes" data-tile="clientes"><span class="tile-et">Customers</span><span class="tile-n" id="t-clientes-n">0</span><span class="tile-pie" id="t-clientes-p"></span></a>
+      <a class="tile" href="#/equipo" data-tile="equipo" data-color="verde"><span class="tile-et" data-copy="nuevo">Team</span><span class="tile-n" id="t-equipo-n">0</span><span class="tile-pie" id="t-equipo-p"></span></a>
+      <a class="tile" href="#/alertas" data-tile="alertas" data-color="verde"><span class="tile-et" data-copy="nuevo">Alerts</span><span class="tile-n" id="t-alertas-n">0</span><span class="tile-pie" id="t-alertas-p"></span></a>
+      <a class="tile" href="#/herramientas" data-tile="herramientas"><span class="tile-et" data-copy="nuevo">Tools</span><span class="tile-n">&nbsp;</span><span class="tile-pie">Real unit cost &middot; Support &middot; My log</span></a>
+    </div>
+  </section>
+
+  <!-- Cabecera de las vistas: Atras + nombre. Se muestra en todas menos el inicio. -->
+  <div class="vista-cab" id="vista-cab" data-vista="hoy comisiones inventario clientes equipo alertas herramientas">
+    <a class="atras" href="#/"><span data-copy="nuevo">Home</span></a>
+    <h2 id="vista-tit" data-copy="nuevo"></h2>
+  </div>
+
+  <!-- ALERTAS (v462): lista unica de pendientes; cada una lleva a su origen. -->
+  <section id="alertas" data-vista="alertas"><div id="alertas-lista"></div></section>
+
+  <div class="kpis" id="kpis" data-vista="hoy"></div>
 
   <!-- COMMISSIONS, LA ESTRELLA DEL TABLERO (JFC 2026-09-24, Bloque 6b).
        Se calcula aqui, en el lienzo, a partir de la foto que manda la app
@@ -346,8 +516,10 @@
        devoluciones y reparto por persona). El tablero NO escribe dinero: pagar,
        corregir y devolver se hacen en la app via deep-link #editar=comisiones:<id>.
        Solo datos del propio dueno (la foto llega de sus aparatos). -->
-  <section id="cm" aria-labelledby="cm-titulo"></section>
+  <section id="cm" data-vista="comisiones" aria-labelledby="cm-titulo"></section>
 
+  <!-- Un solo bloque de tabla para las 11 vistas; el router muestra solo las pestanas de la tarjeta abierta. -->
+  <div id="datos" data-vista="hoy comisiones inventario clientes">
   <div class="barra">
     <div class="tabsel" id="tabsel"></div>
     <input id="buscar" type="search" placeholder="Search everything: a product, a customer, an amount…" aria-label="Search">
@@ -356,6 +528,7 @@
 
   <div id="tabla"></div>
   <div class="cierre" id="cierre"></div>
+  </div>
 
   <!-- CALCULADORA DE COSTO UNITARIO (JFC 2026-08-18).
        "Queremos permitirles calcular costo unitario (en el tablero!,
@@ -366,9 +539,9 @@
        delante — no algo que se hace con el cliente esperando en el mostrador.
        No guarda nada: el tablero es un lienzo. Da el numero para que el dueno
        lo escriba en la ficha del producto desde la app. -->
-  <section id="costo-unit" style="margin:26px 0 0;">
+  <section id="costo-unit" data-vista="herramientas" style="margin:26px 0 0;">
     <h2 style="font-size:19px;margin:0 0 4px;">Real unit cost</h2>
-    <p style="font-size:14px;color:#5A6B7A;margin:0 0 12px;max-width:640px;">
+    <p style="font-size:14px;color:#2C3E50;margin:0 0 12px;max-width:640px;">
       Lo que de verdad te cuesta UNA unidad, con el flete, la aduana y lo que se
       rompe en el camino repartido encima. Casi siempre es más que el precio de
       la factura, y es el número con el que se decide un precio de venta.
@@ -403,13 +576,13 @@
        mira cada manana, pero es lo que hay que revisar antes de creerse los
        numeros de arriba. Si un dispositivo lleva horas a ciegas, las cifras
        de esta pantalla estan incompletas y hay que decirlo. -->
-  <section id="micelio" style="margin:26px 0 0;">
+  <section id="micelio" data-vista="equipo" style="margin:26px 0 0;">
     <h2 style="font-size:19px;margin:0 0 4px;">Your team right now</h2>
     <p id="micelio-resumen" style="font-size:15px;line-height:1.55;margin:0 0 12px;"></p>
     <div id="micelio-lista" class="card" style="padding:6px 16px;"></div>
     <p id="micelio-nota" style="font-size:14px;line-height:1.55;margin:10px 0 0;"></p>
   </section>
-  <section id="finanzas-foto" class="card" style="margin:24px 0;padding:18px;">
+  <section id="finanzas-foto" data-vista="hoy" class="card" style="margin:24px 0;padding:18px;">
     <h2 style="font-size:19px;margin:0 0 8px;">Finance snapshot</h2>
     <div id="finanzas-foto-contenido" style="font-size:14px;line-height:1.5;">Waiting for a verified snapshot…</div>
   </section>
@@ -419,7 +592,7 @@
        Lo que se ve y lo que se hace NO se reimplementa: se le pide al
        dispositivo del duenio por el canal cifrado y el ejecuta. Ver
        ORDENES_PERMITIDAS en sync-realtime.js (lista blanca estricta). -->
-  <section id="avz" style="margin:30px 0 0;">
+  <section id="avz" data-vista="equipo" style="margin:30px 0 0;">
     <h2 style="font-size:19px;margin:0 0 4px;">Avanzado</h2>
     <div class="tabsel" id="avz-sel" style="margin:0 0 12px;"></div>
     <div id="avz-cuerpo" class="card"></div>
@@ -430,33 +603,33 @@
        corresponde a qué persona (nombre, correo, notas). Es la base para el
        control real de quién puede entrar a tu cuaderno. Se pide al dispositivo
        del dueño por el canal cifrado (GET /api/directorio). -->
-  <section id="acceso" style="margin:30px 0 0;">
+  <section id="acceso" data-vista="equipo" style="margin:30px 0 0;">
     <h2 style="font-size:19px;margin:0 0 4px;">Who has access</h2>
-    <p style="font-size:14px;color:#5A6B7A;margin:0 0 12px;max-width:640px;">
+    <p style="font-size:14px;color:#2C3E50;margin:0 0 12px;max-width:640px;">
       Cada PIN de tu cuaderno, con la persona que lo usa. Si un PIN no tiene
       nombre, edítalo en la app (Access &amp; recovery) y asígnale quién es.
     </p>
     <div id="acceso-cuerpo" class="card" style="padding:6px 16px;">
-      <p style="font-size:14px;color:#5A6B7A;margin:8px 0;">Cargando…</p>
+      <p style="font-size:14px;color:#2C3E50;margin:8px 0;">Cargando…</p>
     </div>
   </section>
 
   <!-- SOPORTE (JFC 2026-08-28). Botones de auxilio según el tipo de problema,
        todo amigable. El dueño pide una acción y el dispositivo la ejecuta. -->
-  <section id="soporte" style="margin:30px 0 0;">
+  <section id="soporte" data-vista="herramientas" style="margin:30px 0 0;">
     <h2 style="font-size:19px;margin:0 0 4px;">Support</h2>
-    <p style="font-size:14px;color:#5A6B7A;margin:0 0 12px;max-width:640px;">
+    <p style="font-size:14px;color:#2C3E50;margin:0 0 12px;max-width:640px;">
       ¿Algo se atascó? Elige lo que te pasa y te ayudamos a desatascarlo. Nada
       de esto borra tus datos.
     </p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <button type="button" id="sop-fixlic" style="padding:12px 16px;border:2px solid #00805A;border-radius:8px;background:#fff;color:#00805A;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
         🔑 My license is broken or too short<br>
-        <span style="font-weight:400;font-size:12px;color:#5A6B7A;">Get a fresh full license for this device</span>
+        <span style="font-weight:400;font-size:13px;color:#2C3E50;">Get a fresh full license for this device</span>
       </button>
       <button type="button" id="sop-resync" style="padding:12px 16px;border:2px solid #2C4A68;border-radius:8px;background:#fff;color:#2C4A68;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">
         🔄 My devices aren't talking to each other<br>
-        <span style="font-weight:400;font-size:12px;color:#5A6B7A;">Reconnect this device to your team</span>
+        <span style="font-weight:400;font-size:13px;color:#2C3E50;">Reconnect this device to your team</span>
       </button>
     </div>
     <p id="sop-msg" style="font-size:15px;font-weight:700;margin:12px 0 0;min-height:22px;"></p>
@@ -471,8 +644,8 @@
   <!-- PERISCOPIO DE DATOS (JFC 2026-08-27). Al fondo del tablero, el log de
        movimientos y el estado de sync/accesos, como termómetro del manejo de
        datos. Solo pinta la foto que llega del dispositivo; no guarda nada. -->
-  <details id="oc-log-tablero" style="margin-top:28px;border-top:1px solid #2a3a4a;padding-top:14px;">
-    <summary style="cursor:pointer;font-weight:700;color:#8A6400;">My log · data &amp; sync control (periscope)</summary>
+  <details id="oc-log-tablero" data-vista="herramientas" style="margin-top:28px;border-top:1px solid #2a3a4a;padding-top:14px;">
+    <summary style="cursor:pointer;font-weight:700;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;min-height:44px;">My log · data &amp; sync control (periscope)</summary>
     <div id="oc-log-sync" style="font-family:monospace;font-size:12px;margin:10px 0;"></div>
     <table id="oc-log-tabla" style="width:100%;font-size:13px;border-collapse:collapse;"></table>
   </details>
@@ -601,6 +774,8 @@
   function pulso(txt, clase) {
     $("punto").className = "punto" + (clase ? " " + clase : "");
     $("pulso-txt").textContent = txt;
+    /* v462: la isla muestra el MISMO estado que este pulso (una sola fuente, nada de otro timer). */
+    try { islaSync(txt, clase); } catch (_) {}
   }
   setInterval(function () {
     if (!ultimoDato) return;
@@ -1470,20 +1645,204 @@
     cont.querySelectorAll("[data-cm-recibo]").forEach(function (b) { b.addEventListener("click", function () { cmRecibo(b.getAttribute("data-cm-recibo"), cmMes); }); });
   }
   /* Para pruebas de navegador: pintar con una foto dada, sin pasar por la puerta. */
-  window.OCDashComisiones = { pintarConDatos: function (d) { datos = d || datos; pintarComisiones(); }, meses: cmMeses };
+  /* v462: pintarConDatos es el gancho de pruebas de Commissions; con el hub, #cm vive en su tarjeta, asi que el gancho
+     tambien abre esa vista (sin pintar tablas) para que "Pay in the app" quede a la vista como antes. */
+  window.OCDashComisiones = { pintarConDatos: function (d) { datos = d || datos; pintarComisiones(); try { aplicarRuta("comisiones", { sinTabla: true }); } catch (_) {} }, meses: cmMeses };
 
   function mostrar() {
     $("puerta").style.display = "none";
     $("cabecera").style.display = "block";
     $("tablero").style.display = "block";
+    document.body.classList.add("hub-on");   /* v462: enciende isla y barra de navegacion */
     pintarKpis();
     try { pintarComisiones(); } catch (e) { console.warn("[dashboard] comisiones", e); }
     if (!$("tabsel").children.length) pintarSelector();
-    try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {}
-    pintarTabla();
+    /* v462: la primera vez se aplica la ruta del enlace (o el inicio); ella pinta la tabla y Avanzado si esa vista
+       los usa. Las veces siguientes (cada repintado en vivo) solo se repinta lo que esta a la vista. */
+    if (!rutaAplicada) aplicarRuta(rutaDeHash());
+    else {
+      if (RUTAS[rutaHub].tablas) pintarTabla();
+      if (rutaHub === "equipo") { try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {} }
+    }
     pintarLog();
     pintarFinanzasFoto();
+    try { pintarHub(); actualizarIsla(); } catch (e) { console.warn("[dashboard] hub", e); }
   }
+
+  /* ======================================================================== HUB v462
+     (JFC 2026-10-07: "el dashboard pasa a ser un hub"). Rutas por hash (#/hoy, #/comisiones...), tarjetas en el
+     inicio e isla viva. NADA se borro: cada seccion vieja conserva su id y solo se muestra la de la ruta abierta
+     (atributo hidden; sin JS todo queda visible, apilado como antes). Todo se calcula con lo que ya hay en `datos`
+     y con las mismas funciones de siempre (cmPendienteVenta, VISTAS.reposicion): el hub no inventa dinero. */
+  var RUTAS = {
+    inicio:       { nom: "Home" },
+    hoy:          { nom: "Today",       tablas: ["ventas", "eventos", "gastos", "gastoMensual"] },
+    comisiones:   { nom: "Commissions", tablas: ["comisiones", "comisionistas"] },
+    inventario:   { nom: "Inventory",   tablas: ["productos", "reposicion"] },
+    clientes:     { nom: "Customers",   tablas: ["clientes", "transferencias", "hechosFinancieros"] },
+    equipo:       { nom: "Team" },
+    alertas:      { nom: "Alerts" },
+    herramientas: { nom: "Tools" }
+  };
+  var rutaHub = "inicio", rutaAplicada = false;
+  function rutaDeHash() {
+    var m = /^#\/([a-z]+)/.exec(location.hash || "");
+    return m && RUTAS[m[1]] ? m[1] : "inicio";
+  }
+  /* opc.sinTabla: solo cambia lo visible (lo usa el gancho de pruebas de Commissions). */
+  function aplicarRuta(r, opc) {
+    if (!RUTAS[r]) r = "inicio";
+    rutaHub = r; rutaAplicada = true;
+    document.documentElement.setAttribute("data-hub-ruta", r);   /* (no "data-ruta": eso es de los enlaces de la barra) */
+    Array.prototype.forEach.call(document.querySelectorAll("[data-vista]"), function (el) {
+      el.hidden = (" " + el.getAttribute("data-vista") + " ").indexOf(" " + r + " ") < 0;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#nav-hub a[data-ruta]"), function (a) {
+      if (a.getAttribute("data-ruta") === r) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+    var tit = $("vista-tit"); if (tit) tit.textContent = RUTAS[r].nom;
+    var tb = RUTAS[r].tablas;
+    if (tb && !(opc && opc.sinTabla)) {
+      /* Solo se ven las pestanas de esta tarjeta; si la vista activa no es de ellas, se abre la primera. */
+      if (tb.indexOf(vista) < 0) vista = tb[0];
+      Array.prototype.forEach.call($("tabsel").children, function (b) {
+        var k = b.getAttribute("data-v");
+        b.hidden = tb.indexOf(k) < 0;
+        b.classList.toggle("on", k === vista);
+      });
+      pintarTabla();
+      /* Tabulator mide su contenedor al montarse: si estuvo oculto hay que pedirle que se redibuje. */
+      try { if (tabla && tabla.redraw) tabla.redraw(true); } catch (_) {}
+    }
+    if (r === "equipo" && !(opc && opc.sinTabla)) { try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {} }
+    try { window.scrollTo(0, 0); } catch (_) {}
+  }
+  window.addEventListener("hashchange", function () { if (autorizado) aplicarRuta(rutaDeHash()); });
+
+  /* Una sola pasada sobre la foto: lo que alimenta tarjetas, isla y alertas. */
+  function totalesHub() {
+    var d = ((datos.resumen || {}).resumenDia) || {};
+    var prods = datos.productos || [], ventas = datos.ventas || [];
+    var col = { verde: 0, amarillo: 0, naranja: 0, rojo: 0, negro: 0 };
+    prods.forEach(function (p) {
+      var e = p.estado === "dorado" ? "amarillo" : p.estado;
+      if (col[e] != null) col[e]++;
+    });
+    var pend = 0, perchas = {}, ultima = null;
+    ventas.forEach(function (v) {
+      var x = cmPendienteVenta(v);
+      if (x > 0.004) { pend += x; perchas[v.ubicacionId || v.ubicacionNombre || ""] = 1; }
+      if (!ultima || String(v.fecha || "") > String(ultima.fecha || "")) ultima = v;
+    });
+    var ciegos = 0, ahora = Date.now();
+    Object.keys(latidos).forEach(function (id) { if (micEstado(ahora - latidos[id].visto) === "ciegas") ciegos++; });
+    return {
+      entra: Number(d.entra) || 0, nVentas: Number(d.ventasCount) || 0,
+      nProds: prods.length, col: col, pend: pend, nPerchas: Object.keys(perchas).length,
+      restock: VISTAS.reposicion.filas().length, ciegos: ciegos, nDisp: Object.keys(latidos).length,
+      nClientes: (datos.clientes || []).length, ultima: ultima
+    };
+  }
+  function textoVenta(v) {
+    if (!v) return "";
+    return (Number(v.cantidad) || 0) + "× " + (v.productoNombre || "") + " · " +
+      money((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) + (v.asociadoNombre ? " · " + v.asociadoNombre : "");
+  }
+  /* Alertas = lo accionable: reponer, pagos por liquidar, dispositivos a ciegas. Texto reutilizado de las vistas. */
+  function alertasHub(t) {
+    var a = [];
+    if (t.restock) a.push({ k: "stock", n: t.restock, ruta: "inventario", tit: "Restock", txt: plural(t.restock, "producto por reponer", "productos por reponer") });
+    if (t.pend > 0.004) a.push({ k: "pagos", n: t.nPerchas || 1, ruta: "comisiones", tit: "Commissions", txt: "Still to pay " + money(t.pend) });
+    if (t.ciegos) a.push({ k: "ciegos", n: t.ciegos, ruta: "equipo", tit: "Team", txt: (t.ciegos === 1 ? "Un dispositivo lleva" : t.ciegos + " dispositivos llevan") + " rato sin sincronizar." });
+    return a;
+  }
+  function pintarHub() {
+    var t = totalesHub(), al = alertasHub(t), set = function (id, txt) { var e = $(id); if (e) e.textContent = txt; };
+    set("t-hoy-n", money(t.entra)); set("t-hoy-p", plural(t.nVentas, "venta", "ventas"));
+    set("t-hoy-p2", t.ultima ? textoVenta(t.ultima) : "");
+    set("t-comisiones-n", money(t.pend));
+    var tc = document.querySelector('[data-tile="comisiones"]'); if (tc) tc.setAttribute("data-color", t.pend > 0.004 ? "naranja" : "verde");
+    set("t-inventario-n", plural(t.nProds, "producto", "productos"));
+    var chips = $("t-inventario-chips");
+    if (chips) chips.innerHTML = ["verde", "amarillo", "naranja", "rojo", "negro"].map(function (k) {
+      var c = SIMON[k];
+      return '<span class="tile-chip" style="background:' + c.bg + ';color:' + c.txt + ' !important;-webkit-text-fill-color:' + c.txt + ' !important;">' + esc(c.nom) + " · " + t.col[k] + "</span>";
+    }).join("");
+    var ti = document.querySelector('[data-tile="inventario"]'); if (ti) ti.setAttribute("data-color", t.col.rojo || t.col.negro ? "rojo" : (t.col.naranja ? "naranja" : "verde"));
+    set("t-clientes-n", String(t.nClientes)); set("t-clientes-p", t.nClientes === 1 ? "cliente" : "clientes");
+    set("t-equipo-n", String(t.nDisp));
+    set("t-equipo-p", t.ciegos ? (t.ciegos === 1 ? "Un dispositivo lleva" : t.ciegos + " dispositivos llevan") + " rato sin sincronizar." : (($("pulso-txt") || {}).textContent || ""));
+    var te = document.querySelector('[data-tile="equipo"]'); if (te) te.setAttribute("data-color", t.ciegos ? "naranja" : "verde");
+    set("t-alertas-n", String(al.length));
+    set("t-alertas-p", al.length ? al.map(function (x) { return x.tit; }).join(" · ") : "");
+    var tl = document.querySelector('[data-tile="alertas"]'); if (tl) tl.setAttribute("data-color", al.length ? "rojo" : "verde");
+    var cont = $("alertas-lista");
+    if (cont) cont.innerHTML = al.length ? al.map(function (x) {
+      return '<a href="#/' + x.ruta + '"><strong>' + esc(x.tit) + "</strong>" + esc(x.txt) + "</a>";
+    }).join("") : '<p data-copy="nuevo">No alerts</p>';
+  }
+
+  /* ---------- ISLA VIVA ----------
+     Estados: reposo (punto + dinero de hoy), evento (venta nueva, 4 s), alerta (queda hasta que se toca),
+     expandida (tap: Sync, Last sale, Payments, Alerts, cada fila lleva a su tarjeta). Se pinta desde mostrar()
+     (el mismo evento de storage / BroadcastChannel / relay) y desde pulso(); no hay polling propio. */
+  var isla = { abierta: false, evento: null, tEvento: 0, vistas: null, ack: "", sync: "", syncTxt: "", cierre: 0 };
+  function islaSync(txt, clase) {
+    isla.sync = clase || ""; isla.syncTxt = txt || "";
+    var el = $("isla"); if (!el) return;
+    el.setAttribute("data-sync", isla.sync);
+    var v = $("isla-v-sync"); if (v) v.textContent = isla.syncTxt || "—";
+  }
+  function actualizarIsla() {
+    var t = totalesHub(), al = alertasHub(t);
+    /* Venta nueva = id que no estaba en la foto anterior. La primera foto solo fija la base (no anuncia el historial).
+       Si llegan mas de 3 de golpe es una resincronizacion, no una venta: se actualiza la base y no se anuncia. */
+    var ids = {}, nuevas = [];
+    (datos.ventas || []).forEach(function (v) { if (v && v.id != null) { ids[v.id] = 1; if (isla.vistas && !isla.vistas[v.id]) nuevas.push(v); } });
+    isla.vistas = ids;
+    if (nuevas.length && nuevas.length <= 3) {
+      nuevas.sort(function (a, b) { return String(b.fecha || "") > String(a.fecha || "") ? 1 : -1; });
+      isla.evento = nuevas[0];
+      clearTimeout(isla.tEvento);
+      isla.tEvento = setTimeout(function () { isla.evento = null; pintarIsla(); }, 4000);
+      var vivo = $("isla-vivo"); if (vivo) vivo.textContent = textoVenta(nuevas[0]);
+    }
+    isla.alertas = al; isla.t = t;
+    var firma = al.map(function (x) { return x.k + x.n; }).join("|");
+    if (!al.length) isla.ack = "";
+    isla.firma = firma;
+    pintarIsla();
+  }
+  function pintarIsla() {
+    var el = $("isla"); if (!el || !isla.t) return;
+    var t = isla.t, al = isla.alertas || [];
+    var pendiente = al.length && isla.firma !== isla.ack;
+    var estado = isla.abierta ? "expandida" : (isla.evento ? "evento" : (pendiente ? "alerta" : "reposo"));
+    el.setAttribute("data-estado", estado);
+    $("isla-dinero").textContent = money(t.entra);
+    $("isla-txt").textContent = isla.evento && estado === "evento" ? textoVenta(isla.evento) : "Alerts · " + al.length;
+    $("isla-cab").setAttribute("aria-label", (estado === "evento" ? textoVenta(isla.evento) : "Entró hoy " + money(t.entra)) + (pendiente ? " · Alerts " + al.length : ""));
+    $("isla-cab").setAttribute("aria-expanded", isla.abierta ? "true" : "false");
+    $("isla-v-sync").textContent = isla.syncTxt || "—";
+    $("isla-v-venta").textContent = t.ultima ? textoVenta(t.ultima) : "—";
+    $("isla-v-pagos").textContent = t.pend > 0.004 ? money(t.pend) : "—";
+    $("isla-v-alertas").textContent = al.length ? String(al.length) : "—";
+  }
+  function islaAbrir(abrir) {
+    var ul = $("isla-filas"); if (!ul) return;
+    clearTimeout(isla.cierre);
+    isla.abierta = abrir;
+    if (abrir) { ul.hidden = false; isla.ack = isla.firma || ""; void ul.offsetHeight; }
+    else isla.cierre = setTimeout(function () { if (!isla.abierta) ul.hidden = true; }, 320);
+    pintarIsla();
+  }
+  (function () {
+    var cab = $("isla-cab"); if (!cab) return;
+    cab.addEventListener("click", function () { islaAbrir(!isla.abierta); });
+    $("isla-filas").addEventListener("click", function (e) { if (e.target.closest("a")) islaAbrir(false); });
+    document.addEventListener("click", function (e) { if (isla.abierta && !e.target.closest("#isla")) islaAbrir(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isla.abierta) { islaAbrir(false); cab.focus(); } });
+  })();
 
   function pintarFinanzasFoto() {
     var el = $("finanzas-foto-contenido");
@@ -1804,6 +2163,8 @@
   }
 
   function pintarMicelio() {
+    /* v462: el mismo evento (latido o reloj de 20 s que ya existian) refresca equipo y alertas de la isla. */
+    try { if (autorizado) actualizarIsla(); } catch (_) {}
     var ahora = Date.now(), ORDEN = { ciegas: 0, rezagado: 1, al_dia: 2 };
     var lista = Object.keys(latidos).map(function (id) {
       var e = latidos[id], ms = ahora - e.visto;
@@ -2404,7 +2765,7 @@
       var unidades = num("cu-unid");
       var desembolso = num("cu-total") + num("cu-flete") + num("cu-imp") + num("cu-otros");
       if (!unidades || unidades <= 0 || desembolso <= 0) {
-        out.innerHTML = '<span style="color:#5A6B7A;">Escribe al menos cuánto pagaste y cuántas unidades llegaron.</span>';
+        out.innerHTML = '<span style="color:#2C3E50;">Escribe al menos cuánto pagaste y cuántas unidades llegaron.</span>';
         return;
       }
       var merma = Math.max(0, Math.min(99, num("cu-merma")));
@@ -2420,28 +2781,28 @@
       var precio = num("cu-precio");
 
       var html = '<div style="display:flex;gap:20px;flex-wrap:wrap;">';
-      html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5A6B7A;font-weight:700;">Te cuesta cada una</div>' +
+      html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#2C3E50;font-weight:700;">Te cuesta cada una</div>' +
         '<div style="font-size:26px;font-weight:700;">' + money(unitarioReal) + "</div>" +
-        '<div style="font-size:13px;color:#5A6B7A;">' + vendibles.toFixed(vendibles % 1 ? 1 : 0) + " vendibles de " + unidades + "</div></div>";
+        '<div style="font-size:13px;color:#2C3E50;">' + vendibles.toFixed(vendibles % 1 ? 1 : 0) + " vendibles de " + unidades + "</div></div>";
       if (merma > 0) {
-        html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5A6B7A;font-weight:700;">Sin contar lo que se rompe</div>' +
-          '<div style="font-size:26px;font-weight:700;color:#5A6B7A;">' + money(unitarioBruto) + "</div>" +
-          '<div style="font-size:13px;color:#5A6B7A;">la merma le suma ' + money(unitarioReal - unitarioBruto) + "</div></div>";
+        html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#2C3E50;font-weight:700;">Sin contar lo que se rompe</div>' +
+          '<div style="font-size:26px;font-weight:700;color:#2C3E50;">' + money(unitarioBruto) + "</div>" +
+          '<div style="font-size:13px;color:#2C3E50;">la merma le suma ' + money(unitarioReal - unitarioBruto) + "</div></div>";
       }
       if (precio > 0) {
         var margen = precio - unitarioReal;
         var pct = precio > 0 ? (margen / precio) * 100 : 0;
         var col = margen <= 0 ? "#A8123A" : pct < 20 ? "#B8760A" : "#00975C";
-        html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5A6B7A;font-weight:700;">Ganas por unidad</div>' +
+        html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#2C3E50;font-weight:700;">Ganas por unidad</div>' +
           '<div style="font-size:26px;font-weight:700;color:' + col + ';">' + money(margen) + "</div>" +
-          '<div style="font-size:13px;color:#5A6B7A;">' + pct.toFixed(1) + "% del precio</div></div>";
+          '<div style="font-size:13px;color:#2C3E50;">' + pct.toFixed(1) + "% del precio</div></div>";
         /* El punto de equilibrio contesta la pregunta que sigue siempre despues
            de la primera: cuantas hay que vender para no perder. */
         if (margen > 0) {
           var equilibrio = Math.ceil(desembolso / margen);
-          html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#5A6B7A;font-weight:700;">Para recuperar lo invertido</div>' +
+          html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#2C3E50;font-weight:700;">Para recuperar lo invertido</div>' +
             '<div style="font-size:26px;font-weight:700;">' + equilibrio + "</div>" +
-            '<div style="font-size:13px;color:#5A6B7A;">unidades vendidas</div></div>';
+            '<div style="font-size:13px;color:#2C3E50;">unidades vendidas</div></div>';
         }
       }
       html += "</div>";
@@ -2449,7 +2810,7 @@
         html += '<p style="margin:12px 0 0;color:#A8123A;font-weight:700;">A ' + money(precio) +
           " estarías vendiendo con pérdida: cada unidad te cuesta " + money(unitarioReal) + ".</p>";
       }
-      html += '<p style="margin:12px 0 0;font-size:13px;color:#5A6B7A;">Este número no se guarda solo. Escríbelo como "Costo" en la ficha del producto desde la app.</p>';
+      html += '<p style="margin:12px 0 0;font-size:13px;color:#2C3E50;">Este número no se guarda solo. Escríbelo como "Costo" en la ficha del producto desde la app.</p>';
       out.innerHTML = html;
     }
 
@@ -2588,10 +2949,10 @@
   function cargarAcceso() {
     var el = $("acceso-cuerpo");
     if (!el) return;
-    el.innerHTML = '<p style="font-size:14px;color:#5A6B7A;margin:8px 0;">Cargando…</p>';
+    el.innerHTML = '<p style="font-size:14px;color:#2C3E50;margin:8px 0;">Cargando…</p>';
     ordenar("GET", "/api/directorio", null).then(function (r) {
       if (!r.ok || !r.datos || !r.datos.directorio) {
-        el.innerHTML = '<p style="font-size:14px;color:#5A6B7A;margin:8px 0;">' +
+        el.innerHTML = '<p style="font-size:14px;color:#2C3E50;margin:8px 0;">' +
           ((r.datos && r.datos.error) || "No se pudo leer el directorio. ¿La app está abierta en tu dispositivo?") + "</p>";
         return;
       }
@@ -2604,14 +2965,14 @@
         return '<div style="padding:8px 0;border-bottom:1px solid #E3EAF0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">' +
           '<span style="font-weight:700;min-width:110px;">' + rol + '</span>' +
           '<code style="font-family:monospace;letter-spacing:.08em;color:#2C4A68;">' + (pin || "—") + '</code>' +
-          '<span style="flex:1;min-width:160px;">' + nombre + (correo ? ' <span style="color:#5A6B7A;font-size:12px;">· ' + correo + "</span>" : "") + "</span>" +
-          (notas ? '<span style="color:#5A6B7A;font-size:12px;width:100%;">' + notas + "</span>" : "") +
+          '<span style="flex:1;min-width:160px;">' + nombre + (correo ? ' <span style="color:#2C3E50;font-size:12px;">· ' + correo + "</span>" : "") + "</span>" +
+          (notas ? '<span style="color:#2C3E50;font-size:12px;width:100%;">' + notas + "</span>" : "") +
           "</div>";
       };
       filas.push(fila("Owner", d.owner && d.owner.pin, d.owner));
       (d.empleados || []).forEach(function (e) { filas.push(fila("Staff", e.pin, e)); });
       filas.push(fila("Accounting", d.acct && d.acct.pin, d.acct));
-      el.innerHTML = filas.join("") || '<p style="font-size:14px;color:#5A6B7A;margin:8px 0;">Aún no hay directorio. Edita un PIN en la app (Access &amp; recovery) para asignarle quién es.</p>';
+      el.innerHTML = filas.join("") || '<p style="font-size:14px;color:#2C3E50;margin:8px 0;">Aún no hay directorio. Edita un PIN en la app (Access &amp; recovery) para asignarle quién es.</p>';
     });
   }
 

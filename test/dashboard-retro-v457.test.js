@@ -59,6 +59,8 @@ test('Commissions (app) and dashboard show identical retroactive totals for the 
     await dash.goto(DASH, { waitUntil: 'load' });
     await dash.fill('#pin', '789'); await dash.click('#entrar');
     await dash.waitForFunction(() => getComputedStyle(document.getElementById('tablero')).display !== 'none', null, { timeout: 8000 });
+    /* v462: el tablero abre en el inicio del hub; Commissions vive en su tarjeta. Mismas aserciones de abajo. */
+    await dash.click('[data-tile="comisiones"]');
     const tiles = () => dash.evaluate(() => Object.fromEntries([...document.querySelectorAll('#cm .cm-k')].map((k) => [k.querySelector('.et').textContent.trim(), k.querySelector('.n').textContent.trim()])));
 
     for (const d of meses) {
