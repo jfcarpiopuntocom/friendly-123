@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-06",
-  "changelog": "v456: el apodo del aparato llega al panel de licencias; nombres viejos trabados se pueden actualizar.",
+  "fecha": "2026-10-07",
+  "changelog": "v457: dashboard al instante y entra el admin; la dueña ve su dinero; toda venta genera comisión por el % del producto; el demo nunca se mezcla con un negocio real.",
   "requerida": false,
-  "shell": "f123-shell-v456",
+  "shell": "f123-shell-v457",
   "apagar": [],
-  "releaseName": "v456",
-  "cacheGeneration": "golden21"
+  "releaseName": "v457",
+  "cacheGeneration": "golden22"
 }
