@@ -1,0 +1,32 @@
+// Worker "friendly123-com" = sitio publico friendly123.com (fase 1, JFC 2026-10-07).
+// Es un Worker NUEVO, distinto del Worker "friendly-123" (wrangler.jsonc de la raiz del repo,
+// del que depende Workers Builds) y de f123-code / cloudflare-worker. NO mezclar ni renombrar.
+//
+// Que sirve (todo sale de ./dist, que genera `node build.mjs`; dist/ no va a git):
+//   /     = landing de ventas actual (copia textual de la carpeta friendly123/ del repo del sitio)
+//   /app/ = la app (copia de docs/ de este repo)
+// Solo archivos estaticos: sin script, sin bindings, sin secretos.
+//
+// Despliegue MANUAL (no hay Workers Builds para este Worker):
+//   node build.mjs && npx wrangler deploy      (desde esta carpeta)
+{
+  "name": "friendly123-com",
+  "compatibility_date": "2025-09-27",
+  "assets": {
+    "directory": "./dist",
+    // "none": cero redirecciones automaticas de .html / barra final. Una redireccion
+    // en la respuesta del service worker (sw.js) rompe el respaldo sin conexion de la app,
+    // porque el navegador rechaza respuestas redirigidas para navegaciones servidas por SW.
+    // Consecuencia: cada URL debe coincidir exacto con un archivo (ver build.mjs, que
+    // tambien escribe copias para las URLs con barra final si hiciera falta).
+    "html_handling": "none",
+    // Cualquier ruta inexistente devuelve dist/404.html (o el 404.html mas cercano) con estado 404.
+    "not_found_handling": "404-page"
+  },
+  // Dominios propios. El DNS de friendly123.com ya esta en Cloudflare; con custom_domain
+  // Cloudflare crea los registros y el certificado al desplegar.
+  "routes": [
+    { "pattern": "friendly123.com", "custom_domain": true },
+    { "pattern": "www.friendly123.com", "custom_domain": true }
+  ]
+}
