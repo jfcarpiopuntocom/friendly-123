@@ -26,7 +26,9 @@
   }
 
   function obligationsForSale(v, location) {
-    if (!v || !v.id || !v.split || v.anulada || v.devuelta) return [];
+    // A paid return keeps its original earning/payment; its dated negative
+    // adjustment reverses the earning. Dropping both loses paid history.
+    if (!v || !v.id || !v.split || v.anulada) return [];
     const reparto = Array.isArray(v.split.reparto) ? v.split.reparto.filter(Boolean) : [];
     if (reparto.length) {
       return reparto.map((r, i) => ({
@@ -97,7 +99,7 @@
     const out = [];
 
     sales.forEach((v) => {
-      if (!v || !v.split || v.anulada || v.devuelta) return;
+      if (!v || !v.split || v.anulada) return;
       if (month && monthOf(v.fecha) !== month) return;
       if (locationId && String(v.ubicacionId) !== locationId) return;
       obligationsForSale(v, locMap.get(String(v.ubicacionId))).forEach((o) => {

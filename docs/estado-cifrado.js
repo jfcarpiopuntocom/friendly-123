@@ -30,17 +30,24 @@
   }
   var txt = function (v, max) { return String(v == null ? "" : v).slice(0, max || 80); };
   var num = function (v) { var n = Number(v); return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0; };
-  var MEDIOS = { efectivo: 1, transferencia: 1, "credito-tienda": 1, otro: 1 };
+  var MEDIOS = { efectivo: 1, transferencia: 1, cheque: 1, "credito-tienda": 1, otro: 1 };
+  // Additive v1 fields: old links retain their paid flag; new links show exact
+  // partial money without including payout IDs, contacts or business secrets.
+  function detallePago(l, out) {
+    if (l.pagado != null && Number.isFinite(Number(l.pagado))) out.pd = num(l.pagado);
+    if (l.pendiente != null && Number.isFinite(Number(l.pendiente))) out.du = num(l.pendiente);
+    return out;
+  }
 
   /* Lista blanca: lo unico que puede viajar. */
   function armar(d, ahora) {
     ahora = ahora || Date.now();
     d = d || {};
     var lineas = (Array.isArray(d.lineas) ? d.lineas : []).slice(0, MAX_LINEAS).map(function (l) {
-      return { f: txt(l.fecha, 10), p: txt(l.producto, 60), q: num(l.cantidad), c: num(l.comision), pg: !!l.pagada, m: MEDIOS[l.medio] ? l.medio : null };
+      return detallePago(l, { f: txt(l.fecha, 10), p: txt(l.producto, 60), q: num(l.cantidad), c: num(l.comision), pg: !!l.pagada, m: MEDIOS[l.medio] ? l.medio : null });
     });
     var ajustes = (Array.isArray(d.ajustes) ? d.ajustes : []).slice(0, 20).map(function (a) {
-      return { f: txt(a.fecha, 10), p: txt(a.producto, 60), c: num(a.comision) };
+      return detallePago(a, { f: txt(a.fecha, 10), p: txt(a.producto, 60), c: num(a.comision) });
     });
     return {
       v: 1, n: txt(d.nombre, 40), b: txt(d.negocio, 60), mes: txt(d.mes, 7),
@@ -78,8 +85,8 @@
       if (ahora > d.exp) return { ok: false, motivo: "vencido" };
       /* Revalida con la misma lista blanca (defensa en profundidad). */
       var limpio = armar({ nombre: d.n, negocio: d.b, mes: d.mes,
-        lineas: (d.l || []).map(function (l) { return { fecha: l.f, producto: l.p, cantidad: l.q, comision: l.c, pagada: l.pg, medio: l.m }; }),
-        ajustes: (d.a || []).map(function (a) { return { fecha: a.f, producto: a.p, comision: a.c }; }),
+        lineas: (d.l || []).map(function (l) { return { fecha: l.f, producto: l.p, cantidad: l.q, comision: l.c, pagada: l.pg, medio: l.m, pagado:l.pd, pendiente:l.du }; }),
+        ajustes: (d.a || []).map(function (a) { return { fecha: a.f, producto: a.p, comision: a.c, pagado:a.pd, pendiente:a.du }; }),
         totalVendido: d.t && d.t.vendido, totalComision: d.t && d.t.comision, totalPagado: d.t && d.t.pagado, totalPendiente: d.t && d.t.pendiente }, ahora);
       limpio.exp = d.exp; limpio.recortado = !!d.recortado;
       return { ok: true, datos: limpio };

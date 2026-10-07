@@ -2199,6 +2199,21 @@
         medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
         ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
         stillDue, payoutBalances, payoutHistory, detallePendientes,
+        /* 2026-10-06: statements share the same obligations as settlement. A
+           partial payout is money paid even while the legacy sale flag is false.
+           Include each beneficiary, retroactive adjustment and reversal balance;
+           the browser must not reconstruct these amounts from sale flags. */
+        payoutStatementLines: _ledger ? _ledgerObs.map((o) => {
+          const aj = o.kind === "adjustment" ? ajustesComision.find((a) => String(a.id) === o.sourceId) : null;
+          const v = ventas.find((x) => String(x.id) === String(aj ? aj.ventaId : o.sourceId));
+          const p = v ? productos.find((x) => x.id === v.productoId) : null;
+          return { kind:o.kind, sourceId:o.sourceId, payeeId:o.payeeId,
+            fecha:aj ? aj.fecha : (v && v.fecha), producto:p ? p.nombre : "",
+            cantidad:Number(v && v.cantidad) || 0,
+            brutoCents:o.kind === "sale" && v ? _ledger.cents(Number(v.precioUnit) * Number(v.cantidad)) : 0,
+            earnedCents:o.signedAmountCents, paidCents:o.paidCents * (o.signedAmountCents < 0 ? -1 : 1),
+            dueCents:o.dueCents, medio:v && v.medioPagoComision || null };
+        }) : null,
         /* v457 (b): el recalculo retroactivo no es una devolucion; su plata ya viaja en la fila de su venta (ledger). */
         ajustes: ajustesMes.filter((x) => x.tipo !== "recalculo-retroactivo").map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
         repartoPersonas,
@@ -2281,7 +2296,7 @@
        corregirla dejaria el ajuste y la venta diciendo cosas distintas.
        Ningun llamador real usa esta ruta con ventas pagadas: la UI corrige por
        /comisiones-del-mes con soloPendientes=true. */
-    if (v.liquidada) return { error: "This sale is already settled: what was paid is never edited. Record a return instead.", status: 409 };
+    if (v.liquidada || _ventaTienePagoComision(v)) return { error: "This sale is already settled: what was paid is never edited. Record a return instead.", status: 409 };
     if (v.devuelta) return { error: "This sale was returned: its commission was already clawed back and stays as recorded.", status: 409 };
     /* null, undefined o "" NO son 0%: son "no mandaste el dato", y Number() los
        convierte en 0 alegremente. Dejar pasar eso pondria la comision de
@@ -2364,8 +2379,16 @@
     if (!cs.length) return true;
     return cs.some((x) => !x || x.tipo !== "persona-base");
   }
+  function _ventaTienePagoComision(v) {
+    const ledger = _payoutCore();
+    return !!(ledger && ledger.buildObligations({ sales:[v], locations:ubicaciones, payouts }).some((o) => o.paidCents > 0));
+  }
   function _ventaSimpleDePersona(v, promotoraId, pctAnterior) {
     if (!v || !v.split || v.anulada || v.devuelta || v.liquidada || /^vs-/.test(String(v.id || ""))) return false;
+    /* 2026-10-06: partially paid is also paid history. Lowering the earning
+       below money already handed over makes the ledger clamp that money away.
+       Only wholly unpaid sales belong to this automatic base-percent hotfix. */
+    if (_ventaTienePagoComision(v)) return false;
     if (String(_personaPrincipalVenta(v) || "") !== String(promotoraId || "")) return false;
     const origen = String(v.split.origenComision || "");
     if (origen && origen !== "comisionista") return false;
@@ -5368,7 +5391,7 @@
            se habia PAGADO al asociado: la plata salio y la venta desaparecia.
            Lo pagado se corrige con una devolucion (ajuste negativo), nunca
            borrando. */
-        if (venta.liquidada && venta.split) return J({ error: "This sale was already paid to the partner. Record a return instead.", codigo: "VENTA_PAGADA" }, 400);
+        if ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta)) return J({ error: "This sale was already paid to the partner. Record a return instead.", codigo: "VENTA_PAGADA" }, 400);
         // BUG FIJADO 2026-07-03: la UI muestra 5s de cuenta regresiva para
         // anular y luego oculta el botón, pero este endpoint aceptaba anular
         // cualquier venta pasada sin límite de tiempo (podía borrar ventas
@@ -5410,7 +5433,7 @@
         if (!p) return J({ error: "Product not found." }, 404);
         const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
         const quien = String((body && body.quien) || "").trim().slice(0, 80) || "unidentified";
-        if (!venta.liquidada || !venta.split) {
+        if ((!venta.liquidada && !_ventaTienePagoComision(venta)) || !venta.split) {
           p.stockActual += venta.cantidad;
           venta.anulada = true; venta.rev = _revNueva();
           mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "return", quien });
@@ -5444,7 +5467,7 @@
         if (idx === -1) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
         const venta = ventas[idx];
         // B5: una COUNTER SALE no tiene comision que proteger (split null): se puede cancelar aunque la percha ya se haya pagado.
-        if (venta.liquidada && venta.split) return J({ error: "This sale was already settled to a partner. Fix the settlement in Commissions instead of cancelling." }, 400);
+        if ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta)) return J({ error: "This sale was already settled to a partner. Fix the settlement in Commissions instead of cancelling." }, 400);
         const p = productos.find((x) => x.id === venta.productoId);
         if (!p) return J({ error: "Product not found." }, 404);
         const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
@@ -5501,6 +5524,11 @@
            la cantidad ya habian cambiado y se guardaban. */
         const _hayCant = body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "";
         const _hayPrecio = body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "";
+        // A partial payout is sealed money too. Reject financial edits before
+        // stock or the split changes; notes and contact corrections remain usable.
+        if (((_hayCant && Number(body.cantidad) !== venta.cantidad) || (_hayPrecio && +Number(body.precioUnit).toFixed(2) !== venta.precioUnit)) && _ventaTienePagoComision(venta)) {
+          return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
+        }
         if (_hayCant && !(Number.isInteger(Number(body.cantidad)) && Number(body.cantidad) >= 1)) return J({ error: "The quantity must be a whole number, 1 or more." }, 400);
         if (_hayPrecio && !(Number.isFinite(Number(body.precioUnit)) && Number(body.precioUnit) >= 0)) return J({ error: "Enter a valid unit price." }, 400);
         if (_hayPrecio && venta.info && venta.info.cortesia && Number(body.precioUnit) > 0) return J({ error: "A courtesy sale has no price. Cancel it and record a normal sale." }, 400);

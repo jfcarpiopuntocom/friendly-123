@@ -243,11 +243,24 @@
       (Array.isArray(list) ? list : []).forEach((f) => { if (f && !str(f.id || f.opId)) errors.push({ factKind: k, factId: "", motivo: "hecho sin id" }); });
     });
 
-    ventas.forEach((v) => { if (str(v.id)) entriesForSale(v, locations, errors, raw); });
+    const saleById = new Map(ventas.map((v) => [str(v.id),v]));
+    const returnById = new Map(ajustes.filter((a) => a.tipo === "devolucion").map((a) => [str(a.id),a]));
+    ventas.forEach((v) => {
+      const ret = v.devuelta && returnById.get(str(v.devolucionId));
+      // Date the economic reversal in the open return period, not the sale's
+      // original month. Use a projection; never rewrite an input fact.
+      const projected = ret && str(ret.ventaId) === str(v.id) ? Object.assign({},v,{fechaDevolucion:ret.fecha}) : v;
+      if (str(v.id)) entriesForSale(projected, locations, errors, raw);
+    });
 
     /* Compromisos por persona (sobre ventas vigentes + ajustes): sirven para ajustes y pagos legados. */
     const obs = PL.buildObligations({ sales: ventas.filter((v) => str(v.id)), adjustments: ajustes.filter((a) => str(a.id)), locations, payouts });
     ajustes.forEach((a) => {
+      // A linked return already has the exact reversal of its sale above.
+      // Its payout adjustment tracks collection from the partner, not a
+      // second economic reversal of the same commission.
+      const sale = saleById.get(str(a.ventaId));
+      if (a.tipo === "devolucion" && sale && sale.devuelta && str(sale.devolucionId) === str(a.id)) return;
       if (!str(a.id)) return;
       entriesForAdjustment(a, obs.filter((o) => o.kind === "adjustment" && o.sourceId === str(a.id)), errors, raw);
     });

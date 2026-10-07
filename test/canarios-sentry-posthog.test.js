@@ -15,6 +15,7 @@ async function app(fn) {
     const salidas = [];
     page.on('request', (r) => { if (/sentry\.io|posthog\.com/.test(r.url())) salidas.push(r.url()); });
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.OCSalud && window.OCCanarios && typeof bloqueFoto === 'function');
     const r = await page.evaluate(fn);
     r.salidas = salidas;
     return r;

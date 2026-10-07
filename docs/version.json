@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-07",
-  "changelog": "v458 hotfix: changing a person's base commission now updates simple unpaid commission obligations immediately; paid sales, product-specific percentages, shelf overrides, manual corrections and complex agreements remain untouched. Dashboard reflects the corrected amount without reload.",
+  "changelog": "v459: clickable monthly commission breakdowns, readable commissionist contacts and printable encrypted statements using canonical partial payments, assistants and adjustments. Paid returns preserve original payments and reverse commissions once in both ledgers; partial payments protect sale amounts from edits or cancellation. Keeps v458 reactive wholly-unpaid base changes and existing product/shelf agreements.",
   "requerida": false,
-  "shell": "f123-shell-v458",
+  "shell": "f123-shell-v459",
   "apagar": [],
-  "releaseName": "v458",
-  "cacheGeneration": "golden23"
+  "releaseName": "v459",
+  "cacheGeneration": "golden24"
 }

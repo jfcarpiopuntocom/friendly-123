@@ -14,6 +14,7 @@ async function textoAyuda(pares) {
   try {
     const page = await web.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => window.OCAuth && window.OCHelp && window.OCI18n);
     const out = {};
     for (const [rol, lang] of pares) {
       out[rol + ':' + lang] = await page.evaluate(([rol, lang]) => {

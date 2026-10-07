@@ -459,6 +459,15 @@
     box-shadow:0 1px 2px rgba(33,28,20,0.06), 0 6px 16px -8px rgba(33,28,20,0.28);
     transition:box-shadow .2s ease, transform .2s ease;
   }
+  /* 2026-10-06: people are a readable contact list, not stamped product tiles.
+     Preserve stored spelling, the existing editor and archive action. */
+  .comm-agent-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px 14px;margin-bottom:8px;box-shadow:none}
+  .comm-agent-open{box-shadow:none;text-transform:none;letter-spacing:normal;min-width:0;line-height:1.4}
+  .comm-agent-open strong{font-family:var(--font-body,inherit);font-weight:700}
+  .comm-agent-row .comm-agent-open:hover,.comm-agent-row .comm-agent-open:active{box-shadow:none;transform:none;text-decoration:underline;text-underline-offset:3px}
+  .comm-agent-contact{grid-column:1/-1;font-size:14px;color:var(--ink);overflow-wrap:anywhere;line-height:1.4}
+  .comm-agent-contact a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+  .comm-agent-row button:focus-visible,.comm-agent-contact a:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
   @media (hover:hover){
     .caja.tag-card:hover, .etiqueta-card.tag-card:hover{
       transform:translateY(-3px);
@@ -7751,23 +7760,23 @@ let _comisionistasCache = [];
 // Lista viva con buscador + alta con datos de contacto/pago + archivar. Mobile-first.
 function tarjetaPromotora(pr){
   const datos = [
-    pr.telefono ? `📞 ${escHtml(pr.telefono)}` : "",
-    pr.cedula ? `🪪 ${escHtml(pr.cedula)}` : "",
-    (pr.banco || pr.cuenta) ? `🏦 ${escHtml(pr.banco || "")}${pr.banco && pr.cuenta ? " · " : ""}${escHtml(pr.cuenta || "")}` : "",
+    pr.telefono ? `<a href="tel:${escHtml(String(pr.telefono).replace(/[^+0-9]/g,""))}">${escHtml(pr.telefono)}</a>` : "",
+    pr.cedula ? escHtml(pr.cedula) : "",
+    (pr.banco || pr.cuenta) ? `${escHtml(pr.banco || "")}${pr.banco && pr.cuenta ? " · " : ""}${escHtml(pr.cuenta || "")}` : "",
   ].filter(Boolean).join(" &nbsp;·&nbsp; ");
   /* 2026-09-26 (JFC: nombres de personas en mayusculas lucen amateur): el boton del nombre anula
      la regla global de mayusculas; tamano 16px dentro de la escala 13/14/16 de Commissions. */
   const tramos = (pr.escalasComision && pr.escalasComision.length) ? ` · ${window.tf("comm.g.tierCount", {n: pr.escalasComision.length})}` : "";
   return `
-    <div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:8px;">
-      <button type="button" data-abrir-promotora="${pr.id}" style="flex:1;text-align:left;background:transparent;border:none;padding:0;cursor:pointer;text-transform:none;letter-spacing:normal;font-family:inherit;">
+    <div class="tag-card comm-agent-row">
+      <button type="button" class="comm-agent-open" data-abrir-promotora="${escHtml(pr.id)}" style="text-align:left;background:transparent;border:none;padding:0;cursor:pointer;text-transform:none;letter-spacing:normal;font-family:inherit;">
         <strong style="font-size:16px;color:var(--ink,#0F1923);text-transform:none;letter-spacing:normal;">${escHtml(pr.nombre)}</strong>
-        <div style="font-size:14px;color:var(--ink-soft);">${window.tf("comm.g.pctCommission", {pct: Number(pr.comisionBase)||0})}${tramos} — ${window.t("comm.g.tapToEdit")}</div>
-        ${datos ? `<div style="font-size:14px;color:var(--ink-soft);margin-top:2px;">${datos}</div>` : ""}
-        ${pr.direccion ? `<div style="font-size:14px;color:var(--ink-soft);">📍 ${escHtml(pr.direccion)}</div>` : ""}
-        ${pr.notas ? `<div style="font-size:14px;color:var(--ink-soft);font-style:italic;margin-top:2px;">"${escHtml(pr.notas)}"</div>` : ""}
+        <div style="font-size:14px;color:var(--ink);">${window.tf("comm.g.pctCommission", {pct: Number(pr.comisionBase)||0})}${tramos} — ${window.t("comm.g.tapToEdit")}</div>
       </button>
-      <button data-archivar-promotora="${pr.id}" data-nombre-promotora="${escHtml(pr.nombre)}" style="font-size:13px;padding:7px 11px;border:2px solid var(--rojo,#a3392a);border-radius:4px;background:transparent;color:var(--rojo-ink,#a3392a);cursor:pointer;">${window.t("comm.g.archive")}</button>
+      <button type="button" data-archivar-promotora="${escHtml(pr.id)}" data-nombre-promotora="${escHtml(pr.nombre)}" style="font-size:13px;padding:7px 11px;border:1.5px solid var(--rojo,#a3392a);border-radius:4px;background:transparent;color:var(--rojo-ink,#a3392a);box-shadow:none;align-self:start;cursor:pointer;">${window.t("comm.g.archive")}</button>
+      ${datos ? `<div class="comm-agent-contact">${datos}</div>` : ""}
+      ${pr.direccion ? `<div class="comm-agent-contact">${escHtml(pr.direccion)}</div>` : ""}
+      ${pr.notas ? `<div class="comm-agent-contact">${escHtml(pr.notas)}</div>` : ""}
     </div>`;
 }
 function renderListaPromotorasViva(query){
@@ -8403,15 +8412,18 @@ function resumenComisionPorProductoHtml(prods, cuadre){
   }
   // JFC 2026-09-23: totales del mes arriba, sumados de las mismas tarjetas por producto.
   const tot = prods.reduce((a, d) => ({ bruto: a.bruto + d.bruto, socio: a.socio + d.socio, casa: a.casa + d.casa, pend: a.pend + d.pendSocio }), { bruto: 0, socio: 0, casa: 0, pend: 0 });
-  const tile = (label, val, color) => `<div class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;">
+  _ocComMonthDetail = { mes:cuadre && cuadre.mes || _ocMesComisiones, products:prods, totals:{sales:tot.bruto, people:tot.socio, house:tot.casa, due:cuadre && cuadre.porPagar != null ? cuadre.porPagar : tot.pend} };
+  const keys = ["sales","people","house","due"]; let tileIndex = 0;
+  const esTotals = !!(typeof window !== "undefined" && window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
+  const tile = (label, val, color) => `<button type="button" data-comm-total="${keys[tileIndex]}" onclick="abrirDesgloseMesComisiones('${keys[tileIndex++]}')" class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;width:100%;font-family:inherit;box-shadow:none;cursor:pointer;">
       <div class="rotulo">${label}</div>
-      <div class="cifra" style="color:${color};">${fmtMoney(val)}</div></div>`;
+      <div class="cifra" style="color:${color};">${fmtMoney(val)}</div></button>`;
   const _conCom = (d) => d.unid > 0 || d.socio > 0 || d.pendSocio > 0 || (d.candidatas || []).length > 0;
   const _con = prods.filter(_conCom), _sin = prods.filter((d) => !_conCom(d));
   return _secc + `<h4 class="seccion" style="font-size:14px;margin:0 0 8px;">${_ocMesComisiones ? escHtml(_ocMesEtiqueta(_ocMesComisiones)) : t("comm.totalsHeading")}</h4>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:18px;">
-      ${tile("Sales with commission", tot.bruto, "var(--ink)")}${tile("Associates take", tot.socio, "var(--ink)")}
-      ${tile("House keeps", tot.casa, "#006B3C")}${(() => { /* Por pagar incluye devoluciones pendientes de descontar (mismo numero que las tarjetas). */ const pp = cuadre && cuadre.porPagar != null ? cuadre.porPagar : tot.pend; return tile("Still to pay", pp, pp > 0 ? "#C0392B" : "#006B3C"); })()}
+      ${tile(t("comm.q.withCommission"), tot.bruto, "var(--ink)")}${tile(esTotals ? t("shelves.split.associateTakes") : "Associates take", tot.socio, "var(--ink)")}
+      ${tile(t("shelves.split.houseKeeps"), tot.casa, "#006B3C")}${(() => { /* Por pagar incluye devoluciones pendientes de descontar (mismo numero que las tarjetas). */ const pp = cuadre && cuadre.porPagar != null ? cuadre.porPagar : tot.pend; return tile(esTotals ? "Por pagar" : "Still to pay", pp, pp > 0 ? "#C0392B" : "#006B3C"); })()}
     </div>` + cuadreMesHtml(cuadre) + apertura + _con.map(_tarjetaProd).join("")
     + (_sin.length ? `<details id="comm-sin-comision" style="margin-top:14px;"><summary style="cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:16px;font-weight:700;color:var(--ink);">${t("comm.noCommissionGroup").replace("{n}", _sin.length)}</summary>
       ${_sin.map(_tarjetaProd).join("")}</details>` : "") + `</section>`;
@@ -8454,6 +8466,46 @@ function resumenComisionPorProductoHtml(prods, cuadre){
    (el mismo de la tarjeta de percha), el nombre abre abrirEditorComisionista, "Enviar estado" es
    enviarEstadoComisionista. Textos: SOLO claves/diccionario que ya existen (_ocMoneyDict, common.close, ...).
    OJO: el modal de pago (z-index 10000) queda DEBAJO de este overlay (10001): por eso se cierra la ficha antes de pagar. */
+/* Read-only month breakdowns reuse the amounts already displayed by product
+   and the canonical payout balances. They introduce no new deal or payment
+   calculator; every row leads to the existing product/person/payment flow. */
+let _ocComMonthDetail = null;
+async function abrirDesgloseMesComisiones(kind) {
+  const snap = _ocComMonthDetail;
+  if (!snap || !["sales","people","house","due"].includes(kind)) return;
+  const mx = _ocMoneyDict();
+  const esDetail = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
+  const labels = {sales:t("comm.q.withCommission"),people:esDetail ? t("shelves.split.associateTakes") : "Associates take",house:t("shelves.split.houseKeeps"),due:esDetail ? "Por pagar" : "Still to pay"};
+  const overlay = document.getElementById("oc-comision-overlay"), caja = document.getElementById("oc-comision-caja");
+  let rows = "";
+  if (kind === "due" || kind === "people") {
+    let racks;
+    try { const r = await fetch(`${API}/liquidaciones?mes=${encodeURIComponent(snap.mes || "")}`); if (!r.ok) throw new Error(); racks = await r.json(); }
+    catch (_) { await ocAlert(t("comm.reviewError")); return; }
+    rows = racks.flatMap(f => (f.payoutBalances || []).filter(p => kind === "due" ? p.dueCents !== 0 : p.earned !== 0 || p.paid !== 0 || p.due !== 0).map(p => `<div data-comm-month-row style="padding:10px 0;border-bottom:1px solid var(--ink);">
+      <button type="button" data-month-person="${escHtml(p.payeeId || "")}" style="font:inherit;font-size:14px;font-weight:700;text-transform:none;letter-spacing:normal;box-shadow:none;background:transparent;border:0;padding:0;text-align:left;">${escHtml(p.nombre)}</button>
+      <div style="font-size:13px;color:var(--ink);margin:4px 0;">${escHtml(f.ubicacion)} · ${mx.earned} ${fmtMoney(p.earned)} · ${mx.paid} ${fmtMoney(p.paid)} · ${mx.due} ${fmtMoney(p.due)}</div>
+      ${p.dueCents > 0 && p.payeeId ? `<button type="button" class="tecla" data-month-pay="${escHtml(p.payeeId)}" data-rack="${escHtml(f.ubicacionId)}" data-name="${escHtml(p.nombre)}" data-due="${p.due}" style="font-size:14px;margin:4px 0;">${mx.pay(fmtMoney(p.due))}</button>` : ""}
+    </div>`)).join("");
+  } else {
+    const field = {sales:"bruto",people:"socio",house:"casa"}[kind];
+    rows = snap.products.filter(d => d.unid > 0 || Number(d[field]) !== 0 || d.pendSocio > 0).map(d => `<button type="button" data-comm-month-row data-month-product="${escHtml(d.productoId || "")}" style="display:block;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--ink);border-radius:0;box-shadow:none;padding:10px 0;font:inherit;text-transform:none;letter-spacing:normal;">
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:14px;font-weight:700;"><span>${escHtml(d.producto)}${d.sku ? " · " + escHtml(d.sku) : ""}</span><span>${fmtMoney(d[field])}</span></div>
+      <div style="font-size:13px;color:var(--ink);margin-top:4px;">${d.unid}u · ${escHtml([...d.perchas].join(", "))}${kind === "people" ? " · " + escHtml([...d.asociados].join(", ")) : ""}</div>
+    </button>`).join("");
+  }
+  caja.innerHTML = `<div class="tag-card" role="dialog" aria-modal="true" data-ui="commissions.month-sheet" aria-label="${labels[kind]}" style="padding:14px 16px;background:var(--blanco-calido);color:var(--ink);text-align:left;">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:start;"><div><strong style="font-size:16px;">${labels[kind]} · ${fmtMoney(snap.totals[kind])}</strong><div style="font-size:13px;margin-top:4px;">${escHtml(_ocMesEtiqueta(snap.mes || new Date().toISOString().slice(0,7)))}</div></div>
+    <button type="button" class="tecla" data-comm-month-close aria-label="${t("common.close")}" style="font-size:14px;margin:0;">✕</button></div>
+    ${rows || `<p style="font-size:14px;margin:10px 0;">${mx.noPayments}</p>`}
+    <button type="button" class="tecla" data-comm-month-close style="font-size:14px;margin:12px 0 0;">${t("common.close")}</button></div>`;
+  overlay.style.display = "flex"; _ocFichaRegistrar();
+  caja.querySelectorAll("[data-comm-month-close]").forEach(b => b.addEventListener("click",cerrarFichaProducto));
+  caja.querySelectorAll("[data-month-product]").forEach(b => b.addEventListener("click",() => abrirFichaProducto(b.dataset.monthProduct)));
+  caja.querySelectorAll("[data-month-person]").forEach(b => b.addEventListener("click",() => { if (b.dataset.monthPerson) abrirEditorComisionista(b.dataset.monthPerson); }));
+  caja.querySelectorAll("[data-month-pay]").forEach(b => b.addEventListener("click",() => { cerrarFichaProducto(); marcarComisionPagada(b.dataset.rack,b.dataset.name,Number(b.dataset.due),b.dataset.monthPay,{mes:snap.mes}); }));
+  caja.querySelector("[data-comm-month-close]").focus();
+}
 function _ocFichaCentavos(c){ return fmtMoney((Number(c) || 0) / 100); }
 function cerrarFichaProducto(){ cerrarEditorComision(); }
 async function abrirFichaProducto(productoId){
@@ -8522,10 +8574,10 @@ function _ocFichaRegistrar() {
   if (window._ocFichaListeners) return;
   window._ocFichaListeners = true;
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && document.querySelector('[data-ui="commissions.product-sheet"]')) cerrarFichaProducto();
+    if (e.key === "Escape" && document.querySelector('[data-ui="commissions.product-sheet"], [data-ui="commissions.month-sheet"]')) cerrarFichaProducto();
   });
   document.addEventListener("click", (e) => {
-    if (e.target && e.target.id === "oc-comision-overlay" && document.querySelector('[data-ui="commissions.product-sheet"]')) cerrarFichaProducto();
+    if (e.target && e.target.id === "oc-comision-overlay" && document.querySelector('[data-ui="commissions.product-sheet"], [data-ui="commissions.month-sheet"]')) cerrarFichaProducto();
   });
 }
 
@@ -9245,11 +9297,26 @@ async function enviarEstadoComisionista(ubicacionId, promotoraId){
     const _deLaPersona = (v) => !!v && (v.promotoraId || f.promotoraId || null) === _personaId;
     const vs = _todas.filter(v => v.mes === f.mes && Number(v.comisionAsociado) > 0 && v.modoComision !== "counter" && _deLaPersona(v));
     const nombreProd = {}; vs.forEach(v => { nombreProd[v.id] = v.productoNombre; });
-    const lineas = vs.map(v => ({ fecha: String(v.fecha || "").slice(0, 10), producto: v.productoNombre, cantidad: v.cantidad, comision: v.comisionAsociado, pagada: !!v.liquidada, medio: v.medioPagoComision || null }));
-    const ajustes = (f.ajustes || []).filter(a => _deLaPersona(_todas.find(v => v.id === a.ventaId))).map(a => ({ fecha: String(a.fecha || "").slice(0, 10), producto: nombreProd[a.ventaId] || (es ? "Devolución" : "Return"), comision: a.montoComisionSocio, pagada: !!a.liquidada }));
+    let lineas = vs.map(v => ({ fecha: String(v.fecha || "").slice(0, 10), producto: v.productoNombre, cantidad: v.cantidad, comision: v.comisionAsociado, pagada: !!v.liquidada, medio: v.medioPagoComision || null }));
+    let ajustes = (f.ajustes || []).filter(a => _deLaPersona(_todas.find(v => v.id === a.ventaId))).map(a => ({ fecha: String(a.fecha || "").slice(0, 10), producto: nombreProd[a.ventaId] || (es ? "Devolución" : "Return"), comision: a.montoComisionSocio, pagada: !!a.liquidada }));
     const r2 = (n) => Math.round(n * 100) / 100;
-    const sumaCom = vs.reduce((s, v) => s + (Number(v.comisionAsociado) || 0), 0) + ajustes.reduce((s, a) => s + (Number(a.comision) || 0), 0);
-    const pendiente = vs.filter(v => !v.liquidada).reduce((s, v) => s + (Number(v.comisionAsociado) || 0), 0) + ajustes.filter(a => !a.pagada).reduce((s, a) => s + (Number(a.comision) || 0), 0);
+    let sumaCom = vs.reduce((s, v) => s + (Number(v.comisionAsociado) || 0), 0) + ajustes.reduce((s, a) => s + (Number(a.comision) || 0), 0);
+    let pendiente = vs.filter(v => !v.liquidada).reduce((s, v) => s + (Number(v.comisionAsociado) || 0), 0) + ajustes.filter(a => !a.pagada).reduce((s, a) => s + (Number(a.comision) || 0), 0);
+    let totalVendido = vs.reduce((s, v) => s + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0), 0);
+    /* 2026-10-06: external statements must reconcile with the money card,
+       including partial payments, assistants and retroactive adjustments. The
+       older projection remains readable for a mixed-shell/offline transition. */
+    if (Array.isArray(f.payoutStatementLines)) {
+      const own = f.payoutStatementLines.filter(o => o.payeeId === _personaId);
+      const project = o => ({ fecha:String(o.fecha || "").slice(0,10), producto:o.producto,
+        cantidad:o.cantidad, comision:o.earnedCents / 100, pagado:o.paidCents / 100,
+        pendiente:o.dueCents / 100, pagada:o.dueCents === 0, medio:o.medio });
+      lineas = own.filter(o => o.kind === "sale").map(project);
+      ajustes = own.filter(o => o.kind === "adjustment").map(project);
+      sumaCom = own.reduce((s,o) => s + o.earnedCents, 0) / 100;
+      pendiente = own.reduce((s,o) => s + o.dueCents, 0) / 100;
+      totalVendido = [...new Map(own.filter(o => o.kind === "sale").map(o => [o.sourceId,o.brutoCents])).values()].reduce((s,c) => s + c, 0) / 100;
+    }
     const dias = await _ocModalMostrar(
       es ? `Estado de cuenta de ${pr.nombre} (${_ocMesEtiqueta(f.mes)}). ¿Cuánto tiempo funciona el enlace?` : `Statement for ${pr.nombre} (${_ocMesEtiqueta(f.mes)}). How long should the link work?`,
       [{ label: t("common.cancel"), value: false }, { label: es ? "7 días" : "7 days", value: 7 }, { label: es ? "30 días" : "30 days", value: 30 }]);
@@ -9258,7 +9325,7 @@ async function enviarEstadoComisionista(ubicacionId, promotoraId){
     const negocio = (_neg && !_neg.hasAttribute("data-i18n")) ? _neg.textContent.trim() : "";
     const frag = await window.OCEstado.cifrar({
       nombre: String(pr.nombre || "").trim().split(/\s+/)[0], negocio, mes: f.mes, lineas, ajustes,
-      totalVendido: vs.reduce((s, v) => s + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0), 0),
+      totalVendido: r2(totalVendido),
       totalComision: r2(sumaCom), totalPendiente: r2(pendiente), totalPagado: r2(sumaCom - pendiente), venceDias: dias
     });
     const link = new URL("estado.html", location.href).href.split("#")[0] + "#" + frag;
@@ -9268,7 +9335,7 @@ async function enviarEstadoComisionista(ubicacionId, promotoraId){
     const tel = String(pr.telefono || "").replace(/\D/g, "");
     const w = window.open("https://wa.me/" + (tel.length >= 7 ? tel : "") + "?text=" + encodeURIComponent(msg), "_blank", "noopener");
     if (!w) {
-      try { await navigator.clipboard.writeText(link); } catch (_) {}
+      await navigator.clipboard.writeText(link);
       await ocAlert(es ? "El navegador bloqueó WhatsApp. Copié el enlace: pégalo en el chat de " + primer + "." : "The browser blocked WhatsApp. The link is copied: paste it in your chat with " + primer + ".");
     }
   } catch (e) {
@@ -9289,7 +9356,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId,
      textos de confirmacion; el backend (planPayout.sourceIds) limita el pago a esas ventas. Sin `alcance` todo igual que antes. */
   if (alcance && alcance.producto) promotorNombre = (promotorNombre || "") + " · " + alcance.producto;
   // Shell 371: se paga el mes que se esta viendo; el mismo mes va al backend y al recibo.
-  const _mesPago = _ocMesComisiones || "";
+  const _mesPago = (alcance && alcance.mes) || _ocMesComisiones || "";
   const _mesPagoTxt = _mesPago ? _ocMesEtiqueta(_mesPago) : "this month";
   /* MEDIO DE PAGO (JFC 2026-09-24, benchmark #4): la misma confirmacion de siempre,
      pero pregunta COMO se pago. Cancelar sigue sin sellar nada. */
