@@ -6449,8 +6449,21 @@
         if (!(monto > 0)) return J({ error: "The amount must be greater than zero." }, 400);
         if (!window.AMG || !window.AMG.Cartera) return J({ error: "Customer credit is not available." }, 500);
         const tipo = mCliFiar[2] === "fiar" ? "cargo" : "abono";
+        // Codex 2026-10-07: a caller-supplied sale link is evidence only after checking
+        // the real sale/customer/amount. Old callers and manual debts stay valid.
+        let relacion = null;
+        if (body.ventaId !== undefined) {
+          const origen = typeof body.ventaId === "string" && ventas.find((v) => v.id === body.ventaId);
+          if (tipo !== "cargo" || !origen || origen.anulada || origen.devuelta || origen.clienteId !== c.id || !origen.info || origen.info.formaPago !== "fiado") {
+            return J({ error: "The debt must refer to this customer's active on-account sale." }, 400);
+          }
+          if (!Number.isFinite(monto) || Math.round(monto * 100) !== Math.round(origen.precioUnit * origen.cantidad * 100)) {
+            return J({ error: "The debt amount must match the recorded sale." }, 400);
+          }
+          relacion = { ventaId: origen.id };
+        }
         try {
-          await window.AMG.Cartera.registrarMovimiento(c.id, tipo, monto, body.motivo || "");
+          await window.AMG.Cartera.registrarMovimiento(c.id, tipo, monto, body.motivo || "", relacion);
         } catch (e) {
           return J({ error: (e && e.message) || "No se pudo registrar el movimiento." }, 400);
         }

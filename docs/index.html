@@ -7235,9 +7235,10 @@ async function confirmarVentaConInfo(id, esTicket){
       const _montoFiado = +(_precioFiado * _cantVenta).toFixed(2);
       if (_montoFiado > 0) {
         try {
+          // Codex 2026-10-07: retain the returned sale ID; never infer a debt link from its label.
           const deudaRes = await fetch(`${API}/clientes/${clienteId}/fiar`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ monto: _montoFiado, motivo: `Sale on credit: ${_nombreFiado}` })
+            body: JSON.stringify({ monto: _montoFiado, motivo: `Sale on credit: ${_nombreFiado}`, ventaId: data.ventaId })
           });
           if (!deudaRes.ok) throw new Error(`Debt posting failed (${deudaRes.status})`);
           try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}

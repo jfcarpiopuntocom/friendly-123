@@ -91,7 +91,7 @@
     const cobrado = total + (imp && imp.modo === "agregado" ? taxC : 0);
     if (cobrado <= 0) { errors.push({ factKind: "venta", factId: id, motivo: "venta sin importe cobrado" }); return; }
 
-    const cashAcct = (v.fiado === true || v.medioPago === "fiado") ? "1100" : "1000"; // fiado: queda por cobrar
+    const cashAcct = (v.fiado === true || v.medioPago === "fiado" || (v.info && v.info.formaPago === "fiado")) ? "1100" : "1000"; // Codex 2026-10-07: actual sale field + legacy aliases
     const shares = sharesOfSale(v, locations);
     const sumShares = shares.reduce((a, s) => a + s.cents, 0);
     /* Parte de la casa = lo cobrado - impuesto - lo que se debe a personas. */
@@ -179,10 +179,18 @@
 
   /* REGLA 7: cobro de fiado (cartera_abono). Debe 1000, Haber 1100.
      Un cartera_cargo NO genera asiento propio: la deuda ya nace en la venta fiada (regla 1, cuenta 1100). */
-  function entriesForCollection(c, errors, out) {
+  function entriesForCollection(c, errors, out, sales) {
     const id = str(c.id || c.opId);
     if (c.tipo === "cargo") return;
     if (c.tipo !== "abono") { errors.push({ factKind: "cobro", factId: id, motivo: "tipo de cartera desconocido: " + str(c.tipo) }); return; }
+    // Codex 2026-10-07: a price correction adjusts the customer facts, not cash. The canonical
+    // edited sale already posts its current receivable: posting the correction
+    // again here would invent cash and reduce receivables a second time.
+    if (c.naturaleza === "correccion_venta") {
+      const linked = (sales || []).find((v) => str(v.id) === str(c.ventaId) && str(v.clienteId) === str(c.clienteId) && str(c.clienteId));
+      if (!linked) errors.push({ factKind: "cobro", factId: id, motivo: "correccion de cartera sin venta/cliente verificable" });
+      return;
+    }
     const m = cents(c.monto);
     if (m <= 0) { errors.push({ factKind: "cobro", factId: id, motivo: "cobro sin importe positivo" }); return; }
     const lines = [];
@@ -267,7 +275,7 @@
     entriesForLegacy(obs, payouts, raw);
     payouts.forEach((p) => { if (str(p.id)) entriesForPayout(p, errors, raw); });
     gastos.forEach((g) => { if (str(g.id)) entriesForExpense(g, errors, raw); });
-    cartera.forEach((c) => { if (str(c.id || c.opId)) entriesForCollection(c, errors, raw); });
+    cartera.forEach((c) => { if (str(c.id || c.opId)) entriesForCollection(c, errors, raw, ventas); });
 
     /* Invariante (a): un asiento que no cuadra NO entra al libro; se reporta. */
     const entries = [];

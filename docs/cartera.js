@@ -56,6 +56,7 @@
   }
 
   var TIPOS = { cargo: "cartera_cargo", abono: "cartera_abono" };
+  var cargosVentaEnCurso = Object.create(null);
 
   function bus() {
     try { return global.AMG && global.AMG.EventBus; } catch (_) { return null; }
@@ -64,7 +65,39 @@
   // Unico punto de escritura. tipo: "cargo" | "abono". monto siempre positivo;
   // el signo lo decide el tipo, no quien llama — asi nadie puede "abonar
   // negativo" para simular un cargo sin dejar rastro correcto.
-  function registrarMovimiento(clienteId, tipo, monto, motivo) {
+  function registrarMovimiento(clienteId, tipo, monto, motivo, relacion) {
+    if (tipo !== "cargo" || !relacion || !relacion.ventaId) {
+      return guardarMovimiento(clienteId, tipo, monto, motivo, relacion);
+    }
+    // Codex 2026-10-07: repeated UI requests for one sale share a local queue and re-read disk.
+    // Manual debts have no sale key and must remain independent movements.
+    var clave = JSON.stringify([String(clienteId), String(relacion.ventaId)]);
+    var previo = cargosVentaEnCurso[clave] || Promise.resolve();
+    var tarea = previo.catch(function () {}).then(function () {
+      if (!global.AMG || !global.AMG.Hechos || !global.AMG.Hechos.todos) {
+        throw new Error("cartera: AMG.Hechos no disponible");
+      }
+      return global.AMG.Hechos.todos();
+    }).then(function (hechos) {
+      var existente = hechos.find(function (h) {
+        var d = _d(h);
+        return h.tipo === TIPOS.cargo && String(d.clienteId) === String(clienteId) && String(d.ventaId || "") === String(relacion.ventaId);
+      });
+      if (existente) {
+        if (Math.round(Number(_d(existente).monto) * 100) !== Math.round(Number(monto) * 100)) {
+          throw new Error("cartera: la venta ya tiene un cargo; requiere una correccion, no otro cargo");
+        }
+        return existente;
+      }
+      return guardarMovimiento(clienteId, tipo, monto, motivo, relacion);
+    });
+    cargosVentaEnCurso[clave] = tarea;
+    var limpiar = function () { if (cargosVentaEnCurso[clave] === tarea) delete cargosVentaEnCurso[clave]; };
+    tarea.then(limpiar, limpiar);
+    return tarea;
+  }
+
+  function guardarMovimiento(clienteId, tipo, monto, motivo, relacion) {
     if (tipo !== "cargo" && tipo !== "abono") {
       return Promise.reject(new Error("cartera: tipo debe ser 'cargo' o 'abono'"));
     }
@@ -82,6 +115,11 @@
         } catch (_) { return "Sistema"; }
       })()
     };
+    // Codex 2026-10-07: new sale debts retain an exact, validated sale ID. Manual
+    // and legacy debts keep their original shape; never infer links from names.
+    if (tipo === "cargo" && relacion && relacion.ventaId) {
+      payload.ventaId = String(relacion.ventaId);
+    }
 
     /* UN SOLO CAMINO DE ESCRITURA (fix 2026-08-13). Antes esto emitia
        ":completado" ANTES de registrar, y hechos.js lo persistia por su cuenta:
