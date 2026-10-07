@@ -36,7 +36,8 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v463";
+const CACHE = "f123-shell-v464";
+// const CACHE anterior = "f123-shell-v463"; // v464 (2026-10-07): nombres del menu inferior caben en el telefono.
 // const CACHE anterior = "f123-shell-v462"; // v463 (2026-10-07): auditoria de pagos del ledger de comisiones.
 // const CACHE anterior = "f123-shell-v461"; // v462 (JFC 2026-10-07): el dashboard pasa a ser un hub (isla viva, tarjetas, barra de navegacion).
 // const CACHE anterior = "f123-shell-v460"; // identidad PUBLICA/SONAR = releaseName (JFC 2026-10-06: se cierra la familia v448 GOLDEN; nombre publico = shell).
