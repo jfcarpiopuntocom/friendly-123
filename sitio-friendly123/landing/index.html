@@ -470,8 +470,8 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
   </div>
   <div class="hero-in wrap-w">
     <div>
-      <h1><span class="ln"><span>Stop guessing.</span></span> <span class="ln"><span>Start <em class="see">seeing.</em></span></span></h1>
-      <p class="sub">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act.</p>
+      <h1><span class="ln"><span>Close the notebook.</span></span> <span class="ln"><span>See your business in <em class="see">five colors.</em></span></span></h1>
+      <p class="sub">Every product wears a color that tells you what to do next. Stock, sales, commissions and a live dashboard, in one app. $399 once, no monthly fees.</p>
       <!-- TEXTO NUEVO (JFC debe aprobar): linea de "para quien". Origen: "Clothing, food, crafts or services, it makes no difference" (save.html). -->
       <p class="para" data-copy="nuevo">For small shops that count stock in a notebook: clothing, food, crafts or services.</p>
       <div class="filas" id="hero-cta">
@@ -479,7 +479,6 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
         <a href="#calculadora" class="btn btn-ghost">Calculate my savings</a>
       </div>
       <p class="estado" data-copy="nuevo" role="status" aria-live="polite" data-estado-demo></p>
-      <p class="chips-t">Inside, every product lights up on its own:</p>
       <div class="chips">
         <span class="chip c-verde">Healthy</span>
         <span class="chip c-dorado">Opportunity</span>
@@ -510,6 +509,8 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
       <li>Your data always on your device, exportable whenever you want</li>
       <li>Colors you already know how to read</li>
       <li>Light accounting, honest</li>
+      <li>A live dashboard for your big screen</li>
+      <li>More tools coming, included in your updates</li>
     </ul>
     <ul aria-hidden="true" class="marq-dup">
       <li>5-year license, no subscription and no monthly payments</li>
@@ -519,7 +520,114 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
       <li>Your data always on your device, exportable whenever you want</li>
       <li>Colors you already know how to read</li>
       <li>Light accounting, honest</li>
+      <li>A live dashboard for your big screen</li>
+      <li>More tools coming, included in your updates</li>
     </ul>
+  </div>
+</section>
+
+<!-- ===== 4. HISTORIA: PROBLEMA (PAS): problema + implicacion fusionados ===== -->
+<section class="problema sec s s-light">
+  <div class="wrap centro">
+    <h2 data-rv>You know the notebook is failing you</h2>
+    <p class="lead" data-rv style="--d:.08s">You carry it in your head: what is missing, what is piling up, what is about to expire.</p>
+    <div class="checks" data-stagger>
+      <div class="it"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" stroke="#B8123C" stroke-width="1.8"/><path d="M7 7l6 6M13 7l-6 6" stroke="#B8123C" stroke-width="2" stroke-linecap="round"/></svg><span>"Did we run out, or is it in the back room?"</span></div>
+      <div class="it"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" stroke="#B8123C" stroke-width="1.8"/><path d="M7 7l6 6M13 7l-6 6" stroke="#B8123C" stroke-width="2" stroke-linecap="round"/></svg><span>"I closed up and the register and the stock did not match."</span></div>
+      <div class="it"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" stroke="#B8123C" stroke-width="1.8"/><path d="M7 7l6 6M13 7l-6 6" stroke="#B8123C" stroke-width="2" stroke-linecap="round"/></svg><span>"Which of these products is actually making me money?"</span></div>
+    </div>
+    <p class="lead" data-rv>That costs you a customer told "we are out" when it was in the back room. A sale lost because you were slow to confirm. Money asleep on a shelf. A Sunday that was not a Sunday.</p>
+  </div>
+</section>
+
+<!-- ===== 5. CALCULADORA DE HORAS (formula identica a save.html; numeros con conteo animado) ===== -->
+<section class="sec s s-light" id="calculadora">
+  <div class="wrap">
+  <div class="calc" data-rv="z">
+    <h2>Put a number on the notebook</h2>
+    <div class="calc-grid">
+      <div>
+        <div class="campo">
+          <label for="horas">Hours a week on the notebook and counting by hand</label>
+          <div class="valor"><span id="horas-out">6</span> hours/week</div>
+          <input type="range" id="horas" min="1" max="20" value="6" step="1">
+          <div class="rango"><span>1h</span><span>20h</span></div>
+        </div>
+        <div class="campo">
+          <label for="valorhora">What is your hour worth?</label>
+          <div class="valor">$<span id="valorhora-out">4</span> per hour</div>
+          <input type="range" id="valorhora" min="2" max="35" value="4" step="0.5">
+          <div class="rango"><span>$2</span><span>$35</span></div>
+        </div>
+      </div>
+      <div class="res" aria-live="polite">
+        <div class="lab">You get back per year</div>
+        <div class="num" id="horas-ano">156 hours</div>
+        <p>with friendly-123 versus doing it by hand*</p>
+        <div class="barras">
+          <div class="bfila"><span>Today, by hand</span><div class="riel"><div class="bfill b-1" id="barra-antes" style="width:100%"></div></div><span class="bcifra" id="barra-antes-cifra">312 h</span></div>
+          <div class="bfila"><span>With friendly-123</span><div class="riel"><div class="bfill b-2" id="barra-despues" style="width:50%"></div></div><span class="bcifra" id="barra-despues-cifra">156 h</span></div>
+        </div>
+        <div class="mini2">
+          <div><div class="n" id="dias-recuperados">19.5 days</div><div class="l">full 8-hour days, free</div></div>
+          <div><div class="n" id="valor-ahorrado">$624</div><div class="l">value of that time, at your own rate</div></div>
+        </div>
+        <a href="/app/" class="btn btn-pri" data-demo>See this working in the demo</a>
+        <a href="#" id="calc-wa" class="wa">Send me this calculation on WhatsApp</a>
+      </div>
+    </div>
+    <p class="nota">*Illustrative estimate assuming you spend 50% less time on this task. This is a scenario, not a measured result; your actual savings may differ.</p>
+  </div>
+  </div>
+</section>
+
+<!-- ===== 7. METODO DE LOS 5 COLORES: semaforo animado + video del metodo + beneficios + galeria ===== -->
+<section class="oscuro sec centro s s-dark">
+  <div class="hero-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span></div>
+  <div class="wrap-w">
+    <h2 data-rv>The 5-color method</h2>
+    <p class="lead" data-rv style="--d:.08s">Every product wears one color. Each color tells you what to do. You learn it in 10 minutes, no manual needed.</p>
+    <div class="met">
+      <div>
+        <h3 style="font-size:24px;" data-rv>Green, gold, orange, red, black</h3>
+        <p data-rv style="margin-top:8px;--d:.06s">You see the color and you know what to do, without thinking.</p>
+        <!-- Semaforo: las 5 lamparas se encienden en orden (JS). Sin JS quedan las 5 encendidas. Tocar una la fija. -->
+        <ul class="lamps" id="lamps" data-stagger>
+          <li class="on"><span class="lamp l-verde"></span><span class="chip c-verde">Healthy</span></li>
+          <li><span class="lamp l-dorado"></span><span class="chip c-dorado">Opportunity</span></li>
+          <li><span class="lamp l-naranja"></span><span class="chip c-naranja">Check soon</span></li>
+          <li><span class="lamp l-rojo"></span><span class="chip c-rojo">Urgent</span></li>
+          <li><span class="lamp l-negro"></span><span class="chip c-negro">Sleeping</span></li>
+        </ul>
+      </div>
+      <figure class="vid vid-s" data-rv="r">
+        <div data-par="-.05"><div class="vframe" style="box-shadow:10px 10px 0 #7A3A00;border-color:#FFFFFF;">
+          <video controls playsinline preload="none" poster="/media/colores-poster.webp" width="640" height="640" aria-label="The 5-color inventory method video"><source src="/media/colores.mp4" type="video/mp4"></video>
+          <button type="button" class="vplay" data-copy="nuevo" aria-label="Play the 5-color method video"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M2 2l22 13L2 28z" fill="#000000"/></svg></button>
+        </div></div>
+        <figcaption data-copy="nuevo">The 5-color inventory method</figcaption>
+      </figure>
+    </div>
+    <div class="feats" data-stagger>
+      <div class="feat" data-spot><div class="dot" style="background:#FFC700;"></div><h3>Light accounting, honest</h3><p>Real margin, expenses prorated across the days of the month. Nothing that makes you feel better off than you are.</p></div>
+      <div class="feat" data-spot><div class="dot" style="background:#E86040;"></div><h3>A live dashboard for your big screen</h3><p>See your money, sales, commissions, stock and team on one screen. It updates as the app changes, and each commission has a link to pay it. Keep the app open on a phone and the board follows it.</p></div>
+    </div>
+    <div class="gal" data-stagger>
+      <div class="mc m-rojo"><span class="e">Urgent</span><span class="nom">T-shirt: Iron Maiden - The Trooper</span><span class="st" data-count="4">4</span><span class="d">4 left, restock now</span></div>
+      <div class="mc m-dorado"><span class="e">Opportunity</span><span class="nom">Chordeleg Filigree Earrings</span><span class="st" data-count="15">15</span><span class="d">Good margin, there is money waiting for you</span></div>
+      <div class="mc m-negro"><span class="e">Sleeping</span><span class="nom">Hand-carved Wooden Chess Set</span><span class="st" data-count="5">5</span><span class="d">No sales in 128 days, your money is resting there</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== QUIEN SI / QUIEN NO (antes escondido en el FAQ). El texto "no es para" es el del FAQ original. ===== -->
+<section class="sec s s-light">
+  <div class="wrap">
+    <h2 class="centro" data-rv>Is this for you?</h2>
+    <div class="dos" data-stagger>
+      <div class="caja"><h3>It is for you if</h3><p data-copy="nuevo">You run a small shop or service and count stock in a notebook, a spreadsheet or your head. You want to see what to do, not read reports.</p></div>
+      <div class="caja"><h3>It is not for you if</h3><p>You need e-invoicing filed with your tax authority, a multi-store chain with a central warehouse, or real-time integration with your accountant. It is a shared digital notebook, not an ERP. Better you hear it now.</p></div>
+    </div>
   </div>
 </section>
 
@@ -548,25 +656,12 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
   </div>
 </section>
 
-<!-- ===== 4. HISTORIA: PROBLEMA (PAS): problema + implicacion fusionados ===== -->
-<section class="problema sec s s-light">
-  <div class="wrap centro">
-    <h2 data-rv>The real cost is not the time. It is the wear.</h2>
-    <p class="lead" data-rv style="--d:.08s">It is not just counting. It is carrying in your head what is missing, what is piling up and what is about to expire, all day, every day.</p>
-    <div class="checks" data-stagger>
-      <div class="it"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" stroke="#B8123C" stroke-width="1.8"/><path d="M7 7l6 6M13 7l-6 6" stroke="#B8123C" stroke-width="2" stroke-linecap="round"/></svg><span>Closing up and not knowing whether the register or the stock actually balanced.</span></div>
-      <div class="it"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" stroke="#B8123C" stroke-width="1.8"/><path d="M7 7l6 6M13 7l-6 6" stroke="#B8123C" stroke-width="2" stroke-linecap="round"/></svg><span>Sunday with a calculator, recounting everything from scratch.</span></div>
-    </div>
-    <p class="lead" data-rv>It is the customer you told "we are out" when it was in the back room all along. It is the sale that went to another store because you took too long to confirm. It is the Sunday that was not a Sunday.</p>
-  </div>
-</section>
-
 <!-- ===== 8. EPIFANIA (antes/despues, historia) + video de ambiente (bucle mudo, solo al entrar en pantalla) ===== -->
 <section class="epi sec centro s s-dark">
   <div class="hero-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span></div>
   <div class="wrap-w">
     <h2 data-rv>What Sunday feels like when this stops happening</h2>
-    <p class="big" data-rv style="--d:.1s">You close up on Saturday and <span class="hl">you already know what is missing, what is piling up and what you made.</span> No recount, no calculator, no "I will check on Monday". <span class="hl">Sunday goes back to being Sunday.</span></p>
+    <p class="big" data-rv style="--d:.1s">You close up on Saturday and <span class="hl">you already know what is missing, what is piling up and what you made.</span> <span class="hl">Sunday goes back to being Sunday.</span></p>
     <figure class="film" data-par=".05">
       <span class="deco d1" aria-hidden="true"></span><span class="deco d2" aria-hidden="true"></span><span class="deco d3" aria-hidden="true"></span>
       <div class="vframe" data-rv="z">
@@ -574,90 +669,6 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
         <button type="button" class="vplay" hidden aria-label="Play the loop"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M2 2l22 13L2 28z" fill="#000000"/></svg></button>
       </div>
     </figure>
-  </div>
-</section>
-
-<!-- ===== 5. CALCULADORA DE HORAS (formula identica a save.html; numeros con conteo animado) ===== -->
-<section class="sec s s-light" id="calculadora">
-  <div class="wrap">
-  <div class="calc" data-rv="z">
-    <h2>Your hours-recovered calculator</h2>
-    <p class="sub">Set the values to your real business. The math updates instantly.</p>
-    <div class="calc-grid">
-      <div>
-        <div class="campo">
-          <label for="horas">Hours a week on the notebook and counting by hand</label>
-          <div class="valor"><span id="horas-out">6</span> hours/week</div>
-          <input type="range" id="horas" min="1" max="20" value="6" step="1">
-          <div class="rango"><span>1h</span><span>20h</span></div>
-        </div>
-        <div class="campo">
-          <label for="valorhora">What is your hour worth?</label>
-          <div class="valor">$<span id="valorhora-out">4</span> per hour</div>
-          <input type="range" id="valorhora" min="2" max="35" value="4" step="0.5">
-          <div class="rango"><span>$2</span><span>$35</span></div>
-          <p class="ref">Use your own estimate of an hour's value. The calculator shows a scenario, not a guaranteed saving.</p>
-        </div>
-      </div>
-      <div class="res" aria-live="polite">
-        <div class="lab">You get back per year</div>
-        <div class="num" id="horas-ano">156 hours</div>
-        <p>with friendly-123 versus doing it by hand*</p>
-        <div class="barras">
-          <div class="bfila"><span>Today, by hand</span><div class="riel"><div class="bfill b-1" id="barra-antes" style="width:100%"></div></div><span class="bcifra" id="barra-antes-cifra">312 h</span></div>
-          <div class="bfila"><span>With friendly-123</span><div class="riel"><div class="bfill b-2" id="barra-despues" style="width:50%"></div></div><span class="bcifra" id="barra-despues-cifra">156 h</span></div>
-        </div>
-        <div class="mini2">
-          <div><div class="n" id="dias-recuperados">19.5 days</div><div class="l">full 8-hour days, free</div></div>
-          <div><div class="n" id="valor-ahorrado">$624</div><div class="l">value of that time, at your own rate</div></div>
-        </div>
-        <a href="/app/" class="btn btn-pri" data-demo>See this working in the demo</a>
-        <a href="#" id="calc-wa" class="wa">Send me this calculation on WhatsApp</a>
-      </div>
-    </div>
-    <p class="nota">*Illustrative estimate assuming you spend 50% less time on this task. This is a scenario, not a measured result; your actual savings may differ.</p>
-  </div>
-  </div>
-</section>
-
-<!-- ===== 7. METODO DE LOS 5 COLORES: semaforo animado + video del metodo + beneficios + galeria ===== -->
-<section class="oscuro sec centro s s-dark">
-  <div class="hero-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span></div>
-  <div class="wrap-w">
-    <h2 data-rv>This is what replaces the notebook</h2>
-    <p class="lead" data-rv style="--d:.08s">No training. No manual needed to start. You learn it in 10 minutes.</p>
-    <div class="met">
-      <div>
-        <h3 style="font-size:24px;" data-rv>Colors you already know how to read</h3>
-        <p data-rv style="margin-top:8px;--d:.06s">Green, gold, orange, red, black. You see the product's color and you know what to do, without thinking.</p>
-        <!-- Semaforo: las 5 lamparas se encienden en orden (JS). Sin JS quedan las 5 encendidas. Tocar una la fija. -->
-        <ul class="lamps" id="lamps" data-stagger>
-          <li class="on"><span class="lamp l-verde"></span><span class="chip c-verde">Healthy</span></li>
-          <li><span class="lamp l-dorado"></span><span class="chip c-dorado">Opportunity</span></li>
-          <li><span class="lamp l-naranja"></span><span class="chip c-naranja">Check soon</span></li>
-          <li><span class="lamp l-rojo"></span><span class="chip c-rojo">Urgent</span></li>
-          <li><span class="lamp l-negro"></span><span class="chip c-negro">Sleeping</span></li>
-        </ul>
-      </div>
-      <figure class="vid vid-s" data-rv="r">
-        <div data-par="-.05"><div class="vframe" style="box-shadow:10px 10px 0 #7A3A00;border-color:#FFFFFF;">
-          <video controls playsinline preload="none" poster="/media/colores-poster.webp" width="640" height="640" aria-label="The 5-color inventory method video"><source src="/media/colores.mp4" type="video/mp4"></video>
-          <button type="button" class="vplay" data-copy="nuevo" aria-label="Play the 5-color method video"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M2 2l22 13L2 28z" fill="#000000"/></svg></button>
-        </div></div>
-        <figcaption data-copy="nuevo">The 5-color inventory method</figcaption>
-      </figure>
-    </div>
-    <div class="feats" data-stagger>
-      <div class="feat" data-spot><div class="dot" style="background:#00C87A;"></div><h3>Colors you already know how to read</h3><p>Green, gold, orange, red, black. You see the product's color and you know what to do, without thinking.</p></div>
-      <div class="feat" data-spot><div class="dot" style="background:#FFC700;"></div><h3>Light accounting, honest</h3><p>Real margin, expenses prorated across the days of the month. Nothing that makes you feel better off than you are.</p></div>
-    </div>
-    <h2 class="gal-t" data-rv>This is what your inventory looks like</h2>
-    <p class="lead" data-rv>Each color tells you what to do before you have thought about it.</p>
-    <div class="gal" data-stagger>
-      <div class="mc m-rojo"><span class="e">Urgent</span><span class="nom">T-shirt: Iron Maiden - The Trooper</span><span class="st" data-count="4">4</span><span class="d">4 left, restock now</span></div>
-      <div class="mc m-dorado"><span class="e">Opportunity</span><span class="nom">Chordeleg Filigree Earrings</span><span class="st" data-count="15">15</span><span class="d">Good margin, there is money waiting for you</span></div>
-      <div class="mc m-negro"><span class="e">Sleeping</span><span class="nom">Hand-carved Wooden Chess Set</span><span class="st" data-count="5">5</span><span class="d">No sales in 128 days, your money is resting there</span></div>
-    </div>
   </div>
 </section>
 
@@ -673,8 +684,9 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
     </div>
     <p class="aviso" data-rv>Reviews based on the twin app amigable-123 &mdash; the Spanish-market sibling of friendly-123, same codebase, same operators.</p>
     <div class="dos" data-stagger>
-      <div class="caja"><h3>Your data, backed up</h3><p>An encrypted backup you export yourself whenever you want, to your own messages or email. Change phones and your business does not get lost.</p></div>
-      <div class="caja"><h3>Who is behind this</h3><p>I have researched hundreds of businesses and advised dozens, from small to mid-sized. This came out of that: I would rather specialize and do a few things well than promise you a suite that does everything halfway.</p><p>A project by <a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener">avatiun.com</a>.</p></div>
+      <div class="caja"><h3>Your data, backed up</h3><p>Export an encrypted backup whenever you want. Change phones and nothing is lost.</p></div>
+      <div class="caja"><h3>Made in Cuenca</h3><p>friendly-123 is built in Cuenca, Ecuador, by Juan Fernando Carpio. I make intuitive business apps. I have researched hundreds of businesses and advised dozens. I would rather do a few things well than promise a suite that does everything halfway.</p>
+        <p>A project by <a href="https://jfcarpio.com" target="_blank" rel="noopener">jfcarpio.com</a> y <a href="https://avatiun.com" target="_blank" rel="noopener">avatiun.com</a>.</p></div>
     </div>
   </div>
 </section>
@@ -683,8 +695,8 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
      El flyer lleva el QR TAPADO (se rellena con el fondo de la franja inferior; ver media/flyer.webp). -->
 <section class="oferta sec centro s s-light" id="oferta">
   <div class="wrap-w">
-    <h2 data-rv>You tried it and it convinced you</h2>
-    <p class="lead" data-rv style="--d:.06s">One payment, a 5-year license, yours from today.</p>
+    <h2 data-rv>Everything you get for $399</h2>
+    <p class="lead" data-rv style="--d:.06s">One payment. A 5-year license. Yours from today.</p>
     <div class="oferta-g">
       <figure class="flyer" data-rv="l">
         <div data-par=".05"><div class="fr" data-tilt="6"><img src="/media/flyer.webp" width="840" height="1050" loading="lazy" alt="friendly-123 flyer: Grow without burning yourself out, $399 for 5 full years"></div></div>
@@ -702,8 +714,11 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
           <p class="pm" data-copy="nuevo">That is about $6.65 a month over the 5 years.</p>
           <ul class="stack" data-stagger>
             <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>5-year license, no subscription and no monthly payments<br><span class="inc" data-copy="nuevo">Included</span></div></li>
+            <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>The full app: products, sales, customers, team, light accounting<br><span class="inc" data-copy="nuevo">Included</span></div></li>
+            <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>The live dashboard for your big screen<br><span class="inc" data-copy="nuevo">Included</span></div></li>
             <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Direct support from the person who built it<br><span class="inc" data-copy="nuevo">Included</span></div></li>
             <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Updates included for the full 5 years<br><span class="inc" data-copy="nuevo">Included</span></div></li>
+            <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>More tools coming to the kit, included in your 5 years<br><span class="inc" data-copy="nuevo">Included</span></div></li>
             <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>No cap on products, sales or employees<br><span class="inc" data-copy="nuevo">Included</span></div></li>
             <li><svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="#0B7A4B"/><path d="M8 14.5l4 4 8-9" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Your data always on your device, exportable whenever you want<br><span class="inc" data-copy="nuevo">Included</span></div></li>
           </ul>
@@ -716,6 +731,7 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
           <a href="https://www.paypal.me/jfcarpio/399" target="_blank" rel="noopener" class="btn btn-pri idle" data-pago="paypal">Yes, I want my 5-year license</a>
           <p class="estado" data-copy="nuevo" role="status" aria-live="polite" data-estado-pago></p>
           <p class="pago-n">Pay with PayPal. Stripe and Bitcoin coming.</p>
+          <p class="pago-n" data-copy="nuevo">Not sure yet? <a href="/app/" data-demo>Open the demo now</a>. No signup, no card.</p>
           <p class="pago-n"><strong>After payment you get your license by WhatsApp or email within 24 hours.</strong></p>
         </div>
       </div>
@@ -728,11 +744,9 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
   <div class="wrap">
     <h2 class="centro" data-rv>Questions people ask before paying</h2>
     <div class="faq" data-stagger>
-      <details><summary>Is it really a single payment?</summary><p>Yes. $399 once, for a 5-year license. No subscription, no monthly payments and no per-user fees.</p></details>
-      <details><summary>What happens when the 30-day trial ends?</summary><p>If you have not bought a license, the app switches to read-only: you can still see and export everything. Nothing is deleted.</p></details>
-      <details><summary>Where is my business data kept?</summary><p>On your own device. You can export an encrypted backup whenever you want, to your own messages or email.</p></details>
-      <details><summary>"I tried an app once and it was impossibly complicated"</summary><p>Most of them make you configure categories, taxes and workflows before they let you see anything. Here you open it, you see colors, and you have understood. If you have not gotten the hang of it in ten minutes, it was not for you and you did not lose a dollar finding out.</p></details>
-      <details><summary>Who this is NOT for</summary><p>If you need e-invoicing filed with your tax authority, a multi-store chain with a central warehouse, or real-time integration with your accountant, this will fall short. It is a shared digital notebook, not an ERP. Better you hear it now.</p></details>
+      <details><summary>"I tried an app once and it was impossibly complicated"</summary><p>Most apps make you set up categories and taxes before you see anything. Here you open it, see colors, and you have understood. If it does not click in ten minutes, it was not for you and you lost nothing.</p></details>
+      <details><summary>Does the dashboard store my data?</summary><p>No. It stores nothing. What you see travels encrypted from your team's devices and vanishes when you close the tab. Only the owner or an admin PIN opens it.</p></details>
+      
     </div>
   </div>
 </section>
@@ -742,11 +756,12 @@ footer a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;fo
   <div class="hero-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
   <div class="wrap-w">
     <h2 data-rv>Try it first, no signup and no card, in 10 seconds</h2>
+    <p class="lead" data-rv data-copy="nuevo">Not ready to buy? Keep the method. Green is healthy, gold is push it, orange is check soon, red is restock now, black is sleeping. Sort your own shelf with those five colors this week.</p>
     <p class="pinb-t" data-rv>Enter the demo with any of these codes</p>
     <div class="pines" data-stagger>
-      <button type="button" class="pinb" data-copiar="456"><span class="num">4-5-6</span><span class="rol">Demo, full control, in detail</span><span class="cp">Tap to copy</span></button>
-      <button type="button" class="pinb" data-copiar="260"><span class="num">2-6-0</span><span class="rol">Employee, sells and counts stock</span><span class="cp">Tap to copy</span></button>
-      <button type="button" class="pinb" data-copiar="357"><span class="num">3-5-7</span><span class="rol">Bookkeeper, the accounting layer</span><span class="cp">Tap to copy</span></button>
+      <button type="button" class="pinb" data-copiar="456"><span class="num">4-5-6</span><span class="rol">Demo, full control</span><span class="cp">Tap to copy</span></button>
+      <button type="button" class="pinb" data-copiar="260"><span class="num">2-6-0</span><span class="rol">Employee, sells</span><span class="cp">Tap to copy</span></button>
+      <button type="button" class="pinb" data-copiar="357"><span class="num">3-5-7</span><span class="rol">Bookkeeper, accounting</span><span class="cp">Tap to copy</span></button>
     </div>
     <div class="filas">
       <a href="/app/" class="btn btn-hot idle" data-demo>Open the demo now</a>
