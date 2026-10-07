@@ -208,6 +208,14 @@ let prev = readFileSync(join(previewDir, "index.html"), "utf8");
 if (sharp) prev = prev.replace('src="/app/img/logo-720.png"', 'src="/app/img/logo-720.webp"');
 writeFileSync(join(previewDir, "index.html"), poner(prev, { url: SITIO + "/preview/" }));
 
+// (d3) RAIZ = LANDING NUEVA (JFC 2026-10-07: "Aprobada: pónla en la raíz"). Reemplaza a save.html en /.
+//      Misma fuente que /preview/, pero indexable (se quita el noindex) y con canonical a la raiz.
+//      save.html sigue disponible en /app/save.html (QRs de flyers apuntan a github.io/save.html, intacto).
+//      Para volver a save.html en la raiz: borrar este bloque (d3); el paso (c) la vuelve a escribir.
+cpSync(join(AQUI, "landing"), DIST, { recursive: true });
+const raizNueva = prev.replace(/<meta name="robots" content="noindex,nofollow">\s*/i, "");
+writeFileSync(join(DIST, "index.html"), poner(raizNueva, { url: SITIO + "/" }));
+
 // (e) robots.txt y sitemap.xml
 writeFileSync(join(DIST, "robots.txt"), [
   "User-agent: *", "Allow: /",
