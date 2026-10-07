@@ -249,6 +249,7 @@
           (n > 1 ? '<br><button type="button" class="btn-ok lic-mini" onclick="licToggleDisp(\'' + id + '\')" title="See each device on this license">' + esc(etiquetaDisp) + '</button>' : "") + '</td>' +
         '<td>' + (r.nombreNegocio ? '<strong>' + esc(r.nombreNegocio) + '</strong>' : '—') + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'negocio\')" title="Edit business name">✎</button></td>' +
         '<td>' + esc(nombreCompleto(r) || "—") + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'nombre\')" title="Edit this device name">✎</button>' +
+          (r.apodo ? '<br>' + esc(r.apodo) : '') +
           (g.personas.filter(function (nombre) { return norm(nombre) !== norm(nombreCompleto(r)); }).length
             ? '<br><span class="lic-sub">También en esta licencia: ' + g.personas.filter(function (nombre) { return norm(nombre) !== norm(nombreCompleto(r)); }).map(esc).join(', ') + '</span>' : '') + '</td>' +
         '<td>' + esc(r.email || "—") + (esMio(r) ? ' <span class="lic-chip">tu aparato</span>' : "") + chipClaim + '</td>' +
@@ -274,7 +275,7 @@
           '<td></td><td class="lic-sub">↳ device</td>' +
           '<td class="mono">' + esc(h.licenseCode || "—") + ' <button type="button" class="lic-lapiz" onclick="licReenganchar(\'' + hid + '\')" title="Set or change the license of this device">✎</button>' + '</td>' +
           '<td>' + esc(h.nombreNegocio || "—") + '</td>' +
-          '<td>' + esc(nombreCompleto(h) || "—") + '</td>' +
+          '<td>' + esc(nombreCompleto(h) || "—") + (h.apodo ? '<br>' + esc(h.apodo) : '') + '</td>' +
           '<td>' + esc(h.email || "—") + (esMio(h) ? ' <span class="lic-chip">tu aparato</span>' : "") + '</td>' +
           '<td>' + (wa(h.whatsapp) ? '<a href="' + esc(wa(h.whatsapp)) + '" target="_blank" rel="noopener" style="color:#25D366;">' + esc(h.whatsapp) + '</a>' : "—") + '</td>' +
           '<td class="lic-sub">same license</td>' +

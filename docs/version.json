@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-06",
-  "changelog": "v455: Registrar pago en espanol en Clientes y dashboard; ficha de producto con el mismo estilo que Commissions.",
+  "changelog": "v456: el apodo del aparato llega al panel de licencias; nombres viejos trabados se pueden actualizar.",
   "requerida": false,
-  "shell": "f123-shell-v455",
+  "shell": "f123-shell-v456",
   "apagar": [],
-  "releaseName": "v455",
-  "cacheGeneration": "golden20"
+  "releaseName": "v456",
+  "cacheGeneration": "golden21"
 }
