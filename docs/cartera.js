@@ -56,6 +56,13 @@
   }
 
   var TIPOS = { cargo: "cartera_cargo", abono: "cartera_abono" };
+  /* Claude 2026-10-07: hecho ADITIVO "cartera_vinculo" = vinculo manual (dueno/admin) de un cargo
+     antiguo a UNA venta fiada del mismo cliente. Payload { clienteId, cargoId, ventaId|null,
+     accion: "vincular"|"desvincular", quien }. NO es cargo ni abono: el lector v459 filtra solo
+     cartera_cargo/cartera_abono, asi que lo ignora (conserva su saldo viejo, sin crash ni doble
+     descuento). Es append-only: deshacer = otro hecho "desvincular", jamas borrar. */
+  var VINCULO = "cartera_vinculo";
+  var cargosVentaEnCurso = Object.create(null);
 
   function bus() {
     try { return global.AMG && global.AMG.EventBus; } catch (_) { return null; }
@@ -64,7 +71,39 @@
   // Unico punto de escritura. tipo: "cargo" | "abono". monto siempre positivo;
   // el signo lo decide el tipo, no quien llama — asi nadie puede "abonar
   // negativo" para simular un cargo sin dejar rastro correcto.
-  function registrarMovimiento(clienteId, tipo, monto, motivo) {
+  function registrarMovimiento(clienteId, tipo, monto, motivo, relacion) {
+    if (tipo !== "cargo" || !relacion || !relacion.ventaId) {
+      return guardarMovimiento(clienteId, tipo, monto, motivo, relacion);
+    }
+    // Codex 2026-10-07: repeated UI requests for one sale share a local queue and re-read disk.
+    // Manual debts have no sale key and must remain independent movements.
+    var clave = JSON.stringify([String(clienteId), String(relacion.ventaId)]);
+    var previo = cargosVentaEnCurso[clave] || Promise.resolve();
+    var tarea = previo.catch(function () {}).then(function () {
+      if (!global.AMG || !global.AMG.Hechos || !global.AMG.Hechos.todos) {
+        throw new Error("cartera: AMG.Hechos no disponible");
+      }
+      return global.AMG.Hechos.todos();
+    }).then(function (hechos) {
+      var existente = hechos.find(function (h) {
+        var d = _d(h);
+        return h.tipo === TIPOS.cargo && String(d.clienteId) === String(clienteId) && String(d.ventaId || "") === String(relacion.ventaId);
+      });
+      if (existente) {
+        if (Math.round(Number(_d(existente).monto) * 100) !== Math.round(Number(monto) * 100)) {
+          throw new Error("cartera: la venta ya tiene un cargo; requiere una correccion, no otro cargo");
+        }
+        return existente;
+      }
+      return guardarMovimiento(clienteId, tipo, monto, motivo, relacion);
+    });
+    cargosVentaEnCurso[clave] = tarea;
+    var limpiar = function () { if (cargosVentaEnCurso[clave] === tarea) delete cargosVentaEnCurso[clave]; };
+    tarea.then(limpiar, limpiar);
+    return tarea;
+  }
+
+  function guardarMovimiento(clienteId, tipo, monto, motivo, relacion) {
     if (tipo !== "cargo" && tipo !== "abono") {
       return Promise.reject(new Error("cartera: tipo debe ser 'cargo' o 'abono'"));
     }
@@ -82,6 +121,11 @@
         } catch (_) { return "Sistema"; }
       })()
     };
+    // Codex 2026-10-07: new sale debts retain an exact, validated sale ID. Manual
+    // and legacy debts keep their original shape; never infer links from names.
+    if (tipo === "cargo" && relacion && relacion.ventaId) {
+      payload.ventaId = String(relacion.ventaId);
+    }
 
     /* UN SOLO CAMINO DE ESCRITURA (fix 2026-08-13). Antes esto emitia
        ":completado" ANTES de registrar, y hechos.js lo persistia por su cuenta:
@@ -100,34 +144,168 @@
     return Promise.reject(new Error("cartera: AMG.Hechos no disponible"));
   }
 
+  /* ---------------------------------------------------------------------------
+     Claude 2026-10-07 — LA DEUDA DE UNA VENTA FIADA SIGUE A LA VENTA.
+     Un cargo ligado a una venta (por ventaId propio o por un hecho cartera_vinculo) NO aporta
+     su monto guardado: aporta el valor ACTUAL de la venta (precioUnit x cantidad hoy).
+     Corregir el precio en Sold no escribe NINGUN hecho: la venta ya tiene su propia version
+     final (rev / sync), y la deuda la lee de ahi. Por eso dos correcciones concurrentes nunca
+     se suman y repetir una correccion no cambia nada.
+       valor actual = 0 si la venta esta anulada/devuelta (salvo que una restauracion activa la
+                      reemplace: el undo de 30 s crea otra venta con restauracionDe) o si ya no
+                      es fiado (info.formaPago !== "fiado").
+       Si la venta no se encuentra, o ya es de OTRO cliente, se conserva el monto guardado
+       (nunca se perdona deuda por no ver la venta).
+     Pagos reales (cartera_abono) no se tocan: si superan el valor de la venta, el saldo queda
+     POSITIVO = credito a favor del cliente (convencion existente: deuda negativa).
+     --------------------------------------------------------------------------- */
+  function _centavos(n) { return Math.round((Number(n) || 0) * 100); }
+  function _ventasActuales(ventas) {
+    if (Array.isArray(ventas)) return ventas;
+    try { if (global.AMG && typeof global.AMG.ventasActuales === "function") return global.AMG.ventasActuales(); } catch (_) {}
+    return null;
+  }
+  // Sigue la cadena anulada -> restaurada (undo) hasta la venta vigente.
+  function _ventaEfectiva(v, restauradaDe, vistas) {
+    if (!v || vistas[v.id]) return v;
+    vistas[v.id] = true;
+    if (v.anulada && restauradaDe[v.id]) return _ventaEfectiva(restauradaDe[v.id], restauradaDe, vistas);
+    return v;
+  }
+  function _centavosVenta(v) {
+    if (!v || v.anulada || v.devuelta) return 0;
+    if (!v.info || v.info.formaPago !== "fiado") return 0;
+    return _centavos((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0));
+  }
+  // cargoId -> ventaId vigente (ultimo hecho por ts, desempate por id) o null si se deshizo.
+  function _vinculosManuales(todos, clienteId) {
+    var mapa = {};
+    todos.filter(function (h) { return h.tipo === VINCULO && String(_d(h).clienteId || "") === String(clienteId); })
+      .sort(function (a, b) { return (Number(a.ts) || 0) - (Number(b.ts) || 0) || String(a.id).localeCompare(String(b.id)); })
+      .forEach(function (h) {
+        var d = _d(h);
+        if (!d.cargoId) return;
+        mapa[String(d.cargoId)] = (d.accion === "vincular" && d.ventaId) ? String(d.ventaId) : null;
+      });
+    return mapa;
+  }
+  /* Funcion PURA (sin storage): todos = hechos; ventas = ventas actuales o null (=> montos guardados). */
+  function calcularSaldo(todos, clienteId, ventas) {
+    var mios = _sinDuplicados(todos.filter(function (h) {
+      return (h.tipo === TIPOS.cargo || h.tipo === TIPOS.abono) &&
+        String(_d(h).clienteId || "") === String(clienteId);
+    }), "clienteId");
+    var vinculos = _vinculosManuales(todos, clienteId);
+    var porId = {}, restauradaDe = {};
+    (ventas || []).forEach(function (v) {
+      if (!v || !v.id) return;
+      porId[v.id] = v;
+      if (v.restauracionDe && !v.anulada) restauradaDe[v.restauracionDe] = v;
+    });
+    var centavos = 0;
+    var movimientos = mios.map(function (h) {
+      var esCargo = h.tipo === TIPOS.cargo;
+      var d = _d(h);
+      var guardado = _centavos(d.monto);
+      var aporta = guardado, ventaId = "", manual = false;
+      if (esCargo) {
+        var propio = d.ventaId ? String(d.ventaId) : "";
+        var manualId = vinculos[String(h.id)] || "";
+        ventaId = propio || manualId;
+        manual = !propio && !!manualId;
+        var v = ventas && ventaId ? porId[ventaId] : null;
+        if (v && String(v.clienteId || "") === String(clienteId)) {
+          aporta = _centavosVenta(_ventaEfectiva(v, restauradaDe, {}));
+        }
+      }
+      centavos += (esCargo ? -1 : 1) * aporta;
+      var mov = { id: h.id, tipo: esCargo ? "cargo" : "abono", monto: aporta / 100,
+        motivo: d.motivo || "", quien: d.quien || "", fecha: h.ts };
+      if (esCargo) { mov.montoOriginal = guardado / 100; mov.ventaId = ventaId; mov.vinculoManual = manual; }
+      return mov;
+    });
+    movimientos.sort(function (a, b) { return a.fecha - b.fecha; });
+    return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos };
+  }
+
   // Deriva el saldo y el historial de UN cliente reproduciendo todos los
   // hechos conocidos. Nunca lee ni escribe un campo "saldo" guardado.
-  function saldoDeCliente(clienteId) {
+  // Claude 2026-10-07: segundo argumento opcional = ventas actuales (si falta se pide a
+  // AMG.ventasActuales(); si tampoco existe, los cargos se leen por su monto guardado).
+  function saldoDeCliente(clienteId, ventas) {
     if (!global.AMG || !global.AMG.Hechos || !global.AMG.Hechos.todos) {
       return Promise.resolve({ saldo: 0, movimientos: [] });
     }
     return global.AMG.Hechos.todos().then(function (todos) {
-      var mios = _sinDuplicados(todos.filter(function (h) {
-        return (h.tipo === TIPOS.cargo || h.tipo === TIPOS.abono) &&
-          String(_d(h).clienteId || "") === String(clienteId);
-      }), "clienteId");
-      var saldo = 0;
-      var movimientos = mios.map(function (h) {
-        var signo = h.tipo === TIPOS.cargo ? -1 : 1;
-        var monto = Number(_d(h).monto) || 0;
-        saldo += signo * monto;
-        return {
-          tipo: h.tipo === TIPOS.cargo ? "cargo" : "abono",
-          monto: monto,
-          motivo: _d(h).motivo || "",
-          quien: _d(h).quien || "",
-          fecha: h.ts
-        };
-      });
-      movimientos.sort(function (a, b) { return a.fecha - b.fecha; });
+      var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
       return Promise.resolve(global.AMG.Hechos.verificarCadenas(todos)).then(function (integridad) {
-        return { saldo: +saldo.toFixed(2), movimientos: movimientos, integridad: integridad };
+        return { saldo: r.saldo, movimientos: r.movimientos, integridad: integridad };
       });
+    });
+  }
+
+  /* Claude 2026-10-07 — VINCULO MANUAL de un cargo antiguo a su venta (solo dueno/admin; el
+     permiso y la validacion de la venta —mismo cliente, fiado, activa, sin otro cargo— los hace
+     mock-backend, que es quien ve las ventas). Nunca por heuristica de nombre/monto/fecha: el
+     llamador pasa el cargoId y la ventaId elegidos por una persona. */
+  function _cargoDe(todos, clienteId, cargoId) {
+    return todos.find(function (h) {
+      return h.tipo === TIPOS.cargo && String(h.id) === String(cargoId) &&
+        String(_d(h).clienteId || "") === String(clienteId);
+    });
+  }
+  function _registrarVinculo(clienteId, cargoId, ventaId, accion) {
+    var payload = {
+      clienteId: String(clienteId), cargoId: String(cargoId),
+      ventaId: ventaId ? String(ventaId) : null, accion: accion,
+      quien: (function () {
+        try { return (global.OCAuth && global.OCAuth.usuarioActual && global.OCAuth.usuarioActual().nombre) || "Sistema"; } catch (_) { return "Sistema"; }
+      })()
+    };
+    return global.AMG.Hechos.registrar(VINCULO, payload).then(function (r) {
+      if (!r) throw new Error("cartera: no se pudo guardar el hecho");
+      var eb = bus();
+      if (eb) eb.emit(VINCULO + ":registrado", { payload: payload });
+      return r;
+    });
+  }
+  function vincularCargo(clienteId, cargoId, ventaId) {
+    if (!global.AMG || !global.AMG.Hechos || !global.AMG.Hechos.todos) return Promise.reject(new Error("cartera: AMG.Hechos no disponible"));
+    return global.AMG.Hechos.todos().then(function (todos) {
+      var cargo = _cargoDe(todos, clienteId, cargoId);
+      if (!cargo) throw new Error("cartera: cargo no encontrado para este cliente");
+      if (_d(cargo).ventaId) throw new Error("cartera: este cargo ya nacio ligado a su venta");
+      if (_vinculosManuales(todos, clienteId)[String(cargoId)]) throw new Error("cartera: este cargo ya esta vinculado");
+      return _registrarVinculo(clienteId, cargoId, ventaId, "vincular");
+    });
+  }
+  function desvincularCargo(clienteId, cargoId) {
+    if (!global.AMG || !global.AMG.Hechos || !global.AMG.Hechos.todos) return Promise.reject(new Error("cartera: AMG.Hechos no disponible"));
+    return global.AMG.Hechos.todos().then(function (todos) {
+      if (!_cargoDe(todos, clienteId, cargoId)) throw new Error("cartera: cargo no encontrado para este cliente");
+      if (!_vinculosManuales(todos, clienteId)[String(cargoId)]) throw new Error("cartera: este cargo no tiene vinculo manual");
+      return _registrarVinculo(clienteId, cargoId, null, "desvincular");
+    });
+  }
+  /* Para la pantalla de vinculo: saldo antes/despues de ligar el cargo a cada venta candidata
+     (mismo cliente, fiado, activa, que aun no tiene otro cargo). */
+  function opcionesVinculo(clienteId, cargoId, ventas) {
+    return global.AMG.Hechos.todos().then(function (todos) {
+      var cargo = _cargoDe(todos, clienteId, cargoId);
+      if (!cargo || _d(cargo).ventaId || _vinculosManuales(todos, clienteId)[String(cargoId)]) return null;
+      var base = calcularSaldo(todos, clienteId, ventas);
+      var ocupadas = {};
+      base.movimientos.forEach(function (m) { if (m.ventaId) ocupadas[m.ventaId] = true; });
+      var opciones = (ventas || []).filter(function (v) {
+        return v && v.id && !ocupadas[v.id] && !v.anulada && !v.devuelta &&
+          String(v.clienteId || "") === String(clienteId) && v.info && v.info.formaPago === "fiado";
+      }).map(function (v) {
+        var hip = { id: "hipotesis", tipo: VINCULO, ts: Number.MAX_SAFE_INTEGER,
+          datos: { clienteId: String(clienteId), cargoId: String(cargoId), ventaId: v.id, accion: "vincular" } };
+        return { ventaId: v.id, valorActual: _centavosVenta(v) / 100, saldoAntes: base.saldo,
+          saldoDespues: calcularSaldo(todos.concat([hip]), clienteId, ventas).saldo };
+      });
+      return { cargo: { id: cargo.id, monto: Number(_d(cargo).monto) || 0, motivo: _d(cargo).motivo || "" }, opciones: opciones };
     });
   }
 
@@ -174,9 +352,13 @@
 
   global.AMG = global.AMG || {};
   global.AMG.Cartera = {
-    VERSION: "1.1.0-fase1",
+    VERSION: "1.2.0-fiado-sigue-venta",
     registrarMovimiento: registrarMovimiento,
     saldoDeCliente: saldoDeCliente,
+    calcularSaldo: calcularSaldo,
+    vincularCargo: vincularCargo,
+    desvincularCargo: desvincularCargo,
+    opcionesVinculo: opcionesVinculo,
     vistaCarteraSegunRol: vistaCarteraSegunRol,
     alertaActiva: alertaActiva,
     fijarAlerta: fijarAlerta

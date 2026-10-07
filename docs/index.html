@@ -3736,7 +3736,7 @@ async function pintarSaldoCartera(clienteId) {
     // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
-    const es = window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es";
+    const es = window.OCI18n && window.OCI18n.locale && String(window.OCI18n.locale()).startsWith("es") /* v460: locale() da "es-US", no "es" (JFC aprobó arreglarlo en Clientes) */;
     const color = debe ? "#E8365D" : "#00704A";
     // BUG FIX (JFC 2026-09-02): esta línea se borró por accidente en v1.7.79, así
     // que `texto` quedaba indefinido → ReferenceError → el saldo NO se pintaba
@@ -3810,11 +3810,96 @@ async function pintarSaldoCartera(clienteId) {
       <summary style="cursor:pointer;font-weight:700;">${es ? "Ver cargos y pagos que forman este saldo" : "See charges and payments behind this balance"}</summary>
       <div style="margin:5px 0;font-weight:700;">${desglose}</div>
       ${movimientos.map((m) => `<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid #D7E0E8;padding:5px 0;">
-        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}</span>
+        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${_accionesVinculoCartera(m, clienteId)}</span>
         <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
       </div>`).join("")}</details>` : "";
     el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${detalle}`;
   } catch (e) { console.error("[pintarSaldoCartera]", e); el.innerHTML = ""; }
+}
+/* Claude 2026-10-07 — LA DEUDA DE UNA VENTA FIADA SIGUE A LA VENTA.
+   Un cargo ligado a su venta muestra el valor ACTUAL de la venta (corregir el precio en Sold corrige la
+   deuda). Un cargo antiguo sin venta puede ligarlo a mano SOLO dueno/admin (boton visible solo si hay
+   ventas fiadas candidatas del mismo cliente). Todo texto nuevo usa claves cust.link* con valor
+   "[TEXT PENDING JFC]" hasta que JFC dicte la redaccion: NO inventar textos aqui. */
+function _accionesVinculoCartera(m, clienteId) {
+  if (m.tipo !== "cargo") return "";
+  const rol = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+  const dueno = rol === "dueno" || rol === "admin";
+  let out = "";
+  if (m.ventaId) {
+    // Valor original tachado solo si cambio al seguir a su venta (dato, no texto nuevo).
+    const cambio = Number(m.montoOriginal) !== Number(m.monto);
+    out += ` <span style="font-size:12px;font-weight:700;color:#19354B;">${escHtml(t("cust.linkFollows"))}${cambio ? ` <s>${fmtMoney(m.montoOriginal)}</s>` : ""}</span>`;
+    if (dueno && m.vinculoManual) {
+      out += ` <button type="button" class="oc-edit-btn" data-ui="cartera.unlink" onclick="ocDesvincularCargo('${clienteId}','${escHtml(String(m.id))}')" style="padding:2px 9px;font-size:12px;">${escHtml(t("cust.unlinkSale"))}</button>`;
+    }
+  } else if (dueno && Number(m.vinculables) > 0) {
+    out += ` <button type="button" class="oc-edit-btn" data-ui="cartera.link" onclick="ocVincularCargo('${clienteId}','${escHtml(String(m.id))}')" style="padding:2px 9px;font-size:12px;">${escHtml(t("cust.linkSale"))}</button>`;
+  }
+  return out;
+}
+function _textoSaldoCartera(saldo) {
+  const es = window.OCI18n && window.OCI18n.locale && String(window.OCI18n.locale()).startsWith("es") /* v460: locale() da "es-US", no "es" (JFC aprobó arreglarlo en Clientes) */;
+  if (saldo < 0) return `${es ? "Deuda" : "Debt"} ${fmtMoney(-saldo)}`;
+  if (saldo > 0) return `${es ? "Crédito" : "Credit"} ${fmtMoney(saldo)}`;
+  return fmtMoney(0);
+}
+function _refrescarTrasVinculo(clienteId, vista) {
+  try { if (typeof _deudaDe === "function") _saldoDeuda[clienteId] = _deudaDe(vista); } catch (_) {}
+  pintarSaldoCartera(clienteId);
+}
+async function ocVincularCargo(clienteId, cargoId) {
+  const res = await fetch(`${API}/clientes/${clienteId}/cartera/${encodeURIComponent(cargoId)}/opciones`);
+  const r = await res.json().catch(() => ({}));
+  if (!res.ok || !r.opciones || !r.opciones.length) { await ocAlert(r.error || t("cust.linkNone")); return false; }
+  return new Promise((resolve) => {
+    if (_ocModalResolve) { _ocModalResolve(null); _ocModalResolve = null; }
+    _ocModalResolve = () => resolve(false);
+    const overlay = document.getElementById("oc-modal-overlay");
+    const msgEl = document.getElementById("oc-modal-msg");
+    const botonesEl = document.getElementById("oc-modal-botones");
+    const opts = r.opciones.map((o, i) => {
+      const f = o.fecha ? new Date(o.fecha).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || "en-US") : "";
+      return `<option value="${escHtml(o.ventaId)}">${escHtml((o.producto || "") + " · " + fmtMoney(o.valorActual) + (f ? " · " + f : ""))}</option>`;
+    }).join("");
+    msgEl.innerHTML = `<span style="font-weight:700;">${escHtml(t("cust.linkSale"))}</span>
+      <div style="margin-top:8px;font-weight:700;">${escHtml(t("cust.linkOriginal"))}: ${fmtMoney(r.cargo.monto)}${r.cargo.motivo ? " — " + escHtml(r.cargo.motivo) : ""}</div>
+      <select id="oc-vinc-sel" style="margin-top:8px;width:100%;padding:8px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;">${opts}</select>
+      <div id="oc-vinc-prev" style="margin-top:8px;font-weight:700;"></div>`;
+    const sel = document.getElementById("oc-vinc-sel");
+    const pintarPrev = () => {
+      const o = r.opciones.find((x) => x.ventaId === sel.value) || r.opciones[0];
+      document.getElementById("oc-vinc-prev").textContent = `${t("cust.linkBefore")}: ${_textoSaldoCartera(o.saldoAntes)}  →  ${t("cust.linkAfter")}: ${_textoSaldoCartera(o.saldoDespues)}`;
+    };
+    sel.addEventListener("change", pintarPrev);
+    pintarPrev();
+    botonesEl.innerHTML = "";
+    const cancel = document.createElement("button");
+    cancel.textContent = t("common.cancel");
+    cancel.addEventListener("click", () => { overlay.style.display = "none"; _ocModalResolve = null; resolve(false); });
+    const ok = document.createElement("button");
+    ok.textContent = t("common.accept");
+    ok.setAttribute("data-ui", "cartera.link-accept");
+    ok.addEventListener("click", async () => {
+      const ventaId = sel.value;
+      overlay.style.display = "none"; _ocModalResolve = null;
+      const rr = await fetch(`${API}/clientes/${clienteId}/vincular`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cargoId, ventaId }) });
+      const vista = await rr.json().catch(() => ({}));
+      if (!rr.ok) { await ocAlert(vista.error || t("cust.linkNone")); resolve(false); return; }
+      _refrescarTrasVinculo(clienteId, vista);
+      resolve(true);
+    });
+    botonesEl.appendChild(cancel);
+    botonesEl.appendChild(ok);
+    overlay.style.display = "flex";
+  });
+}
+async function ocDesvincularCargo(clienteId, cargoId) {
+  const rr = await fetch(`${API}/clientes/${clienteId}/desvincular`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cargoId }) });
+  const vista = await rr.json().catch(() => ({}));
+  if (!rr.ok) { await ocAlert(vista.error || t("cust.linkNone")); return false; }
+  _refrescarTrasVinculo(clienteId, vista);
+  return true;
 }
 /* Pagar una deuda (JFC 2026-09-02): abre el modal de plan-pagos ("Record a
    payment"), que sigue en window.abonarCliente. Busca el nombre en la tarjeta. */
@@ -7235,9 +7320,10 @@ async function confirmarVentaConInfo(id, esTicket){
       const _montoFiado = +(_precioFiado * _cantVenta).toFixed(2);
       if (_montoFiado > 0) {
         try {
+          // Codex 2026-10-07: retain the returned sale ID; never infer a debt link from its label.
           const deudaRes = await fetch(`${API}/clientes/${clienteId}/fiar`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ monto: _montoFiado, motivo: `Sale on credit: ${_nombreFiado}` })
+            body: JSON.stringify({ monto: _montoFiado, motivo: `Sale on credit: ${_nombreFiado}`, ventaId: data.ventaId })
           });
           if (!deudaRes.ok) throw new Error(`Debt posting failed (${deudaRes.status})`);
           try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}

@@ -140,6 +140,9 @@
   ];
 
   const ventas = [];
+  /* Claude 2026-10-07: AMG.Cartera lee el valor ACTUAL de las ventas fiadas por aqui (la deuda de
+     una venta fiada sigue a la venta). Los endpoints de cartera ademas pasan `ventas` explicito. */
+  try { window.AMG = window.AMG || {}; window.AMG.ventasActuales = function () { return ventas; }; } catch (_) {}
   const movimientos = [];
   const transferencias = [];
   // GASTOS (2026-08-27): gastos individuales registrados por el dueño. Cada
@@ -3076,6 +3079,19 @@
     return out;
   }
 
+  /* Claude 2026-10-07: vista de cartera + (solo dueno/admin) marca de cada cargo sin venta: `vinculables`
+     = cuantas ventas fiadas del cliente podria elegir la persona. Sin candidatas, la UI no ofrece el boton. */
+  async function _vistaCarteraConVinculos(clienteId, info, rol) {
+    const vista = window.AMG.Cartera.vistaCarteraSegunRol(info, rol);
+    if ((rol === "dueno" || rol === "admin") && Array.isArray(vista.historial)) {
+      for (const m of vista.historial) {
+        if (m.tipo !== "cargo" || m.ventaId) continue;
+        const r = await window.AMG.Cartera.opcionesVinculo(clienteId, m.id, ventas);
+        m.vinculables = r ? r.opciones.length : 0;
+      }
+    }
+    return vista;
+  }
   function _rolLocal() {
     try { return (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : ""; } catch (_) { return ""; }
   }
@@ -6438,8 +6454,56 @@
         if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
         if (!window.AMG || !window.AMG.Cartera) return J({ saldo: 0, movimientos: [] });
         const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
-        const info = await window.AMG.Cartera.saldoDeCliente(c.id);
-        return J(window.AMG.Cartera.vistaCarteraSegunRol(info, rol));
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
+        return J(await _vistaCarteraConVinculos(c.id, info, rol));
+      }
+      /* Claude 2026-10-07 — VINCULAR UN CARGO ANTIGUO A SU VENTA (solo dueno/admin, a mano).
+         GET  /api/clientes/:id/cartera/:cargoId/opciones -> ventas candidatas + saldo antes/despues
+         POST /api/clientes/:id/vincular    { cargoId, ventaId }
+         POST /api/clientes/:id/desvincular { cargoId }
+         Nunca por heuristica: la persona elige el cargo y la venta. Hecho aditivo cartera_vinculo
+         (append-only): los aparatos v459 lo ignoran. */
+      const mCliOpc = path.match(/^\/api\/clientes\/([^/]+)\/cartera\/([^/]+)\/opciones$/);
+      if (mCliOpc && (!opts || !opts.method || opts.method === "GET")) {
+        const rolV = _rolLocal();
+        if (rolV !== "dueno" && rolV !== "admin") return J({ error: "Only the owner or an admin can link a charge to a sale." }, 403);
+        const c = clientes.find((x) => x.id === mCliOpc[1]);
+        if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        if (!window.AMG || !window.AMG.Cartera) return J({ error: "Customer credit is not available." }, 500);
+        const r = await window.AMG.Cartera.opcionesVinculo(c.id, decodeURIComponent(mCliOpc[2]), ventas);
+        if (!r) return J({ error: "This charge cannot be linked." }, 400);
+        r.opciones.forEach((o) => {
+          const v = ventas.find((x) => x.id === o.ventaId);
+          const pr = v && productos.find((x) => x.id === v.productoId);
+          o.producto = pr ? pr.nombre : ""; o.fecha = v ? v.fecha : "";
+        });
+        return J(r);
+      }
+      const mCliVinc = path.match(/^\/api\/clientes\/([^/]+)\/(vincular|desvincular)$/);
+      if (mCliVinc && opts && opts.method === "POST") {
+        const rolV = _rolLocal();
+        if (rolV !== "dueno" && rolV !== "admin") return J({ error: "Only the owner or an admin can link a charge to a sale." }, 403);
+        const c = clientes.find((x) => x.id === mCliVinc[1]);
+        if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        if (!window.AMG || !window.AMG.Cartera) return J({ error: "Customer credit is not available." }, 500);
+        const cargoId = String(body.cargoId || "");
+        try {
+          if (mCliVinc[2] === "vincular") {
+            const r = await window.AMG.Cartera.opcionesVinculo(c.id, cargoId, ventas);
+            // Solo ventas del MISMO cliente, fiadas, activas y sin otro cargo (opcionesVinculo ya filtra).
+            if (!r || !r.opciones.some((o) => o.ventaId === String(body.ventaId))) {
+              return J({ error: "The charge must be linked to an active on-account sale of this customer." }, 400);
+            }
+            await window.AMG.Cartera.vincularCargo(c.id, cargoId, String(body.ventaId));
+          } else {
+            await window.AMG.Cartera.desvincularCargo(c.id, cargoId);
+          }
+        } catch (e) {
+          return J({ error: (e && e.message) || "No se pudo registrar el vinculo." }, 400);
+        }
+        mov(mCliVinc[2] === "vincular" ? "cartera-vinculo" : "cartera-desvinculo", { cliente: c.nombre, cargoId });
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
+        return J(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"));
       }
       const mCliFiar = path.match(/^\/api\/clientes\/([^/]+)\/(fiar|abonar)$/);
       if (mCliFiar && opts && opts.method === "POST") {
@@ -6449,15 +6513,28 @@
         if (!(monto > 0)) return J({ error: "The amount must be greater than zero." }, 400);
         if (!window.AMG || !window.AMG.Cartera) return J({ error: "Customer credit is not available." }, 500);
         const tipo = mCliFiar[2] === "fiar" ? "cargo" : "abono";
+        // Codex 2026-10-07: a caller-supplied sale link is evidence only after checking
+        // the real sale/customer/amount. Old callers and manual debts stay valid.
+        let relacion = null;
+        if (body.ventaId !== undefined) {
+          const origen = typeof body.ventaId === "string" && ventas.find((v) => v.id === body.ventaId);
+          if (tipo !== "cargo" || !origen || origen.anulada || origen.devuelta || origen.clienteId !== c.id || !origen.info || origen.info.formaPago !== "fiado") {
+            return J({ error: "The debt must refer to this customer's active on-account sale." }, 400);
+          }
+          if (!Number.isFinite(monto) || Math.round(monto * 100) !== Math.round(origen.precioUnit * origen.cantidad * 100)) {
+            return J({ error: "The debt amount must match the recorded sale." }, 400);
+          }
+          relacion = { ventaId: origen.id };
+        }
         try {
-          await window.AMG.Cartera.registrarMovimiento(c.id, tipo, monto, body.motivo || "");
+          await window.AMG.Cartera.registrarMovimiento(c.id, tipo, monto, body.motivo || "", relacion);
         } catch (e) {
           return J({ error: (e && e.message) || "No se pudo registrar el movimiento." }, 400);
         }
         mov(tipo === "cargo" ? "cartera-fiado" : "cartera-abono", { cliente: c.nombre, monto });
-        const info = await window.AMG.Cartera.saldoDeCliente(c.id);
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
         const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
-        return J(window.AMG.Cartera.vistaCarteraSegunRol(info, rol));
+        return J(await _vistaCarteraConVinculos(c.id, info, rol));
       }
 
       // POST /api/clientes/:id/despedir — excluye al cliente de la operación activa.

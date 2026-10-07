@@ -91,7 +91,7 @@
     const cobrado = total + (imp && imp.modo === "agregado" ? taxC : 0);
     if (cobrado <= 0) { errors.push({ factKind: "venta", factId: id, motivo: "venta sin importe cobrado" }); return; }
 
-    const cashAcct = (v.fiado === true || v.medioPago === "fiado") ? "1100" : "1000"; // fiado: queda por cobrar
+    const cashAcct = (v.fiado === true || v.medioPago === "fiado" || (v.info && v.info.formaPago === "fiado")) ? "1100" : "1000"; // Codex 2026-10-07: actual sale field + legacy aliases
     const shares = sharesOfSale(v, locations);
     const sumShares = shares.reduce((a, s) => a + s.cents, 0);
     /* Parte de la casa = lo cobrado - impuesto - lo que se debe a personas. */
@@ -183,6 +183,12 @@
     const id = str(c.id || c.opId);
     if (c.tipo === "cargo") return;
     if (c.tipo !== "abono") { errors.push({ factKind: "cobro", factId: id, motivo: "tipo de cartera desconocido: " + str(c.tipo) }); return; }
+    /* Claude 2026-10-07: una correccion de precio en Sold NO escribe ningun hecho de cartera (la deuda de
+       una venta fiada se LEE de la venta, ver cartera.js). Por eso aqui no hay rama "correccion_venta":
+       el prototipo de Codex (naturaleza=correccion_venta, 2026-10-07) se retiro porque nada lo escribe y
+       un abono de correccion seria un falso cobro. Un cartera_abono es SIEMPRE un pago real: Debe 1000 /
+       Haber 1100. La venta fiada ya asienta su valor ACTUAL en 1100 (regla 1), asi que corregir el
+       precio de 108 a 18 deja 1100 en 18 y caja en 0. */
     const m = cents(c.monto);
     if (m <= 0) { errors.push({ factKind: "cobro", factId: id, motivo: "cobro sin importe positivo" }); return; }
     const lines = [];
