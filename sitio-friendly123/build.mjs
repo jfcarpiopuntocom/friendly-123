@@ -19,7 +19,9 @@
 // LANZAMIENTO 2026-10-07 (orden de JFC: "Sube save.html como index.html temporal a friendly123.com"):
 //   /          = docs/save.html (temporal). Sus URLs relativas (./x) se reescriben a /app/x
 //                (no se usa <base>: rompia los enlaces #ancla, que irian a /app/#ancla).
-//   /landing/  = la landing de ventas que antes era la raiz (no se pierde).
+//   /landing/  = ELIMINADA (JFC 2026-10-07: "borra la de /landing/"). La landing vieja ya no se publica en dist/.
+//   /preview/  = VISTA PREVIA de la nueva landing (fuente: sitio-friendly123/landing/). noindex, Disallow en robots,
+//                fuera del sitemap. La raiz sigue siendo save.html hasta que JFC apruebe mover la nueva.
 //   robots.txt, sitemap.xml, favicon, apple-touch-icon, og:image, canonical/og:url a friendly123.com
 //   y versiones .webp: SOLO en las copias de dist/, nunca en docs/. No se escribe ningun texto visible nuevo.
 //
@@ -156,18 +158,14 @@ const poner = (html, { url, og = true }) => {
   return html.replace("</head>", extra.join("\n") + "\n</head>");
 };
 
-// (a) Landing: la raiz vieja pasa a /landing/. Sus rutas relativas (media/, clips/) se vuelven absolutas.
-const landing = join(DIST, "landing");
-mkdirSync(landing, { recursive: true });
-writeFileSync(join(landing, "index.html"),
-  readFileSync(join(DIST, "index.html"), "utf8").replace(/\b(src|poster)="(media|clips)\//g, '$1="/$2/'));
-rmSync(join(DIST, "index.html"));
+// (a) (ELIMINADO 2026-10-07, orden de JFC) Antes aqui la raiz vieja se copiaba a /landing/. Ya no se publica.
+//     El index.html viejo que llega de friendly123/ se sobrescribe mas abajo con save.html (paso c).
 
 // (b) Canonicos de la landing: jfcarpio.com/friendly123/... -> friendly123.com/... (la vieja raiz -> /landing/).
 const aSitio = (h) => h.replace(/https:\/\/jfcarpio\.com\/friendly123\/([^"'<> )]*)/g, (_, r) =>
-  SITIO + "/" + (r === "" || r.startsWith("#") ? "landing/" + r : r));
+  SITIO + "/" + r);
 const urlDe = (rel) => SITIO + "/" + rel.replace(/index\.html$/, "");
-const publicasLanding = ["landing/index.html", ...archivos.map((r) => r.slice(CARPETA.length + 1)).filter((r) => /\/index\.html$/.test(r))];
+const publicasLanding = [...archivos.map((r) => r.slice(CARPETA.length + 1)).filter((r) => /\/index\.html$/.test(r))];
 for (const rel of publicasLanding) {
   const f = join(DIST, rel);
   let h = aSitio(readFileSync(f, "utf8"));
@@ -201,12 +199,21 @@ for (const rel of ["index.html", "manual.html"]) {
 // 404 raiz: solo iconos (og=false y sin canonical).
 writeFileSync(join(DIST, "404.html"), poner(readFileSync(join(DIST, "404.html"), "utf8"), { url: SITIO + "/", og: false }));
 
+// (d2) VISTA PREVIA: sitio-friendly123/landing/ -> dist/preview/ (JFC 2026-10-07). Rutas ya absolutas (/app/...).
+//      El logo pasa a webp igual que en la raiz. NO entra en el sitemap y robots la bloquea.
+const previewDir = join(DIST, "preview");
+mkdirSync(previewDir, { recursive: true });
+cpSync(join(AQUI, "landing"), previewDir, { recursive: true });
+let prev = readFileSync(join(previewDir, "index.html"), "utf8");
+if (sharp) prev = prev.replace('src="/app/img/logo-720.png"', 'src="/app/img/logo-720.webp"');
+writeFileSync(join(previewDir, "index.html"), poner(prev, { url: SITIO + "/preview/" }));
+
 // (e) robots.txt y sitemap.xml
 writeFileSync(join(DIST, "robots.txt"), [
   "User-agent: *", "Allow: /",
   ...["panel", "estado", "dashboard", "tablero", "informe-ejecutivo", "manual-maestro", "reporte-usuario"].map((p) => `Disallow: /app/${p}.html`),
   "Disallow: /app/NOTA-", "Disallow: /app/RUNBOOK-", "Disallow: /app/OUTREACH-", "Disallow: /app/superpowers/",
-  "Disallow: /clips/", "Disallow: /mosaico.html",
+  "Disallow: /clips/", "Disallow: /mosaico.html", "Disallow: /preview/",
   "", "Sitemap: " + SITIO + "/sitemap.xml", ""].join("\n"));
 const urls = [SITIO + "/", ...publicasLanding.map(urlDe), SITIO + "/app/", SITIO + "/app/manual.html"];
 writeFileSync(join(DIST, "sitemap.xml"), '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
@@ -220,7 +227,7 @@ cpSync(join(AQUI, "_headers"), join(DIST, "_headers"));
 // redirecciones: el navegador/SW no ve ningun salto), una por cada carpeta de la landing con
 // index.html, mas / y /app/. "/app" sin barra si redirige (301) a /app/: queda fuera del
 // scope del SW (/app/), no lo afecta.
-const reglas = ["/app /app/ 301", "/landing /landing/ 301", "/ /index.html 200", "/app/ /app/index.html 200"];
+const reglas = ["/app /app/ 301", "/preview /preview/ 301", "/ /index.html 200", "/app/ /app/index.html 200"];
 const carpetas = (dir, pref) => {
   if (existsSync(join(dir, "index.html"))) reglas.push(pref + "/ " + pref + "/index.html 200");
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -237,7 +244,7 @@ const dura = (c, m) => { if (!c) throw new Error("build: " + m); };
 dura(existsSync(join(DIST, "index.html")), "falta dist/index.html (landing)");
 dura(existsSync(join(DIST, "app", "index.html")), "falta dist/app/index.html");
 dura(existsSync(join(DIST, "app", "sw.js")), "falta dist/app/sw.js");
-for (const rel of ["landing/index.html", "es/index.html"]) {
+for (const rel of ["es/index.html"]) {
   const t = readFileSync(join(DIST, rel), "utf8");
   dura(!t.includes("jfcarpiopuntocom.github.io/friendly-123"), rel + " aun enlaza a github.io");
   dura(!t.includes('"/friendly123/'), rel + " aun trae prefijo /friendly123/");
@@ -245,6 +252,8 @@ for (const rel of ["landing/index.html", "es/index.html"]) {
 const raizHtml = readFileSync(join(DIST, "index.html"), "utf8");
 dura(!/(?:href|src)="\.\//.test(raizHtml), "la raiz (save.html) aun trae URLs relativas ./");
 dura(raizHtml.includes('<link rel="canonical" href="' + SITIO + '/">'), "raiz sin canonical friendly123.com");
-dura(!readFileSync(join(DIST, "landing", "index.html"), "utf8").includes("jfcarpio.com/friendly123"), "landing aun apunta a jfcarpio.com/friendly123");
+dura(!existsSync(join(DIST, "landing")), "dist/landing/ debe NO existir (orden de JFC 2026-10-07)");
+dura(existsSync(join(DIST, "preview", "index.html")), "falta dist/preview/index.html");
+dura(!/<meta name="robots" content="index/.test(readFileSync(join(DIST, "preview", "index.html"), "utf8")), "preview debe ser noindex");
 if (sharp) console.log(`webp: ${ahorro.n} imagenes, ${ahorro.antes} -> ${ahorro.despues} bytes (-${ahorro.antes - ahorro.despues})`);
 console.log(`dist listo: ${archivos.length} archivos de landing (${reescritos} con enlaces reescritos) + app + 404 + _headers`);
