@@ -8318,7 +8318,9 @@ function agruparVentasPorProducto(rows, soloComision, mes, incluirPropias = fals
     if (conReparto) {
       const socio = Number(v.comisionAsociado) || 0, casa = v.netoCasa != null ? (Number(v.netoCasa) || 0) : (v.comisionPct == null ? monto : 0);
       d.unid += cant; d.bruto += socio + casa; d.socio += socio; d.casa += casa;
-      if (!v.liquidada) d.pendSocio += socio;
+      /* v457 (b): lo pendiente sale del ledger (comisionPendiente) cuando viene; una venta vieja recalculada y ya liquidada tiene nuevo Still due. */
+      if (v.comisionPendiente != null && Number.isFinite(Number(v.comisionPendiente))) d.pendSocio += Number(v.comisionPendiente);
+      else if (!v.liquidada) d.pendSocio += socio;
       if (v.asociadoNombre) d.asociados.add(v.asociadoNombre);
     } else if (compartida) { d.counterUnid += cant; d.counterMonto += monto; }
     else { d.propiasUnid += cant; d.propiasMonto += monto; }

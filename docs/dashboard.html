@@ -2115,6 +2115,18 @@
     _ledgerObs.forEach(function (o) {
       if (o.kind === "sale") _ledgerGanado[o.sourceId] = (_ledgerGanado[o.sourceId] || 0) + Number(o.signedAmountCents || 0);
     });
+    /* v457 (b): una venta vieja sin reparto recalculada al % del producto no se reescribe; su comision vive en el ajuste
+       "adj-retro-<id>" (tipo recalculo-retroactivo). Se lee DEL LEDGER igual que la app, sin recalcular aqui. */
+    var _retroPorVenta = {};
+    var _ajPorId = {};
+    (e.ajustesComision || []).forEach(function (a) { if (a && a.id != null) _ajPorId[String(a.id)] = a; });
+    _ledgerObs.forEach(function (o) {
+      if (o.kind !== "adjustment") return;
+      var a = _ajPorId[String(o.sourceId)];
+      if (!a || a.tipo !== "recalculo-retroactivo") return;
+      var r = _retroPorVenta[String(a.ventaId)] || (_retroPorVenta[String(a.ventaId)] = { ganadoC: 0, dueC: 0, pct: a.comisionPct != null ? a.comisionPct : null, payeeId: o.payeeId });
+      r.ganadoC += Number(o.signedAmountCents || 0); r.dueC += Number(o.dueCents || 0);
+    });
     var entra = 0, sale = 0, nHoy = 0;
     var ventas = (e.ventas || []).filter(function (v) { return v && !v.anulada; }).map(function (v) {
       var p = prods[v.productoId] || {};
@@ -2137,14 +2149,14 @@
         eventoFecha: (v.info && v.info.fechaEvento) || "",
         eventoPersonas: (v.info && v.info.numPersonas) || null,
         pagador: (v.info && v.info.nombrePagador) || "",
-        comisionPct: v.split ? v.split.comisionPct : null,
-        comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : 0,
-        netoCasa: v.split ? v.split.montoNetoDueno : null,
+        comisionPct: v.split ? v.split.comisionPct : (_ledgerCore && _retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].pct : null),
+        comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : (_ledgerCore && _retroPorVenta[String(v.id)] ? +_ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC).toFixed(2) : 0),
+        netoCasa: v.split ? v.split.montoNetoDueno : (_ledgerCore && _retroPorVenta[String(v.id)] ? +(pu * cant - _ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC)).toFixed(2) : null),
         comisionCorregida: !!(v.split && v.split.corregida),
         liquidada: !!v.liquidada,
-        comisionPendiente: _ledgerCore ? +_ledgerCore.money(_ledgerDueVenta[String(v.id)] || 0).toFixed(2) : null,
+        comisionPendiente: _ledgerCore ? +_ledgerCore.money((_ledgerDueVenta[String(v.id)] || 0) + (_retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].dueC : 0)).toFixed(2) : null,
         medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
-        asociadoNombre: asoc[v.ubicacionId] || "",
+        asociadoNombre: asoc[v.ubicacionId] || (!v.split && _retroPorVenta[String(v.id)] && _retroPorVenta[String(v.id)].payeeId ? ((e.promotoras || []).find(function (x) { return x.id === _retroPorVenta[String(v.id)].payeeId; }) || {}).nombre || "" : ""),
         /* v457: lo mismo que emite /api/ventas/todas por el relay (mock-backend.js). Sin `mes`, `modoComision` y
            `ubicacionTipo` la pestania Commissions filtraba TODAS las ventas y la duena veia $0 en su propio equipo. */
         mes: v.fecha ? mesLocalDe(v.fecha, v.relojDesfaseMs) : "",
