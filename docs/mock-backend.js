@@ -2373,6 +2373,10 @@
        no inferimos identidad historica desde una percha que pudo cambiar de manos. */
     if (!origen && String(v.promotoraId || "") !== String(promotoraId || "")) return false;
     if (_tieneCorreccionManual(v)) return false;
+    /* Un reparto con asistente tiene dos beneficiarios. El corrector historico
+       reutiliza la percha actual para reconstruir ese reparto; no arriesgamos
+       reasignar centavos/personas por un hotfix de otra cosa. */
+    if (Array.isArray(v.split.reparto) && v.split.reparto.length > 1) return false;
     const u = ubicaciones.find((x) => x.id === v.ubicacionId);
     if (!u || u.usarComisionPropia || Number(u.contribFija) > 0 || Number(u.minimoGarantizado) > 0) return false;
     const p = productos.find((x) => x.id === v.productoId);
@@ -4939,7 +4943,7 @@
         if (body.nombre !== undefined) pr.nombre = String(body.nombre).trim().slice(0, 80) || pr.nombre;
         // Base % en comisionBase (con comision espejo) — acepta ambos nombres de entrada.
         if (body.comisionBase !== undefined || body.comision !== undefined) {
-          const b = Math.max(0, Math.min(100, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0));
+          const b = Math.max(0, Number(body.comisionBase !== undefined ? body.comisionBase : body.comision) || 0);
           pr.comisionBase = b; pr.comision = b;
           _cambioBase = Math.abs(b - _baseAntes) >= 0.0001;
         }
