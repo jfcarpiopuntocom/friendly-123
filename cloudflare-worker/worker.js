@@ -428,27 +428,30 @@ async function handleRecoverPin(req, env) {
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Email inválido" }, 400);
   if (!/^\d{1,3}$/.test(pin)) return json({ error: "PIN inválido" }, 400);
 
-  // Anti-abuso (JFC 2026-07-22). Dos blindajes, ambos fail-open para NUNCA
-  // romper una recuperación legítima si el KV tiene un hipo:
-  //   1) El correo destino es el REGISTRADO en KV para esa instancia, no el
-  //      que venga en el request. Sin esto, cualquiera con un instanceId
-  //      válido podía usar el endpoint como relay de spam hacia direcciones
-  //      ajenas (gastando además la cuota de Resend). Si la instancia aún no
-  //      tiene correo guardado, caemos al del request (primer registro).
-  //   2) Rate-limit leve por instancia (5/hora) con contador en KV con TTL.
-  let emailDestino = email;
-  if (instanceId && env.LICENCIAS) {
-    let reg = null;
-    try { const r = await env.LICENCIAS.get(`inst:${instanceId}`); reg = r ? JSON.parse(r) : null; } catch (_) { reg = null; }
-    if (!reg) return json({ error: "Instancia desconocida" }, 403);
-    if (reg.email && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reg.email)) emailDestino = reg.email;
-    try {
-      const rlKey = `rl:recover:${instanceId}`;
-      const n = parseInt((await env.LICENCIAS.get(rlKey)) || "0", 10) || 0;
-      if (n >= 5) return json({ ok: true, enviado: false, motivo: "rate_limited" });
-      await env.LICENCIAS.put(rlKey, String(n + 1), { expirationTtl: 3600 });
-    } catch (_) { /* fail-open: si el KV falla, dejamos pasar */ }
-  }
+  // Anti-abuso (JFC 2026-07-22; endurecido 2026-10-07, auditoria B-2).
+  // FAIL-CLOSED: antes, con instanceId vacio se saltaba todo y el correo salia
+  // a cualquier direccion (relay de correo desde la cuenta Resend del dueno).
+  // Reglas actuales, TODAS previas al envio:
+  //   1) instanceId obligatorio, con formato valido y registrado en KV.
+  //   2) El destino es SOLO el correo ya guardado de esa instancia. Si no hay
+  //      uno valido guardado, se rechaza: JAMAS se usa el del request.
+  //   3) Rate limit 5/hora por instancia Y 5/hora por IP (CF-Connecting-IP),
+  //      contadores en KV con TTL. Si el KV falla al contar, se deja pasar el
+  //      conteo (la validacion 1-2 ya cerro el abuso hacia terceros).
+  if (!/^[A-Za-z0-9._:-]{8,120}$/.test(instanceId)) return json({ error: "instanceId requerido" }, 400);
+  if (!env.LICENCIAS) return json({ error: "Servicio no disponible" }, 503);
+  let reg = null;
+  try { const r = await env.LICENCIAS.get(`inst:${instanceId}`); reg = r ? JSON.parse(r) : null; } catch (_) { reg = null; }
+  if (!reg) return json({ error: "Instancia desconocida" }, 403);
+  if (!reg.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(reg.email)) return json({ error: "Sin correo registrado" }, 409);
+  const emailDestino = reg.email;
+  const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+  try {
+    const claves = [`rl:recover:${instanceId}`, `rl:recover:ip:${ip}`];
+    const cuentas = await Promise.all(claves.map(async k => parseInt((await env.LICENCIAS.get(k)) || "0", 10) || 0));
+    if (cuentas.some(n => n >= 5)) return json({ ok: true, enviado: false, motivo: "rate_limited" }, 429);
+    await Promise.all(claves.map((k, i) => env.LICENCIAS.put(k, String(cuentas[i] + 1), { expirationTtl: 3600 })));
+  } catch (_) { /* fail-open solo del conteo */ }
 
   // Sin RESEND_API_KEY → respuesta "soft" para que el cliente use fallback en pantalla.
   if (!env.RESEND_API_KEY) {

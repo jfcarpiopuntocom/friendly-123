@@ -27,3 +27,11 @@ _backups/
 _private/
 backups/
 out-jueces/
+
+# --- Notas internas fuera del sitio publico (JFC 2026-10-07, auditoria B-1) ---
+# Movidas a C:\00 Projects\friendly-123-privado\docs-internos-2026-10-07\ (y Notion).
+# NO re-agregar: docs/ se sirve publicamente por Pages. Siguen en el historial de git.
+docs/NOTA-*.md
+docs/RUNBOOK-*.md
+docs/OUTREACH-*.md
+docs/superpowers/
