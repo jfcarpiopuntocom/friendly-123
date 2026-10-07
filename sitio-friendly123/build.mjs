@@ -20,8 +20,9 @@
 //   /          = docs/save.html (temporal). Sus URLs relativas (./x) se reescriben a /app/x
 //                (no se usa <base>: rompia los enlaces #ancla, que irian a /app/#ancla).
 //   /landing/  = ELIMINADA (JFC 2026-10-07: "borra la de /landing/"). La landing vieja ya no se publica en dist/.
-//   /preview/  = VISTA PREVIA de la nueva landing (fuente: sitio-friendly123/landing/). noindex, Disallow en robots,
-//                fuera del sitemap. La raiz sigue siendo save.html hasta que JFC apruebe mover la nueva.
+//   /          = landing nueva (sitio-friendly123/landing/index.html), bloque (d3). save.html sigue en /app/save.html.
+//   /privacidad/, /terminos/ = paginas legales estaticas (fuente: sitio-friendly123/legal/), bloque (d4).
+//   /preview/  = ELIMINADA (JFC 2026-10-07: "Deja de crear /landing/ y /preview/, solo edita directo el index.html").
 //   robots.txt, sitemap.xml, favicon, apple-touch-icon, og:image, canonical/og:url a friendly123.com
 //   y versiones .webp: SOLO en las copias de dist/, nunca en docs/. No se escribe ningun texto visible nuevo.
 //
@@ -175,14 +176,8 @@ for (const rel of publicasLanding) {
 }
 await archivoAWebp(join(DIST, "media", "friendly-reel-poster.jpg"));
 
-// (c) Raiz = docs/save.html (temporal). URLs relativas -> /app/..., canonical y og a friendly123.com.
-let save = readFileSync(join(DOCS, "save.html"), "utf8")
-  .replaceAll("https://jfcarpiopuntocom.github.io/friendly-123/save.html", SITIO + "/")
-  .replaceAll('"url":"https://jfcarpiopuntocom.github.io/friendly-123/"', '"url":"' + SITIO + '/"')
-  .replace(/(\b(?:href|src)=")\.\//g, "$1/app/");
+// (c) Logo webp (lo usa la raiz, d3) y copia de save.html en /app/save.html. (La raiz ya no es save.html.)
 await archivoAWebp(join(DIST, "app", "img", "logo-720.png"));
-if (sharp) save = save.replace('src="/app/img/logo-720.png"', 'src="/app/img/logo-720.webp"');
-writeFileSync(join(DIST, "index.html"), poner(save, { url: SITIO + "/" }));
 // Copia de la app en /app/save.html: mismo canonico (la raiz); sus rutas ./ ya resuelven a /app/.
 writeFileSync(join(DIST, "app", "save.html"), poner(
   readFileSync(join(DOCS, "save.html"), "utf8").replaceAll("https://jfcarpiopuntocom.github.io/friendly-123/save.html", SITIO + "/"),
@@ -199,33 +194,111 @@ for (const rel of ["index.html", "manual.html"]) {
 // 404 raiz: solo iconos (og=false y sin canonical).
 writeFileSync(join(DIST, "404.html"), poner(readFileSync(join(DIST, "404.html"), "utf8"), { url: SITIO + "/", og: false }));
 
-// (d2) VISTA PREVIA: sitio-friendly123/landing/ -> dist/preview/ (JFC 2026-10-07). Rutas ya absolutas (/app/...).
-//      El logo pasa a webp igual que en la raiz. NO entra en el sitemap y robots la bloquea.
-const previewDir = join(DIST, "preview");
-mkdirSync(previewDir, { recursive: true });
-cpSync(join(AQUI, "landing"), previewDir, { recursive: true });
-let prev = readFileSync(join(previewDir, "index.html"), "utf8");
-if (sharp) prev = prev.replace('src="/app/img/logo-720.png"', 'src="/app/img/logo-720.webp"');
-writeFileSync(join(previewDir, "index.html"), poner(prev, { url: SITIO + "/preview/" }));
-
-// (d3) RAIZ = LANDING NUEVA (JFC 2026-10-07: "Aprobada: pónla en la raíz"). Reemplaza a save.html en /.
-//      Misma fuente que /preview/, pero indexable (se quita el noindex) y con canonical a la raiz.
+// (d3) RAIZ = landing nueva, editada directo en sitio-friendly123/landing/index.html (JFC 2026-10-07).
+//      Indexable (se quita el noindex de la fuente) y con canonical a la raiz. El logo pasa a webp.
 //      save.html sigue disponible en /app/save.html (QRs de flyers apuntan a github.io/save.html, intacto).
-//      Para volver a save.html en la raiz: borrar este bloque (d3); el paso (c) la vuelve a escribir.
 cpSync(join(AQUI, "landing"), DIST, { recursive: true });
-const raizNueva = prev.replace(/<meta name="robots" content="noindex,nofollow">\s*/i, "");
-writeFileSync(join(DIST, "index.html"), poner(raizNueva, { url: SITIO + "/" }));
+let raiz = readFileSync(join(AQUI, "landing", "index.html"), "utf8");
+if (sharp) raiz = raiz.replace('src="/app/img/logo-720.png"', 'src="/app/img/logo-720.webp"');
+raiz = raiz.replace(/<meta name="robots" content="noindex,nofollow">\s*/i, "");
+writeFileSync(join(DIST, "index.html"), poner(raiz, { url: SITIO + "/" }));
+
+// (d4) Paginas legales: legal/<nombre>.html -> dist/<nombre>/index.html (privacidad, terminos = ES; privacy, terms = EN, traduccion fiel).
+//      Texto aprobado por JFC (Notion), verbatim. poner() solo agrega iconos (og:false); el canonical ya viene en la fuente.
+const LEGALES = { privacidad: SITIO + "/privacidad/", terminos: SITIO + "/terminos/", privacy: SITIO + "/privacy/", terms: SITIO + "/terms/" };
+for (const [nom, url] of Object.entries(LEGALES)) {
+  mkdirSync(join(DIST, nom), { recursive: true });
+  writeFileSync(join(DIST, nom, "index.html"), poner(readFileSync(join(AQUI, "legal", nom + ".html"), "utf8"), { url, og: false }));
+}
+
+// (d5) SEO internacional (JFC 2026-10-07: "completeness internacional y world class para SEO"). Solo metadatos y
+//      enlaces de pie; ningun texto aprobado se modifica. Se aplica a las copias de dist/ (las paginas /es/ y los
+//      articulos vienen del repo del sitio y NO se editan alli).
+//      PARES (EN <-> ES). x-default = la version EN. La raiz / (landing EN nueva) se empareja con /es/ (landing
+//      bilingue anterior, que sigue siendo una pagina distinta: se informa a JFC).
+//      /app/ y /app/manual.html son UNA sola URL bilingue (sin par): sin hreflang, solo og:locale.
+const PARES = [
+  { en: "", es: "es/" },
+  { en: "consignment-commissions/", es: "es/comisiones-de-consignacion/" },
+  { en: "shared-digital-notebook/", es: "es/cuaderno-digital-compartido/" },
+  { en: "privacy/", es: "privacidad/" },
+  { en: "terms/", es: "terminos/" },
+];
+const SOLOS = [{ rel: "app/", lang: "en", locale: "en_US", alt: "es_ES" }, { rel: "app/manual.html", lang: "es", locale: "es_EC", alt: "en_US" }];
+const archivoDe = (rel) => join(DIST, rel === "" || rel.endsWith("/") ? rel + "index.html" : rel);
+const OGL = { en: ["en_US", "es_ES"], es: ["es_ES", "en_US"] };
+// Pie legal por idioma en las paginas de la landing anterior (es/ y articulos). Esas paginas cambian de idioma
+// con botones [data-lang] (setLanguage), asi que un script minimo sincroniza los dos enlaces del pie.
+const PIE = { en: ['/privacy/', "Privacy", '/terms/', "Terms"], es: ['/privacidad/', "Privacidad", '/terminos/', "T\u00e9rminos"] };
+const conPie = (html, lang) => {
+  const [h1, t1, h2, t2] = PIE[lang];
+  const fin = "</nav></div></footer>";
+  dura0(html.includes(fin), "pie de la landing anterior no encontrado");
+  html = html.replace(fin, `<a id="lg-priv" href="${h1}">${t1}</a><a id="lg-terms" href="${h2}">${t2}</a>${fin}`);
+  const js = `<script>
+/* Enlaces legales del pie segun idioma (EN: Privacy/Terms, ES: Privacidad/Terminos). Se actualiza al pulsar los botones de idioma. */
+(function(){var P=${JSON.stringify(PIE)};function s(){var l=document.documentElement.lang==="es"?"es":"en",a=document.getElementById("lg-priv"),b=document.getElementById("lg-terms");if(!a||!b)return;a.href=P[l][0];a.textContent=P[l][1];b.href=P[l][2];b.textContent=P[l][3];}
+document.querySelectorAll("[data-lang]").forEach(function(x){x.addEventListener("click",function(){setTimeout(s,0);});});s();})();
+</script>
+`;
+  return html.replace(/<\/body>(?![\s\S]*<\/body>)/, js + "</body>");
+};
+function dura0(c, m) { if (!c) throw new Error("build: " + m); }
+const intl = (html, { lang, locale, alt, alternates }) => {
+  html = html.replace(/<html[^>]*>/i, `<html lang="${lang}">`);
+  // se quita lo que hubiera (hreflang, og:locale) y se escribe el juego completo
+  html = html.replace(/[ \t]*<link[^>]+rel="alternate"[^>]+hreflang="[^"]*"[^>]*>\n?/gi, "")
+             .replace(/[ \t]*<meta[^>]+property="og:locale(?::alternate)?"[^>]*>\n?/gi, "");
+  const extra = [];
+  if (alternates) {
+    extra.push(`<link rel="alternate" hreflang="en" href="${alternates.en}">`,
+               `<link rel="alternate" hreflang="es" href="${alternates.es}">`,
+               `<link rel="alternate" hreflang="x-default" href="${alternates.en}">`);
+  }
+  extra.push(`<meta property="og:locale" content="${locale}">`, `<meta property="og:locale:alternate" content="${alt}">`);
+  return html.replace("</head>", extra.join("\n") + "\n</head>");
+};
+for (const par of PARES) {
+  const alternates = { en: SITIO + "/" + par.en, es: SITIO + "/" + par.es };
+  for (const lang of ["en", "es"]) {
+    const f = archivoDe(par[lang]);
+    let h = intl(readFileSync(f, "utf8"), { lang, locale: OGL[lang][0], alt: OGL[lang][1], alternates });
+    // pie legal: raiz y paginas legales ya lo traen en su fuente; las demas (landing anterior) se inyecta aqui
+    if (/<footer><div class="wrap footer-inner">/.test(h)) {
+      h = conPie(h, lang);
+      // Piso de 12px (regla de JFC): la landing anterior trae dos rotulos de ilustracion a .72rem/.74rem.
+      h = h.replace("</head>", "<style>.art-legend span,.shelf-caption{font-size:.75rem}</style></head>");
+    }
+    writeFileSync(f, h);
+  }
+}
+for (const s of SOLOS) {
+  const f = archivoDe(s.rel);
+  writeFileSync(f, intl(readFileSync(f, "utf8"), { lang: s.lang, locale: s.locale, alt: s.alt }));
+}
 
 // (e) robots.txt y sitemap.xml
 writeFileSync(join(DIST, "robots.txt"), [
   "User-agent: *", "Allow: /",
   ...["panel", "estado", "dashboard", "tablero", "informe-ejecutivo", "manual-maestro", "reporte-usuario"].map((p) => `Disallow: /app/${p}.html`),
   "Disallow: /app/NOTA-", "Disallow: /app/RUNBOOK-", "Disallow: /app/OUTREACH-", "Disallow: /app/superpowers/",
-  "Disallow: /clips/", "Disallow: /mosaico.html", "Disallow: /preview/",
+  "Disallow: /clips/", "Disallow: /mosaico.html",
   "", "Sitemap: " + SITIO + "/sitemap.xml", ""].join("\n"));
-const urls = [SITIO + "/", ...publicasLanding.map(urlDe), SITIO + "/app/", SITIO + "/app/manual.html"];
-writeFileSync(join(DIST, "sitemap.xml"), '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-  urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n") + "\n</urlset>\n");
+// sitemap con xhtml:link (hreflang) reciprocos para cada par; /app/ sin par.
+const entrada = (loc, alts) => `  <url><loc>${loc}</loc>` + (alts ? `
+    <xhtml:link rel="alternate" hreflang="en" href="${alts.en}"/>
+    <xhtml:link rel="alternate" hreflang="es" href="${alts.es}"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="${alts.en}"/>
+  ` : "") + `</url>`;
+const lineas = [];
+for (const par of PARES) {
+  const alts = { en: SITIO + "/" + par.en, es: SITIO + "/" + par.es };
+  lineas.push(entrada(alts.en, alts), entrada(alts.es, alts));
+}
+for (const s of SOLOS) lineas.push(entrada(SITIO + "/" + s.rel));
+// toda carpeta publica de la landing debe estar en un par (si no, el sitemap quedaria incompleto)
+for (const rel of publicasLanding) dura0(PARES.some((p) => p.en + "index.html" === rel || p.es + "index.html" === rel) || rel === "index.html", "pagina publica sin par en PARES: " + rel);
+writeFileSync(join(DIST, "sitemap.xml"), ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">', ...lineas, "</urlset>", ""].join("\n"));
 
 // --- 4. Cabeceras
 cpSync(join(AQUI, "_headers"), join(DIST, "_headers"));
@@ -235,7 +308,7 @@ cpSync(join(AQUI, "_headers"), join(DIST, "_headers"));
 // redirecciones: el navegador/SW no ve ningun salto), una por cada carpeta de la landing con
 // index.html, mas / y /app/. "/app" sin barra si redirige (301) a /app/: queda fuera del
 // scope del SW (/app/), no lo afecta.
-const reglas = ["/app /app/ 301", "/preview /preview/ 301", "/ /index.html 200", "/app/ /app/index.html 200"];
+const reglas = ["/app /app/ 301", "/ /index.html 200", "/app/ /app/index.html 200"];
 const carpetas = (dir, pref) => {
   if (existsSync(join(dir, "index.html"))) reglas.push(pref + "/ " + pref + "/index.html 200");
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -261,7 +334,8 @@ const raizHtml = readFileSync(join(DIST, "index.html"), "utf8");
 dura(!/(?:href|src)="\.\//.test(raizHtml), "la raiz (save.html) aun trae URLs relativas ./");
 dura(raizHtml.includes('<link rel="canonical" href="' + SITIO + '/">'), "raiz sin canonical friendly123.com");
 dura(!existsSync(join(DIST, "landing")), "dist/landing/ debe NO existir (orden de JFC 2026-10-07)");
-dura(existsSync(join(DIST, "preview", "index.html")), "falta dist/preview/index.html");
-dura(!/<meta name="robots" content="index/.test(readFileSync(join(DIST, "preview", "index.html"), "utf8")), "preview debe ser noindex");
+dura(!existsSync(join(DIST, "preview")), "dist/preview/ debe NO existir (orden de JFC 2026-10-07)");
+dura(!/<meta name="robots" content="noindex/.test(raizHtml), "la raiz no debe ser noindex");
+for (const nom of Object.keys(LEGALES)) dura(existsSync(join(DIST, nom, "index.html")), "falta dist/" + nom + "/index.html");
 if (sharp) console.log(`webp: ${ahorro.n} imagenes, ${ahorro.antes} -> ${ahorro.despues} bytes (-${ahorro.antes - ahorro.despues})`);
 console.log(`dist listo: ${archivos.length} archivos de landing (${reescritos} con enlaces reescritos) + app + 404 + _headers`);
