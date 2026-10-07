@@ -1788,6 +1788,15 @@
     var t = resolverTrato(u);
     var pp = normPctAsociado(pctProducto);
     if (t && pp !== null) t = Object.assign({}, t, { pct: pp, escalas: [], origen: "producto" });
+    /* v457 (JFC 2026-10-07, LEY: "TODO debe generar comision"; "que mande el porcentaje de cada producto"):
+       si el producto trae SU % pero la percha no reparte con nadie (percha propia, sin trato), la venta
+       comisiona igual con el % del producto, sin importar a quien se vendio ni si hubo cliente. Sin % propio
+       y sin trato de percha NO se inventa ningun % por defecto: sigue sin comision, como antes. El cobrador
+       es la propia percha (sin persona). Las ventas ya guardadas no se reescriben. */
+    else if (!t && u && pp !== null) {
+      t = { pct: pp, pctCasa: +(100 - pp).toFixed(2), lectura: "asociado", modalidad: pp >= 50 ? "artista" : "vendedor",
+        origen: "producto", fuenteId: u.id, contribFija: 0, escalas: [], metaMensual: 0, minimoGarantizado: 0, base: "bruto", avisos: [] };
+    }
     return repartir(t, montoBruto, acumuladoPrevio, costoTotal);
   }
   /* B3 (corrida Hugo/Paco/Luis, 2026-09-24). REGLA DURA de JFC: la comision se
@@ -5040,8 +5049,9 @@
            a quien la hizo, no a quien este asignado despues. */
         /* IdiomARTE 2026-09-28: la pieza puede tener su propio comisionista.
            La eleccion explicita en ESTA venta manda; si no la hay, manda el
-           producto y por ultimo la percha. COUNTER SALE sigue siendo 100% casa.
-           Sin esto el campo comisionistaId era decorativo y las piezas en una
+           producto y por ultimo la percha. COUNTER SALE NO es 100% casa (v429, v457):
+           "counter sale es quien vendio, customer es a quien se vendio"; el cliente
+           nunca cambia la comision. Sin esto el campo comisionistaId era decorativo y las piezas en una
            percha propia se vendian con $0 de comision. */
         const _pedidoMostrador = !!(body && body.modoComision === "counter");
         const modoComision = "acuerdo";
@@ -5934,6 +5944,8 @@
           productoNombre: p ? p.nombre : "(deleted product)",
           sku: p ? p.sku : "", categoria: p ? p.categoria : "",
           comisionistaIdProducto: p ? (p.comisionistaId || null) : null,
+          /* v457: el % propio del producto (null si no tiene): Commissions lo usa para no contar como "casa" una venta guardada sin reparto de un producto que si comisiona. */
+          pctAsociadoProducto: p ? normPctAsociado(p.pctAsociado) : null,
           comisionistaNombreProducto: p && p.comisionistaId ? ((promotoras.find(x => x.id === p.comisionistaId && !x.borrado) || {}).nombre || "") : "",
           cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit || 0,
           clienteNombre: c ? c.nombre : "",
