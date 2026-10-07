@@ -1,0 +1,25 @@
+# _headers de friendly123.com (Worker "friendly123-com"). build.mjs lo copia a dist/_headers.
+# Los Workers solo leen _headers en la raiz de dist/ (el de docs/ NO se copia a dist/app/).
+#
+# CSP en MODO REPORT-ONLY: solo avisa en la consola, NO bloquea nada. No pasar a
+# "Content-Security-Policy" (que si bloquea) sin que JFC lo apruebe y se revise la consola
+# en la landing y en la app real. Origenes sacados de lo que la landing y docs/ cargan hoy:
+#   cdnjs, unpkg, cdn.sheetjs.com, cdn.tailwindcss.com, jsdelivr  = librerias de dashboard.html,
+#                                                                    informe-ejecutivo.html e index.html
+#   fonts.googleapis.com / fonts.gstatic.com                       = tipografias
+#   friendly123-licencias.jfcarpio.workers.dev                     = Worker de licencias
+#   wss://friendly123-sync-relay.jfcarpio.workers.dev              = relay de sincronizacion
+#   o4512176001908736.ingest.us.sentry.io, us.i.posthog.com        = canarios.js (errores/uso)
+#   ipapi.co                                                       = geo-ping.js (ip-api.com usa http:// y el
+#                                                                    navegador lo bloquea en https, no se lista)
+#   'unsafe-inline' en script/style: la landing y la app tienen scripts y estilos en linea.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(self), payment=()
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.sheetjs.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; connect-src 'self' https://friendly123-licencias.jfcarpio.workers.dev wss://friendly123-sync-relay.jfcarpio.workers.dev https://o4512176001908736.ingest.us.sentry.io https://us.i.posthog.com https://ipapi.co; frame-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://wa.me
+
+# La app: misma politica de cache que docs/_headers (revalidar a los 5 minutos).
+/app/*
+  Cache-Control: public, max-age=300, must-revalidate
