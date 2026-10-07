@@ -15,7 +15,11 @@
   function cents(n) {
     const x = Number(n);
     if (!Number.isFinite(x)) return 0;
-    return Math.round(Number(Math.round(x + "e2") + "e-2") * 100);
+    /* toFixed(10) keeps tiny values out of exponent notation: cents(1e-7) gave NaN
+       before (auditoria 2026-10-07). Values >= 1e21 also print in exponent form, so
+       they use a plain multiply. */
+    if (Math.abs(x) >= 1e21) return Math.round(x * 100);
+    return Math.round(Number(x.toFixed(10) + "e2"));
   }
   function money(c) { return +(Number(c || 0) / 100).toFixed(2); }
   function monthOf(iso) { return String(iso || "").slice(0, 7); }

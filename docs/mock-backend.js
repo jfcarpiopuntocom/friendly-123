@@ -2047,6 +2047,11 @@
   function _registrarPayoutLegacyRack(ubicacionId, body, qMes) {
     body = body || {};
     if (body.payeeId != null && body.payeeId !== "") return _registrarPayout(ubicacionId, body, qMes);
+    /* PAGO SIN PERSONA (auditoria 2026-10-07). Si la peticion trae la clave payeeId
+       (aunque sea null, que significa "sin persona asignada") con un monto, se paga
+       UNA sola fila. Antes, payeeId null caia en el bucle legacy y el mismo monto se
+       cobraba a cada persona con saldo. */
+    if (Object.prototype.hasOwnProperty.call(body, "payeeId") && body.amountCents != null) return _registrarPayout(ubicacionId, body, qMes);
     const core = _payoutCore();
     if (!core) return { error:"Payment ledger is not available. Nothing was recorded.", status:503 };
     const mes = mesValido(body.mes || qMes);
@@ -2054,6 +2059,12 @@
     const rows = core.balancesByPayee(base);
     const positivos = rows.filter((r) => Number(r.dueCents) > 0);
     const negativos = rows.filter((r) => Number(r.dueCents) < 0);
+    /* Un monto no puede repartirse a varias personas a la vez (auditoria 2026-10-07).
+       Sin payeeId y con monto, la operacion es ambigua: se rechaza sin escribir nada. */
+    if (body.amountCents != null && positivos.length > 1) {
+      return { error:"Choose the person you actually paid. An amount cannot be applied to several people at once.", status:409,
+        payees: positivos.map((r) => ({ payeeId:r.payeeId, due:core.money(r.dueCents) })) };
+    }
     const creados = [];
 
     for (const row of positivos) {
@@ -5848,6 +5859,14 @@
           period:original.period, amountCents:original.amountCents, amount:original.amount, method:original.method || null, reference:original.reference || "",
           note:motivo, paidAt:now, paidBy:(body && body.paidBy) || (rol || "owner"), items:clonar(original.items || []), rev:_revNueva(), createdAt:now };
         payouts.push(reversal);
+        /* Las banderas de compatibilidad siguen al ledger (auditoria 2026-10-07). Una
+           reversa reabre exactamente lo que restaura: la venta o el ajuste vuelve a
+           quedar pendiente y desbloqueado. Antes quedaban liquidada=true y bloqueadas. */
+        reversal.items.forEach((it) => {
+          const pagadoTodo = _fuentePayoutLiquidada(it.kind, it.sourceId, original.locationId, original.period);
+          if (it.kind === "sale") { const v = ventas.find((x) => String(x.id) === String(it.sourceId)); if (v) { v.liquidada = pagadoTodo; v.rev = _revNueva(); } }
+          else if (it.kind === "adjustment") { const a = ajustesComision.find((x) => String(x.id) === String(it.sourceId)); if (a) { a.liquidada = pagadoTodo; a.rev = _revNueva(); } }
+        });
         mov("payout-reversal", { payoutId:original.id, reversalId:reversal.id, payeeId:reversal.payeeId, amount:reversal.amount, mes:reversal.period, motivo });
         guardarEstadoLocal(); avisarCatalogoCambiado();
         return J({ ok:true, reversal:clonar(reversal) });

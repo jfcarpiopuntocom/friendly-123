@@ -3,8 +3,8 @@
   "fecha": "2026-10-07",
   "changelog": "v462: el dashboard pasa a ser un hub: isla viva, tarjetas y barra de navegación.",
   "requerida": false,
-  "shell": "f123-shell-v462",
+  "shell": "f123-shell-v463",
   "apagar": [],
-  "releaseName": "v462",
-  "cacheGeneration": "golden27"
+  "releaseName": "v463",
+  "cacheGeneration": "golden28"
 }
