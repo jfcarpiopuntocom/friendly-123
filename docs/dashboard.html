@@ -486,6 +486,7 @@
 <script src="./aislamiento.js"></script>
 <script src="./crypto-store.js"></script>
 <script src="./core/payout-ledger.js"></script>
+<script src="./core/demo-huellas.js"></script>
 <script src="./canarios.js"></script>
 <script src="./salud-app.js"></script>
 <script>
@@ -2007,6 +2008,13 @@
      OTRO dispositivo.
      ======================================================================== */
   var K_ESTADO = "f123_estado_v4";
+  /* v457 (JFC 2026-10-07): la app escribe el cuaderno en f123_estado_v4 + SUFIJO + _A/_B/_ptr, donde el sufijo es
+     el literal guardado en f123_tienda_activa ("" para la tienda propia, "::<licencia>" para una tienda unida).
+     Antes el tablero leia siempre la clave SIN sufijo y, en una tienda unida, pintaba un cuaderno viejo o vacio.
+     Misma resolucion que _sufijoTiendaActiva() de mock-backend.js. */
+  function sufijoTienda() {
+    try { return localStorage.getItem("f123_tienda_activa") || ""; } catch (_) { return ""; }
+  }
 
   function leerEstadoLocal() {
     /* JFC 2026-10-01 EMERGENCIA (Belen): con el telefono de la tienda sin contestar, el tablero
@@ -2017,17 +2025,18 @@
       if (!localStorage.getItem("f123_tienda_activa") && !localStorage.getItem("f123_owned")) {
         /* v441: si ademas hay un cuaderno guardado (la demo), el tablero estuvo a punto de pintarla:
            se avisa al canario demo-visto (una vez por sesion). */
-        try { if ((localStorage.getItem(K_ESTADO + "_A") || localStorage.getItem(K_ESTADO + "_B")) && window.OCSalud && window.OCSalud.demoVisto) window.OCSalud.demoVisto("tablero"); } catch (_) {}
+        try { if ((localStorage.getItem(K_ESTADO + sufijoTienda() + "_A") || localStorage.getItem(K_ESTADO + sufijoTienda() + "_B")) && window.OCSalud && window.OCSalud.demoVisto) window.OCSalud.demoVisto("tablero"); } catch (_) {}
         return null;
       }
     } catch (_) { return null; }
     try {
-      var ptr = localStorage.getItem(K_ESTADO + "_ptr") || "B";
+      var suf = sufijoTienda();
+      var ptr = localStorage.getItem(K_ESTADO + suf + "_ptr") || "B";
       /* Doble buffer A/B: se prueba el activo y, si esta corrupto o vacio, el
          otro. Por eso existen dos: para que nunca haya un unico punto de fallo. */
       var orden = [ptr, ptr === "A" ? "B" : "A"];
       for (var i = 0; i < orden.length; i++) {
-        var raw = localStorage.getItem(K_ESTADO + "_" + orden[i]);
+        var raw = localStorage.getItem(K_ESTADO + suf + "_" + orden[i]);
         if (!raw) continue;
         var e = JSON.parse(raw);
         if (e && Array.isArray(e.productos)) return e;
@@ -2038,9 +2047,32 @@
 
   /* Arma la misma forma que llega por el relay, para que el resto del tablero
      no sepa ni le importe de donde vinieron los datos. */
+  /* Mes LOCAL del negocio (zona de f123_timezone o la del navegador), con el desfase de reloj de la venta: la misma
+     regla que fechaLocalDe() de mock-backend.js. El prefijo UTC crudo manda la venta de las 19:00 al mes siguiente. */
+  function mesLocalDe(iso, desfaseMs) {
+    try {
+      var tz = null;
+      try { tz = localStorage.getItem("f123_timezone"); if (tz) Intl.DateTimeFormat(undefined, { timeZone: tz }); } catch (_) { tz = null; }
+      var base = Date.parse(iso), d = Number(desfaseMs);
+      var ms = base + (Number.isFinite(d) ? d : 0);
+      var o = { year: "numeric", month: "2-digit", day: "2-digit" };
+      if (tz) o.timeZone = tz;
+      return new Intl.DateTimeFormat("en-CA", o).format(new Date(Number.isFinite(ms) ? ms : iso)).slice(0, 7);
+    } catch (_) { return String(iso || "").slice(0, 7); }
+  }
+  /* v457 (LEY JFC 2026-10-07): el demo nunca se mezcla con un negocio con licencia. A la LECTURA se quitan los registros con
+     la huella exacta de la semilla (core/demo-huellas.js, misma regla que la app); NO se borra nada del almacenamiento. */
+  function sinDemoSiHayLicencia(e) {
+    try {
+      if (!window.OCDemoHuellas) return e;
+      var o = {}; try { o = JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}; } catch (_) {}
+      if (!window.OCDemoHuellas.negocioConLicencia(o, sufijoTienda())) return e;
+      return window.OCDemoHuellas.sinDemo(e);
+    } catch (_) { return e; }
+  }
   function datosDesdeLocal(e) {
-    var ubic = {};
-    (e.ubicaciones || []).forEach(function (u) { ubic[u.id] = u.nombre; });
+    var ubic = {}, ubTipo = {};
+    (e.ubicaciones || []).forEach(function (u) { ubic[u.id] = u.nombre; ubTipo[u.id] = u.tipo || "propio"; });
     var prods = {}, clientesArr = e.clientes || [];
     var cli = {};
     clientesArr.forEach(function (c) { cli[c.id] = c.nombre; });
@@ -2077,8 +2109,14 @@
       var rk = mesO + "|" + String(o.locationId || "");
       _ledgerDueRackMes[rk] = (_ledgerDueRackMes[rk] || 0) + Number(o.dueCents || 0);
     });
+    /* v457: lo que el ledger dice que gano cada venta (centavos exactos). ADR-001: las vistas leen el ledger,
+       no vuelven a sumar v.split. Una venta que el ledger no cubre (devuelta) cae al monto guardado, igual que la app. */
+    var _ledgerGanado = {};
+    _ledgerObs.forEach(function (o) {
+      if (o.kind === "sale") _ledgerGanado[o.sourceId] = (_ledgerGanado[o.sourceId] || 0) + Number(o.signedAmountCents || 0);
+    });
     var entra = 0, sale = 0, nHoy = 0;
-    var ventas = (e.ventas || []).map(function (v) {
+    var ventas = (e.ventas || []).filter(function (v) { return v && !v.anulada; }).map(function (v) {
       var p = prods[v.productoId] || {};
       var cant = Number(v.cantidad) || 0;
       var pu = Number(v.precioUnit) || 0, cu = Number(v.costoUnit) || 0;
@@ -2100,13 +2138,25 @@
         eventoPersonas: (v.info && v.info.numPersonas) || null,
         pagador: (v.info && v.info.nombrePagador) || "",
         comisionPct: v.split ? v.split.comisionPct : null,
-        comisionAsociado: v.split ? v.split.montoComisionSocio : 0,
+        comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : 0,
         netoCasa: v.split ? v.split.montoNetoDueno : null,
         comisionCorregida: !!(v.split && v.split.corregida),
         liquidada: !!v.liquidada,
         comisionPendiente: _ledgerCore ? +_ledgerCore.money(_ledgerDueVenta[String(v.id)] || 0).toFixed(2) : null,
         medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
         asociadoNombre: asoc[v.ubicacionId] || "",
+        /* v457: lo mismo que emite /api/ventas/todas por el relay (mock-backend.js). Sin `mes`, `modoComision` y
+           `ubicacionTipo` la pestania Commissions filtraba TODAS las ventas y la duena veia $0 en su propio equipo. */
+        mes: v.fecha ? mesLocalDe(v.fecha, v.relojDesfaseMs) : "",
+        delMesActual: v.fecha ? mesLocalDe(v.fecha, v.relojDesfaseMs) === mesLocalDe(new Date().toISOString(), 0) : false,
+        modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
+        ubicacionTipo: ubTipo[v.ubicacionId] != null ? (ubTipo[v.ubicacionId] || "propio") : "",
+        comisionistaIdProducto: p.comisionistaId || null,
+        pctAsociadoProducto: p.pctAsociado == null || p.pctAsociado === "" || !Number.isFinite(Number(p.pctAsociado)) ? null : Math.max(0, Math.min(100, Number(p.pctAsociado))),
+        devuelta: !!v.devuelta,
+        reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
+        asistenteNombre: (v.split && v.split.reparto && v.split.reparto[1]) ? ((e.promotoras || []).find(function (x) { return x.id === v.split.reparto[1].promotoraId; }) || {}).nombre || "" : "",
+        promotoraId: v.promotoraId || null,
       };
     });
 
@@ -2189,6 +2239,26 @@
       for (var i = 0; i < 20 && !window.OCSecure; i++) {
         await new Promise(function (r) { setTimeout(r, 100); });
       }
+      /* v457 (JFC 2026-10-07, regla del dueno: el admin ve TODO lo que ve el dueno salvo borrar el negocio).
+         Un admin creado con /api/usuarios NO esta en el secreto cifrado de este dispositivo (solo en la lista
+         f123_admins_pins que publica la app), asi que antes el verificador cripto lo rechazaba. Ahora la lista de
+         admins se mira ANTES e independiente del rol cripto. El bloqueo por intentos sigue mandando: un PIN
+         equivocado cae mas abajo en el verificador y suma fallo; el PIN correcto de admin no suma nada. */
+      var _esAdminPin = false;
+      try {
+        var _adm = JSON.parse(localStorage.getItem("f123_admins_pins") || "[]");
+        _esAdminPin = Array.isArray(_adm) && _adm.indexOf(String(pin)) >= 0;
+      } catch (_) {}
+      if (_esAdminPin) {
+        try {
+          if (window.OCSecure && window.OCSecure.segundosBloqueo) {
+            var _espA = Number(window.OCSecure.segundosBloqueo("login")) || 0;
+            if (_espA > 0) return { bloqueado: _espA };
+          }
+          if (window.OCSecure && window.OCSecure.anotarExitoLogin) window.OCSecure.anotarExitoLogin();
+        } catch (_) {}
+        return true;
+      }
       if (!window.OCSecure) return null;   /* null = no se puede juzgar */
       if (window.OCSecure.migrarSiHaceFalta) { try { await window.OCSecure.migrarSiHaceFalta(); } catch (_) {} }
       /* Si el intento esta en penalizacion por fallos previos EN LA APP, el
@@ -2229,6 +2299,7 @@
     try {
       var e = leerEstadoLocal();
       if (!e) return false;
+      e = sinDemoSiHayLicencia(e);
       var d = datosDesdeLocal(e);
       /* Un estado local vacio no es un tablero: es una app recien instalada.
          Pintarlo taparia el mensaje honesto de "no hay nadie conectado". */
@@ -2272,6 +2343,35 @@
       return true;
     } catch (_) { return false; }
   }
+
+  /* ======================================================= TABLERO AL INSTANTE
+     v457 (JFC 2026-10-07; Belen: "el dashboard refleje en mili segundos un cambio retroactivo en comisiones y en general
+     en cualquier cambio"). Antes el tablero leia el cuaderno UNA vez al entrar y nunca mas: un cambio hecho en la app
+     (una comision corregida, una venta) no se veia hasta recargar. Ahora, ya autorizado, escucha lo mismo que oye la app:
+       - el evento `storage` (otra pestania del mismo origen escribio el cuaderno), y
+       - el BroadcastChannel de aislamiento.js (AMG.Aislamiento.onCambio).
+     Cualquiera de los dos repinta con el MISMO camino local del login (pintarDesdeLocal), con 50 ms de espera para
+     juntar la rafaga de escrituras (buffer A/B + puntero + sello). La puerta del PIN NO se toca: sin `autorizado` no se
+     pinta nada. Si no hay cuaderno en este dispositivo (se ve el negocio por el relay) no hay nada que releer. */
+  var _repintarVivoT = null;
+  function repintarVivo() {
+    if (!autorizado) return;
+    clearTimeout(_repintarVivoT);
+    _repintarVivoT = setTimeout(function () {
+      try { if (autorizado && leerEstadoLocal()) pintarDesdeLocal(); } catch (_) {}
+    }, 50);
+  }
+  window.addEventListener("storage", function (ev) {
+    /* key == null: alguien llamo a clear(). Con clave: solo las del cuaderno (sin importar prefijo ni sufijo). */
+    if (!ev || ev.key == null || String(ev.key).indexOf("f123_estado_v4") >= 0 || String(ev.key).indexOf("f123_admins_pins") >= 0) repintarVivo();
+  });
+  try {
+    if (window.AMG && window.AMG.Aislamiento && window.AMG.Aislamiento.onCambio) {
+      window.AMG.Aislamiento.onCambio(function (c) {
+        if (!c || !c.clave || String(c.clave).indexOf("f123_estado_v4") === 0 || c.clave === "*") repintarVivo();
+      });
+    }
+  } catch (_) {}
 
   /* ==================================================== COSTO UNITARIO REAL
      Todo lo que se paga por traer una caja se reparte entre las unidades que
