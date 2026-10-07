@@ -179,18 +179,16 @@
 
   /* REGLA 7: cobro de fiado (cartera_abono). Debe 1000, Haber 1100.
      Un cartera_cargo NO genera asiento propio: la deuda ya nace en la venta fiada (regla 1, cuenta 1100). */
-  function entriesForCollection(c, errors, out, sales) {
+  function entriesForCollection(c, errors, out) {
     const id = str(c.id || c.opId);
     if (c.tipo === "cargo") return;
     if (c.tipo !== "abono") { errors.push({ factKind: "cobro", factId: id, motivo: "tipo de cartera desconocido: " + str(c.tipo) }); return; }
-    // Codex 2026-10-07: a price correction adjusts the customer facts, not cash. The canonical
-    // edited sale already posts its current receivable: posting the correction
-    // again here would invent cash and reduce receivables a second time.
-    if (c.naturaleza === "correccion_venta") {
-      const linked = (sales || []).find((v) => str(v.id) === str(c.ventaId) && str(v.clienteId) === str(c.clienteId) && str(c.clienteId));
-      if (!linked) errors.push({ factKind: "cobro", factId: id, motivo: "correccion de cartera sin venta/cliente verificable" });
-      return;
-    }
+    /* Claude 2026-10-07: una correccion de precio en Sold NO escribe ningun hecho de cartera (la deuda de
+       una venta fiada se LEE de la venta, ver cartera.js). Por eso aqui no hay rama "correccion_venta":
+       el prototipo de Codex (naturaleza=correccion_venta, 2026-10-07) se retiro porque nada lo escribe y
+       un abono de correccion seria un falso cobro. Un cartera_abono es SIEMPRE un pago real: Debe 1000 /
+       Haber 1100. La venta fiada ya asienta su valor ACTUAL en 1100 (regla 1), asi que corregir el
+       precio de 108 a 18 deja 1100 en 18 y caja en 0. */
     const m = cents(c.monto);
     if (m <= 0) { errors.push({ factKind: "cobro", factId: id, motivo: "cobro sin importe positivo" }); return; }
     const lines = [];
@@ -275,7 +273,7 @@
     entriesForLegacy(obs, payouts, raw);
     payouts.forEach((p) => { if (str(p.id)) entriesForPayout(p, errors, raw); });
     gastos.forEach((g) => { if (str(g.id)) entriesForExpense(g, errors, raw); });
-    cartera.forEach((c) => { if (str(c.id || c.opId)) entriesForCollection(c, errors, raw, ventas); });
+    cartera.forEach((c) => { if (str(c.id || c.opId)) entriesForCollection(c, errors, raw); });
 
     /* Invariante (a): un asiento que no cuadra NO entra al libro; se reporta. */
     const entries = [];

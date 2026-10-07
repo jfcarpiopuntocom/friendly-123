@@ -13,11 +13,20 @@ test('the actual sale payment field posts on-account sales to receivables withou
   assert.deepEqual(ledger.errors,[]);
 });
 
-test('a linked price correction is not cash received and does not reduce the canonical receivable twice',()=>{
-  const ledger=build([{id:'synthetic-correction',tipo:'abono',monto:90,fecha:sale.fecha,clienteId:sale.clienteId,ventaId:sale.id,naturaleza:'correccion_venta'}]);
+// Claude 2026-10-07: REWRITTEN. Codex's prototype test fed a cartera_abono with naturaleza=correccion_venta and
+// expected the ledger to skip it. That branch was removed (nothing writes such facts: a price correction in Sold
+// writes NO cartera fact; the debt is read from the sale). The intent that survives: a correction is never cash.
+test('a price correction of a credit sale is never cash: the sale posts its CURRENT value to receivables, no abono exists', () => {
+  const ledger=build([]); // sale already corrected to 18 and no cartera fact written by the correction
   assert.equal(net(ledger,'1000'),0);
   assert.equal(net(ledger,'1100'),1800);
   assert.deepEqual(ledger.errors,[]);
+});
+
+test('overpaid after a correction: the ordinary payment is real cash and receivables go negative (credit in favor)',()=>{
+  const ledger=build([{id:'synthetic-paid-before-fix',tipo:'abono',monto:108,fecha:sale.fecha,clienteId:sale.clienteId}]);
+  assert.equal(net(ledger,'1000'),10800);
+  assert.equal(net(ledger,'1100'),1800-10800);
 });
 
 test('an actual customer payment still posts cash and reduces the debt',()=>{
