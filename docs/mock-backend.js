@@ -262,7 +262,7 @@
   function _esProductoPruebaIdiomarte(p) {
     return !!(p && _esLicenciaIdiomarte() && _IDIOMARTE_PRUEBA_NOMBRES.has(String(p.nombre || "").trim()));
   }
-  function _seleccionarSemillaDemoPura(estado) {
+  function _seleccionarSemillaDemoPura(estado, sinEvidencia) {
     const ps = Array.isArray(estado && estado.productos) ? estado.productos : [];
     const cs = Array.isArray(estado && estado.clientes) ? estado.clientes : [];
     const vs = Array.isArray(estado && estado.ventas) ? estado.ventas : [];
@@ -277,7 +277,9 @@
     const rv = vs.filter(esVentaContaminante);
     const hayPruebaIdiomarte = idsPruebaIdiomarte.size > 0;
     const evidencia = hayPruebaIdiomarte || rv.length > 0 || rp0.length >= 2 || rc0.length >= 2 || (rp0.length > 0 && rc0.length > 0);
-    if (!evidencia) return { evidencia: false, productos: [], clientes: [], ventas: [], ubicaciones: [], promotoras: [], sucursales: [] };
+    /* v457: la LECTURA de un negocio con licencia no exige evidencia (ver _demoOculto). El retiro con cuarentena
+       de _limpiarSemillaExactaEnTiendaReal SI la sigue exigiendo: nunca llama con sinEvidencia. */
+    if (!evidencia && !sinEvidencia) return { evidencia: false, productos: [], clientes: [], ventas: [], ubicaciones: [], promotoras: [], sucursales: [] };
 
     const ventasReales = vs.filter((v) => !esVentaContaminante(v));
     const prodConActividadReal = new Set(ventasReales.map((v) => String(v && v.productoId || "")).filter(Boolean));
@@ -308,6 +310,44 @@
   }
   function _haySemillaCorroboradaLocal() {
     return _haySemillaCorroboradaEn({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
+  }
+  /* v457 (LEY de JFC 2026-10-07): EL DEMO NUNCA SE MEZCLA CON UN NEGOCIO CON LICENCIA, para TODOS los clientes
+     ("toda la info, no solo inventario sino clientes y comisionistas y todo del demo"). A la LECTURA se excluyen los
+     registros con huella EXACTA de la semilla (reusa _es*DemoExacto de arriba) SIN exigir evidencia previa. NUNCA se
+     borra nada: el estado guardado queda intacto y las listas solo "no ven" esos registros. Un registro demo que tiene
+     ventas REALES (no "vs-") que lo referencian se queda visible, y con el sus perchas/asociados dependientes
+     (misma cadena de _seleccionarSemillaDemoPura). Sin licencia (el demo puro) no se oculta nada.
+     No depende de ninguna licencia concreta ni de nombres de cliente. */
+  let _licMemoRaw = null, _licMemoVal = false;
+  function _esNegocioConLicencia() {
+    try {
+      const raw = localStorage.getItem("f123_owned") || "";
+      if (raw !== _licMemoRaw) {
+        _licMemoRaw = raw;
+        const o = raw ? (JSON.parse(raw) || {}) : {};
+        _licMemoVal = !!(String(o.licenseCode || "").trim() || String(o.syncCode || "").trim());
+      }
+      return _licMemoVal || !!OC_STATE_SUFIJO;
+    } catch (_) { return false; }
+  }
+  let _ocultoMemo = { k: null, sel: null };
+  function _demoOcultoSel() {
+    try {
+      if (!_esNegocioConLicencia()) return null;
+      const k = [_localRev, productos.length, clientes.length, ventas.length, ubicaciones.length, promotoras.length, sucursales.length].join("|");
+      if (_ocultoMemo.k !== k) {
+        const sel = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales }, true);
+        const ids = {};
+        ["productos", "clientes", "ventas", "ubicaciones", "promotoras", "sucursales"].forEach((t) => { ids[t] = new Set((sel[t] || []).map((x) => String(x.id))); });
+        _ocultoMemo = { k, sel: ids };
+      }
+      return _ocultoMemo.sel;
+    } catch (_) { return null; }
+  }
+  /* true si el registro es semilla demo y debe quedar fuera de las vistas de este negocio. */
+  function _demoOculto(tipo, obj) {
+    const sel = _demoOcultoSel();
+    return !!(sel && obj && obj.id != null && sel[tipo] && sel[tipo].has(String(obj.id)));
   }
   function _esTiendaReal() {
     try {
@@ -1994,7 +2034,7 @@
     const _conComisionEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && v.split && esDelMes(v.fecha, _mes, v.relojDesfaseMs))
       || ajustesComision.some((a) => a && a.ubicacionId === id && esDelMes(a.fecha, _mes));
     const _conVentasEnMes = (id) => ventasActivas().some((v) => v.ubicacionId === id && esDelMes(v.fecha, _mes, v.relojDesfaseMs));
-    return ubicaciones.filter((u) => {
+    return ubicaciones.filter((u) => !_demoOculto("ubicaciones", u)).filter((u) => {
       const historia = _conVentasEnMes(u.id) || _conComisionEnMes(u.id);
       return u.borrado ? historia : ((u.tipo && u.tipo !== "propio") || historia);
     }).map((u) => {
@@ -2484,7 +2524,7 @@
      seguir viéndolos (world's best practice — archivar NO borra del historial,
      JFC 2026-09-08). La exclusión de archivados vive SOLO en el grid de
      Inventario (endpoint GET /productos), que es la vista operacional. */
-  function filtrar(uid) { return productos.filter((p) => !p.borrado && (!uid || uid === "todas" || p.ubicacionId === uid)); }
+  function filtrar(uid) { return productos.filter((p) => !p.borrado && !_demoOculto("productos", p) && (!uid || uid === "todas" || p.ubicacionId === uid)); }
   // BUG latente fijado 2026-07-07: "ventas de HOY" filtraba solo por
   // ubicacion; con historial de dias anteriores el resumen del dia mentia.
   /* B6 (2026-09-24): una venta YA PAGADA que se devuelve queda en la lista
@@ -2969,7 +3009,7 @@
     return da > db;
   }
 
-  function ventasActivas() { return Array.prototype.filter.call(ventas, (v) => !v.anulada); }
+  function ventasActivas() { return Array.prototype.filter.call(ventas, (v) => !v.anulada && !_demoOculto("ventas", v)); }
 
   function aplicarCatalogo(remoto, rolRemoto) {
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
@@ -4514,7 +4554,7 @@
       if (path === "/api/modo") return J({ modo: "demo-estatico" });
       if (path === "/api/ubicaciones" && (!opts || opts.method !== "POST")) {
         const soloActivas = q.get("todas") !== "1";
-        return J(soloActivas ? ubicaciones.filter((u) => !u.borrado && u.activa !== false) : ubicaciones.filter((u) => !u.borrado));
+        return J(soloActivas ? ubicaciones.filter((u) => !u.borrado && u.activa !== false && !_demoOculto("ubicaciones", u)) : ubicaciones.filter((u) => !u.borrado && !_demoOculto("ubicaciones", u)));
       }
       if (path === "/api/ubicaciones" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "The location name is required." }, 400);
@@ -4652,7 +4692,7 @@
       // ---- Asociados/as (comision por traer gente) ----
       /* El PIN del artista NUNCA sale por aqui (lo ve cualquiera que abra la
          lista). Se expone solo si tiene acceso activo. (benchmark #6) */
-      if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras.filter((p) => !p.borrado).map((p) => {
+      if (path === "/api/promotoras" && (!opts || opts.method !== "POST")) return J(promotoras.filter((p) => !p.borrado && !_demoOculto("promotoras", p)).map((p) => {
         const { accesoArtista, ...resto } = p;
         return { ...resto, tieneAccesoArtista: !!(accesoArtista && accesoArtista.activo), tienePercha: _perchasDeArtista(p.id).length > 0 };
       }));
@@ -4759,7 +4799,7 @@
         return J({ ok: true });
       }
       // ---- Sucursales (agrupadores backend de perchas) ----
-      if (path === "/api/sucursales" && (!opts || opts.method !== "POST")) return J(sucursales.filter((s) => !s.borrado));
+      if (path === "/api/sucursales" && (!opts || opts.method !== "POST")) return J(sucursales.filter((s) => !s.borrado && !_demoOculto("sucursales", s)));
       if (path === "/api/sucursales" && opts && opts.method === "POST") {
         if (!body.nombre || !body.nombre.trim()) return J({ error: "The branch name is required." }, 400);
         const nuevaSuc = { id: uuid("suc"), nombre: body.nombre.trim(), activa: true, rev: _revNueva() };
@@ -4792,7 +4832,7 @@
         /* 2026-09-25: se atribuye cada venta a su persona (v.promotoraId); las ventas
            viejas sin ese campo caen a la persona actual de la percha, como antes. */
         const byId = {};
-        promotoras.filter((pr) => !pr.borrado && ubicaciones.some((u) => u.promotoraId === pr.id)).forEach((pr) => {
+        promotoras.filter((pr) => !pr.borrado && !_demoOculto("promotoras", pr) && ubicaciones.some((u) => u.promotoraId === pr.id && !_demoOculto("ubicaciones", u))).forEach((pr) => {
           byId[pr.id] = { id: pr.id, nombre: pr.nombre, ventasBrutas: 0, ventasCount: 0, comision: 0, ultima: "", porSku: {} };
         });
         ventasActivas().filter((v) => esDelMesActual(v.fecha, v.relojDesfaseMs) && v.split).forEach((v) => {
@@ -4859,7 +4899,7 @@
         // filtrar() y SÍ los ve — archivar no borra del historial (JFC 2026-09-08).
         const soloArch = q.get("soloArchivados") === "1";
         let fuente = soloArch
-          ? productos.filter((p) => p.archivado && (!uid || uid === "todas" || p.ubicacionId === uid))
+          ? productos.filter((p) => p.archivado && !_demoOculto("productos", p) && (!uid || uid === "todas" || p.ubicacionId === uid))
           : filtrar(uid).filter((p) => !p.archivado);
         /* GARANTIA v306: para la licencia de JFC (prefijo), NUNCA mostrar la semilla
            demo (ids "p"+digitos) en el listado, pase lo que pase con el estado local
@@ -6028,7 +6068,7 @@
       if (path === "/api/clientes" && (!opts || opts.method !== "POST")) {
         const med = medianaMontos();
         // Clientes despedidos no aparecen en el selector de Vender ni en listas operativas.
-        return J(clientes.filter(c => !c.despedido && !c.borrado).map((c) => fichaCliente(c, med)));
+        return J(clientes.filter(c => !c.despedido && !c.borrado && !_demoOculto("clientes", c)).map((c) => fichaCliente(c, med)));
       }
       if (path === "/api/clientes" && opts && opts.method === "POST") {
         if (!body.nombre || !String(body.nombre).trim()) return J({ error: "The customer name is required." }, 400);
@@ -6065,7 +6105,7 @@
       if (path === "/api/clientes/matriz") {
         const med = medianaMontos();
         const grupos = { verano: [], primavera: [], otono: [], invierno: [] };
-        clientes.filter(c => !c.despedido && !c.borrado).forEach((c) => { const f = fichaCliente(c, med); grupos[f.estacion].push(f); });
+        clientes.filter(c => !c.despedido && !c.borrado && !_demoOculto("clientes", c)).forEach((c) => { const f = fichaCliente(c, med); grupos[f.estacion].push(f); });
         Object.keys(grupos).forEach((k) => grupos[k].sort((a, b) => b.monto - a.monto));
         return J(grupos);
       }
@@ -6075,7 +6115,7 @@
       if (path === "/api/clientes/comportamiento") {
         const med = medianaMontos();
         const grupos = { estrella: [], tolerable: [], ojo: [], bandera: [], neutro: [], despedidos: [] };
-        clientes.filter((c) => !c.borrado).forEach((c) => {
+        clientes.filter((c) => !c.borrado && !_demoOculto("clientes", c)).forEach((c) => {
           const f = fichaCliente(c, med);
           if (c.despedido) { grupos.despedidos.push(f); return; }
           // JFC 2026-08-06: evaluacion.trato/confiabilidad son 1-5 (no -1/0/1);
