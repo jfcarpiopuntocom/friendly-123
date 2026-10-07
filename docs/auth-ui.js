@@ -126,6 +126,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           }
         } catch (_) {}
       }
+      /* Apodo del aparato (v456): el que se pone con el lapicito del encabezado.
+         Se lee al enviar; solo si no esta vacio (el Worker tampoco lo borra). */
+      try {
+        var _apodo = (window.OCMicelio && window.OCMicelio.miApodo) ? String(window.OCMicelio.miApodo() || "").trim() : "";
+        if (_apodo) payload.apodo = trim(_apodo, 60);
+      } catch (_) {}
       // Solo se adjunta la licencia si es una F123 válida: jamás un "" que borre
       // la fila de un cliente real en el Worker (ver guard de arriba).
       if (/^F123-/i.test(_licSegura)) payload.licenseCode = trim(_licSegura, 40);

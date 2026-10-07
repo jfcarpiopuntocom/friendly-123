@@ -150,3 +150,41 @@ test('a passive checkin cannot move a device to another license', async () => {
   assert.equal(registro(env, instanceId).licenseCode, 'F123-FIXTURE-NUEVA',
     'un join explícito sí mueve la licencia');
 });
+
+/* v456: el apodo del aparato llega al panel y un nombre viejo trabado (rev 0 / ts 0)
+   se puede actualizar. Fixtures sintéticos. */
+test('apodo del aparato se guarda y un checkin con apodo vacio no lo borra', async () => {
+  const worker = await cargarWorker();
+  const env = entorno();
+  const instanceId = 'fixture-instance-apodo';
+  await checkin(worker, env, { instanceId, accion: 'register', licenseCode: 'F123-FIXTURE-APOD', apodo: 'Caja 1' });
+  assert.equal(registro(env, instanceId).apodo, 'Caja 1');
+  await checkin(worker, env, { instanceId, accion: 'checkin', apodo: '' });
+  assert.equal(registro(env, instanceId).apodo, 'Caja 1');
+  await checkin(worker, env, { instanceId, accion: 'checkin' });
+  assert.equal(registro(env, instanceId).apodo, 'Caja 1');
+});
+
+test('sync-nombre reemplaza un nombre legacy con rev 0 y ts 0', async () => {
+  const worker = await cargarWorker();
+  const env = entorno();
+  const instanceId = 'fixture-instance-legacy';
+  await checkin(worker, env, { instanceId, accion: 'register', licenseCode: 'F123-FIXTURE-LEGA', nombreNegocio: 'Nombre Viejo' });
+  assert.equal(registro(env, instanceId).nombreNegocioRev, 0);
+  await checkin(worker, env, { instanceId, accion: 'sync-nombre', nombreNegocio: 'Nombre Nuevo' });
+  assert.equal(registro(env, instanceId).nombreNegocio, 'Nombre Nuevo');
+  // y un vacio nunca lo borra
+  await checkin(worker, env, { instanceId, accion: 'sync-nombre', nombreNegocio: '' });
+  assert.equal(registro(env, instanceId).nombreNegocio, 'Nombre Nuevo');
+});
+
+test('un nombre con rev>0 sigue exigiendo rev mas nueva', async () => {
+  const worker = await cargarWorker();
+  const env = entorno();
+  const instanceId = 'fixture-instance-rev';
+  await checkin(worker, env, { instanceId, accion: 'register', licenseCode: 'F123-FIXTURE-REVV', nombreNegocio: 'Con Rev', nombreNegocioRev: 3, nombreNegocioTs: 1000 });
+  await checkin(worker, env, { instanceId, accion: 'sync-nombre', nombreNegocio: 'Intento Viejo', nombreNegocioRev: 0, nombreNegocioTs: 0 });
+  assert.equal(registro(env, instanceId).nombreNegocio, 'Con Rev');
+  await checkin(worker, env, { instanceId, accion: 'rename', nombreNegocio: 'Rev Nueva', nombreNegocioRev: 4, nombreNegocioTs: 2000 });
+  assert.equal(registro(env, instanceId).nombreNegocio, 'Rev Nueva');
+});

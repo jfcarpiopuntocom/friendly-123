@@ -325,8 +325,10 @@ async function handleCheckin(req, env) {
   const revGuardada = Number(existente.nombreNegocioRev) || 0;
   const tsGuardado = Number(existente.nombreNegocioTs) || 0;
   const nuevaVersionNombre = revEntrante > revGuardada || (revEntrante === revGuardada && tsEntrante > tsGuardado);
+  // v456: un nombre legacy (rev 0 y ts 0) no tiene version que ganar: rename/sync-nombre lo reemplaza.
+  const nombreLegacy = revGuardada === 0 && tsGuardado === 0;
   const aceptaNombre = !!nombreEntrante && (!existente.nombreNegocio ||
-    ((body.accion === "rename" || body.accion === "sync-nombre") && nuevaVersionNombre));
+    ((body.accion === "rename" || body.accion === "sync-nombre") && (nuevaVersionNombre || nombreLegacy)));
   let producto;
   if (_lic.startsWith("AMG-")) producto = "amigable-123";
   else if (_lic.startsWith("F123-")) producto = "friendly-123";
@@ -373,6 +375,9 @@ async function handleCheckin(req, env) {
      (/licencias/<id>/soporte). El checkin reconstruye el registro campo por
      campo, así que se conserva aquí o se perdería en el siguiente login. */
   if (typeof existente.soporteJfc === "boolean") registro.soporteJfc = existente.soporteJfc;
+  // v456: apodo del aparato; nunca se pisa con vacio.
+  const apodoEntrante = String(body.apodo || "").slice(0, 60).trim();
+  if (apodoEntrante || existente.apodo) registro.apodo = apodoEntrante || existente.apodo;
   // v351: se conservan igual que soporteJfc (ver aplicarLicenciaPagada).
   if (existente.fullLicencia) registro.fullLicencia = existente.fullLicencia;
   if (existente.estadoFijadoPanel === true) registro.estadoFijadoPanel = true;

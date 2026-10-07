@@ -183,3 +183,20 @@ test('csv exporta una fila por licencia con lote, pagos y comillas escapadas; cs
   const lote = P.csvCodigos(['F123-TEST-AAAA-BBBB-CCCCC'], 'G1');
   assert.equal(lote, 'codigo,lote\n"F123-TEST-AAAA-BBBB-CCCCC","G1"');
 });
+
+test('el panel pinta el apodo del aparato en la fila principal y en la plegada', () => {
+  const P = cargar();
+  const idx = P.indexar([
+    { instanceId: 'a1', licenseCode: 'F123-FIXTURE-APOD', nombreNegocio: 'Tienda', nombre: 'Ana', apodo: 'ApodoPrincipal', lastSeen: 2 },
+    { instanceId: 'a2', licenseCode: 'F123-FIXTURE-APOD', nombreNegocio: 'Tienda', nombre: 'Ana', apodo: 'ApodoPlegado', lastSeen: 1 },
+  ]);
+  const context = { window: {}, document: { getElementById: () => null } };
+  const tbody = { innerHTML: '', querySelectorAll: () => [] };
+  context.document.getElementById = id => id === 'lic-tbody' ? tbody : null;
+  context.window = context; context.globalThis = context;
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/panel-licencias.js'), 'utf8'), context);
+  context.PanelLic.pintar(idx, {});
+  assert.match(tbody.innerHTML, /ApodoPrincipal/);
+  assert.match(tbody.innerHTML, /ApodoPlegado/);
+});
