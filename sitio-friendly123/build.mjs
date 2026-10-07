@@ -20,8 +20,9 @@
 //   /          = docs/save.html (temporal). Sus URLs relativas (./x) se reescriben a /app/x
 //                (no se usa <base>: rompia los enlaces #ancla, que irian a /app/#ancla).
 //   /landing/  = ELIMINADA (JFC 2026-10-07: "borra la de /landing/"). La landing vieja ya no se publica en dist/.
-//   /preview/  = VISTA PREVIA de la nueva landing (fuente: sitio-friendly123/landing/). noindex, Disallow en robots,
-//                fuera del sitemap. La raiz sigue siendo save.html hasta que JFC apruebe mover la nueva.
+//   /          = landing nueva (sitio-friendly123/landing/index.html), bloque (d3). save.html sigue en /app/save.html.
+//   /privacidad/, /terminos/ = paginas legales estaticas (fuente: sitio-friendly123/legal/), bloque (d4).
+//   /preview/  = ELIMINADA (JFC 2026-10-07: "Deja de crear /landing/ y /preview/, solo edita directo el index.html").
 //   robots.txt, sitemap.xml, favicon, apple-touch-icon, og:image, canonical/og:url a friendly123.com
 //   y versiones .webp: SOLO en las copias de dist/, nunca en docs/. No se escribe ningun texto visible nuevo.
 //
@@ -175,14 +176,8 @@ for (const rel of publicasLanding) {
 }
 await archivoAWebp(join(DIST, "media", "friendly-reel-poster.jpg"));
 
-// (c) Raiz = docs/save.html (temporal). URLs relativas -> /app/..., canonical y og a friendly123.com.
-let save = readFileSync(join(DOCS, "save.html"), "utf8")
-  .replaceAll("https://jfcarpiopuntocom.github.io/friendly-123/save.html", SITIO + "/")
-  .replaceAll('"url":"https://jfcarpiopuntocom.github.io/friendly-123/"', '"url":"' + SITIO + '/"')
-  .replace(/(\b(?:href|src)=")\.\//g, "$1/app/");
+// (c) Logo webp (lo usa la raiz, d3) y copia de save.html en /app/save.html. (La raiz ya no es save.html.)
 await archivoAWebp(join(DIST, "app", "img", "logo-720.png"));
-if (sharp) save = save.replace('src="/app/img/logo-720.png"', 'src="/app/img/logo-720.webp"');
-writeFileSync(join(DIST, "index.html"), poner(save, { url: SITIO + "/" }));
 // Copia de la app en /app/save.html: mismo canonico (la raiz); sus rutas ./ ya resuelven a /app/.
 writeFileSync(join(DIST, "app", "save.html"), poner(
   readFileSync(join(DOCS, "save.html"), "utf8").replaceAll("https://jfcarpiopuntocom.github.io/friendly-123/save.html", SITIO + "/"),
@@ -199,31 +194,31 @@ for (const rel of ["index.html", "manual.html"]) {
 // 404 raiz: solo iconos (og=false y sin canonical).
 writeFileSync(join(DIST, "404.html"), poner(readFileSync(join(DIST, "404.html"), "utf8"), { url: SITIO + "/", og: false }));
 
-// (d2) VISTA PREVIA: sitio-friendly123/landing/ -> dist/preview/ (JFC 2026-10-07). Rutas ya absolutas (/app/...).
-//      El logo pasa a webp igual que en la raiz. NO entra en el sitemap y robots la bloquea.
-const previewDir = join(DIST, "preview");
-mkdirSync(previewDir, { recursive: true });
-cpSync(join(AQUI, "landing"), previewDir, { recursive: true });
-let prev = readFileSync(join(previewDir, "index.html"), "utf8");
-if (sharp) prev = prev.replace('src="/app/img/logo-720.png"', 'src="/app/img/logo-720.webp"');
-writeFileSync(join(previewDir, "index.html"), poner(prev, { url: SITIO + "/preview/" }));
-
-// (d3) RAIZ = LANDING NUEVA (JFC 2026-10-07: "Aprobada: pónla en la raíz"). Reemplaza a save.html en /.
-//      Misma fuente que /preview/, pero indexable (se quita el noindex) y con canonical a la raiz.
+// (d3) RAIZ = landing nueva, editada directo en sitio-friendly123/landing/index.html (JFC 2026-10-07).
+//      Indexable (se quita el noindex de la fuente) y con canonical a la raiz. El logo pasa a webp.
 //      save.html sigue disponible en /app/save.html (QRs de flyers apuntan a github.io/save.html, intacto).
-//      Para volver a save.html en la raiz: borrar este bloque (d3); el paso (c) la vuelve a escribir.
 cpSync(join(AQUI, "landing"), DIST, { recursive: true });
-const raizNueva = prev.replace(/<meta name="robots" content="noindex,nofollow">\s*/i, "");
-writeFileSync(join(DIST, "index.html"), poner(raizNueva, { url: SITIO + "/" }));
+let raiz = readFileSync(join(AQUI, "landing", "index.html"), "utf8");
+if (sharp) raiz = raiz.replace('src="/app/img/logo-720.png"', 'src="/app/img/logo-720.webp"');
+raiz = raiz.replace(/<meta name="robots" content="noindex,nofollow">\s*/i, "");
+writeFileSync(join(DIST, "index.html"), poner(raiz, { url: SITIO + "/" }));
+
+// (d4) Paginas legales: legal/privacidad.html -> dist/privacidad/index.html, legal/terminos.html -> dist/terminos/index.html.
+//      Texto aprobado por JFC (Notion), verbatim. poner() solo agrega iconos (og:false); el canonical ya viene en la fuente.
+const LEGALES = { privacidad: SITIO + "/privacidad/", terminos: SITIO + "/terminos/" };
+for (const [nom, url] of Object.entries(LEGALES)) {
+  mkdirSync(join(DIST, nom), { recursive: true });
+  writeFileSync(join(DIST, nom, "index.html"), poner(readFileSync(join(AQUI, "legal", nom + ".html"), "utf8"), { url, og: false }));
+}
 
 // (e) robots.txt y sitemap.xml
 writeFileSync(join(DIST, "robots.txt"), [
   "User-agent: *", "Allow: /",
   ...["panel", "estado", "dashboard", "tablero", "informe-ejecutivo", "manual-maestro", "reporte-usuario"].map((p) => `Disallow: /app/${p}.html`),
   "Disallow: /app/NOTA-", "Disallow: /app/RUNBOOK-", "Disallow: /app/OUTREACH-", "Disallow: /app/superpowers/",
-  "Disallow: /clips/", "Disallow: /mosaico.html", "Disallow: /preview/",
+  "Disallow: /clips/", "Disallow: /mosaico.html",
   "", "Sitemap: " + SITIO + "/sitemap.xml", ""].join("\n"));
-const urls = [SITIO + "/", ...publicasLanding.map(urlDe), SITIO + "/app/", SITIO + "/app/manual.html"];
+const urls = [SITIO + "/", ...publicasLanding.map(urlDe), SITIO + "/privacidad/", SITIO + "/terminos/", SITIO + "/app/", SITIO + "/app/manual.html"];
 writeFileSync(join(DIST, "sitemap.xml"), '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
   urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n") + "\n</urlset>\n");
 
@@ -235,7 +230,7 @@ cpSync(join(AQUI, "_headers"), join(DIST, "_headers"));
 // redirecciones: el navegador/SW no ve ningun salto), una por cada carpeta de la landing con
 // index.html, mas / y /app/. "/app" sin barra si redirige (301) a /app/: queda fuera del
 // scope del SW (/app/), no lo afecta.
-const reglas = ["/app /app/ 301", "/preview /preview/ 301", "/ /index.html 200", "/app/ /app/index.html 200"];
+const reglas = ["/app /app/ 301", "/ /index.html 200", "/app/ /app/index.html 200"];
 const carpetas = (dir, pref) => {
   if (existsSync(join(dir, "index.html"))) reglas.push(pref + "/ " + pref + "/index.html 200");
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -261,7 +256,8 @@ const raizHtml = readFileSync(join(DIST, "index.html"), "utf8");
 dura(!/(?:href|src)="\.\//.test(raizHtml), "la raiz (save.html) aun trae URLs relativas ./");
 dura(raizHtml.includes('<link rel="canonical" href="' + SITIO + '/">'), "raiz sin canonical friendly123.com");
 dura(!existsSync(join(DIST, "landing")), "dist/landing/ debe NO existir (orden de JFC 2026-10-07)");
-dura(existsSync(join(DIST, "preview", "index.html")), "falta dist/preview/index.html");
-dura(!/<meta name="robots" content="index/.test(readFileSync(join(DIST, "preview", "index.html"), "utf8")), "preview debe ser noindex");
+dura(!existsSync(join(DIST, "preview")), "dist/preview/ debe NO existir (orden de JFC 2026-10-07)");
+dura(!/<meta name="robots" content="noindex/.test(raizHtml), "la raiz no debe ser noindex");
+for (const nom of Object.keys(LEGALES)) dura(existsSync(join(DIST, nom, "index.html")), "falta dist/" + nom + "/index.html");
 if (sharp) console.log(`webp: ${ahorro.n} imagenes, ${ahorro.antes} -> ${ahorro.despues} bytes (-${ahorro.antes - ahorro.despues})`);
 console.log(`dist listo: ${archivos.length} archivos de landing (${reescritos} con enlaces reescritos) + app + 404 + _headers`);
