@@ -3736,7 +3736,7 @@ async function pintarSaldoCartera(clienteId) {
     // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
-    const es = window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es";
+    const es = window.OCI18n && window.OCI18n.locale && String(window.OCI18n.locale()).startsWith("es") /* v460: locale() da "es-US", no "es" (JFC aprobó arreglarlo en Clientes) */;
     const color = debe ? "#E8365D" : "#00704A";
     // BUG FIX (JFC 2026-09-02): esta línea se borró por accidente en v1.7.79, así
     // que `texto` quedaba indefinido → ReferenceError → el saldo NO se pintaba
@@ -3839,7 +3839,7 @@ function _accionesVinculoCartera(m, clienteId) {
   return out;
 }
 function _textoSaldoCartera(saldo) {
-  const es = window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es";
+  const es = window.OCI18n && window.OCI18n.locale && String(window.OCI18n.locale()).startsWith("es") /* v460: locale() da "es-US", no "es" (JFC aprobó arreglarlo en Clientes) */;
   if (saldo < 0) return `${es ? "Deuda" : "Debt"} ${fmtMoney(-saldo)}`;
   if (saldo > 0) return `${es ? "Crédito" : "Credit"} ${fmtMoney(saldo)}`;
   return fmtMoney(0);

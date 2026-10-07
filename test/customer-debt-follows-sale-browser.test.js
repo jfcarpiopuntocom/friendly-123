@@ -97,7 +97,7 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
         const es = lang === 'es';
         await t.test(`saldo derivado de las ventas actuales (venta corregida a 18 + cargo antiguo 108) [${tag}]`, () => {
           assert.equal(r.saldoApi, -(18 + 108), 'antes del vinculo: venta corregida a 18 + cargo antiguo de 108 sin ligar');
-          assert.match(r.texto1, /(Deuda|Debt)\s+\$126\.00/);
+          assert.match(r.texto1, es ? /Deuda\s+\$126\.00/ : /Debt\s+\$126\.00/); /* v460: en espanol debe decir Deuda (arreglo de locale es-US) */
         });
         await t.test(`Registrar pago visible y en el idioma [${tag}]`, () => {
           assert.ok(r.pagarVisible);
@@ -113,7 +113,7 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
           assert.match(r.modalTexto, /\$108\.00/, 'monto original del cargo');
           assert.match(r.modalTexto, /\$126\.00/, 'saldo antes');
           assert.match(r.modalTexto, /\$43\.00/, 'saldo despues (18 + 25)');
-          assert.match(r.linkTexto, /TEXT PENDING JFC/);
+          assert.match(r.linkTexto, es ? /Vincular a venta/i : /Link to sale/i); /* v460: textos aprobados por JFC 2026-10-07 */
         });
         await t.test(`tras vincular el cargo sigue a su venta y se puede deshacer [${tag}]`, () => {
           assert.equal(r.saldoTrasVinculo, -43);
