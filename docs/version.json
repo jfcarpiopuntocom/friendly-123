@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-07",
-  "changelog": "v457: dashboard al instante y entra el admin; la dueña ve su dinero; toda venta genera comisión por el % del producto; el demo nunca se mezcla con un negocio real; ventas viejas recalculadas al % del producto como ajuste; la limpieza del demo queda apagada (solo se filtra).",
+  "changelog": "v458 hotfix: changing a person's base commission now updates simple unpaid commission obligations immediately; paid sales, product-specific percentages, shelf overrides, manual corrections and complex agreements remain untouched. Dashboard reflects the corrected amount without reload.",
   "requerida": false,
-  "shell": "f123-shell-v457",
+  "shell": "f123-shell-v458",
   "apagar": [],
-  "releaseName": "v457",
-  "cacheGeneration": "golden22"
+  "releaseName": "v458",
+  "cacheGeneration": "golden23"
 }
