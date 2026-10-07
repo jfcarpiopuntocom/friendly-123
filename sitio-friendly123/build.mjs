@@ -203,12 +203,78 @@ if (sharp) raiz = raiz.replace('src="/app/img/logo-720.png"', 'src="/app/img/log
 raiz = raiz.replace(/<meta name="robots" content="noindex,nofollow">\s*/i, "");
 writeFileSync(join(DIST, "index.html"), poner(raiz, { url: SITIO + "/" }));
 
-// (d4) Paginas legales: legal/privacidad.html -> dist/privacidad/index.html, legal/terminos.html -> dist/terminos/index.html.
+// (d4) Paginas legales: legal/<nombre>.html -> dist/<nombre>/index.html (privacidad, terminos = ES; privacy, terms = EN, traduccion fiel).
 //      Texto aprobado por JFC (Notion), verbatim. poner() solo agrega iconos (og:false); el canonical ya viene en la fuente.
-const LEGALES = { privacidad: SITIO + "/privacidad/", terminos: SITIO + "/terminos/" };
+const LEGALES = { privacidad: SITIO + "/privacidad/", terminos: SITIO + "/terminos/", privacy: SITIO + "/privacy/", terms: SITIO + "/terms/" };
 for (const [nom, url] of Object.entries(LEGALES)) {
   mkdirSync(join(DIST, nom), { recursive: true });
   writeFileSync(join(DIST, nom, "index.html"), poner(readFileSync(join(AQUI, "legal", nom + ".html"), "utf8"), { url, og: false }));
+}
+
+// (d5) SEO internacional (JFC 2026-10-07: "completeness internacional y world class para SEO"). Solo metadatos y
+//      enlaces de pie; ningun texto aprobado se modifica. Se aplica a las copias de dist/ (las paginas /es/ y los
+//      articulos vienen del repo del sitio y NO se editan alli).
+//      PARES (EN <-> ES). x-default = la version EN. La raiz / (landing EN nueva) se empareja con /es/ (landing
+//      bilingue anterior, que sigue siendo una pagina distinta: se informa a JFC).
+//      /app/ y /app/manual.html son UNA sola URL bilingue (sin par): sin hreflang, solo og:locale.
+const PARES = [
+  { en: "", es: "es/" },
+  { en: "consignment-commissions/", es: "es/comisiones-de-consignacion/" },
+  { en: "shared-digital-notebook/", es: "es/cuaderno-digital-compartido/" },
+  { en: "privacy/", es: "privacidad/" },
+  { en: "terms/", es: "terminos/" },
+];
+const SOLOS = [{ rel: "app/", lang: "en", locale: "en_US", alt: "es_ES" }, { rel: "app/manual.html", lang: "es", locale: "es_EC", alt: "en_US" }];
+const archivoDe = (rel) => join(DIST, rel === "" || rel.endsWith("/") ? rel + "index.html" : rel);
+const OGL = { en: ["en_US", "es_ES"], es: ["es_ES", "en_US"] };
+// Pie legal por idioma en las paginas de la landing anterior (es/ y articulos). Esas paginas cambian de idioma
+// con botones [data-lang] (setLanguage), asi que un script minimo sincroniza los dos enlaces del pie.
+const PIE = { en: ['/privacy/', "Privacy", '/terms/', "Terms"], es: ['/privacidad/', "Privacidad", '/terminos/', "T\u00e9rminos"] };
+const conPie = (html, lang) => {
+  const [h1, t1, h2, t2] = PIE[lang];
+  const fin = "</nav></div></footer>";
+  dura0(html.includes(fin), "pie de la landing anterior no encontrado");
+  html = html.replace(fin, `<a id="lg-priv" href="${h1}">${t1}</a><a id="lg-terms" href="${h2}">${t2}</a>${fin}`);
+  const js = `<script>
+/* Enlaces legales del pie segun idioma (EN: Privacy/Terms, ES: Privacidad/Terminos). Se actualiza al pulsar los botones de idioma. */
+(function(){var P=${JSON.stringify(PIE)};function s(){var l=document.documentElement.lang==="es"?"es":"en",a=document.getElementById("lg-priv"),b=document.getElementById("lg-terms");if(!a||!b)return;a.href=P[l][0];a.textContent=P[l][1];b.href=P[l][2];b.textContent=P[l][3];}
+document.querySelectorAll("[data-lang]").forEach(function(x){x.addEventListener("click",function(){setTimeout(s,0);});});s();})();
+</script>
+`;
+  return html.replace(/<\/body>(?![\s\S]*<\/body>)/, js + "</body>");
+};
+function dura0(c, m) { if (!c) throw new Error("build: " + m); }
+const intl = (html, { lang, locale, alt, alternates }) => {
+  html = html.replace(/<html[^>]*>/i, `<html lang="${lang}">`);
+  // se quita lo que hubiera (hreflang, og:locale) y se escribe el juego completo
+  html = html.replace(/[ \t]*<link[^>]+rel="alternate"[^>]+hreflang="[^"]*"[^>]*>\n?/gi, "")
+             .replace(/[ \t]*<meta[^>]+property="og:locale(?::alternate)?"[^>]*>\n?/gi, "");
+  const extra = [];
+  if (alternates) {
+    extra.push(`<link rel="alternate" hreflang="en" href="${alternates.en}">`,
+               `<link rel="alternate" hreflang="es" href="${alternates.es}">`,
+               `<link rel="alternate" hreflang="x-default" href="${alternates.en}">`);
+  }
+  extra.push(`<meta property="og:locale" content="${locale}">`, `<meta property="og:locale:alternate" content="${alt}">`);
+  return html.replace("</head>", extra.join("\n") + "\n</head>");
+};
+for (const par of PARES) {
+  const alternates = { en: SITIO + "/" + par.en, es: SITIO + "/" + par.es };
+  for (const lang of ["en", "es"]) {
+    const f = archivoDe(par[lang]);
+    let h = intl(readFileSync(f, "utf8"), { lang, locale: OGL[lang][0], alt: OGL[lang][1], alternates });
+    // pie legal: raiz y paginas legales ya lo traen en su fuente; las demas (landing anterior) se inyecta aqui
+    if (/<footer><div class="wrap footer-inner">/.test(h)) {
+      h = conPie(h, lang);
+      // Piso de 12px (regla de JFC): la landing anterior trae dos rotulos de ilustracion a .72rem/.74rem.
+      h = h.replace("</head>", "<style>.art-legend span,.shelf-caption{font-size:.75rem}</style></head>");
+    }
+    writeFileSync(f, h);
+  }
+}
+for (const s of SOLOS) {
+  const f = archivoDe(s.rel);
+  writeFileSync(f, intl(readFileSync(f, "utf8"), { lang: s.lang, locale: s.locale, alt: s.alt }));
 }
 
 // (e) robots.txt y sitemap.xml
@@ -218,9 +284,21 @@ writeFileSync(join(DIST, "robots.txt"), [
   "Disallow: /app/NOTA-", "Disallow: /app/RUNBOOK-", "Disallow: /app/OUTREACH-", "Disallow: /app/superpowers/",
   "Disallow: /clips/", "Disallow: /mosaico.html",
   "", "Sitemap: " + SITIO + "/sitemap.xml", ""].join("\n"));
-const urls = [SITIO + "/", ...publicasLanding.map(urlDe), SITIO + "/privacidad/", SITIO + "/terminos/", SITIO + "/app/", SITIO + "/app/manual.html"];
-writeFileSync(join(DIST, "sitemap.xml"), '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-  urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n") + "\n</urlset>\n");
+// sitemap con xhtml:link (hreflang) reciprocos para cada par; /app/ sin par.
+const entrada = (loc, alts) => `  <url><loc>${loc}</loc>` + (alts ? `
+    <xhtml:link rel="alternate" hreflang="en" href="${alts.en}"/>
+    <xhtml:link rel="alternate" hreflang="es" href="${alts.es}"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="${alts.en}"/>
+  ` : "") + `</url>`;
+const lineas = [];
+for (const par of PARES) {
+  const alts = { en: SITIO + "/" + par.en, es: SITIO + "/" + par.es };
+  lineas.push(entrada(alts.en, alts), entrada(alts.es, alts));
+}
+for (const s of SOLOS) lineas.push(entrada(SITIO + "/" + s.rel));
+// toda carpeta publica de la landing debe estar en un par (si no, el sitemap quedaria incompleto)
+for (const rel of publicasLanding) dura0(PARES.some((p) => p.en + "index.html" === rel || p.es + "index.html" === rel) || rel === "index.html", "pagina publica sin par en PARES: " + rel);
+writeFileSync(join(DIST, "sitemap.xml"), ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">', ...lineas, "</urlset>", ""].join("\n"));
 
 // --- 4. Cabeceras
 cpSync(join(AQUI, "_headers"), join(DIST, "_headers"));
