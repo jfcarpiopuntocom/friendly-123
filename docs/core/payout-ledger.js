@@ -121,6 +121,19 @@
     const saleMap = new Map(sales.map((v) => [String(v.id), v]));
     const applied = payoutAppliedMap(payouts);
     const out = [];
+    /* RETENCION ANTES DE PAGAR (JFC 2026-10-07: "dale choices al usuario"). El dueno elige
+       0 (apagado, como siempre), 7, 14 o 30 dias. Una venta mas nueva que esos dias todavia
+       no se puede pagar: su saldo va a heldCents (con heldUntil), nunca a dueCents, asi ni la
+       tarjeta ni el boton de pago la ofrecen. El core sigue sin reloj: asOf lo pone el shell. */
+    const holdDays = Math.max(0, Math.floor(Number(input && input.holdDays) || 0));
+    const asOfMs = Date.parse(String(input && input.asOf || ""));
+    const holdUntil = (fecha) => {
+      if (!holdDays || !Number.isFinite(asOfMs)) return null;
+      const t = Date.parse(String(fecha || ""));
+      if (!Number.isFinite(t)) return null;
+      const until = t + holdDays * 86400000;
+      return until > asOfMs ? new Date(until).toISOString() : null;
+    };
 
     sales.forEach((v) => {
       if (!v || !v.split || v.anulada) return;
@@ -131,7 +144,33 @@
         const legacy = o.legacyPaid && !hasLedgerFact(payouts, o) ? total : 0;
         const byPayout = applied.get(key(o.kind, o.sourceId, o.payeeId)) || 0;
         const paidCents = Math.min(total, legacy + byPayout);
-        out.push({ ...o, paidCents, dueCents: Math.max(0, total - paidCents), signedAmountCents: o.amountCents });
+        const dueCents = Math.max(0, total - paidCents);
+        const hold = o.amountCents > 0 && dueCents > 0 ? holdUntil(v.fecha) : null;
+        if (hold) { out.push({ ...o, paidCents, dueCents: 0, heldCents: dueCents, heldUntil: hold, signedAmountCents: o.amountCents }); return; }
+        out.push({ ...o, paidCents, dueCents, signedAmountCents: o.amountCents });
+      });
+    });
+
+    /* VENTA ANULADA DESPUES DE PAGARSE (JFC 2026-10-07: "descontar del proximo pago").
+       La app ya bloquea anular/cancelar una venta pagada (pide "Return"), pero dos aparatos
+       pueden cruzarse: uno paga y otro anula antes de ver el pago por el sync. Antes esa
+       plata se perdia del libro (ledger.js si la registraba como deuda de la persona). Ahora
+       lo pagado por el libro vuelve como un descuento "void" (negativo) en el mes de la
+       anulacion, que planPayout consume antes del efectivo. Es derivado, sin registro nuevo
+       que pueda chocar en el sync. Solo cuenta pagos del libro (v448+), no banderas viejas. */
+    sales.forEach((v) => {
+      if (!v || !v.split || !v.anulada) return;
+      const fVoid = v.anuladaEn || v.canceladaExPostEn || v.fecha;
+      if (month && monthOf(fVoid) !== month) return;
+      if (locationId && String(v.ubicacionId) !== locationId) return;
+      obligationsForSale(Object.assign({}, v, { anulada: false }), locMap.get(String(v.ubicacionId))).forEach((s) => {
+        if (s.amountCents <= 0) return;
+        const paidSale = applied.get(key("sale", s.sourceId, s.payeeId)) || 0;
+        if (paidSale <= 0) return;
+        const recovered = applied.get(key("void", s.sourceId, s.payeeId)) || 0;
+        out.push({ kind: "void", sourceId: s.sourceId, payeeId: s.payeeId, amountCents: -paidSale,
+          order: String(fVoid) + "|" + String(s.order).split("|")[1], locationId: s.locationId, legacyPaid: false,
+          paidCents: Math.min(paidSale, recovered), dueCents: (recovered - paidSale) || 0, signedAmountCents: -paidSale });
       });
     });
 
@@ -165,14 +204,16 @@
     obs.forEach((o) => {
       const pid = o.payeeId || null;
       const k = String(pid || "__unassigned__");
-      const row = map.get(k) || { payeeId: pid, dueCents: 0, earnedCents: 0, paidCents: 0, obligations: [] };
+      const row = map.get(k) || { payeeId: pid, dueCents: 0, earnedCents: 0, paidCents: 0, heldCents: 0, heldUntil: null, obligations: [] };
+      row.heldCents += Number(o.heldCents) || 0;
+      if (o.heldUntil && (!row.heldUntil || o.heldUntil < row.heldUntil)) row.heldUntil = o.heldUntil; // la proxima que se libera
       row.earnedCents += o.signedAmountCents;
       row.paidCents += o.paidCents * (o.signedAmountCents < 0 ? -1 : 1);
       row.dueCents += o.dueCents;
       row.obligations.push(o);
       map.set(k,row);
     });
-    return [...map.values()].map((r) => ({...r, earned:money(r.earnedCents), paid:money(r.paidCents), due:money(r.dueCents)}));
+    return [...map.values()].map((r) => ({...r, earned:money(r.earnedCents), paid:money(r.paidCents), due:money(r.dueCents), held:money(r.heldCents)}));
   }
 
   function planPayout(input) {
