@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-07",
-  "changelog": "v465: pagos de comision sin duplicados por doble toque o reintento; una reversa nunca devuelve mas de lo pagado.",
+  "changelog": "v466: una venta anulada despues de pagarse se descuenta del proximo pago; retencion opcional antes de pagar comisiones; botones cortos en Commissions.",
   "requerida": false,
-  "shell": "f123-shell-v465",
+  "shell": "f123-shell-v466",
   "apagar": [],
-  "releaseName": "v465",
-  "cacheGeneration": "golden29"
+  "releaseName": "v466",
+  "cacheGeneration": "golden30"
 }

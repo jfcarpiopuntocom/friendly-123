@@ -8707,11 +8707,11 @@ async function cargarComisiones(){
     return;
   }
   // Rec 03: botón que arma el resumen del día y lo abre en WhatsApp listo.
-  const btnWA = `<button class="ir" style="font-size:14px;min-height:40px;padding:6px 12px;margin:0;background:#25D366;color:#0F1923;border-color:#1da851;" onclick="enviarResumenWhatsApp()">${t("comm.sendWhatsappDaily")}</button>`;
+  const btnWA = `<button class="ir" style="font-size:14px;min-height:44px;padding:6px 12px;margin:0;background:#25D366;color:#0F1923;border-color:#1da851;" aria-label="${escHtml(t("comm.sendWhatsappDaily"))}" title="${escHtml(t("comm.sendWhatsappDaily"))}" onclick="enviarResumenWhatsApp()">${t("comm.sendWhatsappDailyShort")}</button>`; // JFC 2026-10-07: texto corto
   // Exportar comisiones a CSV (2026-08-27, portado de amigable-123): descarga
   // un CSV con el desglose por percha del mes. El dueño lo puede abrir en
   // Excel/Sheets o mandarlo al contador.
-  const btnExport = `<button class="tecla" style="margin:0;" onclick="exportarComisionesCSV()">⤓ Export CSV</button>`;
+  const btnExport = `<button class="tecla" style="margin:0;min-height:44px;" aria-label="Export CSV" title="Export CSV" onclick="exportarComisionesCSV()">⤓ CSV</button>`; // JFC 2026-10-07: textos cortos, caben en una linea
 
   const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones, true);
   /* v442 (JFC 2026-10-02, "no queremos panicos asi, algo FRIENDLY"): el 1 de octubre la vista abrio
@@ -8861,9 +8861,13 @@ async function cargarComisiones(){
         const due = Number(p.due) || 0;
         const paid = Number(p.paid) || 0;
         const earned = Number(p.earned) || 0;
-        const statusKey = Math.abs(due) <= 0.00001 ? "paid" : (paid > 0 ? "partial" : "due");
-        const status = statusKey === "paid" ? mx.paidState : (statusKey === "partial" ? mx.partial : mx.dueState);
-        const statusClass = statusKey === "paid" ? "verde" : (statusKey === "partial" ? "amarillo" : "rojo");
+        /* RETENCION (2026-10-07): lo retenido todavia no se puede pagar y NUNCA se muestra como pagado. */
+        const held = Number(p.held) || 0;
+        const heldTxt = held > 0.00001 ? (esMoney ? "Retenido" : "On hold") : "";
+        const heldFecha = p.heldUntil ? new Date(p.heldUntil).toLocaleDateString(esMoney ? "es" : "en", { day:"numeric", month:"short" }) : "";
+        const statusKey = Math.abs(due) <= 0.00001 ? (held > 0.00001 ? "held" : "paid") : (paid > 0 ? "partial" : "due");
+        const status = statusKey === "held" ? heldTxt : statusKey === "paid" ? mx.paidState : (statusKey === "partial" ? mx.partial : mx.dueState);
+        const statusClass = statusKey === "paid" ? "verde" : ((statusKey === "partial" || statusKey === "held") ? "amarillo" : "rojo");
         const hist = (f.payoutHistory || []).filter(h => String(h.payeeId || "") === String(p.payeeId || ""));
         const det = (f.detallePendientes || []).filter(d => String(d.payeeId || "") === String(p.payeeId || ""));
         const name = p.nombre || "Associate";
@@ -8884,6 +8888,9 @@ async function cargarComisiones(){
             <div><div class="rotulo">${mx.paid}</div><div class="cifra">${fmtMoney(paid)}</div></div>
             <div><div class="rotulo">${mx.due}</div><div class="cifra" style="color:${due > 0 ? 'var(--rust-deep,#C05000)' : 'var(--dinero-verde-dk,#008a54)'};">${fmtMoney(due)}</div></div>
           </div>
+          ${held > 0.00001 ? `<p data-comm-held style="font-size:14px;font-weight:700;color:var(--ink,#1a1a1a);margin:8px 0 0;">${esMoney
+            ? `${heldTxt}: ${fmtMoney(held)}. Se puede pagar desde el ${escHtml(heldFecha)}.`
+            : `${heldTxt}: ${fmtMoney(held)}. It can be paid from ${escHtml(heldFecha)}.`}</p>` : ""}
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-top:10px;">
             ${due > 0.00001 ? `<button type="button" class="ir" data-comm-pay-person="${escHtml(p.payeeId || "")}"
               data-pay-rack="${escHtml(f.ubicacionId || "")}" data-pay-name="${escHtml(name)}" data-pay-due="${due}"
@@ -9400,9 +9407,9 @@ async function enviarEstadoComisionista(ubicacionId, promotoraId){
       const own = f.payoutStatementLines.filter(o => o.payeeId === _personaId);
       const project = o => ({ fecha:String(o.fecha || "").slice(0,10), producto:o.producto,
         cantidad:o.cantidad, comision:o.earnedCents / 100, pagado:o.paidCents / 100,
-        pendiente:o.dueCents / 100, pagada:o.dueCents === 0, medio:o.medio });
+        pendiente:o.dueCents / 100, pagada:o.dueCents === 0 && !o.heldCents, medio:o.medio }); // retenido no es pagado (2026-10-07)
       lineas = own.filter(o => o.kind === "sale").map(project);
-      ajustes = own.filter(o => o.kind === "adjustment").map(project);
+      ajustes = own.filter(o => o.kind === "adjustment" || o.kind === "void").map(project); // void = venta anulada despues de pagarse
       sumaCom = own.reduce((s,o) => s + o.earnedCents, 0) / 100;
       pendiente = own.reduce((s,o) => s + o.dueCents, 0) / 100;
       totalVendido = [...new Map(own.filter(o => o.kind === "sale").map(o => [o.sourceId,o.brutoCents])).values()].reduce((s,c) => s + c, 0) / 100;
@@ -9545,7 +9552,7 @@ async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, p
         (it.kind === "sale" && String(x.ventaId || "") === String(it.sourceId || "")) ||
         (it.kind === "adjustment" && String(x.ajusteId || "") === String(it.sourceId || ""))
       );
-      const etiqueta = d ? `${d.cantidad}× ${d.producto}` : (it.kind === "adjustment" ? "Adjustment / return" : "Commissioned sale");
+      const etiqueta = d ? `${d.cantidad}× ${d.producto}` : (it.kind === "adjustment" ? "Adjustment / return" : (it.kind === "void" ? "Voided after payment" : "Commissioned sale"));
       const signo = it.offset ? "-" : "";
       return `• ${etiqueta} — ${signo}${fmtMoney((Number(it.amountCents) || 0) / 100)}`;
     });
@@ -9997,6 +10004,39 @@ async function pintarLealtadCfg(){
     } catch (_) { msg.textContent = es ? "No se pudo guardar." : "Could not save."; }
   });
 }
+/* RETENCION ANTES DE PAGAR COMISIONES (JFC 2026-10-07: "dale choices al usuario sin arruinar
+   nada mas"). Apagada por defecto. Con 7/14/30 dias, una venta mas nueva que eso queda
+   "retenida": se ve en Commissions con su fecha, pero aun no se puede pagar. Va debajo de
+   Lealtad y solo dueno/admin la cambia (el backend lo vuelve a exigir). */
+async function pintarRetencionCfg(){
+  const leal = document.getElementById("ocLealtadCfg"); if (!leal) return;
+  let box = document.getElementById("ocRetencionCfg");
+  if (!box) { box = document.createElement("div"); box.id = "ocRetencionCfg"; box.style.marginTop = "12px"; leal.insertAdjacentElement("afterend", box); }
+  let cfg; try { cfg = await (await fetch(`${API}/config/retencion`)).json(); } catch (_) { box.innerHTML = ""; return; }
+  const es = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+  const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : "";
+  const puede = rol === "dueno" || rol === "admin";
+  const opciones = Array.isArray(cfg.opciones) ? cfg.opciones : [0, 7, 14, 30];
+  const etiqueta = (d) => d === 0 ? (es ? "Sin retención (se paga en cuanto se vende)" : "No hold (pay as soon as it sells)") : (es ? `${d} días` : `${d} days`);
+  box.innerHTML = `<div style="border:2px solid #5294AC;border-radius:8px;padding:12px 14px;background:#F8F9FB;color:var(--ink,#1a1a1a);">
+    <label for="ocRetDias" style="display:block;font-size:16px;font-weight:700;margin-bottom:6px;">${es ? "Retención antes de pagar comisiones" : "Hold before paying commissions"}</label>
+    <select id="ocRetDias" style="min-height:44px;font-size:16px;padding:6px 8px;" ${puede ? "" : "disabled"}>
+      ${opciones.map(d => `<option value="${d}" ${Number(cfg.dias) === d ? "selected" : ""}>${etiqueta(d)}</option>`).join("")}
+    </select>
+    <p style="font-size:14px;margin:6px 0 0;">${es ? "Una venta más nueva que estos días aparece como retenida y todavía no se puede pagar. Sirve por si hay una devolución." : "A sale newer than this shows as on hold and cannot be paid yet, in case it is returned."}</p>
+    ${puede ? `<button type="button" id="ocRetGuardar" style="margin-top:8px;min-height:44px;">${es ? "Guardar" : "Save"}</button>` : ""}
+    <p id="ocRetMsg" role="status" style="font-size:14px;font-weight:700;margin:6px 0 0;"></p></div>`;
+  const b = document.getElementById("ocRetGuardar"); if (!b) return;
+  b.addEventListener("click", async () => {
+    const msg = document.getElementById("ocRetMsg");
+    try {
+      const r = await fetch(`${API}/config/retencion`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dias: Number(document.getElementById("ocRetDias").value) }) });
+      const d = await r.json();
+      if (!r.ok) { msg.textContent = d.error || "Error"; return; }
+      msg.textContent = es ? "Guardado en este aparato. Llega a los demás cuando sincronicen." : "Saved on this device. Other devices get it when they sync.";
+    } catch (_) { msg.textContent = es ? "No se pudo guardar." : "Could not save."; }
+  });
+}
 /* Sugerencia de lealtad en el panel de venta: al elegir cliente, si le toca, un
    boton llena "Adjust price" con el descuento. Delegado: sirve para cualquier panel. */
 document.addEventListener("change", async (ev) => {
@@ -10024,7 +10064,7 @@ document.addEventListener("change", async (ev) => {
 });
 async function cargarAvanzado(){
   try { avisosRutinariosDeAvanzado(); } catch (_) {}
-  try { pintarImpuestoCfg().then(() => pintarLealtadCfg()); } catch (_) {}
+  try { pintarImpuestoCfg().then(() => pintarLealtadCfg()).then(() => pintarRetencionCfg()); } catch (_) {}
   try { pintarSyncNuevoEstado(); } catch (_) {}
   inicializarSelectorTimezone();
   await cargarGastosMensuales();

@@ -670,6 +670,18 @@
     const pct = Math.min(50, Math.max(1, Math.round(Number(r.pct) || 10)));
     return { id: "lealtad", activa: !!r.activa, cada, pct, rev: r.rev || null };
   }
+  /* RETENCION ANTES DE PAGAR COMISIONES (JFC 2026-10-07: "dale choices al usuario sin arruinar
+     nada mas"). Regla del cuaderno, como lealtad: viaja en "ajustes", gana la revision mayor.
+     Apagada (0 dias) por defecto = todo igual que antes. Solo 0/7/14/30: un valor raro de un
+     aparato futuro se ignora en vez de inventar una regla. Una app vieja ignora este id. */
+  let ajusteRetencion = null; // { id: "retencion", dias, rev }
+  const RETENCION_DIAS = [0, 7, 14, 30];
+  function _normRetencion(r) {
+    if (!r || r.id !== "retencion") return null;
+    const d = Math.floor(Number(r.dias) || 0);
+    if (RETENCION_DIAS.indexOf(d) === -1) return null;
+    return { id: "retencion", dias: d, rev: r.rev || null };
+  }
   function _normMoneda(r) {
     if (!r || r.id !== "moneda") return null;
     const c = String(r.codigo || "").trim().toUpperCase();
@@ -886,7 +898,7 @@
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
       movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payouts),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
-      configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
+      configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, retencion: ajusteRetencion ? clonar(ajusteRetencion) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
       usuarios: clonar(usuarios),
       instanceId: instanceId,
       nombreNegocio: nombreNegocio,
@@ -936,7 +948,7 @@
         idsPay.add(String(p.id)); opsPay.add(String(p.opId));
         if (p.status !== "paid" || !Number.isInteger(Number(p.amountCents)) || Number(p.amountCents) < 0) return "There is an invalid commission payment amount or status.";
         if (!Array.isArray(p.items) || !p.items.length) return "There is a commission payment without covered items.";
-        for (const it of p.items) if (!it || !["sale","adjustment"].includes(it.kind) || !it.sourceId || !Number.isInteger(Number(it.amountCents)) || Number(it.amountCents) <= 0) return "There is a corrupt covered item in a commission payment.";
+        for (const it of p.items) if (!it || !["sale","adjustment","void"].includes(it.kind) /* void (2026-10-07): descuento de venta anulada tras pagarse */ || !it.sourceId || !Number.isInteger(Number(it.amountCents)) || Number(it.amountCents) <= 0) return "There is a corrupt covered item in a commission payment.";
       }
     }
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
@@ -990,6 +1002,8 @@
     if (_mon) ajusteMoneda = _mon;
     const _leal = body.configuracion && _normLealtad(body.configuracion.lealtad);
     if (_leal) ajusteLealtad = _leal;
+    const _ret = body.configuracion && _normRetencion(body.configuracion.retencion);
+    if (_ret) ajusteRetencion = _ret;
     const _cm = body.configuracion && body.configuracion.categoriasMeta;
     if (_cm && typeof _cm === "object") {
       Object.keys(categoriasMeta).forEach((k) => delete categoriasMeta[k]);
@@ -1972,13 +1986,20 @@
       && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
     const adjustments = ajustesComision.filter((a) => a && esDelMes(a.fecha, periodo)
       && (ubicacionId == null || String(a.ubicacionId) === String(ubicacionId)));
-    return { sales, adjustments, locations: ubicaciones, payouts,
-      month: "", period: periodo, locationId: ubicacionId == null ? null : String(ubicacionId) };
+    /* 2026-10-07: las ventas anuladas tambien entran, en el mes de su anulacion, para que el
+       core devuelva lo que ya se habia pagado por ellas (descuento "void"). El core las salta
+       para todo lo demas. */
+    const voids = Array.prototype.filter.call(ventas, (v) => v && v.anulada && v.split && !_demoOculto("ventas", v)
+      && esDelMes(v.anuladaEn || v.canceladaExPostEn || v.fecha, periodo)
+      && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
+    return { sales: sales.concat(voids), adjustments, locations: ubicaciones, payouts,
+      month: "", period: periodo, locationId: ubicacionId == null ? null : String(ubicacionId),
+      holdDays: ajusteRetencion ? ajusteRetencion.dias : 0, asOf: new Date().toISOString() };
   }
   function _fuentePayoutLiquidada(kind, id, ubicacionId, mes) {
     const core = _payoutCore(); if (!core) return false;
     const obs = core.buildObligations(_payoutInput(ubicacionId, mes)).filter((o) => o.kind === kind && String(o.sourceId) === String(id));
-    return obs.length > 0 && obs.every((o) => Number(o.dueCents) === 0);
+    return obs.length > 0 && obs.every((o) => Number(o.dueCents) === 0 && !o.heldCents); // retenido = todavia no pagado
   }
   /* IDEMPOTENCIA ESTRICTA (auditoria 2026-10-07, punto 2; patron de Stripe "Idempotent requests").
      Una clave (opId) ya usada solo devuelve el pago guardado si la peticion pide LO MISMO:
@@ -2176,14 +2197,15 @@
       const _ledgerObs = _ledger ? _ledger.buildObligations(_payoutInput(u.id, _mes)) : [];
       const payoutBalances = _ledger ? _ledger.balancesByPayee(_payoutInput(u.id, _mes)).map((r) => ({
         payeeId:r.payeeId, nombre:_payeeName(r.payeeId,u), earned:+_ledger.money(r.earnedCents).toFixed(2),
-        paid:+_ledger.money(r.paidCents).toFixed(2), due:+_ledger.money(r.dueCents).toFixed(2), dueCents:r.dueCents
+        paid:+_ledger.money(r.paidCents).toFixed(2), due:+_ledger.money(r.dueCents).toFixed(2), dueCents:r.dueCents,
+        held:+_ledger.money(r.heldCents || 0).toFixed(2), heldCents:r.heldCents || 0, heldUntil:r.heldUntil || null
       })) : [];
       const stillDue = _ledger ? +(payoutBalances.reduce((a,r) => a + (Number(r.due) || 0), 0)).toFixed(2)
         : +(pendientes.reduce((a,v) => a + (Number(v.split && v.split.montoComisionSocio) || 0), 0) + ajPend.reduce((a,x) => a + (Number(x.montoComisionSocio) || 0), 0)).toFixed(2);
-      const _ledgerAbierto = _ledger ? _ledgerObs.some((o) => Math.abs(Number(o.dueCents) || 0) > 0) : !!(pendientes.length || ajPend.length);
+      const _ledgerAbierto = _ledger ? _ledgerObs.some((o) => Math.abs(Number(o.dueCents) || 0) > 0 || Number(o.heldCents) > 0) : !!(pendientes.length || ajPend.length); // retenido NO es pagado
       const _ledgerPagoPositivo = _ledger ? _ledgerObs.some((o) => Number(o.signedAmountCents) > 0 && Number(o.paidCents) > 0)
         : ventasMes.some((v) => !!v.liquidada);
-      const paymentStatus = (ventasMes.length === 0 && ajustesMes.length === 0) ? "no-sales"
+      const paymentStatus = (ventasMes.length === 0 && ajustesMes.length === 0 && !_ledgerObs.some((o) => o.kind === "void")) ? "no-sales"
         : (_ledgerAbierto ? (_ledgerPagoPositivo ? "partially-paid" : "due") : "paid");
       const payoutHistory = payouts.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
         .slice().sort((a,b) => String(b.paidAt || b.createdAt || "").localeCompare(String(a.paidAt || a.createdAt || "")))
@@ -2215,13 +2237,14 @@
       // un recibo itemizado (producto, unidades, bruto, comision). Sin esto el pago
       // es un numero suelto y genera desconfianza. Ver marcarComisionPagada() en index.html.
       const detallePendientes = _ledger ? _ledgerObs.filter((o) => Number(o.dueCents) !== 0).map((o) => {
-        const v = o.kind === "sale" ? ventas.find((x) => String(x.id) === String(o.sourceId)) : null;
+        const v = (o.kind === "sale" || o.kind === "void") ? ventas.find((x) => String(x.id) === String(o.sourceId)) : null;
         const aj = o.kind === "adjustment" ? ajustesComision.find((x) => String(x.id) === String(o.sourceId)) : null;
         const vv = v || (aj ? ventas.find((x) => String(x.id) === String(aj.ventaId)) : null);
         const pp = vv ? productos.find((q) => q.id === vv.productoId) : null;
         const _esDev = !!(aj && aj.tipo === "devolucion"); // v457 (b): el ajuste retroactivo no es una devolucion
-        return { producto:(_esDev ? "Return: " : "") + (pp ? pp.nombre : "product"), sku:pp ? pp.sku : "",
-          cantidad:_esDev ? -(Number(aj && aj.cantidad) || 0) : (Number(vv && vv.cantidad) || 0),
+        const _esVoid = o.kind === "void"; // 2026-10-07: venta anulada despues de pagarse
+        return { producto:(_esDev ? "Return: " : (_esVoid ? "Voided after payment: " : "")) + (pp ? pp.nombre : "product"), sku:pp ? pp.sku : "",
+          cantidad:(_esDev || _esVoid) ? -(Number((aj || vv) && (aj || vv).cantidad) || 0) : (Number(vv && vv.cantidad) || 0),
           montoBruto:vv && vv.split ? +(Number(vv.split.montoBruto) || 0).toFixed(2) : 0,
           comisionSocio:+_ledger.money(o.dueCents).toFixed(2), ajusteId:aj ? aj.id : undefined,
           ventaId:vv ? vv.id : undefined, payeeId:o.payeeId, payeeNombre:_payeeName(o.payeeId,u) };
@@ -2261,7 +2284,7 @@
             cantidad:Number(v && v.cantidad) || 0,
             brutoCents:o.kind === "sale" && v ? _ledger.cents(Number(v.precioUnit) * Number(v.cantidad)) : 0,
             earnedCents:o.signedAmountCents, paidCents:o.paidCents * (o.signedAmountCents < 0 ? -1 : 1),
-            dueCents:o.dueCents, medio:v && v.medioPagoComision || null };
+            dueCents:o.dueCents, heldCents:o.heldCents || 0, heldUntil:o.heldUntil || null, medio:v && v.medioPagoComision || null };
         }) : null,
         /* v457 (b): el recalculo retroactivo no es una devolucion; su plata ya viaja en la fila de su venta (ledger). */
         ajustes: ajustesMes.filter((x) => x.tipo !== "recalculo-retroactivo").map((x) => ({ id: x.id, tipo: x.tipo, ventaId: x.ventaId, fecha: x.fecha, cantidad: x.cantidad, montoComisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), quien: x.quien || "", motivo: x.motivo || "", liquidada: !!x.liquidada })),
@@ -3819,6 +3842,12 @@
     // Ajustes del cuaderno (v359): hoy solo "impuesto". Gana la revisión mayor.
     if (Array.isArray(remoto.ajustes)) {
       remoto.ajustes.forEach((r) => {
+        const rt = _normRetencion(r);
+        if (rt) {
+          _observarRev(rt.rev);
+          if (ajusteRetencion && _revDomina(rt.rev, ajusteRetencion.rev) !== true) return;
+          ajusteRetencion = rt; actualizados++; return;
+        }
         const lz = _normLealtad(r);
         if (lz) {
           _observarRev(lz.rev);
@@ -4155,7 +4184,7 @@
         sucursales: sucursales.filter((s) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "sucursales", s)).map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa !== false, rev: s.rev || null, borrado: !!s.borrado })),
         // Configuración de categorías (propias vacías y ocultas). Ver categoriasMeta.
         categorias: Object.keys(categoriasMeta).map((k) => Object.assign({}, categoriasMeta[k])),
-        ajustes: [ajusteImpuesto, ajusteMoneda, ajusteLealtad].filter(Boolean).map((a) => Object.assign({}, a)),
+        ajustes: [ajusteImpuesto, ajusteMoneda, ajusteLealtad, ajusteRetencion].filter(Boolean).map((a) => Object.assign({}, a)),
         /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Cada venta
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
@@ -6153,6 +6182,18 @@
         ajusteImpuesto = n;
         mov("config-impuesto", { activo: n.activo, tasa: n.tasa, nombre: n.nombre, modo: n.modo });
         return J(Object.assign({}, n));
+      }
+      /* RETENCION (JFC 2026-10-07). Leer: cualquiera. Cambiar: dueno o admin. */
+      if (path === "/api/config/retencion" && method === "GET") return J(Object.assign({ id: "retencion", dias: 0, opciones: RETENCION_DIAS.slice() }, ajusteRetencion || {}));
+      if (path === "/api/config/retencion" && method === "PUT") {
+        const _rr = _rolLocal();
+        if (_rr !== "dueno" && _rr !== "admin") return J({ error: "Only the owner or an admin can change the payment hold." }, 403);
+        const n = _normRetencion({ id: "retencion", dias: body && body.dias });
+        if (!n) return J({ error: "Choose 0, 7, 14 or 30 days." }, 400);
+        n.rev = _revNueva(); ajusteRetencion = n;
+        mov("config-retencion", { dias: n.dias });
+        avisarCatalogoCambiado();
+        return J(Object.assign({ opciones: RETENCION_DIAS.slice() }, n));
       }
       /* LEALTAD (benchmark #5). GET/PUT de la regla global y cuenta por cliente
          derivada de las ventas (no hay contador que pueda divergir). */
