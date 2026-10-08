@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-07",
-  "changelog": "v462: el dashboard pasa a ser un hub: isla viva, tarjetas y barra de navegación.",
+  "changelog": "v465: pagos de comision sin duplicados por doble toque o reintento; una reversa nunca devuelve mas de lo pagado.",
   "requerida": false,
-  "shell": "f123-shell-v464",
+  "shell": "f123-shell-v465",
   "apagar": [],
-  "releaseName": "v464",
-  "cacheGeneration": "golden28"
+  "releaseName": "v465",
+  "cacheGeneration": "golden29"
 }

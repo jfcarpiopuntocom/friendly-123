@@ -1980,7 +1980,24 @@
     const obs = core.buildObligations(_payoutInput(ubicacionId, mes)).filter((o) => o.kind === kind && String(o.sourceId) === String(id));
     return obs.length > 0 && obs.every((o) => Number(o.dueCents) === 0);
   }
-  function _registrarPayout(ubicacionId, body, qMes) {
+  /* IDEMPOTENCIA ESTRICTA (auditoria 2026-10-07, punto 2; patron de Stripe "Idempotent requests").
+     Una clave (opId) ya usada solo devuelve el pago guardado si la peticion pide LO MISMO:
+     misma percha, mes, persona y monto. Antes devolvia el pago viejo sin comparar, asi que un
+     pago con otro monto parecia aceptado y no se registraba nada. Ahora responde 409. */
+  function _payoutMismaPeticion(prior, ubicacionId, mes, body) {
+    if (String(prior.locationId || "") !== String(ubicacionId)) return false;
+    if (String(prior.period || "") !== String(mes)) return false;
+    if (body && Object.prototype.hasOwnProperty.call(body, "payeeId")) {
+      const pid = body.payeeId == null || body.payeeId === "" ? null : String(body.payeeId);
+      if ((prior.payeeId || null) !== pid) return false;
+    }
+    if (body && body.amountCents != null && Number(body.amountCents) !== Number(prior.amountCents)) return false;
+    return true;
+  }
+  /* opts.dryRun (auditoria 2026-10-07, punto 4): valida y planea TODO sin escribir nada.
+     La ruta multipersona lo usa para planear a cada persona antes de guardar a la primera. */
+  function _registrarPayout(ubicacionId, body, qMes, opts) {
+    const dryRun = !!(opts && opts.dryRun);
     const rolPago = _rolLocal();
     if (rolPago && rolPago !== "dueno" && rolPago !== "admin" && rolPago !== "demo") return { error:"Only the owner or an admin can record commission payments.", status:403 };
     const core = _payoutCore();
@@ -1991,7 +2008,10 @@
     const requestedOpId = String(body && body.opId || "").trim();
     if (requestedOpId) {
       const prior = payouts.find((p) => String(p.opId) === requestedOpId);
-      if (prior) return { ok:true, existing:true, payout:prior };
+      if (prior) {
+        if (!_payoutMismaPeticion(prior, ubicacionId, mes, body)) return { error:"This payment key was already used for a different payment. Nothing new was recorded.", status:409 };
+        return { ok:true, existing:true, payout:prior };
+      }
     }
     /* v454: body.sourceIds (ids de venta) limita el pago a esas ventas (ficha de producto). El core lo aplica. */
     const _soloVentas = body && Array.isArray(body.sourceIds) && body.sourceIds.length ? body.sourceIds.map(String) : null;
@@ -2020,6 +2040,12 @@
       payeeName:_payeeName(payeeId,u), payeeType:_payeeType(payeeId)
     }));
     if (plan.error) return plan;
+    if (plan.existing) return { ok:true, existing:true, payout:plan.payout };
+    /* Invariante del libro (punto 3): un pago nuevo nunca puede dejar el libro inconsistente. */
+    if (core.ledgerAnomalies && core.ledgerAnomalies(payouts.concat([plan.payout])).length > core.ledgerAnomalies(payouts).length) {
+      return { error:"This payment would make the ledger inconsistent. Nothing was recorded.", status:409 };
+    }
+    if (dryRun) return { ok:true, dryRun:true, plan:plan.payout };
     const payout = Object.assign({}, plan.payout, { rev:_revNueva(), createdAt:now });
     payouts.push(payout);
     /* Compatibility projection. Financial truth is the payout; these booleans
@@ -2066,12 +2092,21 @@
         payees: positivos.map((r) => ({ payeeId:r.payeeId, due:core.money(r.dueCents) })) };
     }
     const creados = [];
-
+    const _bodyDe = (row) => Object.assign({}, body, {
+      payeeId:row.payeeId,
+      opId: body.opId ? String(body.opId) + ":" + String(row.payeeId || "_") : undefined
+    });
+    /* TODO O NADA (auditoria 2026-10-07, punto 4). Antes cada persona se guardaba por
+       separado: si la segunda fallaba, la primera ya estaba guardada y la pantalla decia
+       "error" como si nada se hubiera registrado. Ahora se planea a TODAS primero (sin
+       escribir); si una falla, no se guarda ninguna. Las personas no comparten
+       obligaciones, asi que el plan de una no cambia el de otra. */
     for (const row of positivos) {
-      const rr = _registrarPayout(ubicacionId, Object.assign({}, body, {
-        payeeId:row.payeeId,
-        opId: body.opId ? String(body.opId) + ":" + String(row.payeeId || "_") : undefined
-      }), mes);
+      const prueba = _registrarPayout(ubicacionId, _bodyDe(row), mes, { dryRun:true });
+      if (prueba.error) return prueba;
+    }
+    for (const row of positivos) {
+      const rr = _registrarPayout(ubicacionId, _bodyDe(row), mes);
       if (rr.error) return rr;
       if (rr.payout) creados.push(rr.payout);
     }
@@ -5858,6 +5893,12 @@
           payeeId:original.payeeId || null, payeeName:original.payeeName || "", payeeType:original.payeeType || "associate", locationId:original.locationId,
           period:original.period, amountCents:original.amountCents, amount:original.amount, method:original.method || null, reference:original.reference || "",
           note:motivo, paidAt:now, paidBy:(body && body.paidBy) || (rol || "owner"), items:clonar(original.items || []), rev:_revNueva(), createdAt:now };
+        /* Invariante del libro (auditoria 2026-10-07, punto 3): una reversa nunca devuelve
+           mas de lo pagado. Antes el core lo tapaba con Math.max(0, ...) sin avisar. */
+        const _core = _payoutCore();
+        if (_core && _core.ledgerAnomalies && _core.ledgerAnomalies(payouts.concat([reversal])).length > _core.ledgerAnomalies(payouts).length) {
+          return J({ error:"This reversal would return more than was paid. Nothing was recorded." }, 409);
+        }
         payouts.push(reversal);
         /* Las banderas de compatibilidad siguen al ledger (auditoria 2026-10-07). Una
            reversa reabre exactamente lo que restaura: la venta o el ajuste vuelve a

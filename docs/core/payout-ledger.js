@@ -85,6 +85,26 @@
     return paid;
   }
 
+  /* INVARIANTE DEL LIBRO (auditoria 2026-10-07, punto 3). Por cada (tipo, fuente, persona):
+     lo revertido nunca supera lo pagado. payoutAppliedMap sigue topando en 0 para que la
+     pantalla no se caiga con un libro viejo, pero ese tope ya no es silencioso: esta funcion
+     lista cada violacion y el backend RECHAZA cualquier escritura que agregue una nueva.
+     Devuelve [{ key, paidCents, reversedCents }]. Lista vacia = libro sano. */
+  function ledgerAnomalies(payouts) {
+    const paid = new Map(), reversed = new Map();
+    (Array.isArray(payouts) ? payouts : []).forEach((p) => {
+      if (!p || p.status !== "paid") return;
+      const dest = p.reversalOf ? reversed : paid;
+      (Array.isArray(p.items) ? p.items : []).forEach((it) => {
+        const k = key(it.kind, it.sourceId, it.payeeId);
+        dest.set(k, (dest.get(k) || 0) + Math.max(0, Math.trunc(Number(it.amountCents) || 0)));
+      });
+    });
+    const out = [];
+    reversed.forEach((r, k) => { const pc = paid.get(k) || 0; if (r > pc) out.push({ key:k, paidCents:pc, reversedCents:r }); });
+    return out;
+  }
+
   function hasLedgerFact(payouts, obligation) {
     const k = key(obligation.kind, obligation.sourceId, obligation.payeeId);
     return (Array.isArray(payouts) ? payouts : []).some((p) => p && p.status === "paid" && (Array.isArray(p.items) ? p.items : []).some((it) => key(it.kind, it.sourceId, it.payeeId) === k));
@@ -159,7 +179,14 @@
     const opId = String(input && input.opId || "").trim();
     if (!opId) return { error:"opId is required.", status:400 };
     const existing = (Array.isArray(input.payouts) ? input.payouts : []).find((p) => String(p.opId || "") === opId);
-    if (existing) return { existing:true, payout:existing };
+    if (existing) {
+      /* Misma clave con otra persona u otro monto = error, no el pago viejo (auditoria 2026-10-07, punto 2). */
+      const pid = input.payeeId == null ? null : String(input.payeeId);
+      if ((existing.payeeId || null) !== pid || (input.amountCents != null && Number(input.amountCents) !== Number(existing.amountCents))) {
+        return { error:"This payment key was already used for a different payment.", status:409 };
+      }
+      return { existing:true, payout:existing };
+    }
 
     const payeeId = input.payeeId == null ? null : String(input.payeeId);
     const rows = balancesByPayee(input).filter((r) => (r.payeeId || null) === payeeId);
@@ -207,5 +234,5 @@
     return p.status;
   }
 
-  return { cents, money, key, buildObligations, balancesByPayee, planPayout, payoutStatus };
+  return { cents, money, key, buildObligations, balancesByPayee, planPayout, payoutStatus, ledgerAnomalies };
 });
