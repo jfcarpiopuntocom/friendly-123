@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v467",
+  "shell": "f123-shell-v468",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-42be9996a83f8c0427391d940740b1bafd99106b2bae5feba660fbe870e85b3a",
@@ -16,7 +16,7 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-36fd0a437feeefe02873bd8acf685ef67d522f9bb21cfe83c090b30d8bc6f763",
     "./estado-idb.js": "sha256-e1eb9fb1d9db9eb01a498798ea0055d6c9877f2751a0774a85c31d0585758163",
-    "./mock-backend.js": "sha256-a015350d68eb6dad3c361b7e714dd32382b9cee66c6de90bf3f525a323228443",
+    "./mock-backend.js": "sha256-955350d1e66f453615f2073c098710ba609aa163550bde28923edae0ed2d2ea0",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
@@ -43,7 +43,7 @@
     "./help-ui.js": "sha256-b78361a87a5087c55032e86e560fd20ac17d2235864fc2c9784af9c5158cf27a",
     "./idb-fotos.js": "sha256-c99fd20ca55380c9ff21cc7c43733f94e7681875ab3bd52673783537e9e9766f",
     "./core/shelf-photo-policy.js": "sha256-746ebc12c2fc15668d7e12c71d5417901ce99b3f79983306abdefc5a9e3ef34e",
-    "./core/payout-ledger.js": "sha256-d8a2bd629e93a66307bf625ab91e3c1d1701069eedf32297c0fc0b95179a3d51",
+    "./core/payout-ledger.js": "sha256-e06f213a713087d28407fc9cd4810aeab5361acaf26104bf5f71dbe254aa2cd0",
     "./core/demo-huellas.js": "sha256-5cef625e55755ff8772b001b5b09b0c8978103ebecf7986e76060850b9060646",
     "./core/ledger.js": "sha256-7b781b962e5fcb524bfef4d29a5162e1129bcf87198bec5222e4fbea16a54776",
     "./application/recover-shelf-photo.js": "sha256-2c1f73f4c6d0e0869fe4b110f314f44313d65116c4ced0900d050c05db6b49e7",

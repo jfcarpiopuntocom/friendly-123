@@ -3,8 +3,8 @@
   "fecha": "2026-10-07",
   "changelog": "v467: recuperacion de comisiones entre meses y pagos historicos, respaldos compatibles y retencion coherente en dashboard.",
   "requerida": false,
-  "shell": "f123-shell-v467",
+  "shell": "f123-shell-v468",
   "apagar": [],
-  "releaseName": "v467",
-  "cacheGeneration": "golden31"
+  "releaseName": "v468",
+  "cacheGeneration": "golden32"
 }

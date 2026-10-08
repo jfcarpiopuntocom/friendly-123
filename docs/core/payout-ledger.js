@@ -261,7 +261,7 @@
     if (row.dueCents <= 0) return { error:"There is no positive amount due to record as paid.", status:409 };
 
     const rawAmount = input.amountCents == null ? row.dueCents : Number(input.amountCents);
-    if (!Number.isInteger(rawAmount) || rawAmount <= 0) return { error:"Payment amount must be positive whole cents.", status:400 };
+    if (!Number.isSafeInteger(rawAmount) || rawAmount <= 0) return { error:"Payment amount must be positive safe whole cents.", status:400 };
     const amountCents = rawAmount;
     if (amountCents > row.dueCents) return { error:"Payment amount cannot exceed the current amount due.", status:409 };
 

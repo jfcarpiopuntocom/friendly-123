@@ -1308,7 +1308,7 @@
       localStorage.setItem("f123_admins_pins", JSON.stringify(_adminPins));
     } catch (_) {}
   }
-  function guardarEstadoLocal(exigirCompleto = false) {
+  function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
     _localRev++;
     const completo = estadoActualExportable();
     const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
@@ -1330,7 +1330,7 @@
     // guardarSecureResiliente en crypto-store.js.
     try {
       const rmFotos = [];
-      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rmFotos.push(k); }
+      if (!preservarFotos) for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rmFotos.push(k); }
       if (rmFotos.length) {
         rmFotos.forEach((k) => { try { localStorage.removeItem(k); } catch (_) {} });
         localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
@@ -2082,8 +2082,7 @@
       }
     });
     mov("payout", { payoutId:payout.id, opId:payout.opId, ubicacion:u.nombre, payeeId, payeeName:payout.payeeName,
-      amount:payout.amount, mes, medioPago:payout.method, covered:payout.items.length });
-    guardarEstadoLocal(); avisarCatalogoCambiado();
+      amount:payout.amount, mes, medioPago:payout.method, covered:payout.items.length }, false);
     return { ok:true, payout };
   }
 
@@ -2161,14 +2160,59 @@
           if (a) { a.liquidada = true; a.rev = _revNueva(); }
         }
       });
-      mov("payout-credit-settlement", { payoutId:settlement.id, ubicacion:u ? u.nombre : "", payeeId:settlement.payeeId, mes, covered:settlement.items.length });
+      mov("payout-credit-settlement", { payoutId:settlement.id, ubicacion:u ? u.nombre : "", payeeId:settlement.payeeId, mes, covered:settlement.items.length }, false);
       creados.push(settlement);
     }
 
     if (!creados.length) return { ok:true, noop:true, payouts:[], payout:null };
-    guardarEstadoLocal(); avisarCatalogoCambiado();
     const cash = creados.reduce((a,p) => a + Number(p.amount || 0), 0);
     return { ok:true, payouts:creados, payout:creados[0], amount:+cash.toFixed(2) };
+  }
+
+  // Financial changes have one durable boundary, including the legacy
+  // multi-person batch. Do not broadcast provisional facts or return success
+  // before a complete snapshot is stored. Incoming sync waits for this
+  // boundary; it must never be overwritten by rollback of a local attempt.
+  let _payoutConfirmando = false, _payoutPendiente = null;
+  const _payoutCatalogosPendientes = [];
+  async function _payoutDurable(accion) {
+    const foto = { payouts: payouts.slice(), movimientosLen: movimientos.length, sello: selloUltimo,
+      flags: ventas.concat(ajustesComision).map((registro) => ({ registro,
+        campos: ["liquidada", "medioPagoComision", "rev"].map((campo) => ({ campo,
+          existe: Object.prototype.hasOwnProperty.call(registro, campo), valor: registro[campo] })) })) };
+    const restaurar = () => {
+      payouts.splice(0, payouts.length, ...foto.payouts);
+      movimientos.length = foto.movimientosLen; selloUltimo = foto.sello;
+      foto.flags.forEach(({registro, campos}) => campos.forEach(({campo, existe, valor}) => {
+        if (existe) registro[campo] = valor; else delete registro[campo];
+      }));
+    };
+    let terminar;
+    _payoutConfirmando = true;
+    _payoutPendiente = new Promise((resolve) => { terminar = resolve; });
+    try {
+      const resultado = accion();
+      if (resultado.error) { restaurar(); return resultado; }
+      if (resultado.existing || resultado.noop) return resultado;
+      let guardado = false;
+      // A financial write cannot free quota by deleting photo evidence.
+      try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
+      if (!guardado) {
+        restaurar();
+        return { error:"This payment change was NOT saved. Free up storage and retry the same payment.", status:507 };
+      }
+      avisarCatalogoCambiado();
+      return resultado;
+    } catch (error) { restaurar(); throw error; }
+    finally {
+      _payoutConfirmando = false; _payoutPendiente = null;
+      try {
+        while (_payoutCatalogosPendientes.length) {
+          const siguiente = _payoutCatalogosPendientes.shift();
+          aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto);
+        }
+      } finally { terminar(); }
+    }
   }
 
   /* mes opcional "YYYY-MM" (shell 371). Sin mes = mes en curso, igual que antes. */
@@ -3275,6 +3319,10 @@
   function ventasActivas() { return Array.prototype.filter.call(ventas, (v) => !v.anulada && !_demoOculto("ventas", v)); }
 
   function aplicarCatalogo(remoto, rolRemoto) {
+    if (_payoutConfirmando) {
+      _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto });
+      return false;
+    }
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
     const dif = compararCatalogo(remoto, rolRemoto);
     if (!dif) return { ok: false, error: "The catalog received is not readable." };
@@ -4654,6 +4702,7 @@
     } catch (_) {}
     return null;
   }
+  let _colaEscriturasLocal = Promise.resolve();
   const _fetchConCandado = async function (url, opts) {
     const _negado = _negadoPorRol(url, opts);
     if (_negado) return new Response(JSON.stringify({ error: _negado }), { status: 403, headers: { "Content-Type": "application/json" } });
@@ -4663,12 +4712,15 @@
       const m0 = ((opts && opts.method) || (url && url.method) || "GET").toUpperCase();
       escribe = m0 !== "GET" && new URL(u0, window.location.origin).pathname.startsWith("/api");
     } catch (_) {}
-    if (!escribe) return _fetchInterno(url, opts);
+    if (!escribe) { if (_payoutPendiente) await _payoutPendiente; return _fetchInterno(url, opts); }
     if (navigator.locks && navigator.locks.request) {
       return navigator.locks.request("f123-escrituras", async () => { _recargarSiOtraPestanaEscribio(); return _fetchInterno(url, opts); });
     }
-    _recargarSiOtraPestanaEscribio();
-    return _fetchInterno(url, opts);
+    // Same-device serialization is also needed where Web Locks is absent.
+    // This is not a lock or reservation between disconnected devices.
+    const operacion = _colaEscriturasLocal.then(() => { _recargarSiOtraPestanaEscribio(); return _fetchInterno(url, opts); });
+    _colaEscriturasLocal = operacion.catch(() => {});
+    return operacion;
   };
   const _fetchInterno = async function (url, opts) {
     // Microcirugia 4 (2026-07-07): si alguna libreria llama fetch(new
@@ -5906,7 +5958,8 @@
         return J(payouts.filter((p) => (!mes || p.period === mes) && (!ubic || String(p.locationId) === String(ubic)) && (!payee || String(p.payeeId || "") === String(payee))).map((p) => clonar(p)));
       }
       if (path === "/api/payouts" && method === "POST") {
-        const r = _registrarPayout(body && body.ubicacionId, body || {}, body && body.mes);
+        debePersistir = false;
+        const r = await _payoutDurable(() => _registrarPayout(body && body.ubicacionId, body || {}, body && body.mes));
         return J(r.error ? { error:r.error, payees:r.payees || undefined } : r, r.error ? (r.status || 400) : 200);
       }
       if ((m = path.match(/^\/api\/payouts\/([^/]+)\/reverse$/)) && method === "POST") {
@@ -5929,6 +5982,8 @@
         if (_core && _core.ledgerAnomalies && _core.ledgerAnomalies(payouts.concat([reversal])).length > _core.ledgerAnomalies(payouts).length) {
           return J({ error:"This reversal would return more than was paid. Nothing was recorded." }, 409);
         }
+        debePersistir = false;
+        const confirmado = await _payoutDurable(() => {
         payouts.push(reversal);
         /* Las banderas de compatibilidad siguen al ledger (auditoria 2026-10-07). Una
            reversa reabre exactamente lo que restaura: la venta o el ajuste vuelve a
@@ -5938,9 +5993,10 @@
           if (it.kind === "sale") { const v = ventas.find((x) => String(x.id) === String(it.sourceId)); if (v) { v.liquidada = pagadoTodo; v.rev = _revNueva(); } }
           else if (it.kind === "adjustment") { const a = ajustesComision.find((x) => String(x.id) === String(it.sourceId)); if (a) { a.liquidada = pagadoTodo; a.rev = _revNueva(); } }
         });
-        mov("payout-reversal", { payoutId:original.id, reversalId:reversal.id, payeeId:reversal.payeeId, amount:reversal.amount, mes:reversal.period, motivo });
-        guardarEstadoLocal(); avisarCatalogoCambiado();
-        return J({ ok:true, reversal:clonar(reversal) });
+        mov("payout-reversal", { payoutId:original.id, reversalId:reversal.id, payeeId:reversal.payeeId, amount:reversal.amount, mes:reversal.period, motivo }, false);
+        return { ok:true, reversal:clonar(reversal) };
+        });
+        return J(confirmado, confirmado.error ? confirmado.status : 200);
       }
       /* CUADRE DEL MES (JFC 2026-09-24: "todo debe cuadrar, nada debe quedar
          fuera de vista"). TODAS las ventas activas del mes, repartidas en cubos
@@ -6056,7 +6112,8 @@
       if ((m = path.match(/^\/api\/liquidaciones\/([^/]+)\/marcar-pagado$/)) && opts && opts.method === "POST") {
         /* Backward-compatible URL; the operation is now a first-class payout.
            It no longer flips a batch of sale booleans blindly. */
-        const r = _registrarPayoutLegacyRack(m[1], body || {}, q.get("mes"));
+        debePersistir = false;
+        const r = await _payoutDurable(() => _registrarPayoutLegacyRack(m[1], body || {}, q.get("mes")));
         if (r.error) return J({ error:r.error, payees:r.payees || undefined }, r.status || 400);
         const hechos = r.payouts || (r.payout ? [r.payout] : []);
         return J({ ok:true, noop:!!r.noop, payoutId:r.payout ? r.payout.id : null, opId:r.payout ? r.payout.opId : null,
