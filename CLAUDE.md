@@ -292,6 +292,15 @@ trabajo está mal hecho aunque el código funcione.
 - Idempotencia de pagos (v465): clave por intencion, misma clave con otro pedido = 409, reversa nunca mayor que lo pagado,
   pago multipersona todo o nada. Pruebas: test/payout-idempotencia-2026-10-07.test.js y test/payout-anulada-retencion-2026-10-07.test.js.
 
+## GRAPH VIEW Y SONAR (decisiones de JFC 2026-10-07)
+- friendly123.com/graph-view/ = dos grafos 3D publicos (toda la app arriba, todo lo que toca dinero abajo), generados por
+  `sitio-friendly123/graph-view/extraer.mjs` desde docs/ del mismo commit en cada `node build.mjs`. Para clientes (Belen y otros).
+- La version publica va SIN lista de riesgos (funciones de dinero sin test) ni duplicados: eso es solo para el panel lord.
+- El Sonar de Canarios del panel lord SE QUEDA (Push/Rewind/Detener intactos). Pendiente: mejorar su backend con el grafo,
+  poner AMBOS grafos al FONDO del panel, y cambiar los canarios por otros mas "cool" que JFC apruebe antes.
+- Regenerar en cada merge a master. Hoy friendly123.com se despliega a mano (Worker friendly123-com); el despliegue
+  automatico necesita un token de Cloudflare en GitHub que JFC tiene que crear.
+
 ## REGLA DURA JFC 2026-10-01: NO MENTIR. LA UI HACE LO QUE DICE (las 3 apps, paginas y paneles)
 - Prohibido que una pantalla, boton, aviso o texto afirme algo que no paso o que no se comprobo:
   "hecho", "guardado", "enviado", "publicado", "sincronizado", "pagado", "cumplido", etc.

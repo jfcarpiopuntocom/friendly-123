@@ -211,6 +211,20 @@ for (const [nom, url] of Object.entries(LEGALES)) {
   writeFileSync(join(DIST, nom, "index.html"), poner(readFileSync(join(AQUI, "legal", nom + ".html"), "utf8"), { url, og: false }));
 }
 
+// (d4b) GRAPH VIEW (Claude, JFC 2026-10-07): friendly123.com/graph-view/ = dos grafos 3D (toda la app y todo lo
+//       que toca dinero), leidos de docs/ de ESTE commit con graph-view/extraer.mjs. Version publica SIN riesgos
+//       ni duplicados (decision de JFC). Se regenera en cada publicacion; no toca docs/.
+{
+  const { extraer } = await import("./graph-view/extraer.mjs");
+  const g = extraer(REPO);
+  if (g.stats.parseFailures.length) console.warn("AVISO graph-view: no se pudo leer:", g.stats.parseFailures);
+  const commit = execFileSync("git", ["-C", REPO, "rev-parse", "--short", "HEAD"]).toString().trim();
+  mkdirSync(join(DIST, "graph-view"), { recursive: true });
+  cpSync(join(AQUI, "graph-view", "index.html"), join(DIST, "graph-view", "index.html"));
+  writeFileSync(join(DIST, "graph-view", "data.json"), JSON.stringify({ commit, generated: new Date().toISOString(), ...g }));
+  console.log("graph-view:", g.stats.functions, "funciones,", g.app.nodes.length, "nodos app,", g.money.nodes.length, "nodos dinero");
+}
+
 // (d5) SEO internacional (JFC 2026-10-07: "completeness internacional y world class para SEO"). Solo metadatos y
 //      enlaces de pie; ningun texto aprobado se modifica. Se aplica a las copias de dist/ (las paginas /es/ y los
 //      articulos vienen del repo del sitio y NO se editan alli).
