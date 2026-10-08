@@ -6,6 +6,9 @@
 // hosts: el backend de la app es local (mock-backend.js). No quitar.
 const pw = require('playwright');
 const BLOQUEO = /^https?:\/\/([^/]*\.)?(workers\.dev|jfcarpio\.com)(\/|$)/i;
+// HTTP routing does not intercept WebSockets. Close only production sockets;
+// localhost fixture relays keep working and no connection to the server is made.
+const SOCKETS_PRODUCCION = /^wss?:\/\/([^/]*\.)?(workers\.dev|jfcarpio\.com)(\/|$)/i;
 // Las fuentes externas no forman parte del fixture. Una descarga tardia cambia
 // la geometria entre lecturas y una conexion caida retrasa cada navegacion.
 // Usar siempre el fallback local durante esta suite; no modifica la app publicada.
@@ -23,6 +26,7 @@ engine.launch = async (...args) => {
   navegador.newContext = async (...a) => {
     const ctx = await contextoOriginal(...a);
     await ctx.route(BLOQUEO, (ruta) => ruta.abort());
+    await ctx.routeWebSocket(SOCKETS_PRODUCCION, (socket) => socket.close({ code: 1008, reason: 'Production blocked in test fixture' }));
     await ctx.route(FUENTES_EXTERNAS, (ruta) => ruta.abort());
     await ctx.route(CDN_EXTERNOS, (ruta) => ruta.abort());
     return ctx;

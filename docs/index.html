@@ -9474,16 +9474,23 @@ async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, p
      pero pregunta COMO se pago. Cancelar sigue sin sellar nada. */
   const _esP = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
   const medioPago = await _ocModalMostrar(
-    _esP ? `Registrar pago · ${promotorNombre || "persona"} · ${_mesPagoTxt}. ¿Cómo se pagó?` : `Record payment · ${promotorNombre || "them"} · ${_mesPagoTxt}. How was it paid?`,
+    `${t("comm.paymentChoice")} ${promotorNombre || (_esP ? "persona" : "them")} · ${_mesPagoTxt}.`,
     [
       { label: t("common.cancel"), value: false },
       { label: _esP ? "Efectivo" : "Cash", value: "efectivo" },
       { label: _esP ? "Transferencia" : "Transfer", value: "transferencia" },
       { label: _esP ? "Cheque" : "Check", value: "cheque" },
-      { label: _esP ? "Pagar con crédito en tienda" : "Pay in store credit", value: "credito-tienda" }, /* JFC 2026-10-08: "Store credit" a secas no se entendia como forma de pago */
-      { label: _esP ? "Otro" : "Other", value: "otro" }
-    ]);
+      { label: _esP ? "Otro" : "Other", value: "otro" },
+      { label: t("comm.leavePending"), value: "dejar-pendiente" }
+    ], { wrap: true });
   if (!medioPago) return;
+  /* JFC 2026-10-08: leaving money owed is not a payout or credit issuance.
+     Preserve the debt and historical credito-tienda facts; purchase redemption
+     belongs to the separately approved shared-validation work. */
+  if (medioPago === "dejar-pendiente") {
+    await ocAlert(tf("comm.leavePendingInfo", { amount: fmtMoney(Number(monto) || 0), name: promotorNombre || (_esP ? "la persona" : "them") }));
+    return;
+  }
 
   /* Payout Ledger v1: el efectivo realmente entregado es un dato financiero,
      no se infiere del saldo visible. Permitimos pago parcial, pero jamás cero,
@@ -9539,6 +9546,8 @@ async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, p
   cargarComisiones();
   const _montoRegistrado = Number(r && r.amount != null ? r.amount : monto) || 0;
   const _nombreRegistrado = String((r && r.payeeName) || promotorNombre || "");
+  const _saldoRestante = Math.max(0, _montoDebido - _montoRegistrado);
+  const _saldoAFavor = _saldoRestante > 0 ? tf("comm.remainingBalance", { amount: fmtMoney(_saldoRestante) }) : "";
   // Recibo: usa lo que el ledger ACABA de registrar, no un total viejo de la tarjeta.
   if (_nombreRegistrado && _montoRegistrado > 0) {
     const neg = (function(){ try { const s = document.getElementById("oc-negocio-nombre"); return s ? s.textContent.trim() : ""; } catch(_){ return ""; } })();
@@ -9561,6 +9570,7 @@ async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, p
       `Asociado/a: ${_nombreRegistrado}`,
       `Monto: ${fmtMoney(_montoRegistrado)}`,
       `Pagado con: ${({ efectivo: "efectivo", transferencia: "transferencia", cheque: "cheque", "credito-tienda": "crédito en tienda", otro: "otro" })[medioPago] || medioPago}`,
+      _saldoAFavor,
       `Mes: ${mes}`,
       neg ? `Negocio: ${neg}` : "",
       lineasDet.length ? `` : "",
@@ -9569,8 +9579,7 @@ async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, p
       ``,
       `Gracias por tu trabajo este mes. — friendly-123`,
     ].filter(Boolean).join("\n");
-    const _saldoRestante = Math.max(0, _montoDebido - _montoRegistrado);
-    if (await ocConfirm(_esP ? `Pago registrado: ${fmtMoney(_montoRegistrado)} para ${_nombreRegistrado}. Por pagar: ${fmtMoney(_saldoRestante)}. ¿Enviar recibo por WhatsApp?` : `Payment recorded: ${fmtMoney(_montoRegistrado)} for ${_nombreRegistrado}. Still due: ${fmtMoney(_saldoRestante)}. Send receipt via WhatsApp?`, { cancelLabel: _esP ? "Salir" : "Exit" /* JFC 2026-10-08: "Cancel" sonaba a anular el pago ya registrado */ })) {
+    if (await ocConfirm(_esP ? `Pago registrado: ${fmtMoney(_montoRegistrado)} para ${_nombreRegistrado}. Por pagar: ${fmtMoney(_saldoRestante)}. ${_saldoAFavor} ¿Enviar recibo por WhatsApp?` : `Payment recorded: ${fmtMoney(_montoRegistrado)} for ${_nombreRegistrado}. Still due: ${fmtMoney(_saldoRestante)}. ${_saldoAFavor} Send receipt via WhatsApp?`, { cancelLabel: _esP ? "Salir" : "Exit" /* JFC 2026-10-08: "Cancel" sonaba a anular el pago ya registrado */ })) {
       window.open("https://wa.me/?text=" + encodeURIComponent(recibo), "_blank");
     }
   }
@@ -10531,7 +10540,7 @@ window.dialogosBloqueados = function () {
 </div>
 <script>
 let _ocModalResolve = null; // rastrea la promise pendiente; permite que un segundo modal cancele el primero
-function _ocModalMostrar(mensaje, botonesConfig) {
+function _ocModalMostrar(mensaje, botonesConfig, opts = {}) {
   return new Promise((resolve) => {
     // Si ya hay un modal abierto, resolver la promise vieja de forma defensiva (false = cancelar)
     if (_ocModalResolve) { _ocModalResolve(false); _ocModalResolve = null; }
@@ -10539,6 +10548,9 @@ function _ocModalMostrar(mensaje, botonesConfig) {
     const overlay = document.getElementById("oc-modal-overlay");
     const msgEl = document.getElementById("oc-modal-msg");
     const botonesEl = document.getElementById("oc-modal-botones");
+    // Payment choices may span several rows on a phone. Reset on every call
+    // so ordinary two-button confirmations keep their existing arrangement.
+    botonesEl.style.flexWrap = opts.wrap ? "wrap" : "nowrap";
     msgEl.textContent = mensaje;
     botonesEl.innerHTML = "";
     botonesConfig.forEach(cfg => {

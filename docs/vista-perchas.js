@@ -627,8 +627,10 @@
   // un producto abra su ficha (vender/editar/foto). Así se "conecta la info".
   const modal = document.createElement('div');
   modal.id = 'vp-carpeta-modal';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:9996;background:rgba(21,40,64,.85);display:none;align-items:flex-end;justify-content:center;padding:0;';
-  modal.innerHTML = `<div id="vp-carpeta-sheet" style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;max-height:84vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:18px 16px 24px;">
+  // JFC 2026-10-08: match the app dialogs, with four corners and space around
+  // the card. Scroll inside the card so even short mobile viewports keep Close.
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9996;background:rgba(15,20,30,.55);display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+  modal.innerHTML = `<div id="vp-carpeta-sheet" class="tag-card" role="dialog" aria-modal="true" aria-labelledby="vp-carpeta-titulo" style="background:var(--blanco-calido,#fbf5e8);color:var(--ink);text-align:left;width:100%;max-width:560px;max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;border-radius:12px;margin:0;padding:18px 16px 24px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <strong id="vp-carpeta-titulo" style="font-family:var(--font-display);font-size:20px;color:var(--ink);flex:1;"></strong>
         <button id="vp-carpeta-cerrar" style="font-size:14px;padding:8px 14px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${window.t('common.close')}</button>
@@ -636,14 +638,39 @@
       <div id="vp-carpeta-body"></div>
     </div>`;
 
-  function cerrarCarpeta() { modal.style.display = 'none'; }
+  const focoAnterior = new Map();
+  function abrirDialogoPercha(dialogo, focoId, origen) {
+    // Reopening an already visible dialog must not replace its opener with
+    // its Close button. Rack rendering may also replace the opener node.
+    if (!focoAnterior.has(dialogo)) {
+      // Safari may leave body active after a pointer click on a button.
+      const nodo = document.activeElement === document.body && origen ? origen : document.activeElement;
+      const atributo = nodo && ['data-vp-abrir', 'data-vp-rename'].find(a => nodo.hasAttribute(a));
+      focoAnterior.set(dialogo, { nodo, atributo, valor: atributo ? nodo.getAttribute(atributo) : null, id: nodo && nodo.id });
+    }
+    dialogo.style.display = 'flex';
+    const foco = document.getElementById(focoId);
+    if (foco) foco.focus({ preventScroll: true });
+  }
+  function cerrarDialogoPercha(dialogo) {
+    dialogo.style.display = 'none';
+    const anterior = focoAnterior.get(dialogo);
+    focoAnterior.delete(dialogo);
+    if (anterior) {
+      const destino = anterior.nodo && anterior.nodo.isConnected ? anterior.nodo
+        : anterior.atributo ? [...document.querySelectorAll('[' + anterior.atributo + ']')].find(el => el.getAttribute(anterior.atributo) === anterior.valor)
+        : anterior.id ? document.getElementById(anterior.id) : null;
+      if (destino) destino.focus({ preventScroll: true });
+    }
+  }
+  function cerrarCarpeta() { cerrarDialogoPercha(modal); }
 
   async function abrirCarpeta(perchaId) {
     const titulo = $('vp-carpeta-titulo');
     const body = $('vp-carpeta-body');
     titulo.textContent = nombrePorId[perchaId] || 'Percha';
     body.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);">Cargando productos…</p>';
-    modal.style.display = 'flex';
+    abrirDialogoPercha(modal, 'vp-carpeta-cerrar', [...document.querySelectorAll('button[data-vp-abrir]')].find(el => el.dataset.vpAbrir === perchaId));
     try {
       // Panorama de la percha (reparto + histórico) — friendly ya tiene el
       // endpoint; faltaba mostrarlo como en AMIGABLE (JFC/Belén 2026-09-04:
@@ -737,9 +764,9 @@
   // Borrar pide confirmación de texto para evitar toques accidentales.
   const modalGestion = document.createElement('div');
   modalGestion.id = 'vp-gestion-modal';
-  modalGestion.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(21,40,64,.85);display:none;align-items:flex-end;justify-content:center;padding:0;';
+  modalGestion.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(15,20,30,.55);display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
   modalGestion.innerHTML = `
-    <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:20px 18px 28px;">
+    <div class="tag-card" role="dialog" aria-modal="true" aria-labelledby="vp-g-titulo" style="background:var(--blanco-calido,#fbf5e8);color:var(--ink);text-align:left;width:100%;max-width:560px;max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;border-radius:12px;margin:0;padding:20px 18px 28px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
         <strong id="vp-g-titulo" style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;"></strong>
         <button id="vp-g-cerrar" style="font-size:14px;padding:6px 12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">Cerrar</button>
@@ -775,7 +802,7 @@
     </div>`;
 
   function cerrarGestion() {
-    modalGestion.style.display = 'none';
+    cerrarDialogoPercha(modalGestion);
     perchaGestionId = null;
     const dets = document.getElementById('vp-g-borrar-wrap');
     if (dets) dets.removeAttribute('open');
@@ -794,18 +821,17 @@
     if (tit) tit.textContent = 'Editar: ' + nombre;
     if (input) { input.value = nombre; }
     if (nameConfirm) nameConfirm.textContent = nombre;
-    modalGestion.style.display = 'flex';
-    setTimeout(() => { if (input) input.focus(); }, 80);
+    abrirDialogoPercha(modalGestion, 'vp-g-nombre', [...document.querySelectorAll('[data-vp-rename]')].find(el => el.dataset.vpRename === perchaId));
   }
 
   // ── MODAL AGREGAR: nueva percha ────────────────────────────────────────────
   const modalAgregar = document.createElement('div');
   modalAgregar.id = 'vp-agregar-modal';
-  modalAgregar.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(21,40,64,.85);display:none;align-items:flex-end;justify-content:center;padding:0;';
+  modalAgregar.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(15,20,30,.55);display:none;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
   modalAgregar.innerHTML = `
-    <div style="background:var(--blanco-calido,#fbf5e8);width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:20px 18px 28px;">
+    <div class="tag-card" role="dialog" aria-modal="true" aria-labelledby="vp-a-titulo" style="background:var(--blanco-calido,#fbf5e8);color:var(--ink);text-align:left;width:100%;max-width:560px;max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;border-radius:12px;margin:0;padding:20px 18px 28px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-        <strong style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;">${window.t('shelves.newRackTitle')}</strong>
+        <strong id="vp-a-titulo" style="font-family:var(--font-display);font-size:18px;color:var(--ink);flex:1;">${window.t('shelves.newRackTitle')}</strong>
         <button id="vp-a-cerrar" style="font-size:14px;padding:6px 12px;border-radius:8px;border:2px solid var(--azul-medio,#2c4a68);background:var(--azul-medio,#2c4a68);color:#fbf5e8;cursor:pointer;">${window.t('common.close')}</button>
       </div>
       <label style="display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px;">${window.t('shelves.rackNameLabel')}
@@ -824,7 +850,7 @@
     </div>`;
 
   function cerrarAgregar() {
-    modalAgregar.style.display = 'none';
+    cerrarDialogoPercha(modalAgregar);
     const inp = document.getElementById('vp-a-nombre');
     if (inp) inp.value = '';
     const msg = document.getElementById('vp-a-msg');
@@ -832,12 +858,33 @@
   }
 
   function abrirAgregar() {
-    modalAgregar.style.display = 'flex';
-    setTimeout(() => {
-      const inp = document.getElementById('vp-a-nombre');
-      if (inp) inp.focus();
-    }, 80);
+    abrirDialogoPercha(modalAgregar, 'vp-a-nombre', document.getElementById('vp-btn-agregar'));
   }
+
+  // Keep keyboard navigation in the visible rack dialog, but let a higher
+  // confirmation/editor own the keyboard when one is opened above it.
+  document.addEventListener('keydown', (e) => {
+    const dialogo = [modalAgregar, modalGestion, modal].find(d => d.style.display === 'flex');
+    if (!dialogo || e.defaultPrevented) return;
+    if (['oc-modal-overlay', 'oc-comision-overlay', 'oc-ventainfo-overlay'].some(id => {
+      const encima = document.getElementById(id);
+      return encima && encima.style.display === 'flex';
+    })) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (dialogo === modalAgregar) cerrarAgregar();
+      else if (dialogo === modalGestion) cerrarGestion();
+      else cerrarCarpeta();
+    } else if (e.key === 'Tab') {
+      const focos = [...dialogo.querySelectorAll('button, input, select, textarea, summary, a[href], [tabindex]')]
+        .filter(el => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length);
+      const primero = focos[0], ultimo = focos[focos.length - 1];
+      if (primero && (e.shiftKey ? document.activeElement === primero : document.activeElement === ultimo)) {
+        e.preventDefault();
+        (e.shiftKey ? ultimo : primero).focus();
+      }
+    }
+  });
 
   // ── tap en la foto: cámara → resize → localStorage → re-render ────────────
   let perchaFotoPendiente = null;

@@ -82,7 +82,11 @@ function cargarUI({ fetchImpl }) {
     window: { crypto: { randomUUID: () => 'uuid-' + Math.random().toString(36).slice(2) }, OCI18n:null, _ocLiqDet:{}, open(){} },
     document: { getElementById: () => null },
     API: '/api', _ocMesComisiones: '2026-10', _ocMesEtiqueta: (m) => m,
-    t: (k) => k, fmtMoney: (n) => '$' + Number(n).toFixed(2),
+    t: (k) => k,
+    // The real page also exposes tf for confirmations containing amounts.
+    // Keep the double-click/retry assertions independent of translated copy.
+    tf: (k, vars) => k + ' ' + Object.values(vars).join(' '),
+    fmtMoney: (n) => '$' + Number(n).toFixed(2),
     _ocModalMostrar: async () => { await tick(); return 'efectivo'; },
     ocPrompt: async () => { await tick(); return '10.00'; },
     ocAlert: async () => {}, ocConfirm: async () => false, cargarComisiones: () => {},

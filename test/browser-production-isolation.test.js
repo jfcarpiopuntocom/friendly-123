@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 test('every installed browser engine blocks production traffic, including implicit newPage contexts',async()=>{
   const engines={}; const routes=[];
-  for(const name of ['chromium','webkit','firefox']) engines[name]={launch:async()=>({newPage:async()=>({}),newContext:async()=>({route:async(pattern)=>routes.push({name,pattern}),newPage:async()=>({})})})};
+  for(const name of ['chromium','webkit','firefox']) engines[name]={launch:async()=>({newPage:async()=>({}),newContext:async()=>({route:async(pattern)=>routes.push({name,pattern}),routeWebSocket:async()=>{},newPage:async()=>({})})})};
   const src=fs.readFileSync(require.resolve('./helpers/sin-red-produccion.cjs'),'utf8');
   vm.runInNewContext(src,{require:name=>{assert.equal(name,'playwright');return engines;}});
   for(const name of Object.keys(engines)){

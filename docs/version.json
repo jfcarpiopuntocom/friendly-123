@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-08",
-  "changelog": "v471: Record payment dice Pay in store credit; tras registrar un pago el recibo se cierra con Exit, no Cancel.",
+  "changelog": "v472: saldo de comisión pendiente explícito sin pago ni salida de caja; recibo parcial con saldo a favor; modales de perchas centrados.",
   "requerida": false,
-  "shell": "f123-shell-v471",
+  "shell": "f123-shell-v472",
   "apagar": [],
-  "releaseName": "v471",
-  "cacheGeneration": "golden35"
+  "releaseName": "v472",
+  "cacheGeneration": "golden36"
 }
