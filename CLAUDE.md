@@ -283,6 +283,15 @@ trabajo está mal hecho aunque el código funcione.
   corrigen una a una con "Review split". La UI no debe ofrecer opciones que se bloqueen o contradigan
   entre si (JFC 2026-09-30).
 
+## DINERO DE COMISIONES: DECISIONES DE JFC 2026-10-07 (shells v465-v466)
+- Venta anulada despues de pagarse: lo pagado se DESCUENTA DEL PROXIMO PAGO (credito "void" derivado en payout-ledger.js).
+- Cierre de mes para pagos: NO por ahora. No implementarlo sin nueva orden.
+- Retencion antes de pagar: es OPCION DEL DUENO (0/7/14/30 dias, apagada por defecto), ajuste "retencion" del cuaderno.
+  Lo retenido nunca se muestra como pagado ni se puede pagar.
+- Botones de Commissions: textos cortos (By product, By rack, WhatsApp, CSV); el texto largo queda en aria-label.
+- Idempotencia de pagos (v465): clave por intencion, misma clave con otro pedido = 409, reversa nunca mayor que lo pagado,
+  pago multipersona todo o nada. Pruebas: test/payout-idempotencia-2026-10-07.test.js y test/payout-anulada-retencion-2026-10-07.test.js.
+
 ## REGLA DURA JFC 2026-10-01: NO MENTIR. LA UI HACE LO QUE DICE (las 3 apps, paginas y paneles)
 - Prohibido que una pantalla, boton, aviso o texto afirme algo que no paso o que no se comprobo:
   "hecho", "guardado", "enviado", "publicado", "sincronizado", "pagado", "cumplido", etc.
