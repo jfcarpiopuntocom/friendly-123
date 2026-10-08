@@ -1,3 +1,7 @@
+/* SPLIT 2026-10-08 (Claude): las dos pruebas de Advanced (franja del canario y aviso de hora) se movieron a
+   test/canarios-advanced.test.js SIN cambiar ninguna asercion. Motivo: este archivo sumaba ~98 s en la laptop
+   y pasaba el limite de 120 s por archivo en CI (release-control fallo por timeout en v470 y en una rama
+   que solo traia tests). Partirlo no relaja ninguna verificacion. */
 // Plan canarios F3 (JFC 2026-09-25): canario dentro de la app, en Chromium real con los tres
 // canales servidos desde un servidor local (mismo origen = mismos datos).
 // La licencia lord de verdad NO puede ir al repo: el servidor de prueba reemplaza su huella en
@@ -148,67 +152,6 @@ test('salud: un descuadre real entre Sold y Commissions se detecta como "fallo"'
       try { return await window.OCSalud.medirCuadre(); } finally { window.fetch = orig; }
     });
     assert.equal(r, 'fallo');
-  });
-});
-
-test('franja del canario en Advanced: la ve el aparato lord como dueno, no un cliente', async () => {
-  await conServidor(async (web, base) => {
-    const ver = async (lic) => {
-      const ctx = await web.newContext({ serviceWorkers: 'block' });
-      const page = await aparato(ctx, base, lic);
-      await page.goto(base + 'next/', { waitUntil: 'networkidle' });
-      await lista(page);
-      await page.waitForTimeout(2500);
-      await page.click('nav button[data-vista="avanzado"]');
-      await page.waitForTimeout(3000);
-      return page.evaluate(() => { const f = document.getElementById('oc-canario-franja'); return { vis: !!f && getComputedStyle(f).display !== 'none', txt: (document.getElementById('oc-canario-linea') || {}).textContent || '' }; });
-    };
-    const lord = await ver(LORD_PRUEBA);
-    assert.equal(lord.vis, true);
-    assert.match(lord.txt, /This device: CANARY \(next\) · f123-shell-v\d+/);
-    const cliente = await ver('F123-CLIENTE-DE-PRUEBA');
-    assert.equal(cliente.vis, false);
-  });
-});
-
-/* v427 (JFC 2026-09-30): el aviso de hora es para TODO dueno, no solo el lord. Se prueba con
-   un aparato CLIENTE. Prueba nueva (no de fijacion): sin el aviso este test es rojo. */
-test('aviso de hora en Advanced: un cliente dueno lo ve con el reloj corrido, y no lo ve con la hora buena', async () => {
-  await conServidor(async (web, base) => {
-    const ctx = await web.newContext({ serviceWorkers: 'block' });
-    const page = await aparato(ctx, base, 'F123-CLIENTE-DE-PRUEBA');
-    await page.goto(base + 'next/', { waitUntil: 'networkidle' });
-    await lista(page);
-    await page.waitForTimeout(2500);
-    await page.click('nav button[data-vista="avanzado"]');
-    await page.waitForTimeout(3500);
-    const leer = () => page.evaluate(() => { const n = document.getElementById('oc-reloj-aviso'); return { vis: !!n && n.getBoundingClientRect().height > 0 /* de verdad en pantalla, no solo display del nodo */, txt: n ? n.textContent : '', px: n ? parseFloat(getComputedStyle(n).fontSize) : 0 }; });
-    assert.equal((await leer()).vis, false, 'sin reloj comun no hay aviso');
-    await page.evaluate(() => { const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 6 * 60 * 1000, t + 20); });
-    await page.waitForTimeout(3500);
-    // v436 (JFC 2026-10-01): un solo testigo (el relay) ya no basta; el servidor de la app
-    // (cabecera Date de version.json) dice la hora buena -> no se acusa al aparato.
-    assert.equal((await leer()).vis, false, 'solo el relay corrido: no acusa al aparato');
-    // Segundo testigo de acuerdo: el servidor tambien va 6 min adelante del aparato.
-    let clockRequests = 0;
-    await page.route('**/version.json?reloj=*', (r) => { clockRequests++; return r.fulfill({ status: 200, contentType: 'application/json', body: '{}',
-      headers: { Date: new Date(Date.now() + 6 * 60 * 1000).toUTCString() } }); });
-    await page.evaluate(() => { window.OCLatencia.reiniciar(); const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 6 * 60 * 1000, t + 20); });
-    await page.reload({ waitUntil: 'networkidle' });
-    await lista(page);
-    await page.waitForTimeout(2500);
-    await page.click('nav button[data-vista="avanzado"]');
-    await page.evaluate(() => { const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10 + 6 * 60 * 1000, t + 20); });
-    await page.waitForTimeout(7000);
-    assert.ok(clockRequests > 0, 'el segundo testigo debe pasar por la ruta de reloj simulada');
-    const malo = await leer();
-    assert.equal(malo.vis, true);
-    assert.match(malo.txt, /Clock warning: .* about 6 minutes behind/);
-    assert.ok(malo.px >= 16, 'legible: 16px o mas');
-    if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
-    await page.evaluate(() => { window.OCLatencia.reiniciar(); const t = Date.now(); window.OCLatencia.anotarPing(t, t + 10, t + 20); });
-    await page.waitForTimeout(3500);
-    assert.equal((await leer()).vis, false, 'con la hora buena el aviso se esconde solo');
   });
 });
 
