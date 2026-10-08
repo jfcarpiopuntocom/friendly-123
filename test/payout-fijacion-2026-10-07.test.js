@@ -373,3 +373,25 @@ test('getLiquidaciones/_conComisionEnMes: a partner rack always lists, with stil
   assert.equal(vacio.paymentStatus, 'no-sales');
   assert.equal(hoy.stillDue, 40);
 });
+
+// _payoutCore is the only bridge from the backend to the payment ledger (window.OCPayoutLedger).
+// If that script failed to load, a payment must be refused with nothing written and the debt untouched.
+test('_payoutCore: without the payment ledger loaded, single and rack-wide payments are refused and nothing is written', async () => {
+  const app = browser(); const s = await store(app);
+  await app.request(`/api/productos/${s.product.id}/venta`, 'POST', { cantidad:1 });
+  const antes = (await app.request('/api/liquidaciones')).find(x => x.ubicacionId === s.rack.id);
+  const ledger = app.OCPayoutLedger;
+  app.OCPayoutLedger = null;
+  const url = `/api/liquidaciones/${s.rack.id}/marcar-pagado`;
+  let single = null, rack = null;
+  try { await app.request(url, 'POST', { payeeId:s.alice.id, amountCents:4000, medioPago:'efectivo', opId:'fij-core-1' }); } catch (e) { single = e; }
+  try { await app.request(url, 'POST', { medioPago:'efectivo', opId:'fij-core-2' }); } catch (e) { rack = e; }
+  app.OCPayoutLedger = ledger;
+  assert.ok(single, 'a single-person payment without the ledger must be an error');
+  assert.ok(rack, 'a rack-wide payment without the ledger must be an error');
+  const pagos = await app.request(`/api/payouts?ubicacionId=${s.rack.id}`);
+  assert.equal(pagos.length, 0, 'no payout row was written');
+  const despues = (await app.request('/api/liquidaciones')).find(x => x.ubicacionId === s.rack.id);
+  assert.equal(despues.stillDue, antes.stillDue, 'the amount still due is exactly what it was');
+  assert.equal(despues.stillDue, 40);
+});
