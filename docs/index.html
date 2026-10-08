@@ -9441,7 +9441,22 @@ function _ocMoneyDict(){
   const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
   return esMoney ? {people:"Personas por liquidar · Reparto entre personas este mes", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", pay:(m) => "Registrar pago de " + m, history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle · Split between people this month", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", pay:(m) => "Record " + m + " payment", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
 }
+/* UN PAGO A LA VEZ (auditoria 2026-10-07, punto 1). Mientras un pago de la misma percha y
+   persona esta abierto o en vuelo, otro clic se ignora: el doble toque ya no abre un segundo
+   pago. La clave idempotente (opId) se guarda por INTENCION (percha, mes, persona, ventas,
+   saldo mostrado, monto y medio) y se reutiliza hasta recibir respuesta del backend; si la red
+   falla, el reintento manda la MISMA clave y el backend devuelve el pago ya hecho en vez de
+   duplicarlo. Tras una respuesta la clave se descarta: un pago identico posterior es nuevo. */
+const _ocPagosEnCurso = new Set();
+const _ocPagoClaves = new Map();
 async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId, alcance){
+  const _cerrojo = [ubicacionId, payeeId || "_", (alcance && alcance.sourceIds || []).join(",")].join("|");
+  if (_ocPagosEnCurso.has(_cerrojo)) return;
+  _ocPagosEnCurso.add(_cerrojo);
+  try { return await _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, payeeId, alcance); }
+  finally { _ocPagosEnCurso.delete(_cerrojo); }
+}
+async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, payeeId, alcance){
   /* v454: `alcance` = { sourceIds, producto } paga SOLO esas ventas (ficha de producto). El nombre del producto va en los
      textos de confirmacion; el backend (planPayout.sourceIds) limita el pago a esas ventas. Sin `alcance` todo igual que antes. */
   if (alcance && alcance.producto) promotorNombre = (promotorNombre || "") + " · " + alcance.producto;
@@ -9491,9 +9506,14 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId,
   /* Una acción humana = una clave idempotente. Sin esto dos pagos parciales
      sucesivos podían parecer el mismo retry al backend porque cubren las mismas
      ventas. El backend además vuelve a comprobar el saldo antes de escribir. */
-  const opId = (window.crypto && typeof window.crypto.randomUUID === "function")
-    ? window.crypto.randomUUID()
-    : ("ui-pay-" + Date.now() + "-" + Math.random().toString(36).slice(2));
+  const _intencion = [ubicacionId, _mesPago, payeeId || "_", (alcance && alcance.sourceIds || []).join(","), _debidoCents, amountCents, medioPago].join("|");
+  let opId = _ocPagoClaves.get(_intencion);
+  if (!opId) {
+    opId = (window.crypto && typeof window.crypto.randomUUID === "function")
+      ? window.crypto.randomUUID()
+      : ("ui-pay-" + Date.now() + "-" + Math.random().toString(36).slice(2));
+    _ocPagoClaves.set(_intencion, opId);
+  }
   let res, r;
   try {
     res = await fetch(`${API}/liquidaciones/${ubicacionId}/marcar-pagado`, {
@@ -9502,6 +9522,7 @@ async function marcarComisionPagada(ubicacionId, promotorNombre, monto, payeeId,
       headers: { "Content-Type": "application/json" }
     });
     r = await res.json();
+    _ocPagoClaves.delete(_intencion); // hubo respuesta: la clave cumplio su trabajo
   } catch (err) {
     console.error("[marcarComisionPagada]", err);
     await ocAlert("Could not reach the server. The payment was NOT recorded. Check your connection and try again.");
