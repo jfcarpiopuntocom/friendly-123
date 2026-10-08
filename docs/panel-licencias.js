@@ -102,7 +102,7 @@
       /* El prefijo fijo "F123-" NO entra al texto de busqueda: buscar "12" o
          "f1" daria las 3.000 licencias (cazado por el humo en Chromium). */
       g.q = norm(g.filas.map(function (x) {
-        return [String(x.licenseCode || "").replace(/^F123-/i, ""), x.nombreNegocio, x.nombre, x.apellido, x.email, x.whatsapp, x.cedula, x.instanceId].join(" ");
+        return [String(x.licenseCode || "").replace(/^F123-/i, ""), x.nombreNegocio, x.nombre, x.apellido, x.apodo, x.email, x.whatsapp, x.cedula, x.instanceId].join(" ");
       }).join(" ") + " " + g.lote);
     });
     return { grupos: grupos, total: (rows || []).length };

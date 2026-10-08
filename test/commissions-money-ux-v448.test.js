@@ -39,9 +39,12 @@ test('Money UX: person card shows Earned, Paid and Still due from ledger-backed 
   assert.match(src, /partially paid/i);
 });
 
-test('Money UX: payment action names the amount and preserves partial-payment flow', () => {
+test('Money UX: payment action announces the choice and preserves full/partial-payment flow', () => {
   const src = commissionsRegion();
-  assert.match(src, /Record .* payment/);
+  assert.match(src, /t\("comm\.recordPartial"\)/);
+  const dict = fs.readFileSync(path.join(__dirname, '../docs/i18n.js'), 'utf8');
+  assert.match(dict, /"comm\.recordPartial": "Record full\/partial payment"/);
+  assert.match(dict, /"comm\.recordPartial": "Registrar pago total\/parcial"/);
   assert.match(src, /Pay full balance/);
   assert.match(src, /Payment amount/);
   assert.match(src, /amountCents/);

@@ -17,6 +17,16 @@ function cargar() {
 }
 const DIA = 86400000;
 const AHORA = Date.parse('2026-09-24T12:00:00Z');
+
+test('device nickname participates in license search, including folded devices', () => {
+  const P = cargar();
+  const idx = P.indexar([
+    { instanceId: 'fixture-a', licenseCode: 'F123-FIXTURE-NICK', nombreNegocio: 'Fixture shop', nombre: 'Fixture owner', apodo: 'Desk fixture' },
+    { instanceId: 'fixture-b', licenseCode: 'F123-FIXTURE-NICK', apodo: 'Phone fixture' },
+  ]);
+  assert.equal(P.filtrar(idx.grupos, { q: 'Phone fixture' }).length, 1);
+  assert.equal(P.filtrar(idx.grupos, { q: 'Absent nickname' }).length, 0);
+});
 function filas(n, semilla = 1) {
   let s = semilla; const rnd = () => (s = (s * 48271) % 2147483647) / 2147483647;
   const out = [];

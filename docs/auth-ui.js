@@ -232,6 +232,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     } catch (_) {}
   }, 3 * 60 * 1000);
 
+  // El panel de licencias no escucha los latidos cifrados del equipo. Enviar
+  // el apodo confirmado al editarlo, sin esperar otro login ni mover licencia.
+  window.addEventListener("oc-apodo-actualizado", function () {
+    try {
+      var ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (!ow.instanceId) return;
+      enviarHeartbeat({ instanceId: ow.instanceId, licenseCode: ow.licenseCode || "",
+        email: ow.email || "", whatsapp: ow.whatsapp || "", nombre: ow.nombre || "",
+        nombreNegocio: ow.nombreNegocio || "", accion: "sync-nombre" }).catch(function () {});
+    } catch (_) {}
+  });
+
   function heartbeatLogin(owned) {
     if (!owned || !owned.instanceId) return;
     let pendiente = null;

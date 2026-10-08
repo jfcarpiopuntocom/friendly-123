@@ -298,7 +298,20 @@ async function handleCheckin(req, env) {
 
   const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "";
   const existenteRaw = await env.LICENCIAS.get(`inst:${instanceId}`);
-  const existente = existenteRaw ? JSON.parse(existenteRaw) : {};
+  let existente = existenteRaw ? JSON.parse(existenteRaw) : {};
+  // El panel ya prioriza este registro fresco. Reconstruir un latido desde
+  // KV atrasado lo degradaba otra vez: nombre, apodo y licencia del aparato.
+  // Leer el MISMO registro antes del merge; conservar KV cuando el DO falta.
+  try {
+    const stub = doLicencias(env);
+    if (stub) {
+      const respuesta = await stub.fetch(`https://do.invalid/r/${encodeURIComponent(instanceId)}`);
+      if (respuesta.ok) {
+        const fresco = await respuesta.json();
+        if (fresco && fresco.instanceId === instanceId) existente = fresco;
+      }
+    }
+  } catch (_) { /* respaldo KV; no bloquear el acceso por un espejo caido */ }
 
   /* QUE APP ES (arreglado 2026-08-19). Antes: body.producto === "amigable",
      comparado contra un valor que NINGUNA app manda — las apps mandan
@@ -1210,6 +1223,11 @@ export class RegistroLicencias {
     const url = new URL(req.url);
     const esRegistro = url.pathname.startsWith("/r/");
     const id = esRegistro ? decodeURIComponent(url.pathname.slice(3)) : "";
+
+    if (esRegistro && id && req.method === "GET") {
+      const registro = await this.state.storage.get(`inst:${id}`);
+      return new Response(JSON.stringify(registro || null), { headers: { "Content-Type": "application/json" } });
+    }
 
     if (esRegistro && id && req.method === "PUT") {
       const registro = await req.json();

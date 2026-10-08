@@ -10,12 +10,41 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
+const { webkit } = require('playwright');
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 
 const INDEX = pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href;
 const DASH = pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href;
 const LIC = 'F123-TEST-0000-0000-00000';
+
+for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]]) {
+  test(`dashboard partial payment (${engineName}): same cents immediately, unchanged stock and month link`, async () => {
+    const web = await engine.launch({ headless: true });
+    try {
+      const ctx = await contexto(web);
+      const app = await abrirApp(ctx);
+      const { ana, rack, prod } = await negocioDeComisiones(app);
+      const dash = await entrar(ctx, '789');
+      await tablero(dash);
+      assert.equal((await tiles(dash))['Still to pay'], '$120.00');
+      await dash.evaluate(() => { window.__paymentNoReload = 1; });
+      const stockBefore = (await api(app, '/api/productos')).find(p => p.id === prod.id).stockActual;
+      const started = Date.now();
+      await api(app, '/api/payouts', 'POST', { ubicacionId: rack.id, payeeId: ana.id, amountCents: 1501, medioPago: 'efectivo', opId: 'dashboard-partial-' + engineName });
+      await dash.waitForFunction(() => [...document.querySelectorAll('#cm .cm-k')].some(k => /Still to pay/.test(k.textContent) && k.querySelector('.n').textContent.trim() === '$104.99'), null, { timeout: 2000 });
+      const elapsed = Date.now() - started;
+      assert.ok(elapsed <= 500, 'local dashboard payment refresh took ' + elapsed + ' ms');
+      const liq = (await api(app, '/api/liquidaciones')).find(l => l.ubicacionId === rack.id);
+      assert.equal(liq.stillDue, 104.99);
+      assert.equal((await api(app, '/api/productos')).find(p => p.id === prod.id).stockActual, stockBefore);
+      assert.equal(await dash.evaluate(() => window.__paymentNoReload), 1);
+      const link = await dash.locator('#cm a.pagar').first().getAttribute('href');
+      assert.match(link, /&mes=\d{4}-\d{2}/, 'dashboard payment retains selected month');
+      assert.match(await dash.locator('#cm a.pagar').first().innerText(), /partial/i, 'dashboard also announces the partial option');
+    } finally { await web.close(); }
+  });
+}
 
 async function contexto(web) {
   const ctx = await web.newContext({ viewport: { width: 1280, height: 900 } });

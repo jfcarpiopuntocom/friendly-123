@@ -8540,7 +8540,7 @@ function resumenComisionPorProductoHtml(prods, cuadre){
          (marcarComisionPagada). Asi no hay una ruta de dinero nueva ni se puede pagar otra percha. */
         (d.pendSocio > 0 && d.ubicacionIds && d.ubicacionIds.size === 1) ? `<div style="margin-top:10px;"><button type="button" class="ir"
           data-comm-pay-from-product="${escHtml([...d.ubicacionIds][0])}"
-          style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${(window.OCI18n && window.OCI18n.locale && window.OCI18n.getLang && window.OCI18n.getLang() === "es") ? "Registrar pago de " + fmtMoney(d.pendSocio) : "Record " + fmtMoney(d.pendSocio) + " payment"}</button></div>` : ""}
+          style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${t("comm.recordPartial")}</button></div>` : ""}
       ${(d.candidatas || []).length ? `<details style="margin-top:8px;"><summary style="cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--azul-medio,#2c4a68);font-size:14px;">${window.tf("comm.reviewSales",{n:d.candidatas.length})}</summary>
         <p style="font-size:13px;color:var(--ink-soft);">${t("comm.reviewNote")}</p>
         ${(d.candidatas || []).map(v => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #D7E0E8;font-size:14px;">
@@ -9446,7 +9446,7 @@ async function enviarEstadoComisionista(ubicacionId, promotoraId){
    Para cambiar un rotulo se cambia aqui y cambia en los dos lugares. */
 function _ocMoneyDict(){
   const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
-  return esMoney ? {people:"Personas por liquidar · Reparto entre personas este mes", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", pay:(m) => "Registrar pago de " + m, history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle · Split between people this month", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", pay:(m) => "Record " + m + " payment", history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
+  return esMoney ? {people:"Personas por liquidar · Reparto entre personas este mes", earned:"Generado", paid:"Pagado", due:"Por pagar", edit:"✎ Editar trato", statement:"Enviar estado", pay:() => t("comm.recordPartial"), history:"Historial de pagos", none:"ninguno todavía", noPayments:"No hay pagos registrados para esta persona en este período.", balance:"¿Qué compone este saldo?", partial:"pago parcial", dueState:"pendiente", paidState:"pagado"} : {people:"People to settle · Split between people this month", earned:"Earned", paid:"Paid", due:"Still due", edit:"✎ Edit deal", statement:"Send statement", pay:() => t("comm.recordPartial"), history:"Payment history", none:"none yet", noPayments:"No payments recorded for this person in this period.", balance:"What makes up this balance?", partial:"partially paid", dueState:"due", paidState:"paid"};
 }
 /* UN PAGO A LA VEZ (auditoria 2026-10-07, punto 1). Mientras un pago de la misma percha y
    persona esta abierto o en vuelo, otro clic se ignora: el doble toque ya no abre un segundo
@@ -9472,7 +9472,7 @@ async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, p
   const _mesPagoTxt = _mesPago ? _ocMesEtiqueta(_mesPago) : "this month";
   /* MEDIO DE PAGO (JFC 2026-09-24, benchmark #4): la misma confirmacion de siempre,
      pero pregunta COMO se pago. Cancelar sigue sin sellar nada. */
-  const _esP = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+  const _esP = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
   const medioPago = await _ocModalMostrar(
     _esP ? `Registrar pago · ${promotorNombre || "persona"} · ${_mesPagoTxt}. ¿Cómo se pagó?` : `Record payment · ${promotorNombre || "them"} · ${_mesPagoTxt}. How was it paid?`,
     [
@@ -9491,8 +9491,8 @@ async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, p
   const _montoDebido = Number(monto) || 0;
   const _montoTexto = await ocPrompt(
     _esP
-      ? `Monto del pago (Payment amount) a ${promotorNombre || "la persona"}. Saldo pendiente: ${fmtMoney(_montoDebido)}. Pagar saldo completo (Pay full balance): ${fmtMoney(_montoDebido)}`
-      : `Payment amount for ${promotorNombre || "them"}. Amount due: ${fmtMoney(_montoDebido)}. Pay full balance: ${fmtMoney(_montoDebido)}`,
+      ? `${t("comm.amountChoice")} Monto del pago a ${promotorNombre || "la persona"}. Saldo pendiente: ${fmtMoney(_montoDebido)}. Pagar saldo completo: ${fmtMoney(_montoDebido)}`
+      : `${t("comm.amountChoice")} Payment amount for ${promotorNombre || "them"}. Amount due: ${fmtMoney(_montoDebido)}. Pay full balance: ${fmtMoney(_montoDebido)}`,
     _montoDebido.toFixed(2)
   );
   if (_montoTexto == null) return;

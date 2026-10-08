@@ -92,6 +92,9 @@
     var m = yo();
     m.apodo = String(txt || "").trim().slice(0, 28);
     escribir(K_YO, m);
+    // Solo la edicion local avisa al registro de licencias; recibir latidos del
+    // equipo no debe generar checkins ni cambiar la identidad de este aparato.
+    try { window.dispatchEvent(new CustomEvent("oc-apodo-actualizado")); } catch (_) {}
     try { window.dispatchEvent(new CustomEvent("oc-micelio-cambio")); } catch (_) {}
     latir();   /* que el equipo vea el nombre nuevo ya, no en un minuto */
     return m.apodo;
