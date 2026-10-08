@@ -1,6 +1,6 @@
 ---
 name: jev-jfc
-description: ALWAYS use Laya first (JFC order 2026-10-01, "siempre siempre siempre"), then Jev as backup. Use Jev (TypeSafe System One model) through JFC's budget-capped Vercel AI Gateway key for repeated or high-volume bounded judgments - routing, relevance/ranking, triage, yes/no checks over many items - when it saves more Claude context than it costs. Not for text generation, exact rules, math, dates, money, one-off trivial choices, irreversible actions, or customer/private data. Applies to friendly-123, AMIGABLE and consultorio-123.
+description: ALWAYS use gutsy first (local model; replaced Laya by JFC order 2026-10-07), then Jev as backup. Use Jev (TypeSafe System One model) through JFC's budget-capped Vercel AI Gateway key for repeated or high-volume bounded judgments - routing, relevance/ranking, triage, yes/no checks over many items - when it saves more Claude context than it costs. Not for text generation, exact rules, math, dates, money, one-off trivial choices, irreversible actions, or customer/private data. Applies to friendly-123, AMIGABLE and consultorio-123.
 ---
 
 # Jev for JFC (Claude side)
@@ -17,20 +17,19 @@ The executor is byte-identical to Codex's; only this how-to differs.
 - **Code** keeps: counts, dates, sums, money, exact matches, anything deterministic.
 - Not worth a call for a single obvious yes/no. The call must save more than it consumes.
 
-## Laya FIRST, Jev as backup (JFC 2026-10-01)
-**JFC order: use Laya ALWAYS, whenever possible, without being asked** - every bounded judgment, every
-research pass, every copy score. It inherits Jev's "at all times" mandate and costs nothing.
-Laya (pip `laya`, Apache-2.0, open weights) does the same typed judgments (`choice`/`score`/`noul`)
-LOCALLY: free, no credits, nothing leaves the machine. Same JSON as Jev, same hard limits below.
-- Laptop: `python scripts/laya-evaluate.py < request.json` (first run downloads the model from Hugging Face).
-- Cloud: works only if the environment allows `huggingface.co` and `cdn-lfs.huggingface.co`, and
-  after `pip install laya` (pulls torch, large). If Laya is unavailable or answers `low_confidence`,
-  use Jev; if Jev fails too, Claude decides. Say in one line which engine answered.
-- Zero-shot accuracy is modest (author's benchmark: 0.36 base vs 0.77 fine-tuned). Treat it as
-  triage advice, never as truth on its own.
+## gutsy FIRST, Jev as backup (JFC 2026-10-07; replaces Laya)
+JFC replaced Laya with **gutsy** on 2026-10-07 (kouhxp/gutsy, Apache-2.0, fine-tuned Qwen3.5-0.8B GGUF on
+CPU): JevBench public 0.73 vs Laya 0.54, about half the disk, no torch. The "use it always, without being
+asked" order that Laya inherited from Jev now applies to gutsy. Same JSON as Jev, same hard limits below.
+- Runner: `python scripts/gutsy-evaluate.py < request.json`. Uses the server on 127.0.0.1:8765 if up
+  (~1 s), else loads the model once (~9 s). Laptop clone: `C:\00 Projects\gutsy`; cloud: `~/gutsy` (hook).
+- English only: write instructions and criteria in English. No arithmetic, dates or money amounts.
+- Gate: choice needs confidence >= 0.7 and margin >= 0.3; yes/no acts only above 0.85 or below 0.15.
+  Otherwise use Jev; if Jev fails too, Claude decides. Say in one line which engine answered.
+- Full guide (also n8n use): global skill `gutsy-jfc`.
 
 ```bash
-python3 "$(git rev-parse --show-toplevel)/.claude/skills/jev-jfc/scripts/laya-evaluate.py" <<'JSON'
+python3 "$(git rev-parse --show-toplevel)/.claude/skills/jev-jfc/scripts/gutsy-evaluate.py" <<'JSON'
 {"state":{"public_context":"..."},"questions":{"route":{"type":"choice","instructions":"Which area?","criteria":{"sync":"...","ui":"...","other":"Nothing else fits"}}}}
 JSON
 ```

@@ -1,9 +1,10 @@
 # CLAUDE.md — léeme entero antes de planificar o tocar código
 
 > **ARRANQUE DE CADA SESION (JFC 2026-10-01):** 1) leer la bitacora de Notion "Bitacora Claude +
-> Codex — apps Made In Cuenca" (solo las ultimas entradas); 2) usar **Laya primero** para los juicios
-> chicos (`.claude/skills/jev-jfc/scripts/laya-evaluate.py`), luego Jev, luego Claude. Asi no se
-> re-explica el contexto y se gastan menos tokens desde el primer mensaje. Laya la instala el hook.
+> Codex — apps Made In Cuenca" (solo las ultimas entradas); 2) usar **gutsy primero** para los juicios
+> chicos (`.claude/skills/jev-jfc/scripts/gutsy-evaluate.py`), luego Jev, luego Claude. Asi no se
+> re-explica el contexto y se gastan menos tokens desde el primer mensaje. gutsy lo instala el hook
+> (JFC 2026-10-07: gutsy reemplaza a Laya, que se desinstalo de la laptop).
 
 > **Laptop (JFC 2026-09-30):** el trabajo diario se hace desde la nube; la laptop es respaldo y
 > copia local (ahi estan Obsidian y el pulso). No planificar nada que dependa de que JFC abra la PC.
@@ -317,6 +318,10 @@ trabajo está mal hecho aunque el código funcione.
 - JFC es el DUEÑO de la app (lord = su licencia principal), nunca "soporte".
 
 ## JEV + OMNIROUTE: REPARTO DE TRABAJO (JFC 2026-09-24, regla dura, las 3 apps)
+- **GUTSY REEMPLAZA A LAYA (JFC 2026-10-07).** Laya se desinstalo de la laptop. gutsy (kouhxp/gutsy,
+  Qwen3.5-0.8B afinado, CPU, gratis, local) hace los mismos juicios con mejor puntaje (JevBench 0.73 vs 0.54)
+  y sin torch. Todo lo que abajo dice "Laya" vale ahora para gutsy. Ejecutor:
+  `.claude/skills/jev-jfc/scripts/gutsy-evaluate.py`. Solo ingles. Skill global `gutsy-jfc` (incluye n8n).
 - **ORDEN DE JFC 2026-10-01: "usa Laya SIEMPRE SIEMPRE SIEMPRE que sea posible".** Laya hereda las
   ordenes que ya tenia Jev: "usa JEV at all times" (09-26) y "luego de tu research siempre mucho Jev"
   (09-27). Todo juicio chico (clasificar, rankear, triar, si/no, validar hallazgos de research, puntuar
