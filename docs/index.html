@@ -115,6 +115,7 @@
 <script src="./invariantes.js"></script>
 <script src="./core/payout-ledger.js"></script>
 <script src="./core/ledger.js"></script>
+<script src="./core/demo-huellas.js"></script>
 <script src="./mock-backend.js"></script>
 <script src="./red-segura.js"></script>
 <meta charset="UTF-8">
@@ -8450,11 +8451,6 @@ function cambiarVistaComisiones(vista){
     boton.classList.toggle("hundida", activo);
   });
 }
-/* Perchas de la semilla VIEJA del demo (julio-agosto 2026) que quedaron en tiendas
-   reales (caso Belen, 2026-09-24): se ROTULAN, jamas se borran desde aqui. Si la
-   duena no las usa, las apaga ella desde la lista de perchas. */
-const PERCHAS_SEMILLA_VIEJA = ["bookshelf", "fairbooth", "smokeshop"];
-function esPerchaSemillaVieja(id) { return PERCHAS_SEMILLA_VIEJA.indexOf(String(id || "")) !== -1; }
 /* CUADRE DEL MES (JFC 2026-09-24: "todo debe cuadrar, nada debe quedar fuera
    de vista"). Todas las ventas del mes, en cubos que suman el mismo total que
    Sold: con comision + COUNTER SALES de la casa + perchas propias (+ sin trato).
@@ -8938,7 +8934,7 @@ async function cargarComisiones(){
     return `
     <div class="tag-card" data-liq-ubic="${escHtml(f.ubicacionId || "")}" style="text-align:left;margin-bottom:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <strong style="font-size:16px;">${escHtml(f.ubicacion)}${esPerchaSemillaVieja(f.ubicacionId) ? ` <span class="badge-estado amarillo" style="font-size:13px;">${t("comm.sampleRack")}</span>` : ""}</strong>
+        <strong style="font-size:16px;">${escHtml(f.ubicacion)}</strong>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
           <button type="button" class="tecla" data-comm-edit-rack="${escHtml(f.ubicacionId || "")}"
             aria-label="Adjust commission deal for ${escHtml(f.ubicacion)}" title="Adjust this shelf's commission deal"

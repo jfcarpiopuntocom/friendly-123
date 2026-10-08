@@ -16,15 +16,17 @@ test('racks with no sales this month are folded, not painted as $0 cards', () =>
   assert.match(html, /data-commissions-idle/, 'bloque plegado de perchas sin ventas');
 });
 
-test('old demo seed racks are labeled, never deleted', () => {
-  assert.match(html, /PERCHAS_SEMILLA_VIEJA = \["bookshelf", "fairbooth", "smokeshop"\]/);
-  assert.match(html, /comm\.sampleRack/);
-  assert.doesNotMatch(html, /PERCHAS_SEMILLA_VIEJA[\s\S]{0,400}(DELETE|splice)/, 'no se borra nada');
+test('real business racks are never marked as demo by their ID (JFC 2026-10-08)', () => {
+  // JFC: el demo es opcional y separado; el negocio puede quedar vacio.
+  // La conservacion del almacenamiento y la separacion se prueban con fixtures en demo-history-isolation.
+  assert.equal(html.includes('PERCHAS_SEMILLA_VIEJA'), false);
+  assert.equal(html.includes('comm.sampleRack'), false);
+  assert.equal(i18n.includes('Sample from the demo'), false);
 });
 
 test('by-product view labels own sales separately in EN and ES', () => {
   assert.match(html, /agruparVentasPorProducto\(ventasTodas, true, _ocMesComisiones, true\)/);
-  for (const k of ['comm.productTotal', 'comm.productOwn', 'comm.productHouse', 'comm.sampleRack', 'comm.idleRacks', 'comm.idleRacksNote']) {
+  for (const k of ['comm.productTotal', 'comm.productOwn', 'comm.productHouse', 'comm.idleRacks', 'comm.idleRacksNote']) {
     assert.equal((i18n.match(new RegExp(`"${k.replace(/\./g, '\.')}":`, 'g')) || []).length, 2, `${k} EN+ES`);
   }
 });

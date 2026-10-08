@@ -214,28 +214,38 @@
     nombre: String(s.nombre || "")
   }]));
   function _esProductoDemoExacto(p) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esProducto(p)) return true;
     if (!p || p.id == null) return false;
     const d = _DEMO_PRODUCTOS_EXACTOS.get(String(p.id));
     return !!d && String(p.nombre || "") === d.nombre && String(p.sku || "") === d.sku && String(p.barcode || "") === d.barcode;
   }
   function _esClienteDemoExacto(x) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esCliente(x)) return true;
     if (!x || x.id == null) return false;
     const d = _DEMO_CLIENTES_EXACTOS.get(String(x.id));
     return !!d && String(x.codigo || "") === d.codigo && String(x.nombre || "") === d.nombre && String(x.telefono || "") === d.telefono;
   }
   function _esUbicacionDemoExacta(u) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esUbicacion(u)) return true;
     if (!u || u.id == null) return false;
     const d = _DEMO_UBICACIONES_EXACTAS.get(String(u.id));
     return !!d && String(u.nombre || "") === d.nombre && String(u.tipo || "") === d.tipo &&
       String(u.sucursalId || "") === d.sucursalId && String(u.promotoraId || "") === d.promotoraId;
   }
   function _esPromotoraDemoExacta(p) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esPromotora(p)) return true;
     if (!p || p.id == null) return false;
     const d = _DEMO_PROMOTORAS_EXACTAS.get(String(p.id));
     return !!d && String(p.nombre || "") === d.nombre &&
       (Number(p.comisionBase != null ? p.comisionBase : p.comision) || 0) === d.comisionBase;
   }
   function _esSucursalDemoExacta(s) {
+    // Shared historical fingerprints keep app and dashboard in agreement.
+    if (window.OCDemoHuellas && window.OCDemoHuellas.esSucursal(s)) return true;
     if (!s || s.id == null) return false;
     const d = _DEMO_SUCURSALES_EXACTAS.get(String(s.id));
     return !!d && String(s.nombre || "") === d.nombre;
@@ -280,9 +290,9 @@
     const rv = vs.filter(esVentaContaminante);
     const hayPruebaIdiomarte = idsPruebaIdiomarte.size > 0;
     const evidencia = hayPruebaIdiomarte || rv.length > 0 || rp0.length >= 2 || rc0.length >= 2 || (rp0.length > 0 && rc0.length > 0);
-    /* v457: la LECTURA de un negocio con licencia no exige evidencia (ver _demoOculto). El retiro con cuarentena
-       de _limpiarSemillaExactaEnTiendaReal SI la sigue exigiendo: nunca llama con sinEvidencia. */
-    if (!evidencia && !sinEvidencia) return { evidencia: false, productos: [], clientes: [], ventas: [], ubicaciones: [], promotoras: [], sucursales: [] };
+    /* JFC: lecturas y catalogo de un negocio activado no exigen una semilla completa.
+       La evidencia corroborada se devuelve por separado; no habilita una purga por el mero hecho de activar. */
+    if (!evidencia && !sinEvidencia && !_esNegocioConLicencia()) return { evidencia: false, productos: [], clientes: [], ventas: [], ubicaciones: [], promotoras: [], sucursales: [] };
 
     const ventasReales = vs.filter((v) => !esVentaContaminante(v));
     const prodConActividadReal = new Set(ventasReales.map((v) => String(v && v.productoId || "")).filter(Boolean));
@@ -301,7 +311,7 @@
     const rpr = prs.filter((p) => _esPromotoraDemoExacta(p) && !promUsadas.has(String(p.id)));
     const sucUsadas = new Set(ubicQueQuedan.map((u) => String(u && u.sucursalId || "")).filter(Boolean));
     const rsu = sus.filter((s) => _esSucursalDemoExacta(s) && !sucUsadas.has(String(s.id)));
-    return { evidencia: true, productos: rp, clientes: rc, ventas: rv, ubicaciones: ru, promotoras: rpr, sucursales: rsu };
+    return { evidencia, productos: rp, clientes: rc, ventas: rv, ubicaciones: ru, promotoras: rpr, sucursales: rsu };
   }
   function _estaEnSemillaDemoSeleccionada(sel, tipo, obj) {
     if (!sel || !obj || obj.id == null || !Array.isArray(sel[tipo])) return false;
@@ -328,7 +338,7 @@
       if (raw !== _licMemoRaw) {
         _licMemoRaw = raw;
         const o = raw ? (JSON.parse(raw) || {}) : {};
-        _licMemoVal = !!(String(o.licenseCode || "").trim() || String(o.syncCode || "").trim());
+        _licMemoVal = !!(String(o.instanceId || "").trim() || String(o.licenseCode || "").trim() || String(o.syncCode || "").trim());
       }
       return _licMemoVal || !!OC_STATE_SUFIJO;
     } catch (_) { return false; }

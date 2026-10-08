@@ -619,9 +619,8 @@
       "comm.productReturns": "Returns",
       "comm.productHouse": "House sale on shared rack (no commission)",
       "comm.productOwn": "Own-rack sale (no commission)",
-      "comm.sampleRack": "Sample from the demo",
       "comm.idleRacks": "Racks with no sales this month ({n})",
-      "comm.idleRacksNote": "Their deal stays saved and they move up as soon as they sell. A rack marked \"Sample from the demo\" came with an early version of the app: if you don't use it, switch it off from the shelf list.",
+      "comm.idleRacksNote": "Their deal stays saved and they move up as soon as they sell.",
       "comm.viewProduct": "By product", // JFC 2026-10-07: textos cortos, una linea en el telefono
       "comm.viewRack": "By rack",
       "comm.periodLabel": "Month",
@@ -1748,9 +1747,8 @@
       "comm.productReturns": "Devoluciones",
       "comm.productHouse": "Venta de la casa en percha compartida (sin comisión)",
       "comm.productOwn": "Venta en percha propia (sin comisión)",
-      "comm.sampleRack": "Muestra del demo",
       "comm.idleRacks": "Perchas sin ventas este mes ({n})",
-      "comm.idleRacksNote": "Su trato sigue guardado y suben apenas vendan. Una percha marcada \"Muestra del demo\" vino con una versión antigua de la app: si no la usas, apágala desde la lista de perchas.",
+      "comm.idleRacksNote": "Su trato sigue guardado y suben apenas vendan.",
       "comm.viewProduct": "Por producto", // JFC 2026-10-07: textos cortos
       "comm.viewRack": "Por percha",
       "comm.periodLabel": "Mes",

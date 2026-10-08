@@ -29,3 +29,21 @@ Reglas que ya costaron caro (2026-09-29):
    En el dominio de fotos: `docs/core/*` -> `docs/application/*` -> adapters/browser. Dependencias siempre hacia
    adentro. Core/application no importan DOM, fetch, IndexedDB, localStorage ni Yjs; todo exterior entra por puertos.
    `test/architecture-hexagonal.test.js` debe seguir verde. No volver a meter política de recuperación en la UI.
+
+8. **DEMO OPCIONAL, NEGOCIO VACÍO VÁLIDO (JFC 2026-10-08).** El demo v456 es un PLUS eventual para ventas,
+   separado del negocio real; nunca es información por defecto. Un negocio sin registros propios permanece vacío.
+   Lord y clientes reciben la misma separación. No sembrar ejemplos al activar, entrar, sincronizar, recuperar o actualizar.
+   No imponer datos ajenos ni avisos que responsabilicen al usuario de apagar perchas de ejemplo. Eliminar el aviso no
+   reemplaza corregir el origen y la recirculación. Identificar restos por huellas históricas exactas, conservar datos reales
+   y respaldos. La autorización no permite purgar almacenamiento ni destruir historia real. Las pruebas que exigían
+   rótulos de demo dentro del negocio quedan sustituidas por esta decisión expresa; conservar las demás capacidades.
+
+9. **PROOFSHOT PARA UI (JFC 2026-10-08).** No usar TinyFish. Usar la skill
+   C:/Users/JFC/.codex/skills/proofshot/SKILL.md y su JFC.md. Arrancar, probar mediante proofshot exec y cerrar.
+   Leer snapshots y capturas antes de juzgar una pantalla; capturar antes y después. Conservar video, resumen y logs
+   privados. No publicar artefactos/PR salvo pedido expreso. Sin log de servidor no afirmar cero errores de servidor.
+   La evidencia visual complementa las pruebas de datos; no acredita publicación ni sincronización real entre aparatos.
+
+10. Guía de trabajo de JFC del 2026-10-08 adaptada en
+    C:/00 Projects/Codex-Friendly-20260917/JFC-WORKFLOW-20261008.md. Usar evidencia y entregables reales,
+    reutilizar herramientas comprobadas y respetar las autorizaciones y restricciones vigentes.

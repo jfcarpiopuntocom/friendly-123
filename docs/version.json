@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-08",
-  "changelog": "v472: saldo de comisión pendiente explícito sin pago ni salida de caja; recibo parcial con saldo a favor; modales de perchas centrados.",
+  "changelog": "v473: negocios vacÃ­os sin datos demo; separaciÃ³n de semillas histÃ³ricas en app, dashboard y catÃ¡logo compartido; retiro del aviso de muestras.",
   "requerida": false,
-  "shell": "f123-shell-v472",
+  "shell": "f123-shell-v473",
   "apagar": [],
-  "releaseName": "v472",
-  "cacheGeneration": "golden36"
+  "releaseName": "v1.0",
+  "cacheGeneration": "golden37"
 }
