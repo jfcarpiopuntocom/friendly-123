@@ -891,12 +891,13 @@
   // Foto completa del estado, con schemaVersion (item 18) para poder migrar
   // formatos futuros sin romper respaldos viejos.
   function estadoActualExportable() {
+    const payoutView = _payoutCore() && _payoutCore().compatiblePayouts;
     return {
       schemaVersion: 3,
       _rev: _localRev,
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
-      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payouts),
+      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payoutView ? payoutView(payouts) : payouts),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
       configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, retencion: ajusteRetencion ? clonar(ajusteRetencion) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
       usuarios: clonar(usuarios),
@@ -1670,7 +1671,7 @@
     });
     const core = _payoutCore();
     if (core) map.forEach((d, mes) => {
-      const rows = core.balancesByPayee({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, month:mes });
+      const rows = core.balancesByPayee(_payoutInput(null, mes));
       d.pendiente = rows.reduce((a,r) => a + core.money(r.dueCents), 0);
     });
     return [...map.values()].sort((a, b) => (a.mes < b.mes ? 1 : -1))
@@ -1986,11 +1987,11 @@
       && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
     const adjustments = ajustesComision.filter((a) => a && esDelMes(a.fecha, periodo)
       && (ubicacionId == null || String(a.ubicacionId) === String(ubicacionId)));
-    /* 2026-10-07: las ventas anuladas tambien entran, en el mes de su anulacion, para que el
+    /* 2026-10-07: las ventas anuladas tambien entran desde el mes de su anulacion, para que el
        core devuelva lo que ya se habia pagado por ellas (descuento "void"). El core las salta
        para todo lo demas. */
     const voids = Array.prototype.filter.call(ventas, (v) => v && v.anulada && v.split && !_demoOculto("ventas", v)
-      && esDelMes(v.anuladaEn || v.canceladaExPostEn || v.fecha, periodo)
+      && fechaLocalDe(v.anuladaEn || v.canceladaExPostEn || v.fecha).slice(0, 7) <= periodo
       && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
     return { sales: sales.concat(voids), adjustments, locations: ubicaciones, payouts,
       month: "", period: periodo, locationId: ubicacionId == null ? null : String(ubicacionId),
@@ -2270,7 +2271,7 @@
         /* Como se pago (v391): el medio del ultimo pago sellado en el mes; null si no se registro. Solo lectura. */
         medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
         ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
-        stillDue, payoutBalances, payoutHistory, detallePendientes,
+        stillDue, held:_ledger ? _ledger.money(_ledgerObs.reduce((sum, o) => sum + (Number(o.heldCents) || 0), 0)) : 0, payoutBalances, payoutHistory, detallePendientes,
         /* 2026-10-06: statements share the same obligations as settlement. A
            partial payout is money paid even while the legacy sale flag is false.
            Include each beneficiary, retroactive adjustment and reversal balance;
@@ -4192,7 +4193,7 @@
         ventas: ventas.filter((v) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ventas", v)).map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
-        payouts: payouts.map((p) => Object.assign({}, p)),
+        payouts: _payoutCore() && _payoutCore().compatiblePayouts ? _payoutCore().compatiblePayouts(payouts) : payouts.map((p) => Object.assign({}, p)),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
         /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Este aparato publica SU
            propia entrada {id,apodo,rol}; el dueño de la entrada es autoritativo. Se
@@ -5977,7 +5978,7 @@
         aj.forEach((a) => { devBruto += ce(a.montoBruto); ajCom += ce(a.montoComisionSocio); if (!a.liquidada) porPagar += ce(a.montoComisionSocio); });
         const d = (n) => +(n / 100).toFixed(2);
         const _coreCuadre = _payoutCore();
-        if (_coreCuadre) porPagar = _coreCuadre.balancesByPayee({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, month:_mes })
+        if (_coreCuadre) porPagar = _coreCuadre.balancesByPayee(_payoutInput(null, _mes))
           .reduce((a,r) => a + Number(r.dueCents || 0), 0);
         const total = k.conComision.c + k.casaCompartida.c + k.perchasPropias.c + k.sinTrato.c;
         const salida = { mes: _mes, totalVentas: d(total), ventas: vm.length,
@@ -6291,9 +6292,11 @@
          pantallas terminan mostrando dos numeros distintos del mismo negocio).
          Portado desde amigable-123 (JFC 2026-08-18). */
       const _coreVentas = _payoutCore();
-      const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts }) : [];
+      const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, holdDays:ajusteRetencion ? ajusteRetencion.dias : 0, asOf:new Date().toISOString() }) : [];
       const _dueVenta = new Map();
+      const _heldVenta = new Map();
       _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _dueVenta.set(String(o.sourceId), (_dueVenta.get(String(o.sourceId)) || 0) + Number(o.dueCents || 0)));
+      _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _heldVenta.set(String(o.sourceId), (_heldVenta.get(String(o.sourceId)) || 0) + Number(o.heldCents || 0)));
       /* v457 (b): una venta vieja sin reparto recalculada al % del producto NO se reescribe; su comision vive en el
          ajuste "adj-retro-<id>". La fila la lee DEL LEDGER (centavos exactos, ya pagado o no), sin recalcular aqui. */
       const _retroPorVenta = new Map();
@@ -6350,6 +6353,7 @@
           /* Payout Ledger: exact remaining commission for this sale, summed
              across people. Null only when the pure ledger core is unavailable. */
           comisionPendiente: _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
+          comisionRetenida: _coreVentas ? _coreVentas.money(_heldVenta.get(String(v.id)) || 0) : 0,
           devuelta: !!v.devuelta,
           medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
           reparto: (v.split && v.split.reparto) ? v.split.reparto : null,

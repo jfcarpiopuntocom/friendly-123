@@ -24,6 +24,25 @@
   function money(c) { return +(Number(c || 0) / 100).toFixed(2); }
   function monthOf(iso) { return String(iso || "").slice(0, 7); }
   function key(kind, id, payeeId) { return [kind, String(id || ""), String(payeeId || "__unassigned__")].join("|"); }
+  // 2026-10-07: old importers know sale/adjustment only. Keep the logical
+  // void identity in additive metadata, without editing any original fact.
+  function itemKey(it) {
+    const alias = it.kind === "adjustment" && it.voidSourceId != null &&
+      String(it.sourceId) === "void-recovery:" + String(it.voidSourceId);
+    return alias ? key("void", it.voidSourceId, it.payeeId) : key(it.kind, it.sourceId, it.payeeId);
+  }
+  function compatiblePayouts(payouts) {
+    return (Array.isArray(payouts) ? payouts : []).map((p) => !p || !Array.isArray(p.items) ? p : ({ ...p,
+      items: p.items.map((it) => !it ? it : it.kind !== "void" ? { ...it } :
+        { ...it, kind: "adjustment", sourceId: "void-recovery:" + String(it.sourceId), voidSourceId: String(it.sourceId) })
+    }));
+  }
+  function appliedCents(it) {
+    const amount = Math.max(0, Math.trunc(Number(it.amountCents) || 0));
+    // A recovered credit can become payable if its original payment is
+    // reversed later. Paying that refund consumes, rather than adds, credit.
+    return it.offset === false && itemKey(it) === key("void", it.voidSourceId == null ? it.sourceId : it.voidSourceId, it.payeeId) ? -amount : amount;
+  }
 
   function payeeForSale(v, location) {
     return String((v && v.promotoraId) || (location && location.promotoraId) || "") || null;
@@ -70,18 +89,22 @@
     (Array.isArray(payouts) ? payouts : []).forEach((p) => {
       if (!p || !p.id || p.status !== "paid" || p.reversalOf) return;
       (Array.isArray(p.items) ? p.items : []).forEach((it) => {
-        const k = key(it.kind, it.sourceId, it.payeeId);
-        paid.set(k, (paid.get(k) || 0) + Math.max(0, Math.trunc(Number(it.amountCents) || 0)));
+        const k = itemKey(it);
+        paid.set(k, (paid.get(k) || 0) + appliedCents(it));
       });
     });
     /* A reversal is append-only: it restores exactly the amounts listed. */
     (Array.isArray(payouts) ? payouts : []).forEach((p) => {
       if (!p || p.status !== "paid" || !p.reversalOf) return;
       (Array.isArray(p.items) ? p.items : []).forEach((it) => {
-        const k = key(it.kind, it.sourceId, it.payeeId);
-        paid.set(k, Math.max(0, (paid.get(k) || 0) - Math.max(0, Math.trunc(Number(it.amountCents) || 0))));
+        const k = itemKey(it);
+        paid.set(k, (paid.get(k) || 0) - appliedCents(it));
       });
     });
+    // Sum every signed reversal before projecting the legacy nonnegative
+    // balance. Clamping each intermediate step makes sync arrival order
+    // change the result when a recovery and its refund are both reversed.
+    paid.forEach((amount, k) => paid.set(k, Math.max(0, amount)));
     return paid;
   }
 
@@ -96,7 +119,7 @@
       if (!p || p.status !== "paid") return;
       const dest = p.reversalOf ? reversed : paid;
       (Array.isArray(p.items) ? p.items : []).forEach((it) => {
-        const k = key(it.kind, it.sourceId, it.payeeId);
+        const k = itemKey(it);
         dest.set(k, (dest.get(k) || 0) + Math.max(0, Math.trunc(Number(it.amountCents) || 0)));
       });
     });
@@ -156,21 +179,22 @@
        pueden cruzarse: uno paga y otro anula antes de ver el pago por el sync. Antes esa
        plata se perdia del libro (ledger.js si la registraba como deuda de la persona). Ahora
        lo pagado por el libro vuelve como un descuento "void" (negativo) en el mes de la
-       anulacion, que planPayout consume antes del efectivo. Es derivado, sin registro nuevo
-       que pueda chocar en el sync. Solo cuenta pagos del libro (v448+), no banderas viejas. */
+       anulacion y queda disponible en los periodos siguientes hasta consumirse. Los pagos
+       legacy cuentan solo cuando no existe un hecho del libro que los sustituya. */
     sales.forEach((v) => {
       if (!v || !v.split || !v.anulada) return;
       const fVoid = v.anuladaEn || v.canceladaExPostEn || v.fecha;
-      if (month && monthOf(fVoid) !== month) return;
+      if (month && monthOf(fVoid) > month) return;
       if (locationId && String(v.ubicacionId) !== locationId) return;
       obligationsForSale(Object.assign({}, v, { anulada: false }), locMap.get(String(v.ubicacionId))).forEach((s) => {
         if (s.amountCents <= 0) return;
-        const paidSale = applied.get(key("sale", s.sourceId, s.payeeId)) || 0;
-        if (paidSale <= 0) return;
+        const legacy = s.legacyPaid && !hasLedgerFact(payouts, s) ? s.amountCents : 0;
+        const paidSale = legacy + (applied.get(key("sale", s.sourceId, s.payeeId)) || 0);
         const recovered = applied.get(key("void", s.sourceId, s.payeeId)) || 0;
+        if (paidSale <= 0 && recovered <= 0) return;
         out.push({ kind: "void", sourceId: s.sourceId, payeeId: s.payeeId, amountCents: -paidSale,
           order: String(fVoid) + "|" + String(s.order).split("|")[1], locationId: s.locationId, legacyPaid: false,
-          paidCents: Math.min(paidSale, recovered), dueCents: (recovered - paidSale) || 0, signedAmountCents: -paidSale });
+          paidCents: recovered, dueCents: (recovered - paidSale) || 0, signedAmountCents: -paidSale });
       });
     });
 
@@ -195,11 +219,12 @@
 
   /* v454 (ficha de producto): `input.sourceIds` (lista de ids de venta) restringe el calculo a ESAS ventas
      (kind "sale"). Sin la lista todo funciona como siempre. Con ella, el saldo, planPayout y el reparto de items
-     solo ven esas ventas: pagar el producto A deja el producto B (y los ajustes) intactos al centavo. */
+     solo ven esas ventas y los creditos por anulacion que deben reducir el proximo pago.
+     Las ventas positivas del producto B y los ajustes normales quedan intactos. */
   function balancesByPayee(input) {
     let obs = buildObligations(input);
     const only = Array.isArray(input && input.sourceIds) ? new Set(input.sourceIds.map(String)) : null;
-    if (only) obs = obs.filter((o) => o.kind === "sale" && only.has(String(o.sourceId)));
+    if (only) obs = obs.filter((o) => (o.kind === "sale" && only.has(String(o.sourceId))) || o.kind === "void");
     const map = new Map();
     obs.forEach((o) => {
       const pid = o.payeeId || null;
@@ -208,7 +233,7 @@
       row.heldCents += Number(o.heldCents) || 0;
       if (o.heldUntil && (!row.heldUntil || o.heldUntil < row.heldUntil)) row.heldUntil = o.heldUntil; // la proxima que se libera
       row.earnedCents += o.signedAmountCents;
-      row.paidCents += o.paidCents * (o.signedAmountCents < 0 ? -1 : 1);
+      row.paidCents += o.paidCents * (o.kind === "void" || o.signedAmountCents < 0 ? -1 : 1);
       row.dueCents += o.dueCents;
       row.obligations.push(o);
       map.set(k,row);
@@ -252,7 +277,7 @@
     positive.forEach((o) => {
       if (remaining <= 0) return;
       const take = Math.min(o.dueCents, remaining);
-      if (take > 0) items.push({kind:o.kind,sourceId:o.sourceId,payeeId:o.payeeId,amountCents:take});
+      if (take > 0) items.push({kind:o.kind,sourceId:o.sourceId,payeeId:o.payeeId,amountCents:take,...(o.kind === "void" ? {offset:false} : {})});
       remaining -= take;
     });
     if (remaining !== 0) return { error:"Could not reconcile payout items to the amount due.", status:409 };
@@ -275,5 +300,5 @@
     return p.status;
   }
 
-  return { cents, money, key, buildObligations, balancesByPayee, planPayout, payoutStatus, ledgerAnomalies };
+  return { cents, money, key, buildObligations, balancesByPayee, planPayout, payoutStatus, ledgerAnomalies, compatiblePayouts };
 });

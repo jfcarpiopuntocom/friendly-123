@@ -1477,7 +1477,7 @@
 
   /* ---------------------------------------------------------- COMMISSIONS */
   var cmMes = null, cmVista = "producto";
-  function cmMesActual() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+  function cmMesActual() { return mesLocalDe(new Date().toISOString()); }
   function cmEtiquetaMes(m) {
     var p = String(m || "").split("-").map(Number);
     if (p.length !== 2 || !p[0] || !p[1]) return String(m || "");
@@ -1514,6 +1514,7 @@
         g.unid += Number(v.cantidad) || 1; g.bruto += monto; g.socio += Number(v.comisionAsociado) || 0;
         g.casa += v.netoCasa != null ? Number(v.netoCasa) : (monto - (Number(v.comisionAsociado) || 0));
         g.pend += cmPendienteVenta(v);
+        g.held = (g.held || 0) + (Number(v.comisionRetenida) || 0);
         if (v.devuelta) g.devueltas++;
         if (v.asociadoNombre) g.personas[v.asociadoNombre] = 1;
         if (v.asistenteNombre) g.personas[v.asistenteNombre] = 1;
@@ -1584,7 +1585,9 @@
     };
     var tarjeta = function (g) {
       var l = cmVista === "percha" ? (liqs.find(function (x) { return x.ubicacionId === g.id; }) || null) : null;
-      var estado = g.socio > 0 || (l && (l.ajustes || []).length) ? (g.pend > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
+      if (l && l.stillDue != null) g.pend = Number(l.stillDue) || 0;
+      if (l && l.held != null) g.held = Number(l.held) || 0;
+      var estado = g.socio > 0 || (l && (l.ajustes || []).length) ? (g.pend !== 0 || g.held > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
       var sub = cmVista === "producto"
         ? "Rack: " + esc(Object.keys(g.perchas).join(", ") || "-") + (Object.keys(g.personas).length ? " · Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : "")
           + (g.unid && g.bruto > 0 ? " · <strong>" + (Math.round(g.socio / g.bruto * 1000) / 10) + "%</strong> to the associate" : "")
@@ -1594,6 +1597,7 @@
           '<div><div class="et">Associate takes</div><div class="n">' + money(g.socio) + "</div></div>" +
           '<div><div class="et">House keeps</div><div class="n">' + money(g.casa) + "</div></div>" : "") +
         (g.pend > 0 ? '<div><div class="et cm-rojo">Still to pay</div><div class="n cm-rojo">' + money(g.pend) + "</div></div>" : "") +
+        (g.held > 0 ? '<div><div class="et">' + (localStorage.getItem("f123_lang") === "es" ? "Retenido" : "On hold") + '</div><div class="n">' + money(g.held) + '</div></div>' : '') +
         (g.counterUnid ? '<div><div class="et">House sale (no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + g.counterUnid + "u</small></div></div>" : "") +
         "</div>";
       var extra = "";
@@ -2410,7 +2414,7 @@
      no sepa ni le importe de donde vinieron los datos. */
   /* Mes LOCAL del negocio (zona de f123_timezone o la del navegador), con el desfase de reloj de la venta: la misma
      regla que fechaLocalDe() de mock-backend.js. El prefijo UTC crudo manda la venta de las 19:00 al mes siguiente. */
-  function mesLocalDe(iso, desfaseMs) {
+  function fechaLocalDashboard(iso, desfaseMs) {
     try {
       var tz = null;
       try { tz = localStorage.getItem("f123_timezone"); if (tz) Intl.DateTimeFormat(undefined, { timeZone: tz }); } catch (_) { tz = null; }
@@ -2418,9 +2422,10 @@
       var ms = base + (Number.isFinite(d) ? d : 0);
       var o = { year: "numeric", month: "2-digit", day: "2-digit" };
       if (tz) o.timeZone = tz;
-      return new Intl.DateTimeFormat("en-CA", o).format(new Date(Number.isFinite(ms) ? ms : iso)).slice(0, 7);
-    } catch (_) { return String(iso || "").slice(0, 7); }
+      return new Intl.DateTimeFormat("en-CA", o).format(new Date(Number.isFinite(ms) ? ms : iso));
+    } catch (_) { return String(iso || "").slice(0, 10); }
   }
+  function mesLocalDe(iso, desfaseMs) { return fechaLocalDashboard(iso, desfaseMs).slice(0, 7); }
   /* v457 (LEY JFC 2026-10-07): el demo nunca se mezcla con un negocio con licencia. A la LECTURA se quitan los registros con
      la huella exacta de la semilla (core/demo-huellas.js, misma regla que la app); NO se borra nada del almacenamiento. */
   function sinDemoSiHayLicencia(e) {
@@ -2458,17 +2463,26 @@
       if (pr) asoc[u.id] = pr.nombre;
     });
 
-    var hoy = new Date(); hoy = hoy.getFullYear() + "-" +
-      String(hoy.getMonth() + 1).padStart(2, "0") + "-" + String(hoy.getDate()).padStart(2, "0");
+    var ahora = new Date().toISOString();
+    var hoy = fechaLocalDashboard(ahora);
     var _ledgerCore = window.OCPayoutLedger || null;
-    var _ledgerObs = _ledgerCore ? _ledgerCore.buildObligations({ sales:e.ventas || [], adjustments:e.ajustesComision || [], locations:e.ubicaciones || [], payouts:e.payouts || [] }) : [];
+    var _retencion = (e.configuracion || {}).retencion || {};
+    var _ledgerObs = _ledgerCore ? _ledgerCore.buildObligations({ sales:e.ventas || [], adjustments:e.ajustesComision || [], locations:e.ubicaciones || [], payouts:e.payouts || [], holdDays:Number(_retencion.dias) || 0, asOf:ahora }) : [];
     var _ledgerDueVenta = {};
+    var _ledgerHeldVenta = {};
     var _ledgerDueRackMes = {};
+    var _ledgerHeldRackMes = {};
     _ledgerObs.forEach(function (o) {
       if (o.kind === "sale") _ledgerDueVenta[o.sourceId] = (_ledgerDueVenta[o.sourceId] || 0) + Number(o.dueCents || 0);
-      var mesO = String(o.order || "").slice(0, 7);
+      if (o.kind === "sale") _ledgerHeldVenta[o.sourceId] = (_ledgerHeldVenta[o.sourceId] || 0) + Number(o.heldCents || 0);
+      var mesO = mesLocalDe(String(o.order || "").split("|")[0]);
       var rk = mesO + "|" + String(o.locationId || "");
       _ledgerDueRackMes[rk] = (_ledgerDueRackMes[rk] || 0) + Number(o.dueCents || 0);
+      _ledgerHeldRackMes[rk] = (_ledgerHeldRackMes[rk] || 0) + Number(o.heldCents || 0);
+      if (o.kind === "void" && mesO < mesLocalDe(ahora)) {
+        var carryKey = mesLocalDe(ahora) + "|" + String(o.locationId || "");
+        _ledgerDueRackMes[carryKey] = (_ledgerDueRackMes[carryKey] || 0) + Number(o.dueCents || 0);
+      }
     });
     /* v457: lo que el ledger dice que gano cada venta (centavos exactos). ADR-001: las vistas leen el ledger,
        no vuelven a sumar v.split. Una venta que el ledger no cubre (devuelta) cae al monto guardado, igual que la app. */
@@ -2493,7 +2507,7 @@
       var p = prods[v.productoId] || {};
       var cant = Number(v.cantidad) || 0;
       var pu = Number(v.precioUnit) || 0, cu = Number(v.costoUnit) || 0;
-      if (String(v.fecha || "").slice(0, 10) === hoy) { entra += pu * cant; sale += cu * cant; nHoy++; }
+      if (fechaLocalDashboard(v.fecha, v.relojDesfaseMs) === hoy) { entra += pu * cant; sale += cu * cant; nHoy++; }
       return {
         id: v.id, fecha: v.fecha, productoNombre: p.nombre || "(deleted product)",
         sku: p.sku || "", categoria: p.categoria || "", cantidad: cant,
@@ -2516,6 +2530,7 @@
         comisionCorregida: !!(v.split && v.split.corregida),
         liquidada: !!v.liquidada,
         comisionPendiente: _ledgerCore ? +_ledgerCore.money((_ledgerDueVenta[String(v.id)] || 0) + (_retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].dueC : 0)).toFixed(2) : null,
+        comisionRetenida: _ledgerCore ? _ledgerCore.money(_ledgerHeldVenta[String(v.id)] || 0) : 0,
         medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
         asociadoNombre: asoc[v.ubicacionId] || (!v.split && _retroPorVenta[String(v.id)] && _retroPorVenta[String(v.id)].payeeId ? ((e.promotoras || []).find(function (x) { return x.id === _retroPorVenta[String(v.id)].payeeId; }) || {}).nombre || "" : ""),
         /* v457: lo mismo que emite /api/ventas/todas por el relay (mock-backend.js). Sin `mes`, `modoComision` y
@@ -2539,10 +2554,10 @@
        diga lo mismo por los dos caminos. Se suma la plata REAL de cada venta,
        no se reaplica un porcentaje: si alguien corrigio una comision en
        retrospectiva, este total ya la trae corregida. */
-    var mesActual = new Date().toISOString().slice(0, 7);
+    var mesActual = mesLocalDe(ahora);
     var liqPorPercha = {};
     ventas.forEach(function (v) {
-      if (String(v.fecha || "").slice(0, 7) !== mesActual) return;
+      if (mesLocalDe(v.fecha) !== mesActual) return;
       if (v.comisionPct == null) return;              /* percha propia: no reparte */
       var id = v.ubicacionId || "";
       if (!liqPorPercha[id]) liqPorPercha[id] = {
@@ -2569,7 +2584,8 @@
       if (_ledgerCore) {
         var _dueC = _ledgerDueRackMes[mesActual + "|" + String(g.ubicacionId || "")] || 0;
         g.stillDue = +_ledgerCore.money(_dueC).toFixed(2);
-        g.estado = g.stillDue <= 0.00001 ? "pagado" : "pendiente";
+        g.held = _ledgerCore.money(_ledgerHeldRackMes[mesActual + "|" + String(g.ubicacionId || "")] || 0);
+        g.estado = g.stillDue === 0 && !g.held ? "pagado" : "pendiente";
       } else {
         g.estado = g.ventasPendientes === 0 ? "pagado" : "pendiente";
       }

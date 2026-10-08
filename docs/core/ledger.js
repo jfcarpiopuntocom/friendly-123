@@ -270,7 +270,11 @@
       if (!str(a.id)) return;
       entriesForAdjustment(a, obs.filter((o) => o.kind === "adjustment" && o.sourceId === str(a.id)), errors, raw);
     });
-    entriesForLegacy(obs, payouts, raw);
+    // A cancellation reverses the earning, never cash already paid. The
+    // original legacy payment must still be posted once (2026-10-07).
+    const legacyObs = PL.buildObligations({ sales: ventas.map((v) => v.anulada ? { ...v, anulada: false } : v),
+      adjustments: ajustes, locations, payouts });
+    entriesForLegacy(legacyObs, payouts, raw);
     payouts.forEach((p) => { if (str(p.id)) entriesForPayout(p, errors, raw); });
     gastos.forEach((g) => { if (str(g.id)) entriesForExpense(g, errors, raw); });
     cartera.forEach((c) => { if (str(c.id || c.opId)) entriesForCollection(c, errors, raw); });
@@ -329,11 +333,18 @@
 
     /* Pagado por (venta, persona) desde los items de pagos. */
     const applied = new Map();
+    const recovered = new Map();
     const facts = new Set();
     (Array.isArray(inp.payouts) ? inp.payouts : []).forEach((p) => {
       if (!p || p.status !== "paid") return;
       const sign = p.reversalOf ? -1 : 1;
       (Array.isArray(p.items) ? p.items : []).forEach((it) => {
+        const voidId = it.kind === "void" ? str(it.sourceId) :
+          (it.kind === "adjustment" && str(it.sourceId) === "void-recovery:" + str(it.voidSourceId) ? str(it.voidSourceId) : "");
+        if (voidId && saleIds.has(voidId)) {
+          const vk = voidId + "|" + str(it.payeeId);
+          recovered.set(vk, (recovered.get(vk) || 0) + sign * (it.offset === false ? -1 : 1) * Math.max(0, Math.trunc(Number(it.amountCents) || 0)));
+        }
         if (it.kind !== "sale" || !saleIds.has(str(it.sourceId))) return;
         const k = str(it.sourceId) + "|" + str(it.payeeId);
         applied.set(k, (applied.get(k) || 0) + sign * Math.max(0, Math.trunc(Number(it.amountCents) || 0)));
@@ -354,6 +365,7 @@
         r.earnedCents += share.get(k) || 0;
         let paid = applied.get(k) || 0;
         if (v.liquidada && !facts.has(k)) paid += base.get(k) || 0;
+        paid -= recovered.get(k) || 0;
         r.paidCents += paid;
         /* Desglose por venta (para pagar SOLO este producto: la UI manda estos saleId a planPayout.sourceIds). */
         r.bySale.push({ saleId: str(v.id), locationId: str(v.ubicacionId), earnedCents: share.get(k) || 0, paidCents: paid, dueCents: (share.get(k) || 0) - paid });
