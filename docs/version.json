@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-08",
-  "changelog": "v469: pago total/parcial visible, dashboard al centavo y nombres de negocio/aparato conservados en el registro fresco.",
+  "changelog": "v470: panel lord con canarios WebGL propios, diagnostico por pantalla al tocar un canario y mapa del codigo al fondo. La app de clientes no cambia.",
   "requerida": false,
-  "shell": "f123-shell-v469",
+  "shell": "f123-shell-v470",
   "apagar": [],
-  "releaseName": "v469",
-  "cacheGeneration": "golden33"
+  "releaseName": "v470",
+  "cacheGeneration": "golden34"
 }
