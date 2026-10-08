@@ -321,7 +321,18 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
         @media (prefers-reduced-motion: reduce) { #sonar-mapa .oc-viento { display: none; } }
         @media (prefers-reduced-motion: reduce) { #sonar-mapa .caido, #sonar-mapa .vivo, #sonar-mapa .caido > g, #sonar-mapa .barrido { animation: none; } }
       </style>
+      <style>
+        /* Claude 2026-10-08: con WebGL activo los sprites se ocultan (siguen en el SVG como respaldo). */
+        #sonar-mapa.fx-canarios [data-canario] image { visibility: hidden; }
+        #sonar-mapa [data-canario] { cursor: pointer; }
+        .pg-box { max-width: 760px; margin: 0 auto 12px; background: #0B1830; border: 2px solid #2A4672; border-radius: 10px; padding: 12px 14px; }
+        .pg-h { font-size: 18px; font-weight: 800; color: #FFFFFF; }
+        .pg-p { margin: 6px 0 0; font-size: 15px; line-height: 1.5; color: #FFFFFF; }
+        .pg-p b { color: #FFFFFF; } .pg-rojo { color: #FF3B5C; font-weight: 800; } .pg-verde { color: #28ECAA; font-weight: 800; }
+      </style>
       <div id="sonar-mapa" style="max-width:760px;margin:0 auto 12px;"></div>
+      <p style="max-width:760px;margin:0 auto 8px;font-size:14px;color:#FFFFFF;">Toca un canario para ver qué módulos y funciones de dinero viven en esa pantalla.</p>
+      <div id="sonar-diagnostico" class="pg-box" role="status" aria-live="polite" hidden></div>
       <p id="sonar-viento-aviso" role="status" aria-live="polite" style="margin:0 0 10px;font-size:16px;font-weight:800;color:#FF8A6B;min-height:1px;"></p>
       <div id="sonar-canales" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;"></div>
       <p id="sonar-rojos" style="display:none;margin:12px 0 0;font-size:16px;font-weight:700;color:#FF8A6B;"></p>
@@ -698,6 +709,26 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
         </div>
       </div>
     </div>
+    <!-- MAPA DEL CODIGO (Claude, JFC 2026-10-08): ambos grafos al FONDO del panel. Version lord: riesgos y
+         duplicados calculados en el navegador (docs/panel-grafo.js) desde friendly123.com/graph-view/data.json. -->
+    <section id="mapa-codigo" style="margin-top:28px;">
+      <style>
+        .mc-stage { position: relative; height: 62vh; min-height: 380px; border-radius: 10px; overflow: hidden; background: #060E1D; border: 1px solid #2A4672; margin: 8px 0 14px; }
+        .mc-h3 { font-size: 18px; font-weight: 800; color: #FFFFFF; margin: 14px 0 4px; }
+        .mc-list { columns: 2 280px; margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: #FFFFFF; }
+        .mc-list li { margin: 0 0 4px; break-inside: avoid; } .mc-list span { color: #CCCCCC; }
+        #mapa-codigo .scene-nav-info { display: none !important; }
+      </style>
+      <div class="sec-head"><h2>Mapa del código</h2><span class="hint" id="mc-estado">cargando…</span></div>
+      <div class="mc-h3">Toda la app (módulos y pantallas)</div>
+      <div class="mc-stage" id="mc-app"></div>
+      <div class="mc-h3">Todo lo que toca dinero <span style="color:#FF3B5C;">(carmesí = sin test que la nombre)</span> <span style="color:#FFB070;">(naranja = duplicada)</span></div>
+      <div class="mc-stage" id="mc-money"></div>
+      <div class="mc-h3">Dinero central sin test que lo nombre</div>
+      <ul class="mc-list" id="mc-riesgos"></ul>
+      <div class="mc-h3">Misma función de dinero en dos archivos</div>
+      <ul class="mc-list" id="mc-dups"></ul>
+    </section>
   </main>
 
   <footer>
@@ -954,7 +985,7 @@ function sonarCanarioSVG(x, y, c) {
      No se voltea por codigo: se usa su sprite tal cual. */
   const w = 56, h = 56;
   const t = `translate(${x - w / 2} ${y - h / 2 - 6})`;
-  return `<g data-canario="${sonarEsc(c.id)}" data-x="${Math.round(x)}" class="${rojo ? "caido" : (SONAR_VIVO ? "vivo" : "")}" style="animation-delay:${(idx * 0.37) % 2.8}s"><title>${sonarEsc(c.nombre)}: ${rojo ? c.reportes + " report(s) with problems" : "OK"}</title>
+  return `<g data-canario="${sonarEsc(c.id)}" data-x="${Math.round(x)}" data-y="${Math.round(y - 6)}" class="${rojo ? "caido" : (SONAR_VIVO ? "vivo" : "")}" style="animation-delay:${(idx * 0.37) % 2.8}s"><title>${sonarEsc(c.nombre)}: ${rojo ? c.reportes + " report(s) with problems" : "OK"}</title>
     ${rojo ? `<circle cx="${x}" cy="${y - 6}" r="${h / 2 + 4}" fill="none" stroke="#E86040" stroke-width="3"/>` : ""}
     <g transform="${t}"><image href="img/${rojo ? "canario-caido" : "canario"}.png" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet"/></g>
     <text x="${x}" y="${y + 34}" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF">${sonarEsc(c.nombre)}</text>
@@ -996,6 +1027,8 @@ function sonarDibujarMapa() {
   SONAR_CANARIOS.filter((c) => c.cuarto === "barra").forEach((c, k) => { svg += sonarCanarioSVG(330 + k * 110, 36, c).replace(/y="(\d+(?:\.\d+)?)" text-anchor/g, (m, v) => m); });
   svg += `</svg>`;
   el.innerHTML = svg;
+  // Claude 2026-10-08: canarios WebGL propios encima del mapa (docs/panel-grafo.js). Si no hay WebGL quedan los sprites.
+  try { if (window.PanelGrafo) window.PanelGrafo.canarios(); } catch (_) {}
 }
 /* Vientito (v441): ver el CSS ocViento arriba. SONAR_PREVIO = conteos del sondeo anterior;
    null hasta el primer sondeo con datos, asi abrir el panel nunca dispara la rafaga. */
@@ -1862,5 +1895,7 @@ function licBajarLoteCSV(etiqueta) {
   licBajarArchivo(PanelLic.csvCodigos(codigos, nombre), "friendly123-lote-" + nombre.replace(/[^A-Za-z0-9_-]+/g, "_") + "-" + (new Date()).toISOString().slice(0, 10) + ".csv");
 }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.73.4/dist/3d-force-graph.min.js" integrity="sha384-GNPicn8pBA2/PGSyPTpxIlPurgLUYcNYJ2zskIq782dE9+gp5E32WSyuxZqA7J+u" crossorigin="anonymous"></script>
+<script src="./panel-grafo.js"></script>
 </body>
 </html>

@@ -5,7 +5,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'); const path = require('node:path');
 const src = fs.readFileSync(path.resolve(__dirname, '../docs/panel.html'), 'utf8');
-const fn = src.match(/function sonarOrdenCumplida[\s\S]*?\n}\n/)[0];
+// Windows checkouts (core.autocrlf) bring CRLF: accept both line endings so the test checks logic, not the OS.
+const fn = src.match(/function sonarOrdenCumplida[\s\S]*?\r?\n}\r?\n/)[0];
 const sonarOrdenCumplida = new Function(fn + '; return sonarOrdenCumplida;')();
 const v = (p, e, n) => [{ shell: p }, { shell: e }, { shell: n }];
 
