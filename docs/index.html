@@ -9480,7 +9480,7 @@ async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, p
       { label: _esP ? "Efectivo" : "Cash", value: "efectivo" },
       { label: _esP ? "Transferencia" : "Transfer", value: "transferencia" },
       { label: _esP ? "Cheque" : "Check", value: "cheque" },
-      { label: _esP ? "Crédito en tienda" : "Store credit", value: "credito-tienda" },
+      { label: _esP ? "Pagar con crédito en tienda" : "Pay in store credit", value: "credito-tienda" }, /* JFC 2026-10-08: "Store credit" a secas no se entendia como forma de pago */
       { label: _esP ? "Otro" : "Other", value: "otro" }
     ]);
   if (!medioPago) return;
@@ -9570,7 +9570,7 @@ async function _marcarComisionPagadaUnaVez(ubicacionId, promotorNombre, monto, p
       `Gracias por tu trabajo este mes. — friendly-123`,
     ].filter(Boolean).join("\n");
     const _saldoRestante = Math.max(0, _montoDebido - _montoRegistrado);
-    if (await ocConfirm(_esP ? `Pago registrado: ${fmtMoney(_montoRegistrado)} para ${_nombreRegistrado}. Por pagar: ${fmtMoney(_saldoRestante)}. ¿Enviar recibo por WhatsApp?` : `Payment recorded: ${fmtMoney(_montoRegistrado)} for ${_nombreRegistrado}. Still due: ${fmtMoney(_saldoRestante)}. Send receipt via WhatsApp?`)) {
+    if (await ocConfirm(_esP ? `Pago registrado: ${fmtMoney(_montoRegistrado)} para ${_nombreRegistrado}. Por pagar: ${fmtMoney(_saldoRestante)}. ¿Enviar recibo por WhatsApp?` : `Payment recorded: ${fmtMoney(_montoRegistrado)} for ${_nombreRegistrado}. Still due: ${fmtMoney(_saldoRestante)}. Send receipt via WhatsApp?`, { cancelLabel: _esP ? "Salir" : "Exit" /* JFC 2026-10-08: "Cancel" sonaba a anular el pago ya registrado */ })) {
       window.open("https://wa.me/?text=" + encodeURIComponent(recibo), "_blank");
     }
   }

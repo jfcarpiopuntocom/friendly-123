@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-08",
-  "changelog": "v470: panel lord con canarios WebGL propios, diagnostico por pantalla al tocar un canario y mapa del codigo al fondo. La app de clientes no cambia.",
+  "changelog": "v471: Record payment dice Pay in store credit; tras registrar un pago el recibo se cierra con Exit, no Cancel.",
   "requerida": false,
-  "shell": "f123-shell-v470",
+  "shell": "f123-shell-v471",
   "apagar": [],
-  "releaseName": "v470",
-  "cacheGeneration": "golden34"
+  "releaseName": "v471",
+  "cacheGeneration": "golden35"
 }
