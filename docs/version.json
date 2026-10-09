@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-08",
-  "changelog": "v473: negocios vacÃ­os sin datos demo; separaciÃ³n de semillas histÃ³ricas en app, dashboard y catÃ¡logo compartido; retiro del aviso de muestras.",
+  "changelog": "v474: abonos durables sin duplicados, recibos visibles tras recarga, gastos confirmados solo tras guardar, sobrepagos visibles y comprobantes en conflicto conservados; paridad del dashboard y metadatos sin reenvíos cuando no cambian.",
   "requerida": false,
-  "shell": "f123-shell-v473",
+  "shell": "f123-shell-v474",
   "apagar": [],
   "releaseName": "v1.0",
-  "cacheGeneration": "golden37"
+  "cacheGeneration": "golden38"
 }

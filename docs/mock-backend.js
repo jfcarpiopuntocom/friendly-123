@@ -160,6 +160,8 @@
      venta.liquidada remains as a compatibility projection; every NEW commission
      payment gets its own payout record with exact covered sources. */
   const payouts = [];
+  // Originals remain recoverable even when two devices disagree on one intention.
+  const payoutConflicts = [], payoutQuarantine = [];
 
   // ==========================================================================
   // CLIENTES (JFC 2026-07-07) — cada cliente tiene un CODIGO UNICO (C-####) y
@@ -908,6 +910,7 @@
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
       movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payoutView ? payoutView(payouts) : payouts),
+      payoutConflicts:clonar(payoutConflicts), payoutQuarantine:clonar(payoutQuarantine),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
       configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, retencion: ajusteRetencion ? clonar(ajusteRetencion) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
       usuarios: clonar(usuarios),
@@ -951,6 +954,8 @@
     if (body.gastos && !Array.isArray(body.gastos)) return "The expenses section is corrupt.";
     if (body.ajustesComision && !Array.isArray(body.ajustesComision)) return "The commission adjustments section is corrupt.";
     if (body.payouts && !Array.isArray(body.payouts)) return "The commission payments section is corrupt.";
+    if (body.payoutConflicts && (!Array.isArray(body.payoutConflicts) || body.payoutConflicts.some(c=>!c || typeof c.key!=='string' || !Array.isArray(c.records) || c.records.some(p=>_payoutCore().validatePayoutRecord(p))))) return 'The payment conflict evidence is corrupt.';
+    if (body.payoutQuarantine && (!Array.isArray(body.payoutQuarantine) || body.payoutQuarantine.some(q=>!q || !q.record || typeof q.reason!=='string'))) return 'The payment quarantine evidence is corrupt.';
     if (Array.isArray(body.payouts)) {
       const idsPay = new Set(), opsPay = new Set();
       for (const p of body.payouts) {
@@ -974,6 +979,8 @@
     gastos.length = 0; gastos.push(...(Array.isArray(body.gastos) ? body.gastos : []));
     ajustesComision.length = 0; ajustesComision.push(...(Array.isArray(body.ajustesComision) ? body.ajustesComision : []));
     payouts.length = 0; payouts.push(...(Array.isArray(body.payouts) ? body.payouts.filter((p) => p && p.id && p.opId) : []));
+    payoutConflicts.splice(0,payoutConflicts.length,...(body.payoutConflicts || []));
+    payoutQuarantine.splice(0,payoutQuarantine.length,...(body.payoutQuarantine || []));
     if (Array.isArray(body.sucursales)) { sucursales.length = 0; sucursales.push(...body.sucursales); }
     if (Array.isArray(body.promotoras)) { promotoras.length = 0; promotoras.push(...body.promotoras); }
     if (Array.isArray(body.clientes)) {
@@ -2003,7 +2010,7 @@
     const voids = Array.prototype.filter.call(ventas, (v) => v && v.anulada && v.split && !_demoOculto("ventas", v)
       && fechaLocalDe(v.anuladaEn || v.canceladaExPostEn || v.fecha).slice(0, 7) <= periodo
       && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
-    return { sales: sales.concat(voids), adjustments, locations: ubicaciones, payouts,
+    return { sales: sales.concat(voids), adjustments, locations: ubicaciones, payouts, payoutConflicts,
       month: "", period: periodo, locationId: ubicacionId == null ? null : String(ubicacionId),
       holdDays: ajusteRetencion ? ajusteRetencion.dias : 0, asOf: new Date().toISOString() };
   }
@@ -2034,6 +2041,9 @@
     if (rolPago && rolPago !== "dueno" && rolPago !== "admin" && rolPago !== "demo") return { error:"Only the owner or an admin can record commission payments.", status:403 };
     const core = _payoutCore();
     if (!core) return { error: "Payment ledger is not available. Nothing was recorded.", status: 503 };
+    if (payoutConflicts.some(c=>c.records.some(p=>String(p.locationId)===String(ubicacionId)))) {
+      return {error:'Conflicting payment receipts need owner review before another payment can be recorded here.',status:409};
+    }
     const u = ubicaciones.find((x) => String(x.id) === String(ubicacionId));
     if (!u) return { error: "Location not found.", status: 404 };
     const mes = mesValido((body && body.mes) || qMes);
@@ -2048,6 +2058,7 @@
     /* v454: body.sourceIds (ids de venta) limita el pago a esas ventas (ficha de producto). El core lo aplica. */
     const _soloVentas = body && Array.isArray(body.sourceIds) && body.sourceIds.length ? body.sourceIds.map(String) : null;
     const base = Object.assign(_payoutInput(ubicacionId, mes), _soloVentas ? { sourceIds: _soloVentas } : {});
+    if(core.balancesByPayee(base).some(r=>r.overpaidCents>0)) return {error:'Review the recorded overpayment before making another payment here.',status:409};
     const rows = core.balancesByPayee(base).filter((r) => Number(r.dueCents) > 0);
     if (!rows.length) return { error: "There is nothing due for this period.", status: 409 };
     const hasExplicitPayee = !!(body && Object.prototype.hasOwnProperty.call(body, "payeeId"));
@@ -2078,7 +2089,7 @@
       return { error:"This payment would make the ledger inconsistent. Nothing was recorded.", status:409 };
     }
     if (dryRun) return { ok:true, dryRun:true, plan:plan.payout };
-    const payout = Object.assign({}, plan.payout, { rev:_revNueva(), createdAt:now });
+    const payout = Object.assign({}, plan.payout, { rev:_revNueva(), createdAt:now, authorRole:rolPago || 'dueno' });
     payouts.push(payout);
     /* Compatibility projection. Financial truth is the payout; these booleans
        keep historical guards/reports safe until every caller reads the ledger. */
@@ -2163,6 +2174,7 @@
         items:obs.map((o) => ({ kind:o.kind, sourceId:o.sourceId, payeeId:o.payeeId, amountCents:Math.abs(Number(o.dueCents)), offset:true })),
         rev:_revNueva(), createdAt:now
       };
+      settlement.authorRole = _rolLocal() || 'dueno';
       payouts.push(settlement);
       settlement.items.forEach((it) => {
         if (it.kind === "adjustment") {
@@ -2185,13 +2197,14 @@
   // boundary; it must never be overwritten by rollback of a local attempt.
   let _payoutConfirmando = false, _payoutPendiente = null;
   const _payoutCatalogosPendientes = [];
-  async function _payoutDurable(accion) {
-    const foto = { payouts: payouts.slice(), movimientosLen: movimientos.length, sello: selloUltimo,
+  async function _payoutDurable(accion, falloGuardado) {
+    const foto = { payouts: payouts.slice(), gastos: clonar(gastos), movimientosLen: movimientos.length, sello: selloUltimo,
       flags: ventas.concat(ajustesComision).map((registro) => ({ registro,
         campos: ["liquidada", "medioPagoComision", "rev"].map((campo) => ({ campo,
           existe: Object.prototype.hasOwnProperty.call(registro, campo), valor: registro[campo] })) })) };
     const restaurar = () => {
       payouts.splice(0, payouts.length, ...foto.payouts);
+      gastos.splice(0, gastos.length, ...foto.gastos);
       movimientos.length = foto.movimientosLen; selloUltimo = foto.sello;
       foto.flags.forEach(({registro, campos}) => campos.forEach(({campo, existe, valor}) => {
         if (existe) registro[campo] = valor; else delete registro[campo];
@@ -2209,7 +2222,7 @@
       try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
       if (!guardado) {
         restaurar();
-        return { error:"This payment change was NOT saved. Free up storage and retry the same payment.", status:507 };
+        return { error:falloGuardado || "This payment change was NOT saved. Free up storage and retry the same payment.", status:507 };
       }
       avisarCatalogoCambiado();
       return resultado;
@@ -2253,21 +2266,28 @@
       const payoutBalances = _ledger ? _ledger.balancesByPayee(_payoutInput(u.id, _mes)).map((r) => ({
         payeeId:r.payeeId, nombre:_payeeName(r.payeeId,u), earned:+_ledger.money(r.earnedCents).toFixed(2),
         paid:+_ledger.money(r.paidCents).toFixed(2), due:+_ledger.money(r.dueCents).toFixed(2), dueCents:r.dueCents,
-        held:+_ledger.money(r.heldCents || 0).toFixed(2), heldCents:r.heldCents || 0, heldUntil:r.heldUntil || null
+        held:+_ledger.money(r.heldCents || 0).toFixed(2), heldCents:r.heldCents || 0, heldUntil:r.heldUntil || null,
+        overpaid:r.overpaid || 0, overpaidCents:r.overpaidCents || 0
       })) : [];
       const stillDue = _ledger ? +(payoutBalances.reduce((a,r) => a + (Number(r.due) || 0), 0)).toFixed(2)
         : +(pendientes.reduce((a,v) => a + (Number(v.split && v.split.montoComisionSocio) || 0), 0) + ajPend.reduce((a,x) => a + (Number(x.montoComisionSocio) || 0), 0)).toFixed(2);
       const _ledgerAbierto = _ledger ? _ledgerObs.some((o) => Math.abs(Number(o.dueCents) || 0) > 0 || Number(o.heldCents) > 0) : !!(pendientes.length || ajPend.length); // retenido NO es pagado
       const _ledgerPagoPositivo = _ledger ? _ledgerObs.some((o) => Number(o.signedAmountCents) > 0 && Number(o.paidCents) > 0)
         : ventasMes.some((v) => !!v.liquidada);
-      const paymentStatus = (ventasMes.length === 0 && ajustesMes.length === 0 && !_ledgerObs.some((o) => o.kind === "void")) ? "no-sales"
+      const paymentConflicts = payoutConflicts.filter(c=>c.records.some(p=>String(p.locationId)===String(u.id) && p.period===_mes));
+      const paymentQuarantine = payoutQuarantine.filter(q=>String(q.record.locationId)===String(u.id) && q.record.period===_mes);
+      const overpaid = +payoutBalances.reduce((n,p)=>n+(p.overpaid || 0),0).toFixed(2);
+      const needsReview = paymentConflicts.length>0 || overpaid>0;
+      const paymentStatus = needsReview ? 'review' : (ventasMes.length === 0 && ajustesMes.length === 0 && !_ledgerObs.some((o) => o.kind === "void")) ? "no-sales"
         : (_ledgerAbierto ? (_ledgerPagoPositivo ? "partially-paid" : "due") : "paid");
-      const payoutHistory = payouts.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
+      const conflictingIds = new Set(paymentConflicts.flatMap(c=>c.records.map(p=>p.id)));
+      const receiptEvidence = [...new Map(payouts.concat(paymentConflicts.flatMap(c=>c.records)).map(p=>[p.id+'|'+JSON.stringify([p.amountCents,p.items,p.reversalOf || null]),p])).values()];
+      const payoutHistory = receiptEvidence.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
         .slice().sort((a,b) => String(b.paidAt || b.createdAt || "").localeCompare(String(a.paidAt || a.createdAt || "")))
         .map((p) => ({ id:p.id, opId:p.opId, payeeId:p.payeeId || null, payeeName:p.payeeName || _payeeName(p.payeeId,u),
           amount:+((p.reversalOf ? -1 : 1) * (Number(p.amount) || ((Number(p.amountCents) || 0) / 100))).toFixed(2), method:p.method || null,
           paidAt:p.paidAt || p.createdAt || null, reference:p.reference || "", note:p.note || "", items:(p.items || []).length,
-          type:p.reversalOf ? "reversal" : "payment", reversalOf:p.reversalOf || null }));
+          type:p.reversalOf ? "reversal" : "payment", reversalOf:p.reversalOf || null, conflicted:conflictingIds.has(p.id) }));
       /* Bloque 4: cuanto le toca a cada persona cuando hay ventas repartidas. */
       const _porPersona = new Map();
       const _sumar = (pid, monto) => { const k = pid || "__percha__"; _porPersona.set(k, (_porPersona.get(k) || 0) + (Number(monto) || 0)); };
@@ -2326,6 +2346,7 @@
         medioPago: (ventasMes.filter((v) => v.liquidada && v.medioPagoComision).map((v) => v.medioPagoComision).pop()) || null,
         ventasPendientes: _ledger ? new Set(_ledgerObs.filter((o) => o.kind === "sale" && Number(o.dueCents) > 0).map((o) => o.sourceId)).size : pendientes.length,
         stillDue, held:_ledger ? _ledger.money(_ledgerObs.reduce((sum, o) => sum + (Number(o.heldCents) || 0), 0)) : 0, payoutBalances, payoutHistory, detallePendientes,
+        paymentConflicts, paymentQuarantine, overpaid, needsReview,
         /* 2026-10-06: statements share the same obligations as settlement. A
            partial payout is money paid even while the legacy sale flag is false.
            Include each beneficiary, retroactive adjustment and reversal balance;
@@ -3328,6 +3349,28 @@
 
   function ventasActivas() { return Array.prototype.filter.call(ventas, (v) => !v.anulada && !_demoOculto("ventas", v)); }
 
+  function _mergePayoutEvidence(remoto, rolRemoto) {
+    const core=_payoutCore(); if(!core || !core.mergePaymentEvidence) return false;
+    const before=JSON.stringify([payouts,payoutConflicts,payoutQuarantine]);
+    const incoming=(Array.isArray(remoto.payouts)?remoto.payouts:[]).concat(
+      (Array.isArray(remoto.payoutConflicts)?remoto.payoutConflicts:[]).flatMap(c=>Array.isArray(c && c.records)?c.records:[]));
+    const valid=[];
+    incoming.forEach(p=>{
+      const reason=core.validatePayoutRecord(p,rolRemoto);
+      if(reason){
+        const entry={reason,record:clonar(p)};
+        if(p && !payoutQuarantine.some(q=>JSON.stringify(q)===JSON.stringify(entry)))payoutQuarantine.push(entry);
+      }else{valid.push(clonar(p));_observarRev(p.rev);}
+    });
+    (Array.isArray(remoto.payoutQuarantine)?remoto.payoutQuarantine:[]).forEach(q=>{
+      if(q && q.record && typeof q.reason==='string' && !payoutQuarantine.some(x=>JSON.stringify(x)===JSON.stringify(q)))payoutQuarantine.push(clonar(q));
+    });
+    payoutQuarantine.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    const merged=core.mergePaymentEvidence(payouts.concat(valid),payoutConflicts);
+    payouts.splice(0,payouts.length,...merged.payouts);
+    payoutConflicts.splice(0,payoutConflicts.length,...merged.conflicts);
+    return before!==JSON.stringify([payouts,payoutConflicts,payoutQuarantine]);
+  }
   function aplicarCatalogo(remoto, rolRemoto) {
     if (_payoutConfirmando) {
       _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto });
@@ -3364,16 +3407,7 @@
         if (medioLocal) local.medioPagoComision = medioLocal;
       }
     });
-    /* Payout Ledger v1: append-only and idempotent by BOTH id and opId.
-       A second offline device that recorded the same settlement cannot create a
-       second ledger fact when the peers converge. No payout is ever overwritten. */
-    if (Array.isArray(remoto.payouts)) remoto.payouts.forEach((p) => {
-      if (!p || !p.id || !p.opId || p.status !== "paid" || !(Number(p.amountCents) >= 0)) return;
-      const ya = payouts.find((x) => String(x.id) === String(p.id) || String(x.opId) === String(p.opId));
-      if (ya) return;
-      payouts.push(Object.assign({}, p));
-      _observarRev(p.rev); actualizados++;
-    });
+    if (_mergePayoutEvidence(remoto, rolRemoto)) actualizados++;
     if (Array.isArray(remoto.transferencias)) remoto.transferencias.forEach((t) => {
       if (!t || !t.id || !t.productoOrigenId || !t.productoDestinoId) return;
       _observarRev(t.rev);
@@ -4252,6 +4286,7 @@
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
         payouts: _payoutCore() && _payoutCore().compatiblePayouts ? _payoutCore().compatiblePayouts(payouts) : payouts.map((p) => Object.assign({}, p)),
+        payoutConflicts:clonar(payoutConflicts), payoutQuarantine:clonar(payoutQuarantine),
         transferencias: transferencias.map((t) => Object.assign({}, t)),
         /* DISPOSITIVOS (apodos) POR EL SYNC NUEVO (v298). Este aparato publica SU
            propia entrada {id,apodo,rol}; el dueño de la entrada es autoritativo. Se
@@ -5830,10 +5865,11 @@
         return J({ gastos: lista, total, porCategoria });
       }
       if (path === "/api/gastos" && opts && opts.method === "POST") {
+        debePersistir = false; // the durable boundary below is the only expense commit
         const concepto = String(body.concepto || "").trim();
         const monto = Number(body.monto);
         if (!concepto) return J({ error: "Enter a description for the expense." }, 400);
-        if (!Number.isFinite(monto) || monto <= 0) return J({ error: "Enter a valid amount." }, 400);
+        if (!Number.isFinite(monto) || !Number.isSafeInteger(Math.round(monto * 100)) || Number(monto.toFixed(2)) <= 0) return J({ error: "Enter a valid amount of at least one cent." }, 400);
         // JFC 2026-09-02: categoría de gasto (best-practice sirve en USA y Ecuador).
         // Claves canónicas neutrales; la etiqueta visible la traduce la UI.
         const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
@@ -5847,29 +5883,36 @@
           usuarioId: (window.OCCurrentUser && window.OCCurrentUser.id) || "sistema",
           usuarioNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || "Sistema", rev: _revNueva(),
         };
-        gastos.push(g);
-        mov("gasto", { concepto, monto: g.monto, categoria, ubicacionId: g.ubicacionId });
-        guardarEstadoLocal();
-        return J(g);
+        const resultado = await _payoutDurable(() => {
+          gastos.push(g);
+          mov("gasto", { concepto, monto: g.monto, categoria, ubicacionId: g.ubicacionId }, false);
+          return g;
+        }, 'This expense was NOT saved. Free up storage and retry.');
+        return J(resultado, resultado.error ? resultado.status || 507 : 200);
       }
       // DELETE /api/gastos/:id — anula un gasto (solo dueño/admin/contador). Deja constancia.
       const mGastoDel = path.match(/^\/api\/gastos\/([^/]+)$/);
       if (mGastoDel && opts && opts.method === "DELETE") {
+        debePersistir = false;
         const _rDel = _rolLocal();
         if (_rDel !== "dueno" && _rDel !== "admin" && _rDel !== "contador") return J({ error: "Only the owner, an admin or the bookkeeper can delete expenses." }, 403);
         const idx = gastos.findIndex((x) => x.id === mGastoDel[1] && !x.borrado);
         if (idx < 0) return J({ error: "Expense not found." }, 404);
-        const g = gastos[idx]; g.borrado = true; g.rev = _revNueva();
-        mov("gasto-anulado", { concepto: g.concepto, monto: g.monto });
-        guardarEstadoLocal();
-        return J({ ok: true });
+        const resultado = await _payoutDurable(() => {
+          const g = gastos[idx]; g.borrado = true; g.rev = _revNueva();
+          mov("gasto-anulado", { concepto: g.concepto, monto: g.monto }, false);
+          return { ok: true };
+        }, 'The expense was NOT deleted. Free up storage and retry.');
+        return J(resultado, resultado.error ? resultado.status || 507 : 200);
       }
       // PATCH /api/gastos/:id — edita concepto/monto/fecha de un gasto (JFC 2026-08-27).
       if (mGastoDel && opts && opts.method === "PATCH") {
+        debePersistir = false;
         const _rPat = _rolLocal();
         if (_rPat !== "dueno" && _rPat !== "admin" && _rPat !== "contador") return J({ error: "Only the owner, an admin or the bookkeeper can edit expenses." }, 403);
-        const g = gastos.find((x) => x.id === mGastoDel[1] && !x.borrado);
-        if (!g) return J({ error: "Expense not found." }, 404);
+        const originalGasto = gastos.find((x) => x.id === mGastoDel[1] && !x.borrado);
+        if (!originalGasto) return J({ error: "Expense not found." }, 404);
+        const g = Object.assign({}, originalGasto); // validate every field before mutating money
         if (body.concepto !== undefined) {
           const c = String(body.concepto).trim();
           if (!c) return J({ error: "Enter a description for the expense." }, 400);
@@ -5877,7 +5920,7 @@
         }
         if (body.monto !== undefined) {
           const m = Number(body.monto);
-          if (!Number.isFinite(m) || m <= 0) return J({ error: "Enter a valid amount." }, 400);
+          if (!Number.isFinite(m) || !Number.isSafeInteger(Math.round(m * 100)) || Number(m.toFixed(2)) <= 0) return J({ error: "Enter a valid amount of at least one cent." }, 400);
           g.monto = +m.toFixed(2);
         }
         if (body.fecha !== undefined) g.fecha = body.fecha;
@@ -5885,10 +5928,12 @@
           const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
           g.categoria = CATS_GASTO.includes(String(body.categoria)) ? String(body.categoria) : (g.categoria || "other");
         }
-        g.rev = _revNueva();
-        mov("gasto-editado", { concepto: g.concepto, monto: g.monto, categoria: g.categoria });
-        guardarEstadoLocal();
-        return J(g);
+        const resultado = await _payoutDurable(() => {
+          g.rev = _revNueva(); Object.assign(originalGasto, g);
+          mov("gasto-editado", { concepto: g.concepto, monto: g.monto, categoria: g.categoria }, false);
+          return g;
+        }, 'The expense edit was NOT saved. Free up storage and retry.');
+        return J(resultado, resultado.error ? resultado.status || 507 : 200);
       }
 
       // GET /api/movimientos?limite=N — últimos N movimientos (log), solo lectura.
@@ -5956,8 +6001,8 @@
         if (!prod) return J({ error: "Product not found." }, 404);
         const periodo = mesValido(q.get("mes"));
         const base = _payoutInput(null, periodo);
-        const ledger = LG.buildLedger({ ventas: base.sales, ajustes: base.adjustments, payouts, gastos: [], cartera: [], ubicaciones });
-        const hoja = LG.productSheet({ ledger, payouts, sales: base.sales, productId: pid });
+        const ledger = LG.buildLedger({ ventas: base.sales, ajustes: base.adjustments, payouts, payoutConflicts, gastos: [], cartera: [], ubicaciones });
+        const hoja = LG.productSheet({ ledger, payouts, payoutConflicts, sales: base.sales, productId: pid });
         const nombre = (id) => { const x = promotoras.find((r) => String(r.id) === String(id)); return x ? x.nombre : ""; };
         hoja.people = hoja.people.map((r) => Object.assign({ name: nombre(r.personId) }, r));
         hoja.locationNames = hoja.locations.map((id) => { const u = ubicaciones.find((x) => String(x.id) === String(id)); return { id, nombre: u ? u.nombre : id }; });
@@ -5973,6 +6018,7 @@
         return J(r.error ? { error:r.error, payees:r.payees || undefined } : r, r.error ? (r.status || 400) : 200);
       }
       if ((m = path.match(/^\/api\/payouts\/([^/]+)\/reverse$/)) && method === "POST") {
+        if(payoutConflicts.some(c=>c.records.some(p=>String(p.id)===String(m[1])))) return J({error:'Review the conflicting receipts before reversing a payment.'},409);
         const rol = _rolLocal();
         if (rol && rol !== "dueno" && rol !== "admin" && rol !== "demo") return J({ error:"Only the owner or an admin can reverse a commission payment." }, 403);
         const original = payouts.find((p) => String(p.id) === String(m[1]) && p.status === "paid" && !p.reversalOf);
@@ -5994,6 +6040,7 @@
         }
         debePersistir = false;
         const confirmado = await _payoutDurable(() => {
+        reversal.authorRole = _rolLocal() || 'dueno';
         payouts.push(reversal);
         /* Las banderas de compatibilidad siguen al ledger (auditoria 2026-10-07). Una
            reversa reabre exactamente lo que restaura: la venta o el ajuste vuelve a
@@ -6359,7 +6406,7 @@
          pantallas terminan mostrando dos numeros distintos del mismo negocio).
          Portado desde amigable-123 (JFC 2026-08-18). */
       const _coreVentas = _payoutCore();
-      const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, holdDays:ajusteRetencion ? ajusteRetencion.dias : 0, asOf:new Date().toISOString() }) : [];
+      const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, payoutConflicts, holdDays:ajusteRetencion ? ajusteRetencion.dias : 0, asOf:new Date().toISOString() }) : [];
       const _dueVenta = new Map();
       const _heldVenta = new Map();
       _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _dueVenta.set(String(o.sourceId), (_dueVenta.get(String(o.sourceId)) || 0) + Number(o.dueCents || 0)));
@@ -6688,6 +6735,12 @@
         // Codex 2026-10-07: a caller-supplied sale link is evidence only after checking
         // the real sale/customer/amount. Old callers and manual debts stay valid.
         let relacion = null;
+        if (body.opId !== undefined) {
+          if (typeof body.opId !== 'string' || !body.opId.trim() || body.opId.length > 160) {
+            return J({ error: 'Invalid payment reference.' }, 400);
+          }
+          relacion = { opId: body.opId };
+        }
         if (body.ventaId !== undefined) {
           const origen = typeof body.ventaId === "string" && ventas.find((v) => v.id === body.ventaId);
           if (tipo !== "cargo" || !origen || origen.anulada || origen.devuelta || origen.clienteId !== c.id || !origen.info || origen.info.formaPago !== "fiado") {
@@ -6696,17 +6749,20 @@
           if (!Number.isFinite(monto) || Math.round(monto * 100) !== Math.round(origen.precioUnit * origen.cantidad * 100)) {
             return J({ error: "The debt amount must match the recorded sale." }, 400);
           }
-          relacion = { ventaId: origen.id };
+          relacion = Object.assign(relacion || {}, { ventaId: origen.id });
         }
+        let recibo;
         try {
-          await window.AMG.Cartera.registrarMovimiento(c.id, tipo, monto, body.motivo || "", relacion);
+          recibo = await window.AMG.Cartera.registrarMovimiento(c.id, tipo, monto, body.motivo || "", relacion);
         } catch (e) {
-          return J({ error: (e && e.message) || "No se pudo registrar el movimiento." }, 400);
+          return J({ error: (e && e.message) || "No se pudo registrar el movimiento." }, e && e.status === 409 ? 409 : 400);
         }
-        mov(tipo === "cargo" ? "cartera-fiado" : "cartera-abono", { cliente: c.nombre, monto });
+        if (!movimientos.some(m=>m.detalle && m.detalle.movimientoId===recibo.id)) {
+          mov(tipo === "cargo" ? "cartera-fiado" : "cartera-abono", { cliente: c.nombre, monto, movimientoId:recibo.id });
+        }
         const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
         const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
-        return J(await _vistaCarteraConVinculos(c.id, info, rol));
+        return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, rol), {movimientoId: recibo.id, opId: body.opId || null}));
       }
 
       // POST /api/clientes/:id/despedir — excluye al cliente de la operación activa.

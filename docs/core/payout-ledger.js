@@ -44,6 +44,63 @@
     return it.offset === false && itemKey(it) === key("void", it.voidSourceId == null ? it.sourceId : it.voidSourceId, it.payeeId) ? -amount : amount;
   }
 
+  function stableJSON(value) {
+    if (!value || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(stableJSON).join(',') + ']';
+    return '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + stableJSON(value[k])).join(',') + '}';
+  }
+  function requestSignature(p) {
+    return stableJSON({payeeId:p.payeeId || null, locationId:p.locationId || '', period:p.period || '',
+      amountCents:p.amountCents, method:p.method || null, reference:p.reference || '', note:p.note || '', reversalOf:p.reversalOf || null,
+      items:(p.items || []).map(it=>({key:itemKey(it),amountCents:it.amountCents,offset:it.offset === true ? true : it.offset === false ? false : null})).sort((a,b)=>stableJSON(a).localeCompare(stableJSON(b)))});
+  }
+  // A canonical transport representative is not a financial winner. Every
+  // different request is retained in conflict evidence and excluded from the
+  // verified projection until the owner resolves it. No receipt is edited.
+  function mergePaymentEvidence(records, priorConflicts) {
+    const all = (records || []).concat((priorConflicts || []).flatMap(c=>c.records || []));
+    const unique = [...new Map(all.filter(p=>p && p.id && p.opId).map(p=>[stableJSON(p),p])).values()];
+    const groups = [];
+    unique.forEach(p=>{
+      const joined=groups.filter(g=>g.some(x=>x.id===p.id || x.opId===p.opId));
+      const group=[p].concat(...joined);
+      joined.forEach(g=>groups.splice(groups.indexOf(g),1)); groups.push(group);
+    });
+    const payouts=[],conflicts=[];
+    groups.forEach(g=>{
+      g.sort((a,b)=>stableJSON(a).localeCompare(stableJSON(b)));
+      payouts.push(g[0]);
+      if(new Set(g.map(requestSignature)).size>1)conflicts.push({key:g.map(p=>String(p.opId)).sort()[0],records:g});
+    });
+    payouts.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+    conflicts.sort((a,b)=>a.key.localeCompare(b.key));
+    return {payouts,conflicts};
+  }
+  function verifiedPayouts(payouts, conflicts) {
+    const merged=mergePaymentEvidence(payouts,conflicts);
+    const ids=new Set(merged.conflicts.flatMap(c=>c.records.map(p=>p.id)));
+    return merged.payouts.filter(p=>!ids.has(p.id));
+  }
+  function validatePayoutRecord(p, role) {
+    if(!p || typeof p.id!=='string' || !p.id || typeof p.opId!=='string' || !p.opId ||
+       p.status!=='paid' || !Number.isSafeInteger(p.amountCents) || p.amountCents<0 ||
+       !Array.isArray(p.items) || !p.items.length || typeof p.locationId!=='string' || !p.locationId) return 'Invalid payment record.';
+    if(p.amount!=null && (!Number.isFinite(Number(p.amount)) || cents(p.amount)!==p.amountCents))return 'Payment total does not match its cents.';
+    if(p.method!=null && !METHODS.has(p.method))return 'Invalid payment method.';
+    // A privileged forwarder cannot authorize an explicitly unprivileged author.
+    // Older receipts without authorRole keep the existing compatibility path.
+    if(p.authorRole!=null && !['dueno','admin','demo'].includes(p.authorRole))return 'Payment author has no owner/admin authorization metadata.';
+    if(role && !['dueno','admin','demo'].includes(role) && !['dueno','admin','demo'].includes(p.authorRole))return 'Payment has no owner/admin authorization metadata.';
+    let net=0;
+    for(const it of p.items){
+      if(!it || !['sale','adjustment','void'].includes(it.kind) || typeof it.sourceId!=='string' || !it.sourceId ||
+         !Number.isSafeInteger(it.amountCents) || it.amountCents<=0 || (it.payeeId || null)!==(p.payeeId || null))return 'Invalid covered payment item.';
+      net+=(it.offset===true?-1:1)*it.amountCents;
+    }
+    if(!Number.isSafeInteger(net) || net!==p.amountCents)return 'Payment items do not reconcile to cash paid.';
+    return null;
+  }
+
   function payeeForSale(v, location) {
     return String((v && v.promotoraId) || (location && location.promotoraId) || "") || null;
   }
@@ -137,7 +194,8 @@
     const sales = Array.isArray(input && input.sales) ? input.sales : [];
     const adjustments = Array.isArray(input && input.adjustments) ? input.adjustments : [];
     const locations = Array.isArray(input && input.locations) ? input.locations : [];
-    const payouts = Array.isArray(input && input.payouts) ? input.payouts : [];
+    const payouts = verifiedPayouts(Array.isArray(input && input.payouts) ? input.payouts : [], input && input.payoutConflicts);
+    const evidence = (input && input.payouts || []).concat((input && input.payoutConflicts || []).flatMap(c=>c.records || []));
     const month = String(input && input.month || "");
     const locationId = input && input.locationId != null ? String(input.locationId) : null;
     const locMap = new Map(locations.map((u) => [String(u.id), u]));
@@ -164,13 +222,14 @@
       if (locationId && String(v.ubicacionId) !== locationId) return;
       obligationsForSale(v, locMap.get(String(v.ubicacionId))).forEach((o) => {
         const total = Math.abs(o.amountCents);
-        const legacy = o.legacyPaid && !hasLedgerFact(payouts, o) ? total : 0;
+        const legacy = o.legacyPaid && !hasLedgerFact(evidence, o) ? total : 0;
         const byPayout = applied.get(key(o.kind, o.sourceId, o.payeeId)) || 0;
-        const paidCents = Math.min(total, legacy + byPayout);
-        const dueCents = Math.max(0, total - paidCents);
+        const paidCents = legacy + byPayout;
+        const overpaidCents = Math.max(0, paidCents - total);
+        const dueCents = total - paidCents;
         const hold = o.amountCents > 0 && dueCents > 0 ? holdUntil(v.fecha) : null;
         if (hold) { out.push({ ...o, paidCents, dueCents: 0, heldCents: dueCents, heldUntil: hold, signedAmountCents: o.amountCents }); return; }
-        out.push({ ...o, paidCents, dueCents, signedAmountCents: o.amountCents });
+        out.push({ ...o, paidCents, dueCents, overpaidCents, signedAmountCents: o.amountCents });
       });
     });
 
@@ -188,7 +247,7 @@
       if (locationId && String(v.ubicacionId) !== locationId) return;
       obligationsForSale(Object.assign({}, v, { anulada: false }), locMap.get(String(v.ubicacionId))).forEach((s) => {
         if (s.amountCents <= 0) return;
-        const legacy = s.legacyPaid && !hasLedgerFact(payouts, s) ? s.amountCents : 0;
+        const legacy = s.legacyPaid && !hasLedgerFact(evidence, s) ? s.amountCents : 0;
         const paidSale = legacy + (applied.get(key("sale", s.sourceId, s.payeeId)) || 0);
         const recovered = applied.get(key("void", s.sourceId, s.payeeId)) || 0;
         if (paidSale <= 0 && recovered <= 0) return;
@@ -207,11 +266,11 @@
         /* Negative adjustments reduce the next amount due; they are not themselves
            a cash payout. They remain pending until a payout consumes the net balance. */
         const abs = Math.abs(o.amountCents);
-        const legacy = o.legacyPaid && !hasLedgerFact(payouts, o) ? abs : 0;
+        const legacy = o.legacyPaid && !hasLedgerFact(evidence, o) ? abs : 0;
         const byPayout = applied.get(key(o.kind, o.sourceId, o.payeeId)) || 0;
-        const paidCents = Math.min(abs, legacy + byPayout);
-        const remainder = Math.max(0, abs - paidCents);
-        out.push({ ...o, paidCents, dueCents: o.amountCents < 0 ? -remainder : remainder, signedAmountCents: o.amountCents });
+        const paidCents = o.amountCents < 0 ? Math.min(abs, legacy + byPayout) : legacy + byPayout;
+        const remainder = abs - paidCents;
+        out.push({ ...o, paidCents, overpaidCents:o.amountCents>0?Math.max(0,paidCents-abs):0, dueCents: o.amountCents < 0 ? -remainder : remainder, signedAmountCents: o.amountCents });
       });
     });
     return out.sort((a,b) => a.order.localeCompare(b.order) || a.sourceId.localeCompare(b.sourceId));
@@ -234,11 +293,12 @@
       if (o.heldUntil && (!row.heldUntil || o.heldUntil < row.heldUntil)) row.heldUntil = o.heldUntil; // la proxima que se libera
       row.earnedCents += o.signedAmountCents;
       row.paidCents += o.paidCents * (o.kind === "void" || o.signedAmountCents < 0 ? -1 : 1);
+      row.overpaidCents = (row.overpaidCents || 0) + (o.overpaidCents || 0);
       row.dueCents += o.dueCents;
       row.obligations.push(o);
       map.set(k,row);
     });
-    return [...map.values()].map((r) => ({...r, earned:money(r.earnedCents), paid:money(r.paidCents), due:money(r.dueCents), held:money(r.heldCents)}));
+    return [...map.values()].map((r) => ({...r, earned:money(r.earnedCents), paid:money(r.paidCents), due:money(r.dueCents), held:money(r.heldCents), overpaid:money(r.overpaidCents)}));
   }
 
   function planPayout(input) {
@@ -300,5 +360,6 @@
     return p.status;
   }
 
-  return { cents, money, key, buildObligations, balancesByPayee, planPayout, payoutStatus, ledgerAnomalies, compatiblePayouts };
+  return { cents, money, key, buildObligations, balancesByPayee, planPayout, payoutStatus, ledgerAnomalies, compatiblePayouts,
+    mergePaymentEvidence, verifiedPayouts, validatePayoutRecord };
 });

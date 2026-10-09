@@ -241,7 +241,10 @@
 
     const ventas = dedupe(inp.ventas, (v) => str(v.id)).map((x) => x.f);
     const ajustes = dedupe(inp.ajustes, (a) => str(a.id)).map((x) => x.f);
-    const payouts = dedupe(inp.payouts, (p) => str(p.opId || p.id)).map((x) => x.f);
+    const paymentEvidence = PL.mergePaymentEvidence(inp.payouts || [], inp.payoutConflicts || []);
+    const payouts = PL.verifiedPayouts(inp.payouts || [], inp.payoutConflicts || []);
+    const allReceipts = (inp.payouts || []).concat((inp.payoutConflicts || []).flatMap(c=>c.records || []));
+    paymentEvidence.conflicts.forEach(c=>errors.push({factKind:'pago',factId:c.key,motivo:'payment conflict: receipts require owner review'}));
     const gastos = dedupe(inp.gastos, (g) => str(g.id)).map((x) => x.f);
     const cartera = dedupe(inp.cartera, (c) => str(c.opId || c.id)).map((x) => x.f);
 
@@ -260,7 +263,7 @@
     });
 
     /* Compromisos por persona (sobre ventas vigentes + ajustes): sirven para ajustes y pagos legados. */
-    const obs = PL.buildObligations({ sales: ventas.filter((v) => str(v.id)), adjustments: ajustes.filter((a) => str(a.id)), locations, payouts });
+    const obs = PL.buildObligations({ sales: ventas.filter((v) => str(v.id)), adjustments: ajustes.filter((a) => str(a.id)), locations, payouts:inp.payouts || [], payoutConflicts:inp.payoutConflicts || [] });
     ajustes.forEach((a) => {
       // A linked return already has the exact reversal of its sale above.
       // Its payout adjustment tracks collection from the partner, not a
@@ -273,8 +276,8 @@
     // A cancellation reverses the earning, never cash already paid. The
     // original legacy payment must still be posted once (2026-10-07).
     const legacyObs = PL.buildObligations({ sales: ventas.map((v) => v.anulada ? { ...v, anulada: false } : v),
-      adjustments: ajustes, locations, payouts });
-    entriesForLegacy(legacyObs, payouts, raw);
+      adjustments: ajustes, locations, payouts:inp.payouts || [], payoutConflicts:inp.payoutConflicts || [] });
+    entriesForLegacy(legacyObs, allReceipts, raw);
     payouts.forEach((p) => { if (str(p.id)) entriesForPayout(p, errors, raw); });
     gastos.forEach((g) => { if (str(g.id)) entriesForExpense(g, errors, raw); });
     cartera.forEach((c) => { if (str(c.id || c.opId)) entriesForCollection(c, errors, raw); });
@@ -335,7 +338,13 @@
     const applied = new Map();
     const recovered = new Map();
     const facts = new Set();
-    (Array.isArray(inp.payouts) ? inp.payouts : []).forEach((p) => {
+    const paymentEvidence = PL.mergePaymentEvidence(inp.payouts || [], inp.payoutConflicts || []);
+    out.paymentConflicts = paymentEvidence.conflicts.filter(c=>c.records.some(p=>(p.items || []).some(it=>saleIds.has(str(it.sourceId)))));
+    out.needsReview = out.paymentConflicts.length>0;
+    (inp.payouts || []).concat((inp.payoutConflicts || []).flatMap(c=>c.records || [])).forEach(p=>{
+      if(p && p.status==='paid') (p.items || []).forEach(it=>{if(it.kind==='sale')facts.add(str(it.sourceId)+'|'+str(it.payeeId));});
+    });
+    PL.verifiedPayouts(inp.payouts || [], inp.payoutConflicts || []).forEach((p) => {
       if (!p || p.status !== "paid") return;
       const sign = p.reversalOf ? -1 : 1;
       (Array.isArray(p.items) ? p.items : []).forEach((it) => {

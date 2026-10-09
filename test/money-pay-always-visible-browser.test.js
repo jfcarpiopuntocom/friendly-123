@@ -180,7 +180,7 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
           });
           await t.test(`Estado simulado efectivo [${tag}]`, () => {
             /* Guarda del propio test: la advertencia de integridad aparece solo en el estado integridad-pendiente. */
-            assert.equal(/pending verification/i.test(r.cartTxt), integridad, 'texto de cartera: ' + r.cartTxt);
+            assert.equal(/pending verification|pendiente de verificar/i.test(r.cartTxt), integridad, 'texto de cartera: ' + r.cartTxt);
           });
           await t.test(`Customers filtro Pending payment lista al deudor [${tag}]`, () => {
             assert.ok(r.filtroExiste, 'el filtro Pending payment existe');

@@ -68,11 +68,12 @@ test('payoutAppliedMap: an over-reversal is clamped at 0 paid (never a negative 
   assert.equal(an[0].reversedCents, 2000);
 });
 
-test('payoutAppliedMap: paidCents is capped at the amount earned', () => {
+test('payoutAppliedMap: actual paid cents and the excess remain visible (JFC 2026-10-08)', () => {
   const s = [venta('v1', '2026-10-01T10:00:00Z', 1000)];
   const o = obsDe(s, [pagado('p1', 'o1', [item('v1', 5000)])])[0];
-  assert.equal(o.paidCents, 1000);
-  assert.equal(o.dueCents, 0);
+  assert.equal(o.paidCents, 5000);
+  assert.equal(o.dueCents, -4000);
+  assert.equal(o.overpaidCents, 4000);
 });
 
 /* ===== hasLedgerFact (through the legacyPaid rule of buildObligations) ===== */

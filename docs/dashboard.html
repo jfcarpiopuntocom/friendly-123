@@ -1587,7 +1587,8 @@
       var l = cmVista === "percha" ? (liqs.find(function (x) { return x.ubicacionId === g.id; }) || null) : null;
       if (l && l.stillDue != null) g.pend = Number(l.stillDue) || 0;
       if (l && l.held != null) g.held = Number(l.held) || 0;
-      var estado = g.socio > 0 || (l && (l.ajustes || []).length) ? (g.pend !== 0 || g.held > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
+      var moneyReview = l && l.needsReview || liqs.some(function(x){return x.needsReview && (g.ubicacionId===x.ubicacionId || g.ubicacionIds && g.ubicacionIds[x.ubicacionId]);});
+      var estado = moneyReview ? '<span class="cm-chip pend">' + (localStorage.getItem('f123_lang')==='es' ? 'revisar pagos' : 'review payments') + '</span>' : g.socio > 0 || (l && (l.ajustes || []).length) ? (g.pend !== 0 || g.held > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
       var sub = cmVista === "producto"
         ? "Rack: " + esc(Object.keys(g.perchas).join(", ") || "-") + (Object.keys(g.personas).length ? " · Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : "")
           + (g.unid && g.bruto > 0 ? " · <strong>" + (Math.round(g.socio / g.bruto * 1000) / 10) + "%</strong> to the associate" : "")
@@ -1601,6 +1602,10 @@
         (g.counterUnid ? '<div><div class="et">House sale (no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + g.counterUnid + "u</small></div></div>" : "") +
         "</div>";
       var extra = "";
+      if(moneyReview){
+        var reviewRows=liqs.filter(function(x){return x.needsReview && (l===x || g.ubicacionIds && g.ubicacionIds[x.ubicacionId]);});
+        extra += reviewRows.map(function(x){return '<div data-dashboard-money-review style="color:#19354B;border:2px solid #B0183E;border-radius:8px;padding:10px;margin:8px 0;font-size:15px;"><strong>' + (localStorage.getItem('f123_lang')==='es' ? 'Revisar pagos' : 'Review payments') + '</strong>' + (x.overpaid ? '<div>' + (localStorage.getItem('f123_lang')==='es' ? 'Pagado de más: ' : 'Overpaid: ') + money(x.overpaid) + '</div><div>' + (localStorage.getItem('f123_lang')==='es' ? 'Pagado registrado: ' : 'Recorded paid: ') + money(x.payoutBalances ? x.payoutBalances.reduce(function(n,p){return n+(Number(p.paid) || 0);},0) : x.paid) + '</div>' : '') + (x.paymentConflicts || []).map(function(c){return '<div>' + (localStorage.getItem('f123_lang')==='es' ? 'Comprobantes en conflicto: ' : 'Conflicting receipts: ') + c.records.map(function(p){return money(p.amountCents/100);}).join(' / ') + '</div>';}).join('') + '</div>';}).join('');
+      }
       if (l) {
         if (l.metaMensual) extra += '<div class="cm-sub">Target ' + money(l.metaMensual) + " · " + (l.cumplimientoMeta != null ? l.cumplimientoMeta + "% met" : "") + (l.tieneEscalas ? " · goal-based tiers" : "") + "</div>";
         if ((l.ajustes || []).length) extra += '<div class="cm-sub cm-rojo"><strong>' + l.ajustes.length + " return(s) of already-paid sales: " + money(l.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + " deducted</strong></div>";
@@ -1615,7 +1620,7 @@
       var _idsPercha = Object.keys(g.ubicacionIds || {});
       var _perchaPago = cmVista === "percha" ? g.ubicacionId : (_idsPercha.length === 1 ? _idsPercha[0] : "");
       var acciones = "";
-      if (_perchaPago && g.pend > 0) {
+      if (_perchaPago && g.pend > 0 && !moneyReview) {
         acciones += '<div class="cm-actions"><a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(_perchaPago) + '&mes=' + encodeURIComponent(cmMes || actual) + '">' + (function () { try { return localStorage.getItem("f123_lang") === "es" ? "Registrar pago total/parcial" : "Record full/partial payment"; } catch (_) { return "Record full/partial payment"; } })() + '</a>';
         if (cmVista === "percha") acciones += '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(_perchaPago) + '">Adjust the deal</a><button type="button" data-cm-recibo="' + esc(_perchaPago) + '">Receipt</button>';
         acciones += "</div>";
@@ -2467,7 +2472,7 @@
     var hoy = fechaLocalDashboard(ahora);
     var _ledgerCore = window.OCPayoutLedger || null;
     var _retencion = (e.configuracion || {}).retencion || {};
-    var _ledgerObs = _ledgerCore ? _ledgerCore.buildObligations({ sales:e.ventas || [], adjustments:e.ajustesComision || [], locations:e.ubicaciones || [], payouts:e.payouts || [], holdDays:Number(_retencion.dias) || 0, asOf:ahora }) : [];
+    var _ledgerObs = _ledgerCore ? _ledgerCore.buildObligations({ sales:e.ventas || [], adjustments:e.ajustesComision || [], locations:e.ubicaciones || [], payouts:e.payouts || [], payoutConflicts:e.payoutConflicts || [], holdDays:Number(_retencion.dias) || 0, asOf:ahora }) : [];
     var _ledgerDueVenta = {};
     var _ledgerHeldVenta = {};
     var _ledgerDueRackMes = {};
@@ -2585,7 +2590,12 @@
         var _dueC = _ledgerDueRackMes[mesActual + "|" + String(g.ubicacionId || "")] || 0;
         g.stillDue = +_ledgerCore.money(_dueC).toFixed(2);
         g.held = _ledgerCore.money(_ledgerHeldRackMes[mesActual + "|" + String(g.ubicacionId || "")] || 0);
-        g.estado = g.stillDue === 0 && !g.held ? "pagado" : "pendiente";
+        g.paymentConflicts = (e.payoutConflicts || []).filter(function(c){return c.records.some(function(p){return String(p.locationId)===String(g.ubicacionId) && p.period===mesActual;});});
+        g.paid = _ledgerCore.money(_ledgerObs.filter(function(o){return String(o.locationId)===String(g.ubicacionId) && mesLocalDe(String(o.order || '').split('|')[0])===mesActual;}).reduce(function(n,o){return n+(o.paidCents || 0);},0));
+        g.overpaid = _ledgerCore.money(_ledgerObs.filter(function(o){return String(o.locationId)===String(g.ubicacionId) && mesLocalDe(String(o.order || '').split('|')[0])===mesActual;}).reduce(function(n,o){return n+(o.overpaidCents || 0);},0));
+        g.needsReview = g.paymentConflicts.length>0 || g.overpaid>0;
+        g.estado = g.stillDue === 0 && !g.held && !g.needsReview ? "pagado" : "pendiente";
+        g.paymentStatus = g.needsReview ? 'review' : g.estado==='pagado' ? 'paid' : 'due';
       } else {
         g.estado = g.ventasPendientes === 0 ? "pagado" : "pendiente";
       }

@@ -289,6 +289,34 @@
   /* Abonar tambien pasa a modal. Con prompt() no se puede mostrar cuanto debe
      ni cuanto falta para la cuota, que es justo lo que hace falta saber en el
      momento de recibir la plata. Y desentonaba con el modal de fiar. */
+  function claveAbono(clienteId) { return 'f123_customer_payment_intent_v1:' + clienteId; }
+  function abonoPendiente(clienteId) {
+    var txt = localStorage.getItem(claveAbono(clienteId));
+    return txt ? JSON.parse(txt) : null;
+  }
+  // Save the intention before submitting. An uncertain response keeps this exact
+  // key across reload; confirming it rereads the receipt rather than receiving
+  // the same money twice. Payment and general/item credit share this boundary.
+  global.ocEnviarAbono = async function (clienteId, monto, motivo) {
+    var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
+    var payload = { monto: Number(Number(monto).toFixed(2)), motivo: String(motivo || '').slice(0,300) };
+    if (!Number.isSafeInteger(Math.round(payload.monto * 100)) || !(payload.monto > 0)) throw new Error(es ? 'Ingresa un importe válido de al menos un centavo.' : 'Enter a valid amount of at least one cent.');
+    var key = claveAbono(clienteId), previo = abonoPendiente(clienteId);
+    if (previo && (previo.monto !== payload.monto || previo.motivo !== payload.motivo)) {
+      throw new Error(es ? 'Hay un pago anterior por confirmar. Revisa y confirma ese mismo importe antes de registrar otro.' : 'An earlier payment needs confirmation. Review and confirm that same amount before recording another.');
+    }
+    if (!previo) {
+      payload.opId = 'customer-payment:' + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2));
+      localStorage.setItem(key, JSON.stringify(payload));
+      if (localStorage.getItem(key) !== JSON.stringify(payload)) throw new Error('Could not save the payment reference.');
+    } else payload = previo;
+    var response = await fetch(API + '/clientes/' + clienteId + '/abonar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    var result = await response.json();
+    if (!response.ok || result.error) throw new Error(result.error || 'Could not confirm the payment.');
+    if (result.opId !== payload.opId || !result.movimientoId) throw new Error(es ? 'El pago no está confirmado. Conserva este importe para revisarlo.' : 'The payment is not confirmed. Keep this amount for review.');
+    if (localStorage.getItem(key) === JSON.stringify(payload)) localStorage.removeItem(key);
+    return result;
+  };
   function modalAbonar(clienteId, nombre) {
     if (document.getElementById("pp-modal-abono")) return;
     var m = document.createElement("div");
@@ -306,6 +334,13 @@
       '</div>';
     document.body.appendChild(m);
     var q = function (id) { return m.querySelector("#" + id); };
+    var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
+    var anterior = null;
+    try { anterior = abonoPendiente(clienteId); } catch (_) {}
+    if (anterior) {
+      q('pp-ab-monto').value = Number(anterior.monto).toFixed(2);
+      q('pp-ab-msg').textContent = es ? 'Pago anterior por confirmar. Confirma el mismo importe; no se registrará dos veces.' : 'An earlier payment needs confirmation. Confirm the same amount; it will not be recorded twice.';
+    }
 
     function cerrar() { try { m.remove(); } catch (_) {} document.removeEventListener("keydown", onKey, true); }
     function onKey(ev) { if (ev.key === "Escape" || ev.key === "Esc") { ev.stopPropagation(); cerrar(); } }
@@ -324,7 +359,7 @@
           if (e.hayPlan && e.diferencia < 0) {
             var falta = -e.diferencia;
             t += " " + fmt(falta) + " would bring them current.";
-            q("pp-ab-monto").value = falta.toFixed(2);
+            if (!anterior) q("pp-ab-monto").value = falta.toFixed(2);
           } else if (e.hayPlan) {
             t += " They are " + (e.diferencia > 0 ? "ahead of" : "on track with") + " their plan.";
           }
@@ -336,22 +371,17 @@
       var btn = ev.currentTarget;
       if (btn.disabled) return;
       btn.disabled = true;
-      setTimeout(function () { btn.disabled = false; }, 1000);
       var msg = q("pp-ab-msg");
       var monto = Number(q("pp-ab-monto").value);
-      if (!(monto > 0)) { msg.style.color = "#B0183E"; msg.textContent = "The amount must be greater than zero."; return; }
-      fetch(API + "/clientes/" + clienteId + "/abonar", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ monto: monto, motivo: "Abono" })
-      }).then(function (r) { return r.json(); }).then(function (r) {
-        if (r && r.error) throw new Error(r.error);
+      if (!(monto > 0)) { btn.disabled = false; msg.style.color = "#B0183E"; msg.textContent = "The amount must be greater than zero."; return; }
+      global.ocEnviarAbono(clienteId, monto, anterior ? anterior.motivo : 'Abono').then(function (r) {
         cerrar();
         if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
         refrescarHoy();
       }).catch(function (e) {
         msg.style.color = "#B0183E";
         msg.textContent = (e && e.message) || "Could not record the payment.";
-      });
+      }).finally(function () { btn.disabled = false; });
     });
 
     q("pp-ab-monto").focus();

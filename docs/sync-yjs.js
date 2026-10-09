@@ -987,8 +987,10 @@
               var _gano = !yaEsDueno || revMio > revMeta || (revMio === revMeta && tsMio >= tsMeta);
               if (_gano) {
                 if (API.meta.get("nombreNegocio") !== cat.nombreNegocio) API.meta.set("nombreNegocio", cat.nombreNegocio);
-                if (revMio) API.meta.set("nombreRev", revMio);
-                if (tsMio) API.meta.set("nombreTs", tsMio);
+                // Y.Map.set emits an update even for the same value. Idle scans
+                // must not create another encrypted operation in the relay.
+                if (revMio && revMeta !== revMio) API.meta.set("nombreRev", revMio);
+                if (tsMio && tsMeta !== tsMio) API.meta.set("nombreTs", tsMio);
                 if (!yaEsDueno) API.meta.set("nombreEsDueno", true);
               }
             } else if (!yaEsDueno && !API.meta.get("nombreNegocio")) {

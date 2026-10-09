@@ -240,9 +240,11 @@
     return abrirDB().then(function (db) {
       return new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE, "readwrite");
-        tx.objectStore(STORE).add(hecho); // nunca sobrescribir un hecho existente
+        var fallo = null;
+        var req = tx.objectStore(STORE).add(hecho); // nunca sobrescribir un hecho existente
+        req.onerror = function () { fallo = req.error; };
         tx.oncomplete = function () { resolve(hecho); };
-        tx.onerror = function () { reject(tx.error); };
+        tx.onerror = function () { reject(fallo || tx.error); };
       });
     });
   }
@@ -294,12 +296,29 @@
   // ---------------------------------------------------------------------------
   var _cola = Promise.resolve();   // serializa: la cadena de hash no admite carreras
 
-  function registrar(tipo, datos) {
-    _cola = _cola.then(function () {
+  function construirYGuardar(tipo, datos, reintentos, opciones) {
+    return todos().then(function (lista) {
+      var repetido = opciones && opciones.repetido && opciones.repetido(lista);
+      if (repetido) return repetido;
       var meta = leerMeta();
       var yo = instanceId();
-
-      meta.contador += 1;
+      // Metadata belongs to an author, not to the browser forever. Activation used
+      // to carry an anonymous author's counter/hash into the licensed author and
+      // generate a false sequence gap. IndexedDB is the committed source of truth;
+      // reading its tail also recovers a lost/stale localStorage counter on reload.
+      var colaAutor = lista.filter(function (h) { return h.instanceId === yo; }).sort(function (a, b) {
+        return Number(a.id.slice(yo.length + 1)) - Number(b.id.slice(yo.length + 1));
+      });
+      var ultimo = colaAutor[colaAutor.length - 1];
+      var sec = ultimo ? Number(ultimo.id.slice(yo.length + 1)) : 0;
+      if (!Number.isSafeInteger(sec) || sec < 0 || sec >= Number.MAX_SAFE_INTEGER) throw new Error('secuencia local invalida');
+      if (meta.instanceId === yo && meta.contador > sec) {
+        var cambiado = new Error('faltan hechos locales: recuperar antes de registrar');
+        cambiado.name = 'RevisionChanged'; throw cambiado;
+      }
+      meta.instanceId = yo;
+      meta.contador = sec + 1;
+      meta.ultimoHash = ultimo ? ultimo.hash : '';
       // Reloj vectorial: cuantos hechos conoce este dispositivo de cada uno.
       // Comparando dos relojes se sabe, SIN depender de la hora del celular,
       // si un hecho paso antes que otro o si fueron concurrentes. Importa
@@ -339,6 +358,14 @@
         });
       });
     }).catch(function (e) {
+      // Two tabs can read the same tail before either commits. add() protects the
+      // first receipt; the other tab must reread and append, never overwrite it.
+      if (e && (e.name === 'ConstraintError' || e.name === 'RevisionChanged') && reintentos < 4) return construirYGuardar(tipo, datos, reintentos + 1, opciones);
+      throw e;
+    });
+  }
+  function registrar(tipo, datos, opciones) {
+    _cola = _cola.then(function () { return construirYGuardar(tipo, datos, 0, opciones); }).catch(function (e) {
       // Fase A nunca puede tumbar la app: si algo falla, se anota y se sigue.
       try { console.warn("[hechos] no se pudo registrar:", e && e.message); } catch (_) {}
       return null;

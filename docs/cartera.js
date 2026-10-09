@@ -67,11 +67,40 @@
   function bus() {
     try { return global.AMG && global.AMG.EventBus; } catch (_) { return null; }
   }
+  function movimientoExistente(hechos, clienteId, tipo, monto, motivo, relacion) {
+    var existente = hechos.find(function (h) { return _d(h).opId === String(relacion.opId); });
+    if (!existente) return null;
+    var d = _d(existente);
+    if (existente.tipo !== TIPOS[tipo] || d.clienteId !== String(clienteId) ||
+        Number(d.monto) !== Number(Number(monto).toFixed(2)) || d.motivo !== String(motivo || '').slice(0,300) ||
+        String(d.ventaId || '') !== String(relacion.ventaId || '')) {
+      var conflicto = new Error('This payment reference already belongs to a different movement.');
+      conflicto.status = 409; throw conflicto;
+    }
+    return existente;
+  }
 
   // Unico punto de escritura. tipo: "cargo" | "abono". monto siempre positivo;
   // el signo lo decide el tipo, no quien llama — asi nadie puede "abonar
   // negativo" para simular un cargo sin dejar rastro correcto.
   function registrarMovimiento(clienteId, tipo, monto, motivo, relacion) {
+    // One payment intention survives retries and reloads in the immutable receipt itself.
+    // Older callers without opId still create independent, legitimate movements.
+    if (relacion && relacion.opId) {
+      var opId = String(relacion.opId);
+      var cola = cargosVentaEnCurso['op:' + opId] || Promise.resolve();
+      var intento = cola.catch(function () {}).then(function () {
+        return global.AMG.Hechos.todos();
+      }).then(function (hechos) {
+        var existente = movimientoExistente(hechos, clienteId, tipo, monto, motivo, relacion);
+        if (existente) return existente;
+        return guardarMovimiento(clienteId, tipo, monto, motivo, relacion);
+      });
+      cargosVentaEnCurso['op:' + opId] = intento;
+      var soltar = function () { if (cargosVentaEnCurso['op:' + opId] === intento) delete cargosVentaEnCurso['op:' + opId]; };
+      intento.then(soltar, soltar);
+      return intento;
+    }
     if (tipo !== "cargo" || !relacion || !relacion.ventaId) {
       return guardarMovimiento(clienteId, tipo, monto, motivo, relacion);
     }
@@ -108,7 +137,10 @@
       return Promise.reject(new Error("cartera: tipo debe ser 'cargo' o 'abono'"));
     }
     var m = Number(monto);
-    if (!(m > 0)) return Promise.reject(new Error("cartera: monto debe ser mayor a cero"));
+    var redondeado = Number(m.toFixed(2));
+    if (!Number.isFinite(m) || !Number.isSafeInteger(Math.round(redondeado * 100)) || !(redondeado > 0)) {
+      return Promise.reject(new Error("cartera: monto debe ser finito y de al menos un centavo"));
+    }
     if (!clienteId) return Promise.reject(new Error("cartera: falta clienteId"));
 
     var payload = {
@@ -126,6 +158,7 @@
     if (tipo === "cargo" && relacion && relacion.ventaId) {
       payload.ventaId = String(relacion.ventaId);
     }
+    if (relacion && relacion.opId) payload.opId = String(relacion.opId);
 
     /* UN SOLO CAMINO DE ESCRITURA (fix 2026-08-13). Antes esto emitia
        ":completado" ANTES de registrar, y hechos.js lo persistia por su cuenta:
@@ -134,7 +167,10 @@
        ":registrado" a proposito: hechos.js solo persiste ":completado", asi que
        este aviso no puede volver a duplicar nada. */
     if (global.AMG && global.AMG.Hechos && global.AMG.Hechos.registrar) {
-      return global.AMG.Hechos.registrar(TIPOS[tipo], payload).then(function (r) {
+      var opciones = relacion && relacion.opId ? { repetido: function (hechos) {
+        return movimientoExistente(hechos, clienteId, tipo, monto, motivo, relacion);
+      }} : null;
+      return global.AMG.Hechos.registrar(TIPOS[tipo], payload, opciones).then(function (r) {
         if (!r) throw new Error("cartera: no se pudo guardar el hecho");
         var eb = bus();
         if (eb) eb.emit(TIPOS[tipo] + ":registrado", { payload: payload });

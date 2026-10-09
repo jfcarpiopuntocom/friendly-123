@@ -3725,28 +3725,32 @@ async function guardarContactoCliente(id) {
 async function pintarSaldoCartera(clienteId) {
   const el = document.getElementById(`cartera-${clienteId}`);
   if (!el) return;
+  const lectura = el.__carteraLectura = (el.__carteraLectura || 0) + 1;
   try {
     const info = await (await fetch(`${API}/clientes/${clienteId}/cartera`)).json();
+    if (el.__carteraLectura !== lectura) return; // a late read cannot undo a payment repaint
+    const es = window.OCI18n && window.OCI18n.locale && String(window.OCI18n.locale()).startsWith("es");
     const integridadPendiente = !!(info && info.integridad && !info.integridad.ok);
     const avisoIntegridad = integridadPendiente
-      ? '<span style="display:inline-block;margin-left:8px;font-size:12px;color:var(--ink-soft);font-weight:600;">Balance pending verification — ' +
+      ? '<span style="display:inline-block;margin-left:8px;font-size:12px;color:#19354B;font-weight:600;">' + (es ? 'Saldo pendiente de verificar — ' : 'Balance pending verification — ') +
         escHtml(info.integridad.razon || "sync incomplete") + '</span>'
       : "";
     // HOTFIX 2026-10-02: an integrity warning is diagnostic, not a reason to hide
     // a debt already computed by /cartera or the owner's existing payment action.
-    if (!info || !info.saldo) {
+    if (!info || (!info.saldo && !(Array.isArray(info.historial) && info.historial.length))) {
       el.innerHTML = integridadPendiente ? avisoIntegridad : "";
       return;
     }
     // JFC 2026-09-02: credit/abono (saldo a favor) = VERDE; debt/fiado (debe) = ROJO.
     // Paleta semáforo exacta: verde #00C87A, rojo #E8365D.
     const debe = info.saldo < 0;
-    const es = window.OCI18n && window.OCI18n.locale && String(window.OCI18n.locale()).startsWith("es") /* v460: locale() da "es-US", no "es" (JFC aprobó arreglarlo en Clientes) */;
     const color = debe ? "#E8365D" : "#00704A";
     // BUG FIX (JFC 2026-09-02): esta línea se borró por accidente en v1.7.79, así
     // que `texto` quedaba indefinido → ReferenceError → el saldo NO se pintaba
     // (ni crédito a favor ni deuda). Restaurada.
-    const texto = debe ? `${es ? "Deuda" : "Debt"} ${fmtMoney(-info.saldo)}` : `${es ? "Crédito" : "Credit"} ${fmtMoney(info.saldo)}`;
+    const texto = info.saldo === 0
+      ? (integridadPendiente ? `${es ? 'Saldo registrado' : 'Recorded balance'} ${fmtMoney(0)}` : `${es ? 'Cuenta saldada' : 'Account settled'} · ${fmtMoney(0)}`)
+      : debe ? `${es ? "Deuda" : "Debt"} ${fmtMoney(-info.saldo)}` : `${es ? "Crédito" : "Credit"} ${fmtMoney(info.saldo)}`;
     // #3 (JFC 2026-09-02): fecha coherente con el idioma activo en toda la app.
     const fmtFechaLoc = (ymd) => { try { const p = ymd.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || "en-US"); } catch (_) { return ymd; } };
     // Ítems y expiración del crédito (abono): "el credit solo se puede gastar en
@@ -3755,7 +3759,7 @@ async function pintarSaldoCartera(clienteId) {
     // (ámbar) a ≤3 días, y al vencer se muestra EXPIRED y el monto se TACHA (no se
     // borra el dato — nunca romper datos).
     let restringido = "", expiradoTodo = false;
-    if (!debe && Array.isArray(info.historial)) {
+    if (info.saldo > 0 && Array.isArray(info.historial)) {
       const hoy = new Date().toLocaleDateString("en-CA");
       const abonos = info.historial.filter((h) => h.tipo === "abono");
       const partes = abonos.map((h) => {
@@ -3810,16 +3814,21 @@ async function pintarSaldoCartera(clienteId) {
     const abonos = movimientos.filter((m) => m.tipo === "abono").reduce((n, m) => n + Math.round((Number(m.monto) || 0) * 100), 0) / 100;
     const desglose = debe
       ? `${es ? "Cargos" : "Charges"} ${fmtMoney(cargos)} − ${es ? "pagos/créditos" : "payments/credits"} ${fmtMoney(abonos)} = ${es ? "deuda" : "amount owed"} ${fmtMoney(-info.saldo)}`
-      : `${es ? "Pagos/créditos" : "Payments/credits"} ${fmtMoney(abonos)} − ${es ? "cargos" : "charges"} ${fmtMoney(cargos)} = ${es ? "crédito" : "credit"} ${fmtMoney(info.saldo)}`;
+      : `${es ? "Pagos/créditos" : "Payments/credits"} ${fmtMoney(abonos)} − ${es ? "cargos" : "charges"} ${fmtMoney(cargos)} = ${info.saldo === 0 ? (es ? 'saldo' : 'balance') : (es ? "crédito" : "credit")} ${fmtMoney(info.saldo)}`;
     const detalle = movimientos.length ? `<details style="margin-top:6px;font-size:13px;color:#19354B;">
       <summary style="cursor:pointer;font-weight:700;">${es ? "Ver cargos y pagos que forman este saldo" : "See charges and payments behind this balance"}</summary>
       <div style="margin:5px 0;font-weight:700;">${desglose}</div>
       ${movimientos.map((m) => `<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid #D7E0E8;padding:5px 0;">
-        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${_accionesVinculoCartera(m, clienteId)}</span>
+        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
         <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
       </div>`).join("")}</details>` : "";
     el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${detalle}`;
-  } catch (e) { console.error("[pintarSaldoCartera]", e); el.innerHTML = ""; }
+  } catch (e) {
+    if (el.__carteraLectura !== lectura) return;
+    console.error("[pintarSaldoCartera]", e);
+    el.innerHTML = '<span style="color:#B0183E;font-weight:700;">' +
+      (window.OCI18n && String(window.OCI18n.locale()).startsWith('es') ? 'No se pudo consultar el saldo. No vuelvas a registrar el pago sin revisar su historial.' : 'Could not check the balance. Review the payment history before recording it again.') + '</span>';
+  }
 }
 /* Claude 2026-10-07 — LA DEUDA DE UNA VENTA FIADA SIGUE A LA VENTA.
    Un cargo ligado a su venta muestra el valor ACTUAL de la venta (corregir el precio en Sold corrige la
@@ -3989,6 +3998,8 @@ async function ocRegistrarCredito(clienteId, nombre) {
   ov.addEventListener("click", (e) => { if (e.target === ov) cerrar(); });
   ov.querySelector("#oc-abono-cancel").addEventListener("click", cerrar);
   ov.querySelector("#oc-abono-ok").addEventListener("click", async () => {
+    const btn = ov.querySelector('#oc-abono-ok');
+    if (btn.disabled) return;
     const monto = parseFloat((ov.querySelector("#oc-abono-monto").value || "").trim());
     const item = ov.querySelector("#oc-abono-item").value;
     const razon = (ov.querySelector("#oc-abono-motivo").value || "").trim();
@@ -4014,11 +4025,12 @@ async function ocRegistrarCredito(clienteId, nombre) {
       motivo = `[for:${item}][exp:${expira}]${razon ? " " + razon : ""}`;
     }
     try {
-      const res = await fetch(`${API}/clientes/${clienteId}/abonar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ monto, motivo }) });
-      if (!res.ok) { const r = await res.json().catch(() => ({})); msg.textContent = r.error || "Could not save."; return; }
+      btn.disabled = true;
+      await window.ocEnviarAbono(clienteId, monto, motivo);
       cerrar();
       pintarSaldoCartera(clienteId);
-    } catch (e) { msg.textContent = "Could not reach the server."; }
+    } catch (e) { msg.textContent = e && e.message || 'Could not confirm the credit. Review its history before recording it again.'; }
+    finally { btn.disabled = false; }
   });
 }
 /* #8 (JFC 2026-09-10): detalle de compras del cliente, on-demand al abrir su
@@ -4051,7 +4063,7 @@ if (!window.__ocCliComprasWired) {
         var esFiado = v.formaPago === "fiado";
         if (esFiado) fiadoTot += total;
         var chip = esFiado
-          ? '<span style="background:#FDE7EC;color:#B0183E;font-weight:700;font-size:12px;padding:1px 8px;border-radius:10px;">On account (fiado)</span>'
+          ? '<span style="background:#FDE7EC;color:#B0183E;font-weight:700;font-size:12px;padding:1px 8px;border-radius:10px;">' + (window.OCI18n && String(window.OCI18n.locale()).startsWith('es') ? 'Compra hecha a fiado' : 'Bought on account (fiado)') + '</span>'
           : (v.cortesia
             ? '<span style="background:#EAF3FF;color:#1B4E86;font-weight:700;font-size:12px;padding:1px 8px;border-radius:10px;">Courtesy</span>'
             : '<span style="background:#EDFAF4;color:#006B3C;font-weight:700;font-size:12px;padding:1px 8px;border-radius:10px;">Paid</span>');
@@ -8517,7 +8529,7 @@ function resumenComisionPorProductoHtml(prods, cuadre){
     <div class="tag-card" data-comm-product-card role="button" tabindex="0" data-ui="commissions.product-card" data-product-id="${escHtml(d.productoId || "")}" aria-label="${escHtml(d.producto)}" data-search="${escHtml([d.producto,d.sku,...d.perchas,...d.asociados].join(" "))}" style="text-align:left;margin-bottom:10px;padding:14px 16px;cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(d.producto)}${d.sku ? ` <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">${escHtml(d.sku)}</span>` : ""}</strong>
-        ${d.socio > 0 ? `<span class="badge-estado ${d.pendSocio > 0 ? "rojo" : "verde"}">${d.pendSocio > 0 ? "pending" : "paid"}</span>` : ""}
+        ${d.socio > 0 ? `<span class="badge-estado ${d.moneyReview && d.moneyReview.length ? 'rojo' : d.pendSocio > 0 ? "rojo" : "verde"}">${d.moneyReview && d.moneyReview.length ? (window.OCI18n && window.OCI18n.getLang()==='es' ? 'revisar pagos' : 'review payments') : d.pendSocio > 0 ? "pending" : "paid"}</span>` : ""}
       </div>
       <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: ${escHtml([...d.perchas].join(", ") || "-")}${d.asociados.size ? ` · Associate: <strong>${escHtml([...d.asociados].join(", "))}</strong>` : ""}</div>
       <div class="stats">
@@ -8534,9 +8546,10 @@ function resumenComisionPorProductoHtml(prods, cuadre){
          Igual que alla: aparece SOLO si todas las ventas del producto son de UNA percha, y NO paga
          aqui: lleva a la tarjeta de esa percha en "By rack", donde vive el pago probado
          (marcarComisionPagada). Asi no hay una ruta de dinero nueva ni se puede pagar otra percha. */
-        (d.pendSocio > 0 && d.ubicacionIds && d.ubicacionIds.size === 1) ? `<div style="margin-top:10px;"><button type="button" class="ir"
+        (d.pendSocio > 0 && !(d.moneyReview && d.moneyReview.length) && d.ubicacionIds && d.ubicacionIds.size === 1) ? `<div style="margin-top:10px;"><button type="button" class="ir"
           data-comm-pay-from-product="${escHtml([...d.ubicacionIds][0])}"
           style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${t("comm.recordPartial")}</button></div>` : ""}
+      ${(d.moneyReview || []).map(f=>`<div data-product-money-review style="margin-top:10px;border:2px solid #B0183E;padding:10px;font-size:14px;color:#19354B;">${escHtml(f.ubicacion)}: ${(f.payoutBalances || []).filter(p=>Number(p.overpaid)>0).map(p=>`${window.OCI18n && window.OCI18n.getLang()==='es' ? 'Exceso pagado' : 'Overpaid'}: ${fmtMoney(p.overpaid)} · ${window.OCI18n && window.OCI18n.getLang()==='es' ? 'Pagado registrado' : 'Recorded paid'}: ${fmtMoney(p.paid)}`).join(' · ')}${(f.paymentConflicts || []).map(c=>`<div>${c.records.map(p=>fmtMoney(Number(p.amountCents)/100)).join(' / ')}</div>`).join('')}</div>`).join('')}
       ${(d.candidatas || []).length ? `<details style="margin-top:8px;"><summary style="cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--azul-medio,#2c4a68);font-size:14px;">${window.tf("comm.reviewSales",{n:d.candidatas.length})}</summary>
         <p style="font-size:13px;color:var(--ink-soft);">${t("comm.reviewNote")}</p>
         ${(d.candidatas || []).map(v => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #D7E0E8;font-size:14px;">
@@ -8571,7 +8584,7 @@ async function abrirDesgloseMesComisiones(kind) {
     rows = racks.flatMap(f => (f.payoutBalances || []).filter(p => kind === "due" ? p.dueCents !== 0 : p.earned !== 0 || p.paid !== 0 || p.due !== 0).map(p => `<div data-comm-month-row style="padding:10px 0;border-bottom:1px solid var(--ink);">
       <button type="button" data-month-person="${escHtml(p.payeeId || "")}" style="font:inherit;font-size:14px;font-weight:700;text-transform:none;letter-spacing:normal;box-shadow:none;background:transparent;border:0;padding:0;text-align:left;">${escHtml(p.nombre)}</button>
       <div style="font-size:13px;color:var(--ink);margin:4px 0;">${escHtml(f.ubicacion)} · ${mx.earned} ${fmtMoney(p.earned)} · ${mx.paid} ${fmtMoney(p.paid)} · ${mx.due} ${fmtMoney(p.due)}</div>
-      ${p.dueCents > 0 && p.payeeId ? `<button type="button" class="tecla" data-month-pay="${escHtml(p.payeeId)}" data-rack="${escHtml(f.ubicacionId)}" data-name="${escHtml(p.nombre)}" data-due="${p.due}" style="font-size:14px;margin:4px 0;">${mx.pay(fmtMoney(p.due))}</button>` : ""}
+      ${p.dueCents > 0 && p.payeeId && !f.needsReview ? `<button type="button" class="tecla" data-month-pay="${escHtml(p.payeeId)}" data-rack="${escHtml(f.ubicacionId)}" data-name="${escHtml(p.nombre)}" data-due="${p.due}" style="font-size:14px;margin:4px 0;">${mx.pay(fmtMoney(p.due))}</button>` : ""}
     </div>`)).join("");
   } else {
     const field = {sales:"bruto",people:"socio",house:"casa"}[kind];
@@ -8619,7 +8632,7 @@ async function abrirFichaProducto(productoId){
        El monto es la suma del Still due de esas ventas y se manda la lista de ventas (sourceIds) al pago existente. */
     const porRack = new Map();
     (p.bySale || []).forEach(x => { const g = porRack.get(x.locationId) || { due: 0, ids: [] }; g.due += x.dueCents; if (x.dueCents > 0) g.ids.push(x.saleId); porRack.set(x.locationId, g); });
-    const pagos = [...porRack.entries()].filter(([, g]) => g.due > 0 && g.ids.length);
+    const pagos = h.needsReview ? [] : [...porRack.entries()].filter(([, g]) => g.due > 0 && g.ids.length);
     return `<div data-ficha-person="${escHtml(p.personId)}" style="padding:14px 0;border-top:1px solid #D7E0E8;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
         <div style="min-width:0;"><strong style="font-family:var(--font-display);font-size:16px;">${escHtml(name)}</strong> <small style="font-size:13px;font-weight:400;">${p.units}u</small></div>
@@ -8640,7 +8653,8 @@ async function abrirFichaProducto(productoId){
     </div>
     <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">${t("comm.productTotal")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.grossCents)}</strong> <small style="font-size:13px;">${h.units}u</small></div>
     ${h.returnsCents > 0 ? `<div data-ficha-returns style="font-size:13px;color:var(--ink-soft);">${t("comm.productReturns")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.returnsCents)}</strong></div>` : ""}
-    <div style="font-size:13px;color:var(--ink-soft);margin-bottom:6px;">${t("artist.rack")}: ${escHtml(racks || "-")}</div>
+    <div style="font-size:13px;color:#19354B;margin-bottom:6px;">${t("artist.rack")}: ${escHtml(racks || "-")}</div>
+    ${h.needsReview ? `<div data-ficha-money-review style="color:#19354B;border:2px solid #B0183E;padding:10px;margin:10px 0;border-radius:8px;font-size:16px;"><strong>${window.OCI18n && window.OCI18n.getLang()==='es' ? 'Revisar comprobantes en conflicto antes de pagar.' : 'Review conflicting receipts before making another payment.'}</strong>${(h.paymentConflicts || []).map(c=>`<div>${c.records.map(p=>_ocFichaCentavos(p.amountCents)).join(' / ')}</div>`).join('')}</div>` : ''}
     ${filas ? filas + `<div data-ficha-totals style="padding:14px 0;border-top:2px solid var(--ink);margin-top:2px;"><div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:4px;">${t("guests.total")}</div>${cols(h.totals.earnedCents, h.totals.paidCents, h.totals.dueCents)}</div>`
       : `<p data-ficha-empty style="font-size:16px;color:var(--ink);">${escHtml(window.tf("comm.byProductEmptyMonth", { mes: mesTxt }))}</p>`}
     <button type="button" class="tecla" data-ficha-close style="min-height:44px;margin:12px 0 0;font-size:14px;">${t("common.close")}</button>
@@ -8710,6 +8724,8 @@ async function cargarComisiones(){
   const btnExport = `<button class="tecla" style="margin:0;min-height:44px;" aria-label="Export CSV" title="Export CSV" onclick="exportarComisionesCSV()">⤓ CSV</button>`; // JFC 2026-10-07: textos cortos, caben en una linea
 
   const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones, true);
+  // Product summaries carry the same review guard as the rack that pays them.
+  porProducto.forEach(d=>{d.moneyReview=filas.filter(f=>f.needsReview && d.ubicacionIds.has(f.ubicacionId));});
   /* v442 (JFC 2026-10-02, "no queremos panicos asi, algo FRIENDLY"): el 1 de octubre la vista abrio
      en octubre vacio y parecio que se borraron las ventas. Si el mes en curso aun no tiene ventas y el
      mes anterior si, se abre en el mes anterior (el que se liquida ahora), UNA vez por sesion, con
@@ -8851,7 +8867,16 @@ async function cargarComisiones(){
     const esMoney = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
     const mx = _ocMoneyDict();
 
-    return `<section data-comm-people-money style="margin-top:12px;">
+    const conflictos = f.paymentConflicts || [];
+    const cuarentena = f.paymentQuarantine || [];
+    const revisar = conflictos.length || Number(f.overpaid)>0 || cuarentena.length;
+    const revisionHtml = revisar ? `<div data-comm-money-review style="padding:12px;border:2px solid #B0183E;border-radius:8px;margin:10px 0;color:#19354B;font-size:14px;">
+      <strong>${esMoney ? 'Revisar comprobantes de pago' : 'Review payment receipts'}</strong>
+      ${Number(f.overpaid)>0 ? `<p style="margin:6px 0;font-weight:700;">${esMoney ? 'Pagado de más' : 'Overpaid'}: ${fmtMoney(f.overpaid)}. ${esMoney ? 'El historial conserva todos los desembolsos.' : 'The history keeps every recorded disbursement.'}</p>` : ''}
+      ${conflictos.map(c=>`<p style="margin:6px 0;">${esMoney ? 'Una misma referencia contiene importes distintos. No se ha elegido un pago válido.' : 'One reference has different payment receipts. No receipt has been selected as valid.'}</p><ul>${c.records.map(p=>`<li>${fmtMoney(Number(p.amountCents)/100)} · ${escHtml(p.paidAt || p.createdAt || '')} · ${escHtml(p.reference || p.opId)}</li>`).join('')}</ul>`).join('')}
+      ${cuarentena.length ? `<p style="margin:6px 0;">${esMoney ? 'Hay comprobantes recibidos que no pasaron la validación. Se conservan separados y no se suman como pagos.' : 'Some received receipts failed validation. They are kept separately and do not count as payments.'}</p><details><summary>${esMoney ? 'Ver comprobantes separados' : 'See separated receipts'}</summary>${cuarentena.map(q=>`<p>${fmtMoney(Number(q.record.amountCents)/100)} · ${escHtml(q.reason)}</p>`).join('')}</details>` : ''}
+    </div>` : '';
+    return `${revisionHtml}<section data-comm-people-money style="margin-top:12px;">
       <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin:0 0 8px;">${mx.people}</div>
       ${balances.map(p => {
         const due = Number(p.due) || 0;
@@ -8861,8 +8886,9 @@ async function cargarComisiones(){
         const held = Number(p.held) || 0;
         const heldTxt = held > 0.00001 ? (esMoney ? "Retenido" : "On hold") : "";
         const heldFecha = p.heldUntil ? new Date(p.heldUntil).toLocaleDateString(esMoney ? "es" : "en", { day:"numeric", month:"short" }) : "";
-        const statusKey = Math.abs(due) <= 0.00001 ? (held > 0.00001 ? "held" : "paid") : (paid > 0 ? "partial" : "due");
-        const status = statusKey === "held" ? heldTxt : statusKey === "paid" ? mx.paidState : (statusKey === "partial" ? mx.partial : mx.dueState);
+        const personReview = Number(p.overpaid)>0 || conflictos.some(c=>c.records.some(r=>String(r.payeeId || '')===String(p.payeeId || '')));
+        const statusKey = personReview ? 'review' : Math.abs(due) <= 0.00001 ? (held > 0.00001 ? "held" : "paid") : (paid > 0 ? "partial" : "due");
+        const status = statusKey === 'review' ? (esMoney ? 'revisar pagos' : 'review payments') : statusKey === "held" ? heldTxt : statusKey === "paid" ? mx.paidState : (statusKey === "partial" ? mx.partial : mx.dueState);
         const statusClass = statusKey === "paid" ? "verde" : ((statusKey === "partial" || statusKey === "held") ? "amarillo" : "rojo");
         const hist = (f.payoutHistory || []).filter(h => String(h.payeeId || "") === String(p.payeeId || ""));
         const det = (f.detallePendientes || []).filter(d => String(d.payeeId || "") === String(p.payeeId || ""));
@@ -8881,14 +8907,14 @@ async function cargarComisiones(){
           </div>
           <div class="stats" style="margin-top:10px;">
             <div><div class="rotulo">${mx.earned}</div><div class="cifra">${fmtMoney(earned)}</div></div>
-            <div><div class="rotulo">${mx.paid}</div><div class="cifra">${fmtMoney(paid)}</div></div>
+            <div><div class="rotulo">${personReview && conflictos.length ? (esMoney ? 'Pagado confirmado' : 'Confirmed paid') : mx.paid}</div><div class="cifra">${fmtMoney(paid)}</div></div>
             <div><div class="rotulo">${mx.due}</div><div class="cifra" style="color:${due > 0 ? 'var(--rust-deep,#C05000)' : 'var(--dinero-verde-dk,#008a54)'};">${fmtMoney(due)}</div></div>
           </div>
           ${held > 0.00001 ? `<p data-comm-held style="font-size:14px;font-weight:700;color:var(--ink,#1a1a1a);margin:8px 0 0;">${esMoney
             ? `${heldTxt}: ${fmtMoney(held)}. Se puede pagar desde el ${escHtml(heldFecha)}.`
             : `${heldTxt}: ${fmtMoney(held)}. It can be paid from ${escHtml(heldFecha)}.`}</p>` : ""}
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;margin-top:10px;">
-            ${due > 0.00001 ? `<button type="button" class="ir" data-comm-pay-person="${escHtml(p.payeeId || "")}"
+            ${due > 0.00001 && !personReview ? `<button type="button" class="ir" data-comm-pay-person="${escHtml(p.payeeId || "")}"
               data-pay-rack="${escHtml(f.ubicacionId || "")}" data-pay-name="${escHtml(name)}" data-pay-due="${due}"
               style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${mx.pay(fmtMoney(due))}</button>` : ""}
             ${p.payeeId ? `<button type="button" class="tecla" data-comm-send-person data-est-u="${escHtml(f.ubicacionId)}" data-est-p="${escHtml(p.payeeId)}"
@@ -8900,7 +8926,7 @@ async function cargarComisiones(){
             </summary>
             <div style="padding-top:4px;">
               ${hist.length ? hist.map(h => `<div style="padding:8px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;">
-                <strong>${h.type === "reversal" ? "REVERSAL" : "PAID"} · ${fmtMoney(h.amount)}</strong>
+                <strong>${h.conflicted ? (esMoney ? 'COMPROBANTE EN CONFLICTO' : 'CONFLICTING RECEIPT') : h.type === "reversal" ? "REVERSAL" : "PAID"} · ${fmtMoney(h.amount)}</strong>
                 <div style="color:var(--ink-soft);">${h.paidAt ? escHtml(new Date(h.paidAt).toLocaleString()) : ""}${h.method ? " · " + escHtml(({efectivo:"cash",transferencia:"transfer",cheque:"check","credito-tienda":"store credit",otro:"other"})[h.method] || h.method) : ""}${h.reference ? " · ref " + escHtml(h.reference) : ""}</div>
                 ${h.note ? `<div style="color:var(--ink-soft);margin-top:2px;">${escHtml(h.note)}</div>` : ""}
               </div>`).join("") : `<p style="font-size:14px;margin:4px 0;color:var(--ink);">${mx.noPayments}</p>`}
@@ -8925,10 +8951,10 @@ async function cargarComisiones(){
   const conVentas = filas.filter(_tuvoVentas);
   const sinVentas = filas.filter(f => !_tuvoVentas(f));
   const tarjetaPercha = f => {
-    const _payRows = (f.payoutBalances || []).filter(p => Number(p.due) > 0.00001);
+    const _payRows = f.needsReview ? [] : (f.payoutBalances || []).filter(p => Number(p.due) > 0.00001);
     const _paymentStatus = f.paymentStatus || (f.estado === "pagado" ? "paid" : f.estado === "sin ventas" ? "no-sales" : "due");
     const _paymentClass = _paymentStatus === "paid" ? "verde" : _paymentStatus === "no-sales" ? "amarillo" : _paymentStatus === "partially-paid" ? "amarillo" : "rojo";
-    const _paymentText = _paymentStatus === "paid" ? "paid" : _paymentStatus === "no-sales" ? "no sales" : _paymentStatus === "partially-paid" ? "partially paid" : "pending";
+    const _paymentText = _paymentStatus === 'review' ? (window.OCI18n && window.OCI18n.getLang()==='es' ? 'revisar pagos' : 'review payments') : _paymentStatus === "paid" ? "paid" : _paymentStatus === "no-sales" ? "no sales" : _paymentStatus === "partially-paid" ? "partially paid" : "pending";
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
       ? `<span class="badge-estado rojo" style="font-size:13px;">dormant ${f.diasSinVenta}d</span>` : "";
     return `
