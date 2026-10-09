@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v479: dashboard de solo lectura con PIN reales, refresco seguro de ventas e inventario, aislamiento de licencias, impresión de reportes y protección frente a cambios de cuaderno; sin modificar el motor contable.",
+  "changelog": "v480: relevo de sesión entre pestañas, actualización local inmediata y recomendaciones desde la sesión cerrada; conserva el dashboard v479.",
   "requerida": false,
-  "shell": "f123-shell-v479",
+  "shell": "f123-shell-v480",
   "apagar": [],
-  "releaseName": "v1.0",
-  "cacheGeneration": "golden43"
+  "releaseName": "v480",
+  "cacheGeneration": "golden44"
 }

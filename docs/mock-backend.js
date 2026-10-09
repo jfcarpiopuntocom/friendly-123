@@ -1640,10 +1640,16 @@
   /* 2026-09-25: la clave nativa lleva el prefijo de aislamiento.js ("f123::..."), asi que
      comparar con OC_STATE_PTR a secas NUNCA coincidia (hallazgo H1 del 2026-08-05): la otra
      pestana no se enteraba jamas. Se acepta la clave con o sin prefijo. */
+  function _refrescarDesdeOtraPestana() {
+    const antes=_localRev;
+    cargarEstadoLocal();try { _miSello=localStorage.getItem(OC_STATE_SELLO); } catch (_) {}
+    if(_localRev>antes)window.dispatchEvent(new CustomEvent("oc-sync-merge",{detail:{localTab:true,actualizados:1}}));
+  }
   window.addEventListener("storage", (e) => {
     const k = e && e.key ? String(e.key) : "";
-    if (k === OC_STATE_PTR || k.endsWith("::" + OC_STATE_PTR)) { cargarEstadoLocal(); try { _miSello = localStorage.getItem(OC_STATE_SELLO); } catch (_) {} }
+    if (k === OC_STATE_PTR || k.endsWith("::" + OC_STATE_PTR)) _refrescarDesdeOtraPestana();
   });
+  try { window.AMG?.Aislamiento?.onCambio(c=>{if(c && c.clave===OC_STATE_PTR)_refrescarDesdeOtraPestana();}); } catch (_) {}
   function _recargarSiOtraPestanaEscribio() {
     try {
       const guardado = localStorage.getItem(OC_STATE_SELLO);
@@ -4761,12 +4767,20 @@
     // compatibility guard by invoking a write directly. Reads stay available.
     if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
     if (!escribe) { if (_payoutPendiente) await _payoutPendiente; return _fetchInterno(url, opts); }
+    const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
+    const ejecutar=()=>{
+      const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
+      const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
+      if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
+      if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
+      _recargarSiOtraPestanaEscribio();return _fetchInterno(url,opts);
+    };
     if (navigator.locks && navigator.locks.request) {
-      return navigator.locks.request("f123-escrituras", async () => { _recargarSiOtraPestanaEscribio(); return _fetchInterno(url, opts); });
+      return navigator.locks.request("f123-escrituras",ejecutar);
     }
     // Same-device serialization is also needed where Web Locks is absent.
     // This is not a lock or reservation between disconnected devices.
-    const operacion = _colaEscriturasLocal.then(() => { _recargarSiOtraPestanaEscribio(); return _fetchInterno(url, opts); });
+    const operacion = _colaEscriturasLocal.then(ejecutar);
     _colaEscriturasLocal = operacion.catch(() => {});
     return operacion;
   };

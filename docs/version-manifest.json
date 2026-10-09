@@ -1,9 +1,9 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v479",
+  "shell": "f123-shell-v480",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-6df82918f1546cc891bbb23eb6b22c594d6698abd61dc0b247557a0b6ec38d37",
+    "./index.html": "sha256-f623e9a67502214707e9d113ff912d834ed42d54309a07decb794c1ccf96ee9c",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./img/logo-720.png": "sha256-621d161800503a13f3aa6248b6829ce69d9265b708d2d228e5eb051b9bd775ae",
     "./copiar-libre.js": "sha256-d30e6b2c6515df2608a7d7083c51a8251483a5443c785fefedf6b51b2910afd8",
@@ -16,7 +16,7 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-36fd0a437feeefe02873bd8acf685ef67d522f9bb21cfe83c090b30d8bc6f763",
     "./estado-idb.js": "sha256-e1eb9fb1d9db9eb01a498798ea0055d6c9877f2751a0774a85c31d0585758163",
-    "./mock-backend.js": "sha256-f5cf83ae4a285b6833dcbee6cdb2b98e6a042b9222fa2c265aa73b17f8c87ad7",
+    "./mock-backend.js": "sha256-6356fc1745635b43eb775c5002011761523d49d818579a1cab53a53d2d0902f5",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
@@ -34,6 +34,7 @@
     "./crypto-store.js": "sha256-0a8a3d850cf74a164209a304f967d3b917cdadb300bff0c72e7c76dff532bdc9",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
     "./auth-ui.js": "sha256-6f44aa3030035f455480c657a15ab0d0d0bf90e3f37003e453979e8d459430c2",
+    "./tab-session.js": "sha256-d2546c286de8faaa8762a9a878de39967dd9c6a4b0356ea6620cc9bc8164cd86",
     "./backup-scheduler.js": "sha256-8ee6cc656bbf7998727d1c3e8ac2c34372bf205c374ac3ede49901f0b8cf669a",
     "./avanzado-extra.js": "sha256-50ba0899a13d3515fd8a42db0ba2da3b15f8acb8d858ffa37aa89a2ca6554e21",
     "./artista.js": "sha256-749613af78308464dee590e0278af2641a8ac5cecc469ff7b08fc155e8038d95",

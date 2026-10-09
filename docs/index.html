@@ -9833,6 +9833,14 @@ function toggleSyncNuevo() {
 window.addEventListener("oc-sync-merge", function (ev) {
   try {
     var d = ev.detail || {};
+    // Same-browser durable state is ready: queue one microtask per active view.
+    // Keep the existing debounce for relay bursts from other devices.
+    var schedule = function (key, fn) {
+      clearTimeout(window[key]);
+      if (!d.localTab) { window[key] = setTimeout(fn, 400); return; }
+      var token = {}; window[key] = token;
+      queueMicrotask(function () { if (window[key] === token) { window[key] = null; fn(); } });
+    };
     var es = false; try { es = !window.OCI18n || window.OCI18n.getLang() !== "en"; } catch (_) {}
     var partes = [];
     if (d.perchas)   partes.push(d.perchas + " " + (es ? (d.perchas === 1 ? "percha" : "perchas") : (d.perchas === 1 ? "shelf" : "shelves")));
@@ -9856,7 +9864,7 @@ window.addEventListener("oc-sync-merge", function (ev) {
     var hoyActiva = vistaHoy && vistaHoy.classList.contains("activa");
     if (hoyActiva && typeof cargarHoy === "function") {
       clearTimeout(window.__syncHoyT);
-      window.__syncHoyT = setTimeout(function () { try { cargarHoy(); } catch (_) {} }, 400);
+      schedule("__syncHoyT", function () { try { cargarHoy(); } catch (_) {} });
     }
     /* REFRESCO EN SEGUNDOS (JFC 2026-09-16, "los datos se refrescan en segundos").
        Si la vista de inventario o de perchas está activa, re-pintarla al llegar un
@@ -9866,7 +9874,7 @@ window.addEventListener("oc-sync-merge", function (ev) {
       var v = document.getElementById(id);
       if (v && v.classList.contains("activa") && typeof window[fn] === "function") {
         clearTimeout(window["__syncT_" + id]);
-        window["__syncT_" + id] = setTimeout(function () { try { window[fn](); } catch (_) {} }, 400);
+        schedule("__syncT_" + id, function () { try { window[fn](); } catch (_) {} });
       }
     };
     _repintarVista("vista-inventario", "cargarInventario");
@@ -9875,7 +9883,7 @@ window.addEventListener("oc-sync-merge", function (ev) {
     var perchasActiva = document.getElementById("vista-perchas");
     if (perchasActiva && perchasActiva.classList.contains("activa") && window.VPerchas && typeof window.VPerchas.cargar === "function") {
       clearTimeout(window.__syncVPerchasT);
-      window.__syncVPerchasT = setTimeout(function () { try { window.VPerchas.cargar(); } catch (_) {} }, 400);
+      schedule("__syncVPerchasT", function () { try { window.VPerchas.cargar(); } catch (_) {} });
     }
     _repintarVista("vista-clientes", "cargarClientes");
     _repintarVista("vista-gastos", "cargarGastos");
@@ -10196,6 +10204,7 @@ setTimeout(() => {
   <script src="./sync-realtime.js"></script>
   <script src="./sync-watchdog.js"></script>
   <script src="./auth-ui.js"></script>
+  <script src="./tab-session.js"></script>
   <script src="./soporte-visual.js"></script>
   <script src="./backup-scheduler.js"></script>
 <script src="./avanzado-extra.js"></script>
