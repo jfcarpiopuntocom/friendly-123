@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v475: pago por producto sin cambiar a perchas; pago agrupado conservado; historial de ventas filtrable en Sold y Dashboard, con precios, fechas locales y efectivo separado de fiado y medios sin registrar.",
+  "changelog": "v476: pago por producto y por percha; historial filtrable de ventas en Sold y Dashboard con efectivo separado; pruebas de privacidad sin falsos positivos por timestamps y diagnóstico de acceso al dashboard.",
   "requerida": false,
-  "shell": "f123-shell-v475",
+  "shell": "f123-shell-v476",
   "apagar": [],
   "releaseName": "v1.0",
-  "cacheGeneration": "golden39"
+  "cacheGeneration": "golden40"
 }

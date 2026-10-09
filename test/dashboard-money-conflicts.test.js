@@ -47,7 +47,15 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]])for(c
    assert.equal(saleRows.find(v=>v.productoId===product.id).comisionPendiente,mode==='conflict'?40:-20,'all summaries use verified receipts and retain excess cents');
    const dash=await ctx.newPage();await dash.goto(pathToFileURL(path.resolve(__dirname,'../docs/dashboard.html')).href+'#/comisiones',{waitUntil:'load'});
    await dash.locator('#pin').fill('789');await dash.locator('#entrar').click();
-   await dash.waitForFunction(()=>getComputedStyle(document.getElementById('tablero')).display!=='none');
+   try {
+    await dash.waitForFunction(()=>getComputedStyle(document.getElementById('tablero')).display!=='none');
+   } catch(error) {
+    // Preserve the failing condition; report state instead of retrying a PIN or
+    // silently treating a timed-out login as a passed financial assertion.
+    const state=await dash.evaluate(()=>({message:document.getElementById('msg')?.textContent,busy:document.getElementById('entrar')?.disabled,cryptoLoaded:!!window.OCSecure,tableroVisible:getComputedStyle(document.getElementById('tablero')).display!=='none'}));
+    error.message+='; dashboard login state: '+JSON.stringify(state);
+    throw error;
+   }
    for(const view of ['producto','percha']){
     await dash.locator('[data-cm-vista='+view+']').click();
     const text=await dash.locator('#cm').innerText();
