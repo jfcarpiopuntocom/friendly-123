@@ -362,17 +362,16 @@
 
 <!-- ══════════════════════════ PUERTA ══════════════════════════ -->
 <style>
-  /* 2026-08-19, JFC: aviso "necesitas la app abierta" muy visible. La gente
-     es atolondrada; sin esto entran, no ven nada y creen que la app esta
-     rota. Se dice de tres formas: banner amarillo arriba, linea corta antes
-     del boton, y modal explicito cuando el intento falla por app cerrada. */
+  /* JFC 2026-10-09: this requirement is vestigial for a saved local notebook.
+     The old remote photo/PIN protocol still needs another device; hide these
+     legacy instructions when independent local access is actually available. */
   #aviso-app-abierta{background:#FFF4C2;border:2px solid #B8860B;color:#4a3410;
     border-radius:10px;padding:12px 14px;margin:0 0 14px;font-size:14px;line-height:1.5;
     display:flex;align-items:flex-start;gap:10px;}
   #aviso-app-abierta .icon{font-size:20px;line-height:1;flex-shrink:0;margin-top:2px;font-weight:800;}
   #aviso-app-abierta strong{color:#2a1d0a;}
   #aviso-app-abierta .paso{display:block;font-size:13px;color:#4a3410;margin-top:4px;}
-  .hint-boton{font-size:13px;color:#5b5b5b;text-align:center;margin:6px 0 10px;}
+  .hint-boton{font-size:13px;color:#2C3E50;text-align:center;margin:6px 0 10px;}
 </style>
 <div id="puerta">
   <div class="card">
@@ -380,10 +379,7 @@
     <h1>Dashboard</h1>
     <p class="sub">Your whole business, on one big screen.</p>
 
-    <!-- AVISO INELUDIBLE (JFC 2026-08-19): el tablero NO tiene datos propios.
-         Los pide en vivo al telefono/dispositivo del duenio (o del encargado)
-         y ese dispositivo tiene que estar con la app abierta y en linea.
-         Sin esto, el usuario ve un tablero vacio y no sabe por que. -->
+    <!-- Legacy remote-photo guidance; independent local access hides this. -->
     <div id="aviso-app-abierta" role="note">
       <span class="icon">!</span>
       <span>
@@ -3176,10 +3172,12 @@
   (function () {
     try {
       if (!leerEstadoLocal()) return;
+      $("aviso-app-abierta").style.display = "none";
+      document.querySelector(".hint-boton").textContent = "Use your owner or admin PIN. No other app tab needs to stay open.";
       var cod = $("codigo");
       cod.insertAdjacentHTML("beforebegin",
         '<p style="font-size:14px;line-height:1.5;margin:0 0 12px;color:#00975C;' +
-        'font-weight:700;">Tu negocio está en este dispositivo: se abre al instante.</p>');
+        'font-weight:700;">Tu negocio está guardado en este dispositivo.</p>');
     } catch (_) {}
   })();
 

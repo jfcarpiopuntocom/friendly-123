@@ -4757,6 +4757,9 @@
       const m0 = ((opts && opts.method) || (url && url.method) || "GET").toUpperCase();
       escribe = m0 !== "GET" && new URL(u0, window.location.origin).pathname.startsWith("/api");
     } catch (_) {}
+    // A legacy browser without cross-tab locks must not bypass the visible
+    // compatibility guard by invoking a write directly. Reads stay available.
+    if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
     if (!escribe) { if (_payoutPendiente) await _payoutPendiente; return _fetchInterno(url, opts); }
     if (navigator.locks && navigator.locks.request) {
       return navigator.locks.request("f123-escrituras", async () => { _recargarSiOtraPestanaEscribio(); return _fetchInterno(url, opts); });

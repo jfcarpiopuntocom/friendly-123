@@ -1,15 +1,21 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {chromium,webkit}=require('playwright');
-const {pathToFileURL}=require('node:url');
 const path=require('node:path');
+const fs=require('node:fs');
+const DOCS=path.resolve(__dirname,'../docs'),ORIGIN='http://localhost:18478';
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  test(`dashboard.html native admin login (${name}): rejected wrong PIN, prices and cash history accessible after valid PIN`,async()=>{
   const browser=await engine.launch({headless:true});
   try{
-   const ctx=await browser.newContext({viewport:{width:390,height:844}});
+   const ctx=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
+   await ctx.route('**/*',async route=>{
+    const url=new URL(route.request().url());if(url.origin!==ORIGIN)return route.abort();
+    const file=path.resolve(DOCS,decodeURIComponent(url.pathname).slice(1));if(!file.startsWith(DOCS+path.sep))return route.abort();
+    try{await route.fulfill({status:200,contentType:{'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css'}[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}
+   });
    await ctx.addInitScript(()=>{window.WebSocket=class{constructor(){this.readyState=3;}send(){}close(){}addEventListener(){}removeEventListener(){}};});
-   const app=await ctx.newPage();await app.goto(pathToFileURL(path.resolve(__dirname,'../docs/index.html')).href,{waitUntil:'load'});
+   const app=await ctx.newPage();await app.goto(ORIGIN+'/index.html',{waitUntil:'load'});
    await app.waitForFunction(()=>window.OCSecure&&window.OCAuth);
    await app.evaluate(async()=>{
     window.OCAuth=Object.assign({},window.OCAuth,{rolActual:()=> 'dueno'});
@@ -21,7 +27,9 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     const p=await req('/api/productos','POST',{nombre:'Synthetic admin drink',barcode:'ADMIN-AUDIT',precio:17,costo:0,stockInicial:4,ubicacionId:rack.id});
     await req('/api/productos/'+p.id+'/venta','POST',{cantidad:2,info:{formaPago:'cash'}});
    });
-   const dash=await ctx.newPage();await dash.goto(pathToFileURL(path.resolve(__dirname,'../docs/dashboard.html')).href,{waitUntil:'load'});
+   await app.close();assert.equal(ctx.pages().length,0,'the app is closed before dashboard startup');
+   const dash=await ctx.newPage();await dash.goto(ORIGIN+'/dashboard.html',{waitUntil:'load'});
+   assert.equal(await dash.locator('#aviso-app-abierta').isVisible(),false,'the old keep-app-open warning must not misdescribe independent local access');
    await dash.locator('#pin').fill('999');await dash.locator('#entrar').click();
    await dash.waitForFunction(()=>/no abre el tablero/i.test(document.getElementById('msg').textContent));
    assert.equal(await dash.locator('#tablero').isVisible(),false);

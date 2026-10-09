@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v477: pago por producto y por percha; historial filtrable de ventas en Sold y Dashboard con efectivo separado; privacidad y acceso admin comprobados con pruebas de origen HTTP compartido.",
+  "changelog": "v478: comisiones por producto o percha e historial de ventas; pestañas coordinadas por escritura, protección de datos en navegadores antiguos y dashboard local independiente con acceso admin.",
   "requerida": false,
-  "shell": "f123-shell-v477",
+  "shell": "f123-shell-v478",
   "apagar": [],
   "releaseName": "v1.0",
-  "cacheGeneration": "golden41"
+  "cacheGeneration": "golden42"
 }

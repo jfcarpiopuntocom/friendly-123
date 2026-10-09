@@ -3,7 +3,7 @@
 // negativo ni dos ventas de una pieza unica.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -19,10 +19,11 @@ function servidor() {
   });
 }
 
-test('dos pestanas venden la ultima unidad a la vez: una sola venta, stock 0', async () => {
+for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
+test('dos pestanas venden la ultima unidad a la vez: una sola venta, stock 0'+(engineName==='Chromium'?'':' (WebKit)'), async () => {
   const srv = servidor(); await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${srv.address().port}/`;
-  const web = await chromium.launch({ headless: true });
+  const web = await engine.launch({ headless: true });
   try {
     const ctx = await web.newContext();
     const t1 = await ctx.newPage(); await t1.goto(base, { waitUntil: 'networkidle' });
@@ -33,6 +34,7 @@ test('dos pestanas venden la ultima unidad a la vez: una sola venta, stock 0', a
     });
     await t1.waitForTimeout(1500);
     const t2 = await ctx.newPage(); await t2.goto(base, { waitUntil: 'networkidle' }); await t2.waitForTimeout(1500);
+    assert.equal(await t2.locator('#oc-doble-tab').count(),0,'Web Locks coordinates each write; a second app tab must remain usable');
     const vender = (pg) => pg.evaluate(async (pid) => (await fetch(`/api/productos/${pid}/venta`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cantidad: 1 }) })).status, id);
     const [s1, s2] = await Promise.all([vender(t1), vender(t2)]);
     await t1.waitForTimeout(2500);
@@ -50,10 +52,10 @@ test('dos pestanas venden la ultima unidad a la vez: una sola venta, stock 0', a
   } finally { await web.close(); srv.close(); }
 });
 
-test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes una borraba la otra)', async () => {
+test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes una borraba la otra)'+(engineName==='Chromium'?'':' (WebKit)'), async () => {
   const srv = servidor(); await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${srv.address().port}/`;
-  const web = await chromium.launch({ headless: true });
+  const web = await engine.launch({ headless: true });
   try {
     const ctx = await web.newContext();
     const t1 = await ctx.newPage(); await t1.goto(base, { waitUntil: 'networkidle' });
@@ -66,6 +68,7 @@ test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes 
     });
     await t1.waitForTimeout(1200);
     const t2 = await ctx.newPage(); await t2.goto(base, { waitUntil: 'networkidle' }); await t2.waitForTimeout(1200);
+    assert.equal(await t2.locator('#oc-doble-tab').count(),0,'Web Locks coordinates each write; a second app tab must remain usable');
     const vender = (pg, pid) => pg.evaluate(async (x) => (await fetch(`/api/productos/${x}/venta`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cantidad: 1 }) })).status, pid);
     await Promise.all([vender(t1, ids[0]), vender(t2, ids[1])]);
     await vender(t1, ids[0]); // t1 escribe de nuevo con lo que tenga en memoria
@@ -73,4 +76,26 @@ test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes 
     const n = await t2.evaluate(async (x) => (await (await fetch('/api/ventas/todas')).json()).filter((v) => x.includes(v.productoId)).length, ids);
     assert.equal(n, 3, 'las 3 ventas quedan registradas');
   } finally { await web.close(); srv.close(); }
+});
+}
+
+test('without Web Locks the compatibility tab guard remains available',async()=>{
+ const srv=servidor();await new Promise(r=>srv.listen(0,'127.0.0.1',r));
+ const web=await chromium.launch({headless:true});
+ try{
+  const ctx=await web.newContext();
+  await ctx.addInitScript(()=>{Object.defineProperty(navigator,'locks',{value:undefined});window.WebSocket=class{constructor(){this.readyState=3}send(){}close(){}addEventListener(){}removeEventListener(){}};});
+  const base=`http://127.0.0.1:${srv.address().port}/`;
+  const first=await ctx.newPage();await first.goto(base,{waitUntil:'load'});
+  const second=await ctx.newPage();await second.goto(base,{waitUntil:'load'});
+  await second.locator('#oc-doble-tab').waitFor({state:'visible'});
+  assert.match(await second.locator('#oc-doble-tab').innerText(),/cannot coordinate writes|no puede coordinar escrituras/);
+  assert.doesNotMatch(await second.locator('#oc-doble-tab').innerText(),/Use here anyway|de todos modos/);
+  const write=page=>page.evaluate(async()=>{window.OCAuth={rolActual:()=> 'dueno'};const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Synthetic guarded rack',tipo:'propio'})});return r.status;});
+  assert.equal(await write(second),409,'the guarded tab cannot write even when a request bypasses its UI');
+  assert.equal(await write(first),200,'the primary tab stays usable');
+  await first.close();await second.reload({waitUntil:'load'});
+  assert.equal(await second.locator('#oc-doble-tab').count(),0);
+  assert.equal(await write(second),200,'closing the primary tab releases legacy ownership after reload');
+ }finally{await web.close();srv.close();}
 });
