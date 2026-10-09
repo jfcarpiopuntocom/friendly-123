@@ -46,11 +46,19 @@ fi
 PIP_PAQ="defusedxml lxml pymupdf python-pptx openpyxl python-docx pillow markitdown[pptx] actionlint-py"
 paso "pip: $PIP_PAQ" pip install -q --disable-pip-version-check $PIP_PAQ
 
-# Laya (JFC 2026-10-01: "Laya primero"). Trae torch y tarda: va en segundo plano para no
-# frenar el arranque. Log en $HERR/laya-install.log. Modelo: necesita huggingface.co en la red.
-python3 -c "import laya" 2>/dev/null && anota "OK    pip: laya (ya estaba)" || {
-  nohup pip install -q --disable-pip-version-check laya >"$HERR/laya-install.log" 2>&1 &
-  anota "EN CURSO pip: laya (segundo plano, ver $HERR/laya-install.log)"; }
+# gutsy (JFC 2026-10-07: reemplaza a Laya; sin torch). Clon en ~/gutsy, rueda CPU de llama-cpp-python
+# (>=0.3.35, entiende qwen35) y modelo Q4 de 529 MB desde huggingface.co. Segundo plano: log en $HERR/gutsy-install.log.
+if [ -f "$HOME/gutsy/gutsy-inference/models/gutsy-0.8b-v04-q4_k_m.gguf" ] && command -v gutsy-inference >/dev/null; then
+  anota "OK    gutsy (ya estaba)"
+else
+  nohup bash -c 'set -e; [ -d "$HOME/gutsy" ] || git clone -q https://github.com/kouhxp/gutsy "$HOME/gutsy"
+    cd "$HOME/gutsy/gutsy-inference"
+    pip install -q --disable-pip-version-check "llama-cpp-python>=0.3.35" --only-binary=:all: --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+    pip install -q --disable-pip-version-check -e . huggingface_hub
+    hf download kouhxp/gutsy gutsy-0.8b-v04-q4_k_m.gguf gutsy-0.8b-v04-q4_k_m.calibration.json --local-dir models
+    printf %s "{\"default\":\"gutsy-0.8b-v04-q4\",\"models\":{\"gutsy-0.8b-v04-q4\":{\"gguf\":\"models/gutsy-0.8b-v04-q4_k_m.gguf\",\"calibration\":\"models/gutsy-0.8b-v04-q4_k_m.calibration.json\",\"n_ctx\":8192,\"reject_slot\":true,\"cache_tol\":0.02}},\"n_threads\":null,\"n_gpu_layers\":0,\"cache_entries\":4,\"cache_mb\":512}" > models.json' >"$HERR/gutsy-install.log" 2>&1 &
+  anota "EN CURSO gutsy (segundo plano, ver $HERR/gutsy-install.log)"
+fi
 
 # ---------- 3. Node: generacion de PowerPoint fuera del repo ----------
 # Aislado en ~/.jfc-tools para no ensuciar el repo publico. NODE_PATH se exporta abajo.
