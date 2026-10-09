@@ -94,6 +94,8 @@
     #puerta,#pol,.nav-hub,.isla-caja,.top .tools,#buscar,#exp,#tabsel,.barra button,.cm-actions,#soporte{display:none !important}
     .top{position:static;border-bottom:2px solid #333;break-after:avoid}
     #cabecera,#tablero{display:block !important}
+    body:not([data-dashboard-auth="yes"]) #tablero{display:none !important}
+    body:not([data-dashboard-auth="yes"]) #cabecera{display:none !important}
     #tablero{padding:10px 0 0}
     .card,.cm-card,.kpi{box-shadow:none !important;break-inside:avoid}
     [data-vista]{break-inside:auto}
@@ -1696,6 +1698,8 @@
   window.OCDashComisiones = { pintarConDatos: function (d) { datos = d || datos; pintarComisiones(); try { aplicarRuta("comisiones", { sinTabla: true }); } catch (_) {} }, meses: cmMeses };
 
   function mostrar() {
+    if (!autorizado) return;
+    document.body.setAttribute("data-dashboard-auth", "yes");
     $("puerta").style.display = "none";
     $("cabecera").style.display = "block";
     $("tablero").style.display = "block";
@@ -2464,11 +2468,13 @@
      Never use a disconnected demo state as authority and never merge half
      of one snapshot into another snapshot. */
   async function leerEstadoLocalActual() {
+    var identidadAlLeer = codigoLocalActivo();
     var visible = leerEstadoLocal();
     try {
       if (!localStorage.getItem("f123_owned") && !localStorage.getItem("f123_tienda_activa")) return visible;
       if (!window.OCEstadoIDB || typeof window.OCEstadoIDB.leer !== "function") return visible;
       var espejo = await window.OCEstadoIDB.leer();
+      if (codigoLocalActivo() !== identidadAlLeer) return null;
       if (!espejo || !Array.isArray(espejo.productos) || !Number.isSafeInteger(espejo._rev)) return visible;
       var visibleRev = visible && Number.isSafeInteger(visible._rev) ? visible._rev : -1;
       return espejo._rev > visibleRev ? espejo : visible;
@@ -2767,10 +2773,32 @@
      ------------------------------------------------------------------------ */
   /* Authenticated notebook identity: never compare against an undeclared global. */
   var codigoSesionActual = "";
+  var _sesionLocal = false;
+  function bloquearSesionSiCambioTienda() {
+    if (!autorizado || !_sesionLocal) return false;
+    if (codigoLocalActivo() === codigoSesionActual) return false;
+    autorizado = false;
+    _sesionLocal = false;
+    codigoSesionActual = "";
+    fotoToken = "";
+    clearTimeout(_repintarVivoT);
+    clearTimeout(fotoTimer);
+    clearTimeout(reconexionTimer);
+    try { if (ws) { ws.onclose = null; ws.close(); } } catch (_) {}
+    ws = null;
+    $("tablero").style.display = "none";
+    $("cabecera").style.display = "none";
+    $("puerta").style.display = "flex";
+    $("entrar").disabled = false;
+    $("msg").textContent = "El cuaderno activo cambió. Ingresa nuevamente con el PIN de este negocio.";
+    document.body.classList.remove("hub-on");
+    document.body.removeAttribute("data-dashboard-auth");
+    return true;
+  }
   function pintarDesdeLocal(estadoOpcional) {
     try {
       var codeHere = codigoLocalActivo();
-      if (codigoSesionActual && codeHere && codigoSesionActual !== codeHere) return false;
+      if (codigoSesionActual && codigoSesionActual !== codeHere) return false;
       var e = estadoOpcional || leerEstadoLocal();
       if (!e) return false;
       e = sinDemoSiHayLicencia(e);
@@ -2829,34 +2857,39 @@
      pinta nada. Si no hay cuaderno en este dispositivo (se ve el negocio por el relay) no hay nada que releer. */
   var _repintarVivoT = null;
   var _ultimaRevRepintada = -1;
-  async function refrescarLocal() {
-    if (!autorizado) return false;
+  async function refrescarLocal(forzar) {
+    if (!autorizado || bloquearSesionSiCambioTienda()) return false;
     var actual = await leerEstadoLocalActual();
-    if (!autorizado || !actual) return false;
+    if (!autorizado || bloquearSesionSiCambioTienda() || !actual) return false;
     var rev = Number.isSafeInteger(actual._rev) ? actual._rev : -1;
-    if (rev >= 0 && rev === _ultimaRevRepintada) return false;
+    if (rev >= 0 && rev < _ultimaRevRepintada) return false;
+    if (!forzar && rev >= 0 && rev === _ultimaRevRepintada) return false;
     if (pintarDesdeLocal(actual)) { _ultimaRevRepintada = rev; return true; }
     return false;
   }
   function repintarVivo() {
     if (!autorizado) return;
     clearTimeout(_repintarVivoT);
-    _repintarVivoT = setTimeout(function () { refrescarLocal().catch(function () {}); }, 50);
+    _repintarVivoT = setTimeout(function () { refrescarLocal(true).catch(function () {}); }, 50);
   }
   /* Storage events are instant for normal writes. The IDB mirror has no
      cross-tab event of its own, so reconcile while visible and on focus. */
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden || !autorizado) return;
+    if (document.hidden || !autorizado || bloquearSesionSiCambioTienda()) return;
     repintarVivo();
     if (ws && ws.readyState === 1 && fotoToken) pedirFoto();
   });
-  window.addEventListener("pageshow", function () { if (autorizado) repintarVivo(); });
+  window.addEventListener("pageshow", function () { if (autorizado && !bloquearSesionSiCambioTienda()) repintarVivo(); });
   setInterval(function () {
-    if (!autorizado || document.hidden) return;
-    refrescarLocal().catch(function () {});
+    if (!autorizado || document.hidden || bloquearSesionSiCambioTienda()) return;
+    refrescarLocal(false).catch(function () {});
     if (ws && ws.readyState === 1 && fotoToken) pedirFoto();
   }, 20000);
   window.addEventListener("storage", function (ev) {
+    if (ev && (ev.key === "f123_tienda_activa" || ev.key === "f123_owned" ||
+      String(ev.key || "").endsWith("::f123_tienda_activa") || String(ev.key || "").endsWith("::f123_owned"))) {
+      if (bloquearSesionSiCambioTienda()) return;
+    }
     /* key == null: alguien llamo a clear(). Con clave: solo las del cuaderno (sin importar prefijo ni sufijo). */
     if (!ev || ev.key == null || String(ev.key).indexOf("f123_estado_v4") >= 0 || String(ev.key).indexOf("f123_admins_pins") >= 0) repintarVivo();
   });
@@ -3005,6 +3038,7 @@
       }
       if (vale === true) {
         autorizado = true;
+        _sesionLocal = true;
         codigoSesionActual = c;
         recordarLicencia(c);   /* una hora, para no reteclearla */
         $("pin").value = "";
@@ -3048,6 +3082,7 @@
         return;
       }
       autorizado = true;
+      _sesionLocal = false;
       codigoSesionActual = c;
       fotoToken = (v.datos && v.datos.fotoToken) || "";
       recordarLicencia(c);   /* una hora, para no reteclearla */
@@ -3088,18 +3123,18 @@
     ordenar("GET", "/api/directorio", null).then(function (r) {
       if (!r.ok || !r.datos || !r.datos.directorio) {
         el.innerHTML = '<p style="font-size:14px;color:#2C3E50;margin:8px 0;">' +
-          ((r.datos && r.datos.error) || "No se pudo leer el directorio. ¿La app está abierta en tu dispositivo?") + "</p>";
+          esc((r.datos && r.datos.error) || "No se pudo leer el directorio. ¿La app está abierta en tu dispositivo?") + "</p>";
         return;
       }
       var d = r.datos.directorio;
       var filas = [];
       var fila = function (rol, pin, persona) {
-        var nombre = (persona && persona.nombre) ? persona.nombre : '<span style="color:#A8123A;">sin nombre</span>';
-        var correo = (persona && persona.correo) ? persona.correo : "";
-        var notas = (persona && persona.notas) ? persona.notas : "";
+        var nombre = (persona && persona.nombre) ? esc(persona.nombre) : '<span style="color:#A8123A;">sin nombre</span>';
+        var correo = (persona && persona.correo) ? esc(persona.correo) : "";
+        var notas = (persona && persona.notas) ? esc(persona.notas) : "";
         return '<div style="padding:8px 0;border-bottom:1px solid #E3EAF0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">' +
           '<span style="font-weight:700;min-width:110px;">' + rol + '</span>' +
-          '<code style="font-family:monospace;letter-spacing:.08em;color:#2C4A68;">' + (pin || "—") + '</code>' +
+          '<code style="font-family:monospace;letter-spacing:.08em;color:#2C4A68;">' + esc(pin || "—") + '</code>' +
           '<span style="flex:1;min-width:160px;">' + nombre + (correo ? ' <span style="color:#2C3E50;font-size:12px;">· ' + correo + "</span>" : "") + "</span>" +
           (notas ? '<span style="color:#2C3E50;font-size:12px;width:100%;">' + notas + "</span>" : "") +
           "</div>";
