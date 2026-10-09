@@ -85,6 +85,22 @@
   .top .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .top img{height:30px;width:auto;display:block;flex-shrink:0}
   .top .neg{font-family:var(--font-display);font-size:clamp(16px,2vw,20px);font-weight:700}
+  .top .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .top .tools button{background:#fff;border:2px solid var(--hairline);border-radius:10px;min-height:42px;padding:8px 12px;font:700 14px var(--font-body);cursor:pointer}
+  .top .tools button:focus-visible{outline:3px solid var(--rust);outline-offset:2px}
+  @media print{
+    @page{size:auto;margin:14mm}
+    body,html{background:#fff !important;color:#111 !important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    #puerta,#pol,.nav-hub,.isla-caja,.top .tools,#buscar,#exp,#tabsel,.barra button,.cm-actions,#soporte{display:none !important}
+    .top{position:static;border-bottom:2px solid #333;break-after:avoid}
+    #cabecera,#tablero{display:block !important}
+    #tablero{padding:10px 0 0}
+    .card,.cm-card,.kpi{box-shadow:none !important;break-inside:avoid}
+    [data-vista]{break-inside:auto}
+    table{width:100%;border-collapse:collapse}
+    tr{break-inside:avoid}
+    a[href]:after{content:none !important}
+  }
   .pulso{
     margin-left:auto;display:flex;align-items:center;gap:8px;
     font-family:var(--font-mono);font-size:13px;font-weight:700;
@@ -440,6 +456,10 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
+    <div class="tools" aria-label="Report tools">
+      <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
+      <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
+    </div>
     <span class="pulso"><span class="punto" id="punto"></span><span id="pulso-txt">conectando…</span></span>
   </div>
 </header>
@@ -659,6 +679,7 @@
 <script src="./core/sales-audit.js"></script>
 <script src="./sales-audit-ui.js"></script>
 <script src="./core/demo-huellas.js"></script>
+<script src="./estado-idb.js"></script>
 <script src="./canarios.js"></script>
 <script src="./salud-app.js"></script>
 <script>
@@ -755,6 +776,22 @@
     var h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("amigable-sala:" + codigo));
     return Array.from(new Uint8Array(h)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("").slice(0, 40);
   }
+  /* The app intentionally isolates ONE historical license in a clean relay room.
+     Preserve the precise room policy; the encryption key remains based on the
+     unmodified normalized license. No license is embedded or logged here.
+     Mirror of the cyrb53 guard in docs/sync-realtime.js (read-only client). */
+  function salaCompatible(codigo) {
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (var i = 0, ch; i < codigo.length; i++) {
+      ch = codigo.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0) === 6583453063440131
+      ? codigo + "::limpio-2026-09-16" : codigo;
+  }
   async function cifrar(obj) {
     var iv = crypto.getRandomValues(new Uint8Array(12));
     var buf = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, clave, new TextEncoder().encode(JSON.stringify(obj)));
@@ -847,7 +884,7 @@
        distintas y el equipo nunca entiende por que no ve nada. */
     codigo = String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
     clave = await derivarClave(codigo);
-    var sala = await idDeSala(codigo);
+    var sala = await idDeSala(salaCompatible(codigo));
     ws = new WebSocket(RELAY_URL + sala);
     ws.binaryType = "arraybuffer";
     /* onopen NO pide la foto: primero hay que pasar el PIN. Pedirla antes
@@ -2422,6 +2459,32 @@
     return null;
   }
 
+  /* Read the complete IndexedDB mirror when localStorage hit its quota.
+     Read-only; same active shop namespace and monotonic _rev as the app.
+     Never use a disconnected demo state as authority and never merge half
+     of one snapshot into another snapshot. */
+  async function leerEstadoLocalActual() {
+    var visible = leerEstadoLocal();
+    try {
+      if (!localStorage.getItem("f123_owned") && !localStorage.getItem("f123_tienda_activa")) return visible;
+      if (!window.OCEstadoIDB || typeof window.OCEstadoIDB.leer !== "function") return visible;
+      var espejo = await window.OCEstadoIDB.leer();
+      if (!espejo || !Array.isArray(espejo.productos) || !Number.isSafeInteger(espejo._rev)) return visible;
+      var visibleRev = visible && Number.isSafeInteger(visible._rev) ? visible._rev : -1;
+      return espejo._rev > visibleRev ? espejo : visible;
+    } catch (_) { return visible; }
+  }
+  /* Local notebook identity is the active joined shop, NOT the text field.
+     A locally verified PIN must never grant access to a different code. */
+  function codigoLocalActivo() {
+    try {
+      var suf = localStorage.getItem("f123_tienda_activa") || "";
+      if (suf.indexOf("::") === 0) return normalizarCodigo(suf.slice(2));
+      var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      return normalizarCodigo(owned.licenseCode || owned.syncCode || "");
+    } catch (_) { return ""; }
+  }
+
   /* Arma la misma forma que llega por el relay, para que el resto del tablero
      no sepa ni le importe de donde vinieron los datos. */
   /* Mes LOCAL del negocio (zona de f123_timezone o la del navegador), con el desfase de reloj de la venta: la misma
@@ -2702,9 +2765,11 @@
      disponible), no hay ninguna razon para que las pestanias salgan vacias.
      Devuelve true si de verdad pinto algo.
      ------------------------------------------------------------------------ */
-  function pintarDesdeLocal() {
+  function pintarDesdeLocal(estadoOpcional) {
     try {
-      var e = leerEstadoLocal();
+      var codeHere = codigoLocalActivo();
+      if (codigoSesionActual && codeHere && codigoSesionActual !== codeHere) return false;
+      var e = estadoOpcional || leerEstadoLocal();
       if (!e) return false;
       e = sinDemoSiHayLicencia(e);
       var d = datosDesdeLocal(e);
@@ -2761,13 +2826,34 @@
      juntar la rafaga de escrituras (buffer A/B + puntero + sello). La puerta del PIN NO se toca: sin `autorizado` no se
      pinta nada. Si no hay cuaderno en este dispositivo (se ve el negocio por el relay) no hay nada que releer. */
   var _repintarVivoT = null;
+  var _ultimaRevRepintada = -1;
+  async function refrescarLocal() {
+    if (!autorizado) return false;
+    var actual = await leerEstadoLocalActual();
+    if (!autorizado || !actual) return false;
+    var rev = Number.isSafeInteger(actual._rev) ? actual._rev : -1;
+    if (rev >= 0 && rev === _ultimaRevRepintada) return false;
+    if (pintarDesdeLocal(actual)) { _ultimaRevRepintada = rev; return true; }
+    return false;
+  }
   function repintarVivo() {
     if (!autorizado) return;
     clearTimeout(_repintarVivoT);
-    _repintarVivoT = setTimeout(function () {
-      try { if (autorizado && leerEstadoLocal()) pintarDesdeLocal(); } catch (_) {}
-    }, 50);
+    _repintarVivoT = setTimeout(function () { refrescarLocal().catch(function () {}); }, 50);
   }
+  /* Storage events are instant for normal writes. The IDB mirror has no
+     cross-tab event of its own, so reconcile while visible and on focus. */
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden || !autorizado) return;
+    repintarVivo();
+    if (ws && ws.readyState === 1 && fotoToken) pedirFoto();
+  });
+  window.addEventListener("pageshow", function () { if (autorizado) repintarVivo(); });
+  setInterval(function () {
+    if (!autorizado || document.hidden) return;
+    refrescarLocal().catch(function () {});
+    if (ws && ws.readyState === 1 && fotoToken) pedirFoto();
+  }, 20000);
   window.addEventListener("storage", function (ev) {
     /* key == null: alguien llamo a clear(). Con clave: solo las del cuaderno (sin importar prefijo ni sufijo). */
     if (!ev || ev.key == null || String(ev.key).indexOf("f123_estado_v4") >= 0 || String(ev.key).indexOf("f123_admins_pins") >= 0) repintarVivo();
@@ -2857,11 +2943,18 @@
 
   /* ------------------------------------------------------------- arranque */
   function normalizarCodigo(c) {
-    return String(c || "").toUpperCase().replace(/[^A-Z0-9*~$=-]/g, "");
+    var v = String(c || "").trim().toUpperCase().replace(/\s+/g, "");
+    if (v.indexOf("TEAM-") === 0) v = "F123-" + v.slice(5);
+    return v.replace(/[IL]/g, "1").replace(/O/g, "0").replace(/[^A-Z0-9*~$=-]/g, "");
   }
   $("entrar").addEventListener("click", async function () {
-    var local = leerEstadoLocal();
+    var local = await leerEstadoLocalActual();
     var c = normalizarCodigo($("codigo").value);
+    var localCode = codigoLocalActivo();
+    /* A user may deliberately enter a DIFFERENT license. In that case
+       do not authorize with the PIN of the notebook stored in this browser. */
+    if (local && c && localCode && c !== localCode) local = null;
+    else if (local && localCode) c = localCode;
     var cuerpo = c.replace(/^F123-/, "").replace(/-/g, "");
     /* La licencia se exige SIEMPRE, en todos los dispositivos por igual (JFC,
        2026-08-15). Lo unico que cambia entre un telefono y una computadora es
@@ -2913,12 +3006,13 @@
         recordarLicencia(c);   /* una hora, para no reteclearla */
         $("pin").value = "";
         try {
-          if (!pintarDesdeLocal()) throw new Error("estado local vacio");
+          if (!pintarDesdeLocal(local)) throw new Error("estado local vacio");
+          _ultimaRevRepintada = Number.isSafeInteger(local._rev) ? local._rev : -1;
         } catch (err) {
           /* Si armar los datos locales falla, se sigue al relay en vez de
              dejar la pantalla en blanco. */
           $("msg").textContent = "Conectando con tus dispositivos…";
-          try { await conectar(c); var remotoOk = await verificarPin(pin); if (remotoOk.ok) { fotoToken = (remotoOk.datos && remotoOk.datos.fotoToken) || ""; pedirFoto(); } sinNadie(); } catch (_) {}
+          try { if (!c) throw new Error("no active license"); await conectar(c); var remotoOk = await verificarPin(pin); if (remotoOk.ok) { fotoToken = (remotoOk.datos && remotoOk.datos.fotoToken) || ""; pedirFoto(); } sinNadie(); } catch (_) {}
           $("entrar").disabled = false;
           return;
         }
@@ -2927,7 +3021,7 @@
            falla, el tablero ya esta lleno: no se avisa de nada. */
         /* La conexion se levanta DESPUES y en segundo plano: si falla, el
            tablero ya esta lleno con los datos de aqui y no hay nada que avisar. */
-        conectar(c).then(function () { return verificarPin(pin); }).then(function (r) { if (r.ok) { fotoToken = (r.datos && r.datos.fotoToken) || ""; pedirFoto(); } }).catch(function () {});
+        if (c) conectar(c).then(function () { return verificarPin(pin); }).then(function (r) { if (r.ok) { fotoToken = (r.datos && r.datos.fotoToken) || ""; pedirFoto(); } }).catch(function () {});
         return;
       }
       /* vale === null: no se pudo juzgar aqui (secreto no disponible). Se cae
@@ -2958,7 +3052,10 @@
          pinta ya mismo en vez de esperar a que alguien de la sala conteste.
          Antes, si nadie contestaba, la duenia se quedaba mirando las pestanias
          vacias sentada delante del computador donde estan todos sus datos. */
-      pintarDesdeLocal();
+      if (!local || !localCode || c === localCode) {
+        var ultimaLocal = await leerEstadoLocalActual();
+        if (ultimaLocal && pintarDesdeLocal(ultimaLocal)) _ultimaRevRepintada = Number.isSafeInteger(ultimaLocal._rev) ? ultimaLocal._rev : -1;
+      }
       pulso("pidiendo tu negocio...");
       pedirFoto();
       cargarAcceso();
@@ -3042,6 +3139,15 @@
   try { bindSoporte(); } catch (_) {}
   /* Si ya se entró antes de bindear, cargar igual. */
   try { if (autorizado) cargarAcceso(); } catch (_) {}
+  $("refrescar-tablero").addEventListener("click", function () {
+    if (!autorizado) return;
+    repintarVivo();
+    if (ws && ws.readyState === 1 && fotoToken) pedirFoto();
+    else pulso("local snapshot · no remote device connected", "viejo");
+  });
+  $("imprimir-tablero").addEventListener("click", function () {
+    if (autorizado) window.print();
+  });
   $("codigo").addEventListener("keydown", function (e) { if (e.key === "Enter") $("entrar").click(); });
 
   /* ------------------------------------------------ LOS GUIONES LOS PONE LA APP
