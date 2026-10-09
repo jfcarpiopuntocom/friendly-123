@@ -2774,6 +2774,8 @@
   /* Authenticated notebook identity: never compare against an undeclared global. */
   var codigoSesionActual = "";
   var _sesionLocal = false;
+  /* Invalidates older finance-IDB reads whenever a new local view is painted. */
+  var _generacionPinturaLocal = 0;
   function bloquearSesionSiCambioTienda() {
     if (!autorizado || !_sesionLocal) return false;
     if (codigoLocalActivo() === codigoSesionActual) return false;
@@ -2815,7 +2817,11 @@
         gastosMensuales: Object.values(e.gastosMensuales || {}).reduce(function (a, v) { return a + (Number(v) || 0); }, 0) };
       datos.movimientos = e.movimientos || [];
       datos.promotoras = e.promotoras || [];
+      /* No previous shop / revision finance facts may survive until IDB replies. */
+      datos.hechosFinancieros = [];
       var fotoLocalRef = datos;
+      var generacionFoto = ++_generacionPinturaLocal;
+      var licenciaFoto = codigoSesionActual;
       try {
         var req = indexedDB.open("f123_hechos_db");
         req.onsuccess = function () {
@@ -2823,7 +2829,11 @@
           if (!db.objectStoreNames.contains("hechos")) { db.close(); return; }
           var q = db.transaction("hechos", "readonly").objectStore("hechos").getAll();
           q.onsuccess = function () {
-            if (datos !== fotoLocalRef) { db.close(); return; }
+            if (!autorizado || datos !== fotoLocalRef ||
+                _generacionPinturaLocal !== generacionFoto ||
+                codigoSesionActual !== licenciaFoto || codigoLocalActivo() !== codeHere) {
+              db.close(); return;
+            }
             datos.hechosFinancieros = (q.result || []).filter(function (h) { return /^(cartera_|caja_chica_)/.test(h.tipo || ""); });
             db.close(); mostrar();
           };
