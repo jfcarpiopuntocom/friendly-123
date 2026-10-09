@@ -1,8 +1,9 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const path=require('node:path');
-const {pathToFileURL}=require('node:url');
+const fs=require('node:fs');
 const {chromium,webkit}=require('playwright');
+const DOCS=path.resolve(__dirname,'../docs'),ORIGIN='http://localhost:18477';
 const api=(page,u,m='GET',b)=>page.evaluate(async({u,m,b})=>{
  const r=await fetch(u,{method:m,body:b?JSON.stringify(b):undefined});
  if(!r.ok)throw Error(await r.text());return r.json();
@@ -11,14 +12,23 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]])for(c
  test(`local dashboard preserves money review in product and rack views (${engineName}, ${mode})`,async()=>{
   const web=await engine.launch({headless:true});
   try{
-   const ctx=await web.newContext();
-   await ctx.route(u=>!/^(file|data|blob|about):/i.test(String(u)),r=>r.abort());
+   // file:// storage sharing is undefined. Use one real browser origin for
+   // app/dashboard; fulfill static files locally and block every external URL.
+   const ctx=await web.newContext({serviceWorkers:'block'});
+   await ctx.route('**/*',async route=>{
+    const url=new URL(route.request().url());
+    if(url.origin!==ORIGIN)return route.abort();
+    const file=path.resolve(DOCS,decodeURIComponent(url.pathname).slice(1));
+    if(!file.startsWith(DOCS+path.sep))return route.abort();
+    const type={'.html':'text/html','.js':'application/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.woff2':'font/woff2'}[path.extname(file)]||'application/octet-stream';
+    try{await route.fulfill({status:200,contentType:type,body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}
+   });
    await ctx.addInitScript(()=>{
     window.WebSocket=class{constructor(){this.readyState=3}send(){}close(){}addEventListener(){}removeEventListener(){}};
     localStorage.setItem('f123::f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-DASHBOARD-ONLY',instanceId:'synthetic-dashboard-device',nombreNegocio:'Synthetic money review'}));
    });
    const app=await ctx.newPage();
-   await app.goto(pathToFileURL(path.resolve(__dirname,'../docs/index.html')).href,{waitUntil:'load'});
+   await app.goto(ORIGIN+'/index.html',{waitUntil:'load'});
    await app.evaluate(async()=>{
     OCAuth.rolActual=()=> 'dueno';localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-DASHBOARD-ONLY',nombreNegocio:'Synthetic money review'}));
     await OCSecure.guardarSecreto('789',['260'],'357','');
@@ -45,7 +55,15 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]])for(c
    else assert.match(await card.innerText(),/\$10\.00 \/ \$20\.00|\$20\.00 \/ \$10\.00/);
    const saleRows=await api(app,'/api/ventas/todas');
    assert.equal(saleRows.find(v=>v.productoId===product.id).comisionPendiente,mode==='conflict'?40:-20,'all summaries use verified receipts and retain excess cents');
-   const dash=await ctx.newPage();await dash.goto(pathToFileURL(path.resolve(__dirname,'../docs/dashboard.html')).href+'#/comisiones',{waitUntil:'load'});
+   const dash=await ctx.newPage();await dash.goto(ORIGIN+'/dashboard.html#/comisiones',{waitUntil:'load'});
+   const prepared=await dash.evaluate(productId=>{
+    const base='f123_estado_v4'+(localStorage.getItem('f123_tienda_activa')||'');
+    const ptr=localStorage.getItem(base+'_ptr')||'B';
+    const state=JSON.parse(localStorage.getItem(base+'_'+ptr)||'null');
+    const receipts=(state?.payouts||[]).concat((state?.payoutConflicts||[]).flatMap(conflict=>conflict.records||[]));
+    return {ownsNotebook:!!localStorage.getItem('f123_owned'),localStateReady:!!state,productPresent:!!state?.productos?.some(p=>p.id===productId),receiptEvidence:new Set(receipts.map(receipt=>receipt.id)).size};
+   },product.id);
+   assert.deepEqual(prepared,{ownsNotebook:true,localStateReady:true,productPresent:true,receiptEvidence:2},'same-origin dashboard must read the durable fixture before attempting login');
    await dash.locator('#pin').fill('789');await dash.locator('#entrar').click();
    try {
     await dash.waitForFunction(()=>getComputedStyle(document.getElementById('tablero')).display!=='none');
