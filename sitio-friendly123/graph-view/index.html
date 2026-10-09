@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- GRAPH VIEW publico (Claude, JFC 2026-10-07): friendly123.com/graph-view/. Dos grafos 3D generados por
+     build.mjs desde docs/ del mismo commit (graph-view/extraer.mjs): arriba toda la app, abajo el dinero.
+     Decision de JFC: SIN lista de riesgos ni duplicados en esta version publica (eso va al panel lord).
+     Reglas iOS/WhatsApp de JFC: color-scheme light only + colores solidos con !important en el texto. -->
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#0B1426">
+<title>friendly-123 · Graph view</title>
+<meta name="description" content="See how friendly-123 is built: every screen, module and money function of the app, in 3D, generated from the code itself.">
+<link rel="canonical" href="https://friendly123.com/graph-view/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="friendly-123 · Graph view">
+<meta property="og:description" content="Every screen, module and money function of friendly-123, in 3D, generated from the code itself.">
+<meta property="og:url" content="https://friendly123.com/graph-view/">
+<meta property="og:image" content="https://friendly123.com/og-friendly123.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@800&family=Jost:wght@400;600&family=Space+Mono:wght@700&display=swap">
+<style>
+/* Layout: two stacked 3D stages (app, then money), each with its own legend and a detail card under it. */
+:root{color-scheme:light only;forced-color-adjust:none;
+  --bg:#0B1426;--stage:#060E1D;--line:#2A4672;--ink:#FFFFFF;--ink2:#E4ECF7;
+  --green:#2EE58A;--gold:#F2B33D;--orange:#FF9A3D;--red:#FF5A5A;--blue:#8CBFFF;--cyan:#3DE0F5;--white:#FFFFFF;
+  --display:'Barlow Condensed','Arial Narrow',Arial,sans-serif;--body:Jost,'Segoe UI',Arial,sans-serif;--mono:'Space Mono',Consolas,monospace}
+html,body{background:#0B1426!important;margin:0}
+body{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;font:17px/1.55 var(--body);padding:0 16px 40px}
+h1,h2,p,li,a,span,strong,b,button,small,label{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}
+.wrap{max-width:1180px;margin:0 auto}
+header{padding-block:28px 8px}
+.brand{font:700 14px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+h1{font:800 clamp(34px,6vw,64px)/.95 var(--display);text-transform:uppercase;margin:10px 0 12px;text-wrap:balance}
+h2{font:800 clamp(26px,4vw,38px)/1 var(--display);text-transform:uppercase;margin:0;text-wrap:balance}
+.lead{max-width:62ch;margin:0;color:#E4ECF7!important;-webkit-text-fill-color:#E4ECF7!important}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:18px}
+.lang{display:flex;gap:6px}
+button{font:600 14px var(--body);min-height:44px;padding:6px 14px;border-radius:99px;border:1px solid var(--line);background:#0B1426;cursor:pointer}
+button[aria-pressed="true"]{background:#FFFFFF;color:#0B1426!important;-webkit-text-fill-color:#0B1426!important}
+.facts{display:flex;flex-wrap:wrap;gap:8px 18px;font:700 13px var(--mono)}
+section.g{margin-top:34px;display:flex;flex-direction:column;gap:12px}
+.stage{position:relative;height:68vh;min-height:420px;border-radius:10px;overflow:hidden;background:var(--stage);border:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font:600 14px var(--body)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#0E1A33;min-height:56px}
+.card b{font:800 22px var(--display)}
+.card p{margin:4px 0 0;font-size:15px;color:#E4ECF7!important;-webkit-text-fill-color:#E4ECF7!important;word-break:break-word}
+.hint{position:absolute;left:12px;bottom:10px;font:700 12px var(--mono);background:#060E1D;padding:6px 10px;border-radius:4px;border:1px solid var(--line)}
+footer{margin-top:34px;font-size:14px}
+footer a{text-underline-offset:3px}
+button:focus-visible,a:focus-visible{outline:2px solid #3DE0F5;outline-offset:2px}
+/* La libreria 3D trae una ayuda de 10px ("Left-click: rotate..."); regla de JFC: nada bajo 12px. Va oculta. */
+.scene-nav-info{display:none!important}
+@media (prefers-color-scheme:dark){html,body{background:#0B1426!important}body,h1,h2,p,li,a,span,strong,b,small,label{color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}.lead,.card p{color:#E4ECF7!important;-webkit-text-fill-color:#E4ECF7!important}button[aria-pressed="true"]{color:#0B1426!important;-webkit-text-fill-color:#0B1426!important}}
+@media (max-width:640px){.stage{height:60vh;min-height:360px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand">friendly-123 · Made In Cuenca</div>
+  <h1 data-en="How friendly-123 is built" data-es="Así está construida friendly-123">How friendly-123 is built</h1>
+  <p class="lead" data-en="Every point is a real piece of the app, read straight from its code. Drag to turn it, scroll or pinch to zoom, tap a point to see what it is." data-es="Cada punto es una pieza real de la app, leída directo de su código. Arrastra para girarla, usa la rueda o pellizca para acercar, toca un punto para ver qué es.">Every point is a real piece of the app, read straight from its code.</p>
+  <div class="bar">
+    <div class="facts" id="facts"></div>
+    <div class="lang" role="group" aria-label="Language"><button type="button" data-l="en" aria-pressed="true">EN</button><button type="button" data-l="es" aria-pressed="false">ES</button></div>
+  </div>
+</header>
+
+<section class="g" aria-labelledby="t-app">
+  <h2 id="t-app" data-en="The whole app" data-es="Toda la app">The whole app</h2>
+  <p class="lead" data-en="Gold spheres are the screens you use. The other points are the modules behind them; a line means one calls the other." data-es="Las esferas doradas son las pantallas que usas. Los demás puntos son los módulos detrás de ellas; una línea significa que uno llama al otro.">Gold spheres are the screens you use.</p>
+  <div class="stage" id="gApp"><div class="hint" data-en="Tap a point" data-es="Toca un punto">Tap a point</div></div>
+  <div class="legend" id="lApp"></div>
+  <div class="card" id="cApp"><p data-en="Tap a screen or a module to see what it connects to." data-es="Toca una pantalla o un módulo para ver con qué se conecta.">Tap a screen or a module.</p></div>
+</section>
+
+<section class="g" aria-labelledby="t-money">
+  <h2 id="t-money" data-en="Everything that touches money" data-es="Todo lo que toca dinero">Everything that touches money</h2>
+  <p class="lead" data-en="Sales, commissions, payouts, voids, holds and cash. White points are automated tests that check those functions on every change." data-es="Ventas, comisiones, pagos, anulaciones, retenciones y caja. Los puntos blancos son pruebas automáticas que revisan esas funciones en cada cambio.">Sales, commissions, payouts, voids, holds and cash.</p>
+  <div class="stage" id="gMoney"><div class="hint" data-en="Tap a point" data-es="Toca un punto">Tap a point</div></div>
+  <div class="legend" id="lMoney"></div>
+  <div class="card" id="cMoney"><p data-en="Tap a point to see its screen and the tests that check it." data-es="Toca un punto para ver su pantalla y las pruebas que lo revisan.">Tap a point.</p></div>
+</section>
+
+<footer>
+  <p id="gen"></p>
+  <p><a href="/" data-en="Back to friendly-123" data-es="Volver a friendly-123">Back to friendly-123</a> · <a href="/app/" data-en="Open the demo" data-es="Abrir la demo">Open the demo</a></p>
+</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.73.4/dist/3d-force-graph.min.js" integrity="sha384-GNPicn8pBA2/PGSyPTpxIlPurgLUYcNYJ2zskIq782dE9+gp5E32WSyuxZqA7J+u" crossorigin="anonymous"></script>
+<script>
+/* Graph view (JFC 2026-10-07). Data: ./data.json, written by build.mjs. If WebGL or the library fails,
+   the page still reads (texts + facts); the stage shows a plain message instead of a blank box. */
+(function(){
+var lang='en';try{var s=localStorage.getItem('f123_gv_lang');if(s==='es'||s==='en')lang=s;else if((navigator.language||'').slice(0,2)==='es')lang='es'}catch(_){}
+var COL={screen:'#F2B33D',core:'#2EE58A',backend:'#3DE0F5',ui:'#8CBFFF',dashboard:'#FF9A3D',sync:'#FF5A5A',js:'#C9DDFF',app:'#2EE58A',test:'#FFFFFF'};
+var NAMES={en:{screen:'Screens',core:'Money core',backend:'Data engine',ui:'App screens code',dashboard:'Big-screen dashboard',sync:'Saving and sync',js:'Other modules',test:'Automated tests'},
+           es:{screen:'Pantallas',core:'Núcleo de dinero',backend:'Motor de datos',ui:'Código de pantallas',dashboard:'Dashboard grande',sync:'Guardado y sync',js:'Otros módulos',test:'Pruebas automáticas'}};
+var SCREEN={en:{'vista-hoy':'Today','vista-inventario':'Inventory','vista-escanear':'Scan','vista-etiquetas':'Labels','vista-perchas':'Racks','vista-clientes':'Customers','vista-comisiones':'Commissions','vista-gastos':'Expenses','vista-avanzado':'Advanced',dashboard:'Dashboard'},
+            es:{'vista-hoy':'Hoy','vista-inventario':'Inventario','vista-escanear':'Escanear','vista-etiquetas':'Etiquetas','vista-perchas':'Perchas','vista-clientes':'Clientes','vista-comisiones':'Comisiones','vista-gastos':'Gastos','vista-avanzado':'Avanzado',dashboard:'Dashboard'}};
+var T={en:{fns:'functions read',mods:'modules',scr:'screens',money:'money functions',tests:'tests',gen:'Generated from the app code at commit ',calls:'Connects to',screens:'Used on',checked:'Checked by',none:'none',nogl:'This device cannot draw 3D graphics. The numbers above still describe the app.'},
+       es:{fns:'funciones leídas',mods:'módulos',scr:'pantallas',money:'funciones de dinero',tests:'pruebas',gen:'Generado desde el código de la app en el commit ',calls:'Se conecta con',screens:'Se usa en',checked:'Lo revisan',none:'ninguna',nogl:'Este aparato no puede dibujar gráficos 3D. Los números de arriba igual describen la app.'}};
+var D=null,G={};
+function esc(x){return String(x).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function label(n){return n.kind==='screen'?(SCREEN[lang][n.id]||n.name):n.name}
+function paint(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-'+lang+']').forEach(function(e){e.textContent=e.getAttribute('data-'+lang)});
+  document.querySelectorAll('.lang button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.l===lang))});
+  if(!D)return;var t=T[lang],s=D.stats;
+  document.getElementById('facts').innerHTML=[[s.functions.toLocaleString(lang),t.fns],[s.modules,t.mods],[s.screens,t.scr],[s.moneyFunctions,t.money],[s.tests,t.tests]].map(function(x){return '<span>'+x[0]+' '+x[1]+'</span>'}).join('');
+  document.getElementById('gen').textContent=t.gen+D.commit+' · '+new Date(D.generated).toLocaleDateString(lang);
+  legend('lApp',D.app.nodes);legend('lMoney',D.money.nodes);
+}
+function legend(id,nodes){var ls={};nodes.forEach(function(n){ls[n.layer]=1});document.getElementById(id).innerHTML=Object.keys(ls).map(function(l){return '<span><i style="background:'+COL[l]+'"></i>'+NAMES[lang][l]+'</span>'}).join('')}
+function card(id,n,data){
+  var t=T[lang],out=[],inn=[],links=data.links;
+  links.forEach(function(l){var a=l.source.id||l.source,b=l.target.id||l.target;if(a===n.id)out.push(b);if(b===n.id)inn.push(a)});
+  var byId={};data.nodes.forEach(function(x){byId[x.id]=x});
+  var rel=out.concat(inn).filter(function(v,i,a){return a.indexOf(v)===i}).map(function(i){return byId[i]}).filter(Boolean);
+  var scr=rel.filter(function(x){return x.kind==='screen'}).map(label),tst=rel.filter(function(x){return x.kind==='test'}).map(label),oth=rel.filter(function(x){return x.kind!=='screen'&&x.kind!=='test'}).map(label);
+  var h='<b>'+esc(label(n))+'</b>';
+  if(n.file)h+='<p>'+esc(n.file.replace('docs/',''))+(n.line?' · '+(lang==='es'?'línea ':'line ')+n.line:'')+'</p>';
+  if(n.kind!=='screen')h+='<p><strong>'+t.screens+':</strong> '+(scr.length?esc(scr.join(', ')):t.none)+'</p>';
+  h+='<p><strong>'+t.calls+':</strong> '+(oth.length?esc(oth.slice(0,18).join(', '))+(oth.length>18?' …':''):t.none)+'</p>';
+  if(id==='cMoney'&&n.kind==='fn'&&tst.length)h+='<p><strong>'+t.checked+':</strong> '+esc(tst.join(', '))+'</p>';
+  document.getElementById(id).innerHTML=h;
+}
+function stage(elId,cardId,data,size){
+  var el=document.getElementById(elId);
+  if(typeof ForceGraph3D!=='function'){el.innerHTML='<p style="padding:16px">'+T[lang].nogl+'</p>';return}
+  /* Grado de cada nodo: el encuadre ignora modulos sin conexiones, que flotan lejos y achicaban todo. */
+  var deg={};data.links.forEach(function(l){deg[l.source.id||l.source]=(deg[l.source.id||l.source]||0)+1;deg[l.target.id||l.target]=(deg[l.target.id||l.target]||0)+1});
+  try{
+    var g=ForceGraph3D({controlType:'orbit'})(el).backgroundColor('#060E1D').graphData(data)
+      .showNavInfo(false).cooldownTicks(120).onEngineStop(function(){if(!g._fit){g._fit=1;g.zoomToFit(700,20,function(n){return deg[n.id]>0})}})
+      .nodeVal(size).nodeColor(function(n){return COL[n.layer]||'#FFFFFF'}).nodeOpacity(.95)
+      .nodeLabel(function(n){return '<div style="font:600 14px Jost,Arial;color:#FFFFFF;background:#060E1D;padding:6px 9px;border:1px solid #2A4672;border-radius:4px">'+esc(label(n))+'</div>'})
+      .linkColor(function(l){return l.kind==='screen'?'#F2B33D':l.kind==='covers'?'#FFFFFF':'#6F93C9'}).linkOpacity(.45)
+      .linkWidth(function(l){return l.w>8?1.2:0})
+      .onNodeClick(function(n){card(cardId,n,data);var r=1+80/Math.hypot(n.x||1,n.y||1,n.z||1);g.cameraPosition({x:n.x*r,y:n.y*r,z:n.z*r},n,800)});
+    if(!matchMedia('(prefers-reduced-motion:reduce)').matches)g.linkDirectionalParticles(function(l){return l.kind==='calls'&&(l.w||1)>4?2:0}).linkDirectionalParticleColor(function(){return '#2EE58A'});
+    /* Encuadre de respaldo: en telefonos lentos el motor tarda en asentarse y onEngineStop llega tarde. */
+    setTimeout(function(){if(!g._fit){g._fit=1;g.zoomToFit(700,20,function(n){return deg[n.id]>0})}},4000);
+    var fit=function(){g.width(el.clientWidth).height(el.clientHeight)};fit();addEventListener('resize',fit);
+    G[elId]=g;
+  }catch(e){el.innerHTML='<p style="padding:16px">'+T[lang].nogl+'</p>'}
+}
+document.querySelector('.lang').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;lang=b.dataset.l;try{localStorage.setItem('f123_gv_lang',lang)}catch(_){}paint()});
+paint();
+fetch('./data.json',{cache:'no-cache'}).then(function(r){return r.json()}).then(function(d){
+  D=d;paint();
+  stage('gApp','cApp',d.app,function(n){return n.kind==='screen'?16:Math.max(1.5,Math.sqrt(n.fns||1)*1.4)});
+  stage('gMoney','cMoney',d.money,function(n){return n.kind==='screen'?14:n.kind==='test'?1.2:n.money===3?4:n.money===2?2.5:1.5});
+}).catch(function(){document.getElementById('facts').textContent=''});
+})();
+</script>
+</body>
+</html>
