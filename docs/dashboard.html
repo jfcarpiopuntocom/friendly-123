@@ -1087,7 +1087,7 @@
       cols: [
         /* LAPICITO (JFC 2026-09-10, #6): editar una venta ya asentada — corregir
            el precio/cantidad para cuadrar la ganancia real (lo que pide Belén).
-           El dashboard NO edita dinero: abre la app en su editor probado por
+           El dashboard delega al editor probado dentro de un embed, por
            deep-link (#editar=venta:<id>), solo dueño/admin. Las liquidadas van
            bloqueadas (no se tocan). */
         { title: "", field: "id", width: 48, hozAlign: "center", headerSort: false, download: false,
@@ -1095,7 +1095,7 @@
             var v = c.getRow().getData();
             if (v.liquidada) return '<span title="Liquidada — bloqueada">·</span>';
             return '<a href="index.html#editar=venta:' + encodeURIComponent(v.id) +
-              '" title="Corregir esta venta (precio, cantidad) en la app" ' +
+              '" title="Corregir esta venta (precio, cantidad) aquí" ' +
               'style="text-decoration:none;font-size:17px;font-weight:700;color:var(--azul-medio,#2c4a68);">✎</a>';
           } },
         { title: "Date", field: "fecha", width: 155, cssClass: "num",
@@ -1171,13 +1171,13 @@
       cols: [
         /* #2 (JFC 2026-09-11): editar la comisión de la percha desde el dashboard.
            Aditivo: el lápiz solo aparece si la fila trae ubicacionId; si no, no se
-           pinta y no rompe nada. Abre la app en su editor probado por deep-link. */
+           pinta y no rompe nada. Abre el editor probado en un embed por deep-link. */
         { title: "", field: "ubicacionId", width: 44, hozAlign: "center", headerSort: false, download: false,
           formatter: function (c) {
             var id = c.getValue();
             if (!id) return "";
             return '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(id) +
-              '" title="Ajustar la comisión de esta percha en la app" ' +
+              '" title="Ajustar la comisión de esta percha aquí" ' +
               'style="text-decoration:none;font-size:17px;font-weight:700;color:var(--azul-medio,#2c4a68);">✎</a>';
           } },
         { title: "Who gets paid", field: "quien", minWidth: 170, widthGrow: 2 },
@@ -2780,6 +2780,7 @@
     if (!autorizado || !_sesionLocal) return false;
     if (codigoLocalActivo() === codigoSesionActual) return false;
     autorizado = false;
+    if (typeof cerrarEditorDashboard === 'function') cerrarEditorDashboard();
     _sesionLocal = false;
     codigoSesionActual = "";
     fotoToken = "";
@@ -2985,6 +2986,46 @@
     });
     calcular();
   })();
+
+  /* JFC 2026-10-09: edits stay in this dashboard. The same-origin frame uses
+     the existing authenticated editors and ledger; no PIN is copied or sent
+     through the URL, and the parent never becomes the app. */
+  var editorDialog = null, editorTrigger = null;
+  function cerrarEditorDashboard() {
+    if (!editorDialog) return;
+    var frame = editorDialog.querySelector('iframe');
+    try { if (frame && frame.contentWindow.OCAuth) frame.contentWindow.OCAuth.salir(); } catch (_) {}
+    editorDialog.close();
+    editorDialog.remove(); editorDialog = null;
+    if (editorTrigger && editorTrigger.isConnected) editorTrigger.focus();
+    editorTrigger = null;
+    if (autorizado) repintarVivo();
+  }
+  document.addEventListener('click', function (event) {
+    var link = event.target.closest && event.target.closest('a[href]');
+    if (!link) return;
+    var url; try { url = new URL(link.getAttribute('href'), location.href); } catch (_) { return; }
+    var ownIndex = new URL('index.html', location.href);
+    if (url.origin !== ownIndex.origin || url.pathname !== ownIndex.pathname ||
+        !/^#editar=(?:venta|producto|comisionpercha|comisionproducto|comisiones):[^&]+(?:&mes=\d{4}-\d{2})?$/.test(url.hash)) return;
+    event.preventDefault();
+    if (!autorizado || editorDialog) return;
+    editorTrigger = link;
+    var es = localStorage.getItem('f123_lang') === 'es';
+    editorDialog = document.createElement('dialog'); editorDialog.id = 'dashboard-editor';
+    editorDialog.setAttribute('aria-labelledby', 'dashboard-editor-title');
+    var bar = document.createElement('header'), title = document.createElement('h2'), close = document.createElement('button');
+    title.id = 'dashboard-editor-title'; title.textContent = es ? 'Editar en el dashboard' : 'Edit in dashboard';
+    close.id = 'dashboard-editor-close'; close.type = 'button'; close.textContent = es ? 'Volver al dashboard' : 'Back to dashboard';
+    close.addEventListener('click', cerrarEditorDashboard); bar.append(title, close);
+    var frame = document.createElement('iframe'); frame.title = es ? 'Editor de Friendly' : 'Friendly editor';
+    frame.src = url.href; editorDialog.append(bar, frame); document.body.appendChild(editorDialog);
+    editorDialog.addEventListener('cancel', function (e) { e.preventDefault(); cerrarEditorDashboard(); });
+    editorDialog.showModal(); close.focus();
+  });
+  var editorStyle = document.createElement('style');
+  editorStyle.textContent = '#dashboard-editor{width:min(1200px,100vw);height:94dvh;max-width:100vw;max-height:100dvh;margin:auto;padding:0;border:2px solid #1C3049;background:#FFFFFF;color:#1C3049;box-sizing:border-box}#dashboard-editor[open]{display:flex;flex-direction:column}#dashboard-editor::backdrop{background:#1C3049cc}#dashboard-editor header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px;background:#FFFFFF;border-bottom:2px solid #1C3049}#dashboard-editor h2{font-size:18px;color:#1C3049;margin:0}#dashboard-editor button{min-height:44px;padding:10px;border:2px solid #1C3049;border-radius:6px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;font-size:16px;font-weight:700;cursor:pointer}#dashboard-editor iframe{flex:1;width:100%;min-height:0;border:0;background:#FFFFFF}#dashboard-editor :focus-visible{outline:3px solid #E86040;outline-offset:2px}@media print{#dashboard-editor{display:none!important}}';
+  document.head.appendChild(editorStyle);
 
   /* ------------------------------------------------------------- arranque */
   function normalizarCodigo(c) {

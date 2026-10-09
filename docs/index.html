@@ -9717,7 +9717,7 @@ async function procesarDeepLinkEditar() {
   var tipo = m[1].toLowerCase(), id = decodeURIComponent(m[2]);
   // El enlace de producto conserva su alcance mientras el teclado espera login.
   // oc-login reintenta; consumirlo antes dejaría al admin sin la ficha elegida.
-  if (tipo === "comisionproducto" && (!window.OCAuth || !window.OCAuth.rolActual())) return;
+  if ((tipo === "comisionproducto" || window.parent !== window) && (!window.OCAuth || !window.OCAuth.rolActual())) return;
   var _mesEditarM = _hashEditar.match(/[&?]mes=(\d{4}-(?:0[1-9]|1[0-2]))(?:&|$)/i);
   var _mesEditar = _mesEditarM ? _mesEditarM[1] : "";
   try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}

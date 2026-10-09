@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v480: relevo de sesión entre pestañas, actualización local inmediata y recomendaciones desde la sesión cerrada; conserva el dashboard v479.",
+  "changelog": "v481: pagos y correcciones en un embed del dashboard, sin salir del reporte; conserva permisos, ledger y mejoras de v479/v480.",
   "requerida": false,
-  "shell": "f123-shell-v480",
+  "shell": "f123-shell-v481",
   "apagar": [],
-  "releaseName": "v480",
-  "cacheGeneration": "golden44"
+  "releaseName": "v481",
+  "cacheGeneration": "golden45"
 }

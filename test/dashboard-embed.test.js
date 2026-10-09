@@ -1,0 +1,49 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {chromium,webkit}=require('playwright');
+const DOCS=path.resolve(__dirname,'../docs'),ORIGIN='http://localhost:18481';
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) test(`dashboard embed (${name}): payment stays in dashboard, native admin PIN opens exact product, closing preserves report`,async()=>{
+ const browser=await engine.launch({headless:true});try{
+  const ctx=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
+  await ctx.route('**/*',async route=>{const url=new URL(route.request().url());if(url.origin!==ORIGIN)return route.abort();const file=path.resolve(DOCS,decodeURIComponent(url.pathname).slice(1));if(!file.startsWith(DOCS+path.sep))return route.abort();try{await route.fulfill({status:200,contentType:{'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css'}[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}});
+  await ctx.addInitScript(()=>{window.WebSocket=class{constructor(){this.readyState=3}send(){}close(){}addEventListener(){}removeEventListener(){}};});
+  const seed=await ctx.newPage();await seed.goto(ORIGIN+'/index.html',{waitUntil:'load'});await seed.waitForFunction(()=>window.OCSecure&&window.OCAuth);
+  const ids=await seed.evaluate(async()=>{
+   OCAuth.rolActual=()=> 'dueno';localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'F123-TEST-0000-0000-00000',instanceId:'synthetic-embed-device',nombreNegocio:'Synthetic embed'}));await OCSecure.guardarSecreto('789',['260'],'357','');
+   const req=async(u,m='GET',b)=>{const r=await fetch(u,{method:m,body:b?JSON.stringify(b):undefined});if(!r.ok)throw Error(await r.text());return r.json();};
+   await req('/api/usuarios','POST',{nombre:'Synthetic embed admin',pin:'555',rol:'admin'});
+   const person=await req('/api/promotoras','POST',{nombre:'Synthetic payee',comisionBase:40});const rack=await req('/api/ubicaciones','POST',{nombre:'Synthetic embed rack',tipo:'socio'});await req('/api/ubicaciones/'+rack.id,'PUT',{promotoraId:person.id});
+   const p=await req('/api/productos','POST',{nombre:'Synthetic embed cup',barcode:'EMBED-ONLY',precio:100,costo:20,stockInicial:2,ubicacionId:rack.id});await req('/api/productos/'+p.id+'/venta','POST',{cantidad:1});return {product:p.id,rack:rack.id};
+  });await seed.close();
+  const dash=await ctx.newPage();await dash.goto(ORIGIN+'/dashboard.html',{waitUntil:'load'});await dash.locator('#pin').fill('555');await dash.locator('#entrar').click();await dash.locator('#tablero').waitFor({state:'visible'});
+  await dash.locator('a[data-ruta="comisiones"]').click();await dash.locator('#cm a.pagar').first().waitFor({state:'visible'});
+  const parentURL=dash.url(),href=await dash.locator('#cm a.pagar').first().getAttribute('href');assert.match(href,new RegExp('comisionproducto:'+ids.product));
+  await dash.locator('#cm a.pagar').first().click();
+  assert.equal(dash.url(),parentURL,'the dashboard must never navigate to the app');assert.equal(ctx.pages().length,1,'no app tab opens');
+  await dash.locator('#dashboard-editor').waitFor({state:'visible'});
+  const frame=dash.frameLocator('#dashboard-editor iframe');await frame.locator('#oc-pad').waitFor({state:'visible'});
+  const embedded=dash.frames().find(f=>f.parentFrame());await embedded.waitForTimeout(1800);
+  assert.match(embedded.url(),/editar=comisionproducto:/,'route survives while waiting for native PIN');
+  for(const digit of ['9','9','9'])await frame.locator('#oc-pad').getByRole('button',{name:digit,exact:true}).click();
+  await embedded.waitForFunction(()=>document.getElementById('oc-msg').textContent.length>0);
+  assert.equal(await embedded.evaluate(()=>OCAuth.rolActual()),null,'the embed does not bypass PIN authorization');
+  for(const digit of ['5','5','5'])await frame.locator('#oc-pad').getByRole('button',{name:digit,exact:true}).click();
+  await embedded.waitForFunction(()=>window.OCAuth?.rolActual()==='admin');
+  await embedded.waitForFunction(()=>document.body.innerText.includes('Synthetic embed cup')&&document.querySelector('#vista-comisiones').classList.contains('activa'));
+  assert.equal(await embedded.evaluate(()=>_ocMesComisiones),href.split('&mes=')[1]);
+  await frame.locator('[data-ficha-pay]').first().click();await frame.locator('#oc-modal-botones button').filter({hasText:/Cash|Efectivo/}).click();
+  await frame.locator('#oc-prompt-input').fill('15.00');await frame.locator('#oc-modal-botones button').last().click();
+  await embedded.waitForFunction(()=>document.getElementById('oc-modal-msg').textContent.includes('25.00'));
+  await frame.locator('#oc-modal-botones button').first().click();
+  const money=await embedded.evaluate(async()=>{const rows=await (await fetch('/api/payouts')).json();return {count:rows.length,cents:rows[0]?.amountCents};});
+  assert.deepEqual(money,{count:1,cents:1500},'the embedded native editor writes one exact partial payment');
+  assert.equal(await dash.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'embed fits mobile viewport');
+  await dash.locator('#dashboard-editor-close').click();assert.equal(dash.url(),parentURL);assert.equal(await dash.locator('#dashboard-editor').isVisible(),false);assert.equal(await dash.locator('#dashboard-editor iframe').count(),0);
+  assert.equal(await dash.locator('#tablero').isVisible(),true);assert.match(await dash.locator('#cm').innerText(),/Synthetic embed cup/);
+  await dash.waitForFunction(()=>document.getElementById('cm').innerText.includes('25.00'));
+  await dash.locator('[data-cm-vista="percha"]').click();await dash.locator('#cm a.pagar').first().click();
+  assert.equal(dash.url(),parentURL);assert.match(await dash.locator('#dashboard-editor iframe').getAttribute('src'),/editar=comisiones:/);
+  await dash.evaluate(()=>localStorage.setItem('f123_tienda_activa','::F123-OTHER-SYNTHETIC'));
+  await dash.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'f123_tienda_activa'})));
+  await dash.locator('#dashboard-editor').waitFor({state:'detached'});assert.equal(await dash.locator('#tablero').isVisible(),false,'switching notebooks closes both report and embedded editor');
+ }finally{await browser.close();}
+});
