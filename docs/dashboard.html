@@ -2765,6 +2765,8 @@
      disponible), no hay ninguna razon para que las pestanias salgan vacias.
      Devuelve true si de verdad pinto algo.
      ------------------------------------------------------------------------ */
+  /* Authenticated notebook identity: never compare against an undeclared global. */
+  var codigoSesionActual = "";
   function pintarDesdeLocal(estadoOpcional) {
     try {
       var codeHere = codigoLocalActivo();
@@ -3003,6 +3005,7 @@
       }
       if (vale === true) {
         autorizado = true;
+        codigoSesionActual = c;
         recordarLicencia(c);   /* una hora, para no reteclearla */
         $("pin").value = "";
         try {
@@ -3045,6 +3048,7 @@
         return;
       }
       autorizado = true;
+      codigoSesionActual = c;
       fotoToken = (v.datos && v.datos.fotoToken) || "";
       recordarLicencia(c);   /* una hora, para no reteclearla */
       $("pin").value = "";
