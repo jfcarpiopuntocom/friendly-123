@@ -21,8 +21,12 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await first.waitForFunction(()=>!window.OCTabSession?.pending);
    await first.evaluate(()=>{navigator.locks.request('f123-escrituras',()=>new Promise(resolve=>{window.__releaseWriteLock=resolve;}));});
    await first.waitForFunction(()=>typeof __releaseWriteLock==='function');
-   const second=await ctx.newPage();await second.goto(ORIGIN+'/index.html',{waitUntil:'load'});await ownerLogin(second);
-   if(await second.evaluate(()=>!!window.OCTabSession))await second.waitForFunction(async()=>{const locks=await navigator.locks.query();return locks.pending.some(l=>l.name==='f123-escrituras');});
+   const second=await ctx.newPage();await second.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   // A startup API write can also be pending on this lock. Observe the actual
+   // session claim instead of mistaking any pending write for that claim.
+   await second.evaluate(()=>{const request=navigator.locks.request.bind(navigator.locks);navigator.locks.request=function(name,...args){const result=request(name,...args);if(name==='f123-escrituras'&&args.at(-1).name==='take')window.__handoffClaimQueued=true;return result;};});
+   await ownerLogin(second);
+   if(await second.evaluate(()=>!!window.OCTabSession))await second.waitForFunction(()=>window.__handoffClaimQueued===true);
    // This request waits behind the new session claim. A write already running
    // before that claim is allowed to finish; it must not be cancelled or lost.
    await first.evaluate(()=>{fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Queued forbidden rack',tipo:'propio'})}).then(r=>window.__queuedWriteStatus=r.status);});

@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v481: pagos y correcciones en un embed del dashboard, sin salir del reporte; conserva permisos, ledger y mejoras de v479/v480.",
+  "changelog": "v482: editor embebido del dashboard con límites de ancho; conserva permisos, ledger y mejoras de v479/v480.",
   "requerida": false,
-  "shell": "f123-shell-v481",
+  "shell": "f123-shell-v482",
   "apagar": [],
-  "releaseName": "v481",
-  "cacheGeneration": "golden45"
+  "releaseName": "v482",
+  "cacheGeneration": "golden46"
 }
