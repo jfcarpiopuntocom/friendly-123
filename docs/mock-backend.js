@@ -6478,6 +6478,7 @@
           delMesActual: esDelMesActual(v.fecha, v.relojDesfaseMs),
           // Shell 371: el mes local de la venta, para que Commissions filtre por el mes elegido.
           mes: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7) : "",
+          fechaLocal: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs) : "",
           ubicacionTipo: u ? (u.tipo || "propio") : "",
           // COUNTER SALE no se atribuye a la persona permanente de la percha:
           // el nombre acompaña solo a ventas que realmente tienen reparto.

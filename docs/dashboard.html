@@ -586,6 +586,7 @@
     <h2 style="font-size:19px;margin:0 0 8px;">Finance snapshot</h2>
     <div id="finanzas-foto-contenido" style="font-size:14px;line-height:1.5;">Waiting for a verified snapshot…</div>
   </section>
+  <section id="sales-audit" data-vista="hoy" class="card" style="margin:24px 0;padding:18px;"></section>
 
   <!-- AVANZADO, calcado (JFC 2026-08-15). La app del dia a dia mete todo esto
        en una columna de telefono; aqui hay pantalla de sobra para usarlo bien.
@@ -659,6 +660,8 @@
 <script src="./aislamiento.js"></script>
 <script src="./crypto-store.js"></script>
 <script src="./core/payout-ledger.js"></script>
+<script src="./core/sales-audit.js"></script>
+<script src="./sales-audit-ui.js"></script>
 <script src="./core/demo-huellas.js"></script>
 <script src="./canarios.js"></script>
 <script src="./salud-app.js"></script>
@@ -1620,8 +1623,9 @@
       var _idsPercha = Object.keys(g.ubicacionIds || {});
       var _perchaPago = cmVista === "percha" ? g.ubicacionId : (_idsPercha.length === 1 ? _idsPercha[0] : "");
       var acciones = "";
-      if (_perchaPago && g.pend > 0 && !moneyReview) {
-        acciones += '<div class="cm-actions"><a class="pagar" href="index.html#editar=comisiones:' + encodeURIComponent(_perchaPago) + '&mes=' + encodeURIComponent(cmMes || actual) + '">' + (function () { try { return localStorage.getItem("f123_lang") === "es" ? "Registrar pago total/parcial" : "Record full/partial payment"; } catch (_) { return "Record full/partial payment"; } })() + '</a>';
+      if ((cmVista === "producto" ? g.id : _perchaPago) && g.pend > 0 && !moneyReview) {
+        var _pagoDestino = cmVista === "producto" ? 'comisionproducto:' + encodeURIComponent(g.id) : 'comisiones:' + encodeURIComponent(_perchaPago);
+        acciones += '<div class="cm-actions"><a class="pagar" href="index.html#editar=' + _pagoDestino + '&mes=' + encodeURIComponent(cmMes || actual) + '">' + (function () { try { return localStorage.getItem("f123_lang") === "es" ? "Registrar pago total/parcial" : "Record full/partial payment"; } catch (_) { return "Record full/partial payment"; } })() + '</a>';
         if (cmVista === "percha") acciones += '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(_perchaPago) + '">Adjust the deal</a><button type="button" data-cm-recibo="' + esc(_perchaPago) + '">Receipt</button>';
         acciones += "</div>";
       } else if (cmVista === "percha" && _perchaPago) {
@@ -1675,6 +1679,7 @@
     }
     pintarLog();
     pintarFinanzasFoto();
+    pintarHistorialVentas();
     try { pintarHub(); actualizarIsla(); } catch (e) { console.warn("[dashboard] hub", e); }
   }
 
@@ -1853,6 +1858,12 @@
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isla.abierta) { islaAbrir(false); cab.focus(); } });
   })();
 
+  function pintarHistorialVentas() {
+    if (!window.OCSalesAuditUI) return;
+    window.OCSalesAuditUI.mount($("sales-audit"), datos.ventas || [], {lang:localStorage.getItem("f123_lang") || "en", timeZone:localStorage.getItem("f123_timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone});
+  }
+  // Read-only adapter used by refreshes and isolated evidence journeys.
+  window.OCDashSalesAudit = {pintarConDatos:function(d){datos=d || datos;pintarHistorialVentas();}};
   function pintarFinanzasFoto() {
     var el = $("finanzas-foto-contenido");
     if (!el) return;
@@ -1909,13 +1920,13 @@
     var leyenda = Object.keys(porDisp).sort(function (a, b) { return porDisp[b] - porDisp[a]; }).map(function (k) {
       return '<span style="display:inline-flex;align-items:center;gap:6px;margin:0 12px 6px 0;font-size:12px;color:#E6EDF3;">' +
         '<span style="width:11px;height:11px;border-radius:50%;background:' + colorDisp(k) + ';display:inline-block;"></span>' +
-        esc(k) + ' <span style="color:#9fb2c4;">(' + porDisp[k] + ')</span></span>';
+        esc(k) + ' <span style="color:#E6E6E6;">(' + porDisp[k] + ')</span></span>';
     }).join("");
     syncEl.innerHTML =
       '<div style="margin-bottom:8px;">store: <b>' + esc(neg || "—") + '</b> · foto: ' + esc(fotoEnCurso || "—") + ' · accesos: ' + accesos + '</div>' +
       (leyenda ? '<div style="margin-bottom:6px;">' + leyenda + '</div>' : "");
-    if (!filas.length) { tablaEl.innerHTML = '<tr><td style="padding:6px 0;color:#9fb2c4;">No activity yet.</td></tr>'; return; }
-    var html = '<tr style="text-align:left;color:#9fb2c4;font-size:12px;">' +
+    if (!filas.length) { tablaEl.innerHTML = '<tr><td style="padding:6px 0;color:#E6E6E6;">No activity yet.</td></tr>'; return; }
+    var html = '<tr style="text-align:left;color:#E6E6E6;font-size:12px;">' +
       "<th style=\"padding:4px 8px;\">Type</th><th style=\"padding:4px 8px;\">Detail</th>" +
       "<th style=\"padding:4px 8px;\">Who</th><th style=\"padding:4px 8px;\">Device</th><th style=\"padding:4px 8px;\">When</th></tr>";
     // JFC 2026-09-02: quién (usuario + rol) Y desde qué dispositivo (apodo) hizo
@@ -1933,13 +1944,13 @@
     };
     filas.forEach(function (m) {
       var cd = colorDisp(m.dispositivoApodo || "—");
-      var quien = esc(m.usuarioNombre || "—") + (m.usuarioRol ? ' <span style="color:#9fb2c4;">(' + esc(m.usuarioRol) + ")</span>" : "");
+      var quien = esc(m.usuarioNombre || "—") + (m.usuarioRol ? ' <span style="color:#E6E6E6;">(' + esc(m.usuarioRol) + ")</span>" : "");
       html += "<tr style=\"border-top:1px solid #2a3a4a;\">" +
         '<td style="padding:4px 8px;border-left:4px solid ' + cd + ';font-weight:700;color:' + colorTipo(m.tipo) + ';">' + esc(m.tipo || "—") + "</td>" +
         '<td style="padding:4px 8px;color:#E6EDF3;">' + esc(detalleTxt(m.detalle)) + "</td>" +
         '<td style="padding:4px 8px;color:#E6EDF3;">' + quien + "</td>" +
         '<td style="padding:4px 8px;color:#E6EDF3;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + cd + ';margin-right:6px;"></span>' + esc(m.dispositivoApodo || "—") + "</td>" +
-        '<td style="padding:4px 8px;color:#9fb2c4;">' + esc(m.fecha || "—") + "</td></tr>";
+        '<td style="padding:4px 8px;color:#E6E6E6;">' + esc(m.fecha || "—") + "</td></tr>";
     });
     tablaEl.innerHTML = html;
   }
@@ -2514,7 +2525,7 @@
       var pu = Number(v.precioUnit) || 0, cu = Number(v.costoUnit) || 0;
       if (fechaLocalDashboard(v.fecha, v.relojDesfaseMs) === hoy) { entra += pu * cant; sale += cu * cant; nHoy++; }
       return {
-        id: v.id, fecha: v.fecha, productoNombre: p.nombre || "(deleted product)",
+        id: v.id, productoId: v.productoId, fecha: v.fecha, fechaLocal: fechaLocalDashboard(v.fecha, v.relojDesfaseMs), productoNombre: p.nombre || "(deleted product)",
         sku: p.sku || "", categoria: p.categoria || "", cantidad: cant,
         precioUnit: pu, costoUnit: cu,
         clienteNombre: cli[v.clienteId] || "",
@@ -2526,6 +2537,7 @@
            exactamente el bug que ya nos costo un tablero en blanco. */
         tipoProducto: p.tipoProducto || "normal",
         eventoNombre: (v.info && v.info.nombreEvento) || "",
+        formaPago: (v.info && v.info.formaPago) || "",
         eventoFecha: (v.info && v.info.fechaEvento) || "",
         eventoPersonas: (v.info && v.info.numPersonas) || null,
         pagador: (v.info && v.info.nombrePagador) || "",

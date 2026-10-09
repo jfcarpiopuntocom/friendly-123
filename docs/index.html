@@ -115,6 +115,8 @@
 <script src="./invariantes.js"></script>
 <script src="./core/payout-ledger.js"></script>
 <script src="./core/ledger.js"></script>
+<script src="./core/sales-audit.js"></script>
+<script src="./sales-audit-ui.js"></script>
 <script src="./core/demo-huellas.js"></script>
 <script src="./mock-backend.js"></script>
 <script src="./red-segura.js"></script>
@@ -2013,6 +2015,7 @@
     <details id="ventasSold" class="tag-card" style="margin-top:18px;padding:14px 16px;">
       <summary style="font-size:17px;font-weight:700;cursor:pointer;color:var(--ink);" data-i18n="sold.logSummary">🧾 Sales log — edit or undo</summary>
       <p style="font-size:14px;color:var(--ink-soft);margin:6px 0 10px;" data-i18n="sold.logIntro">Everything already sold. Tap the pencil to fix a mistake, or ↶ to undo a sale. Every change is recorded with who did it and from which device.</p>
+      <div id="ventasSoldAudit" style="margin:12px 0;"></div>
       <div id="ventasSoldLista"></div>
     </details>
     <!-- CIERRE DEL DIA: conciliacion en un solo paso, cero trabajo en horario
@@ -7367,14 +7370,18 @@ async function confirmarVentaConInfo(id, esTicket){
 async function cargarVentasSold(){
   const cont = document.getElementById("ventasSoldLista");
   if (!cont) return;
+  const audit = document.getElementById("ventasSoldAudit");
+  if (audit) audit.innerHTML = ""; // A failed reload must not leave yesterday's totals visible.
   cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Loading…</p>';
   let rows = [];
   try { rows = await (await fetch(`${API}/ventas/todas?ubicacionId=${ubicacionActual}`)).json(); }
   catch (_) { cont.innerHTML = '<p style="color:var(--rojo-ink,#a3392a);font-size:14px;">Could not load sales.</p>'; return; }
   if (!Array.isArray(rows) || !rows.length) {
+    if (window.OCSalesAuditUI) window.OCSalesAuditUI.mount(audit, [], {lang:window.OCI18n && window.OCI18n.getLang()});
     cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">No sales recorded yet.</p>'; return;
   }
   rows.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  if (window.OCSalesAuditUI) window.OCSalesAuditUI.mount(document.getElementById("ventasSoldAudit"), rows, {lang:window.OCI18n && window.OCI18n.getLang()});
   // #8 (JFC 2026-09-02): editar/cancelar una venta asentada es solo dueño/admin
   // (el backend también lo exige). El encargado ve el registro, no lo altera.
   const _rolVS = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
@@ -8541,13 +8548,10 @@ function resumenComisionPorProductoHtml(prods, cuadre){
         ${d.counterUnid ? `<div><div class="rotulo"><em>${t("comm.productHouse")}</em></div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
         ${d.propiasUnid ? `<div><div class="rotulo">${t("comm.productOwn")}</div><div class="cifra">${fmtMoney(d.propiasMonto)} <small>${d.propiasUnid}u</small></div></div>` : ""}
       </div>
-      ${/* golden16 (JFC 2026-10-06, Belen): "By product / SKU" es la pestana por defecto y no tenia
-         boton de pago; solo "By rack" lo tenia. golden14 lo arreglo en dashboard.html, no en la app.
-         Igual que alla: aparece SOLO si todas las ventas del producto son de UNA percha, y NO paga
-         aqui: lleva a la tarjeta de esa percha en "By rack", donde vive el pago probado
-         (marcarComisionPagada). Asi no hay una ruta de dinero nueva ni se puede pagar otra percha. */
-        (d.pendSocio > 0 && !(d.moneyReview && d.moneyReview.length) && d.ubicacionIds && d.ubicacionIds.size === 1) ? `<div style="margin-top:10px;"><button type="button" class="ir"
-          data-comm-pay-from-product="${escHtml([...d.ubicacionIds][0])}"
+      ${/* JFC 2026-10-09: product payment must stay scoped to this product.
+         The existing sheet chooses person/rack and sends exact sale sourceIds. */
+        (d.pendSocio > 0 && !(d.moneyReview && d.moneyReview.length) && d.productoId) ? `<div style="margin-top:10px;"><button type="button" class="ir"
+          data-comm-pay-from-product="${escHtml([...d.ubicacionIds][0] || '')}" data-comm-pay-product="${escHtml(d.productoId)}"
           style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${t("comm.recordPartial")}</button></div>` : ""}
       ${(d.moneyReview || []).map(f=>`<div data-product-money-review style="margin-top:10px;border:2px solid #B0183E;padding:10px;font-size:14px;color:#19354B;">${escHtml(f.ubicacion)}: ${(f.payoutBalances || []).filter(p=>Number(p.overpaid)>0).map(p=>`${window.OCI18n && window.OCI18n.getLang()==='es' ? 'Exceso pagado' : 'Overpaid'}: ${fmtMoney(p.overpaid)} · ${window.OCI18n && window.OCI18n.getLang()==='es' ? 'Pagado registrado' : 'Recorded paid'}: ${fmtMoney(p.paid)}`).join(' · ')}${(f.paymentConflicts || []).map(c=>`<div>${c.records.map(p=>fmtMoney(Number(p.amountCents)/100)).join(' / ')}</div>`).join('')}</div>`).join('')}
       ${(d.candidatas || []).length ? `<details style="margin-top:8px;"><summary style="cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--azul-medio,#2c4a68);font-size:14px;">${window.tf("comm.reviewSales",{n:d.candidatas.length})}</summary>
@@ -9044,12 +9048,9 @@ async function cargarComisiones(){
     card.addEventListener("keydown", (e) => { if (e.target === card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abrir(); } });
   });
   cont.querySelectorAll("[data-review-commission]").forEach(btn => btn.addEventListener("click", () => revisarComisionVenta(btn.dataset.reviewCommission, btn.dataset.person)));
-  // golden16: el boton de pago de "By product" abre la percha en "By rack" (ahi se registra el pago).
+  // JFC 2026-10-09: reuse the product sheet, never expand payment to its rack.
   cont.querySelectorAll("[data-comm-pay-from-product]").forEach(btn => btn.addEventListener("click", () => {
-    const id = btn.dataset.commPayFromProduct;
-    cambiarVistaComisiones("rack");
-    const card = [...cont.querySelectorAll("[data-liq-ubic]")].find(c => c.dataset.liqUbic === id);
-    if (card) { card.scrollIntoView({ behavior: "smooth", block: "start" }); const pay = card.querySelector("[data-comm-pay-person]"); if (pay) pay.focus({ preventScroll: true }); }
+    abrirFichaProducto(btn.dataset.commPayProduct);
   }));
   cont.querySelectorAll("[data-comm-pay-person]").forEach(btn => btn.addEventListener("click", () => {
     marcarComisionPagada(btn.dataset.payRack, btn.dataset.payName, Number(btn.dataset.payDue), btn.dataset.commPayPerson);
@@ -9742,6 +9743,9 @@ async function procesarDeepLinkEditar() {
   var m = _hashEditar.match(/#editar=([a-z]+):([^&]+)/i);
   if (!m) return;
   var tipo = m[1].toLowerCase(), id = decodeURIComponent(m[2]);
+  // El enlace de producto conserva su alcance mientras el teclado espera login.
+  // oc-login reintenta; consumirlo antes dejaría al admin sin la ficha elegida.
+  if (tipo === "comisionproducto" && (!window.OCAuth || !window.OCAuth.rolActual())) return;
   var _mesEditarM = _hashEditar.match(/[&?]mes=(\d{4}-(?:0[1-9]|1[0-2]))(?:&|$)/i);
   var _mesEditar = _mesEditarM ? _mesEditarM[1] : "";
   try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
@@ -9787,6 +9791,12 @@ async function procesarDeepLinkEditar() {
     var navP = document.querySelector('nav button[data-vista="perchas"]');
     if (navP) navP.click();
     setTimeout(function () { try { if (typeof abrirEditorComisionPercha === "function") abrirEditorComisionPercha(id); } catch (_) {} }, 600);
+  } else if (tipo === "comisionproducto") {
+    if (_mesEditar) _ocMesComisiones = _mesEditar;
+    const nav = document.querySelector('nav button[data-vista="comisiones"]');
+    if (nav) nav.click();
+    cambiarVistaComisiones("product");
+    await abrirFichaProducto(id);
   } else if (tipo === "comisiones") {
     /* v448 GOLDEN hotfix 2026-10-04: el dashboard debe traer tambien el mes exacto
        que estaba viendo. Se fija ANTES de abrir Commissions para que todas sus

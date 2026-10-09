@@ -88,7 +88,7 @@ test('(a) every section the dashboard had is reachable from a tile and from the 
   const web = await chromium.launch({ headless: true });
   try {
     const ctx = await contexto(web);
-    const app = await abrirApp(ctx); await negocio(app);
+    const app = await abrirApp(ctx); const fixture = await negocio(app);
     const dash = await entrar(ctx, '789');
     assert.equal(await ruta(dash), 'inicio', 'el tablero abre en el inicio del hub');
     for (const t of ['hoy', 'comisiones', 'inventario', 'clientes', 'equipo', 'alertas', 'herramientas']) assert.ok(await visible(dash, `[data-tile="${t}"]`), 'tarjeta ' + t);
@@ -122,6 +122,9 @@ test('(a) every section the dashboard had is reachable from a tile and from the 
     await dash.click('[data-ruta="comisiones"]');
     await esperaRuta(dash, 'comisiones');
     assert.ok(await visible(dash, '#cm a.pagar'), 'Pay in the app visible en Commissions');
+    assert.equal(await dash.evaluate(() => document.querySelector('#cm a.pagar').getAttribute('href')), 'index.html#editar=comisionproducto:' + encodeURIComponent(fixture.prod.id) + '&mes=' + new Date().toISOString().slice(0, 7));
+    await dash.click('[data-cm-vista="percha"]');
+    assert.ok(await visible(dash, '#cm a.pagar'), 'grouped rack payment stays reachable');
     assert.match(await dash.evaluate(() => document.querySelector('#cm a.pagar').getAttribute('href')), /index\.html#editar=comisiones:/);
     /* Herramientas: la calculadora sigue calculando. */
     await dash.click('[data-ruta="herramientas"]');

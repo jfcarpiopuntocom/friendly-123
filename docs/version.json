@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-08",
-  "changelog": "v474: abonos durables sin duplicados, recibos visibles tras recarga, gastos confirmados solo tras guardar, sobrepagos visibles y comprobantes en conflicto conservados; paridad del dashboard y metadatos sin reenvíos cuando no cambian.",
+  "fecha": "2026-10-09",
+  "changelog": "v475: pago por producto sin cambiar a perchas; pago agrupado conservado; historial de ventas filtrable en Sold y Dashboard, con precios, fechas locales y efectivo separado de fiado y medios sin registrar.",
   "requerida": false,
-  "shell": "f123-shell-v474",
+  "shell": "f123-shell-v475",
   "apagar": [],
   "releaseName": "v1.0",
-  "cacheGeneration": "golden38"
+  "cacheGeneration": "golden39"
 }

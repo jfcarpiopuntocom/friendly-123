@@ -9,6 +9,29 @@ const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
 const fx = require('./helpers/dashboard-comisiones-fixture.cjs');
 
+test('product payment deep-link waits for login without consuming its product or month', async () => {
+  const web = await chromium.launch({ headless: true });
+  try {
+    const page = await web.newPage();
+    await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href, { waitUntil: 'load' });
+    const result = await page.evaluate(async () => {
+      window.OCAuth = { rolActual: () => null };
+      location.hash = '#editar=comisionproducto:p1&mes=2026-09';
+      await procesarDeepLinkEditar();
+      const waiting = location.hash;
+      let opened = '';
+      window.OCAuth = { rolActual: () => 'admin' };
+      abrirFichaProducto = async id => { opened = id; };
+      await procesarDeepLinkEditar();
+      return { waiting, opened, month: _ocMesComisiones, hash: location.hash };
+    });
+    assert.equal(result.waiting, '#editar=comisionproducto:p1&mes=2026-09');
+    assert.equal(result.opened, 'p1');
+    assert.equal(result.month, '2026-09');
+    assert.equal(result.hash, '');
+  } finally { await web.close(); }
+});
+
 test('RED v448: dashboard Pay in the app carries the selected commission month', async () => {
   const web = await chromium.launch({ headless: true });
   try {
@@ -49,7 +72,7 @@ test('RED v448: app commission deep-link restores its month before opening Commi
 });
 
 
-test('v448 GOLDEN golden14: product view also keeps Pay in the app when the product belongs to one rack', async () => {
+test('JFC 2026-10-09: product payment link preserves product scope and month', async () => {
   const web = await chromium.launch({ headless: true });
   try {
     const page = await web.newPage({ viewport: { width: 1280, height: 900 } });
@@ -60,13 +83,13 @@ test('v448 GOLDEN golden14: product view also keeps Pay in the app when the prod
       const card = [...document.querySelectorAll('#cm .cm-card')].find(el => /Mountain print/.test(el.textContent));
       return card?.querySelector('a.pagar')?.getAttribute('href') || '';
     }, fx.datos);
-    assert.equal(href, 'index.html#editar=comisiones:u1&mes=' + fx.mes);
+    assert.equal(href, 'index.html#editar=comisionproducto:p1&mes=' + fx.mes);
   } finally {
     await web.close();
   }
 });
 
-test('v448 GOLDEN golden14: product view does not offer one-rack payment when the same product spans multiple racks', async () => {
+test('JFC 2026-10-09: product spanning racks links to product selection, never an arbitrary rack', async () => {
   const web = await chromium.launch({ headless: true });
   try {
     const page = await web.newPage({ viewport: { width: 1280, height: 900 } });
@@ -80,9 +103,9 @@ test('v448 GOLDEN golden14: product view does not offer one-rack payment when th
       window.OCDashComisiones.pintarConDatos(clone);
       document.querySelector('[data-cm-vista="producto"]').click();
       const card = [...document.querySelectorAll('#cm .cm-card')].find(el => /Mountain print/.test(el.textContent));
-      return !!card?.querySelector('a.pagar');
+      return card?.querySelector('a.pagar')?.getAttribute('href');
     }, fx.datos);
-    assert.equal(hasPay, false);
+    assert.equal(hasPay, 'index.html#editar=comisionproducto:p1&mes=' + fx.mes);
   } finally {
     await web.close();
   }
