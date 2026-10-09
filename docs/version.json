@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v478: comisiones por producto o percha e historial de ventas; pestañas coordinadas por escritura, protección de datos en navegadores antiguos y dashboard local independiente con acceso admin.",
+  "changelog": "v479: dashboard de solo lectura con PIN reales, refresco seguro de ventas e inventario, aislamiento de licencias, impresión de reportes y protección frente a cambios de cuaderno; sin modificar el motor contable.",
   "requerida": false,
-  "shell": "f123-shell-v478",
+  "shell": "f123-shell-v479",
   "apagar": [],
   "releaseName": "v1.0",
-  "cacheGeneration": "golden42"
+  "cacheGeneration": "golden43"
 }
