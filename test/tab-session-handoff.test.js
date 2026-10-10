@@ -24,9 +24,10 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    const second=await ctx.newPage();await second.goto(ORIGIN+'/index.html',{waitUntil:'load'});
    // A startup API write can also be pending on this lock. Observe the actual
    // session claim instead of mistaking any pending write for that claim.
-   await second.evaluate(()=>{const request=navigator.locks.request.bind(navigator.locks);navigator.locks.request=function(name,...args){const result=request(name,...args);if(name==='f123-escrituras'&&args.at(-1).name==='take')window.__handoffClaimQueued=true;return result;};});
+   await second.evaluate(()=>{const request=navigator.locks.request.bind(navigator.locks);window.__lockCalls=[];window.__observedLockRequest=function(name,...args){const result=request(name,...args);window.__lockCalls.push({lock:name,callback:args.at(-1).name});if(name==='f123-escrituras'&&args.at(-1).name==='take')window.__handoffClaimQueued=true;return result;};navigator.locks.request=window.__observedLockRequest;});
+   assert.equal(await second.evaluate(()=>navigator.locks.request===window.__observedLockRequest),true,'the test must actually observe the browser lock requests');
    await ownerLogin(second);
-   if(await second.evaluate(()=>!!window.OCTabSession))await second.waitForFunction(()=>window.__handoffClaimQueued===true);
+   if(await second.evaluate(()=>!!window.OCTabSession))await second.waitForFunction(()=>window.__handoffClaimQueued===true).catch(async error=>{error.message+=' Claim diagnostics: '+JSON.stringify(await second.evaluate(()=>({requests:window.__lockCalls,pending:OCTabSession.pending,epoch:window.OC_AUTH_SESSION_EPOCH,role:OCAuth.rolActual(),leases:Object.keys(localStorage).filter(k=>k.includes('auth_tab_lease')).length})));throw error;});
    // This request waits behind the new session claim. A write already running
    // before that claim is allowed to finish; it must not be cancelled or lost.
    await first.evaluate(()=>{fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Queued forbidden rack',tipo:'propio'})}).then(r=>window.__queuedWriteStatus=r.status);});

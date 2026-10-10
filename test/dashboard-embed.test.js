@@ -36,7 +36,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) test(`dash
   await frame.locator('#oc-modal-botones button').first().click();
   const money=await embedded.evaluate(async()=>{const rows=await (await fetch('/api/payouts')).json();return {count:rows.length,cents:rows[0]?.amountCents};});
   assert.deepEqual(money,{count:1,cents:1500},'the embedded native editor writes one exact partial payment');
-  const layout=await dash.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,dialog:document.getElementById('dashboard-editor').getBoundingClientRect().toJSON()}));
+  const layout=await dash.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,dialog:document.getElementById('dashboard-editor').getBoundingClientRect().toJSON(),outside:[...document.querySelectorAll('body *')].map(el=>({el,r:el.getBoundingClientRect()})).filter(({el,r})=>r.width>0&&r.right>innerWidth+1).slice(0,30).map(({el,r})=>({tag:el.tagName,id:el.id,cls:String(el.className),right:r.right,width:r.width,overflow:getComputedStyle(el).overflowX,text:el.textContent.slice(0,60)}))}));
   assert.ok(layout.scrollWidth<=layout.width+1,'embed fits mobile viewport: '+JSON.stringify(layout));
   await dash.locator('#dashboard-editor-close').click();assert.equal(dash.url(),parentURL);assert.equal(await dash.locator('#dashboard-editor').isVisible(),false);assert.equal(await dash.locator('#dashboard-editor iframe').count(),0);
   assert.equal(await dash.locator('#tablero').isVisible(),true);assert.match(await dash.locator('#cm').innerText(),/Synthetic embed cup/);
