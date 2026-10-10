@@ -54,6 +54,9 @@ jobs:
             [ "$AC" = "push" ] || return 1
             echo "$ID" | grep -Eq '^[a-z0-9]{4,20}$' || return 1
             [ $(( $(date +%s) * 1000 - AT )) -le 86400000 ] || return 1
+            # An emergency PUSH belongs to the canary window in which it was pressed.
+            # A failed older PUSH must never bypass the 33-minute gate of a new shell.
+            if [ "$AT" -lt "${PUSH_DESDE:-0}" ]; then echo "PUSH anterior a este candidato: ignorado"; return 1; fi
             git fetch -q --tags origin || true
             git rev-parse -q --verify "refs/tags/sonar-$ID" >/dev/null && return 1
             ORDEN_ID="$ID"; return 0
@@ -90,6 +93,7 @@ jobs:
           }
           # Tiempo desde el push, no desde el final de QA ni desde el inicio del runner.
           INICIO=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at) || exit 1
+          PUSH_DESDE=$(( $(date -d "$INICIO" +%s) * 1000 ))
           FIN=$(( $(date -d "$INICIO" +%s) + 33 * 60 ))
           while [ "$(date +%s)" -lt "$FIN" ]; do
             if pushPedido; then

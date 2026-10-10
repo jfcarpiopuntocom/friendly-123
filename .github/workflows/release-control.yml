@@ -30,6 +30,8 @@ jobs:
         run: node scripts/release-control.cjs validate "${BASE_SHA:-HEAD^}"
       - name: Parse operational UI
         run: node .claude/check-inline.cjs docs/index.html
+      - name: Fast-fail mobile dashboard payments in Chromium and WebKit
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/dashboard-embed.test.js
       - name: Full regression suite including browser and financial contracts
         run: npm test
       - name: Artifact integrity
