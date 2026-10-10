@@ -18,3 +18,9 @@ test('Sonar cannot replay an earlier PUSH against a newer master commit', () => 
   assert.match(yml, /\[ "\$AT" -lt "\$MASTER_COMMIT_MS" \]/);
   assert.match(yml, /if \[ "\$ACCION" = "push" \]/);
 });
+
+test('automatic promotion requires exact public canary proof', () => {
+  const yml = workflow('promover.yml');
+  assert.match(yml, /node scripts\/release-control\.cjs published "\$GITHUB_SHA"/);
+  assert.match(yml, /CANARIO SIN PRUEBA PUBLICA DEL SHA EXACTO/);
+});
