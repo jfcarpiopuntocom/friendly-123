@@ -10,7 +10,10 @@
  };
  function copy(){return strings[window.OCI18n&&OCI18n.getLang()==='en'?'en':'es'];}
  function lease(){try{return JSON.parse(localStorage.getItem(scopeKey)||'null');}catch(_){return null;}}
- function current(){if(pending)return false;if(!claimed)return true;var l=lease();return !!l&&l.owner===id;}
+ // A new authenticated tab announces intent before waiting on Web Locks.
+ // Queued writes from the former owner are fenced; in-flight writes can finish.
+ function pendingClaim(){try{var p=JSON.parse(localStorage.getItem(scopeKey+'_claim')||'null');var age=Date.now()-Number(p&&p.at);return !!(p&&p.owner!==id&&age>=0&&age<120000);}catch(_){return false;}}
+ function current(){if(pending)return false;if(!claimed)return true;var l=lease();return !!l&&l.owner===id&&!pendingClaim();}
  function epoch(){window.OC_AUTH_SESSION_EPOCH=(window.OC_AUTH_SESSION_EPOCH||0)+1;}
  function clearPanel(){var gate=document.getElementById('oc-gate');if(gate)delete gate.dataset.tabHandoff;document.getElementById('oc-tab-handoff')?.remove();}
  function render(){
@@ -49,9 +52,20 @@
    var digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(notebook));
    if(claimEpoch!==window.OC_AUTH_SESSION_EPOCH || !OCAuth.rolActual())return;
    scopeKey='f123_auth_tab_lease_'+Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
-   function take(){if(claimEpoch!==window.OC_AUTH_SESSION_EPOCH || !OCAuth.rolActual())return;localStorage.setItem(scopeKey,JSON.stringify({owner:id}));claimed=true;pending=false;try{channel?.postMessage({key:scopeKey});}catch(_){}check();}
-   // Session handoff waits for a write already executing to finish. A queued
-   // old-session write behind this claim is fenced by the authoritative lease.
+   // Fence queued old-tab writes BEFORE waiting. The actual lease remains
+   // with the old owner until its currently executing write finishes.
+   var claimKey=scopeKey+'_claim';
+   localStorage.setItem(claimKey,JSON.stringify({owner:id,at:Date.now()}));
+   function take(){
+    if(claimEpoch!==window.OC_AUTH_SESSION_EPOCH || !OCAuth.rolActual())return;
+    var intent;try{intent=JSON.parse(localStorage.getItem(claimKey)||'null');}catch(_){}
+    if(!intent||intent.owner!==id){claimed=true;pending=false;check();return;}
+    localStorage.setItem(scopeKey,JSON.stringify({owner:id}));
+    if((JSON.parse(localStorage.getItem(claimKey)||'null')||{}).owner===id)localStorage.removeItem(claimKey);
+    claimed=true;pending=false;try{channel?.postMessage({key:scopeKey});}catch(_){}check();
+   }
+   // WebKit can schedule a queued write ahead of take(): it still observes
+   // pendingClaim(). This lock remains the single write serializer.
    if(navigator.locks&&navigator.locks.request)await navigator.locks.request('f123-escrituras',take);else take();
   }catch(_){/* A failed lease never pretends the prior session was closed. */}
   finally{if(claimEpoch===window.OC_AUTH_SESSION_EPOCH)pending=false;}

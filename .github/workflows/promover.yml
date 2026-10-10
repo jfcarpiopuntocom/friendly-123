@@ -105,6 +105,12 @@ jobs:
           done
           if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
           if ! hayTestigo; then echo "SIN TESTIGO CANARIO: no se promueve" >&2; echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # A live Lord heartbeat is insufficient if Pages serves a different commit.
+          # Prove the EXACT candidate SHA at the public /next/ endpoint before moving estable.
+          if ! node scripts/release-control.cjs published "$GITHUB_SHA"; then
+            echo "CANARIO SIN PRUEBA PUBLICA DEL SHA EXACTO: no se promueve" >&2
+            echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
           echo "promover=si" >> "$GITHUB_OUTPUT"
       - name: Mover ramas (previo <- estable, estable <- este commit)
         if: steps.v.outputs.promover == 'si'

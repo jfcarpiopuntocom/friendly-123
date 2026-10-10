@@ -35,6 +35,10 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.equal(await second.evaluate(()=>navigator.locks.request===window.__observedLockRequest),true,'the test must actually observe the browser lock requests');
    await ownerLogin(second);
    if(await second.evaluate(()=>!!window.OCTabSession))await second.waitForFunction(()=>window.__handoffClaimQueued===true).catch(async error=>{error.message+=' Claim diagnostics: '+JSON.stringify(await second.evaluate(()=>({requests:window.__lockCalls,pending:OCTabSession.pending,epoch:window.OC_AUTH_SESSION_EPOCH,role:OCAuth.rolActual(),leases:Object.keys(localStorage).filter(k=>k.includes('auth_tab_lease')).length})));throw error;});
+   // The old session must be fenced as soon as takeover is queued. This
+   // assertion accepts either an early intent marker or a completed takeover.
+   const preHandoff=await first.evaluate(()=>({current:OCTabSession.isCurrent(),leases:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k.includes('auth_tab_lease')).map(k=>({key:k,value:localStorage.getItem(k)}))}));
+   assert.equal(preHandoff.current,false,'old-tab mutation authorization must be revoked before its queued write: '+JSON.stringify(preHandoff));
    // This request waits behind the new session claim. A write already running
    // before that claim is allowed to finish; it must not be cancelled or lost.
    await first.evaluate(()=>{fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Queued forbidden rack',tipo:'propio'})}).then(r=>window.__queuedWriteStatus=r.status);});
