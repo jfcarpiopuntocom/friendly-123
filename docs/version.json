@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v486: el selector de Commissions se ajusta al ancho móvil en WebKit sin ocultar botones ni salir del editor embebido.",
+  "changelog": "v487: handoff seguro entre pestañas; escrituras iniciadas completan, operaciones de sesión anterior en espera son rechazadas.",
   "requerida": false,
-  "shell": "f123-shell-v486",
+  "shell": "f123-shell-v487",
   "apagar": [],
-  "releaseName": "v486",
-  "cacheGeneration": "golden50"
+  "releaseName": "v487",
+  "cacheGeneration": "golden51"
 }
