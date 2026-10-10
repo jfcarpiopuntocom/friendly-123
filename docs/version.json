@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v482: editor embebido del dashboard con límites de ancho; conserva permisos, ledger y mejoras de v479/v480.",
+  "changelog": "v483: selector del dashboard acotado en móvil; mantiene el editor embebido y contratos v479/v480.",
   "requerida": false,
-  "shell": "f123-shell-v482",
+  "shell": "f123-shell-v483",
   "apagar": [],
-  "releaseName": "v482",
-  "cacheGeneration": "golden46"
+  "releaseName": "v483",
+  "cacheGeneration": "golden47"
 }

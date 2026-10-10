@@ -14,11 +14,15 @@ async function seed(ctx){
  return {page,ids};
 }
 async function ownerLogin(page){await page.waitForFunction(()=>!!window.OCAuth);for(const digit of ['7','8','9'])await page.locator('#oc-pad').getByRole('button',{name:digit,exact:true}).click();await page.waitForFunction(()=>window.OCAuth?.rolActual()==='dueno',{},{timeout:5000});}
+async function sessionSnapshot(page){return page.evaluate(()=>({pending:OCTabSession.pending,current:OCTabSession.isCurrent(),epoch:window.OC_AUTH_SESSION_EPOCH,role:OCAuth.rolActual(),notebook:localStorage.getItem('f123_tienda_activa'),owned:localStorage.getItem('f123_owned'),leases:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k.includes('auth_tab_lease')).map(key=>({key,value:localStorage.getItem(key)})),requests:window.__lockCalls,fences:window.__fenceReads}));}
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  test(`native tab session handoff (${name}): old session closes, queued writes fail, sharing is public and honest`,async()=>{
   const web=await engine.launch({headless:true});try{
    const ctx=await context(web),{page:first,ids}=await seed(ctx);await ownerLogin(first);
    await first.waitForFunction(()=>!window.OCTabSession?.pending);
+   const initialSession=await sessionSnapshot(first);
+   assert.equal(initialSession.leases.length,1,'the original session must own its lease before testing handoff');
+   await first.evaluate(()=>{const original=OCTabSession.isCurrent;window.__fenceReads=[];OCTabSession.isCurrent=function(){const result=original();__fenceReads.push({result,time:performance.timeOrigin+performance.now(),leases:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k.includes('auth_tab_lease')).map(key=>({key,value:localStorage.getItem(key)}))});return result;};});
    await first.evaluate(()=>{navigator.locks.request('f123-escrituras',()=>new Promise(resolve=>{window.__releaseWriteLock=resolve;}));});
    await first.waitForFunction(()=>typeof __releaseWriteLock==='function');
    const second=await ctx.newPage();await second.goto(ORIGIN+'/index.html',{waitUntil:'load'});
@@ -36,7 +40,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.equal(await first.evaluate(()=>sessionStorage.getItem('f123_sesion')),null);
    await first.locator('#oc-tab-handoff').waitFor({state:'visible'});
    await first.waitForFunction(()=>typeof __queuedWriteStatus==='number');
-   assert.equal(await first.evaluate(()=>__queuedWriteStatus),403,'permissions are checked again after waiting for the write lock');
+   assert.equal(await first.evaluate(()=>__queuedWriteStatus),403,'permissions are checked again after waiting for the write lock: '+JSON.stringify({initial:initialSession,first:await sessionSnapshot(first),second:await sessionSnapshot(second)}));
    assert.equal((await api(second,'/api/ubicaciones')).some(x=>x.nombre==='Queued forbidden rack'),false);
    const rows=await api(second,'/api/ventas/todas');assert.equal(rows.length,1);assert.equal(rows[0].cantidad*rows[0].precioUnit,34);
    assert.equal((await api(second,'/api/productos')).find(p=>p.id===ids.product).stockActual,2);
