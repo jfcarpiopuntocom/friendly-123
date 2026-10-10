@@ -35,6 +35,9 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.equal(await second.evaluate(()=>navigator.locks.request===window.__observedLockRequest),true,'the test must actually observe the browser lock requests');
    await ownerLogin(second);
    if(await second.evaluate(()=>!!window.OCTabSession))await second.waitForFunction(()=>window.__handoffClaimQueued===true).catch(async error=>{error.message+=' Claim diagnostics: '+JSON.stringify(await second.evaluate(()=>({requests:window.__lockCalls,pending:OCTabSession.pending,epoch:window.OC_AUTH_SESSION_EPOCH,role:OCAuth.rolActual(),leases:Object.keys(localStorage).filter(k=>k.includes('auth_tab_lease')).length})));throw error;});
+   // Enforce the pre-lock handoff fence while the first tab still holds the lock.
+   await second.waitForFunction(()=>{const k=Object.keys(localStorage).find(k=>k.includes('auth_tab_lease')&&!k.endsWith('_claim'));return !!(k&&JSON.parse(localStorage.getItem(k+'_claim')||'null')?.owner);});
+   assert.equal(await first.evaluate(()=>OCTabSession.isCurrent()),false,'old tab fenced before second claim obtains write lock');
    // This request waits behind the new session claim. A write already running
    // before that claim is allowed to finish; it must not be cancelled or lost.
    await first.evaluate(()=>{fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Queued forbidden rack',tipo:'propio'})}).then(r=>window.__queuedWriteStatus=r.status);});
