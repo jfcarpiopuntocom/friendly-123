@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v483: selector del dashboard acotado en móvil; mantiene el editor embebido y contratos v479/v480.",
+  "changelog": "v484: reporte inmóvil durante edición embebida y scroll restaurado al cerrar; conserva permisos y ledger.",
   "requerida": false,
-  "shell": "f123-shell-v483",
+  "shell": "f123-shell-v484",
   "apagar": [],
-  "releaseName": "v483",
-  "cacheGeneration": "golden47"
+  "releaseName": "v484",
+  "cacheGeneration": "golden48"
 }

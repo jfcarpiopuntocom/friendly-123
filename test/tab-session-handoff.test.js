@@ -6,6 +6,7 @@ async function context(browser){
  const ctx=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
  await ctx.route('**/*',async route=>{const url=new URL(route.request().url());if(url.origin!==ORIGIN)return route.abort();const file=path.resolve(DOCS,decodeURIComponent(url.pathname).slice(1));if(!file.startsWith(DOCS+path.sep))return route.abort();try{await route.fulfill({status:200,contentType:{'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css'}[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}});
  await ctx.addInitScript(()=>{window.WebSocket=class{constructor(){this.readyState=3}send(){}close(){}addEventListener(){}removeEventListener(){}};localStorage.setItem('f123::f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-TAB-ONLY',instanceId:'synthetic-tab-device'}));});
+ await ctx.addInitScript(()=>{const Original=BroadcastChannel;window.BroadcastChannel=class extends Original{set onmessage(handler){super.onmessage=this.name==='friendly-123-auth-session'&&typeof handler==='function'?event=>{if(!window.__suppressLeaseEvents)handler(event);}:handler;}};window.addEventListener('storage',event=>{if(window.__suppressLeaseEvents&&event.key?.includes('auth_tab_lease'))event.stopImmediatePropagation();},true);});
  return ctx;
 }
 async function seed(ctx){
@@ -25,6 +26,8 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await first.evaluate(()=>{const original=OCTabSession.isCurrent;window.__fenceReads=[];OCTabSession.isCurrent=function(){const result=original();__fenceReads.push({result,time:performance.timeOrigin+performance.now(),leases:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k.includes('auth_tab_lease')).map(key=>({key,value:localStorage.getItem(key)}))});return result;};});
    await first.evaluate(()=>{navigator.locks.request('f123-escrituras',()=>new Promise(resolve=>{window.__releaseWriteLock=resolve;}));});
    await first.waitForFunction(()=>typeof __releaseWriteLock==='function');
+   // The write fence must work even before notification delivery closes the UI.
+   await first.evaluate(()=>{window.__suppressLeaseEvents=true;});
    const second=await ctx.newPage();await second.goto(ORIGIN+'/index.html',{waitUntil:'load'});
    // A startup API write can also be pending on this lock. Observe the actual
    // session claim instead of mistaking any pending write for that claim.
@@ -36,11 +39,13 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    // before that claim is allowed to finish; it must not be cancelled or lost.
    await first.evaluate(()=>{fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Queued forbidden rack',tipo:'propio'})}).then(r=>window.__queuedWriteStatus=r.status);});
    await first.evaluate(()=>__releaseWriteLock());
+   await first.waitForFunction(()=>typeof __queuedWriteStatus==='number');
+   console.log(name+' session fence '+JSON.stringify({initial:initialSession,first:await sessionSnapshot(first),second:await sessionSnapshot(second)}));
+   assert.equal(await first.evaluate(()=>__queuedWriteStatus),403,'permissions are checked again after waiting for the write lock: '+JSON.stringify({initial:initialSession,first:await sessionSnapshot(first),second:await sessionSnapshot(second)}));
+   await first.evaluate(()=>{window.__suppressLeaseEvents=false;window.dispatchEvent(new Event('focus'));});
    await first.waitForFunction(()=>OCAuth.rolActual()===null,{},{timeout:2000});
    assert.equal(await first.evaluate(()=>sessionStorage.getItem('f123_sesion')),null);
    await first.locator('#oc-tab-handoff').waitFor({state:'visible'});
-   await first.waitForFunction(()=>typeof __queuedWriteStatus==='number');
-   assert.equal(await first.evaluate(()=>__queuedWriteStatus),403,'permissions are checked again after waiting for the write lock: '+JSON.stringify({initial:initialSession,first:await sessionSnapshot(first),second:await sessionSnapshot(second)}));
    assert.equal((await api(second,'/api/ubicaciones')).some(x=>x.nombre==='Queued forbidden rack'),false);
    const rows=await api(second,'/api/ventas/todas');assert.equal(rows.length,1);assert.equal(rows[0].cantidad*rows[0].precioUnit,34);
    assert.equal((await api(second,'/api/productos')).find(p=>p.id===ids.product).stockActual,2);

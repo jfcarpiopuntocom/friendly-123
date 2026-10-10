@@ -16,6 +16,8 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) test(`dash
   });await seed.close();
   const dash=await ctx.newPage();await dash.goto(ORIGIN+'/dashboard.html',{waitUntil:'load'});await dash.locator('#pin').fill('555');await dash.locator('#entrar').click();await dash.locator('#tablero').waitFor({state:'visible'});
   await dash.locator('a[data-ruta="comisiones"]').click();await dash.locator('#cm a.pagar').first().waitFor({state:'visible'});
+  const before=await dash.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,scrollX,scrollY}));
+  console.log(name+' report before embed '+JSON.stringify(before));
   const parentURL=dash.url(),href=await dash.locator('#cm a.pagar').first().getAttribute('href');assert.match(href,new RegExp('comisionproducto:'+ids.product));
   await dash.locator('#cm a.pagar').first().click();
   assert.equal(dash.url(),parentURL,'the dashboard must never navigate to the app');assert.equal(ctx.pages().length,1,'no app tab opens');
@@ -40,6 +42,10 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) test(`dash
   assert.ok(layout.scrollWidth<=layout.width+1,'embed fits mobile viewport: '+JSON.stringify(layout));
   await dash.locator('#dashboard-editor-close').click();assert.equal(dash.url(),parentURL);assert.equal(await dash.locator('#dashboard-editor').isVisible(),false);assert.equal(await dash.locator('#dashboard-editor iframe').count(),0);
   assert.equal(await dash.locator('#tablero').isVisible(),true);assert.match(await dash.locator('#cm').innerText(),/Synthetic embed cup/);
+  const restored=await dash.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,frozen:document.body.classList.contains('dashboard-editor-open')}));
+  assert.equal(restored.frozen,false,'closing restores scrolling of the report');
+  assert.ok(restored.scrollWidth<=restored.width+1,'report remains accessible at mobile width after closing: '+JSON.stringify({before,restored}));
+  await dash.locator('#tabsel button:visible').last().scrollIntoViewIfNeeded();assert.equal(await dash.locator('#tabsel button:visible').last().isVisible(),true,'the final tab of this report remains reachable');
   await dash.waitForFunction(()=>document.getElementById('cm').innerText.includes('25.00'));
   await dash.locator('[data-cm-vista="percha"]').click();await dash.locator('#cm a.pagar').first().click();
   assert.equal(dash.url(),parentURL);assert.match(await dash.locator('#dashboard-editor iframe').getAttribute('src'),/editar=comisiones:/);

@@ -2990,14 +2990,17 @@
   /* JFC 2026-10-09: edits stay in this dashboard. The same-origin frame uses
      the existing authenticated editors and ledger; no PIN is copied or sent
      through the URL, and the parent never becomes the app. */
-  var editorDialog = null, editorTrigger = null;
+  var editorDialog = null, editorTrigger = null, editorScrollY = 0;
   function cerrarEditorDashboard() {
     if (!editorDialog) return;
     var frame = editorDialog.querySelector('iframe');
     try { if (frame && frame.contentWindow.OCAuth) frame.contentWindow.OCAuth.salir(); } catch (_) {}
     editorDialog.close();
     editorDialog.remove(); editorDialog = null;
-    if (editorTrigger && editorTrigger.isConnected) editorTrigger.focus();
+    document.body.classList.remove('dashboard-editor-open');
+    document.body.style.removeProperty('--dashboard-editor-scroll');
+    if (editorTrigger && editorTrigger.isConnected) editorTrigger.focus({preventScroll:true});
+    window.scrollTo(0, editorScrollY);
     editorTrigger = null;
     if (autorizado) repintarVivo();
   }
@@ -3011,6 +3014,11 @@
     event.preventDefault();
     if (!autorizado || editorDialog) return;
     editorTrigger = link;
+    // Freeze the inert report while native inputs inside the frame take focus.
+    // Closing restores its position and every report control remains available.
+    editorScrollY = window.scrollY;
+    document.body.style.setProperty('--dashboard-editor-scroll', -editorScrollY + 'px');
+    document.body.classList.add('dashboard-editor-open');
     var es = localStorage.getItem('f123_lang') === 'es';
     editorDialog = document.createElement('dialog'); editorDialog.id = 'dashboard-editor';
     editorDialog.setAttribute('aria-labelledby', 'dashboard-editor-title');
@@ -3024,7 +3032,7 @@
     editorDialog.showModal(); close.focus();
   });
   var editorStyle = document.createElement('style');
-  editorStyle.textContent = '#dashboard-editor{width:calc(100% - 16px);height:94dvh;max-width:1200px;max-height:100dvh;min-width:0;inset:0;margin:auto;padding:0;overflow:hidden;border:2px solid #1C3049;background:#FFFFFF;color:#1C3049;box-sizing:border-box}#dashboard-editor[open]{display:flex;flex-direction:column}#dashboard-editor::backdrop{background:#1C3049cc}#dashboard-editor header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px;background:#FFFFFF;border-bottom:2px solid #1C3049}#dashboard-editor h2{font-size:18px;color:#1C3049;margin:0}#dashboard-editor button{min-height:44px;padding:10px;border:2px solid #1C3049;border-radius:6px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;font-size:16px;font-weight:700;cursor:pointer}#dashboard-editor iframe{display:block;flex:1;width:100%;min-width:0;min-height:0;border:0;background:#FFFFFF}#dashboard-editor :focus-visible{outline:3px solid #E86040;outline-offset:2px}@media print{#dashboard-editor{display:none!important}}';
+  editorStyle.textContent = 'body.dashboard-editor-open{position:fixed;top:var(--dashboard-editor-scroll);left:0;width:100%;height:100%;overflow:hidden}#dashboard-editor{width:calc(100% - 16px);height:94dvh;max-width:1200px;max-height:100dvh;min-width:0;inset:0;margin:auto;padding:0;overflow:hidden;border:2px solid #1C3049;background:#FFFFFF;color:#1C3049;box-sizing:border-box}#dashboard-editor[open]{display:flex;flex-direction:column}#dashboard-editor::backdrop{background:#1C3049cc}#dashboard-editor header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px;background:#FFFFFF;border-bottom:2px solid #1C3049}#dashboard-editor h2{font-size:18px;color:#1C3049;margin:0}#dashboard-editor button{min-height:44px;padding:10px;border:2px solid #1C3049;border-radius:6px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;font-size:16px;font-weight:700;cursor:pointer}#dashboard-editor iframe{display:block;flex:1;width:100%;min-width:0;min-height:0;border:0;background:#FFFFFF}#dashboard-editor :focus-visible{outline:3px solid #E86040;outline-offset:2px}@media print{#dashboard-editor{display:none!important}}';
   document.head.appendChild(editorStyle);
 
   /* ------------------------------------------------------------- arranque */
