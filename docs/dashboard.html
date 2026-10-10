@@ -224,7 +224,7 @@
   #cm{margin:0 0 22px}
   .cm-card{background:var(--card);border:2px solid var(--hairline);border-radius:6px;padding:14px 16px;margin:0 0 12px}
   .cm-bar{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
-  .cm-bar label{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;flex:1 1 240px;min-width:0}
+  .cm-bar label{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;flex:1 1 240px;min-width:0;overflow-x:clip}
   .cm-bar select{flex:1 1 180px;min-width:0;max-width:100%;min-height:40px;font-size:14px;font-weight:700;padding:4px 10px;border:2px solid var(--body-c);border-radius:6px;background:#FFFFFF;color:var(--ink)}
   .cm-key{min-height:40px;padding:6px 12px;border:2px solid var(--body-c);border-radius:6px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:14px;cursor:pointer;color:var(--ink)}
   .cm-key.on{background:var(--body-c);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
@@ -1675,7 +1675,7 @@
       '<div class="cm-card cm-bar">' +
         '<label>Month <select id="cm-mes">' + meses.map(function (m) { var p = cmPendienteDe(m); return '<option value="' + m + '"' + (m === cmMes ? " selected" : "") + ">" + esc(cmEtiquetaMes(m)) + (m === actual ? " (current)" : "") + (p > 0 ? " · " + money(p) + " still to pay" : "") + "</option>"; }).join("") + "</select></label>" +
         atrasados.map(function (m) { return '<button type="button" class="cm-key rojo" data-cm-mes="' + m + '" title="Commissions still unpaid from earlier months">' + esc(cmEtiquetaMes(m)) + " · " + money(cmPendienteDe(m)) + "</button>"; }).join("") +
-        '<div style="display:flex;flex-wrap:wrap;gap:6px;min-width:0;max-width:100%;"><button type="button" class="cm-key' + (cmVista === "producto" ? " on" : "") + '" data-cm-vista="producto">By product / SKU</button><button type="button" class="cm-key' + (cmVista === "percha" ? " on" : "") + '" data-cm-vista="percha">By rack / event</button></div>' +
+        '<div style="display:flex;gap:6px;"><button type="button" class="cm-key' + (cmVista === "producto" ? " on" : "") + '" data-cm-vista="producto">By product / SKU</button><button type="button" class="cm-key' + (cmVista === "percha" ? " on" : "") + '" data-cm-vista="percha">By rack / event</button></div>' +
       "</div>" +
       '<div class="cm-grid">' + k("Sales with commission", bruto) + k("Associates take", socio) + k("House keeps", casa, "cm-verde") + k("Still to pay", pend, pend > 0 ? "cm-rojo" : "cm-verde") + "</div>" +
       (bruto > 0 ? (function () {
