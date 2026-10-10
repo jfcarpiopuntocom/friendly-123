@@ -18,6 +18,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) test(`dash
   await dash.locator('a[data-ruta="comisiones"]').click();await dash.locator('#cm a.pagar').first().waitFor({state:'visible'});
   const before=await dash.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,scrollX,scrollY}));
   console.log(name+' report before embed '+JSON.stringify(before));
+  if(before.scrollWidth>before.width+1)console.log(name+' overflow isolation '+JSON.stringify(await dash.evaluate(()=>{const sections=['#cabecera','.nav-hub','.isla-caja','#cm','#datos','#tabsel','#buscar','#exp','#tabla','#cierre','#soporte','.pie-lienzo'];return sections.map(selector=>{const el=document.querySelector(selector);if(!el)return {selector,missing:true};const style=el.getAttribute('style'),rect=el.getBoundingClientRect().toJSON(),computed=getComputedStyle(el),overflow=computed.overflow;el.style.setProperty('display','none','important');const without=document.documentElement.scrollWidth;if(style===null)el.removeAttribute('style');else el.setAttribute('style',style);return {selector,rect,overflow,without};});})));
   const parentURL=dash.url(),href=await dash.locator('#cm a.pagar').first().getAttribute('href');assert.match(href,new RegExp('comisionproducto:'+ids.product));
   await dash.locator('#cm a.pagar').first().click();
   assert.equal(dash.url(),parentURL,'the dashboard must never navigate to the app');assert.equal(ctx.pages().length,1,'no app tab opens');

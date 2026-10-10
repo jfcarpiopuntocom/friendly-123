@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v484: reporte inmóvil durante edición embebida y scroll restaurado al cerrar; conserva permisos y ledger.",
+  "changelog": "v485: contiene el selector desplazable del dashboard y conserva edición embebida, permisos y ledger.",
   "requerida": false,
-  "shell": "f123-shell-v484",
+  "shell": "f123-shell-v485",
   "apagar": [],
-  "releaseName": "v484",
-  "cacheGeneration": "golden48"
+  "releaseName": "v485",
+  "cacheGeneration": "golden49"
 }

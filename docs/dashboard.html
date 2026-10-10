@@ -190,7 +190,7 @@
   .tabsel button.on{background:var(--ink);border-color:var(--ink);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
   /* Tabs (JFC 2026-09-11): con 7 vistas la barra se apretaba/envolvia. Ahora
      scrollea en horizontal (los botones no se encogen) — aditivo, mismo look. */
-  .tabsel{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding-bottom:2px;min-width:0;max-width:100%;}
+  .tabsel{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding-bottom:2px;min-width:0;max-width:100%;contain:layout paint;}
   .tabsel button{flex:0 0 auto;white-space:nowrap;}
   #buscar{
     flex:1;min-width:min(100%,240px);min-height:44px;padding:10px 14px;
