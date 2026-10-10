@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-09",
-  "changelog": "v485: contiene el selector desplazable del dashboard y conserva edición embebida, permisos y ledger.",
+  "changelog": "v486: el selector de Commissions se ajusta al ancho móvil en WebKit sin ocultar botones ni salir del editor embebido.",
   "requerida": false,
-  "shell": "f123-shell-v485",
+  "shell": "f123-shell-v486",
   "apagar": [],
-  "releaseName": "v485",
-  "cacheGeneration": "golden49"
+  "releaseName": "v486",
+  "cacheGeneration": "golden50"
 }
