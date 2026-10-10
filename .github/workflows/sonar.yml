@@ -51,6 +51,9 @@ jobs:
           if git rev-parse -q --verify "refs/tags/sonar-$ID" >/dev/null; then echo "orden $ID ya ejecutada"; exit 0; fi
           ESTABLE=$(git rev-parse origin/estable)
           if [ "$ACCION" = "push" ]; then
+            # A pending manual order from an older release must not promote a later commit.
+            MASTER_COMMIT_MS=$(( $(git show -s --format=%ct origin/master) * 1000 ))
+            if [ "$AT" -lt "$MASTER_COMMIT_MS" ]; then echo "PUSH anterior al candidato master: ignorado"; exit 0; fi
             MASTER=$(node scripts/release-control.cjs served "$(git rev-parse origin/master)")
             if [ "$ESTABLE" != "$MASTER" ]; then
               node scripts/release-control.cjs gate "$MASTER" >> "$GITHUB_STEP_SUMMARY" 2>&1 || echo "PUSH explicito de JFC: QA no bloquea" >> "$GITHUB_STEP_SUMMARY"
