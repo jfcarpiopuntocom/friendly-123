@@ -7094,19 +7094,10 @@ async function abrirPanelVentaInfo(id, esTicket){
   if (chkCort) chkCort.addEventListener("change", () => { if (chkCort.checked && chkFia) chkFia.checked = false; syncCortFia(); });
   if (chkFia) chkFia.addEventListener("change", () => { if (chkFia.checked && chkCort) chkCort.checked = false; syncCortFia(); });
   { const _sc = document.getElementById("vi-cliente"); if (_sc) _sc.addEventListener("change", syncCortFia); }
-  // JFC 2026-09-02: la cantidad (vender varios de golpe) solo aplica a la venta
-  // de mostrador (sin cliente). Si eligen un cliente, se fuerza a 1 y se oculta.
+  // HOTFIX Belén 2026-10-12: cantidad visible con o sin cliente.
+  // Seleccionar cliente nunca borra ni fuerza la cantidad.
   const cantWrap = document.getElementById("vi-cant-wrap");
-  const cantInp = document.getElementById("vi-cantidad");
-  if (cantWrap && cantInp) {
-    const syncCant = () => {
-      const esMostrador = !selCli.value;
-      cantWrap.style.display = esMostrador ? "block" : "none";
-      if (!esMostrador) cantInp.value = "1";
-    };
-    selCli.addEventListener("change", syncCant);
-    syncCant();
-  }
+  if (cantWrap) cantWrap.style.display = "block";
   // #5 (JFC 2026-09-02): crédito ↔ ítem ↔ venta. Al elegir un cliente, si tiene
   // crédito vigente (no expirado) atado a ESTE ítem, se avisa — a consola (no
   // banner) y con un hint discreto dentro del mismo modal. Cierra el lazo "el
@@ -7207,7 +7198,7 @@ async function confirmarVentaConInfo(id, esTicket){
   // Ahora en tickets la cantidad = personas de la reserva (vacio = 1).
   const _cantMostrador = esTicket
     ? Math.max(1, Math.floor(Number(g("vi-personas")) || 1))
-    : ((!_esBar && !clienteId) ? Math.max(1, Math.floor(Number(g("vi-cantidad")) || 1)) : 1);
+    : (_esBar ? 1 : Number(g("vi-cantidad")));
   const _facturaOn = (() => { const c = document.getElementById("vi-add-factura"); return !!(c && c.checked); })();
   // CORTESÍA / FIADO (JFC 2026-09-08). Excluyentes: una cortesía (precio 0) no
   // genera deuda. Fiado necesita un cliente para colgarle la deuda.
@@ -7238,6 +7229,14 @@ async function confirmarVentaConInfo(id, esTicket){
     ...(_esBar ? { servings: _servings, botellas: +(_servings / _servPorBotella).toFixed(2) } : {})
   };
   const msg = document.getElementById("vi-msg");
+  if (!esTicket && !_esBar && (!Number.isSafeInteger(_cantMostrador) || _cantMostrador < 1)) {
+    msg.style.color = "var(--rojo-ink,#a3392a)";
+    msg.textContent = (window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es")
+      ? "La cantidad debe ser un entero mayor que cero."
+      : "Quantity must be a whole number greater than zero.";
+    document.getElementById("vi-cantidad").focus();
+    return;
+  }
   if (_ovInvalido) {
     msg.style.color = "var(--rojo-ink,#a3392a)";
     msg.textContent = t("sold.invalidSalePrice");
