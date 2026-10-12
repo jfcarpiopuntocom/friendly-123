@@ -5720,7 +5720,8 @@
         if (_rE !== "dueno" && _rE !== "admin" && _rE !== "empleado") return J({ error: "Sign in to edit a recorded sale." }, 403);
         const venta = ventas.find((v) => v.id === m[1] && !v.anulada);
         if (!venta) return J({ error: "Sale not found." }, 404);
-        if (venta.liquidada && venta.split) return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
+        // Payment-method corrections do not alter a settled commission. Quantity,
+        // price and customer remain protected by the financial guard below.
         const p = productos.find((x) => x.id === venta.productoId);
         if (!p) return J({ error: "Product not found." }, 404);
         const cambios = {};
@@ -5732,13 +5733,48 @@
         const _hayPrecio = body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "";
         // A partial payout is sealed money too. Reject financial edits before
         // stock or the split changes; notes and contact corrections remain usable.
-        if (((_hayCant && Number(body.cantidad) !== venta.cantidad) || (_hayPrecio && +Number(body.precioUnit).toFixed(2) !== venta.precioUnit)) && _ventaTienePagoComision(venta)) {
+        if (((_hayCant && Number(body.cantidad) !== venta.cantidad) || (_hayPrecio && +Number(body.precioUnit).toFixed(2) !== venta.precioUnit)) && ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta))) {
           return J({ error: "This sale was already settled — it can no longer be edited." }, 400);
         }
         if (_hayCant && !(Number.isInteger(Number(body.cantidad)) && Number(body.cantidad) >= 1)) return J({ error: "The quantity must be a whole number, 1 or more." }, 400);
         if (_hayPrecio && !(Number.isFinite(Number(body.precioUnit)) && Number(body.precioUnit) >= 0)) return J({ error: "Enter a valid unit price." }, 400);
         if (_hayPrecio && venta.info && venta.info.cortesia && Number(body.precioUnit) > 0) return J({ error: "A courtesy sale has no price. Cancel it and record a normal sale." }, 400);
         if (body.clienteId && !clientes.find((x) => x.id === body.clienteId)) return J({ error: "Customer not found." }, 404);
+        // HOTFIX 2026-10-12: payment correction CASH -> FIADO must create a
+        // single immutable, sale-linked charge BEFORE changing the sale record.
+        // No ad-hoc saldo mutations and no duplicate charges on retry/reload.
+        const _pagoAnterior = String((venta.info && venta.info.formaPago) || "");
+        const _pagoSiguiente = body.info && body.info.formaPago !== undefined
+          ? String(body.info.formaPago || "") : _pagoAnterior;
+        const _clienteSiguiente = body.clienteId !== undefined ? body.clienteId : venta.clienteId;
+        if (_pagoSiguiente === "fiado") {
+          if (!_clienteSiguiente || !clientes.some(c => c.id === _clienteSiguiente)) {
+            return J({ error: "Select a registered customer to record an on-account sale." }, 400);
+          }
+          if (venta.info && venta.info.cortesia) {
+            return J({ error: "A courtesy sale cannot be recorded as on account." }, 400);
+          }
+          // Validate availability before posting the debt: a failed stock
+          // correction must never leave an orphan financial receipt.
+          const _cantFinal = _hayCant ? Number(body.cantidad) : venta.cantidad;
+          const _precioFinal = _hayPrecio ? +Number(body.precioUnit).toFixed(2) : venta.precioUnit;
+          if (_cantFinal > venta.cantidad && p.stockActual < _cantFinal - venta.cantidad) {
+            return J({ error: "Not enough stock for this correction." }, 400);
+          }
+          const _montoFiadoFinal = +(_cantFinal * _precioFinal).toFixed(2);
+          if (!(_montoFiadoFinal > 0)) return J({ error: "On-account amount must be greater than zero." }, 400);
+          if (_pagoAnterior !== "fiado") {
+            if (!window.AMG || !window.AMG.Cartera || !window.AMG.Cartera.registrarMovimiento) {
+              return J({ error: "Customer credit is unavailable. No changes recorded." }, 503);
+            }
+            try {
+              await window.AMG.Cartera.registrarMovimiento(_clienteSiguiente, "cargo",
+                _montoFiadoFinal, "Sale on credit: " + p.nombre, { ventaId: venta.id });
+            } catch (err) {
+              return J({ error: "Could not confirm the on-account charge. Sale unchanged: " + ((err && err.message) || "unknown error") }, 409);
+            }
+          }
+        }
         // Cantidad: ajusta stock (delta) y recalcula split.
         if (body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "") {
           const nueva = Number(body.cantidad); // validada arriba (B2): entero >= 1
