@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-09",
-  "changelog": "v487: handoff seguro entre pestañas; escrituras iniciadas completan, operaciones de sesión anterior en espera son rechazadas.",
+  "fecha": "2026-10-12",
+  "changelog": "v488: venta múltiple con cliente registrado; corrección auditada efectivo ↔ fiado sin modificar comisiones liquidadas.",
   "requerida": false,
-  "shell": "f123-shell-v487",
+  "shell": "f123-shell-v488",
   "apagar": [],
-  "releaseName": "v487",
-  "cacheGeneration": "golden51"
+  "releaseName": "v488",
+  "cacheGeneration": "golden52"
 }
