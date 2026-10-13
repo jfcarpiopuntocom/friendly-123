@@ -1109,7 +1109,9 @@ async function sonarOrden(accion) {
     push: "PUSH: la versión NEXT pasa a TODOS los clientes ahora, sin esperar los 33 minutos. ¿Seguro?",
     rewind: "REWIND: los clientes vuelven a la versión PREVIA. Sus datos no se tocan. ¿Seguro?",
   };
-  if (avisos[accion] && !confirm(avisos[accion])) return;
+  /* JFC 2026-10-13: un PUSH que no se guardo pasaba en silencio (el confirm cancelado o
+     bloqueado por el telefono no decia nada). Ahora siempre se dice que paso. */
+  if (avisos[accion] && !confirm(avisos[accion])) { mostrarConfirmacion(accion.toUpperCase() + " cancelado: no se guardo nada."); return; }
   const url = (licWorkerUrl() || LIC_WORKER_POR_DEFECTO).replace(/\/+$/, "");
   try {
     const r = await fetch(url + "/canario/orden", { method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify({ accion }) });
@@ -1117,7 +1119,18 @@ async function sonarOrden(accion) {
     /* JFC 2026-09-30: antes decia solo "Orden registrada" y parecia hecho. La orden la ejecuta
        GitHub: en minutos si hay una publicacion esperando (promover.yml), si no en el proximo
        ciclo de sonar.yml, que GitHub puede retrasar horas. El estado real se ve abajo. */
-    mostrarConfirmacion(r.ok ? "Orden " + accion.toUpperCase() + " registrada. Todavía NO está hecha: mira abajo cuándo se cumple." : "No se pudo: " + (j.error || r.status));
+    /* JFC 2026-10-13: se relee la orden del Worker y se confirma que es ESTA (mismo id). El
+       13 oct un segundo PUSH no quedo guardado y nadie lo noto hasta leer el Worker a mano. */
+    let guardada = false;
+    if (r.ok && j && j.orden && j.orden.id) {
+      try {
+        const g = await (await fetch(url + "/canario/orden", { cache: "no-store" })).json();
+        guardada = !!(g && g.orden && g.orden.id === j.orden.id);
+      } catch (_) {}
+    }
+    mostrarConfirmacion(!r.ok ? "NO se guardó. Error: " + (j.error || r.status) + ". Vuelve a intentarlo."
+      : guardada ? accion.toUpperCase() + " guardado a las " + sonarHora(j.orden.at) + ". Todavía NO está hecha: abajo ves cuándo llega a los clientes."
+      : accion.toUpperCase() + " enviado, pero no pude confirmar que quedó guardado. Vuelve a apretar.");
   } catch (_) { mostrarConfirmacion("Sin conexión con el Worker"); }
   sonarPintar();
 }

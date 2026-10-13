@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-13",
-  "changelog": "v491: pagar desde la tarjeta de producto abre el pago con un toque; cliente de venta fiado no editable; editor de Sold en espanol.",
+  "changelog": "v492: la app se actualiza sola en un momento seguro, sin reenganchar; el panel confirma que el PUSH quedo guardado.",
   "requerida": false,
-  "shell": "f123-shell-v491",
+  "shell": "f123-shell-v492",
   "apagar": [],
-  "releaseName": "v491",
-  "cacheGeneration": "golden55"
+  "releaseName": "v492",
+  "cacheGeneration": "golden56"
 }
