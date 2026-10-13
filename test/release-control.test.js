@@ -94,7 +94,9 @@ test('automatic promotion requires exact QA; emergency PUSH only reports QA and 
   assert.match(sonar,/gate "\$MASTER".*\|\| echo/);
   assert.doesNotMatch(sonar,/420000|hayTestigo|release-control\.cjs published/);
   assert.match(promoter,/timeout-minutes: 45/);
-  assert.match(promoter,/FIN=\$\(\( \$\(date -d "\$INICIO" \+%s\) \+ 33 \* 60 \)\)/);
+  // JFC 2026-10-13: no 33-minute window; promote as soon as /next/ serves the exact commit.
+  assert.match(promoter,/FIN=\$\(\( \$\(date -d "\$INICIO" \+%s\) \+ 15 \* 60 \)\)/);
+  assert.match(promoter,/published "\$GITHUB_SHA" >\/dev\/null 2>&1; then echo "\/next\/ ya sirve este commit: se promueve sin esperar"; break; fi/);
   assert.doesNotMatch(promoter,/gate "\$GITHUB_SHA" [1-9]/);
 });
 
