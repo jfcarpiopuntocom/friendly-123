@@ -104,7 +104,11 @@ jobs:
             sleep 60
           done
           if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if ! hayTestigo; then echo "SIN TESTIGO CANARIO: no se promueve" >&2; echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # DECISION DE JFC 2026-10-13 ("aprobado, quita el testigo"): el testigo ya NO frena la
+          # entrega. Exigir que su telefono hubiera abierto la app de prueba en los ultimos 7 min
+          # dejo a los clientes sin version 3 veces el 13 oct. Siguen frenando: rojo del Sonar,
+          # "Detener" de JFC, la prueba publica del SHA exacto y el QA (gate). El testigo se informa.
+          if ! hayTestigo; then echo "Sin testigo canario: se promueve igual (decision JFC 2026-10-13)"; fi
           # A live Lord heartbeat is insufficient if Pages serves a different commit.
           # Prove the EXACT candidate SHA at the public /next/ endpoint before moving estable.
           if ! node scripts/release-control.cjs published "$GITHUB_SHA"; then
