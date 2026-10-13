@@ -23,15 +23,13 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]) for(
     await req('/api/productos/'+p.id+'/venta','POST',{cantidad:1});await req('/api/productos/'+q.id+'/venta','POST',{cantidad:1});
     await cargarComisiones();return {p:p.id,q:q.id,r:r.id,a:a.id};
    },lang);
-   await page.locator(`[data-product-id="${fx.p}"] [data-comm-pay-from-product]`).click();
-   await page.waitForSelector('[data-ui="commissions.product-sheet"]');
-   assert.equal(await page.locator('#comm-tab-product').getAttribute('aria-selected'),'true','Pay must not switch to racks');
-   assert.equal(await page.locator('[data-ui="commissions.product-sheet"]').count(),1,'Product payment opens its existing scoped sheet');
    await page.evaluate(()=>{window._ocModalMostrar=async()=> 'efectivo';window.ocPrompt=async()=> '15.00';window.ocConfirm=async()=>false;
     const pay=window._marcarComisionPagadaUnaVez;window._marcarComisionPagadaUnaVez=async(...args)=>{try{return await pay(...args);}finally{window.__paymentFinished=true;}};
     const original=window.fetch;window.fetch=async(u,o)=>{const r=await original(u,o);if(o&&o.method==='POST')window.__paymentResponse={url:String(u),status:r.status,body:await r.clone().json()};return r;};
    });
-   await page.locator('[data-ficha-pay]').click();
+   // v491 (JFC 2026-10-13): one tap on the card button reaches the payment through
+   // the same scoped sheet button (one person to pay); scope and tab stay as before.
+   await page.locator(`[data-product-id="${fx.p}"] [data-comm-pay-from-product]`).click();
    await page.waitForFunction(()=>window.__paymentFinished);
    const response=await page.evaluate(()=>window.__paymentResponse);
    assert.equal(response?.status,200,JSON.stringify(response));

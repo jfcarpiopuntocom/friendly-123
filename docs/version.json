@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-13",
-  "changelog": "v490: sin deuda fantasma si falla el guardado al pasar una venta walk-in a fiado; una venta nunca se cobra a dos clientes.",
+  "changelog": "v491: pagar desde la tarjeta de producto abre el pago con un toque; cliente de venta fiado no editable; editor de Sold en espanol.",
   "requerida": false,
-  "shell": "f123-shell-v490",
+  "shell": "f123-shell-v491",
   "apagar": [],
-  "releaseName": "v490",
-  "cacheGeneration": "golden54"
+  "releaseName": "v491",
+  "cacheGeneration": "golden55"
 }

@@ -98,6 +98,6 @@ test('UI regression: named customer does not hide or reset quantity; Sold offers
   assert.ok(ui.includes('if (cantWrap) cantWrap.style.display = "block";'));
   assert.ok(!ui.includes('const esMostrador = !selCli.value'));
   assert.ok(ui.includes(': (_esBar ? 1 : Number(g("vi-cantidad")));'));
-  assert.ok(ui.includes('<option value="fiado"${v.formaPago === "fiado" ? " selected" : ""}>On account (fiado)</option>'));
+  assert.ok(ui.includes('<option value="fiado"${v.formaPago === "fiado" ? " selected" : ""}>${_tx("On account (fiado)","Fiado")}</option>'));
   assert.ok(ui.includes('bloqueada ? "disabled" : ""'), 'settled price and quantity stay locked');
 });
