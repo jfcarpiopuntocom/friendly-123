@@ -5757,11 +5757,20 @@
           if (window.AMG && window.AMG.Hechos && window.AMG.Hechos.todos) {
             try {
               const _hechos = await window.AMG.Hechos.todos();
-              _tieneCargo = _tieneCargo || _hechos.some(h => {
+              const _delaVenta = _hechos.filter(h => {
                 const d = h && h.datos && h.datos.payload ? h.datos.payload : (h && h.datos) || {};
                 return (h.tipo === "cartera_cargo" || h.tipo === "cartera_vinculo") &&
                   String(d.ventaId || "") === String(venta.id);
               });
+              // v490 (2026-10-13): a receipt left by a FAILED save of this same
+              // correction (only receipts for the chosen customer, sale not fiado)
+              // must not block the retry; it is reused, never duplicated.
+              const _huerfanoMismoCliente = _pagoAnterior !== "fiado" && _delaVenta.length > 0 &&
+                _delaVenta.every(h => {
+                  const d = h && h.datos && h.datos.payload ? h.datos.payload : (h && h.datos) || {};
+                  return h.tipo === "cartera_cargo" && String(d.clienteId || "") === String(_clienteSiguiente || "");
+                });
+              _tieneCargo = _tieneCargo || (_delaVenta.length > 0 && !_huerfanoMismoCliente);
             } catch (_) {
               return J({ error: "Could not verify customer credit. No changes recorded." }, 503);
             }

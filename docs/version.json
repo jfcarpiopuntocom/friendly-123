@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-13",
-  "changelog": "v489: correcciones de venta durables, mismo cargo de fiado e identidad del deudor protegida; en Sold se puede elegir el cliente de una venta walk-in para pasarla a fiado.",
+  "changelog": "v490: sin deuda fantasma si falla el guardado al pasar una venta walk-in a fiado; una venta nunca se cobra a dos clientes.",
   "requerida": false,
-  "shell": "f123-shell-v489",
+  "shell": "f123-shell-v490",
   "apagar": [],
-  "releaseName": "v489",
-  "cacheGeneration": "golden53"
+  "releaseName": "v490",
+  "cacheGeneration": "golden54"
 }

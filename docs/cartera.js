@@ -115,6 +115,15 @@
       return global.AMG.Hechos.todos();
     }).then(function (hechos) {
       var vinculos = reusarCargoVenta ? _vinculosManuales(hechos, clienteId) : {};
+      // v490 (2026-10-13): one sale, one debtor. A receipt for this sale under
+      // another customer (legacy customer change) blocks a second charge.
+      if (reusarCargoVenta && hechos.some(function (h) {
+        var d = _d(h);
+        return h.tipo === TIPOS.cargo && String(d.ventaId || "") === String(relacion.ventaId) &&
+          String(d.clienteId) !== String(clienteId);
+      })) {
+        throw new Error("this sale already has a credit receipt for another customer");
+      }
       var existente = hechos.find(function (h) {
         var d = _d(h);
         return h.tipo === TIPOS.cargo && String(d.clienteId) === String(clienteId) &&
@@ -252,7 +261,10 @@
         ventaId = propio || manualId;
         manual = !propio && !!manualId;
         var v = ventas && ventaId ? porId[ventaId] : null;
-        if (v && String(v.clienteId || "") === String(clienteId)) {
+        // v490 (2026-10-13): a walk-in sale (no customer) also follows the sale,
+        // so a receipt left by a failed walk-in -> on-account save adds 0 while
+        // the sale is still cash. Sales of ANOTHER customer keep the stored amount.
+        if (v && (String(v.clienteId || "") === String(clienteId) || !v.clienteId)) {
           aporta = _centavosVenta(_ventaEfectiva(v, restauradaDe, {}));
         }
       }
