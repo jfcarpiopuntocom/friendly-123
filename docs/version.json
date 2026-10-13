@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-12",
-  "changelog": "v488: venta múltiple con cliente registrado; corrección auditada efectivo ↔ fiado sin modificar comisiones liquidadas.",
+  "fecha": "2026-10-13",
+  "changelog": "v489: correcciones de venta durables, mismo cargo de fiado e identidad del deudor protegida; en Sold se puede elegir el cliente de una venta walk-in para pasarla a fiado.",
   "requerida": false,
-  "shell": "f123-shell-v488",
+  "shell": "f123-shell-v489",
   "apagar": [],
-  "releaseName": "v488",
-  "cacheGeneration": "golden52"
+  "releaseName": "v489",
+  "cacheGeneration": "golden53"
 }
