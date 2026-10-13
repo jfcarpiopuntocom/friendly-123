@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v489",
+  "shell": "f123-shell-v490",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-e5af67915f679776ec8c5a5285c0605f94fcac925f091cb29e78de62466877a5",
@@ -16,7 +16,7 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-36fd0a437feeefe02873bd8acf685ef67d522f9bb21cfe83c090b30d8bc6f763",
     "./estado-idb.js": "sha256-e1eb9fb1d9db9eb01a498798ea0055d6c9877f2751a0774a85c31d0585758163",
-    "./mock-backend.js": "sha256-803b68fb8cedc97a524b04e6b8dfb6db9ebb051e1b3815bdd4eed469646199a7",
+    "./mock-backend.js": "sha256-37344e04a275108272a548703b5ef924eabeb7a2e42bfe3a62853702be7476e0",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
@@ -76,7 +76,7 @@
     "./canarios.js": "sha256-af2762869904018af1dbf785417182257c550cc2d7cc190df19a66e29b947a49",
     "./hechos.js": "sha256-1d199090a3995099e656233a287a988ab7f0ffda17f484b536256c14d17da5c8",
     "./reconciliacion.js": "sha256-35784952295346fe932f3b6f03faeec6d677724df0a4bc506a75ffe83423a07e",
-    "./cartera.js": "sha256-9d4e41f02974a62deddeb90da46e1ea9b83f443c162a3454e2eca50be5c8b728",
+    "./cartera.js": "sha256-579ae8210d5f5ef47091e6eca0e52626c9eac06e826c57e744e5f4dbc1c85d42",
     "./plan-pagos.js": "sha256-b20ac207dd3c60ec3333d0f5700fcccb7034ec6b7ed2de0dbfc3789d0468af82",
     "./plan-pagos-ui.js": "sha256-cc1b360162e38549b2aacb4f7e22511e22d524f9713cf5b1ccd559471c0990e2",
     "./caja-chica.js": "sha256-a87a3d8624e5399b24d1804a9a7bfaf017a2cb5f31114b345048f93095efc3ed",
