@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-13",
-  "changelog": "v492: la app se actualiza sola en un momento seguro, sin reenganchar; el panel confirma que el PUSH quedo guardado.",
+  "changelog": "v493: la app se actualiza sola sin reenganchar; el panel confirma el PUSH; la entrega a clientes ya no espera el testigo.",
   "requerida": false,
-  "shell": "f123-shell-v492",
+  "shell": "f123-shell-v493",
   "apagar": [],
-  "releaseName": "v492",
-  "cacheGeneration": "golden56"
+  "releaseName": "v493",
+  "cacheGeneration": "golden57"
 }
