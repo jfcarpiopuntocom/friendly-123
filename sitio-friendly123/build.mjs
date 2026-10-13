@@ -41,7 +41,7 @@ const DOCS = join(REPO, "docs");
 
 // Repo del sitio (jfcarpiopuntocom/website). Se puede cambiar con la variable SITE_REPO.
 const SITE_REPO = process.env.SITE_REPO || "C:/00 Projects/000 JFCarpio.com Website";
-const REF = "origin/main";
+const REF = process.env.SITE_REF || "origin/main";
 const CARPETA = "friendly123";
 
 const git = (...args) => execFileSync("git", ["-C", SITE_REPO, ...args], { maxBuffer: 256 * 1024 * 1024 });
@@ -171,7 +171,7 @@ for (const rel of publicasLanding) {
   const f = join(DIST, rel);
   let h = aSitio(readFileSync(f, "utf8"));
   h = await imgsAWebp(h);
-  h = h.replace(/\bposter="(?:\.\.)?\/?media\/friendly-reel-poster\.jpg"/, 'poster="/media/friendly-reel-poster.webp"');
+  if (sharp) h = h.replace(/\bposter="(?:\.\.)?\/?media\/friendly-reel-poster\.jpg"/, 'poster="/media/friendly-reel-poster.webp"');
   writeFileSync(f, poner(h, { url: urlDe(rel) }));
 }
 await archivoAWebp(join(DIST, "media", "friendly-reel-poster.jpg"));
