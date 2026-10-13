@@ -10497,6 +10497,102 @@ function _recargarSeguroVersion() {
   } catch (_) {}
 })();
 
+/* ACTUALIZACION SOLA (v492, DECISION MAYOR DE JFC 2026-10-13: "es detestable hacerles a los
+   de friendly-123 tener que reenganchar"). Antes la version nueva se cargaba SOLO al proximo
+   login; un cliente con la sesion abierta nunca volvia a escribir su PIN y se quedaba en la
+   version vieja hasta reenganchar. Ahora:
+   - cada 10 min, al volver a la app y 20 s despues de abrirla se pregunta al servidor que
+     version esta publicada y al service worker cual sirve (mensaje "que-shell");
+   - si difieren, se baja la nueva y queda pendiente la recarga;
+   - la recarga ocurre sola en un MOMENTO SEGURO: app en segundo plano o 90 s sin tocarla,
+     sin ventanas abiertas, sin campo con el cursor, sin venta en curso y con la sesion
+     abierta (la sesion se conserva: entra solo, sin PIN).
+   - anti-bucle: como maximo una recarga automatica por version cada 10 minutos.
+   NO BORRAR. Para desactivar: poner _ocActSolaOn = false. */
+const _ocActSolaOn = true;
+(function actualizacionSola() {
+  if (!_ocActSolaOn || !("serviceWorker" in navigator)) return;
+  const KA = "f123_autorecarga";
+  let ultimoToque = Date.now();
+  ["pointerdown", "keydown", "touchstart", "input"].forEach(function (ev) {
+    window.addEventListener(ev, function () { ultimoToque = Date.now(); }, { passive: true, capture: true });
+  });
+  // Bandera PROPIA: solo la pone revisar() tras confirmar con el service worker que sirve otra
+  // version. No se usa f123_reload_al_entrar porque el piso de version la marca en cada carga
+  // (compara "f123-shell-vN" contra el nombre de cache con -goldenN y nunca coincide).
+  const KP = "f123_act_sola_pendiente";
+  function pendiente() { try { return sessionStorage.getItem(KP) === "1"; } catch (_) { return false; } }
+  // offsetParent es null en elementos position:fixed (los overlays): se mide con getClientRects.
+  function visible(el) { try { return !!(el && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0); } catch (_) { return false; } }
+  function seguro() {
+    try {
+      if (!sessionStorage.getItem("f123_sesion")) return false;            // sin sesion: lo resuelve el login
+      const gate = document.getElementById("oc-gate");
+      if (gate && gate.style.display !== "none") return false;            // tecleando el PIN
+      if (visible(document.getElementById("oc-modal-overlay"))) return false;
+      if (visible(document.getElementById("oc-comision-overlay"))) return false;
+      if (document.getElementById("vi-cliente")) return false;            // panel de venta abierto
+      if ([...document.querySelectorAll(".oc-vs-editor")].some(function (e) { return e.style.display === "block"; })) return false;
+      if ([...document.querySelectorAll('[role="dialog"]')].some(visible)) return false;
+      const a = document.activeElement;
+      if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+      if (typeof _ventasEnCurso !== "undefined" && _ventasEnCurso.size) return false;
+      return true;
+    } catch (_) { return false; }
+  }
+  function intentar() {
+    if (!pendiente() || !seguro()) return;
+    let destino = "";
+    try { destino = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || ""; } catch (_) {}
+    try {
+      const prev = JSON.parse(localStorage.getItem(KA) || "null");
+      if (prev && prev.shell === destino && Date.now() - prev.ts < 600000) return;
+      localStorage.setItem(KA, JSON.stringify({ shell: destino, ts: Date.now() }));
+      sessionStorage.removeItem(KP);
+      sessionStorage.removeItem("f123_reload_al_entrar");
+    } catch (_) { return; }
+    location.reload();
+  }
+  function shellDelSW() {
+    return new Promise(function (resolve) {
+      const c = navigator.serviceWorker.controller;
+      if (!c) return resolve("");
+      const t = setTimeout(function () { resolve(""); }, 3000);
+      navigator.serviceWorker.addEventListener("message", function onMsg(ev) {
+        if (ev && ev.data && ev.data.tipo === "shell-actual") {
+          clearTimeout(t); navigator.serviceWorker.removeEventListener("message", onMsg); resolve(String(ev.data.shell || ""));
+        }
+      });
+      try { c.postMessage({ tipo: "que-shell" }); } catch (_) { clearTimeout(t); resolve(""); }
+    });
+  }
+  async function revisar() {
+    try {
+      const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) return;
+      const vj = await r.json();
+      if (!vj || !vj.shell) return;
+      const sirve = await shellDelSW();
+      if (!sirve || sirve === String(vj.shell)) return;
+      try { localStorage.setItem("f123_version_vista", String(vj.version || "") + "|" + String(vj.shell)); } catch (_) {}
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) { await reg.update(); if (reg.waiting) reg.waiting.postMessage({ tipo: "skip-waiting" }); }
+      } catch (_) {}
+      _recargarSeguroVersion();
+      try { sessionStorage.setItem(KP, "1"); } catch (_) {}
+      intentar();
+    } catch (_) {}
+  }
+  window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro }; // para pruebas
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") intentar(); else revisar();
+  });
+  setInterval(function () { if (Date.now() - ultimoToque > 90000) intentar(); }, 15000);
+  setInterval(revisar, 600000);
+  setTimeout(revisar, 20000);
+})();
+
 // Microcirugia 5 (2026-07-07): tras importar un respaldo o restaurar un punto
 // de la caja fuerte (avanzado-extra dispara "oc-datos-importados"), la UI se
 // re-sincroniza sola: ubicaciones, vista activa y select de clientes. Antes
