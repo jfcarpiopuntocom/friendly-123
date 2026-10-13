@@ -1,5 +1,8 @@
 # AGENTS.md — para Codex (y cualquier agente) en friendly-123
 
+## JFC — entrega con enlace obligatorio (2026-10-13)
+En cada fix o entrega dar SIEMPRE el enlace al merge/PR o al commit publicado y a la app/despliegue live cuando exista. No dejar a JFC sin un resultado localizable. Separar probado, publicado, adoptado y pendiente; continuar el trabajo autorizado sin preguntas rutinarias.
+
 Lee COMPLETO `CLAUDE.md` antes de planificar: son las reglas de JFC y valen igual para ti.
 Luego la bitacora compartida en Notion: "Bitacora Claude + Codex — apps Made In Cuenca"
 (Claude y Codex dejan ahi una entrada fechada al terminar cada paso).

@@ -5747,6 +5747,27 @@
         const _pagoSiguiente = body.info && body.info.formaPago !== undefined
           ? String(body.info.formaPago || "") : _pagoAnterior;
         const _clienteSiguiente = body.clienteId !== undefined ? body.clienteId : venta.clienteId;
+        // 2026-10-13: a receipt belongs to its original debtor. Reassignment
+        // needs a separate approved ledger transfer, not a silent sale edit.
+        if (String(_clienteSiguiente || "") !== String(venta.clienteId || "")) {
+          if ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta)) {
+            return J({ error: "This sale was already settled — its customer cannot be changed." }, 400);
+          }
+          let _tieneCargo = _pagoAnterior === "fiado";
+          if (window.AMG && window.AMG.Hechos && window.AMG.Hechos.todos) {
+            try {
+              const _hechos = await window.AMG.Hechos.todos();
+              _tieneCargo = _tieneCargo || _hechos.some(h => {
+                const d = h && h.datos && h.datos.payload ? h.datos.payload : (h && h.datos) || {};
+                return (h.tipo === "cartera_cargo" || h.tipo === "cartera_vinculo") &&
+                  String(d.ventaId || "") === String(venta.id);
+              });
+            } catch (_) {
+              return J({ error: "Could not verify customer credit. No changes recorded." }, 503);
+            }
+          }
+          if (_tieneCargo) return J({ error: "This sale has a customer credit receipt. Its customer cannot be changed." }, 409);
+        }
         if (_pagoSiguiente === "fiado") {
           if (!_clienteSiguiente || !clientes.some(c => c.id === _clienteSiguiente)) {
             return J({ error: "Select a registered customer to record an on-account sale." }, 400);
@@ -5768,13 +5789,24 @@
               return J({ error: "Customer credit is unavailable. No changes recorded." }, 503);
             }
             try {
-              await window.AMG.Cartera.registrarMovimiento(_clienteSiguiente, "cargo",
-                _montoFiadoFinal, "Sale on credit: " + p.nombre, { ventaId: venta.id });
+              if (window.AMG.Cartera.asegurarCargoVenta) {
+                await window.AMG.Cartera.asegurarCargoVenta(_clienteSiguiente,
+                  _montoFiadoFinal, "Sale on credit: " + p.nombre, venta.id);
+              } else {
+                await window.AMG.Cartera.registrarMovimiento(_clienteSiguiente, "cargo",
+                  _montoFiadoFinal, "Sale on credit: " + p.nombre, { ventaId: venta.id });
+              }
             } catch (err) {
               return J({ error: "Could not confirm the on-account charge. Sale unchanged: " + ((err && err.message) || "unknown error") }, 409);
             }
           }
         }
+        // Match the durable-sale contract: no catalog/stock notification before
+        // storage confirms the correction. A retained immutable receipt for a
+        // failed cash->credit edit contributes zero while the sale stays cash.
+        const _fotoEdicion = { venta: JSON.parse(JSON.stringify(venta)),
+          producto: JSON.parse(JSON.stringify(p)), movLen: movimientos.length, sello: selloUltimo };
+        let _deltaEdicion = 0;
         // Cantidad: ajusta stock (delta) y recalcula split.
         if (body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "") {
           const nueva = Number(body.cantidad); // validada arriba (B2): entero >= 1
@@ -5782,7 +5814,7 @@
           if (delta > 0 && p.stockActual < delta) return J({ error: `Not enough stock to raise the quantity (only ${p.stockActual} left).` }, 400);
           if (delta !== 0) {
             p.stockActual -= delta;
-            emitirOpStock("venta-editada", { productoId: p.id, delta: -delta });
+            _deltaEdicion = -delta;
             cambios.cantidad = { antes: venta.cantidad, ahora: nueva };
             venta.cantidad = nueva;
             const ubicP = ubicaciones.find((x) => x.id === venta.ubicacionId);
@@ -5822,8 +5854,21 @@
           if (iv.nombrePagador !== undefined) venta.info.nombrePagador = String(iv.nombrePagador || "").slice(0, 120);
           cambios.info = true;
         }
-        mov("venta-editada", { producto: p.nombre, ventaId: venta.id, cambios });
+        mov("venta-editada", { producto: p.nombre, ventaId: venta.id, cambios }, false);
         venta.rev = _revNueva();
+        let _edicionGuardada = false;
+        try { _edicionGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+        if (!_edicionGuardada) {
+          Object.keys(venta).forEach(k => delete venta[k]);
+          Object.assign(venta, _fotoEdicion.venta);
+          Object.keys(p).forEach(k => delete p[k]);
+          Object.assign(p, _fotoEdicion.producto);
+          movimientos.length = _fotoEdicion.movLen;
+          selloUltimo = _fotoEdicion.sello;
+          debePersistir = false;
+          return J({ error: "The correction could not be saved. No sale or stock changes recorded." }, 503);
+        }
+        if (_deltaEdicion) emitirOpStock("venta-editada", { productoId: p.id, delta: _deltaEdicion });
         avisarCatalogoCambiado();
         return J({ producto: ficha(p), venta, ok: true });
       }

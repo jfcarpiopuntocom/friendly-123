@@ -83,7 +83,7 @@
   // Unico punto de escritura. tipo: "cargo" | "abono". monto siempre positivo;
   // el signo lo decide el tipo, no quien llama — asi nadie puede "abonar
   // negativo" para simular un cargo sin dejar rastro correcto.
-  function registrarMovimiento(clienteId, tipo, monto, motivo, relacion) {
+  function registrarMovimiento(clienteId, tipo, monto, motivo, relacion, reusarCargoVenta) {
     // One payment intention survives retries and reloads in the immutable receipt itself.
     // Older callers without opId still create independent, legitimate movements.
     if (relacion && relacion.opId) {
@@ -114,12 +114,14 @@
       }
       return global.AMG.Hechos.todos();
     }).then(function (hechos) {
+      var vinculos = reusarCargoVenta ? _vinculosManuales(hechos, clienteId) : {};
       var existente = hechos.find(function (h) {
         var d = _d(h);
-        return h.tipo === TIPOS.cargo && String(d.clienteId) === String(clienteId) && String(d.ventaId || "") === String(relacion.ventaId);
+        return h.tipo === TIPOS.cargo && String(d.clienteId) === String(clienteId) &&
+          String(d.ventaId || vinculos[String(h.id)] || "") === String(relacion.ventaId);
       });
       if (existente) {
-        if (Math.round(Number(_d(existente).monto) * 100) !== Math.round(Number(monto) * 100)) {
+        if (!reusarCargoVenta && Math.round(Number(_d(existente).monto) * 100) !== Math.round(Number(monto) * 100)) {
           throw new Error("cartera: la venta ya tiene un cargo; requiere una correccion, no otro cargo");
         }
         return existente;
@@ -390,6 +392,15 @@
   global.AMG.Cartera = {
     VERSION: "1.2.0-fiado-sigue-venta",
     registrarMovimiento: registrarMovimiento,
+    // JFC-approved sale corrections keep the original receipt. Its current
+    // amount comes from the durable sale projection, never a second charge.
+    asegurarCargoVenta: function (clienteId, monto, motivo, ventaId) {
+      if (!ventaId) return Promise.reject(new Error("cartera: falta ventaId"));
+      if (!Number.isFinite(Number(monto)) || !Number.isSafeInteger(Math.round(Number(monto) * 100)) || Math.round(Number(monto) * 100) < 1) {
+        return Promise.reject(new Error("cartera: monto debe ser finito y de al menos un centavo"));
+      }
+      return global.AMG.Cartera.registrarMovimiento(clienteId, "cargo", monto, motivo, { ventaId: ventaId }, true);
+    },
     saldoDeCliente: saldoDeCliente,
     calcularSaldo: calcularSaldo,
     vincularCargo: vincularCargo,
