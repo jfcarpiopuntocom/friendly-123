@@ -25,7 +25,7 @@ if (!validSha(source) || !validSha(remoteStable) || source !== remoteStable)
   fail('checkout is not the current origin/estable; local=' + source + ' stable=' + remoteStable);
 
 // A moving website/main must NEVER silently replace already-approved landing content.
-const websiteSha = readFileSync(join(here, 'website-approved.sha'), 'utf8').trim();
+const websiteSha = readFileSync(join(here, 'website-source-lock.sha'), 'utf8').trim();
 if (!validSha(websiteSha)) fail('missing or invalid approved website SHA');
 const websiteDir = mkdtempSync(join(tmpdir(), 'f123-site-'));
 try {
