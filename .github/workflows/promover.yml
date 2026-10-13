@@ -94,14 +94,18 @@ jobs:
           # Tiempo desde el push, no desde el final de QA ni desde el inicio del runner.
           INICIO=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at) || exit 1
           PUSH_DESDE=$(( $(date -d "$INICIO" +%s) * 1000 ))
-          FIN=$(( $(date -d "$INICIO" +%s) + 33 * 60 ))
+          # ORDEN DE JFC 2026-10-13 ("ya no quiero ese lapso de 33 minutos... todo debe ser en
+          # instantes"): ya no hay ventana de espera. Solo se espera lo que tarda /next/ en servir
+          # el commit exacto (maximo 15 min) y se promueve en cuanto lo sirve, sin rojo ni Detener.
+          FIN=$(( $(date -d "$INICIO" +%s) + 15 * 60 ))
           while [ "$(date +%s)" -lt "$FIN" ]; do
             if pushPedido; then
               echo "PUSH de emergencia de JFC ($ORDEN_ID): sin bloqueo QA/testigo"
               echo "orden=$ORDEN_ID" >> "$GITHUB_OUTPUT"; echo "promover=si" >> "$GITHUB_OUTPUT"; exit 0
             fi
             if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
-            sleep 60
+            if node scripts/release-control.cjs published "$GITHUB_SHA" >/dev/null 2>&1; then echo "/next/ ya sirve este commit: se promueve sin esperar"; break; fi
+            sleep 20
           done
           if ! revisar; then echo "promover=no" >> "$GITHUB_OUTPUT"; exit 0; fi
           # DECISION DE JFC 2026-10-13 ("aprobado, quita el testigo"): el testigo ya NO frena la

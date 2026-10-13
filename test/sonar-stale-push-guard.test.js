@@ -9,7 +9,8 @@ test('a stale emergency PUSH cannot bypass a new candidate 33-minute window', ()
   const yml = workflow('promover.yml');
   assert.match(yml, /PUSH_DESDE=\$\(\( \$\(date -d "\$INICIO" \+%s\) \* 1000 \)\)/);
   assert.match(yml, /\[ "\$AT" -lt "\$\{PUSH_DESDE:-0\}" \]/);
-  assert.match(yml, /FIN=\$\(\( \$\(date -d "\$INICIO" \+%s\) \+ 33 \* 60 \)\)/);
+  // JFC 2026-10-13: the window is now only the wait for /next/ to serve the commit (max 15 min).
+  assert.match(yml, /FIN=\$\(\( \$\(date -d "\$INICIO" \+%s\) \+ 15 \* 60 \)\)/);
 });
 
 test('Sonar cannot replay an earlier PUSH against a newer master commit', () => {
