@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v519 candidate: sale and on-credit obligation stored together; backward-compatible ledger projection reconciles existing receipts without duplicate debt; includes v518 dashboard fixes.",
+  "changelog": "v520: dashboard Today/Commissions keeps unknown amounts pending with optional isolated read-model guard; includes v519 durable fiado and dashboard corrections.",
   "requerida": false,
-  "shell": "f123-shell-v519",
+  "shell": "f123-shell-v520",
   "apagar": [],
-  "releaseName": "v519",
-  "cacheGeneration": "golden83"
+  "releaseName": "v520",
+  "cacheGeneration": "golden84"
 }
