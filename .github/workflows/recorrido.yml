@@ -28,4 +28,5 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
       - name: Recorrer la app viva
+        shell: bash
         run: node scripts/recorrido-vivo.cjs https://friendly123.com/app/ | tee -a "$GITHUB_STEP_SUMMARY"
