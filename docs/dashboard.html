@@ -1050,8 +1050,12 @@
       var fechas = ventas.filter(function (v) { return ventaEsDeCliente(v, c); })
         .map(function (v) { return Date.parse(v.fecha); })
         .filter(function (t) { return Number.isFinite(t) && t <= ahora + 300000; });
-      if (!fechas.length) return c;
-      var masReciente = Math.max.apply(Math, fechas);
+      if (!fechas.length) {
+        if (ventas.some(function(v) { return ventaEsDeCliente(v,c); }))
+          return Object.assign({},c,{recencia:"pending"});
+        return c;
+      }
+      var masReciente = fechas.reduce(function(a,b){return Math.max(a,b);},0);
       return Object.assign({}, c, { recencia: Math.max(0, Math.floor((ahora - masReciente) / 86400000)) });
     });
   }
@@ -1115,8 +1119,8 @@
         { title: "Compró hace", field: "recencia", width: 130, hozAlign: "right", cssClass: "num",
           formatter: function (c) {
             var v = c.getValue();
-            if (v == null) return datos.cobertura && datos.cobertura.ventas === false ? "pending" : "nunca";
-            return v + " días";
+            if (v === "pending" || (v == null && datos.cobertura && datos.cobertura.ventas === false)) return "pending";
+            return v == null ? "nunca" : v + " días";
           } },
         { title: "Compras 90d", field: "frecuencia", width: 125, hozAlign: "right", cssClass: "num" },
         { title: "Monto 90d", field: "monto", width: 125, hozAlign: "right", cssClass: "num",
@@ -2269,7 +2273,7 @@
           });
           return Object.keys(nombres).join(", ") || "—";
         }
-        if (c.field === "recencia") return v == null ? (datos.cobertura && datos.cobertura.ventas === false ? "pending" : "never") : String(v) + " days";
+        if (c.field === "recencia") return v === "pending" || (v == null && datos.cobertura && datos.cobertura.ventas === false) ? "pending" : (v == null ? "never" : String(v) + " days");
         if (v == null || v === "") return c.field === "stockActual" ? "Stock pending" : "—";
         if (/^(precio|costo|margen|precioUnit|costoUnit|monto|comision|ventasBrutas|casa)$/.test(c.field))
           return money(v);
@@ -2436,7 +2440,7 @@
       titulo = "Clientes al día";
       cols = ["Cliente", "Teléfono", "Compró hace", "Compras 90d", "Monto 90d"];
       filas = (datos.clientes || []).map(function (c) {
-        return [c.nombre, c.telefono || "", c.recencia == null ? "nunca" : c.recencia + " días",
+        return [c.nombre, c.telefono || "", c.recencia === "pending" || (c.recencia == null && datos.cobertura && datos.cobertura.ventas === false) ? "pending" : (c.recencia == null ? "nunca" : c.recencia + " días"),
                 String(c.frecuencia || 0), money(c.monto)];
       });
       pie = plural(filas.length, "cliente activo", "clientes activos") + ".";
@@ -2517,7 +2521,8 @@
       /* `para` (JFC 2026-08-27): orienta la orden a un dispositivo concreto
          (ej. renombrar su apodo). Si viene, solo ese dispositivo la aplica. */
       cifrar({ opId: id, deviceId: miId, tipo: TIPO_ORDEN,
-               payload: { pedidoId: id, metodo: metodo, ruta: ruta, cuerpo: cuerpo || null, para: para || "" } })
+               payload: { pedidoId: id, metodo: metodo, ruta: ruta, cuerpo: cuerpo || null, para: para || "",
+                          ...(metodo === "PATCH" && /^\/api\/clientes\/[^/]+\/contacto$/.test(ruta) ? { fotoToken: fotoToken } : {}) } })
         .then(function (buf) { try { ws.send(buf); } catch (_) {} });
     });
   }
