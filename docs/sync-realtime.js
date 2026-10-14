@@ -916,6 +916,7 @@
   var ORDENES_PERMITIDAS = [
     { m: "GET",  re: /^\/api\/usuarios$/ },
     { m: "GET",  re: /^\/api\/directorio$/ }, // JFC 2026-08-28: directorio de acceso (quién tiene cada PIN)
+    { m: "PATCH", re: /^\/api\/clientes\/[^/]+\/contacto$/ }, // dashboard: only contact corrections, never money or deletion
     { m: "PATCH", re: /^\/api\/usuarios\/[^/]+$/ },
     { m: "POST", re: /^\/api\/usuarios$/ },
     { m: "GET",  re: /^\/api\/actividad$/ },
@@ -935,6 +936,9 @@
   async function responderOrden(op) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const p = op.payload || {};
+    /* A dashboard write is unicast to the device that supplied its snapshot.
+       The old broadcast command path could write to every open notebook. */
+    if (p.para && p.para !== deviceId()) return;
     const metodo = String(p.metodo || "GET").toUpperCase();
     const ruta = String(p.ruta || "");
     const responder = async (cuerpo, ok) => {
@@ -950,6 +954,10 @@
       /* Se dice que no se permite, no se ignora: un tablero esperando en
          silencio una respuesta que nunca llega es peor que un no claro. */
       return responder({ error: "That action cannot be done from the dashboard." }, false);
+    }
+    if (metodo === "PATCH" && /^\/api\/clientes\/[^/]+\/contacto$/.test(ruta) &&
+        rolActual() !== "dueno" && rolActual() !== "admin") {
+      return responder({ error: "Only owner/admin may edit customers remotely." }, false);
     }
     /* Jitter, igual que en el catch-up: si hay dos telefonos del negocio
        conectados, no ejecutan la misma orden a la vez. Solo el primero que
