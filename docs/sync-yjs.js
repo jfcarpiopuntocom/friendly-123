@@ -1271,7 +1271,12 @@
 
     // Cambios locales del catálogo / equipo -> re-volcar a Yjs (con rebote).
     // Son las MISMAS señales que escucha el sync casero (mock-backend las emite).
-    function pedirSeed() { clearTimeout(_tSeed); _tSeed = setTimeout(sembrar, 400); }
+    /* v516 (JFC 2026-10-14: "app + dashboard tan reactive como entre subsecciones... INSTANTANEO").
+       Medido con el relay real entre dos aparatos: ~530 ms de los cuales 400 eran esta espera y
+       100 la del que recibe; la red ~30 ms. Ahora 30 ms: junta los eventos de una misma venta
+       (salen en el mismo instante) sin frenar el cambio. Una espera que NO se reinicia con cada
+       evento, para que una rafaga no lo posponga. Prueba: test/sync-instantaneo-v516.test.js */
+    function pedirSeed() { if (_tSeed) return; _tSeed = setTimeout(function () { _tSeed = null; sembrar(); }, 30); }
     window.addEventListener("oc-catalogo-cambiado", pedirSeed);
     window.addEventListener("oc-equipo-cambiado", pedirSeed);
 
@@ -1286,7 +1291,7 @@
       if (!_tAplica) _tAplica = setTimeout(function () {
         _tAplica = null;
         aplicar();
-      }, 100);
+      }, 20); // v516: antes 100 ms (ver pedirSeed)
     });
 
     // Arranque: cuando IndexedDB termina de cargar, primero APLICAMOS lo que ya

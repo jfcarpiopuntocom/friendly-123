@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v515: el stock de un producto que habia quedado distinto entre aparatos se pone de acuerdo solo (gana el cambio mas reciente) y una correccion manual ya llega a todos los aparatos.",
+  "changelog": "v516: los cambios cruzan entre aparatos en ~60 ms (antes ~530 ms) y llegan al tablero de la compu en ~150 ms.",
   "requerida": false,
-  "shell": "f123-shell-v515",
+  "shell": "f123-shell-v516",
   "apagar": [],
-  "releaseName": "v515",
-  "cacheGeneration": "golden79"
+  "releaseName": "v516",
+  "cacheGeneration": "golden80"
 }
