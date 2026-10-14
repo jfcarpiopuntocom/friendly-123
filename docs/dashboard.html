@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="dashboard-shell" content="f123-shell-v494">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -445,7 +446,7 @@
       <li>Your products, sales and customers are stored on your team's devices. On no server of ours.</li>
       <li>For them to appear here, they travel encrypted with a key derived from your license code — the key never leaves your devices.</li>
       <li>The server they pass through only bounces bytes it cannot read, and does not store them.</li>
-      <li>This board writes nothing to your browser. When you close the tab, no trace remains.</li>
+      <li>Reports stay on your device. A temporary session keeps automatic updates from asking for your PIN again; the PIN is not stored by the dashboard.</li>
       <li>No analytics, no trackers, no ads.</li>
     </ul>
     <p>The only things we do keep, in our license panel: your code, your name and contact email, and the technical failures the app self-reports so we can fix them. Nothing about your business.</p>
@@ -458,6 +459,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v494</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
@@ -2301,9 +2303,10 @@
         : "<strong>Could not build the report.</strong> The PDF tool did not load (cdnjs). Reload the page and try again; if it still fails, the report can also be exported from the table above as XLSX or CSV.";
       return;
     }
+    var esReporte = !!(window.OCI18n && window.OCI18n.getLang() === 'es');
     var neg = $("neg-nombre").textContent || "Mi negocio";
     var doc = new window.jspdf.jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-    var titulo, cols, filas, pie = "";
+    var titulo, cols, filas, pie = "", gastosReporte = null, resumenReporte = null;
 
     if (cual === "inv") {
       titulo = "Inventario valorizado";
@@ -2326,11 +2329,12 @@
       pie = plural(filas.length, "cliente activo", "clientes activos") + ".";
 
     } else {
-      titulo = "Reporte del mes";
+      titulo = esReporte ? "Reporte del mes" : "Monthly report";
       /* Se filtra por el mes en curso sobre lo que hay en pantalla: el tablero
          muestra lo que el equipo tiene, y eso es lo que se reporta. */
-      var mes = (new Date()).toISOString().slice(0, 7);
-      var vs = (datos.ventas || []).filter(function (v) { return String(v.fecha || "").slice(0, 7) === mes; });
+      var mes = mesLocalDe(new Date().toISOString());
+      titulo += ' · ' + mes;
+      var vs = (datos.ventas || []).filter(function (v) { return !v.anulada && !v.borrado && !v.devuelta && (v.fechaLocal || fechaLocalDashboard(v.fecha,v.relojDesfaseMs)).slice(0,7) === mes; });
       var bruto = 0, costo = 0;
       var porProd = {};
       vs.forEach(function (v) {
@@ -2341,10 +2345,17 @@
         porProd[k].u += Number(v.cantidad) || 0;
         porProd[k].t += t;
       });
-      cols = ["Producto", "Unidades", "Vendido"];
+      cols = esReporte ? ["Producto", "Unidades", "Vendido"] : ["Product", "Units", "Sold"];
       filas = Object.keys(porProd).sort(function (a, b) { return porProd[b].t - porProd[a].t; })
         .map(function (k) { return [k, String(porProd[k].u), money(porProd[k].t)]; });
-      pie = "Vendido: " + money(bruto) + "   ·   Costo: " + money(costo) + "   ·   Margen: " + money(bruto - costo);
+      // Actual expenses, not estimated shelf budgets. Detail and totals share
+      // one PDF; reading this report never creates accounting entries.
+      var gastosMes = (datos.gastos || []).filter(function(g){return !g.borrado && String(g.fecha || '').slice(0,7) === mes;});
+      var gastoTotal = gastosMes.reduce(function(a,g){return a+(Number(g.monto)||0);},0);
+      gastosReporte = gastosMes.map(function(g){return [String(g.fecha || '').slice(0,10),g.concepto || '',money(g.monto)];});
+      var labels = esReporte ? ["Vendido","Costo","Margen","Gastos registrados","Margen menos gastos registrados"] : ["Sold","Cost","Margin","Recorded expenses","Margin less recorded expenses"];
+      resumenReporte = labels.map(function(label,i){return [label,money([bruto,costo,bruto-costo,gastoTotal,bruto-costo-gastoTotal][i])];});
+      pie = esReporte ? "Comisiones y presupuesto mensual de perchas no descontados en este cierre." : "Commissions and monthly shelf budgets are not deducted in this report.";
     }
 
     doc.setFontSize(16); doc.text(neg, 40, 46);
@@ -2355,8 +2366,13 @@
       head: [cols], body: filas, startY: 98, styles: { fontSize: 9, cellPadding: 4 },
       headStyles: { fillColor: [15, 25, 35] }, alternateRowStyles: { fillColor: [250, 251, 253] },
     });
+    if (gastosReporte) {
+      doc.autoTable({head:[esReporte ? ["Fecha","Gasto","Monto"] : ["Date","Expense","Amount"]],body:gastosReporte,startY:doc.lastAutoTable.finalY+16,styles:{fontSize:10,cellPadding:4,textColor:[15,25,35]},headStyles:{fillColor:[15,25,35],textColor:[255,255,255]}});
+      doc.autoTable({body:resumenReporte,startY:doc.lastAutoTable.finalY+16,styles:{fontSize:10,cellPadding:4,textColor:[15,25,35]}});
+    }
     var y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 98) + 22;
-    doc.setFontSize(11); doc.text(pie, 40, y);
+    if (y > 780) { doc.addPage(); y = 40; }
+    doc.setFontSize(11); doc.text(doc.splitTextToSize ? doc.splitTextToSize(pie,510) : pie, 40, y);
     doc.setFontSize(8);
     /* El aviso va en el documento, no solo en pantalla: el PDF se manda por
        WhatsApp y viaja solo. */
@@ -2774,6 +2790,36 @@
   /* Authenticated notebook identity: never compare against an undeclared global. */
   var codigoSesionActual = "";
   var _sesionLocal = false;
+  /* A one-use handoff created only during automatic update. It expires after
+     30 seconds and binds to unchanged credentials and notebook identity.
+     No PIN or business snapshot is stored here. Remote access reuses the
+     existing expiring encrypted-photo token; it does not issue a new one. */
+  var DASH_HANDOFF = 'f123_dashboard_update_handoff';
+  async function credencialDashboard() {
+    var text = [codigoLocalActivo(),localStorage.getItem('f123_secure') || '',localStorage.getItem('f123_admins_pins') || ''].join('|');
+    var bytes = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(bytes)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  function actualizacionSeguraDashboard() {
+    if (editorDialog && editorDialog.open) return false;
+    if (Array.from(document.querySelectorAll('dialog[open], [role="dialog"]')).some(function(el){return getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0;})) return false;
+    var active = document.activeElement;
+    if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return false;
+    if (!autorizado && $("pin").value) return false;
+    return true;
+  }
+  window.__dashboardUpdate = {
+    safe: actualizacionSeguraDashboard,
+    prepare: async function() {
+      if (!actualizacionSeguraDashboard()) return false;
+      if (!autorizado) return true;
+      if (_sesionLocal && bloquearSesionSiCambioTienda()) return false;
+      var proof = await credencialDashboard();
+      if (!actualizacionSeguraDashboard() || !autorizado) return false;
+      try { sessionStorage.setItem(DASH_HANDOFF,JSON.stringify({at:Date.now(),code:codigoSesionActual,local:_sesionLocal,token:fotoToken,proof:proof,scroll:window.scrollY}));return true; }
+      catch (_) { return false; }
+    }
+  };
   /* Invalidates older finance-IDB reads whenever a new local view is painted. */
   var _generacionPinturaLocal = 0;
   function bloquearSesionSiCambioTienda() {
@@ -3351,6 +3397,30 @@
   var K_LIC = "f123_tablero_lic";
   var LIC_MS = 3600000;
 
+  (async function restaurarTrasHotfix() {
+    try {
+      var raw = sessionStorage.getItem(DASH_HANDOFF);
+      sessionStorage.removeItem(DASH_HANDOFF);
+      if (!raw) return;
+      var h = JSON.parse(raw);
+      if (!h || !h.code || Date.now()-h.at < 0 || Date.now()-h.at > 30000 || h.proof !== await credencialDashboard()) return;
+      if (h.local && codigoLocalActivo() !== h.code) return;
+      if (!actualizacionSeguraDashboard()) return;
+      if (h.local) {
+        var state = await leerEstadoLocalActual();
+        if (!state || codigoLocalActivo() !== h.code || !actualizacionSeguraDashboard()) return;
+        autorizado = true; _sesionLocal = true; codigoSesionActual = h.code;
+        if (!pintarDesdeLocal(state)) { autorizado = false; return; }
+        _ultimaRevRepintada = Number.isSafeInteger(state._rev) ? state._rev : -1;
+        setTimeout(function(){window.scrollTo(0,Number(h.scroll)||0);},0);
+      } else if (h.token) {
+        await conectar(h.code);
+        autorizado = true; _sesionLocal = false; codigoSesionActual = h.code; fotoToken = h.token;
+        pedirFoto(); sinNadie();
+      }
+    } catch (_) { /* Failed handoff reveals no data and preserves the PIN gate. */ }
+  })();
+
   function recordarLicencia(cod) {
     try { sessionStorage.setItem(K_LIC, JSON.stringify({ c: cod, t: Date.now() })); } catch (_) {}
   }
@@ -3395,5 +3465,6 @@
 <!-- Avanzado, aparte: si este archivo no carga, el resto del tablero
      sigue funcionando igual. -->
 <script src="./tablero-avanzado.js"></script>
+<script src="./dashboard-updates.js"></script>
 </body>
 </html>

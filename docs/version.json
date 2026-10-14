@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-13",
-  "changelog": "v493: la app se actualiza sola sin reenganchar; el panel confirma el PUSH; la entrega a clientes ya no espera el testigo.",
+  "changelog": "v494: dashboard con hotfixes automáticos y sesión conservada; reporte mensual con gastos; ventas del mes correctas en Gastos.",
   "requerida": false,
-  "shell": "f123-shell-v493",
+  "shell": "f123-shell-v494",
   "apagar": [],
-  "releaseName": "v493",
-  "cacheGeneration": "golden57"
+  "releaseName": "v494",
+  "cacheGeneration": "golden58"
 }

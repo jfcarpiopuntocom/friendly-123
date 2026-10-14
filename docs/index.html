@@ -8162,23 +8162,31 @@ async function cargarGastos(){
   try { data = await (await fetch(`${API}/gastos`)).json(); }
   catch (_) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load expenses. Reload the view.</p>'; return; }
   const gastos = (data && data.gastos) || [];
+  const zone = localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const _mesActual = window.OCSalesAudit.dayOf({fecha:new Date().toISOString()},zone).slice(0,7);
   // Ingresos del mes (ventas) para el neto.
-  let ventasMes = 0;
+  let ventasMes = null;
   try {
-    const dash = await (await fetch(`${API}/dashboard?ubicacionId=${ubicacionActual}`)).json();
-    ventasMes = (dash && dash.resumenMes && dash.resumenMes.ventas) || 0;
+    // 2026-10-13: /dashboard has no resumenMes. Use canonical sales
+    // across the business just like /gastos; failed reads never invent zero.
+    const response = await fetch(`${API}/ventas/todas`);
+    if (!response.ok) throw new Error('sales unavailable');
+    const sales = await response.json();
+    if (!Array.isArray(sales)) throw new Error('invalid sales');
+    const month = _mesActual;
+    const last = new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
+    ventasMes = window.OCSalesAudit.report(sales,{from:month+'-01',to:month+'-'+last,timeZone:zone}).netCents / 100;
   } catch (_) {}
   const totalGastos = gastos.reduce((a, g) => a + (Number(g.monto) || 0), 0);
   /* Enriquecimiento (JFC 2026-08-28): separar "este mes" de "todo el tiempo" y
      que el neto compare el MISMO periodo (ventas del mes − gastos del mes).
      Antes el neto mezclaba gastos de todo el tiempo con ventas del mes, un
      número engañoso. */
-  const _mesActual = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); })();
   const gastosMes = gastos.filter((g) => String(g.fecha || "").slice(0, 7) === _mesActual).reduce((a, g) => a + (Number(g.monto) || 0), 0);
-  const neto = ventasMes - gastosMes;
+  const neto = ventasMes === null ? null : ventasMes - gastosMes;
   const tarjeta = (label, valor, color) => `<div style="flex:1;min-width:120px;background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:12px 14px;">
     <div style="font-size:13px;color:var(--ink-soft);">${label}</div>
-    <div style="font-size:20px;font-weight:700;color:${color};">${fmtMoney(valor)}</div></div>`;
+    <div style="font-size:20px;font-weight:700;color:${color};">${valor === null ? '—' : fmtMoney(valor)}</div></div>`;
   /* Gating por rol (JFC 2026-08-27): dueño/admin/contador ven ingresos y neto;
      el encargado/clerk ve SOLO gastos, para no exponer la ganancia del negocio. */
   const _rolG = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
