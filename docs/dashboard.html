@@ -1028,6 +1028,34 @@
     mostrar();
   }
 
+  /* Belén 2026-10-14: historical purchases must not say "never" while the
+     same customer is shown as having bought items. Stable ID is authoritative;
+     name-only legacy records are attributed only when the name is unique.
+     Keep unknown coverage and invalid dates unknown, never turn them into 0. */
+  function ventaEsDeCliente(v, c) {
+    if (!v || v.anulada || !c || !c.id) return false;
+    if (v.clienteId) return String(v.clienteId) === String(c.id);
+    var nombre = String(c.nombre || "").trim().toLocaleLowerCase();
+    if (!nombre) return false;
+    var iguales = (datos.clientes || []).filter(function (x) {
+      return String(x.nombre || "").trim().toLocaleLowerCase() === nombre;
+    }).length;
+    return iguales === 1 && String(v.clienteNombre || "").trim().toLocaleLowerCase() === nombre;
+  }
+  function clientesConCompras() {
+    var ventas = Array.isArray(datos.ventas) ? datos.ventas : [];
+    var ahora = Date.now();
+    return (datos.clientes || []).map(function (c) {
+      if (c.recencia != null) return c;
+      var fechas = ventas.filter(function (v) { return ventaEsDeCliente(v, c); })
+        .map(function (v) { return Date.parse(v.fecha); })
+        .filter(function (t) { return Number.isFinite(t) && t <= ahora + 300000; });
+      if (!fechas.length) return c;
+      var masReciente = Math.max.apply(Math, fechas);
+      return Object.assign({}, c, { recencia: Math.max(0, Math.floor((ahora - masReciente) / 86400000)) });
+    });
+  }
+
   /* ---------------------------------------------------------------- VISTAS */
   var VISTAS = {
     productos: {
@@ -1071,34 +1099,6 @@
         return "<strong>Inventario sano.</strong>La matriz BCG de la app te dice cuáles empujar para que rindan más.";
       },
     },
-
-  /* Belén 2026-10-14: historical purchases must not say "never" while the
-     same customer is shown as having bought items. Stable ID is authoritative;
-     name-only legacy records are attributed only when the name is unique.
-     Keep unknown coverage and invalid dates unknown, never turn them into 0. */
-  function ventaEsDeCliente(v, c) {
-    if (!v || v.anulada || !c || !c.id) return false;
-    if (v.clienteId) return String(v.clienteId) === String(c.id);
-    var nombre = String(c.nombre || "").trim().toLocaleLowerCase();
-    if (!nombre) return false;
-    var iguales = (datos.clientes || []).filter(function (x) {
-      return String(x.nombre || "").trim().toLocaleLowerCase() === nombre;
-    }).length;
-    return iguales === 1 && String(v.clienteNombre || "").trim().toLocaleLowerCase() === nombre;
-  }
-  function clientesConCompras() {
-    var ventas = Array.isArray(datos.ventas) ? datos.ventas : [];
-    var ahora = Date.now();
-    return (datos.clientes || []).map(function (c) {
-      if (c.recencia != null) return c;
-      var fechas = ventas.filter(function (v) { return ventaEsDeCliente(v, c); })
-        .map(function (v) { return Date.parse(v.fecha); })
-        .filter(function (t) { return Number.isFinite(t) && t <= ahora + 300000; });
-      if (!fechas.length) return c;
-      var masReciente = Math.max.apply(Math, fechas);
-      return Object.assign({}, c, { recencia: Math.max(0, Math.floor((ahora - masReciente) / 86400000)) });
-    });
-  }
 
     clientes: {
       nombre: "Customers",
