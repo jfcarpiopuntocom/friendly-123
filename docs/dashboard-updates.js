@@ -3,8 +3,15 @@
    interrupt an editor, remember a PIN, or confuse publication with adoption. */
 (function () {
   'use strict';
-  if (!('serviceWorker' in navigator)) return;
   var built = document.querySelector('meta[name="dashboard-shell"]');
+  /* v508 (JFC 2026-10-14, "dice v498 arriba"): la etiqueta visible sale de la meta
+     dashboard-shell, la misma identidad que usa el actualizador. Nunca un numero a mano. */
+  try {
+    var etiqueta = document.getElementById('dashboard-version');
+    var num = built && String(built.content || '').match(/v\d+$/);
+    if (etiqueta && num) etiqueta.textContent = 'Dashboard ' + num[0];
+  } catch (_) {}
+  if (!('serviceWorker' in navigator)) return;
   var current = built && built.content, busy = false, reloading = false;
   function controllerShell() {
     return new Promise(function(resolve) {
