@@ -371,11 +371,18 @@
     pendientesCanales[d.canal] = Number(d.pendientes) || 0;
     notificarEstado(estadoActual);
   });
+  /* v514 (JFC 2026-10-14, no saturar Cloudflare): cada reintento reenvia TODAS las ops
+     pendientes (difusion + guardado) por el relay. Antes era cada 30-40 s para siempre aunque
+     el relay no confirmara (cuota llena, error de disco): un aparato atascado golpeaba Cloudflare
+     sin fin. Ahora la espera se duplica hasta 10 min y vuelve a 30 s cuando la cola se vacia. */
+  let _retryDurableMs = 30000;
   function reintentarDurable() {
-    if (_retryDurable || !leerCola().length) return;
+    if (_retryDurable || !leerCola().length) { if (!leerCola().length) _retryDurableMs = 30000; return; }
     _retryDurable = setTimeout(function () {
-      _retryDurable = null; vaciarCola(); reintentarDurable();
-    }, 30000 + Math.round(Math.random() * 10000));
+      _retryDurable = null; vaciarCola();
+      _retryDurableMs = Math.min(600000, _retryDurableMs * 2);
+      reintentarDurable();
+    }, _retryDurableMs + Math.round(Math.random() * 10000));
   }
 
   // Refuerzo (2026-07-23, auditoria delegada + verificacion manual): antes

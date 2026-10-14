@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v513: el tablero sigue el idioma elegido en la app (ingles o espanol), sin mezclar los dos.",
+  "changelog": "v514: ningun cambio se pierde si falla la red o la huella; la conexion directa sigue viva si cae el relay; la cache rota ya no dice Offline con internet; mucho menos consumo de Cloudflare (tablero y reintentos).",
   "requerida": false,
-  "shell": "f123-shell-v513",
+  "shell": "f123-shell-v514",
   "apagar": [],
-  "releaseName": "v513",
-  "cacheGeneration": "golden77"
+  "releaseName": "v514",
+  "cacheGeneration": "golden78"
 }

@@ -54,6 +54,10 @@
   navigator.serviceWorker.addEventListener('controllerchange',check);
   window.addEventListener('online',check);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});
-  setInterval(check,15000);
+  /* v514 (JFC 2026-10-14, no saturar Cloudflare): antes se preguntaba version.json cada 15 s
+     (5.760 consultas al dia por tablero abierto, cada una pasa por el Worker de friendly123.com).
+     Ahora: al volver a la pestana, al recuperar internet, al cambiar el service worker y, como
+     respaldo, cada 10 min (igual que la app). Un hotfix llega al volver a mirar el tablero. */
+  setInterval(check,600000);
   setTimeout(check,1000);
 })();

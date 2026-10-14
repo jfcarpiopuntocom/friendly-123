@@ -45,6 +45,19 @@
 > proyecto friendly-123, `is:unresolved` ultimas 24 h. Un error nuevo de cliente se arregla ANTES que lo
 > encuentre Belen (el 14 oct el aviso llego 13 h antes y quedo sin leer en Gmail > Notificaciones).
 
+> **CLOUDFLARE: PRESUPUESTO DE CONSULTAS — REGLA DURA JFC (pedida ~70 veces; textual 2026-10-14:
+> "estoy harto de saturar cloudflare... que no nos sature las cuentas el uso de los clientes en ninguna
+> de mis apps").** Aplica a friendly, amigable, consultorio y toda app futura. Topes vigentes (v514),
+> fijados por test/cloudflare-presupuesto-v514.test.js: tablero -> version.json max cada 10 min de fondo
+> (mas al volver a la pestana); tablero -> foto completa por el relay max cada 60 s (los cambios reales
+> llegan al instante por aviso); ops sin confirmar -> reintento 30 s duplicando hasta 10 min. Antes de
+> agregar cualquier setInterval/fetch/WebSocket que toque Cloudflare: calcular consultas por dia por
+> aparato y por tablero abierto y anotarlo aqui. Nunca polling por debajo de 60 s salvo orden de JFC.
+> Prompts textuales: _private/prompts/2026-10-14_prompts-jfc.md (privado, con SHA256SUMS).
+> **AUDITORIA v512 (sync nuevo de Codex), resuelto en v514:** 4 fallos de Codex arreglados + consumo.
+> Pendiente (no Cloudflare): el outbox reescribe todo el estado en el telefono por cada cambio; un
+> checkpoint atascado bloquea los siguientes; el relay lee el sobre completo antes de cada guardado.
+
 > **REGLA DURA JFC 2026-10-14 — HOTFIX A LA VELOCIDAD DE JFC, CON REWIND.** Prioridad: 1) hotfix rapido
 > (como BuscaClientes), 2) rewind facil. Se publica tras pasar SOLO las pruebas del area tocada (rojo-verde
 > incluido); la suite completa la corre GitHub (release-control/QA), no la laptop. Nada de canario, /next/,
