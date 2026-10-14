@@ -1609,6 +1609,17 @@
     (datos.ventas || []).forEach(function (v) { if (v && v.mes && v.comisionPct != null) set[v.mes] = 1; });
     return Object.keys(set).sort().reverse();
   }
+
+  /* No missing price or incomplete photo may become a commission total of 0. */
+  function comisionesConImportePendiente(filas) {
+    if (datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.liquidaciones === false)) return true;
+    return (filas || []).some(function(v) {
+      return v && v.comisionPct != null &&
+        (window.OCBusinessReadModel.number(v.precioUnit) === null ||
+         window.OCBusinessReadModel.quantity(v.cantidad) === null ||
+         (v.comisionAsociado == null && v.comisionPendiente == null));
+    });
+  }
   function cmPendienteVenta(v) {
     if (!v || v.comisionPct == null) return 0;
     if (v.comisionPendiente != null && Number.isFinite(Number(v.comisionPendiente))) return Number(v.comisionPendiente) || 0;
@@ -1636,7 +1647,7 @@
       if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
       if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
     });
-    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (b.bruto + b.counterMonto) - (a.bruto + a.counterMonto); });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (Number(b.bruto || 0) + Number(b.counterMonto || 0)) - (Number(a.bruto || 0) + Number(a.counterMonto || 0)); });
   }
   function cmRanking(filas) {
     var map = {};
@@ -1685,9 +1696,11 @@
     var pend = (cmMes === actual && liqs.length && liqs.some(function (l) { return l.stillDue != null; }))
       ? liqs.reduce(function (a, l) { return a + (Number(l.stillDue) || 0); }, 0)
       : pendVentas + ajustes.reduce(function (a, x) { return a + (x.liquidada ? 0 : (Number(x.montoComisionSocio) || 0)); }, 0);
-    var casa = bruto - socio;
+    var faltanMontos = comisionesConImportePendiente(filas);
+    if (faltanMontos) { bruto = null; socio = null; pend = null; }
+    var casa = bruto === null || socio === null ? null : bruto - socio;
     var atrasados = meses.filter(function (m) { return m !== actual && cmPendienteDe(m) > 0; });
-    var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + money(n) + "</div></div>"; };
+    var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + (n === null ? (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") : money(n)) + "</div></div>"; };
     var grupos = cmAgrupar(filas, cmVista);
     /* v423: barras (JFC "visualizacion amplia e impactante"). Azul = asociado, verde = casa (validado para
        daltonismo). Largo de cada barra = lo vendido con comision de esa fila frente a la mayor. */
@@ -1862,6 +1875,7 @@
       if (x > 0.004) { pend += x; perchas[v.ubicacionId || v.ubicacionNombre || ""] = 1; }
       if (!ultima || String(v.fecha || "") > String(ultima.fecha || "")) ultima = v;
     });
+    if (comisionesConImportePendiente(ventas)) pend = null;
     var ciegos = 0, ahora = Date.now();
     Object.keys(latidos).forEach(function (id) { if (micEstado(ahora - latidos[id].visto) === "ciegas") ciegos++; });
     /* v506 (auditoria 2026-10-14): el mosaico Today y la isla mostraban $0 cuando el
@@ -1893,8 +1907,8 @@
     var t = totalesHub(), al = alertasHub(t), set = function (id, txt) { var e = $(id); if (e) e.textContent = txt; };
     set("t-hoy-n", money(t.entra)); set("t-hoy-p", t.nVentas === null ? "Ventas pendientes" : plural(t.nVentas, "venta", "ventas"));
     set("t-hoy-p2", t.ultima ? textoVenta(t.ultima) : "");
-    set("t-comisiones-n", money(t.pend));
-    var tc = document.querySelector('[data-tile="comisiones"]'); if (tc) tc.setAttribute("data-color", t.pend > 0.004 ? "naranja" : "verde");
+    set("t-comisiones-n", t.pend === null ? (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") : money(t.pend));
+    var tc = document.querySelector('[data-tile="comisiones"]'); if (tc) tc.setAttribute("data-color", t.pend === null || t.pend > 0.004 ? "naranja" : "verde");
     set("t-inventario-n", plural(t.nProds, "producto", "productos"));
     var chips = $("t-inventario-chips");
     if (chips) chips.innerHTML = ["verde", "amarillo", "naranja", "rojo", "negro"].map(function (k) {
