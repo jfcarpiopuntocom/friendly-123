@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v512">
+<meta name="dashboard-shell" content="f123-shell-v513">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -466,7 +466,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
-    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v510</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v513</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
@@ -635,7 +635,7 @@
     <h2 style="font-size:19px;margin:0 0 4px;">Who has access</h2>
     <p style="font-size:14px;color:#2C3E50;margin:0 0 12px;max-width:640px;">
       Cada PIN de tu cuaderno, con la persona que lo usa. Si un PIN no tiene
-      nombre, edítalo en la app (Access &amp; recovery) y asígnale quién es.
+      nombre, edítalo en la app (Acceso y recuperación) y asígnale quién es.
     </p>
     <div id="acceso-cuerpo" class="card" style="padding:6px 16px;">
       <p style="font-size:14px;color:#2C3E50;margin:8px 0;">Cargando…</p>
@@ -1548,7 +1548,7 @@
   function cmEtiquetaMes(m) {
     var p = String(m || "").split("-").map(Number);
     if (p.length !== 2 || !p[0] || !p[1]) return String(m || "");
-    try { return new Date(p[0], p[1] - 1, 15).toLocaleDateString(undefined, { month: "long", year: "numeric" }); } catch (_) { return String(m); }
+    try { return new Date(p[0], p[1] - 1, 15).toLocaleDateString((function () { try { return localStorage.getItem("f123_lang") === "es" ? "es-US" : "en-US"; } catch (_) { return undefined; } })(), { month: "long", year: "numeric" }); } catch (_) { return String(m); }
   }
   function cmFilas(mes) {
     return (datos.ventas || []).filter(function (v) {
@@ -3312,7 +3312,7 @@
       filas.push(fila("Owner", d.owner && d.owner.pin, d.owner));
       (d.empleados || []).forEach(function (e) { filas.push(fila("Staff", e.pin, e)); });
       filas.push(fila("Accounting", d.acct && d.acct.pin, d.acct));
-      el.innerHTML = filas.join("") || '<p style="font-size:14px;color:#2C3E50;margin:8px 0;">Aún no hay directorio. Edita un PIN en la app (Access &amp; recovery) para asignarle quién es.</p>';
+      el.innerHTML = filas.join("") || '<p style="font-size:14px;color:#2C3E50;margin:8px 0;">Aún no hay directorio. Edita un PIN en la app (Acceso y recuperación) para asignarle quién es.</p>';
     });
   }
 
@@ -3532,6 +3532,531 @@
 </script>
 <!-- Avanzado, aparte: si este archivo no carga, el resto del tablero
      sigue funcionando igual. -->
+<!-- IDIOMA DEL TABLERO (Oct14fixes 6b, JFC 2026-10-14). El tablero mezclaba espanol e ingles
+     ("Entró hoy" junto a "Stock / cost pending", "Still to pay", "Restock"...). Ahora sigue el
+     idioma elegido en la app (localStorage f123_lang, el mismo que escribe i18n.js), EN o ES.
+     COMO FUNCIONA: el tablero sigue pintando como siempre; esta capa recorre el texto visible
+     (nodos de texto + placeholder/title/aria-label) y cambia cada frase conocida a su par del
+     otro idioma. Un MutationObserver repasa lo que se pinta despues (vistas, tablas, isla,
+     pulso), asi que no hubo que tocar ni una cuenta del tablero: NO toca dinero ni datos.
+     No se cargo i18n.js aqui: es el diccionario completo de la app (2.300 lineas, aplica sus
+     propios data-i18n al cargar) y el tablero ya leia f123_lang directo. Las palabras SI son las
+     de i18n.js (Comisiones, Percha, Lista de comisionistas, Inventario valorizado, Sano/Urgente/
+     Dormido, Avanzado, Acceso y recuperacion...). No inventar nombres nuevos.
+     PARA AGREGAR UN TEXTO: sumar el par [ingles, espanol] en PARES (frase entera) o, si lleva
+     numeros o nombres, una fila en PATRONES. Lo prueba test/dashboard-idioma-es-en.test.js
+     (Chromium y WebKit): falla si queda una palabra del otro idioma a la vista.
+     Exentos a proposito: la etiqueta "Dashboard vNNN" (identidad del shell) y el log tecnico
+     del periscopio (#oc-log-tabla, #oc-log-sync: codigos crudos del registro). -->
+<script>
+(function () {
+  "use strict";
+  var PARES = [
+    // Puerta y politica de datos
+    ["Dashboard", "Tablero de control"],
+    ["Dashboard · friendly-123", "Tablero de control · friendly-123"],
+    ["Your whole business, on one big screen.", "Todo tu negocio, en una pantalla grande."],
+    ["Your business is saved on this device.", "Tu negocio está guardado en este dispositivo."],
+    ["Use your owner or admin PIN. No other app tab needs to stay open.", "Usa tu PIN de dueño o de admin. No hace falta dejar abierta otra pestaña de la app."],
+    ["Open the friendly-123 app on your phone or tablet BEFORE you sign in here.", "Abre la app friendly-123 en tu teléfono o tablet ANTES de entrar aquí."],
+    ["1. On your phone, open the app and log in with your PIN.", "1. En tu teléfono, abre la app y entra con tu PIN."],
+    ["2. Keep that tab open (do not close it).", "2. Deja esa pestaña abierta (no la cierres)."],
+    ["3. Then come back here and enter your code + PIN below.", "3. Luego vuelve aquí y escribe tu código + PIN abajo."],
+    ["This board has no data of its own — it reads live from your device.", "Este tablero no tiene datos propios: lee en vivo desde tu dispositivo."],
+    ["The app must be open on another device for this to show anything.", "La app tiene que estar abierta en otro dispositivo para que esto muestre algo."],
+    ["Your business code", "El código de tu negocio"],
+    ["Your PIN", "Tu PIN"],
+    ["Your owner or admin PIN", "Tu PIN de dueño o de admin"],
+    ["See my business", "Ver mi negocio"],
+    ["This board is a canvas: it stores nothing. What you see arrives encrypted from your team's devices and disappears when you close this tab.", "Este tablero es un lienzo: no guarda nada. Lo que ves llega cifrado desde los dispositivos de tu equipo y desaparece al cerrar esta pestaña."],
+    ["How we handle your data", "Cómo tratamos tus datos"],
+    ["We do not handle them. We do not have them.", "No los tratamos. No los tenemos."],
+    ["Your products, sales and customers are stored on your team's devices. On no server of ours.", "Tus productos, ventas y clientes se guardan en los dispositivos de tu equipo. En ningún servidor nuestro."],
+    ["For them to appear here, they travel encrypted with a key derived from your license code — the key never leaves your devices.", "Para que aparezcan aquí, viajan cifrados con una clave que sale de tu código de licencia; la clave nunca sale de tus dispositivos."],
+    ["The server they pass through only bounces bytes it cannot read, and does not store them.", "El servidor por el que pasan solo rebota bytes que no puede leer, y no los guarda."],
+    ["Reports stay on your device. A temporary session keeps automatic updates from asking for your PIN again; the PIN is not stored by the dashboard.", "Los reportes se quedan en tu dispositivo. Una sesión temporal evita que las actualizaciones automáticas te pidan el PIN otra vez; el tablero no guarda el PIN."],
+    ["No analytics, no trackers, no ads.", "Sin analítica, sin rastreadores, sin anuncios."],
+    ["The only things we do keep, in our license panel: your code, your name and contact email, and the technical failures the app self-reports so we can fix them. Nothing about your business.", "Lo único que sí guardamos, en nuestro panel de licencias: tu código, tu nombre y correo de contacto, y las fallas técnicas que la app reporta sola para poder arreglarlas. Nada de tu negocio."],
+    ["Got it", "Entendido"],
+    // Cabecera, pulso e isla
+    ["Your business", "Tu negocio"],
+    ["Report tools", "Herramientas del reporte"],
+    ["↻ Refresh", "↻ Actualizar"],
+    ["⎙ Print", "⎙ Imprimir"],
+    ["Ask the connected app for a fresh report / Actualizar", "Pedirle a la app conectada un reporte nuevo"],
+    ["Print current report / Imprimir reporte", "Imprimir el reporte actual"],
+    ["live · instant", "en vivo · al instante"],
+    ["connecting…", "conectando…"],
+    ["checking your PIN…", "comprobando tu PIN…"],
+    ["reconnecting…", "reconectando…"],
+    ["receiving…", "recibiendo…"],
+    ["receiving snapshot…", "recibiendo foto…"],
+    ["no connection.", "sin conexión."],
+    ["from this device", "desde este dispositivo"],
+    ["no device connected", "ningún dispositivo conectado"],
+    ["local snapshot · no remote device connected", "foto local · ningún otro dispositivo conectado"],
+    ["no active license", "sin licencia activa"],
+    ["Sync", "Sincronización"],
+    ["Last sale", "Última venta"],
+    ["Payments", "Pagos"],
+    ["Alerts", "Alertas"],
+    ["No alerts", "Sin alertas"],
+    ["Came in today", "Entró hoy"],
+    // Navegacion y tarjetas
+    ["Home", "Inicio"],
+    ["Today", "Hoy"],
+    ["Commissions", "Comisiones"],
+    ["Inventory", "Inventario"],
+    ["Customers", "Clientes"],
+    ["Team", "Equipo"],
+    ["Tools", "Herramientas"],
+    ["Still to pay", "Por pagar"],
+    ["Restock", "Reposición"],
+    ["Real unit cost", "Costo real por unidad"],
+    ["Support", "Soporte"],
+    ["My log", "Mi registro"],
+    ["Sales pending", "Ventas pendientes"],
+    // KPIs de Hoy
+    ["Today's profit", "Ganancia de hoy"],
+    ["after cost", "después del costo"],
+    ["Idle capital", "Capital dormido"],
+    ["no movement", "sin movimiento"],
+    ["Stock / cost pending", "Stock / costo pendiente"],
+    ["Healthy", "Sano"],
+    ["Opportunity", "Oportunidad"],
+    ["Running low", "Se acaba"],
+    ["Urgent", "Urgente"],
+    ["Dormant", "Dormido"],
+    ["red", "rojo"],
+    ["pending", "pendiente"],
+    ["paid", "pagado"],
+    ["no commission", "sin comisión"],
+    ["review payments", "revisar pagos"],
+    // Tablas: pestanas, exportar, buscar
+    ["Sales", "Ventas"],
+    ["Events", "Eventos"],
+    ["Expenses", "Gastos"],
+    ["Monthly costs", "Costos mensuales"],
+    ["Products", "Productos"],
+    ["Transfers", "Transferencias"],
+    ["Credit & cash facts", "Hechos de fiado y caja"],
+    ["Sales associates and consignors", "Lista de comisionistas"],
+    ["Copy", "Copiar"],
+    ["Monthly report", "Reporte del mes"],
+    ["Valued inventory", "Inventario valorizado"],
+    ["Customers up to date", "Clientes al día"],
+    ["Search everything: a product, a customer, an amount…", "Busca lo que sea: un producto, un cliente, un monto…"],
+    ["Search", "Buscar"],
+    ["Showing the simple table: the sort and export tools did not load. The data is the same.", "Se está mostrando la tabla simple: no cargaron las herramientas de orden y exportación. Los datos son los mismos."],
+    ["Exporting is not possible right now.", "Ahora mismo no se puede exportar."],
+    ["Nothing to show yet.", "Nada que mostrar todavía."],
+    ["Information pending update. An incomplete list does not mean there are no records.", "Información pendiente de actualizar. Una lista incompleta no significa que no haya registros."],
+    // Columnas
+    ["Date", "Fecha"],
+    ["Product", "Producto"],
+    ["Qty.", "Cant."],
+    ["Price", "Precio"],
+    ["Customer", "Cliente"],
+    ["Payment", "Pago"],
+    ["Invoice", "Factura"],
+    ["Shelf", "Percha"],
+    ["Event", "Evento"],
+    ["Tickets", "Entradas"],
+    ["People", "Personas"],
+    ["Collected", "Recaudado"],
+    ["Profit", "Ganancia"],
+    ["Commission", "Comisión"],
+    ["Buyers", "Compradores"],
+    ["Description", "Descripción"],
+    ["Category", "Categoría"],
+    ["Amount", "Monto"],
+    ["Month", "Mes"],
+    ["Monthly cost", "Costo mensual"],
+    ["Who gets paid", "Quién cobra"],
+    ["Deal", "Trato"],
+    ["Type", "Tipo"],
+    ["% house", "% casa"],
+    ["Sold", "Vendido"],
+    ["Takes", "Se lleva"],
+    ["Status", "Estado"],
+    ["Corrected", "Corregidas"],
+    ["Sales associate / consignor", "Promotora/e"],
+    ["Monthly goal", "Meta mensual"],
+    ["Tiers", "Escalas"],
+    ["Phone", "Teléfono"],
+    ["Stock pending", "Stock pendiente de actualizar"],
+    ["Expiry date", "Fecha de caducidad"],
+    ["Cost", "Costo"],
+    ["Margin", "Margen"],
+    ["Reorder at", "Reponer en"],
+    ["Order", "Pedir"],
+    ["Code", "Código"],
+    ["Bought", "Compró"],
+    ["Last bought", "Compró hace"],
+    ["Purchases 90d", "Compras 90d"],
+    ["Amount 90d", "Monto 90d"],
+    ["Age", "Edad"],
+    ["Country", "País"],
+    ["From", "Desde"],
+    ["To", "Hasta"],
+    ["Units", "Unidades"],
+    ["When", "Cuándo"],
+    ["Customer / shelf", "Cliente / percha"],
+    ["Fact ID", "ID del hecho"],
+    ["Seller — takes", "Vendedor/a: se lleva"],
+    ["Artist — house keeps", "Artista: la casa retiene"],
+    ["Multiple deals", "Varios tratos"],
+    ["(ticket with no event name)", "(entrada sin nombre de evento)"],
+    ["(no associate assigned)", "(sin asociado/a asignado/a)"],
+    ["(deleted product)", "(producto borrado)"],
+    ["(deleted shelf)", "(percha borrada)"],
+    ["store credit", "saldo a favor"],
+    // Cierres de las tablas
+    ["Tap the pencil ✎ on a row to fix its price or quantity in the app and square up the real profit. Filter by date and export to PDF for your accountant.", "Toca el lápiz ✎ de una fila para corregir su precio o cantidad en la app y cuadrar la ganancia real. Filtra por fecha y exporta a PDF para tu contador."],
+    ["No events yet.", "Todavía no hay eventos."],
+    ["An event shows up here as soon as you sell a Ticket/Event product and write the name of the show or class.", "Un evento aparece aquí en cuanto vendes un producto de tipo Ticket/Evento y le escribes el nombre de la función o la clase."],
+    ["Each row gathers ALL the sales of that show, whatever the product or shelf.", "Cada fila junta TODAS las ventas de esa función, sin importar el producto ni la percha."],
+    ["No shelf shares commission yet.", "Ninguna percha reparte comisión todavía."],
+    ["Partner, consignment and fair shelves appear here on their own as soon as they sell.", "Las perchas de tipo socio, consignación o feria aparecen aquí solas en cuanto venden."],
+    ["All settled.", "Todo liquidado."],
+    ["View by:", "Ver por:"],
+    ["deal/shelf", "trato/percha"],
+    ["person", "persona"],
+    ["— the same person can be a seller on one shelf and an artist on another, with different %, and both things are true at once.", "— la misma persona puede ser vendedora en una percha y artista en otra, con % distintos, y las dos cosas son ciertas a la vez."],
+    ["Stock data pending. Reorder quantities cannot yet be verified.", "Datos de stock pendientes. Todavía no se pueden comprobar las cantidades por reponer."],
+    ["Nothing to restock. All stock is above its reorder point.", "Nada por reponer. Todo el stock está sobre su punto de reorden."],
+    ["In the app, Inventory with the Urgent filter puts them together for restocking.", "En la app, Inventario con el filtro Urgente los deja juntos para reponer."],
+    ["Inventory, Urgent filter, puts them together for restocking.", "Inventario, filtro Urgente, te los deja juntos para reponer."],
+    ["In the app, Racks → Restock builds the list of what to move first.", "En la app, Perchas → Reposición arma la lista de qué mover primero."],
+    ["Healthy inventory.", "Inventario sano."],
+    ["The app's BCG matrix tells you which ones to push so they yield more.", "La matriz BCG de la app te dice cuáles empujar para que rindan más."],
+    ["In Customers, the behavior matrix tells you who you can count on, and debt with an installment plan is right there.", "En Clientes, la matriz de comportamiento te dice con quién puedes contar, y el fiado con plan de cuotas está ahí mismo."],
+    ["They are added in the sales associate form and now sync to all the business's devices.", "Se dan de alta en el formulario de comisionista y ahora se sincronizan a todos los aparatos del negocio."],
+    ["The monthly shelf budget is listed separately.", "El presupuesto mensual de perchas va aparte."],
+    ["Their status comes from the current shared notebook.", "Su estado sale del cuaderno compartido actual."],
+    ["Balances require complete chains on the app.", "Los saldos necesitan cadenas completas en la app."],
+    // Comisiones
+    ["By product / SKU", "Por producto / SKU"],
+    ["By rack / event", "Por percha / evento"],
+    ["Sales with commission", "Ventas con comisión"],
+    ["Associates take", "Se llevan los/las asociados/as"],
+    ["House keeps", "La casa retiene"],
+    ["Where each dollar sold with commission goes", "A dónde va cada dólar vendido con comisión"],
+    ["Associates", "Asociados/as"],
+    ["Associate", "Asociado/a"],
+    ["House", "Casa"],
+    ["Rack", "Percha"],
+    ["to the associate", "para el/la asociado/a"],
+    ["Sold with commission", "Vendido con comisión"],
+    ["Associate takes", "Se lleva el/la asociado/a"],
+    ["On hold", "Retenido"],
+    ["House sale (no commission)", "Venta de la casa (sin comisión)"],
+    ["Review payments", "Revisar pagos"],
+    ["Overpaid:", "Pagado de más:"],
+    ["Recorded paid:", "Pagado registrado:"],
+    ["Conflicting receipts:", "Comprobantes en conflicto:"],
+    ["Target", "Meta"],
+    ["% met", "% cumplido"],
+    ["goal-based tiers", "escalas por meta"],
+    ["on margin", "sobre el margen"],
+    ["Split between people", "Repartido entre personas"],
+    ["Which sales does this payment cover?", "¿Qué ventas cubre este pago?"],
+    ["Record full/partial payment", "Registrar pago total/parcial"],
+    ["Adjust the deal", "Ajustar el trato"],
+    ["Receipt", "Recibo"],
+    ["Commissions still unpaid from earlier months", "Comisiones por pagar de meses anteriores"],
+    ["No commissioned sales this month. Partner, consignment and event racks appear here on their own as soon as they sell.", "No hay ventas con comisión este mes. Las perchas de socio, consignación y evento aparecen aquí solas en cuanto venden."],
+    ["Ranking · who earned the most this month", "Ranking · quién ganó más este mes"],
+    ["still to pay", "por pagar"],
+    ["current", "actual"],
+    // Finanzas
+    ["Finance snapshot", "Foto de finanzas"],
+    ["Waiting for a verified snapshot…", "Esperando una foto comprobada…"],
+    ["Finance data is incomplete or still loading. Missing records are not zero balances.", "Los datos de finanzas están incompletos o todavía cargando. Un registro que falta no es un saldo en cero."],
+    ["This device uses an older shell. Finance coverage is incomplete.", "Este dispositivo usa una versión anterior. Las finanzas están incompletas."],
+    ["Detailed expenses:", "Gastos detallados:"],
+    ["total", "total"],
+    ["monthly shelf costs", "costos mensuales de perchas"],
+    ["Transfers:", "Transferencias:"],
+    ["customer credit facts", "hechos de fiado de clientes"],
+    ["petty cash facts", "hechos de caja chica"],
+    ["Latest expenses: none", "Últimos gastos: ninguno"],
+    ["Latest expenses:", "Últimos gastos:"],
+    // Equipo
+    ["Your team right now", "Tu equipo ahora"],
+    ["Advanced", "Avanzado"],
+    ["My team", "Mi equipo"],
+    ["Activity log", "Log de actividad"],
+    ["Anti-fraud check", "Control anti fraude"],
+    ["Report for the accountant", "Reporte para el contador"],
+    ["No connection with your team.", "Sin conexión con tu equipo."],
+    ["Who has access", "Quién tiene acceso"],
+    ["Each PIN in your notebook, with the person who uses it. If a PIN has no name, edit it in the app (Access & recovery) and say who it is.", "Cada PIN de tu cuaderno, con la persona que lo usa. Si un PIN no tiene nombre, edítalo en la app (Acceso y recuperación) y asígnale quién es."],
+    ["Loading…", "Cargando…"],
+    ["Up to date", "Al día"],
+    ["Lagging", "Rezagado"],
+    ["Blind", "A ciegas"],
+    ["Owner", "Dueño"],
+    ["Employee", "Empleado"],
+    ["Accountant", "Contador"],
+    ["Manager", "Encargado"],
+    ["Maintenance / Support", "Mantenimiento / Soporte"],
+    ["just now", "hace un momento"],
+    ["Device", "Dispositivo"],
+    ["Rename this device", "Renombrar este dispositivo"],
+    ["no answer", "sin respuesta"],
+    ["They catch up on their own as soon as there is signal.", "Se ponen al día solos en cuanto haya señal."],
+    ["If you see a name you don't recognize, change your room code.", "Si ves un nombre que no reconoces, cambia el código de tu sala."],
+    ["Waiting for a device to show up.", "Esperando a que se presente algún dispositivo."],
+    ["The listed devices have sent recent connection signals. This does not prove that all their data matches.", "Los dispositivos listados han enviado señales recientes de conexión. Esto no comprueba que todos sus datos coincidan."],
+    ["My business", "Mi negocio"],
+    ["unnamed", "sin nombre"],
+    ["Staff", "Personal"],
+    ["Accounting", "Contabilidad"],
+    ["Could not read the directory. Is the app open on your device?", "No se pudo leer el directorio. ¿La app está abierta en tu dispositivo?"],
+    ["No directory yet. Edit a PIN in the app (Access & recovery) to say who it is.", "Aún no hay directorio. Edita un PIN en la app (Acceso y recuperación) para asignarle quién es."],
+    ["Your device did not answer. Check that the app is open.", "Tu dispositivo no contestó. Revisa que la app esté abierta."],
+    ["Your device did not answer.", "Tu dispositivo no contestó."],
+    ["The active notebook changed. Sign in again with this business's PIN.", "El cuaderno activo cambió. Ingresa nuevamente con el PIN de este negocio."],
+    // Avanzado (tablero-avanzado.js)
+    ["Asking your device for the list…", "Pidiendo la lista a tu dispositivo…"],
+    ["The list did not arrive.", "No llegó la lista."],
+    ["Active", "Activo"],
+    ["Deactivated", "Dado de baja"],
+    ["Deactivate", "Dar de baja"],
+    ["Reactivate", "Reactivar"],
+    ["Each person signs in with their own PIN. PINs are not shown here.", "Cada persona entra con su propio PIN. Los PIN no se muestran aquí."],
+    ["Name", "Nombre"],
+    ["Role", "Rol"],
+    ["Email", "Correo"],
+    ["Nobody else on the team yet.", "Todavía no hay nadie más en el equipo."],
+    ["Add someone", "Agregar a alguien"],
+    ["Add", "Agregar"],
+    ["Their PIN appears on your device, not here.", "Su PIN aparece en tu dispositivo, no aquí."],
+    ["Asking your device for the change…", "Pidiendo el cambio a tu dispositivo…"],
+    ["Could not do it.", "No se pudo."],
+    ["Done.", "Hecho."],
+    ["Write the name.", "Escribe el nombre."],
+    ["Asking your device to add them…", "Pidiendo a tu dispositivo que lo agregue…"],
+    ["Could not add.", "No se pudo agregar."],
+    ["Asking for the log…", "Pidiendo el registro…"],
+    ["The log did not arrive.", "No llegó el registro."],
+    ["Who", "Quién"],
+    ["What", "Qué"],
+    ["Detail", "Detalle"],
+    ["No activity recorded yet.", "Todavía no hay actividad registrada."],
+    ["No activity yet.", "Todavía no hay actividad."],
+    ["Checking the history…", "Revisando el historial…"],
+    ["Could not check.", "No se pudo revisar."],
+    ["History is intact.", "El historial está intacto."],
+    ["History was altered.", "El historial fue alterado."],
+    ["Every movement is sealed and chained to the previous one: if anyone edits or deletes one, it shows.", "Cada movimiento queda sellado y encadenado al anterior: si alguien edita o borra uno, se nota."],
+    ["Where it broke", "Dónde se rompió"],
+    ["the movement was edited", "el movimiento fue editado"],
+    ["it was deleted or reordered", "fue borrado o cambiado de orden"],
+    ["Asking for the transfers…", "Pidiendo las transferencias…"],
+    ["They did not arrive.", "No llegaron."],
+    ["Product moves between your shelves. Pending ones are accepted by whoever receives them.", "Movimientos de producto entre tus perchas. Los pendientes los acepta quien los recibe."],
+    ["No product has moved between shelves yet.", "Todavía no se ha movido ningún producto entre perchas."],
+    ["Building the report…", "Armando el reporte…"],
+    ["The report did not arrive.", "No llegó el reporte."],
+    ["Profit and loss (today)", "Pérdidas y ganancias (hoy)"],
+    ["Sales collected", "Ventas cobradas"],
+    ["Cost of sales", "Costo de ventas"],
+    ["Gross profit", "Utilidad bruta"],
+    ["Operating expenses", "Gastos operativos"],
+    ["Net profit", "Utilidad neta"],
+    ["Simplified balance", "Balance simplificado"],
+    ["Estimated cash for the day", "Efectivo estimado del día"],
+    ["Inventory at cost", "Inventario a costo"],
+    ["Input for your bookkeeper. It is not a filing-ready tax return.", "Insumo para tu contador. No es una declaración lista para presentar."],
+    ["The closed-month PDF is further up, under Monthly report.", "El PDF del mes cerrado está más arriba, en Reporte del mes."],
+    // Herramientas: calculadora y soporte
+    ["What ONE unit really costs you, with freight, customs and what breaks on the way spread on top. It is almost always more than the invoice price, and it is the number a selling price is decided with.", "Lo que de verdad te cuesta UNA unidad, con el flete, la aduana y lo que se rompe en el camino repartido encima. Casi siempre es más que el precio de la factura, y es el número con el que se decide un precio de venta."],
+    ["You paid in total", "Pagaste en total"],
+    ["Freight & shipping", "Flete y envío"],
+    ["Taxes & customs", "Impuestos y aduana"],
+    ["Other costs", "Otros costos"],
+    ["Units received", "Unidades recibidas"],
+    ["Broken or lost (%)", "Rotas o perdidas (%)"],
+    ["Your selling price", "Tu precio de venta"],
+    ["Write at least how much you paid and how many units arrived.", "Escribe al menos cuánto pagaste y cuántas unidades llegaron."],
+    ["With that loss not a single sellable unit is left. Check the percentage.", "Con esa merma no queda ni una unidad vendible. Revisa el porcentaje."],
+    ["Each one costs you", "Te cuesta cada una"],
+    ["Not counting breakage", "Sin contar lo que se rompe"],
+    ["You make per unit", "Ganas por unidad"],
+    ["To recover the investment", "Para recuperar lo invertido"],
+    ["units sold", "unidades vendidas"],
+    ["This number is not saved on its own. Write it as \"Cost\" on the product card in the app.", "Este número no se guarda solo. Escríbelo como \"Costo\" en la ficha del producto desde la app."],
+    ["Something stuck? Pick what is happening and we help you get unstuck. None of this deletes your data.", "¿Algo se atascó? Elige lo que te pasa y te ayudamos a desatascarlo. Nada de esto borra tus datos."],
+    ["🔑 My license is broken or too short", "🔑 Mi licencia está rota o es muy corta"],
+    ["Get a fresh full license for this device", "Pide una licencia nueva y completa para este dispositivo"],
+    ["🔄 My devices aren't talking to each other", "🔄 Mis dispositivos no se hablan entre sí"],
+    ["Reconnect this device to your team", "Reconecta este dispositivo con tu equipo"],
+    ["Asking your device for a new license…", "Pidiendo licencia nueva a tu dispositivo…"],
+    ["Done: your device generated the new license (see it in the app).", "Listo — tu dispositivo generó la licencia nueva (mírala en la app)."],
+    ["Asking for reconnection…", "Pidiendo reconexión…"],
+    ["Done: your device is reconnecting to your team.", "Hecho — tu dispositivo se está reconectando a tu equipo."],
+    ["My log · data & sync control (periscope)", "Mi registro · control de datos y sincronización (periscopio)"],
+    // Entrada (mensajes de la puerta)
+    ["That PIN does not open the dashboard. It must be the owner's or an admin's.", "Ese PIN no abre el tablero. Tiene que ser el del dueño o el de un admin."],
+    ["No device on your team answered. Open friendly-123 and try again.", "Ningún dispositivo de tu equipo contestó. Abre friendly-123 y vuelve a intentar."],
+    ["No other device on your team answered.", "Ningún otro dispositivo de tu equipo contestó."],
+    ["This is what is saved on this computer. If your team opens friendly-123, this screen updates on its own.", "Esto es lo que hay guardado en este computador. Si tu equipo abre friendly-123, esta pantalla se actualiza sola."],
+    ["No device on your team is connected.", "Ningún dispositivo de tu equipo está conectado."],
+    ["Open friendly-123 and this screen fills in on its own.", "Abre friendly-123 y esta pantalla se llena sola."],
+    ["Check the code: it goes complete, like F123-XXXX-XXXX-XXXX-XXXXX.", "Revisa el código: va completo, como F123-XXXX-XXXX-XXXX-XXXXX."],
+    ["The PIN has 3 digits.", "El PIN es de 3 dígitos."],
+    ["Write your PIN.", "Escribe tu PIN."],
+    ["Checking your PIN…", "Comprobando tu PIN…"],
+    ["Connecting to your devices…", "Conectando con tus dispositivos…"],
+    ["Checking your PIN with your team…", "Comprobando tu PIN con tu equipo…"],
+    ["Could not check your PIN.", "No se pudo comprobar tu PIN."],
+    ["asking for your business...", "pidiendo tu negocio..."],
+    ["Could not connect. Check your internet.", "No se pudo conectar. Revisa tu internet."],
+    ["Could not export. The export tool may not have loaded. Reload the page and try again.", "No se pudo exportar. Puede que no haya cargado la herramienta de exportación. Recarga la página e inténtalo de nuevo."],
+    ["The export tool did not load. Reload the page with internet and try again.", "No cargó la herramienta de exportación. Recarga la página con internet y vuelve a intentarlo."],
+    ["Edit in dashboard", "Editar en el tablero"],
+    ["Back to dashboard", "Volver al tablero"],
+    ["Inventory value pending: some stock or cost data is missing.", "Valor del inventario pendiente: faltan datos de stock o de costo."]
+  ];
+  /* Frases con numeros, montos o nombres. [regex ingles, regex espanol, plantilla ingles, plantilla espanol].
+     Las capturas ($1, $2...) pasan tal cual: montos y nombres no se tocan. */
+  var PATRONES = [
+    [/^(\d+) sales?$/, /^(\d+) ventas?$/, "$1 sales", "$1 ventas"],
+    [/^\((\d+) sales?\)$/, /^\((\d+) ventas?\)$/, "($1 sales)", "($1 ventas)"],
+    [/^(\d+) products?$/, /^(\d+) productos?$/, "$1 products", "$1 productos"],
+    [/^(\d+) customers?\.?$/, /^(\d+) clientes?\.?$/, "$1 customers.", "$1 clientes."],
+    [/^customers$/, /^clientes$/, "customers", "clientes"],
+    [/^(\d+) events?$/, /^(\d+) eventos?$/, "$1 events", "$1 eventos"],
+    [/^(\d+) sales? associates?\.$/, /^(\d+) comisionistas?\.$/, "$1 sales associates.", "$1 comisionistas."],
+    [/^(\d+) detailed expenses\.$/, /^(\d+) gastos detallados\.$/, "$1 detailed expenses.", "$1 gastos detallados."],
+    [/^(\d+) shelf budgets\.$/, /^(\d+) presupuestos de percha\.$/, "$1 shelf budgets.", "$1 presupuestos de percha."],
+    [/^(\d+) transfers\.$/, /^(\d+) transferencias\.$/, "$1 transfers.", "$1 transferencias."],
+    [/^(\d+) immutable facts\.$/, /^(\d+) hechos inmutables\.$/, "$1 immutable facts.", "$1 hechos inmutables."],
+    [/^(\d+) sales? for (.+) in what you see\.$/, /^(\d+) ventas? por (.+) en lo que ves\.$/, "$1 sales for $2 in what you see.", "$1 ventas por $2 en lo que ves."],
+    [/^(\d+) in red\.$/, /^(\d+) en rojo\.$/, "$1 in red.", "$1 en rojo."],
+    [/^(\d+) products? to restock$/, /^(\d+) productos? por reponer$/, "$1 products to restock", "$1 productos por reponer"],
+    [/^(\d+) products? to restock\. (\d+) at zero\.$/, /^(\d+) productos? por reponer\. (\d+) en cero\.$/, "$1 products to restock. $2 at zero.", "$1 productos por reponer. $2 en cero."],
+    [/^(\d+) idle products\.$/, /^(\d+) productos sin movimiento\.$/, "$1 idle products.", "$1 productos sin movimiento."],
+    [/^(\d+) active customers?\.$/, /^(\d+) clientes? activos?\.$/, "$1 active customers.", "$1 clientes activos."],
+    [/^(.+) for those who earn commission$/, /^(.+) para quienes cobran comisión$/, "$1 for those who earn commission", "$1 para quienes cobran comisión"],
+    [/^(.+) stays with the house$/, /^(.+) queda en la casa$/, "$1 stays with the house", "$1 queda en la casa"],
+    [/^Unsettled: (.+)\. View by:$/, /^Sin liquidar: (.+)\. Ver por:$/, "Unsettled: $1. View by:", "Sin liquidar: $1. Ver por:"],
+    [/^All settled\. View by:$/, /^Todo liquidado\. Ver por:$/, "All settled. View by:", "Todo liquidado. Ver por:"],
+    [/^(\d+) sale\(s\) with the percentage corrected by hand\.(.*)$/, /^(\d+) venta\(s\) con el porcentaje corregido a mano\.(.*)$/, "$1 sale(s) with the percentage corrected by hand.$2", "$1 venta(s) con el porcentaje corregido a mano.$2"],
+    [/^(.+) sellable of (.+)$/, /^(.+) vendibles de (.+)$/, "$1 sellable of $2", "$1 vendibles de $2"],
+    [/^(.+)% of the price$/, /^(.+)% del precio$/, "$1% of the price", "$1% del precio"],
+    [/^breakage adds (.+)$/, /^la merma le suma (.+)$/, "breakage adds $1", "la merma le suma $1"],
+    [/^(.+) \(current\)$/, /^(.+) \(actual\)$/, "$1 (current)", "$1 (actual)"],
+    [/^Of (.+) sold with commission, associates take (.+)% and the house keeps (.+)%$/, /^De (.+) vendido con comisión, los\/las asociados\/as se llevan (.+)% y la casa retiene (.+)%$/, "Of $1 sold with commission, associates take $2% and the house keeps $3%", "De $1 vendido con comisión, los/las asociados/as se llevan $2% y la casa retiene $3%"],
+    [/^(\d+) minutes? ago$/, /^hace (\d+) minutos?$/, "$1 minutes ago", "hace $1 minutos"],
+    [/^(\d+) hours? ago$/, /^hace (\d+) horas?$/, "$1 hours ago", "hace $1 horas"],
+    [/^(\d+) days? ago$/, /^hace (\d+) días?$/, "$1 days ago", "hace $1 días"],
+    [/^connected · no device with the app open since (.+)$/, /^conectado · ningún aparato con la app abierta desde las (.+)$/, "connected · no device with the app open since $1", "conectado · ningún aparato con la app abierta desde las $1"],
+    [/^no connection · last data at (.+)$/, /^sin conexión · último dato a las (.+)$/, "no connection · last data at $1", "sin conexión · último dato a las $1"],
+    [/^One device has gone a while without syncing\.$/, /^Un dispositivo lleva rato sin sincronizar\.$/, "One device has gone a while without syncing.", "Un dispositivo lleva rato sin sincronizar."],
+    [/^(\d+) devices have gone a while without syncing\.$/, /^(\d+) dispositivos llevan rato sin sincronizar\.$/, "$1 devices have gone a while without syncing.", "$1 dispositivos llevan rato sin sincronizar."],
+    [/^Too many failed attempts\. Wait (\d+)s and type your PIN again: the PIN is not wrong\.$/, /^Demasiados intentos fallidos\. Espera (\d+)s y vuelve a escribir tu PIN — no es que el PIN este mal\.$/, "Too many failed attempts. Wait $1s and type your PIN again: the PIN is not wrong.", "Demasiados intentos fallidos. Espera $1s y vuelve a escribir tu PIN — no es que el PIN este mal."],
+    [/^History sealed: (\d+) of (\d+)\.$/, /^Sellados: (\d+) de (\d+)\.$/, "Sealed: $1 of $2.", "Sellados: $1 de $2."]
+  ];
+  var LANG = "en";
+  var MAPA = {};
+  var norm = function (s) { return String(s).replace(/\s+/g, " ").trim(); };
+  function leerLang() { try { return localStorage.getItem("f123_lang") === "es" ? "es" : "en"; } catch (_) { return "en"; } }
+  function armar() {
+    MAPA = {};
+    PARES.forEach(function (p) {
+      var de = norm(LANG === "es" ? p[0] : p[1]), a = LANG === "es" ? p[1] : p[0];
+      if (de !== norm(a) && !MAPA.hasOwnProperty(de)) MAPA[de] = a;
+    });
+  }
+  /* Traduce una frase; devuelve null si no la reconoce (entonces se deja como esta: nombres, montos, codigos). */
+  function trad(s, hondo) {
+    if (!s) return null;
+    if (MAPA.hasOwnProperty(s)) return MAPA[s];
+    for (var i = 0; i < PATRONES.length; i++) {
+      var p = PATRONES[i], re = LANG === "es" ? p[0] : p[1];
+      if (re.test(s)) return s.replace(re, LANG === "es" ? p[3] : p[2]);
+    }
+    if (hondo > 3) return null;
+    /* "Restock · Commissions", "Alerts · 2": cada tramo por separado. */
+    if (s.split(" · ").length > 1) {
+      var tramos = s.split(" · "), cambio = false;
+      tramos = tramos.map(function (t) { var r = trad(t.trim(), hondo + 1); if (r != null) { cambio = true; return r; } return t; });
+      if (cambio) return tramos.join(" · ");
+    }
+    /* Puntuacion alrededor: "· total", "Transfers:", "Associate:". */
+    var m = /^([\s·—(\-]*)(.*?)([\s:.,;)…]*)$/.exec(s);
+    if (m && (m[1] || m[3]) && m[2]) { var c = trad(m[2], hondo + 1); if (c != null) return m[1] + c + m[3]; }
+    /* Etiqueta + numero: "Still to pay $80.00", "House 60%", "Alerts 2". */
+    m = /^(.*?[^\s\d$.,%-])\s+([-$]?[\d][\d.,]*%?)$/.exec(s);
+    if (m) { var e = trad(m[1], hondo + 1); if (e != null) return e + " " + m[2]; }
+    /* Numero + etiqueta: "$80.00 still to pay". */
+    m = /^([-$]?[\d][\d.,]*%?)\s+(.+)$/.exec(s);
+    if (m) { var f = trad(m[2], hondo + 1); if (f != null) return m[1] + " " + f; }
+    /* Etiqueta: resto (nombres): "Rack: Mora 7", "Associate: Ana". */
+    m = /^([^:]{2,30}):\s+(.+)$/.exec(s);
+    if (m) { var l = trad(m[1], hondo + 1); if (l != null) return l + ": " + m[2]; }
+    return null;
+  }
+  function exento(el) {
+    return !el || /^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(el.tagName) || el.isContentEditable ||
+      (el.closest && el.closest("#dashboard-version, #oc-log-tabla, #oc-log-sync, [data-sin-traducir]"));
+  }
+  function nodoTexto(n) {
+    var v = n.nodeValue, s = norm(v);
+    if (!s || exento(n.parentElement)) return;
+    var r = trad(s, 0);
+    if (r != null && r !== s) {
+      var ini = /^\s*/.exec(v)[0], fin = /\s*$/.exec(v)[0];
+      n.nodeValue = ini + r + fin;
+    }
+  }
+  var ATRIBUTOS = ["placeholder", "title", "aria-label"];
+  function elemento(el) {
+    if (exento(el)) return;
+    ATRIBUTOS.forEach(function (a) {
+      var v = el.getAttribute(a);
+      if (!v) return;
+      var r = trad(norm(v), 0);
+      if (r != null && r !== norm(v)) el.setAttribute(a, r);
+    });
+  }
+  function recorrer(raiz) {
+    if (!raiz) return;
+    if (raiz.nodeType === 3) return nodoTexto(raiz);
+    if (raiz.nodeType !== 1 || exento(raiz)) return;
+    elemento(raiz);
+    raiz.querySelectorAll("[placeholder],[title],[aria-label]").forEach(elemento);
+    var w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT), n, lista = [];
+    while ((n = w.nextNode())) lista.push(n);
+    lista.forEach(nodoTexto);
+  }
+  function aplicar() {
+    LANG = leerLang();
+    armar();
+    document.documentElement.lang = LANG;
+    var t = trad(norm(document.title), 0);
+    if (t != null) document.title = t;
+    recorrer(document.body);
+  }
+  aplicar();
+  /* Lo que el tablero pinta despues (vistas, tablas, isla, pulso) pasa por la misma capa.
+     No hay bucle: lo ya traducido no esta en el MAPA del idioma activo. */
+  new MutationObserver(function (cambios) {
+    cambios.forEach(function (c) {
+      if (c.type === "characterData") nodoTexto(c.target);
+      else if (c.type === "attributes") elemento(c.target);
+      else c.addedNodes.forEach(recorrer);
+    });
+  }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATRIBUTOS });
+  /* Si en la app se cambia el idioma con el tablero abierto, el tablero lo sigue. */
+  window.addEventListener("storage", function (e) { if (e.key && /f123_lang$/.test(e.key)) aplicar(); });
+  window.OCDashIdioma = { aplicar: aplicar, traducir: function (s) { return trad(norm(s), 0); } };
+})();
+</script>
+
 <script src="./tablero-avanzado.js"></script>
 <script src="./dashboard-updates.js"></script>
 </body>

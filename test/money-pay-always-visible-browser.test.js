@@ -204,7 +204,7 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
             await wait(100);
             const link = () => window.__medir(document.querySelector('#cm .cm-actions a.pagar'));
             out.productoPay = link();
-            out.productoPendiente = /still to pay/i.test(document.getElementById('cm').innerText);
+            out.productoPendiente = /still to pay|por pagar/i.test(document.getElementById('cm').innerText);
             const bp = document.querySelector('#cm [data-cm-vista="percha"]');
             if (bp) bp.click();
             await wait(100);

@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v512: cambios pendientes protegidos hasta confirmar guardado remoto; conexión directa con respaldo y archivos locales de la versión activa.",
+  "changelog": "v513: el tablero sigue el idioma elegido en la app (ingles o espanol), sin mezclar los dos.",
   "requerida": false,
-  "shell": "f123-shell-v512",
+  "shell": "f123-shell-v513",
   "apagar": [],
-  "releaseName": "v512",
-  "cacheGeneration": "golden76"
+  "releaseName": "v513",
+  "cacheGeneration": "golden77"
 }
