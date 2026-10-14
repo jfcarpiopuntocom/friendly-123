@@ -9,10 +9,13 @@
 # Nada aqui toca datos: solo mueve que version de la interfaz ven los clientes.
 name: promover
 
+# DORMIDO por JFC 2026-10-14 ("dejemos ya eso del canario o del push next"). NO BORRAR.
+# Lo reemplaza hotfix.yml. Para reactivarlo: devolver el trigger push comentado abajo.
 on:
-  push:
-    branches: [master]
-    paths: ["docs/**"]
+  workflow_dispatch: {}
+  # push:
+  #   branches: [master]
+  #   paths: ["docs/**"]
 
 permissions:
   actions: read
