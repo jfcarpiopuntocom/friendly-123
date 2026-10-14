@@ -1127,9 +1127,22 @@
               if (prev && col === "productos") {
                 var basePrev = prev.stockBase == null ? null : Number(prev.stockBase);
                 var baseMia = r.stockBase == null ? null : Number(r.stockBase);
-                if (basePrev !== null && baseMia !== null && basePrev !== baseMia) return;
+                /* v515: con bases distintas ANTES se hacia `return`: este aparato dejaba de publicar
+                   el producto entero (stock, nombre, precio) para siempre. Ahora gana el cambio de
+                   stock mas reciente; el resto de la ficha se publica igual. Regla identica a
+                   _ganaEpocaStockRemota en mock-backend.js. Prueba: test/stock-base-conflicto-v515. */
+                var conflictoBase = basePrev !== null && baseMia !== null && basePrev !== baseMia;
+                if (conflictoBase) {
+                  var claveEp = function (x) {
+                    var q = x && x.stockPN && typeof x.stockPN === "object" ? x.stockPN : {};
+                    return JSON.stringify([Number(x && x.stockBase), Object.keys(q).sort().map(function (k) { return [k, Number(q[k].add) || 0, Number(q[k].sub) || 0]; })]);
+                  };
+                  var tMio = Number(r.stockTs) || 0, tDoc = Number(prev.stockTs) || 0;
+                  var ganoYo = tMio !== tDoc ? tMio > tDoc : claveEp(r) > claveEp(prev);
+                  if (!ganoYo) r = Object.assign({}, r, { stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual, stockTs: prev.stockTs, stockDeficit: prev.stockDeficit });
+                }
                 var base = baseMia !== null ? baseMia : basePrev;
-                if (base !== null && Number.isFinite(base)) {
+                if (!conflictoBase && base !== null && Number.isFinite(base)) {
                   var pn = Object.assign({}, prev.stockPN || {});
                   Object.keys(r.stockPN || {}).forEach(function (id) {
                     var antes = pn[id] || {}, nuevo = r.stockPN[id] || {};

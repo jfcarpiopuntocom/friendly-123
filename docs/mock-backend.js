@@ -3007,6 +3007,21 @@
     if (s.size > 2000) { const arr = [...s]; s.clear(); arr.slice(-2000).forEach((x) => s.add(x)); }
     try { localStorage.setItem(OPS_APLICADAS_KEY, JSON.stringify([...s])); } catch (_) {}
   }
+  /* v515: quien gana cuando dos aparatos tienen distinta base de stock para un producto.
+     Gana el cambio de stock mas reciente (stockTs). Un sello >5 min en el futuro del reloj
+     comun no gana (mismo criterio que v447). Empate: compara una clave determinista, asi
+     los dos aparatos eligen lo mismo. COPIA EXACTA en docs/sync-yjs.js: cambiar ambas. */
+  function _claveEpocaStock(x) {
+    const pn = x && x.stockPN && typeof x.stockPN === "object" ? x.stockPN : {};
+    return JSON.stringify([Number(x && x.stockBase), Object.keys(pn).sort().map((k) => [k, Number(pn[k].add) || 0, Number(pn[k].sub) || 0])]);
+  }
+  function _ganaEpocaStockRemota(remoto, local) {
+    const tR = Number(remoto && remoto.stockTs) || 0, tL = Number(local && local.stockTs) || 0;
+    const ahora = typeof ahoraRelayComun === "function" ? ahoraRelayComun() : null;
+    if (ahora !== null && tR > ahora + 5 * 60 * 1000) return false;
+    if (tR !== tL) return tR > tL;
+    return _claveEpocaStock(remoto) > _claveEpocaStock(local);
+  }
   function emitirOpStock(tipo, payload) {
     /* A3 (2026-08-28): el delta viaja con el NOMBRE del producto, no solo el id.
        Dos dispositivos del mismo negocio pueden tener el MISMO producto con ids
@@ -3572,8 +3587,22 @@
           } else {
             try { window.dispatchEvent(new CustomEvent("oc-stock-cero-legado-ignorado", { detail: { productoId: mio.id } })); } catch (_) {}
           }
+        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && _ganaEpocaStockRemota(p, mio)) {
+          /* v515 (Belen 2026-10-14: "Yo arregle manualmente... no afecto a lo de mi compu").
+             Antes, con bases distintas solo se avisaba y NADIE convergia nunca: cada aparato
+             quedaba con su numero y una correccion manual no cruzaba. Ahora gana el cambio de
+             stock MAS RECIENTE (stockTs); empate = misma regla determinista en los dos aparatos
+             (ver _ganaEpocaStockRemota, identica en sync-yjs.js). El que pierde adopta base y
+             contadores completos del ganador: desde ahi comparten base y las ventas se suman.
+             Prueba: test/stock-base-conflicto-v515.test.js */
+          const pnG = {};
+          Object.keys(_pnR || {}).forEach((id) => { pnG[id] = { add: Number(_pnR[id].add) || 0, sub: Number(_pnR[id].sub) || 0 }; });
+          const _crudoG = _baseR + Object.keys(pnG).reduce((n, id) => n + pnG[id].add - pnG[id].sub, 0);
+          mio.stockBase = _baseR; mio.stockPN = pnG; mio.stockActual = Math.max(0, _crudoG);
+          mio.stockDeficit = _crudoG < 0 ? -_crudoG : 0; mio.stockTs = _tsR; actualizados++;
+          try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
         } else if (_baseR !== null && _baseL !== null && _baseR !== _baseL) {
-          try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
+          try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "local" } })); } catch (_) {}
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
