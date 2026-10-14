@@ -2753,7 +2753,7 @@
       (!v.clienteId && unico && String(v.clienteNombre || "").trim().toLocaleLowerCase() === nombre));
     const ahora = Date.now();
     const fechas = vc.map((v) => Date.parse(v.fecha)).filter((t) => Number.isFinite(t) && t <= ahora + 300000);
-    const ultima = fechas.length ? Math.max(...fechas) : null;
+    const ultima = fechas.length ? fechas.reduce((a, b) => Math.max(a, b), 0) : null;
     const recencia = ultima === null ? null : Math.max(0, Math.floor((ahora - ultima) / 86400000));
     const v90 = vc.filter((v) => { const d = ahora - Date.parse(v.fecha); return Number.isFinite(d) && d >= -300000 && d <= 90 * 86400000; });
     const monto = +v90.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0), 0).toFixed(2);
