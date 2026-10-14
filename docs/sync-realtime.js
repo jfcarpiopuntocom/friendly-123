@@ -955,9 +955,14 @@
          silencio una respuesta que nunca llega es peor que un no claro. */
       return responder({ error: "That action cannot be done from the dashboard." }, false);
     }
-    if (metodo === "PATCH" && /^\/api\/clientes\/[^/]+\/contacto$/.test(ruta) &&
-        rolActual() !== "dueno" && rolActual() !== "admin") {
-      return responder({ error: "Only owner/admin may edit customers remotely." }, false);
+    if (metodo === "PATCH" && /^\/api\/clientes\/[^/]+\/contacto$/.test(ruta)) {
+      const permiso = fotoAutorizadaHasta[op.deviceId];
+      if (!permiso || permiso.hasta < Date.now() || !p.fotoToken || p.fotoToken !== permiso.token) {
+        return responder({ error: "Dashboard PIN session expired. Reconnect before editing." }, false);
+      }
+      if (rolActual() !== "dueno" && rolActual() !== "admin") {
+        return responder({ error: "Only owner/admin may edit customers remotely." }, false);
+      }
     }
     /* Jitter, igual que en el catch-up: si hay dos telefonos del negocio
        conectados, no ejecutan la misma orden a la vez. Solo el primero que
