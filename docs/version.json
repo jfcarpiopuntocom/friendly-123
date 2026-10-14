@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-13",
-  "changelog": "v496: las actualizaciones automaticas del dashboard conservan calculadora, busqueda y vista del reporte sin perder lo escrito.",
+  "fecha": "2026-10-14",
+  "changelog": "v497: ordenar inventario por caducidad; rueda del mouse no modifica precios; primera asignacion de deudor al corregir efectivo a fiado conserva comision pagada; una copia local sin cambios no reemplaza la foto reciente del dashboard.",
   "requerida": false,
-  "shell": "f123-shell-v496",
+  "shell": "f123-shell-v497",
   "apagar": [],
-  "releaseName": "v496",
-  "cacheGeneration": "golden60"
+  "releaseName": "v497",
+  "cacheGeneration": "golden61"
 }

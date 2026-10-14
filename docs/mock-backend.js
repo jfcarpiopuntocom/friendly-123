@@ -5750,7 +5750,8 @@
         // 2026-10-13: a receipt belongs to its original debtor. Reassignment
         // needs a separate approved ledger transfer, not a silent sale edit.
         if (String(_clienteSiguiente || "") !== String(venta.clienteId || "")) {
-          if ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta)) {
+          const _primerDeudorFiado = !venta.clienteId && !!_clienteSiguiente && _pagoAnterior !== 'fiado' && _pagoSiguiente === 'fiado';
+          if (!_primerDeudorFiado && ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta))) {
             return J({ error: "This sale was already settled — its customer cannot be changed." }, 400);
           }
           let _tieneCargo = _pagoAnterior === "fiado";

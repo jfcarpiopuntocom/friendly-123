@@ -18,6 +18,22 @@ async function setup(){
 const edit=(s,b)=>s.w.request('/api/ventas/'+s.id,'PATCH',b);
 const balance=(s,id=s.a.id)=>s.w.request('/api/clientes/'+id+'/cartera');
 const sale=async s=>(await s.w.request('/api/ventas/todas')).find(v=>v.id===s.id);
+
+test('settled cash walk-in sale may acquire its first debtor only during correction to fiado, without changing paid commission',async()=>{
+ const s=await setup();
+ const person=await s.w.request('/api/promotoras','POST',{nombre:'Synthetic first debtor payee',comisionBase:40});
+ const rack=await s.w.request('/api/ubicaciones','POST',{nombre:'Synthetic first debtor rack',tipo:'socio'});
+ await s.w.request('/api/ubicaciones/'+rack.id,'PUT',{promotoraId:person.id});
+ const p=await s.w.request('/api/productos','POST',{nombre:'Synthetic first debtor item',barcode:'FIRST-DEBT',precio:10,costo:2,stockInicial:4,ubicacionId:rack.id});
+ const r=await s.w.request('/api/productos/'+p.id+'/venta','POST',{cantidad:2,info:{formaPago:'cash'}});s.id=r.ventaId;
+ await s.w.request('/api/liquidaciones/'+rack.id+'/marcar-pagado','POST',{payeeId:person.id,amountCents:400,medioPago:'efectivo',opId:'first-debt-paid'});
+ const before=JSON.parse(JSON.stringify(s.w.catalog().ventas.find(v=>v.id===s.id).split));
+ await edit(s,{clienteId:s.a.id,info:{formaPago:'fiado'}});await edit(s,{info:{formaPago:'fiado'}});
+ assert.deepEqual(s.w.catalog().ventas.find(v=>v.id===s.id).split,before);assert.equal((await balance(s)).saldo,-20);
+ assert.equal((await s.w.request('/api/productos/'+p.id)).stockActual,2);
+ assert.equal(s.facts.filter(h=>h.tipo==='cartera_cargo').length,1);
+ await assert.rejects(()=>edit(s,{clienteId:s.b.id}),/customer|settled/i);
+});
 test('manually linked legacy debt is reused, never doubled or reassigned',async()=>{
  const s=await setup();
  s.facts.push({id:'synthetic-legacy-cargo',tipo:'cartera_cargo',datos:{clienteId:s.a.id,monto:20,motivo:'Legacy charge'},ts:1});
