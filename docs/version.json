@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v510: letras propias de la app (sin Google): el splash ya no cambia de letra a mitad de pantalla.",
+  "changelog": "v511: cambios pendientes protegidos hasta confirmar guardado remoto; conexión directa con respaldo y archivos locales de la versión activa.",
   "requerida": false,
-  "shell": "f123-shell-v510",
+  "shell": "f123-shell-v511",
   "apagar": [],
-  "releaseName": "v510",
-  "cacheGeneration": "golden74"
+  "releaseName": "v511",
+  "cacheGeneration": "golden75"
 }

@@ -407,7 +407,8 @@
   function pintarMini(estado) {
     try {
       const C = window.OCSyncControl;
-      const e = estado || (C && C.estado ? C.estado() : "apagado");
+      const conectado = estado || (C && C.estado ? C.estado() : "apagado");
+      const e = C && C.durabilidadPendiente && C.durabilidadPendiente() ? "pendiente" : conectado;
       const problema = !!(C && C.problemaPersistente && C.problemaPersistente());
       /* ESCALA DE NEGRO A BLANCO = grado de "encendido/al dia" (JFC 2026-08-25).
          4 tonos: NEGRO=offline (apagado) < gris oscuro=reconectando <
@@ -415,7 +416,10 @@
          La etiqueta dice la palabra completa (explica, no solo "Synced") y el
          tooltip explica la escala para quien no sepa que es. */
       let dotBg, dotBorder, dotGlow, txtColor, etiqueta;
-      if (e === "conectado") {
+      if (e === "pendiente") {
+        dotBg = "#FFFFFF"; dotBorder = "#14181C"; dotGlow = "none";
+        txtColor = "#FFFFFF"; etiqueta = _miniT("sync.mini.pending", "Sync pending");
+      } else if (e === "conectado") {
         dotBg = "#ffffff"; dotBorder = "#7f93a4"; dotGlow = "0 0 5px 1px rgba(255,255,255,.95), 0 0 0 2px rgba(127,147,164,.30)";
         txtColor = "#0F1923"; etiqueta = _miniT("sync.mini.synced", "Synchronized");
         const n = C && C.presencia ? C.presencia() : null;

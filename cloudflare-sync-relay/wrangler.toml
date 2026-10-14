@@ -7,15 +7,14 @@ main = "worker.js"
 compatibility_date = "2026-07-10"
 preview_urls = false
 
-# Salas en memoria: Durable Object, sin KV de negocio, sin disco.
+# Salas con hibernacion y sobres cifrados persistidos en SQLite.
 [[durable_objects.bindings]]
 name = "SALAS"
 class_name = "SalaSync"
 
 # new_sqlite_classes (no new_classes): el backend SQLite de Durable Objects es
-# elegible en el plan GRATIS de Cloudflare. Esta sala no usa almacenamiento
-# (vive en memoria), asi que el backend SQLite no cuesta nada y ademas permite
-# desplegar sin plan pago. El classic new_classes exige Workers Paid.
+# elegible en el plan GRATIS de Cloudflare, sujeto a sus limites de lecturas,
+# escrituras y almacenamiento. Hibernar ahorra duracion, no filas escritas.
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SalaSync"]

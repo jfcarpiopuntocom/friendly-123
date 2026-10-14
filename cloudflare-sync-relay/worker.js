@@ -1,12 +1,11 @@
 // friendly123-sync-relay — relay zero-trust del Hybrid Proxy Tunnel Sync Engine.
 //
-// JFC 2026-08-25. Este Worker SOLO une conexiones. No guarda el negocio y no
-// puede leerlo: cada frame llega ya cifrado en el cliente (clave derivada del
-// codigo de sala; ver docs/sync-realtime.js) y el relay lo reenvia tal cual a
-// los demas de la MISMA sala. Es una tuberia, no una bodega.
+// El relay reenvia frames cifrados y conserva sobres cifrados en SQLite para
+// recuperar aparatos desconectados. No ejecuta logica de dinero ni abre estos
+// sobres. La custodia/separacion de claves requiere evaluacion aparte.
 //
 // Reglas duras (ver _private/SPEC-SYNC-ZERO-TRUST.md):
-//   - Sala en memoria (Durable Object), sin disco, sin KV de negocio.
+//   - WebSocket Hibernation y persistencia cifrada en Durable Object SQLite.
 //   - No se leen ni se registran los cuerpos de los mensajes (bytes cifrados).
 //   - Tope de clientes por sala y tope de tamano de frame.
 //   - Es OTRO Worker, otro nombre: NUNCA reusar el de licencias.
@@ -79,23 +78,30 @@ export class SalaSync {
   }
 
   _guardarOp(id, lam, c) {
-    if (!this.sql || !id || typeof c !== "string") return;
+    if (!this.sql || !id || typeof c !== "string") return false;
     try {
+      // A durable retry needs no additional write, even when today's quota is full.
+      const anterior = this.sql.exec("SELECT c FROM ops WHERE id = ?", String(id)).toArray();
+      if (anterior.length) return true; // Stable operation id remains authoritative across fresh encryption IVs.
       this.sql.exec("INSERT OR IGNORE INTO ops(id, lam, c) VALUES (?, ?, ?)", String(id), Number(lam) || 0, c);
       /* COUNT(*) por CADA op era el quemador. Se muestrea por hash del id en
          vez de contar en memoria: la hibernacion ya no desactiva la poda y no
          agregamos una lectura/escritura de metadata por cada operacion. */
       if (debePodar(id)) {
-        this.sql.exec("DELETE FROM ops WHERE id IN (SELECT id FROM ops ORDER BY lam DESC LIMIT -1 OFFSET ?)", MAX_OPS_SALA);
+        try { this.sql.exec("DELETE FROM ops WHERE id IN (SELECT id FROM ops ORDER BY lam DESC LIMIT -1 OFFSET ?)", MAX_OPS_SALA); } catch (_) {}
       }
-    } catch (_) {}
+      return true;
+    } catch (_) { return false; }
   }
 
   _guardarCkpt(lam, c, protocolo, cursorRev, cursorSeq) {
-    if (!this.sql || typeof c !== "string") return;
+    if (!this.sql || typeof c !== "string") return false;
     try {
+      const guardar = () => {
       const lamN = Number(lam) || 0;
       const existente = this.sql.exec("SELECT lam, rev, v FROM ckpt WHERE k = 'latest'").toArray();
+      const repetido = this.sql.exec("SELECT c FROM ckpt WHERE k = 'latest'").toArray();
+      if (repetido.length && repetido[0].c === c) return true;
 
       if (Number(protocolo) === 2) {
         const revActual = existente.length ? (Number(existente[0].rev) || 0) : 0;
@@ -103,18 +109,18 @@ export class SalaSync {
         const seqCliente = Math.max(0, Math.trunc(Number(cursorSeq) || 0));
         /* CAS: el estado solo puede compactar la generacion que el cliente ya
            termino de aplicar. Una op concurrente tiene rowid mayor y sobrevive. */
-        if (!Number.isFinite(revCliente) || revCliente !== revActual) return;
+        if (!Number.isFinite(revCliente) || revCliente !== revActual) return false;
         this.sql.exec(
           "INSERT INTO ckpt(k, lam, c, rev, v) VALUES ('latest', ?, ?, ?, 2) " +
           "ON CONFLICT(k) DO UPDATE SET lam = excluded.lam, c = excluded.c, rev = excluded.rev, v = 2",
           lamN, c, revActual + 1
         );
         this.sql.exec("DELETE FROM ops WHERE rowid <= ?", seqCliente);
-        return;
+        return true;
       }
 
       // Un shell viejo no puede degradar un checkpoint ya confirmado por v2.
-      if (existente.length && Number(existente[0].v) >= 2) return;
+      if (existente.length && Number(existente[0].v) >= 2) return false;
       /* C1 (2026-08-27, auditoría de integridad): NUNCA sobreescribir un
          checkpoint con uno MÁS VIEJO. Antes, un dispositivo atrasado que
          reconectaba subía su estado rancio y pisaba el checkpoint bueno del
@@ -125,14 +131,20 @@ export class SalaSync {
          que solo se acepta si el entrante es >= al guardado. Igual se deja
          pasar (último en subir gana) para no congelar el checkpoint en el
          primer aparato que conecte. */
-      if (existente.length && (Number(existente[0].lam) || 0) > lamN) return;
+      if (existente.length && (Number(existente[0].lam) || 0) > lamN) return false;
       this.sql.exec(
         "INSERT INTO ckpt(k, lam, c) VALUES ('latest', ?, ?) ON CONFLICT(k) DO UPDATE SET lam = excluded.lam, c = excluded.c",
         lamN, c
       );
       // El checkpoint resume todo lo <= su lam: esas ops ya no hacen falta.
       this.sql.exec("DELETE FROM ops WHERE lam <= ?", lamN);
-    } catch (_) {}
+      return true;
+      };
+      // SQLite checkpoint and its pruning are one recoverable state transition.
+      // The runtime always provides this API; simple historical test doubles may not.
+      return typeof this.state.storage.transactionSync === "function"
+        ? this.state.storage.transactionSync(guardar) : guardar();
+    } catch (_) { return false; }
   }
 
   _responderPull(sock, desdeLam) {
@@ -225,11 +237,18 @@ export class SalaSync {
     // mientras esta dormido. Los mensajes despiertan al DO y llegan por
     // webSocketMessage(); el cierre por webSocketClose().
     this.state.acceptWebSocket(servidor);
+    this._avisarPares();
 
     return new Response(null, { status: 101, webSocket: cliente });
   }
 
   // === Handlers de la WebSocket Hibernation API ===
+  _avisarPares(excluir) {
+    const sockets = this.state.getWebSockets().filter(s => s !== excluir && s.readyState === 1);
+    for (const s of sockets) {
+      try { s.send(JSON.stringify({ k: "peer-count", n: sockets.length })); } catch (_) {}
+    }
+  }
   // El runtime los invoca al despertar el DO; NO hay estado en memoria entre
   // mensajes (this.sockets ya no existe): la lista viva se obtiene siempre con
   // this.state.getWebSockets().
@@ -255,8 +274,23 @@ export class SalaSync {
       let msg = null;
       try { msg = JSON.parse(data); } catch (_) { msg = null; }
       if (msg && typeof msg === "object" && msg.k) {
-        if (msg.k === "op") { this._guardarOp(msg.id, msg.lam, msg.c); return; }
-        if (msg.k === "ckpt") { this._guardarCkpt(msg.lam, msg.c, msg.v, msg.rev, msg.seq); return; }
+        if (msg.k === "op" || msg.k === "ckpt") {
+          const ok = msg.k === "op"
+            ? this._guardarOp(msg.id, msg.lam, msg.c)
+            : this._guardarCkpt(msg.lam, msg.c, msg.v, msg.rev, msg.seq);
+          // Opt-in acknowledgement: clients already in use retain their wire format.
+          if (msg.ack === 1 && typeof msg.id === "string") {
+            let conflict = false;
+            if (!ok && msg.k === "ckpt" && Number(msg.v) === 2 && this.sql) {
+              try {
+                const current = this.sql.exec("SELECT rev FROM ckpt WHERE k = 'latest'").toArray();
+                conflict = Number(msg.rev) !== (current.length ? Number(current[0].rev) || 0 : 0);
+              } catch (_) {}
+            }
+            try { servidor.send(JSON.stringify({ k: "persist-result", kind: msg.k, id: msg.id, ok: ok === true, conflict })); } catch (_) {}
+          }
+          return;
+        }
         if (msg.k === "pull") {
           if (Number(msg.v) === 2) this._responderPullV2(servidor, msg);
           else this._responderPull(servidor, msg.lam); // compatibilidad con shells viejos
@@ -315,10 +349,12 @@ export class SalaSync {
     // pasarse a close() y el cierre limpio no ocurre. Se usa 1000 (normal) o
     // ninguno. (v-relay 2026-09-16, auditoria #9.)
     try { servidor.close(1000); } catch (_) {}
+    this._avisarPares(servidor);
   }
 
   async webSocketError(servidor, err) {
     try { servidor.close(1011, "error"); } catch (_) {}
+    this._avisarPares(servidor);
   }
 }
 
@@ -331,6 +367,7 @@ export default {
         status: 200,
         headers: {
           "content-type": "text/plain; charset=utf-8",
+          "x-friendly-relay-release": "durable-ack-20261014",
           /* CORS (JFC 2026-08-28): sin esto, un fetch("/health") desde el
              navegador (github.io) se bloqueaba por CORS y el autodiagnóstico
              reportaba "RELAY UNREACHABLE" en falso. El check del cliente ya

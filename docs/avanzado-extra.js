@@ -1015,6 +1015,7 @@
       } catch (_) {}
 
       const pillTexto = (estado, n) => {
+        if (window.OCSyncControl.durabilidadPendiente && window.OCSyncControl.durabilidadPendiente()) return window.t("sync.mini.pending");
         if (estado === "conectado") return window.t("sync.panel.statusOn") + (n != null ? ` · ${n}` : "");
         if (window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente()) {
           return window.t("sync.panel.statusFailed");
@@ -1032,6 +1033,7 @@
          Ayuda. Nada de verde/ambar/rojo. */
       const _prob = () => !!(window.OCSyncControl.problemaPersistente && window.OCSyncControl.problemaPersistente());
       const dotSpec = (estado) => {
+        if (window.OCSyncControl.durabilidadPendiente && window.OCSyncControl.durabilidadPendiente()) return { bg: "#FFFFFF", bd: "#14181C", glow: "none" };
         // Misma escala negro->blanco que el punto junto a Help (4 tonos).
         if (estado === "conectado") return { bg: "#ffffff", bd: "#7f93a4", glow: "0 0 5px 1px rgba(255,255,255,.95), 0 0 0 2px rgba(127,147,164,.30)" };
         if (estado === "conectando" && !_prob()) return { bg: "#c8c8c8", bd: "#b0b0b0", glow: "none" };

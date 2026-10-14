@@ -356,9 +356,26 @@
   let intentosSeguidos = 0; // reintentos consecutivos sin exito (refuerzo 2026-07-23)
   let timeoutConexion = null;
   const listenersEstado = [];
+  const pendientesCanales = Object.create(null);
+  let _retryDurable = null;
+  function tienePendientesDurables() {
+    return leerCola().length > 0 || Object.keys(pendientesCanales).some(k => pendientesCanales[k] > 0);
+  }
   function notificarEstado(nuevo) {
     estadoActual = nuevo;
     listenersEstado.forEach((fn) => { try { fn(nuevo, presenciaN); } catch (_) {} });
+  }
+  window.addEventListener("oc-relay-durable", function (ev) {
+    const d = ev && ev.detail;
+    if (!d || typeof d.canal !== "string") return;
+    pendientesCanales[d.canal] = Number(d.pendientes) || 0;
+    notificarEstado(estadoActual);
+  });
+  function reintentarDurable() {
+    if (_retryDurable || !leerCola().length) return;
+    _retryDurable = setTimeout(function () {
+      _retryDurable = null; vaciarCola(); reintentarDurable();
+    }, 30000 + Math.round(Math.random() * 10000));
   }
 
   // Refuerzo (2026-07-23, auditoria delegada + verificacion manual): antes
@@ -446,6 +463,18 @@
       if (typeof ev.data === "string") {
         try {
           const msg = JSON.parse(ev.data);
+          if (msg && msg.k === "persist-result") {
+            if (msg.kind === "op" && msg.ok === true) {
+              guardarCola(leerCola().filter(op => op.opId !== msg.id));
+              notificarEstado(estadoActual);
+            }
+            if (msg.kind === "ckpt" && msg.ok === true && _ckptEnVuelo && msg.id === _ckptEnVuelo.id) {
+              _ultimaHuellaCkpt = _ckptEnVuelo.hu;
+              try { localStorage.setItem("f123_relay_ckpt_huella_" + salaIdActual, _ultimaHuellaCkpt); } catch (_) {}
+              _ckptEnVuelo = null;
+            }
+            return;
+          }
           if (msg && msg.__presencia__) { presenciaN = msg.n; notificarEstado(estadoActual); }
         } catch (_) {}
         return;
@@ -1069,7 +1098,8 @@
     for (const op of cola) {
       try { const buf = await cifrar(claveActual, op); ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { return; } // corta si algo falla, reintenta despues
     }
-    guardarCola([]);
+    // Retain every local operation until the relay confirms durable storage.
+    reintentarDurable();
   }
 
   // Al reconectar, preguntar que me perdi. Mensaje ephemero (no de negocio):
@@ -1113,21 +1143,25 @@
   function _persistirOpBuf(op, buf) {
     try {
       if (ws && ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ k: "op", id: op.opId, lam: op.lamport || 0, c: ab2b64(buf) }));
+        ws.send(JSON.stringify({ k: "op", ack: 1, id: op.opId, lam: op.lamport || 0, c: ab2b64(buf) }));
     } catch (_) {}
   }
   var _ultimaHuellaCkpt = "";
+  var _ckptEnVuelo = null;
   async function subirCheckpoint(forzar) {
     try {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       if (!window.OCSync || !window.OCSync.estadoParaCheckpoint) return; // un tablero no sube nada
       var snap = window.OCSync.estadoParaCheckpoint();
       var hu = (snap && snap.huella && snap.huella.completa) ? snap.huella.completa : "";
-      if (!forzar && hu && hu === _ultimaHuellaCkpt) return; // sin cambios: no repetir
+      var confirmada = "";
+      try { confirmada = localStorage.getItem("f123_relay_ckpt_huella_" + salaIdActual) || ""; } catch (_) {}
+      if (hu && hu === confirmada) return; // Scoped to this room, never a previous business.
       var sobre = { tipo: TIPO_CHECKPOINT, deviceId: deviceId(), lamport: _lamportAplicadoMax || lamportActual(), payload: snap };
       var buf = await cifrar(claveActual, sobre);
-      ws.send(JSON.stringify({ k: "ckpt", lam: sobre.lamport, c: ab2b64(buf) }));
-      _ultimaHuellaCkpt = hu;
+      var id = "ck-" + uuidCorto();
+      _ckptEnVuelo = { id: id, hu: hu };
+      ws.send(JSON.stringify({ k: "ckpt", ack: 1, id: id, lam: sobre.lamport, c: ab2b64(buf) }));
     } catch (_) {}
   }
   function pullDelRelay() {
@@ -1153,6 +1187,7 @@
        llegue por el sync viejo Y por el nuevo se aplica UNA sola vez. Sin esto,
        generar un opId propio duplicaría la plata. */
     try { window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op })); } catch (_) {}
+    if (!encolar(op)) return false;
     if (ws && ws.readyState === WebSocket.OPEN) {
       /* BLINDAJE (JFC 2026-08-25, "JAMAS quedemos mal"): si cifrar() rechaza
          (rarisimo, pero posible), sin el .catch la op no se mandaba NI se
@@ -1163,7 +1198,7 @@
         .then((buf) => { try { ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { encolar(op); } })
         .catch(() => encolar(op));
     } else {
-      if (!encolar(op)) return false;
+      if (!encolar(op)) return false; // Idempotent: it was retained before attempting any transport.
     }
     return true;
   };
@@ -1173,10 +1208,13 @@
      guardada (mock-backend guarda antes de emitir) y el sync nuevo la reparte desde
      el estado; esto avisa que el transporte viejo no la tiene en cola. */
   function encolar(op) {
-    const cola = leerCola(); cola.push(op);
+    const cola = leerCola();
+    if (cola.some(x => x.opId === op.opId)) return true;
+    cola.push(op);
     const ok = guardarCola(cola);
     // Canario 2026-10-01: una op que no entra en la cola es un fallo silencioso. Avisa, no frena.
     if (!ok) { try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "sync-no-encolo"); } catch (_) {} }
+    notificarEstado(estadoActual); reintentarDurable();
     return ok;
   }
 
@@ -1404,6 +1442,7 @@
       return { ok: true };
     },
     estado() { return estadoActual; },
+    durabilidadPendiente() { return tienePendientesDurables(); },
     presencia() { return presenciaN; },
     // Refuerzo: expone si llevamos varios intentos seguidos sin exito, para
     // que la UI pueda avisar ("revisa el código") en vez de reintentar mudo.

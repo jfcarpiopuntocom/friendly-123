@@ -23,8 +23,9 @@ test('large Yjs updates are bounded before send and reassembled exactly once', a
   };
   vm.createContext(c);
   vm.runInContext(block + '\nthis.makeChannel = crearCanal;', c);
-  const sender = c.makeChannel(c.Y, {}, '-y', 'test', false);
-  const receiver = c.makeChannel(c.Y, {}, '-y', 'test', false);
+  const persistence = { get: async () => null, set: async () => {} };
+  const sender = c.makeChannel(c.Y, {}, '-y', 'test', false, null, persistence);
+  const receiver = c.makeChannel(c.Y, {}, '-y', 'test', false, null, persistence);
   sender.conectar(); receiver.conectar();
   const original = new Uint8Array(400 * 1024);
   for (let i = 0; i < original.length; i++) original[i] = i % 251;
@@ -37,7 +38,7 @@ test('large Yjs updates are bounded before send and reassembled exactly once', a
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(applied.length, 1);
   assert.deepEqual(applied[0], Array.from(original));
-  const lateReceiver = c.makeChannel(c.Y, {}, '-y', 'late', false);
+  const lateReceiver = c.makeChannel(c.Y, {}, '-y', 'late', false, null, persistence);
   lateReceiver.conectar();
   for (const op of sent.filter(x => typeof x === 'string').reverse()) {
     const bytes = Buffer.from(JSON.parse(op).c, 'base64');

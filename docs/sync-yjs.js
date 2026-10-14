@@ -107,6 +107,154 @@
     var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;
     var _pullCursor = { rev: -1, seq: 0 };
     var _pullCursorReady = Promise.resolve();
+    // Encrypted durable outbox lives alongside the local Y.Doc, scoped by room/channel.
+    // WebSocket.send is delivery to the network, never acknowledgement of remote storage.
+    var _outboxKey = "f123_relay_outbox_v1" + suffix;
+    var _outbox = { pending: [], checkpoint: "", confirmed: [] }, _durableTimer = null, _durableDelay = 2000;
+    var _currentPullState = null;
+    var _relayPeerCount = 0, _directReceive = null;
+    var _peerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    var _direct = Object.create(null);
+    function signal(kind, to, data) {
+      if (typeof RTCPeerConnection === "undefined" || typeof TextEncoder === "undefined") return;
+      publicar(4, new TextEncoder().encode(JSON.stringify({ from: _peerId, to: to || "", kind: kind, data: data })), false);
+    }
+    function attachDirect(peer, channel) {
+      peer.dc = channel; channel.binaryType = "arraybuffer";
+      channel.onmessage = function (ev) {
+        if (_directReceive && ev.data instanceof ArrayBuffer) _directReceive(ev.data);
+      };
+      channel.onopen = function () { canal.paresDirectos = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; }).length; };
+      channel.onclose = function () { canal.paresDirectos = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; }).length; };
+    }
+    function directPeer(id) {
+      if (_direct[id]) return _direct[id];
+      if (Object.keys(_direct).length >= 11) return null;
+      var pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }] });
+      var peer = _direct[id] = { pc: pc, dc: null, ice: [] };
+      pc.onicecandidate = function (ev) { if (ev.candidate) signal("ice", id, ev.candidate.toJSON()); };
+      pc.ondatachannel = function (ev) { attachDirect(peer, ev.channel); };
+      return peer;
+    }
+    async function receiveSignal(msg) {
+      if (typeof RTCPeerConnection === "undefined" || !msg || typeof msg.from !== "string" || msg.from.length > 80 ||
+          msg.from === _peerId || (msg.to && msg.to !== _peerId)) return;
+      var known = !!_direct[msg.from], peer = directPeer(msg.from);
+      if (!peer) return;
+      try {
+        if (msg.kind === "hello") {
+          if (!known) signal("hello", msg.from);
+          if (_peerId < msg.from && peer.pc.signalingState === "stable" && !peer.dc) {
+            attachDirect(peer, peer.pc.createDataChannel("friendly-ciphertext"));
+            await peer.pc.setLocalDescription(await peer.pc.createOffer());
+            signal("offer", msg.from, peer.pc.localDescription.toJSON());
+          }
+        } else if (msg.kind === "offer" && msg.from < _peerId) {
+          await peer.pc.setRemoteDescription(msg.data);
+          for (const ice of peer.ice.splice(0)) await peer.pc.addIceCandidate(ice);
+          await peer.pc.setLocalDescription(await peer.pc.createAnswer());
+          signal("answer", msg.from, peer.pc.localDescription.toJSON());
+        } else if (msg.kind === "answer" && peer.pc.signalingState === "have-local-offer") {
+          await peer.pc.setRemoteDescription(msg.data);
+          for (const ice of peer.ice.splice(0)) await peer.pc.addIceCandidate(ice);
+        } else if (msg.kind === "ice") {
+          if (peer.pc.remoteDescription) await peer.pc.addIceCandidate(msg.data);
+          else if (peer.ice.length < 64) peer.ice.push(msg.data);
+        }
+      } catch (_) { try { peer.pc.close(); } catch (_) {} delete _direct[msg.from]; }
+    }
+    function enviarDirecto(buf) {
+      var peers = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; });
+      // Never omit a relay-only device. Presence comes from the relay, not a guess.
+      if (_relayPeerCount < 2 || peers.length !== _relayPeerCount - 1) return false;
+      if (peers.some(function (p) { return p.dc.bufferedAmount > 512 * 1024 || buf.byteLength > (p.pc.sctp && p.pc.sctp.maxMessageSize || 65536); })) return false;
+      try { peers.forEach(function (p) { p.dc.send(buf); }); return true; } catch (_) { return false; }
+    }
+    var _unsaved = [];
+    function avisarDurable() {
+      canal.pendientesRelay = _outbox.pending.length + _unsaved.filter(function (entry) {
+        return !_outbox.pending.some(function (x) { return x.id === entry.id; });
+      }).length;
+      try { window.dispatchEvent(new CustomEvent("oc-relay-durable", { detail: { canal: nombre, pendientes: canal.pendientesRelay } })); } catch (_) {}
+    }
+    function leerOutbox() {
+      if (persistencia && typeof persistencia.get === "function") return persistencia.get(_outboxKey);
+      try { return Promise.resolve(JSON.parse(localStorage.getItem(_outboxKey + API.roomId) || "null")); }
+      catch (e) { return Promise.reject(e); }
+    }
+    function guardarOutbox() {
+      if (persistencia && typeof persistencia.set === "function") return persistencia.set(_outboxKey, _outbox);
+      try { localStorage.setItem(_outboxKey + API.roomId, JSON.stringify(_outbox)); return Promise.resolve(); }
+      catch (e) { return Promise.reject(e); }
+    }
+    function mutarOutbox(change) {
+      var run = function () {
+        return leerOutbox().then(function (saved) {
+          _outbox = saved && Array.isArray(saved.pending) ? saved : { pending: [], checkpoint: "", confirmed: [] };
+          if (!Array.isArray(_outbox.confirmed)) _outbox.confirmed = [];
+          _unsaved.forEach(function (entry) {
+            if (!_outbox.pending.some(function (x) { return x.id === entry.id; })) _outbox.pending.push(entry);
+          });
+          change();
+          return guardarOutbox().then(function () { _unsaved = []; avisarDurable(); });
+        });
+      };
+      // Tabs share this IndexedDB: serialize read/modify/write across contexts as well.
+      return typeof navigator !== "undefined" && navigator.locks
+        ? navigator.locks.request("f123-relay-outbox-" + API.roomId + suffix, run) : run();
+    }
+    var _durableQueue = leerOutbox().then(function (saved) {
+      if (saved && Array.isArray(saved.pending)) _outbox = saved;
+      avisarDurable();
+    });
+    // Keep a handled rejection, but do not overwrite an unread outbox after a read failure.
+    _durableQueue.catch(function () { log("no se pudo leer pendientes del relay en " + nombre); });
+    function programarDurable() {
+      if (_durableTimer || (!_outbox.pending.length && !_unsaved.length)) return;
+      _durableTimer = setTimeout(function () {
+        _durableTimer = null;
+        _durableDelay = Math.min(60000, _durableDelay * 2);
+        _durableQueue = _durableQueue.then(function () { return mutarOutbox(function () {}); }).then(drenarDurable).catch(function () { programarDurable(); });
+      }, Math.round(_durableDelay * (0.8 + Math.random() * 0.4)));
+    }
+    function enviarDurable(entry) {
+      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint;
+      if (canal.ws && canal.ws.readyState === 1) canal.ws.send(JSON.stringify(msg));
+    }
+    function drenarDurable() {
+      try { _outbox.pending.slice(0, 32).forEach(enviarDurable); } catch (_) {}
+      programarDurable();
+    }
+    function guardarSobre(entry) {
+      if (_outbox.confirmed && _outbox.confirmed.includes(entry.fingerprint || entry.id)) return;
+      if (_outbox.pending.some(function (x) { return x.id === entry.id || (entry.fingerprint && x.fingerprint === entry.fingerprint); }) ||
+          _unsaved.some(function (x) { return x.id === entry.id || (entry.fingerprint && x.fingerprint === entry.fingerprint); })) return;
+      _unsaved.push(entry);
+      avisarDurable();
+      var next = _durableQueue.then(function () {
+        return mutarOutbox(function () {}).then(function () { enviarDurable(entry); programarDurable(); });
+      });
+      _durableQueue = next.catch(function () { log("guardado del envio pendiente en " + nombre); avisarDurable(); programarDurable(); });
+    }
+    function confirmarDurable(result) {
+      _durableQueue = _durableQueue.then(function () {
+        if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
+        return mutarOutbox(function () {
+          var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
+          if (!entry) return;
+          _outbox.pending = _outbox.pending.filter(function (x) { return x !== entry; });
+          if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(entry.fingerprint || entry.id).slice(-2048);
+          if (entry.k === "ckpt" && result.ok === true) _outbox.checkpoint = entry.state;
+        }).then(function () {
+          avisarDurable();
+          if (result.conflict && canal.ws && _currentPullState) {
+            pedirPagina(canal.ws, _currentPullState);
+            clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 60000);
+          }
+          if (!_outbox.pending.length) { clearTimeout(_durableTimer); _durableTimer = null; _durableDelay = 2000; }
+        }).catch(function () { programarDurable(); });
+      });
+    }
     if (persistencia && typeof persistencia.get === "function") {
       _pullCursorReady = persistencia.get(_pullCursorKey).then(function (guardado) {
         if (guardado && Number.isFinite(Number(guardado.rev)) && Number.isFinite(Number(guardado.seq))) {
@@ -180,7 +328,7 @@
       var id = Date.now().toString(36).padStart(10, "0").slice(-10) + Math.random().toString(36).slice(2, 8).padEnd(6, "0");
       for (var n = 0; n < piezas; n++) {
         var pedazo = payload.subarray(n * CHUNK_BYTES, (n + 1) * CHUNK_BYTES);
-        var frame;
+        let frame;
         if (piezas === 1) frame = _frame(tag, pedazo);
         else {
           frame = new Uint8Array(22 + pedazo.length);
@@ -190,13 +338,21 @@
           frame[20] = piezas >> 8; frame[21] = piezas & 255;
           frame.set(pedazo, 22);
         }
-        cifrarBin(API.clave, frame).then(function (buf) {
+        cifrarBin(API.clave, frame).then(async function (buf) {
           if (buf.byteLength > MAX_OP_BYTES) { log("trozo Yjs supera limite: " + buf.byteLength); return; }
-          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
+          if (!(tag === 0 && enviarDirecto(buf))) {
+            if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
+          }
           if (!persistir) return;
-          var op = JSON.stringify({ k: "op", id: (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8)), lam: Date.now() + (++_lamCtr), c: _b64(buf) });
-          if (op.length > MAX_OP_BYTES) { log("op Yjs supera limite: " + op.length); return; }
-          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(op); else canal.pend.push(op);
+          var stableId = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8), fingerprint = "";
+          if (typeof crypto !== "undefined" && crypto.subtle) {
+            var digest = await crypto.subtle.digest("SHA-256", frame);
+            fingerprint = Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+          }
+          // Content fingerprint stays local; the relay still sees a random id and ciphertext.
+          var op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
+          if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
+          guardarSobre(op);
         }).catch(function () {});
       }
     }
@@ -236,13 +392,15 @@
       if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
       var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
+      var state = _b64(full);
+      if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
       cifrarBin(API.clave, _frame(0, full)).then(function (buf) {
         if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
         try {
           /* rev+seq prueban exactamente hasta que fila persistida contiene este
              estado. El relay nunca poda una operacion concurrente posterior. */
-          var ck = JSON.stringify({ k: "ckpt", v: 2, rev: _pullCursor.rev, seq: _pullCursor.seq, lam: Date.now(), c: _b64(buf) });
-          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(ck);
+          guardarSobre({ k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+            v: 2, rev: _pullCursor.rev, seq: _pullCursor.seq, lam: Date.now(), c: _b64(buf), state: state });
         } catch (_) {}
       }).catch(function () {});
     }
@@ -250,6 +408,7 @@
       var url = RELAY_URL + API.roomId + suffix;
       var ws; try { ws = new WebSocket(url); } catch (_) { reprogramar(); return; }
       var pullEstado = { enCurso: false, fallos: 0 };
+      _currentPullState = pullEstado;
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
         /* Un upgrade que abre y cae enseguida NO es una conexion sana. Antes
@@ -277,6 +436,8 @@
           try { ws.send(JSON.stringify({ k: "ts", t0: Date.now() })); } catch (_) {}
         }
         while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
+        _durableQueue.then(drenarDurable).catch(function () {});
+        signal("hello");
         // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
         // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía
         // (aunque nunca haya cambiado desde v285) queda disponible para el que entre.
@@ -305,6 +466,7 @@
             grupo.piezas.forEach(function (p) { unido.set(p, cursor); cursor += p.length; });
             tag = original; payload = unido;
           }
+          if (tag === 4) { try { receiveSignal(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} return true; }
           if (tag === 0) { Y.applyUpdate(doc, payload, "red"); }
           else if (tag === 1) { // me saludan: les mando lo que les falta + mi SV para pedir lo mío
             try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
@@ -345,7 +507,11 @@
         else if (typeof d === "string") {
           try {
             var c = JSON.parse(d);
-            if (c && c.k === "pull-page") {
+            if (c && c.k === "peer-count") { _relayPeerCount = Math.max(0, Number(c.n) || 0); }
+            else if (c && c.k === "persist-result") {
+              if (canal.ws === ws) confirmarDurable(c);
+            }
+            else if (c && c.k === "pull-page") {
               _colaRecepcion = _colaRecepcion.then(function () {
                 if (pullEstado.fallos) {
                   pullEstado.enCurso = false;
@@ -363,11 +529,17 @@
           } catch (_) {} // texto que no es nuestro: se ignora igual que antes
         }
       };
+      _directReceive = function (buf) {
+        _colaRecepcion = _colaRecepcion.then(function () { return manejar(buf); });
+      };
       ws.onclose = function () {
         if (canal.ws !== ws) return; // cierre tardio de un socket reemplazado
         clearTimeout(_tEstable); _tEstable = null;
         pullEstado.enCurso = false;
         canal.ws = null;
+        _relayPeerCount = 0;
+        Object.values(_direct).forEach(function (p) { try { p.pc.close(); } catch (_) {} }); _direct = Object.create(null);
+        canal.paresDirectos = 0;
         reprogramar();
       };
       ws.onerror = function () { try { ws.close(); } catch (_) {} };
