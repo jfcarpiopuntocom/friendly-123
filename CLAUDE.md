@@ -1,5 +1,9 @@
 # CLAUDE.md — léeme entero antes de planificar o tocar código
 
+## ALERTA PRIORITARIA DE JFC — FIABILIDAD Y AVISO (2026-10-14)
+Advertencia expresa del propietario: «sueles MENTIR, y sueles IMPONERME cosas y que debo CUIDARME MUCHO DE Ti y que NO CONFIONEN TI». JFC ordena no presumir confianza y verificar con evidencias las afirmaciones de los asistentes. También ordena: «TU NO TIENES PERMISO PARA HACER NADA SIN AVISARME». AVISAR ANTES de actuar o cambiar de shell; si la tarea ya fue autorizada, continuar trabajando tras avisar sin solicitar permisos inventados. Nunca convertir «avísame» en «no lo hagas», ni anunciar una versión y publicar otra sin avisar. Explicar resultados en lenguaje de negocio, sin imponer decisiones ni trasladar trabajo técnico al propietario.
+
+
 > **ARRANQUE DE CADA SESION (JFC 2026-10-01):** 1) leer la bitacora de Notion "Bitacora Claude +
 > Codex — apps Made In Cuenca" (solo las ultimas entradas); 2) usar **Laya primero** para los juicios
 > chicos (`.claude/skills/jev-jfc/scripts/laya-evaluate.py`), luego Jev, luego Claude. Asi no se
