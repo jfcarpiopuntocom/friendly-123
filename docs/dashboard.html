@@ -2247,6 +2247,44 @@
       th + "</tr></thead><tbody>" + tr + "</tbody></table></div>";
   }
 
+
+  /* Tabulator's PDF downloader may cancel the browser download even when
+     CSV/XLSX work. Use the same jsPDF+autoTable engine as our three reports,
+     directly in the click handler, with the currently filtered table rows. */
+  function pdfDeTabla(filename, negocio) {
+    var JsPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!JsPDF) throw new Error("jsPDF is unavailable");
+    var doc = new JsPDF({orientation:"landscape",unit:"pt",format:"a4"});
+    if (typeof doc.autoTable !== "function") throw new Error("jsPDF-AutoTable is unavailable");
+    var cols = VISTAS[vista].cols.filter(function(c) { return c.field && c.title && c.download !== false; });
+    var filas = tabla.getData("active");
+    var titulos = cols.map(function(c) { return String(c.title); });
+    var celdas = filas.map(function(r) {
+      return cols.map(function(c) {
+        var v = r[c.field];
+        if (c.field === "compro") {
+          var nombres = {};
+          (datos.ventas || []).forEach(function(venta) {
+            if (ventaEsDeCliente(venta,r) && venta.productoNombre) nombres[venta.productoNombre] = true;
+          });
+          return Object.keys(nombres).join(", ") || "—";
+        }
+        if (c.field === "recencia") return v == null ? (datos.cobertura && datos.cobertura.ventas === false ? "pending" : "never") : String(v) + " days";
+        if (v == null || v === "") return c.field === "stockActual" ? "Stock pending" : "—";
+        if (/^(precio|costo|margen|precioUnit|costoUnit|monto|comision|ventasBrutas|casa)$/.test(c.field))
+          return money(v);
+        if (typeof v === "object") return "—";
+        return String(v);
+      });
+    });
+    doc.setFontSize(15); doc.text(String(negocio || "Business").slice(0,95),40,36);
+    doc.setFontSize(10);
+    doc.text(VISTAS[vista].nombre + " · " + new Date().toLocaleString(),40,54);
+    doc.autoTable({head:[titulos],body:celdas,startY:68,
+      styles:{fontSize:8,cellPadding:4,overflow:"linebreak"},headStyles:{fillColor:[15,25,35]}});
+    doc.save(filename);
+  }
+
   function exportar(tipo) {
     /* \w no incluye acentos ni ñ: "Panadería Ñusta" salia como "Panadera usta".
        Se quitan solo los caracteres que los sistemas de archivos prohiben. */
@@ -2257,14 +2295,7 @@
       else if (tipo === "xlsx") tabla.download("xlsx", f + ".xlsx", { sheetName: VISTAS[vista].nombre });
       else if (tipo === "json") tabla.download("json", f + ".json");
       else if (tipo === "copy") { tabla.copyToClipboard("all"); }
-      else if (tipo === "pdf") {
-        tabla.download("pdf", f + ".pdf", {
-          orientation: "landscape",
-          /* Encabezado con negocio y fecha: un archivo sin contexto es basura
-             dentro de una semana. */
-          title: nombre + " — " + VISTAS[vista].nombre + " — " + new Date().toLocaleDateString(),
-        });
-      }
+      else if (tipo === "pdf") pdfDeTabla(f + ".pdf", nombre);
     } catch (e) {
       $("cierre").innerHTML = "<strong>No se pudo exportar.</strong>Puede que no haya cargado la herramienta de exportación. Recarga la página e inténtalo de nuevo.";
       try { if (window.AMG && window.AMG.Salud) window.AMG.Salud.registrar("export " + tipo + ": " + e.message, "tablero.html", 0); } catch (_) {}
@@ -3147,6 +3178,125 @@
     });
     calcular();
   })();
+
+
+  /* Dashboard customer corrections: authenticated, targeted remote API writes.
+     These edit the existing customer record, never sales, debt or stock. */
+  var editorClienteDialog = null;
+  function abrirEditorContactoDashboard(id) {
+    if (!autorizado || editorClienteDialog) return;
+    if (datos.cobertura && datos.cobertura.clientes === false) return;
+    var cli = (datos.clientes || []).find(function(c) { return String(c.id) === String(id); });
+    if (!cli) return;
+    var destino = editorDeviceId; // bind the command to the exact snapshot source
+    var es = false;
+    try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
+    var campos = [
+      ["nombre", es ? "Nombre" : "Name",120],
+      ["telefono", es ? "Teléfono" : "Phone",40],
+      ["email", "Email",160],
+      ["notas", es ? "Notas" : "Notes",1200],
+      ["rangoEdad", es ? "Rango de edad" : "Age range",12],
+      ["pais", es ? "País" : "Country",60]
+    ];
+    var original = {}, inputs = {};
+    var dlg = document.createElement("dialog");
+    dlg.id = "dashboard-contact-editor";
+    dlg.style.cssText = "width:min(620px,calc(100% - 24px));max-height:90dvh;overflow:auto;padding:24px;border:2px solid #1C3049;border-radius:12px;background:white;color:#0F1923;box-sizing:border-box;";
+    var h = document.createElement("h2");
+    h.textContent = (es ? "Corregir ficha de " : "Edit customer: ") + String(cli.nombre || "");
+    h.style.cssText = "font-size:21px;margin:0 0 14px;";
+    dlg.appendChild(h);
+    var campoCaja = document.createElement("div");
+    campoCaja.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;";
+    campos.forEach(function(spec) {
+      var k = spec[0]; original[k] = String(cli[k] || "");
+      var label = document.createElement("label");
+      label.style.cssText = "display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;";
+      var tit = document.createElement("span"); tit.textContent = spec[1]; label.appendChild(tit);
+      var input = k === "notas" ? document.createElement("textarea") : document.createElement("input");
+      if (k !== "notas") input.type = k === "email" ? "email" : "text";
+      input.value = original[k]; input.maxLength = spec[2];
+      input.style.cssText = "width:100%;min-height:44px;padding:9px;border:2px solid #617388;border-radius:6px;color:#0F1923;background:#fff;font-size:16px;box-sizing:border-box;";
+      inputs[k] = input; label.appendChild(input); campoCaja.appendChild(label);
+    });
+    dlg.appendChild(campoCaja);
+    var msg = document.createElement("p"); msg.setAttribute("role","status");
+    msg.style.cssText = "font-size:14px;min-height:22px;margin:12px 0;color:#0F1923;"; dlg.appendChild(msg);
+    var actions = document.createElement("div");
+    actions.style.cssText = "display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;";
+    var cancelar = document.createElement("button"), guardar = document.createElement("button");
+    cancelar.type = guardar.type = "button";
+    cancelar.textContent = es ? "Volver" : "Back";
+    guardar.textContent = es ? "Guardar cambios" : "Save changes";
+    [cancelar,guardar].forEach(function(b) {
+      b.style.cssText = "min-height:44px;padding:8px 15px;border:2px solid #1C3049;border-radius:6px;background:#fff;color:#1C3049;font-size:15px;font-weight:700;cursor:pointer;";
+      actions.appendChild(b);
+    });
+    guardar.style.background = "#1C3049"; guardar.style.color = "#fff";
+    dlg.appendChild(actions);
+    function cerrar() {
+      try { dlg.close(); } catch (_) {}
+      dlg.remove(); editorClienteDialog = null;
+    }
+    cancelar.addEventListener("click",cerrar);
+    dlg.addEventListener("cancel",function(e) { e.preventDefault(); cerrar(); });
+    guardar.addEventListener("click",async function() {
+      if (!autorizado) { msg.textContent = es ? "La sesión terminó." : "Session expired."; return; }
+      if (!inputs.nombre.value.trim()) { msg.textContent = es ? "Falta el nombre." : "Name is required."; return; }
+      if (inputs.email.value && !inputs.email.checkValidity()) { msg.textContent = es ? "Email inválido." : "Invalid email."; return; }
+      var cambios = {}, hayCambio = false;
+      campos.forEach(function(spec) {
+        var k = spec[0], val = inputs[k].value.trim();
+        if (val !== original[k]) { cambios[k] = val; hayCambio = true; }
+      });
+      if (!hayCambio) { cerrar(); return; }
+      var actual = (datos.clientes || []).find(function(c) { return String(c.id) === String(id); });
+      if (!actual || campos.some(function(spec) {
+        var k = spec[0]; return String(actual[k] || "") !== original[k];
+      })) {
+        msg.textContent = es ? "La ficha cambió. Actualiza antes de editar." : "Customer changed. Refresh before editing.";
+        return;
+      }
+      if (!_sesionLocal && !destino) {
+        msg.textContent = es ? "No hay dispositivo de origen para guardar. Actualiza el tablero." : "No source device available. Refresh the dashboard.";
+        return;
+      }
+      var ruta = "/api/clientes/" + encodeURIComponent(String(id)) + "/contacto";
+      var payload = Object.assign({baseContacto:original},cambios);
+      guardar.disabled = true;
+      msg.textContent = es ? "Guardando en la aplicación…" : "Saving in the app…";
+      try {
+        var r;
+        if (_sesionLocal) {
+          var response = await fetch(ruta,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+          r = {ok:response.ok,datos:await response.json()};
+        } else {
+          r = await ordenar("PATCH",ruta,payload,destino);
+        }
+        if (!r || !r.ok || !r.datos || String(r.datos.id || "") !== String(id) ||
+            Object.keys(cambios).some(function(k) { return String(r.datos[k] || "") !== cambios[k]; })) {
+          msg.textContent = (r && r.datos && r.datos.error) || (es ? "El guardado no se confirmó." : "Save was not confirmed.");
+          return;
+        }
+        guardar.textContent = es ? "Guardado" : "Saved";
+        msg.textContent = es ? "Guardado en la aplicación. Actualizando el tablero…" : "Saved in the app. Refreshing dashboard…";
+        if (_sesionLocal && typeof refrescarLocal === "function") refrescarLocal();
+        else pedirFoto();
+        guardar.disabled = true;
+      } catch (_) {
+        msg.textContent = es ? "No se pudo guardar. Comprueba la conexión." : "Could not save. Check the connection.";
+      } finally {
+        if (guardar.textContent !== (es ? "Guardado" : "Saved")) guardar.disabled = false;
+      }
+    });
+    editorClienteDialog = dlg;
+    document.body.appendChild(dlg); dlg.showModal(); inputs.nombre.focus();
+  }
+  document.addEventListener("click",function(e) {
+    var b = e.target.closest && e.target.closest("[data-edit-cliente]");
+    if (b) { e.preventDefault(); abrirEditorContactoDashboard(b.getAttribute("data-edit-cliente")); }
+  });
 
   /* JFC 2026-10-09: edits stay in this dashboard. The same-origin frame uses
      the existing authenticated editors and ledger; no PIN is copied or sent
