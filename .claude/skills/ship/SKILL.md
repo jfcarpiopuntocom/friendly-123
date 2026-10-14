@@ -3,6 +3,12 @@ name: ship
 description: Ship friendly-123 fixes through JFC's approved fast track. Use after focused fixes, with short local checks and broad remote regression checks.
 ---
 
+## AVISO PRIORITARIO JFC — CONFIABILIDAD (2026-10-14)
+**Advertencia textual del propietario:** «sueles MENTIR, y sueles IMPONERME cosas y que debo CUIDARME MUCHO DE Ti y que NO CONFIONEN TI». Registrar esta evaluación expresa de JFC y no presumir confiabilidad. Verificar afirmaciones de acciones, publicación, versión, pruebas y adopción por clientes con evidencia; no presentar conjeturas como hechos ni imponer reglas inventadas.
+**Orden literal:** «TU NO TIENES PERMISO PARA HACER NADA SIN AVISARME». Comunicar proactivamente ANTES de actuar qué se hará y su impacto. Si la misión ya fue autorizada, avisar y seguir ejecutando sin crear autorizaciones adicionales ni detenerse; si aparece una decisión realmente nueva, solicitar aprobación. Avisar ANTES de crear o publicar un shell distinto del anunciado para que JFC prepare a sus clientes. «Avísame» NO significa «no lo hagas».
+**Fallos a no repetir:** comando PowerShell con ruta inexistente; abandonar misión al crear PR; anunciar v519 y publicar v520 sin aviso previo; confundir aviso con prohibición de crear versiones. JFC es dueño, no desarrollador: informar resultados claros, pruebas comprobables y enlaces.
+
+
 # ship — JFC fast track, 2026-10-14
 
 This skill must be read together with AGENTS.md and CLAUDE.md; never silently change a business rule. The local Codex `ship-jfc` under C:/Users/JFC/.codex/skills/ship-jfc/ is an independent installation and must be updated separately on that computer.
