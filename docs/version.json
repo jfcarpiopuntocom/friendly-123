@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v501: la recuperacion manual queda cerrada al fondo del PIN, solo para una app que no abre; las actualizaciones siguen automaticas. La reparacion preserva otras apps y no limpia caches sin conexion.",
+  "changelog": "v502: contraste legible en la recuperacion de emergencia, cerrada al fondo del PIN. Actualizaciones normales automaticas; cuadernos y otras apps conservados.",
   "requerida": false,
-  "shell": "f123-shell-v501",
+  "shell": "f123-shell-v502",
   "apagar": [],
-  "releaseName": "v501",
-  "cacheGeneration": "golden65"
+  "releaseName": "v502",
+  "cacheGeneration": "golden66"
 }

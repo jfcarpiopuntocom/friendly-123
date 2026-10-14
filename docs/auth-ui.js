@@ -691,7 +691,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
            ============================================================ -->
       <details id="oc-gate-purge" style="margin:20px 0 0;padding-top:16px;border-top:1px solid rgba(156,122,53,.35);text-align:center;">
         <summary id="oc-recovery-summary" style="font-size:15px;font-weight:700;color:var(--ink,#211c14);cursor:pointer;padding:8px;">Emergency recovery</summary>
-        <button type="button" id="oc-purge-btn" style="display:inline-block;background:var(--sim-naranja,#F97316);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;border:2px solid #0A0A0F;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:700;letter-spacing:.02em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;">Repair app loading</button>
+        <button type="button" id="oc-purge-btn" style="display:inline-block;background:var(--sim-naranja,#F97316);color:#0A0A0F !important;-webkit-text-fill-color:#0A0A0F !important;opacity:1;border:2px solid #0A0A0F;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:700;letter-spacing:.02em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;">Repair app loading</button>
         <p id="oc-purge-help" style="margin:10px 0 0;font-size:13px;line-height:1.5;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">Updates arrive automatically. Use this only if the app fails to open, with an internet connection. It repairs cached app files without deleting your notebook data.</p>
         <div id="oc-purge-log" style="display:none;margin:10px auto 0;max-width:320px;font-size:13px;line-height:1.5;text-align:left;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;background:#FFFFFF;border:1.5px solid #0A0A0F;border-radius:6px;padding:10px;"></div>
       </details>
@@ -725,7 +725,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           return;
         }
         _purgeBtn.disabled = true;
-        _purgeBtn.style.opacity = ".7";
+        _purgeBtn.style.opacity = "1";
         _purgeBtn.textContent = "Purging…";
         if (log) log.innerHTML = "";
         /* FORTIFICADO (JFC 2026-09-22): telefonos viejos (Safari iOS 2015-2018,
