@@ -7376,7 +7376,27 @@ async function cargarVentasSold(){
     cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">No sales recorded yet.</p>'; return;
   }
   rows.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
-  if (window.OCSalesAuditUI) window.OCSalesAuditUI.mount(document.getElementById("ventasSoldAudit"), rows, {lang:window.OCI18n && window.OCI18n.getLang()});
+  /* v506 (Belen 2026-10-14): la busqueda de arriba filtraba solo el resumen; las
+     ventas con lapiz seguian todas en orden de fecha y habia que bajar mucho.
+     Ahora la lista editable muestra SOLO lo que coincide con la busqueda, y cada
+     resultado de arriba trae "Corregir" que abre el editor de esa venta. */
+  const _filtroVS = { ids: null };
+  const _aplicarFiltroVS = () => {
+    cont.querySelectorAll('.oc-vs-row').forEach((row) => { row.style.display = (!_filtroVS.ids || _filtroVS.ids.has(String(row.getAttribute('data-id')))) ? '' : 'none'; });
+  };
+  const _opcionesAudit = {
+    lang: window.OCI18n && window.OCI18n.getLang(),
+    onFilter: (ids, activo) => { _filtroVS.ids = activo ? new Set(ids) : null; _aplicarFiltroVS(); },
+    onEdit: (id) => {
+      const row = Array.prototype.find.call(cont.querySelectorAll('.oc-vs-row'), (r) => String(r.getAttribute('data-id')) === String(id));
+      if (!row) return;
+      row.style.display = '';
+      const editor = row.querySelector('.oc-vs-editor');
+      if (editor) editor.style.display = 'block';
+      try { row.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) { row.scrollIntoView(); }
+    }
+  };
+  if (window.OCSalesAuditUI) window.OCSalesAuditUI.mount(document.getElementById("ventasSoldAudit"), rows, _opcionesAudit);
   // #8 (JFC 2026-09-02): editar/cancelar una venta asentada es solo dueño/admin
   // (el backend también lo exige). El encargado ve el registro, no lo altera.
   const _rolVS = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
@@ -7483,6 +7503,7 @@ async function cargarVentasSold(){
     const grid = document.getElementById("gridVender");
     if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
   }));
+  _aplicarFiltroVS(); // v506: la busqueda ya hecha arriba manda tambien sobre las tarjetas recien pintadas
   cont.querySelectorAll(".oc-vs-row").forEach((row) => {
     const id = row.getAttribute("data-id");
     const editor = row.querySelector(".oc-vs-editor");

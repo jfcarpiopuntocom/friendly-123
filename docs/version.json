@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v506: montos desconocidos del dia ya no aparecen como $0 (app, cierre del dia, WhatsApp, mosaico Today); devoluciones restan el dia en que se devuelven; eventos con percha legibles; tablero sin ventas no muestra cifras completas.",
+  "changelog": "v506: montos desconocidos del dia ya no aparecen como $0 (app, cierre del dia, WhatsApp, mosaico Today); devoluciones restan el dia en que se devuelven; eventos con percha legibles; tablero sin ventas no muestra cifras completas. Sold: la busqueda tambien filtra las ventas con lapiz y cada resultado trae Corregir.",
   "requerida": false,
   "shell": "f123-shell-v506",
   "apagar": [],

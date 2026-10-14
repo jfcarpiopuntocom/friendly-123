@@ -3,7 +3,7 @@
   "shell": "f123-shell-v506",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-80aee4d47f28a1fc9c64e37d1a649e783a056c34f1adfab918442581f5a6f8e5",
+    "./index.html": "sha256-cce275fdec83527035b6fd80b06725bf1dc5562b27c8c74ddc9d511e25e9417f",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./img/logo-720.png": "sha256-621d161800503a13f3aa6248b6829ce69d9265b708d2d228e5eb051b9bd775ae",
     "./copiar-libre.js": "sha256-d30e6b2c6515df2608a7d7083c51a8251483a5443c785fefedf6b51b2910afd8",
@@ -49,7 +49,7 @@
     "./core/ledger.js": "sha256-8a08a4d780f2f86ae28f2232aa621be064466f3242485b04f71b43cb3aacccea",
     "./core/sales-audit.js": "sha256-450a2c18accad13ae0949aa14fa05b724ee0b77f84915980799a35933ff4f007",
     "./core/business-read-model.js": "sha256-61c445819cc5b8356f1926fdd6415c24ecc5be86f359ac7fc8f03d8f3f1a56b3",
-    "./sales-audit-ui.js": "sha256-4cdf12b1cc53a4208d1cd2524e9722576bbf038f786c0d719d282f98bee13f47",
+    "./sales-audit-ui.js": "sha256-fc538f10587093a0aa94e9922b6ce627c4a25ca76ed42491193fc955f504dd22",
     "./application/recover-shelf-photo.js": "sha256-2c1f73f4c6d0e0869fe4b110f314f44313d65116c4ced0900d050c05db6b49e7",
     "./idb-archivo.js": "sha256-7a973da43f5858675d472a9982af855e047ebe14ac16c93b4d89333c28da8963",
     "./simon-config.js": "sha256-0b9c5463811f166452079019d749ca2fb4e7172dd86c8ab2a7ae4737fe93f455",

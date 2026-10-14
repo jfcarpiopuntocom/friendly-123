@@ -27,7 +27,12 @@
       const pairs=[[text.net,r.netCents],[text.cash,r.cashCents],[text.credit,r.creditCents],[text.nonCash,r.nonCashCents],[text.unspecified,r.unspecifiedCents],[text.returns,r.returnedCents]];
       host.querySelector('[data-audit-results]').innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:12px 0;">${pairs.map(([label,n])=>`<div style="border:2px solid currentColor;border-radius:8px;padding:8px;"><div>${label}</div><strong style="font-size:20px;">${money(n)}</strong></div>`).join('')}</div>
         <p style="font-weight:700;">${r.rows.length} ${text.count}${r.invalid?' · '+text.invalid+r.invalid:''}</p>
-        ${r.rows.length?r.rows.map(v=>`<div data-audit-sale="${esc(v.id)}" style="border-top:1px solid currentColor;padding:10px 0;"><strong>${esc(v.product)}</strong> · ${esc(v.day)}<div>${esc(v.rack)}${v.event?' · '+esc(v.event):''}</div><div>${v.units} × ${text.price} ${money(v.unitCents)} · ${text.total} <strong>${money(v.amountCents)}</strong> · ${esc(v.method || text.unspecified)}${v.returned?' · '+text.returned:''}</div></div>`).join(''):`<p>${text.empty}</p>`}`;
+        ${r.rows.length?r.rows.map(v=>`<div data-audit-sale="${esc(v.id)}" style="border-top:1px solid currentColor;padding:10px 0;"><strong>${esc(v.product)}</strong> · ${esc(v.day)}<div>${esc(v.rack)}${v.event?' · '+esc(v.event):''}</div><div>${v.units} × ${text.price} ${money(v.unitCents)} · ${text.total} <strong>${money(v.amountCents)}</strong> · ${esc(v.method || text.unspecified)}${v.returned?' · '+text.returned:''}</div>${options.onEdit?`<button type="button" data-audit-edit="${esc(v.id)}" style="${style}margin-top:6px;font-weight:700;min-height:44px;">${es?'Corregir':'Fix'}</button>`:''}</div>`).join(''):`<p>${text.empty}</p>`}`;
+      /* v506 (Belen 2026-10-14): "pongo vino, me sale, pero no me sale para arreglar".
+         onEdit lleva al editor de ESA venta; onFilter deja que la lista editable
+         obedezca la misma busqueda. Sin opciones (dashboard) nada cambia. */
+      if(options.onEdit)host.querySelectorAll('[data-audit-edit]').forEach(b=>b.addEventListener('click',()=>options.onEdit(b.getAttribute('data-audit-edit'))));
+      if(options.onFilter)options.onFilter(r.rows.map(v=>String(v.id)),!!(prior.from||prior.to||prior.rack||prior.query));
     }
     for(const key of ['from','to','rack','query']) host.querySelector('[data-audit-'+key+']').addEventListener(key==='query'?'input':'change',e=>{prior[key]=e.target.value;paint();});
     host.querySelector('[data-audit-reset]').addEventListener('click',()=>{for(const key of ['from','to','rack','query']){prior[key]='';host.querySelector('[data-audit-'+key+']').value='';}paint();});paint();
