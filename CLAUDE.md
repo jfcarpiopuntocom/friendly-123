@@ -37,6 +37,14 @@
 > **Decisiones vigentes de JFC:** estan en este archivo, en `NOTAS-PARA-OPUS-5.5-2026-09-24.md`
 > y en la bitacora de Notion. Si JFC aclara algo nuevo, se anota en este archivo.
 
+> **REGLA DURA JFC 2026-10-14 — HOTFIX A LA VELOCIDAD DE JFC, CON REWIND.** Prioridad: 1) hotfix rapido
+> (como BuscaClientes), 2) rewind facil. Se publica tras pasar SOLO las pruebas del area tocada (rojo-verde
+> incluido); la suite completa la corre GitHub (release-control/QA), no la laptop. Nada de canario, /next/,
+> PUSH manual ni esperas: JFC vivio "los peores dos meses de estres" con eso. Un hotfix por pedido, publicado
+> en el mismo turno. Rewind = volver a la version anterior en un paso. Demo: los datos de demo (PIN 456) NO
+> deben aparecer en cuadernos de usuarios reales (JFC, idiomARTE, futuras licencias) salvo que alguien entre
+> a proposito con 456 para mostrar la app.
+
 Este archivo se carga solo en cada sesión. Es la memoria persistente de este
 repo: lo crítico está aquí para no re-derivarlo (ni re-preguntarlo) cada vez.
 Si un dato cambia, se actualiza aquí en el mismo commit.
