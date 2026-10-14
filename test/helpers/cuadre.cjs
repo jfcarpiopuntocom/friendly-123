@@ -67,6 +67,24 @@ async function cuadre(w, { stockEsperado } = {}) {
   if (vV !== c2(val.totales.valorVenta)) mal('R4 valorizado venta', `productos ${vV / 100} vs reporte ${val.totales.valorVenta}`);
   for (const p of activos) if (p.stockActual < 0 || !Number.isInteger(p.stockActual)) mal('R4b stock entero >= 0', `${p.nombre}: ${p.stockActual}`);
 
+  // R6 (Oct14fixes 3, 2026-10-14). El TABLERO calcula el dia con el lector compartido sobre las
+  // mismas ventas que recibe en la foto (/api/ventas/todas). Tiene que decir lo mismo que Today:
+  // el 14 oct el tablero decia "—" y la tarjeta Today "$0" para el mismo dia.
+  const R = require('../../docs/core/business-read-model.js');
+  const dDash = R.daily(ventas, hoyLocal(), Intl.DateTimeFormat().resolvedOptions().timeZone);
+  for (const k of ['entra', 'sale', 'gananciaHoy']) {
+    const a = dDash[k], b = dash.resumenDia[k];
+    if ((a === null) !== (b === null) || (a !== null && c2(a) !== c2(b))) mal('R6 tablero = Today ' + k, `tablero ${a} vs Today ${b}`);
+  }
+  // R7. Sold (resumen "Net sales" de hoy) = Today, salvo devoluciones de otro dia: Sold resta la
+  // devolucion en el dia de la VENTA y Today en el dia de la DEVOLUCION (ambas reglas son de JFC).
+  if (!globalThis.OCSalesAudit) require('../../docs/core/sales-audit.js');
+  const otroDia = ventas.some((v) => v.devuelta && (fechaLocal(v.fecha) !== hoyLocal() || !v.fechaDevolucion || fechaLocal(v.fechaDevolucion) !== hoyLocal()));
+  if (!otroDia) {
+    const sold = globalThis.OCSalesAudit.report(ventas, { from: hoyLocal(), to: hoyLocal(), timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+    if (sold.netCents !== c2(dash.resumenDia.entra)) mal('R7 Sold neto hoy = Today', `Sold ${sold.netCents / 100} vs Today ${dash.resumenDia.entra}`);
+  }
+
   // R5. Stock esperado segun las operaciones que el test SI hizo.
   if (stockEsperado) for (const [id, n] of Object.entries(stockEsperado)) {
     const p = productos.find((x) => x.id === id);

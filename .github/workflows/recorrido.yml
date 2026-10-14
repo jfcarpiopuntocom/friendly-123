@@ -1,0 +1,31 @@
+# recorrido.yml — RECORRIDO DE LA APP VIVA (Oct14fixes 4, JFC 2026-10-14).
+# Abre friendly123.com/app y su tablero como un cliente nuevo (Chromium + Safari iPhone),
+# SOLO LECTURA: sin PIN, sin licencias, sin datos. Falla si hay errores JS, si el tablero
+# muestra otra version que la publicada o si un archivo servido no cuadra con el manifiesto.
+# Una falla = GitHub manda correo: nos enteramos antes que Belen.
+# Corre cada manana 7:00 am (GMT-5), despues de cada hotfix (lo llama hotfix.yml) y a mano.
+name: recorrido
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch: {}
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  recorrer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Recorrer la app viva
+        run: node scripts/recorrido-vivo.cjs https://friendly123.com/app/ | tee -a "$GITHUB_STEP_SUMMARY"

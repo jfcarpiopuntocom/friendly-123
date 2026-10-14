@@ -200,9 +200,20 @@
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"friendly-123","url":"https://jfcarpiopuntocom.github.io/friendly-123/","applicationCategory":"BusinessApplication","operatingSystem":"Any (web, offline-capable)","inLanguage":["en","es"],"description":"Your store, in color. Inventory, one-tap sales, consignment shelves and commissions for small retail. Works offline.","offers":{"@type":"Offer","price":"399","priceCurrency":"USD","description":"One-time payment, 5-year license, support and updates included"}}
 </script>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- v510 (Oct14fixes 6, JFC 2026-10-14: "en la splash cambia la tipografia un par de veces, A-B-A-B").
+     Causa medida: las letras venian de Google con display=swap; el splash pintaba la letra de
+     reemplazo y ~1,2 s despues cambiaba a la de marca, y al pasar al PIN otra vez. Ahora las
+     letras viven en ./fonts (licencia OFL), se precargan y el service worker las guarda.
+     font-display: optional = si la letra no esta lista al primer pintado, se queda UNA sola
+     letra en esa vista; nunca cambia a mitad. Desde la segunda visita sale del telefono. -->
+<link rel="preload" href="./fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/source-sans-3-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:300 700;font-display:optional;src:url(./fonts/space-grotesk-latin.woff2) format("woff2");}
+@font-face{font-family:"Source Sans 3";font-style:normal;font-weight:200 900;font-display:optional;src:url(./fonts/source-sans-3-latin.woff2) format("woff2");}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:100 800;font-display:optional;src:url(./fonts/jetbrains-mono-latin.woff2) format("woff2");}
+@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:optional;src:url(./fonts/inter-latin.woff2) format("woff2");}
+</style>
 <style>
   :root{
     /* --- superficies y tinta (reasignadas, mismos nombres usados por el script) --- */

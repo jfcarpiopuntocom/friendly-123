@@ -66,3 +66,7 @@ jobs:
   publicar:
     needs: probar-y-mover
     uses: ./.github/workflows/publicar.yml
+  # Oct14fixes 4: recorrer la app viva justo despues de publicar (solo lectura).
+  recorrido:
+    needs: publicar
+    uses: ./.github/workflows/recorrido.yml

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v509">
+<meta name="dashboard-shell" content="f123-shell-v510">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -22,9 +22,20 @@
 <meta property="og:description" content="Your entire business on one big screen. The data stays on your devices.">
 <meta property="og:image" content="https://jfcarpiopuntocom.github.io/friendly-123/logo.png">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- v510 (Oct14fixes 6, JFC 2026-10-14: "en la splash cambia la tipografia un par de veces, A-B-A-B").
+     Causa medida: las letras venian de Google con display=swap; el splash pintaba la letra de
+     reemplazo y ~1,2 s despues cambiaba a la de marca, y al pasar al PIN otra vez. Ahora las
+     letras viven en ./fonts (licencia OFL), se precargan y el service worker las guarda.
+     font-display: optional = si la letra no esta lista al primer pintado, se queda UNA sola
+     letra en esa vista; nunca cambia a mitad. Desde la segunda visita sale del telefono. -->
+<link rel="preload" href="./fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:300 700;font-display:optional;src:url(./fonts/space-grotesk-latin.woff2) format("woff2");}
+@font-face{font-family:"Source Sans 3";font-style:normal;font-weight:200 900;font-display:optional;src:url(./fonts/source-sans-3-latin.woff2) format("woff2");}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:100 800;font-display:optional;src:url(./fonts/jetbrains-mono-latin.woff2) format("woff2");}
+@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:optional;src:url(./fonts/inter-latin.woff2) format("woff2");}
+</style>
 
 <!-- Tabulator: tabla, busqueda, agrupacion y los cinco exports en una sola
      libreria. SheetJS y jsPDF van por debajo de ella, no como codigo nuestro.
@@ -455,7 +466,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
-    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v509</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v510</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>

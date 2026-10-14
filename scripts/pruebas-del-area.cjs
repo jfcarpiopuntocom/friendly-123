@@ -18,7 +18,7 @@ const elegidas = new Set(cambios.filter(f => /^test\/[^/]+\.test\.js$/.test(f) &
 // nuevas del propio arreglo (rojo-verde obligatorio) + el humo fijo de abajo.
 const IGNORAR = new Set(['version.json', 'sw.js', 'version-manifest.json', 'index.html', 'dashboard.html', 'mock-backend.js', 'i18n.js']);
 // Humo fijo: dinero de Today, Sold, tablero en telefono, fronteras y release. Siempre corre.
-for (const t of ['test/business-read-model.test.js', 'test/auditoria-v506-montos-desconocidos.test.js', 'test/sales-audit-browser.test.js', 'test/dashboard-embed.test.js', 'test/architecture-hexagonal.test.js', 'test/release-control.test.js']) if (fs.existsSync(t)) elegidas.add(t);
+for (const t of ['test/business-read-model.test.js', 'test/auditoria-v506-montos-desconocidos.test.js', 'test/sales-audit-browser.test.js', 'test/dashboard-embed.test.js', 'test/architecture-hexagonal.test.js', 'test/release-control.test.js', 'test/cuadre-hugo-paco-luis.test.js', 'test/dashboard-identidad-version.test.js']) if (fs.existsSync(t)) elegidas.add(t);
 const nombres = cambios.filter(f => f.startsWith('docs/')).map(f => path.basename(f)).filter(n => !IGNORAR.has(n));
 if (nombres.length) {
   for (const t of fs.readdirSync('test').filter(f => f.endsWith('.test.js'))) {
