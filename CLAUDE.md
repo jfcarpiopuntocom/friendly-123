@@ -37,6 +37,14 @@
 > **Decisiones vigentes de JFC:** estan en este archivo, en `NOTAS-PARA-OPUS-5.5-2026-09-24.md`
 > y en la bitacora de Notion. Si JFC aclara algo nuevo, se anota en este archivo.
 
+> **PUBLICAR Y DESHACER (2026-10-14, Oct14fixes 1):** fusionar a master = `hotfix.yml` corre las pruebas del
+> area tocada (scripts/pruebas-del-area.cjs, ~25 s) y mueve estable; clientes en ~2,5 min (medido v508).
+> Deshacer: `gh workflow run deshacer.yml` (estable <- previo). promover.yml queda DORMIDO. Toda prueba
+> nueva de un arreglo entra sola por estar en el commit.
+> **SENTRY AL ABRIR CADA SESION (Oct14fixes 2):** antes de trabajar, `search_issues` en org jfcarpiocom,
+> proyecto friendly-123, `is:unresolved` ultimas 24 h. Un error nuevo de cliente se arregla ANTES que lo
+> encuentre Belen (el 14 oct el aviso llego 13 h antes y quedo sin leer en Gmail > Notificaciones).
+
 > **REGLA DURA JFC 2026-10-14 — HOTFIX A LA VELOCIDAD DE JFC, CON REWIND.** Prioridad: 1) hotfix rapido
 > (como BuscaClientes), 2) rewind facil. Se publica tras pasar SOLO las pruebas del area tocada (rojo-verde
 > incluido); la suite completa la corre GitHub (release-control/QA), no la laptop. Nada de canario, /next/,
