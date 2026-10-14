@@ -128,12 +128,13 @@
       channel.onclose = function () { canal.paresDirectos = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; }).length; };
     }
     function directPeer(id) {
-      if (_direct[id]) return _direct[id];
+      // v517 (informe Codex #1): limpiar ANTES de reutilizar; un par failed/closed ya no se devuelve.
       // v514: como el cierre del relay ya no vacia la lista, se limpian aqui los pares muertos.
       Object.keys(_direct).forEach(function (k) {
         var st = _direct[k].pc && _direct[k].pc.connectionState;
         if (st === "closed" || st === "failed") { try { _direct[k].pc.close(); } catch (_) {} delete _direct[k]; }
       });
+      if (_direct[id]) return _direct[id];
       if (Object.keys(_direct).length >= 11) return null;
       var pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }] });
       var peer = _direct[id] = { pc: pc, dc: null, ice: [] };
@@ -144,7 +145,7 @@
     async function receiveSignal(msg) {
       if (typeof RTCPeerConnection === "undefined" || !msg || typeof msg.from !== "string" || msg.from.length > 80 ||
           msg.from === _peerId || (msg.to && msg.to !== _peerId)) return;
-      var known = !!_direct[msg.from], peer = directPeer(msg.from);
+      var peer = directPeer(msg.from), known = !!(peer && peer.dc); // v517: known tras limpiar
       if (!peer) return;
       try {
         if (msg.kind === "hello") {
@@ -1138,7 +1139,10 @@
                     return JSON.stringify([Number(x && x.stockBase), Object.keys(q).sort().map(function (k) { return [k, Number(q[k].add) || 0, Number(q[k].sub) || 0]; })]);
                   };
                   var tMio = Number(r.stockTs) || 0, tDoc = Number(prev.stockTs) || 0;
-                  var ganoYo = tMio !== tDoc ? tMio > tDoc : claveEp(r) > claveEp(prev);
+                  // v517 (informe Codex #2): mismo filtro que mock-backend: un sello >5 min en el futuro del reloj comun no gana.
+                  var ahoraC = (window.OCLatencia && window.OCLatencia.ahoraRelay) ? Number(window.OCLatencia.ahoraRelay()) : NaN;
+                  var futuroMio = Number.isFinite(ahoraC) && tMio > ahoraC + 300000, futuroDoc = Number.isFinite(ahoraC) && tDoc > ahoraC + 300000;
+                  var ganoYo = futuroMio !== futuroDoc ? !futuroMio : (tMio !== tDoc ? tMio > tDoc : claveEp(r) > claveEp(prev));
                   if (!ganoYo) r = Object.assign({}, r, { stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual, stockTs: prev.stockTs, stockDeficit: prev.stockDeficit });
                 }
                 var base = baseMia !== null ? baseMia : basePrev;
@@ -1276,7 +1280,7 @@
        100 la del que recibe; la red ~30 ms. Ahora 30 ms: junta los eventos de una misma venta
        (salen en el mismo instante) sin frenar el cambio. Una espera que NO se reinicia con cada
        evento, para que una rafaga no lo posponga. Prueba: test/sync-instantaneo-v516.test.js */
-    function pedirSeed() { if (_tSeed) return; _tSeed = setTimeout(function () { _tSeed = null; sembrar(); }, 30); }
+    function pedirSeed() { if (_tSeed) return; _tSeed = setTimeout(function () { _tSeed = null; sembrar(); }, 0); } // v517: 0 ms (JFC: "40 ms o menos"); junta lo del mismo instante
     window.addEventListener("oc-catalogo-cambiado", pedirSeed);
     window.addEventListener("oc-equipo-cambiado", pedirSeed);
 
@@ -1291,7 +1295,7 @@
       if (!_tAplica) _tAplica = setTimeout(function () {
         _tAplica = null;
         aplicar();
-      }, 20); // v516: antes 100 ms (ver pedirSeed)
+      }, 0); // v517: 0 ms (v516: 20, antes 100). Junta las rafagas del mismo instante
     });
 
     // Arranque: cuando IndexedDB termina de cargar, primero APLICAMOS lo que ya

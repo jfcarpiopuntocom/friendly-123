@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v516: los cambios cruzan entre aparatos en ~60 ms (antes ~530 ms) y llegan al tablero de la compu en ~150 ms.",
+  "changelog": "v517: sync sin esperas (7 ms por conexion directa, ~110 ms por Cloudflare desde Ecuador); conexion directa se recupera; misma regla de stock en los dos lados.",
   "requerida": false,
-  "shell": "f123-shell-v516",
+  "shell": "f123-shell-v517",
   "apagar": [],
-  "releaseName": "v516",
-  "cacheGeneration": "golden80"
+  "releaseName": "v517",
+  "cacheGeneration": "golden81"
 }

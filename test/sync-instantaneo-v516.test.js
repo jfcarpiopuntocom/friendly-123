@@ -6,11 +6,11 @@ const src=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 test('quien cambia publica en <= 50 ms y una rafaga no posterga el envio',()=>{
   const m=/function pedirSeed\(\) \{([^\n]+)\}/.exec(src);assert.ok(m);
   const ms=Number((/,\s*(\d+)\);\s*$/.exec(m[1].trim())||[])[1]);
-  assert.ok(ms>0&&ms<=50,'espera de publicacion '+ms+' ms');
+  assert.ok(ms>=0&&ms<=50,'espera de publicacion '+ms+' ms');
   assert.doesNotMatch(m[1],/clearTimeout/,'no se reinicia con cada evento');
 });
 test('quien recibe aplica en <= 50 ms',()=>{
   const a=src.indexOf('if (!_tAplica) _tAplica = setTimeout(');assert.ok(a>0);
   const ms=Number((/\}, (\d+)\)/.exec(src.slice(a,a+200))||[])[1]);
-  assert.ok(ms>0&&ms<=50,'espera de aplicacion '+ms+' ms');
+  assert.ok(ms>=0&&ms<=50,'espera de aplicacion '+ms+' ms');
 });
