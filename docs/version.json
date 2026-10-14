@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v517: sync sin esperas (7 ms por conexion directa, ~110 ms por Cloudflare desde Ecuador); conexion directa se recupera; misma regla de stock en los dos lados.",
+  "changelog": "v519 candidate: sale and on-credit obligation stored together; backward-compatible ledger projection reconciles existing receipts without duplicate debt; includes v518 dashboard fixes.",
   "requerida": false,
-  "shell": "f123-shell-v517",
+  "shell": "f123-shell-v519",
   "apagar": [],
-  "releaseName": "v517",
-  "cacheGeneration": "golden81"
+  "releaseName": "v519",
+  "cacheGeneration": "golden83"
 }

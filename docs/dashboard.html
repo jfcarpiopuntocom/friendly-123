@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v517">
+<meta name="dashboard-shell" content="f123-shell-v519">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -466,7 +466,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
-    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v517</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v519</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
@@ -931,7 +931,7 @@
            autorizado. Todo lo demas se descarta: sin PIN no se pinta un dato. */
         if (op && op.tipo === TIPO_RESPUESTA) { recibirRespuesta(op.payload); return; }
         if (!autorizado) return;
-        if (op && op.tipo === TIPO_FOTO_TROZO) { recibirTrozo(op.payload); return; }
+        if (op && op.tipo === TIPO_FOTO_TROZO) { recibirTrozo(op.payload, op.deviceId); return; }
         /* Latido: quien esta vivo y como se llama. No es dato del negocio y no
            se guarda en ningun lado; vive en memoria hasta que se cierre esta
            pestana, como todo lo demas en este lienzo. */
@@ -980,7 +980,8 @@
   }
 
   /* --- La foto llega por partes. Se pinta lo que va llegando. --- */
-  function recibirTrozo(p) {
+  var editorDeviceId = "";
+  function recibirTrozo(p, emisor) {
     if (!p || !p.tabla) return;
     // Ya llegó data válida: la conexión sí fue estable y puede reiniciar backoff.
     reconexionMs = 1500;
@@ -1019,10 +1020,44 @@
       if (!Object.prototype.hasOwnProperty.call(fotoTemporal, nombre)) return;
     }
     datos = fotoTemporal;
+    /* The editable snapshot must carry a single, actual origin device. */
+    editorDeviceId = typeof emisor === "string" && emisor.length <= 80 ? emisor : "";
     datos.productos = (datos.productos || []).map(function(p){return Object.assign({},p,{stockActual:window.OCBusinessReadModel.stock(p).units,fechaCaducidad:window.OCBusinessReadModel.expiry(p)});});
     if(datos.cobertura && datos.cobertura.resumen===false)datos.resumen={resumenDia:{entra:null,gananciaHoy:null}};
     _fuenteDatosDashboard = 'remota';
     mostrar();
+  }
+
+  /* Belén 2026-10-14: historical purchases must not say "never" while the
+     same customer is shown as having bought items. Stable ID is authoritative;
+     name-only legacy records are attributed only when the name is unique.
+     Keep unknown coverage and invalid dates unknown, never turn them into 0. */
+  function ventaEsDeCliente(v, c) {
+    if (!v || v.anulada || !c || !c.id) return false;
+    if (v.clienteId) return String(v.clienteId) === String(c.id);
+    var nombre = String(c.nombre || "").trim().toLocaleLowerCase();
+    if (!nombre) return false;
+    var iguales = (datos.clientes || []).filter(function (x) {
+      return String(x.nombre || "").trim().toLocaleLowerCase() === nombre;
+    }).length;
+    return iguales === 1 && String(v.clienteNombre || "").trim().toLocaleLowerCase() === nombre;
+  }
+  function clientesConCompras() {
+    var ventas = Array.isArray(datos.ventas) ? datos.ventas : [];
+    var ahora = Date.now();
+    return (datos.clientes || []).map(function (c) {
+      if (c.recencia != null) return c;
+      var fechas = ventas.filter(function (v) { return ventaEsDeCliente(v, c); })
+        .map(function (v) { return Date.parse(v.fecha); })
+        .filter(function (t) { return Number.isFinite(t) && t <= ahora + 300000; });
+      if (!fechas.length) {
+        if (ventas.some(function(v) { return ventaEsDeCliente(v,c); }))
+          return Object.assign({},c,{recencia:"pending"});
+        return c;
+      }
+      var masReciente = fechas.reduce(function(a,b){return Math.max(a,b);},0);
+      return Object.assign({}, c, { recencia: Math.max(0, Math.floor((ahora - masReciente) / 86400000)) });
+    });
   }
 
   /* ---------------------------------------------------------------- VISTAS */
@@ -1068,15 +1103,25 @@
         return "<strong>Inventario sano.</strong>La matriz BCG de la app te dice cuáles empujar para que rindan más.";
       },
     },
+
     clientes: {
       nombre: "Customers",
       cols: [
+        { title: "", field: "id", width: 50, hozAlign: "center", headerSort: false, download: false,
+          formatter: function(c) {
+            return '<button type="button" data-edit-cliente="' + esc(c.getValue() || "") +
+              '" aria-label="Edit customer" title="Edit customer here" style="min-width:40px;min-height:40px;border:1px solid #1C3049;border-radius:6px;background:#FFF;color:#1C3049;font-size:21px;cursor:pointer;">✎</button>';
+          } },
         { title: "Customer", field: "nombre", minWidth: 180, widthGrow: 3 },
         { title: "Código", field: "codigo", width: 110, cssClass: "num" },
         /* Campos reales de fichaCliente() en mock-backend.js: recencia,
            frecuencia y monto (RFM de 90 dias). No inventar otros. */
         { title: "Compró hace", field: "recencia", width: 130, hozAlign: "right", cssClass: "num",
-          formatter: function (c) { var v = c.getValue(); return v == null ? "nunca" : v + " días"; } },
+          formatter: function (c) {
+            var v = c.getValue();
+            if (v === "pending" || (v == null && datos.cobertura && datos.cobertura.ventas === false)) return "pending";
+            return v == null ? "nunca" : v + " días";
+          } },
         { title: "Compras 90d", field: "frecuencia", width: 125, hozAlign: "right", cssClass: "num" },
         { title: "Monto 90d", field: "monto", width: 125, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return money(c.getValue()); } },
@@ -1092,14 +1137,14 @@
             var nombre = c.getRow().getData().nombre;
             var prods = {};
             (datos.ventas || []).forEach(function (v) {
-              if (v.clienteNombre === nombre && v.productoNombre) prods[v.productoNombre] = true;
+              if (ventaEsDeCliente(v, c.getRow().getData()) && v.productoNombre) prods[v.productoNombre] = true;
             });
             var lista = Object.keys(prods);
             if (!lista.length) return "—";
             return lista.slice(0, 4).join(", ") + (lista.length > 4 ? "…" : "");
           } },
       ],
-      filas: function () { return datos.clientes || []; },
+      filas: function () { return clientesConCompras(); },
       cierre: function (f) {
         return "<strong>" + plural(f.length, "cliente", "clientes") + ".</strong>" +
           "En Clientes, la matriz de comportamiento te dice con quién puedes contar, y el fiado con plan de cuotas está ahí mismo.";
@@ -1564,6 +1609,17 @@
     (datos.ventas || []).forEach(function (v) { if (v && v.mes && v.comisionPct != null) set[v.mes] = 1; });
     return Object.keys(set).sort().reverse();
   }
+
+  /* No missing price or incomplete photo may become a commission total of 0. */
+  function comisionesConImportePendiente(filas) {
+    if (datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.liquidaciones === false)) return true;
+    return (filas || []).some(function(v) {
+      return v && v.comisionPct != null &&
+        (window.OCBusinessReadModel.number(v.precioUnit) === null ||
+         window.OCBusinessReadModel.quantity(v.cantidad) === null ||
+         (v.comisionAsociado == null && v.comisionPendiente == null));
+    });
+  }
   function cmPendienteVenta(v) {
     if (!v || v.comisionPct == null) return 0;
     if (v.comisionPendiente != null && Number.isFinite(Number(v.comisionPendiente))) return Number(v.comisionPendiente) || 0;
@@ -1591,7 +1647,7 @@
       if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
       if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
     });
-    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (b.bruto + b.counterMonto) - (a.bruto + a.counterMonto); });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (Number(b.bruto || 0) + Number(b.counterMonto || 0)) - (Number(a.bruto || 0) + Number(a.counterMonto || 0)); });
   }
   function cmRanking(filas) {
     var map = {};
@@ -1640,9 +1696,11 @@
     var pend = (cmMes === actual && liqs.length && liqs.some(function (l) { return l.stillDue != null; }))
       ? liqs.reduce(function (a, l) { return a + (Number(l.stillDue) || 0); }, 0)
       : pendVentas + ajustes.reduce(function (a, x) { return a + (x.liquidada ? 0 : (Number(x.montoComisionSocio) || 0)); }, 0);
-    var casa = bruto - socio;
+    var faltanMontos = comisionesConImportePendiente(filas);
+    if (faltanMontos) { bruto = null; socio = null; pend = null; }
+    var casa = bruto === null || socio === null ? null : bruto - socio;
     var atrasados = meses.filter(function (m) { return m !== actual && cmPendienteDe(m) > 0; });
-    var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + money(n) + "</div></div>"; };
+    var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + (n === null ? (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") : money(n)) + "</div></div>"; };
     var grupos = cmAgrupar(filas, cmVista);
     /* v423: barras (JFC "visualizacion amplia e impactante"). Azul = asociado, verde = casa (validado para
        daltonismo). Largo de cada barra = lo vendido con comision de esa fila frente a la mayor. */
@@ -1817,6 +1875,7 @@
       if (x > 0.004) { pend += x; perchas[v.ubicacionId || v.ubicacionNombre || ""] = 1; }
       if (!ultima || String(v.fecha || "") > String(ultima.fecha || "")) ultima = v;
     });
+    if (comisionesConImportePendiente(ventas)) pend = null;
     var ciegos = 0, ahora = Date.now();
     Object.keys(latidos).forEach(function (id) { if (micEstado(ahora - latidos[id].visto) === "ciegas") ciegos++; });
     /* v506 (auditoria 2026-10-14): el mosaico Today y la isla mostraban $0 cuando el
@@ -1848,8 +1907,8 @@
     var t = totalesHub(), al = alertasHub(t), set = function (id, txt) { var e = $(id); if (e) e.textContent = txt; };
     set("t-hoy-n", money(t.entra)); set("t-hoy-p", t.nVentas === null ? "Ventas pendientes" : plural(t.nVentas, "venta", "ventas"));
     set("t-hoy-p2", t.ultima ? textoVenta(t.ultima) : "");
-    set("t-comisiones-n", money(t.pend));
-    var tc = document.querySelector('[data-tile="comisiones"]'); if (tc) tc.setAttribute("data-color", t.pend > 0.004 ? "naranja" : "verde");
+    set("t-comisiones-n", t.pend === null ? (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") : money(t.pend));
+    var tc = document.querySelector('[data-tile="comisiones"]'); if (tc) tc.setAttribute("data-color", t.pend === null || t.pend > 0.004 ? "naranja" : "verde");
     set("t-inventario-n", plural(t.nProds, "producto", "productos"));
     var chips = $("t-inventario-chips");
     if (chips) chips.innerHTML = ["verde", "amarillo", "naranja", "rojo", "negro"].map(function (k) {
@@ -2192,6 +2251,7 @@
       /* esc(undefined) pintaba la palabra "undefined" en la celda. Aqui no hay
          formatters, asi que al menos el dinero se formatea a mano. */
       return "<tr>" + v.cols.map(function (c) {
+        if (vista === "clientes" && c.field === "id") return "<td style='padding:4px;'><button type='button' data-edit-cliente='" + esc(f.id || "") + "' aria-label='Edit customer' style='min-width:44px;min-height:44px;'>✎</button></td>";
         var val = f[c.field];
         if (val == null || val === "") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + (c.field === 'stockActual' ? 'Stock pending' : '—') + "</td>";
         if (/^(precio|costo|margen|precioUnit|costoUnit|monto)$/.test(c.field)) val = money(val);
@@ -2205,6 +2265,44 @@
       th + "</tr></thead><tbody>" + tr + "</tbody></table></div>";
   }
 
+
+  /* Tabulator's PDF downloader may cancel the browser download even when
+     CSV/XLSX work. Use the same jsPDF+autoTable engine as our three reports,
+     directly in the click handler, with the currently filtered table rows. */
+  function pdfDeTabla(filename, negocio) {
+    var JsPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!JsPDF) throw new Error("jsPDF is unavailable");
+    var doc = new JsPDF({orientation:"landscape",unit:"pt",format:"a4"});
+    if (typeof doc.autoTable !== "function") throw new Error("jsPDF-AutoTable is unavailable");
+    var cols = VISTAS[vista].cols.filter(function(c) { return c.field && c.title && c.download !== false; });
+    var filas = tabla.getData("active");
+    var titulos = cols.map(function(c) { return String(c.title); });
+    var celdas = filas.map(function(r) {
+      return cols.map(function(c) {
+        var v = r[c.field];
+        if (c.field === "compro") {
+          var nombres = {};
+          (datos.ventas || []).forEach(function(venta) {
+            if (ventaEsDeCliente(venta,r) && venta.productoNombre) nombres[venta.productoNombre] = true;
+          });
+          return Object.keys(nombres).join(", ") || "—";
+        }
+        if (c.field === "recencia") return v === "pending" || (v == null && datos.cobertura && datos.cobertura.ventas === false) ? "pending" : (v == null ? "never" : String(v) + " days");
+        if (v == null || v === "") return c.field === "stockActual" ? "Stock pending" : "—";
+        if (/^(precio|costo|margen|precioUnit|costoUnit|monto|comision|ventasBrutas|casa)$/.test(c.field))
+          return money(v);
+        if (typeof v === "object") return "—";
+        return String(v);
+      });
+    });
+    doc.setFontSize(15); doc.text(String(negocio || "Business").slice(0,95),40,36);
+    doc.setFontSize(10);
+    doc.text(VISTAS[vista].nombre + " · " + new Date().toLocaleString(),40,54);
+    doc.autoTable({head:[titulos],body:celdas,startY:68,
+      styles:{fontSize:8,cellPadding:4,overflow:"linebreak"},headStyles:{fillColor:[15,25,35]}});
+    doc.save(filename);
+  }
+
   function exportar(tipo) {
     /* \w no incluye acentos ni ñ: "Panadería Ñusta" salia como "Panadera usta".
        Se quitan solo los caracteres que los sistemas de archivos prohiben. */
@@ -2215,14 +2313,7 @@
       else if (tipo === "xlsx") tabla.download("xlsx", f + ".xlsx", { sheetName: VISTAS[vista].nombre });
       else if (tipo === "json") tabla.download("json", f + ".json");
       else if (tipo === "copy") { tabla.copyToClipboard("all"); }
-      else if (tipo === "pdf") {
-        tabla.download("pdf", f + ".pdf", {
-          orientation: "landscape",
-          /* Encabezado con negocio y fecha: un archivo sin contexto es basura
-             dentro de una semana. */
-          title: nombre + " — " + VISTAS[vista].nombre + " — " + new Date().toLocaleDateString(),
-        });
-      }
+      else if (tipo === "pdf") pdfDeTabla(f + ".pdf", nombre);
     } catch (e) {
       $("cierre").innerHTML = "<strong>No se pudo exportar.</strong>Puede que no haya cargado la herramienta de exportación. Recarga la página e inténtalo de nuevo.";
       try { if (window.AMG && window.AMG.Salud) window.AMG.Salud.registrar("export " + tipo + ": " + e.message, "tablero.html", 0); } catch (_) {}
@@ -2363,7 +2454,7 @@
       titulo = "Clientes al día";
       cols = ["Cliente", "Teléfono", "Compró hace", "Compras 90d", "Monto 90d"];
       filas = (datos.clientes || []).map(function (c) {
-        return [c.nombre, c.telefono || "", c.recencia == null ? "nunca" : c.recencia + " días",
+        return [c.nombre, c.telefono || "", c.recencia === "pending" || (c.recencia == null && datos.cobertura && datos.cobertura.ventas === false) ? "pending" : (c.recencia == null ? "nunca" : c.recencia + " días"),
                 String(c.frecuencia || 0), money(c.monto)];
       });
       pie = plural(filas.length, "cliente activo", "clientes activos") + ".";
@@ -2444,7 +2535,8 @@
       /* `para` (JFC 2026-08-27): orienta la orden a un dispositivo concreto
          (ej. renombrar su apodo). Si viene, solo ese dispositivo la aplica. */
       cifrar({ opId: id, deviceId: miId, tipo: TIPO_ORDEN,
-               payload: { pedidoId: id, metodo: metodo, ruta: ruta, cuerpo: cuerpo || null, para: para || "" } })
+               payload: { pedidoId: id, metodo: metodo, ruta: ruta, cuerpo: cuerpo || null, para: para || "",
+                          ...(metodo === "PATCH" && /^\/api\/clientes\/[^/]+\/contacto$/.test(ruta) ? { fotoToken: fotoToken } : {}) } })
         .then(function (buf) { try { ws.send(buf); } catch (_) {} });
     });
   }
@@ -3105,6 +3197,125 @@
     });
     calcular();
   })();
+
+
+  /* Dashboard customer corrections: authenticated, targeted remote API writes.
+     These edit the existing customer record, never sales, debt or stock. */
+  var editorClienteDialog = null;
+  function abrirEditorContactoDashboard(id) {
+    if (!autorizado || editorClienteDialog) return;
+    if (datos.cobertura && datos.cobertura.clientes === false) return;
+    var cli = (datos.clientes || []).find(function(c) { return String(c.id) === String(id); });
+    if (!cli) return;
+    var destino = editorDeviceId; // bind the command to the exact snapshot source
+    var es = false;
+    try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
+    var campos = [
+      ["nombre", es ? "Nombre" : "Name",120],
+      ["telefono", es ? "Teléfono" : "Phone",40],
+      ["email", "Email",160],
+      ["notas", es ? "Notas" : "Notes",1200],
+      ["rangoEdad", es ? "Rango de edad" : "Age range",12],
+      ["pais", es ? "País" : "Country",60]
+    ];
+    var original = {}, inputs = {};
+    var dlg = document.createElement("dialog");
+    dlg.id = "dashboard-contact-editor";
+    dlg.style.cssText = "width:min(620px,calc(100% - 24px));max-height:90dvh;overflow:auto;padding:24px;border:2px solid #1C3049;border-radius:12px;background:white;color:#0F1923;box-sizing:border-box;";
+    var h = document.createElement("h2");
+    h.textContent = (es ? "Corregir ficha de " : "Edit customer: ") + String(cli.nombre || "");
+    h.style.cssText = "font-size:21px;margin:0 0 14px;";
+    dlg.appendChild(h);
+    var campoCaja = document.createElement("div");
+    campoCaja.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;";
+    campos.forEach(function(spec) {
+      var k = spec[0]; original[k] = String(cli[k] || "");
+      var label = document.createElement("label");
+      label.style.cssText = "display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;";
+      var tit = document.createElement("span"); tit.textContent = spec[1]; label.appendChild(tit);
+      var input = k === "notas" ? document.createElement("textarea") : document.createElement("input");
+      if (k !== "notas") input.type = k === "email" ? "email" : "text";
+      input.value = original[k]; input.maxLength = spec[2];
+      input.style.cssText = "width:100%;min-height:44px;padding:9px;border:2px solid #617388;border-radius:6px;color:#0F1923;background:#fff;font-size:16px;box-sizing:border-box;";
+      inputs[k] = input; label.appendChild(input); campoCaja.appendChild(label);
+    });
+    dlg.appendChild(campoCaja);
+    var msg = document.createElement("p"); msg.setAttribute("role","status");
+    msg.style.cssText = "font-size:14px;min-height:22px;margin:12px 0;color:#0F1923;"; dlg.appendChild(msg);
+    var actions = document.createElement("div");
+    actions.style.cssText = "display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;";
+    var cancelar = document.createElement("button"), guardar = document.createElement("button");
+    cancelar.type = guardar.type = "button";
+    cancelar.textContent = es ? "Volver" : "Back";
+    guardar.textContent = es ? "Guardar cambios" : "Save changes";
+    [cancelar,guardar].forEach(function(b) {
+      b.style.cssText = "min-height:44px;padding:8px 15px;border:2px solid #1C3049;border-radius:6px;background:#fff;color:#1C3049;font-size:15px;font-weight:700;cursor:pointer;";
+      actions.appendChild(b);
+    });
+    guardar.style.background = "#1C3049"; guardar.style.color = "#fff";
+    dlg.appendChild(actions);
+    function cerrar() {
+      try { dlg.close(); } catch (_) {}
+      dlg.remove(); editorClienteDialog = null;
+    }
+    cancelar.addEventListener("click",cerrar);
+    dlg.addEventListener("cancel",function(e) { e.preventDefault(); cerrar(); });
+    guardar.addEventListener("click",async function() {
+      if (!autorizado) { msg.textContent = es ? "La sesión terminó." : "Session expired."; return; }
+      if (!inputs.nombre.value.trim()) { msg.textContent = es ? "Falta el nombre." : "Name is required."; return; }
+      if (inputs.email.value && !inputs.email.checkValidity()) { msg.textContent = es ? "Email inválido." : "Invalid email."; return; }
+      var cambios = {}, hayCambio = false;
+      campos.forEach(function(spec) {
+        var k = spec[0], val = inputs[k].value.trim();
+        if (val !== original[k]) { cambios[k] = val; hayCambio = true; }
+      });
+      if (!hayCambio) { cerrar(); return; }
+      var actual = (datos.clientes || []).find(function(c) { return String(c.id) === String(id); });
+      if (!actual || campos.some(function(spec) {
+        var k = spec[0]; return String(actual[k] || "") !== original[k];
+      })) {
+        msg.textContent = es ? "La ficha cambió. Actualiza antes de editar." : "Customer changed. Refresh before editing.";
+        return;
+      }
+      if (!_sesionLocal && !destino) {
+        msg.textContent = es ? "No hay dispositivo de origen para guardar. Actualiza el tablero." : "No source device available. Refresh the dashboard.";
+        return;
+      }
+      var ruta = "/api/clientes/" + encodeURIComponent(String(id)) + "/contacto";
+      var payload = Object.assign({baseContacto:original},cambios);
+      guardar.disabled = true;
+      msg.textContent = es ? "Guardando en la aplicación…" : "Saving in the app…";
+      try {
+        var r;
+        if (_sesionLocal) {
+          var response = await fetch(ruta,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+          r = {ok:response.ok,datos:await response.json()};
+        } else {
+          r = await ordenar("PATCH",ruta,payload,destino);
+        }
+        if (!r || !r.ok || !r.datos || String(r.datos.id || "") !== String(id) ||
+            Object.keys(cambios).some(function(k) { return String(r.datos[k] || "") !== cambios[k]; })) {
+          msg.textContent = (r && r.datos && r.datos.error) || (es ? "El guardado no se confirmó." : "Save was not confirmed.");
+          return;
+        }
+        guardar.textContent = es ? "Guardado" : "Saved";
+        msg.textContent = es ? "Guardado en la aplicación. Actualizando el tablero…" : "Saved in the app. Refreshing dashboard…";
+        if (_sesionLocal && typeof refrescarLocal === "function") refrescarLocal();
+        else pedirFoto();
+        guardar.disabled = true;
+      } catch (_) {
+        msg.textContent = es ? "No se pudo guardar. Comprueba la conexión." : "Could not save. Check the connection.";
+      } finally {
+        if (guardar.textContent !== (es ? "Guardado" : "Saved")) guardar.disabled = false;
+      }
+    });
+    editorClienteDialog = dlg;
+    document.body.appendChild(dlg); dlg.showModal(); inputs.nombre.focus();
+  }
+  document.addEventListener("click",function(e) {
+    var b = e.target.closest && e.target.closest("[data-edit-cliente]");
+    if (b) { e.preventDefault(); abrirEditorContactoDashboard(b.getAttribute("data-edit-cliente")); }
+  });
 
   /* JFC 2026-10-09: edits stay in this dashboard. The same-origin frame uses
      the existing authenticated editors and ledger; no PIN is copied or sent

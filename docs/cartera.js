@@ -274,6 +274,38 @@
       if (esCargo) { mov.montoOriginal = guardado / 100; mov.ventaId = ventaId; mov.vinculoManual = manual; }
       return mov;
     });
+    /* New fiado sales carry a durable obligation with their sale record.
+       If the second-stage receipt was interrupted, derive it here. If the
+       receipt was saved, it wins and the synthetic charge disappears.
+       Legacy (unmarked) sales retain the receipt-only behavior. */
+    if (Array.isArray(ventas)) {
+      var recibidas = Object.create(null);
+      todos.forEach(function (h) {
+        if (h.tipo !== TIPOS.cargo) return;
+        var d = _d(h);
+        if (d.ventaId) recibidas[String(d.ventaId)] = true;
+      });
+      mios.forEach(function (h) {
+        if (h.tipo !== TIPOS.cargo) return;
+        var mid = vinculos[String(h.id)];
+        if (mid) recibidas[String(mid)] = true;
+      });
+      Object.keys(porId).forEach(function (id) {
+        var v = porId[id];
+        if (!v || !v.info || v.info.fiadoAtomico !== true ||
+            v.info.formaPago !== "fiado" || String(v.clienteId || "") !== String(clienteId) ||
+            recibidas[id]) return;
+        var importe = _centavosVenta(_ventaEfectiva(v, restauradaDe, {}));
+        if (importe <= 0) return;
+        centavos -= importe;
+        movimientos.push({
+          id: "fiado-venta-" + String(v.id), tipo: "cargo", monto: importe / 100,
+          montoOriginal: importe / 100, motivo: "Venta fiada",
+          quien: "", fecha: Number(new Date(v.fecha).getTime()) || 0,
+          ventaId: String(v.id), vinculoManual: false, fiadoAtomico: true
+        });
+      });
+    }
     movimientos.sort(function (a, b) { return a.fecha - b.fecha; });
     return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos };
   }
