@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v494">
+<meta name="dashboard-shell" content="f123-shell-v495">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -410,12 +410,8 @@
       </span>
     </div>
 
-    <!-- AVISO DE DEMO (JFC 2026-08-27): la demo es aislada y tiene su propia
-         licencia; se anuncia antes de la cajita de pegado para que un visitante
-         sepa que puede probar sin tocar un negocio real. -->
-    <div class="demo-aviso" style="margin:0 0 10px;padding:10px 12px;border:1px dashed #7a5510;border-radius:8px;background:rgba(122,85,16,.08);font-size:13px;line-height:1.5;color:#5d4a1e;">
-      <strong>Try the demo:</strong> enter PIN <strong style="font-family:var(--font-mono,monospace);">456</strong> to explore a sample business. It's fully isolated — nothing you do there touches a real store.
-    </div>
+    <!-- 2026-10-13: this viewer authenticates the business owner/admin.
+         The app's demo PIN does not open a dashboard demo. -->
     <input id="codigo" type="text" inputmode="latin" autocomplete="off" spellcheck="false"
            placeholder="F123-XXXX-XXXX-XXXX-XXXXX" aria-label="Your business code">
     <!-- EL PIN NO ES OPCIONAL (JFC, 2026-08-15). El codigo abre la sala; el PIN
@@ -459,7 +455,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
-    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v494</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v495</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>

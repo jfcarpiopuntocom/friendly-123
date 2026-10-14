@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-13",
-  "changelog": "v494: dashboard con hotfixes automáticos y sesión conservada; reporte mensual con gastos; ventas del mes correctas en Gastos.",
+  "changelog": "v495: la entrada del dashboard deja de anunciar un PIN de demo que no abre ese visor; la demo de la app se conserva.",
   "requerida": false,
-  "shell": "f123-shell-v494",
+  "shell": "f123-shell-v495",
   "apagar": [],
-  "releaseName": "v494",
-  "cacheGeneration": "golden58"
+  "releaseName": "v495",
+  "cacheGeneration": "golden59"
 }
