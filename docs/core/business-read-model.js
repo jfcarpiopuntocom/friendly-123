@@ -19,13 +19,18 @@
   try{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:zone||'America/Guayaquil',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(ms));const get=k=>parts.find(p=>p.type===k).value;return get('year')+'-'+get('month')+'-'+get('day');}catch(_){return '';}
  }
  function margin(p){const price=finite(p&&p.precio),cost=finite(p&&p.costo);return price===null||cost===null?null:Math.round((price-cost)*100)/100;}
+ function quantity(v){const n=finite(v);return n!==null&&n>0?n:null;}
+ function sum(values){let n=0;for(const v of values||[]){if(typeof v!=='number'||!Number.isFinite(v))return null;n+=v;if(!Number.isFinite(n)||Math.abs(n)>Number.MAX_SAFE_INTEGER)return null;}return n;}
+ function daily(sales,date,zone){let revenue=0,cost=0,count=0;for(const v of sales||[]){if(!v||v.anulada||v.borrado||day(v.fechaLocal||v.fecha,zone)!==date)continue;count++;const units=quantity(v.cantidad),price=finite(v.precioUnit),unitCost=finite(v.costoUnit);revenue=sum([revenue,units===null||price===null?null:Math.round(units*price*100)]);cost=sum([cost,units===null||unitCost===null?null:Math.round(units*unitCost*100)]);}return {entra:revenue===null?null:revenue/100,sale:cost===null?null:cost/100,gananciaHoy:revenue===null||cost===null?null:(revenue-cost)/100,ventasCount:count};}
  // Read-only period projection: returns belong to their recorded return day.
  // Missing reversal dates or costs make the result explicitly incomplete.
  function monthly(sales,expenses,month,zone){
-  const out={salesCents:0,returnedCents:0,netCents:0,costCents:0,expensesCents:0,marginCents:0,marginLessExpensesCents:0,rows:[],expenses:[],undatedReturns:0,invalid:0};
+  const out={salesCents:0,returnedCents:0,netCents:0,costCents:0,expensesCents:0,marginCents:0,marginLessExpensesCents:0,rows:[],expenses:[],undatedReturns:0,undatedExpenses:0,unassignedExpenses:[],invalid:0};
   const seen=new Set();
   for(const v of sales||[]){if(!v||v.borrado||v.anulada)continue;if(v.id&&seen.has(String(v.id)))continue;if(v.id)seen.add(String(v.id));
    const units=finite(v.cantidad),price=finite(v.precioUnit),cost=finite(v.costoUnit),original=day(v.fechaLocal||v.fecha,zone);
+   const returnDay=v.devuelta?day(v.fechaDevolucion,zone):'';
+   if(original&&original.slice(0,7)!==month&&(!v.devuelta||returnDay&&returnDay.slice(0,7)!==month))continue;
    if(units===null||units<=0||price===null||!original){out.invalid++;continue;}
    const amount=Math.round(units*price*100),c=cost===null?null:Math.round(units*cost*100);
    if(!Number.isSafeInteger(amount)){out.invalid++;continue;}
@@ -33,7 +38,7 @@
    add(original,1);
    if(v.devuelta){const returned=day(v.fechaDevolucion,zone);if(returned)add(returned,-1);else {out.undatedReturns++;out.costCents=null;}}
   }
-  for(const g of expenses||[]){if(!g||g.borrado||day(g.fecha,zone).slice(0,7)!==month)continue;out.expenses.push(g);const amount=finite(g.monto),c=amount===null?null:Math.round(amount*100);if(c===null||!Number.isSafeInteger(c))out.expensesCents=null;else if(out.expensesCents!==null)out.expensesCents+=c;}
+  for(const g of expenses||[]){if(!g||g.borrado)continue;const expenseDay=day(g.fecha,zone);if(!expenseDay){out.undatedExpenses++;out.unassignedExpenses.push(g);out.expensesCents=null;continue;}if(expenseDay.slice(0,7)!==month)continue;out.expenses.push(g);const amount=finite(g.monto),c=amount===null?null:Math.round(amount*100);if(c===null||!Number.isSafeInteger(c))out.expensesCents=null;else if(out.expensesCents!==null)out.expensesCents+=c;}
   out.netCents=out.undatedReturns||out.invalid||!Number.isSafeInteger(out.salesCents-out.returnedCents)?null:out.salesCents-out.returnedCents;
   if(out.costCents!==null&&!Number.isSafeInteger(out.costCents))out.costCents=null;
   if(out.expensesCents!==null&&!Number.isSafeInteger(out.expensesCents))out.expensesCents=null;
@@ -42,5 +47,5 @@
   out.marginLessExpensesCents=out.marginCents===null||out.expensesCents===null||out.inventoryExpenseUnclassified?null:out.marginCents-out.expensesCents;
   return out;
  }
- return {stock,inventory,expiry,day,number:finite,margin,monthly};
+ return {stock,inventory,expiry,day,number:finite,quantity,sum,daily,margin,monthly};
 });

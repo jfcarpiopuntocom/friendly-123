@@ -11,9 +11,12 @@
 //   node build.mjs && npx wrangler deploy      (desde esta carpeta)
 {
   "name": "friendly123-com",
+  "main": "./official-app.mjs",
   "compatibility_date": "2025-09-27",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/app", "/app/*"],
     // "none": cero redirecciones automaticas de .html / barra final. Una redireccion
     // en la respuesta del service worker (sw.js) rompe el respaldo sin conexion de la app,
     // porque el navegador rechaza respuestas redirigidas para navegaciones servidas por SW.

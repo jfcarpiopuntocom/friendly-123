@@ -589,9 +589,9 @@
       window.AMG && window.AMG.Hechos ? window.AMG.Hechos.todos().catch(() => null) : Promise.resolve(null),
     ]);
     return {
-      productos: productos || [],
+      productos: Array.isArray(productos) ? productos : [],
       clientes: Array.isArray(clientes) ? clientes : [],
-      ventas: ventas || [],
+      ventas: Array.isArray(ventas) ? ventas : [],
       resumen: resumen || null,
       liquidaciones: Array.isArray(liquidaciones) ? liquidaciones : [],
       perchas: Array.isArray(perchas) ? perchas : [],
@@ -601,7 +601,7 @@
       transferencias: Array.isArray(transferencias) ? transferencias : [],
       gastosMensuales: gastosMensuales || {},
       hechosFinancieros: Array.isArray(hechos) ? hechos.filter((h) => /^(cartera_|caja_chica_)/.test(h.tipo || "")) : [],
-      cobertura: {gastos:!!(gastos && Array.isArray(gastos.gastos)), hechosFinancieros:Array.isArray(hechos), resumen:!!resumen},
+      cobertura: {productos:Array.isArray(productos),clientes:Array.isArray(clientes),ventas:Array.isArray(ventas),liquidaciones:Array.isArray(liquidaciones),perchas:Array.isArray(perchas),movimientos:Array.isArray(movimientos),promotoras:Array.isArray(promotoras),transferencias:Array.isArray(transferencias),gastos:!!(gastos && Array.isArray(gastos.gastos)),hechosFinancieros:Array.isArray(hechos),resumen:!!(resumen && resumen.resumenDia),timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone},
       negocio: (function () {
         try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || ""; }
         catch (_) { return ""; }

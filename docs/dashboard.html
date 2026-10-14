@@ -1001,6 +1001,7 @@
     }
     datos = fotoTemporal;
     datos.productos = (datos.productos || []).map(function(p){return Object.assign({},p,{stockActual:window.OCBusinessReadModel.stock(p).units,fechaCaducidad:window.OCBusinessReadModel.expiry(p)});});
+    if(datos.cobertura && datos.cobertura.resumen===false)datos.resumen={resumenDia:{entra:null,gananciaHoy:null}};
     _fuenteDatosDashboard = 'remota';
     mostrar();
   }
@@ -1120,11 +1121,12 @@
       ],
       filas: function () {
         return (datos.ventas || []).map(function (v) {
-          return Object.assign({}, v, { total: (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0) });
+          var price=window.OCBusinessReadModel.number(v.precioUnit),qty=window.OCBusinessReadModel.quantity(v.cantidad);
+          return Object.assign({}, v, { total: price===null||qty===null?null:price*qty });
         });
       },
       cierre: function (f) {
-        var t = f.reduce(function (a, v) { return a + (Number(v.total) || 0); }, 0);
+        var t = window.OCBusinessReadModel.sum(f.map(function(v){return v.total;}));
         return "<strong>" + plural(f.length, "venta", "ventas") + " por " + money(t) + " en lo que ves.</strong>" +
           "Toca el lápiz ✎ de una fila para corregir su precio o cantidad en la app y cuadrar la ganancia real. Filtra por fecha y exporta a PDF para tu contador.";
       },
@@ -1157,8 +1159,8 @@
             "Un evento aparece aquí en cuanto vendes un producto de tipo " +
             "Ticket/Evento y le escribes el nombre de la función o la clase.";
         }
-        var rec = f.reduce(function (a, v) { return a + (Number(v.recaudado) || 0); }, 0);
-        var gan = f.reduce(function (a, v) { return a + (Number(v.ganancia) || 0); }, 0);
+        var rec = window.OCBusinessReadModel.sum(f.map(function(v){return v.recaudado;}));
+        var gan = window.OCBusinessReadModel.sum(f.map(function(v){return v.ganancia;}));
         var com = f.reduce(function (a, v) { return a + (Number(v.comision) || 0); }, 0);
         var top = f.slice().sort(function (a, b) { return b.recaudado - a.recaudado; })[0];
         return "<strong>" + plural(f.length, "evento", "eventos") + " · " + money(rec) +
@@ -1396,9 +1398,11 @@
       var g = porEvento[k];
       var cant = Number(v.cantidad) || 0;
       g.ventas++;
-      g.unidades += cant;
-      g.recaudado += (Number(v.precioUnit) || 0) * cant;
-      g.costo += (Number(v.costoUnit) || 0) * cant;
+      var qty=window.OCBusinessReadModel.quantity(v.cantidad),price=window.OCBusinessReadModel.number(v.precioUnit);
+      g.unidades=window.OCBusinessReadModel.sum([g.unidades,qty]);
+      g.recaudado=window.OCBusinessReadModel.sum([g.recaudado,qty===null||price===null?null:qty*price]);
+      var knownCost=window.OCBusinessReadModel.number(v.costoUnit),knownQty=window.OCBusinessReadModel.quantity(v.cantidad);
+      g.costo=window.OCBusinessReadModel.sum([g.costo,knownCost===null||knownQty===null?null:knownCost*knownQty]);
       g.personas += Number(v.eventoPersonas) || 0;
       g.comision += Number(v.comisionAsociado) || 0;
       if (v.netoCasa != null) g.casa += Number(v.netoCasa) || 0;
@@ -1420,8 +1424,8 @@
         ventas: g.ventas,
         unidades: g.unidades,
         personas: g.personas || null,
-        recaudado: +g.recaudado.toFixed(2),
-        ganancia: +(g.recaudado - g.costo).toFixed(2),
+        recaudado: g.recaudado===null?null:+g.recaudado.toFixed(2),
+        ganancia: g.costo===null||g.recaudado===null?null:+(g.recaudado - g.costo).toFixed(2),
         comision: +g.comision.toFixed(2),
         casa: +g.casa.toFixed(2),
         perchas: Object.keys(g.perchas).join(", "),
@@ -1554,16 +1558,17 @@
     filas.forEach(function (v) {
       var k = por === "producto" ? (v.productoId || v.productoNombre) : (v.ubicacionId || v.ubicacionNombre);
       var g = map[k] || (map[k] = { id: k, nombre: por === "producto" ? v.productoNombre : v.ubicacionNombre, sku: v.sku || "", ubicacionId: v.ubicacionId || "", ubicacionIds: {}, perchas: {}, personas: {}, unid: 0, bruto: 0, socio: 0, casa: 0, pend: 0, counterUnid: 0, counterMonto: 0, devueltas: 0 });
-      var monto = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1);
+      var cantidad=window.OCBusinessReadModel.quantity(v.cantidad),precio=window.OCBusinessReadModel.number(v.precioUnit);
+      var monto=cantidad===null||precio===null?null:precio*cantidad;
       if (v.comisionPct != null) {
-        g.unid += Number(v.cantidad) || 1; g.bruto += monto; g.socio += Number(v.comisionAsociado) || 0;
-        g.casa += v.netoCasa != null ? Number(v.netoCasa) : (monto - (Number(v.comisionAsociado) || 0));
+        g.unid=window.OCBusinessReadModel.sum([g.unid,cantidad]); g.bruto=window.OCBusinessReadModel.sum([g.bruto,monto]); g.socio += Number(v.comisionAsociado) || 0;
+        g.casa=window.OCBusinessReadModel.sum([g.casa,v.netoCasa != null ? Number(v.netoCasa) : (monto===null?null:monto - (Number(v.comisionAsociado) || 0))]);
         g.pend += cmPendienteVenta(v);
         g.held = (g.held || 0) + (Number(v.comisionRetenida) || 0);
         if (v.devuelta) g.devueltas++;
         if (v.asociadoNombre) g.personas[v.asociadoNombre] = 1;
         if (v.asistenteNombre) g.personas[v.asistenteNombre] = 1;
-      } else { g.counterUnid += Number(v.cantidad) || 1; g.counterMonto += monto; }
+      } else { g.counterUnid=window.OCBusinessReadModel.sum([g.counterUnid,cantidad]); g.counterMonto=window.OCBusinessReadModel.sum([g.counterMonto,monto]); }
       if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
       if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
     });
@@ -1593,7 +1598,7 @@
     var html = "<!doctype html><html><head><meta charset=utf-8><title>Commission receipt</title><style>body{font-family:Inter,Arial,sans-serif;color:#0F1923;margin:32px;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px}table{width:100%;border-collapse:collapse}td,th{padding:6px 0;border-bottom:1px solid #E8ECF2;text-align:left}td.n,th.n{text-align:right;font-family:'JetBrains Mono',Consolas,monospace}tfoot td{font-weight:700;border-top:2px solid #0F1923}</style></head><body>" +
       "<h1>" + esc(neg || "Commission receipt") + "</h1><div>" + esc(liq.ubicacion || "") + (liq.asociadoNombre ? " · " + esc(liq.asociadoNombre) : "") + " · " + esc(cmEtiquetaMes(mes)) + "</div>" +
       "<h2>Sales with commission</h2><table><thead><tr><th>Product</th><th class=n>Units</th><th class=n>Sold</th><th class=n>Commission</th></tr></thead><tbody>" +
-      porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + d.unid + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + money(d.socio) + "</td></tr>"; }).join("") +
+      porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + (d.unid===null?"pending":d.unid) + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + money(d.socio) + "</td></tr>"; }).join("") +
       "</tbody><tfoot><tr><td colspan=3>Total commission</td><td class=n>" + money(tot) + "</td></tr></tfoot></table>" +
       ((liq.ajustes && liq.ajustes.length) ? "<h2>Returns of already-paid sales</h2><table>" + liq.ajustes.map(function (x) { return "<tr><td>" + esc(String(x.fecha || "").slice(0, 10)) + " · " + esc(x.quien || "") + (x.motivo ? " · " + esc(x.motivo) : "") + "</td><td class=n>" + money(x.montoComisionSocio) + "</td></tr>"; }).join("") +
         "<tfoot><tr><td>Net after returns</td><td class=n>" + money(tot + liq.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + "</td></tr></tfoot></table>" : "") +
@@ -1639,12 +1644,12 @@
           + (g.unid && g.bruto > 0 ? " · <strong>" + (Math.round(g.socio / g.bruto * 1000) / 10) + "%</strong> to the associate" : "")
         : (l && l.asociadoNombre ? "Associate: <strong>" + esc(l.asociadoNombre) + "</strong>" + (l.pctEfectivo != null ? " · " + l.pctEfectivo + "%" : "") + (l.baseComision === "margen" ? " · on margin" : "") : (Object.keys(g.personas).length ? "Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : ""));
       var stats = '<div class="cm-stats">' +
-        (g.unid ? '<div><div class="et">Sold with commission</div><div class="n">' + money(g.bruto) + " <small>" + g.unid + "u</small></div></div>" +
+        (g.unid !== 0 ? '<div><div class="et">Sold with commission</div><div class="n">' + money(g.bruto) + " <small>" + (g.unid===null?"pending":g.unid+"u") + "</small></div></div>" +
           '<div><div class="et">Associate takes</div><div class="n">' + money(g.socio) + "</div></div>" +
           '<div><div class="et">House keeps</div><div class="n">' + money(g.casa) + "</div></div>" : "") +
         (g.pend > 0 ? '<div><div class="et cm-rojo">Still to pay</div><div class="n cm-rojo">' + money(g.pend) + "</div></div>" : "") +
         (g.held > 0 ? '<div><div class="et">' + (localStorage.getItem("f123_lang") === "es" ? "Retenido" : "On hold") + '</div><div class="n">' + money(g.held) + '</div></div>' : '') +
-        (g.counterUnid ? '<div><div class="et">House sale (no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + g.counterUnid + "u</small></div></div>" : "") +
+        (g.counterUnid !== 0 ? '<div><div class="et">House sale (no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + (g.counterUnid===null?"pending":g.counterUnid+"u") + "</small></div></div>" : "") +
         "</div>";
       var extra = "";
       if(moneyReview){
@@ -2007,6 +2012,7 @@
     var prods = datos.productos || [];
     var valuation = window.OCBusinessReadModel.inventory(prods);
     var dormant = window.OCBusinessReadModel.inventory(prods.filter(function(p){return p.estado === 'negro';}));
+    if(datos.cobertura && datos.cobertura.productos===false){valuation.valueCents=null;dormant.valueCents=null;}
     var valor = valuation.valueCents === null ? null : valuation.valueCents / 100;
     var dormido = dormant.valueCents === null ? null : dormant.valueCents / 100;
     var k = [
@@ -2106,7 +2112,9 @@
   function pintarTabla() {
     var v = VISTAS[vista];
     var filas = v.filas();
-    $("cierre").innerHTML = v.cierre(filas);
+    var dependencias={productos:['productos'],clientes:['clientes'],ventas:['ventas'],reposicion:['productos'],eventos:['ventas'],liquidaciones:['liquidaciones'],perchas:['perchas'],movimientos:['movimientos'],promotoras:['promotoras'],gastos:['gastos'],transferencias:['transferencias'],hechosFinancieros:['hechosFinancieros']};
+    var incompleta=(dependencias[vista]||[]).some(function(k){return datos.cobertura&&datos.cobertura[k]===false;});
+    $("cierre").innerHTML = incompleta ? '<strong>Información pendiente de actualizar. Una lista incompleta no significa que no haya registros.</strong>' : v.cierre(filas);
     if (typeof Tabulator === "undefined") { degradarSinTabulator(v, filas); return; }
     /* Si la vista es la misma, se REEMPLAZAN los datos en vez de reconstruir.
        Destruir la tabla en cada actualizacion tiraba el scroll, el orden que el
@@ -2249,8 +2257,8 @@
     var ciegos = lista.filter(function (m) { return m.estado === "ciegas"; });
     $("micelio-resumen").textContent = ciegos.length
       ? (ciegos.length === 1 ? "Un dispositivo lleva" : ciegos.length + " dispositivos llevan") +
-        " rato sin sincronizar. Mientras estén así pueden vender algo que aquí ya se vendió, y los números de arriba no los incluyen."
-      : "Todos los dispositivos del equipo están hablando entre sí. Lo que ves arriba está completo.";
+        " rato sin enviar señales recientes de conexión. Sus datos pueden estar pendientes de actualizar."
+      : "Los dispositivos listados han enviado señales recientes de conexión. Esto no comprueba que todos sus datos coincidan.";
 
     $("micelio-lista").innerHTML = lista.map(function (m) {
       var c = MIC[m.estado];
@@ -2319,7 +2327,7 @@
     if (cual === "inv") {
       titulo = "Inventario valorizado";
       cols = ["Producto", "Percha", "Stock", "Costo", "Valor"];
-      var totalInv = window.OCBusinessReadModel.inventory(datos.productos || []).valueCents;
+      var totalInv = datos.cobertura&&datos.cobertura.productos===false?null:window.OCBusinessReadModel.inventory(datos.productos || []).valueCents;
       filas = (datos.productos || []).map(function (p) {
         var s = window.OCBusinessReadModel.stock(p), v = window.OCBusinessReadModel.inventory([p]).valueCents;
         return [p.nombre, p.ubicacionNombre || "", s.known ? String(s.units) : 'Stock pending', p.costo == null ? '—' : money(p.costo), v === null ? '—' : money(v / 100)];
@@ -2341,19 +2349,23 @@
          muestra lo que el equipo tiene, y eso es lo que se reporta. */
       var mes = mesLocalDe(new Date().toISOString());
       titulo += ' · ' + mes;
-      var zone=localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      var zone=zonaNegocioDashboard();
       var monthReport=window.OCBusinessReadModel.monthly(datos.ventas || [],datos.gastos || [],mes,zone);
       var porProd={};
       monthReport.rows.forEach(function(row){var k=String(row.id);var group=porProd[k] || (porProd[k]={name:row.product,u:0,c:0});group.u+=row.units;group.c+=row.amountCents;});
       cols=esReporte ? ['Producto','Unidades netas','Vendido menos devoluciones'] : ['Product','Net units','Sales less returns'];
       filas=Object.keys(porProd).sort(function(a,b){return porProd[b].c-porProd[a].c;}).map(function(k){var p=porProd[k];return [p.name,String(p.u),money(p.c/100)];});
-      gastosReporte=monthReport.expenses.map(function(g){return [fechaLocalDashboard(g.fecha),g.concepto || '',money(g.monto)];});
+      gastosReporte=monthReport.expenses.concat(monthReport.unassignedExpenses).map(function(g){return [window.OCBusinessReadModel.day(g.fecha,zone)?fechaLocalDashboard(g.fecha):(esReporte?'Sin fecha válida':'No valid date'),g.concepto || '',money(g.monto)];});
       var labels=esReporte ? ['Vendido','Devoluciones registradas','Vendido menos devoluciones','Costo neto de lo vendido','Margen','Gastos registrados','Margen menos gastos registrados'] : ['Sold','Recorded returns','Sales less returns','Net cost of sold goods','Margin','Recorded expenses','Margin less recorded expenses'];
       var values=[monthReport.salesCents,monthReport.returnedCents,monthReport.netCents,monthReport.costCents,monthReport.marginCents,monthReport.expensesCents,monthReport.marginLessExpensesCents];
-      if(datos.cobertura && datos.cobertura.gastos===false){values[5]=null;values[6]=null;}
+      if(!datos.cobertura || datos.cobertura.gastos!==true){values[5]=null;values[6]=null;}
+      if(datos.cobertura && datos.cobertura.ventas===false){values[0]=null;values[1]=null;values[2]=null;values[3]=null;values[4]=null;values[6]=null;}
       resumenReporte=labels.map(function(label,i){return [label,money(values[i]===null?null:values[i]/100)];});
       pie=esReporte ? 'Comisiones y presupuesto mensual de perchas no descontados en este cierre.' : 'Commissions and monthly shelf budgets are not deducted in this report.';
       if(monthReport.inventoryExpenseUnclassified)pie+=' '+(esReporte?'Gastos de inventario/suministros sin clasificar: resultado pendiente para evitar descontar dos veces la compra.':'Unclassified inventory/supplies expenses: result pending to avoid deducting purchases twice.');
+      if(monthReport.undatedExpenses)pie+=' '+(esReporte?'Hay gastos sin fecha válida: no se asignan al mes y el resultado queda pendiente.':'Expenses with no valid date cannot be assigned to a month; the result is pending.');
+      if(!datos.cobertura || datos.cobertura.gastos!==true)pie+=' '+(esReporte?'Gastos pendientes de comprobar.':'Expense coverage is pending.');
+      if(_fuenteDatosDashboard==='remota'&&(!datos.cobertura||!datos.cobertura.timezone))pie+=' '+(esReporte?'Zona del negocio pendiente; el periodo usa la zona de este aparato.':'Business time zone pending; period uses this device time zone.');
       if(monthReport.undatedReturns)pie+=' '+(esReporte?'Hay devoluciones sin fecha registrada; el resultado queda pendiente.':'Some returns have no recorded date; the result is pending.');
 
     }
@@ -2511,10 +2523,13 @@
      no sepa ni le importe de donde vinieron los datos. */
   /* Mes LOCAL del negocio (zona de f123_timezone o la del navegador), con el desfase de reloj de la venta: la misma
      regla que fechaLocalDe() de mock-backend.js. El prefijo UTC crudo manda la venta de las 19:00 al mes siguiente. */
+  function zonaNegocioDashboard() {
+    return (_fuenteDatosDashboard === 'remota' && datos && datos.cobertura && datos.cobertura.timezone) || localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
   function fechaLocalDashboard(iso, desfaseMs) {
     try {
       var tz = null;
-      try { tz = localStorage.getItem("f123_timezone"); if (tz) Intl.DateTimeFormat(undefined, { timeZone: tz }); } catch (_) { tz = null; }
+      try { tz = zonaNegocioDashboard(); if (tz) Intl.DateTimeFormat(undefined, { timeZone: tz }); } catch (_) { tz = null; }
       if (/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return window.OCBusinessReadModel.day(iso,tz);
       var base = Date.parse(iso), d = Number(desfaseMs);
       var ms = base + (Number.isFinite(d) ? d : 0);
@@ -2706,10 +2721,7 @@
       payouts: e.payouts || [],
       ajustesComision: e.ajustesComision || [],
       perchas: e.ubicaciones || [],
-      resumen: { resumenDia: {
-        entra: +entra.toFixed(2), sale: +sale.toFixed(2),
-        gananciaHoy: +(entra - sale).toFixed(2), ventasCount: nHoy,
-      } },
+      resumen: { resumenDia: window.OCBusinessReadModel.daily(ventas,hoy,zonaNegocioDashboard()) },
     };
   }
 
@@ -2890,7 +2902,7 @@
       datos.promotoras = e.promotoras || [];
       /* No previous shop / revision finance facts may survive until IDB replies. */
       datos.hechosFinancieros = [];
-      datos.cobertura = {gastos:Array.isArray(e.gastos),hechosFinancieros:false,resumen:!!d.resumen};
+      datos.cobertura = {productos:Array.isArray(e.productos),ventas:Array.isArray(e.ventas),clientes:Array.isArray(e.clientes),gastos:Array.isArray(e.gastos),hechosFinancieros:false,resumen:!!d.resumen,timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone};
       var fotoLocalRef = datos;
       var generacionFoto = ++_generacionPinturaLocal;
       var licenciaFoto = codigoSesionActual;
