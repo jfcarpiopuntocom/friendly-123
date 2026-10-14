@@ -35,7 +35,10 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test(`Belé
   const price=app.locator('#np-precio');await price.fill('100');await price.focus();await price.hover();
   const scrollBefore=await app.evaluate(()=>[...document.querySelectorAll('*')].reduce((n,e)=>n+e.scrollTop,0));
   await app.mouse.wheel(0,100);await app.waitForTimeout(120);assert.equal(await price.inputValue(),'100');
-  const scrollAfter=await app.evaluate(()=>[...document.querySelectorAll('*')].reduce((n,e)=>n+e.scrollTop,0));
+  // 2026-10-14: WebKit en Linux (GitHub) a veces termina el desplazamiento despues de 120 ms;
+  // mirar una sola vez daba fallas al azar (pasaba y fallaba con el MISMO codigo, biseccion).
+  // Se espera hasta 2 s a que baje. La exigencia es la misma: el precio no cambia y la pagina baja.
+  let scrollAfter=scrollBefore;for(let i=0;i<40&&scrollAfter<=scrollBefore;i++){await app.waitForTimeout(50);scrollAfter=await app.evaluate(()=>[...document.querySelectorAll('*')].reduce((n,e)=>n+e.scrollTop,0));}
   assert.ok(scrollAfter>scrollBefore,'wheel must continue scrolling the form');
   assert.equal(await price.evaluate(e=>document.activeElement===e),false,'wheel leaves price editing and scrolls normally');
   await price.fill('101.50');assert.equal(await price.inputValue(),'101.50','explicit typing still works');
