@@ -679,8 +679,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
            TODOS ven en común, sin haber entrado aún.
 
            QUÉ HACE (y qué NO — CRÍTICO, no romper esto):
-             - Desregistra TODOS los service workers de este dominio.
-             - Borra TODO CacheStorage (los shells f123-shell-vNN viejos).
+             - Desregistra solo los service workers de Friendly y sus canales.
+             - Borra solo caches de shell de Friendly; conserva otras apps del origen.
              - Recarga duro -> baja el index.html nuevo desde el origen.
            NO TOCA localStorage NI sessionStorage. Borrar esos destruiría el
            inventario, los PINs, la licencia y el nombre de tienda del cliente
@@ -689,16 +689,22 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
            causa y NO se tocan. Si alguna sesión futura agrega aquí un
            localStorage.clear(), está rompiendo a un cliente vivo: NO lo hagas.
            ============================================================ -->
-      <div id="oc-gate-purge" style="margin:20px 0 0;padding-top:16px;border-top:1px solid rgba(156,122,53,.35);text-align:center;">
-        <button type="button" id="oc-purge-btn" style="display:inline-block;background:var(--sim-naranja,#F97316);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;border:2px solid #0A0A0F;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:700;letter-spacing:.02em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;">Stuck on an old version? Purge &amp; reload</button>
-        <p id="oc-purge-help" style="margin:10px 0 0;font-size:13px;line-height:1.5;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">Clears the app cache and gets the newest version. Your data (PINs, inventory, store) is kept.</p>
+      <details id="oc-gate-purge" style="margin:20px 0 0;padding-top:16px;border-top:1px solid rgba(156,122,53,.35);text-align:center;">
+        <summary id="oc-recovery-summary" style="font-size:15px;font-weight:700;color:var(--ink,#211c14);cursor:pointer;padding:8px;">Emergency recovery</summary>
+        <button type="button" id="oc-purge-btn" style="display:inline-block;background:var(--sim-naranja,#F97316);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;border:2px solid #0A0A0F;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:700;letter-spacing:.02em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;">Repair app loading</button>
+        <p id="oc-purge-help" style="margin:10px 0 0;font-size:13px;line-height:1.5;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">Updates arrive automatically. Use this only if the app fails to open, with an internet connection. It repairs cached app files without deleting your notebook data.</p>
         <div id="oc-purge-log" style="display:none;margin:10px auto 0;max-width:320px;font-size:13px;line-height:1.5;text-align:left;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;background:#FFFFFF;border:1.5px solid #0A0A0F;border-radius:6px;padding:10px;"></div>
-      </div>
+      </details>
     </div>`;
   document.body.appendChild(gate);
   // (El enlace "campo de pruebas"/workshop se retiró — JFC 2026-09-10. Ya no hay
   // nada que ocultar aquí.)
 
+  // Emergency repair belongs to this app only, never other projects sharing an origin.
+  function scopeFriendly(scope) {
+    try { const here=new URL(location.href),base=new URL('./',here).pathname.replace(/\/(next|previo)\/$/,'/'),other=new URL(scope);return other.origin===here.origin && [base,base+'next/',base+'previo/'].includes(other.pathname); } catch (_) { return false; }
+  }
+  function cacheFriendly(name) { return /^f123-shell-v\d+(?:-|$)/.test(String(name || '')); }
   // FAILSAFE "Purge & Reload" (JFC 2026-09-08). Ver el comentario largo en el
   // markup del gate arriba. Regla dura: NO borrar localStorage/sessionStorage.
   try {
@@ -714,6 +720,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           d.textContent = txt;
           log.appendChild(d);
         };
+        if (navigator.onLine === false) {
+          linea(window.t ? window.t('auth.gate.repairOffline','Connect to the internet before using emergency recovery.') : 'Connect to the internet before using emergency recovery.');
+          return;
+        }
         _purgeBtn.disabled = true;
         _purgeBtn.style.opacity = ".7";
         _purgeBtn.textContent = "Purging…";
@@ -747,7 +757,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           //    por si el motor viejo nunca resuelve la promesa).
           if ("serviceWorker" in navigator) {
             try {
-              var regs = await conTimeout(navigator.serviceWorker.getRegistrations(), 4000, "getRegistrations");
+              var regs = (await conTimeout(navigator.serviceWorker.getRegistrations(), 4000, "getRegistrations")).filter(function(r){return scopeFriendly(r.scope);});
               if (regs && regs.length) {
                 var okUnreg = 0;
                 for (var i = 0; i < regs.length; i++) {
@@ -771,7 +781,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           //    a los demas.
           if ("caches" in window) {
             try {
-              var nombres = await conTimeout(caches.keys(), 4000, "caches.keys");
+              var nombres = (await conTimeout(caches.keys(), 4000, "caches.keys")).filter(cacheFriendly);
               var okCache = 0;
               for (var j = 0; j < nombres.length; j++) {
                 try { await conTimeout(caches.delete(nombres[j]), 4000, "caches.delete"); okCache++; }
@@ -820,6 +830,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if (sub) sub.textContent = tt("auth.gate.subtitle", "Enter your 3-digit PIN");
       const borrar = document.getElementById("oc-borrar");
       if (borrar) borrar.textContent = tt("auth.gate.clear", "Clear");
+      const summary=document.getElementById('oc-recovery-summary');
+      if(summary)summary.textContent=tt('auth.gate.emergency','Emergency recovery');
+      const repair=document.getElementById('oc-purge-btn');
+      if(repair && !repair.disabled)repair.textContent=tt('auth.gate.repair','Repair app loading');
+      const help=document.getElementById('oc-purge-help');
+      if(help)help.textContent=tt('auth.gate.repairHelp','Updates arrive automatically. Use this only if the app fails to open, with an internet connection. It repairs cached app files without deleting your notebook data.');
       const rec = document.getElementById("oc-recuperar");
       if (rec) rec.textContent = tt("auth.gate.forgot", "Forgot?");
       const join = document.getElementById("oc-unirse-equipo");

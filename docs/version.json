@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v500: fechas del negocio coherentes; gastos fallidos conservan formulario; costos ausentes y lecturas incompletas no se convierten en cero; reporte mensual comparte calculo y fecha real de devolucion, sin doble descuento de compras sin clasificar.",
+  "changelog": "v501: la recuperacion manual queda cerrada al fondo del PIN, solo para una app que no abre; las actualizaciones siguen automaticas. La reparacion preserva otras apps y no limpia caches sin conexion.",
   "requerida": false,
-  "shell": "f123-shell-v500",
+  "shell": "f123-shell-v501",
   "apagar": [],
-  "releaseName": "v500",
-  "cacheGeneration": "golden64"
+  "releaseName": "v501",
+  "cacheGeneration": "golden65"
 }
