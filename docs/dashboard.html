@@ -931,7 +931,7 @@
            autorizado. Todo lo demas se descarta: sin PIN no se pinta un dato. */
         if (op && op.tipo === TIPO_RESPUESTA) { recibirRespuesta(op.payload); return; }
         if (!autorizado) return;
-        if (op && op.tipo === TIPO_FOTO_TROZO) { recibirTrozo(op.payload); return; }
+        if (op && op.tipo === TIPO_FOTO_TROZO) { recibirTrozo(op.payload, op.deviceId); return; }
         /* Latido: quien esta vivo y como se llama. No es dato del negocio y no
            se guarda en ningun lado; vive en memoria hasta que se cierre esta
            pestana, como todo lo demas en este lienzo. */
@@ -980,7 +980,8 @@
   }
 
   /* --- La foto llega por partes. Se pinta lo que va llegando. --- */
-  function recibirTrozo(p) {
+  var editorDeviceId = "";
+  function recibirTrozo(p, emisor) {
     if (!p || !p.tabla) return;
     // Ya llegó data válida: la conexión sí fue estable y puede reiniciar backoff.
     reconexionMs = 1500;
@@ -1019,6 +1020,8 @@
       if (!Object.prototype.hasOwnProperty.call(fotoTemporal, nombre)) return;
     }
     datos = fotoTemporal;
+    /* The editable snapshot must carry a single, actual origin device. */
+    editorDeviceId = typeof emisor === "string" && emisor.length <= 80 ? emisor : "";
     datos.productos = (datos.productos || []).map(function(p){return Object.assign({},p,{stockActual:window.OCBusinessReadModel.stock(p).units,fechaCaducidad:window.OCBusinessReadModel.expiry(p)});});
     if(datos.cobertura && datos.cobertura.resumen===false)datos.resumen={resumenDia:{entra:null,gananciaHoy:null}};
     _fuenteDatosDashboard = 'remota';
@@ -1068,15 +1071,53 @@
         return "<strong>Inventario sano.</strong>La matriz BCG de la app te dice cuáles empujar para que rindan más.";
       },
     },
+
+  /* Belén 2026-10-14: historical purchases must not say "never" while the
+     same customer is shown as having bought items. Stable ID is authoritative;
+     name-only legacy records are attributed only when the name is unique.
+     Keep unknown coverage and invalid dates unknown, never turn them into 0. */
+  function ventaEsDeCliente(v, c) {
+    if (!v || v.anulada || !c || !c.id) return false;
+    if (v.clienteId) return String(v.clienteId) === String(c.id);
+    var nombre = String(c.nombre || "").trim().toLocaleLowerCase();
+    if (!nombre) return false;
+    var iguales = (datos.clientes || []).filter(function (x) {
+      return String(x.nombre || "").trim().toLocaleLowerCase() === nombre;
+    }).length;
+    return iguales === 1 && String(v.clienteNombre || "").trim().toLocaleLowerCase() === nombre;
+  }
+  function clientesConCompras() {
+    var ventas = Array.isArray(datos.ventas) ? datos.ventas : [];
+    var ahora = Date.now();
+    return (datos.clientes || []).map(function (c) {
+      if (c.recencia != null) return c;
+      var fechas = ventas.filter(function (v) { return ventaEsDeCliente(v, c); })
+        .map(function (v) { return Date.parse(v.fecha); })
+        .filter(function (t) { return Number.isFinite(t) && t <= ahora + 300000; });
+      if (!fechas.length) return c;
+      var masReciente = Math.max.apply(Math, fechas);
+      return Object.assign({}, c, { recencia: Math.max(0, Math.floor((ahora - masReciente) / 86400000)) });
+    });
+  }
+
     clientes: {
       nombre: "Customers",
       cols: [
+        { title: "", field: "id", width: 50, hozAlign: "center", headerSort: false, download: false,
+          formatter: function(c) {
+            return '<button type="button" data-edit-cliente="' + esc(c.getValue() || "") +
+              '" aria-label="Edit customer" title="Edit customer here" style="min-width:40px;min-height:40px;border:1px solid #1C3049;border-radius:6px;background:#FFF;color:#1C3049;font-size:21px;cursor:pointer;">✎</button>';
+          } },
         { title: "Customer", field: "nombre", minWidth: 180, widthGrow: 3 },
         { title: "Código", field: "codigo", width: 110, cssClass: "num" },
         /* Campos reales de fichaCliente() en mock-backend.js: recencia,
            frecuencia y monto (RFM de 90 dias). No inventar otros. */
         { title: "Compró hace", field: "recencia", width: 130, hozAlign: "right", cssClass: "num",
-          formatter: function (c) { var v = c.getValue(); return v == null ? "nunca" : v + " días"; } },
+          formatter: function (c) {
+            var v = c.getValue();
+            if (v == null) return datos.cobertura && datos.cobertura.ventas === false ? "pending" : "nunca";
+            return v + " días";
+          } },
         { title: "Compras 90d", field: "frecuencia", width: 125, hozAlign: "right", cssClass: "num" },
         { title: "Monto 90d", field: "monto", width: 125, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return money(c.getValue()); } },
@@ -1092,14 +1133,14 @@
             var nombre = c.getRow().getData().nombre;
             var prods = {};
             (datos.ventas || []).forEach(function (v) {
-              if (v.clienteNombre === nombre && v.productoNombre) prods[v.productoNombre] = true;
+              if (ventaEsDeCliente(v, c.getRow().getData()) && v.productoNombre) prods[v.productoNombre] = true;
             });
             var lista = Object.keys(prods);
             if (!lista.length) return "—";
             return lista.slice(0, 4).join(", ") + (lista.length > 4 ? "…" : "");
           } },
       ],
-      filas: function () { return datos.clientes || []; },
+      filas: function () { return clientesConCompras(); },
       cierre: function (f) {
         return "<strong>" + plural(f.length, "cliente", "clientes") + ".</strong>" +
           "En Clientes, la matriz de comportamiento te dice con quién puedes contar, y el fiado con plan de cuotas está ahí mismo.";
@@ -2192,6 +2233,7 @@
       /* esc(undefined) pintaba la palabra "undefined" en la celda. Aqui no hay
          formatters, asi que al menos el dinero se formatea a mano. */
       return "<tr>" + v.cols.map(function (c) {
+        if (vista === "clientes" && c.field === "id") return "<td style='padding:4px;'><button type='button' data-edit-cliente='" + esc(f.id || "") + "' aria-label='Edit customer' style='min-width:44px;min-height:44px;'>✎</button></td>";
         var val = f[c.field];
         if (val == null || val === "") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + (c.field === 'stockActual' ? 'Stock pending' : '—') + "</td>";
         if (/^(precio|costo|margen|precioUnit|costoUnit|monto)$/.test(c.field)) val = money(val);
