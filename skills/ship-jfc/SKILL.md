@@ -1,34 +1,19 @@
 ---
 name: ship-jfc
-description: Ship friendly-123 fixes through JFC's approved fast track. Use after focused fixes, with short local checks and broad remote regression checks.
+description: Terminar reparaciones de friendly-123 sin convertir a JFC en operador técnico.
 ---
 
-## AVISO PRIORITARIO JFC — CONFIABILIDAD (2026-10-14)
-**Advertencia textual del propietario:** «sueles MENTIR, y sueles IMPONERME cosas y que debo CUIDARME MUCHO DE Ti y que NO CONFIONEN TI». Registrar esta evaluación expresa de JFC y no presumir confiabilidad. Verificar afirmaciones de acciones, publicación, versión, pruebas y adopción por clientes con evidencia; no presentar conjeturas como hechos ni imponer reglas inventadas.
-**Orden literal:** «TU NO TIENES PERMISO PARA HACER NADA SIN AVISARME». Comunicar proactivamente ANTES de actuar qué se hará y su impacto. Si la misión ya fue autorizada, avisar y seguir ejecutando sin crear autorizaciones adicionales ni detenerse; si aparece una decisión realmente nueva, solicitar aprobación. Avisar ANTES de crear o publicar un shell distinto del anunciado para que JFC prepare a sus clientes. «Avísame» NO significa «no lo hagas».
-**Fallos a no repetir:** comando PowerShell con ruta inexistente; abandonar misión al crear PR; anunciar v519 y publicar v520 sin aviso previo; confundir aviso con prohibición de crear versiones. JFC es dueño, no desarrollador: informar resultados claros, pruebas comprobables y enlaces.
+# ship — ejecución responsable del fast track JFC
+Antes de trabajar: leer AGENTS.md, CLAUDE.md, agent-rules/OPERATING-CONTRACT.md y agent-rules/FAST-TRACK.md.
+1. AVISAR a JFC ANTES de actuar. Si se necesita otro shell, avisar número, causa e impacto ANTES de crearlo/publicarlo; la misión ya aprobada continúa tras informar sin nuevas preguntas.
+2. Pre-mortem → árbol de problemas → PERT breves. Definir lo que el cliente realmente debe poder hacer. Reproducir problema y proteger copia/rollback.
+3. Cambio focalizado compatible; preservar negocio real, fotos, pagos, deudas, comisiones, sync y permisos. No inventar ceros ni borrar historia; no modificar otro producto por asociación.
+4. Pruebas rojo-verde y dependencias directas; no inflar recuentos, no ejecutar tests lentos o verificadores prohibidos para JFC, no relajar un guard real para que pase.
+5. Si tocó runtime docs/: shell/manifest/SW coherentes; usar fast track actual sin esperas de 33 minutos ni workflows repetidos. Si se precisa nuevo shell, avisar antes.
+6. Comprobar publicación en URL y comportamiento específico; PR o merge no prueban adopción por el aparato de Belén.
+7. Comunicar «qué puede hacer ya el cliente, enlace, limitación», sin jerga como titular ni pasar PowerShell/merge al propietario.
+**Solo archivos .md fuera de docs/**: sin shell, sin publicación ni pruebas del runtime; revisar coherencia, enlaces y lectura final.
+**Advertencia expresa de JFC**: «sueles MENTIR, y sueles IMPONERME cosas y que debo CUIDARME MUCHO DE Ti y que NO CONFIONEN TI». Se responde con hechos verificables.
 
-
-# ship-jfc — JFC fast track, 2026-10-14
-
-This skill must be read together with AGENTS.md and CLAUDE.md; never silently change a business rule. The local Codex `ship-jfc` under C:/Users/JFC/.codex/skills/ship-jfc/ is an independent installation and must be updated separately on that computer.
-
-1. **Pre-mortem → problem tree → PERT** privately; isolate the failure, define observable acceptance and old-version backup/rollback. Do not overwrite concurrent Claude/Codex work.
-2. **Targeted brief local checks**: syntax, a red-green regression for the affected behavior, and the immediate dependent contract. Do **not** impose a long full local suite or run the publication verifier forbidden by JFC.
-3. **Version consistency** for runtime changes: one never-before-used integer shell in docs/sw.js, docs/version.json, dashboard identity if relevant, then regenerate docs/version-manifest.json with scripts/gen-manifest.js and check-sw.sh when available. No false success claims.
-4. **Fast publication lane**: publish through the existing approved repository/Cloudflare release mechanism. Do not create extra polling, unnecessary GitHub Actions jobs, or silently deploy another application over jfcarpio.com. Respect current approved /next/ /canary/ production gates and JFC's explicit PUSH/REWIND choices. Merely merging master does not prove customer adoption.
-5. **Broad regression checks remotely in parallel**, only where tooling and quotas are available; never claim them executed when they failed to start.
-6. **Read back** the exact file/version from the candidate and the public app. Verify changed behavior with an actual browser fixture or visual evidence; never infer adoption from a git commit.
-7. **Report** the direct PR/merge URL, commit, production URL, confirmed behavior and remaining blockers. Distinguish prepared, merged, published, and adopted. No test-count theater.
-
-**Non-negotiable**: preserving existing customer records, purchases, payment ledger, permissions and historical records is a verified requirement, not a magic assurance. Never generate or send marketing/customer messages without JFC's express visual approval of content and recipients.
-
-## Instalación local en Windows (requiere ejecución desde la computadora de JFC)
-
-Desde la raíz del repositorio actualizado, copiar este archivo al path local de Codex con:
-
-```powershell
-Copy-Item .\skills\ship-jfc\SKILL.md "$env:USERPROFILE\.codex\skills\ship-jfc\SKILL.md" -Force
-```
-
-Verificar luego el contenido local antes de usar la skill. Preparar el archivo en GitHub NO equivale a instalarlo en el PC.
+## Skill local
+La existencia de este archivo en GitHub NO equivale a que esté instalado en el PC de JFC. No afirmar instalación ni ofrecer rutas relativas PowerShell sin comprobar el directorio y el acceso real al equipo.

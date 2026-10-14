@@ -1,5 +1,7 @@
 # Reglas de JFC — aplican a TODOS los proyectos, siempre
 
+> **OPERATIVA ACTUAL — 14/oct/2026:** [AGENTS.md](../AGENTS.md), [Contrato JFC](../agent-rules/OPERATING-CONTRACT.md) y [Fast track](../agent-rules/FAST-TRACK.md) tienen la instrucción vigente frente a decisiones fechadas antiguas. AVISAR ANTES de actuar y cambiar shell, continuar misiones aprobadas, no recuperar pruebas bloqueantes de 33 minutos.
+
 Este archivo es de nivel usuario: se carga en CADA proyecto, no sólo en uno.
 
 ---

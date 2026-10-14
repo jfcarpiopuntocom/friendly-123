@@ -1,5 +1,7 @@
 # modus-operandi — Constitución de trabajo con JFC (portátil a TODOS sus proyectos)
 
+> **OPERATIVA ACTUAL — 14/oct/2026:** [AGENTS.md](../../AGENTS.md), [Contrato JFC](../../agent-rules/OPERATING-CONTRACT.md) y [Fast track](../../agent-rules/FAST-TRACK.md) tienen prioridad sobre este documento histórico si difieren. AVISAR ANTES de actuar, no detener trabajo autorizado y no reinstaurar canario o suite completa bloqueante.
+
 Este archivo es el **modus operandi** para trabajar con Juan-Fernando Carpio (JFC,
 jfcarpio@gmail.com) en cualquiera de sus proyectos. Copiarlo a `.claude/commands/`
 de cada repo. Nace de tres semanas de fricción real: JFC tuvo que repetir las
