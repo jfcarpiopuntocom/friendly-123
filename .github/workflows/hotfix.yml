@@ -1,0 +1,68 @@
+# hotfix.yml — UN SOLO FLUJO: probar el area tocada y publicar a clientes (JFC 2026-10-14).
+# Regla dura de JFC: "necesito hotfixear con MI velocidad, con fallback y rewind".
+# Reemplaza la cadena publicar(/next/) -> release-control -> promover -> publicar.
+#  1. Pruebas del area tocada (scripts/pruebas-del-area.cjs) + identidad de release + check-sw.
+#  2. Si pasan: previo <- estable, estable <- este commit (solo hacia adelante, atomico).
+#  3. Publica UNA vez (publicar.yml). friendly123.com/app lee estable solo.
+# La suite completa sigue en release-control.yml, en paralelo: AVISA, no frena.
+# Deshacer: workflow "deshacer" (Actions > deshacer > Run workflow) o el REWIND del panel.
+name: hotfix
+
+on:
+  push:
+    branches: [master]
+    paths: ["docs/**"]
+  workflow_dispatch: {}
+
+permissions:
+  actions: read
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: hotfix
+  cancel-in-progress: false
+
+jobs:
+  probar-y-mover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Identidad de release y manifiesto
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: |
+          node scripts/release-control.cjs validate "${BASE_SHA:-HEAD^}"
+          bash check-sw.sh
+      - name: Pruebas del area tocada
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          BASE="${BASE_SHA:-HEAD^}"
+          git cat-file -e "$BASE" 2>/dev/null || BASE="HEAD^"
+          node scripts/pruebas-del-area.cjs "$BASE" HEAD | tee /tmp/area.txt
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 $(cat /tmp/area.txt)
+      - name: Mover ramas (previo <- estable, estable <- este commit)
+        run: |
+          set -euo pipefail
+          git fetch -q origin estable master previo || git fetch -q origin estable master
+          [ "$(git rev-parse origin/master)" = "$GITHUB_SHA" ] || { echo "Llego un commit mas nuevo: lo publica su propio hotfix"; exit 0; }
+          ESTABLE=$(git rev-parse origin/estable)
+          [ "$ESTABLE" = "$GITHUB_SHA" ] && { echo "estable ya esta aqui"; exit 0; }
+          git merge-base --is-ancestor "$ESTABLE" "$GITHUB_SHA" || { echo "estable no es ancestro: no se mueve"; exit 1; }
+          git push --atomic origin "$ESTABLE:refs/heads/previo" "$GITHUB_SHA:refs/heads/estable"
+          echo "previo=$ESTABLE estable=$GITHUB_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+  publicar:
+    needs: probar-y-mover
+    uses: ./.github/workflows/publicar.yml

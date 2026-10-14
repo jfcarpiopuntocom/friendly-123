@@ -1,0 +1,34 @@
+# deshacer.yml — REWIND en un clic (JFC 2026-10-14): clientes vuelven a la version anterior.
+# estable <- previo y publica. No borra nada: master y el commit malo siguen ahi para arreglarlos.
+# Uso: GitHub > Actions > deshacer > Run workflow. Claude: gh workflow run deshacer.yml
+name: deshacer
+on:
+  workflow_dispatch: {}
+permissions:
+  actions: read
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: hotfix
+  cancel-in-progress: false
+jobs:
+  volver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          set -euo pipefail
+          git fetch -q origin estable previo
+          ESTABLE=$(git rev-parse origin/estable); PREVIO=$(git rev-parse origin/previo)
+          [ "$ESTABLE" = "$PREVIO" ] && { echo "Ya esta en la version anterior"; exit 0; }
+          # force-with-lease: solo si estable sigue donde lo leimos.
+          git push --force-with-lease="refs/heads/estable:$ESTABLE" origin "$PREVIO:refs/heads/estable"
+          echo "estable vuelve a $PREVIO (antes $ESTABLE)" | tee -a "$GITHUB_STEP_SUMMARY"
+  publicar:
+    needs: volver
+    uses: ./.github/workflows/publicar.yml
+    with:
+      recovery: true
