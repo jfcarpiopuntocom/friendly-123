@@ -142,6 +142,13 @@
     copia.ubicaciones = f(estado.ubicaciones, "ubicaciones");
     copia.promotoras = f(estado.promotoras, "promotoras");
     copia.sucursales = f(estado.sucursales, "sucursales");
+    /* v507 (JFC 2026-10-14): tambien los gastos fijos mensuales de perchas demo ocultas (antes sumaban 2750 al
+       tablero de un negocio real). Copias nuevas: el estado original no se toca. */
+    function g(m) { var o = {}; Object.keys(m || {}).forEach(function (k) { if (!oc.ubicaciones[s(k)]) o[k] = m[k]; }); return o; }
+    if (estado && estado.gastosMensuales && typeof estado.gastosMensuales === "object") copia.gastosMensuales = g(estado.gastosMensuales);
+    if (estado && estado.configuracion && estado.configuracion.gastosMensuales && typeof estado.configuracion.gastosMensuales === "object") {
+      copia.configuracion = Object.assign({}, estado.configuracion, { gastosMensuales: g(estado.configuracion.gastosMensuales) });
+    }
     return copia;
   }
   root.OCDemoHuellas = { ocultos: ocultos, sinDemo: sinDemo, negocioConLicencia: negocioConLicencia,

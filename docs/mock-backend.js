@@ -364,6 +364,14 @@
     const sel = _demoOcultoSel();
     return !!(sel && obj && obj.id != null && sel[tipo] && sel[tipo].has(String(obj.id)));
   }
+  /* v507 (JFC 2026-10-14): gastos fijos mensuales SIN los de perchas demo ocultas. Bug real: v457 ocultaba las perchas
+     demo pero su gasto fijo (galeria 900, bar 1500, eventos 350) seguia sumando al total y al P&L de un negocio real.
+     Solo lectura: la tabla guardada gastosMensuales no se toca. Sin licencia (la demo pura, PIN 456) devuelve todo. */
+  function _gastosMensualesVisibles() {
+    const out = {};
+    Object.keys(gastosMensuales).forEach((k) => { if (!_demoOculto("ubicaciones", { id: k })) out[k] = gastosMensuales[k]; });
+    return out;
+  }
   function _esTiendaReal() {
     try {
       const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
@@ -6370,7 +6378,7 @@
       }
 
       if (path === "/api/configuracion/gastos" && (!opts || opts.method !== "POST")) {
-        if (!uid || uid === "todas") return J({ ubicacionId: "todas", gastosMensuales: +Object.values(gastosMensuales).reduce((a, v) => a + v, 0).toFixed(2), porUbicacion: gastosMensuales });
+        if (!uid || uid === "todas") { const _gv = _gastosMensualesVisibles(); return J({ ubicacionId: "todas", gastosMensuales: +Object.values(_gv).reduce((a, v) => a + v, 0).toFixed(2), porUbicacion: _gv }); } // v507: sin perchas demo
         return J({ ubicacionId: uid, gastosMensuales: gastosMensuales[uid] || 0 });
       }
       if (path === "/api/configuracion/gastos") {
@@ -6474,7 +6482,7 @@
         dh.forEach((v) => _linea(v, -1)); // B6: lo devuelto hoy (con su impuesto) sale del P&L de hoy
         const neto = netoC / 100, impCobrado = impC / 100;
         const ub = neto - cv;
-        const gm = (!uid || uid === "todas") ? Object.values(gastosMensuales).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0);
+        const gm = (!uid || uid === "todas") ? Object.values(_gastosMensualesVisibles()).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0); // v507: sin perchas demo
         const go = +(gm / diasEnMesActual()).toFixed(2);
         return J({ ingresos: +neto.toFixed(2), ingresosConIva: +(cobradoC / 100).toFixed(2), ivaCobrado: +impCobrado.toFixed(2),
           impuesto: imp ? { activo: true, tasa: imp.tasa, nombre: imp.nombre, modo: imp.modo } : { activo: impC > 0, tasa: null, nombre: "Tax", modo: null },

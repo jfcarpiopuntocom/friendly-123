@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v506: montos desconocidos del dia ya no aparecen como $0 (app, cierre del dia, WhatsApp, mosaico Today); devoluciones restan el dia en que se devuelven; eventos con percha legibles; tablero sin ventas no muestra cifras completas. Sold: la busqueda tambien filtra las ventas con lapiz y cada resultado trae Corregir.",
+  "changelog": "v507: los datos de la demo ya no aparecen en cuadernos reales: los gastos fijos de las perchas de ejemplo (2750 al mes) dejan de sumarse al total de gastos, al estado de resultados y al tablero. La demo sigue completa con PIN 456 en un aparato sin activar.",
   "requerida": false,
-  "shell": "f123-shell-v506",
+  "shell": "f123-shell-v507",
   "apagar": [],
-  "releaseName": "v506",
-  "cacheGeneration": "golden70"
+  "releaseName": "v507",
+  "cacheGeneration": "golden71"
 }

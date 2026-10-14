@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v506",
+  "shell": "f123-shell-v507",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-cce275fdec83527035b6fd80b06725bf1dc5562b27c8c74ddc9d511e25e9417f",
@@ -16,7 +16,7 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-36fd0a437feeefe02873bd8acf685ef67d522f9bb21cfe83c090b30d8bc6f763",
     "./estado-idb.js": "sha256-e1eb9fb1d9db9eb01a498798ea0055d6c9877f2751a0774a85c31d0585758163",
-    "./mock-backend.js": "sha256-00d106a110cd5bf73f1a56c26cebadfc0a6e95586b33d62c70465d5747996506",
+    "./mock-backend.js": "sha256-0125c958dd5227cd462827b3bd75400a00128867b0cd16546f59311ed889b2c5",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
@@ -45,7 +45,7 @@
     "./idb-fotos.js": "sha256-c99fd20ca55380c9ff21cc7c43733f94e7681875ab3bd52673783537e9e9766f",
     "./core/shelf-photo-policy.js": "sha256-746ebc12c2fc15668d7e12c71d5417901ce99b3f79983306abdefc5a9e3ef34e",
     "./core/payout-ledger.js": "sha256-c83e3dfec919e1b83e63ed398bc2939d5886d7c9dd348830022aaa766c9fa7d1",
-    "./core/demo-huellas.js": "sha256-16f6021eefa8580cbe058075345db859d62eb115aae3d97bb5fc06468a7169dd",
+    "./core/demo-huellas.js": "sha256-c7091f4114f78cc8948b01bc80093940d4a69d071948c4622840b9bc2bf8d735",
     "./core/ledger.js": "sha256-8a08a4d780f2f86ae28f2232aa621be064466f3242485b04f71b43cb3aacccea",
     "./core/sales-audit.js": "sha256-450a2c18accad13ae0949aa14fa05b724ee0b77f84915980799a35933ff4f007",
     "./core/business-read-model.js": "sha256-61c445819cc5b8356f1926fdd6415c24ecc5be86f359ac7fc8f03d8f3f1a56b3",
