@@ -2344,6 +2344,13 @@ function fmtMoney(n){
   if (window.OCMoneda) return window.OCMoneda.formato(v);
   return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+/* v506 (auditoria 2026-10-14): monto DESCONOCIDO del resumen diario. Desde v506
+   /api/dashboard devuelve entra/sale/gananciaHoy en null cuando falta un precio,
+   un costo o la fecha de una devolucion (core/business-read-model.js daily).
+   fmtMoney(null) daba "$0.00": un cero inventado. Este helper muestra "—" SOLO
+   en los puntos del resumen diario; fmtMoney global no cambia (133 llamadas que
+   no se revisaron una por una y no deben cambiar de aspecto). */
+function fmtMoneyPend(n){ return (n === null || n === undefined || n === "") ? "—" : fmtMoney(n); }
 
 async function cargarUbicaciones(){
   // Reforzado (JFC 2026-07-18): sin este try/catch, un fallo de red aqui
@@ -4940,17 +4947,18 @@ async function cargarHoy(){
   // tampoco le revela la ganancia al encargado — solo el conteo de ventas.
   const esDuenoHoy = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
   document.getElementById("heroSubtitulo").textContent = esDuenoHoy
-    ? tf("hoy.subOwner", { monto: fmtMoney(data.resumenDia.gananciaHoy), n: data.resumenDia.ventasCount })
+    ? tf("hoy.subOwner", { monto: fmtMoneyPend(data.resumenDia.gananciaHoy), n: data.resumenDia.ventasCount })
     : tf("hoy.subStaff", { n: data.resumenDia.ventasCount });
   document.querySelectorAll(".fin-dueno").forEach(el => el.style.display = esDuenoHoy ? "" : "none");
 
-  document.getElementById("resEntra").textContent = fmtMoney(data.resumenDia.entra);
-  document.getElementById("resSale").textContent = fmtMoney(data.resumenDia.sale);
-  document.getElementById("resGanancia").textContent = fmtMoney(data.resumenDia.gananciaHoy);
+  document.getElementById("resEntra").textContent = fmtMoneyPend(data.resumenDia.entra);
+  document.getElementById("resSale").textContent = fmtMoneyPend(data.resumenDia.sale);
+  document.getElementById("resGanancia").textContent = fmtMoneyPend(data.resumenDia.gananciaHoy);
   document.getElementById("resInventario").textContent = fmtMoney(data.resumenDia.inventarioValorizado);
   document.getElementById("resVentasCount").textContent = data.resumenDia.ventasCount;
-  const ticketProm = data.resumenDia.ventasCount > 0 ? data.resumenDia.entra / data.resumenDia.ventasCount : 0;
-  document.getElementById("resTicketProm").textContent = fmtMoney(ticketProm);
+  // v506: con "entra" desconocido (null) el promedio tambien es desconocido; antes null/n = 0 -> "$0.00".
+  const ticketProm = data.resumenDia.entra === null || data.resumenDia.entra === undefined ? null : (data.resumenDia.ventasCount > 0 ? data.resumenDia.entra / data.resumenDia.ventasCount : 0);
+  document.getElementById("resTicketProm").textContent = fmtMoneyPend(ticketProm);
 
   const puntito = (color) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:currentColor;margin-right:9px;flex-shrink:0;"></span>`;
   const lista = document.getElementById("listaAlertas");
@@ -7368,7 +7376,27 @@ async function cargarVentasSold(){
     cont.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">No sales recorded yet.</p>'; return;
   }
   rows.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
-  if (window.OCSalesAuditUI) window.OCSalesAuditUI.mount(document.getElementById("ventasSoldAudit"), rows, {lang:window.OCI18n && window.OCI18n.getLang()});
+  /* v506 (Belen 2026-10-14): la busqueda de arriba filtraba solo el resumen; las
+     ventas con lapiz seguian todas en orden de fecha y habia que bajar mucho.
+     Ahora la lista editable muestra SOLO lo que coincide con la busqueda, y cada
+     resultado de arriba trae "Corregir" que abre el editor de esa venta. */
+  const _filtroVS = { ids: null };
+  const _aplicarFiltroVS = () => {
+    cont.querySelectorAll('.oc-vs-row').forEach((row) => { row.style.display = (!_filtroVS.ids || _filtroVS.ids.has(String(row.getAttribute('data-id')))) ? '' : 'none'; });
+  };
+  const _opcionesAudit = {
+    lang: window.OCI18n && window.OCI18n.getLang(),
+    onFilter: (ids, activo) => { _filtroVS.ids = activo ? new Set(ids) : null; _aplicarFiltroVS(); },
+    onEdit: (id) => {
+      const row = Array.prototype.find.call(cont.querySelectorAll('.oc-vs-row'), (r) => String(r.getAttribute('data-id')) === String(id));
+      if (!row) return;
+      row.style.display = '';
+      const editor = row.querySelector('.oc-vs-editor');
+      if (editor) editor.style.display = 'block';
+      try { row.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) { row.scrollIntoView(); }
+    }
+  };
+  if (window.OCSalesAuditUI) window.OCSalesAuditUI.mount(document.getElementById("ventasSoldAudit"), rows, _opcionesAudit);
   // #8 (JFC 2026-09-02): editar/cancelar una venta asentada es solo dueño/admin
   // (el backend también lo exige). El encargado ve el registro, no lo altera.
   const _rolVS = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
@@ -7475,6 +7503,7 @@ async function cargarVentasSold(){
     const grid = document.getElementById("gridVender");
     if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
   }));
+  _aplicarFiltroVS(); // v506: la busqueda ya hecha arriba manda tambien sobre las tarjetas recien pintadas
   cont.querySelectorAll(".oc-vs-row").forEach((row) => {
     const id = row.getAttribute("data-id");
     const editor = row.querySelector(".oc-vs-editor");
@@ -9256,7 +9285,10 @@ async function enviarResumenWhatsApp(){
   const totalPend = pend.reduce((a, f) => a + (f.comisionSocio || 0), 0);
   const criticos = (dash.alertas || []).filter(a => a.estado === "rojo").slice(0, 3).map(a => a.mensaje);
   const L = ["*Daily summary — friendly-123*"];
-  L.push(`Today's sales: ${fmtMoney(rd.entra || 0)} in ${rd.ventasCount || 0} sale(s).`);
+  // v506: el mensaje que el dueno manda por WhatsApp no puede decir $0 si el monto es desconocido.
+  L.push(rd.entra === null || rd.entra === undefined
+    ? `Today's sales: amount pending, it could not be confirmed in ${rd.ventasCount || 0} sale(s).`
+    : `Today's sales: ${fmtMoney(rd.entra)} in ${rd.ventasCount || 0} sale(s).`);
   // JFC 2026-09-23: los pendientes se detallan por producto (antes solo "N rack(s)").
   if (totalPend > 0) {
     L.push(`Pending commissions: ${fmtMoney(totalPend)}.`);
@@ -10962,6 +10994,7 @@ function ocPrompt(mensaje, valorInicial) {
     fetchFail:"Could not load summary: "
   };};
   function money(v){
+    if(v===null||v===undefined||v==="") return "—"; // v506: desconocido no es $0 (cierre del dia)
     try {
       var loc=(window.OCI18n&&window.OCI18n.locale())||"en-US";
       return new Intl.NumberFormat(loc,{style:"currency",currency:"USD"}).format(v||0);

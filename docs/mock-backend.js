@@ -5264,8 +5264,10 @@
       if (path === "/api/dashboard") {
        try {
         const ps = filtrar(uid), vh = ventasHoyDe(uid), dh = devolucionesHoyDe(uid);
-        const entra = vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0); // B6
-        const sale = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
+        const dailyReader = window.OCBusinessReadModel;
+        const dailyProjection = dailyReader ? dailyReader.daily(ventasActivas().filter(v => !uid || uid === "todas" || v.ubicacionId === uid).map(v => ({...v,fechaLocal:fechaLocalDe(v.fecha,v.relojDesfaseMs),fechaDevolucion:v.fechaDevolucion || (ajustesComision.find(a => a && (a.id === v.devolucionId || (a.tipo === "devolucion" && a.ventaId === v.id))) || {}).fecha})),hoyISO(),ZONA) : null;
+        const entra = dailyProjection ? dailyProjection.entra : vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0); // B6
+        const sale = dailyProjection ? dailyProjection.sale : vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
         const inv = ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
         const alertas = ps.map((p) => ({ p, ...estadoDe(p) })).filter((e) => e.estado === "rojo" || e.estado === "naranja").sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]).map((e) => ({ estado: e.estado, mensaje: `${e.p.nombre}: ${e.mensaje}` }));
         // El hero de HOY es tri-estado (verde/amarillo/rojo, como el manual):
@@ -5288,7 +5290,7 @@
         const avisosRebaja = ps.filter((p) => (Number(p.stockActual) || 0) > 0).map((p) => ({ p, r: rebajaDe(p) }))
           .filter((x) => x.r.proxima && x.r.proxima.enDias <= 3)
           .map((x) => ({ productoId: x.p.id, nombre: x.p.nombre, enDias: x.r.proxima.enDias, pct: x.r.proxima.pct, precioLista: x.p.precio, precioNuevo: +(x.p.precio * (1 - x.r.proxima.pct / 100)).toFixed(2) }));
-        return J({ semaforoGeneral: sem, resumenDia: { entra: +entra.toFixed(2), sale: +sale.toFixed(2), gananciaHoy: +(entra - sale).toFixed(2), inventarioValorizado: +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas, avisosRebaja });
+        return J({ semaforoGeneral: sem, resumenDia: { entra: entra===null?null:+entra.toFixed(2), sale: sale===null?null:+sale.toFixed(2), gananciaHoy: entra===null||sale===null?null:+(entra - sale).toFixed(2), inventarioValorizado: +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas, avisosRebaja });
        } catch (e) {
         // FIX v301: el dashboard NUNCA debe lanzar (un producto con datos
         // incompletos hacia 500 -> el hero se quedaba en "Loading"). Se responde
@@ -6577,7 +6579,7 @@
           comisionPendiente: _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
           comisionRetenida: _coreVentas ? _coreVentas.money(_heldVenta.get(String(v.id)) || 0) : 0,
           devuelta: !!v.devuelta,
-          fechaDevolucion: v.fechaDevolucion || ((ajustesComision.find(a=>a.id===v.devolucionId) || {}).fecha) || null,
+          fechaDevolucion: v.fechaDevolucion || ((ajustesComision.find(a=>a && (a.id===v.devolucionId || (a.tipo==="devolucion" && a.ventaId===v.id))) || {}).fecha) || null,
           medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
           reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
           asistenteNombre: (v.split && v.split.reparto) ? ((promotoras.find((x) => x.id === v.split.reparto[1].promotoraId) || {}).nombre || "") : "",
