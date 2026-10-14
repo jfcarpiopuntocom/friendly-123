@@ -8197,13 +8197,14 @@ async function cargarGastos(){
     const projection=window.OCBusinessReadModel.monthly(sales,gastos,month,zone);
     ventasMes = projection.netCents === null ? null : projection.netCents / 100;
   } catch (_) {}
-  const totalGastos = gastos.reduce((a, g) => a + (Number(g.monto) || 0), 0);
+  const totalGastos = window.OCBusinessReadModel.sum(gastos.filter(g=>!g.borrado).map(g=>window.OCBusinessReadModel.number(g.monto)));
   /* Enriquecimiento (JFC 2026-08-28): separar "este mes" de "todo el tiempo" y
      que el neto compare el MISMO periodo (ventas del mes − gastos del mes).
      Antes el neto mezclaba gastos de todo el tiempo con ventas del mes, un
      número engañoso. */
-  const gastosMes = gastos.filter((g) => window.OCBusinessReadModel.day(g.fecha,zone).slice(0, 7) === _mesActual).reduce((a, g) => a + (Number(g.monto) || 0), 0);
-  const neto = ventasMes === null ? null : ventasMes - gastosMes;
+  const expenseProjection = window.OCBusinessReadModel.monthly([],gastos,_mesActual,zone);
+  const gastosMes = expenseProjection.expensesCents===null?null:expenseProjection.expensesCents/100;
+  const neto = ventasMes === null || gastosMes === null ? null : ventasMes - gastosMes;
   const tarjeta = (label, valor, color) => `<div style="flex:1;min-width:120px;background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:12px 14px;">
     <div style="font-size:13px;color:var(--ink-soft);">${label}</div>
     <div style="font-size:20px;font-weight:700;color:${color};">${valor === null ? '—' : fmtMoney(valor)}</div></div>`;
@@ -8219,6 +8220,7 @@ async function cargarGastos(){
         tarjeta("Sales less expenses (before costs and commissions)", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)")
       : "");
   // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
+  if(resumen && gastosMes===null)resumen.innerHTML += '<p style="width:100%;color:var(--ink);font-size:14px;font-weight:700;">'+(localStorage.getItem('f123_lang')==='es'?'Gastos mensuales pendientes: hay registros sin fecha o importe válido.':'Monthly expenses pending: some records have no valid date or amount.')+'</p>';
   const catDelMes = {};
   gastos.filter((g) => window.OCBusinessReadModel.day(g.fecha,zone).slice(0, 7) === _mesActual)
     .forEach((g) => { const k = g.categoria || "other"; catDelMes[k] = (catDelMes[k] || 0) + (Number(g.monto) || 0); });

@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v504: lecturas financieras sin ceros inventados, cobertura por tabla, periodo del negocio, eventos y cantidades pendientes. Continuidad automática de la misma app en dominio propio.",
+  "changelog": "v505: lecturas financieras sin ceros inventados, cobertura por tabla, periodo del negocio, eventos y cantidades pendientes. Continuidad automática de la misma app en dominio propio.",
   "requerida": false,
-  "shell": "f123-shell-v504",
+  "shell": "f123-shell-v505",
   "apagar": [],
-  "releaseName": "v504",
-  "cacheGeneration": "golden68"
+  "releaseName": "v505",
+  "cacheGeneration": "golden69"
 }
