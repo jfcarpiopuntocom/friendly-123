@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v509: el pulso del tablero dice lo medido (en vivo, o que ningun aparato tiene la app abierta, con la hora) en vez de un contador de segundos.",
+  "changelog": "v510: letras propias de la app (sin Google): el splash ya no cambia de letra a mitad de pantalla.",
   "requerida": false,
-  "shell": "f123-shell-v509",
+  "shell": "f123-shell-v510",
   "apagar": [],
-  "releaseName": "v509",
-  "cacheGeneration": "golden73"
+  "releaseName": "v510",
+  "cacheGeneration": "golden74"
 }
