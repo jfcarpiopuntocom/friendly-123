@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v508: el tablero muestra su version real y vuelve a actualizarse solo (su marca interna se habia quedado en v502).",
+  "changelog": "v509: el pulso del tablero dice lo medido (en vivo, o que ningun aparato tiene la app abierta, con la hora) en vez de un contador de segundos.",
   "requerida": false,
-  "shell": "f123-shell-v508",
+  "shell": "f123-shell-v509",
   "apagar": [],
-  "releaseName": "v508",
-  "cacheGeneration": "golden72"
+  "releaseName": "v509",
+  "cacheGeneration": "golden73"
 }
