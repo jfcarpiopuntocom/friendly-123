@@ -10,7 +10,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test(`dashb
   await ctx.route('**/*',async route=>{
    const u=new URL(route.request().url());if(u.origin!==ORIGIN)return route.abort();
    const file=path.resolve(DOCS,decodeURIComponent(u.pathname).slice(1));if(!file.startsWith(DOCS+path.sep))return route.abort();
-   try{await route.fulfill({status:200,contentType:{'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css'}[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}
+   try{await route.fulfill({status:200,contentType:{'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css','.woff2':'font/woff2'}[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}
   });
   const page=await ctx.newPage();await page.goto(ORIGIN+'/dashboard.html');
   // A new visitor must not be told that the app's public demo PIN opens

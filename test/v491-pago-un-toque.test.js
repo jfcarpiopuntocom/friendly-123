@@ -8,7 +8,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  test('one tap on the product payment button opens the payment choices ('+name+')',async()=>{
  const web=await engine.launch({headless:true});try{
  const ctx=await web.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});
- await ctx.route('**/*',async r=>{const u=new URL(r.request().url());if(u.origin!==ORIGIN)return r.abort();const f=path.resolve(DOCS,u.pathname.slice(1));if(!f.startsWith(DOCS+path.sep))return r.abort();try{await r.fulfill({status:200,contentType:({'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css'})[path.extname(f)]||'application/octet-stream',body:fs.readFileSync(f)});}catch{await r.fulfill({status:404,body:'Missing fixture asset'});}});
+ await ctx.route('**/*',async r=>{const u=new URL(r.request().url());if(u.origin!==ORIGIN)return r.abort();const f=path.resolve(DOCS,u.pathname.slice(1));if(!f.startsWith(DOCS+path.sep))return r.abort();try{await r.fulfill({status:200,contentType:({'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css','.woff2':'font/woff2'})[path.extname(f)]||'application/octet-stream',body:fs.readFileSync(f)});}catch{await r.fulfill({status:404,body:'Missing fixture asset'});}});
  await ctx.addInitScript(()=>{window.WebSocket=class{constructor(){this.readyState=3}addEventListener(){}send(){}close(){}};});
  const page=await ctx.newPage();await page.goto(ORIGIN+'/index.html');
  await page.waitForFunction(()=>window.AMG&&window.OCAuth&&typeof cargarComisiones==='function');

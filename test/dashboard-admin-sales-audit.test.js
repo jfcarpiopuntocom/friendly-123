@@ -12,7 +12,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await ctx.route('**/*',async route=>{
     const url=new URL(route.request().url());if(url.origin!==ORIGIN)return route.abort();
     const file=path.resolve(DOCS,decodeURIComponent(url.pathname).slice(1));if(!file.startsWith(DOCS+path.sep))return route.abort();
-    try{await route.fulfill({status:200,contentType:{'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css'}[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}
+    try{await route.fulfill({status:200,contentType:{'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css','.woff2':'font/woff2'}[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}
    });
    await ctx.addInitScript(()=>{window.WebSocket=class{constructor(){this.readyState=3;}send(){}close(){}addEventListener(){}removeEventListener(){}};});
    const app=await ctx.newPage();await app.goto(ORIGIN+'/index.html',{waitUntil:'load'});

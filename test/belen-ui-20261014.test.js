@@ -9,7 +9,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test(`Belé
    const u=new URL(route.request().url());if(u.origin!==ORIGIN)return route.abort();
    const file=path.resolve(DOCS,u.pathname.slice(1));if(!file.startsWith(DOCS+path.sep))return route.abort();
    try{let body=fs.readFileSync(file);if(u.pathname==='/dashboard.html')body=Buffer.from(body.toString().replace('  window.OCDashComisiones =','  window.__stockAudit = {receive:recibirTrozo,refresh:refrescarLocal};\n  window.OCDashComisiones ='));
-    await route.fulfill({status:200,contentType:({'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css'})[path.extname(file)]||'application/octet-stream',body});
+    await route.fulfill({status:200,contentType:({'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css','.woff2':'font/woff2'})[path.extname(file)]||'application/octet-stream',body});
    }catch(_){await route.fulfill({status:404,body:'fixture asset absent'});}
   });
   await ctx.addInitScript(()=>{window.WebSocket=class{constructor(){this.readyState=3}send(){}close(){}addEventListener(){}removeEventListener(){}};});
