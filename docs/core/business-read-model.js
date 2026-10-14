@@ -21,7 +21,17 @@
  function margin(p){const price=finite(p&&p.precio),cost=finite(p&&p.costo);return price===null||cost===null?null:Math.round((price-cost)*100)/100;}
  function quantity(v){const n=finite(v);return n!==null&&n>0?n:null;}
  function sum(values){let n=0;for(const v of values||[]){if(typeof v!=='number'||!Number.isFinite(v))return null;n+=v;if(!Number.isFinite(n)||Math.abs(n)>Number.MAX_SAFE_INTEGER)return null;}return n;}
- function daily(sales,date,zone){let revenue=0,cost=0,count=0;for(const v of sales||[]){if(!v||v.anulada||v.borrado||day(v.fechaLocal||v.fecha,zone)!==date)continue;count++;const units=quantity(v.cantidad),price=finite(v.precioUnit),unitCost=finite(v.costoUnit);revenue=sum([revenue,units===null||price===null?null:Math.round(units*price*100)]);cost=sum([cost,units===null||unitCost===null?null:Math.round(units*unitCost*100)]);}return {entra:revenue===null?null:revenue/100,sale:cost===null?null:cost/100,gananciaHoy:revenue===null||cost===null?null:(revenue-cost)/100,ventasCount:count};}
+ function daily(sales,date,zone){
+  let revenue=0,cost=0,count=0;const seen=new Set();
+  for(const v of sales||[]){if(!v||v.anulada||v.borrado)continue;if(v.id&&seen.has(String(v.id)))continue;if(v.id)seen.add(String(v.id));
+   const original=day(v.fechaLocal||v.fecha,zone),returned=v.devuelta?day(v.fechaDevolucion,zone):'';
+   const units=quantity(v.cantidad),price=finite(v.precioUnit),unitCost=finite(v.costoUnit);
+   function add(sign){revenue=sum([revenue,units===null||price===null?null:sign*Math.round(units*price*100)]);cost=sum([cost,units===null||unitCost===null?null:sign*Math.round(units*unitCost*100)]);}
+   if(original===date){count++;add(1);}if(returned===date)add(-1);
+   if(v.devuelta&&!returned){revenue=null;cost=null;}
+  }
+  return {entra:revenue===null?null:revenue/100,sale:cost===null?null:cost/100,gananciaHoy:revenue===null||cost===null?null:(revenue-cost)/100,ventasCount:count};
+ }
  // Read-only period projection: returns belong to their recorded return day.
  // Missing reversal dates or costs make the result explicitly incomplete.
  function monthly(sales,expenses,month,zone){

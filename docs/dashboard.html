@@ -1393,7 +1393,7 @@
       if (!porEvento[k]) porEvento[k] = {
         evento: nombre, fecha: v.eventoFecha || "", ventas: 0, unidades: 0,
         recaudado: 0, costo: 0, personas: 0, comision: 0, casa: 0,
-        perchas: {}, compradores: {}, ultima: "", corregidas: 0,
+        perchas: {}, ubicacionIds: {}, compradores: {}, ultima: "", corregidas: 0,
       };
       var g = porEvento[k];
       var cant = Number(v.cantidad) || 0;
@@ -1800,8 +1800,13 @@
     });
     var ciegos = 0, ahora = Date.now();
     Object.keys(latidos).forEach(function (id) { if (micEstado(ahora - latidos[id].visto) === "ciegas") ciegos++; });
+    /* v506 (auditoria 2026-10-14): el mosaico Today y la isla mostraban $0 cuando el
+       monto del dia es desconocido (null) o la foto no trajo ventas, mientras las
+       tarjetas KPI decian "—". Misma regla que pintarKpis: desconocido queda null. */
+    var sinVentas = datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.resumen === false);
+    var entraHoy = sinVentas || d.entra === null || d.entra === undefined || d.entra === "" || !Number.isFinite(Number(d.entra)) ? null : Number(d.entra);
     return {
-      entra: Number(d.entra) || 0, nVentas: Number(d.ventasCount) || 0,
+      entra: entraHoy, nVentas: sinVentas ? null : Number(d.ventasCount) || 0,
       nProds: prods.length, col: col, pend: pend, nPerchas: Object.keys(perchas).length,
       restock: VISTAS.reposicion.filas().length, ciegos: ciegos, nDisp: Object.keys(latidos).length,
       nClientes: (datos.clientes || []).length, ultima: ultima
@@ -1822,7 +1827,7 @@
   }
   function pintarHub() {
     var t = totalesHub(), al = alertasHub(t), set = function (id, txt) { var e = $(id); if (e) e.textContent = txt; };
-    set("t-hoy-n", money(t.entra)); set("t-hoy-p", plural(t.nVentas, "venta", "ventas"));
+    set("t-hoy-n", money(t.entra)); set("t-hoy-p", t.nVentas === null ? "Ventas pendientes" : plural(t.nVentas, "venta", "ventas"));
     set("t-hoy-p2", t.ultima ? textoVenta(t.ultima) : "");
     set("t-comisiones-n", money(t.pend));
     var tc = document.querySelector('[data-tile="comisiones"]'); if (tc) tc.setAttribute("data-color", t.pend > 0.004 ? "naranja" : "verde");
@@ -2009,6 +2014,7 @@
   function pintarKpis() {
     var r = datos.resumen || {};
     var d = r.resumenDia || {};
+    if(datos.cobertura && (datos.cobertura.ventas===false || datos.cobertura.resumen===false))d={entra:null,gananciaHoy:null,ventasCount:null};
     var prods = datos.productos || [];
     var valuation = window.OCBusinessReadModel.inventory(prods);
     var dormant = window.OCBusinessReadModel.inventory(prods.filter(function(p){return p.estado === 'negro';}));
@@ -2016,7 +2022,7 @@
     var valor = valuation.valueCents === null ? null : valuation.valueCents / 100;
     var dormido = dormant.valueCents === null ? null : dormant.valueCents / 100;
     var k = [
-      ["Entró hoy", money(d.entra), plural(d.ventasCount || 0, "venta", "ventas")],
+      ["Entró hoy", money(d.entra), d.ventasCount===null ? "Ventas pendientes" : plural(d.ventasCount || 0, "venta", "ventas")],
       ["Ganancia de hoy", money(d.gananciaHoy), "después del costo"],
       ["Inventario", valor === null ? 'Stock / cost pending' : money(valor), prods.length + " productos"],
       ["Capital dormido", dormido === null ? 'Stock / cost pending' : money(dormido), "sin movimiento"],
