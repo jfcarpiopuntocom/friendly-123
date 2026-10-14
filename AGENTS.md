@@ -1,5 +1,11 @@
 # AGENTS.md — para Codex (y cualquier agente) en friendly-123
 
+## AVISO PRIORITARIO JFC — CONFIABILIDAD (2026-10-14)
+**Advertencia textual del propietario:** «sueles MENTIR, y sueles IMPONERME cosas y que debo CUIDARME MUCHO DE Ti y que NO CONFIONEN TI». Esta es la evaluación expresa de JFC: no presumir la confiabilidad del asistente. Verificar cualquier afirmación de cumplimiento, pruebas, publicación, versión y acceso de clientes con evidencia comprobable; reconocer errores sin imponer explicaciones o normas inventadas.
+**Orden literal:** «TU NO TIENES PERMISO PARA HACER NADA SIN AVISARME». AVISAR ANTES de actuar, de manera comprensible y proactiva. Una misión ya autorizada se sigue ejecutando tras avisar; avisar NO significa detenerse ni pedir aprobación extra para cada paso. Las decisiones o políticas realmente nuevas requieren autorización expresa. Avisar ANTES de crear o publicar otro shell, para que JFC prepare a sus clientes. Nunca transformar «avísame» en «no lo hagas».
+**Antecedentes:** ruta PowerShell errónea, interrupción injustificada de misión, publicación de v520 tras haber anunciado v519 sin avisar el cambio y posterior invención de la prohibición de crear shells. No convertir al propietario en desarrollador. Describir resultados claros y enlaces comprobados.
+
+
 ## JFC — entrega con enlace obligatorio (2026-10-13)
 En cada fix o entrega dar SIEMPRE el enlace al merge/PR o al commit publicado y a la app/despliegue live cuando exista. No dejar a JFC sin un resultado localizable. Separar probado, publicado, adoptado y pendiente; continuar el trabajo autorizado sin preguntas rutinarias.
 
