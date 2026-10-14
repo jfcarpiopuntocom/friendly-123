@@ -61,11 +61,13 @@ test('PDF exports use direct jsPDF save rather than Tabulator cancelled download
   assert.doesNotMatch(dash,/tabla\.download\("pdf"/);
 });
 
-test('v518 shell and exact edited assets have matching integrity hashes', () => {
+test('current release shell and exact edited assets have matching integrity hashes', () => {
   const v=JSON.parse(fs.readFileSync(path.join(root,'version.json'),'utf8'));
   const manifest=JSON.parse(fs.readFileSync(path.join(root,'version-manifest.json'),'utf8'));
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
-  assert.equal(v.shell,'f123-shell-v518');
+  const shellNumber=Number(String(v.shell||'').replace(/^f123-shell-v/,''));
+  assert.ok(Number.isSafeInteger(shellNumber) && shellNumber>=518,'must include dashboard corrections');
+  assert.equal(v.releaseName,'v'+shellNumber);
   assert.equal(manifest.shell,v.shell);
   assert.ok(sw.includes('const CACHE = "'+v.shell+'"'));
   for(const rel of ['mock-backend.js','sync-realtime.js','dashboard.html']){
