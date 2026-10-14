@@ -79,7 +79,7 @@ test('local dashboard agrees with held obligations and the local day, including 
  const start=html.includes('  function fechaLocalDashboard(') ? html.indexOf('  function fechaLocalDashboard(') : html.indexOf('  function mesLocalDe(');
  const chunk=html.slice(start,html.indexOf('  function estadoSimon('));
  class Clock extends Date{constructor(...a){super(...(a.length?a:['2026-10-08T01:00:00Z']));}}
- const ctx={window:{OCPayoutLedger:L},localStorage:{getItem:()=> 'America/Guayaquil'},Date:Clock,Intl,sufijoTienda:()=>'',estadoSimon:()=> 'verde'};
+ const ctx={window:{OCPayoutLedger:L,OCBusinessReadModel:require('../docs/core/business-read-model.js')},localStorage:{getItem:()=> 'America/Guayaquil'},Date:Clock,Intl,sufijoTienda:()=>'',estadoSimon:()=> 'verde'};
  vm.createContext(ctx);vm.runInContext(chunk,ctx);
  const d=ctx.datosDesdeLocal({ventas:[{...sale('v','2026-10-08T00:30:00Z'),productoId:'p',cantidad:1,precioUnit:100}],productos:[{id:'p'}],ubicaciones:loc,configuracion:{retencion:{dias:7}}});
  assert.equal(d.resumen.resumenDia.entra,100);

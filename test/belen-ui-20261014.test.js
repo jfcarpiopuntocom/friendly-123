@@ -55,5 +55,11 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test(`Belé
   await dash.evaluate(()=>__stockAudit.refresh(true));
   assert.match(await dash.locator('#tabla').innerText(),/Synthetic later/);
   const values=await dash.locator('#tabla tbody tr').first().locator('td').allTextContents();assert.ok(values.includes('5'),'unchanged local zero must not replace newer remote five');
+  await dash.evaluate(p=>__stockAudit.receive({fotoId:'synthetic-pending-photo',generadaEn:new Date(Date.now()+10).toISOString(),tabla:'productos',total:1,i:0,k:0,deTotal:1,filas:[p]}),{id:'missing-stock',nombre:'Synthetic pending',precio:10,costo:2});
+  assert.match(await dash.locator('#tabla').innerText(),/Stock pending/);
+  const missing=await app.evaluate(async()=>{
+   const original=window.fetch;window.fetch=async(u,o)=>String(u).startsWith('/api/productos?')?new Response(JSON.stringify([{id:'missing-stock',nombre:'Synthetic pending',categoria:'',sku:'',precio:10,costo:2,estado:'rojo'}]),{status:200,headers:{'Content-Type':'application/json'}}):original(u,o);
+   try{document.querySelectorAll('.vista').forEach(e=>e.classList.remove('activa'));document.getElementById('vista-escanear').classList.add('activa');await cargarGridVender();const tile=document.querySelector('[data-vender-tile="missing-stock"]');return {text:tile.innerText,disabled:tile.disabled};}finally{window.fetch=original;}
+  });assert.match(missing.text,/Stock pending|Stock pendiente/i);assert.ok(!missing.text.includes('SIN STOCK'));assert.equal(missing.disabled,true);
  }finally{await browser.close()}
 });

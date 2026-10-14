@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const app=fs.readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
 test('inventory expiry sort puts earliest expiry first and undated items last in both directions',()=>{
  const code=app.slice(app.indexOf('const COLUMNAS_INVENTARIO ='),app.indexOf('function pintarBotonesOrdenInventario()'));
- const c={};vm.createContext(c);vm.runInContext(code+';this.columns=COLUMNAS_INVENTARIO;this.sort=ordenarInventario;this.set=(asc)=>{_ordenInv={col:"fechaCaducidad",asc}}',c);
+ const c={window:{OCBusinessReadModel:require('../docs/core/business-read-model.js')}};vm.createContext(c);vm.runInContext(code+';this.columns=COLUMNAS_INVENTARIO;this.sort=ordenarInventario;this.set=(asc)=>{_ordenInv={col:"fechaCaducidad",asc}}',c);
  assert.ok(c.columns.some(x=>x.key==='fechaCaducidad'));
  const rows=[{id:'none',nombre:'A'},{id:'later',perecible:true,fechaCaducidad:'2026-12-02'},{id:'soon',perecible:true,fechaCaducidad:'2026-10-15'},{id:'invalid',perecible:true,fechaCaducidad:'bad'}];
  c.set(true);assert.deepEqual(Array.from(c.sort(rows),x=>x.id),['soon','later','none','invalid']);

@@ -9,6 +9,7 @@ const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 test('hexagonal boundary: photo domain/application contain no browser or storage infrastructure', () => {
   const files = [
     'docs/core/shelf-photo-policy.js',
+    'docs/core/business-read-model.js',
     'docs/application/recover-shelf-photo.js'
   ];
   const forbidden = [

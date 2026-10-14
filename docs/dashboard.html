@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v497">
+<meta name="dashboard-shell" content="f123-shell-v498">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -455,7 +455,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
-    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v497</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v498</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
@@ -677,6 +677,7 @@
 <script src="./crypto-store.js"></script>
 <script src="./core/payout-ledger.js"></script>
 <script src="./core/sales-audit.js"></script>
+<script src="./core/business-read-model.js"></script>
 <script src="./sales-audit-ui.js"></script>
 <script src="./core/demo-huellas.js"></script>
 <script src="./estado-idb.js"></script>
@@ -999,6 +1000,7 @@
       if (!Object.prototype.hasOwnProperty.call(fotoTemporal, nombre)) return;
     }
     datos = fotoTemporal;
+    datos.productos = (datos.productos || []).map(function(p){return Object.assign({},p,{stockActual:window.OCBusinessReadModel.stock(p).units,fechaCaducidad:window.OCBusinessReadModel.expiry(p)});});
     _fuenteDatosDashboard = 'remota';
     mostrar();
   }
@@ -1011,7 +1013,8 @@
         { title: "Product", field: "nombre", minWidth: 200, widthGrow: 3, headerFilter: false },
         { title: "SKU", field: "sku", width: 130, cssClass: "num" },
         { title: "Category", field: "categoria", width: 130 },
-        { title: "Stock", field: "stockActual", width: 90, hozAlign: "right", cssClass: "num" },
+        { title: "Stock", field: "stockActual", width: 110, hozAlign: "right", cssClass: "num", formatter: function(c){return c.getValue() === null ? 'Stock pending' : String(c.getValue());} },
+        { title: "Expiry date", field: "fechaCaducidad", width: 140 },
         { title: "Price", field: "precio", width: 105, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return money(c.getValue()); } },
         { title: "Cost", field: "costo", width: 105, hozAlign: "right", cssClass: "num",
@@ -1255,6 +1258,7 @@
       ],
       filas: function () {
         return (datos.productos || []).filter(function (p) {
+          if (!window.OCBusinessReadModel.stock(p).known) return false;
           var s = Number(p.stockActual) || 0, r = Number(p.umbralRojo) || 0;
           return p.estado === "rojo" || p.estado === "negro" || (r > 0 && s <= r);
         }).map(function (p) {
@@ -1268,9 +1272,12 @@
         }).sort(function (a, b) { return (Number(a.stockActual) || 0) - (Number(b.stockActual) || 0); });
       },
       cierre: function (f) {
+        var pending = (datos.productos || []).filter(function(p){return !window.OCBusinessReadModel.stock(p).known;}).length;
+        if (pending && !f.length) return '<strong>Stock data pending.</strong> Reorder quantities cannot yet be verified.';
+        var note = pending ? '<p><strong>Some stock data is pending; those products are not counted as zero.</strong></p>' : '';
         if (!f.length) return "<strong>Nada por reponer.</strong>Todo el stock está sobre su punto de reorden.";
         var cero = f.filter(function (p) { return (Number(p.stockActual) || 0) === 0; }).length;
-        return "<strong>" + plural(f.length, "producto por reponer", "productos por reponer") + "." +
+        return note + "<strong>" + plural(f.length, "producto por reponer", "productos por reponer") + "." +
           (cero ? " " + cero + " en cero." : "") + "</strong>En la app, Inventario con el filtro Urgente los deja juntos para reponer.";
       },
     },
@@ -1997,14 +2004,15 @@
     var r = datos.resumen || {};
     var d = r.resumenDia || {};
     var prods = datos.productos || [];
-    var valor = prods.reduce(function (a, p) { return a + (Number(p.costo) || 0) * (Number(p.stockActual) || 0); }, 0);
-    var dormido = prods.filter(function (p) { return p.estado === "negro"; })
-      .reduce(function (a, p) { return a + (Number(p.costo) || 0) * (Number(p.stockActual) || 0); }, 0);
+    var valuation = window.OCBusinessReadModel.inventory(prods);
+    var dormant = window.OCBusinessReadModel.inventory(prods.filter(function(p){return p.estado === 'negro';}));
+    var valor = valuation.valueCents === null ? null : valuation.valueCents / 100;
+    var dormido = dormant.valueCents === null ? null : dormant.valueCents / 100;
     var k = [
       ["Entró hoy", money(d.entra || 0), plural(d.ventasCount || 0, "venta", "ventas")],
       ["Ganancia de hoy", money(d.gananciaHoy || 0), "después del costo"],
-      ["Inventario", money(valor), prods.length + " productos"],
-      ["Capital dormido", money(dormido), "sin movimiento"],
+      ["Inventario", valor === null ? 'Stock / cost pending' : money(valor), prods.length + " productos"],
+      ["Capital dormido", dormido === null ? 'Stock / cost pending' : money(dormido), "sin movimiento"],
     ];
     $("kpis").innerHTML = k.map(function (x) {
       return '<div class="kpi"><p class="et">' + esc(x[0]) + '</p><div class="n">' + esc(x[1]) + '</div><p class="pie">' + esc(x[2]) + "</p></div>";
@@ -2151,7 +2159,7 @@
          formatters, asi que al menos el dinero se formatea a mano. */
       return "<tr>" + v.cols.map(function (c) {
         var val = f[c.field];
-        if (val == null || val === "") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>—</td>";
+        if (val == null || val === "") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + (c.field === 'stockActual' ? 'Stock pending' : '—') + "</td>";
         if (/^(precio|costo|margen|precioUnit|costoUnit|monto)$/.test(c.field)) val = money(val);
         return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + esc(val) + "</td>";
       }).join("") + "</tr>";
@@ -2310,13 +2318,12 @@
     if (cual === "inv") {
       titulo = "Inventario valorizado";
       cols = ["Producto", "Percha", "Stock", "Costo", "Valor"];
-      var totalInv = 0;
+      var totalInv = window.OCBusinessReadModel.inventory(datos.productos || []).valueCents;
       filas = (datos.productos || []).map(function (p) {
-        var v = (Number(p.costo) || 0) * (Number(p.stockActual) || 0);
-        totalInv += v;
-        return [p.nombre, p.ubicacionNombre || "", String(p.stockActual || 0), money(p.costo), money(v)];
+        var s = window.OCBusinessReadModel.stock(p), v = window.OCBusinessReadModel.inventory([p]).valueCents;
+        return [p.nombre, p.ubicacionNombre || "", s.known ? String(s.units) : 'Stock pending', p.costo == null ? '—' : money(p.costo), v === null ? '—' : money(v / 100)];
       });
-      pie = "Valor total del inventario, a costo: " + money(totalInv);
+      pie = totalInv === null ? 'Inventory value pending: some stock or cost data is missing.' : "Valor total del inventario, a costo: " + money(totalInv / 100);
 
     } else if (cual === "cli") {
       titulo = "Clientes al día";
@@ -2544,7 +2551,8 @@
       var precio = Number(p.precio) || 0, costo = Number(p.costo) || 0;
       return {
         id: p.id, nombre: p.nombre, sku: p.sku || "", categoria: p.categoria || "",
-        stockActual: Number(p.stockActual) || 0, precio: precio, costo: costo,
+        stockActual: window.OCBusinessReadModel.stock(p).units, precio: precio, costo: p.costo == null ? null : costo,
+        perecible: !!p.perecible, fechaCaducidad: window.OCBusinessReadModel.expiry(p),
         margen: +(precio - costo).toFixed(2),
         estado: estadoSimon(p),
         ubicacionNombre: ubic[p.ubicacionId] || "",
@@ -2712,6 +2720,7 @@
   /* El color Simon replicado a partir de los umbrales del propio producto. Si
      faltan, se usan los mismos valores de fabrica que la app. */
   function estadoSimon(p) {
+    if (!window.OCBusinessReadModel.stock(p).known) return '';
     var s = Number(p.stockActual) || 0;
     var rojo = Number(p.umbralRojo) || 2, ambar = Number(p.umbralAmarillo) || 5;
     if (s <= 0) return "rojo";
@@ -2942,7 +2951,7 @@
     if (rev >= 0 && rev < _ultimaRevRepintada) return false;
     // A storage/focus event is not new stock. Repainting an unchanged local
     // revision used to replace a newer remote photo with stale zero units.
-    if (rev >= 0 && rev === _ultimaRevRepintada && (!forzar || _fuenteDatosDashboard === 'remota')) return false;
+    if (rev >= 0 && rev === _ultimaRevRepintada && (!forzar || typeof _fuenteDatosDashboard !== 'undefined' && _fuenteDatosDashboard === 'remota')) return false;
     if (pintarDesdeLocal(actual)) { _ultimaRevRepintada = rev; return true; }
     return false;
   }

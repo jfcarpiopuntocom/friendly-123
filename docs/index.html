@@ -116,6 +116,7 @@
 <script src="./core/payout-ledger.js"></script>
 <script src="./core/ledger.js"></script>
 <script src="./core/sales-audit.js"></script>
+<script src="./core/business-read-model.js"></script>
 <script src="./sales-audit-ui.js"></script>
 <script src="./core/demo-huellas.js"></script>
 <script src="./mock-backend.js"></script>
@@ -669,7 +670,7 @@
     font-family:Verdana,"Helvetica Neue",Helvetica,Arial,sans-serif;
     font-style:italic;
     font-size:13px;
-    color:#CCCCCC;
+    color:#E6E6E6;
     letter-spacing:0.02em;
     margin:2px 0 3px;
     font-weight:400;
@@ -695,8 +696,8 @@
     font-weight:600;
     letter-spacing:0.07em;
     text-transform:uppercase;
-    color:#CCCCCC;
-    -webkit-text-fill-color:#CCCCCC;
+    color:#E6E6E6;
+    -webkit-text-fill-color:#E6E6E6;
   }
   .selector-ubicacion select{
     font-family:var(--font-display);
@@ -2535,16 +2536,17 @@ async function cargarGridVender(){
      de una lista fija: las suyas van primero porque son las que va a repetir. */
   try { if (window.OCCategorias) window.OCCategorias.refrescar(productos); } catch (_) {}
   grid.innerHTML = productos.map(p => {
-    const sinStock = p.stockActual <= 0;
+    const stock = window.OCBusinessReadModel.stock(p);
+    const sinStock = !stock.known || stock.units <= 0;
     const visual = p.foto
       ? `<img src="${p.foto}" alt="" style="width:100%;height:64px;object-fit:cover;border-radius:6px;">`
       : `<div style="width:100%;height:64px;border-radius:6px;background:var(--sim-${p.estado}-bg,#E8ECF2);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--sim-${p.estado}-dk,#2C3E50);">${escHtml(p.nombre.charAt(0).toUpperCase())}</div>`;
-    return `<button data-vender-tile="${p.id}" ${sinStock ? "disabled" : ""} style="text-align:left;padding:8px;border:2px solid var(--sim-${p.estado},#C4CDD8);border-radius:10px;background:#FFFFFF;cursor:${sinStock ? "not-allowed" : "pointer"};touch-action:manipulation;${sinStock ? "filter:grayscale(1);" : ""}">
+    return `<button data-vender-tile="${p.id}" ${sinStock ? "disabled" : ""} style="text-align:left;padding:8px;border:2px solid var(--sim-${p.estado},#C4CDD8);border-radius:10px;background:#FFFFFF;cursor:${sinStock ? "not-allowed" : "pointer"};touch-action:manipulation;">
       ${visual}
       <div style="font-size:15px;font-weight:700;color:#0F1923;margin-top:6px;line-height:1.25;">${p.estrella ? "⭐ " : ""}${escHtml(p.nombre)}</div>
       <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px;">
         <span style="font-size:16px;font-weight:700;color:#0F1923;">${fmtMoney(p.precio)}</span>
-        <span style="font-size:13px;color:${sinStock ? "#B0183E" : "#2C3E50"};font-weight:700;">${sinStock ? "SIN STOCK" : p.stockActual + " u."}</span>
+        <span style="font-size:13px;color:${sinStock ? "#B0183E" : "#2C3E50"};font-weight:700;">${!stock.known ? escHtml(t('inv.stockPending')) : sinStock ? "SIN STOCK" : stock.units + " u."}</span>
       </div>
     </button>`;
   }).join("");
@@ -5146,7 +5148,7 @@ function ordenarInventario(lista) {
   const col = _ordenInv.col;
   return lista.slice().sort((a, b) => {
     if (col === 'fechaCaducidad') {
-      const expiry = p => p.perecible && /^\d{4}-\d{2}-\d{2}$/.test(String(p.fechaCaducidad || '')) && Number.isFinite(Date.parse(p.fechaCaducidad)) ? p.fechaCaducidad : '';
+      const expiry = p => window.OCBusinessReadModel.expiry(p) || '';
       const da = expiry(a), db = expiry(b);
       if (!da || !db) return da ? -1 : db ? 1 : 0;
       return _ordenInv.asc ? da.localeCompare(db) : db.localeCompare(da);
@@ -5296,7 +5298,7 @@ function resumenFamilias(productos) {
     out.push({
       familia: f,
       variantes: mapa[f].length,
-      unidades: mapa[f].reduce(function (a, p) { return a + (Number(p.stockActual) || 0); }, 0)
+      unidades: window.OCBusinessReadModel.inventory(mapa[f]).units
     });
   });
   return out;
@@ -5314,7 +5316,7 @@ function pintarResumenFamilias(productos) {
   // i18n (shell 376): antes "variantes · u." fijo en espanol.
   cont.innerHTML = fams.map(function (f) {
     return '<button type="button" class="fam-chip" data-fam="' + escHtml(f.familia) + '">' +
-      escHtml(f.familia) + " · " + escHtml(window.tf("inv.famChip", { n: f.variantes, u: f.unidades })) + "</button>";
+      escHtml(f.familia) + " · " + escHtml(window.tf("inv.famChip", { n: f.variantes, u: f.unidades === null ? t('inv.stockPending') : f.unidades })) + "</button>";
   }).join("");
 }
 var _ultimosProductosFam = null;
@@ -5443,7 +5445,8 @@ async function cargarInventario(){
         <div class="nombre">${escHtml(p.nombre)}${p.perecible ? ' 🕓' : ''}</div>
         <div class="detalle">${escHtml(p.categoria)} · ${escHtml(p.sku)}</div>
         ${p.chip ? `<span class="chip-var">${escHtml(p.chip)}</span>` : ""}
-        <div class="stock">${p.stockActual}</div>
+        <div class="stock">${window.OCBusinessReadModel.stock(p).known ? window.OCBusinessReadModel.stock(p).units : escHtml(t('inv.stockPending'))}</div>
+        ${p.perecible ? `<div class="detalle" style="font-weight:700;">${escHtml(t('form.expiryDate'))}: ${escHtml(window.OCBusinessReadModel.expiry(p) || t('inv.expiryMissing'))}</div>` : ''}
         ${p.stockDeficit > 0 ? `<div class="oc-deficit" role="alert" style="margin:6px 0;padding:8px 10px;background:#FFFFFF;color:#7C1024;border:2px solid #C41E3A;border-radius:8px;font-size:15px;font-weight:700;line-height:1.35;">${escHtml(tf("inv.deficit", {n: p.stockDeficit}))}</div>` : ""}
         <div class="detalle">${escHtml(p.mensaje)}</div>
       </div>
@@ -6721,7 +6724,7 @@ function pintarFicha(p){
       <div class="linea"><strong>${t("ficha.code")}</strong> ${escHtml(p.barcode)}</div>
       ${p.varianteValor ? `<div class="linea"><strong>${document.documentElement.lang === "es" ? "Variante:" : "Variant:"}</strong> ${escHtml(p.varianteAtributo || "")} · ${escHtml(p.varianteValor)}</div>` : ""}
       <div class="linea"><strong>${t("ficha.supplier")}</strong> ${escHtml(p.proveedor)}</div>
-      <div class="linea"><strong>${t("ficha.currentStock")}</strong> ${p.stockActual} ${t("ficha.units")}</div>
+      <div class="linea"><strong>${t("ficha.currentStock")}</strong> ${window.OCBusinessReadModel.stock(p).known ? window.OCBusinessReadModel.stock(p).units + ' ' + t("ficha.units") : escHtml(t('inv.stockPending'))}</div>
       ${p.stockDeficit > 0 ? `<div class="oc-deficit" role="alert" style="margin:6px 0;padding:8px 10px;background:#FFFFFF;color:#7C1024;border:2px solid #C41E3A;border-radius:8px;font-size:15px;font-weight:700;line-height:1.35;">${escHtml(tf("inv.deficit", {n: p.stockDeficit}))}</div>` : ""}
       ${p.tipoProducto === "bar" ? `<div class="linea" id="bar-servings-line"><strong>Servings per bottle:</strong> ≈ ${Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50)))} (${escHtml(p.servingMl)} ml each)${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<button onclick="editarServings('${p.id}')" title="Adjust servings per bottle" style="font-size:12px;padding:2px 8px;margin-left:6px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}</div>` : ""}
       ${p.perecible ? `<div class="linea"><strong>${t("ficha.expires")}</strong> ${escHtml(p.fechaCaducidad || t("ficha.noDate"))}${p.metodoCosteo ? ` · ${escHtml(p.metodoCosteo)}` : ""}</div>` : ""}
