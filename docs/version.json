@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v518 candidate: dashboard customer edits from remote devices, customer purchase history correction, pending unknown commissions, direct PDF export; PIN-session guarded writes.",
+  "changelog": "v519 candidate: sale and on-credit obligation stored together; backward-compatible ledger projection reconciles existing receipts without duplicate debt; includes v518 dashboard fixes.",
   "requerida": false,
-  "shell": "f123-shell-v518",
+  "shell": "f123-shell-v519",
   "apagar": [],
-  "releaseName": "v518",
-  "cacheGeneration": "golden82"
+  "releaseName": "v519",
+  "cacheGeneration": "golden83"
 }
