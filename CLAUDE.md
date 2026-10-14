@@ -52,6 +52,8 @@
 > (mas al volver a la pestana); tablero -> foto completa por el relay max cada 60 s (los cambios reales
 > llegan al instante por aviso); ops sin confirmar -> reintento 30 s duplicando hasta 10 min. Antes de
 > agregar cualquier setInterval/fetch/WebSocket que toque Cloudflare: calcular consultas por dia por
+> INSTANTANEO (JFC 2026-10-14): sync publica a 30 ms y aplica a 20 ms (v516; medido con relay real:
+> venta telefono->compu 62 ms, tablero 155 ms). Es por evento, no polling: no subir esas esperas.
 > aparato y por tablero abierto y anotarlo aqui. Nunca polling por debajo de 60 s salvo orden de JFC.
 > Prompts textuales: _private/prompts/2026-10-14_prompts-jfc.md (privado, con SHA256SUMS).
 > **AUDITORIA v512 (sync nuevo de Codex), resuelto en v514:** 4 fallos de Codex arreglados + consumo.
