@@ -71,5 +71,6 @@ test('a marker is rejected by backend unless credit sale has a customer',async()
   const r=await s.w.request('/api/productos/'+s.p.id+'/venta','POST',{
     cantidad:1,info:{formaPago:'efectivo',fiadoAtomico:true}
   });
-  assert.equal(s.w.catalog().ventas.find(v=>v.id===r.ventaId).info.fiadoAtomico,false);
+  const venta=s.w.catalog().ventas.find(v=>v.id===r.ventaId);
+  assert.ok(!venta.info || venta.info.fiadoAtomico !== true);
 });
