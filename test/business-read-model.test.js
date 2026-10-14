@@ -15,3 +15,10 @@ test('expiry is a validated calendar date, without UTC shifting a day',()=>{
  assert.equal(R.expiry({perecible:true,fechaCaducidad:'2026-02-30'}),null);
  assert.equal(R.expiry({perecible:false,fechaCaducidad:'2026-10-14'}),null);
 });
+
+test('business dates keep calendar-only values and boundary movements in the business month',()=>{assert.equal(R.day('2026-10-01','America/Guayaquil'),'2026-10-01');assert.equal(R.day('2026-11-01T02:00:00Z','America/Guayaquil'),'2026-10-31');assert.equal(R.day('2026-02-30','America/Guayaquil'),'');});
+test('unknown margins and unsafe inventory totals never claim zero or a reliable value',()=>{assert.equal(R.margin({precio:10,costo:null}),null);assert.equal(R.margin({precio:10,costo:''}),null);assert.equal(R.margin({precio:10,costo:0}),10);assert.equal(R.inventory([{stockActual:Number.MAX_SAFE_INTEGER,costo:0},{stockActual:Number.MAX_SAFE_INTEGER,costo:0}]).units,null);});
+
+test('monthly return reverses its actual period and cost, not the original sale period',()=>{const sale={id:'a',productoId:'p',fecha:'2026-09-30',fechaDevolucion:'2026-10-01',devuelta:true,cantidad:2,precioUnit:10,costoUnit:3};assert.equal(R.monthly([sale],[],'2026-09','America/Guayaquil').netCents,2000);const oct=R.monthly([sale],[{fecha:'2026-10-01',monto:1}],'2026-10','America/Guayaquil');assert.equal(oct.returnedCents,2000);assert.equal(oct.netCents,-2000);assert.equal(oct.costCents,-600);assert.equal(oct.marginLessExpensesCents,-1500);assert.equal(R.monthly([{...sale,fechaDevolucion:null}],[],'2026-10').netCents,null);assert.equal(R.monthly([{...sale,devuelta:false,costoUnit:null}],[],'2026-09').costCents,null);});
+
+test('unclassified inventory purchases cannot be deducted again as operating profit',()=>{const r=R.monthly([{id:'s',fecha:'2026-10-01',cantidad:1,precioUnit:10,costoUnit:3}],[{fecha:'2026-10-01',monto:3,categoria:'inventory'}],'2026-10');assert.equal(r.marginCents,700);assert.equal(r.expensesCents,300);assert.equal(r.inventoryExpenseUnclassified,true);assert.equal(r.marginLessExpensesCents,null);});

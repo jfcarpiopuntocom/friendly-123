@@ -555,6 +555,7 @@
     async function get(ruta) {
       try {
         const r = await fetch("/api" + ruta);
+        if (!r.ok) return null;
         const j = await r.json();
         return Array.isArray(j) ? j : (j && typeof j === "object" ? j : null);
       } catch (_) { return null; }
@@ -600,6 +601,7 @@
       transferencias: Array.isArray(transferencias) ? transferencias : [],
       gastosMensuales: gastosMensuales || {},
       hechosFinancieros: Array.isArray(hechos) ? hechos.filter((h) => /^(cartera_|caja_chica_)/.test(h.tipo || "")) : [],
+      cobertura: {gastos:!!(gastos && Array.isArray(gastos.gastos)), hechosFinancieros:Array.isArray(hechos), resumen:!!resumen},
       negocio: (function () {
         try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || ""; }
         catch (_) { return ""; }
@@ -784,6 +786,7 @@
       .concat(trocear("transferencias", foto.transferencias))
       .concat(trocear("hechosFinancieros", foto.hechosFinancieros))
       .concat([{ tabla: "gastosMensuales", i: 0, total: 1, filas: [foto.gastosMensuales] }])
+      .concat([{ tabla: "cobertura", i: 0, total: 1, filas: [foto.cobertura] }])
       .concat([{ tabla: "resumen", i: 0, total: 1, filas: [foto.resumen || {}] }]);
     for (let k = 0; k < trozos.length; k++) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;

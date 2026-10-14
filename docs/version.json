@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v498: app y dashboard comparten lectura de stock; dato ausente se muestra pendiente y no como cero; caducidad visible; se conserva refresco local forzado y la foto remota mas reciente.",
+  "changelog": "v499: fechas del negocio coherentes; gastos fallidos conservan formulario; costos ausentes y lecturas incompletas no se convierten en cero; reporte mensual comparte calculo y fecha real de devolucion, sin doble descuento de compras sin clasificar.",
   "requerida": false,
-  "shell": "f123-shell-v498",
+  "shell": "f123-shell-v499",
   "apagar": [],
-  "releaseName": "v498",
-  "cacheGeneration": "golden62"
+  "releaseName": "v499",
+  "cacheGeneration": "golden63"
 }

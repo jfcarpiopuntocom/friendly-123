@@ -12,6 +12,7 @@ test('dashboard commits a complete finance snapshot without mixing responders', 
   const c = { datos: { productos: [{ id: 'old' }] }, fotoEnCurso: '', fotoFecha: '',
     esperados: {}, recibidos: {}, fotoTemporal: {}, totalTrozos: 0, clavesTrozos: {},
     ultimoDato: 0, $: () => node, pulso() {}, mostrar() { shown.push(this.datos); },
+    window: { OCBusinessReadModel: require('../docs/core/business-read-model.js') },
     Date, Number, Object, String };
   vm.createContext(c);
   vm.runInContext(code + '\nthis.receive = recibirTrozo;', c);

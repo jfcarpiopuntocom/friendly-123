@@ -6551,7 +6551,7 @@
           /* v457: el % propio del producto (null si no tiene): Commissions lo usa para no contar como "casa" una venta guardada sin reparto de un producto que si comisiona. */
           pctAsociadoProducto: p ? normPctAsociado(p.pctAsociado) : null,
           comisionistaNombreProducto: p && p.comisionistaId ? ((promotoras.find(x => x.id === p.comisionistaId && !x.borrado) || {}).nombre || "") : "",
-          cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit || 0,
+          cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit == null || v.costoUnit === "" ? null : v.costoUnit,
           clienteNombre: c ? c.nombre : "",
           ubicacionId: v.ubicacionId, ubicacionNombre: nombreUbic(v.ubicacionId),
           tipoProducto: p ? (p.tipoProducto || "normal") : "normal",
@@ -6577,6 +6577,7 @@
           comisionPendiente: _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
           comisionRetenida: _coreVentas ? _coreVentas.money(_heldVenta.get(String(v.id)) || 0) : 0,
           devuelta: !!v.devuelta,
+          fechaDevolucion: v.fechaDevolucion || ((ajustesComision.find(a=>a.id===v.devolucionId) || {}).fecha) || null,
           medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
           reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
           asistenteNombre: (v.split && v.split.reparto) ? ((promotoras.find((x) => x.id === v.split.reparto[1].promotoraId) || {}).nombre || "") : "",

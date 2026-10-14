@@ -8176,10 +8176,10 @@ async function cargarGastos(){
   const cont = document.getElementById("listaGastos");
   const resumen = document.getElementById("gastosResumen");
   const fechaEl = document.getElementById("gastoFecha");
-  if (fechaEl && !fechaEl.value) fechaEl.value = new Date().toISOString().slice(0, 10);
+  if (fechaEl && !fechaEl.value) fechaEl.value = window.OCBusinessReadModel.day(new Date().toISOString(),localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone);
   let data;
-  try { data = await (await fetch(`${API}/gastos`)).json(); }
-  catch (_) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load expenses. Reload the view.</p>'; return; }
+  try { const response = await fetch(`${API}/gastos`); if (!response.ok) throw new Error('expenses unavailable'); data = await response.json(); if (!data || !Array.isArray(data.gastos)) throw new Error('invalid expenses'); }
+  catch (_) { if (resumen) resumen.textContent='Expense totals unavailable.'; if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load expenses. Reload the view.</p>'; return; }
   const gastos = (data && data.gastos) || [];
   const zone = localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const _mesActual = window.OCSalesAudit.dayOf({fecha:new Date().toISOString()},zone).slice(0,7);
@@ -8194,14 +8194,15 @@ async function cargarGastos(){
     if (!Array.isArray(sales)) throw new Error('invalid sales');
     const month = _mesActual;
     const last = new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
-    ventasMes = window.OCSalesAudit.report(sales,{from:month+'-01',to:month+'-'+last,timeZone:zone}).netCents / 100;
+    const projection=window.OCBusinessReadModel.monthly(sales,gastos,month,zone);
+    ventasMes = projection.netCents === null ? null : projection.netCents / 100;
   } catch (_) {}
   const totalGastos = gastos.reduce((a, g) => a + (Number(g.monto) || 0), 0);
   /* Enriquecimiento (JFC 2026-08-28): separar "este mes" de "todo el tiempo" y
      que el neto compare el MISMO periodo (ventas del mes − gastos del mes).
      Antes el neto mezclaba gastos de todo el tiempo con ventas del mes, un
      número engañoso. */
-  const gastosMes = gastos.filter((g) => String(g.fecha || "").slice(0, 7) === _mesActual).reduce((a, g) => a + (Number(g.monto) || 0), 0);
+  const gastosMes = gastos.filter((g) => window.OCBusinessReadModel.day(g.fecha,zone).slice(0, 7) === _mesActual).reduce((a, g) => a + (Number(g.monto) || 0), 0);
   const neto = ventasMes === null ? null : ventasMes - gastosMes;
   const tarjeta = (label, valor, color) => `<div style="flex:1;min-width:120px;background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:12px 14px;">
     <div style="font-size:13px;color:var(--ink-soft);">${label}</div>
@@ -8215,11 +8216,11 @@ async function cargarGastos(){
     tarjeta("Expenses (all time)", totalGastos, "var(--rojo-ink)") +
     (_verIngresos
       ? tarjeta("Sales this month", ventasMes, "var(--dinero-verde-dk)") +
-        tarjeta("Net", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)")
+        tarjeta("Sales less expenses (before costs and commissions)", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)")
       : "");
   // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
   const catDelMes = {};
-  gastos.filter((g) => String(g.fecha || "").slice(0, 7) === _mesActual)
+  gastos.filter((g) => window.OCBusinessReadModel.day(g.fecha,zone).slice(0, 7) === _mesActual)
     .forEach((g) => { const k = g.categoria || "other"; catDelMes[k] = (catDelMes[k] || 0) + (Number(g.monto) || 0); });
   const catCont = document.getElementById("gastosPorCategoria");
   if (catCont) {
@@ -8250,7 +8251,7 @@ async function cargarGastos(){
     <div class="tag-card" id="gasto-fila-${g.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;">
       <div style="flex:1;">
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
-        <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${new Date(g.fecha).toLocaleDateString()}${g.factura ? " · Invoice " + escHtml(g.factura) : ""}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
+        <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${fechaGastoVisible(g.fecha)}${g.factura ? " · Invoice " + escHtml(g.factura) : ""}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
       <strong style="color:var(--rojo-ink);font-size:16px;">-${fmtMoney(g.monto)}</strong>
       ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" class="oc-edit-btn oc-edit-btn--warn">✎</button>` : ""}
@@ -8270,16 +8271,26 @@ async function registrarGasto(){
   const categoria = catEl ? catEl.value : "other";
   const facturaEl = document.getElementById("gastoFactura");
   const factura = facturaEl ? (facturaEl.value || "").trim() : "";
-  const res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, factura: factura || undefined, fecha: fechaEl.value ? new Date(fechaEl.value).toISOString() : undefined, ubicacionId: ubicacionActual }) });
+  let res;
+  try { res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, factura: factura || undefined, fecha: fechaEl.value || undefined, ubicacionId: ubicacionActual }) }); }
+  catch (_) { msg.style.color='var(--rojo-ink,#a3392a)'; msg.textContent='The expense was not saved. Connection unavailable.'; return; }
   if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = r.error || "Could not save the expense."; return; }
   conceptoEl.value = ""; montoEl.value = ""; if (facturaEl) facturaEl.value = "";
   msg.style.color = "var(--sim-verde-dk,#1a6e3c)"; msg.textContent = "Expense recorded.";
   cargarGastos();
 }
+function fechaGastoVisible(fecha){
+ const zone=localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+ const day=window.OCBusinessReadModel.day(fecha,zone);
+ return day ? new Date(day+'T12:00:00').toLocaleDateString() : '—';
+}
 async function anularGasto(id){
   if (!(await ocConfirm("Delete this expense? It stays in the activity log."))) return;
-  await fetch(`${API}/gastos/${id}`, { method: "DELETE" });
-  cargarGastos();
+  try {
+    const response = await fetch(`${API}/gastos/${id}`, { method: "DELETE" });
+    if (!response.ok) { const result=await response.json().catch(()=>({})); await ocAlert(result.error || 'The expense was not deleted.'); return; }
+    cargarGastos();
+  } catch (_) { await ocAlert('The expense was not deleted. Connection unavailable.'); }
 }
 /* Etiqueta visible de la categoría de gasto (JFC 2026-09-02). Claves canónicas
    neutrales, texto traducible por i18n; fallback a inglés si no hay clave. */
@@ -8330,7 +8341,7 @@ async function editarGasto(id){
   const g = (_gastosCache || []).find((x) => x.id === id);
   const fila = document.getElementById("gasto-fila-" + id);
   if (!g || !fila) return;
-  const fecha = (g.fecha || "").slice(0, 10);
+  const fecha = window.OCBusinessReadModel.day(g.fecha,localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone);
   fila.innerHTML = `
     <div style="flex:1;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
       <input id="ge-concepto" value="${escHtml(g.concepto)}" placeholder="Concept" style="flex:1;min-width:140px;font-size:13px;padding:6px 8px;border:1px solid var(--linea,#D7E0E8);border-radius:6px;">
@@ -8349,8 +8360,13 @@ async function editarGasto(id){
     const fechaVal = document.getElementById("ge-fecha").value;
     if (!concepto || !Number.isFinite(monto) || monto <= 0) return;
     const categoria = (document.getElementById("ge-categoria") || {}).value || "other";
-    await fetch(`${API}/gastos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, fecha: fechaVal ? new Date(fechaVal).toISOString() : undefined }) });
-    cargarGastos();
+    const save=document.getElementById('ge-guardar'); save.disabled=true;
+    try {
+      const response=await fetch(`${API}/gastos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, fecha: fechaVal || undefined }) });
+      if (!response.ok) { const result=await response.json().catch(()=>({})); await ocAlert(result.error || 'The expense edit was not saved.'); return; }
+      cargarGastos();
+    } catch (_) { await ocAlert('The expense edit was not saved. Connection unavailable.'); }
+    finally { save.disabled=false; }
   });
 }
 

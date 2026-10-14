@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v498">
+<meta name="dashboard-shell" content="f123-shell-v499">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -740,7 +740,7 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   };
-  var money = function (n) { return "$" + (Number(n) || 0).toFixed(2); };
+  var money = function (n) { return n == null || n === "" || !Number.isFinite(Number(n)) ? "—" : "$" + Number(n).toFixed(2); };
   /* Semaforo Simon, congelado (ver project_simon_semantics). Los cinco, ni uno
      mas: el azul esta EXCLUIDO de tableros a proposito. Texto siempre solido y
      con contraste sobre su fondo, nunca color sobre el mismo tono. */
@@ -991,7 +991,7 @@
       partes = partes.concat(recibidos[p.tabla][i]);
     }
     if (!listo) { pulso("recibiendo… " + Object.keys(recibidos[p.tabla]).length + "/" + p.total); return; }
-    fotoTemporal[p.tabla] = (p.tabla === "resumen" || p.tabla === "gastosMensuales") ? (partes[0] || null) : partes;
+    fotoTemporal[p.tabla] = (p.tabla === "resumen" || p.tabla === "gastosMensuales" || p.tabla === "cobertura") ? (partes[0] || null) : partes;
     if (!totalTrozos || Object.keys(clavesTrozos).length < totalTrozos) {
       pulso("recibiendo foto… " + Object.keys(clavesTrozos).length + "/" + totalTrozos);
       return;
@@ -1034,7 +1034,7 @@
       ],
       filas: function () {
         return (datos.productos || []).map(function (p) {
-          return Object.assign({}, p, { margen: (Number(p.precio) || 0) - (Number(p.costo) || 0) });
+          return Object.assign({}, p, { margen: window.OCBusinessReadModel.margin(p) });
         });
       },
       /* M12: la vista termina nombrando la herramienta que resuelve lo que
@@ -1914,6 +1914,7 @@
     if (!el) return;
     var tiene = ["gastos", "transferencias", "gastosMensuales", "hechosFinancieros"]
       .every(function (k) { return Object.prototype.hasOwnProperty.call(datos, k); });
+    if (datos.cobertura && (datos.cobertura.gastos === false || datos.cobertura.hechosFinancieros === false)) { el.textContent="Finance data is incomplete or still loading. Missing records are not zero balances."; return; }
     if (!tiene) { el.textContent = "This device uses an older shell. Finance coverage is incomplete."; return; }
     var gastos = datos.gastos || [], tras = datos.transferencias || [], hechos = datos.hechosFinancieros || [];
     var gm = datos.gastosMensuales || {};
@@ -2009,8 +2010,8 @@
     var valor = valuation.valueCents === null ? null : valuation.valueCents / 100;
     var dormido = dormant.valueCents === null ? null : dormant.valueCents / 100;
     var k = [
-      ["Entró hoy", money(d.entra || 0), plural(d.ventasCount || 0, "venta", "ventas")],
-      ["Ganancia de hoy", money(d.gananciaHoy || 0), "después del costo"],
+      ["Entró hoy", money(d.entra), plural(d.ventasCount || 0, "venta", "ventas")],
+      ["Ganancia de hoy", money(d.gananciaHoy), "después del costo"],
       ["Inventario", valor === null ? 'Stock / cost pending' : money(valor), prods.length + " productos"],
       ["Capital dormido", dormido === null ? 'Stock / cost pending' : money(dormido), "sin movimiento"],
     ];
@@ -2340,28 +2341,21 @@
          muestra lo que el equipo tiene, y eso es lo que se reporta. */
       var mes = mesLocalDe(new Date().toISOString());
       titulo += ' · ' + mes;
-      var vs = (datos.ventas || []).filter(function (v) { return !v.anulada && !v.borrado && !v.devuelta && (v.fechaLocal || fechaLocalDashboard(v.fecha,v.relojDesfaseMs)).slice(0,7) === mes; });
-      var bruto = 0, costo = 0;
-      var porProd = {};
-      vs.forEach(function (v) {
-        var t = (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0);
-        bruto += t; costo += (Number(v.costoUnit) || 0) * (Number(v.cantidad) || 0);
-        var k = v.productoNombre || "(sin nombre)";
-        porProd[k] = porProd[k] || { u: 0, t: 0 };
-        porProd[k].u += Number(v.cantidad) || 0;
-        porProd[k].t += t;
-      });
-      cols = esReporte ? ["Producto", "Unidades", "Vendido"] : ["Product", "Units", "Sold"];
-      filas = Object.keys(porProd).sort(function (a, b) { return porProd[b].t - porProd[a].t; })
-        .map(function (k) { return [k, String(porProd[k].u), money(porProd[k].t)]; });
-      // Actual expenses, not estimated shelf budgets. Detail and totals share
-      // one PDF; reading this report never creates accounting entries.
-      var gastosMes = (datos.gastos || []).filter(function(g){return !g.borrado && String(g.fecha || '').slice(0,7) === mes;});
-      var gastoTotal = gastosMes.reduce(function(a,g){return a+(Number(g.monto)||0);},0);
-      gastosReporte = gastosMes.map(function(g){return [String(g.fecha || '').slice(0,10),g.concepto || '',money(g.monto)];});
-      var labels = esReporte ? ["Vendido","Costo","Margen","Gastos registrados","Margen menos gastos registrados"] : ["Sold","Cost","Margin","Recorded expenses","Margin less recorded expenses"];
-      resumenReporte = labels.map(function(label,i){return [label,money([bruto,costo,bruto-costo,gastoTotal,bruto-costo-gastoTotal][i])];});
-      pie = esReporte ? "Comisiones y presupuesto mensual de perchas no descontados en este cierre." : "Commissions and monthly shelf budgets are not deducted in this report.";
+      var zone=localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      var monthReport=window.OCBusinessReadModel.monthly(datos.ventas || [],datos.gastos || [],mes,zone);
+      var porProd={};
+      monthReport.rows.forEach(function(row){var k=String(row.id);var group=porProd[k] || (porProd[k]={name:row.product,u:0,c:0});group.u+=row.units;group.c+=row.amountCents;});
+      cols=esReporte ? ['Producto','Unidades netas','Vendido menos devoluciones'] : ['Product','Net units','Sales less returns'];
+      filas=Object.keys(porProd).sort(function(a,b){return porProd[b].c-porProd[a].c;}).map(function(k){var p=porProd[k];return [p.name,String(p.u),money(p.c/100)];});
+      gastosReporte=monthReport.expenses.map(function(g){return [fechaLocalDashboard(g.fecha),g.concepto || '',money(g.monto)];});
+      var labels=esReporte ? ['Vendido','Devoluciones registradas','Vendido menos devoluciones','Costo neto de lo vendido','Margen','Gastos registrados','Margen menos gastos registrados'] : ['Sold','Recorded returns','Sales less returns','Net cost of sold goods','Margin','Recorded expenses','Margin less recorded expenses'];
+      var values=[monthReport.salesCents,monthReport.returnedCents,monthReport.netCents,monthReport.costCents,monthReport.marginCents,monthReport.expensesCents,monthReport.marginLessExpensesCents];
+      if(datos.cobertura && datos.cobertura.gastos===false){values[5]=null;values[6]=null;}
+      resumenReporte=labels.map(function(label,i){return [label,money(values[i]===null?null:values[i]/100)];});
+      pie=esReporte ? 'Comisiones y presupuesto mensual de perchas no descontados en este cierre.' : 'Commissions and monthly shelf budgets are not deducted in this report.';
+      if(monthReport.inventoryExpenseUnclassified)pie+=' '+(esReporte?'Gastos de inventario/suministros sin clasificar: resultado pendiente para evitar descontar dos veces la compra.':'Unclassified inventory/supplies expenses: result pending to avoid deducting purchases twice.');
+      if(monthReport.undatedReturns)pie+=' '+(esReporte?'Hay devoluciones sin fecha registrada; el resultado queda pendiente.':'Some returns have no recorded date; the result is pending.');
+
     }
 
     doc.setFontSize(16); doc.text(neg, 40, 46);
@@ -2521,6 +2515,7 @@
     try {
       var tz = null;
       try { tz = localStorage.getItem("f123_timezone"); if (tz) Intl.DateTimeFormat(undefined, { timeZone: tz }); } catch (_) { tz = null; }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return window.OCBusinessReadModel.day(iso,tz);
       var base = Date.parse(iso), d = Number(desfaseMs);
       var ms = base + (Number.isFinite(d) ? d : 0);
       var o = { year: "numeric", month: "2-digit", day: "2-digit" };
@@ -2548,12 +2543,12 @@
 
     var productos = (e.productos || []).map(function (p) {
       prods[p.id] = p;
-      var precio = Number(p.precio) || 0, costo = Number(p.costo) || 0;
+      var precio = window.OCBusinessReadModel.number(p.precio), costo = window.OCBusinessReadModel.number(p.costo);
       return {
         id: p.id, nombre: p.nombre, sku: p.sku || "", categoria: p.categoria || "",
-        stockActual: window.OCBusinessReadModel.stock(p).units, precio: precio, costo: p.costo == null ? null : costo,
+        stockActual: window.OCBusinessReadModel.stock(p).units, precio: precio, costo: costo,
         perecible: !!p.perecible, fechaCaducidad: window.OCBusinessReadModel.expiry(p),
-        margen: +(precio - costo).toFixed(2),
+        margen: window.OCBusinessReadModel.margin(p),
         estado: estadoSimon(p),
         ubicacionNombre: ubic[p.ubicacionId] || "",
       };
@@ -2610,7 +2605,7 @@
     var ventas = (e.ventas || []).filter(function (v) { return v && !v.anulada; }).map(function (v) {
       var p = prods[v.productoId] || {};
       var cant = Number(v.cantidad) || 0;
-      var pu = Number(v.precioUnit) || 0, cu = Number(v.costoUnit) || 0;
+      var pu = window.OCBusinessReadModel.number(v.precioUnit), cu = window.OCBusinessReadModel.number(v.costoUnit);
       if (fechaLocalDashboard(v.fecha, v.relojDesfaseMs) === hoy) { entra += pu * cant; sale += cu * cant; nHoy++; }
       return {
         id: v.id, productoId: v.productoId, fecha: v.fecha, fechaLocal: fechaLocalDashboard(v.fecha, v.relojDesfaseMs), productoNombre: p.nombre || "(deleted product)",
@@ -2647,6 +2642,7 @@
         comisionistaIdProducto: p.comisionistaId || null,
         pctAsociadoProducto: p.pctAsociado == null || p.pctAsociado === "" || !Number.isFinite(Number(p.pctAsociado)) ? null : Math.max(0, Math.min(100, Number(p.pctAsociado))),
         devuelta: !!v.devuelta,
+        fechaDevolucion: v.fechaDevolucion || (((e.ajustesComision || []).find(function(a){return a.id === v.devolucionId;}) || {}).fecha) || null,
         reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
         asistenteNombre: (v.split && v.split.reparto && v.split.reparto[1]) ? ((e.promotoras || []).find(function (x) { return x.id === v.split.reparto[1].promotoraId; }) || {}).nombre || "" : "",
         promotoraId: v.promotoraId || null,
@@ -2882,7 +2878,7 @@
       var d = datosDesdeLocal(e);
       /* Un estado local vacio no es un tablero: es una app recien instalada.
          Pintarlo taparia el mensaje honesto de "no hay nadie conectado". */
-      if (!(d.productos || []).length && !(d.ventas || []).length) return false;
+      // An authenticated notebook can legitimately be empty or contain only expenses.
       datos.productos = d.productos; datos.clientes = d.clientes;
       datos.ventas = d.ventas; datos.resumen = d.resumen;
       datos.liquidaciones = d.liquidaciones; datos.payouts = d.payouts || []; datos.ajustesComision = d.ajustesComision || []; datos.perchas = d.perchas;
@@ -2894,6 +2890,7 @@
       datos.promotoras = e.promotoras || [];
       /* No previous shop / revision finance facts may survive until IDB replies. */
       datos.hechosFinancieros = [];
+      datos.cobertura = {gastos:Array.isArray(e.gastos),hechosFinancieros:false,resumen:!!d.resumen};
       var fotoLocalRef = datos;
       var generacionFoto = ++_generacionPinturaLocal;
       var licenciaFoto = codigoSesionActual;
@@ -2909,6 +2906,7 @@
                 codigoSesionActual !== licenciaFoto || codigoLocalActivo() !== codeHere) {
               db.close(); return;
             }
+            datos.cobertura.hechosFinancieros = true;
             datos.hechosFinancieros = (q.result || []).filter(function (h) { return /^(cartera_|caja_chica_)/.test(h.tipo || ""); });
             db.close(); mostrar();
           };
