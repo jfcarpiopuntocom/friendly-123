@@ -2742,11 +2742,21 @@
   }
   // ---- RFM -> estacion del cliente (ver nota grande junto al seed) ----
   function datosRFM(c) {
-    const vc = ventasActivas().filter((v) => v.clienteId === c.id);
-    const ultima = vc.reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
-    const recencia = ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000) : null;
-    const v90 = vc.filter((v) => (Date.now() - new Date(v.fecha).getTime()) / 86400000 <= 90);
-    const monto = +v90.reduce((a, v) => a + v.precioUnit * v.cantidad, 0).toFixed(2);
+    /* A sale with a stable clienteId belongs to that ID, never to an unrelated
+       customer with the same name. Legacy name-only sales can be attributed
+       only when exactly one active customer has that name. A partial or invalid
+       date cannot manufacture a recent purchase (Belén, 2026-10-14). */
+    const nombre = String(c.nombre || "").trim().toLocaleLowerCase();
+    const unico = !!nombre && clientes.filter((x) => !x.borrado && String(x.nombre || "").trim().toLocaleLowerCase() === nombre).length === 1;
+    const vc = ventasActivas().filter((v) =>
+      String(v.clienteId || "") === String(c.id) ||
+      (!v.clienteId && unico && String(v.clienteNombre || "").trim().toLocaleLowerCase() === nombre));
+    const ahora = Date.now();
+    const fechas = vc.map((v) => Date.parse(v.fecha)).filter((t) => Number.isFinite(t) && t <= ahora + 300000);
+    const ultima = fechas.length ? Math.max(...fechas) : null;
+    const recencia = ultima === null ? null : Math.max(0, Math.floor((ahora - ultima) / 86400000));
+    const v90 = vc.filter((v) => { const d = ahora - Date.parse(v.fecha); return Number.isFinite(d) && d >= -300000 && d <= 90 * 86400000; });
+    const monto = +v90.reduce((a, v) => a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0), 0).toFixed(2);
     return { recencia, frecuencia: v90.length, monto };
   }
   // Umbral de "valor alto": la MITAD del promedio de los clientes que si
@@ -6800,6 +6810,14 @@
       if (mCliContacto && opts && opts.method === "PATCH") {
         const c = clientes.find((x) => x.id === mCliContacto[1]);
         if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        /* Optional optimistic guard for remote dashboard edits: do not silently
+           overwrite an update made on the phone since its last snapshot. */
+        if (body.baseContacto && typeof body.baseContacto === "object") {
+          const campos = ["nombre", "telefono", "email", "notas", "rangoEdad", "pais"];
+          if (campos.some((k) => String(c[k] || "") !== String(body.baseContacto[k] || ""))) {
+            return J({ error: "Customer changed on another device. Refresh before editing." }, 409);
+          }
+        }
         if (body.nombre !== undefined) c.nombre = String(body.nombre).trim() || c.nombre;
         if (body.telefono !== undefined) c.telefono = String(body.telefono).trim();
         if (body.email !== undefined) c.email = String(body.email).trim();
