@@ -7257,6 +7257,8 @@ async function confirmarVentaConInfo(id, esTicket){
     fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
     email: g("vi-email"), whatsapp: g("vi-whatsapp"),
     formaPago: _fiadoOn ? "fiado" : g("vi-forma-pago"),
+    /* A durable fiado sale includes its debt obligation in the same sale. */
+    ...(_fiadoOn && clienteId ? { fiadoAtomico: true } : {}),
     notas: g("vi-notas"),
     ...(_cortesiaOn ? { cortesia: true } : {}),
     ...(_tieneOverride ? { precioOverride: _ovNum } : {}),
