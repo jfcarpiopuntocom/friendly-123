@@ -222,6 +222,8 @@ function gastosApp({ confirma = true } = {}) {
   app.OCAuth = { rolActual: () => 'dueno' };
   app.API = '/api';
   app.ocConfirm = async () => confirma;
+  app.expenseAlerts = [];
+  app.ocAlert = async message => { app.expenseAlerts.push(message); };
   app.cargarGastos = () => {};
   vm.runInContext(cut(indexSrc, 'async function anularGasto(id){', '/* Etiqueta visible'), app);
   return app;
@@ -255,11 +257,13 @@ test('anularGasto: voiding twice is a no-op, and declining the confirmation void
   const t = await app.request('/api/gastos');
   assert.equal(t.gastos.length, 1);
   assert.equal(t.total, 5.5);
+  assert.deepEqual(app.expenseAlerts, ["Expense not found."], "a repeated void is reported without changing money");
   await assert.rejects(() => app.request(`/api/gastos/${a.id}`, 'DELETE'), /404/, 'second void is "not found"');
   const no = gastosApp({ confirma: false });
   const c = await no.request('/api/gastos', 'POST', { concepto: 'C', monto: 7 });
   await no.anularGasto(c.id);
   assert.equal((await no.request('/api/gastos')).total, 7, 'declined confirmation voids nothing');
+  assert.deepEqual(no.expenseAlerts, [], 'declining has no error or money effect');
 });
 
 /* ---------------- dashboard.html: filasComisiones / pintarComisiones vs backend ---------------- */
