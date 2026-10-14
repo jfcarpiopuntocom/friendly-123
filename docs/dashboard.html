@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v513">
+<meta name="dashboard-shell" content="f123-shell-v514">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -466,7 +466,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
-    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v513</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v514</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
@@ -838,7 +838,8 @@
        en vivo si un aparato respondió en los últimos 25 s; si no, que ninguno está respondiendo. */
     var seg = (Date.now() - ultimoDato) / 1000;
     var hora = new Date(ultimoDato).toLocaleTimeString("es-EC", { hour: "numeric", minute: "2-digit" });
-    if (seg < 25) pulso("en vivo · al instante", "vivo");
+    // v514: la foto de respaldo pasa de 20 s a 60 s; "en vivo" = un aparato respondio en < 75 s.
+    if (seg < 75) pulso("en vivo · al instante", "vivo");
     else if (ws && ws.readyState === 1) pulso("conectado · ningún aparato con la app abierta desde las " + hora, "viejo");
     else pulso("sin conexión · último dato a las " + hora, "viejo");
   }, 5000);
@@ -3002,10 +3003,17 @@
     if (ws && ws.readyState === 1 && fotoToken) pedirFoto();
   });
   window.addEventListener("pageshow", function () { if (autorizado && !bloquearSesionSiCambioTienda()) repintarVivo(); });
+  /* v514 (JFC 2026-10-14, "estoy harto de saturar cloudflare", pedido ~70 veces): la foto
+     COMPLETA del negocio viaja por el relay de Cloudflare y se reparte a todos los aparatos.
+     Pedirla cada 20 s con el tablero abierto era el mayor consumo fijo. Los cambios reales
+     siguen llegando al instante (cada venta avisa y el tablero pide la foto a los 120 ms);
+     esta foto periodica es solo un respaldo: ahora cada 60 s. La relectura local (sin red)
+     sigue cada 20 s. */
+  var _fotoTick = 0;
   setInterval(function () {
     if (!autorizado || document.hidden || bloquearSesionSiCambioTienda()) return;
     refrescarLocal(false).catch(function () {});
-    if (ws && ws.readyState === 1 && fotoToken) pedirFoto();
+    if (++_fotoTick % 3 === 0 && ws && ws.readyState === 1 && fotoToken) pedirFoto();
   }, 20000);
   window.addEventListener("storage", function (ev) {
     if (ev && (ev.key === "f123_tienda_activa" || ev.key === "f123_owned" ||

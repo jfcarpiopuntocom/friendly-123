@@ -129,6 +129,11 @@
     }
     function directPeer(id) {
       if (_direct[id]) return _direct[id];
+      // v514: como el cierre del relay ya no vacia la lista, se limpian aqui los pares muertos.
+      Object.keys(_direct).forEach(function (k) {
+        var st = _direct[k].pc && _direct[k].pc.connectionState;
+        if (st === "closed" || st === "failed") { try { _direct[k].pc.close(); } catch (_) {} delete _direct[k]; }
+      });
       if (Object.keys(_direct).length >= 11) return null;
       var pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }] });
       var peer = _direct[id] = { pc: pc, dc: null, ice: [] };
@@ -165,6 +170,12 @@
     }
     function enviarDirecto(buf) {
       var peers = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; });
+      // v514: sin relay, se entrega en vivo a los pares directos abiertos, pero se devuelve false
+      // para que el mismo cambio quede tambien en la cola del relay (nadie se queda sin el).
+      if (!canal.ws || canal.ws.readyState !== 1) {
+        peers.forEach(function (p) { try { if (p.dc.bufferedAmount <= 512 * 1024) p.dc.send(buf); } catch (_) {} });
+        return false;
+      }
       // Never omit a relay-only device. Presence comes from the relay, not a guess.
       if (_relayPeerCount < 2 || peers.length !== _relayPeerCount - 1) return false;
       if (peers.some(function (p) { return p.dc.bufferedAmount > 512 * 1024 || buf.byteLength > (p.pc.sctp && p.pc.sctp.maxMessageSize || 65536); })) return false;
@@ -219,7 +230,8 @@
     }
     function enviarDurable(entry) {
       var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint;
-      if (canal.ws && canal.ws.readyState === 1) canal.ws.send(JSON.stringify(msg));
+      // v514: un envio que lanza no rompe la cola; el pendiente ya esta guardado y se reintenta.
+      try { if (canal.ws && canal.ws.readyState === 1) canal.ws.send(JSON.stringify(msg)); } catch (_) {}
     }
     function drenarDurable() {
       try { _outbox.pending.slice(0, 32).forEach(enviarDurable); } catch (_) {}
@@ -340,19 +352,29 @@
         }
         cifrarBin(API.clave, frame).then(async function (buf) {
           if (buf.byteLength > MAX_OP_BYTES) { log("trozo Yjs supera limite: " + buf.byteLength); return; }
-          if (!(tag === 0 && enviarDirecto(buf))) {
-            if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf);
+          /* v514 (JFC 2026-10-14, fallos 2 y 3 que reprodujo Codex en v512): primero se GUARDA
+             el pendiente y despues se envia. Antes, si fallaba la huella SHA-256 o el envio
+             lanzaba justo en ese instante, el .catch vacio se tragaba el error y el cambio
+             nunca quedaba pendiente para el relay. La huella es opcional: sin ella se
+             deduplica por id. Prueba: test/sync-v514-fallos-codex.test.js */
+          if (persistir) {
+            var stableId = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8), fingerprint = "";
+            try {
+              if (typeof crypto !== "undefined" && crypto.subtle) {
+                var digest = await crypto.subtle.digest("SHA-256", frame);
+                fingerprint = Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+              }
+            } catch (_) { fingerprint = ""; }
+            // Content fingerprint stays local; the relay still sees a random id and ciphertext.
+            var op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
+            if (JSON.stringify(op).length > MAX_OP_BYTES) log("op Yjs supera limite"); else guardarSobre(op);
           }
-          if (!persistir) return;
-          var stableId = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8), fingerprint = "";
-          if (typeof crypto !== "undefined" && crypto.subtle) {
-            var digest = await crypto.subtle.digest("SHA-256", frame);
-            fingerprint = Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+          var directo = false;
+          try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
+          if (!directo) {
+            try { if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf); }
+            catch (_) { canal.pend.push(buf); }
           }
-          // Content fingerprint stays local; the relay still sees a random id and ciphertext.
-          var op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
-          if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
-          guardarSobre(op);
         }).catch(function () {});
       }
     }
@@ -538,8 +560,10 @@
         pullEstado.enCurso = false;
         canal.ws = null;
         _relayPeerCount = 0;
-        Object.values(_direct).forEach(function (p) { try { p.pc.close(); } catch (_) {} }); _direct = Object.create(null);
-        canal.paresDirectos = 0;
+        /* v514 (fallo 1 de Codex): caer el relay NO cierra las conexiones directas que siguen
+           vivas entre aparatos. Siguen recibiendo cambios en vivo (enviarDirecto) y, ademas,
+           todo queda en canal.pend y en el outbox para el relay cuando vuelva. Al reconectar
+           no hay que renegociar con cada aparato: menos mensajes a Cloudflare. */
         reprogramar();
       };
       ws.onerror = function () { try { ws.close(); } catch (_) {} };
