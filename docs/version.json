@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v499: fechas del negocio coherentes; gastos fallidos conservan formulario; costos ausentes y lecturas incompletas no se convierten en cero; reporte mensual comparte calculo y fecha real de devolucion, sin doble descuento de compras sin clasificar.",
+  "changelog": "v500: fechas del negocio coherentes; gastos fallidos conservan formulario; costos ausentes y lecturas incompletas no se convierten en cero; reporte mensual comparte calculo y fecha real de devolucion, sin doble descuento de compras sin clasificar.",
   "requerida": false,
-  "shell": "f123-shell-v499",
+  "shell": "f123-shell-v500",
   "apagar": [],
-  "releaseName": "v499",
-  "cacheGeneration": "golden63"
+  "releaseName": "v500",
+  "cacheGeneration": "golden64"
 }
