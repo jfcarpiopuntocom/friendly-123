@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v511: cambios pendientes protegidos hasta confirmar guardado remoto; conexión directa con respaldo y archivos locales de la versión activa.",
+  "changelog": "v512: cambios pendientes protegidos hasta confirmar guardado remoto; conexión directa con respaldo y archivos locales de la versión activa.",
   "requerida": false,
-  "shell": "f123-shell-v511",
+  "shell": "f123-shell-v512",
   "apagar": [],
-  "releaseName": "v511",
-  "cacheGeneration": "golden75"
+  "releaseName": "v512",
+  "cacheGeneration": "golden76"
 }
