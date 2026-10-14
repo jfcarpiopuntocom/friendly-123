@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v495">
+<meta name="dashboard-shell" content="f123-shell-v496">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -455,7 +455,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
-    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v495</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v496</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
@@ -1716,6 +1716,7 @@
     pintarFinanzasFoto();
     pintarHistorialVentas();
     try { pintarHub(); actualizarIsla(); } catch (e) { console.warn("[dashboard] hub", e); }
+    restaurarBorradorHotfix();
   }
 
   /* ======================================================================== HUB v462
@@ -2791,6 +2792,26 @@
      No PIN or business snapshot is stored here. Remote access reuses the
      existing expiring encrypted-photo token; it does not issue a new one. */
   var DASH_HANDOFF = 'f123_dashboard_update_handoff';
+  var borradorHotfix = null;
+  var CAMPOS_HOTFIX = ['buscar','cu-total','cu-flete','cu-imp','cu-otros','cu-unid','cu-merma','cu-precio'];
+  function capturarBorradorHotfix() {
+    var fields = {};
+    CAMPOS_HOTFIX.forEach(function(id){if($(id))fields[id]=$(id).value;});
+    return {fields:fields,vista:vista,grupo:agruparComisionesPor};
+  }
+  function restaurarBorradorHotfix() {
+    if (!borradorHotfix || !autorizado) return;
+    var draft = borradorHotfix; borradorHotfix = null;
+    CAMPOS_HOTFIX.forEach(function(id){
+      if ($(id) && draft.fields && typeof draft.fields[id] === 'string') {
+        $(id).value = draft.fields[id];
+        $(id).dispatchEvent(new Event('input',{bubbles:true}));
+      }
+    });
+    if (draft.grupo === 'percha' || draft.grupo === 'persona') agruparComisionesPor = draft.grupo;
+    if (draft.vista && Object.prototype.hasOwnProperty.call(VISTAS,draft.vista)) { vista = draft.vista; pintarTabla(); }
+    filtrar($('buscar').value);
+  }
   async function credencialDashboard() {
     var text = [codigoLocalActivo(),localStorage.getItem('f123_secure') || '',localStorage.getItem('f123_admins_pins') || ''].join('|');
     var bytes = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
@@ -2812,7 +2833,7 @@
       if (_sesionLocal && bloquearSesionSiCambioTienda()) return false;
       var proof = await credencialDashboard();
       if (!actualizacionSeguraDashboard() || !autorizado) return false;
-      try { sessionStorage.setItem(DASH_HANDOFF,JSON.stringify({at:Date.now(),code:codigoSesionActual,local:_sesionLocal,token:fotoToken,proof:proof,scroll:window.scrollY}));return true; }
+      try { sessionStorage.setItem(DASH_HANDOFF,JSON.stringify({at:Date.now(),code:codigoSesionActual,local:_sesionLocal,token:fotoToken,proof:proof,scroll:window.scrollY,draft:capturarBorradorHotfix()}));return true; }
       catch (_) { return false; }
     }
   };
@@ -3405,12 +3426,15 @@
       if (h.local) {
         var state = await leerEstadoLocalActual();
         if (!state || codigoLocalActivo() !== h.code || !actualizacionSeguraDashboard()) return;
+        borradorHotfix = h.draft || null;
         autorizado = true; _sesionLocal = true; codigoSesionActual = h.code;
         if (!pintarDesdeLocal(state)) { autorizado = false; return; }
+        restaurarBorradorHotfix();
         _ultimaRevRepintada = Number.isSafeInteger(state._rev) ? state._rev : -1;
         setTimeout(function(){window.scrollTo(0,Number(h.scroll)||0);},0);
       } else if (h.token) {
         await conectar(h.code);
+        borradorHotfix = h.draft || null;
         autorizado = true; _sesionLocal = false; codigoSesionActual = h.code; fotoToken = h.token;
         pedirFoto(); sinNadie();
       }

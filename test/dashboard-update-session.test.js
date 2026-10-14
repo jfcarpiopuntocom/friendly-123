@@ -19,11 +19,17 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test(`autom
   });
   await page.goto(ORIGIN+'/dashboard.html');await page.locator('#pin').fill('789');await page.locator('#entrar').click();try { await page.locator('#tablero').waitFor({state:'visible',timeout:5000}); } catch(e) { throw new Error(await page.locator('#msg').innerText(),{cause:e}); }
   const before=await page.evaluate(()=>localStorage.getItem('f123_estado_v4_B'));
+  await page.locator('a[data-ruta="herramientas"]').click();
+  await page.locator('#cu-total').fill('100');await page.locator('#cu-unid').fill('10');await page.locator('#cu-unid').blur();
   await page.locator('a[data-ruta="hoy"]').click();
+  await page.locator('#buscar').fill('Synthetic');await page.locator('#buscar').blur();
   assert.equal(await page.evaluate(()=>__dashboardUpdate.prepare()),true);
   const handoff=await page.evaluate(()=>sessionStorage.getItem('f123_dashboard_update_handoff'));
   assert.ok(!handoff.includes('789'),'PIN is never handed off');
   await page.reload();await page.locator('#tablero').waitFor({state:'visible',timeout:6000});
+  assert.equal(await page.locator('#cu-total').inputValue(),'100','a blurred calculator draft survives the hotfix');
+  assert.equal(await page.locator('#cu-unid').inputValue(),'10');
+  assert.equal(await page.locator('#buscar').inputValue(),'Synthetic','report search survives the hotfix');
   assert.equal(await page.evaluate(()=>localStorage.getItem('f123_estado_v4_B')),before);
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_dashboard_update_handoff')),null,'one use only');
   await page.locator('a[data-ruta="hoy"]').click();assert.equal(await page.evaluate(()=>__dashboardUpdate.prepare()),true);

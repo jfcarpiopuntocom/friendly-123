@@ -48,6 +48,6 @@ test('dashboard paints Commissions first: month bar, totals, cards, deep-links a
     const r3 = await page.evaluate((prev) => { const s = document.getElementById('cm-mes'); s.value = prev; s.dispatchEvent(new Event('change')); return document.getElementById('cm').innerText; }, fx.prev);
     assert.match(r3, /\$50\.00/); assert.match(r3, /\$42\.50/);
     await page.evaluate(() => { document.querySelector('[data-cm-vista="producto"]').click(); document.getElementById('puerta').style.display = 'none'; document.getElementById('cabecera').style.display = 'block'; document.getElementById('tablero').style.display = 'block'; window.scrollTo(0, 0); });
-    await page.screenshot({ path: '/tmp/claude-0/shots/7-dash-commissions.png' });
+    await page.screenshot({ path: path.join(require('node:os').tmpdir(), 'friendly-dashboard-commissions.png') });
   } finally { await web.close(); }
 });

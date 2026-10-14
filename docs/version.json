@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-13",
-  "changelog": "v495: la entrada del dashboard deja de anunciar un PIN de demo que no abre ese visor; la demo de la app se conserva.",
+  "changelog": "v496: las actualizaciones automaticas del dashboard conservan calculadora, busqueda y vista del reporte sin perder lo escrito.",
   "requerida": false,
-  "shell": "f123-shell-v495",
+  "shell": "f123-shell-v496",
   "apagar": [],
-  "releaseName": "v495",
-  "cacheGeneration": "golden59"
+  "releaseName": "v496",
+  "cacheGeneration": "golden60"
 }

@@ -50,3 +50,8 @@ Reglas que ya costaron caro (2026-09-29):
 10. Guía de trabajo de JFC del 2026-10-08 adaptada en
     C:/00 Projects/Codex-Friendly-20260917/JFC-WORKFLOW-20261008.md. Usar evidencia y entregables reales,
     reutilizar herramientas comprobadas y respetar las autorizaciones y restricciones vigentes.
+
+## JFC — prohibido dar falsa seguridad mediante recuentos de pruebas (2026-10-13)
+Orden expresa: JAMAS decirle a JFC que se hicieron cientos/miles de pruebas, ni usar numeros, porcentajes o un "todo verde" como argumento de calidad o tranquilidad. Esos recuentos no acreditan que la UI funcione como promete y ya causaron falsa seguridad.
+Comunicar comportamientos concretos comprobados, limitaciones, errores encontrados, estado publicado y enlace live. App + dashboard forman una sola UI. Guardar registros tecnicos privados sin convertir su volumen en una promesa. No afirmar una auditoria completa ni 50 errores confirmados si no hay evidencia de cada uno.
+Esta regla no elimina las comprobaciones necesarias; cambia como se informa y que se puede concluir de ellas. El verificador de publicacion que JFC prohibio sigue prohibido: continuar el trabajo autorizado con otras comprobaciones, sin volver a ejecutarlo ni pedir reenganchar a clientes.
