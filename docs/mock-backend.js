@@ -5610,8 +5610,8 @@
           formaPago: String(infoBody.formaPago || "").trim().slice(0, 20), // JFC 2026-08-26: forma de pago (portado de amigable)
           /* Explicit marker, saved in the very same durable sale record.
              Old receipts/tests without this marker keep their original contract. */
-          fiadoAtomico: infoBody.fiadoAtomico === true && String(infoBody.formaPago || "") === "fiado" &&
-            !!clienteVenta && !_esCortesia,
+          ...(infoBody.fiadoAtomico === true && String(infoBody.formaPago || "") === "fiado" &&
+            !!clienteVenta && !_esCortesia ? { fiadoAtomico: true } : {}),
           factura: String(infoBody.factura || "").trim().slice(0, 60), // JFC 2026-09-02: número de factura opcional
           montoPagado: (infoBody.montoPagado !== undefined && infoBody.montoPagado !== "") ? Math.max(0, Number(infoBody.montoPagado) || 0) : null,
           notas: String(infoBody.notas || "").trim().slice(0, 500), // JFC 2026-08-27: notas de la venta
