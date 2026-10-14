@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v503",
+  "shell": "f123-shell-v504",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-bb296695c94d54be57944417dde5a8073463bd28b859aaad2d3d945f2f317a84",
