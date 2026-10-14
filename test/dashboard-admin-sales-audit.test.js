@@ -31,7 +31,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    const dash=await ctx.newPage();await dash.goto(ORIGIN+'/dashboard.html',{waitUntil:'load'});
    assert.equal(await dash.locator('#aviso-app-abierta').isVisible(),false,'the old keep-app-open warning must not misdescribe independent local access');
    await dash.locator('#pin').fill('999');await dash.locator('#entrar').click();
-   await dash.waitForFunction(()=>/no abre el tablero/i.test(document.getElementById('msg').textContent));
+   await dash.waitForFunction(()=>/no abre el tablero|does not open the dashboard/i.test(document.getElementById('msg').textContent));
    assert.equal(await dash.locator('#tablero').isVisible(),false);
    await dash.locator('#pin').fill('555');await dash.locator('#entrar').click();await dash.waitForFunction(()=>getComputedStyle(document.getElementById('tablero')).display!=='none');
    await dash.locator('a[data-ruta="hoy"]').click();

@@ -17,7 +17,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test(`dashb
   // this authenticated business viewer. No change to the app demo itself.
   assert.doesNotMatch(await page.locator('#puerta').innerText(),/Try the demo|456|fully isolated/i);
   await page.locator('#pin').fill('456');await page.locator('#entrar').click();
-  assert.match(await page.locator('#msg').innerText(),/Revisa el código/i);
+  assert.match(await page.locator('#msg').innerText(),/Revisa el código|Check the code/i);
   assert.equal(await page.locator('#tablero').isVisible(),false);
   assert.equal(await page.evaluate(()=>localStorage.getItem('f123_owned')),null);
  }finally{await browser.close();}

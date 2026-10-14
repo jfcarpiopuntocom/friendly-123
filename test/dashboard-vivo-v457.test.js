@@ -152,14 +152,14 @@ test('(2) an admin created via /api/usuarios enters the dashboard; wrong PINs st
     const restantes = () => dash.evaluate(() => window.OCSecure.intentosRestantes('login'));
     const r0 = await restantes();
     await dash.fill('#pin', '999'); await dash.click('#entrar');
-    await dash.waitForFunction(() => /no abre el tablero/i.test(document.getElementById('msg').textContent), null, { timeout: 8000 })
+    await dash.waitForFunction(() => /no abre el tablero|does not open the dashboard/i.test(document.getElementById('msg').textContent), null, { timeout: 8000 })
       .catch(async (e) => { throw new Error('msg=' + await dash.evaluate(() => document.getElementById('msg').textContent) + ' / ' + e.message); });
     const r1 = await restantes();
     assert.equal(r1, r0 - 1, 'un PIN equivocado cuenta para el bloqueo');
     await dash.fill('#pin', '555'); await dash.click('#entrar');
     await tablero(dash);
     assert.ok(await restantes() >= r1, 'el PIN correcto de admin no suma fallos');
-    assert.match(await dash.evaluate(() => document.getElementById('kpis').textContent), /productos/, 'el admin ve datos');
+    assert.match(await dash.evaluate(() => document.getElementById('kpis').textContent), /productos|products/, 'el admin ve datos');
     assert.equal((await tiles(dash))['Still to pay'], '$120.00', 'y ve lo mismo que el dueno');
   } finally { await web.close(); }
 });
@@ -215,7 +215,7 @@ test('(5) dashboard of a licensed business shows ONLY real records; nothing is d
     const dash = await entrar(ctx, '789');
     await tablero(dash);
     const kpis = await dash.evaluate(() => document.getElementById('kpis').textContent);
-    assert.match(kpis, /6 productos/, 'Inventario cuenta SOLO los 6 reales: ' + kpis);
+    assert.match(kpis, /6 productos|6 products/, 'Inventario cuenta SOLO los 6 reales: ' + kpis);
     const todo = await dash.evaluate(() => document.body.innerText);
     assert.ok(!/ART-OIL-001|Consignment Artist|Event Partner|Sample Gallery|Original oil/.test(todo), 'ningun registro demo en pantalla');
     assert.ok(/Ana Tablero/.test(todo) || /Taza Tablero/.test(todo));
