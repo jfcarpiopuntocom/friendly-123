@@ -29,6 +29,17 @@ test('official /app and /app/ redirect directly via 307, without any origin fetc
    assert.deepEqual(called,[]);
  }
 });
+test('new /app?entry=1 bypasses an old cached permanent /app → /app/ mapping',async()=>{
+ const {response,called}=await serve('/app?entry=1&licenseCode=NOT-FORWARDABLE',{headers:{accept:'text/html'}});
+ assert.equal(response.status,307);
+ assert.equal(response.headers.get('location'),prefix);
+ assert.equal(called.length,0);
+});
+test('invalid double-slash HTML paths are not externally redirected',async()=>{
+ const {response,called}=await serve('/app//wrong.html',{headers:{accept:'text/html'}});
+ assert.equal(response.status,404);
+ assert.equal(called.length,0);
+});
 test('a deep HTML entry preserves its relative view, never arbitrary query data or license',async()=>{
  const {response,called}=await serve('/app/dashboard.html?licenseCode=TOP-SECRET&estable=1',
  {headers:{accept:'text/html'}});
