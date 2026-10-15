@@ -828,6 +828,12 @@
   }
   setInterval(function () {
     if (!ultimoDato) return;
+    if (recibirTrozo.sinConciliar) {
+      pulso((document.documentElement.lang === "es")
+        ? "Datos distintos entre aparatos · última lectura conservada"
+        : "Device data differs · last reading preserved", "viejo");
+      return;
+    }
     /* En modo local sin sala, el dato no envejece: sale del mismo dispositivo.
        Decir "sin novedades hace 40 min" ahi seria mentir. */
     if (!ws && modoLocal) { pulso("from this device", "vivo"); return; }
@@ -1019,6 +1025,36 @@
     for (var nombre in esperados) {
       if (!Object.prototype.hasOwnProperty.call(fotoTemporal, nombre)) return;
     }
+    /* v524 DASHBOARD-ONLY: a peer with a newer wall clock is not necessarily
+       ahead in business history. Never replace a complete remote view by one
+       that lost confirmed sale IDs or failed to read the sales table.
+       No record is written, restored, deleted or synthesized here. */
+    var prevCobertura = datos && datos.cobertura;
+    var nuevaCobertura = fotoTemporal && fotoTemporal.cobertura;
+    var ventasVistas = datos && Array.isArray(datos.ventas) ? datos.ventas : [];
+    var ventasRecibidas = Array.isArray(fotoTemporal.ventas) ? fotoTemporal.ventas : [];
+    var idsRecibidos = Object.create(null);
+    ventasRecibidas.forEach(function(v) {
+      if (v && v.id != null) idsRecibidos[String(v.id)] = true;
+    });
+    var faltaHistorial = ventasVistas.some(function(v) {
+      return v && v.id != null && !idsRecibidos[String(v.id)];
+    });
+    var faltaLectura = !nuevaCobertura || nuevaCobertura.ventas !== true;
+    if (_fuenteDatosDashboard === "remota" && prevCobertura &&
+        prevCobertura.ventas === true && (faltaHistorial || faltaLectura)) {
+      recibirTrozo.sinConciliar = true;
+      // Reset the candidate cursor: an untrusted timestamp must not block
+      // recovery from another peer whose device clock runs behind it.
+      fotoEnCurso = ""; fotoFecha = "";
+      esperados = {}; recibidos = {}; fotoTemporal = {}; totalTrozos = 0; clavesTrozos = {};
+      pulso((typeof document !== "undefined" && document.documentElement &&
+        document.documentElement.lang === "es")
+        ? "Datos distintos entre aparatos · última lectura conservada"
+        : "Device data differs · last reading preserved", "viejo");
+      return;
+    }
+    recibirTrozo.sinConciliar = false;
     datos = fotoTemporal;
     /* The editable snapshot must carry a single, actual origin device. */
     editorDeviceId = typeof emisor === "string" && emisor.length <= 80 ? emisor : "";
