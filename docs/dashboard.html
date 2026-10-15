@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v524">
+<meta name="dashboard-shell" content="f123-shell-v525">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -1041,8 +1041,56 @@
       return v && v.id != null && !idsRecibidos[String(v.id)];
     });
     var faltaLectura = !nuevaCobertura || nuevaCobertura.ventas !== true;
+    /* v525: a new wall-clock timestamp is not a new accounting revision.
+       Compare only stable record identities and business-critical values; if two
+       distinct peers disagree, retain the last known display, never edit data.
+       Same-source edits and additive sales remain valid and visible. */
+    var faltaCobertura = !!(prevCobertura && nuevaCobertura &&
+      ["productos", "ventas", "gastos", "liquidaciones", "transferencias", "hechosFinancieros"].some(function(k) {
+        return prevCobertura[k] === true && nuevaCobertura[k] !== true;
+      }));
+    var otroEmisor = typeof editorDeviceId === "string" && editorDeviceId.length > 0 &&
+      typeof emisor === "string" && emisor.length > 0 && editorDeviceId !== emisor;
+    function valorComparable(obj, campo) {
+      var valor = obj && obj[campo];
+      if (valor == null || valor === "") return null;
+      if (campo === "devuelta" || campo === "anulada" || campo === "borrado") return valor === true;
+      if (["cantidad", "precioUnit", "costoUnit", "stockActual", "precio", "costo",
+           "monto", "total", "saldo", "valor", "comision", "pagado"].indexOf(campo) >= 0) {
+        var n = Number(valor);
+        return Number.isFinite(n) ? n : String(valor);
+      }
+      return String(valor);
+    }
+    function diferenciasPorId(anteriores, siguientes, campos) {
+      var mapa = Object.create(null);
+      (anteriores || []).forEach(function(item) {
+        if (item && item.id != null) mapa[String(item.id)] = item;
+      });
+      return (siguientes || []).some(function(item) {
+        if (!item || item.id == null) return false;
+        var previo = mapa[String(item.id)];
+        return !!previo && campos.some(function(k) {
+          return valorComparable(previo, k) !== valorComparable(item, k);
+        });
+      });
+    }
+    var mismasVentas = ventasVistas.length === ventasRecibidas.length && !faltaHistorial;
+    var cambioMonetario = otroEmisor && diferenciasPorId(ventasVistas, ventasRecibidas,
+      ["cantidad", "precioUnit", "costoUnit", "devuelta", "anulada", "borrado",
+       "fechaDevolucion", "clienteId", "productoId", "total", "saldo"]);
+    var cambioInventario = otroEmisor && mismasVentas && !cambioMonetario &&
+      diferenciasPorId(datos && datos.productos, fotoTemporal.productos,
+        ["stockActual", "precio", "costo"]);
+    var cambioGastos = otroEmisor && diferenciasPorId(datos && datos.gastos, fotoTemporal.gastos,
+      ["monto", "total", "saldo", "fecha", "anulada", "borrado"]);
+    var cambioLiquidaciones = otroEmisor &&
+      diferenciasPorId(datos && datos.liquidaciones, fotoTemporal.liquidaciones,
+        ["monto", "total", "saldo", "pagado", "fecha", "estado"]);
+    var cifrasDiscrepantes = cambioMonetario || cambioInventario || cambioGastos || cambioLiquidaciones;
     if (typeof _fuenteDatosDashboard !== "undefined" && _fuenteDatosDashboard === "remota" && prevCobertura &&
-        prevCobertura.ventas === true && (faltaHistorial || faltaLectura)) {
+        ((prevCobertura.ventas === true && (faltaHistorial || faltaLectura)) ||
+         faltaCobertura || cifrasDiscrepantes)) {
       recibirTrozo.sinConciliar = true;
       // Reset the candidate cursor: an untrusted timestamp must not block
       // recovery from another peer whose device clock runs behind it.
