@@ -6,7 +6,7 @@ const path = require('node:path');
 
 test('dashboard commits a complete finance snapshot without mixing responders', () => {
   const html = fs.readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
-  const code = html.slice(html.indexOf('  function recibirTrozo(p) {'), html.indexOf('  /* ---------------------------------------------------------------- VISTAS */'));
+  const code = html.slice(html.indexOf('  function recibirTrozo(p'), html.indexOf('  /* ---------------------------------------------------------------- VISTAS */'));
   const shown = [];
   const node = { textContent: '' };
   const c = { datos: { productos: [{ id: 'old' }] }, fotoEnCurso: '', fotoFecha: '',
