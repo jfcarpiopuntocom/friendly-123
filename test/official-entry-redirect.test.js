@@ -63,6 +63,14 @@ test('JS, SW, version and immutable release proof are still served from the one 
    }
  }
 });
+test('clients who already own a new-origin notebook retain a non-destructive escape',async()=>{
+ const root=await serve('/app/?stay=1',{headers:{accept:'text/html'}});
+ assert.equal(root.response.status,200);
+ assert.equal(root.called.length,1,'stay=1 uses existing new-origin stable read-through');
+ const noSlash=await serve('/app?stay=1');
+ assert.equal(noSlash.response.status,307);
+ assert.equal(noSlash.response.headers.get('location'),'https://friendly123.com/app/?stay=1');
+});
 test('HEAD is not a login redirect, POST is never redirected, landing is untouched',async()=>{
  const head=await serve('/app/index.html',{method:'HEAD'});
  assert.equal(head.response.status,200);
