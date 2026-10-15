@@ -296,7 +296,30 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       // has been lost; never reinterpret a joined customer's history as demo.
       if (localStorage.getItem("f123_tienda_activa")) return true;
       var tiendas = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {};
-      return Object.keys(tiendas).length > 0;
+      if (Object.keys(tiendas).length > 0) return true;
+      // If identity metadata was lost but durable custom business records remain,
+      // never mistake this browser for a fresh demo. Pure read: no migration,
+      // reseed, backup deletion or license substitution.
+      var huellas = window.OCDemoHuellas;
+      if (!huellas) return false; // classification not available; do not guess
+      var campos = [
+        ["productos", "esProducto"], ["clientes", "esCliente"],
+        ["ubicaciones", "esUbicacion"], ["ventas", "esVenta"],
+        ["promotoras", "esPromotora"], ["sucursales", "esSucursal"]
+      ];
+      for (var b of ["f123_estado_v4_A", "f123_estado_v4_B", "f123_estado_v4"]) {
+        var raw = localStorage.getItem(b);
+        if (!raw) continue;
+        var estado;
+        try { estado = JSON.parse(raw); } catch (_) { return true; } // corrupt evidence is not a clean demo
+        if (!estado || typeof estado !== "object") continue;
+        for (var spec of campos) {
+          if (typeof huellas[spec[1]] !== "function") continue;
+          var filas = estado[spec[0]];
+          if (Array.isArray(filas) && filas.some(function (item) { return item && !huellas[spec[1]](item); })) return true;
+        }
+      }
+      return false;
     } catch (_) { return false; }
   }
   // Codigo de sala para "sincro-equipos" (homologado de AMIGABLE, 2026-07-23).
