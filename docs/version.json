@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-15",
-  "changelog": "v525: dashboard warns on contradictory sales amounts, stock and expenses from separate devices; preserves the last accepted view, with no changes to customer data.",
+  "changelog": "v526: idiomARTE finance honesty: separate workshop dates, exclude reversed event sales and deleted expenses; show gross margin and pending data rather than net profit.",
   "requerida": false,
-  "shell": "f123-shell-v525",
+  "shell": "f123-shell-v526",
   "apagar": [],
-  "releaseName": "v525",
-  "cacheGeneration": "golden89"
+  "releaseName": "v526",
+  "cacheGeneration": "golden90"
 }
