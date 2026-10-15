@@ -232,7 +232,10 @@
            Sin campo (todo lo viejo) = "casaPaga", como siempre. Si la venta ya tenia un pago en la
            direccion vieja, ese pago NO se esconde: se conserva y queda marcada para revisar. */
         if (v.direccionComision === "asociadoPaga") {
-          if (paidCents > 0) out.push({ ...o, paidCents, dueCents: 0, overpaidCents: 0, signedAmountCents: o.amountCents, directionReview: true });
+          // Keep the earned commission in history; only the HOUSE debt is zero.
+          // Paid receipts remain visible and are flagged for reconciliation.
+          out.push({ ...o, paidCents, dueCents: 0, overpaidCents: 0,
+            signedAmountCents: o.amountCents, ...(paidCents > 0 ? { directionReview: true } : {}) });
           return;
         }
         const hold = o.amountCents > 0 && dueCents > 0 ? holdUntil(v.fecha) : null;
@@ -278,6 +281,14 @@
         const byPayout = applied.get(key(o.kind, o.sourceId, o.payeeId)) || 0;
         const paidCents = o.amountCents < 0 ? Math.min(abs, legacy + byPayout) : legacy + byPayout;
         const remainder = abs - paidCents;
+        // A retroactive/return adjustment follows the original sale's direction.
+        // Its signed earning remains in the history, without inventing a debt
+        // from the house on sales collected by the associate.
+        if (sale && sale.direccionComision === "asociadoPaga") {
+          out.push({ ...o, paidCents, overpaidCents: 0, dueCents: 0,
+            signedAmountCents: o.amountCents, ...(paidCents > 0 ? { directionReview: true } : {}) });
+          return;
+        }
         out.push({ ...o, paidCents, overpaidCents:o.amountCents>0?Math.max(0,paidCents-abs):0, dueCents: o.amountCents < 0 ? -remainder : remainder, signedAmountCents: o.amountCents });
       });
     });
