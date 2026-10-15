@@ -86,3 +86,13 @@ test('v523 a pre-activated device must explicitly approve before switching licen
  assert.equal(opened,0,'cancel means the old address is not even opened');
  assert.equal(official._values.f123_owned,original,'the current license remains intact');
 });
+
+test('v523 local custom catalog without ownership marker requires explicit switching approval',()=>{
+ const state=JSON.stringify({productos:[{id:'real-stock-id'}]});
+ const official=fakeWindow(OFFICIAL,{f123_estado_v4_A:state});
+ official.OCDemoHuellas={esProducto:p=>p.id==='demo',esCliente:()=>true,esVenta:()=>true,esUbicacion:()=>true,esPromotora:()=>true,esSucursal:()=>true};
+ let opened=0;official.open=()=>{opened++;return null;};official.confirm=()=>false;
+ load(official);official._join.inserted.trigger('click');
+ assert.equal(opened,0,'real local product evidence is protected');
+ assert.equal(official._values.f123_estado_v4_A,state,'data remains byte-identical');
+});
