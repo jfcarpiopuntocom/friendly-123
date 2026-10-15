@@ -24,10 +24,8 @@ on:
         description: "Ensayo: construir el sitio sin desplegar"
         type: boolean
         default: false
-  workflow_run:
-    workflows: [release-control]
-    types: [completed]
-    branches: [master]
+  # La suite extensa es informativa; no dispara un segundo Pages deploy.
+  # Solo hotfix, recuperacion o dispatch explicito llaman a este flujo.
   workflow_call:
     inputs:
       recovery:
