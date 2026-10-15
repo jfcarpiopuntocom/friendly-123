@@ -1,6 +1,13 @@
 # FAST TRACK VIGENTE — friendly-123 (14/oct/2026)
 **Regla:** avisar antes de actuar y antes de cualquier shell nuevo; dentro del encargo aprobado, avanzar sin volver a pedir permiso. Este documento NO autoriza un producto diferente.
 
+## MÉTODOS PERMANENTES APROBADOS — 14 OCT 2026 (JFC)
+Hasta revocación expresa o una alternativa mejor APROBADA por JFC, para friendly-123:
+1. **Playwright reutilizable:** usar `test/helpers/playwright-reusable.cjs` en las pruebas nuevas que requieran navegador; un proceso por motor dentro del archivo de pruebas, contexto/localStorage nuevos para cada caso, datos sintéticos y bloqueo de red de producción `test/helpers/sin-red-produccion.cjs`. No mezclar cuadernos.
+2. **Pruebas focalizadas antes que suite completa:** `scripts/pruebas-del-area.cjs` selecciona tests tocados, humo fijo y regresiones por diffs de dinero/licencia/demo (incluidos archivos grandes). Mantener `release-control.yml` en paralelo, nunca sustituir invariantes financieros por un simple humo.
+3. **El mismo candidato validado:** `hotfix.yml` comprueba el commit, promueve su SHA a `estable` solo después de los gates, y `publicar.yml` ensambla desde esa referencia; caché npm + caché de Playwright; una sola publicación por promoción efectiva, más comprobación postdespliegue. Sin nuevas esperas artificiales.
+**Alcance exacto:** NO incluye MSW ni fast-check (propuestas 3 y 4 no aprobadas), ni migración a Vitest, ni licencia para publicar sin los gates/aprobación pertinentes, tocar runtime sin encargo, borrar datos, modificar UX o inventar números. Objetivo de 10–15 min para hotfixes pequeños, nunca promesa automática de plazo. Los cambios de infraestructura no prueban que v523 esté reparada o publicada.
+
 ## Clasificación que evita cambios innecesarios
 - **Solo Markdown fuera de docs/**: editar, revisar consistencia/enlaces y comprobar lo guardado. **No crear shell, actualizar SW, despliegue ni pruebas del runtime.**
 - **Cambio en docs/** (aplicación, dashboard): versión de shell única, manifest coherente con bytes publicados, prueba focalizada y publicación por mecanismo actual.
