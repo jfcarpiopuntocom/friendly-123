@@ -5,6 +5,7 @@ Status: **prepared in GitHub; not deployed to friendly123.com**. Scope approved 
 ## 1 — reversible edge redirect (code)
 
 - The existing Cloudflare Worker `friendly123-com` routes GET **document navigation** `/app`, `/app/`, `/app/index.html`, and other HTML pages to `https://jfcarpiopuntocom.github.io/friendly-123/` via **HTTP 307** with `Cache-Control: no-store`. No iframe, no new local notebook, no PIN activation.
+- **Cached 301 caveat:** the previously installed Worker replied with a permanent 301 from `/app` to `/app/`. Some browsers may remember it and keep reaching the old cached `/app/` even after a new 307 is deployed. For those browsers the temporary escape URL **`https://friendly123.com/app?entry=1`** (still outside `/app/` SW scope) uses a different HTTP cache key. It drops this query before arriving at the old site. Never advise deleting user storage to fix a cached redirect.
 - **Preferred advertised entry: `https://friendly123.com/app` (without trailing slash).** The old service worker's scope is `/app/`, so this URL falls outside that scope and can reach the Worker even when `/app/` has a cached shell.
 - The user sees the working old hostname after navigation. This is intentional until the optional migration is approved.
 - The official root landing, payment/legal pages and non-HTML assets are untouched. `/app/version.json`, `/app/_release.json`, `/app/sw.js`, JS and CSS remain read-through from the **same stable commit**; no duplicate Cloudflare app build.
