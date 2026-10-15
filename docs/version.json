@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v521: commission arrow (who pays whom) per product and per sale; Summary by Product switch fixes all sales of the product; Expenses and dashboard show commissions paid (expense) and received (income).",
+  "changelog": "v522: same code as v521 (commission arrow: who pays whom), republished by JFC after the v520 rewind.",
   "requerida": false,
-  "shell": "f123-shell-v521",
+  "shell": "f123-shell-v522",
   "apagar": [],
-  "releaseName": "v521",
-  "cacheGeneration": "golden85"
+  "releaseName": "v522",
+  "cacheGeneration": "golden86"
 }
