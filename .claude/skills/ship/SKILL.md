@@ -16,6 +16,13 @@ name: ship
 description: Publicar reparaciones autorizadas de friendly-123 con aviso, pruebas focalizadas y verificación.
 ---
 
+## MÉTODOS PERMANENTES APROBADOS — 14 OCT 2026 (JFC)
+Hasta revocación expresa o una alternativa mejor APROBADA por JFC, para friendly-123:
+1. **Playwright reutilizable:** usar `test/helpers/playwright-reusable.cjs` en las pruebas nuevas que requieran navegador; un proceso por motor dentro del archivo de pruebas, contexto/localStorage nuevos para cada caso, datos sintéticos y bloqueo de red de producción `test/helpers/sin-red-produccion.cjs`. No mezclar cuadernos.
+2. **Pruebas focalizadas antes que suite completa:** `scripts/pruebas-del-area.cjs` selecciona tests tocados, humo fijo y regresiones por diffs de dinero/licencia/demo (incluidos archivos grandes). Mantener `release-control.yml` en paralelo, nunca sustituir invariantes financieros por un simple humo.
+3. **El mismo candidato validado:** `hotfix.yml` comprueba el commit, promueve su SHA a `estable` solo después de los gates, y `publicar.yml` ensambla desde esa referencia; caché npm + caché de Playwright; una sola publicación por promoción efectiva, más comprobación postdespliegue. Sin nuevas esperas artificiales.
+**Alcance exacto:** NO incluye MSW ni fast-check (propuestas 3 y 4 no aprobadas), ni migración a Vitest, ni licencia para publicar sin los gates/aprobación pertinentes, tocar runtime sin encargo, borrar datos, modificar UX o inventar números. Objetivo de 10–15 min para hotfixes pequeños, nunca promesa automática de plazo. Los cambios de infraestructura no prueban que v523 esté reparada o publicada.
+
 # ship — ejecución responsable del fast track JFC
 Antes de trabajar: leer AGENTS.md, CLAUDE.md, agent-rules/OPERATING-CONTRACT.md y agent-rules/FAST-TRACK.md.
 1. AVISAR a JFC ANTES de actuar. Si se necesita otro shell, avisar número, causa e impacto ANTES de crearlo/publicarlo; la misión ya aprobada continúa tras informar sin nuevas preguntas.
