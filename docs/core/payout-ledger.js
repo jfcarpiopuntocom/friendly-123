@@ -227,6 +227,14 @@
         const paidCents = legacy + byPayout;
         const overpaidCents = Math.max(0, paidCents - total);
         const dueCents = total - paidCents;
+        /* FLECHA DE COMISION (JFC 2026-10-14, v521). direccionComision "asociadoPaga" = el asociado
+           cobro al cliente y le debe a la casa su parte: la casa NO le debe nada por esa venta.
+           Sin campo (todo lo viejo) = "casaPaga", como siempre. Si la venta ya tenia un pago en la
+           direccion vieja, ese pago NO se esconde: se conserva y queda marcada para revisar. */
+        if (v.direccionComision === "asociadoPaga") {
+          if (paidCents > 0) out.push({ ...o, paidCents, dueCents: 0, overpaidCents: 0, signedAmountCents: o.amountCents, directionReview: true });
+          return;
+        }
         const hold = o.amountCents > 0 && dueCents > 0 ? holdUntil(v.fecha) : null;
         if (hold) { out.push({ ...o, paidCents, dueCents: 0, heldCents: dueCents, heldUntil: hold, signedAmountCents: o.amountCents }); return; }
         out.push({ ...o, paidCents, dueCents, overpaidCents, signedAmountCents: o.amountCents });
