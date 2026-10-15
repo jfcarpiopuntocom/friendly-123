@@ -5,6 +5,9 @@ const SOURCE='https://jfcarpiopuntocom.github.io/friendly-123/';
 // DO NOT embed the legacy site in an iframe (third-party storage isolation).
 const TEMPORARY_LEGACY_ENTRY = true;
 function legacyNavigation(request,u) {
+ // An old-domain redirect must never trap a customer who has real records only
+ // in the official origin. Explicit no-UI escape keeps that existing notebook.
+ if (u.searchParams.get('stay') === '1') return false;
  if (!TEMPORARY_LEGACY_ENTRY || request.method !== 'GET') return false;
  if (u.pathname === '/app' || u.pathname === '/app/' || u.pathname === '/app/index.html') return true;
  const html = u.pathname.startsWith('/app/') && !u.pathname.startsWith('/app//') && u.pathname.endsWith('.html');
@@ -33,7 +36,7 @@ export async function serveApp(request,env,readSource=fetch){
    'Referrer-Policy':'no-referrer','Vary':'Accept, Sec-Fetch-Mode',
    'X-F123-Entry':'legacy-temporary-redirect'
  }});
- if(u.pathname==='/app'){u.pathname='/app/';return new Response(null,{status:301,headers:{Location:u.href,'Cache-Control':'no-store'}});}
+ if(u.pathname==='/app'){u.pathname='/app/';return new Response(null,{status:307,headers:{Location:u.href,'Cache-Control':'no-store'}});}
  let relative=u.pathname.replace(/^\/app\/?/,'')||'index.html';
  try{if(decodeURIComponent(relative).split('/').some(p=>p==='..'||p==='.')||relative.includes('\\'))return new Response('Not found',{status:404});}catch(_){return new Response('Not found',{status:404});}
  const proof=relative==='_release.json';
