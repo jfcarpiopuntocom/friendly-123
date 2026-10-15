@@ -4949,6 +4949,12 @@
          Una venta que ya tenia pago en la direccion vieja se cambia igual, pero el pago se conserva en el
          libro y la venta queda marcada para revisar (directionReview); se informa cuantas. Persiste UNA vez. */
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/direccion-comision$/)) && opts && opts.method === "PATCH") {
+        // Financial history can only be reclassified by an authorized owner/admin.
+        // Demo may exercise this on its synthetic notebook only.
+        if (!["dueno", "admin", "demo"].includes(_rolLocal())) {
+          debePersistir = false;
+          return J({ error: "Only the owner or administrator can change commission direction." }, 403);
+        }
         const p = productos.find((x) => x.id === m[1] && !x.borrado); if (!p) return J({ error: "Product not found." }, 404);
         const dir = _direccionValida(body && body.direccion);
         if (!dir) return J({ error: "Direction must be casaPaga or asociadoPaga." }, 400);
@@ -6600,8 +6606,10 @@
       const _coreVentas = _payoutCore();
       const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, payoutConflicts, holdDays:ajusteRetencion ? ajusteRetencion.dias : 0, asOf:new Date().toISOString() }) : [];
       const _dueVenta = new Map();
+      const _paidVenta = new Map();
       const _heldVenta = new Map();
       _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _dueVenta.set(String(o.sourceId), (_dueVenta.get(String(o.sourceId)) || 0) + Number(o.dueCents || 0)));
+      _obsVentas.filter((o) => o.kind === "sale" && o.paidCents > 0).forEach((o) => _paidVenta.set(String(o.sourceId), true));
       _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _heldVenta.set(String(o.sourceId), (_heldVenta.get(String(o.sourceId)) || 0) + Number(o.heldCents || 0)));
       /* v457 (b): una venta vieja sin reparto recalculada al % del producto NO se reescribe; su comision vive en el
          ajuste "adj-retro-<id>". La fila la lee DEL LEDGER (centavos exactos, ya pagado o no), sin recalcular aqui. */
@@ -6659,6 +6667,7 @@
           direccionComision: v.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga",
           comisionCorregida: !!(v.split && v.split.corregida),
           liquidada: !!v.liquidada,
+          comisionPagada: !!_paidVenta.get(String(v.id)),
           /* Payout Ledger: exact remaining commission for this sale, summed
              across people. Null only when the pure ledger core is unavailable. */
           comisionPendiente: _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
