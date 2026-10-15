@@ -90,6 +90,7 @@ const SHELL = [
   "./crypto-store.js",
   "./email-recovery.js",
   "./auth-ui.js",
+  "./origin-handoff.js",
   "./tab-session.js",
   "./backup-scheduler.js",
   "./avanzado-extra.js",
