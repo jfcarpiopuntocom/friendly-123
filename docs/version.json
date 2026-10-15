@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-14",
-  "changelog": "v523: preserve licensed notebook access, historical commission earnings, fiado balances, cross-device commission directions and tablet editing controls.",
+  "fecha": "2026-10-15",
+  "changelog": "v524: dashboard keeps the last complete view when another device omits recorded sales or cannot read its sales table; warns without modifying the notebook.",
   "requerida": false,
-  "shell": "f123-shell-v523",
+  "shell": "f123-shell-v524",
   "apagar": [],
-  "releaseName": "v523",
-  "cacheGeneration": "golden87"
+  "releaseName": "v524",
+  "cacheGeneration": "golden88"
 }
