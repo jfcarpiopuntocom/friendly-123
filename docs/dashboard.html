@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v527">
+<meta name="dashboard-shell" content="f123-shell-v528">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -1537,8 +1537,9 @@
       if (v.id) (copies[v.id] || (copies[v.id]=[])).push(v);
       var name = String(v.eventoNombre || "").trim();
       if (!name) { if (v.tipoProducto !== "ticket") return; name = "(ticket with no event name)"; }
-      var key = RM.eventKey(v,zone) || "missing:" + idx;
-      var g = groups[key] || (groups[key] = {evento:name,fecha:RM.day(v.eventoFecha,zone),ventas:0,unidades:0,personas:0,devoluciones:0,corregidas:0,perchas:{},compradores:{},seen:{},records:[],ultima:""});
+      var identity=RM.eventKey(v,zone),key=identity || "missing:" + idx;
+      if(v.id==null&&!RM.day(v.eventoFecha,zone)&&!v.eventoId&&!v.eventoOccurrenceId&&!v.ocurrenciaId)key+='|row:'+idx;
+      var g = groups[key] || (groups[key] = {eventKey:identity,evento:name,fecha:RM.day(v.eventoFecha,zone),ventas:0,unidades:0,personas:0,devoluciones:0,corregidas:0,perchas:{},compradores:{},seen:{},records:[],ultima:""});
       g.records.push(v);
       // Counts are metadata. Every financial total below comes from the core,
       // which sees ALL copies and quarantines contradictory IDs as a set.
@@ -1554,7 +1555,7 @@
     return Object.keys(groups).map(function(key){
       var g=groups[key], ids=Object.create(null), records=[];
       g.records.forEach(function(v){if(!v.id){records.push(v);return;}if(ids[v.id])return;ids[v.id]=true;copies[v.id].forEach(function(copy){records.push(copy);});});
-      var r=RM.businessResult({sales:records,expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],zone:zone,scope:{eventKey:key},
+      var r=RM.businessResult({sales:records,expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],zone:zone,scope:{eventKey:g.eventKey},
         coverage:{sales:coverage.ventas!==false,expenses:coverage.gastos===true,adjustments:coverage.ajustesComision===true,coherent:coverage.finanzasCoherentes===true}});
       var moneyValue=function(c){return c===null?null:c/100;};
       return {evento:g.evento,fecha:g.fecha||"",ventas:g.ventas,unidades:g.unidades,personas:g.personas||null,

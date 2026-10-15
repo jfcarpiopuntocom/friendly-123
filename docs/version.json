@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-15",
-  "changelog": "v527: common house result across Expenses, dashboard and PDF; coherent sales/expense capture, event contribution, deterministic conflict handling and bundled bilingual PDF.",
+  "changelog": "v528: coherent house result across Expenses, dashboard and bilingual offline PDF; preserve undated historical event rows without inventing period dates.",
   "requerida": false,
-  "shell": "f123-shell-v527",
+  "shell": "f123-shell-v528",
   "apagar": [],
-  "releaseName": "v527",
-  "cacheGeneration": "golden91"
+  "releaseName": "v528",
+  "cacheGeneration": "golden92"
 }

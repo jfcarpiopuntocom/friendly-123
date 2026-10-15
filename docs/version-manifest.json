@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v527",
+  "shell": "f123-shell-v528",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-a2a103000221790b05f7a766f1bee9453d0157f32e2a2739fb22ae47ecedb512",
@@ -54,7 +54,7 @@
     "./core/demo-huellas.js": "sha256-c7091f4114f78cc8948b01bc80093940d4a69d071948c4622840b9bc2bf8d735",
     "./core/ledger.js": "sha256-8a08a4d780f2f86ae28f2232aa621be064466f3242485b04f71b43cb3aacccea",
     "./core/sales-audit.js": "sha256-450a2c18accad13ae0949aa14fa05b724ee0b77f84915980799a35933ff4f007",
-    "./core/business-read-model.js": "sha256-f5c9ca0411c8151ac8e4017b6108e79c9fd58f4f707f8ac30e53a55966d3a1fa",
+    "./core/business-read-model.js": "sha256-bf4f13ed1fc175c7bb043bd6f056b6bdb55418a18a2b0bf1959a66a84119fa43",
     "./sales-audit-ui.js": "sha256-fc538f10587093a0aa94e9922b6ce627c4a25ca76ed42491193fc955f504dd22",
     "./application/recover-shelf-photo.js": "sha256-2c1f73f4c6d0e0869fe4b110f314f44313d65116c4ced0900d050c05db6b49e7",
     "./idb-archivo.js": "sha256-7a973da43f5858675d472a9982af855e047ebe14ac16c93b4d89333c28da8963",
@@ -63,7 +63,7 @@
     "./micelio-vivo.js": "sha256-4e9201311c932092e1b4bf4755e95410dd9b822bfc046a39f1534e6b3a7d8cda",
     "./micelio-ui.js": "sha256-85f2e15243f9961047efdec851bd84634839c6f733317f0197f1d6632a82e306",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-12dfc354d617a3e88dbf2d7e8176072a668105314a67391c5f49e05b8a8c4351",
+    "./dashboard.html": "sha256-96919a04c6ee26433b4fdb76bcd07594274c8877f0289e6f9524057a03c07026",
     "./dashboard-updates.js": "sha256-98b7f30097e123fe86a6d1e58c77b233a443c5952a8864dba4c887ff4bc826b9",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-204be1a4c8288a6c8ee41bc85d4f3a4bdb2d01ddec020c1e3fef7d0d0031a060",

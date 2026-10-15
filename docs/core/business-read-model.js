@@ -111,12 +111,13 @@
    if(v.comisionAjusteRetroIncluido&&returned&&inPeriod(original)!==inPeriod(returned)){
     out.houseShareCents=null;out.artistShareCents=null;warnings.add('retroactive-return-period-pending');
    }
-   if(!original||a.amountCents===null){warnings.add('invalid-sale');out.salesCents=null;out.returnedCents=null;out.netCents=null;out.houseShareCents=null;out.artistShareCents=null;out.costCents=null;continue;}
+   if((!original&&(from||to))||a.amountCents===null){warnings.add('invalid-sale');out.salesCents=null;out.returnedCents=null;out.netCents=null;out.houseShareCents=null;out.artistShareCents=null;out.costCents=null;continue;}
+   if(!original)warnings.add('undated-sale');
    if(a.splitConflict)warnings.add('conflicting-split');
    if(a.houseCents===null||a.artistCents===null)warnings.add('missing-split');
    if(a.costCents===null)warnings.add('missing-cost');
    const apply=sign=>{out.netCents=sum([out.netCents,sign*a.amountCents]);out.costCents=sum([out.costCents,a.costCents===null?null:sign*a.costCents]);out.houseShareCents=sum([out.houseShareCents,a.houseCents===null?null:sign*a.houseCents]);out.artistShareCents=sum([out.artistShareCents,a.artistCents===null?null:sign*a.artistCents]);};
-   if(inPeriod(original)){out.salesCents=sum([out.salesCents,a.amountCents]);apply(1);}
+   if(inPeriod(original)||!from&&!to&&!original){out.salesCents=sum([out.salesCents,a.amountCents]);apply(1);}
    if(v.devuelta){
     if(returned&&inPeriod(returned)||!from&&!to&&!returned){out.returnedCents=sum([out.returnedCents,a.amountCents]);apply(-1);}
     else if(!returned){unknownReturn=true;warnings.add('undated-return');}
