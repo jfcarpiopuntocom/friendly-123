@@ -93,3 +93,20 @@ test('v523: retroactive direction and its audit cross the existing encrypted-cat
   assert.equal(received.direccionComision, 'asociadoPaga');
   assert.equal(received.direccionCambios.length, 1);
 });
+
+test('v523: owned/known joined notebooks never qualify as unowned demo devices', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const auth = fs.readFileSync(path.resolve(__dirname, '../docs/auth-ui.js'), 'utf8');
+  const found = auth.match(/function dispositivoApropiado\(\) \{([\s\S]*?)\n  \}/);
+  assert.ok(found, 'the real ownership guard must remain present');
+  const probe = new Function('localStorage', 'return (function dispositivoApropiado(){' + found[1] + '})()');
+  function device(saved) {
+    return probe({ getItem: k => saved[k] ?? null });
+  }
+  assert.equal(device({}), false, 'a clean visitor may use demo');
+  assert.equal(device({ f123_owned: JSON.stringify({ instanceId: 'device-fixture' }) }), true);
+  assert.equal(device({ f123_owned: JSON.stringify({ licenseCode: 'F123-TEST-0000' }) }), true);
+  assert.equal(device({ f123_tienda_activa: '::F123-TEST-0000' }), true);
+  assert.equal(device({ f123_tiendas: JSON.stringify({ fixture: { nombre: 'Synthetic shop' } }) }), true);
+});
