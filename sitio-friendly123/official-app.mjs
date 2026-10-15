@@ -7,13 +7,13 @@ const TEMPORARY_LEGACY_ENTRY = true;
 function legacyNavigation(request,u) {
  if (!TEMPORARY_LEGACY_ENTRY || request.method !== 'GET') return false;
  if (u.pathname === '/app' || u.pathname === '/app/' || u.pathname === '/app/index.html') return true;
- const html = u.pathname.startsWith('/app/') && /\\.html$/.test(u.pathname);
+ const html = u.pathname.startsWith('/app/') && !u.pathname.startsWith('/app//') && u.pathname.endsWith('.html');
  // Other HTML views must only redirect as documents, never as JS/fetch assets.
  return html && (request.headers.get('Sec-Fetch-Mode') === 'navigate' ||
-   /text\\/html/i.test(request.headers.get('Accept') || ''));
+   String(request.headers.get('Accept') || '').toLowerCase().includes('text/html'));
 }
 function legacyDestination(u) {
- const relative=u.pathname.replace(/^\\/app\\/?/,'') || 'index.html';
+ const relative=(u.pathname==='/app' ? '' : u.pathname.slice(5)) || 'index.html';
  // Path is always confined to the historical app prefix. Never relay arbitrary
  // query strings (which could contain a license or business data).
  const target=new URL(relative === 'index.html' ? './' : relative,SOURCE);
