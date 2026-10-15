@@ -3,7 +3,7 @@
   "shell": "f123-shell-v523",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-aff75ac666f83b19d534cf7b2a05a6f091c6592992cdb0d4d4b2a5be855042e4",
+    "./index.html": "sha256-2fafa933e3a04e6a087378bf51fbbc695825cf038649a731a1b13b980d02f360",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./img/logo-720.png": "sha256-621d161800503a13f3aa6248b6829ce69d9265b708d2d228e5eb051b9bd775ae",
     "./copiar-libre.js": "sha256-d30e6b2c6515df2608a7d7083c51a8251483a5443c785fefedf6b51b2910afd8",
@@ -38,6 +38,7 @@
     "./crypto-store.js": "sha256-0a8a3d850cf74a164209a304f967d3b917cdadb300bff0c72e7c76dff532bdc9",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
     "./auth-ui.js": "sha256-b152af6c9c6d28ad8342ea2c812cf1f7988fd656b32814839feecbe1226be739",
+    "./origin-handoff.js": "sha256-bb6d95b81ff1a79e6ef09714d5b5fb638fb44d07da522e562159c0a6317230b5",
     "./tab-session.js": "sha256-235b35d6320b4c2696b45b435be6336f9c250a6f917421f660773642716c4232",
     "./backup-scheduler.js": "sha256-8ee6cc656bbf7998727d1c3e8ac2c34372bf205c374ac3ede49901f0b8cf669a",
     "./avanzado-extra.js": "sha256-38b15f66faf3ebfe2e37fd4c772812bcccb53874f317de2583c1946addb5e7db",
