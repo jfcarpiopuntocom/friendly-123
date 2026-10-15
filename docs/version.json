@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-15",
-  "changelog": "v526: idiomARTE finance honesty: separate workshop dates, exclude reversed event sales and deleted expenses; show gross margin and pending data rather than net profit.",
+  "changelog": "v527: common house result across Expenses, dashboard and PDF; coherent sales/expense capture, event contribution, deterministic conflict handling and bundled bilingual PDF.",
   "requerida": false,
-  "shell": "f123-shell-v526",
+  "shell": "f123-shell-v527",
   "apagar": [],
-  "releaseName": "v526",
-  "cacheGeneration": "golden90"
+  "releaseName": "v527",
+  "cacheGeneration": "golden91"
 }

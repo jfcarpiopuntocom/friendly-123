@@ -4768,6 +4768,102 @@
     }
   } catch (_) {}
 
+  // One canonical sales adapter, reused by legacy reads and the atomic reporting cut.
+  // No await: sales, expense records and revision are serialized in one JS turn.
+  function ventasParaReportes(uid) {
+      const _coreVentas = _payoutCore();
+      const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, payoutConflicts, holdDays:ajusteRetencion ? ajusteRetencion.dias : 0, asOf:new Date().toISOString() }) : [];
+      const _dueVenta = new Map();
+      const _paidVenta = new Map();
+      const _heldVenta = new Map();
+      _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _dueVenta.set(String(o.sourceId), (_dueVenta.get(String(o.sourceId)) || 0) + Number(o.dueCents || 0)));
+      _obsVentas.filter((o) => o.kind === "sale" && o.paidCents > 0).forEach((o) => _paidVenta.set(String(o.sourceId), true));
+      _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _heldVenta.set(String(o.sourceId), (_heldVenta.get(String(o.sourceId)) || 0) + Number(o.heldCents || 0)));
+      /* v457 (b): una venta vieja sin reparto recalculada al % del producto NO se reescribe; su comision vive en el
+         ajuste "adj-retro-<id>". La fila la lee DEL LEDGER (centavos exactos, ya pagado o no), sin recalcular aqui. */
+      const _retroPorVenta = new Map();
+      if (_coreVentas) {
+        const _ajPorId = new Map(ajustesComision.filter(Boolean).map((a) => [String(a.id), a]));
+        _obsVentas.filter((o) => o.kind === "adjustment").forEach((o) => {
+          const a = _ajPorId.get(String(o.sourceId));
+          if (!a || a.tipo !== "recalculo-retroactivo") return;
+          const k = String(a.ventaId);
+          const r = _retroPorVenta.get(k) || { ganadoC: 0, dueC: 0, pct: a.comisionPct != null ? a.comisionPct : null, payeeId: o.payeeId };
+          r.ganadoC += Number(o.signedAmountCents || 0); r.dueC += Number(o.dueCents || 0);
+          _retroPorVenta.set(k, r);
+        });
+      }
+      return ventasActivas().filter((v) => !uid || uid === "todas" || v.ubicacionId === uid).map((v) => {
+        const p = productos.find((x) => x.id === v.productoId);
+        const c = clientes.find((x) => x.id === v.clienteId);
+        const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+        // Persona de la venta primero (campo nuevo); ventas viejas caen a la percha.
+        const _pid = v.promotoraId || (u && u.promotoraId) || null;
+        const pr = _pid ? promotoras.find((x) => x.id === _pid) : null;
+        const _rt = !v.split ? _retroPorVenta.get(String(v.id)) : null;
+        const _prRt = _rt && _rt.payeeId ? promotoras.find((x) => x.id === _rt.payeeId) : null;
+        return {
+          id: v.id, fecha: v.fecha,
+          productoId: v.productoId,
+          productoNombre: p ? p.nombre : "(deleted product)",
+          sku: p ? p.sku : "", categoria: p ? p.categoria : "",
+          comisionistaIdProducto: p ? (p.comisionistaId || null) : null,
+          /* v457: el % propio del producto (null si no tiene): Commissions lo usa para no contar como "casa" una venta guardada sin reparto de un producto que si comisiona. */
+          pctAsociadoProducto: p ? normPctAsociado(p.pctAsociado) : null,
+          direccionProducto: p && p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha: switch de Summary by Product
+          comisionistaNombreProducto: p && p.comisionistaId ? ((promotoras.find(x => x.id === p.comisionistaId && !x.borrado) || {}).nombre || "") : "",
+          cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit == null || v.costoUnit === "" ? null : v.costoUnit,
+          clienteNombre: c ? c.nombre : "",
+          ubicacionId: v.ubicacionId, ubicacionNombre: nombreUbic(v.ubicacionId),
+          tipoProducto: p ? (p.tipoProducto || "normal") : "normal",
+          eventoNombre: (v.info && v.info.nombreEvento) || "",
+          eventoId: (v.info && (v.info.eventoId || v.info.eventOccurrenceId || v.info.ocurrenciaId)) || null,
+          eventoFecha: (v.info && v.info.fechaEvento) || "",
+          eventoPersonas: (v.info && v.info.numPersonas) || null,
+          pagador: (v.info && v.info.nombrePagador) || "",
+          formaPago: (v.info && v.info.formaPago) || "",
+          factura: (v.info && v.info.factura) || "",
+          cortesia: !!(v.info && v.info.cortesia), // JFC 2026-09-08: venta de cortesía.
+          notas: (v.info && v.info.notas) || "",
+          clienteId: v.clienteId || "",
+          servings: (v.info && v.info.servings) || null,
+          botellas: (v.info && v.info.botellas) || null,
+          comisionPct: v.split ? v.split.comisionPct : (_rt ? _rt.pct : null),
+          comisionAjusteRetroIncluido: !!_rt,
+          comisionAsociado: v.split ? v.split.montoComisionSocio : (_rt ? _coreVentas.money(_rt.ganadoC) : 0),
+          netoCasa: v.split ? v.split.montoNetoDueno : (_rt ? +(((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) - _coreVentas.money(_rt.ganadoC)).toFixed(2) : null),
+          modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
+          /* v521 flecha: sin campo = venta vieja = la casa paga. */
+          direccionComision: v.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga",
+          comisionCorregida: !!(v.split && v.split.corregida),
+          liquidada: !!v.liquidada,
+          comisionPagada: !!_paidVenta.get(String(v.id)),
+          /* Payout Ledger: exact remaining commission for this sale, summed
+             across people. Null only when the pure ledger core is unavailable. */
+          comisionPendiente: _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
+          comisionRetenida: _coreVentas ? _coreVentas.money(_heldVenta.get(String(v.id)) || 0) : 0,
+          devuelta: !!v.devuelta,
+          fechaDevolucion: v.fechaDevolucion || ((ajustesComision.find(a=>a && (a.id===v.devolucionId || (a.tipo==="devolucion" && a.ventaId===v.id))) || {}).fecha) || null,
+          medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
+          reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
+          asistenteNombre: (v.split && v.split.reparto && v.split.reparto[1]) ? ((promotoras.find((x) => x.id === v.split.reparto[1].promotoraId) || {}).nombre || "") : "",
+          /* JFC 2026-09-23: el resumen por producto de Commissions usa el MISMO mes que
+             /api/liquidaciones (hora local del negocio) y sabe si la percha comparte
+             comision, sin que el front recalcule fechas ni cruce tablas. Aditivo. */
+          delMesActual: esDelMesActual(v.fecha, v.relojDesfaseMs),
+          // Shell 371: el mes local de la venta, para que Commissions filtre por el mes elegido.
+          mes: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7) : "",
+          fechaLocal: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs) : "",
+          ubicacionTipo: u ? (u.tipo || "propio") : "",
+          // COUNTER SALE no se atribuye a la persona permanente de la percha:
+          // el nombre acompaña solo a ventas que realmente tienen reparto.
+          asociadoNombre: v.split && pr ? pr.nombre : (_prRt ? _prRt.nombre : ""),
+          // 2026-09-26 (aditivo): id de la persona que cobra, para el estado de cuenta por persona.
+          promotoraId: v.split && pr ? pr.id : (_prRt ? _prRt.id : null),
+        };
+      });
+  }
+
   const realFetch = window.fetch.bind(window);
 
   /* CANDADO ENTRE PESTANAS (revision Linus 2026-09-25). Toda escritura /api pasa por un
@@ -6598,101 +6694,12 @@
       // Unidades vendidas HOY por producto (el cierre del dia las muestra
       // como referencia: lo tecleado ahi es ADICIONAL, jamas se pre-carga
       // como cantidad — eso duplicaria ventas al aplicar).
-      if (path === "/api/ventas/todas") {
-      /* Solo lectura, ya enriquecida con nombres: la arma el backend para que
-         el tablero no tenga que cruzar tablas por su cuenta (que es como dos
-         pantallas terminan mostrando dos numeros distintos del mismo negocio).
-         Portado desde amigable-123 (JFC 2026-08-18). */
-      const _coreVentas = _payoutCore();
-      const _obsVentas = _coreVentas ? _coreVentas.buildObligations({ sales:ventasActivas(), adjustments:ajustesComision, locations:ubicaciones, payouts, payoutConflicts, holdDays:ajusteRetencion ? ajusteRetencion.dias : 0, asOf:new Date().toISOString() }) : [];
-      const _dueVenta = new Map();
-      const _paidVenta = new Map();
-      const _heldVenta = new Map();
-      _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _dueVenta.set(String(o.sourceId), (_dueVenta.get(String(o.sourceId)) || 0) + Number(o.dueCents || 0)));
-      _obsVentas.filter((o) => o.kind === "sale" && o.paidCents > 0).forEach((o) => _paidVenta.set(String(o.sourceId), true));
-      _obsVentas.filter((o) => o.kind === "sale").forEach((o) => _heldVenta.set(String(o.sourceId), (_heldVenta.get(String(o.sourceId)) || 0) + Number(o.heldCents || 0)));
-      /* v457 (b): una venta vieja sin reparto recalculada al % del producto NO se reescribe; su comision vive en el
-         ajuste "adj-retro-<id>". La fila la lee DEL LEDGER (centavos exactos, ya pagado o no), sin recalcular aqui. */
-      const _retroPorVenta = new Map();
-      if (_coreVentas) {
-        const _ajPorId = new Map(ajustesComision.filter(Boolean).map((a) => [String(a.id), a]));
-        _obsVentas.filter((o) => o.kind === "adjustment").forEach((o) => {
-          const a = _ajPorId.get(String(o.sourceId));
-          if (!a || a.tipo !== "recalculo-retroactivo") return;
-          const k = String(a.ventaId);
-          const r = _retroPorVenta.get(k) || { ganadoC: 0, dueC: 0, pct: a.comisionPct != null ? a.comisionPct : null, payeeId: o.payeeId };
-          r.ganadoC += Number(o.signedAmountCents || 0); r.dueC += Number(o.dueCents || 0);
-          _retroPorVenta.set(k, r);
-        });
+      if (path === "/api/reporting/corte" && method === "GET") {
+        if (!["dueno", "admin", "contador", "demo"].includes(_rolLocal())) return J({error:"Ask the owner or a manager to view this financial report."},403);
+        return J({schema:1, revision:_localRev, timezone:localStorage.getItem("f123_timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone,
+          generadaEn:new Date().toISOString(), ventas:ventasParaReportes(uid), gastos:gastos.filter(g=>!g.borrado).slice().reverse(), ajustesComision:ajustesComision.slice()});
       }
-      return J(ventasActivas().filter((v) => !uid || uid === "todas" || v.ubicacionId === uid).map((v) => {
-        const p = productos.find((x) => x.id === v.productoId);
-        const c = clientes.find((x) => x.id === v.clienteId);
-        const u = ubicaciones.find((x) => x.id === v.ubicacionId);
-        // Persona de la venta primero (campo nuevo); ventas viejas caen a la percha.
-        const _pid = v.promotoraId || (u && u.promotoraId) || null;
-        const pr = _pid ? promotoras.find((x) => x.id === _pid) : null;
-        const _rt = !v.split ? _retroPorVenta.get(String(v.id)) : null;
-        const _prRt = _rt && _rt.payeeId ? promotoras.find((x) => x.id === _rt.payeeId) : null;
-        return {
-          id: v.id, fecha: v.fecha,
-          productoId: v.productoId,
-          productoNombre: p ? p.nombre : "(deleted product)",
-          sku: p ? p.sku : "", categoria: p ? p.categoria : "",
-          comisionistaIdProducto: p ? (p.comisionistaId || null) : null,
-          /* v457: el % propio del producto (null si no tiene): Commissions lo usa para no contar como "casa" una venta guardada sin reparto de un producto que si comisiona. */
-          pctAsociadoProducto: p ? normPctAsociado(p.pctAsociado) : null,
-          direccionProducto: p && p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha: switch de Summary by Product
-          comisionistaNombreProducto: p && p.comisionistaId ? ((promotoras.find(x => x.id === p.comisionistaId && !x.borrado) || {}).nombre || "") : "",
-          cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit == null || v.costoUnit === "" ? null : v.costoUnit,
-          clienteNombre: c ? c.nombre : "",
-          ubicacionId: v.ubicacionId, ubicacionNombre: nombreUbic(v.ubicacionId),
-          tipoProducto: p ? (p.tipoProducto || "normal") : "normal",
-          eventoNombre: (v.info && v.info.nombreEvento) || "",
-          eventoFecha: (v.info && v.info.fechaEvento) || "",
-          eventoPersonas: (v.info && v.info.numPersonas) || null,
-          pagador: (v.info && v.info.nombrePagador) || "",
-          formaPago: (v.info && v.info.formaPago) || "",
-          factura: (v.info && v.info.factura) || "",
-          cortesia: !!(v.info && v.info.cortesia), // JFC 2026-09-08: venta de cortesía.
-          notas: (v.info && v.info.notas) || "",
-          clienteId: v.clienteId || "",
-          servings: (v.info && v.info.servings) || null,
-          botellas: (v.info && v.info.botellas) || null,
-          comisionPct: v.split ? v.split.comisionPct : (_rt ? _rt.pct : null),
-          comisionAsociado: v.split ? v.split.montoComisionSocio : (_rt ? _coreVentas.money(_rt.ganadoC) : 0),
-          netoCasa: v.split ? v.split.montoNetoDueno : (_rt ? +(((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) - _coreVentas.money(_rt.ganadoC)).toFixed(2) : null),
-          modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
-          /* v521 flecha: sin campo = venta vieja = la casa paga. */
-          direccionComision: v.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga",
-          comisionCorregida: !!(v.split && v.split.corregida),
-          liquidada: !!v.liquidada,
-          comisionPagada: !!_paidVenta.get(String(v.id)),
-          /* Payout Ledger: exact remaining commission for this sale, summed
-             across people. Null only when the pure ledger core is unavailable. */
-          comisionPendiente: _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
-          comisionRetenida: _coreVentas ? _coreVentas.money(_heldVenta.get(String(v.id)) || 0) : 0,
-          devuelta: !!v.devuelta,
-          fechaDevolucion: v.fechaDevolucion || ((ajustesComision.find(a=>a && (a.id===v.devolucionId || (a.tipo==="devolucion" && a.ventaId===v.id))) || {}).fecha) || null,
-          medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
-          reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
-          asistenteNombre: (v.split && v.split.reparto) ? ((promotoras.find((x) => x.id === v.split.reparto[1].promotoraId) || {}).nombre || "") : "",
-          /* JFC 2026-09-23: el resumen por producto de Commissions usa el MISMO mes que
-             /api/liquidaciones (hora local del negocio) y sabe si la percha comparte
-             comision, sin que el front recalcule fechas ni cruce tablas. Aditivo. */
-          delMesActual: esDelMesActual(v.fecha, v.relojDesfaseMs),
-          // Shell 371: el mes local de la venta, para que Commissions filtre por el mes elegido.
-          mes: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7) : "",
-          fechaLocal: v.fecha ? fechaLocalDe(v.fecha, v.relojDesfaseMs) : "",
-          ubicacionTipo: u ? (u.tipo || "propio") : "",
-          // COUNTER SALE no se atribuye a la persona permanente de la percha:
-          // el nombre acompaña solo a ventas que realmente tienen reparto.
-          asociadoNombre: v.split && pr ? pr.nombre : (_prRt ? _prRt.nombre : ""),
-          // 2026-09-26 (aditivo): id de la persona que cobra, para el estado de cuenta por persona.
-          promotoraId: v.split && pr ? pr.id : (_prRt ? _prRt.id : null),
-        };
-      }));
-    }
+      if (path === "/api/ventas/todas") return J(ventasParaReportes(uid));
     if (path === "/api/ventas/hoy") {
         const agregado = {};
         ventasHoyDe(uid).forEach((v) => { agregado[v.productoId] = (agregado[v.productoId] || 0) + v.cantidad; });

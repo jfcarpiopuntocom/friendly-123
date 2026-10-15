@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v526">
+<meta name="dashboard-shell" content="f123-shell-v527">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -45,8 +45,8 @@
 <link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator_simple.min.css" rel="stylesheet">
 <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js" defer></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+<script src="./vendor/jspdf-2.5.1.umd.min.js" defer></script>
+<script src="./vendor/jspdf-autotable-3.8.2.min.js" defer></script>
 
 <style>
   :root{
@@ -1298,31 +1298,27 @@
           formatter: function (c) { return money(c.getValue()); } },
         { title: "House share (before costs and expenses)", field: "casa", width: 160, hozAlign: "right", cssClass: "num",
           formatter: function(c){return money(c.getValue());} },
+        { title: "Direct expenses", field: "gastosDirectos", width: 140, hozAlign: "right", cssClass: "num", formatter:function(c){return money(c.getValue());} },
+        { title: "House contribution (before general expenses)", field: "contribucion", width: 180, hozAlign: "right", cssClass: "num", formatter:function(c){return money(c.getValue());} },
         { title: "Shelf", field: "perchas", width: 160 },
         { title: "Buyers", field: "compradores", width: 130, hozAlign: "right", cssClass: "num" },
         { title: "Last sale", field: "ultimaVenta", width: 130 },
       ],
       filas: filasEventos,
       cierre: function (f) {
-        if (!f.length) {
-          return "<strong>Todavía no hay eventos.</strong>" +
-            "Un evento aparece aquí en cuanto vendes un producto de tipo " +
-            "Ticket/Evento y le escribes el nombre de la función o la clase.";
-        }
-        var rec = window.OCBusinessReadModel.sum(f.map(function(v){return v.recaudado;}));
-        var gan = window.OCBusinessReadModel.sum(f.map(function(v){return v.ganancia;}));
-        var com = window.OCBusinessReadModel.sum(f.map(function(v){return v.comision;}));
-        var casa = window.OCBusinessReadModel.sum(f.map(function(v){return v.casa;}));
-        var retornos = f.reduce(function(a,v){return a+(v.devoluciones||0);},0);
-        var completos = f.filter(function(v){return v.recaudado !== null;});
-        var top = completos.slice().sort(function(a,b){return b.recaudado-a.recaudado;})[0];
-        return "<strong>" + plural(f.length, "función", "funciones") + " · ventas netas " + money(rec) +
-          " · margen bruto antes de comisiones y gastos " + money(gan) +
-          " · parte de artistas " + money(com) +
-          " · parte de la Casa (antes de costos y gastos) " + money(casa) +
-          (retornos ? " · devoluciones " + retornos : "") + ".</strong> " +
-          (top ? "Mayor venta neta: " + esc(top.evento) + " (" + esc(top.fecha || "fecha pendiente") + ") " + money(top.recaudado) + ". " : "") +
-          "Esto NO es utilidad neta ni dinero cobrado. Faltan gastos atribuibles, costos compartidos y conciliación de pagos; distintas fechas se muestran por separado.";
+        var es=false;try{es=localStorage.getItem("f123_lang")==="es";}catch(_){}
+        if (!f.length) return es ? "<strong>Todavía no hay eventos.</strong> Aparecen al vender una entrada con nombre de función o clase." : "<strong>No events yet.</strong> Events appear when you sell a ticket with an event or class name.";
+        var RM=window.OCBusinessReadModel,total=function(field){return money(RM.sum(f.map(function(v){return v[field];})));};
+        var returns=f.reduce(function(n,v){return n+(v.devoluciones||0);},0);
+        var top=f.filter(function(v){return v.recaudado!==null;}).sort(function(a,b){return b.recaudado-a.recaudado;})[0];
+        return "<strong>" + f.length + (es ? (f.length===1?" función · ventas netas ":" funciones · ventas netas ") : (f.length===1?" event · net sales ":" events · net sales ")) + total("recaudado") +
+          (es ? " · margen bruto antes de comisiones y gastos " : " · gross margin before commissions and expenses ") + total("ganancia") +
+          (es ? " · parte de artistas " : " · artist share ") + total("comision") +
+          (es ? " · parte de la Casa " : " · house share ") + total("casa") +
+          (es ? " · contribución de la Casa antes de gastos generales " : " · house contribution before general expenses ") + total("contribucion") +
+          (returns?(es?" · devoluciones ":" · returns ")+returns:"") + ".</strong> " +
+          (top?(es?"Mayor venta neta: ":"Highest net sales: ")+esc(top.evento)+" ("+esc(top.fecha||(es?"fecha pendiente":"date pending"))+") "+money(top.recaudado)+". ":"")+
+          (es ? "La contribución descuenta costos de productos y gastos vinculados expresamente a cada función. Los gastos generales quedan separados; no es dinero disponible ni utilidad neta final. Un guion indica datos pendientes de conciliar." : "Contribution deducts product costs and expenses explicitly linked to each occurrence. General expenses remain separate; this is not available cash or final net profit. A dash means data is pending reconciliation.");
       },
     },
 
@@ -1534,81 +1530,41 @@
      va a buscar.
      ====================================================================== */
   function filasEventos() {
-    /* idiomARTE v526: distinguish event occurrences and never count the same
-       durable sale ID twice. Reporting only — source transactions untouched. */
-    var porEvento = Object.create(null), vistos = Object.create(null), RM = window.OCBusinessReadModel;
-    (datos.ventas || []).forEach(function (v, idx) {
+    var RM = window.OCBusinessReadModel, zone = typeof zonaNegocioDashboard === "function" ? zonaNegocioDashboard() : "America/Guayaquil";
+    var groups = Object.create(null), copies = Object.create(null), coverage = datos.cobertura || {};
+    (datos.ventas || []).forEach(function(v,idx) {
       if (!v || v.anulada || v.borrado) return;
-      if (v.id != null && vistos[String(v.id)]) return;
-      if (v.id != null) vistos[String(v.id)] = true;
-      var nombre = String(v.eventoNombre || "").trim();
-      /* Sin nombre de evento no hay evento. Los productos tipo ticket que se
-         vendieron sin llenar el dato caen en un grupo aparte y honesto, en vez
-         de inventarles una funcion o de desaparecer de la vista. */
-      if (!nombre) {
-        if (v.tipoProducto !== "ticket") return;
-        nombre = "(ticket with no event name)";
-      }
-      var fecha = v.eventoFecha ? RM.day(v.eventoFecha, typeof zonaNegocioDashboard === "function" ? zonaNegocioDashboard() : "America/Guayaquil") : "";
-      var ocurrencia = v.eventoId || v.eventoOccurrenceId || v.ocurrenciaId;
-      var k = ocurrencia ? "id:" + ocurrencia : fecha
-        ? "dia:" + nombre.toLowerCase() + "|" + fecha
-        : "sin-dia:" + nombre.toLowerCase() + "|" + String(v.id == null ? idx : v.id);
-      if (!porEvento[k]) porEvento[k] = {
-        evento: nombre, fecha: fecha, ventas: 0, unidades: 0,
-        recaudado: 0, costo: 0, personas: 0, comision: 0, casa: 0,
-        devoluciones: 0,
-        perchas: {}, ubicacionIds: {}, compradores: {}, ultima: "", corregidas: 0,
-      };
-      var g = porEvento[k];
-      if (v.devuelta) {
-        g.devoluciones++;
-      } else {
-        var qty = RM.quantity(v.cantidad), price = RM.number(v.precioUnit);
-        var knownCost = RM.number(v.costoUnit);
-        var amount = qty === null || price === null ? null : Math.round(qty * price * 100) / 100;
-        var costAmount = qty === null || knownCost === null ? null : Math.round(qty * knownCost * 100) / 100;
-        var artist = v.comisionAsociado == null ? (v.modoComision === "counter" ? 0 : null) : RM.number(v.comisionAsociado);
-        var house = v.netoCasa == null ? (v.modoComision === "counter" ? amount : null) : RM.number(v.netoCasa);
-        g.ventas++;
-        g.unidades = RM.sum([g.unidades, qty]);
-        g.recaudado = RM.sum([g.recaudado, amount]);
-        g.costo = RM.sum([g.costo, costAmount]);
-        g.comision = RM.sum([g.comision, artist]);
-        g.casa = RM.sum([g.casa, house]);
-        g.personas += Number(v.eventoPersonas) || 0;
-      }
-      if (v.comisionCorregida) g.corregidas++;
-      if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
-      if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
-      var quien = v.pagador || v.clienteNombre;
-      if (quien) g.compradores[quien] = 1;
-      if (String(v.fecha || "") > g.ultima) g.ultima = v.fecha;
+      if (v.id) (copies[v.id] || (copies[v.id]=[])).push(v);
+      var name = String(v.eventoNombre || "").trim();
+      if (!name) { if (v.tipoProducto !== "ticket") return; name = "(ticket with no event name)"; }
+      var key = RM.eventKey(v,zone) || "missing:" + idx;
+      var g = groups[key] || (groups[key] = {evento:name,fecha:RM.day(v.eventoFecha,zone),ventas:0,unidades:0,personas:0,devoluciones:0,corregidas:0,perchas:{},compradores:{},seen:{},records:[],ultima:""});
+      g.records.push(v);
+      // Counts are metadata. Every financial total below comes from the core,
+      // which sees ALL copies and quarantines contradictory IDs as a set.
+      if (v.id && g.seen[v.id]) return;
+      if (v.id) g.seen[v.id] = true;
+      if (v.devuelta) g.devoluciones++;
+      else { g.ventas++; g.unidades=RM.sum([g.unidades,RM.quantity(v.cantidad)]);g.personas+=Number(v.eventoPersonas)||0; }
+      if(v.comisionCorregida)g.corregidas++;
+      if(v.ubicacionNombre)g.perchas[v.ubicacionNombre]=1;
+      if(v.pagador||v.clienteNombre)g.compradores[v.pagador||v.clienteNombre]=1;
+      if(String(v.fecha||"")>g.ultima)g.ultima=v.fecha;
     });
-    return Object.keys(porEvento).map(function (k) {
-      var g = porEvento[k];
-      return {
-        evento: g.evento,
-        fecha: g.fecha || "",
-        ventas: g.ventas,
-        unidades: g.unidades,
-        personas: g.personas || null,
-        recaudado: g.recaudado===null?null:+g.recaudado.toFixed(2),
-        /* Gross sales margin ONLY, before the artist split and event expenses. */
-        ganancia: g.costo===null||g.recaudado===null?null:Math.round((g.recaudado-g.costo)*100)/100,
-        comision: g.comision,
-        casa: g.casa,
-        devoluciones: g.devoluciones,
-        perchas: Object.keys(g.perchas).join(", "),
-        compradores: Object.keys(g.compradores).length,
-        ultimaVenta: String(g.ultima || "").slice(0, 10),
-        corregidas: g.corregidas,
-      };
-    }).sort(function (a, b) {
-      /* Lo mas reciente arriba: un evento de anteayer importa mas que uno de
-         hace ocho meses, y el que abre el tablero viene de vivirlo. */
-      return String(b.ultimaVenta).localeCompare(String(a.ultimaVenta));
-    });
+    return Object.keys(groups).map(function(key){
+      var g=groups[key], ids=Object.create(null), records=[];
+      g.records.forEach(function(v){if(!v.id){records.push(v);return;}if(ids[v.id])return;ids[v.id]=true;copies[v.id].forEach(function(copy){records.push(copy);});});
+      var r=RM.businessResult({sales:records,expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],zone:zone,scope:{eventKey:key},
+        coverage:{sales:coverage.ventas!==false,expenses:coverage.gastos===true,adjustments:coverage.ajustesComision===true,coherent:coverage.finanzasCoherentes===true}});
+      var moneyValue=function(c){return c===null?null:c/100;};
+      return {evento:g.evento,fecha:g.fecha||"",ventas:g.ventas,unidades:g.unidades,personas:g.personas||null,
+        recaudado:moneyValue(r.netCents),ganancia:r.netCents===null||r.costCents===null?null:(r.netCents-r.costCents)/100,
+        comision:moneyValue(r.artistShareCents),casa:moneyValue(r.houseShareCents),
+        gastosDirectos:moneyValue(r.directExpensesCents),contribucion:moneyValue(r.contributionCents),
+        gastosSinAtribuir:moneyValue(r.generalExpensesCents),devoluciones:g.devoluciones,
+        perchas:Object.keys(g.perchas).join(", "),compradores:Object.keys(g.compradores).length,
+        ultimaVenta:String(g.ultima).slice(0,10),corregidas:g.corregidas};
+    }).sort(function(a,b){return String(b.ultimaVenta).localeCompare(String(a.ultimaVenta));});
   }
 
   /* ======================================================================
@@ -2121,19 +2077,27 @@
   function pintarFinanzasFoto() {
     var el = $("finanzas-foto-contenido");
     if (!el) return;
+    var RM = window.OCBusinessReadModel;
+    var zone = typeof zonaNegocioDashboard === "function" ? zonaNegocioDashboard() : "America/Guayaquil";
+    var month = RM.day(new Date().toISOString(),zone).slice(0,7), coverage=datos.cobertura||{};
+    var result=RM.businessResult({sales:datos.ventas||[],expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],month:month,zone:zone,
+      coverage:{sales:coverage.ventas===true,expenses:coverage.gastos===true,adjustments:coverage.ajustesComision===true,coherent:coverage.finanzasCoherentes===true}});
+    var es=false;try{es=localStorage.getItem("f123_lang")==="es";}catch(_){}
+    var houseHtml='<p style="margin:0 0 7px;font-weight:700;color:var(--ink);">'+
+      (es?'Casa después de costos, reparto y gastos registrados':'House after costs, split and recorded expenses')+' · '+esc(month)+': <b>'+esc(money(result.houseAfterExpensesCents===null?null:result.houseAfterExpensesCents/100))+'</b></p>'+
+      '<p style="margin:0 0 7px;color:var(--ink);">'+(es?'El reparto se descuenta una sola vez. No representa dinero disponible; un guion indica datos pendientes de conciliar.':'The split is deducted once. This is not available cash; a dash means data is pending reconciliation.')+'</p>';
     var tiene = ["gastos", "transferencias", "gastosMensuales", "hechosFinancieros"]
       .every(function (k) { return Object.prototype.hasOwnProperty.call(datos, k); });
-    if (datos.cobertura && (datos.cobertura.gastos === false || datos.cobertura.hechosFinancieros === false)) { el.textContent="Finance data is incomplete or still loading. Missing records are not zero balances."; return; }
-    if (!tiene) { el.textContent = "This device uses an older shell. Finance coverage is incomplete."; return; }
+    if (datos.cobertura && (datos.cobertura.gastos === false || datos.cobertura.hechosFinancieros === false)) { el.innerHTML=houseHtml+'<p>'+(es?'Los movimientos de caja y crédito siguen pendientes de completar.':'Cash and credit facts are still incomplete.')+'</p>'; return; }
+    if (!tiene) { el.innerHTML=houseHtml+'<p>'+(es?'La cobertura financiera de este dispositivo está incompleta.':'Finance coverage from this device is incomplete.')+'</p>'; return; }
     var gastos = datos.gastos || [], tras = datos.transferencias || [], hechos = datos.hechosFinancieros || [];
     var gm = datos.gastosMensuales || {};
-    var RM = window.OCBusinessReadModel;
     var activos = gastos.filter(function(g){return g && !g.borrado;});
     var mensual = RM.number(gm.gastosMensuales);
     var sumaGastos = RM.sum(activos.map(function(g){return RM.number(g.monto);}));
     var cartera = hechos.filter(function (h) { return /^cartera_/.test(h.tipo || ""); });
     var caja = hechos.filter(function (h) { return /^caja_chica_/.test(h.tipo || ""); });
-    el.innerHTML = '<p style="margin:0 0 7px;">Detailed expenses: <b>' + activos.length + '</b> · total <b>' + esc(money(sumaGastos)) +
+    el.innerHTML = houseHtml+'<p style="margin:0 0 7px;">Detailed expenses: <b>' + activos.length + '</b> · total <b>' + esc(money(sumaGastos)) +
       '</b> · monthly shelf budget <b>' + esc(money(mensual)) + '</b> (not added to expense totals)</p>' +
       '<p style="margin:0 0 7px;">Transfers: <b>' + tras.length + '</b> · customer credit facts: <b>' + cartera.length +
       '</b> · petty cash facts: <b>' + caja.length + '</b></p>' +
@@ -2225,7 +2189,7 @@
     var dormido = dormant.valueCents === null ? null : dormant.valueCents / 100;
     var k = [
       ["Entró hoy", money(d.entra), d.ventasCount===null ? "Ventas pendientes" : plural(d.ventasCount || 0, "venta", "ventas")],
-      ["Ganancia de hoy", money(d.gananciaHoy), "después del costo"],
+      ["Margen bruto de hoy", money(d.gananciaHoy), "antes de comisiones y gastos"],
       ["Inventario", valor === null ? 'Stock / cost pending' : money(valor), prods.length + " productos"],
       ["Capital dormido", dormido === null ? 'Stock / cost pending' : money(dormido), "sin movimiento"],
     ];
@@ -2563,35 +2527,35 @@
     // que el owner sepa que no es la app — es la red o un CDN. Antes decia
     // solo "Recarga y prueba" y le quitaba pista al usuario.
     if (!window.jspdf || !window.jspdf.jsPDF) {
-      var _es_p = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
+      var _es_p = (function(){try{return localStorage.getItem("f123_lang")==="es";}catch(_){return false;}})();
       $("cierre").innerHTML = _es_p
         ? "<strong>No se pudo armar el reporte.</strong> No cargó la herramienta de PDF (cdnjs). Recarga la página e inténtalo; si sigue fallando, el reporte tambien se puede exportar desde la tabla de arriba como XLSX o CSV."
         : "<strong>Could not build the report.</strong> The PDF tool did not load (cdnjs). Reload the page and try again; if it still fails, the report can also be exported from the table above as XLSX or CSV.";
       return;
     }
-    var esReporte = !!(window.OCI18n && window.OCI18n.getLang() === 'es');
+    var esReporte=false;try{esReporte=localStorage.getItem('f123_lang')==='es';}catch(_){}
     var neg = $("neg-nombre").textContent || "Mi negocio";
     var doc = new window.jspdf.jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
     var titulo, cols, filas, pie = "", gastosReporte = null, resumenReporte = null;
 
     if (cual === "inv") {
-      titulo = "Inventario valorizado";
-      cols = ["Producto", "Percha", "Stock", "Costo", "Valor"];
+      titulo = esReporte ? "Inventario valorizado" : "Inventory valuation";
+      cols = esReporte ? ["Producto", "Percha", "Stock", "Costo", "Valor"] : ["Product","Shelf","Stock","Cost","Value"];
       var totalInv = datos.cobertura&&datos.cobertura.productos===false?null:window.OCBusinessReadModel.inventory(datos.productos || []).valueCents;
       filas = (datos.productos || []).map(function (p) {
         var s = window.OCBusinessReadModel.stock(p), v = window.OCBusinessReadModel.inventory([p]).valueCents;
-        return [p.nombre, p.ubicacionNombre || "", s.known ? String(s.units) : 'Stock pending', p.costo == null ? '—' : money(p.costo), v === null ? '—' : money(v / 100)];
+        return [p.nombre, p.ubicacionNombre || "", s.known ? String(s.units) : (esReporte?'Stock pendiente':'Stock pending'), p.costo == null ? '—' : money(p.costo), v === null ? '—' : money(v / 100)];
       });
-      pie = totalInv === null ? 'Inventory value pending: some stock or cost data is missing.' : "Valor total del inventario, a costo: " + money(totalInv / 100);
+      pie = totalInv === null ? (esReporte?'Valor pendiente: faltan datos de stock o costo.':'Inventory value pending: some stock or cost data is missing.') : (esReporte?"Valor total del inventario, a costo: ":"Total inventory value, at cost: ") + money(totalInv / 100);
 
     } else if (cual === "cli") {
-      titulo = "Clientes al día";
-      cols = ["Cliente", "Teléfono", "Compró hace", "Compras 90d", "Monto 90d"];
+      titulo = esReporte ? "Clientes al día" : "Customer summary";
+      cols = esReporte ? ["Cliente", "Teléfono", "Compró hace", "Compras 90d", "Monto 90d"] : ["Customer","Phone","Last purchase","Purchases 90d","Amount 90d"];
       filas = (datos.clientes || []).map(function (c) {
-        return [c.nombre, c.telefono || "", c.recencia === "pending" || (c.recencia == null && datos.cobertura && datos.cobertura.ventas === false) ? "pending" : (c.recencia == null ? "nunca" : c.recencia + " días"),
+        return [c.nombre, c.telefono || "", c.recencia === "pending" || (c.recencia == null && datos.cobertura && datos.cobertura.ventas === false) ? (esReporte?"pendiente":"pending") : (c.recencia == null ? (esReporte?"nunca":"never") : c.recencia + (esReporte?" días":" days")),
                 String(c.frecuencia || 0), money(c.monto)];
       });
-      pie = plural(filas.length, "cliente activo", "clientes activos") + ".";
+      pie = filas.length+(esReporte?" clientes activos.":" active customers.");
 
     } else {
       titulo = esReporte ? "Reporte del mes" : "Monthly report";
@@ -2601,6 +2565,8 @@
       titulo += ' · ' + mes;
       var zone=zonaNegocioDashboard();
       var monthReport=window.OCBusinessReadModel.monthly(datos.ventas || [],datos.gastos || [],mes,zone);
+      var houseReport=window.OCBusinessReadModel.businessResult({sales:datos.ventas||[],expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],month:mes,zone:zone,
+        coverage:{sales:!(datos.cobertura&&datos.cobertura.ventas===false),expenses:!!(datos.cobertura&&datos.cobertura.gastos===true),adjustments:!!(datos.cobertura&&datos.cobertura.ajustesComision===true),coherent:_fuenteDatosDashboard!=="remota"||!!(datos.cobertura&&datos.cobertura.finanzasCoherentes===true)}});
       var porProd={};
       monthReport.rows.forEach(function(row){var k=String(row.id);var group=porProd[k] || (porProd[k]={name:row.product,u:0,c:0});group.u+=row.units;group.c+=row.amountCents;});
       cols=esReporte ? ['Producto','Unidades netas','Vendido menos devoluciones'] : ['Product','Net units','Sales less returns'];
@@ -2611,7 +2577,10 @@
       if(!datos.cobertura || datos.cobertura.gastos!==true){values[5]=null;values[6]=null;}
       if(datos.cobertura && datos.cobertura.ventas===false){values[0]=null;values[1]=null;values[2]=null;values[3]=null;values[4]=null;values[6]=null;}
       resumenReporte=labels.map(function(label,i){return [label,money(values[i]===null?null:values[i]/100)];});
-      pie=esReporte ? 'Comisiones y presupuesto mensual de perchas no descontados en este cierre.' : 'Commissions and monthly shelf budgets are not deducted in this report.';
+      resumenReporte.push([esReporte?"Parte del artista devengada":"Artist share earned",money(houseReport.artistShareCents===null?null:houseReport.artistShareCents/100)]);
+      resumenReporte.push([esReporte?"Parte de la Casa antes de costos y gastos":"House share before costs and expenses",money(houseReport.houseShareCents===null?null:houseReport.houseShareCents/100)]);
+      resumenReporte.push([esReporte?"Casa después de costos, reparto y gastos registrados":"House after costs, split and recorded expenses",money(houseReport.houseAfterExpensesCents===null?null:houseReport.houseAfterExpensesCents/100)]);
+      pie=esReporte ? 'El resultado de la Casa descuenta el reparto devengado una sola vez, además del costo de productos y los gastos registrados. Los pagos al artista no se descuentan otra vez. No representa dinero disponible; presupuestos mensuales no registrados como gasto quedan fuera. Un guion indica datos pendientes de conciliar.' : 'The house result deducts the earned split once, product costs and recorded expenses. Paying the artist does not deduct that split again. This is not available cash; monthly budgets not recorded as expenses are excluded. A dash means data is pending reconciliation.';
       if(monthReport.inventoryExpenseUnclassified)pie+=' '+(esReporte?'Gastos de inventario/suministros sin clasificar: resultado pendiente para evitar descontar dos veces la compra.':'Unclassified inventory/supplies expenses: result pending to avoid deducting purchases twice.');
       if(monthReport.undatedExpenses)pie+=' '+(esReporte?'Hay gastos sin fecha válida: no se asignan al mes y el resultado queda pendiente.':'Expenses with no valid date cannot be assigned to a month; the result is pending.');
       if(!datos.cobertura || datos.cobertura.gastos!==true)pie+=' '+(esReporte?'Gastos pendientes de comprobar.':'Expense coverage is pending.');
@@ -2623,22 +2592,26 @@
     doc.setFontSize(16); doc.text(neg, 40, 46);
     doc.setFontSize(12); doc.text(titulo, 40, 66);
     doc.setFontSize(10);
-    doc.text("Generado el " + (new Date()).toLocaleString(), 40, 82);
+    doc.text((esReporte?"Generado el ":"Generated on ") + (new Date()).toLocaleString(esReporte?'es-EC':'en-US'), 40, 82);
     doc.autoTable({
-      head: [cols], body: filas, startY: 98, styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fillColor: [15, 25, 35] }, alternateRowStyles: { fillColor: [250, 251, 253] },
+      head: [cols], body: filas, startY: 98, styles: { fontSize: 10, cellPadding: 4, textColor:[15,25,35] },
+      headStyles: { fillColor: [15, 25, 35], textColor:[255,255,255] }, alternateRowStyles: { fillColor: [250, 251, 253] },
     });
     if (gastosReporte) {
       doc.autoTable({head:[esReporte ? ["Fecha","Gasto","Monto"] : ["Date","Expense","Amount"]],body:gastosReporte,startY:doc.lastAutoTable.finalY+16,styles:{fontSize:10,cellPadding:4,textColor:[15,25,35]},headStyles:{fillColor:[15,25,35],textColor:[255,255,255]}});
       doc.autoTable({body:resumenReporte,startY:doc.lastAutoTable.finalY+16,styles:{fontSize:10,cellPadding:4,textColor:[15,25,35]}});
     }
     var y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 98) + 22;
-    if (y > 780) { doc.addPage(); y = 40; }
-    doc.setFontSize(11); doc.text(doc.splitTextToSize ? doc.splitTextToSize(pie,510) : pie, 40, y);
-    doc.setFontSize(8);
+    var height=doc.internal&&doc.internal.pageSize&&doc.internal.pageSize.getHeight?doc.internal.pageSize.getHeight():842;
+    doc.setFontSize(11);
+    var lines=doc.splitTextToSize?doc.splitTextToSize(pie,510):[pie];if(!Array.isArray(lines))lines=[lines];
+    if(doc.setTextColor)doc.setTextColor(15,25,35);
+    lines.forEach(function(line){if(y+14>height-45){doc.addPage();y=40;}doc.text(line,40,y);y+=14;});
+    if(y+28>height-28){doc.addPage();y=40;}
+    doc.setFontSize(10);
     /* El aviso va en el documento, no solo en pantalla: el PDF se manda por
        WhatsApp y viaja solo. */
-    doc.text("Insumo para tu contador. No es una declaración válida ante el SRI.", 40, y + 18);
+    doc.text(esReporte?"Resumen para tu contador. No es una declaración tributaria.":"Summary for your accountant. This is not a tax filing.", 40, y + 18);
     doc.save(neg.replace(/[\\/:*?"<>|]/g, "").trim() + " - " + titulo + " - " + (new Date()).toISOString().slice(0, 10) + ".pdf");
   }
 
@@ -2886,11 +2859,13 @@
            exactamente el bug que ya nos costo un tablero en blanco. */
         tipoProducto: p.tipoProducto || "normal",
         eventoNombre: (v.info && v.info.nombreEvento) || "",
+        eventoId: (v.info && (v.info.eventoId || v.info.eventOccurrenceId || v.info.ocurrenciaId)) || null,
         formaPago: (v.info && v.info.formaPago) || "",
         eventoFecha: (v.info && v.info.fechaEvento) || "",
         eventoPersonas: (v.info && v.info.numPersonas) || null,
         pagador: (v.info && v.info.nombrePagador) || "",
         comisionPct: v.split ? v.split.comisionPct : (_ledgerCore && _retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].pct : null),
+        comisionAjusteRetroIncluido: !!(!v.split && _retroPorVenta[String(v.id)]),
         comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : (_ledgerCore && _retroPorVenta[String(v.id)] ? +_ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC).toFixed(2) : 0),
         netoCasa: v.split ? v.split.montoNetoDueno : (_ledgerCore && _retroPorVenta[String(v.id)] ? +(pu * cant - _ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC)).toFixed(2) : null),
         comisionCorregida: !!(v.split && v.split.corregida),
@@ -3154,7 +3129,7 @@
       datos.promotoras = e.promotoras || [];
       /* No previous shop / revision finance facts may survive until IDB replies. */
       datos.hechosFinancieros = [];
-      datos.cobertura = {productos:Array.isArray(e.productos),ventas:Array.isArray(e.ventas),clientes:Array.isArray(e.clientes),gastos:Array.isArray(e.gastos),hechosFinancieros:false,resumen:!!d.resumen,timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone};
+      datos.cobertura = {ajustesComision:Array.isArray(e.ajustesComision),finanzasCoherentes:true,productos:Array.isArray(e.productos),ventas:Array.isArray(e.ventas),clientes:Array.isArray(e.clientes),gastos:Array.isArray(e.gastos),hechosFinancieros:false,resumen:!!d.resumen,timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone};
       var fotoLocalRef = datos;
       var generacionFoto = ++_generacionPinturaLocal;
       var licenciaFoto = codigoSesionActual;
@@ -3971,7 +3946,8 @@
     ["My log", "Mi registro"],
     ["Sales pending", "Ventas pendientes"],
     // KPIs de Hoy
-    ["Today's profit", "Ganancia de hoy"],
+    ["Today's gross margin", "Margen bruto de hoy"],
+    ["before commissions and expenses", "antes de comisiones y gastos"],
     ["after cost", "después del costo"],
     ["Idle capital", "Capital dormido"],
     ["no movement", "sin movimiento"],
@@ -4023,6 +3999,8 @@
     ["Gross margin (before commissions and event expenses)", "Margen bruto (antes de comisiones y gastos del evento)"],
     ["Artist share", "Parte del artista"],
     ["House share (before costs and expenses)", "Parte de la casa (antes de costos y gastos)"],
+    ["Direct expenses", "Gastos directos"],
+    ["House contribution (before general expenses)", "Contribución de la casa (antes de gastos generales)"],
     ["monthly shelf budget", "presupuesto mensual de perchas"],
     ["(not added to expense totals)", "(no se suma a los gastos registrados)"],
     ["Profit", "Ganancia"],

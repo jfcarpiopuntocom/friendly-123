@@ -8225,27 +8225,34 @@ async function cargarGastos(){
   const resumen = document.getElementById("gastosResumen");
   const fechaEl = document.getElementById("gastoFecha");
   if (fechaEl && !fechaEl.value) fechaEl.value = window.OCBusinessReadModel.day(new Date().toISOString(),localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone);
+  let corteFinanciero = null;
+  const rolCorte = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
+  if (["dueno","admin","contador","demo"].includes(rolCorte)) {
+    try { const r = await fetch(`${API}/reporting/corte`); if(r.ok){const c=await r.json();if(c&&c.schema===1&&Array.isArray(c.ventas)&&Array.isArray(c.gastos)&&Array.isArray(c.ajustesComision))corteFinanciero=c;} } catch (_) {}
+  }
   let data;
-  try { const response = await fetch(`${API}/gastos`); if (!response.ok) throw new Error('expenses unavailable'); data = await response.json(); if (!data || !Array.isArray(data.gastos)) throw new Error('invalid expenses'); }
+  try { const response = corteFinanciero ? {ok:true,json:async()=>({gastos:corteFinanciero.gastos})} : await fetch(`${API}/gastos`); if (!response.ok) throw new Error('expenses unavailable'); data = await response.json(); if (!data || !Array.isArray(data.gastos)) throw new Error('invalid expenses'); }
   catch (_) { if (resumen) resumen.textContent='Expense totals unavailable.'; if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load expenses. Reload the view.</p>'; return; }
   const gastos = (data && data.gastos) || [];
   const zone = localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const _mesActual = window.OCSalesAudit.dayOf({fecha:new Date().toISOString()},zone).slice(0,7);
   // Ingresos del mes (ventas) para el neto.
-  let ventasMes = null, margenTrasGastos = null;
+  let ventasMes = null, margenTrasGastos = null, resultadoCasa = null;
   /* v521 flecha de comision: comisiones del mes por direccion. Casa paga = gasto; asociado paga = ingreso
      (la parte de la casa). Monto desconocido -> null -> "—", nunca 0 inventado. Mismas ventas, cero red extra. */
   let comPaga = null, comRecibe = null;
   try {
     // 2026-10-13: /dashboard has no resumenMes. Use canonical sales
     // across the business just like /gastos; failed reads never invent zero.
-    const response = await fetch(`${API}/ventas/todas`);
+    const response = corteFinanciero ? {ok:true,json:async()=>corteFinanciero.ventas} : await fetch(`${API}/ventas/todas`);
     if (!response.ok) throw new Error('sales unavailable');
     const sales = await response.json();
     if (!Array.isArray(sales)) throw new Error('invalid sales');
     const month = _mesActual;
     const last = new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
     const projection=window.OCBusinessReadModel.monthly(sales,gastos,month,zone);
+    const houseReport=window.OCBusinessReadModel.businessResult({sales,expenses:gastos,adjustments:corteFinanciero?corteFinanciero.ajustesComision:[],month,zone,coverage:{adjustments:!!corteFinanciero,coherent:!!corteFinanciero}});
+    resultadoCasa=houseReport.houseAfterExpensesCents===null?null:houseReport.houseAfterExpensesCents/100;
     ventasMes = projection.netCents === null ? null : projection.netCents / 100;
     /* Truthful before-commission margin. Inventory expenditure cannot also
        be deducted as COGS without reconciliation; core read-model marks it unknown. */
@@ -8284,9 +8291,11 @@ async function cargarGastos(){
           ? "Margen tras costo de productos y gastos registrados (antes de comisiones y gastos sin atribuir)"
           : "Margin after product costs and recorded expenses (before commissions and unallocated expenses)",
           margenTrasGastos, margenTrasGastos !== null && margenTrasGastos >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)") +
+        tarjeta(localStorage.getItem('f123_lang') === 'es' ? "Casa después de costos, reparto y gastos registrados" : "House after costs, split and recorded expenses", resultadoCasa, resultadoCasa!==null&&resultadoCasa>=0?"var(--dinero-verde-dk)":"var(--rojo-ink)") +
         tarjeta(window.t ? window.t("flecha.gastoMes") : "Commissions you pay this month (expense)", comPaga, "var(--rojo-ink)") +
         tarjeta(window.t ? window.t("flecha.ingresoMes") : "Commissions you receive this month (income)", comRecibe, "var(--dinero-verde-dk)")
       : "");
+  if(resumen && _verIngresos) resumen.innerHTML += '<p style="width:100%;color:var(--ink);font-size:14px;font-weight:700;">'+(localStorage.getItem('f123_lang')==='es'?'El resultado de la Casa descuenta el reparto una sola vez. No es dinero disponible; un guion indica datos pendientes de conciliar.':'The house result deducts the split once. This is not available cash; a dash means data is pending reconciliation.')+'</p>';
   // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
   if(resumen && gastosMes===null)resumen.innerHTML += '<p style="width:100%;color:var(--ink);font-size:14px;font-weight:700;">'+(localStorage.getItem('f123_lang')==='es'?'Gastos mensuales pendientes: hay registros sin fecha o importe válido.':'Monthly expenses pending: some records have no valid date or amount.')+'</p>';
   const catDelMes = {};

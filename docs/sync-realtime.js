@@ -604,10 +604,14 @@
        todas y evitan que el tablero tenga que rehacer la cuenta del reparto por
        su cuenta — que es como dos pantallas terminan mostrando dos numeros
        distintos del mismo negocio. */
+    // Canonical sales + expenses are captured together before any other awaits.
+    // Legacy clients retain their records, explicitly without this guarantee.
+    const corte = await get("/reporting/corte");
+    const corteValido = !!(corte && corte.schema === 1 && Number.isSafeInteger(corte.revision) && Array.isArray(corte.ventas) && Array.isArray(corte.gastos) && Array.isArray(corte.ajustesComision));
     const [productos, clientes, ventas, resumen, liquidaciones, perchas, movimientos, promotoras, gastos, transferencias, gastosMensuales, hechos] = await Promise.all([
       get("/productos?ubicacionId=todas"),
       get("/clientes"),
-      get("/ventas/todas?ubicacionId=todas"),
+      corteValido ? Promise.resolve(corte.ventas) : get("/ventas/todas?ubicacionId=todas"),
       get("/dashboard?ubicacionId=todas"),
       get("/liquidaciones"),
       get("/ubicaciones?todas=1"),
@@ -619,7 +623,7 @@
          vigente si alguien los daba de alta o los editaba desde otro aparato.
          Ruta verificada contra el modulo de comisiones: GET /api/promotoras. */
       get("/promotoras"),
-      get("/gastos"),
+      corteValido ? Promise.resolve({gastos:corte.gastos}) : get("/gastos"),
       get("/transferencias"),
       get("/configuracion/gastos"),
       window.AMG && window.AMG.Hechos ? window.AMG.Hechos.todos().catch(() => null) : Promise.resolve(null),
@@ -637,7 +641,8 @@
       transferencias: Array.isArray(transferencias) ? transferencias : [],
       gastosMensuales: gastosMensuales || {},
       hechosFinancieros: Array.isArray(hechos) ? hechos.filter((h) => /^(cartera_|caja_chica_)/.test(h.tipo || "")) : [],
-      cobertura: {productos:Array.isArray(productos),clientes:Array.isArray(clientes),ventas:Array.isArray(ventas),liquidaciones:Array.isArray(liquidaciones),perchas:Array.isArray(perchas),movimientos:Array.isArray(movimientos),promotoras:Array.isArray(promotoras),transferencias:Array.isArray(transferencias),gastos:!!(gastos && Array.isArray(gastos.gastos)),hechosFinancieros:Array.isArray(hechos),resumen:!!(resumen && resumen.resumenDia),timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone},
+      ajustesComision:corteValido?corte.ajustesComision:[],
+      cobertura: {ajustesComision:corteValido,finanzasCoherentes:corteValido,revisionFinanciera:corteValido?corte.revision:null,productos:Array.isArray(productos),clientes:Array.isArray(clientes),ventas:Array.isArray(ventas),liquidaciones:Array.isArray(liquidaciones),perchas:Array.isArray(perchas),movimientos:Array.isArray(movimientos),promotoras:Array.isArray(promotoras),transferencias:Array.isArray(transferencias),gastos:!!(gastos && Array.isArray(gastos.gastos)),hechosFinancieros:Array.isArray(hechos),resumen:!!(resumen && resumen.resumenDia),timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone},
       negocio: (function () {
         try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || ""; }
         catch (_) { return ""; }
@@ -819,6 +824,7 @@
       .concat(trocear("promotoras", foto.promotoras))
       .concat(trocear("movimientos", foto.movimientos))
       .concat(trocear("gastos", foto.gastos))
+      .concat(trocear("ajustesComision", foto.ajustesComision))
       .concat(trocear("transferencias", foto.transferencias))
       .concat(trocear("hechosFinancieros", foto.hechosFinancieros))
       .concat([{ tabla: "gastosMensuales", i: 0, total: 1, filas: [foto.gastosMensuales] }])
