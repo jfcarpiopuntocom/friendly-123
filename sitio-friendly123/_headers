@@ -20,9 +20,11 @@
   Permissions-Policy: camera=(self), microphone=(), geolocation=(self), payment=()
   Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.sheetjs.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; connect-src 'self' https://friendly123-licencias.jfcarpio.workers.dev wss://friendly123-sync-relay.jfcarpio.workers.dev https://o4512176001908736.ingest.us.sentry.io https://us.i.posthog.com https://ipapi.co; frame-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://wa.me
 
-# La app: misma politica de cache que docs/_headers (revalidar a los 5 minutos).
+# La app oficial: siempre revalidar archivos de version y shell. El Worker
+# official-app.mjs ya impone este encabezado en su proxy a rama estable.
+# Este fallback evita que una futura ruta de assets recupere max-age=300.
 /app/*
-  Cache-Control: public, max-age=300, must-revalidate
+  Cache-Control: public, no-cache, max-age=0, must-revalidate, no-transform
 
 # Videos y flyer de la landing: nombres fijos, cache de un dia.
 /media/*

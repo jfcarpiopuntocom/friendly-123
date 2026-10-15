@@ -5,7 +5,11 @@
 // Que sirve (todo sale de ./dist, que genera `node build.mjs`; dist/ no va a git):
 //   /     = landing de ventas actual (copia textual de la carpeta friendly123/ del repo del sitio)
 //   /app/ = la app (copia de docs/ de este repo)
-// Solo archivos estaticos: sin script, sin bindings, sin secretos.
+// La LANDING usa assets locales. /app y /app/* ejecutan official-app.mjs,
+// que lee siempre el commit estable de GitHub Pages (mismo origen para el
+// navegador; Cache-Control no-cache). Una release de Friendly NO necesita
+// desplegar de nuevo este Worker cuando su proxy ya está activo.
+// Se redepliega manualmente solo al modificar este Worker, rutas o landing.
 //
 // Despliegue MANUAL (no hay Workers Builds para este Worker):
 //   node build.mjs && npx wrangler deploy      (desde esta carpeta)
