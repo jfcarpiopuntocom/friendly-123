@@ -1,11 +1,42 @@
 // Official app reads the same published stable source; no client-data transfer.
 const SOURCE='https://jfcarpiopuntocom.github.io/friendly-123/';
+// Temporary, reversible entry only. Using the legacy browser origin preserves
+// each owner's existing localStorage, IndexedDB, service worker, PIN and photos.
+// DO NOT embed the legacy site in an iframe (third-party storage isolation).
+const TEMPORARY_LEGACY_ENTRY = true;
+function legacyNavigation(request,u) {
+ // An old-domain redirect must never trap a customer who has real records only
+ // in the official origin. Explicit no-UI escape keeps that existing notebook.
+ if (u.searchParams.get('stay') === '1') return false;
+ if (!TEMPORARY_LEGACY_ENTRY || request.method !== 'GET') return false;
+ if (u.pathname === '/app' || u.pathname === '/app/' || u.pathname === '/app/index.html') return true;
+ const html = u.pathname.startsWith('/app/') && !u.pathname.startsWith('/app//') && u.pathname.endsWith('.html');
+ // Other HTML views must only redirect as documents, never as JS/fetch assets.
+ return html && (request.headers.get('Sec-Fetch-Mode') === 'navigate' ||
+   String(request.headers.get('Accept') || '').toLowerCase().includes('text/html'));
+}
+function legacyDestination(u) {
+ const relative=(u.pathname==='/app' ? '' : u.pathname.slice(5)) || 'index.html';
+ // Path is always confined to the historical app prefix. Never relay arbitrary
+ // query strings (which could contain a license or business data).
+ const target=new URL(relative === 'index.html' ? './' : relative,SOURCE);
+ if(!target.href.startsWith(SOURCE)) return SOURCE; // never jump above the app directory
+ if (u.searchParams.get('estable') === '1') target.searchParams.set('estable','1');
+ return target.href;
+}
 const SECURITY={"Strict-Transport-Security":"max-age=31536000; includeSubDomains","X-Content-Type-Options":"nosniff","Referrer-Policy":"strict-origin-when-cross-origin","Permissions-Policy":"camera=(self), microphone=(), geolocation=(self), payment=()","Content-Security-Policy-Report-Only":"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.sheetjs.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; connect-src 'self' https://friendly123-licencias.jfcarpio.workers.dev wss://friendly123-sync-relay.jfcarpio.workers.dev https://o4512176001908736.ingest.us.sentry.io https://us.i.posthog.com https://ipapi.co; frame-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://wa.me"};
 export async function serveApp(request,env,readSource=fetch){
  const u=new URL(request.url);
  if(u.pathname!=='/app'&&!u.pathname.startsWith('/app/'))return env.ASSETS.fetch(request);
- if(u.pathname==='/app'){u.pathname='/app/';return new Response(null,{status:301,headers:{Location:u.href,'Cache-Control':'no-cache'}});}
  if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{Allow:'GET, HEAD'}});
+ // An edge redirect avoids a second app/origin and lets existing clients keep
+ // their correct notebooks. 307 + no-store is reversible, unlike a cached 301.
+ if (legacyNavigation(request,u)) return new Response(null,{status:307,headers:{
+   'Location':legacyDestination(u),'Cache-Control':'no-store, max-age=0',
+   'Referrer-Policy':'no-referrer','Vary':'Accept, Sec-Fetch-Mode',
+   'X-F123-Entry':'legacy-temporary-redirect'
+ }});
+ if(u.pathname==='/app'){u.pathname='/app/';return new Response(null,{status:307,headers:{Location:u.href,'Cache-Control':'no-store'}});}
  let relative=u.pathname.replace(/^\/app\/?/,'')||'index.html';
  try{if(decodeURIComponent(relative).split('/').some(p=>p==='..'||p==='.')||relative.includes('\\'))return new Response('Not found',{status:404});}catch(_){return new Response('Not found',{status:404});}
  const proof=relative==='_release.json';
