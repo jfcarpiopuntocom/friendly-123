@@ -23,7 +23,21 @@
     try {
       if (win.localStorage.getItem("f123_tienda_activa")) return true;
       const tiendas=JSON.parse(win.localStorage.getItem("f123_tiendas")||"{}")||{};
-      return Object.keys(tiendas).length>0;
+      if(Object.keys(tiendas).length>0)return true;
+      const huellas=win.OCDemoHuellas;
+      if(!huellas)return false;
+      const campos=[["productos","esProducto"],["clientes","esCliente"],["ventas","esVenta"],
+        ["ubicaciones","esUbicacion"],["promotoras","esPromotora"],["sucursales","esSucursal"]];
+      for(const k of ["f123_estado_v4_A","f123_estado_v4_B","f123_estado_v4"]){
+        const raw=win.localStorage.getItem(k);if(!raw)continue;
+        let state;try{state=JSON.parse(raw);}catch(_){return true;}
+        if(!state||typeof state!=="object")continue;
+        for(const [field,recognizer] of campos){
+          if(typeof huellas[recognizer]!=="function")continue;
+          if(Array.isArray(state[field])&&state[field].some(item=>item&&!huellas[recognizer](item)))return true;
+        }
+      }
+      return false;
     } catch (_) { return true; } // uncertain storage => never risk switching identity
   }
   function validCode(code){
