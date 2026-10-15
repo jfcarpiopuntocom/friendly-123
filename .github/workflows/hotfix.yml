@@ -27,6 +27,8 @@ concurrency:
 jobs:
   probar-y-mover:
     runs-on: ubuntu-latest
+    outputs:
+      promover: ${{ steps.refs.outputs.promover }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +39,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Browser binaries survive across runners; setup-node already caches npm.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
       - run: npx playwright install --with-deps chromium webkit
       - name: Identidad de release y manifiesto
         env:
@@ -54,6 +63,7 @@ jobs:
           node scripts/pruebas-del-area.cjs "$BASE" HEAD | tee /tmp/area.txt
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 $(cat /tmp/area.txt)
       - name: Mover ramas (previo <- estable, estable <- este commit)
+        id: refs
         run: |
           set -euo pipefail
           git fetch -q origin estable master previo || git fetch -q origin estable master
@@ -62,9 +72,11 @@ jobs:
           [ "$ESTABLE" = "$GITHUB_SHA" ] && { echo "estable ya esta aqui"; exit 0; }
           git merge-base --is-ancestor "$ESTABLE" "$GITHUB_SHA" || { echo "estable no es ancestro: no se mueve"; exit 1; }
           git push --atomic origin "$ESTABLE:refs/heads/previo" "$GITHUB_SHA:refs/heads/estable"
+          echo "promover=true" >> "$GITHUB_OUTPUT"
           echo "previo=$ESTABLE estable=$GITHUB_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
   publicar:
     needs: probar-y-mover
+    if: ${{ needs.probar-y-mover.outputs.promover == 'true' }}
     uses: ./.github/workflows/publicar.yml
   # Oct14fixes 4: recorrer la app viva justo despues de publicar (solo lectura).
   recorrido:
