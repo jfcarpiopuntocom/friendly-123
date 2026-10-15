@@ -26,4 +26,41 @@ if (nombres.length) {
     if (nombres.some(n => src.includes(n))) elegidas.add('test/' + t);
   }
 }
+// Risk-oriented micro-regressions: when a large UI/backend file changes, name-only
+// dependency selection is insufficient (index.html and mock-backend.js are excluded).
+// Inspect only diff hunks, never the full giant file, to keep the hotfix fast.
+const docsTocados = cambios.some(f => f.startsWith('docs/'));
+if (docsTocados) {
+  const hunks = execFileSync('git', [
+    'diff', '--no-ext-diff', '--unified=0', `${base}..${head}`, '--', 'docs/'
+  ], { encoding: 'utf8', maxBuffer: 12 * 1024 * 1024 })
+    .split('\n')
+    .filter(line => /^[+-](?![+-])/.test(line))
+    .join('\n');
+  // Use precise domain keywords to avoid running the entire suite for one hotfix.
+  const grupos = [
+    {
+      cambio: /direccionComision|montoComision|payout|liquidaci[oó]n|comisionista|promotora|comisi[oó]n/i,
+      pruebas: ['test/flecha-comision-v521.test.js', 'test/flecha-comision-ui-v521.test.js',
+        'test/cuadre-hugo-paco-luis.test.js'],
+    },
+    {
+      cambio: /fiadoAtomico|restauracionDe|cartera|ventaEfectiva|recibo|saldoCliente/i,
+      pruebas: ['test/fiado-durable-venta-v519.test.js', 'test/cuadre-hugo-paco-luis.test.js'],
+    },
+    {
+      cambio: /f123_owned|licen[cs]|trial|demo|instanceId|sesion|sesi[oó]n|OCAuth|pinValidado/i,
+      pruebas: ['test/demo-history-isolation.test.js', 'test/dashboard-identidad-version.test.js'],
+    },
+    {
+      cambio: /Tabulator|editable|ventasRemotas|renderTabla|dashboard/i,
+      pruebas: ['test/dashboard-embed.test.js', 'test/dashboard-identidad-version.test.js'],
+    },
+  ];
+  for (const grupo of grupos) {
+    if (grupo.cambio.test(hunks)) {
+      for (const prueba of grupo.pruebas) if (fs.existsSync(prueba)) elegidas.add(prueba);
+    }
+  }
+}
 process.stdout.write([...elegidas].sort().join('\n') + (elegidas.size ? '\n' : ''));
