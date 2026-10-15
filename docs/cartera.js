@@ -290,19 +290,31 @@
         var mid = vinculos[String(h.id)];
         if (mid) recibidas[String(mid)] = true;
       });
+      // An annulled sale and its restored copy are ONE effective debt.
+      // Dedupe by effective ID, not by the historical sale ID being traversed.
+      var recibidasEfectivas = Object.create(null), vistasEfectivas = Object.create(null);
+      Object.keys(recibidas).forEach(function (id) {
+        var v = porId[id];
+        var efectiva = v ? _ventaEfectiva(v, restauradaDe, {}) : null;
+        recibidasEfectivas[String(efectiva && efectiva.id || id)] = true;
+      });
       Object.keys(porId).forEach(function (id) {
         var v = porId[id];
         if (!v || !v.info || v.info.fiadoAtomico !== true ||
-            v.info.formaPago !== "fiado" || String(v.clienteId || "") !== String(clienteId) ||
-            recibidas[id]) return;
-        var importe = _centavosVenta(_ventaEfectiva(v, restauradaDe, {}));
+            v.info.formaPago !== "fiado" || String(v.clienteId || "") !== String(clienteId)) return;
+        var efectiva = _ventaEfectiva(v, restauradaDe, {});
+        if (!efectiva || !efectiva.id) return;
+        var vigenteId = String(efectiva.id);
+        if (vistasEfectivas[vigenteId] || recibidasEfectivas[vigenteId]) return;
+        vistasEfectivas[vigenteId] = true;
+        var importe = _centavosVenta(efectiva);
         if (importe <= 0) return;
         centavos -= importe;
         movimientos.push({
-          id: "fiado-venta-" + String(v.id), tipo: "cargo", monto: importe / 100,
+          id: "fiado-venta-" + vigenteId, tipo: "cargo", monto: importe / 100,
           montoOriginal: importe / 100, motivo: "Venta fiada",
-          quien: "", fecha: Number(new Date(v.fecha).getTime()) || 0,
-          ventaId: String(v.id), vinculoManual: false, fiadoAtomico: true
+          quien: "", fecha: Number(new Date(efectiva.fecha).getTime()) || 0,
+          ventaId: vigenteId, vinculoManual: false, fiadoAtomico: true
         });
       });
     }
