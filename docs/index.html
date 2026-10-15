@@ -8262,7 +8262,10 @@ async function cargarGastos(){
      número engañoso. */
   const expenseProjection = window.OCBusinessReadModel.monthly([],gastos,_mesActual,zone);
   const gastosMes = expenseProjection.expensesCents===null?null:expenseProjection.expensesCents/100;
-  /* v526: net sales minus expenses is NOT house net profit. */
+  /* v526: preserve the existing useful subtotal, clearly BEFORE product
+     costs/commissions; the separate cost-aware margin follows below. */
+  const neto = ventasMes === null || gastosMes === null ? null
+    : Math.round((ventasMes - gastosMes) * 100) / 100;
   const tarjeta = (label, valor, color) => `<div style="flex:1;min-width:120px;background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:12px 14px;">
     <div style="font-size:13px;color:var(--ink-soft);">${label}</div>
     <div style="font-size:20px;font-weight:700;color:${color};">${valor === null ? '—' : fmtMoney(valor)}</div></div>`;
@@ -8274,7 +8277,9 @@ async function cargarGastos(){
     tarjeta("Expenses this month", gastosMes, "var(--rojo-ink)") +
     tarjeta("Expenses (all time)", totalGastos, "var(--rojo-ink)") +
     (_verIngresos
-      ? tarjeta(localStorage.getItem('f123_lang') === 'es' ? "Ventas netas del mes" : "Net sales this month", ventasMes, "var(--dinero-verde-dk)") +
+      ? tarjeta("Sales this month", ventasMes, "var(--dinero-verde-dk)") +
+        tarjeta("Sales less expenses (before costs and commissions)", neto,
+          neto !== null && neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)") +
         tarjeta(localStorage.getItem('f123_lang') === 'es'
           ? "Margen tras costo de productos y gastos registrados (antes de comisiones y gastos sin atribuir)"
           : "Margin after product costs and recorded expenses (before commissions and unallocated expenses)",
