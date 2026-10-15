@@ -291,7 +291,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       var ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       // Legacy installs can preserve their real license but lose instanceId.
       // Such devices must never silently fall back to a demo notebook.
-      return !!ow.instanceId || /^F123-/i.test(String(ow.licenseCode || "").trim());
+      if (ow.instanceId || /^F123-/i.test(String(ow.licenseCode || "").trim())) return true;
+      // Existing joined notebooks remain protected even when owned metadata
+      // has been lost; never reinterpret a joined customer's history as demo.
+      if (localStorage.getItem("f123_tienda_activa")) return true;
+      var tiendas = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {};
+      return Object.keys(tiendas).length > 0;
     } catch (_) { return false; }
   }
   // Codigo de sala para "sincro-equipos" (homologado de AMIGABLE, 2026-07-23).
