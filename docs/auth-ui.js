@@ -160,6 +160,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
              se quedan y viajan en el proximo heartbeat. */
           try { if (payload.errores && window.AMG && window.AMG.Salud) window.AMG.Salud.limpiar(); } catch (_) {}
           var r = await res.json();
+          // Ignore a delayed reply if the user has since changed device or notebook.
+          // A stale "minima" must not override the full license of another identity.
+          var _identidadActual = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          if (String(_identidadActual.instanceId || "") !== String(payload.instanceId || "") ||
+              String(_identidadActual.licenseCode || "").trim().toUpperCase() !== String(payload.licenseCode || "").trim().toUpperCase()) return r;
           if (r && typeof r.estado === "string" && /^[a-z]{2,20}$/.test(r.estado)) { // whitelist 2026-07-17: una respuesta corrupta del worker no puede escribir estados basura
             var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
             owned.licenseEstado = r.estado;
@@ -282,8 +287,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // puede redundar la apropiacion en el mismo dispositivo.
   const ACTIVATION_PIN = "789";
   function dispositivoApropiado() {
-    try { return !!(JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId; }
-    catch (_) { return false; }
+    try {
+      var ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      // Legacy installs can preserve their real license but lose instanceId.
+      // Such devices must never silently fall back to a demo notebook.
+      return !!ow.instanceId || /^F123-/i.test(String(ow.licenseCode || "").trim());
+    } catch (_) { return false; }
   }
   // Codigo de sala para "sincro-equipos" (homologado de AMIGABLE, 2026-07-23).
   // Independiente del licenseCode del Worker de licencias (ese es server-side
@@ -864,7 +873,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      completa la entrada cuando la migración de claves (listo) termina. */
   try {
     const _ses = JSON.parse(sessionStorage.getItem("f123_sesion") || "null");
-    if (_ses && _ses.rol) { gate.style.display = "none"; document.body.style.overflow = ""; }
+    if (_ses && _ses.rol && !(_ses.rol === "demo" && dispositivoApropiado())) {
+      gate.style.display = "none"; document.body.style.overflow = "";
+    }
   } catch (_) {}
 
   /* Name this device NO va en el candado (JFC): va una sola vez, ya dentro
@@ -2079,6 +2090,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       let ses = null;
       try { ses = JSON.parse(sessionStorage.getItem("f123_sesion") || "null"); } catch (_) {}
       if (ses && ses.rol) {
+        // A remembered demo session cannot reopen a real, licensed notebook.
+        // Preserve the license and data; return to the PIN gate instead.
+        if (ses.rol === "demo" && dispositivoApropiado()) {
+          try { sessionStorage.removeItem("f123_sesion"); } catch (_) {}
+          try { gate.style.display = "flex"; document.body.style.overflow = ""; } catch (_) {}
+          return;
+        }
         // Ocultar el candado YA, antes de esperar listo, para que no haya flash.
         try { gate.style.display = "none"; document.body.style.overflow = ""; } catch (_) {}
         await listo;
