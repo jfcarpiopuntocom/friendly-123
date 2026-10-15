@@ -160,6 +160,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
              se quedan y viajan en el proximo heartbeat. */
           try { if (payload.errores && window.AMG && window.AMG.Salud) window.AMG.Salud.limpiar(); } catch (_) {}
           var r = await res.json();
+          // Ignore a delayed reply if the user has since changed device or notebook.
+          // A stale "minima" must not override the full license of another identity.
+          var _identidadActual = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          if (String(_identidadActual.instanceId || "") !== String(payload.instanceId || "") ||
+              String(_identidadActual.licenseCode || "").trim().toUpperCase() !== String(payload.licenseCode || "").trim().toUpperCase()) return r;
           if (r && typeof r.estado === "string" && /^[a-z]{2,20}$/.test(r.estado)) { // whitelist 2026-07-17: una respuesta corrupta del worker no puede escribir estados basura
             var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
             owned.licenseEstado = r.estado;
@@ -282,8 +287,40 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // puede redundar la apropiacion en el mismo dispositivo.
   const ACTIVATION_PIN = "789";
   function dispositivoApropiado() {
-    try { return !!(JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId; }
-    catch (_) { return false; }
+    try {
+      var ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      // Legacy installs can preserve their real license but lose instanceId.
+      // Such devices must never silently fall back to a demo notebook.
+      if (ow.instanceId || /^F123-/i.test(String(ow.licenseCode || "").trim())) return true;
+      // Existing joined notebooks remain protected even when owned metadata
+      // has been lost; never reinterpret a joined customer's history as demo.
+      if (localStorage.getItem("f123_tienda_activa")) return true;
+      var tiendas = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {};
+      if (Object.keys(tiendas).length > 0) return true;
+      // If identity metadata was lost but durable custom business records remain,
+      // never mistake this browser for a fresh demo. Pure read: no migration,
+      // reseed, backup deletion or license substitution.
+      var huellas = window.OCDemoHuellas;
+      if (!huellas) return false; // classification not available; do not guess
+      var campos = [
+        ["productos", "esProducto"], ["clientes", "esCliente"],
+        ["ubicaciones", "esUbicacion"], ["ventas", "esVenta"],
+        ["promotoras", "esPromotora"], ["sucursales", "esSucursal"]
+      ];
+      for (var b of ["f123_estado_v4_A", "f123_estado_v4_B", "f123_estado_v4"]) {
+        var raw = localStorage.getItem(b);
+        if (!raw) continue;
+        var estado;
+        try { estado = JSON.parse(raw); } catch (_) { return true; } // corrupt evidence is not a clean demo
+        if (!estado || typeof estado !== "object") continue;
+        for (var spec of campos) {
+          if (typeof huellas[spec[1]] !== "function") continue;
+          var filas = estado[spec[0]];
+          if (Array.isArray(filas) && filas.some(function (item) { return item && !huellas[spec[1]](item); })) return true;
+        }
+      }
+      return false;
+    } catch (_) { return false; }
   }
   // Codigo de sala para "sincro-equipos" (homologado de AMIGABLE, 2026-07-23).
   // Independiente del licenseCode del Worker de licencias (ese es server-side
@@ -864,7 +901,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      completa la entrada cuando la migración de claves (listo) termina. */
   try {
     const _ses = JSON.parse(sessionStorage.getItem("f123_sesion") || "null");
-    if (_ses && _ses.rol) { gate.style.display = "none"; document.body.style.overflow = ""; }
+    if (_ses && _ses.rol && !(_ses.rol === "demo" && dispositivoApropiado())) {
+      gate.style.display = "none"; document.body.style.overflow = "";
+    }
   } catch (_) {}
 
   /* Name this device NO va en el candado (JFC): va una sola vez, ya dentro
@@ -2079,6 +2118,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       let ses = null;
       try { ses = JSON.parse(sessionStorage.getItem("f123_sesion") || "null"); } catch (_) {}
       if (ses && ses.rol) {
+        // A remembered demo session cannot reopen a real, licensed notebook.
+        // Preserve the license and data; return to the PIN gate instead.
+        if (ses.rol === "demo" && dispositivoApropiado()) {
+          try { sessionStorage.removeItem("f123_sesion"); } catch (_) {}
+          try { gate.style.display = "flex"; document.body.style.overflow = ""; } catch (_) {}
+          return;
+        }
         // Ocultar el candado YA, antes de esperar listo, para que no haya flash.
         try { gate.style.display = "none"; document.body.style.overflow = ""; } catch (_) {}
         await listo;
