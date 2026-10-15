@@ -828,7 +828,7 @@
   }
   setInterval(function () {
     if (!ultimoDato) return;
-    if (recibirTrozo.sinConciliar) {
+    if (typeof recibirTrozo === "function" && recibirTrozo.sinConciliar) {
       pulso((document.documentElement.lang === "es")
         ? "Datos distintos entre aparatos · última lectura conservada"
         : "Device data differs · last reading preserved", "viejo");
@@ -1041,7 +1041,7 @@
       return v && v.id != null && !idsRecibidos[String(v.id)];
     });
     var faltaLectura = !nuevaCobertura || nuevaCobertura.ventas !== true;
-    if (_fuenteDatosDashboard === "remota" && prevCobertura &&
+    if (typeof _fuenteDatosDashboard !== "undefined" && _fuenteDatosDashboard === "remota" && prevCobertura &&
         prevCobertura.ventas === true && (faltaHistorial || faltaLectura)) {
       recibirTrozo.sinConciliar = true;
       // Reset the candidate cursor: an untrusted timestamp must not block
