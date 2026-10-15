@@ -19,6 +19,12 @@
 **Orden textual:** «TU NO TIENES PERMISO PARA HACER NADA SIN AVISARME». Avisar ANTES de investigar/modificar/publicar y ANTES de cada shell. Decir número e impacto para sus clientes. Después ejecutar la misión autorizada, sin pedir autorización rutinaria ni detenerse. Si surge otra decisión comercial, seguridad, pago o comunicación pública, sí pedir aprobación expresa.
 No imponer supuestas reglas. No llamar «publicado» al código no servido a clientes. «Funciona en web» ≠ «Belén lo recibió». Nunca entregar un comando PowerShell como sustituto de una instalación que no realizamos.
 
+## Órdenes vigentes de JFC del 14 oct 2026 (NO son gates antiguos)
+- **Cloudflare: no saturar** (textual: «estoy harto de saturar cloudflare… que no nos sature las cuentas el uso de los clientes en ninguna de mis apps»). Topes fijados por `test/cloudflare-presupuesto-v514.test.js`: tablero → version.json máx. cada 10 min de fondo; foto completa por el relay máx. cada 60 s; reintentos de ops sin confirmar 30 s duplicando hasta 10 min. Nunca polling bajo 60 s sin orden de JFC.
+- **Sync instantáneo** (textual: «tan reactive como entre las subsecciones… INSTANTÁNEO»; «40ms o menos»). Esperas de publicar/aplicar en 0 ms (v517), fijadas por `test/sync-instantaneo-v516.test.js`. Medido: 8 ms por conexión directa; ~110 ms por Cloudflare desde Ecuador (piso físico).
+- **Sentry al abrir cada sesión:** `search_issues` org jfcarpiocom, proyecto friendly-123, `is:unresolved` últimas 24 h; un error de cliente se arregla antes de que lo encuentre Belén.
+- Prompts textuales: `_private/prompts/2026-10-14_prompts-jfc.md` (privado, con SHA256SUMS).
+
 ## Producto e invariantes
 friendly-123: cuaderno compartido por colores, perchas, consignación, fiado y comisiones. Inglés + i18n ES. Datos locales, relay de sincronización opt-in cifrado; no almacenar cuadernos de clientes en nube ni insertar analítica que recolecte datos del negocio.
 **PRIME DIRECTIVE 1AAA:** ningún cliente con licencia pierde fotos, registros, stock, pagos, comisiones o acceso. La deuda y los pagos son idempotentes; montos desconocidos no se convierten en ceros. Demo solo opt-in, jamás sembrado en un negocio real.
