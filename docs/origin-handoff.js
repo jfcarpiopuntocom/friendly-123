@@ -42,7 +42,7 @@
   function mountOfficial(){
     const gate=win.document.getElementById("oc-gate");
     const nearby=win.document.getElementById("oc-unirse-equipo");
-    if (!gate || !nearby || yaTieneIdentidad() || win.document.getElementById("f123-origin-handoff")) return;
+    if (!gate || !nearby || win.document.getElementById("f123-origin-handoff")) return;
     const btn=win.document.createElement("button");
     btn.id="f123-origin-handoff";btn.type="button";
     btn.style.cssText="display:block;margin:0 auto;width:100%;min-height:44px;border:0;background:transparent;color:#234B67;font-size:14px;font-weight:700;text-decoration:underline;cursor:pointer;";
@@ -52,7 +52,14 @@
     status.style.cssText="margin:2px 0 10px;font-size:13px;color:#234B67;text-align:center;";
     nearby.insertAdjacentElement("afterend",btn);btn.insertAdjacentElement("afterend",status);
     btn.addEventListener("click",function(){
-      if (yaTieneIdentidad()) {display(mensaje("This device already has a notebook. No changes made.","Este dispositivo ya tiene un cuaderno. No se modificó nada."),status);return;}
+      const previouslyOwned=yaTieneIdentidad();
+      const identityBefore=JSON.stringify({owned:owned(),active:win.localStorage.getItem("f123_tienda_activa")||""});
+      if(previouslyOwned) {
+        const approve=typeof win.confirm==="function" && win.confirm(mensaje(
+          "This device already has a notebook. You can join a different business without deleting that notebook. Continue?",
+          "Este dispositivo ya tiene un cuaderno. Puedes unirte a otro negocio sin borrar el anterior. ¿Continuar?"));
+        if(!approve){display(mensaje("No changes made.","No se modificó nada."),status);return;}
+      }
       const id=nonce();
       if(!id) {display(mensaje("Secure browser transfer is unavailable. Use Join team above.","Transferencia segura no disponible. Usa Unirme a un equipo arriba."),status);return;}
       // A direct click is needed so Safari/iOS permits opening the old origin.
@@ -71,7 +78,10 @@
         }
         if(ev.data.type!=="grant")return;
         win.removeEventListener("message",receive);
-        if (yaTieneIdentidad()) {display(mensaje("Existing notebook preserved; transfer was not applied.","Se conservó el cuaderno actual; no se aplicó el traspaso."),status);return;}
+        if((!previouslyOwned && yaTieneIdentidad()) ||
+            (previouslyOwned && JSON.stringify({owned:owned(),active:win.localStorage.getItem("f123_tienda_activa")||""})!==identityBefore)) {
+          display(mensaje("The active notebook changed. Recovery was cancelled without modifying it.","Cambió el cuaderno activo. Se canceló la recuperación sin modificarlo."),status);return;
+        }
         const code=validCode(ev.data.code);
         if(!code || !win.OCSyncControl || typeof win.OCSyncControl.unirse!=="function"){
           display(mensaje("Could not join automatically. Use Join team with your original code.","No se pudo unir automáticamente. Usa Unirme a un equipo con tu código original."),status);
