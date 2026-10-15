@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v520">
+<meta name="dashboard-shell" content="f123-shell-v521">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -466,7 +466,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
-    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v520</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v521</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
@@ -1997,6 +1997,20 @@
   }
   // Read-only adapter used by refreshes and isolated evidence journeys.
   window.OCDashSalesAudit = {pintarConDatos:function(d){datos=d || datos;pintarHistorialVentas();}};
+  /* v521 FLECHA DE COMISION (JFC 2026-10-14, Belen): igual que Expenses de la app. Comisiones del mes
+     por direccion: la casa paga = gasto; el asociado paga a la casa = ingreso (la parte de la casa).
+     Sale de las mismas ventas del tablero: cero consultas nuevas. Monto desconocido = pendiente, nunca 0. */
+  function flechaComisionesMesHtml() {
+    var es = false; try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
+    if (datos.cobertura && datos.cobertura.ventas === false) return "";
+    var RM = window.OCBusinessReadModel, mes = String(fechaLocalDashboard(new Date().toISOString()) || "").slice(0, 7);
+    var delMes = (datos.ventas || []).filter(function (v) { return v && !v.anulada && !v.devuelta && v.comisionPct != null && String(v.fechaLocal || fechaLocalDashboard(v.fecha, v.relojDesfaseMs) || "").slice(0, 7) === mes; });
+    var paga = RM.sum(delMes.filter(function (v) { return v.direccionComision !== "asociadoPaga"; }).map(function (v) { return RM.number(v.comisionAsociado); }));
+    var recibe = RM.sum(delMes.filter(function (v) { return v.direccionComision === "asociadoPaga"; }).map(function (v) { return RM.number(v.netoCasa); }));
+    var m = function (n) { return n === null ? (es ? "pendiente" : "pending") : money(n); };
+    return '<p style="margin:0 0 7px;">' + (es ? "Comisiones que pagas este mes (gasto): " : "Commissions you pay this month (expense): ") + '<b style="color:#B0183E;">' + esc(m(paga)) + '</b> · ' +
+      (es ? "Comisiones que recibes este mes (ingreso): " : "Commissions you receive this month (income): ") + '<b style="color:#006B3C;">' + esc(m(recibe)) + '</b></p>';
+  }
   function pintarFinanzasFoto() {
     var el = $("finanzas-foto-contenido");
     if (!el) return;
@@ -2014,6 +2028,7 @@
       '</b> · monthly shelf costs <b>' + esc(money(mensual)) + '</b></p>' +
       '<p style="margin:0 0 7px;">Transfers: <b>' + tras.length + '</b> · customer credit facts: <b>' + cartera.length +
       '</b> · petty cash facts: <b>' + caja.length + '</b></p>' +
+      flechaComisionesMesHtml() +
       '<p style="margin:0;">Latest expenses: ' + esc(gastos.slice(0, 5).map(function (g) { return (g.concepto || "expense") + " " + money(g.monto || 0); }).join(" · ") || "none") + '</p>';
   }
 
@@ -2760,6 +2775,7 @@
         comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : (_ledgerCore && _retroPorVenta[String(v.id)] ? +_ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC).toFixed(2) : 0),
         netoCasa: v.split ? v.split.montoNetoDueno : (_ledgerCore && _retroPorVenta[String(v.id)] ? +(pu * cant - _ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC)).toFixed(2) : null),
         comisionCorregida: !!(v.split && v.split.corregida),
+        direccionComision: v.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha
         liquidada: !!v.liquidada,
         comisionPendiente: _ledgerCore ? +_ledgerCore.money((_ledgerDueVenta[String(v.id)] || 0) + (_retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].dueC : 0)).toFixed(2) : null,
         comisionRetenida: _ledgerCore ? _ledgerCore.money(_ledgerHeldVenta[String(v.id)] || 0) : 0,

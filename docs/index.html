@@ -6270,6 +6270,7 @@ function mostrarFormNuevoProducto(codigoEscaneado){
         </select></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.assocPct")}<br>
         <input id="np-pct-asociado-q" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="${t("form.assocPctPh")}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      ${flechaComisionHtml("np-direccion", "casaPaga")}
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.photoAltaLabel")}<br>
         <input id="np-foto" type="file" accept="image/*" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
@@ -6337,6 +6338,7 @@ async function crearProductoNuevo(codigoEscaneado){
     tipoProveedor: el("np-tipo-proveedor") ? el("np-tipo-proveedor").value : "compra",
     comisionProveedorPct: el("np-tipo-proveedor") && el("np-tipo-proveedor").value === "consignacion" ? Number(val("np-comision-pct")) || 0 : 0,
     comisionistaId: el("np-comisionista") ? (el("np-comisionista").value || null) : null,
+    direccionComision: leerFlechaComision("np-direccion"), // v521 flecha
     pctAsociado: el("np-pct-asociado") ? val("np-pct-asociado") : (el("np-pct-asociado-q") ? val("np-pct-asociado-q") : ""), // Belen 2026-09-29
     perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
     exentoImpuesto: !!(el("np-exento") && el("np-exento").checked),
@@ -6441,6 +6443,7 @@ async function mostrarFormEditarProducto(id){
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.assocPct")}<br>
         <input id="ed-pct-asociado" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="${t("form.assocPctPh")}" value="${p.pctAsociado != null ? p.pctAsociado : ""}" ${inp}></label>
       <div style="font-size:13px;margin-top:4px;">${t("form.assocPctHint")}</div>
+      ${flechaComisionHtml("ed-direccion", p.direccionComision)}
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.shelfLabel")}<br>
         <select id="ed-ubicacion" ${inp}>
           <option value="todas"${!p.ubicacionId || p.ubicacionId === "todas" ? " selected" : ""}>${t("form.noShelf")}</option>
@@ -6524,7 +6527,7 @@ async function guardarEdicionProducto(id){
   // campo no existe en el DOM, se OMITE del PATCH en vez de reventar todo.
   const v = (x) => { const el = document.getElementById(x); return el ? el.value.trim() : undefined; };
   // OJO: el SKU no se toca aqui — solo el barcode si el dueno lo digito.
-  const body = { nombre: v("ed-nombre"), precio: v("ed-precio"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), fechaEvento: v("ed-fecha-evento"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
+  const body = { direccionComision: leerFlechaComision("ed-direccion"), nombre: v("ed-nombre"), precio: v("ed-precio"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), fechaEvento: v("ed-fecha-evento"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   { const ex = document.getElementById("ed-exento"); if (ex) body.exentoImpuesto = ex.checked; } // v361
   const edFoto = document.getElementById("ed-foto");
@@ -6677,6 +6680,7 @@ async function abrirAltaProducto(){
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.assocPct")}<br>
         <input id="np-pct-asociado" type="number" min="0" max="100" step="0.01" inputmode="decimal" placeholder="${t("form.assocPctPh")}" value="" ${inp}></label>
       <div style="font-size:13px;margin-top:4px;">${t("form.assocPctHint")}</div>
+      ${flechaComisionHtml("np-direccion", "casaPaga")}
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:15px;font-weight:700;">
         <input id="np-perecible" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.expiresQ")}</span></label>
       <!-- v361: producto exento de impuesto (comida, libros... según el país). -->
@@ -6956,6 +6960,7 @@ async function abrirPanelVentaInfo(id, esTicket){
           </div>
         </div>`;
       })()}
+      ${(p.comisionistaId || p.pctAsociado != null || (_perchaVenta && _perchaVenta.tipo && _perchaVenta.tipo !== "propio")) ? flechaComisionHtml("vi-direccion", p.direccionComision) : ""}
       ${esTicket ? `
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;">
         <label style="flex:1;min-width:150px;font-size:14px;"><span data-i18n="sale.lblEventDate">${escHtml(t("sale.lblEventDate"))}</span><br><input id="vi-fecha" type="date" value="${escHtml(p.fechaEvento || "")}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
@@ -7325,7 +7330,8 @@ async function confirmarVentaConInfo(id, esTicket){
           // 2026-09-25: la persona elegida viaja con la venta (en una percha propia es la unica fuente del trato).
           promotoraId: (_modoComisionVenta === "associate" && document.getElementById("vi-comisionista")) ? (document.getElementById("vi-comisionista").value || null) : null,
           asistenteId: (_modoComisionVenta === "associate" && document.getElementById("vi-asistente")) ? (document.getElementById("vi-asistente").value || null) : null,
-          asistentePct: (document.getElementById("vi-asistente-pct") || {}).value })
+          asistentePct: (document.getElementById("vi-asistente-pct") || {}).value,
+          direccionComision: leerFlechaComision("vi-direccion") })
       });
       data = await res.json();
     } catch (err) {
@@ -8227,6 +8233,9 @@ async function cargarGastos(){
   const _mesActual = window.OCSalesAudit.dayOf({fecha:new Date().toISOString()},zone).slice(0,7);
   // Ingresos del mes (ventas) para el neto.
   let ventasMes = null;
+  /* v521 flecha de comision: comisiones del mes por direccion. Casa paga = gasto; asociado paga = ingreso
+     (la parte de la casa). Monto desconocido -> null -> "—", nunca 0 inventado. Mismas ventas, cero red extra. */
+  let comPaga = null, comRecibe = null;
   try {
     // 2026-10-13: /dashboard has no resumenMes. Use canonical sales
     // across the business just like /gastos; failed reads never invent zero.
@@ -8238,6 +8247,10 @@ async function cargarGastos(){
     const last = new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
     const projection=window.OCBusinessReadModel.monthly(sales,gastos,month,zone);
     ventasMes = projection.netCents === null ? null : projection.netCents / 100;
+    const RM = window.OCBusinessReadModel;
+    const delMes = sales.filter((v) => v && !v.anulada && !v.devuelta && v.comisionPct != null && window.OCSalesAudit.dayOf(v, zone).slice(0, 7) === month);
+    comPaga = RM.sum(delMes.filter((v) => v.direccionComision !== "asociadoPaga").map((v) => RM.number(v.comisionAsociado)));
+    comRecibe = RM.sum(delMes.filter((v) => v.direccionComision === "asociadoPaga").map((v) => RM.number(v.netoCasa)));
   } catch (_) {}
   const totalGastos = window.OCBusinessReadModel.sum(gastos.filter(g=>!g.borrado).map(g=>window.OCBusinessReadModel.number(g.monto)));
   /* Enriquecimiento (JFC 2026-08-28): separar "este mes" de "todo el tiempo" y
@@ -8259,7 +8272,9 @@ async function cargarGastos(){
     tarjeta("Expenses (all time)", totalGastos, "var(--rojo-ink)") +
     (_verIngresos
       ? tarjeta("Sales this month", ventasMes, "var(--dinero-verde-dk)") +
-        tarjeta("Sales less expenses (before costs and commissions)", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)")
+        tarjeta("Sales less expenses (before costs and commissions)", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)") +
+        tarjeta(window.t ? window.t("flecha.gastoMes") : "Commissions you pay this month (expense)", comPaga, "var(--rojo-ink)") +
+        tarjeta(window.t ? window.t("flecha.ingresoMes") : "Commissions you receive this month (income)", comRecibe, "var(--dinero-verde-dk)")
       : "");
   // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
   if(resumen && gastosMes===null)resumen.innerHTML += '<p style="width:100%;color:var(--ink);font-size:14px;font-weight:700;">'+(localStorage.getItem('f123_lang')==='es'?'Gastos mensuales pendientes: hay registros sin fecha o importe válido.':'Monthly expenses pending: some records have no valid date or amount.')+'</p>';
@@ -8521,16 +8536,19 @@ function agruparVentasPorProducto(rows, soloComision, mes, incluirPropias = fals
     }
     const k = v.productoId || v.productoNombre;
     const d = map.get(k) || { productoId: v.productoId, producto: v.productoNombre, sku: v.sku || "", candidatas: [], perchas: new Set(), ubicacionIds: new Set(), asociados: new Set(),
-      unid: 0, bruto: 0, socio: 0, casa: 0, pendSocio: 0, counterUnid: 0, counterMonto: 0, propiasUnid: 0, propiasMonto: 0, totalUnid: 0, total: 0, cortesias: 0 };
+      direccion: "casaPaga", casaEnAsociado: 0, revisarDir: 0, unid: 0, bruto: 0, socio: 0, casa: 0, pendSocio: 0, counterUnid: 0, counterMonto: 0, propiasUnid: 0, propiasMonto: 0, totalUnid: 0, total: 0, cortesias: 0 };
     const cant = Number(v.cantidad) || 1;
     const monto = (Number(v.precioUnit) || 0) * cant;
     if (v.ubicacionNombre) d.perchas.add(v.ubicacionNombre);
     if (v.ubicacionId) d.ubicacionIds.add(v.ubicacionId); // golden16: pago desde By product (ver _tarjetaProd)
     d.totalUnid += cant; d.total += monto;
+    if (v.direccionProducto === "asociadoPaga") d.direccion = "asociadoPaga"; // v521 flecha: la del producto
     if (v.cortesia) d.cortesias += cant;
     if (conReparto) {
       const socio = Number(v.comisionAsociado) || 0, casa = v.netoCasa != null ? (Number(v.netoCasa) || 0) : (v.comisionPct == null ? monto : 0);
       d.unid += cant; d.bruto += socio + casa; d.socio += socio; d.casa += casa;
+      /* v521 flecha: el asociado cobro; la parte de la casa quedo en sus manos. Una venta ya pagada en la otra direccion se marca para revisar. */
+      if (v.direccionComision === "asociadoPaga") { d.casaEnAsociado += casa; if (v.liquidada) d.revisarDir++; }
       /* v457 (b): lo pendiente sale del ledger (comisionPendiente) cuando viene; una venta vieja recalculada y ya liquidada tiene nuevo Still due. */
       if (v.comisionPendiente != null && Number.isFinite(Number(v.comisionPendiente))) d.pendSocio += Number(v.comisionPendiente);
       else if (!v.liquidada) d.pendSocio += socio;
@@ -8585,6 +8603,43 @@ function cuadreMesHtml(c){
     ${c.contribFijaDescontada > 0 ? fila(t("comm.q.fixedContrib"), -c.contribFijaDescontada, null) : ""}
   </section>`;
 }
+/* v521 FLECHA DE COMISION (JFC 2026-10-14, pedido de Belen/idiomARTE). Quien le paga a quien:
+   "casaPaga" (default, todo lo viejo) = la casa cobro y le paga al asociado -> gasto de la casa.
+   "asociadoPaga" = el asociado cobro y le paga a la casa su parte -> ingreso de la casa.
+   El boton va ENTRE "Associate takes" y "House keeps" y gira la direccion (orden textual de JFC).
+   - En formularios (producto, venta): solo cambia el valor; se guarda con el formulario.
+   - En Summary by Product (data-flecha-producto): pide confirmacion y corrige el producto y TODAS sus
+     ventas, tambien pasadas (JFC: "Todas! Necesitan arreglar las del pasado"). Los montos no cambian.
+     Ruta: PATCH /api/productos/:id/direccion-comision (mock-backend.js). Todo local: cero Cloudflare. */
+function flechaComisionTexto(asoc){ return asoc ? t("flecha.asociadoPaga") + " \u2192" : "\u2190 " + t("flecha.casaPaga"); }
+function flechaComisionHtml(id, dir, productoId, productoNombre){
+  const asoc = dir === "asociadoPaga";
+  return `<div class="oc-flecha" style="display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin-top:10px;font-size:14px;color:#19354B;">
+    <span style="font-weight:700;color:#19354B;">${t("shelves.split.associateTakes")}</span>
+    <button type="button"${id ? ` id="${id}"` : ""} data-flecha-dir="${asoc ? "asociadoPaga" : "casaPaga"}"${productoId ? ` data-flecha-producto="${escHtml(productoId)}" data-flecha-nombre="${escHtml(productoNombre || "")}"` : ""} onclick="event.stopPropagation();girarFlechaComision(this)" aria-label="${escHtml(t("flecha.girar"))}" title="${escHtml(t("flecha.girar"))}" style="min-height:44px;margin:0;padding:6px 12px;font-size:16px;font-weight:700;border:2px solid #19354B;border-radius:8px;background:${asoc ? "#E6F4EC" : "#FFFFFF"};color:#19354B;cursor:pointer;">${escHtml(flechaComisionTexto(asoc))}</button>
+    <span style="font-weight:700;color:#19354B;">${t("shelves.split.houseKeeps")}</span></div>`;
+}
+function leerFlechaComision(id){ const b = document.getElementById(id); return b ? (b.getAttribute("data-flecha-dir") || undefined) : undefined; }
+async function girarFlechaComision(btn){
+  const nueva = btn.getAttribute("data-flecha-dir") === "asociadoPaga" ? "casaPaga" : "asociadoPaga";
+  const pid = btn.getAttribute("data-flecha-producto");
+  const pinta = (d) => { btn.setAttribute("data-flecha-dir", d); btn.textContent = flechaComisionTexto(d === "asociadoPaga"); btn.style.background = d === "asociadoPaga" ? "#E6F4EC" : "#FFFFFF"; };
+  if (!pid) { pinta(nueva); return; }
+  if (!confirm(window.tf("flecha.confirmar", { prod: btn.getAttribute("data-flecha-nombre") || "" }))) return;
+  btn.disabled = true;
+  try {
+    const quien = (window.OCAuth && window.OCAuth.nombreActual && window.OCAuth.nombreActual()) || (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "";
+    const res = await fetch(`${API}/productos/${encodeURIComponent(pid)}/direccion-comision`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ direccion: nueva, quien }) });
+    const r = await res.json();
+    if (!res.ok || !r || !r.ok) throw new Error((r && r.error) || "direction");
+    pinta(nueva);
+    alert(window.tf("flecha.hecho", { n: r.cambiadas, dir: t(nueva === "asociadoPaga" ? "flecha.asociadoPaga" : "flecha.casaPaga") }) + (r.pagadasARevisar ? "\n" + window.tf("flecha.revisar", { n: r.pagadasARevisar }) : ""));
+    try { window.OCReactivo && window.OCReactivo.emitir("ventas"); } catch (_) {}
+    if (typeof cargarComisiones === "function") cargarComisiones();
+    if (typeof cargarGastos === "function") cargarGastos();
+  } catch (_) { alert(t("flecha.fallo")); }
+  finally { btn.disabled = false; }
+}
 function resumenComisionPorProductoHtml(prods, cuadre){
   // JFC 2026-09-24: esta seccion no desaparece si el mes aun no tiene filas.
   // Asi Commissions conserva siempre el orden mental: producto primero, pago por percha despues.
@@ -8638,6 +8693,7 @@ function resumenComisionPorProductoHtml(prods, cuadre){
         ${d.unid ? `<div><div class="rotulo">Sold with commission</div><div class="cifra">${fmtMoney(d.bruto)} <small>${d.unid}u</small></div></div>
         <div><div class="rotulo">Associate takes</div><div class="cifra">${fmtMoney(d.socio)}</div></div>
         <div><div class="rotulo">House keeps</div><div class="cifra">${fmtMoney(d.casa)}</div></div>` : ""}
+        ${d.casaEnAsociado > 0 ? `<div><div class="rotulo" style="color:#006B3C;">${t("flecha.casaEnAsociado")}</div><div class="cifra" style="color:#006B3C;">${fmtMoney(d.casaEnAsociado)}</div></div>` : ""}
         ${d.pendSocio > 0 ? `<div><div class="rotulo" style="color:var(--rust-deep,#C05000);">Still to pay</div><div class="cifra" style="color:var(--rust-deep,#C05000);">${fmtMoney(d.pendSocio)}</div></div>` : ""}
         ${d.counterUnid ? `<div><div class="rotulo"><em>${t("comm.productHouse")}</em></div><div class="cifra">${fmtMoney(d.counterMonto)} <small>${d.counterUnid}u</small></div></div>` : ""}
         ${d.propiasUnid ? `<div><div class="rotulo">${t("comm.productOwn")}</div><div class="cifra">${fmtMoney(d.propiasMonto)} <small>${d.propiasUnid}u</small></div></div>` : ""}
@@ -8647,6 +8703,8 @@ function resumenComisionPorProductoHtml(prods, cuadre){
         (d.pendSocio > 0 && !(d.moneyReview && d.moneyReview.length) && d.productoId) ? `<div style="margin-top:10px;"><button type="button" class="ir"
           data-comm-pay-from-product="${escHtml([...d.ubicacionIds][0] || '')}" data-comm-pay-product="${escHtml(d.productoId)}"
           style="min-height:44px;font-size:16px;font-weight:700;margin:0;background:var(--rust-deep,#C05000);border-color:var(--rust-deep,#C05000);color:#fff;">${t("comm.recordPartial")}</button></div>` : ""}
+      ${(d.unid > 0 && d.productoId) ? `<div data-comm-flecha style="margin-top:6px;">${flechaComisionHtml("", d.direccion, d.productoId, d.producto)}</div>` : ""}
+      ${d.revisarDir ? `<div data-flecha-revisar style="margin-top:8px;border:2px solid #B0183E;padding:8px 10px;font-size:14px;font-weight:700;color:#B0183E;">${escHtml(t("flecha.ventaRevisar"))}: ${d.revisarDir}</div>` : ""}
       ${(d.moneyReview || []).map(f=>`<div data-product-money-review style="margin-top:10px;border:2px solid #B0183E;padding:10px;font-size:14px;color:#19354B;">${escHtml(f.ubicacion)}: ${(f.payoutBalances || []).filter(p=>Number(p.overpaid)>0).map(p=>`${window.OCI18n && window.OCI18n.getLang()==='es' ? 'Exceso pagado' : 'Overpaid'}: ${fmtMoney(p.overpaid)} · ${window.OCI18n && window.OCI18n.getLang()==='es' ? 'Pagado registrado' : 'Recorded paid'}: ${fmtMoney(p.paid)}`).join(' · ')}${(f.paymentConflicts || []).map(c=>`<div>${c.records.map(p=>fmtMoney(Number(p.amountCents)/100)).join(' / ')}</div>`).join('')}</div>`).join('')}
       ${(d.candidatas || []).length ? `<details style="margin-top:8px;"><summary style="cursor:pointer;min-height:44px;display:flex;align-items:center;color:var(--azul-medio,#2c4a68);font-size:14px;">${window.tf("comm.reviewSales",{n:d.candidatas.length})}</summary>
         <p style="font-size:13px;color:var(--ink-soft);">${t("comm.reviewNote")}</p>

@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v520: dashboard Today/Commissions keeps unknown amounts pending with optional isolated read-model guard; includes v519 durable fiado and dashboard corrections.",
+  "changelog": "v521: commission arrow (who pays whom) per product and per sale; Summary by Product switch fixes all sales of the product; Expenses and dashboard show commissions paid (expense) and received (income).",
   "requerida": false,
-  "shell": "f123-shell-v520",
+  "shell": "f123-shell-v521",
   "apagar": [],
-  "releaseName": "v520",
-  "cacheGeneration": "golden84"
+  "releaseName": "v521",
+  "cacheGeneration": "golden85"
 }

@@ -1943,6 +1943,12 @@
      sin % propio: manda el trato de la percha o de la persona, como siempre. 0 es un % real (el asociado no cobra).
      Con % propio se anulan las escalas por meta (el producto manda), pero la base (bruto/margen), el aporte fijo y
      el minimo garantizado siguen siendo los del trato. Como toda comision, se SELLA en la venta (comisionPct). */
+  /* FLECHA DE COMISION (JFC 2026-10-14, v521, pedido de Belen). Quien le paga a quien:
+     "casaPaga" (default; todo producto y venta sin el campo) = la casa cobro y le paga al asociado (gasto).
+     "asociadoPaga" = el asociado cobro y le paga a la casa su parte (ingreso de la casa).
+     Se elige en el producto, la venta la copia (y se puede cambiar al vender) y queda SELLADA en la venta.
+     Los montos del split NO cambian: solo cambia quien le debe a quien (payout-ledger.js). */
+  function _direccionValida(d) { return d === "asociadoPaga" || d === "casaPaga" ? d : null; }
   function normPctAsociado(v) {
     if (v === null || v === undefined || v === "") return null;
     var n = Number(v);
@@ -2866,7 +2872,7 @@
   function ficha(p) {
     const e = estadoDe(p);
     const _rb = rebajaDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
   /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
      archivados: dashboards, resumen histórico, BCG y reportes financieros deben
@@ -3616,7 +3622,7 @@
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
-          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "fechaEvento", "chip", "archivado", "fotoHash", "borrado", "rev"];
+          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "chip", "archivado", "fotoHash", "borrado", "rev"];
           const fotoAnterior = mio.fotoHash;
           campos.forEach((k) => { if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
           if (fotoAnterior !== mio.fotoHash) mio.foto = null;
@@ -3696,7 +3702,7 @@
           }
           return;
         }
-        ventas.push({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
+        ventas.push({ id: v.id, ...(_direccionValida(v.direccionComision) ? { direccionComision: v.direccionComision } : {}), productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
         ventasAgregadas++;
       });
@@ -4303,7 +4309,7 @@
              fotos (mismo camino que las perchas). El receptor resuelve la foto
              desde OCFotos por ese hash. Ver sembrarFotosAlRelay (productos) y la
              hidratacion en volcarFotosAlStore. */
-          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado })),
+          fotoHash: p.fotoHash || null, rev: p.rev || null, borrado: !!p.borrado, proveedor: p.proveedor || "", metodoCosteo: p.metodoCosteo || "FIFO", tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado })),
         /* EL EQUIPO VIAJA CON EL CATALOGO (JFC 2026-08-21).
            BUG DE RAIZ que provoco tres quejas distintas de usuarios reales:
            `usuarios` (nombre, PIN, rol, activo) era estado LOCAL de cada
@@ -4548,7 +4554,7 @@
           const montoBruto = p.precio * cant;
           const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
           const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
-          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
         }
         mov(op.tipo + "-remoto", { producto: p.nombre, delta: pl.delta, dispositivo: op.deviceNombre || op.deviceId || "otro dispositivo" });
         if (_noDescontado > 0) mov("alerta-descuadre", { producto: p.nombre, stockActual: p.stockActual, faltaron: _noDescontado, motivo: "Dos dispositivos vendieron las mismas ultimas unidades casi a la vez. El stock quedo en 0: " + _noDescontado + " unidad(es) se vendieron sin existencia. Cuenta la percha." });
@@ -4938,11 +4944,34 @@
       }
       // Edicion libre de la ficha (nombre, foto, precios, codigo interno).
       // El gating por rol (encargado NO edita) vive en la UI; aca solo se aplica.
+      /* v521 FLECHA — switch de Summary by Product (JFC 2026-10-14: "Todas! Necesitan arreglar las del pasado").
+         Gira la direccion del producto y de TODAS sus ventas no anuladas, de cualquier mes. Los montos no cambian.
+         Una venta que ya tenia pago en la direccion vieja se cambia igual, pero el pago se conserva en el
+         libro y la venta queda marcada para revisar (directionReview); se informa cuantas. Persiste UNA vez. */
+      if ((m = path.match(/^\/api\/productos\/([^/]+)\/direccion-comision$/)) && opts && opts.method === "PATCH") {
+        const p = productos.find((x) => x.id === m[1] && !x.borrado); if (!p) return J({ error: "Product not found." }, 404);
+        const dir = _direccionValida(body && body.direccion);
+        if (!dir) return J({ error: "Direction must be casaPaga or asociadoPaga." }, 400);
+        const antes = _direccionValida(p.direccionComision) || "casaPaga";
+        p.direccionComision = dir; p.rev = _revNueva();
+        let cambiadas = 0, pagadasARevisar = 0;
+        ventas.forEach((v) => {
+          if (!v || v.anulada || v.productoId !== p.id) return;
+          if ((_direccionValida(v.direccionComision) || "casaPaga") === dir) return;
+          if (v.split && (v.liquidada || _ventaTienePagoComision(v))) pagadasARevisar++;
+          v.direccionComision = dir;
+          v.direccionCambios = (Array.isArray(v.direccionCambios) ? v.direccionCambios : []).concat([{ fecha: new Date().toISOString(), quien: String((body && body.quien) || "").trim().slice(0, 80) || "unidentified", de: antes, a: dir }]).slice(-20);
+          v.rev = _revNueva(); cambiadas++;
+        });
+        mov("direccion-comision", { producto: p.nombre, de: antes, a: dir, ventas: cambiadas, pagadasARevisar });
+        guardarEstadoLocal(); avisarCatalogoCambiado();
+        return J({ ok: true, direccion: dir, cambiadas, pagadasARevisar });
+      }
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
         const stockAntesEdicion = Number(p.stockActual) || 0;
-        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "fechaEvento", "archivado"];
+        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "archivado"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
       if (k === "foto") {
@@ -4971,6 +5000,7 @@
         p[k] = nuevo; return;
       }
       if (k === "pctAsociado") { p[k] = normPctAsociado(body[k]); return; } // Belen 2026-09-29: % del asociado por producto (null = trato de la percha)
+      if (k === "direccionComision") { const d = _direccionValida(body[k]); if (d) p[k] = d; return; } // v521 flecha: valor invalido = no se toca
       if (k === "chip") { p[k] = String(body[k] || "").trim().slice(0, 12); return; }
       if (k === "fechaEvento") { p[k] = String(body[k] || "").trim().slice(0, 20); return; } // JFC 2026-09-30 (v430)
       if (k === "perecible" || k === "archivado" || k === "exentoImpuesto") { p[k] = !!body[k]; return; } // archivado: JFC/Belén 2026-09-08
@@ -5362,7 +5392,7 @@
            o la purga. Los reales son "p"+UUID. idiomARTE (K7M2)/otros NO se filtran
            (pueden tener ids p\d+ propios). Es cinturon + tirantes con la purga. */
         try { var _lpF = String((_licenciaPropia && _licenciaPropia()) || "").toUpperCase().replace(/\s+/g, ""); if (_lpF.indexOf("F123-A6YK-6V1J-") === 0) fuente = fuente.filter((p) => !/^p\d+$/.test(String(p.id || ""))); } catch (_) {}
-        let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", familiaId: p.familiaId || "", varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado }; });
+        let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", familiaId: p.familiaId || "", varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado, direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga" }; });
         const est = q.get("estado");
         if (est) lista = lista.filter((x) => x.estado === est);
         lista.sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado] || a.nombre.localeCompare(b.nombre, "es"));
@@ -5433,7 +5463,8 @@
           servingMl: Math.max(1, Number(body.servingMl) || 50),
           botellaMl: Math.max(1, Number(body.botellaMl) || 750),
           comisionistaId: body.comisionistaId || null, // JFC 2026-08-27: comisionista asociado al producto
-          pctAsociado: normPctAsociado(body.pctAsociado), // Belen 2026-09-29: % del asociado solo para este producto (null = trato de la percha)
+          pctAsociado: normPctAsociado(body.pctAsociado),
+          direccionComision: _direccionValida(body.direccionComision) || "casaPaga", // v521 flecha (JFC 2026-10-14) // Belen 2026-09-29: % del asociado solo para este producto (null = trato de la percha)
           fechaEvento: String(body.fechaEvento || "").trim().slice(0, 20), // JFC 2026-09-30 (v430): fecha del evento/clase se pone al crear el ticket, no al venderlo
           creadoEn: new Date().toISOString(),
           /* FIX 2026-09-24 (hallado con benchmark #6): el formulario de alta manda
@@ -5621,7 +5652,7 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, modoComision, ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
            corria despues, en finally, sin esperar a IndexedDB: con localStorage
@@ -6603,6 +6634,7 @@
           comisionistaIdProducto: p ? (p.comisionistaId || null) : null,
           /* v457: el % propio del producto (null si no tiene): Commissions lo usa para no contar como "casa" una venta guardada sin reparto de un producto que si comisiona. */
           pctAsociadoProducto: p ? normPctAsociado(p.pctAsociado) : null,
+          direccionProducto: p && p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha: switch de Summary by Product
           comisionistaNombreProducto: p && p.comisionistaId ? ((promotoras.find(x => x.id === p.comisionistaId && !x.borrado) || {}).nombre || "") : "",
           cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit == null || v.costoUnit === "" ? null : v.costoUnit,
           clienteNombre: c ? c.nombre : "",
@@ -6623,6 +6655,8 @@
           comisionAsociado: v.split ? v.split.montoComisionSocio : (_rt ? _coreVentas.money(_rt.ganadoC) : 0),
           netoCasa: v.split ? v.split.montoNetoDueno : (_rt ? +(((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) - _coreVentas.money(_rt.ganadoC)).toFixed(2) : null),
           modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
+          /* v521 flecha: sin campo = venta vieja = la casa paga. */
+          direccionComision: v.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga",
           comisionCorregida: !!(v.split && v.split.corregida),
           liquidada: !!v.liquidada,
           /* Payout Ledger: exact remaining commission for this sale, summed
@@ -6676,7 +6710,7 @@
           const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
           const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
           p.stockActual -= cant;
-          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
           emitirOpStock("cierre-dia", { productoId: p.id, delta: -cant });
           aplicadas += cant;
           mov("cierre-dia", { producto: p.nombre, cantidad: cant, ubicacion: nombreUbic(p.ubicacionId) });
