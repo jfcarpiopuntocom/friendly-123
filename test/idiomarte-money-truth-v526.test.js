@@ -15,7 +15,7 @@ function extract(start, end) {
 function rows(sales) {
   const c = { datos:{ventas:sales}, window:{OCBusinessReadModel:model}, Number, Date, String, Object };
   vm.createContext(c);
-  vm.runInContext(extract('  function filasEventos() {', '  /* ======================================================================\n     PESTANA COMISIONES'), c);
+  vm.runInContext(extract('  function filasEventos() {', '  /* ======================================================================\n     PESTANIA COMISIONES'), c);
   // Return plain records to test independently of VM prototypes.
   return JSON.parse(JSON.stringify(vm.runInContext('filasEventos()', c)));
 }
