@@ -91,7 +91,11 @@ test('v523: retroactive direction and its audit cross the existing encrypted-cat
   const received = (await target.request('/api/ventas/todas')).find(v => v.id === emitted.id);
   assert.ok(received, 'the real sale ID is preserved');
   assert.equal(received.direccionComision, 'asociadoPaga');
-  assert.equal(received.direccionCambios.length, 1);
+  // The public sale projection intentionally does not expose direction-change audit.
+  // Verify the durable synchronized record, not the privacy-limited sales view.
+  const rawReceived = target.catalog().ventas.find(v => v.id === emitted.id);
+  assert.ok(rawReceived, 'the synchronized raw sale must retain its ID');
+  assert.equal(rawReceived.direccionCambios.length, 1);
 });
 
 test('v523: owned/known joined notebooks never qualify as unowned demo devices', () => {
