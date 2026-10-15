@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-14",
-  "changelog": "v522: same code as v521 (commission arrow: who pays whom), republished by JFC after the v520 rewind.",
+  "changelog": "v523: preserve licensed notebook access, historical commission earnings, fiado balances, cross-device commission directions and tablet editing controls.",
   "requerida": false,
-  "shell": "f123-shell-v522",
+  "shell": "f123-shell-v523",
   "apagar": [],
-  "releaseName": "v522",
-  "cacheGeneration": "golden86"
+  "releaseName": "v523",
+  "cacheGeneration": "golden87"
 }

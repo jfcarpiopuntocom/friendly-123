@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v522">
+<meta name="dashboard-shell" content="f123-shell-v523">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -2267,6 +2267,16 @@
          formatters, asi que al menos el dinero se formatea a mano. */
       return "<tr>" + v.cols.map(function (c) {
         if (vista === "clientes" && c.field === "id") return "<td style='padding:4px;'><button type='button' data-edit-cliente='" + esc(f.id || "") + "' aria-label='Edit customer' style='min-width:44px;min-height:44px;'>✎</button></td>";
+        // Keep the same in-dashboard editors on a tablet when the table CDN fails.
+        // The existing same-origin link handler opens the authenticated iframe.
+        if (vista === "ventas" && c.field === "id") {
+          if (f.liquidada || !f.id) return "<td style='padding:8px;'>·</td>";
+          return "<td style='padding:4px;'><a href='index.html#editar=venta:" + esc(encodeURIComponent(f.id)) + "' aria-label='" + (localStorage.getItem("f123_lang") === "es" ? "Editar venta" : "Edit sale") + "' style='display:inline-block;padding:8px;min-width:44px;min-height:44px;box-sizing:border-box;'>✎</a></td>";
+        }
+        if (vista === "comisiones" && c.field === "ubicacionId") {
+          if (!f.ubicacionId) return "<td style='padding:8px;'>—</td>";
+          return "<td style='padding:4px;'><a href='index.html#editar=comisionpercha:" + esc(encodeURIComponent(f.ubicacionId)) + "' aria-label='" + (localStorage.getItem("f123_lang") === "es" ? "Editar comisión de percha" : "Edit shelf commission") + "' style='display:inline-block;padding:8px;min-width:44px;min-height:44px;box-sizing:border-box;'>✎</a></td>";
+        }
         var val = f[c.field];
         if (val == null || val === "") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + (c.field === 'stockActual' ? 'Stock pending' : '—') + "</td>";
         if (/^(precio|costo|margen|precioUnit|costoUnit|monto)$/.test(c.field)) val = money(val);
