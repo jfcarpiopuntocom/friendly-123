@@ -68,3 +68,28 @@ test('v523: an employee cannot reclassify historical commission direction', asyn
   const after = await app.request('/api/ventas/todas');
   assert.equal(after.find(v => v.productoId === p.id).direccionComision, 'casaPaga');
 });
+
+test('v523: retroactive direction and its audit cross the existing encrypted-catalog contract', async () => {
+  const source = browser();
+  source.OCAuth = { rolActual: () => 'dueno' };
+  const rack = await source.request('/api/ubicaciones', 'POST', { nombre: 'Direction sync rack', tipo: 'socio' });
+  const p = await source.request('/api/productos', 'POST', {
+    nombre: 'Direction sync item', sku: 'SYNC-523', barcode: 'SYNC-523',
+    precio: 100, costo: 0, stockInicial: 4, ubicacionId: rack.id
+  });
+  await source.request('/api/productos/' + p.id + '/venta', 'POST', { cantidad: 1 });
+  const changed = await source.request('/api/productos/' + p.id + '/direccion-comision', 'PATCH', {
+    direccion: 'asociadoPaga', quien: 'fixture'
+  });
+  assert.equal(changed.cambiadas, 1);
+  const emitted = source.catalog().ventas.find(v => v.productoId === p.id);
+  assert.equal(emitted.direccionComision, 'asociadoPaga');
+  assert.equal(emitted.direccionCambios.length, 1);
+  const target = browser();
+  target.OCAuth = { rolActual: () => 'dueno' };
+  target.receive(source);
+  const received = (await target.request('/api/ventas/todas')).find(v => v.id === emitted.id);
+  assert.ok(received, 'the real sale ID is preserved');
+  assert.equal(received.direccionComision, 'asociadoPaga');
+  assert.equal(received.direccionCambios.length, 1);
+});
