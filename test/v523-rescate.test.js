@@ -104,13 +104,22 @@ test('v523: owned/known joined notebooks never qualify as unowned demo devices',
   const auth = fs.readFileSync(path.resolve(__dirname, '../docs/auth-ui.js'), 'utf8');
   const found = auth.match(/function dispositivoApropiado\(\) \{([\s\S]*?)\n  \}/);
   assert.ok(found, 'the real ownership guard must remain present');
-  const probe = new Function('localStorage', 'return (function dispositivoApropiado(){' + found[1] + '})()');
+  const probe = new Function('localStorage', 'window', 'return (function dispositivoApropiado(){' + found[1] + '})()');
   function device(saved) {
-    return probe({ getItem: k => saved[k] ?? null });
+    const storage={ getItem: k => saved[k] ?? null };
+    const demo = { esProducto: p=>p.id==='demo', esCliente:()=>true, esUbicacion:()=>true,
+      esVenta:()=>true, esPromotora:()=>true, esSucursal:()=>true };
+    return probe(storage,{OCDemoHuellas:demo});
   }
   assert.equal(device({}), false, 'a clean visitor may use demo');
   assert.equal(device({ f123_owned: JSON.stringify({ instanceId: 'device-fixture' }) }), true);
   assert.equal(device({ f123_owned: JSON.stringify({ licenseCode: 'F123-TEST-0000' }) }), true);
   assert.equal(device({ f123_tienda_activa: '::F123-TEST-0000' }), true);
   assert.equal(device({ f123_tiendas: JSON.stringify({ fixture: { nombre: 'Synthetic shop' } }) }), true);
+  assert.equal(device({ f123_estado_v4_A: JSON.stringify({ productos:[{id:'demo'}] }) }), false,
+    'exact demo seed alone never blocks a genuine visitor');
+  assert.equal(device({ f123_estado_v4_B: JSON.stringify({ productos:[{id:'customer-product'}] }) }), true,
+    'custom real stock survives metadata loss without silent demo fallback');
+  assert.equal(device({ f123_estado_v4_A: '{corrupt-json' }), true,
+    'corrupted notebook evidence cannot be mistaken for a fresh visitor');
 });
