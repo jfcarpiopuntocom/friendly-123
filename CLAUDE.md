@@ -12,6 +12,13 @@
 
 **Conservar** las órdenes anteriores como contexto histórico cuando la más reciente las sustituya. Ver [Protocolo Maestro](https://app.notion.com/p/3f81642b67f3810dbe91eab83d978550) y [Skill inter-IA](https://app.notion.com/p/3f51642b67f381999e5fe5bf3fdc6193).
 
+## MÉTODOS PERMANENTES APROBADOS — 14 OCT 2026 (JFC)
+Hasta revocación expresa o una alternativa mejor APROBADA por JFC, para friendly-123:
+1. **Playwright reutilizable:** usar `test/helpers/playwright-reusable.cjs` en las pruebas nuevas que requieran navegador; un proceso por motor dentro del archivo de pruebas, contexto/localStorage nuevos para cada caso, datos sintéticos y bloqueo de red de producción `test/helpers/sin-red-produccion.cjs`. No mezclar cuadernos.
+2. **Pruebas focalizadas antes que suite completa:** `scripts/pruebas-del-area.cjs` selecciona tests tocados, humo fijo y regresiones por diffs de dinero/licencia/demo (incluidos archivos grandes). Mantener `release-control.yml` en paralelo, nunca sustituir invariantes financieros por un simple humo.
+3. **El mismo candidato validado:** `hotfix.yml` comprueba el commit, promueve su SHA a `estable` solo después de los gates, y `publicar.yml` ensambla desde esa referencia; caché npm + caché de Playwright; una sola publicación por promoción efectiva, más comprobación postdespliegue. Sin nuevas esperas artificiales.
+**Alcance exacto:** NO incluye MSW ni fast-check (propuestas 3 y 4 no aprobadas), ni migración a Vitest, ni licencia para publicar sin los gates/aprobación pertinentes, tocar runtime sin encargo, borrar datos, modificar UX o inventar números. Objetivo de 10–15 min para hotfixes pequeños, nunca promesa automática de plazo. Los cambios de infraestructura no prueban que v523 esté reparada o publicada.
+
 **Prioridad de lectura:** [AGENTS.md](AGENTS.md) → [Contrato JFC](agent-rules/OPERATING-CONTRACT.md) → notas específicas de la tarea → [Fast track](agent-rules/FAST-TRACK.md) para publicación. La antigua CLAUDE.md íntegra está en [archivo histórico](agent-rules/archive/CLAUDE-2026-10-14.md); sus gates antiguos NO reviven por estar escritos allí.
 
 ## Reglas al hablar y actuar
