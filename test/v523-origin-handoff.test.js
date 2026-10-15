@@ -75,7 +75,14 @@ test('v523 source without prior team code never transmits a made-up license',()=
  load(official);official._join.inserted.trigger('click');legacy.flush();
  assert.equal(joins,0);assert.equal(legacy.document.body.children.length,0,'no approval dialog for absent license');
 });
-test('v523 an existing licensed local notebook is never automatically switched',()=>{
- const official=fakeWindow(OFFICIAL,{f123_owned:JSON.stringify({instanceId:'synthetic',licenseCode:'F123-TEST-0000'})});
- load(official);assert.equal(official._join.inserted,undefined);
+test('v523 a pre-activated device must explicitly approve before switching licenses',()=>{
+ const original=JSON.stringify({instanceId:'synthetic',licenseCode:'F123-TEST-0000'});
+ const official=fakeWindow(OFFICIAL,{f123_owned:original});
+ let opened=0;official.open=()=>{opened++;return null;};
+ official.confirm=()=>false;
+ load(official);
+ assert.ok(official._join.inserted,'recovery also serves a mistakenly activated blank notebook');
+ official._join.inserted.trigger('click');
+ assert.equal(opened,0,'cancel means the old address is not even opened');
+ assert.equal(official._values.f123_owned,original,'the current license remains intact');
 });
