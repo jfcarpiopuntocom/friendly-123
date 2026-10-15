@@ -17,6 +17,7 @@ function legacyDestination(u) {
  // Path is always confined to the historical app prefix. Never relay arbitrary
  // query strings (which could contain a license or business data).
  const target=new URL(relative === 'index.html' ? './' : relative,SOURCE);
+ if(!target.href.startsWith(SOURCE)) return SOURCE; // never jump above the app directory
  if (u.searchParams.get('estable') === '1') target.searchParams.set('estable','1');
  return target.href;
 }
