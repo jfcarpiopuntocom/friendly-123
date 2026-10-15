@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-15",
-  "changelog": "v524: dashboard keeps the last complete view when another device omits recorded sales or cannot read its sales table; warns without modifying the notebook.",
+  "changelog": "v525: dashboard warns on contradictory sales amounts, stock and expenses from separate devices; preserves the last accepted view, with no changes to customer data.",
   "requerida": false,
-  "shell": "f123-shell-v524",
+  "shell": "f123-shell-v525",
   "apagar": [],
-  "releaseName": "v524",
-  "cacheGeneration": "golden88"
+  "releaseName": "v525",
+  "cacheGeneration": "golden89"
 }
