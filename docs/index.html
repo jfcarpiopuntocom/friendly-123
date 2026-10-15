@@ -8232,7 +8232,7 @@ async function cargarGastos(){
   const zone = localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
   const _mesActual = window.OCSalesAudit.dayOf({fecha:new Date().toISOString()},zone).slice(0,7);
   // Ingresos del mes (ventas) para el neto.
-  let ventasMes = null;
+  let ventasMes = null, margenTrasGastos = null;
   /* v521 flecha de comision: comisiones del mes por direccion. Casa paga = gasto; asociado paga = ingreso
      (la parte de la casa). Monto desconocido -> null -> "—", nunca 0 inventado. Mismas ventas, cero red extra. */
   let comPaga = null, comRecibe = null;
@@ -8247,6 +8247,9 @@ async function cargarGastos(){
     const last = new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
     const projection=window.OCBusinessReadModel.monthly(sales,gastos,month,zone);
     ventasMes = projection.netCents === null ? null : projection.netCents / 100;
+    /* Truthful before-commission margin. Inventory expenditure cannot also
+       be deducted as COGS without reconciliation; core read-model marks it unknown. */
+    margenTrasGastos = projection.marginLessExpensesCents === null ? null : projection.marginLessExpensesCents / 100;
     const RM = window.OCBusinessReadModel;
     const delMes = sales.filter((v) => v && !v.anulada && !v.devuelta && v.comisionPct != null && window.OCSalesAudit.dayOf(v, zone).slice(0, 7) === month);
     comPaga = RM.sum(delMes.filter((v) => v.direccionComision !== "asociadoPaga").map((v) => RM.number(v.comisionAsociado)));
@@ -8259,7 +8262,7 @@ async function cargarGastos(){
      número engañoso. */
   const expenseProjection = window.OCBusinessReadModel.monthly([],gastos,_mesActual,zone);
   const gastosMes = expenseProjection.expensesCents===null?null:expenseProjection.expensesCents/100;
-  const neto = ventasMes === null || gastosMes === null ? null : ventasMes - gastosMes;
+  /* v526: net sales minus expenses is NOT house net profit. */
   const tarjeta = (label, valor, color) => `<div style="flex:1;min-width:120px;background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:12px 14px;">
     <div style="font-size:13px;color:var(--ink-soft);">${label}</div>
     <div style="font-size:20px;font-weight:700;color:${color};">${valor === null ? '—' : fmtMoney(valor)}</div></div>`;
@@ -8271,19 +8274,29 @@ async function cargarGastos(){
     tarjeta("Expenses this month", gastosMes, "var(--rojo-ink)") +
     tarjeta("Expenses (all time)", totalGastos, "var(--rojo-ink)") +
     (_verIngresos
-      ? tarjeta("Sales this month", ventasMes, "var(--dinero-verde-dk)") +
-        tarjeta("Sales less expenses (before costs and commissions)", neto, neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)") +
+      ? tarjeta(localStorage.getItem('f123_lang') === 'es' ? "Ventas netas del mes" : "Net sales this month", ventasMes, "var(--dinero-verde-dk)") +
+        tarjeta(localStorage.getItem('f123_lang') === 'es'
+          ? "Margen tras costo de productos y gastos registrados (antes de comisiones y gastos sin atribuir)"
+          : "Margin after product costs and recorded expenses (before commissions and unallocated expenses)",
+          margenTrasGastos, margenTrasGastos !== null && margenTrasGastos >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)") +
         tarjeta(window.t ? window.t("flecha.gastoMes") : "Commissions you pay this month (expense)", comPaga, "var(--rojo-ink)") +
         tarjeta(window.t ? window.t("flecha.ingresoMes") : "Commissions you receive this month (income)", comRecibe, "var(--dinero-verde-dk)")
       : "");
   // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
   if(resumen && gastosMes===null)resumen.innerHTML += '<p style="width:100%;color:var(--ink);font-size:14px;font-weight:700;">'+(localStorage.getItem('f123_lang')==='es'?'Gastos mensuales pendientes: hay registros sin fecha o importe válido.':'Monthly expenses pending: some records have no valid date or amount.')+'</p>';
   const catDelMes = {};
-  gastos.filter((g) => window.OCBusinessReadModel.day(g.fecha,zone).slice(0, 7) === _mesActual)
-    .forEach((g) => { const k = g.categoria || "other"; catDelMes[k] = (catDelMes[k] || 0) + (Number(g.monto) || 0); });
+  gastos.filter((g) => !g.borrado && window.OCBusinessReadModel.day(g.fecha,zone).slice(0, 7) === _mesActual)
+    .forEach((g) => {
+      const k = g.categoria || "other";
+      const importe = window.OCBusinessReadModel.number(g.monto);
+      catDelMes[k] = window.OCBusinessReadModel.sum([
+        Object.prototype.hasOwnProperty.call(catDelMes,k) ? catDelMes[k] : 0,
+        importe
+      ]);
+    });
   const catCont = document.getElementById("gastosPorCategoria");
   if (catCont) {
-    const orden = Object.entries(catDelMes).sort((a, b) => b[1] - a[1]);
+    const orden = Object.entries(catDelMes).sort((a,b) => (b[1]===null?-Infinity:b[1]) - (a[1]===null?-Infinity:a[1]));
     // #6 (JFC 2026-09-02): los chips filtran la lista. Tocar uno filtra a esa
     // categoría; tocarlo de nuevo (o "All") limpia el filtro. El activo se resalta.
     catCont.innerHTML = orden.length
@@ -8292,7 +8305,7 @@ async function cargarGastos(){
            ${_gastoCatFiltro ? `<button type="button" data-cat="" class="oc-gasto-chip" style="font-size:13px;padding:4px 10px;border-radius:999px;background:var(--azul-medio,#2c4a68);border:1px solid var(--azul-medio,#2c4a68);color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">✕ All</button>` : ""}
            ${orden.map(([k, v]) => {
              const on = _gastoCatFiltro === k;
-             return `<button type="button" data-cat="${k}" class="oc-gasto-chip" style="font-size:13px;padding:4px 10px;border-radius:999px;cursor:pointer;background:${on ? "#E8365D" : "#FDECEA"};border:1px solid #E8365D;color:${on ? "#fff" : "#8f2036"} !important;-webkit-text-fill-color:${on ? "#fff" : "#8f2036"} !important;">${escHtml(gastoCatLabel(k))} · ${fmtMoney(v)}</button>`;
+             return `<button type="button" data-cat="${k}" class="oc-gasto-chip" style="font-size:13px;padding:4px 10px;border-radius:999px;cursor:pointer;background:${on ? "#E8365D" : "#FDECEA"};border:1px solid #E8365D;color:${on ? "#fff" : "#8f2036"} !important;-webkit-text-fill-color:${on ? "#fff" : "#8f2036"} !important;">${escHtml(gastoCatLabel(k))} · ${v===null?"—":fmtMoney(v)}</button>`;
            }).join("")}</div>`
       : "";
     catCont.querySelectorAll(".oc-gasto-chip").forEach((b) => b.addEventListener("click", () => {
