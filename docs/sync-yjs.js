@@ -429,7 +429,7 @@
     }
     function conectar() {
       var url = RELAY_URL + API.roomId + suffix;
-      var ws; try { ws = window.F123Relay ? window.F123Relay.connect(url) : new WebSocket(url); } catch (_) { reprogramar(); return; }
+      var ws; try { ws = typeof window !== "undefined" && window.F123Relay ? window.F123Relay.connect(url) : new WebSocket(url); } catch (_) { reprogramar(); return; }
       var pullEstado = { enCurso: false, fallos: 0 };
       _currentPullState = pullEstado;
       ws.binaryType = "arraybuffer"; canal.ws = ws;

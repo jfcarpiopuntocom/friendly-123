@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-15",
-  "changelog": "v529: prepare native encrypted Supabase transport with one connection per device; customer rooms remain on their existing relay until their verified migration.",
+  "changelog": "v530: prepare native encrypted Supabase transport with one connection per device; preserve large-message legacy fallback and keep customer rooms on their existing relay until verified migration.",
   "requerida": false,
-  "shell": "f123-shell-v529",
+  "shell": "f123-shell-v530",
   "apagar": [],
-  "releaseName": "v529",
-  "cacheGeneration": "golden93"
+  "releaseName": "v530",
+  "cacheGeneration": "golden94"
 }
