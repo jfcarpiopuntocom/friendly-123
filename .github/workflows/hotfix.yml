@@ -28,6 +28,8 @@ jobs:
   probar-y-mover:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      candidate: ${{ steps.promote.outputs.candidate }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,7 +39,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium webkit
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install-deps chromium webkit
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium webkit
       - name: Identidad de release y manifiesto
         env:
           BASE_SHA: ${{ github.event.before }}
@@ -52,20 +61,27 @@ jobs:
           BASE="${BASE_SHA:-HEAD^}"
           git cat-file -e "$BASE" 2>/dev/null || BASE="HEAD^"
           node scripts/pruebas-del-area.cjs "$BASE" HEAD | tee /tmp/area.txt
-          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 $(cat /tmp/area.txt)
+          mapfile -t TESTS < /tmp/area.txt
+          (( ${#TESTS[@]} > 0 )) || { echo "No hay pruebas focalizadas; no se publica"; exit 1; }
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 "${TESTS[@]}"
       - name: Mover ramas (previo <- estable, estable <- este commit)
+        id: promote
         run: |
           set -euo pipefail
           git fetch -q origin estable master previo || git fetch -q origin estable master
           [ "$(git rev-parse origin/master)" = "$GITHUB_SHA" ] || { echo "Llego un commit mas nuevo: lo publica su propio hotfix"; exit 0; }
           ESTABLE=$(git rev-parse origin/estable)
-          [ "$ESTABLE" = "$GITHUB_SHA" ] && { echo "estable ya esta aqui"; exit 0; }
+          [ "$ESTABLE" = "$GITHUB_SHA" ] && { echo "estable ya esta aqui; no repetir publicacion"; exit 0; }
           git merge-base --is-ancestor "$ESTABLE" "$GITHUB_SHA" || { echo "estable no es ancestro: no se mueve"; exit 1; }
           git push --atomic origin "$ESTABLE:refs/heads/previo" "$GITHUB_SHA:refs/heads/estable"
+          echo "candidate=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
           echo "previo=$ESTABLE estable=$GITHUB_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
   publicar:
     needs: probar-y-mover
+    if: needs.probar-y-mover.outputs.candidate != ''
     uses: ./.github/workflows/publicar.yml
+    with:
+      candidate: ${{ needs.probar-y-mover.outputs.candidate }}
   # Oct14fixes 4: recorrer la app viva justo despues de publicar (solo lectura).
   recorrido:
     needs: publicar

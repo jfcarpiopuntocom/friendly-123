@@ -303,7 +303,8 @@
      - paid   = items de pagos (kind "sale") cuyo sourceId es una venta de ese producto, a esa persona. Solo
        status "paid"; un pago con reversalOf resta; "voided"/"reversed" no cuentan (misma regla que payout-ledger).
        Una venta vieja con `liquidada:true` sin hecho de pago cuenta como pagada por su parte (pago legado).
-     - due    = earned - paid (puede ser negativo si se pago una venta que luego se devolvio: es un cobro a favor de la casa).
+     - due    = earned - paid para casaPaga; asociadoPaga conserva ganado/pagado sin generar pago de la casa.
+       Una anulacion ya pagada conserva el cobro/compensacion a favor de la casa, en ambas direcciones.
      No incluye ajustes de comision (no llevan productId): la ficha habla solo de ventas del producto.
      units/grossCents son de ventas vigentes; returnsCents es el importe de las devueltas/anuladas (linea propia). */
   function productSheet(input) {
@@ -377,11 +378,15 @@
         paid -= recovered.get(k) || 0;
         r.paidCents += paid;
         /* Desglose por venta (para pagar SOLO este producto: la UI manda estos saleId a planPayout.sourceIds). */
-        r.bySale.push({ saleId: str(v.id), locationId: str(v.ubicacionId), earnedCents: share.get(k) || 0, paidCents: paid, dueCents: (share.get(k) || 0) - paid });
+        const associateCollected = v.direccionComision === "asociadoPaga";
+        if (associateCollected && paid > 0) out.needsReview = true;
+        // Paid voids retain their recovery/refund, just as payout-ledger does.
+        const due = associateCollected && !v.anulada ? 0 : (share.get(k) || 0) - paid;
+        r.bySale.push({ saleId: str(v.id), locationId: str(v.ubicacionId), earnedCents: share.get(k) || 0, paidCents: paid, dueCents: due });
       });
     });
     /* Pagos a personas sin ganancia visible en el producto (p. ej. venta devuelta) ya quedaron arriba via share=0. */
-    rows.forEach((r) => { r.dueCents = r.earnedCents - r.paidCents; });
+    rows.forEach((r) => { r.dueCents = r.bySale.reduce((sum, v) => sum + v.dueCents, 0); });
     out.locations = [...locs].filter(Boolean).sort();
     out.people = [...rows.values()].sort((a, b) => (b.earnedCents - a.earnedCents) || (a.personId < b.personId ? -1 : a.personId > b.personId ? 1 : 0));
     out.people.forEach((r) => { out.totals.earnedCents += r.earnedCents; out.totals.paidCents += r.paidCents; out.totals.dueCents += r.dueCents; });

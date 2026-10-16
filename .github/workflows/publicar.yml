@@ -4,8 +4,8 @@
 #   /friendly-123/previo/      = rama `previo`   -> estable anterior (rewind; se omite si no existe).
 # Mismo origen = mismos datos: el aparato lord usa /next/ con sus datos reales.
 # El codigo se sigue editando en docs/ en master, como siempre. Un push a master
-# SOLO cambia /next/; los clientes cambian cuando se mueve `estable`
-# (promover.yml, ventana de 33 min, regla dura de JFC).
+# se publica por hotfix despues de QA focalizado y promocion atomica a estable.
+# release-control corre en paralelo; no vuelve a desplegar el mismo candidato.
 # Vuelta atras (si algun dia hiciera falta): en Settings > Pages, fuente =
 # "Deploy from a branch", master /docs. Queda exactamente como antes.
 name: publicar
@@ -24,12 +24,12 @@ on:
         description: "Ensayo: construir el sitio sin desplegar"
         type: boolean
         default: false
-  workflow_run:
-    workflows: [release-control]
-    types: [completed]
-    branches: [master]
   workflow_call:
     inputs:
+      candidate:
+        description: "SHA exacto probado por hotfix; vacio conserva dispatch y recovery"
+        type: string
+        default: ""
       recovery:
         description: "REWIND conserva el canario ya publicado sin depender del QA de master"
         type: boolean
@@ -61,18 +61,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RECOVERY: ${{ inputs.recovery || false }}
+          EXPECT_CANDIDATE: ${{ inputs.candidate || '' }}
         run: |
           set -euo pipefail
           git fetch -q origin estable master
           git fetch -q origin previo || true
           MASTER=$(git rev-parse origin/master)
           STABLE=$(git rev-parse origin/estable)
+          # No ensamblar otro candidato si estable avanzo despues del QA focalizado.
+          node scripts/release-candidate.cjs "$EXPECT_CANDIDATE" "$STABLE"
           # Consulta inmediata: nunca ocupar la fila pages esperando pruebas.
           QA=false
           if node scripts/release-control.cjs gate "$MASTER" >> "$GITHUB_STEP_SUMMARY" 2>&1; then QA=true; fi
           SERVED=$(node scripts/release-control.cjs served "")
           if [ "$RECOVERY" = "true" ]; then
             CANDIDATE="${SERVED:-$MASTER}"
+          elif [ -n "$EXPECT_CANDIDATE" ]; then
+            # Hotfix ya probo este SHA: raiz y /next reciben el mismo candidato.
+            CANDIDATE="$EXPECT_CANDIDATE"
           elif [ "$QA" = "true" ]; then
             CANDIDATE="$MASTER"
           else
