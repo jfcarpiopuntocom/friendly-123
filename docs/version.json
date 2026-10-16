@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v542: update local PDF exports to jsPDF 4.2.1 and AutoTable 5.0.9 with reproducible provenance, preserved licenses, and verified secure report downloads; normalize upstream license whitespace for release checks.",
+  "changelog": "v543: refine exported PDF reports with Friendly visual hierarchy, complete frames, readable tables and an extremely faint brand watermark inside the frame on the right.",
   "requerida": false,
-  "shell": "f123-shell-v542",
+  "shell": "f123-shell-v543",
   "apagar": [],
-  "releaseName": "v542",
-  "cacheGeneration": "golden106"
+  "releaseName": "v543",
+  "cacheGeneration": "golden107"
 }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v542">
+<meta name="dashboard-shell" content="f123-shell-v543">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -2389,13 +2389,15 @@
     if (tipo !== "pdf") return Promise.resolve();
     return cargarHerramientaExportacion("./vendor/jspdf-4.2.1.umd.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF); }).then(function () {
       return cargarHerramientaExportacion("./vendor/jspdf-autotable-5.0.9.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF.API.autoTable); });
+    }).then(function () {
+      return cargarHerramientaExportacion("./pdf-report-layout.js", function () { return !!window.OCReportPDF; });
     });
   }
   function capturarSesionExportacion() {
     var sesion = codigoSesionActual;
     return function () { return autorizado && sesion === codigoSesionActual && !bloquearSesionSiCambioTienda(); };
   }
-  window.OCDashboardExports = { prepare: prepararExportacion, captureSession: capturarSesionExportacion };
+  window.OCDashboardExports = { prepare: prepararExportacion, captureSession: capturarSesionExportacion, brand: LOGO };
   function seleccionExportacion() {
     var orden = tabla && typeof tabla.getSorters === "function" ? tabla.getSorters().map(function (s) { return [s.field, s.dir]; }) : [];
     return JSON.stringify([vista, rutaHub, $("buscar").value, orden]);
@@ -2625,11 +2627,12 @@
         return String(v);
       });
     });
-    doc.setFontSize(15); doc.text(String(negocio || "Business").slice(0,95),40,36);
-    doc.setFontSize(10);
-    doc.text(etiquetaExportacion(VISTAS[vista].nombre) + " · " + new Date().toLocaleString(localStorage.getItem("f123_lang") === "es" ? "es-EC" : "en-US"),40,54);
-    doc.autoTable({head:[titulos],body:celdas,startY:68,
-      styles:{fontSize:8,cellPadding:4,overflow:"linebreak"},headStyles:{fillColor:[15,25,35]}});
+    var layout = window.OCReportPDF.create(doc, { business: String(negocio || "Business"),
+      title: etiquetaExportacion(VISTAS[vista].nombre),
+      subtitle: new Date().toLocaleString(localStorage.getItem("f123_lang") === "es" ? "es-EC" : "en-US"),
+      language: localStorage.getItem("f123_lang"), logo: typeof LOGO === "string" ? LOGO : null });
+    layout.table({head:[titulos],body:celdas});
+    layout.finish();
     doc.save(filename);
   }
 
@@ -2828,29 +2831,18 @@
 
     }
 
-    doc.setFontSize(16); doc.text(neg, 40, 46);
-    doc.setFontSize(12); doc.text(titulo, 40, 66);
-    doc.setFontSize(10);
-    doc.text((esReporte?"Generado el ":"Generated on ") + (new Date()).toLocaleString(esReporte?'es-EC':'en-US'), 40, 82);
-    doc.autoTable({
-      head: [cols], body: filas, startY: 98, styles: { fontSize: 10, cellPadding: 4, textColor:[15,25,35] },
-      headStyles: { fillColor: [15, 25, 35], textColor:[255,255,255] }, alternateRowStyles: { fillColor: [250, 251, 253] },
-    });
+    var layout = window.OCReportPDF.create(doc, { business: neg, title: titulo,
+      subtitle: (esReporte?"Generado el ":"Generated on ") + new Date().toLocaleString(esReporte?'es-EC':'en-US'),
+      language: esReporte ? 'es' : 'en', logo: typeof LOGO === "string" ? LOGO : null });
+    layout.table({head:[cols],body:filas});
     if (gastosReporte) {
-      doc.autoTable({head:[esReporte ? ["Fecha","Gasto","Monto"] : ["Date","Expense","Amount"]],body:gastosReporte,startY:doc.lastAutoTable.finalY+16,styles:{fontSize:10,cellPadding:4,textColor:[15,25,35]},headStyles:{fillColor:[15,25,35],textColor:[255,255,255]}});
-      doc.autoTable({body:resumenReporte,startY:doc.lastAutoTable.finalY+16,styles:{fontSize:10,cellPadding:4,textColor:[15,25,35]}});
+      layout.table({head:[esReporte ? ["Fecha","Gasto","Monto"] : ["Date","Expense","Amount"]],body:gastosReporte,startY:doc.lastAutoTable.finalY+24});
+      layout.table({body:resumenReporte,startY:doc.lastAutoTable.finalY+24});
     }
-    var y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : 98) + 22;
-    var height=doc.internal&&doc.internal.pageSize&&doc.internal.pageSize.getHeight?doc.internal.pageSize.getHeight():842;
-    doc.setFontSize(11);
-    var lines=doc.splitTextToSize?doc.splitTextToSize(pie,510):[pie];if(!Array.isArray(lines))lines=[lines];
-    if(doc.setTextColor)doc.setTextColor(15,25,35);
-    lines.forEach(function(line){if(y+14>height-45){doc.addPage();y=40;}doc.text(line,40,y);y+=14;});
-    if(y+28>height-28){doc.addPage();y=40;}
-    doc.setFontSize(10);
-    /* El aviso va en el documento, no solo en pantalla: el PDF se manda por
-       WhatsApp y viaja solo. */
-    doc.text(esReporte?"Resumen para tu contador. No es una declaración tributaria.":"Summary for your accountant. This is not a tax filing.", 40, y + 18);
+    var y = layout.paragraph(pie, doc.lastAutoTable.finalY + 24);
+    /* This qualification travels with the PDF when forwarded to an accountant. */
+    layout.paragraph(esReporte?"Resumen para tu contador. No es una declaración tributaria.":"Summary for your accountant. This is not a tax filing.", y + 16);
+    layout.finish();
     doc.save(neg.replace(/[\\/:*?"<>|]/g, "").trim() + " - " + titulo + " - " + (new Date()).toISOString().slice(0, 10) + ".pdf");
   }
 
