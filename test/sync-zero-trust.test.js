@@ -88,7 +88,13 @@ test('el id de sala depende del codigo (mismo codigo = misma sala)', async () =>
 test('el relay es zero-knowledge: guarda/mueve sobres pero NUNCA descifra', () => {
   // El relay puede parsear el SOBRE de metadatos (k/id/lam/c opaco) para saber
   // que hacer, pero NUNCA descifra ni lee el contenido de negocio.
-  assert.ok(!/subtle|decrypt|descifrar/i.test(RELAY), 'el relay no debe descifrar nada');
+  // Ed25519 verifies the operator's export signature; SHA-256 identifies an
+  // unchanged ciphertext checkpoint. Neither API opens a business envelope.
+  // Ban data-opening/key-derivation APIs, rather than the entire Web Crypto
+  // namespace, and retain opaque-byte preservation in relay-export.test.js.
+  assert.ok(!/decrypt|descifrar/i.test(RELAY), 'el relay no debe descifrar nada');
+  assert.doesNotMatch(RELAY, /subtle\s*\.\s*(encrypt|deriveKey|deriveBits)\s*\(/i);
+  assert.doesNotMatch(RELAY, /AES-GCM|PBKDF2|licen[cs]eCode|SALT_FIJO/);
   // El ciphertext `c` se guarda/reenvia tal cual (opaco): nunca se interpreta.
   assert.match(RELAY, /INSERT OR IGNORE INTO ops/); // se guarda cifrado
   assert.match(RELAY, /b64aBuf/);                    // se reenvia como bytes, sin abrir

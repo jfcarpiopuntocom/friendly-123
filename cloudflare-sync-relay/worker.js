@@ -21,6 +21,46 @@ const MAX_OPS_SALA = 8000; // tope duro de operaciones guardadas por sala
 const PULL_PAGE_DEFAULT = 64;
 const PULL_PAGE_MAX = 128;
 const LEGACY_PULL_MAX = 128; // fusible: un shell viejo no puede releer 8.000 por reconexion
+const MIGRATION_BODY = Symbol("verified migration request body");
+
+// Read-only migration access. The signing private key never enters this Worker.
+// Empty/missing public key leaves the endpoint disabled. Requests are signed in
+// full, expire after one minute and bind the destination Durable Object ID.
+async function migrationRequest(request, env) {
+  if (request.method !== "POST" || !env.RELAY_MIGRATION_PUBLIC_KEY) return null;
+  const signature = request.headers.get("X-Relay-Migration-Signature") || "";
+  if (!/^[A-Za-z0-9_-]{86}$/.test(signature)) return null;
+  try {
+    const reader = request.body?.getReader();
+    if (!reader) return null;
+    const pieces = []; let total = 0;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > 4096) { await reader.cancel(); return null; }
+      pieces.push(value);
+    }
+    const bytes = new Uint8Array(total); let offset = 0;
+    for (const piece of pieces) { bytes.set(piece, offset); offset += piece.length; }
+    const data = JSON.parse(new TextDecoder().decode(bytes));
+    const target = typeof data.objectId === "string" && /^[a-f0-9]{64}$/.test(data.objectId) && data.room === undefined ||
+      typeof data.room === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(data.room) && data.objectId === undefined;
+    if (data.v !== 1 || data.action !== "export" || !target ||
+        !Number.isSafeInteger(data.issuedAt) || Math.abs(Date.now() - data.issuedAt) > 60000) return null;
+    const decode = s => b64aBuf(s.replace(/-/g, "+").replace(/_/g, "/"));
+    const key = await crypto.subtle.importKey("raw", decode(env.RELAY_MIGRATION_PUBLIC_KEY), "Ed25519", false, ["verify"]);
+    if (!await crypto.subtle.verify("Ed25519", key, decode(signature), bytes)) return null;
+    Object.defineProperty(data, MIGRATION_BODY, { value: bytes });
+    return data;
+  } catch (_) { return null; }
+}
+
+function migrationJson(body, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: {
+    "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff"
+  } });
+}
 
 // Muestreo determinista para la poda. El contador anterior vivia en memoria y
 // volvia a cero cada vez que el DO hibernaba; una sala con trafico intermitente
@@ -219,6 +259,12 @@ export class SalaSync {
   }
 
   async fetch(request) {
+    if (new URL(request.url).pathname === "/__migration/export") {
+      const query = await migrationRequest(request, this.env);
+      const target = query && (query.objectId || this.env.SALAS.idFromName(query.room).toString());
+      if (!query || target !== this.state.id.toString()) return migrationJson({ error: "forbidden" }, 403);
+      return this._exportEncryptedPage(query);
+    }
     if ((request.headers.get("Upgrade") || "").toLowerCase() !== "websocket") {
       return new Response("expected websocket", { status: 426 });
     }
@@ -240,6 +286,39 @@ export class SalaSync {
     this._avisarPares();
 
     return new Response(null, { status: 101, webSocket: cliente });
+  }
+
+  async _exportEncryptedPage(query) {
+    if (!this.sql) return migrationJson({ error: "storage unavailable" }, 503);
+    try {
+      const after = Number(query.after || 0), limit = Math.min(32, Math.max(1, Number(query.limit) || 16));
+      if (!Number.isSafeInteger(after) || after < 0) return migrationJson({ error: "invalid cursor" }, 400);
+      const checkpoint = this.sql.exec("SELECT lam, c, rev, v FROM ckpt WHERE k='latest'").toArray()[0] || null;
+      const top = this.sql.exec("SELECT rowid AS seq FROM ops ORDER BY rowid DESC LIMIT 1").toArray()[0];
+      const maxSeq = query.cut ? Number(query.cut.maxSeq) : Number(top?.seq || 0);
+      if (!Number.isSafeInteger(maxSeq) || maxSeq < 0 || after > maxSeq) return migrationJson({ error: "invalid cut" }, 400);
+      const bottom = this.sql.exec("SELECT rowid AS seq FROM ops WHERE rowid <= ? ORDER BY rowid LIMIT 1", maxSeq).toArray()[0];
+      const minSeq = Number(bottom?.seq || 0);
+      const rows = this.sql.exec("SELECT rowid AS seq, id, lam, c FROM ops WHERE rowid > ? AND rowid <= ? ORDER BY rowid LIMIT ?", after, maxSeq, limit).toArray();
+      // All SQLite reads above precede the first await: one coherent page.
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(checkpoint)));
+      const fingerprint = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+      const cut = { maxSeq, minSeq, fingerprint };
+      // Compaction changes either the checkpoint or the first surviving row.
+      // Restart the read; never silently export a history with a missing page.
+      if (query.cut && (query.cut.fingerprint !== fingerprint || Number(query.cut.minSeq) !== minSeq)) {
+        return migrationJson({ error: "source changed; restart export" }, 409);
+      }
+      let size = 0; const ops = [];
+      for (const row of rows) {
+        const bytes = (row.c?.length || 0) + (row.id?.length || 0) + 128;
+        if (size + bytes > 512 * 1024) break;
+        size += bytes; ops.push(row);
+      }
+      if (!ops.length && rows.length) return migrationJson({ error: "stored frame exceeds export bound" }, 413);
+      const cursor = ops.length ? Number(ops[ops.length - 1].seq) : after;
+      return migrationJson({ v: 1, cut, checkpoint: after === 0 ? checkpoint : null, ops, after: cursor, more: cursor < maxSeq });
+    } catch (_) { return migrationJson({ error: "export unavailable" }, 503); }
   }
 
   // === Handlers de la WebSocket Hibernation API ===
@@ -361,6 +440,18 @@ export class SalaSync {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/migration/export") {
+      // Reconstruct only after signature verification; do not enter a room for
+      // unsigned requests. No data or credentials are logged by this path.
+      const query = await migrationRequest(request, env);
+      if (!query) return migrationJson({ error: "forbidden" }, 403);
+      try {
+        const id = query.objectId ? env.SALAS.idFromString(query.objectId) : env.SALAS.idFromName(query.room);
+        return await env.SALAS.get(id).fetch(new Request("https://relay.internal/__migration/export", {
+          method: "POST", headers: request.headers, body: query[MIGRATION_BODY]
+        }));
+      } catch (_) { return migrationJson({ error: "export unavailable" }, 503); }
+    }
     // Salud sin tocar salas (para monitoreo): responde sin revelar nada.
     if (url.pathname === "/" || url.pathname === "/health") {
       return new Response("friendly123-sync-relay ok", {
