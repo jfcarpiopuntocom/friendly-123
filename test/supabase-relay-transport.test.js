@@ -125,3 +125,17 @@ function opened(s) { return new Promise((resolve, reject) => { s.onopen = resolv
 function closed(s) { return new Promise(resolve => { s.onclose = resolve; }); }
 function message(s) { return new Promise(resolve => { s.onmessage = resolve; }); }
 function tick() { return new Promise(r => setTimeout(r, 0)); }
+
+for (const binaryType of ['arraybuffer','blob']) {
+ test('local replay metadata distinguishes live bytes during an in-flight pull: '+binaryType,async()=>{
+  let finish;const db=fixture(()=>new Promise(resolve=>{finish=resolve}));
+  const relay=createRelayTransport({client:db.client}),socket=relay.connect('synthetic-room');
+  await opened(socket);socket.binaryType=binaryType;const received=[];socket.onmessage=e=>received.push(e);
+  socket.send(JSON.stringify({k:'pull',v:2,rev:0,seq:0}));await tick();
+  db.channels[0].receive('opaque-frame',new Uint8Array([1,2]));
+  finish({frames:['AwQ='],rev:0,seq:1,n:1,more:false});await tick();
+  assert.deepEqual(received.slice(0,2).map(e=>e.relaySource),['live','pull']);
+  assert.deepEqual([...new Uint8Array(binaryType==='blob'?await received[1].data.arrayBuffer():received[1].data)],[3,4]);
+  assert.equal(JSON.parse(received[2].data).k,'pull-page');await relay.dispose();
+ });
+}

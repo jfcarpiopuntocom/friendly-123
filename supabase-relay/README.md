@@ -1,6 +1,6 @@
 # Encrypted relay migration
 
-**October 16 update:** v536 prepares native-only clients under the owner's
+**October 16 update:** v537 hardens the native-only clients introduced in v536 under the owner's
 Cloudflare-for-licenses-only instruction. Inactive rooms stay local/pending;
 there is no Cloudflare sync fallback. No production migration or activation is
 performed by this change. Read [cutover prerequisites and measurement limits](CUTOVER.md).

@@ -29,7 +29,7 @@ export function createRelayGateway({ resolveRoute, native }) {
         const socket = native(match[1] + (match[2] || ''));
         this.#socket = socket; socket.binaryType = this.#binaryType;
         socket.addEventListener('open', () => { if (this.readyState === 0) { this.readyState = 1; this.#emit('open'); } });
-        socket.addEventListener('message', e => { if (this.readyState === 1) this.#emit('message', { data: e.data }); });
+        socket.addEventListener('message', e => { if (this.readyState === 1) this.#emit('message', { data: e.data, relaySource: e.relaySource }); });
         socket.addEventListener('error', () => this.#emit('error'));
         socket.addEventListener('close', e => this.#closed(e.code, e.reason, e.wasClean));
         if (socket.readyState === 1) { this.readyState = 1; this.#emit('open'); }
@@ -41,6 +41,7 @@ export function createRelayGateway({ resolveRoute, native }) {
     get protocol() { return this.#socket?.protocol || ''; }
     #emit(type, p = {}) {
       const e = type === 'message' ? new MessageEvent(type, p) : new Event(type);
+      if (type === 'message' && p.relaySource) Object.defineProperty(e, 'relaySource', { value: p.relaySource });
       if (type !== 'message') for (const [key, value] of Object.entries(p)) Object.defineProperty(e, key, { value });
       this.dispatchEvent(e); if (typeof this['on' + type] === 'function') this['on' + type](e);
     }

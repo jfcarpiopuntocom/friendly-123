@@ -48,7 +48,7 @@ test('active native transport preserves binary data and forwards sends unchanged
  const opened = event(connected, 'open'); await tick(); inner.open(); await opened;
  assert.equal(inner.binaryType, 'arraybuffer');
  const bytes = new Uint8Array([1, 2, 3]).buffer, received = event(connected, 'message');
- inner.emit('message', { data: bytes }); assert.equal((await received).data, bytes);
+ inner.emit('message', { data: bytes, relaySource: 'pull' }); const delivered = await received; assert.equal(delivered.data, bytes); assert.equal(delivered.relaySource, 'pull');
  connected.send(bytes); assert.equal(sent, bytes); connected.close();
 });
 

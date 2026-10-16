@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v535">
+<meta name="dashboard-shell" content="f123-shell-v537">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -1700,10 +1700,25 @@
     });
     var obs = ledger.buildObligations({ sales: sales, adjustments: cmAjustes(d),
       locations: d.perchas || [], payouts: d.payouts || [], payoutConflicts: d.payoutConflicts || [] });
-    /* The remote sale carries the backend's hold decision, including its configured clock. */
+    /* Older remote snapshots may carry the exact residual without receipts.
+       Preserve it for one beneficiary; never invent a multi-person allocation. */
+    if (!(d.payouts || []).length && !(d.payoutConflicts || []).length) sales.forEach(function (v) {
+      if (typeof v.comisionPendiente !== "number" || !Number.isFinite(v.comisionPendiente)) return;
+      var own = obs.filter(function (o) { return o.kind === "sale" && o.sourceId === String(v.id); });
+      var due = Math.round(v.comisionPendiente * 100), held = Math.round((Number(v.comisionRetenida) || 0) * 100);
+      if (own.length === 1) {
+        own[0].dueCents = due; own[0].heldCents = held;
+        own[0].paidCents = own[0].signedAmountCents - due - held;
+      } else if (own.length > 1 && due === 0 && held === 0) {
+        own.forEach(function (o) { o.paidCents = o.signedAmountCents; o.dueCents = 0; });
+      } else if (own.length > 1 && own.reduce(function (n, o) { return n + o.dueCents; }, 0) !== due) {
+        own.forEach(function (o) { o.projectionUnknown = true; });
+      }
+    });
+    /* The remote sale carries the backend's hold decision, including its clock. */
     obs.forEach(function (o) {
       var v = sales.find(function (x) { return String(x.id) === o.sourceId; });
-      if (o.kind === "sale" && v && Number(v.comisionRetenida) > 0 && o.dueCents > 0) {
+      if (o.kind === "sale" && v && Number(v.comisionRetenida) > 0 && o.dueCents > 0 && o.heldCents == null) {
         o.heldCents = o.dueCents; o.dueCents = 0;
       }
     });
@@ -1714,7 +1729,7 @@
     var obs = cmObligaciones(d);
     var rows = all.filter(function (v) {
       var con = v.comisionPct != null;
-      return (!mes || v.mes === mes) && (con || (!con && v.modoComision === "counter" && v.ubicacionTipo && v.ubicacionTipo !== "propio"));
+      return (!mes || v.mes === mes) && (con || v.noCommission !== true || (!con && v.modoComision === "counter" && v.ubicacionTipo && v.ubicacionTipo !== "propio"));
     }).map(function (v) {
       var own = obs.filter(function (o) { return o.kind === "sale" && o.sourceId === String(v.id); });
       if (v.comisionAjusteRetroIncluido) own = own.concat(obs.filter(function (o) {
@@ -1729,7 +1744,7 @@
       var v = all.find(function (x) { return String(x.id) === String(a.ventaId); }) || {};
       if (a.tipo === "recalculo-retroactivo" && v.comisionAjusteRetroIncluido) return;
       var own = obs.filter(function (o) { return o.kind === "adjustment" && o.sourceId === String(a.id); });
-      if (!own.length && !Number(a.montoComisionSocio)) return;
+      if (!own.length && a.montoComisionSocio != null && !Number(a.montoComisionSocio)) return;
       var qty = Math.abs(Number(a.cantidad)) || 1;
       var gross = Number(a.montoBruto) || 0;
       rows.push(Object.assign({}, v, { id: "adjustment:" + a.id, ajusteId: a.id,
@@ -1737,10 +1752,12 @@
         productoId: a.productoId || v.productoId, productoNombre: v.productoNombre || "Return / adjustment",
         ubicacionNombre: v.ubicacionNombre || ((d.perchas || []).find(function (u) { return u.id === a.ubicacionId; }) || {}).nombre || "",
         cantidad: gross < 0 ? -qty : gross > 0 ? qty : 0, precioUnit: Math.abs(gross) / qty,
-        comisionPct: a.comisionPct != null ? a.comisionPct : v.comisionPct != null ? v.comisionPct : 0,
-        comisionAsociado: Number(a.montoComisionSocio) || 0, netoCasa: Number(a.montoNetoDueno) || 0,
+        comisionPct: a.montoComisionSocio == null ? null : a.comisionPct != null ? a.comisionPct : v.comisionPct != null ? v.comisionPct : 0,
+        noCommission: a.montoComisionSocio == null ? false : v.noCommission,
+        comisionAsociado: a.montoComisionSocio == null ? null : Number(a.montoComisionSocio) || 0,
+        netoCasa: a.montoNetoDueno == null ? null : Number(a.montoNetoDueno) || 0,
         liquidada: !!a.liquidada, devuelta: false, reparto: a.reparto || null,
-        comisionPendiente: own.length ? own.reduce(function (n, o) { return n + o.dueCents; }, 0) / 100 : a.liquidada ? 0 : Number(a.montoComisionSocio) || 0,
+        comisionPendiente: a.montoComisionSocio == null ? null : own.length ? own.reduce(function (n, o) { return n + o.dueCents; }, 0) / 100 : a.liquidada ? 0 : Number(a.montoComisionSocio) || 0,
         comisionRetenida: 0, _obligations: own }));
     });
     /* Paid cancellations carry their unused credit into the selected settlement period. */
@@ -1796,20 +1813,20 @@
   }
   function cmMeses() {
     var set = {}; set[cmMesActual()] = 1;
-    (datos.ventas || []).forEach(function (v) { if (v && v.mes && v.comisionPct != null) set[v.mes] = 1; });
+    (datos.ventas || []).forEach(function (v) { if (v && v.mes && (v.comisionPct != null || v.noCommission !== true)) set[v.mes] = 1; });
     cmAjustes(datos).forEach(function (a) { if (a && a.fecha) set[mesLocalDe(a.fecha)] = 1; });
     return Object.keys(set).sort().reverse();
   }
 
   /* No missing price or incomplete photo may become a commission total of 0. */
-  function comisionesConImportePendiente(filas) {
-    if (datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.liquidaciones === false || datos.cobertura.ajustesComision === false)) return true;
+  function comisionesConImportePendiente(filas, soloFilas) {
+    if (!soloFilas && datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.liquidaciones === false || datos.cobertura.ajustesComision === false)) return true;
     if (!Array.isArray(datos.ajustesComision) && (filas || []).some(function (v) { return v.devuelta; })) return true;
     return (filas || []).some(function(v) {
-      return v && v.comisionPct != null &&
+      return v && (((v._obligations || []).some(function (o) { return o.projectionUnknown; })) || (v.comisionPct == null && v.noCommission !== true) || v.comisionPct != null &&
         (window.OCBusinessReadModel.number(v.precioUnit) === null ||
          (v.ajusteId && Number.isFinite(v.cantidad) ? v.cantidad : window.OCBusinessReadModel.quantity(v.cantidad)) === null ||
-         (v.comisionAsociado == null && v.comisionPendiente == null));
+         (v.comisionAsociado == null && v.comisionPendiente == null)));
     });
   }
   function cmPendienteVenta(v) {
@@ -1835,7 +1852,7 @@
         if (v.devuelta) g.devueltas++;
         if (v.asociadoNombre) g.personas[v.asociadoNombre] = 1;
         if (v.asistenteNombre) g.personas[v.asistenteNombre] = 1;
-      } else { g.counterUnid=window.OCBusinessReadModel.sum([g.counterUnid,cantidad]); g.counterMonto=window.OCBusinessReadModel.sum([g.counterMonto,monto]); }
+      } else if (v.noCommission === true) { g.counterUnid=window.OCBusinessReadModel.sum([g.counterUnid,cantidad]); g.counterMonto=window.OCBusinessReadModel.sum([g.counterMonto,monto]); } else { g.unknown = true; }
       if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
       if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
     });
@@ -1852,7 +1869,9 @@
   }
   function cmRecibo(ubicacionId, mes) {
     /* Recibo imprimible SIN logo nuestro (JFC): es el papel del cliente para su asociado. */
-    var filas = cmFilas(mes).filter(function (v) { return v.ubicacionId === ubicacionId && v.comisionPct != null && !v.ajusteId; });
+    var todas = cmFilas(mes).filter(function (v) { return v.ubicacionId === ubicacionId; });
+    var faltanMontos = comisionesConImportePendiente(todas);
+    var filas = todas.filter(function (v) { return (v.comisionPct != null || v.noCommission !== true) && !v.ajusteId; });
     /* v423 (JFC 2026-09-29): la liquidacion viva es del MES ACTUAL. Antes el recibo de un mes pasado
        copiaba sus devoluciones (y su asociado vigente). Ahora: mes pasado = solo sus ventas. */
     var esActual = mes === cmMesActual();
@@ -1861,14 +1880,14 @@
     var liq = Object.assign({}, esActual ? liqViva : { ubicacion: liqViva.ubicacion || f0.ubicacionNombre || "", asociadoNombre: f0.asociadoNombre || "" }, { ajustes: cmAjustes(datos).filter(function (a) { return String(a.ubicacionId) === String(ubicacionId) && mesLocalDe(a.fecha) === mes && !(a.tipo === "recalculo-retroactivo" && filas.some(function (v) { return v.comisionAjusteRetroIncluido && String(v.id) === String(a.ventaId); })); }) });
     var neg = (datos.resumen && datos.resumen.nombreNegocio) || ($("neg-nombre") && $("neg-nombre").textContent) || "";
     var porProd = cmAgrupar(filas, "producto");
-    var tot = filas.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
+    var tot = faltanMontos ? null : filas.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
     var html = "<!doctype html><html><head><meta charset=utf-8><title>Commission receipt</title><style>body{font-family:Inter,Arial,sans-serif;color:#0F1923;margin:32px;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px}table{width:100%;border-collapse:collapse}td,th{padding:6px 0;border-bottom:1px solid #E8ECF2;text-align:left}td.n,th.n{text-align:right;font-family:'JetBrains Mono',Consolas,monospace}tfoot td{font-weight:700;border-top:2px solid #0F1923}</style></head><body>" +
       "<h1>" + esc(neg || "Commission receipt") + "</h1><div>" + esc(liq.ubicacion || "") + (liq.asociadoNombre ? " · " + esc(liq.asociadoNombre) : "") + " · " + esc(cmEtiquetaMes(mes)) + "</div>" +
       "<h2>Sales with commission</h2><table><thead><tr><th>Product</th><th class=n>Units</th><th class=n>Sold</th><th class=n>Commission</th></tr></thead><tbody>" +
-      porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + (d.unid===null?"pending":d.unid) + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + money(d.socio) + "</td></tr>"; }).join("") +
-      "</tbody><tfoot><tr><td colspan=3>Total commission</td><td class=n>" + money(tot) + "</td></tr></tfoot></table>" +
+      porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + (d.unid===null?"pending":d.unid) + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + (d.unknown ? "pending" : money(d.socio)) + "</td></tr>"; }).join("") +
+      "</tbody><tfoot><tr><td colspan=3>Total commission</td><td class=n>" + (faltanMontos ? "pending" : money(tot)) + "</td></tr></tfoot></table>" +
       ((liq.ajustes && liq.ajustes.length) ? "<h2>Returns of already-paid sales</h2><table>" + liq.ajustes.map(function (x) { return "<tr><td>" + esc(String(x.fecha || "").slice(0, 10)) + " · " + esc(x.quien || "") + (x.motivo ? " · " + esc(x.motivo) : "") + "</td><td class=n>" + money(x.montoComisionSocio) + "</td></tr>"; }).join("") +
-        "<tfoot><tr><td>Net after returns</td><td class=n>" + money(tot + liq.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + "</td></tr></tfoot></table>" : "") +
+        "<tfoot><tr><td>Net after returns</td><td class=n>" + money(faltanMontos ? null : tot + liq.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + "</td></tr></tfoot></table>" : "") +
       "<p style='margin-top:24px'>Signature: ____________________________</p></body></html>";
     var w = window.open("", "_blank"); if (!w) return;
     w.document.open(); w.document.write(html); w.document.close();
@@ -1892,6 +1911,7 @@
     var grupos = cmAgrupar(filas, cmVista);
     grupos.forEach(function (g) {
       var selected = filas.filter(function (v) { return (cmVista === "producto" ? v.productoId || v.productoNombre : v.ubicacionId || v.ubicacionNombre) === g.id; });
+      g.unknown = g.unknown || comisionesConImportePendiente(selected, true);
       g.pend = cmSaldos(selected).reduce(function (n, r) { return n + Math.max(0, r.due); }, 0);
       g.credit = cmSaldos(selected).reduce(function (n, r) { return n + Math.max(0, -r.due); }, 0);
     });
@@ -1907,13 +1927,15 @@
       var l = cmVista === "percha" ? (liqs.find(function (x) { return x.ubicacionId === g.id; }) || null) : null;
       if (l && l.payoutBalances) g.pend = l.payoutBalances.reduce(function (n, r) { return n + Math.max(0, Number(r.due) || 0); }, 0);
       if (l && l.held != null) g.held = Number(l.held) || 0;
+      if (g.unknown) { g.pend = null; g.credit = null; }
       var moneyReview = l && l.needsReview || liqs.some(function(x){return x.needsReview && (g.ubicacionId===x.ubicacionId || g.ubicacionIds && g.ubicacionIds[x.ubicacionId]);});
-      var estado = moneyReview ? '<span class="cm-chip pend">' + (localStorage.getItem('f123_lang')==='es' ? 'revisar pagos' : 'review payments') + '</span>' : g.socio !== 0 || g.credit > 0 || (l && (l.ajustes || []).length) ? (g.pend !== 0 || g.credit > 0 || g.held > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
+      var estado = moneyReview ? '<span class="cm-chip pend">' + (localStorage.getItem('f123_lang')==='es' ? 'revisar pagos' : 'review payments') + '</span>' : g.unknown ? '<span class="cm-chip pend">pending</span>' : g.socio !== 0 || g.credit > 0 || (l && (l.ajustes || []).length) ? (g.pend !== 0 || g.credit > 0 || g.held > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
       var sub = cmVista === "producto"
         ? "Rack: " + esc(Object.keys(g.perchas).join(", ") || "-") + (Object.keys(g.personas).length ? " · Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : "")
           + (g.unid && g.bruto > 0 ? " · <strong>" + (Math.round(g.socio / g.bruto * 1000) / 10) + "%</strong> to the associate" : "")
         : (l && l.asociadoNombre ? "Associate: <strong>" + esc(l.asociadoNombre) + "</strong>" + (l.pctEfectivo != null ? " · " + l.pctEfectivo + "%" : "") + (l.baseComision === "margen" ? " · on margin" : "") : (Object.keys(g.personas).length ? "Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : ""));
       var stats = '<div class="cm-stats">' +
+        (g.unknown ? '<div><div class="et">Commission</div><div class="n">' + (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") + "</div></div>" : "") +
         (g.unid !== 0 ? '<div><div class="et">Sold with commission</div><div class="n">' + money(g.bruto) + " <small>" + (g.unid===null?"pending":g.unid+"u") + "</small></div></div>" +
           '<div><div class="et">Associate takes</div><div class="n">' + money(g.socio) + "</div></div>" +
           '<div><div class="et">House keeps</div><div class="n">' + money(g.casa) + "</div></div>" : "") +
@@ -1941,7 +1963,7 @@
       var _idsPercha = Object.keys(g.ubicacionIds || {});
       var _perchaPago = cmVista === "percha" ? g.ubicacionId : (_idsPercha.length === 1 ? _idsPercha[0] : "");
       var acciones = "";
-      if ((cmVista === "producto" ? g.id : _perchaPago) && g.pend > 0 && !moneyReview) {
+      if ((cmVista === "producto" ? g.id : _perchaPago) && g.pend > 0 && !moneyReview && !g.unknown) {
         var _pagoDestino = cmVista === "producto" ? 'comisionproducto:' + encodeURIComponent(g.id) : 'comisiones:' + encodeURIComponent(_perchaPago);
         acciones += '<div class="cm-actions"><a class="pagar" href="index.html#editar=' + _pagoDestino + '&mes=' + encodeURIComponent(cmMes || actual) + '">' + (function () { try { return localStorage.getItem("f123_lang") === "es" ? "Registrar pago total/parcial" : "Record full/partial payment"; } catch (_) { return "Record full/partial payment"; } })() + '</a>';
         if (cmVista === "percha") acciones += '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(_perchaPago) + '">Adjust the deal</a><button type="button" data-cm-recibo="' + esc(_perchaPago) + '">Receipt</button>';
@@ -3004,12 +3026,12 @@
         pagador: (v.info && v.info.nombrePagador) || "",
         comisionPct: v.split ? v.split.comisionPct : (_ledgerCore && _retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].pct : null),
         comisionAjusteRetroIncluido: !!(!v.split && _retroPorVenta[String(v.id)]),
-        comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : (_ledgerCore && _retroPorVenta[String(v.id)] ? +_ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC).toFixed(2) : 0),
+        comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : (_ledgerCore && _retroPorVenta[String(v.id)] ? +_ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC).toFixed(2) : v.noCommission === true ? 0 : null),
         netoCasa: v.split ? v.split.montoNetoDueno : (_ledgerCore && _retroPorVenta[String(v.id)] ? +(pu * cant - _ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC)).toFixed(2) : null),
         comisionCorregida: !!(v.split && v.split.corregida),
         direccionComision: v.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha
         liquidada: !!v.liquidada,
-        comisionPendiente: _ledgerCore ? +_ledgerCore.money((_ledgerDueVenta[String(v.id)] || 0) + (_retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].dueC : 0)).toFixed(2) : null,
+        comisionPendiente: !v.split && !_retroPorVenta[String(v.id)] && v.noCommission !== true ? null : _ledgerCore ? +_ledgerCore.money((_ledgerDueVenta[String(v.id)] || 0) + (_retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].dueC : 0)).toFixed(2) : null,
         comisionRetenida: _ledgerCore ? _ledgerCore.money(_ledgerHeldVenta[String(v.id)] || 0) : 0,
         medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
         asociadoNombre: asoc[v.ubicacionId] || (!v.split && _retroPorVenta[String(v.id)] && _retroPorVenta[String(v.id)].payeeId ? ((e.promotoras || []).find(function (x) { return x.id === _retroPorVenta[String(v.id)].payeeId; }) || {}).nombre || "" : ""),

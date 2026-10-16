@@ -46,6 +46,12 @@ function validateIdentity(version, sw, previous, runtimeChanged) {
   if(old && shell && (+shell[1]<+old[1] || runtimeChanged && +shell[1]<=+old[1])) errors.push('changed runtime requires a new increasing shell; do not reuse canary identity');
   return errors;
 }
+function validateDashboardIdentity(version, dashboard) {
+  const html = dashboard.replace(/<!--[\s\S]*?-->/g, '');
+  const metas = [...html.matchAll(/<meta\s+name="dashboard-shell"\s+content="([^"]+)"/g)];
+  return metas.length === 1 && metas[0][1] === version.shell
+    ? [] : ['dashboard shell identity mismatch'];
+}
 const git=(...args)=>cp.execFileSync('git',args,{encoding:'utf8',maxBuffer:8*1024*1024}).trim();
 async function api(url) {
   const r=await fetch(url,{headers:{Accept:'application/vnd.github+json',Authorization:`Bearer ${process.env.GH_TOKEN || process.env.GITHUB_TOKEN || ''}`},signal:AbortSignal.timeout(20000)});
@@ -103,6 +109,7 @@ function validate(base) {
   const old=base?JSON.parse(git('show',`${base}:docs/version.json`)):null;
   const runtimeChanged=base?!!git('diff','--name-only',base,'HEAD','--','docs/'):false;
   errors.push(...validateIdentity(version,fs.readFileSync('docs/sw.js','utf8'),old,runtimeChanged));
+  errors.push(...validateDashboardIdentity(version,fs.readFileSync('docs/dashboard.html','utf8')));
   if(runtimeChanged) {
     const history=git('log','--format=','-p',base,'--','docs/version.json');
     const used=[...history.matchAll(/f123-shell-v([0-9]+)/g)].map(m=>Number(m[1]));
@@ -118,7 +125,7 @@ function provenance(directory, sha) {
   for(const file of ['version.json','version-manifest.json','sw.js','index.html']) hashes[file]=crypto.createHash('sha256').update(fs.readFileSync(path.join(directory,file))).digest('hex');
   fs.writeFileSync(path.join(directory,'release-proof.json'),JSON.stringify({schema:1,commit:sha,shell:version.shell,cacheGeneration:version.cacheGeneration,hashes},null,2)+'\n');
 }
-module.exports={evaluateRuns,validateCapabilities,validateIdentity,gate,published,provenance,served};
+module.exports={evaluateRuns,validateCapabilities,validateIdentity,validateDashboardIdentity,gate,published,provenance,served};
 if(require.main===module) (async()=>{
   const [command,arg,extra]=process.argv.slice(2);
   if(command==='gate') await gate(arg,Number(extra)||0);

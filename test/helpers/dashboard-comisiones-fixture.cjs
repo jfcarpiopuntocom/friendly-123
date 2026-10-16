@@ -11,7 +11,7 @@ module.exports = {
       venta({ productoId: "p1", productoNombre: "Mountain print", sku: "PRN-1", ubicacionId: "u1", ubicacionNombre: "Artist consignment", comisionPct: 85, comisionAsociado: 42.5, netoCasa: 7.5, asociadoNombre: "Ana" }),
       venta({ productoId: "p1", productoNombre: "Mountain print", sku: "PRN-1", ubicacionId: "u1", ubicacionNombre: "Artist consignment", comisionPct: 85, comisionAsociado: 42.5, netoCasa: 7.5, asociadoNombre: "Ana", liquidada: true }),
       venta({ productoId: "p2", productoNombre: "Tote bag", sku: "TOTE", ubicacionId: "u2", ubicacionNombre: "Weekend fair", precioUnit: 20, comisionPct: 10, comisionAsociado: 2, netoCasa: 18, asociadoNombre: "Luis", asistenteNombre: "Hugo", reparto: [{ rol: "vendedor", monto: 1.34 }, { rol: "asistente", pct: 33, monto: 0.66 }] }),
-      venta({ productoId: "p3", productoNombre: "Coffee", sku: "CAF", ubicacionId: "u2", ubicacionNombre: "Weekend fair", precioUnit: 3, comisionPct: null, comisionAsociado: 0, modoComision: "counter" }),
+      venta({ productoId: "p3", productoNombre: "Coffee", sku: "CAF", ubicacionId: "u2", ubicacionNombre: "Weekend fair", precioUnit: 3, comisionPct: null, comisionAsociado: 0, noCommission: true, modoComision: "counter" }),
       venta({ productoId: "p1", productoNombre: "Mountain print", sku: "PRN-1", ubicacionId: "u1", ubicacionNombre: "Artist consignment", comisionPct: 85, comisionAsociado: 42.5, netoCasa: 7.5, asociadoNombre: "Ana", mes: prev, fecha: prev + "-05T12:00:00.000Z" }),
     ],
     liquidaciones: [

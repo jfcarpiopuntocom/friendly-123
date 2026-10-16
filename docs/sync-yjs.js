@@ -97,7 +97,8 @@
        mantienen cada rafaga acotada; catalogo/ops, mucho mas chicos, usan 64. */
     var PULL_PAGE_SIZE = nombre === "fotos" ? 4 : 64;
     var T_CONEXION_ESTABLE_MS = 30000;
-    var partesEntrantes = Object.create(null);
+    var partesEntrantes = Object.create(null), partesEnVivo = Object.create(null);
+    var MAX_GRUPOS_EN_VIVO = 64, MAX_BYTES_EN_VIVO = 16 * 1024 * 1024;
     var reintentos = 0; // backoff (fix B, JFC 2026-09-10): antes reconectaba fijo
                         // cada 4s; si el relay cerraba (p.ej. frame grande), era una
                         // tormenta de upgrades -> límite diario del worker. Ahora
@@ -105,7 +106,7 @@
     var _tEstable = null;
     var _colaRecepcion = Promise.resolve();
     var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;
-    var _pullCursor = { rev: -1, seq: 0 };
+    var _pullCursor = { rev: -1, seq: 0 }, _appliedPullCursor = { rev: -1, seq: 0 };
     var _pullCursorReady = Promise.resolve();
     // Encrypted durable outbox lives alongside the local Y.Doc, scoped by room/channel.
     // WebSocket.send is delivery to the network, never acknowledgement of remote storage.
@@ -340,6 +341,7 @@
       _pullCursorReady = persistencia.get(_pullCursorKey).then(function (guardado) {
         if (guardado && Number.isFinite(Number(guardado.rev)) && Number.isFinite(Number(guardado.seq))) {
           _pullCursor = { rev: Math.trunc(Number(guardado.rev)), seq: Math.max(0, Math.trunc(Number(guardado.seq) || 0)) };
+          _appliedPullCursor = _pullCursor;
         }
       }).catch(function () {});
     }
@@ -348,13 +350,14 @@
         rev: Number.isFinite(Number(cursor.rev)) ? Math.trunc(Number(cursor.rev)) : -1,
         seq: Math.max(0, Math.trunc(Number(cursor.seq) || 0))
       };
-      if (siguiente.rev < _pullCursor.rev ||
-          (siguiente.rev === _pullCursor.rev && siguiente.seq <= _pullCursor.seq)) return Promise.resolve();
+      if (siguiente.rev < _appliedPullCursor.rev ||
+          (siguiente.rev === _appliedPullCursor.rev && siguiente.seq <= _appliedPullCursor.seq)) return Promise.resolve();
       _pullCursor = siguiente;
       // Continue paging in memory, but a restart must replay every fragment
       // until its complete update has entered the persisted Y.Doc. Otherwise
       // the next process could checkpoint a cursor whose bytes it never had.
       if (Object.keys(partesEntrantes).length) return Promise.resolve();
+      _appliedPullCursor = siguiente;
       if (!persistencia || typeof persistencia.set !== "function") return Promise.resolve();
       /* IndexeddbPersistence encola este write DESPUES de los updates Yjs que
          acabamos de aplicar. Cursor y estado viven en la misma base: si se
@@ -469,10 +472,10 @@
       if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
       // A page may contain only part of a large update. Those chunks are not
       // represented in the Y.Doc yet and cannot be compacted by its snapshot.
-      if (_pullCursor.rev < 0 || Object.keys(partesEntrantes).length) return;
+      if (_appliedPullCursor.rev < 0 || Object.keys(partesEntrantes).length) return;
       // Capture the applied cursor in the SAME synchronous turn as the bytes.
       // Encryption yields: a later page must never expand this snapshot's cut.
-      var checkpointCursor = { rev: _pullCursor.rev, seq: _pullCursor.seq };
+      var checkpointCursor = { rev: _appliedPullCursor.rev, seq: _appliedPullCursor.seq };
       var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
       var state = _b64(full);
@@ -506,7 +509,14 @@
           if (canal.ws === ws && ws.readyState === 1) reintentos = 0;
         }, T_CONEXION_ESTABLE_MS);
         try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": a quien esté en vivo
-        pedirPagina(ws, pullEstado); // trae lo persistido por paginas y reanuda desde el cursor local
+        // A disconnected page cursor may cover unapplied fragments. Drop only
+        // its transient assembly and replay from the proven applied cut.
+        _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
+          if (canal.ws !== ws) return;
+          partesEntrantes = Object.create(null);
+          _pullCursor = _appliedPullCursor;
+          return pedirPagina(ws, pullEstado);
+        });
         /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
            "catalogo". FIX de costo (JFC 2026-09-22, v337): la v335 hacia ping cada
            60 s en LOS TRES canales (catalogo, fotos, ops). El relay usa WebSocket
@@ -532,8 +542,8 @@
         // op individual, que sí cabe en el frame). Tras dar tiempo al pull.
         if (seedFn) setTimeout(function () { try { seedFn(); } catch (_) {} }, 3200);
       };
-      function manejar(buf) {
-        return descifrarBin(API.clave, buf).then(function (bytes) {
+      function manejar(buf, source) {
+        return Promise.resolve().then(function () { return descifrarBin(API.clave, buf); }).then(function (bytes) {
           var tag = bytes[0], payload = bytes.subarray(1);
           if (tag === 3) {
             if (bytes.length < 22) return false;
@@ -541,12 +551,24 @@
             for (var q = 2; q < 18; q++) id += String.fromCharCode(bytes[q]);
             var indice = bytes[18] * 256 + bytes[19], total = bytes[20] * 256 + bytes[21];
             if (!total || indice >= total) return false;
-            var grupo = partesEntrantes[id];
-            if (!grupo) grupo = partesEntrantes[id] = { tag: original, total: total, piezas: [], cuenta: 0, creado: Date.now() };
+            // Only locally marked broadcast/direct traffic is live-only. Missing
+            // metadata is conservative: it may be durable history.
+            var groups = source === "live" ? partesEnVivo : partesEntrantes;
+            if (source === "live") {
+              Object.keys(groups).forEach(function (key) {
+                if (Date.now() - groups[key].creado > 120000) delete groups[key];
+              });
+              var liveBytes = Object.keys(groups).reduce(function (sum, key) { return sum + groups[key].bytes; }, 0);
+              // These bytes are a latency optimization. The sender's durable
+              // outbox/history is authoritative and will replay a dropped group.
+              if ((!groups[id] && Object.keys(groups).length >= MAX_GRUPOS_EN_VIVO) || liveBytes + bytes.length - 22 > MAX_BYTES_EN_VIVO) return true;
+            }
+            var grupo = groups[id];
+            if (!grupo) grupo = groups[id] = { tag: original, total: total, piezas: [], cuenta: 0, bytes: 0, creado: Date.now() };
             if (grupo.total !== total || grupo.tag !== original) return false;
-            if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; }
+            if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; grupo.bytes += bytes.length - 22; }
             if (grupo.cuenta !== total) return true; // trozo valido; faltan sus hermanos
-            delete partesEntrantes[id];
+            delete groups[id];
             var largo = grupo.piezas.reduce(function (a, p) { return a + p.length; }, 0);
             var unido = new Uint8Array(largo), cursor = 0;
             grupo.piezas.forEach(function (p) { unido.set(p, cursor); cursor += p.length; });
@@ -571,29 +593,26 @@
           } else if (tag === 2) { // respuesta a mi SV: solo el diff, sin re-pedir (corta el loop)
             try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
           }
-          if (Object.keys(partesEntrantes).length > 64) {
-            Object.keys(partesEntrantes).forEach(function (k) { if (Date.now() - partesEntrantes[k].creado > 120000) delete partesEntrantes[k]; });
-          }
           return true;
         }).catch(function () { return false; }); // basura o clave distinta -> no se confirma el cursor
       }
       ws.onmessage = function (ev) {
-        if (!API.clave) return;
-        var d = ev.data;
+        if (!API.clave || canal.ws !== ws) return;
+        var d = ev.data, source = ev.relaySource;
         // ROBUSTEZ (JFC 2026-09-10, world-class): normalmente con binaryType
         // "arraybuffer" llega un ArrayBuffer, pero algunos navegadores/proxies
         // entregan un Blob aunque se pida ArrayBuffer. Se aceptan AMBOS. Los
         // frames se encadenan: el cursor de una pagina se confirma DESPUES de
         // aplicar todos sus binarios, nunca antes.
         if (d instanceof ArrayBuffer) {
-          _colaRecepcion = _colaRecepcion.then(function () { return manejar(d); }).then(function (ok) {
-            if (pullEstado.enCurso && !ok) pullEstado.fallos++;
+          _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source); }).then(function (ok) {
+            if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
           });
         }
         else if (typeof Blob !== "undefined" && d instanceof Blob) {
-          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(manejar).then(function (ok) {
-            if (pullEstado.enCurso && !ok) pullEstado.fallos++;
-          }).catch(function () { if (pullEstado.enCurso) pullEstado.fallos++; });
+          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source); }).then(function (ok) {
+            if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
+          }).catch(function () { if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++; });
         }
         /* MEDICION DE LATENCIA (JFC 2026-09-22). Los frames de TEXTO hasta hoy
            se ignoraban por completo, asi que engancharse aqui es 100% aditivo:
@@ -610,14 +629,22 @@
             }
             else if (c && c.k === "pull-page") {
               _colaRecepcion = _colaRecepcion.then(function () {
+                if (canal.ws !== ws) return;
                 if (pullEstado.fallos) {
                   pullEstado.enCurso = false;
+                  try { ws.close(1013, "replay incomplete; retry from applied cursor"); } catch (_) {}
                   try { log("pagina de catch-up no confirmada en " + nombre); } catch (_) {}
                   return;
                 }
                 return guardarPullCursor(c).then(function () {
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado);
                   pullEstado.enCurso = false;
+                  // A sender may still be persisting a sibling. Retry through
+                  // the existing reconnect backoff, never expire durable bytes
+                  // into an advanced cursor or checkpoint.
+                  if (Object.keys(partesEntrantes).length) {
+                    try { ws.close(1013, "replay incomplete; retry from applied cursor"); } catch (_) {}
+                  }
                 });
               });
             }
@@ -627,7 +654,7 @@
         }
       };
       _directReceive = function (buf) {
-        _colaRecepcion = _colaRecepcion.then(function () { return manejar(buf); });
+        _colaRecepcion = _colaRecepcion.then(function () { return manejar(buf, "live"); });
       };
       ws.onclose = function () {
         if (canal.ws !== ws) return; // cierre tardio de un socket reemplazado

@@ -7,27 +7,29 @@ async function esperar(condicion,mensaje){
  while(!condicion()&&Date.now()<limite)await new Promise(r=>setTimeout(r,1));
  assert.ok(condicion(),mensaje);
 }
-async function fixture(data=new Map(),locks,adapterMissing=false){
+async function fixture(data=new Map(),locks,adapterMissing=false,realY=false){
  const sockets=[],timers=[];let rawCalls=0;
- class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){this.sent.push(x)}}
+ class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){this.sent.push(x)}close(){this.readyState=3;this.onclose?.()}}
  const p={get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
  const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,WebSocket:class{constructor(){rawCalls++;throw Error('Raw relay fallback forbidden')}},
-  window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},navigator:locks?{locks}:undefined,CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,
+  window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},navigator:locks?{locks}:undefined,CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,setInterval,clearInterval,
   setTimeout(fn,ms){timers.push({fn,ms});return timers.length},clearTimeout(){},
   btoa:s=>Buffer.from(s,'binary').toString('base64'),
   cifrarBin:async(_,b)=>b.slice().buffer,descifrarBin:async(_,b)=>new Uint8Array(b)};
  if(adapterMissing)delete ctx.window.F123Relay;
  vm.createContext(ctx);vm.runInContext(block+'\nthis.make=crearCanal;',ctx);
- const Y={encodeStateAsUpdate:()=>Uint8Array.from({length:20},(_,i)=>i),encodeStateVector:()=>new Uint8Array([1]),applyUpdate(){}};
- const channel=ctx.make(Y,{},'-y','fixture',true,null,p);channel.conectar();
+ if(realY)vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
+ const Y=realY?ctx.Y:{encodeStateAsUpdate:()=>Uint8Array.from({length:20},(_,i)=>i),encodeStateVector:()=>new Uint8Array([1]),applyUpdate(){}};
+ const doc=realY?new Y.Doc():{};
+ const channel=ctx.make(Y,doc,'-y','fixture',true,null,p);channel.conectar();
  if(sockets[0]){
   sockets[0].onopen();await tick();await tick();
   sockets[0].onmessage({data:JSON.stringify({k:"pull-page",rev:0,seq:0,more:false})});await tick();await tick();
  }
- return {data,timers,channel,socket:sockets[0],sockets,p,ctx,get rawCalls(){return rawCalls},restoreAdapter(){ctx.window.F123Relay={connect:()=>new Socket()}}};
+ return {Y,doc,data,timers,channel,socket:sockets[0],sockets,p,ctx,get rawCalls(){return rawCalls},restoreAdapter(){ctx.window.F123Relay={connect:()=>new Socket()}}};
 }
 test('unacknowledged encrypted update survives reload and is removed only after durable ack',async()=>{
- const a=await fixture();a.channel.enviarUpdate(new Uint8Array([4,5,6]));await tick();await tick();
+ const a=await fixture();a.channel.enviarUpdate(new Uint8Array([4,5,6]));await esperar(()=>controls(a.socket,"op").length===1,"encrypted operation reaches the durable relay");
  const sent=a.socket.sent.filter(x=>typeof x==='string').map(JSON.parse).find(x=>x.k==='op');
  assert.ok(sent);assert.equal(sent.ack,1);
  const b=await fixture(a.data);
@@ -82,7 +84,7 @@ for (const next of [{rev:0,seq:2},{rev:1,seq:0}]) {
 test('an incomplete chunk group cannot be compacted by a checkpoint',async()=>{
  const a=await fixture();
  const chunk=new Uint8Array(24);chunk[0]=3;chunk[1]=0;chunk.fill(65,2,18);chunk[21]=2;
- a.socket.onmessage({data:chunk.buffer});
+ a.socket.onmessage({data:chunk.buffer,relaySource:"pull"});
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
  a.timers.find(t=>t.ms===2500).fn();await tick();await tick();
  assert.ok(!a.socket.sent.some(x=>typeof x==='string'&&JSON.parse(x).k==='ckpt'),
@@ -91,7 +93,7 @@ test('an incomplete chunk group cannot be compacted by a checkpoint',async()=>{
 test('incomplete chunk pages replay after reload, then advance durable cursor only after reassembly',async()=>{
  const a=await fixture();
  const chunk=new Uint8Array(24);chunk[0]=3;chunk[1]=0;chunk.fill(65,2,18);chunk[21]=2;
- a.socket.onmessage({data:chunk.buffer});
+ a.socket.onmessage({data:chunk.buffer,relaySource:"pull"});
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0,
   'a reload must refetch a partial update because fragments are only in memory');
@@ -101,7 +103,7 @@ test('incomplete chunk pages replay after reload, then advance durable cursor on
  const resumed=b.socket.sent.filter(x=>typeof x==='string').map(JSON.parse).find(x=>x.k==='pull');
  assert.equal(resumed.seq,0);
  const last=chunk.slice();last[19]=1;
- a.socket.onmessage({data:last.buffer});
+ a.socket.onmessage({data:last.buffer,relaySource:"pull"});
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2);
 });
@@ -111,7 +113,7 @@ test('missing native adapter preserves durable outbox through reload and reconne
  const a=await fixture(new Map(),undefined,true);
  assert.equal(a.sockets.length,0);assert.equal(a.channel.ws,null);assert.equal(a.rawCalls,0);
  assert.equal(a.timers.length,1,'failed connection schedules backoff');
- a.channel.enviarUpdate(new Uint8Array([7,8,9]));await tick();await tick();
+ a.channel.enviarUpdate(new Uint8Array([7,8,9]));await esperar(()=>a.data.get("f123_relay_outbox_v1-y")?.pending.length===1,"encrypted operation persists while offline");
  const before=structuredClone(a.data.get('f123_relay_outbox_v1-y'));
  assert.equal(before.pending.length,1);assert.equal(a.channel.pendientesRelay,1);
  const b=await fixture(a.data,undefined,true);await tick();await tick();
@@ -123,4 +125,101 @@ test('missing native adapter preserves durable outbox through reload and reconne
  assert.equal(b.data.get('f123_relay_outbox_v1-y').pending.length,1,'opening transport is not a durable acknowledgement');
  b.sockets[0].onmessage({data:JSON.stringify({k:'persist-result',kind:'op',id:retried.id,ok:true})});await tick();await tick();
  assert.equal(b.data.get('f123_relay_outbox_v1-y').pending.length,0,'only native durable acknowledgement clears the pending update');
+});
+
+function fragment(index=0,id=65){
+ const bytes=new Uint8Array(24);bytes[0]=3;bytes[1]=0;bytes.fill(id,2,18);bytes[19]=index;bytes[21]=2;bytes[22]=index+1;return bytes;
+}
+function controls(socket,kind){return socket.sent.filter(x=>typeof x==='string').map(JSON.parse).filter(x=>x.k===kind)}
+test('abandoned live fragments cannot latch durable recovery or checkpoint creation',async()=>{
+ const a=await fixture();
+ a.socket.onmessage({data:fragment().buffer,relaySource:'live'});
+ a.socket.onmessage({data:new Uint8Array([0,9]).buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,1);
+ a.timers.find(t=>t.ms===2500).fn();await tick();await tick();
+ assert.equal(controls(a.socket,'ckpt')[0]?.seq,1);
+});
+test('durable recovery cannot borrow live siblings to compact incomplete durable history',async()=>{
+ const a=await fixture();let applied=0;a.Y.applyUpdate=()=>applied++;
+ a.socket.onmessage({data:fragment().buffer,relaySource:'pull'});
+ a.socket.onmessage({data:fragment(1).buffer,relaySource:'live'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
+ assert.equal(applied,0);
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0);
+});
+test('reconnection refetches unfinished durable groups from the last applied cut',async()=>{
+ const a=await fixture();let applied=0;a.Y.applyUpdate=()=>applied++;
+ a.socket.onmessage({data:fragment().buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
+ a.socket.onclose();a.channel.conectar();const next=a.sockets.at(-1);next.onopen();await tick();await tick();
+ assert.equal(controls(next,'pull')[0]?.seq,0);
+ next.onmessage({data:fragment().buffer,relaySource:'pull'});
+ next.onmessage({data:fragment(1).buffer,relaySource:'pull'});
+ next.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
+ assert.equal(applied,1);assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2);
+});
+
+test('an unfinished final replay page retries with backoff without claiming its cursor',async()=>{
+ const a=await fixture();
+ a.socket.onmessage({data:fragment().buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
+ assert.equal(a.socket.readyState,3);assert.equal(a.channel.ws,null);
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0);
+ assert.ok(a.timers.some(t=>t.ms>=1000&&t.ms<=2000),'existing reconnect backoff schedules recovery');
+});
+test('missing source metadata remains conservative and cannot authorize compaction',async()=>{
+ const a=await fixture();a.socket.onmessage({data:fragment().buffer});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0);
+ a.timers.find(t=>t.ms===2500).fn();await tick();assert.equal(controls(a.socket,'ckpt').length,0);
+});
+
+test('old durable fragments never expire into falsely confirmed progress, even above the live cache bound',async()=>{
+ const a=await fixture();
+ for(let id=1;id<=65;id++)a.socket.onmessage({data:fragment(0,id).buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:65,more:true})});await tick();await tick();
+ a.ctx.Date={now:()=>Date.now()+120001};
+ a.socket.onmessage({data:new Uint8Array([0,9]).buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:66,more:true})});await tick();await tick();
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0);
+ for(let id=1;id<=65;id++)a.socket.onmessage({data:fragment(1,id).buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:131,more:false})});await tick();await tick();
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,131,'every old sibling remains available to complete its update');
+});
+test('live-only expired orphans release assembly capacity without obstructing durable progress',async()=>{
+ const a=await fixture();let applied=0;a.Y.applyUpdate=()=>applied++;
+ for(let id=1;id<=64;id++)a.socket.onmessage({data:fragment(0,id).buffer,relaySource:'live'});await tick();await tick();
+ a.ctx.Date={now:()=>Date.now()+120001};
+ a.socket.onmessage({data:fragment(0,66).buffer,relaySource:'live'});
+ a.socket.onmessage({data:fragment(1,66).buffer,relaySource:'live'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
+ assert.equal(applied,1);assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,1);
+});
+test('real Yjs replay after interruption preserves complete data and idempotence across duplicate fragments',async()=>{
+ const a=await fixture(new Map(),undefined,false,true),source=new a.Y.Doc();
+ source.getMap('sales').set('synthetic-sale','x'.repeat(350000));
+ const update=a.Y.encodeStateAsUpdate(source),chunks=[];
+ for(let i=0;i<3;i++){
+  const body=update.subarray(i*160*1024,(i+1)*160*1024),bytes=new Uint8Array(22+body.length);
+  bytes[0]=3;bytes[1]=0;bytes.fill(70,2,18);bytes[19]=i;bytes[21]=3;bytes.set(body,22);chunks.push(bytes);
+ }
+ a.socket.onmessage({data:chunks[0].buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
+ assert.equal(a.doc.getMap('sales').size,0);
+ a.socket.close();a.channel.conectar();const next=a.sockets.at(-1);next.onopen();await tick();await tick();
+ assert.equal(controls(next,'pull')[0].seq,0);
+ for(const bytes of [chunks[0],chunks[0],chunks[2],chunks[1],...chunks])next.onmessage({data:bytes.buffer,relaySource:'pull'});
+ next.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:3,more:false})});await tick();await tick();
+ assert.equal(a.doc.getMap('sales').size,1);assert.equal(a.doc.getMap('sales').get('synthetic-sale'),'x'.repeat(350000));
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,3);
+ a.doc.destroy();source.destroy();
+});
+
+test('malformed live input during pull cannot poison a valid durable page',async()=>{
+ const a=await fixture();a.ctx.descifrarBin=(_key,bytes)=>{if(bytes.byteLength===0)throw Error('bad live cipher');return Promise.resolve(new Uint8Array(bytes))};
+ a.socket.onmessage({data:new ArrayBuffer(0),relaySource:'live'});
+ a.socket.onmessage({data:new Uint8Array([0,9]).buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,1);
 });

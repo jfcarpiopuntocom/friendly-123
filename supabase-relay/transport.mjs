@@ -29,6 +29,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
 
     #emit(type, properties = {}) {
       const event = type === 'message' ? new MessageEvent(type, properties) : new Event(type);
+      if (type === 'message' && properties.relaySource) Object.defineProperty(event, 'relaySource', { value: properties.relaySource });
       if (type !== 'message') for (const [key, value] of Object.entries(properties)) Object.defineProperty(event, key, { value });
       this.dispatchEvent(event);
       if (typeof this['on' + type] === 'function') this['on' + type](event);
@@ -81,11 +82,11 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
     }
 
     #text(value) { if (this.readyState === 1) this.#emit('message', { data: JSON.stringify(value) }); }
-    #binary(value) {
+    #binary(value, relaySource = 'live') {
       const bytes = asBytes(value);
       if (!bytes || this.readyState !== 1) return;
       const data = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-      this.#emit('message', { data: this.binaryType === 'blob' ? new Blob([data]) : data });
+      this.#emit('message', { data: this.binaryType === 'blob' ? new Blob([data]) : data, relaySource });
     }
     #fail() {
       if (this.readyState >= 2) return;
@@ -147,7 +148,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
       }
       if (error || !data) return this.#fail();
       if (command.k === 'ts') return this.#text(data);
-      for (const encoded of data.frames || []) this.#binary(fromBase64(encoded));
+      for (const encoded of data.frames || []) this.#binary(fromBase64(encoded), 'pull');
       if (Number(command.v) === 2) this.#text({ k: 'pull-page', v: 2, rev: data.rev, seq: data.seq, more: data.more, n: data.n });
     }
 

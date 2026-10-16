@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v536: prepare native-only notebook sync; preserve pending writes; measure correlated application/render acknowledgements against a 150ms confirmation budget.",
+  "changelog": "v537: stabilize commission evidence, corrected-date tax labels, interrupted sync recovery and release identity; preserve native-only pending writes.",
   "requerida": false,
-  "shell": "f123-shell-v536",
+  "shell": "f123-shell-v537",
   "apagar": [],
-  "releaseName": "v536",
-  "cacheGeneration": "golden100"
+  "releaseName": "v537",
+  "cacheGeneration": "golden101"
 }

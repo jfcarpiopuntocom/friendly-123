@@ -3745,7 +3745,9 @@
               ajustesComision.push({
                 id: idAj, tipo: "devolucion", ventaId: local.id, ubicacionId: local.ubicacionId, productoId: local.productoId,
                 cantidad: local.cantidad, fecha: new Date().toISOString(),
-                montoBruto: -(Number(sp.montoBruto) || 0), montoComisionSocio: -(Number(sp.montoComisionSocio) || 0), montoNetoDueno: -(Number(sp.montoNetoDueno) || 0),
+                montoBruto: -(Number(sp.montoBruto) || 0),
+                montoComisionSocio: sp.montoComisionSocio == null ? null : -(Number(sp.montoComisionSocio) || 0),
+                montoNetoDueno: sp.montoNetoDueno == null ? null : -(Number(sp.montoNetoDueno) || 0),
                 reparto: Array.isArray(sp.reparto) ? sp.reparto.map((r) => Object.assign({}, r, { monto: -(Number(r.monto) || 0) })) : null,
                 quien: "sync", motivo: "Return recorded on another device after this sale was paid", liquidada: false, rev: _revNueva()
               });
@@ -4882,7 +4884,7 @@
           botellas: (v.info && v.info.botellas) || null,
           comisionPct: v.split ? v.split.comisionPct : (_rt ? _rt.pct : null),
           comisionAjusteRetroIncluido: !!_rt,
-          comisionAsociado: v.split ? v.split.montoComisionSocio : (_rt ? _coreVentas.money(_rt.ganadoC) : 0),
+          comisionAsociado: v.split ? v.split.montoComisionSocio : (_rt ? _coreVentas.money(_rt.ganadoC) : v.noCommission === true ? 0 : null),
           netoCasa: v.split ? v.split.montoNetoDueno : (_rt ? +(((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) - _coreVentas.money(_rt.ganadoC)).toFixed(2) : null),
           modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
           /* v521 flecha: sin campo = venta vieja = la casa paga. */
@@ -4891,8 +4893,8 @@
           liquidada: !!v.liquidada,
           comisionPagada: !!_paidVenta.get(String(v.id)),
           /* Payout Ledger: exact remaining commission for this sale, summed
-             across people. Null only when the pure ledger core is unavailable. */
-          comisionPendiente: _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
+             across people. Missing commission evidence remains unknown. */
+          comisionPendiente: !v.split && !_rt && v.noCommission !== true ? null : _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
           comisionRetenida: _coreVentas ? _coreVentas.money(_heldVenta.get(String(v.id)) || 0) : 0,
           devuelta: !!v.devuelta,
           fechaDevolucion: v.fechaDevolucion || ((ajustesComision.find(a=>a && (a.id===v.devolucionId || (a.tipo==="devolucion" && a.ventaId===v.id))) || {}).fecha) || null,
@@ -5900,11 +5902,14 @@
         const foto = { venta: JSON.parse(JSON.stringify(venta)), producto: JSON.parse(JSON.stringify(p)),
           ajustesLen: ajustesComision.length, movLen: movimientos.length, sello: selloUltimo };
         const sp = venta.split || { montoBruto: venta.precioUnit * venta.cantidad,
-          montoComisionSocio: 0, montoNetoDueno: venta.precioUnit * venta.cantidad };
+          montoComisionSocio: venta.noCommission === true ? 0 : null,
+          montoNetoDueno: venta.noCommission === true ? venta.precioUnit * venta.cantidad : null };
         const aj = {
           id: "aj-dev-" + venta.id, tipo: "devolucion", ventaId: venta.id, ubicacionId: venta.ubicacionId, productoId: p.id,
           cantidad: venta.cantidad, fecha: new Date().toISOString(),
-          montoBruto: -(Number(sp.montoBruto) || 0), montoComisionSocio: -(Number(sp.montoComisionSocio) || 0), montoNetoDueno: -(Number(sp.montoNetoDueno) || 0),
+          montoBruto: -(Number(sp.montoBruto) || 0),
+          montoComisionSocio: sp.montoComisionSocio == null ? null : -(Number(sp.montoComisionSocio) || 0),
+          montoNetoDueno: sp.montoNetoDueno == null ? null : -(Number(sp.montoNetoDueno) || 0),
           reparto: Array.isArray(sp.reparto) ? sp.reparto.map((r) => Object.assign({}, r, { monto: -(Number(r.monto) || 0) })) : null,
           quien, motivo, liquidada: false, rev: _revNueva()
         };
@@ -6758,7 +6763,7 @@
       if (path === "/api/reportes/pl") {
         const reader = window.OCBusinessReadModel;
         const reportSales = ventasParaReportes(uid);
-        const policies = reportSales.filter(v => fechaLocalDe(v.fecha) === hoyISO() || v.devuelta && v.fechaDevolucion && fechaLocalDe(v.fechaDevolucion) === hoyISO()).map(v => v.impuesto).filter(Boolean);
+        const policies = reportSales.filter(v => v.fechaLocal === hoyISO() || v.devuelta && v.fechaDevolucion && fechaLocalDe(v.fechaDevolucion) === hoyISO()).map(v => v.impuesto).filter(Boolean);
         const policy = policies.length && policies.every(t => t.tasa === policies[0].tasa && t.modo === policies[0].modo && t.nombre === policies[0].nombre) ? policies[0] : null;
         const result = reader && reader.businessResult({ sales: reportSales, expenses: gastos,
           adjustments: ajustesComision, period: { from: hoyISO(), to: hoyISO() }, zone: ZONA,

@@ -1,7 +1,8 @@
 # Native-only sync: release and verification
 
 The October 16 owner instruction restricts Cloudflare to licensing, excluding
-notebook transactions and synchronization. v536 prepares native-only clients.
+notebook transactions and synchronization. v536 introduced native-only clients;
+v537 strengthens interrupted-transfer recovery and release validation.
 It does **not** migrate a customer, activate a room, deploy a Worker, or certify
 production performance. The separate licensing Worker remains unchanged.
 
@@ -19,6 +20,11 @@ production performance. The separate licensing Worker remains unchanged.
   gateway, not network destinations. No customer room/key derivation changes.
 - Local state, durable outbox IDs/ciphertext and recovery cursors are retained.
   Reopening a connection cannot clear pending writes; a durable ACK is required.
+- Native transport marks live broadcasts and pulled history on local events;
+  the encrypted wire format is unchanged. Their fragment assemblies are separate.
+  An abandoned live fragment cannot block durable recovery. An incomplete pulled
+  update cannot advance the applied recovery cut or authorize compaction; a
+  reconnect replays from that proven cut using the existing backoff.
 - WebRTC uses host ICE candidates without Cloudflare STUN. Direct connections
   across some NATs will not form; the authorized native relay remains available.
   No replacement external STUN/TURN provider or paid service was selected.
@@ -42,7 +48,7 @@ production performance. The separate licensing Worker remains unchanged.
    sockets through Cloudflare fails the licensing-only requirement.
 4. Activate only reconciled groups. Exercise native replay, concurrent edits,
    disconnect/reconnect, missing ACK and recovery before allowing this candidate
-   to reach those clients. Inactive groups will stay local/pending under v536;
+   to reach those clients. Inactive groups stay local/pending under v536 and later;
    do not interpret that as a completed migration or an empty new business.
 5. Verify adopted app/dashboard versions and network destinations; block the old
    data relay in an isolated acceptance run. Compare Cloudflare data Worker/DO
@@ -97,5 +103,5 @@ node --require ./test/helpers/sin-red-produccion.cjs --test \
 ```
 
 These use synthetic local data/transports. Browser tests require the project's
-Playwright Chromium. Neither passing tests nor opening this PR authorizes merge,
+Playwright Chromium and WebKit. Neither passing tests nor opening this PR authorizes merge,
 deployment, room activation or production certification.

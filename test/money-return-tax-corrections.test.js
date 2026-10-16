@@ -175,3 +175,37 @@ test('return date and returned flag survive a later catalog revision and a new d
   assert.equal(imported.fechaDevolucion, original.fechaDevolucion);
   assert.equal(imported.devuelta, true);
 });
+
+for (const explicitNone of [false, true]) {
+  test('return preserves ' + (explicitNone ? 'explicit no-commission' : 'unknown commission') + ' evidence through reload', async () => {
+    const s = await setup();
+    const state = await backup(s.app), sale = state.ventas.find(v => v.id === s.ventaId);
+    sale.split = null;
+    if (explicitNone) sale.noCommission = true; else delete sale.noCommission;
+    await s.app.request('/api/respaldo/importar', 'POST', state);
+    const result = await returnSale(s);
+    assert.equal(result.ajuste.montoComisionSocio, explicitNone ? 0 : null);
+    assert.equal(result.ajuste.montoNetoDueno, explicitNone ? -100 : null);
+    const projection = (await s.app.request('/api/ventas/todas')).find(v => v.id === s.ventaId);
+    assert.equal(projection.comisionAsociado, explicitNone ? 0 : null);
+    assert.equal(projection.comisionPendiente, explicitNone ? 0 : null);
+    const reloaded = browser(s.app.localStorage);
+    const saved = await backup(reloaded);
+    assert.equal(saved.ajustesComision.find(a => a.ventaId === s.ventaId).montoComisionSocio, explicitNone ? 0 : null);
+    assert.equal(saved.productos.find(p => p.id === s.product.id).stockActual, 5);
+  });
+}
+
+test('P&L tax label follows the corrected business date across midnight', async () => {
+  const s = await setup({ tax: 'incluido' });
+  const state = await backup(s.app), sale = state.ventas.find(v => v.id === s.ventaId);
+  // Preserve the raw future clock reading; its measured offset places it today.
+  const raw = new Date(Date.now() + 86400000);
+  sale.fecha = raw.toISOString(); sale.relojDesfaseMs = -86400000;
+  await s.app.request('/api/respaldo/importar', 'POST', state);
+  const report = await s.app.request('/api/reportes/pl?ubicacionId=' + s.rack.id);
+  assert.equal(report.ingresos, 100);
+  assert.equal(report.ivaCobrado, 15);
+  assert.deepEqual(report.impuesto, { activo: true, tasa: 15, nombre: 'VAT', modo: 'incluido' });
+  assert.equal((await getSale(s)).fecha, raw.toISOString(), 'reporting never rewrites source evidence');
+});
