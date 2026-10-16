@@ -155,14 +155,18 @@
    }
   }
   const saleMap=new Map(sales.filter(v=>v.id!=null).map(v=>[String(v.id),v]));
+  // Keep source scope evidence even when contradictory sale IDs are quarantined.
+  const saleCandidates=new Map();
+  for(const v of input.sales||[]){if(!v||v.id==null)continue;const key=String(v.id),group=saleCandidates.get(key)||[];group.push(v);saleCandidates.set(key,group);}
   const signedCents=n=>{if((typeof n!=='number'&&!(typeof n==='string'&&n.trim()))||!Number.isFinite(Number(n))||Math.abs(Number(n))>=1e21)return null;const c=Math.round(Number(Number(n).toFixed(10)+'e2'));return Number.isSafeInteger(c)?c:null;};
   const adjustmentRelevant=a=>{
-   const sale=saleMap.get(String(a.ventaId||''));
-   return expenseRelevant(a)&&(!scoped||!!sale&&inScope(sale));
+   const candidates=saleCandidates.get(String(a.ventaId||''))||[];
+   return expenseRelevant(a)&&(!scoped||candidates.some(inScope));
   };
   for(const a of unique(input.adjustments,'adjustment',adjustmentRelevant)){
    if(a.borrado||!expenseRelevant(a))continue;
    const sale=saleMap.get(String(a.ventaId||''));
+   if(!sale&&(saleCandidates.get(String(a.ventaId||''))||[]).length&&adjustmentRelevant(a)){adjustmentConflict=true;warnings.add('unreconciled-commission-adjustment');continue;}
    if(scoped&&(!sale||!inScope(sale)))continue;
    if(a.tipo==='recalculo-retroactivo'&&sale&&sale.comisionAjusteRetroIncluido)continue;
    const artist=signedCents(a.montoComisionSocio),house=signedCents(a.montoNetoDueno);

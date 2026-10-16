@@ -65,3 +65,29 @@ test('conflicts that move an expense or adjustment into a scope still block that
     }
   }
 });
+
+for (const conflictingAdjustments of [false, true]) {
+  test('quarantined historical sale keeps ' + (conflictingAdjustments ? 'conflicting' : 'single') + ' current adjustments pending in every affected scope', () => {
+    const first = sale();
+    const other = sale({ ubicacionId: 'shelf-b', ubicacionNombre: 'Shelf B', eventoId: 'event-b' });
+    const adjustments = conflictingAdjustments ? [adjustment(), adjustment({ montoComisionSocio: 6, montoNetoDueno: -6 })] : [adjustment()];
+    for (const sales of [[first, other], [other, first]]) {
+      const input = { sales, adjustments, month: '2026-10' };
+      for (const scope of [{}, { locationId: 'shelf-a' }, { locationId: 'shelf-b' }, { eventKey: 'id:event-a' }, { eventKey: 'id:event-b' }]) {
+        const result = RM.businessResult({ ...input, scope });
+        assert.equal(result.houseAfterExpensesCents, null);
+        assert.equal(result.commissionPayableCents, null);
+        assert.equal(result.sourceIds.adjustments.length, 0);
+        assert.ok(result.warnings.some(w => /adjustment/.test(w)));
+      }
+      for (const scope of [{ locationId: 'shelf-c' }, { eventKey: 'id:event-c' }]) {
+        assert.equal(RM.businessResult({ ...input, scope }).houseAfterExpensesCents, 0);
+      }
+      for (const events of [false, true]) {
+        const rows = Finance.build(input, events);
+        assert.equal(rows.length, 3);
+        assert.ok(rows.every(row => row.result.houseAfterExpensesCents === null));
+      }
+    }
+  });
+}
