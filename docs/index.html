@@ -5065,6 +5065,7 @@ async function cargarHoy(){
   }
 
   actualizarReloj();
+  return true; // the active Hoy view completed its awaited render
 }
 if (!window.__relojInterval) window.__relojInterval = setInterval(actualizarReloj, 20000);
 
@@ -10128,17 +10129,106 @@ function toggleSyncNuevo() {
    además el hero se quedaba en "Loading your business...". Ahora:
    (A2) se agrega un <li> dentro de #listaAlertas (mismo estilo semáforo).
    (A3) si la vista Hoy está activa, se re-pinta para soltar el "Loading...". */
+/* A render receipt is only evidence for the active view, after its async
+   loader explicitly confirms a DOM commit and the browser had a paint chance.
+   Uninstrumented views still refresh, but never certify visible delivery. */
+window.OCSyncRender = (function () {
+  var revision = 0, enCurso = false, pendiente = null, terminar = null, aplazado = false;
+  function visible() { return document.visibilityState === "visible"; }
+  function editando() {
+    var a = document.activeElement;
+    return !!(a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)));
+  }
+  function pintar() {
+    return new Promise(function (resolve) {
+      if (!visible() || typeof requestAnimationFrame !== "function") { resolve(false); return; }
+      var listo = false;
+      var limite = setTimeout(function () { fin(false); }, 1000);
+      function fin(ok) {
+        if (listo) return;
+        listo = true; clearTimeout(limite);
+        document.removeEventListener("visibilitychange", oculto);
+        resolve(ok);
+      }
+      function oculto() { if (!visible()) fin(false); }
+      document.addEventListener("visibilitychange", oculto);
+      requestAnimationFrame(function () {
+        if (!visible()) { fin(false); return; }
+        requestAnimationFrame(function () { fin(visible()); });
+      });
+    });
+  }
+  async function cargarVista(id, fn) {
+    var nodo = document.getElementById(id);
+    if (!nodo || !nodo.classList.contains("activa") || typeof fn !== "function") return null;
+    if (typeof MutationObserver !== "function") { try { await fn(); } catch (_) {} return false; }
+    var cambio = false;
+    var observador = new MutationObserver(function (registros) { if (registros.length) cambio = true; });
+    observador.observe(nodo, { subtree: true, childList: true, characterData: true, attributes: true });
+    try {
+      var ok = await fn();
+      cambio = cambio || observador.takeRecords().length > 0;
+      return ok === true && cambio && nodo.classList.contains("activa");
+    } catch (_) { return false; }
+    finally { observador.disconnect(); }
+  }
+  function vistasActivas() {
+    return Array.from(document.querySelectorAll('[id^="vista-"].activa'));
+  }
+  function mismasVistas(antes) {
+    var ahora = vistasActivas();
+    return antes.length === ahora.length && antes.every(function (nodo, i) { return nodo === ahora[i]; });
+  }
+  async function ejecutar() {
+    var ok = false, actual;
+    do {
+      actual = revision;
+      if (!visible() || editando()) { aplazado = true; ok = false; break; }
+      aplazado = false;
+      var vistas = vistasActivas();
+      var resultados = await Promise.all([
+        cargarVista("vista-hoy", window.cargarHoy),
+        cargarVista("vista-inventario", window.cargarInventario),
+        cargarVista("vista-perchas", window.VPerchas && window.VPerchas.cargar),
+        cargarVista("vista-clientes", window.cargarClientes),
+        cargarVista("vista-gastos", window.cargarGastos),
+        cargarVista("vista-avanzado", window.cargarAvanzado),
+        cargarVista("vista-comisiones", window.cargarComisiones)
+      ]);
+      var activas = resultados.filter(function (r) { return r !== null; });
+      ok = activas.length > 0 && activas.every(function (r) { return r === true; });
+      if (ok) ok = await pintar();
+      ok = ok && mismasVistas(vistas);
+    } while (actual !== revision);
+    var resolver = terminar;
+    enCurso = false; pendiente = null; terminar = null;
+    resolver(ok && visible() && !editando());
+  }
+  function reanudar() {
+    if (!aplazado) return;
+    queueMicrotask(function () {
+      if (aplazado && visible() && !editando() && window.OCSyncRender) window.OCSyncRender.solicitar();
+    });
+  }
+  document.addEventListener("visibilitychange", reanudar);
+  document.addEventListener("focusout", reanudar);
+  return {
+    solicitar: function () {
+      revision++;
+      if (!enCurso) {
+        enCurso = true;
+        pendiente = new Promise(function (resolve) { terminar = resolve; });
+        queueMicrotask(ejecutar);
+      }
+      return pendiente;
+    },
+    esperar: function () { return pendiente || Promise.resolve(false); }
+  };
+})();
+
 window.addEventListener("oc-sync-merge", function (ev) {
   try {
     var d = ev.detail || {};
-    // Same-browser durable state is ready: queue one microtask per active view.
-    // Keep the existing debounce for relay bursts from other devices.
-    var schedule = function (key, fn) {
-      clearTimeout(window[key]);
-      if (!d.localTab) { window[key] = setTimeout(fn, 400); return; }
-      var token = {}; window[key] = token;
-      queueMicrotask(function () { if (window[key] === token) { window[key] = null; fn(); } });
-    };
     var es = false; try { es = !window.OCI18n || window.OCI18n.getLang() !== "en"; } catch (_) {}
     var partes = [];
     if (d.perchas)   partes.push(d.perchas + " " + (es ? (d.perchas === 1 ? "percha" : "perchas") : (d.perchas === 1 ? "shelf" : "shelves")));
@@ -10157,36 +10247,9 @@ window.addEventListener("oc-sync-merge", function (ev) {
                   : ("Sync: merged " + partes.join(", ") + " from another device.")
       };
     }
-    // A3: re-pintar Hoy (suelta el "Loading..." y, de paso, muestra el aviso).
-    var vistaHoy = document.getElementById("vista-hoy");
-    var hoyActiva = vistaHoy && vistaHoy.classList.contains("activa");
-    if (hoyActiva && typeof cargarHoy === "function") {
-      clearTimeout(window.__syncHoyT);
-      schedule("__syncHoyT", function () { try { cargarHoy(); } catch (_) {} });
-    }
-    /* REFRESCO EN SEGUNDOS (JFC 2026-09-16, "los datos se refrescan en segundos").
-       Si la vista de inventario o de perchas está activa, re-pintarla al llegar un
-       merge — así un cambio de stock del otro aparato aparece solo, sin navegar.
-       Debounce por vista para no re-pintar en tormenta. */
-    var _repintarVista = function (id, fn) {
-      var v = document.getElementById(id);
-      if (v && v.classList.contains("activa") && typeof window[fn] === "function") {
-        clearTimeout(window["__syncT_" + id]);
-        schedule("__syncT_" + id, function () { try { window[fn](); } catch (_) {} });
-      }
-    };
-    _repintarVista("vista-inventario", "cargarInventario");
-    // La vista visual de perchas tiene su propio cargador (VPerchas). No lanzar
-    // tambien el cargador legado: dos renders concurrentes saltan el scroll iOS.
-    var perchasActiva = document.getElementById("vista-perchas");
-    if (perchasActiva && perchasActiva.classList.contains("activa") && window.VPerchas && typeof window.VPerchas.cargar === "function") {
-      clearTimeout(window.__syncVPerchasT);
-      schedule("__syncVPerchasT", function () { try { window.VPerchas.cargar(); } catch (_) {} });
-    }
-    _repintarVista("vista-clientes", "cargarClientes");
-    _repintarVista("vista-gastos", "cargarGastos");
-    _repintarVista("vista-avanzado", "cargarAvanzado");
-    _repintarVista("vista-comisiones", "cargarComisiones");
+    // One microtask batches a burst; subsequent changes rerun after the current
+    // async render, so an older completion cannot acknowledge a newer update.
+    window.OCSyncRender.solicitar();
   } catch (_) {}
 });
 
@@ -10551,7 +10614,7 @@ setTimeout(() => {
      es el único motor que cruza los BYTES de las fotos (sala "-fotos"). Solo se
      apaga si localStorage["OC_YJS_FASE0"]==="0". Corre en paralelo al sync viejo.
      Carga su bundle vendorizado a demanda. -->
-<!-- Medicion del SLA de 2s. Va ANTES de sync-yjs.js porque este engancha
+<!-- Medicion correlacionada de entrega visible. Va ANTES de sync-yjs.js porque este engancha
      window.OCLatencia al conectar. Si no cargara, sync-yjs sigue funcionando
      igual: lo unico que se pierde es el numero, nunca el dato. -->
 <script src="./sync-latencia.js"></script>

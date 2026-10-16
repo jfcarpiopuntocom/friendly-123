@@ -4,13 +4,17 @@ let createRelayGateway;
 before(async () => { ({ createRelayGateway } = await import('../supabase-relay/gateway.mjs')); });
 const room = 'a'.repeat(40), origin = 'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/';
 
-test('an inactive room retains the original socket and its binary mode', async () => {
- let legacy; const gateway = createRelayGateway({ resolveRoute: async () => ({ mode: 'legacy' }), legacy: url => { legacy = socket(url); return legacy; }, native: () => { throw Error('must not activate'); } });
- const connected = gateway.connect(origin + room + '-y'); connected.binaryType = 'arraybuffer';
- const open = event(connected, 'open'); await tick(); legacy.open(); await open;
- assert.equal(legacy.url, origin + room + '-y'); assert.equal(legacy.binaryType, 'arraybuffer');
- const msg = event(connected, 'message'); legacy.emit('message', { data: 'unchanged legacy data' }); assert.equal((await msg).data, 'unchanged legacy data');
- connected.close();
+test('an inactive migration closes without opening either data backend', async () => {
+ let old = 0, active = 0;
+ const gateway = createRelayGateway({ resolveRoute: async () => ({ mode: 'legacy' }), legacy: () => { old++; }, native: () => { active++; } });
+ for (const suffix of ['', '-y', '-ops', '-fotos']) {
+  const connected = gateway.connect(origin + room + suffix), closed = event(connected, 'close');
+  const result = await closed;
+  assert.equal(result.code, 1013); assert.match(result.reason, /native migration pending; local data retained/);
+  assert.equal(connected.readyState, 3);
+  assert.throws(() => connected.send('pending ciphertext'), { name: 'InvalidStateError' });
+ }
+ assert.equal(old, 0); assert.equal(active, 0);
 });
 
 test('active room channels use their own native room on the shared adapter', async () => {
@@ -28,10 +32,30 @@ test('a routing error cannot silently write into the old relay', async () => {
  assert.equal((await close).code, 1011); assert.equal(old, false);
 });
 
+test('unknown routes and native startup failures never open Cloudflare', async () => {
+ for (const mode of [null, 'unknown', 'supabase']) {
+  let old = false;
+  const gateway = createRelayGateway({ resolveRoute: async () => ({ mode }), legacy: () => { old = true; }, native: () => { throw Error('native unavailable'); } });
+  const connected = gateway.connect(origin + room), closed = await event(connected, 'close');
+  assert.equal(closed.code, 1011); assert.equal(old, false);
+ }
+});
+
+test('active native transport preserves binary data and forwards sends unchanged', async () => {
+ let inner, sent;
+ const gateway = createRelayGateway({ resolveRoute: async () => ({ mode: 'supabase' }), native: name => { inner = socket(name); inner.send = value => { sent = value; }; return inner; } });
+ const connected = gateway.connect(origin + room + '-y'); connected.binaryType = 'arraybuffer';
+ const opened = event(connected, 'open'); await tick(); inner.open(); await opened;
+ assert.equal(inner.binaryType, 'arraybuffer');
+ const bytes = new Uint8Array([1, 2, 3]).buffer, received = event(connected, 'message');
+ inner.emit('message', { data: bytes }); assert.equal((await received).data, bytes);
+ connected.send(bytes); assert.equal(sent, bytes); connected.close();
+});
+
 test('closing during route discovery never creates a later orphan connection', async () => {
  let finish, opened = false;
- const gateway = createRelayGateway({ resolveRoute: () => new Promise(r => { finish = r; }), legacy: () => { opened = true; return socket('unused'); }, native: () => {} });
- const s = gateway.connect(origin + room); await tick(); s.close(); finish({ mode: 'legacy' }); await tick(); assert.equal(opened, false); assert.equal(s.readyState, 3);
+ const gateway = createRelayGateway({ resolveRoute: () => new Promise(r => { finish = r; }), native: () => { opened = true; return socket('unused'); } });
+ const s = gateway.connect(origin + room); await tick(); s.close(); finish({ mode: 'supabase' }); await tick(); assert.equal(opened, false); assert.equal(s.readyState, 3);
 });
 
 // Helpers: controlled socket events, with no network access.

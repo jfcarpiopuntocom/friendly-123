@@ -12,6 +12,7 @@ async function peer(licenseCode = 'SYNTHETIC-ISOLATED-FIXTURE') {
   // Keep JSON objects in the same realm as the vendored Yjs implementation.
   delete w.JSON;
   Object.assign(w, { crypto: webcrypto, TextEncoder, TextDecoder,
+    F123Relay: { connect() { throw Error("No relay in store fixture"); } },
     WebSocket: class { constructor() { throw new Error('No real relay allowed in tests'); } },
     BroadcastChannel: class { constructor() { throw new Error('No cross-test channels'); } } });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/vendor/yjs-bundle.min.js'), 'utf8'), w);

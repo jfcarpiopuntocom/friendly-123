@@ -577,7 +577,8 @@
       if (estaCarga !== cargaEnCurso) return;
       if (!perchasVisibles.length) {
         grid.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noRacksYet'))}</p>`;
-        return;
+        const transfersOk = await renderTransferencias();
+        return transfersOk === true && estaCarga === cargaEnCurso;
       }
       const liqPor = {}; (Array.isArray(liq) ? liq : []).forEach((f) => { liqPor[f.ubicacionId] = f; });
       const promPor = {}; (Array.isArray(promotoras) ? promotoras : []).forEach((pr) => { promPor[pr.id] = pr.nombre; });
@@ -624,7 +625,8 @@
       grid.innerHTML = ms.map(_tarjeta).join('');
       try { await montarPhotoRecoveryVault(perchasVisibles); } catch (_) {}
       try { if (window.ocMontarTraslado) window.ocMontarTraslado('oc-traslado-perchas'); } catch (_) {} // mover ítems entre perchas (breezy)
-      renderTransferencias(); // transfers entre perchas (movido de Advanced)
+      const transfersOk = await renderTransferencias(); // wait for the active shelf subpanel too
+      return transfersOk === true && estaCarga === cargaEnCurso;
     } catch (err) {
       if (estaCarga !== cargaEnCurso) return;
       console.error('[VPerchas]', err);
@@ -1077,7 +1079,7 @@
     const titulo = `<h3 class="seccion" style="margin-top:0;">${esc(window.t('shelves.transfersHeading') || 'Transfers between locations')}</h3>`;
     if (!Array.isArray(lista) || !lista.length) {
       cont.innerHTML = titulo + `<p style="font-size:14px;color:var(--ink-soft);">No transfers yet.</p>`;
-      return;
+      return Array.isArray(lista);
     }
     cont.innerHTML = titulo + lista.map((t) => {
       const colorEstado = t.estado === 'recibida' ? 'verde' : t.estado === 'rechazada' ? 'rojo' : t.estado === 'en_transito' ? 'azul' : 'amarillo';
@@ -1118,6 +1120,7 @@
       renderTransferencias();
       cargar(); // re-render del grid de perchas (el stock cambió)
     }));
+    return true;
   }
 
   function init() {

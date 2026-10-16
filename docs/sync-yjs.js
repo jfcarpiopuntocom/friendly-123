@@ -115,8 +115,69 @@
     var _relayPeerCount = 0, _directReceive = null;
     var _peerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     var _direct = Object.create(null);
+    // Ephemeral encrypted correlation only; never business IDs or plaintext telemetry.
+    var _measurementPeers = Object.create(null), _measurementCounter = 0;
+    var _appliedMeasurements = new Map(), _measurementRequests = new Map();
+    function boundedSet(map, key, value) {
+      if (!map.has(key) && map.size >= 200) map.delete(map.keys().next().value);
+      map.set(key, value);
+    }
+    function updateHash(bytes) {
+      return crypto.subtle.digest("SHA-256", bytes).then(function (hash) {
+        return Array.from(new Uint8Array(hash)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+      });
+    }
+    function measureUpdate(payload) {
+      var meter = window.OCLatencia;
+      if (!meter || typeof meter.iniciarEntrega !== "function") return;
+      var peers = Object.keys(_measurementPeers).filter(function (id) { return _measurementPeers[id] === true; });
+      // Unknown/older participants invalidate coverage; never certify only the fastest peer.
+      if (nombre !== "catalogo" || !canal.ws || canal.ws.readyState !== 1 || _relayPeerCount < 2 || peers.length !== _relayPeerCount - 1) peers = [];
+      var id = _peerId + "_" + (++_measurementCounter);
+      if (!meter.iniciarEntrega(id, nombre, peers)) return;
+      updateHash(payload).then(function (hash) { signal("measure", "", { id: id, hash: hash }); }).catch(function () {});
+    }
+    function acknowledgeVisible(hash) {
+      var applied = _appliedMeasurements.get(hash);
+      if (!applied || Date.now() - applied.at > 10000) return;
+      _measurementRequests.forEach(function (request, key) {
+        if (request.hash !== hash || request.running) return;
+        request.running = true;
+        // This callback is an explicit application/render contract, not a paint timer
+        // pretending that decrypting a frame made its business data visible.
+        Promise.resolve().then(function () {
+          if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return false;
+          return applied.receipt;
+        }).then(function (ok) {
+          _measurementRequests.delete(key);
+          if (ok === true) signal("visible", request.from, { id: request.id });
+        }).catch(function () { _measurementRequests.delete(key); });
+      });
+    }
+    function appliedUpdate(payload, receipt) {
+      if (nombre !== "catalogo" || typeof crypto === "undefined" || !crypto.subtle) return;
+      updateHash(payload).then(function (hash) {
+        boundedSet(_appliedMeasurements, hash, { at: Date.now(), receipt: receipt });
+        acknowledgeVisible(hash);
+      }).catch(function () {});
+    }
+    function measurementSignal(msg) {
+      if (msg.kind === "visible") {
+        if (msg.to === _peerId && msg.data && window.OCLatencia && window.OCLatencia.confirmarEntrega)
+          window.OCLatencia.confirmarEntrega(msg.data.id, msg.from);
+        return true;
+      }
+      if (msg.kind !== "measure") return false;
+      var data = msg.data;
+      if (!data || !/^[a-zA-Z0-9_-]{1,80}$/.test(data.id) || !/^[a-f0-9]{64}$/.test(data.hash)) return true;
+      var key = msg.from + ":" + data.id;
+      if (_measurementRequests.has(key)) return true;
+      boundedSet(_measurementRequests, key, { from: msg.from, id: data.id, hash: data.hash, running: false });
+      acknowledgeVisible(data.hash);
+      return true;
+    }
     function signal(kind, to, data) {
-      if (typeof RTCPeerConnection === "undefined" || typeof TextEncoder === "undefined") return;
+      if (typeof TextEncoder === "undefined") return;
       publicar(4, new TextEncoder().encode(JSON.stringify({ from: _peerId, to: to || "", kind: kind, data: data })), false);
     }
     function attachDirect(peer, channel) {
@@ -136,20 +197,27 @@
       });
       if (_direct[id]) return _direct[id];
       if (Object.keys(_direct).length >= 11) return null;
-      var pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }] });
+      var pc = new RTCPeerConnection({ iceServers: [] });
       var peer = _direct[id] = { pc: pc, dc: null, ice: [] };
       pc.onicecandidate = function (ev) { if (ev.candidate) signal("ice", id, ev.candidate.toJSON()); };
       pc.ondatachannel = function (ev) { attachDirect(peer, ev.channel); };
       return peer;
     }
     async function receiveSignal(msg) {
-      if (typeof RTCPeerConnection === "undefined" || !msg || typeof msg.from !== "string" || msg.from.length > 80 ||
+      if (!msg || typeof msg.from !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(msg.from) ||
           msg.from === _peerId || (msg.to && msg.to !== _peerId)) return;
+      if (measurementSignal(msg)) return;
+      if (msg.kind === "hello") {
+        var first = !Object.prototype.hasOwnProperty.call(_measurementPeers, msg.from);
+        if (Object.keys(_measurementPeers).length < 32 || !first) _measurementPeers[msg.from] = !!(msg.data && msg.data.measurement === 1);
+        if (first) signal("hello", msg.from, { measurement: 1 });
+      }
+      if (typeof RTCPeerConnection === "undefined") return;
       var peer = directPeer(msg.from), known = !!(peer && peer.dc); // v517: known tras limpiar
       if (!peer) return;
       try {
         if (msg.kind === "hello") {
-          if (!known) signal("hello", msg.from);
+          // Capability hello is answered once above, independently of WebRTC.
           if (_peerId < msg.from && peer.pc.signalingState === "stable" && !peer.dc) {
             attachDirect(peer, peer.pc.createDataChannel("friendly-ciphertext"));
             await peer.pc.setLocalDescription(await peer.pc.createOffer());
@@ -310,36 +378,18 @@
       if (!API.clave) return;
       publicar(tag, payload, false);
     }
-    /* Marca de origen para medir el SLA (JFC 2026-09-22). Va en un frame de
-       CONTROL aparte, NO dentro del update de Yjs: meterla en el payload
-       obligaria a cambiar el formato binario que ya usan los aparatos en la
-       calle, y un aparato viejo dejaria de entender los cambios. Asi, un
-       cliente o un relay que no conozca k:"lat" simplemente lo ignora y el
-       sync sigue igual de bien; lo unico que no habria es medicion.
-       Solo se marcan los updates de contenido (tag 0): los saludos y los
-       intercambios de state-vector no son "un cambio que el otro deberia ver",
-       y contarlos ensuciaria la estadistica con numeros que no significan nada
-       para el usuario. */
-    function marcarSalida(tag, etiqueta) {
-      try {
-        if (tag !== 0 || !window.OCLatencia) return;
-        var oTs = window.OCLatencia.marcarOrigen();
-        if (oTs === null) {
-          /* Sin reloj comun (o caduco): este cambio viaja sin marca y se pide un
-             ping, para que el SIGUIENTE ya se pueda medir. Asi el reloj se
-             refresca solo cuando hay actividad real, nunca por temporizador. */
-          if (canal.ws && canal.ws.readyState === 1) canal.ws.send(JSON.stringify({ k: "ts", t0: Date.now() }));
-          return;
-        }
-        if (canal.ws && canal.ws.readyState === 1) {
-          canal.ws.send(JSON.stringify({ k: "lat", oTs: oTs, etq: etiqueta || suffix || "catalogo" }));
-        }
-      } catch (_) {}
-    }
+    // Delivery measurement uses encrypted update hashes and a rendered acknowledgement.
+    // Old k:"lat" probes remain receive-only diagnostics and cannot approve the SLA.
     // Un update grande no cabe en el relay. Los trozos son frames cifrados
     // independientes; se reconstruyen antes de aplicar Yjs, nunca parcialmente.
     function publicar(tag, payload, persistir) {
-      marcarSalida(tag); // medicion: fuera del payload, no puede alterar el dato
+      if (tag === 0 && persistir) {
+        try { measureUpdate(payload); } catch (_) {} // diagnostics cannot block business delivery
+        try {
+          if (nombre === "catalogo" && window.OCLatencia && !window.OCLatencia.hayReloj() && canal.ws && canal.ws.readyState === 1)
+            canal.ws.send(JSON.stringify({ k: "ts", t0: Date.now() }));
+        } catch (_) {} // optional clock diagnostics must not block the update either
+      }
       var piezas = Math.max(1, Math.ceil(payload.length / CHUNK_BYTES));
       if (piezas > 65535) { log("update Yjs excede limite de trozos"); return; }
       var id = Date.now().toString(36).padStart(10, "0").slice(-10) + Math.random().toString(36).slice(2, 8).padEnd(6, "0");
@@ -439,7 +489,10 @@
     }
     function conectar() {
       var url = RELAY_URL + API.roomId + suffix;
-      var ws; try { ws = typeof window !== "undefined" && window.F123Relay ? window.F123Relay.connect(url) : new WebSocket(url); } catch (_) { reprogramar(); return; }
+      var ws; try {
+        if (!window.F123Relay || typeof window.F123Relay.connect !== "function") throw new Error("native relay unavailable");
+        ws = window.F123Relay.connect(url);
+      } catch (_) { reprogramar(); return; }
       var pullEstado = { enCurso: false, fallos: 0 };
       _currentPullState = pullEstado;
       ws.binaryType = "arraybuffer"; canal.ws = ws;
@@ -470,7 +523,7 @@
         }
         while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
         _durableQueue.then(drenarDurable).catch(function () {});
-        signal("hello");
+        signal("hello", "", { measurement: 1 });
         // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
         // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía
         // (aunque nunca haya cambiado desde v285) queda disponible para el que entre.
@@ -500,7 +553,18 @@
             tag = original; payload = unido;
           }
           if (tag === 4) { try { receiveSignal(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} return true; }
-          if (tag === 0) { Y.applyUpdate(doc, payload, "red"); }
+          if (tag === 0) {
+            var beforeRevision = API._catalogoRevision;
+            Y.applyUpdate(doc, payload, "red");
+            try {
+              var receipt = Promise.resolve(false);
+              if (nombre === "catalogo" && API._catalogoRevision !== beforeRevision && typeof API.confirmarCatalogoVisible === "function")
+                receipt = API.confirmarCatalogoVisible();
+              // Bind the receipt now, not when a delayed request happens to arrive.
+              // A duplicate/no-op update cannot borrow an unrelated successful render.
+              appliedUpdate(payload, receipt);
+            } catch (_) {} // measurement cannot reject an otherwise valid recovery page
+          }
           else if (tag === 1) { // me saludan: les mando lo que les falta + mi SV para pedir lo mío
             try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
             try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
@@ -867,6 +931,11 @@
     function arrancarPuente() {
       var ledger = hechos();
       if (!ledger) { if (++intentos < 20) setTimeout(arrancarPuente, 100); return; }
+      API.hechosListos = function () {
+        var ready = !importando && !pendiente;
+        API.hechosMap.forEach(function (h) { if (h && h.id && !conocidos[h.id]) ready = false; });
+        return ready;
+      };
       window.addEventListener("oc-hecho-local", function (ev) { if (ev.detail && ev.detail.id) conocidos[ev.detail.id] = true; publicar(ev.detail); });
       ledger.todos().then(function (lista) { lista.forEach(function (h) { conocidos[h.id] = true; publicar(h); }); importar(); })
         .catch(function (e) { log("hechos locales:", e && e.message); });
@@ -1242,8 +1311,20 @@
 
     // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge
     // add-only probado. Síncrono: aplicarCatalogo no es async.
+    var ultimaAplicacionVisible = Promise.resolve(false);
+    API._catalogoRevision = 0;
+    API.confirmarCatalogoVisible = function () {
+      if (_tAplica) { clearTimeout(_tAplica); _tAplica = null; aplicar(); }
+      var receipt = ultimaAplicacionVisible, revision = API._catalogoRevision;
+      if (!API.hechosListos || !API.hechosListos()) return Promise.resolve(false);
+      return Promise.resolve(receipt).then(function (ok) {
+        return ok === true && receipt === ultimaAplicacionVisible && revision === API._catalogoRevision &&
+          !_tAplica && API.hechosListos();
+      });
+    };
     function aplicar() {
       if (_aplicando) return;
+      ultimaAplicacionVisible = Promise.resolve(false);
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
       var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.meta.get("pinsRol") || null, deviceNombre: "sync" };
@@ -1277,6 +1358,8 @@
               miembros: (r.miembrosAgregados || 0) + (r.miembrosActualizados || 0) + (r.miembrosQuitados || 0), clientes: r.clientesAgregados || 0,
               promotoras: r.promotorasAgregadas || 0, sucursales: r.sucursalesAgregadas || 0
             } }));
+            if (window.OCSyncRender && typeof window.OCSyncRender.esperar === "function")
+              ultimaAplicacionVisible = window.OCSyncRender.esperar();
           } catch (_) {}
         }
       }
@@ -1300,6 +1383,7 @@
     // Los updates propios de sembrar() llevan origin "seed" y se ignoran aquí.
     API.doc.on("update", function (update, origin) {
       if (origin !== "red" && origin !== "bc") return;
+      API._catalogoRevision++;
       /* Coalescer con espera máxima acotada. El debounce anterior reiniciaba
          300 ms con CADA update y una ráfaga podía posponer indefinidamente el
          nombre/stock visible. El primer update agenda una aplicación próxima;
@@ -1323,10 +1407,10 @@
        un cambio local (stock por cualquier ruta, etc.) no disparo oc-catalogo-
        cambiado, igual se publica en <=10 s. Asi el stock y todo cambio cruzan sin
        depender de que cada ruta emita el evento. */
-    // SLA JFC (2026-09-17): MAXIMO 2 segundos para que todos los aparatos tengan lo
-    // que cambio en otro (catalogo, stock, PIN/equipo, comisiones, todo). La ruta
-    // en vivo (cambio -> sembrar -> WebSocket) es casi instantanea; este respaldo a
-    // 2s cubre cualquier evento que no se haya disparado. Barato: solo manda si cambio.
+    // Recovery sweep every 2s for a missed local event, not an SLA certificate.
+    // The live event path publishes immediately. The current 150ms diagnostic
+    // starts at publication and cannot certify time spent before that boundary.
+    // This local sweep sends nothing when the catalog is unchanged.
     if (!API._tSembraPeriodica) API._tSembraPeriodica = setInterval(function () { try { if (API.estado === "activo") sembrar(); } catch (_) {} }, 2000);
 
     API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual

@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v535: reconcile house profitability and commission credits; preserve unknown costs and recoverable sync history.",
+  "changelog": "v536: prepare native-only notebook sync; preserve pending writes; measure correlated application/render acknowledgements against a 150ms confirmation budget.",
   "requerida": false,
-  "shell": "f123-shell-v535",
+  "shell": "f123-shell-v536",
   "apagar": [],
-  "releaseName": "v535",
-  "cacheGeneration": "golden99"
+  "releaseName": "v536",
+  "cacheGeneration": "golden100"
 }

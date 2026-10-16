@@ -19,7 +19,6 @@ const gateway = createRelayGateway({
     if (result.error) throw result.error;
     return result.data;
   },
-  legacy: url => new WebSocket(url),
   native: room => native.connect(room)
 });
 window.F123Relay = gateway;

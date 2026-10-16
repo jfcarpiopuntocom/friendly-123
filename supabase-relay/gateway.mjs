@@ -1,6 +1,7 @@
-// Select one authoritative backend for the existing WebSocket-shaped callers.
+// Supabase is the only data backend for the existing WebSocket-shaped callers.
+// The old URL is a local room locator only; it is never opened as a socket.
 // Route lookup happens only at connection time; no background polling is added.
-export function createRelayGateway({ resolveRoute, legacy, native }) {
+export function createRelayGateway({ resolveRoute, native }) {
   const routes = new Map();
   function route(base) {
     const previous = routes.get(base), now = Date.now();
@@ -18,8 +19,14 @@ export function createRelayGateway({ resolveRoute, legacy, native }) {
       if (!match) throw new TypeError('Unsupported Friendly relay URL');
       route(match[1]).then(result => {
         if (this.readyState !== 0) return;
-        if (!['legacy', 'supabase'].includes(result?.mode)) throw new Error('Unknown relay route');
-        const socket = result.mode === 'supabase' ? native(match[1] + (match[2] || '')) : legacy(this.url);
+        // The route RPC authorizes native transport only when all four imported
+        // channels are active. Never bypass that gate or send data to Cloudflare.
+        if (result?.mode === 'legacy') {
+          this.#closed(1013, 'native migration pending; local data retained', false);
+          return;
+        }
+        if (result?.mode !== 'supabase') throw new Error('Unknown relay route');
+        const socket = native(match[1] + (match[2] || ''));
         this.#socket = socket; socket.binaryType = this.#binaryType;
         socket.addEventListener('open', () => { if (this.readyState === 0) { this.readyState = 1; this.#emit('open'); } });
         socket.addEventListener('message', e => { if (this.readyState === 1) this.#emit('message', { data: e.data }); });

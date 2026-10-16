@@ -910,13 +910,29 @@
     }, 6000);
   }
 
+  function programarReconexion(codigo) {
+    pulso("reconectando…");
+    clearTimeout(reconexionTimer);
+    var espera = reconexionMs / 2 + Math.random() * reconexionMs / 2;
+    reconexionMs = Math.min(30000, reconexionMs * 2);
+    reconexionTimer = setTimeout(function () {
+      conectar(codigo).then(function () { if (autorizado) pedirFoto(); }).catch(function () {});
+    }, espera);
+  }
+
   async function conectar(codigo) {
     /* Mismo normalizado que la app: sin esto, "amg-x" y "F123-X" caen en salas
        distintas y el equipo nunca entiende por que no ve nada. */
     codigo = String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
     clave = await derivarClave(codigo);
     var sala = await idDeSala(salaCompatible(codigo));
-    ws = window.F123Relay ? window.F123Relay.connect(RELAY_URL + sala) : new WebSocket(RELAY_URL + sala);
+    try {
+      if (!window.F123Relay || typeof window.F123Relay.connect !== "function") throw new Error("Native sync adapter unavailable");
+      ws = window.F123Relay.connect(RELAY_URL + sala);
+    } catch (error) {
+      programarReconexion(codigo);
+      throw error;
+    }
     ws.binaryType = "arraybuffer";
     /* onopen NO pide la foto: primero hay que pasar el PIN. Pedirla antes
        seria justo el agujero que el PIN viene a tapar.
@@ -932,6 +948,7 @@
         listo();
       };
       ws.addEventListener("error", function () { clearTimeout(reloj); falla(new Error("error")); }, { once: true });
+      ws.addEventListener("close", function (ev) { clearTimeout(reloj); falla(new Error(ev.reason || "sync unavailable")); }, { once: true });
     });
     ws.onmessage = async function (ev) {
       if (typeof ev.data === "string") return;   /* presencia, en claro */
@@ -966,15 +983,7 @@
        sesion ya esta autorizada en esta pestana, y hacerle teclear el PIN cada
        vez que parpadea el wifi seria insufrible. Al cerrar la pestana se
        pierde todo, que es justo lo que tiene que pasar. */
-    ws.onclose = function () {
-      pulso("reconectando…");
-      clearTimeout(reconexionTimer);
-      var espera = reconexionMs / 2 + Math.random() * reconexionMs / 2;
-      reconexionMs = Math.min(30000, reconexionMs * 2);
-      reconexionTimer = setTimeout(function () {
-        conectar(codigo).then(function () { if (autorizado) pedirFoto(); }).catch(function () {});
-      }, espera);
-    };
+    ws.onclose = function () { programarReconexion(codigo); };
     ws.onerror = function () { try { ws.close(); } catch (_) {} };
     await abierto;
   }

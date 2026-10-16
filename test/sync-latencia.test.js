@@ -16,9 +16,11 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-function cargar() {
+function cargar(reloj, horaSistema) {
   const w = { console: { log() {}, warn() {}, error() {} } };
   w.window = w; w.globalThis = w; w.self = w;
+  if (reloj) w.performance = { now: reloj };
+  if (horaSistema) w.Date = class extends Date { static now() { return horaSistema(); } };
   vm.createContext(w);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'docs', 'sync-latencia.js'), 'utf8'), w);
   return w.OCLatencia;
@@ -71,7 +73,7 @@ test('absurd exchanges are rejected rather than poisoning the estimate', () => {
   assert.equal(L.hayReloj(), false, 'ninguna de las tres contaminó el estado');
 });
 
-test('a real one-way latency is measured across two devices with unsynced clocks', () => {
+test('the legacy control probe estimates arrival against the relay clock without certifying delivery', () => {
   const L = cargar();
   const ahora = Date.now();
   // Receptor con el reloj 90 s ADELANTADO respecto al relay.
@@ -96,45 +98,142 @@ test('an impossible negative latency is discarded and counted, never stored', ()
   // número bonito y falso.
   assert.equal(L.anotarMuestra(L.ahoraRelay() + 5000, 'catalogo'), null);
   const r = L.resumen();
-  assert.equal(r.n, 0, 'no entró al historial');
+  assert.equal(L.resumenControl().n, 0, 'no entró al historial de control');
   assert.equal(r.descartadas, 1, 'pero queda contada: el descarte es visible, no silencioso');
 });
 
-test('the SLA verdict stays null until there are enough samples to mean anything', () => {
+test('control probes never certify applied and rendered delivery, even with enough fast samples', () => {
   const L = cargar();
   const ahora = Date.now();
   L.anotarPing(ahora, ahora + 5, ahora + 10);
-
-  for (let i = 0; i < 4; i++) L.anotarMuestra(L.ahoraRelay() - 100, 'catalogo');
-  assert.equal(L.resumen().cumpleSLA, null, 'con 4 muestras un p95 no significa nada');
-
-  L.anotarMuestra(L.ahoraRelay() - 100, 'catalogo');
-  assert.equal(L.resumen().cumpleSLA, true, 'con 5 ya se puede opinar, y 100 ms cumple');
+  for (let i = 0; i < 40; i++) L.anotarMuestra(L.ahoraRelay() - 100, 'catalogo');
+  L.anotarMuestra(L.ahoraRelay() - 5000, 'catalogo');
+  assert.equal(L.resumen().n, 0);
+  assert.equal(L.resumen().cumpleSLA, null);
+  assert.equal(L.resumenControl().n, 41);
+  assert.equal(L.resumenControl().cumpleSLA, null);
 });
 
-test('it reports a breach honestly instead of rounding it away', () => {
-  const L = cargar();
-  const ahora = Date.now();
-  L.anotarPing(ahora, ahora + 5, ahora + 10);
+function entrega(L, reloj, id, ms, peers = ['peer-a']) {
+  assert.equal(L.iniciarEntrega(id, 'catalogo', peers), true);
+  reloj.ms += ms;
+  peers.forEach(peer => assert.equal(L.confirmarEntrega(id, peer), true));
+}
 
-  for (let i = 0; i < 9; i++) L.anotarMuestra(L.ahoraRelay() - 200, 'catalogo');
-  L.anotarMuestra(L.ahoraRelay() - 5000, 'catalogo'); // una de 5 s
+test('uses sender monotonic confirmation bound, all expected peers, and exact 150 ms limit', () => {
+  const reloj = { ms: 0 };
+  const L = cargar(() => reloj.ms);
+  for (let i = 0; i < 4; i++) entrega(L, reloj, 'change-' + i, 150);
+  assert.equal(L.resumen().cumpleSLA, null);
+  assert.equal(L.iniciarEntrega('last', 'catalogo', ['peer-a', 'peer-b']), true);
+  reloj.ms += 100;
+  assert.equal(L.confirmarEntrega('last', 'peer-a'), true);
+  assert.equal(L.resumen().cumpleSLA, null, 'a fast first peer cannot stand in for the second');
+  assert.equal(L.confirmarEntrega('last', 'peer-a'), false, 'duplicate ACK is ignored');
+  assert.equal(L.confirmarEntrega('last', 'stranger'), false, 'unlisted peer is ignored');
+  reloj.ms += 50;
+  assert.equal(L.confirmarEntrega('last', 'peer-b'), true);
+  assert.equal(L.resumen().cumpleSLA, true);
+  assert.equal(L.resumen().max, 150);
+  assert.equal(L.resumen().n, 5);
+  assert.equal(L.hayReloj(), false, 'no remote clock estimate is needed');
+  entrega(L, reloj, 'over', 150.01);
+  assert.equal(L.resumen().cumpleSLA, false, 'never rounds 150.01 down to a pass');
+});
 
+test('wall-clock jumps cannot shorten delivery and invalid monotonic readings cannot pass', () => {
+  const reloj = { ms: 0, pared: 100000 };
+  const L = cargar(() => reloj.ms, () => reloj.pared);
+  assert.equal(L.iniciarEntrega('clock', 'ops', ['peer']), true);
+  reloj.pared -= 90000;
+  reloj.ms += 5000;
+  assert.equal(L.confirmarEntrega('clock', 'peer'), true);
+  assert.equal(L.resumen().max, 5000);
+  assert.equal(L.resumen().cumpleSLA, false);
+  reloj.ms = NaN;
+  assert.equal(L.iniciarEntrega('invalid-time', 'ops', ['peer']), false);
+  assert.equal(L.resumen().cumpleSLA, null);
+});
+
+test('one 5-second outlier fails despite a fast p95 and remains visible after sample eviction', () => {
+  const reloj = { ms: 0 };
+  const L = cargar(() => reloj.ms);
+  entrega(L, reloj, 'slow', 5000);
+  for (let i = 0; i < 220; i++) entrega(L, reloj, 'fast-' + i, 100);
   const r = L.resumen();
-  assert.equal(r.n, 10);
-  assert.ok(r.p95 > 2000, 'el p95 refleja la mala');
-  assert.equal(r.cumpleSLA, false, 'y el veredicto dice NO se cumple, sin suavizarlo');
-  assert.ok(r.max >= 5000);
+  assert.equal(r.p95, 100);
+  assert.equal(r.max, 5000);
+  assert.equal(r.cumpleSLA, false);
+  assert.equal(r.n, 221);
+  assert.equal(r.muestrasPercentiles, 200);
 });
 
-test('the summary text never states a number it cannot back', () => {
-  const L = cargar();
-  assert.match(L.texto(), /sin reloj/, 'sin reloj lo dice');
+test('pending, late, unsupported and stale delivery cannot turn into a pass', () => {
+  const reloj = { ms: 0 };
+  const L = cargar(() => reloj.ms);
+  for (let i = 0; i < 5; i++) entrega(L, reloj, 'fast-' + i, 100);
+  assert.equal(L.iniciarEntrega('pending', 'ops', ['peer-a']), true);
+  reloj.ms += 1000;
+  assert.equal(L.resumen().cumpleSLA, null);
+  assert.equal(L.resumen().vencidas, 1);
+  assert.equal(L.confirmarEntrega('pending', 'peer-a'), true);
+  assert.equal(L.resumen().max, 1000, 'late ACK counts instead of being thrown away');
+  assert.equal(L.resumen().cumpleSLA, false);
+  reloj.ms += 600001;
+  assert.equal(L.resumen().cumpleSLA, null, 'old evidence does not certify current performance');
+  L.reiniciar();
+  assert.equal(L.iniciarEntrega('unsupported', 'fotos', []), false);
+  for (let i = 0; i < 5; i++) entrega(L, reloj, 'new-' + i, 100);
+  assert.equal(L.resumen().cumpleSLA, null, 'five supported deliveries do not hide unsupported delivery');
+  assert.equal(L.resumen().noVerificadas, 1);
+});
+
+test('memory pressure, unavailable/invalid monotonic clocks and invalid peer coverage stay unverified', () => {
+  const reloj = { ms: 0 };
+  const L = cargar(() => reloj.ms);
+  for (let i = 0; i < 200; i++) assert.equal(L.iniciarEntrega('pending-' + i, 'ops', ['peer-a']), true);
+  assert.equal(L.iniciarEntrega('overflow', 'ops', ['peer-a']), false);
+  reloj.ms = 100;
+  for (let i = 0; i < 200; i++) L.confirmarEntrega('pending-' + i, 'peer-a');
+  assert.equal(L.resumen().cumpleSLA, null, 'dropping telemetry cannot hide an unverified update');
+  assert.equal(L.resumen().pendientes, 0);
+  assert.equal(L.resumen().noVerificadas, 1);
+  assert.equal(cargar().iniciarEntrega('no-clock', 'catalogo', ['peer']), false);
+  assert.equal(L.iniciarEntrega('duplicates', 'ops', ['peer', 'peer']), false);
+  assert.equal(L.iniciarEntrega('unbounded', 'ops', Array.from({ length: 33 }, (_, i) => 'peer-' + i)), false);
+  assert.equal(L.iniciarEntrega('invalid', 'business-name', ['peer']), false);
+  assert.equal(L.iniciarEntrega('clock-backwards', 'ops', ['peer']), true);
+  reloj.ms = 10;
+  assert.equal(L.confirmarEntrega('clock-backwards', 'peer'), false);
+  assert.equal(L.resumen().cumpleSLA, null);
+});
+
+test('retry does not reset the clock and control probes cannot dilute a slow delivery', () => {
+  const reloj = { ms: 0 };
+  const L = cargar(() => reloj.ms);
+  L.iniciarEntrega('retry', 'catalogo', ['peer']);
+  reloj.ms = 4999;
+  assert.equal(L.iniciarEntrega('retry', 'catalogo', ['peer']), false);
+  reloj.ms = 5000;
+  L.confirmarEntrega('retry', 'peer');
   const ahora = Date.now();
   L.anotarPing(ahora, ahora + 5, ahora + 10);
-  assert.match(L.texto(), /sin cambios medidos/, 'con reloj pero sin muestras, lo dice');
-  L.anotarMuestra(L.ahoraRelay() - 300, 'catalogo');
-  assert.match(L.texto(), /±/, 'y cuando da un número, viene con su margen');
+  for (let i = 0; i < 200; i++) L.anotarMuestra(L.ahoraRelay() - 1, 'catalogo');
+  assert.equal(L.resumen().n, 1);
+  assert.equal(L.resumen().max, 5000);
+  assert.equal(L.resumen().cumpleSLA, false);
+  assert.match(L.texto(), /incluye vuelta/);
+  assert.match(L.texto(), /excedido/);
+});
+
+test('summary text labels the actual measured boundary and absence of verified delivery', () => {
+  const reloj = { ms: 0 };
+  const L = cargar(() => reloj.ms);
+  assert.match(L.texto(), /sin confirmaciones verificadas/);
+  entrega(L, reloj, 'visible', 100);
+  assert.match(L.texto(), /render remoto/);
+  assert.match(L.texto(), /incluye vuelta/);
+  assert.match(L.texto(), /sin veredicto/);
 });
 
 test('structural cost guard: the clock ping is never on a timer', () => {
