@@ -49,7 +49,28 @@ test('Spanish quarter report shows exact net result, downloads a real PDF and re
     await page.evaluate(() => document.getElementById('finance-pdf').click());
     const download = await pending;
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'friendly-pdf-'));
-    try { const dest = path.join(dir, 'report.pdf'); await download.saveAs(dest); assert.equal(fs.readFileSync(dest).subarray(0, 5).toString(), '%PDF-'); assert.ok(fs.statSync(dest).size > 2000); } finally { fs.rmSync(dir, { recursive: true }); }
+    try {
+      const checkDownload = async (file, language, title) => {
+        const dest = path.join(dir, language + '.pdf');
+        await file.saveAs(dest);
+        const bytes = fs.readFileSync(dest), pdf = bytes.toString('latin1');
+        assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
+        assert.ok(bytes.length > 2000);
+        assert.ok(pdf.includes(title), 'the downloaded PDF contains the selected language');
+        assert.ok(pdf.includes('2026-10-01') && pdf.includes('2026-12-31'), 'quarter boundaries survive export');
+        const amounts = await page.evaluate(language => {
+          const money = new Intl.NumberFormat(language === 'es' ? 'es-EC' : 'en-US', { style: 'currency', currency: 'USD' });
+          return [money.format(30), money.format(20), money.format(-5)];
+        }, language);
+        for (const amount of amounts) assert.ok(pdf.includes(amount), 'download preserves synthetic net result, expenses and expense-only group: ' + amount);
+      };
+      await checkDownload(download, 'es', 'Rentabilidad de la Casa');
+      await page.evaluate(() => localStorage.setItem('f123_lang', 'en'));
+      const english = page.waitForEvent('download');
+      await page.evaluate(() => document.getElementById('finance-pdf').click());
+      await checkDownload(await english, 'en', 'House profitability');
+      await page.evaluate(() => localStorage.setItem('f123_lang', 'es'));
+    } finally { fs.rmSync(dir, { recursive: true }); }
     await page.evaluate(() => { document.getElementById('finance-month').value = ''; document.getElementById('finance-pdf').click(); });
     await page.waitForFunction(() => document.getElementById('finance-status').textContent.includes('mes válido'));
     assert.match(await page.locator('#finance-status').textContent(), /mes válido/);

@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v540: preserve adjustment and pending-conflict report rows, isolate unrelated financial conflicts, assign expenses before first sale, and export dashboard tables in the selected language. Keep current adjustments pending when their historical sale is quarantined.",
+  "changelog": "v541: update local PDF exports to jsPDF 4.2.1 and AutoTable 5.0.9, preserve upstream licenses and artifact provenance, and verify PDF injection fixes plus report downloads.",
   "requerida": false,
-  "shell": "f123-shell-v540",
+  "shell": "f123-shell-v541",
   "apagar": [],
-  "releaseName": "v540",
-  "cacheGeneration": "golden104"
+  "releaseName": "v541",
+  "cacheGeneration": "golden105"
 }

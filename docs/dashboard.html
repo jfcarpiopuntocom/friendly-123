@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v540">
+<meta name="dashboard-shell" content="f123-shell-v541">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -2387,8 +2387,8 @@
   function prepararExportacion(tipo) {
     if (tipo === "xlsx") return cargarHerramientaExportacion("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js", function () { return !!window.XLSX; });
     if (tipo !== "pdf") return Promise.resolve();
-    return cargarHerramientaExportacion("./vendor/jspdf-2.5.1.umd.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF); }).then(function () {
-      return cargarHerramientaExportacion("./vendor/jspdf-autotable-3.8.2.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF.API.autoTable); });
+    return cargarHerramientaExportacion("./vendor/jspdf-4.2.1.umd.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF); }).then(function () {
+      return cargarHerramientaExportacion("./vendor/jspdf-autotable-5.0.9.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF.API.autoTable); });
     });
   }
   function capturarSesionExportacion() {

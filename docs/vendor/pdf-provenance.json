@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "retrievedOn": "2026-10-16",
+  "verification": "Tarball SHA-512 matched the npm registry integrity value; vendored files are unmodified tarball members.",
+  "scope": "These two upstream artifacts only; this is not a complete product SBOM or complete inventory of code embedded in the UMD bundle.",
+  "components": [
+    {
+      "package": "jspdf",
+      "version": "4.2.1",
+      "license": "MIT",
+      "file": "jspdf-4.2.1.umd.min.js",
+      "sha256": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54",
+      "registryMetadata": "https://registry.npmjs.org/jspdf/4.2.1",
+      "tarball": "https://registry.npmjs.org/jspdf/-/jspdf-4.2.1.tgz",
+      "tarballIntegrity": "sha512-YyAXyvnmjTbR4bHQRLzex3CuINCDlQnBqoSYyjJwTP2x9jDLuKDzy7aKUl0hgx3uhcl7xzg32agn5vlie6HIlQ==",
+      "tarballMember": "package/dist/jspdf.umd.min.js"
+    },
+    {
+      "package": "jspdf-autotable",
+      "version": "5.0.9",
+      "license": "MIT",
+      "file": "jspdf-autotable-5.0.9.min.js",
+      "sha256": "83dd8e5ae29436bd3d3ef4f4a915125b3951264994c25de0359d3fbd105abe15",
+      "registryMetadata": "https://registry.npmjs.org/jspdf-autotable/5.0.9",
+      "tarball": "https://registry.npmjs.org/jspdf-autotable/-/jspdf-autotable-5.0.9.tgz",
+      "tarballIntegrity": "sha512-wIOG2ggjG6Y7qvqjgFACZZeu+oHxoxrhwCn1lTMxjPhojLVVvu2U2yS2srVCYl0CXe6pqiG/jQMIIS0CFn1ssw==",
+      "tarballMember": "package/dist/jspdf.plugin.autotable.min.js"
+    }
+  ]
+}
