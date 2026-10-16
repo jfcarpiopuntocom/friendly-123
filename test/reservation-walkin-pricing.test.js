@@ -34,7 +34,7 @@ test('old single-price products keep their sale contract, optional rates validat
   const s = await setup({ precioReserva: null, precioWalkIn: null });
   await sell(s, { cantidad: 1 });
   assert.equal(s.app.catalog().ventas.find(v => v.productoId === s.product.id).precioUnit, 18);
-  for (const price of [-1, 'invalid', false]) {
+  for (const price of [-1, 'invalid', false, Number.MAX_VALUE, Number.MAX_SAFE_INTEGER]) {
     await assert.rejects(() => s.app.request('/api/productos/' + s.product.id, 'PATCH', { nombre: 'Must not change', precioReserva: price }), /400/);
   }
   assert.equal((await s.app.request('/api/productos/' + s.product.id)).nombre, s.product.nombre);

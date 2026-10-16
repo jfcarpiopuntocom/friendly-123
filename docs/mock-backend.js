@@ -2802,8 +2802,8 @@
   }
   function errorPreciosEntrada(body) {
     return ["precioReserva", "precioWalkIn"].some((k) => Object.prototype.hasOwnProperty.call(body, k) && body[k] != null && body[k] !== "" &&
-      ((typeof body[k] !== "number" && typeof body[k] !== "string") || !Number.isFinite(Number(body[k])) || Number(body[k]) < 0))
-      ? "Reservation and walk-in prices must be nonnegative amounts or empty." : null;
+      ((typeof body[k] !== "number" && typeof body[k] !== "string") || !Number.isFinite(Number(body[k])) || !Number.isSafeInteger(Math.round(Number(body[k]) * 100)) || Number(body[k]) < 0))
+      ? "Reservation and walk-in prices must be nonnegative amounts with safe cent precision, or empty." : null;
   }
   function perfilCliente(c) {
     return {
