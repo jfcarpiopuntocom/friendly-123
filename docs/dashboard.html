@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v532">
+<meta name="dashboard-shell" content="f123-shell-v535">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -689,6 +689,9 @@
 <script src="./core/payout-ledger.js"></script>
 <script src="./core/sales-audit.js"></script>
 <script src="./core/business-read-model.js"></script>
+<script src="./core/report-period.js"></script>
+<script src="./dashboard-finance.js"></script>
+<script src="./customer-profile.js"></script>
 <script src="./sales-audit-ui.js"></script>
 <script src="./core/demo-huellas.js"></script>
 <script src="./estado-idb.js"></script>
@@ -1210,7 +1213,9 @@
         { title: "Compras 90d", field: "frecuencia", width: 125, hozAlign: "right", cssClass: "num" },
         { title: "Monto 90d", field: "monto", width: 125, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return money(c.getValue()); } },
-        { title: "Phone", field: "telefono", width: 140, cssClass: "num" },
+        { title: "WhatsApp", field: "telefono", width: 160, cssClass: "num", formatter: function(c) { return esc(window.OCCustomerProfile.whatsapp(c.getValue())); }, accessorDownload: function(v) { return window.OCCustomerProfile.whatsapp(v); } },
+        { title: "Lives in Cuenca", field: "resideCuenca", width: 150, formatter: function(c) { return window.OCCustomerProfile.residentLabel(c.getValue(),localStorage.getItem('f123_lang')==='es'); }, accessorDownload: function(v) { return window.OCCustomerProfile.residentLabel(v,localStorage.getItem('f123_lang')==='es'); } },
+        { title: "Gender", field: "genero", width: 130, formatter: function(c) { return window.OCCustomerProfile.genderLabel(c.getValue(),localStorage.getItem('f123_lang')==='es'); }, accessorDownload: function(v) { return window.OCCustomerProfile.genderLabel(v,localStorage.getItem('f123_lang')==='es'); } },
         /* JFC 2026-09-02: refleja el rango de edad y país capturados en My customers. */
         { title: "Age", field: "rangoEdad", width: 100 },
         { title: "Country", field: "pais", width: 130 },
@@ -1462,6 +1467,7 @@
       cols: [
         { title: "Date", field: "fecha", width: 125 },
         { title: "Description", field: "concepto", minWidth: 190, widthGrow: 3 },
+        { title: "Payment method", field: "metodoPago", width: 130, formatter: function(c) { var v=c.getValue(), es=localStorage.getItem('f123_lang')==='es'; return v==='cash'?(es?'Efectivo':'Cash'):v==='transfer'?(es?'Transferencia':'Transfer'):'—'; } },
         { title: "Category", field: "categoria", width: 125 },
         { title: "Amount", field: "monto", width: 115, hozAlign: "right", formatter: function (c) { return money(c.getValue()); } },
         { title: "Shelf", field: "ubicacionId", width: 130 },
@@ -2182,16 +2188,18 @@
   /* v521 FLECHA DE COMISION (JFC 2026-10-14, Belen): igual que Expenses de la app. Comisiones del mes
      por direccion: la casa paga = gasto; el asociado paga a la casa = ingreso (la parte de la casa).
      Sale de las mismas ventas del tablero: cero consultas nuevas. Monto desconocido = pendiente, nunca 0. */
-  function flechaComisionesMesHtml() {
+  function flechaComisionesMesHtml(result) {
     var es = false; try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
     if (datos.cobertura && datos.cobertura.ventas === false) return "";
     var RM = window.OCBusinessReadModel, mes = String(fechaLocalDashboard(new Date().toISOString()) || "").slice(0, 7);
-    var delMes = (datos.ventas || []).filter(function (v) { return v && !v.anulada && !v.devuelta && v.comisionPct != null && String(v.fechaLocal || fechaLocalDashboard(v.fecha, v.relojDesfaseMs) || "").slice(0, 7) === mes; });
-    var paga = RM.sum(delMes.filter(function (v) { return v.direccionComision !== "asociadoPaga"; }).map(function (v) { return RM.number(v.comisionAsociado); }));
-    var recibe = RM.sum(delMes.filter(function (v) { return v.direccionComision === "asociadoPaga"; }).map(function (v) { return RM.number(v.netoCasa); }));
+    var coverage = datos.cobertura || {};
+    result = result || RM.businessResult({ sales: datos.ventas || [], adjustments: datos.ajustesComision || [], month: mes,
+      zone: zonaNegocioDashboard(), coverage: { sales: coverage.ventas === true, adjustments: coverage.ajustesComision === true, coherent: coverage.finanzasCoherentes === true } });
+    var paga = result.commissionPayableCents === null ? null : result.commissionPayableCents / 100;
+    var recibe = result.commissionReceivableCents === null ? null : result.commissionReceivableCents / 100;
     var m = function (n) { return n === null ? (es ? "pendiente" : "pending") : money(n); };
-    return '<p style="margin:0 0 7px;">' + (es ? "Comisiones que pagas este mes (gasto): " : "Commissions you pay this month (expense): ") + '<b style="color:#B0183E;">' + esc(m(paga)) + '</b> · ' +
-      (es ? "Comisiones que recibes este mes (ingreso): " : "Commissions you receive this month (income): ") + '<b style="color:#006B3C;">' + esc(m(recibe)) + '</b></p>';
+    return '<p style="margin:0 0 7px;">' + (es ? "Comisiones devengadas del mes · paga la casa (antes de pagos): " : "Accrued commissions this month · house pays (before payments): ") + '<b style="color:#B0183E;">' + esc(m(paga)) + '</b> · ' +
+      (es ? "Parte de la casa devengada del mes · paga el asociado (antes de pagos): " : "Accrued house share this month · associate pays (before payments): ") + '<b style="color:#006B3C;">' + esc(m(recibe)) + '</b></p>';
   }
   function pintarFinanzasFoto() {
     var el = $("finanzas-foto-contenido");
@@ -2199,6 +2207,7 @@
     var RM = window.OCBusinessReadModel;
     var zone = typeof zonaNegocioDashboard === "function" ? zonaNegocioDashboard() : "America/Guayaquil";
     var month = RM.day(new Date().toISOString(),zone).slice(0,7), coverage=datos.cobertura||{};
+    if (window.OCFinanceReport) window.OCFinanceReport.update(datos, zone);
     var result=RM.businessResult({sales:datos.ventas||[],expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],month:month,zone:zone,
       coverage:{sales:coverage.ventas===true,expenses:coverage.gastos===true,adjustments:coverage.ajustesComision===true,coherent:coverage.finanzasCoherentes===true}});
     var es=false;try{es=localStorage.getItem("f123_lang")==="es";}catch(_){}
@@ -2220,7 +2229,7 @@
       '</b> · monthly shelf budget <b>' + esc(money(mensual)) + '</b> (not added to expense totals)</p>' +
       '<p style="margin:0 0 7px;">Transfers: <b>' + tras.length + '</b> · customer credit facts: <b>' + cartera.length +
       '</b> · petty cash facts: <b>' + caja.length + '</b></p>' +
-      flechaComisionesMesHtml() +
+      flechaComisionesMesHtml(result) +
       '<p style="margin:0;">Latest expenses: ' + esc(activos.slice(0, 5).map(function (g) { return (g.concepto || "expense") + " " + money(RM.number(g.monto)); }).join(" · ") || "none") + '</p>';
   }
 
@@ -2497,6 +2506,7 @@
     var celdas = filas.map(function(r) {
       return cols.map(function(c) {
         var v = r[c.field];
+        if(vista==='clientes' && typeof c.accessorDownload==='function')return c.accessorDownload(v);
         if (c.field === "compro") {
           var nombres = {};
           (datos.ventas || []).forEach(function(venta) {
@@ -2669,9 +2679,9 @@
 
     } else if (cual === "cli") {
       titulo = esReporte ? "Clientes al día" : "Customer summary";
-      cols = esReporte ? ["Cliente", "Teléfono", "Compró hace", "Compras 90d", "Monto 90d"] : ["Customer","Phone","Last purchase","Purchases 90d","Amount 90d"];
+      cols = esReporte ? ["Cliente", "WhatsApp", "Reside en Cuenca", "Género", "Compró hace", "Compras 90d", "Monto 90d"] : ["Customer","WhatsApp","Lives in Cuenca","Gender","Last purchase","Purchases 90d","Amount 90d"];
       filas = (datos.clientes || []).map(function (c) {
-        return [c.nombre, c.telefono || "", c.recencia === "pending" || (c.recencia == null && datos.cobertura && datos.cobertura.ventas === false) ? (esReporte?"pendiente":"pending") : (c.recencia == null ? (esReporte?"nunca":"never") : c.recencia + (esReporte?" días":" days")),
+        return [c.nombre, window.OCCustomerProfile.whatsapp(c.telefono), window.OCCustomerProfile.residentLabel(c.resideCuenca,esReporte), window.OCCustomerProfile.genderLabel(c.genero,esReporte), c.recencia === "pending" || (c.recencia == null && datos.cobertura && datos.cobertura.ventas === false) ? (esReporte?"pendiente":"pending") : (c.recencia == null ? (esReporte?"nunca":"never") : c.recencia + (esReporte?" días":" days")),
                 String(c.frecuencia || 0), money(c.monto)];
       });
       pie = filas.length+(esReporte?" clientes activos.":" active customers.");
@@ -3444,13 +3454,26 @@
     try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
     var campos = [
       ["nombre", es ? "Nombre" : "Name",120],
-      ["telefono", es ? "Teléfono" : "Phone",40],
+      ["telefono", "WhatsApp",40],
       ["email", "Email",160],
       ["notas", es ? "Notas" : "Notes",1200],
       ["rangoEdad", es ? "Rango de edad" : "Age range",12],
-      ["pais", es ? "País" : "Country",60]
+      ["pais", es ? "País" : "Country",60],
+      ["resideCuenca", es ? "Reside en Cuenca" : "Lives in Cuenca"],
+      ["genero", es ? "Género" : "Gender"]
     ];
     var original = {}, inputs = {};
+    function contactoValor(record,key) {
+      if(key==='resideCuenca')return window.OCCustomerProfile.resident(record[key]);
+      if(key==='genero')return window.OCCustomerProfile.gender(record[key]);
+      return String(record[key] || '');
+    }
+    function valorEditado(key) {
+      var input=inputs[key];
+      if(key==='resideCuenca')return input.indeterminate?null:input.checked;
+      if(key==='telefono' && input.value===window.OCCustomerProfile.whatsapp(original[key]))return original[key];
+      return input.value.trim();
+    }
     var dlg = document.createElement("dialog");
     dlg.id = "dashboard-contact-editor";
     dlg.style.cssText = "width:min(620px,calc(100% - 24px));max-height:90dvh;overflow:auto;padding:24px;border:2px solid #1C3049;border-radius:12px;background:white;color:#0F1923;box-sizing:border-box;";
@@ -3461,14 +3484,22 @@
     var campoCaja = document.createElement("div");
     campoCaja.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;";
     campos.forEach(function(spec) {
-      var k = spec[0]; original[k] = String(cli[k] || "");
+      var k = spec[0]; original[k] = contactoValor(cli,k);
       var label = document.createElement("label");
       label.style.cssText = "display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;";
       var tit = document.createElement("span"); tit.textContent = spec[1]; label.appendChild(tit);
-      var input = k === "notas" ? document.createElement("textarea") : document.createElement("input");
-      if (k !== "notas") input.type = k === "email" ? "email" : "text";
-      input.value = original[k]; input.maxLength = spec[2];
+      var input = document.createElement(k==='genero'?'select':k==='notas'?'textarea':'input');
+      if(k==='genero') ['unknown','male','female'].forEach(function(g){var option=document.createElement('option');option.value=g;option.textContent=window.OCCustomerProfile.genderLabel(g,es);input.appendChild(option);});
+      else if(k==='resideCuenca') {
+        input.type='checkbox';input.checked=original[k]===true;input.indeterminate=original[k]===null;
+        var estado=document.createElement('small');estado.textContent=window.OCCustomerProfile.residentLabel(original[k],es);label.appendChild(estado);
+        input.addEventListener('change',function(){estado.textContent=window.OCCustomerProfile.residentLabel(input.checked,es);});
+      } else if(k!=='notas')input.type=k==='email'?'email':k==='telefono'?'tel':'text';
+      if(k!=='resideCuenca')input.value=k==='telefono'?window.OCCustomerProfile.whatsapp(original[k]):original[k];
+      if(spec[2])input.maxLength=spec[2];
+      if(k==='telefono')input.addEventListener('blur',function(){input.value=window.OCCustomerProfile.whatsapp(input.value);});
       input.style.cssText = "width:100%;min-height:44px;padding:9px;border:2px solid #617388;border-radius:6px;color:#0F1923;background:#fff;font-size:16px;box-sizing:border-box;";
+      if(k==='resideCuenca')input.style.width='24px';
       inputs[k] = input; label.appendChild(input); campoCaja.appendChild(label);
     });
     dlg.appendChild(campoCaja);
@@ -3498,13 +3529,13 @@
       if (inputs.email.value && !inputs.email.checkValidity()) { msg.textContent = es ? "Email inválido." : "Invalid email."; return; }
       var cambios = {}, hayCambio = false;
       campos.forEach(function(spec) {
-        var k = spec[0], val = inputs[k].value.trim();
+        var k = spec[0], val = valorEditado(k);
         if (val !== original[k]) { cambios[k] = val; hayCambio = true; }
       });
       if (!hayCambio) { cerrar(); return; }
       var actual = (datos.clientes || []).find(function(c) { return String(c.id) === String(id); });
       if (!actual || campos.some(function(spec) {
-        var k = spec[0]; return String(actual[k] || "") !== original[k];
+        var k = spec[0]; return contactoValor(actual,k) !== original[k];
       })) {
         msg.textContent = es ? "La ficha cambió. Actualiza antes de editar." : "Customer changed. Refresh before editing.";
         return;
@@ -3526,7 +3557,7 @@
           r = await ordenar("PATCH",ruta,payload,destino);
         }
         if (!r || !r.ok || !r.datos || String(r.datos.id || "") !== String(id) ||
-            Object.keys(cambios).some(function(k) { return String(r.datos[k] || "") !== cambios[k]; })) {
+            Object.keys(cambios).some(function(k) { return contactoValor(r.datos,k) !== cambios[k]; })) {
           msg.textContent = (r && r.datos && r.datos.error) || (es ? "El guardado no se confirmó." : "Save was not confirmed.");
           return;
         }
@@ -4123,6 +4154,7 @@
     ["House share (before costs and expenses)", "Parte de la casa (antes de costos y gastos)"],
     ["Direct expenses", "Gastos directos"],
     ["House contribution (before general expenses)", "Contribución de la casa (antes de gastos generales)"],
+    ["Payment method", "Medio de pago"],
     ["monthly shelf budget", "presupuesto mensual de perchas"],
     ["(not added to expense totals)", "(no se suma a los gastos registrados)"],
     ["Profit", "Ganancia"],
@@ -4145,6 +4177,8 @@
     ["Monthly goal", "Meta mensual"],
     ["Tiers", "Escalas"],
     ["Phone", "Teléfono"],
+    ["Lives in Cuenca", "Reside en Cuenca"],
+    ["Gender", "Género"],
     ["Stock pending", "Stock pendiente de actualizar"],
     ["Expiry date", "Fecha de caducidad"],
     ["Cost", "Costo"],

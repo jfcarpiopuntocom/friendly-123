@@ -24,7 +24,8 @@
   const API = '/api';
   const $ = (id) => document.getElementById(id);
   const money = (n) => {
-    const v = Number(n || 0);
+    if (n == null || n === '' || !Number.isFinite(Number(n))) return '—';
+    const v = Number(n);
     try {
       const loc = (window.OCI18n && window.OCI18n.locale && window.OCI18n.locale()) || "en-US";
       return new Intl.NumberFormat(loc, { style: "currency", currency: (window.OCMoneda && window.OCMoneda.codigo()) || "USD" }).format(v);
@@ -49,22 +50,32 @@
   // Nombre de cada percha, cacheado del último cargar() para títulos de carpeta.
   let nombrePorId = {};
 
-  // Venta bruta del mes de una percha (2026-08-27, bloque 1d). Se usa para las
-  // perchas PROPIAS, que no salen en /api/liquidaciones. Suma el monto de las
-  // ventas del mes actual de esa ubicación. Se cachea por cargar() para no
-  // repetir el fetch por cada percha.
-  let _ventasTodasCache = null;
-  async function ventasDelMes(ubicacionId) {
-    try {
-      if (_ventasTodasCache === null) {
-        _ventasTodasCache = await fetch(`${API}/ventas/todas`).then((r) => r.json()).catch(() => []);
+  // One coherent local read per refresh, indexed once for all shelves. Include
+  // every copy of a conflicting sale ID in each affected shelf's quarantine.
+  function finanzasPorPercha(perchas, corte, month, zone) {
+    const result = new Map(), RM = window.OCBusinessReadModel;
+    if (!RM || !corte || corte.schema!==1 || !Array.isArray(corte.ventas) || !Array.isArray(corte.ajustesComision)) return result;
+    const byId = new Map(), buckets = new Map();
+    for (const v of corte.ventas) {
+      if (!v) continue;
+      const key = v.id == null || v.id === '' ? v : String(v.id);
+      if (!byId.has(key)) byId.set(key, []);
+      byId.get(key).push(v);
+    }
+    for (const copies of byId.values()) {
+      const locations = new Set(copies.map(v=>String(v.ubicacionId || '')));
+      for (const id of locations) {
+        if (!buckets.has(id)) buckets.set(id, []);
+        for (const v of copies) buckets.get(id).push(v);
       }
-      const ahora = new Date();
-      const mes = ahora.getMonth(), anio = ahora.getFullYear();
-      return (_ventasTodasCache || [])
-        .filter((v) => v.ubicacionId === ubicacionId && (() => { const d = new Date(v.fecha); return d.getMonth() === mes && d.getFullYear() === anio; })())
-        .reduce((a, v) => a + (Number(v.monto) || (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)), 0);
-    } catch (_) { return 0; }
+    }
+    for (const u of perchas) {
+      const r = RM.businessResult({sales:buckets.get(String(u.id)) || [], adjustments:corte.ajustesComision,
+        month,zone,scope:{locationId:u.id},coverage:{sales:true,adjustments:true,coherent:true}});
+      result.set(String(u.id), {ventasMes:r.netCents===null?null:r.netCents/100,
+        comision:r.artistShareCents===null?null:r.artistShareCents/100});
+    }
+    return result;
   }
 
   // Ordenar por columna (2026-07-29) — complementa el semaforo por defecto.
@@ -187,7 +198,7 @@
            box-shadow:inset 0 0 0 2px var(--hairline,#E8ECF2);">
            ${esc((p.nombre || '?').trim().charAt(0).toUpperCase())}</div>`;
 
-    const badgeMeta = p.cumplimiento === null ? window.t('shelves.noTarget') : p.cumplimiento.toFixed(0) + window.t('shelves.ofTargetMet');
+    const badgeMeta = p.cumplimiento === null ? (p.meta > 0 ? window.t('shelves.targetPending') : window.t('shelves.noTarget')) : p.cumplimiento.toFixed(0) + window.t('shelves.ofTargetMet');
 
     const datos = esDueno ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:12px 14px;background:var(--blanco-calido,#fbf5e8);">
@@ -454,12 +465,14 @@
     if (!grid.children.length) grid.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);padding:8px 0;">Cargando perchas…</p>';
     try {
       await precargarFotos();
-      const [perchas, liq, promotoras] = await Promise.all([
+      const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : '';
+      const [perchas, liq, promotoras, corte] = await Promise.all([
         // Vista operativa: solo perchas activas. Las archivadas/inactivas siguen en el store y en historial,
         // pero no deben reaparecer en "My shelves" por pedir todas=1.
         fetch(`${API}/ubicaciones`).then((r) => r.json()),
         fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
         fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
+        ['dueno','admin','contador','demo'].includes(rol) ? fetch(`${API}/reporting/corte`).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null),
       ]);
       // Defensa doble: la API operativa ya devuelve solo activas, pero la vista
       // tampoco pinta una percha archivada/inactiva aunque un peer viejo la mande.
@@ -569,21 +582,18 @@
       const liqPor = {}; (Array.isArray(liq) ? liq : []).forEach((f) => { liqPor[f.ubicacionId] = f; });
       const promPor = {}; (Array.isArray(promotoras) ? promotoras : []).forEach((pr) => { promPor[pr.id] = pr.nombre; });
       nombrePorId = {};
+      let zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+      try { zone=localStorage.getItem('f123_timezone') || zone; } catch (_) {}
+      const month=window.OCBusinessReadModel?window.OCBusinessReadModel.day(new Date().toISOString(),zone).slice(0,7):'';
+      const financials=finanzasPorPercha(perchasVisibles,corte,month,zone);
 
       const ms = await Promise.all(perchasVisibles.map(async (u) => {
         const f = liqPor[u.id];
-        const cumplimiento = f ? f.cumplimientoMeta : null;
+        const financial=financials.get(String(u.id));
+        const ventasMes=financial?financial.ventasMes:null, comision=financial?financial.comision:null;
+        const meta=f?f.metaMensual:(u.metaMensual || 0);
+        const cumplimiento=ventasMes===null || !meta?null:Math.round(ventasMes/meta*1000)/10;
         nombrePorId[u.id] = u.nombre;
-        /* 2026-08-27 (bloque 1d): las perchas PROPIAS (tipo "propio") no salen
-           en /api/liquidaciones (que solo cubre las de comisión), así que su
-           tarjeta mostraba ventasMes=0 y comisión=0 aunque vendieran. Se
-           calcula aquí su venta del mes para que la tarjeta refleje el valor
-           real. La comisión de una percha propia es 0 (no reparte con nadie). */
-        let ventasMes = f ? f.ventasBrutas : 0;
-        let comision = f ? f.comisionSocio : 0;
-        if (!f && u.tipo === "propio") {
-          ventasMes = await ventasDelMes(u.id);
-        }
         return {
           id: u.id, nombre: u.nombre, activa: u.activa !== false,
           semaforo: semaforoMeta(cumplimiento),

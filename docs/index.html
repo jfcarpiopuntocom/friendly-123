@@ -117,6 +117,7 @@
 <script src="./core/ledger.js"></script>
 <script src="./core/sales-audit.js"></script>
 <script src="./core/business-read-model.js"></script>
+<script src="./customer-profile.js"></script>
 <script src="./sales-audit-ui.js"></script>
 <script src="./core/demo-huellas.js"></script>
 <script src="./mock-backend.js"></script>
@@ -2132,7 +2133,9 @@
     <summary class="ir" style="display:inline-flex;align-items:center;min-height:44px;padding:8px 16px;cursor:pointer;list-style:none;" data-i18n="cust.addBtn">+ Add customer</summary>
     <div class="tag-card" style="padding:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;">
       <input id="cliNombre" type="text" placeholder="Customer name" data-i18n-attr="placeholder:cust.namePlaceholder" style="flex:2;min-width:160px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
-      <input id="cliTelefono" type="text" placeholder="Phone (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <input id="cliTelefono" type="tel" placeholder="WhatsApp (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
+      <label style="font-size:14px;display:flex;align-items:center;gap:6px;"><input id="cliCuenca" type="checkbox"><span data-i18n="cust.cuenca">Lives in Cuenca</span></label>
+      <select id="cliGenero" aria-label="Gender" data-i18n-attr="aria-label:cust.gender" style="padding:10px;border:2px solid var(--azul-medio);border-radius:6px;"><option value="unknown" data-i18n="cust.genderUnknown">Gender: unknown</option><option value="male" data-i18n="cust.genderMale">Male</option><option value="female" data-i18n="cust.genderFemale">Female</option></select>
       <input id="cliEmail" type="email" inputmode="email" autocomplete="off" placeholder="Email (optional)" data-i18n-attr="placeholder:cust.emailPlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <button class="ir" id="btnAltaCliente" style="padding:10px 18px;" data-i18n="cust.addBtn">+ Add customer</button>
     </div>
@@ -2221,7 +2224,13 @@
         <input id="gastoMonto" type="number" min="0" step="any" placeholder="Amount" style="flex:1;min-width:100px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <input id="gastoFecha" type="date" style="flex:1;min-width:130px;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
         <!-- JFC 2026-09-08: nº de factura/invoice del proveedor externo, para control tributario básico. Opcional. -->
-        <input id="gastoFactura" type="text" placeholder="Invoice # (optional)" title="Supplier invoice number — for basic tax control" style="flex:1;min-width:130px;padding:9px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+        <label><span data-i18n="exp.paymentMethod">Payment method</span>
+          <select id="gastoMetodoPago"><option value="cash" data-i18n="exp.cash">Cash</option><option value="transfer" data-i18n="exp.transfer">Transfer</option></select>
+        </label>
+        <label><span data-i18n="exp.receiptPhoto">Receipt photo (optional)</span>
+          <input id="gastoFoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+        </label>
+        <label><span data-i18n="exp.allocation">Expense belongs to</span><select id="gastoDestino"><option value="" data-i18n="exp.general">General business expense</option></select></label>
         <button class="ir" onclick="registrarGasto()" style="font-size:14px;padding:9px 16px;">+ Add expense</button>
       </div>
       <p id="gastoMsg" style="font-size:14px;font-weight:700;margin:8px 0 0;"></p>
@@ -2449,6 +2458,10 @@ document.getElementById("btnModoCarrito") && document.getElementById("btnModoCar
 fijarModoVenta("quick");
 
 function agregarAlCarrito(p) {
+  if (p.precioReserva != null || p.precioWalkIn != null) {
+    abrirPanelVentaInfo(p.id, p.tipoProducto === "ticket");
+    return;
+  }
   const linea = _carritoVenta.find(l => l.productoId === p.id);
   const enCarrito = linea ? linea.cantidad : 0;
   if (enCarrito + 1 > p.stockActual) { pintarCarrito(); return; } // silencioso: el tile ya se ve sin stock
@@ -2643,7 +2656,7 @@ function montarBuscadorVender(productos){
         : idsCoinciden
           ? idsCoinciden.has(p.id)
           : (p.nombre.toLowerCase().includes(qLower) || (p.categoria || "").toLowerCase().includes(qLower));
-      const matchCategoria = !_venderCategoriaActiva || p.categoria === _venderCategoriaActiva;
+      const matchCategoria = !_venderCategoriaActiva || (window.OCCategorias ? window.OCCategorias.normalizar(p.categoria) : p.categoria) === _venderCategoriaActiva;
       btn.style.display = (matchTexto && matchCategoria) ? "" : "none";
     });
   }
@@ -2909,6 +2922,10 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
           data-i18n-attr="placeholder:newcust.emailPlaceholder" placeholder="Email (optional)"
           style="display:block;width:100%;margin-top:4px;padding:9px 10px;border:2px solid var(--azul-medio,#2c4a68);border-radius:7px;font-size:15px;box-sizing:border-box;background:#fff;">
       </label>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+        <label style="font-size:14px;"><input id="oc-ncli-cuenca" type="checkbox"> <span data-i18n="cust.cuenca">${t("cust.cuenca")}</span></label>
+        <select id="oc-ncli-genero" aria-label="${t("cust.gender")}" data-i18n-attr="aria-label:cust.gender" style="padding:8px;border:2px solid var(--azul-medio);border-radius:6px;"><option value="unknown" data-i18n="cust.genderUnknown">${t("cust.genderUnknown")}</option><option value="male" data-i18n="cust.genderMale">${t("cust.genderMale")}</option><option value="female" data-i18n="cust.genderFemale">${t("cust.genderFemale")}</option></select>
+      </div>
       <button id="oc-ncli-crear" style="width:100%;padding:11px 18px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;background:var(--azul-medio,#2c4a68);color:#fbf5e8 !important;-webkit-text-fill-color:#fbf5e8 !important;font-size:15px;font-weight:700;cursor:pointer;">
         ${t("newcust.save")}
       </button>
@@ -2945,6 +2962,8 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
   }
   function abrir() {
     document.getElementById("oc-ncli-nombre").value = "";
+    document.getElementById("oc-ncli-cuenca").checked = false;
+    document.getElementById("oc-ncli-genero").value = "unknown";
     var telEl = document.getElementById("oc-ncli-tel");
     if (_iti && _iti.setNumber) _iti.setNumber(""); else telEl.value = "";
     { const _e = document.getElementById("oc-ncli-email"); if (_e) _e.value = ""; }
@@ -3021,7 +3040,7 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
     const btn2 = document.getElementById("oc-ncli-crear");
     btn2.disabled = true;
     try {
-      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono, email: (email || "").trim() }) });
+      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono, email: (email || "").trim(), resideCuenca:document.getElementById("oc-ncli-cuenca").checked, genero:document.getElementById("oc-ncli-genero").value }) });
       const r = await res.json();
       if (!res.ok) { msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = r.error || t("newcust.createError"); btn2.disabled = false; return; }
       // Agregar al selector y seleccionarlo automáticamente
@@ -3144,7 +3163,7 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
     const fila = (f) => {
       const cli = _cliPorNombre[f.nombre];
       const fecha = f.ultima ? new Date(f.ultima).toLocaleDateString() : "—";
-      const tel = cli && cli.telefono ? escHtml(cli.telefono) : "";
+      const tel = cli && cli.telefono ? escHtml(window.OCCustomerProfile.whatsapp(cli.telefono)) : "";
       const codigo = cli && cli.codigo ? escHtml(cli.codigo) : "";
       const selBtn = cli ? `<button type="button" data-sel="${escHtml(cli.id)}" style="font-size:12px;font-weight:700;padding:5px 10px;border:2px solid #0F1923;border-radius:6px;background:#0F1923;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;white-space:nowrap;">${escHtml(t("sold.showCustomersSelect"))}</button>` : "";
       return `<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--linea,#D7E0E8);">
@@ -3216,7 +3235,7 @@ if (elVentasSold) elVentasSold.addEventListener("toggle", function(){ if (this.o
     const filasHtml = _filas.map((f) => {
       const cli = _cliPorNombre[f.nombre];
       const fecha = f.ultima ? new Date(f.ultima).toLocaleDateString() : "—";
-      const tel = cli && cli.telefono ? escHtml(cli.telefono) : "";
+      const tel = cli && cli.telefono ? escHtml(window.OCCustomerProfile.whatsapp(cli.telefono)) : "";
       return `<tr><td>${escHtml(f.nombre)}${tel ? "<br><small>" + tel + "</small>" : ""}</td><td>${f.compras}</td><td>${fmtMoney(f.total)}</td><td>${escHtml(fecha)}</td></tr>`;
     }).join("");
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escHtml(tituloEl.textContent)}</title><style>body{font-family:system-ui,sans-serif;padding:24px;color:#111}h1{font-size:18px;margin:0 0 4px}p.sub{color:#666;margin:0 0 16px;font-size:13px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #ddd}th{background:#f4f4f4}</style></head><body><h1>${escHtml(tituloEl.textContent)}</h1><p class="sub">${escHtml(new Date().toLocaleString())}</p><table><thead><tr><th>${escHtml(t("sold.showCustomersColName"))}</th><th>${escHtml(t("sold.showCustomersColPurchases"))}</th><th>${escHtml(t("sold.showCustomersColSpent"))}</th><th>${escHtml(t("sold.showCustomersColLast"))}</th></tr></thead><tbody>${filasHtml}</tbody></table><script>window.onload=function(){window.print()}<\/script></body></html>`);
@@ -3528,6 +3547,11 @@ const OC_RANGOS_EDAD = ["", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
 const OC_PAISES = ["", "Ecuador", "United States", "Argentina", "Bolivia", "Brazil", "Canada", "Chile", "Colombia", "Costa Rica", "Cuba", "Dominican Republic", "El Salvador", "France", "Germany", "Guatemala", "Honduras", "Italy", "Mexico", "Nicaragua", "Panama", "Paraguay", "Peru", "Portugal", "Spain", "United Kingdom", "Uruguay", "Venezuela", "Other"];
 function opcionesEdad(sel){ return OC_RANGOS_EDAD.map((r) => `<option value="${r}"${(sel || "") === r ? " selected" : ""}>${r || "Age range"}</option>`).join(""); }
 function opcionesPais(sel){ return OC_PAISES.map((p) => `<option value="${escHtml(p)}"${(sel || "") === p ? " selected" : ""}>${p || "Country"}</option>`).join(""); }
+function opcionesGenero(sel){ return ["unknown","male","female"].map(g => `<option value="${g}"${window.OCCustomerProfile.gender(sel)===g?" selected":""}>${window.OCCustomerProfile.genderLabel(g,localStorage.getItem("f123_lang")==="es")}</option>`).join(""); }
+// Formatting is presentation-only: no migration or contact rewrite on load.
+document.addEventListener("focusout",function(e){
+  if(e.target && /^(cliTelefono|oc-ncli-tel|vi-newcli-tel|oc-edit-tel-.+)$/.test(e.target.id)) e.target.value=window.OCCustomerProfile.whatsapp(e.target.value);
+});
 
 function tarjetaCliente(c, esDueno){
   const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
@@ -3545,10 +3569,12 @@ function tarjetaCliente(c, esDueno){
   // notebook deja ver y editar el contacto y las notas del cliente. Privacidad
   // por rol: solo dueño/admin ven telefono/email/notas completos.
   const contactoPartes = [];
-  if (esDueno && c.telefono) contactoPartes.push(`☎ ${escHtml(c.telefono)}`);
+  if (esDueno && c.telefono) contactoPartes.push(`WhatsApp ${escHtml(window.OCCustomerProfile.whatsapp(c.telefono))}`);
   if (esDueno && c.email) contactoPartes.push(`✉ ${escHtml(c.email)}`);
   if (esDueno && c.rangoEdad) contactoPartes.push(escHtml(c.rangoEdad));
   if (esDueno && c.pais) contactoPartes.push(escHtml(c.pais));
+  if (esDueno) contactoPartes.push(escHtml(t("cust.cuenca"))+": "+window.OCCustomerProfile.residentLabel(c.resideCuenca,localStorage.getItem("f123_lang")==="es"));
+  if (esDueno) contactoPartes.push(escHtml(t("cust.gender"))+": "+window.OCCustomerProfile.genderLabel(c.genero,localStorage.getItem("f123_lang")==="es"));
   const lineaContacto = contactoPartes.length
     ? `<div style="font-size:14px;color:var(--ink-soft);margin-top:2px;">${contactoPartes.join(" · ")}</div>` : "";
   const lineaNotas = (esDueno && c.notas)
@@ -3565,11 +3591,13 @@ function tarjetaCliente(c, esDueno){
     : "";
   const panelEditar = `<div id="oc-${editKey}" style="display:${panelEditAbierto ? "flex" : "none"};gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px 10px;background:var(--blanco-calido,#fbf5e8);border-radius:6px;">
       <input id="oc-edit-nombre-${c.id}" type="text" value="${escHtml(c.nombre || "")}" placeholder="Name" style="flex:1;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
-      ${esDueno ? `<input id="oc-edit-tel-${c.id}" type="text" value="${escHtml(c.telefono || "")}" placeholder="Phone / WhatsApp" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
+      ${esDueno ? `<input id="oc-edit-tel-${c.id}" type="tel" value="${escHtml(window.OCCustomerProfile.whatsapp(c.telefono))}" data-original="${escHtml(c.telefono || "")}" placeholder="WhatsApp" aria-label="WhatsApp" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
       <input id="oc-edit-email-${c.id}" type="email" value="${escHtml(c.email || "")}" placeholder="Email" style="flex:1;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
       <input id="oc-edit-notas-${c.id}" type="text" value="${escHtml(c.notas || "")}" placeholder="Notes" style="flex:2;min-width:140px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">
       <select id="oc-edit-edad-${c.id}" title="Age range" style="flex:1;min-width:110px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesEdad(c.rangoEdad)}</select>
-      <select id="oc-edit-pais-${c.id}" title="Country" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesPais(c.pais)}</select>` : ""}
+      <select id="oc-edit-pais-${c.id}" title="Country" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesPais(c.pais)}</select>
+      <label style="font-size:14px;"><input id="oc-edit-cuenca-${c.id}" type="checkbox" ${c.resideCuenca===true?"checked":""} data-known="${typeof c.resideCuenca==='boolean'}" onchange="this.dataset.touched='true';this.parentElement.querySelector('small').textContent=''"> ${escHtml(t("cust.cuenca"))}<small style="display:block;">${typeof c.resideCuenca==='boolean'?"":escHtml(t("cust.residencyUnknown"))}</small></label>
+      <label style="font-size:14px;">${escHtml(t("cust.gender"))} <select id="oc-edit-genero-${c.id}" data-original="${window.OCCustomerProfile.gender(c.genero)}" style="padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesGenero(c.genero)}</select></label>` : ""}
       <button onclick="guardarContactoCliente('${c.id}')" class="ir" style="font-size:13px;padding:6px 12px;">Save</button>
     </div>`;
   // Controles de evaluación: visibles a dueño y encargados (no en demo si no hay sesión).
@@ -3740,11 +3768,14 @@ async function guardarContactoCliente(id) {
   const paisEl = document.getElementById(`oc-edit-pais-${id}`);
   const body = {};
   if (nombreEl) body.nombre = nombreEl.value;
-  if (telEl) body.telefono = telEl.value;
+  if (telEl && telEl.value !== window.OCCustomerProfile.whatsapp(telEl.dataset.original)) body.telefono = telEl.value;
   if (emailEl) body.email = emailEl.value;
   if (notasEl) body.notas = notasEl.value;
   if (edadEl) body.rangoEdad = edadEl.value;
   if (paisEl) body.pais = paisEl.value;
+  const cuencaEl=document.getElementById(`oc-edit-cuenca-${id}`), generoEl=document.getElementById(`oc-edit-genero-${id}`);
+  if(cuencaEl && cuencaEl.dataset.touched==='true') body.resideCuenca=cuencaEl.checked;
+  if(generoEl && generoEl.value!==generoEl.dataset.original) body.genero=generoEl.value;
   const res = await fetch(`${API}/clientes/${id}/contacto`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) { const r = await res.json().catch(() => ({})); alert(r.error || "Could not save the contact."); return; }
   cargarClientes();
@@ -4300,13 +4331,14 @@ async function cargarClientes(){
       const nombre = document.getElementById("cliNombre").value;
       const telefono = document.getElementById("cliTelefono").value;
       const email = (document.getElementById("cliEmail") || {}).value || "";
-      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono, email }) });
+      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono, email, resideCuenca:document.getElementById("cliCuenca").checked, genero:document.getElementById("cliGenero").value }) });
       const r = await res.json();
       const msgEl = document.getElementById("cliMsg");
       if (!res.ok) { msgEl.textContent = r.error; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
       msgEl.textContent = `Client registered with code ${r.codigo}.`;
       msgEl.style.color = "var(--sim-verde-dk)";
       document.getElementById("cliNombre").value = ""; document.getElementById("cliTelefono").value = "";
+      document.getElementById("cliCuenca").checked=false;document.getElementById("cliGenero").value="unknown";
       { const _e = document.getElementById("cliEmail"); if (_e) _e.value = ""; }
       try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}
       cargarClientes();
@@ -5382,6 +5414,8 @@ async function duplicarComoVariante(id) {
     set("#np-costo", p.costo != null ? p.costo : "");
     set("#np-proveedor", p.proveedor || "");
     set("#np-precio-casa", p.precioCasa != null ? p.precioCasa : "");
+    set("#np-precio-reserva", p.precioReserva ?? "");
+    set("#np-precio-walkin", p.precioWalkIn ?? "");
     set("#np-ubicacion", p.ubicacionId || "todas");
     set("#np-tipo-proveedor", p.tipoProveedor || "compra");
     set("#np-comisionista", p.comisionistaId || "");
@@ -6202,6 +6236,17 @@ document.getElementById("inputEscaner").addEventListener("blur", () => {
    Se resuelve en el origen en vez de andar cambiando cada lectura: antes de
    pintar uno, se vacia el otro. Asi todo el codigo que ya lee por id sigue
    siendo correcto, porque solo hay un candidato. */
+function preciosEntradaHtml(prefijo, producto = {}) {
+  const es = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");
+  return `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;">
+    <label style="flex:1;min-width:150px;font-size:14px;">${es ? "Precio con reserva (opcional)" : "Reservation price (optional)"}<br><input id="${prefijo}-precio-reserva" type="number" min="0" step="0.01" value="${producto.precioReserva == null ? "" : escHtml(producto.precioReserva)}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+    <label style="flex:1;min-width:150px;font-size:14px;">${es ? "Precio sin reserva (opcional)" : "Walk-in price (optional)"}<br><input id="${prefijo}-precio-walkin" type="number" min="0" step="0.01" value="${producto.precioWalkIn == null ? "" : escHtml(producto.precioWalkIn)}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+  </div>`;
+}
+function precioEntradaElegido(producto) {
+  const modo = (document.getElementById("vi-modalidad") || {}).value;
+  return modo === "reservation" ? producto.precioReserva : modo === "walk-in" ? producto.precioWalkIn : null;
+}
 function ocLimpiarOtroFormProducto(destino) {
   try {
     ["fichaResultado", "modalFichaBody"].forEach(function (id) {
@@ -6260,6 +6305,7 @@ function mostrarFormNuevoProducto(codigoEscaneado){
            lo aplica de un toque. Vacío = no hay precio de casa. -->
       <label style="display:block;margin-top:10px;font-size:14px;">House / Artist price (optional)<br>
         <input id="np-precio-casa" type="number" min="0" step="any" placeholder="Lower price for house people — leave empty if none" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
+      ${preciosEntradaHtml("np")}
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.initialStock")}<br>
         <input id="np-stock" type="number" min="0" step="1" value="0" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">${t("form.supplier")}<br>
@@ -6333,7 +6379,7 @@ async function crearProductoNuevo(codigoEscaneado){
   const body = {
     nombre: val("np-nombre"), categoria: val("np-categoria"), barcode: codigoEscaneado || val("np-barcode"),
     chip: el("np-chip") ? val("np-chip").slice(0, 12) : "",
-    precio: val("np-precio"), precioCasa: (el("np-precio-casa") ? val("np-precio-casa") : ""), costo: val("np-costo"), stockInicial: val("np-stock"), proveedor: val("np-proveedor"),
+    precio: val("np-precio"), precioReserva: val("np-precio-reserva"), precioWalkIn: val("np-precio-walkin"), precioCasa: (el("np-precio-casa") ? val("np-precio-casa") : ""), costo: val("np-costo"), stockInicial: val("np-stock"), proveedor: val("np-proveedor"),
     ubicacionId: el("np-ubicacion") ? val("np-ubicacion") : (ubicacionActual === "todas" ? "todas" : ubicacionActual),
     tipoProveedor: el("np-tipo-proveedor") ? el("np-tipo-proveedor").value : "compra",
     comisionProveedorPct: el("np-tipo-proveedor") && el("np-tipo-proveedor").value === "consignacion" ? Number(val("np-comision-pct")) || 0 : 0,
@@ -6423,6 +6469,7 @@ async function mostrarFormEditarProducto(id){
       </div>
       <!-- PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): editable; vaciar el
            campo borra el precio de casa (vuelve a un solo precio). -->
+      ${preciosEntradaHtml("ed", p)}
       <label style="display:block;margin-top:10px;font-size:14px;">House / Artist price (optional)<br><input id="ed-precio-casa" type="number" min="0" step="any" value="${p.precioCasa != null ? p.precioCasa : ""}" placeholder="Lower price for house people — leave empty if none" ${inp}></label>
       <div style="display:flex;gap:10px;margin-top:10px;">
         <label style="flex:1;font-size:14px;">${t("form.supplier")}<br><input id="ed-proveedor" type="text" value="${q(p.proveedor)}" ${inp}></label>
@@ -6527,7 +6574,7 @@ async function guardarEdicionProducto(id){
   // campo no existe en el DOM, se OMITE del PATCH en vez de reventar todo.
   const v = (x) => { const el = document.getElementById(x); return el ? el.value.trim() : undefined; };
   // OJO: el SKU no se toca aqui — solo el barcode si el dueno lo digito.
-  const body = { direccionComision: leerFlechaComision("ed-direccion"), nombre: v("ed-nombre"), precio: v("ed-precio"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), fechaEvento: v("ed-fecha-evento"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
+  const body = { direccionComision: leerFlechaComision("ed-direccion"), nombre: v("ed-nombre"), precio: v("ed-precio"), precioReserva: v("ed-precio-reserva"), precioWalkIn: v("ed-precio-walkin"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), fechaEvento: v("ed-fecha-evento"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   { const ex = document.getElementById("ed-exento"); if (ex) body.exentoImpuesto = ex.checked; } // v361
   const edFoto = document.getElementById("ed-foto");
@@ -7003,6 +7050,11 @@ async function abrirPanelVentaInfo(id, esTicket){
            precio es 0 y esto se ignora. -->
       ${p.rebajaPct ? `<p style="margin:10px 0 0;font-size:14px;font-weight:700;color:#3D2E00;background:#FFF6D6;border:2px solid #C9A100;border-radius:8px;padding:8px 10px;">${(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es") ? "Rebaja por antigüedad −" + p.rebajaPct + " %: se cobra " + fmtMoney(p.precioRebajado) + " (lista " + fmtMoney(p.precio) + ")" : "Aged markdown −" + p.rebajaPct + " %: charging " + fmtMoney(p.precioRebajado) + " (list " + fmtMoney(p.precio) + ")"}</p>` : ""}
       <p id="vi-lealtad" data-precio="${Number(p.precioRebajado || p.precio) || 0}" role="status" style="display:none;margin:10px 0 0;font-size:14px;font-weight:700;color:var(--ink,#211c14);"></p>
+      ${(p.precioReserva != null || p.precioWalkIn != null) ? `<label style="display:block;margin-top:10px;font-size:14px;">${window.OCI18n && window.OCI18n.locale() === "es" ? "Modalidad de venta" : "Sale type"}<select id="vi-modalidad" required style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;">
+        <option value="">${window.OCI18n && window.OCI18n.locale() === "es" ? "Elegir reserva o sin reserva" : "Choose reservation or walk-in"}</option>
+        ${p.precioReserva != null ? `<option value="reservation">${window.OCI18n && window.OCI18n.locale() === "es" ? "Con reserva" : "Reservation"} · ${fmtMoney(p.precioReserva)}</option>` : ""}
+        ${p.precioWalkIn != null ? `<option value="walk-in">${window.OCI18n && window.OCI18n.locale() === "es" ? "Sin reserva" : "Walk-in"} · ${fmtMoney(p.precioWalkIn)}</option>` : ""}
+      </select></label>` : ""}
       <div id="vi-precio-wrap" style="margin-top:10px;">
         <button type="button" id="vi-precio-toggle" style="background:none;border:none;padding:0;font-size:14px;font-weight:700;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;text-decoration:underline;">✎ Adjust price / discount</button>
         <div id="vi-precio-box" style="display:none;margin-top:6px;">
@@ -7104,7 +7156,7 @@ async function abrirPanelVentaInfo(id, esTicket){
       _pt.addEventListener("click", () => {
         const abrir = _pb.style.display === "none";
         _pb.style.display = abrir ? "block" : "none";
-        if (abrir) { if (!_pi.value) _pi.value = Number(p.precio).toFixed(2); _pi.focus(); _pi.select(); }
+        if (abrir) { if (!_pi.value) _pi.value = Number(precioEntradaElegido(p) ?? p.precio).toFixed(2); _pi.focus(); _pi.select(); }
       });
       const _casaBtn = document.getElementById("vi-precio-casa-btn");
       if (_casaBtn) _casaBtn.addEventListener("click", () => { _pi.value = Number(p.precioCasa).toFixed(2); _pi.focus(); });
@@ -7176,7 +7228,7 @@ async function abrirPanelVentaInfo(id, esTicket){
     const g = (id) => document.getElementById(id);
     const cant = Math.max(1, Number((g("vi-servings") || g("vi-cantidad") || g("vi-personas") || {}).value) || 1); // v430: ticket = personas
     const ov = g("vi-precio-override");
-    const precio = (ov && ov.value !== "" && isFinite(Number(ov.value))) ? Number(ov.value) : Number(p.precio) || 0;
+    const precio = (ov && ov.value !== "" && isFinite(Number(ov.value))) ? Number(ov.value) : Number(precioEntradaElegido(p) ?? p.precio) || 0;
     const baseC = (g("vi-cortesia") && g("vi-cortesia").checked) ? 0 : Math.round(precio * cant * 100);
     if (baseC <= 0) { el2.style.display = "none"; return; }
     const montoC = c.modo === "agregado" ? Math.round(baseC * c.tasa / 100) : baseC - Math.round(baseC / (1 + c.tasa / 100));
@@ -7186,7 +7238,14 @@ async function abrirPanelVentaInfo(id, esTicket){
     el2.style.display = "block";
   };
   fetch(`${API}/config/impuesto`).then((r) => r.json()).then((c) => { _viCfgImp = c; pintarImpuestoVenta(); }).catch(() => {});
-  ["vi-cantidad", "vi-servings", "vi-precio-override", "vi-personas"].forEach((id) => { const e3 = document.getElementById(id); if (e3) { e3.addEventListener("input", pintarImpuestoVenta); e3.addEventListener("change", pintarImpuestoVenta); } });
+  ["vi-cantidad", "vi-servings", "vi-precio-override", "vi-personas", "vi-modalidad"].forEach((id) => { const e3 = document.getElementById(id); if (e3) { e3.addEventListener("input", pintarImpuestoVenta); e3.addEventListener("change", pintarImpuestoVenta); } });
+  const modalidad = document.getElementById("vi-modalidad");
+  if (modalidad) modalidad.addEventListener("change", () => {
+    const precio = precioEntradaElegido(p);
+    const lealtad = document.getElementById("vi-lealtad");
+    if (lealtad) lealtad.dataset.precio = precio ?? p.precio;
+    if (selCli) selCli.dispatchEvent(new Event("change", { bubbles: true }));
+  });
   { const cc = document.getElementById("vi-cortesia"); if (cc) cc.addEventListener("change", pintarImpuestoVenta); }
   _viPintarImpuesto = pintarImpuestoVenta;
   if (esBar) {
@@ -7271,6 +7330,11 @@ async function confirmarVentaConInfo(id, esTicket){
     ...(_esBar ? { servings: _servings, botellas: +(_servings / _servPorBotella).toFixed(2) } : {})
   };
   const msg = document.getElementById("vi-msg");
+  if (document.getElementById("vi-modalidad") && !g("vi-modalidad")) {
+    msg.textContent = window.OCI18n && window.OCI18n.locale() === "es" ? "Elige con reserva o sin reserva." : "Choose reservation or walk-in.";
+    document.getElementById("vi-modalidad").focus();
+    return;
+  }
   if (!esTicket && !_esBar && (!Number.isSafeInteger(_cantMostrador) || _cantMostrador < 1)) {
     msg.style.color = "var(--rojo-ink,#a3392a)";
     msg.textContent = (window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es")
@@ -7293,7 +7357,7 @@ async function confirmarVentaConInfo(id, esTicket){
     return;
   }
   // Precio para registrar la deuda del fiado (se captura antes de cerrar el modal).
-  const _precioFiado = _tieneOverride ? _ovNum : ((_ventaInfoProductoCache && Number(_ventaInfoProductoCache.precio)) || 0);
+  const _precioFiado = _tieneOverride ? _ovNum : ((_ventaInfoProductoCache && Number(precioEntradaElegido(_ventaInfoProductoCache) ?? _ventaInfoProductoCache.precio)) || 0);
   const _nombreFiado = (_ventaInfoProductoCache && _ventaInfoProductoCache.nombre) || "";
   const _cantVenta = _esBar ? _servings : _cantMostrador;
   // REGLA DURA JFC 2026-09-30 (shell v429): COUNTER NO ES LA CASA. COUNTER SALE = venta
@@ -7326,7 +7390,7 @@ async function confirmarVentaConInfo(id, esTicket){
     try {
       res = await fetch(`${API}/productos/${id}/venta`, {
         method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info, modoComision: _modoComisionVenta,
+        body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info, modalidadVenta: g("vi-modalidad") || undefined, modoComision: _modoComisionVenta,
           // 2026-09-25: la persona elegida viaja con la venta (en una percha propia es la unica fuente del trato).
           promotoraId: (_modoComisionVenta === "associate" && document.getElementById("vi-comisionista")) ? (document.getElementById("vi-comisionista").value || null) : null,
           asistenteId: (_modoComisionVenta === "associate" && document.getElementById("vi-asistente")) ? (document.getElementById("vi-asistente").value || null) : null,
@@ -8238,6 +8302,7 @@ async function cargarGastos(){
   const _mesActual = window.OCSalesAudit.dayOf({fecha:new Date().toISOString()},zone).slice(0,7);
   // Ingresos del mes (ventas) para el neto.
   let ventasMes = null, margenTrasGastos = null, resultadoCasa = null;
+  let ventasParaGastos = [];
   /* v521 flecha de comision: comisiones del mes por direccion. Casa paga = gasto; asociado paga = ingreso
      (la parte de la casa). Monto desconocido -> null -> "—", nunca 0 inventado. Mismas ventas, cero red extra. */
   let comPaga = null, comRecibe = null;
@@ -8248,6 +8313,7 @@ async function cargarGastos(){
     if (!response.ok) throw new Error('sales unavailable');
     const sales = await response.json();
     if (!Array.isArray(sales)) throw new Error('invalid sales');
+    ventasParaGastos = sales;
     const month = _mesActual;
     const last = new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate();
     const projection=window.OCBusinessReadModel.monthly(sales,gastos,month,zone);
@@ -8257,10 +8323,8 @@ async function cargarGastos(){
     /* Truthful before-commission margin. Inventory expenditure cannot also
        be deducted as COGS without reconciliation; core read-model marks it unknown. */
     margenTrasGastos = projection.marginLessExpensesCents === null ? null : projection.marginLessExpensesCents / 100;
-    const RM = window.OCBusinessReadModel;
-    const delMes = sales.filter((v) => v && !v.anulada && !v.devuelta && v.comisionPct != null && window.OCSalesAudit.dayOf(v, zone).slice(0, 7) === month);
-    comPaga = RM.sum(delMes.filter((v) => v.direccionComision !== "asociadoPaga").map((v) => RM.number(v.comisionAsociado)));
-    comRecibe = RM.sum(delMes.filter((v) => v.direccionComision === "asociadoPaga").map((v) => RM.number(v.netoCasa)));
+    comPaga = houseReport.commissionPayableCents === null ? null : houseReport.commissionPayableCents / 100;
+    comRecibe = houseReport.commissionReceivableCents === null ? null : houseReport.commissionReceivableCents / 100;
   } catch (_) {}
   const totalGastos = window.OCBusinessReadModel.sum(gastos.filter(g=>!g.borrado).map(g=>window.OCBusinessReadModel.number(g.monto)));
   /* Enriquecimiento (JFC 2026-08-28): separar "este mes" de "todo el tiempo" y
@@ -8292,8 +8356,8 @@ async function cargarGastos(){
           : "Margin after product costs and recorded expenses (before commissions and unallocated expenses)",
           margenTrasGastos, margenTrasGastos !== null && margenTrasGastos >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)") +
         tarjeta(localStorage.getItem('f123_lang') === 'es' ? "Casa después de costos, reparto y gastos registrados" : "House after costs, split and recorded expenses", resultadoCasa, resultadoCasa!==null&&resultadoCasa>=0?"var(--dinero-verde-dk)":"var(--rojo-ink)") +
-        tarjeta(window.t ? window.t("flecha.gastoMes") : "Commissions you pay this month (expense)", comPaga, "var(--rojo-ink)") +
-        tarjeta(window.t ? window.t("flecha.ingresoMes") : "Commissions you receive this month (income)", comRecibe, "var(--dinero-verde-dk)")
+        tarjeta(window.t ? window.t("flecha.gastoMes") : "Accrued commissions this month · house pays (before payments)", comPaga, "var(--rojo-ink)") +
+        tarjeta(window.t ? window.t("flecha.ingresoMes") : "Accrued house share this month · associate pays (before payments)", comRecibe, "var(--dinero-verde-dk)")
       : "");
   if(resumen && _verIngresos) resumen.innerHTML += '<p style="width:100%;color:var(--ink);font-size:14px;font-weight:700;">'+(localStorage.getItem('f123_lang')==='es'?'El resultado de la Casa descuenta el reparto una sola vez. No es dinero disponible; un guion indica datos pendientes de conciliar.':'The house result deducts the split once. This is not available cash; a dash means data is pending reconciliation.')+'</p>';
   // JFC 2026-09-02: resumen de gastos del mes por categoría (best-practice).
@@ -8328,6 +8392,7 @@ async function cargarGastos(){
       cargarGastos();
     }));
   }
+  if (window.OCExpenseReceipt) window.OCExpenseReceipt.destinations(ventasParaGastos, zone);
   if (!gastos.length) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No expenses recorded yet. Add the first one above.</p>'; return; }
   _gastosCache = gastos;
   const _puedeEditarGasto = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";
@@ -8337,7 +8402,7 @@ async function cargarGastos(){
     <div class="tag-card" id="gasto-fila-${g.id}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:8px;">
       <div style="flex:1;">
         <strong style="font-size:15px;">${escHtml(g.concepto)}</strong>
-        <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${fechaGastoVisible(g.fecha)}${g.factura ? " · Invoice " + escHtml(g.factura) : ""}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
+        <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${fechaGastoVisible(g.fecha)}${g.factura ? " · Invoice " + escHtml(g.factura) : ""}${g.metodoPago ? " · " + escHtml(window.t ? window.t("exp." + g.metodoPago) : g.metodoPago) : ""}${/^[a-f0-9]{64}$/.test(g.facturaFotoHash || "") ? ` · <button type="button" onclick="OCExpenseReceipt.open('${escHtml(g.facturaFotoHash)}')">${window.t ? window.t("exp.viewReceipt") : "Receipt photo"}</button>` : ""}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
       <strong style="color:var(--rojo-ink);font-size:16px;">-${fmtMoney(g.monto)}</strong>
       ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" class="oc-edit-btn oc-edit-btn--warn">✎</button>` : ""}
@@ -8345,6 +8410,7 @@ async function cargarGastos(){
     </div>`).join("");
 }
 async function registrarGasto(){
+  if (registrarGasto.enCurso) return;
   const conceptoEl = document.getElementById("gastoConcepto");
   const montoEl = document.getElementById("gastoMonto");
   const fechaEl = document.getElementById("gastoFecha");
@@ -8357,13 +8423,26 @@ async function registrarGasto(){
   const categoria = catEl ? catEl.value : "other";
   const facturaEl = document.getElementById("gastoFactura");
   const factura = facturaEl ? (facturaEl.value || "").trim() : "";
+  registrarGasto.enCurso = true;
+  try {
+  const methodEl = document.getElementById("gastoMetodoPago");
+  const metodoPago = methodEl ? methodEl.value : undefined;
+  let facturaFotoHash;
+  let allocation = {};
   let res;
-  try { res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, factura: factura || undefined, fecha: fechaEl.value || undefined, ubicacionId: ubicacionActual }) }); }
-  catch (_) { msg.style.color='var(--rojo-ink,#a3392a)'; msg.textContent='The expense was not saved. Connection unavailable.'; return; }
+  try {
+    if (window.OCExpenseReceipt) {
+      facturaFotoHash = await window.OCExpenseReceipt.capture(document.getElementById("gastoFoto"));
+      allocation = window.OCExpenseReceipt.allocation();
+    }
+    res = await fetch(`${API}/gastos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ concepto, monto, categoria, metodoPago, facturaFotoHash, factura: factura || undefined, fecha: fechaEl.value || undefined, ubicacionId: "todas", ...allocation }) }); }
+  catch (error) { msg.style.color='var(--rojo-ink,#a3392a)'; msg.textContent=error.message || 'The expense was not saved.'; return; }
   if (!res.ok) { const r = await res.json().catch(() => ({})); msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = r.error || "Could not save the expense."; return; }
   conceptoEl.value = ""; montoEl.value = ""; if (facturaEl) facturaEl.value = "";
+  const fotoEl = document.getElementById("gastoFoto"); if (fotoEl) fotoEl.value = "";
   msg.style.color = "var(--sim-verde-dk,#1a6e3c)"; msg.textContent = "Expense recorded.";
   cargarGastos();
+  } finally { registrarGasto.enCurso = false; }
 }
 function fechaGastoVisible(fecha){
  const zone=localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -8837,7 +8916,7 @@ async function abrirFichaProducto(productoId){
     <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">${t("comm.productTotal")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.grossCents)}</strong> <small style="font-size:13px;">${h.units}u</small></div>
     ${h.returnsCents > 0 ? `<div data-ficha-returns style="font-size:13px;color:var(--ink-soft);">${t("comm.productReturns")}: <strong style="font-variant-numeric:tabular-nums;">${_ocFichaCentavos(h.returnsCents)}</strong></div>` : ""}
     <div style="font-size:13px;color:#19354B;margin-bottom:6px;">${t("artist.rack")}: ${escHtml(racks || "-")}</div>
-    ${h.needsReview ? `<div data-ficha-money-review style="color:#19354B;border:2px solid #B0183E;padding:10px;margin:10px 0;border-radius:8px;font-size:16px;"><strong>${window.OCI18n && window.OCI18n.getLang()==='es' ? 'Revisar comprobantes en conflicto antes de pagar.' : 'Review conflicting receipts before making another payment.'}</strong>${(h.paymentConflicts || []).map(c=>`<div>${c.records.map(p=>_ocFichaCentavos(p.amountCents)).join(' / ')}</div>`).join('')}</div>` : ''}
+    ${h.needsReview ? `<div data-ficha-money-review style="color:#19354B;border:2px solid #B0183E;padding:10px;margin:10px 0;border-radius:8px;font-size:16px;"><strong>${window.OCI18n && window.OCI18n.getLang()==='es' ? 'Revisar pagos registrados antes de volver a pagar.' : 'Review recorded payments before making another payment.'}</strong>${(h.paymentConflicts || []).map(c=>`<div>${c.records.map(p=>_ocFichaCentavos(p.amountCents)).join(' / ')}</div>`).join('')}</div>` : ''}
     ${filas ? filas + `<div data-ficha-totals style="padding:14px 0;border-top:2px solid var(--ink);margin-top:2px;"><div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:4px;">${t("guests.total")}</div>${cols(h.totals.earnedCents, h.totals.paidCents, h.totals.dueCents)}</div>`
       : `<p data-ficha-empty style="font-size:16px;color:var(--ink);">${escHtml(window.tf("comm.byProductEmptyMonth", { mes: mesTxt }))}</p>`}
     <button type="button" class="tecla" data-ficha-close style="min-height:44px;margin:12px 0 0;font-size:14px;">${t("common.close")}</button>
@@ -10444,6 +10523,7 @@ setTimeout(() => {
      expone window.OCFotos, que vista-perchas.js usa para persistir fotos de
      percha en IndexedDB en vez de localStorage. -->
 <script src="./idb-fotos.js"></script>
+<script src="./expense-receipt.js"></script>
 <!-- v448 GOLDEN G07: hexagonal photo core. Domain + application load before the UI adapter. -->
 <script src="./core/shelf-photo-policy.js"></script>
 <script src="./application/recover-shelf-photo.js"></script>

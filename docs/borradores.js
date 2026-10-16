@@ -317,13 +317,14 @@
     "Cosmetics & personal care", "Home & decor",
     "Stationery", "Toys", "Electronics",
     "Tools & hardware", "Pets",
-    "Tickets & events", "Services",
+    "Events", "Services",
   ];
 
   var ID_LISTA = "oc-lista-categorias";
 
   function normalizar(s) {
-    return String(s == null ? "" : s).trim();
+    var value = String(s == null ? "" : s).trim();
+    return /^(tickets\s*(?:&|and)\s*events|events)$/i.test(value) ? "Events" : value;
   }
 
   /* Pinta (o repinta) el <datalist> compartido. Idempotente y barato. */
@@ -511,6 +512,7 @@
   }
 
   window.OCCategorias = {
+    normalizar: normalizar,
     refrescar: refrescar,
     enganchar: enganchar,
     engancharTodos: engancharTodos,

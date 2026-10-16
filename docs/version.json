@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v532: correct house profit, frozen tax and refund periods; persist returns before success; align dashboard settlement and preserve unknown cash.",
+  "changelog": "v535: reconcile house profitability and commission credits; preserve unknown costs and recoverable sync history.",
   "requerida": false,
-  "shell": "f123-shell-v532",
+  "shell": "f123-shell-v535",
   "apagar": [],
-  "releaseName": "v532",
-  "cacheGeneration": "golden96"
+  "releaseName": "v535",
+  "cacheGeneration": "golden99"
 }

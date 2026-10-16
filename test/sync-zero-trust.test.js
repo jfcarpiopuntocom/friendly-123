@@ -107,7 +107,9 @@ test('el relay es zero-knowledge: guarda/mueve sobres pero NUNCA descifra', () =
   assert.match(RELAY, /CREATE INDEX IF NOT EXISTS ops_lam ON ops\(lam\)/);
   assert.match(RELAY, /CREATE INDEX IF NOT EXISTS ops_lam_id ON ops\(lam, id\)/);
   assert.doesNotMatch(RELAY, /SELECT COUNT\(\*\) AS n FROM ops/);
-  assert.match(RELAY, /debePodar\(id\)/);
+  assert.doesNotMatch(RELAY, /DELETE FROM ops WHERE id IN/,
+    'capacity cannot discard encrypted history without a covering checkpoint');
+  assert.match(RELAY, /Number\(capacity\[0\]\.span\) >= MAX_OPS_SALA/);
   assert.doesNotMatch(RELAY, /_opsDesdePoda/);
   // Sin KV de negocio: solo SQLite del Durable Object para los sobres cifrados.
   assert.ok(!/env\.\w*KV/i.test(RELAY), 'el relay no debe usar KV de negocio');

@@ -283,6 +283,10 @@
       if (siguiente.rev < _pullCursor.rev ||
           (siguiente.rev === _pullCursor.rev && siguiente.seq <= _pullCursor.seq)) return Promise.resolve();
       _pullCursor = siguiente;
+      // Continue paging in memory, but a restart must replay every fragment
+      // until its complete update has entered the persisted Y.Doc. Otherwise
+      // the next process could checkpoint a cursor whose bytes it never had.
+      if (Object.keys(partesEntrantes).length) return Promise.resolve();
       if (!persistencia || typeof persistencia.set !== "function") return Promise.resolve();
       /* IndexeddbPersistence encola este write DESPUES de los updates Yjs que
          acabamos de aplicar. Cursor y estado viven en la misma base: si se
@@ -413,6 +417,12 @@
     var _tCkpt = null;
     function hacerCkpt() {
       if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
+      // A page may contain only part of a large update. Those chunks are not
+      // represented in the Y.Doc yet and cannot be compacted by its snapshot.
+      if (_pullCursor.rev < 0 || Object.keys(partesEntrantes).length) return;
+      // Capture the applied cursor in the SAME synchronous turn as the bytes.
+      // Encryption yields: a later page must never expand this snapshot's cut.
+      var checkpointCursor = { rev: _pullCursor.rev, seq: _pullCursor.seq };
       var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
       var state = _b64(full);
@@ -423,7 +433,7 @@
           /* rev+seq prueban exactamente hasta que fila persistida contiene este
              estado. El relay nunca poda una operacion concurrente posterior. */
           guardarSobre({ k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
-            v: 2, rev: _pullCursor.rev, seq: _pullCursor.seq, lam: Date.now(), c: _b64(buf), state: state });
+            v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf), state: state });
         } catch (_) {}
       }).catch(function () {});
     }
@@ -960,6 +970,7 @@
       var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
       var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
       var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean);
+      var hGastos = (cat && cat.gastos || []).map(function (g) { return g.facturaFotoHash; }).filter(Boolean);
       /* PRIME DIRECTIVE 1AAA / G04: no sembrar solo "lo actualmente usado".
          Un hotfix anterior pudo perder el pointer y dejar los bytes huerfanos.
          Esos blobs son EVIDENCIA del cliente y deben poder volver desde otro
@@ -967,7 +978,7 @@
          hash->bytes. Se reenvian individualmente, igual que las fotos en uso. */
       Promise.resolve(window.OCFotos.leerTodosPorHash ? window.OCFotos.leerTodosPorHash() : {}).then(function (todos) {
         var hashes = {};
-        hUbic.concat(hProd).forEach(function (h) { if (h) hashes[String(h)] = 1; });
+        hUbic.concat(hProd, hGastos).forEach(function (h) { if (h) hashes[String(h)] = 1; });
         Object.keys(todos || {}).forEach(function (h) { hashes[String(h)] = 1; });
         Object.keys(hashes).forEach(function (hash) {
           if (_fotosSembradas[hash]) return;
@@ -1036,7 +1047,8 @@
     var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
     var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
     var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean); // v290: fotos de producto tambien
-    hUbic.concat(hProd).forEach(function (hash) {
+    var hGastos = (cat && cat.gastos || []).map(function (g) { return g.facturaFotoHash; }).filter(Boolean);
+    hUbic.concat(hProd, hGastos).forEach(function (hash) {
       if (API.fotosMap.get(hash)) return; // ya publicado
       Promise.resolve(window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
         if (dataUrl && !API.fotosMap.get(hash)) { try { API.fotosMap.set(hash, dataUrl); } catch (_) {} }

@@ -25,8 +25,8 @@ const MIGRATION_BODY = Symbol("verified migration request body");
 
 // Read-only migration access. The signing private key never enters this Worker.
 // Empty/missing public key leaves the endpoint disabled. Requests are signed in
-// full, expire after one minute and bind the destination Durable Object ID.
-async function migrationRequest(request, env) {
+// full, expire after one minute and bind the action and room/object destination.
+async function migrationRequest(request, env, action = "export") {
   if (request.method !== "POST" || !env.RELAY_MIGRATION_PUBLIC_KEY) return null;
   const signature = request.headers.get("X-Relay-Migration-Signature") || "";
   if (!/^[A-Za-z0-9_-]{86}$/.test(signature)) return null;
@@ -44,9 +44,9 @@ async function migrationRequest(request, env) {
     const bytes = new Uint8Array(total); let offset = 0;
     for (const piece of pieces) { bytes.set(piece, offset); offset += piece.length; }
     const data = JSON.parse(new TextDecoder().decode(bytes));
-    const target = typeof data.objectId === "string" && /^[a-f0-9]{64}$/.test(data.objectId) && data.room === undefined ||
+    const target = action === "export" && typeof data.objectId === "string" && /^[a-f0-9]{64}$/.test(data.objectId) && data.room === undefined ||
       typeof data.room === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(data.room) && data.objectId === undefined;
-    if (data.v !== 1 || data.action !== "export" || !target ||
+    if (data.v !== 1 || data.action !== action || !target ||
         !Number.isSafeInteger(data.issuedAt) || Math.abs(Date.now() - data.issuedAt) > 60000) return null;
     const decode = s => b64aBuf(s.replace(/-/g, "+").replace(/_/g, "/"));
     const key = await crypto.subtle.importKey("raw", decode(env.RELAY_MIGRATION_PUBLIC_KEY), "Ed25519", false, ["verify"]);
@@ -60,16 +60,6 @@ function migrationJson(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: {
     "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff"
   } });
-}
-
-// Muestreo determinista para la poda. El contador anterior vivia en memoria y
-// volvia a cero cada vez que el DO hibernaba; una sala con trafico intermitente
-// podia crecer para siempre sin alcanzar 256 en una misma encarnacion.
-function debePodar(id) {
-  let h = 2166136261;
-  const s = String(id || "");
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return (h >>> 0) % 256 === 0;
 }
 
 // Base64 -> ArrayBuffer (para reenviar lo guardado como frame binario, tal
@@ -123,13 +113,19 @@ export class SalaSync {
       // A durable retry needs no additional write, even when today's quota is full.
       const anterior = this.sql.exec("SELECT c FROM ops WHERE id = ?", String(id)).toArray();
       if (anterior.length) return true; // Stable operation id remains authoritative across fresh encryption IVs.
+      // Ciphertext age is not evidence of a recoverable replacement. In
+      // particular, photo rooms have no full checkpoint: never evict their
+      // oldest envelope to make room for a new one. Keep the existing capacity
+      // and reject unconfirmed writes so modern clients retain their outbox.
+      // Two indexed endpoint probes avoid COUNT/full scans, per-op metadata
+      // writes and volatile counters that disappear during hibernation. Holes
+      // from historical pruning conservatively consume capacity until a
+      // covered-prefix checkpoint frees it. Existing retries were checked above.
+      const capacity = this.sql.exec(
+        "SELECT (SELECT MAX(rowid) FROM ops) - (SELECT MIN(rowid) FROM ops) + 1 AS span"
+      ).toArray();
+      if (capacity.length && Number(capacity[0].span) >= MAX_OPS_SALA) return false;
       this.sql.exec("INSERT OR IGNORE INTO ops(id, lam, c) VALUES (?, ?, ?)", String(id), Number(lam) || 0, c);
-      /* COUNT(*) por CADA op era el quemador. Se muestrea por hash del id en
-         vez de contar en memoria: la hibernacion ya no desactiva la poda y no
-         agregamos una lectura/escritura de metadata por cada operacion. */
-      if (debePodar(id)) {
-        try { this.sql.exec("DELETE FROM ops WHERE id IN (SELECT id FROM ops ORDER BY lam DESC LIMIT -1 OFFSET ?)", MAX_OPS_SALA); } catch (_) {}
-      }
       return true;
     } catch (_) { return false; }
   }
@@ -440,6 +436,17 @@ export class SalaSync {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/migration/resolve") {
+      const query = await migrationRequest(request, env, "resolve");
+      if (!query) return migrationJson({ error: "forbidden" }, 403);
+      try {
+        // Derive the ID only. A stub/fetch could initialize an absent object's
+        // SQL tables; the operator must match this ID to the existing inventory
+        // before exporting. Resolution does not establish that a room exists.
+        const objectId = env.SALAS.idFromName(query.room).toString();
+        return migrationJson({ v: 1, objectId });
+      } catch (_) { return migrationJson({ error: "resolution unavailable" }, 503); }
+    }
     if (url.pathname === "/migration/export") {
       // Reconstruct only after signature verification; do not enter a room for
       // unsigned requests. No data or credentials are logged by this path.

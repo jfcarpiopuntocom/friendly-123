@@ -20,6 +20,54 @@ test('encrypted export rejects unsigned, stale and tampered requests before ente
  assert.equal(entered, false);
 });
 
+test('signed room resolution derives namespace IDs without entering or creating objects', async () => {
+ const worker = await load(), { env, signed } = signer();
+ const names = [], objectId = 'c'.repeat(64);
+ const forbidden = () => { throw Error('resolution must not obtain a stub or enter storage'); };
+ env.SALAS = {
+  idFromName(name) { names.push(name); return { toString: () => objectId }; },
+  idFromString: forbidden, get: forbidden, getByName: forbidden
+ };
+ const base = 'a'.repeat(40);
+ for (const suffix of ['', '-y', '-ops', '-fotos']) {
+  const response = await worker.default.fetch(signed({ v: 1, action: 'resolve', room: base + suffix, issuedAt: Date.now() }, '/migration/resolve'), env);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { v: 1, objectId });
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(response.headers.get('access-control-allow-origin'), null);
+ }
+ assert.deepEqual(names, ['', '-y', '-ops', '-fotos'].map(suffix => base + suffix));
+});
+
+test('room resolution rejects invalid signatures, targets and cross-endpoint actions before namespace access', async () => {
+ const worker = await load(), { env, signed } = signer();
+ let namespaceCalls = 0;
+ const forbidden = () => { namespaceCalls++; throw Error('invalid requests must not access the namespace'); };
+ env.SALAS = { idFromName: forbidden, idFromString: forbidden, get: forbidden, getByName: forbidden };
+ const body = { v: 1, action: 'resolve', room: 'synthetic-room', issuedAt: Date.now() };
+ const unsigned = new Request('https://fixture.invalid/migration/resolve', { method: 'POST', body: JSON.stringify(body) });
+ const good = signed(body, '/migration/resolve');
+ const tampered = new Request(good.url, { method: 'POST', headers: good.headers, body: JSON.stringify({ ...body, room: 'other-room' }) });
+ for (const request of [
+  unsigned, tampered, new Request(good.url),
+  signed({ ...body, issuedAt: Date.now() - 120000 }, '/migration/resolve'),
+  signed({ ...body, issuedAt: Date.now() + 120000 }, '/migration/resolve'),
+  signed({ ...body, padding: 'x'.repeat(5000) }, '/migration/resolve'),
+  signed({ ...body, room: '' }, '/migration/resolve'),
+  signed({ ...body, room: 'x'.repeat(129) }, '/migration/resolve'),
+  signed({ ...body, room: '../room' }, '/migration/resolve'),
+  signed({ ...body, room: undefined, objectId: 'a'.repeat(64) }, '/migration/resolve'),
+  signed({ ...body, objectId: 'a'.repeat(64) }, '/migration/resolve'),
+  signed({ ...body, action: 'export' }, '/migration/resolve'),
+  signed(body, '/migration/export')
+ ]) assert.equal((await worker.default.fetch(request, env)).status, 403);
+ assert.equal(namespaceCalls, 0);
+ const wrongKey = signer().env;
+ assert.equal((await worker.default.fetch(signed(body, '/migration/resolve'), { ...env, ...wrongKey })).status, 403);
+ assert.equal((await worker.default.fetch(signed(body, '/migration/resolve'), { SALAS: env.SALAS })).status, 403);
+ assert.equal(namespaceCalls, 0);
+});
+
 test('export is ordered, bounded, immutable and detects compaction between pages', async () => {
  const worker = await load(), { env, signed } = signer();
  const db = new DatabaseSync(':memory:');

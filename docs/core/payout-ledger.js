@@ -199,7 +199,11 @@
     const month = String(input && input.month || "");
     const locationId = input && input.locationId != null ? String(input.locationId) : null;
     const locMap = new Map(locations.map((u) => [String(u.id), u]));
-    const saleMap = new Map(sales.map((v) => [String(v.id), v]));
+    // Context supplies the frozen beneficiary/direction of an older source sale;
+    // it never contributes earnings to the selected settlement period.
+    const saleContext = Array.isArray(input && input.saleContext) ? input.saleContext : [];
+    const saleMap = new Map(saleContext.concat(sales).map((v) => [String(v.id), v]));
+    const creditOnly = new Set((input && input.creditOnlyAdjustmentIds || []).map(String));
     const applied = payoutAppliedMap(payouts);
     const out = [];
     /* RETENCION ANTES DE PAGAR (JFC 2026-10-07: "dale choices al usuario"). El dueno elige
@@ -274,6 +278,7 @@
       if (locationId && String(a.ubicacionId) !== locationId) return;
       const sale = saleMap.get(String(a.ventaId || ""));
       obligationsForAdjustment(a, sale, locMap.get(String(a.ubicacionId))).forEach((o) => {
+        if (creditOnly.has(String(a.id)) && o.amountCents >= 0) return;
         /* Negative adjustments reduce the next amount due; they are not themselves
            a cash payout. They remain pending until a payout consumes the net balance. */
         const abs = Math.abs(o.amountCents);
@@ -298,11 +303,11 @@
   /* v454 (ficha de producto): `input.sourceIds` (lista de ids de venta) restringe el calculo a ESAS ventas
      (kind "sale"). Sin la lista todo funciona como siempre. Con ella, el saldo, planPayout y el reparto de items
      solo ven esas ventas y los creditos por anulacion que deben reducir el proximo pago.
-     Las ventas positivas del producto B y los ajustes normales quedan intactos. */
+     Las ventas positivas del producto B y los ajustes positivos quedan intactos; los creditos reducen el pago. */
   function balancesByPayee(input) {
     let obs = buildObligations(input);
     const only = Array.isArray(input && input.sourceIds) ? new Set(input.sourceIds.map(String)) : null;
-    if (only) obs = obs.filter((o) => (o.kind === "sale" && only.has(String(o.sourceId))) || o.kind === "void");
+    if (only) obs = obs.filter((o) => (o.kind === "sale" && only.has(String(o.sourceId))) || o.kind === "void" || (o.kind === "adjustment" && o.signedAmountCents < 0));
     const map = new Map();
     obs.forEach((o) => {
       const pid = o.payeeId || null;

@@ -15,7 +15,8 @@ async function fixture(data=new Map(),locks){
  const Y={encodeStateAsUpdate:()=>Uint8Array.from({length:20},(_,i)=>i),encodeStateVector:()=>new Uint8Array([1]),applyUpdate(){}};
  const channel=ctx.make(Y,{},'-y','fixture',true,null,p);channel.conectar();
  sockets[0].onopen();await tick();await tick();
- return {data,timers,channel,socket:sockets[0],p};
+ sockets[0].onmessage({data:JSON.stringify({k:"pull-page",rev:0,seq:0,more:false})});await tick();await tick();
+ return {data,timers,channel,socket:sockets[0],p,ctx};
 }
 test('unacknowledged encrypted update survives reload and is removed only after durable ack',async()=>{
  const a=await fixture();a.channel.enviarUpdate(new Uint8Array([4,5,6]));await tick();await tick();
@@ -51,4 +52,47 @@ test('acknowledged unchanged checkpoint is not rewritten after reload',async()=>
  a.socket.onmessage({data:JSON.stringify({k:'persist-result',id:ck.id,kind:'ckpt',ok:true})});await tick();await tick();
  const b=await fixture(a.data);await b.timers.find(t=>t.ms===2500).fn();await tick();await tick();
  assert.ok(!b.socket.sent.some(x=>typeof x==='string'&&JSON.parse(x).k==='ckpt'));
+});
+
+for (const next of [{rev:0,seq:2},{rev:1,seq:0}]) {
+ test('checkpoint freezes the recovery cursor before encryption: '+JSON.stringify(next),async()=>{
+  const a=await fixture();
+  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();
+  let encrypted,finish;
+  a.ctx.cifrarBin=(_key,bytes)=>new Promise(resolve=>{encrypted=bytes.slice();finish=()=>resolve(encrypted.buffer)});
+  a.timers.find(t=>t.ms===2500).fn();
+  assert.ok(finish,'encryption is in flight');
+  a.socket.onmessage({data:JSON.stringify({k:'pull-page',...next,more:false})});await tick();await tick();
+  finish();await tick();await tick();
+  const ck=a.socket.sent.filter(x=>typeof x==='string').map(JSON.parse).find(x=>x.k==='ckpt');
+  assert.ok(ck);
+  assert.equal(ck.rev,0,'the encrypted snapshot cannot claim a later recovery generation');
+  assert.equal(ck.seq,1,'the encrypted snapshot cannot compact operations received during encryption');
+ });
+}
+test('an incomplete chunk group cannot be compacted by a checkpoint',async()=>{
+ const a=await fixture();
+ const chunk=new Uint8Array(24);chunk[0]=3;chunk[1]=0;chunk.fill(65,2,18);chunk[21]=2;
+ a.socket.onmessage({data:chunk.buffer});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
+ a.timers.find(t=>t.ms===2500).fn();await tick();await tick();
+ assert.ok(!a.socket.sent.some(x=>typeof x==='string'&&JSON.parse(x).k==='ckpt'),
+  'a received chunk is not yet part of the Yjs snapshot');
+});
+test('incomplete chunk pages replay after reload, then advance durable cursor only after reassembly',async()=>{
+ const a=await fixture();
+ const chunk=new Uint8Array(24);chunk[0]=3;chunk[1]=0;chunk.fill(65,2,18);chunk[21]=2;
+ a.socket.onmessage({data:chunk.buffer});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0,
+  'a reload must refetch a partial update because fragments are only in memory');
+ const currentPull=a.socket.sent.filter(x=>typeof x==='string').map(JSON.parse).filter(x=>x.k==='pull').at(-1);
+ assert.equal(currentPull.seq,1,'the live session still moves forward to fetch remaining chunks');
+ const b=await fixture(new Map(a.data));
+ const resumed=b.socket.sent.filter(x=>typeof x==='string').map(JSON.parse).find(x=>x.k==='pull');
+ assert.equal(resumed.seq,0);
+ const last=chunk.slice();last[19]=1;
+ a.socket.onmessage({data:last.buffer});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2);
 });
