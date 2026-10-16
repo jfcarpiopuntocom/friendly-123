@@ -1,0 +1,9 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "friendly123-relay-supabase",
+  "account_id": "c4d8aa3b3e1db0d80b0beb4abc7c1364",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-15",
+  "preview_urls": false,
+  "vars": { "SUPABASE_ORIGIN": "https://uhvzdrlhmznxxelniizi.supabase.co" }
+}

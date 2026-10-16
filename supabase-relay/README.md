@@ -8,6 +8,11 @@ The hosted Free project has the migrations listed here. Its transport has been
 exercised with registered synthetic rooms only. The adapter is not yet wired
 into the published app. The Cloudflare relay still serves production traffic.
 
+The separate Worker `friendly123-relay-supabase` has no Durable Object binding.
+Its legacy WebSocket endpoint was exercised against the hosted native adapter:
+both exchanged opaque binary frames and received durable confirmations. No
+production client URL has been switched to this Worker.
+
 ## Transport
 
 Inject one `@supabase/supabase-js` client per device into
@@ -54,12 +59,44 @@ migration: a final tail, compatibility with older clients, destination import,
 room registration, rollout and rollback must still be verified before cutover.
 No Durable Object namespace has been deleted.
 
+`f123_relay_import` is an operator-only cold importer. It checks the source
+SHA-256, rejects a populated destination, preserves checkpoint and operation
+order, and advances the revision so cursors from the old server replay safely.
+Repeating the same import does not duplicate history. A synthetic copy exported
+from the live Cloudflare Worker was imported into the hosted Free project and
+replayed through a fresh connection with identical ciphertext and order.
+The whole-copy RPC is bounded to 16 MiB per request; larger history needs staged
+import before it can be migrated. It must never be truncated to fit this bound.
+
+## Compatibility with older clients
+
+`legacy/index.ts` is the `relay-legacy` Supabase Edge Function. It uses the same
+room-capability check and publishable anonymous access, with no service-role
+credential. The gateway JWT check is disabled because browsers cannot attach
+that header; the function checks the registered capability before upgrading.
+The room travels in an offered WebSocket protocol rather than the upstream URL.
+The proxy removes this protocol selection from the downstream response because
+the original browser client did not offer it.
+
+This is a temporary compatibility path. Free Edge Functions have a 150-second
+wall-clock limit; the bridge closes cleanly at 110 seconds so the original
+outbox/reconnect logic can resume. Each compatibility socket consumes an Edge
+invocation and its own Realtime connection. It is not the native path for new
+clients: they share one persistent Realtime connection per device and bypass
+Edge Functions. Free invocation and connection budgets must be checked before
+moving production traffic. No paid overage is authorized.
+
+The bridge retains frames emitted during channel setup until the browser
+socket opens, so initial presence and binary traffic cannot disappear between
+authorization and upgrade. Disconnection removes its private channel. Hosted
+checks covered old/native exchange, durable ACK and replay after reconnect.
+
 ## Checks
 
 Run focused protocol checks with:
 
 ```sh
-node --test test/supabase-relay-transport.test.js test/relay-export.test.js test/relay-durable-quota.test.js test/sync-zero-trust.test.js
+node --test test/supabase-relay-transport.test.js test/supabase-legacy-bridge.test.js test/relay-export.test.js test/relay-durable-quota.test.js test/sync-zero-trust.test.js
 ```
 
 `acceptance.sql` and `reencryption-acceptance.sql` exercise synthetic data inside
