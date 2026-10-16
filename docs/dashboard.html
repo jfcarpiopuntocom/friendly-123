@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v528">
+<meta name="dashboard-shell" content="f123-shell-v529">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -694,6 +694,7 @@
 <script src="./estado-idb.js"></script>
 <script src="./canarios.js"></script>
 <script src="./salud-app.js"></script>
+<script src="./vendor/supabase-relay.min.js"></script>
 <script>
 /* ============================================================================
    tablero.html — el lienzo.
@@ -912,7 +913,7 @@
     codigo = String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
     clave = await derivarClave(codigo);
     var sala = await idDeSala(salaCompatible(codigo));
-    ws = new WebSocket(RELAY_URL + sala);
+    ws = window.F123Relay ? window.F123Relay.connect(RELAY_URL + sala) : new WebSocket(RELAY_URL + sala);
     ws.binaryType = "arraybuffer";
     /* onopen NO pide la foto: primero hay que pasar el PIN. Pedirla antes
        seria justo el agujero que el PIN viene a tapar.

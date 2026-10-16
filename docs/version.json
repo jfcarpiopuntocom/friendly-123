@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-15",
-  "changelog": "v528: coherent house result across Expenses, dashboard and bilingual offline PDF; preserve undated historical event rows without inventing period dates.",
+  "changelog": "v529: prepare native encrypted Supabase transport with one connection per device; customer rooms remain on their existing relay until their verified migration.",
   "requerida": false,
-  "shell": "f123-shell-v528",
+  "shell": "f123-shell-v529",
   "apagar": [],
-  "releaseName": "v528",
-  "cacheGeneration": "golden92"
+  "releaseName": "v529",
+  "cacheGeneration": "golden93"
 }

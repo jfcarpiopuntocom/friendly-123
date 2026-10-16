@@ -1,0 +1,7 @@
+{
+  "name": "friendly-encrypted-relay",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": { "@supabase/supabase-js": "2.118.0" },
+  "devDependencies": { "esbuild": "0.28.1" }
+}

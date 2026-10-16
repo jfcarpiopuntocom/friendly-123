@@ -5,8 +5,10 @@ existing Friendly relay protocol. It does not change the app UI, room or key
 derivation, business merge rules, or local outbox.
 
 The hosted Free project has the migrations listed here. Its transport has been
-exercised with registered synthetic rooms only. The adapter is not yet wired
-into the published app. The Cloudflare relay still serves production traffic.
+exercised with registered synthetic rooms only. v529 loads the native adapter
+in the app and dashboard. Customer rooms retain their existing relay until an
+operator activates their complete channel group after a verified migration.
+The existing Cloudflare relay still serves production traffic.
 
 The separate Worker `friendly123-relay-supabase` has no Durable Object binding.
 Its legacy WebSocket endpoint was exercised against the hosted native adapter:
@@ -21,6 +23,18 @@ joins a private Realtime channel on the shared connection. Use a publishable key
 never put a service-role key in a browser. Configure bounded fetch timeouts on
 the injected client. The adapter preserves binary frames, durable ACKs,
 checkpoint conflicts, paginated recovery, presence and server-clock replies.
+
+`gateway.mjs` selects the backend once per connection. Its route lookup groups
+the simultaneous channel starts without background polling. New rooms default
+to inactive; the entire base/catalog/operations/photos group must be activated
+before native routing is allowed. A routing failure closes the pending socket
+rather than silently sending data to a different server. Existing local outbox
+and reconnect handlers retain their role.
+
+The browser asset is built from the pinned dependencies in this directory with
+`scripts/build-supabase-relay.cjs` and local public configuration. The build
+accepts only a Supabase project URL and modern publishable key, and keeps vendor
+license comments. No service-role credential or customer capability is bundled.
 
 Realtime's WebSocket serializer requires an `ArrayBuffer` for binary payloads.
 A typed array would become a JSON object. The adapter copies outbound buffers
