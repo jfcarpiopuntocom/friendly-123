@@ -26,7 +26,10 @@
     const rows = [{ name: null, result: RM.businessResult(input) }];
     for (const group of groups.values()) {
       const result = RM.businessResult({ ...input, scope: group.scope });
-      if (result.sourceIds.sales.length || result.sourceIds.expenses.length && result.directExpensesCents !== 0) rows.push({ name: group.name, result });
+      // Corrections can belong to a later period than the original sale. Conflicts
+      // must remain visible as pending rows even when their IDs are quarantined.
+      const pending = result.warnings.some(warning => ['conflicting-sale', 'conflicting-expense', 'conflicting-adjustment', 'unreconciled-commission-adjustment'].includes(warning));
+      if (result.sourceIds.sales.length || result.sourceIds.adjustments.length || result.sourceIds.expenses.length && result.directExpensesCents !== 0 || pending) rows.push({ name: group.name, result });
     }
     return rows;
   }

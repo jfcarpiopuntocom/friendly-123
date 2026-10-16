@@ -156,7 +156,11 @@
   }
   const saleMap=new Map(sales.filter(v=>v.id!=null).map(v=>[String(v.id),v]));
   const signedCents=n=>{if((typeof n!=='number'&&!(typeof n==='string'&&n.trim()))||!Number.isFinite(Number(n))||Math.abs(Number(n))>=1e21)return null;const c=Math.round(Number(Number(n).toFixed(10)+'e2'));return Number.isSafeInteger(c)?c:null;};
-  for(const a of unique(input.adjustments,'adjustment',expenseRelevant)){
+  const adjustmentRelevant=a=>{
+   const sale=saleMap.get(String(a.ventaId||''));
+   return expenseRelevant(a)&&(!scoped||!!sale&&inScope(sale));
+  };
+  for(const a of unique(input.adjustments,'adjustment',adjustmentRelevant)){
    if(a.borrado||!expenseRelevant(a))continue;
    const sale=saleMap.get(String(a.ventaId||''));
    if(scoped&&(!sale||!inScope(sale)))continue;
@@ -172,7 +176,12 @@
   if(adjustmentConflict){out.houseShareCents=null;out.artistShareCents=null;out.houseAdjustmentsCents=null;}
   if(!out.coverage.adjustments)warnings.add('missing-adjustments-coverage');
   if(directionUnknown||saleConflict||adjustmentConflict||unknownReturn||invalidPeriod||!out.coverage.sales||!out.coverage.adjustments||coverage.coherent===false){out.commissionPayableCents=null;out.commissionReceivableCents=null;}
-  const expenses=unique(input.expenses,'expense',expenseRelevant);
+  const expenseInScope=g=>{
+   const eId=g.eventoId||g.eventOccurrenceId||g.ocurrenciaId,event=eId?'id:'+String(eId):g.eventKey;
+   if(scope.eventOccurrenceId||scope.eventKey)return !event||event===(scope.eventOccurrenceId?'id:'+String(scope.eventOccurrenceId):scope.eventKey);
+   return !scope.locationId||!g.ubicacionId||g.ubicacionId==='todas'||String(g.ubicacionId)===String(scope.locationId);
+  };
+  const expenses=unique(input.expenses,'expense',g=>expenseRelevant(g)&&expenseInScope(g));
   for(const g of expenses){
    if(g.borrado||!expenseRelevant(g))continue;
    const eId=g.eventoId||g.eventOccurrenceId||g.ocurrenciaId;

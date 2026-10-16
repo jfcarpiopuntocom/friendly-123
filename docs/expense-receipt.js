@@ -49,7 +49,7 @@
     const img = document.createElement('img'); img.src = data; img.alt = message('Receipt photo', 'Foto de factura'); img.style.cssText = 'display:block;max-width:100%;max-height:75vh;object-fit:contain;';
     dialog.append(close, img); dialog.addEventListener('close', () => dialog.remove()); document.body.append(dialog); dialog.showModal();
   }
-  function destinations(sales, zone) {
+  function destinations(sales, zone, shelves = []) {
     const select = document.getElementById('gastoDestino'); if (!select) return;
     const previous = select.value;
     choices = new Map([['', { ubicacionId: 'todas' }]]);
@@ -67,6 +67,13 @@
         choices.set(key, { ubicacionId: sale.ubicacionId || 'todas', eventKey });
         labels.set(key, message('Event: ', 'Evento: ') + (sale.eventoNombre || sale.productoNombre || '') + ' · ' + (sale.eventoFecha || ''));
       }
+    }
+    // Preparation expenses belong to a shelf even before its first sale.
+    for (const shelf of shelves) {
+      if (!shelf || !shelf.id || shelf.borrado || shelf.activa === false) continue;
+      const key = 'shelf:' + shelf.id;
+      choices.set(key, { ubicacionId: shelf.id });
+      labels.set(key, message('Shelf: ', 'Percha: ') + (shelf.nombre || shelf.id));
     }
     select.replaceChildren();
     labels.forEach((label, key) => { const option = document.createElement('option'); option.value = key; option.textContent = label; select.append(option); });
